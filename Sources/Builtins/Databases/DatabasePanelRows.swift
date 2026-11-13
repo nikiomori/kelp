@@ -4,8 +4,9 @@ import DesignKit
 import KelpKit
 
 /// The Databases panel's rows, drawn: a section's title (folding ones with a chevron and a count), an agent's
-/// question with Allow, a database (chevron, dot, name over where it is, PROD, what agents may do as an icon), what's
-/// wrong with one (Start for a stopped compose service), a schema, a table with its rows, a run.
+/// question with Allow, the project's card (its icon and name, its databases, Use a Database…), a group's card, a
+/// database (dot, name over where it is, PROD, what agents may do as an icon), what's wrong with one (Start for a
+/// stopped compose service), a run. A database's badge sits under its card's icon, its name under the card's name.
 @MainActor
 struct DatabasePanelRows {
     let panel: DatabasesPanel
@@ -15,8 +16,6 @@ struct DatabasePanelRows {
         var views: [NSView] = []
         switch h {
         case .asks: views = [title(String(localized: "Asks")), NSView()]
-        case .project(let name):
-            views = [title(name.isEmpty ? String(localized: "This Project") : name), NSView()]
         case .library(let count):
             views = [chevron(libraryOpen), title(String(localized: "All My Databases")), NSView(), digits(count)]
         case .activity(let count):
@@ -48,10 +47,11 @@ struct DatabasePanelRows {
     }
 
     /// The engine's mark with its dot, the name over "host : database", the environment at the right edge (a column
-    /// down the list, not a mark in each name), a key while its password waits, what agents may do; one of All My
-    /// Databases offers Use Here while the pointer is over it.
+    /// down the list, not a mark in each name), a key while its password waits, what agents may do. One of All My
+    /// Databases ends where that icon would be: the project's icon when it's used there (`used`), else Use in … while
+    /// the pointer is over it.
     func database(
-        _ db: DatabaseInfo, library: Bool, health: DatabaseHealth?, indent: Bool = false, color: ProjectColor? = nil
+        _ db: DatabaseInfo, library: Bool, health: DatabaseHealth?, used: Bool = false, color: ProjectColor? = nil
     ) -> NSView {
         let name = NSTextField.label(
             Self.shownName(db), font: .ui(TextSize.row, weight: .medium), color: color?.color ?? .labelColor)
@@ -64,16 +64,6 @@ struct DatabasePanelRows {
                 localized: "Its password is read from the app it came from when you open it: macOS asks once.")
             first.append(key)
         }
-        var hovered: [NSView] = []
-        if library {   // on the name's line: under the pointer it mustn't squeeze the address
-            let project = app.projectName(app.worktree(panel.workspace)?.repoId) ?? ""
-            let use = ClosureButton(title: String(localized: "Use Here")) { [weak panel] in panel?.use(db) }
-            use.controlSize = .mini
-            use.toolTip = String(localized: "Use in \(project)")
-            use.isHidden = true
-            hovered.append(use)
-            first.append(use)
-        }
         if let chip = DatabaseLook.stageChip(db) { first.append(chip) }
         let top = NSStackView(views: first)
         top.spacing = Metrics.gap
@@ -85,7 +75,19 @@ struct DatabasePanelRows {
         words.setHuggingPriority(.defaultLow - 1, for: .horizontal)
         top.widthAnchor.constraint(equalTo: words.widthAnchor).isActive = true
         var views: [NSView] = [mark(db.engine, health), words]
-        if !library {
+        var hovered: [NSView] = []
+        if library, used {
+            let icon = projectIcon(size: 14)
+            icon.toolTip = String(localized: "Used in \(projectTitle)")
+            views.append(icon)
+        } else if library {
+            let use = IconButton(.symbol("plus.circle"), tip: String(localized: "Use in \(projectTitle)")) {
+                [weak panel] in panel?.use(db)
+            }
+            use.isHidden = true
+            hovered.append(use)
+            views.append(use)
+        } else {
             let access = IconButton(
                 .symbol(DatabaseLook.accessSymbol(db.agentAccess)),
                 tip: String(localized: "Agents: \(DatabaseLook.title(db.agentAccess))")
@@ -96,44 +98,81 @@ struct DatabasePanelRows {
             }
             views.append(access)
         }
-        let row = line(
-            views, inset: Metrics.inset + (indent ? Metrics.indentStep : 0), trailing: Metrics.insetTrailing,
-            hovered: hovered)
+        let row = line(views, inset: Self.inCard, trailing: Metrics.insetTrailing, hovered: hovered)
         row.toolTip = card(db, health: health)
         return row
     }
 
-    /// The project's own list when it has none: a box to drop one of All My Databases in (agents here reach no
-    /// database until one is used here).
-    func hint() -> NSView {
-        let icon = NSImageView(image: .symbol("arrow.down.to.line"))
-        icon.symbolConfiguration = .chrome(Metrics.iconSmall)
-        icon.contentTintColor = .secondaryLabelColor
+    /// Where a card's content starts: its icon 4 pt further in than a plain row's, as the selection is.
+    static let inCard = Metrics.inset + 4
+
+    var projectTitle: String {
+        app.projectName(app.worktree(panel.workspace)?.repoId) ?? String(localized: "This Project")
+    }
+
+    private func projectIcon(size: CGFloat) -> NSImageView {
+        let icon = NSImageView()
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        icon.widthAnchor.constraint(equalToConstant: size).isActive = true
+        icon.heightAnchor.constraint(equalToConstant: size).isActive = true
+        if let repo = app.repo(app.worktree(panel.workspace)?.repoId)?.path {
+            ProjectIcon.show(repo, in: icon, app: app)
+        }
+        return icon
+    }
+
+    /// The project's card starts as its row does in the sidebar: its icon and name, how many databases it uses.
+    func projectHead(count: Int) -> NSView {
+        let icon = projectIcon(size: 16)
+        let slot = NSStackView(views: [icon])
+        slot.widthAnchor.constraint(equalToConstant: 19).isActive = true   // the badges' column under it
+        let name = NSTextField.label(projectTitle, font: .ui(TextSize.row, weight: .semibold))
+        let views = [slot, name, NSView()] + (count > 0 ? [digits(count)] : [])   // none: its last row says so
+        return line(views, inset: Self.inCard, trailing: Metrics.insetTrailing)
+    }
+
+    /// The project card's last row: one of All My Databases to use here (a menu of them). With none used yet it says
+    /// so: agents in this project reach no database until one is.
+    func use(empty: Bool) -> NSView {
+        let icon = NSImageView(image: .symbol("plus.circle"))
+        icon.symbolConfiguration = .chrome(Metrics.iconSmall + 2)
+        icon.contentTintColor = empty ? .linkColor : .secondaryLabelColor
+        let slot = NSStackView(views: [icon])
+        slot.widthAnchor.constraint(equalToConstant: 19).isActive = true
         let said = NSTextField.label(
-            String(localized: "Drop a database here to use it"), font: .ui(TextSize.caption),
-            color: .secondaryLabelColor)
-        let inside = NSStackView(views: [icon, said])
-        inside.spacing = Metrics.gap
-        inside.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset - 6, bottom: 0, right: Metrics.inset - 6)
-        let box = DashedBox()
-        box.pin(inside)
-        let row = NSView()
-        row.pin(box, inset: NSEdgeInsets(top: 3, left: 6, bottom: 3, right: 6))   // the selection's inset: lit the same
-        row.toolTip = String(
-            localized: "Agents in this project see no database. Drag one of All My Databases here, or add one with +.")
+            String(localized: "Use a Database…"), font: .ui(TextSize.row),
+            color: empty ? .linkColor : .secondaryLabelColor)
+        var words: NSView = said
+        if empty {
+            words = stack([
+                said,
+                NSTextField.label(
+                    String(localized: "Agents here see no database yet"), font: .ui(TextSize.caption),
+                    color: .secondaryLabelColor)
+            ])
+        }
+        let row = line([slot, words, NSView()], inset: Self.inCard, trailing: Metrics.insetTrailing)
+        row.toolTip = String(localized: "Pick one of All My Databases, or drag one onto this card.")
         return row
     }
 
-    /// A group of All My Databases: chevron, folder, name, how many.
-    /// A coloured group's folder is filled with its colour, as Finder's tagged folders.
+    /// A group of All My Databases, its card's first row: folder, name, how many. Under the pointer the folder turns
+    /// into the chevron that folds it, as a project's icon does in the sidebar. A coloured group's folder is filled
+    /// with its colour, as Finder's tagged folders (its card takes the colour too).
     func group(_ name: String, count: Int, open: Bool, color: ProjectColor? = nil) -> NSView {
         let folder = NSImageView(image: .symbol(color == nil ? "folder" : "folder.fill"))
-        folder.symbolConfiguration = .chrome(Metrics.iconSmall)
+        folder.symbolConfiguration = .chrome(Metrics.iconSmall + 2)
         folder.contentTintColor = color?.color ?? .secondaryLabelColor
-        let title = NSTextField.label(name, font: .ui(TextSize.row))
-        return line(
-            [chevron(open), folder, title, NSView(), digits(count)], inset: Metrics.inset,
-            trailing: Metrics.insetTrailing)
+        let fold = chevron(open)
+        fold.contentTintColor = .secondaryLabelColor
+        fold.isHidden = true
+        let slot = NSStackView(views: [folder, fold])
+        slot.widthAnchor.constraint(equalToConstant: 19).isActive = true
+        let title = NSTextField.label(name, font: .ui(TextSize.row, weight: .semibold))
+        let row = line([slot, title, NSView(), digits(count)], inset: Self.inCard, trailing: Metrics.insetTrailing)
+        (row as? HoverRow)?.hovered = [fold]
+        (row as? HoverRow)?.resting = [folder]
+        return row
     }
 
     /// "AGR_GIS@pg-prod-ro" (Kelp's name for an unnamed TablePlus one) as "AGR_GIS": its host is on the line under it.
@@ -176,7 +215,7 @@ struct DatabasePanelRows {
     }
 
     /// Under a database that doesn't answer: why, and Start when compose can start it.
-    func problem(_ db: DatabaseInfo, _ h: DatabaseHealth, indent: Bool = false) -> NSView {
+    func problem(_ db: DatabaseInfo, _ h: DatabaseHealth) -> NSView {
         // "inkover doesn't answer at …": the row says whose, the line only what
         var said = h.reason ?? String(localized: "It doesn’t answer.")
         if said.hasPrefix(db.name + " ") { said = String(said.dropFirst(db.name.count + 1)).capitalizedFirst }
@@ -192,7 +231,7 @@ struct DatabasePanelRows {
             start.underlinesOnHover = true
             views.append(start)
         }
-        let under = Metrics.inset + 19 + Metrics.gap + (indent ? Metrics.indentStep : 0)   // under the name
+        let under = Self.inCard + 19 + Metrics.gap   // under the name
         return line(views, inset: under, trailing: Metrics.inset)
     }
 
@@ -304,34 +343,12 @@ extension String {
     var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
 }
 
-/// A row whose `hovered` views show only while the pointer is over it (`ListRowView` tells it).
+/// A row whose `hovered` views show only while the pointer is over it (`ListRowView` tells it), in place of its
+/// `resting` ones.
 final class HoverRow: NSStackView, Hoverable {
-    var hovered: [NSView] = []
-    func setHover(_ on: Bool) { for v in hovered { v.isHidden = !on } }
-}
-
-/// A dashed rounded outline: where something can be dropped.
-final class DashedBox: NSView {
-    private let outline = CAShapeLayer()
-    override init(frame: NSRect) {
-        super.init(frame: frame)
-        wantsLayer = true
-        outline.fillColor = nil
-        outline.lineWidth = 1
-        outline.lineDashPattern = [4, 3]
-        layer?.addSublayer(outline)
+    var hovered: [NSView] = [], resting: [NSView] = []
+    func setHover(_ on: Bool) {
+        for v in hovered { v.isHidden = !on }
+        for v in resting { v.isHidden = on }
     }
-    required init?(coder: NSCoder) { fatalError() }
-    override func layout() {
-        super.layout()
-        outline.frame = bounds
-        let rect = bounds.insetBy(dx: 0.5, dy: 0.5)
-        outline.path = CGPath(
-            roundedRect: rect, cornerWidth: Metrics.radiusSM, cornerHeight: Metrics.radiusSM, transform: nil)
-    }
-    override func updateLayer() {
-        super.updateLayer()
-        outline.strokeColor = NSColor.tertiaryLabelColor.cgColor   // read in the current appearance
-    }
-    override var wantsUpdateLayer: Bool { true }
 }

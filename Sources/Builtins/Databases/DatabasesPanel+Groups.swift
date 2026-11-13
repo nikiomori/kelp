@@ -56,6 +56,7 @@ extension DatabasesPanel {
         guard !dbs.isEmpty, let (target, lit) = dropTarget(row: row, op: op), target == .project || !isGroup(info)
         else {
             springGroup = nil
+            dropOnProject = false
             return []
         }
         springOpen(target)
@@ -66,13 +67,17 @@ extension DatabasesPanel {
             case .group(let name): dbs.contains { $0.groupName != name }
             case .noGroup: dbs.contains { $0.groupName != nil }
             }
+        dropOnProject = target == .project && changes
         guard changes else { return [] }
+        // The project's card lights as a whole (dropOnProject): the table's own outline round one row would say less.
+        table.draggingDestinationFeedbackStyle = target == .project ? .none : .regular
         table.setDropRow(lit, dropOperation: .on)
         return target == .project ? .copy : .move
     }
 
     func acceptDatabases(_ info: any NSDraggingInfo, row: Int, op: NSTableView.DropOperation) -> Bool {
         springGroup = nil
+        dropOnProject = false
         let dbs = dragged(info)
         guard !dbs.isEmpty, let (target, _) = dropTarget(row: row, op: op), target == .project || !isGroup(info)
         else { return false }
@@ -96,17 +101,16 @@ extension DatabasesPanel {
     }
 
     private var projectDatabases: [DatabaseInfo] { app.latest(DatabasesEvent.self, workspace)?.databases ?? [] }
+    /// The project's databases by name: one of All My Databases among them is used here.
+    var projectNames: Set<String> { Set(projectDatabases.map(\.name)) }
 
     /// What the row under the pointer stands for, and the row that lights: a group's own row for any database in it,
-    /// the section's title for one in none, the drop box (or the project's title) for the project's part. Between two
-    /// rows, the one above says where.
+    /// the section's title for one in none, the project's card for the project's part. Between two rows, the one above
+    /// says where.
     private func dropTarget(row: Int, op: NSTableView.DropOperation) -> (DropTarget, Int)? {
         var index = op == .on ? row : row - 1
         while rows.indices.contains(index), case .problem = rows[index] { index -= 1 }   // a line under its database
         guard rows.indices.contains(index) else { return nil }
-        let heading = { (wanted: Heading) in
-            self.rows.firstIndex { if case .heading(let h) = $0 { h == wanted } else { false } }
-        }
         let libraryTitle = rows.firstIndex { if case .heading(.library) = $0 { true } else { false } }
         switch rows[index] {
         case .group(let name, _): return (.group(name), index)
@@ -116,9 +120,7 @@ extension DatabasesPanel {
                 return (.group(name), at)
             }
             return libraryTitle.map { (.noGroup, $0) }
-        case .heading(.project), .hint, .database(_, library: false):
-            let lit = rows.firstIndex { if case .hint = $0 { true } else { false } }
-            return (lit ?? heading(.project(project))).map { (.project, $0) }
+        case .project, .use, .database(_, library: false): return (.project, index)
         default: return nil
         }
     }
@@ -150,6 +152,35 @@ extension DatabasesPanel {
                 guard await app.call(DatabaseSave(worktreeId: wid, database: db, library: true)) != nil else { return }
             }
         }
+    }
+
+    /// Use a Database…: All My Databases by group, a check on each one used here; picking one uses it or lets it go.
+    func showUseMenu(at row: Int) {
+        let menu = NSMenu(), here = projectNames, (groups, loose) = Self.grouped(library)
+        for (name, members) in groups {
+            menu.addItem(withTitle: name, action: nil, keyEquivalent: "").isEnabled = false
+            for db in members { addUseItem(menu, db, used: here.contains(db.name), indent: 1) }
+        }
+        if !groups.isEmpty, !loose.isEmpty { menu.addItem(.separator()) }
+        for db in loose { addUseItem(menu, db, used: here.contains(db.name), indent: 0) }
+        let cell = table.rect(ofRow: row)
+        menu.popUp(positioning: nil, at: NSPoint(x: cell.minX + DatabasePanelRows.inCard, y: cell.maxY), in: table)
+    }
+
+    private func addUseItem(_ menu: NSMenu, _ db: DatabaseInfo, used: Bool, indent: Int) {
+        let wid = workspace, app = app
+        let item = menu.add(DatabasePanelRows.shownName(db)) {
+            Task {
+                if used {
+                    await app.call(DatabaseRemove(worktreeId: wid, name: db.name, library: false))
+                } else {
+                    await app.call(DatabaseUse(worktreeId: wid, name: db.name))
+                }
+            }
+        }
+        item.state = used ? .on : .off
+        item.indentationLevel = indent
+        if #available(macOS 14.4, *) { item.subtitle = DatabasePanelRows.place(db) }
     }
 
     /// Used in this project, the ones it hasn't yet: its agents reach them from now on.
@@ -289,6 +320,17 @@ extension DatabasesPanel {
 
 extension DatabasesPanel.Row {
     func isGroup(_ name: String) -> Bool { if case .group(name, _) = self { true } else { false } }
-    /// One of All My Databases in a group: its row (and the line under it) sit one step in.
-    var inGroup: Bool { if case .database(let db, library: true) = self { db.groupName != nil } else { false } }
+}
+
+/// The Databases panel's list: it says when a drag leaves it, so the project's card stops lighting up.
+final class DropTable: NSTableView {
+    var dragLeft: () -> Void = {}
+    override func draggingExited(_ sender: (any NSDraggingInfo)?) {
+        super.draggingExited(sender)
+        dragLeft()
+    }
+    override func draggingEnded(_ sender: any NSDraggingInfo) {
+        super.draggingEnded(sender)
+        dragLeft()
+    }
 }

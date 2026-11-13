@@ -4,9 +4,10 @@ import DesignKit
 import KelpKit
 
 /// The Databases panel: connections, as TablePlus' left column. Most urgent first: an agent's change that waits for
-/// the user (Allow in the row), then the project's databases (name, environment, "host : database", a dot that says
-/// whether it answers, what agents may do as an icon) or that it has none, All My Databases, and what was run lately
-/// (by agent). Over it, a field that finds a database and the one +. A database opens its tab, where its tables are.
+/// the user (Allow in the row), then the project's card (name, environment, "host : database", a dot that says
+/// whether it answers, what agents may do as an icon; Use a Database… last), All My Databases with a card per group,
+/// and what was run lately (by agent). Over it, a field that finds a database and the one +. A database opens its tab,
+/// where its tables are.
 @MainActor
 final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate,
     NSSearchFieldDelegate
@@ -18,20 +19,34 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         /// A group of All My Databases (TablePlus' group, DBeaver's folder, or one made here), its rows under it.
         case group(String, count: Int)
         case problem(DatabaseInfo, DatabaseHealth)
-        case hint
+        /// The project's card: its own row, then its databases, then Use a Database… (`empty`: it uses none yet).
+        case project(count: Int)
+        case use(empty: Bool)
         case run(DatabaseRun)
     }
     enum Heading: Equatable {
-        case asks, project(String), library(Int), activity(Int)
+        case asks, library(Int), activity(Int)
     }
 
     let app: AppModel
-    let table = NSTableView()
+    let table = DropTable()
     private let search = NSSearchField()
     private let empty = EmptyStateView()
     /// The header every inspector panel has: 36 pt with its hairline.
     private var bar: Bar?
-    var rows: [Row] = []
+    var rows: [Row] = [] {
+        didSet { cards = Self.cards(rows) }
+    }
+    /// Each row's part of a card (the project's, a group's), nil for one on its own.
+    private var cards: [ListRowView.Card?] = []
+    /// A drag of All My Databases is over the project's card: it lights up as where they'd go.
+    var dropOnProject = false {
+        didSet {
+            guard dropOnProject != oldValue else { return }
+            if !dropOnProject { table.draggingDestinationFeedbackStyle = .regular }
+            table.enumerateAvailableRowViews { view, row in (view as? ListRowView)?.card = card(row) }
+        }
+    }
     private lazy var watched = Watched(.databases, in: app)
     private var shown = false
     var workspace: String { app.workbench.workspaceId ?? "" }
@@ -74,6 +89,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         table.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
         // a .sqlite or .duckdb file dropped in: Add Database with it; one of All My Databases: a group, or used here
         table.registerForDraggedTypes([.fileURL, .kelpDatabase, .kelpDatabaseGroup])
+        table.dragLeft = { [weak self] in self?.dropOnProject = false }
         search.placeholderString = String(localized: "Find a Database")
         search.delegate = self
         search.controlSize = .small
@@ -143,11 +159,11 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         var list: [Row] = []
         let asking = runs.filter { $0.state == .asks }
         if !asking.isEmpty { list += [.heading(.asks)] + asking.map(Row.asks) }
-        // The project's own section even empty: All My Databases under it alone read as this project's.
+        // The project's own card even empty: All My Databases under it alone read as this project's.
         if !databases.isEmpty || !library.isEmpty {
-            list.append(.heading(.project(app.projectName(app.worktree(workspace)?.repoId) ?? "")))
-            if databases.isEmpty { list.append(.hint) }
+            list.append(.project(count: databases.count))
             for db in databases { list += rows(of: db, library: false, find: find) }
+            if !library.isEmpty { list.append(.use(empty: databases.isEmpty)) }
         }
         if event != nil {
             if library.count > libraryCount { libraryOpen = true }   // just imported or added: shown
@@ -262,19 +278,60 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     // MARK: Table view
 
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
-    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
+    /// A database of All My Databases in no group lines up with the cards' rows: its selection where theirs is.
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        let loose = if case .database(_, library: true) = rows[row], cards[row] == nil { true } else { false }
+        let view = ListRowView(inset: loose ? 10 : 6)
+        view.card = card(row)
+        return view
+    }
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         switch rows[row] {
-        case .heading, .problem, .hint, .group: false
+        case .heading, .problem, .project, .use, .group: false
         default: true
         }
     }
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+        let base =
+            switch rows[row] {
+            case .heading: TextSize.of(Metrics.rowSection)
+            case .database, .asks, .use(empty: true): TextSize.of(Metrics.rowTwoLine)
+            case .problem: TextSize.of(Metrics.row) - 4
+            case .run, .group, .project, .use: TextSize.of(Metrics.row)
+            }
+        let part = cards[row]
+        return base + (part?.first == true ? ListRowView.cardPad : 0) + (part?.last == true ? ListRowView.cardPad : 0)
+    }
+
+    /// Its part of a card, in the card's colour: a group's own, the project's lit while a drag is over it.
+    private func card(_ row: Int) -> ListRowView.Card? {
+        guard var part = cards.indices.contains(row) ? cards[row] : nil else { return nil }
+        switch Self.owner(rows, row) {
+        case "project"?: if dropOnProject { part.fill = .fillTint(.controlAccentColor) }
+        case let id?:
+            if let color = color(of: String(id.dropFirst(2)), group: true) { part.fill = .fillTint(color.color) }
+        case nil: break
+        }
+        return part
+    }
+
+    /// Which card a row is on: the project's ("project"), a group's ("g:" and its name), or none.
+    static func owner(_ rows: [Row], _ row: Int) -> String? {
         switch rows[row] {
-        case .heading: TextSize.of(Metrics.rowSection)
-        case .database, .asks, .hint: TextSize.of(Metrics.rowTwoLine)
-        case .problem: TextSize.of(Metrics.row) - 4
-        case .run, .group: TextSize.of(Metrics.row)
+        case .project, .use, .database(_, library: false): "project"
+        case .group(let name, _): "g:" + name
+        case .database(let db, library: true): db.groupName.map { "g:" + $0 }
+        case .problem: row > 0 ? owner(rows, row - 1) : nil
+        default: nil
+        }
+    }
+
+    static func cards(_ rows: [Row]) -> [ListRowView.Card?] {
+        let owners = rows.indices.map { owner(rows, $0) }
+        return owners.indices.map { i in
+            guard let id = owners[i] else { return nil }
+            return ListRowView.Card(
+                first: i == 0 || owners[i - 1] != id, last: i == owners.count - 1 || owners[i + 1] != id)
         }
     }
 
@@ -287,10 +344,10 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .database(let db, let library):
             parts.database(
                 db, library: library, health: library ? libraryHealth[db.name] : health[db.name],
-                indent: library && db.groupName != nil, color: color(of: db.name, group: false))
-        case .problem(let db, let checked):
-            parts.problem(db, checked, indent: rows[row - 1].inGroup)
-        case .hint: parts.hint()
+                used: library && projectNames.contains(db.name), color: color(of: db.name, group: false))
+        case .problem(let db, let checked): parts.problem(db, checked)
+        case .project(let count): parts.projectHead(count: count)
+        case .use(let empty): parts.use(empty: empty)
         case .group(let name, let count):
             parts.group(name, count: count, open: !folded.contains(name), color: color(of: name, group: true))
         case .run(let run): parts.ran(run)
@@ -353,7 +410,8 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .asks(let run), .run(let run):
             app.workbench.open(DatabaseURI(worktree: wid, name: run.database, run: run.id).uri)
             return
-        case .problem, .hint: return
+        case .use: return showUseMenu(at: index)
+        case .problem, .project: return
         }
         reload()
     }
@@ -427,7 +485,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             menu.addItem(.separator())
             menu.add(String(localized: "Copy SQL")) { copyText(run.sql) }
         case .problem: break
-        case .hint: menu.add(String(localized: "Add Database…")) { [weak self] in self?.addDatabase() }
+        case .project, .use: menu.add(String(localized: "Add Database…")) { [weak self] in self?.addDatabase() }
         }
     }
 }
