@@ -18,25 +18,33 @@ extension DiffViewController {
     }
     private func tint(_ k: DiffLine.Kind) -> NSColor? { k == .add ? .diffAdded : k == .del ? .diffRemoved : nil }
     func number(_ value: Int?, kind: DiffLine.Kind) -> NSTextField {
-        let field = label(value.map(String.init) ?? "", font: font, color: .secondaryLabelColor, align: .right)
-        if let fill = tint(kind) {
-            field.drawsBackground = true
-            field.backgroundColor = fill
-        }
-        return field
+        lineCell(value.map(String.init) ?? "", font: font, color: .secondaryLabelColor, align: .right, fill: tint(kind))
     }
     /// The side of a side-by-side row that has no line: hatched, like VS Code.
-    func filler() -> NSTextField {
-        let field = label("", font: font)
-        field.drawsBackground = true
-        field.backgroundColor = Self.hatch
+    func filler() -> NSTextField { lineCell("", font: font, fill: Self.hatch) }
+    func band(_ string: String) -> NSTextField {
+        lineCell(string, font: .ui(TextSize.caption), color: .tertiaryLabelColor, fill: .diffGap)
+    }
+
+    /// The cells a line's row is made of: one the table set aside when its row scrolled away, else a new one. Every
+    /// look one has is set again here, so nothing of the line it showed before stays.
+    static let lineCellId = NSUserInterfaceItemIdentifier("diff.line")
+    static let codeCellId = NSUserInterfaceItemIdentifier("diff.code")
+    private func lineCell(
+        _ string: String, font: NSFont, color: NSColor = .labelColor, align: NSTextAlignment = .left, fill: NSColor?
+    ) -> NSTextField {
+        let field = table.makeView(withIdentifier: Self.lineCellId, owner: nil) as? NSTextField ?? label("", font: font)
+        field.identifier = Self.lineCellId
+        field.font = font
+        field.textColor = color
+        field.alignment = align
+        field.stringValue = string
+        Self.fill(field, fill)
         return field
     }
-    func band(_ string: String) -> NSTextField {
-        let field = label(string, font: .ui(TextSize.caption), color: .tertiaryLabelColor)
-        field.drawsBackground = true
-        field.backgroundColor = .diffGap
-        return field
+    private static func fill(_ field: NSTextField, _ color: NSColor?) {
+        field.drawsBackground = color != nil
+        field.backgroundColor = color ?? .clear
     }
     private func prefix(_ l: DiffLine, marker: Bool) -> String {
         marker ? (l.kind == .add ? "+ " : l.kind == .del ? "- " : "  ") : " "
@@ -45,7 +53,7 @@ extension DiffViewController {
     /// stop every four columns, as `height(of:)` counts them. Limit: past 4000 characters (a minified file) at any
     /// character from the edge, which `height(of:)` can count without measuring every such line on each resize.
     private static func wrap(_ text: String, prefix: String, font: NSFont, width: CGFloat) -> NSParagraphStyle {
-        let style = NSMutableParagraphStyle(), space = charWidth(font)
+        let style = NSMutableParagraphStyle(), space = metrics(font).char
         style.tabStops = []
         style.defaultTabInterval = 4 * space
         guard text.utf16.count <= 4000 else {
@@ -95,12 +103,13 @@ extension DiffViewController {
         styled.addAttribute(
             .paragraphStyle, value: Self.wrap(text, prefix: prefix, font: font, width: wrapWidth(marker: marker)),
             range: NSRange(location: 0, length: styled.length))
-        let field = NSTextField(labelWithAttributedString: styled)
+        let field =
+            table.makeView(withIdentifier: Self.codeCellId, owner: nil) as? NSTextField
+            ?? NSTextField(labelWithAttributedString: styled)
+        field.identifier = Self.codeCellId
         field.maximumNumberOfLines = 0
-        if let fill = tint(l.kind) {
-            field.drawsBackground = true
-            field.backgroundColor = fill
-        }
+        field.attributedStringValue = styled
+        Self.fill(field, tint(l.kind))
         return field
     }
 
@@ -252,29 +261,18 @@ extension DiffViewController {
     // MARK: long lines wrap
 
     /// A row as tall as its code wrapped at its column's width (a monospaced font: so many characters a line); a file's
-    /// band a little taller than a line.
+    /// band a little taller than a line. Each line's count is kept by its text and width (`wraps`): a reload or a
+    /// scroll back measures none again.
     func height(of row: Int) -> CGFloat {
         let lineHeight = Self.lineHeight
         if rows.indices.contains(row), rows[row] == .draft { return Self.draftHeight }   // the comment card
         guard rows.indices.contains(row), case .diff(let diffRow) = rows[row] else { return lineHeight }
         func lines(_ line: DiffLine?, _ column: String, marker: Bool) -> Int {
             guard let line, let tableColumn = table.tableColumn(withIdentifier: .init(column)) else { return 1 }
-            let width = tableColumn.width - 4, fit = max(1, Int(width / Self.charWidth(font)))
-            let shown = Self.shown(line.text)
-            let count = shown.reduce(2) { $0 + ($1 == "\t" ? 4 : 1) }   // with its "+ " marker; a tab about four
-            guard count > fit else { return 1 }   // most lines: no need to measure
-            guard shown.utf16.count <= Highlighter.maxColored else { return (count + fit - 1) / fit }
-            // Word wrap leaves each line's end empty, so the characters alone would undercount: ask the text system.
-            let marked = prefix(line, marker: marker)
-            let text = NSAttributedString(
-                string: marked + line.text,
-                attributes: [
-                    .font: font, .paragraphStyle: Self.wrap(line.text, prefix: marked, font: font, width: width)
-                ])
-            let tall = text.boundingRect(
-                with: NSSize(width: width, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin
-            ).height
-            return max(1, Int((tall / NSLayoutManager().defaultLineHeight(for: font)).rounded(.up)))
+            let width = tableColumn.width - 4, marked = prefix(line, marker: marker)
+            return wraps.count(.init(text: line.text, prefix: marked, width: width, font: font)) {
+                wrappedLines(line.text, prefix: marked, width: width)
+            }
         }
         let lineCount =
             switch diffRow {
@@ -286,18 +284,43 @@ extension DiffViewController {
         return lineCount == 0 ? lineHeight + 6 : lineHeight + CGFloat(max(lineCount, 1) - 1) * (lineHeight - 4)
     }
 
-    private static var measured: (font: NSFont, width: CGFloat)?
-    private static func charWidth(_ font: NSFont) -> CGFloat {
-        if let cached = measured, cached.font == font { return cached.width }
-        let width = max(1, ("0" as NSString).size(withAttributes: [.font: font]).width)
-        measured = (font, width)
-        return width
+    /// How many lines a line of code takes wrapped at `width`.
+    private func wrappedLines(_ text: String, prefix marked: String, width: CGFloat) -> Int {
+        let metrics = Self.metrics(font), fit = max(1, Int(width / metrics.char))
+        let shown = Self.shown(text)
+        let count = shown.reduce(2) { $0 + ($1 == "\t" ? 4 : 1) }   // with its "+ " marker; a tab about four
+        guard count > fit else { return 1 }   // most lines: no need to measure
+        guard shown.utf16.count <= Highlighter.maxColored else { return (count + fit - 1) / fit }
+        // Word wrap leaves each line's end empty, so the characters alone would undercount: ask the text system.
+        let attributed = NSAttributedString(
+            string: marked + text,
+            attributes: [.font: font, .paragraphStyle: Self.wrap(text, prefix: marked, font: font, width: width)])
+        let tall = attributed.boundingRect(
+            with: NSSize(width: width, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin
+        ).height
+        return max(1, Int((tall / metrics.line).rounded(.up)))
     }
 
-    /// The pane got wider or narrower: lines wrap at the new width.
-    @objc func columnsResized(_ n: Notification) {
-        table.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<rows.count))
+    /// A character's width and a line's height in the code's font, measured once per font.
+    private static var measured: (font: NSFont, char: CGFloat, line: CGFloat)?
+    private static func metrics(_ font: NSFont) -> (char: CGFloat, line: CGFloat) {
+        if let cached = measured, cached.font == font { return (cached.char, cached.line) }
+        let char = max(1, ("0" as NSString).size(withAttributes: [.font: font]).width)
+        let line = NSLayoutManager().defaultLineHeight(for: font)
+        measured = (font, char, line)
+        return (char, line)
     }
+
+    /// The pane got wider or narrower: lines wrap at the new width. While it's dragged, once the drag ends
+    /// (`DiffTable.onResized`), not on every frame of it.
+    @objc func columnsResized(_ n: Notification) {
+        guard !table.inLiveResize else {
+            table.resizedLive = true
+            return
+        }
+        remeasure()
+    }
+    func remeasure() { table.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<rows.count)) }
 
     /// A hunk's header row: where it is, and Stage / Unstage (and Discard where the diff is the unstaged one).
     func hunkRow(file f: Int, hunk h: Int, header: String) -> NSView {
@@ -326,6 +349,26 @@ extension DiffViewController {
                 button(staged ? String(localized: "Unstage") : String(localized: "Stage"), #selector(hunkAction(_:))))
         }
         return stack
+    }
+}
+
+/// The lines each line of code wraps to, by its text and the width it wraps at (`height(of:)`).
+struct WrapCounts {
+    struct Key: Hashable {
+        let text: String, prefix: String, width: CGFloat, font: NSFont
+    }
+    private var counts: [Key: Int] = [:]
+    /// Lines measured, rather than found here.
+    private(set) var measured = 0
+
+    /// Limit: forgets everything past 50,000 counts (widths a pane was set to one after another), and measures again.
+    mutating func count(_ key: Key, measure: () -> Int) -> Int {
+        if let known = counts[key] { return known }
+        if counts.count >= 50_000 { counts = [:] }
+        measured += 1
+        let lines = measure()
+        counts[key] = lines
+        return lines
     }
 }
 

@@ -7,6 +7,15 @@ import KelpKit
 final class DiffTable: NSTableView {
     var onKey: ((NSEvent) -> Bool)?
     override func keyDown(with event: NSEvent) { if onKey?(event) != true { super.keyDown(with: event) } }
+    /// The columns changed width during a live resize: rows are measured again once it ends (`onResized`).
+    var resizedLive = false
+    var onResized: (() -> Void)?
+    override func viewDidEndLiveResize() {
+        super.viewDidEndLiveResize()
+        guard resizedLive else { return }
+        resizedLive = false
+        onResized?()
+    }
 }
 
 /// Diffs the way VS Code shows them: side by side (or inline), whole-line red / green, the changed words darker,
@@ -58,6 +67,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// A hunk was discarded: what's left fades in rather than the lines jumping up.
     var fadesNextLoad = false
     var rows: [ReviewRow] = []
+    /// How many lines each line of code wraps to (`height(of:)`).
+    var wraps = WrapCounts()
     var notes = ReviewNotes()
     var changes: [FileChange] = []
     /// Changed character range of a line that has a counterpart on the other side, by "file:kind:line".
@@ -145,6 +156,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         NotificationCenter.default.addObserver(
             self, selector: #selector(columnsResized), name: NSTableView.columnDidResizeNotification, object: table)
         table.onKey = { [weak self] e in self?.key(e) ?? false }
+        table.onResized = { [weak self] in self?.remeasure() }
         table.menu = NSMenu()
         table.menu?.delegate = self
         let ts = NSScrollView()
@@ -192,6 +204,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     private func themeChanged() {
         table.backgroundColor = CodeEditor.page.background
         table.rowHeight = Self.lineHeight
+        wraps = WrapCounts()   // another font wraps elsewhere
         syntaxColors = CodeEditor.syntaxColors
         rebuildRows()
     }

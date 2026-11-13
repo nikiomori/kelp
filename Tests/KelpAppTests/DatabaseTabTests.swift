@@ -1,3 +1,4 @@
+import AppKit
 import Core
 import Testing
 
@@ -109,4 +110,28 @@ import Testing
     #expect(DatabasesPanel.mention(database: "webdb dev") == "the database webdb dev (kelp db schema --db 'webdb dev')")
     #expect(
         DatabasesPanel.mention("orders", in: "shop") == "the table orders in shop (kelp db schema orders --db shop)")
+}
+
+/// A cell scrolled away comes back for a row scrolled to, set over in full: no yellow fill, tooltip or red strike of
+/// the row it showed before.
+@MainActor @Test func gridCellsAreReusedAndReset() throws {
+    let grid = ResultGrid()
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+    window.contentView = grid.scroll
+    defer { withExtendedLifetime(window) {} }
+    grid.show(columns: ["name"], rows: (0..<500).map { ["r\($0)"] })
+    grid.edits.set(row: 0, column: 0, to: String(repeating: "long ", count: 10), was: "r0")
+    grid.edits.toggleDeleted(1)
+    grid.changed()
+    window.display()
+    let cell = { (row: Int) in grid.table.view(atColumn: 1, row: row, makeIfNecessary: false) as? NSTextField }
+    let edited = try #require(cell(0)), struck = try #require(cell(1))
+    #expect(edited.drawsBackground && edited.toolTip != nil)
+    grid.table.scrollRowToVisible(400)
+    window.display()
+    let shown = shownCells(grid.table).compactMap { $0 as? NSTextField }
+    let back = try #require(shown.first { $0 === edited || $0 === struck })
+    #expect(back.attributedStringValue.attribute(.strikethroughStyle, at: 0, effectiveRange: nil) == nil)
+    #expect(!back.drawsBackground && back.toolTip == nil)
 }

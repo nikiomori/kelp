@@ -207,11 +207,9 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         // Asked for an old row while the columns change over to another result.
         guard let id = tableColumn?.identifier.rawValue, row < count else { return nil }
-        let field = NSTextField(labelWithString: "")
-        field.lineBreakMode = .byTruncatingTail
-        field.cell?.usesSingleLineMode = true
         let new = row >= rows.count, at = row - rows.count
         guard let column = Int(id) else {   // the row's number, and an agent's mark
+            let field = reused(table.makeView(withIdentifier: Self.cellId, owner: nil) as? NSTextField)
             field.attributedStringValue = number(row, new: new)
             field.alignment = .right
             return field
@@ -221,6 +219,64 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             new
             ? (edits.added[at].indices.contains(column) ? edits.added[at][column] : nil)
             : edits.value(row: row, column: column) ?? read
+        // A foreign key: an arrow at the cell's end follows it to the row it names.
+        let name = columns.indices.contains(column) ? columns[column] : ""
+        guard let value, info[name]?.references != nil, !new else {
+            let field = reused(table.makeView(withIdentifier: Self.cellId, owner: nil) as? NSTextField)
+            show(value, in: field, row: row, column: column)
+            return field
+        }
+        let cell = table.makeView(withIdentifier: Self.keyCellId, owner: nil) as? NSStackView ?? keyCell()
+        guard let field = cell.arrangedSubviews.first as? NSTextField,
+            let follow = cell.arrangedSubviews.last as? IconButton
+        else { return cell }
+        show(value, in: reused(field), row: row, column: column)
+        follow.onClick = { [weak self] in self?.onFollow(name, value) }
+        return cell
+    }
+
+    /// Scrolled-away cells come back for the rows scrolled to (`makeView`): a plain value's, and a foreign key's with
+    /// its arrow.
+    static let cellId = NSUserInterfaceItemIdentifier("grid.cell")
+    static let keyCellId = NSUserInterfaceItemIdentifier("grid.key")
+
+    /// `field` as a new cell's, whatever row it showed before: no colour, mark, tooltip or editing of that row's left.
+    private func reused(_ field: NSTextField?) -> NSTextField {
+        guard let field else {
+            let made = NSTextField(labelWithString: "")
+            made.identifier = Self.cellId
+            made.lineBreakMode = .byTruncatingTail
+            made.cell?.usesSingleLineMode = true
+            return made
+        }
+        field.attributedStringValue = NSAttributedString()
+        field.textColor = .labelColor
+        field.alignment = .natural
+        field.toolTip = nil
+        field.drawsBackground = false
+        field.isEditable = false
+        field.isSelectable = false
+        field.delegate = nil
+        field.tag = 0
+        return field
+    }
+
+    private func keyCell() -> NSStackView {
+        let field = reused(nil)
+        field.identifier = nil
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let follow = IconButton(.symbol("arrow.forward"), tip: String(localized: "Open the Row It Refers To")) {}
+        follow.symbolConfiguration = .chrome(Metrics.iconTiny)
+        let cell = NSStackView(views: [field, follow])
+        cell.identifier = Self.keyCellId
+        cell.spacing = 2
+        cell.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 2)
+        return cell
+    }
+
+    /// A value, NULL or DEFAULT in its field: struck through on a row marked to go, yellow where it was edited.
+    private func show(_ value: String?, in field: NSTextField, row: Int, column: Int) {
+        let new = row >= rows.count
         if let value {
             field.stringValue = value.replacingOccurrences(of: "\n", with: "⏎")
             field.font = font
@@ -247,18 +303,6 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             field.drawsBackground = true
             field.backgroundColor = NSColor.systemYellow.withAlphaComponent(0.25)
         }
-        // A foreign key: an arrow at the cell's end follows it to the row it names.
-        let name = columns.indices.contains(column) ? columns[column] : ""
-        guard let value, info[name]?.references != nil, !new else { return field }
-        let follow = IconButton(.symbol("arrow.forward"), tip: String(localized: "Open the Row It Refers To")) {
-            [weak self] in self?.onFollow(name, value)
-        }
-        follow.symbolConfiguration = .chrome(Metrics.iconTiny)
-        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let cell = NSStackView(views: [field, follow])
-        cell.spacing = 2
-        cell.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 2)
-        return cell
     }
 
     private func number(_ row: Int, new: Bool) -> NSAttributedString {
