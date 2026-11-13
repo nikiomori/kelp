@@ -344,7 +344,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// The theme changed: the preview takes its page colours again.
     func themeChanged() { rerender() }
 
-    /// The page is built off the main thread (a long document, or mermaid's 3.5 MB script inlined), and not at all
+    /// The page is built off the main thread (a long document, or mermaid's 5.5 MB script inlined), and not at all
     /// while only the source shows.
     func rerender(after delay: Duration = .zero) {
         renderTask?.cancel()

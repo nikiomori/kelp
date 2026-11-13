@@ -55,7 +55,7 @@ let package = Package(
         .target(name: "WorkbenchKit", dependencies: ["Core"]),
         .target(name: "Integrations", dependencies: ["Core", "GitKit"]),
         .target(name: "Markdown", dependencies: [.product(name: "Markdown", package: "swift-markdown", moduleAliases: ["Markdown": "SwiftMarkdown"])],   // cmark-gfm, as SwiftMarkdown
-                resources: [.copy("Resources/mermaid.min.js"), .copy("Resources/mermaid-LICENSE.txt"),   // mermaid 11.17.2, MIT
+                resources: [.copy("Resources/mermaid.min.js"), .copy("Resources/mermaid-LICENSE.txt"),   // mermaid 12.3.0, MIT
                             // KaTeX 0.19.1, MIT: its woff2 fonts inlined into the CSS as data URLs
                             .copy("Resources/katex.min.js"), .copy("Resources/katex.min.css"), .copy("Resources/katex-LICENSE.txt")]),
         // The design system's sizes, colours and building blocks (panel bar, icon button, empty state): AppKit only.
