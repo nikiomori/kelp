@@ -9,7 +9,7 @@ concurrency:   # a newer push to the same branch cancels the run it makes stale
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 env:
-  XCODE: '27.1'
+  XCODE: '27.2'
   # Every test at once (each with its daemons, PTYs and git) starves a 3-core runner into timeouts.
   SWT_EXPERIMENTAL_MAXIMUM_PARALLELIZATION_WIDTH: 6
   # A restored .build counts as built: Swift Build compares a file's size and time, not the inode a fresh disk changes.
