@@ -3075,6 +3075,10 @@
           "relay" : {
             "type" : "string"
           },
+          "tailscale" : {
+            "$ref" : "#/components/schemas/TailscaleSteps",
+            "description" : "Where Tailscale stands, while it's the way."
+          },
           "via" : {
             "type" : "string"
           }
@@ -4502,6 +4506,26 @@
         "required" : [
           "session",
           "steps"
+        ],
+        "type" : "object"
+      },
+      "TailscaleSteps" : {
+        "description" : "Tailscale's steps on this Mac, as Kelp last looked: installed, signed in, and serving the page (which needs the tailnet's HTTPS certificates).",
+        "properties" : {
+          "installed" : {
+            "type" : "boolean"
+          },
+          "serving" : {
+            "type" : "boolean"
+          },
+          "signedIn" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [
+          "installed",
+          "serving",
+          "signedIn"
         ],
         "type" : "object"
       },

@@ -104,6 +104,7 @@ struct PhoneSettings: View {
                 Text("Your Own Address").tag("address")
                 Text("Kelp’s Relay").tag("relay")
             }
+            if via == "tailscale", let steps = state?.tailscale { tailscale(steps) }
             if via == "address" {
                 TextField(
                     "Address",
@@ -134,6 +135,36 @@ struct PhoneSettings: View {
                     """)
             }
         }
+    }
+
+    /// Tailscale's three steps, each ticked once Kelp sees it done, and where to do the first one that isn't.
+    @ViewBuilder private func tailscale(_ steps: TailscaleSteps) -> some View {
+        step(String(localized: "Tailscale is installed"), done: steps.installed) {
+            link(String(localized: "Download Tailscale"), TailscaleSteps.download)
+        }
+        step(String(localized: "Signed in to Tailscale"), done: steps.signedIn, next: steps.installed) {
+            Text("Open Tailscale and sign in").foregroundStyle(.secondary)
+        }
+        step(String(localized: "HTTPS certificates are on"), done: steps.serving, next: steps.signedIn) {
+            link(String(localized: "Turn On in Tailscale"), TailscaleSteps.certificates)
+        }
+    }
+
+    /// `next`: the steps before it are done, so this one is the one to do now.
+    private func step(_ title: String, done: Bool, next: Bool = true, @ViewBuilder todo: () -> some View)
+        -> some View
+    {
+        HStack(spacing: Metrics.gap) {
+            Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(done ? Color(nsColor: .systemGreen) : .secondary)
+            Text(title).foregroundStyle(done || next ? .primary : .secondary)
+            Spacer(minLength: Metrics.gap)
+            if !done, next { todo().font(.ui(TextSize.caption)) }
+        }
+    }
+
+    private func link(_ title: String, _ address: String) -> some View {
+        URL(string: address).map { Link(title, destination: $0) }
     }
 
     private func reached(_ state: PhoneState) -> some View {

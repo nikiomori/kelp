@@ -28,6 +28,18 @@ import Testing
 }
 
 /// Tailscale's own status: this Mac's name in its tailnet, once it's connected.
+/// The steps Settings ticks: as far as Tailscale got.
+@Test func tailscalesStepsGoAsFarAsItGot() {
+    let none = Result<String, PhoneTailscale.Failed>.failure(PhoneTailscale.Failed(message: "not installed"))
+    #expect(none.steps == TailscaleSteps())
+    let signedOut = Result<String, PhoneTailscale.Failed>.failure(
+        PhoneTailscale.Failed(message: "sign in", steps: TailscaleSteps(installed: true)))
+    #expect(signedOut.steps == TailscaleSteps(installed: true))
+    #expect(
+        Result<String, PhoneTailscale.Failed>.success("https://m.ts.net:8443").steps
+            == TailscaleSteps(installed: true, signedIn: true, serving: true))
+}
+
 @Test func tailscalesStatusNamesThisMac() {
     let running = #"{"BackendState":"Running","Self":{"DNSName":"studio.tail1234.ts.net."}}"#
     #expect(PhoneTailscale.address(status: Data(running.utf8)) == "https://studio.tail1234.ts.net:8443")
@@ -71,6 +83,9 @@ private func freePort() throws -> Int {
     let head = try #require(pageAnswer as? HTTPURLResponse)
     #expect(head.statusCode == 200 && String(decoding: page, as: UTF8.self).contains("<title>Kelp</title>"))
     #expect(head.value(forHTTPHeaderField: "Content-Security-Policy")?.hasPrefix("default-src 'self'") == true)
+    // It names its version, which the agents' list names too: a page left open through an update reloads.
+    let version = try #require(PhoneHTTP.pageVersion)
+    #expect(String(decoding: page, as: UTF8.self).contains(#"<meta name="kelp-page" content="\#(version)">"#))
     for missing in ["/../Package.swift", "/nothing.js", "/api/agents"] {
         let (_, answer) = try await session.data(from: try #require(URL(string: base + missing)))
         #expect((answer as? HTTPURLResponse)?.statusCode == 404, "\(missing)")
@@ -104,6 +119,7 @@ private func freePort() throws -> Int {
         try #require(try JSONDecoder().decode([String: String].self, from: listed.1)["box"]), about: "r\(Int64(n))",
         key: key)
     #expect(reply.body?["agents"] == .array([]) && reply.body?["stops"] == .bool(true))
+    #expect(reply.body?["page"] == .string(version))
 
     // Events: the stream opens, and an agent that starts is told down it.
     n += 1

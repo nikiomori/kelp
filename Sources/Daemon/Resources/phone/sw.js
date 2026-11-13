@@ -6,7 +6,7 @@ const SHELL = 'kelp-shell';
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(caches.open(SHELL).then(cache => cache.addAll([
-    '/', '/app.css', '/app.js', '/js/api.js', '/js/md.js', '/icons/marks.svg', '/icons/192.png', '/manifest.webmanifest',
+    '/', '/app.css', '/app.js', '/js/api.js', '/js/md.js', '/js/glass.js', '/icons/marks.svg', '/icons/192.png', '/manifest.webmanifest',
   ])).catch(() => {}));
 });
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));

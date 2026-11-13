@@ -67,6 +67,8 @@ actor PhoneBridge {
     var server: PhoneServer?
     /// This Mac's name in its tailnet once Tailscale serves the page ("https://mac.tail1234.ts.net:8443").
     var tailnet: String?
+    /// Tailscale's steps as last looked, while it's the way.
+    var tailscaleSteps: TailscaleSteps?
     var connected = false, failure: String?
     private var record: PhoneRecord?
     private var devices: [String: PhoneDevice] = [:]
@@ -149,6 +151,7 @@ extension PhoneBridge {
         cut(streams.keys)
         if case .tailscale = way { PhoneTailscale.stopServing(offloads) }
         (way, relay, connected, failure, pairing, shown, tailnet) = (nil, nil, false, nil, nil, [:], nil)
+        tailscaleSteps = nil
         guard let want, let identity = load() else { return }
         way = want
         for session in sessions() where PhoneAgent.shown(session) { shown[session.id] = agent(session) }
@@ -219,7 +222,7 @@ extension PhoneBridge {
         if let until = pairing?.until, until < Date() { pairing = nil }
         return PhoneState(
             relay: relay?.base.absoluteString, connected: connected, error: failure, link: pairing?.link,
-            linkUntil: pairing?.until, via: way?.name, address: address,
+            linkUntil: pairing?.until, via: way?.name, address: address, tailscale: tailscaleSteps,
             phones: devices.map { PairedPhone(id: $0.key, name: $0.value.name, push: $0.value.push != nil) }
                 .sorted { ($0.name, $0.id) < ($1.name, $1.id) })
     }
@@ -483,6 +486,8 @@ extension PhoneBridge {
                 "mac": .string(Self.macName), "agents": .array(agents.map(JSONValue.object)),
                 "stops": .bool(true)   // `agents/<id>/stop` is answered: the page shows its Stop
             ]
+            // The page Kelp serves now: a phone that runs an older one (Kelp updated while it stayed open) reloads.
+            if server != nil, let page = PhoneHTTP.pageVersion { body["page"] = .string(page) }
             body.merge(await projectsAndKinds()) { _, new in new }
             return Reply(status: 200, body: .object(body))
         case ("GET", "push/key"):

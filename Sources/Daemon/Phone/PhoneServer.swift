@@ -1,4 +1,5 @@
 import Core
+import CryptoKit
 import Foundation
 import Network
 import os
@@ -123,7 +124,8 @@ final class PhoneServer: Sendable {
             let type = PhoneHTTP.types[(path as NSString).pathExtension],
             let bytes = FileManager.default.contents(atPath: page.path + path)
         else { return PhoneHTTP.response(404, json: ["error": "Not found."]) }
-        return PhoneHTTP.response(200, type: type, body: bytes, page: true)
+        return PhoneHTTP.response(
+            200, type: type, body: path == "/index.html" ? PhoneHTTP.stamped(bytes) : bytes, page: true)
     }
 }
 
@@ -210,4 +212,25 @@ enum PhoneHTTP {
             .first { FileManager.default.fileExists(atPath: $0.appendingPathComponent("index.html").path) }
     }
     private final class Token {}
+
+    /// The page as served: it names its version (`pageVersion`), which the page compares with the one the agents' list
+    /// carries, to reload after Kelp updated while it stayed open.
+    static func stamped(_ page: Data) -> Data {
+        guard let version = pageVersion, let text = String(data: page, encoding: .utf8) else { return page }
+        let meta = "<head>\n<meta name=\"kelp-page\" content=\"\(version)\">"
+        return Data(
+            text.replacingOccurrences(of: "<head>", with: meta, options: [], range: text.range(of: "<head>")).utf8)
+    }
+
+    /// The page's files as one digest: what a phone compares with the page it runs. Read once: they ship with Kelp.
+    static let pageVersion: String? = page.flatMap { folder in
+        let files = (FileManager.default.enumerator(atPath: folder.path)?.allObjects as? [String] ?? []).sorted()
+        var hash = SHA256()
+        for name in files {
+            guard let bytes = FileManager.default.contents(atPath: folder.path + "/" + name) else { continue }
+            hash.update(data: Data(name.utf8))
+            hash.update(data: bytes)
+        }
+        return files.isEmpty ? nil : hash.finalize().prefix(8).map { String(format: "%02x", $0) }.joined()
+    }
 }

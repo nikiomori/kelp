@@ -56,6 +56,7 @@ extension PhoneBridge {
             case .success(let address): (tailnet, failure, connected) = (address, nil, server != nil)
             case .failure(let why): (tailnet, failure, connected) = (nil, why.message, false)
             }
+            tailscaleSteps = served.steps
             for _ in 0..<4 {
                 do { try await Task.sleep(for: .seconds(15)) } catch { return }
                 for stream in streams.values { stream.write("\n") }   // a proxy on the way cuts a silent connection
@@ -70,6 +71,7 @@ extension PhoneBridge {
 enum PhoneTailscale {
     struct Failed: Error, Equatable {
         var message: String
+        var steps = TailscaleSteps()
     }
     static let httpsPort = 8443
 
@@ -113,14 +115,17 @@ enum PhoneTailscale {
     private static func served(_ port: Int) -> Result<String, Failed> {
         guard let program else { return .failure(Failed(message: "Tailscale isn't installed on this Mac.")) }
         guard let status = run(program, ["status", "--json"]), let address = address(status: status.stdout) else {
-            return .failure(Failed(message: "Tailscale isn't connected. Open Tailscale and sign in."))
+            return .failure(
+                Failed(
+                    message: "Tailscale isn't connected. Open Tailscale and sign in.",
+                    steps: TailscaleSteps(installed: true)))
         }
         let target = "http://127.0.0.1:\(port)"
         guard let served = run(program, ["serve", "--bg", "--https=\(httpsPort)", target]), served.status == 0,
             !served.timedOut
         else {
             // Without HTTPS certificates in the tailnet it prints where to turn them on, and waits.
-            return .failure(Failed(message: certificates))
+            return .failure(Failed(message: certificates, steps: TailscaleSteps(installed: true, signedIn: true)))
         }
         return .success(address)
     }
@@ -136,6 +141,16 @@ enum PhoneTailscale {
             do { _ = try await offloads.run { run(program, ["serve", "--https=\(httpsPort)", "off"]) } } catch {
                 Log.session.error("Tailscale still serves the phone's page: Kelp stopped first")
             }
+        }
+    }
+}
+
+extension Result where Success == String, Failure == PhoneTailscale.Failed {
+    /// Every step done when it serves; else as far as it got.
+    var steps: TailscaleSteps {
+        switch self {
+        case .success: TailscaleSteps(installed: true, signedIn: true, serving: true)
+        case .failure(let why): why.steps
         }
     }
 }

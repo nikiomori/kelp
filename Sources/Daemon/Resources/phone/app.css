@@ -15,6 +15,7 @@
   --code: #f3f5f8;
   --glass: #ffffff9e;
   --glass-solid: #f6f6f6;
+  --card-glass: #ffffffd9;  /* an agents' card: glass, but mostly the card */
   --rim: #ffffffe6;
   --lift: 0 8px 28px #0000001f;
   --glass-shadow: inset 0 0 0 0.5px var(--rim), inset 0 1px 0 #ffffff2e, 0 0 0 0.5px #0000000f, var(--lift);
@@ -39,6 +40,11 @@
   --fast: 120ms;
   --base: 180ms;
   --push: 420ms cubic-bezier(0.32, 0.72, 0, 1);   /* iOS's push and sheet curve */
+  --spring: 560ms cubic-bezier(0.34, 1.56, 0.64, 1);   /* a pane let go overshoots a little and settles */
+  --lens-bend: 32;          /* how far the lens bends at the rim, in px (js/glass.js reads these three) */
+  --lens-fringe: 5;         /* how much more each colour bends than the last: the rainbow at the edge */
+  --lens-soft: 2.5;         /* how frosted what's under the lens is */
+  --shine: #ffffff66;       /* the light under a finger */
   --seen: 100dvh;            /* app.js keeps it at the height above the keyboard */
 }
 @media (prefers-color-scheme: dark) {
@@ -54,6 +60,7 @@
     --code: #16181b;
     --glass: #3a3e4480;
     --glass-solid: #34383d;
+    --card-glass: #2c3035d9;
     --rim: #ffffff33;
     --lift: 0 10px 30px #00000059;
     --glass-shadow: inset 0 0 0 0.5px var(--rim), inset 0 1px 0 #ffffff1f, var(--lift);
@@ -72,6 +79,7 @@
     --comment: #ebebf59e;
     --type: #5dd8ff;
     --tile-light: 72%;
+    --shine: #ffffff2e;
     --agent: #e0785a;
   }
 }
@@ -112,7 +120,7 @@ button.icon svg { width: 1.25rem; height: 1.25rem; stroke-width: 1.8; }
 button.icon.glass { color: var(--label); }
 button.icon.primary { background: var(--accent-fill); color: #fff; }
 button:active:not(:disabled) { opacity: 0.6; transform: scale(0.97); }
-button.glass:active:not(:disabled), #quick button:active:not(:disabled) { opacity: 1; transform: scale(0.94); background-image: radial-gradient(circle at 50% 0%, #ffffff59, #fff0 75%); }
+button.glass:active:not(:disabled), #quick button:active:not(:disabled) { opacity: 1; transform: none; }
 button:disabled { opacity: 0.4; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -131,8 +139,23 @@ button:disabled { opacity: 0.4; }
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   mix-blend-mode: screen;
 }
+/* A press (js/glass.js): the pane leans toward the finger and gives a little, its light where the finger is; let go,
+   it springs back. */
+:is(.glass, #quick button, .group ul > li) { transition: transform var(--spring); }
+:is(.glass, #quick button, .group ul > li).held {
+  transform: translate(var(--lean-x, 0), var(--lean-y, 0)) scale(var(--give, 0.975)); transition-duration: 140ms;
+  background-image: radial-gradient(circle at var(--hx, 50%) var(--hy, 0%), var(--shine), #fff0 65%), linear-gradient(#ffffff1f, #fff0 55%);
+}
+.group ul > li { --give: 0.99; }   /* a row is wide: it gives less, or its edges would travel */
+.group ul.glass.held { transform: none; background-image: linear-gradient(#ffffff1f, #fff0 55%); }   /* its row gives, not the card */
+.lensed.held { background-image: none; }
+.lensed.held::after {
+  background: radial-gradient(circle at var(--hx, 50%) var(--hy, 0%), var(--shine), #fff0 65%), linear-gradient(#ffffff1f, #fff0 55%) var(--glass);
+}
+@media (prefers-reduced-motion: reduce) { :is(.glass, #quick button, .group ul > li) { transition: none; } }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   .glass, button.glass, #quick button { background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .group ul.glass { background: var(--cell); }
   .bar::before { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--window); }
 }
 /* A pane with a lens (app.js): the copy of what lies under it, bent by the filter, then the tint and the lit rim. */
@@ -245,6 +268,12 @@ button:disabled { opacity: 0.4; }
 .project button.icon { width: 2rem; height: 2rem; min-height: 0; min-width: 0; margin: -0.25rem 0; background: var(--fill); color: var(--accent); }
 .project button.icon svg { width: 1rem; height: 1rem; stroke-width: 2.2; }
 .group ul { list-style: none; display: grid; grid-template-columns: minmax(0, 1fr); margin: 0 1rem; border-radius: 1.625rem; background: var(--cell); overflow: hidden; }
+/* An agents' card is glass too (its rim, its light), denser than a control so it stays easy to read. */
+.group ul.glass { overflow: visible; background: linear-gradient(#ffffff1f, #fff0 55%) var(--card-glass); }
+.group ul.glass > li { border-radius: inherit; }
+.group ul.glass > li:first-child { border-radius: 1.625rem 1.625rem 0 0; }
+.group ul.glass > li:last-child { border-radius: 0 0 1.625rem 1.625rem; }
+.group ul.glass > li:only-child { border-radius: 1.625rem; }
 /* Each row after the first starts with a hairline from its text, as iOS insets a separator. */
 .group ul > li + li { background: linear-gradient(var(--separator), var(--separator)) no-repeat 3.125rem 0 / 100% 0.5px; }
 /* A project with no agent: one quiet line to start one from. */

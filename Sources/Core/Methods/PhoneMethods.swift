@@ -13,6 +13,20 @@ public struct PairedPhone: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
+/// Tailscale's steps on this Mac, as Kelp last looked: installed, signed in, and serving the page (which needs the
+/// tailnet's HTTPS certificates).
+public struct TailscaleSteps: Codable, Sendable, Equatable {
+    public var installed: Bool, signedIn: Bool, serving: Bool
+    public init(installed: Bool = false, signedIn: Bool = false, serving: Bool = false) {
+        self.installed = installed
+        self.signedIn = signedIn
+        self.serving = serving
+    }
+    /// Where Tailscale is downloaded, and where the tailnet's admin console turns HTTPS certificates on.
+    public static let download = "https://tailscale.com/download/mac"
+    public static let certificates = "https://login.tailscale.com/admin/dns"
+}
+
 /// The bridge now. `relay`: its address, nil while it's off. `connected`: the relay holds this Mac's connection, else
 /// `error` says why not. `link`: what a new phone opens to pair, until `linkUntil` or the first phone that does.
 /// `via`: how a phone reaches this Mac ("relay", "tailscale", "address"), nil while it's off; then `connected` is
@@ -22,11 +36,15 @@ public struct PhoneState: Codable, Sendable, Equatable {
     public var relay: String?, connected: Bool, error: String?
     public var link: String?, linkUntil: Date?
     public var via: String?, address: String?
+    /// Where Tailscale stands, while it's the way.
+    public var tailscale: TailscaleSteps?
     public var phones: [PairedPhone]
     public init(
         relay: String? = nil, connected: Bool = false, error: String? = nil, link: String? = nil,
-        linkUntil: Date? = nil, via: String? = nil, address: String? = nil, phones: [PairedPhone] = []
+        linkUntil: Date? = nil, via: String? = nil, address: String? = nil, tailscale: TailscaleSteps? = nil,
+        phones: [PairedPhone] = []
     ) {
+        self.tailscale = tailscale
         self.via = via
         self.address = address
         self.relay = relay

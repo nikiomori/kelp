@@ -1,4 +1,5 @@
 import * as kelp from './js/api.js';
+import { follow, tuneLens } from './js/glass.js';
 
 // An iPhone keeps a Home Screen app's data apart from Safari's: pairing in Safari pairs Safari alone.
 const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
@@ -10,8 +11,8 @@ const forget = () => history.replaceState(null, '', location.pathname);
 /** An address's part as it was typed: a stray % in it stays as it is. */
 const decoded = text => { try { return decodeURIComponent(text); } catch { return text; } };
 
-// Every string the page shows, in one place for translation.
-const S = {
+// Every string the page shows, in one place for translation: English, and Russian where the phone speaks it.
+const EN = {
   connecting: 'Connecting to your Mac…',
   scanAgain: standalone
     ? "On your Mac open Kelp › Settings › Phone and scan the code with this phone's camera. On the page that opens tap Copy Pairing Link, then come back and paste it here."
@@ -77,7 +78,82 @@ const S = {
   disconnectAsk: mac => `Disconnect this phone from ${mac || 'your Mac'}? To connect again, scan a new code in Kelp.`,
   disconnectYes: 'Disconnect',
   cancel: 'Cancel',
+  units: { m: 'm', h: 'h', d: 'd' },
 };
+const one = n => n % 10 === 1 && n % 100 !== 11;
+const RU = {
+  connecting: 'Подключение к вашему Mac…',
+  scanAgain: standalone
+    ? 'На Mac откройте Kelp › Настройки › Телефон и наведите на код камеру этого телефона. На открывшейся странице нажмите «Скопировать ссылку для подключения», вернитесь сюда и вставьте её.'
+    : 'Откройте Kelp на Mac, зайдите в Настройки › Телефон и отсканируйте код ещё раз.',
+  install: 'Держите Kelp на экране «Домой»: только оттуда он сможет сообщить, что агенту нужны вы.',
+  steps: ['Нажмите «Скопировать ссылку для подключения».', 'Нажмите «Поделиться», затем «На экран „Домой“».', 'Откройте Kelp с экрана «Домой» и, если он попросит, нажмите «Вставить ссылку для подключения».'],
+  copy: 'Скопировать ссылку для подключения', copied: 'Скопировано. Теперь добавьте Kelp на экран «Домой».', here: 'Остаться в Safari',
+  paste: 'Вставить ссылку для подключения', link: 'Ссылка для подключения', connect: 'Подключить', badLink: 'Это не ссылка для подключения.',
+  cantReach: mac => `Нет связи с ${mac || 'вашим Mac'}. Пробую ещё раз…`,
+  failed: mac => `Нет связи с ${mac || 'вашим Mac'}.`,
+  empty: mac => `На ${mac || 'вашем Mac'} не работает ни один агент.`,
+  status: {
+    waiting: 'Ждёт вас', working: 'Работает', done: 'Готово', error: 'Ошибка',
+    idle: 'Свободен', hibernated: 'На паузе', exited: 'Завершён',
+  },
+  now: 'сейчас',
+  unread: 'не прочитано',
+  allow: 'Разрешить',
+  deny: 'Запретить',
+  changed: 'Вопрос изменился. Посмотрите его и ответьте ещё раз.',
+  asks: 'Спрашивает:',
+  asksTo: {
+    run: 'Хочет выполнить', edit: 'Хочет изменить', write: 'Хочет записать', read: 'Хочет прочитать', fetch: 'Хочет открыть',
+    search: 'Хочет найти в интернете', use: 'Хочет использовать',
+  },
+  answer: 'Ответить',
+  answerTo: name => `Ваш ответ получит ${name || 'агент'}`,
+  quiet: { hibernated: 'на паузе', exited: 'завершён', idle: 'свободен', done: 'готово' },
+  more: (n, kinds) => `Ещё ${n}: ${kinds}`,
+  fewer: 'Свернуть',
+  stop: 'Остановить',
+  whileWorking: 'Сообщение, прочитает, когда остановится',
+  connected: 'Подключено, зашифровано от начала до конца',
+  outOfReach: 'Нет связи. Пробую ещё раз…',
+  failedLead: 'Ошибка:',
+  limitLead: 'Лимит:',
+  limitShort: (kind, resets) => kind + (resets ? `, сбросится ${resets}` : ''),
+  limitWord: kind => `Упёрся в лимит: ${kind}`,
+  counts: {
+    waiting: n => (one(n) ? 'ждёт вас' : 'ждут вас'), working: n => (one(n) ? 'работает' : 'работают'),
+    done: () => 'готово',
+  },
+  other: 'Другие',
+  newIn: project => `Новый агент в ${project}`, agentKind: 'Агент', whatToDo: 'Что ему сделать?', startIt: 'Запустить',
+  notStarted: 'Mac не запустил агента.',
+  limit: (kind, resets) => `Упёрся в лимит: ${kind}.` + (resets ? ` Сбросится ${resets}.` : ''),
+  continues: time => ` Продолжит в ${time}.`,
+  ended: 'Этот агент завершён.',
+  message: 'Сообщение',
+  send: 'Отправить',
+  quickContinue: ['Продолжай', 'продолжай'],
+  quickGood: ['Хорошо, продолжай', 'Хорошо, продолжай'],
+  back: 'Агенты',
+  menu: 'Меню',
+  thisPhone: 'Этот телефон',
+  close: 'Закрыть',
+  done: 'Готово',
+  notifications: 'Уведомления',
+  pushWhen: 'Когда агент спрашивает или падает',
+  pushBlocked: 'Запрещены. Разрешите уведомления для Kelp в приложении «Настройки» и вернитесь.',
+  pushUnavailable: 'В этом браузере недоступно.',
+  pushFailed: 'Не удалось изменить уведомления. Попробуйте ещё раз.',
+  addToHome: 'Для уведомлений Kelp должен быть на экране «Домой» и подключён там: отсканируйте код в Kelp › Настройки › Телефон ещё раз и следуйте шагам.',
+  disconnect: 'Отключить этот телефон…',
+  disconnectAsk: mac => `Отключить этот телефон от ${mac || 'вашего Mac'}? Чтобы подключить снова, отсканируйте новый код в Kelp.`,
+  disconnectYes: 'Отключить',
+  cancel: 'Отменить',
+  units: { m: ' мин', h: ' ч', d: ' д' },
+};
+const russian = /^ru\b/i.test(navigator.language ?? '');
+const S = russian ? RU : EN;
+document.documentElement.lang = russian ? 'ru' : 'en';
 
 // Kelp's mark for an agent, so the state never reads by colour alone: a clock for a plan limit, nothing for an agent
 // with nothing new (ready, or done and seen).
@@ -250,10 +326,21 @@ function take(raw) {
   if (open?.id === raw.id) [open.reply, open.turns] = [raw.lastReply ?? null, Array.isArray(raw.turns) && raw.turns.length ? raw.turns : null];
 }
 
+// The page names its version when the Mac serves it; the agents' list names the one the Mac has now. A page left open
+// while Kelp updated loads again, once for each version, so a Mac that keeps serving another can't keep it reloading.
+const servedAs = document.querySelector('meta[name="kelp-page"]')?.content;
+function newerPage(page) {
+  if (!servedAs || !page || page === servedAs || sessionStorage.getItem('reloaded-for') === page) return false;
+  sessionStorage.setItem('reloaded-for', page);
+  location.reload();
+  return true;
+}
+
 async function refresh() {
   const data = await kelp.list();
   mac = data.mac ?? '';
   [projects, kinds, stops] = [data.projects ?? [], data.kinds ?? [], data.stops === true];
+  if (newerPage(data.page)) return;
   agents = new Map(data.agents.map(a => [a.id, kelp.agentFrom(a)]));
   busy.clear();
   if (!paired) {
@@ -413,7 +500,7 @@ const rank = a =>
 function ago(at) {
   const s = (Date.now() - Date.parse(at)) / 1000;
   if (!(s >= 60)) return Number.isNaN(s) ? '' : S.now;
-  return s < 3600 ? `${s / 60 | 0}m` : s < 86400 ? `${s / 3600 | 0}h` : `${s / 86400 | 0}d`;
+  return s < 3600 ? `${s / 60 | 0}${S.units.m}` : s < 86400 ? `${s / 3600 | 0}${S.units.h}` : `${s / 86400 | 0}${S.units.d}`;
 }
 
 
@@ -530,7 +617,7 @@ const unfolded = new Set();   // projects whose quiet agents are shown
 function groupOf({ key, name, project }) {
   let group = groupEls.get(key);
   if (!group) {
-    const ul = el('ul'), add = el('button', 'icon', iconNode('plus'));
+    const ul = el('ul', 'glass'), add = el('button', 'icon', iconNode('plus'));
     add.type = 'button';
     add.setAttribute('aria-label', S.newIn(name));
     add.onclick = () => openStart(project);
@@ -925,4 +1012,6 @@ function start(code) {
   if (ios && !standalone) return showPair(S.install, 'install');
   usePair(code);
 }
+tuneLens();
+follow();
 start(codeIn(location.hash));

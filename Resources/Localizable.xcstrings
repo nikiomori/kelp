@@ -22220,6 +22220,66 @@
           }
         }
       }
+    },
+    "Tailscale is installed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tailscale установлен"
+          }
+        }
+      }
+    },
+    "Download Tailscale": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачать Tailscale"
+          }
+        }
+      }
+    },
+    "Signed in to Tailscale": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вход в Tailscale выполнен"
+          }
+        }
+      }
+    },
+    "Open Tailscale and sign in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откройте Tailscale и войдите"
+          }
+        }
+      }
+    },
+    "HTTPS certificates are on": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HTTPS-сертификаты включены"
+          }
+        }
+      }
+    },
+    "Turn On in Tailscale": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить в Tailscale"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
