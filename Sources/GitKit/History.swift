@@ -79,7 +79,7 @@ extension Git {
     /// `-z`: "M\0path\0" or, renamed or copied, "R100\0old\0new\0".
     public static func commitFiles(_ path: String, commit: String, remotes: Remotes) throws -> [FileChange] {
         var entries = try run(
-            ["show", "--format=", "--name-status", "-z", "-M", "--diff-merges=first-parent", rev(commit)], cwd: path,
+            ["show", "--format=", "--name-status", "-z", "-M", "-m", "--first-parent", rev(commit)], cwd: path,
             remotes: remotes
         )
         .split(separator: "\0").map(String.init)[...]
@@ -97,7 +97,7 @@ extension Git {
     /// A binary file counts as a file, not as lines.
     public static func commitDetails(_ path: String, commit: String, remotes: Remotes) throws -> CommitDetails {
         let out = try run(
-            ["show", "--numstat", "--format=%ae%x1f%b%x1e", "-M", "--diff-merges=first-parent", rev(commit)], cwd: path,
+            ["show", "--numstat", "--format=%ae%x1f%b%x1e", "-M", "-m", "--first-parent", rev(commit)], cwd: path,
             remotes: remotes)
         let parts = out.split(separator: "\u{1e}", maxSplits: 1, omittingEmptySubsequences: false)
         let head = (parts.first ?? "").split(separator: "\u{1f}", maxSplits: 1, omittingEmptySubsequences: false)

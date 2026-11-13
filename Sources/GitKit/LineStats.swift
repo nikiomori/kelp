@@ -16,7 +16,18 @@ extension Git {
             stats.added[kind, default: 0] += added
             stats.removed[kind, default: 0] += removed
         }
-        // New files git doesn't track yet: their lines are all additions (small text files only).
+        // New files git doesn't track yet: their lines are all additions (small text files only). A host's are counted there.
+        if let host = remotes.of(cwd) {
+            let out = try host.run("cd \(RemoteHost.cdArg(host.path)) && " + untrackedLines, timeLimit: 60)
+            for line in String(decoding: out, as: UTF8.self).split(separator: "\n") {
+                let fields = line.split(separator: "\t", maxSplits: 1)
+                guard fields.count == 2, let count = Int(fields[0].trimmingCharacters(in: .whitespaces)) else {
+                    continue
+                }
+                stats.added[LineStats.kind(String(fields[1])), default: 0] += count
+            }
+            return stats
+        }
         for path in try run(["ls-files", "--others", "--exclude-standard", "-z"], cwd: cwd, remotes: remotes).split(
             separator: "\0"
         ).prefix(500) {
@@ -28,4 +39,11 @@ extension Git {
         }
         return stats
     }
+
+    /// sh, in a repository: "lines\tpath" for each of its first 500 new files that is text under 1 MB (paths with a line
+    /// break in them are skipped).
+    static let untrackedLines =
+        #"git -c core.quotePath=false ls-files --others --exclude-standard | head -n 500 | while IFS= read -r f; do "#
+        + #"[ -f "$f" ] && [ "$(wc -c < "$f")" -lt 1000000 ] && grep -Iq . "$f" && printf '%s\t%s\n' "$(wc -l < "$f")" "$f"; "#
+        + "done; exit 0"
 }

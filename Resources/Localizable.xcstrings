@@ -22920,6 +22920,16 @@
           }
         }
       }
+    },
+    "Can't Reach the Server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет связи с сервером"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

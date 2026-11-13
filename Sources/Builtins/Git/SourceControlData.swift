@@ -100,9 +100,12 @@ extension SourceControlController {
         if message == nil { empty.show(nil) }
         guard let message else { return }
         let notRepo = message.contains("not a git repository")
+        let away = message.hasPrefix("Can't reach ")   // a remote project's host (the daemon's words)
         // The command that makes git work again, selectable.
         empty.showError(
-            notRepo ? String(localized: "Not a Git Repository") : String(localized: "Git Isn't Available"),
+            notRepo
+                ? String(localized: "Not a Git Repository")
+                : away ? String(localized: "Can't Reach the Server") : String(localized: "Git Isn't Available"),
             text: notRepo ? String(localized: "This folder isn't under git version control.") : message,
             fix: FixRecipes.fix(for: message)?.command)
     }

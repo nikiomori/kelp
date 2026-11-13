@@ -237,6 +237,8 @@ extension GitAuthorAvatar: AsyncHandled {
         let path = try forges.store.worktree(named: id).path, email = email
         // The forge the project's origin is on; elsewhere only a GitHub noreply address tells its account.
         let url = try? await forges.offloads.run { () throws -> URL? in
+            // A remote project's gh would run in its folder here, which isn't its repository (`refuseRemoteForge`).
+            if forges.remotes.of(path) != nil { return GitHub.noreplyAvatar(email) }
             let origin = (try? Git.origin(path, remotes: forges.remotes)) ?? ""
             switch Forge.of(remote: origin) {
             case .gitlab: return try GitLab.avatarURL(email: email, cwd: path)

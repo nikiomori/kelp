@@ -25,15 +25,23 @@ extension Git {
     }
 
     /// `path` absolute; `lines` 1-based. Fails when origin isn't on a website Kelp knows how to link to.
+    /// A remote project's file: git runs in the project's folder (on its host), the file named from its top there.
     public static func webURL(path: String, lines: ClosedRange<Int>?, remotes: Remotes) throws -> String {
-        let dir = (path as NSString).deletingLastPathComponent
-        let top = try line(["rev-parse", "--show-toplevel"], cwd: dir, remotes: remotes)
+        let onHost = remotes.containing(path)
+        let dir = onHost?.folder ?? (path as NSString).deletingLastPathComponent
         let remote = try origin(dir, remotes: remotes)
         let sha = try line(["rev-parse", "HEAD"], cwd: dir, remotes: remotes)
-        let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path,
-            root = URL(fileURLWithPath: top).resolvingSymlinksInPath().path
-        let file =
-            real.hasPrefix(root + "/") ? String(real.dropFirst(root.count + 1)) : (path as NSString).lastPathComponent
+        let file: String
+        if let onHost {
+            file = String(onHost.remotePath.dropFirst(onHost.remote.path.count).drop { $0 == "/" })
+        } else {
+            let top = try line(["rev-parse", "--show-toplevel"], cwd: dir, remotes: remotes)
+            let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path,
+                root = URL(fileURLWithPath: top).resolvingSymlinksInPath().path
+            file =
+                real.hasPrefix(root + "/")
+                ? String(real.dropFirst(root.count + 1)) : (path as NSString).lastPathComponent
+        }
         guard let url = webURL(remote: remote, sha: sha, file: file, lines: lines) else {
             throw GitError.refused("Origin (\(remote)) isn't a GitHub, GitLab or Bitbucket address")
         }

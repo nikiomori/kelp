@@ -117,6 +117,11 @@ extension Git {
                 [argv0] + args, cwd: cwd, env: env, stdin: stdin, ok: ok, timeLimit: timeLimit, limit: limit)
             return (result.stdout, result.truncated)
         } catch let error as ProgramError {
+            // ssh's own failure (git's are 1 or 128): the host, not git, is what's missing.
+            if let host = remote, error.status == 255 {
+                let why = error.stderr.split(whereSeparator: \.isNewline).last.map { ": " + $0 } ?? "."   // ssh's words
+                throw GitError.refused("Can't reach \(host.host)" + why)
+            }
             throw GitError.failed(args: args, status: error.status, stderr: error.stderr)
         }
     }

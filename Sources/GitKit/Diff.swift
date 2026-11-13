@@ -188,7 +188,7 @@ extension Git {
         case .allUncommitted: args.append("HEAD")
         case .branch(let base): args.append("\(try rev(base))...HEAD")
         case .commit(let commit):
-            args = ["show", "--format=", "-M", "--diff-merges=first-parent"] + common + [try rev(commit)]
+            args = ["show", "--format=", "-M", "-m", "--first-parent"] + common + [try rev(commit)]
         case .since(let tree): args += [try rev(tree), try snapshotTree(path, remotes: remotes)]   // two trees: new files included, nothing staged
         case .between(let from, let to): args += [try rev(from), try rev(to)]
         }

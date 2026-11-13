@@ -674,3 +674,66 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     #expect(try run(hooks: true).contains("GIT_OPTIONAL_LOCKS=0"))
     #expect(try String(contentsOf: marker, encoding: .utf8) == "-ilc\n")
 }
+
+/// ssh failing to reach a remote project's host says so, not that git failed.
+@Test func anUnreachableHostIsSaidSo() throws {
+    let home = tmp(), folder = home.appendingPathComponent("remote/box/app"), ssh = home.appendingPathComponent("ssh")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try JSONEncoder().encode(RemoteHost(host: "box", path: "/srv/app"))
+        .write(to: folder.appendingPathComponent(RemoteHost.marker))
+    try "#!/bin/sh\necho 'ssh: connect to host box port 22: Operation timed out' >&2\nexit 255\n".write(
+        to: ssh, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: ssh.path)
+    let remotes = Remotes(home: home, ssh: ssh.path)
+    #expect {
+        try Git.run(["status"], cwd: folder.path, remotes: remotes)
+    } throws: { error in
+        (error as? GitError)?.message == "Can't reach box: ssh: connect to host box port 22: Operation timed out"
+    }
+}
+
+/// A merge's files and diff are what it brought in over its first parent, in a spelling git before 2.31 reads too (a
+/// remote project's host may have one).
+@Test func aMergesFilesAreWhatItBroughtIn() throws {
+    let repo = try tempRepo()
+    for args in [
+        ["add", "-A"], ["commit", "-qm", "a"], ["switch", "-qc", "f"]
+    ] { try Git.run(args, cwd: repo, remotes: .none) }
+    try "b\n".write(toFile: repo + "/b.txt", atomically: true, encoding: .utf8)
+    try Git.run(["add", "-A"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "b"], cwd: repo, remotes: .none)
+    try Git.run(["switch", "-q", "main"], cwd: repo, remotes: .none)
+    try "c\n".write(toFile: repo + "/c.txt", atomically: true, encoding: .utf8)
+    try Git.run(["add", "-A"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "c"], cwd: repo, remotes: .none)
+    try Git.run(["merge", "-q", "--no-edit", "f"], cwd: repo, remotes: .none)
+    #expect(try Git.commitFiles(repo, commit: "HEAD", remotes: .none).map(\.path) == ["b.txt"])
+}
+
+/// A remote project (`home`'s `remote/box/app`) standing for `repo`, reached by an ssh that runs the command here.
+private func standIn(for repo: String) throws -> (folder: String, remotes: Remotes) {
+    let home = tmp(), folder = home.appendingPathComponent("remote/box/app"), ssh = home.appendingPathComponent("ssh")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try JSONEncoder().encode(RemoteHost(host: "box", path: repo)).write(
+        to: folder.appendingPathComponent(RemoteHost.marker))
+    try "#!/bin/sh\neval \"c=\\${$#}\"\nexec /bin/sh -c \"$c\"\n".write(to: ssh, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: ssh.path)
+    return (folder.path, Remotes(home: home, ssh: ssh.path))
+}
+
+/// A remote project's line counts take its new files too, counted on the host; its web links name the file from the
+/// project's top there.
+@Test func aRemoteProjectsNewFilesAndLinksAreTheHosts() throws {
+    let repo = try Paths.real(tempRepo()) ?? ""
+    try Git.run(["add", "-A"], cwd: repo, remotes: .none)
+    try Git.run(["commit", "-qm", "a"], cwd: repo, remotes: .none)
+    try Git.run(["remote", "add", "origin", "https://github.com/o/r.git"], cwd: repo, remotes: .none)
+    try FileManager.default.createDirectory(atPath: repo + "/sub", withIntermediateDirectories: true)
+    try "x\ny\nz\n".write(toFile: repo + "/sub/новый.txt", atomically: true, encoding: .utf8)
+    try Data([0, 1, 2, 10]).write(to: URL(fileURLWithPath: repo + "/bin.dat"))
+    let (folder, remotes) = try standIn(for: repo)
+    let here = try Git.lineStats(repo, remotes: .none), there = try Git.lineStats(folder, remotes: remotes)
+    #expect(there == here && there.added.values.reduce(0, +) == 3)
+    let link = try Git.webURL(path: folder + "/sub/новый.txt", lines: nil, remotes: remotes)
+    #expect(link.hasPrefix("https://github.com/o/r/blob/") && link.contains("/sub/"))
+}
