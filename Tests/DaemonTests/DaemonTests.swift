@@ -480,6 +480,7 @@ final class NoteBox: @unchecked Sendable {
     #expect(pi?.resuming(["pi", "--session", "/h/x.jsonl"]) == ["pi", "--session", "/h/x.jsonl"])
     #expect(omp?.resuming(["omp", "--resume", "/h/x.jsonl"]) == ["omp", "--resume", "/h/x.jsonl"])
     #expect(pi?.resuming(["pi"]) == ["pi", "--continue"])
+    #expect(pi?.resuming(["pi", "--session-id", "x"]) == ["pi", "--session", "x"])   // pinned: that one
 }
 
 /// pi keeps a folder's conversations under its real path with "/" as "-": the newest written since the session began.
@@ -506,6 +507,11 @@ final class NoteBox: @unchecked Sendable {
     #expect(
         PiHistory.newest(cwd: cwd.path, since: Date(timeIntervalSinceNow: -60), root: root, home: home)?
             .lastPathComponent == "c.jsonl")
+    // pi's own id (`--session-id`): its file, in whichever folder; none before its first message.
+    try "{}".write(
+        to: dir.appendingPathComponent("2026-11-13T00-00-00-000Z_ab-12.jsonl"), atomically: true, encoding: .utf8)
+    #expect(PiHistory.file(id: "AB-12", root: root)?.lastPathComponent == "2026-11-13T00-00-00-000Z_ab-12.jsonl")
+    #expect(PiHistory.file(id: "cd-34", root: root) == nil)
 }
 
 /// A server a workspace's terminal started shows up as that workspace's port, and only there.

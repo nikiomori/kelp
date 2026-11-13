@@ -30,3 +30,22 @@ import Testing
     try #"{"plugins": ["./b.js"]}"#.write(to: dir.appendingPathComponent("cli.json"), atomically: true, encoding: .utf8)
     #expect(try plugins() as? [String] == ["./b.js", "/k/hooks-opencode/tui"])
 }
+
+/// Kilo with Kelp's KILO_CONFIG_DIR reads the global AGENTS.md only there: the person's is linked in, and goes with it.
+@Test func kiloGetsThePersonsAgentsFile() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = root.appendingPathComponent("hooks-kilo"), config = root.appendingPathComponent("config")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: config.appendingPathComponent("kilo"), withIntermediateDirectories: true)
+    let link = dir.appendingPathComponent("AGENTS.md")
+    try SessionSetup.linkKiloInstructions(into: dir, config: config)
+    #expect(!FileManager.default.fileExists(atPath: link.path))
+    try "be brief".write(to: config.appendingPathComponent("kilo/AGENTS.md"), atomically: true, encoding: .utf8)
+    try SessionSetup.linkKiloInstructions(into: dir, config: config)
+    try SessionSetup.linkKiloInstructions(into: dir, config: config)   // again: the link is made anew
+    #expect(try String(contentsOf: link, encoding: .utf8) == "be brief")
+    try FileManager.default.removeItem(at: config.appendingPathComponent("kilo/AGENTS.md"))
+    try SessionSetup.linkKiloInstructions(into: dir, config: config)
+    #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).isEmpty)
+}

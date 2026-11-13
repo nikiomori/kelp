@@ -6,15 +6,17 @@ import Foundation
 /// Claude Code reads only its own, Cursor, opencode and Grok read Claude Code's too, and Copilot a project's
 /// `.claude/skills` and CLAUDE.md.
 public struct AddonFiles: Sendable {
-    public var home: URL, claude: URL, codex: URL
+    public var home: URL, claude: URL, codex: URL, copilot: URL, pi: URL
 
     public init(
         home: URL = URL(fileURLWithPath: NSHomeDirectory()), claude: URL = AgentHome.root("claude"),
-        codex: URL = AgentHome.root("codex")
+        codex: URL = AgentHome.root("codex"), copilot: URL = AgentHome.root("copilot"), pi: URL = AgentHome.root("pi")
     ) {
         self.home = home
         self.claude = claude
         self.codex = codex
+        self.copilot = copilot
+        self.pi = pi
     }
 
     static let sharedReaders = ["codex", "cursor", "pi", "copilot", "kimi", "opencode", "grok"]
@@ -44,7 +46,10 @@ public struct AddonFiles: Sendable {
             (home.appendingPathComponent(".agents/skills"), Self.sharedReaders, false),
             (claude.appendingPathComponent("skills"), Self.claudeReaders, false),
             (project.appendingPathComponent(".agents/skills"), Self.sharedReaders, true),
-            (project.appendingPathComponent(".claude/skills"), Self.claudeProjectReaders, true)
+            (project.appendingPathComponent(".claude/skills"), Self.claudeProjectReaders, true),
+            (codex.appendingPathComponent("skills"), ["codex"], false),
+            (copilot.appendingPathComponent("skills"), ["copilot"], false),
+            (project.appendingPathComponent(".github/skills"), ["copilot"], true)
         ]
         return places.flatMap { dir, agents, inProject in
             Self.folders(dir).compactMap { folder -> Skill? in
@@ -72,10 +77,22 @@ public struct AddonFiles: Sendable {
                     Server(name: name, file: tilde(file.path), agents: ["claude"], project: false, path: file.path))
             }
         }
-        let shared = URL(fileURLWithPath: cwd).appendingPathComponent(".mcp.json")
+        let here = URL(fileURLWithPath: cwd), shared = here.appendingPathComponent(".mcp.json")
         for name in (Self.json(shared)?["mcpServers"] as? [String: Any] ?? [:]).keys {
             out.append(
                 Server(name: name, file: ".mcp.json", agents: ["claude", "copilot"], project: true, path: shared.path))
+        }
+        // pi's own (its folder's mcp.json, the project's .pi/mcp.json), those not turned off.
+        for (file, project) in [
+            (pi.appendingPathComponent("mcp.json"), false), (here.appendingPathComponent(".pi/mcp.json"), true)
+        ] {
+            for (name, entry) in Self.json(file)?["mcpServers"] as? [String: Any] ?? [:]
+            where (entry as? [String: Any])?["enabled"] as? Bool != false {
+                out.append(
+                    Server(
+                        name: name, file: project ? ".pi/mcp.json" : tilde(file.path), agents: ["pi"], project: project,
+                        path: file.path))
+            }
         }
         let config = codex.appendingPathComponent("config.toml")
         for name in Self.codexServers(Self.text(config) ?? "") {

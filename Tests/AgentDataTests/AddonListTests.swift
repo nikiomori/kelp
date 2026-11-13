@@ -30,8 +30,13 @@ private func home() throws -> (files: AddonFiles, cwd: String) {
         root.appendingPathComponent(".codex/config.toml"))
     try put("claude", project.appendingPathComponent("CLAUDE.md"))
     try put("agents", project.appendingPathComponent("AGENTS.md"))
+    try put("---\nname: hand\n---\n", root.appendingPathComponent(".codex/skills/hand/SKILL.md"))
+    try put(
+        #"{"mcpServers":{"fs":{"command":"npx"},"old":{"command":"x","enabled":false}}}"#,
+        root.appendingPathComponent(".pi/agent/mcp.json"))
     let files = AddonFiles(
-        home: root, claude: root.appendingPathComponent(".claude"), codex: root.appendingPathComponent(".codex"))
+        home: root, claude: root.appendingPathComponent(".claude"), codex: root.appendingPathComponent(".codex"),
+        copilot: root.appendingPathComponent(".copilot"), pi: root.appendingPathComponent(".pi/agent"))
     return (files, project.path)
 }
 
@@ -82,9 +87,12 @@ private func home() throws -> (files: AddonFiles, cwd: String) {
     #expect(items.allSatisfy { $0.loaded == nil })
     #expect(
         items.map(\.id).sorted() == [
-            "instructions:AGENTS.md", "instructions:CLAUDE.md", "server:node_repl", "server:pencil", "skill:kelp-vm",
-            "skill:tabbit", "skill:web-perf"
+            "instructions:AGENTS.md", "instructions:CLAUDE.md", "server:fs", "server:node_repl", "server:pencil",
+            "skill:hand",
+            "skill:kelp-vm", "skill:tabbit", "skill:web-perf"
         ])
+    #expect(items.first { $0.id == "skill:hand" }?.agents == ["codex"])   // ~/.codex/skills: Codex's own
+    #expect(items.first { $0.id == "server:fs" }?.agents == ["pi"])   // pi's own mcp.json; "old" is turned off
 }
 
 @Test func aCodexServerIsReadForHandingOn() {

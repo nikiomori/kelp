@@ -199,6 +199,33 @@ public enum CodexHistory {
 /// pi's (and oh-my-pi's) conversations: `root/--<real cwd, "/" as "-">--/<time>_<id>.jsonl`, as pi names them.
 /// oh-my-pi names a folder in the home folder by its path from there: `-projects-app` (its old `--…--` ones it moves).
 public enum PiHistory {
+    /// The conversation pi writes under `id` (`--session-id`), in whichever folder: none before its first message.
+    public static func file(id: String, root: URL) -> URL? {
+        let suffix = "_\(id.lowercased()).jsonl"
+        return folders(root).lazy.compactMap { folder in
+            (FileManager.default.enumerator(
+                at: folder, includingPropertiesForKeys: nil, options: .skipsSubdirectoryDescendants)?
+                .allObjects as? [URL])?.first { $0.lastPathComponent.lowercased().hasSuffix(suffix) }
+        }.first
+    }
+
+    /// Grok's conversation `id` (`--session-id`): `root/<folder, percent-encoded>/<id>/`, none before its first
+    /// message.
+    public static func grokHas(id: String, root: URL) -> Bool {
+        folders(root).contains {
+            FileManager.default.fileExists(atPath: $0.appendingPathComponent(id.lowercased()).path)
+        }
+    }
+
+    private static func folders(_ root: URL) -> [URL] {
+        do {
+            return try FileManager.default.contentsOfDirectory(
+                at: root, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
+        } catch {
+            return []   // no folder yet: no conversation either
+        }
+    }
+
     /// The one of `cwd` written to last, if that was since `since`.
     /// Limit: two pi chats in one folder read as the one written to last; oh-my-pi's in $TMPDIR (`-tmp-…`) aren't
     /// found.

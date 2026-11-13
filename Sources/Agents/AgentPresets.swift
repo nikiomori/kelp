@@ -23,12 +23,16 @@ extension AgentManifest {
             ["GOOGLE_GENAI_USE_VERTEXAI=true", "GOOGLE_CLOUD_PROJECT=", "GOOGLE_CLOUD_LOCATION=us-central1"])
     ]
 
+    /// The effort levels Claude Code, Codex and Antigravity all take (2026-11).
+    static let efforts = ["low", "medium", "high", "xhigh", "max"]
+
     /// The agents Kelp knows, as their own docs give them: how each starts, resumes, reports and installs (its npm package
     /// says what's newest).
     public static let presets: [AgentManifest] = [
         .init(
             id: "claude", name: "Claude Code", command: "claude", hooks: .settingsFlag("--settings"),
             modelFlag: "--model", models: ["opus", "sonnet", "haiku", "fable"],
+            effortArgs: Dictionary(uniqueKeysWithValues: efforts.map { ($0, ["--effort", $0]) }),
             autoAnswers: [trust], resumeArgs: ["--continue"], pluginDirFlag: "--plugin-dir",
             contextFlag: "--append-system-prompt",
             sessionIdFlag: "--session-id", resumeIdFlag: "--resume",
@@ -43,10 +47,8 @@ extension AgentManifest {
             id: "codex", name: "Codex", command: "codex",
             args: ["--no-daemon", "-c", "check_for_update_on_startup=false"], hooks: .codexConfig,
             modelFlag: "-m", models: ["gpt-6-luna", "gpt-5.6-terra", "gpt-5.6-luna"],
-            effortArgs: [
-                "low": ["-c", "model_reasoning_effort=low"], "medium": ["-c", "model_reasoning_effort=medium"],
-                "high": ["-c", "model_reasoning_effort=high"]
-            ],
+            effortArgs: Dictionary(
+                uniqueKeysWithValues: efforts.map { ($0, ["-c", "model_reasoning_effort=\($0)"]) }),
             autoAnswers: [trust], resumeArgs: ["resume", "--last"], resumeIdFlag: "resume",
             install: "npm install -g @openai/codex", update: "npm install -g @openai/codex@latest",
             npm: "@openai/codex", about: "OpenAI’s coding agent", color: "#262626", apps: ["ChatGPT", "Codex"],
@@ -74,6 +76,8 @@ extension AgentManifest {
             about: "Cursor’s agent in the terminal", color: "#262626", apps: ["Cursor"], site: "cursor.com",
             featured: 4,
             limitScreen: .cursor),
+        // Each tab its own conversation (`--session-id`), not the folder's latest: two in one folder resumed the same
+        // one.
         // Kelp's skills by `--skill <plugin folder>` (it finds SKILL.md below): in the project's `.agents/skills` they
         // made Pi ask whether to trust every folder it opened.
         // Pi and Antigravity report through OSC 7501 only if Kelp's reply to their probe beats the terminal's DA reply;
@@ -81,7 +85,8 @@ extension AgentManifest {
         // missing, which npm wouldn't.
         .init(
             id: "pi", name: "Pi", command: "pi", env: ["PI_PROGRAM_STATUS": "1"], modelFlag: "--model",
-            resumeArgs: ["--continue"], pluginDirFlag: "--skill", resumeIdFlag: "--session",
+            resumeArgs: ["--continue"], pluginDirFlag: "--skill", sessionIdFlag: "--session-id",
+            resumeIdFlag: "--session",
             install: "curl -fsSL https://pi.dev/install.sh | sh", update: "curl -fsSL https://pi.dev/install.sh | sh",
             npm: "@earendil-works/pi-coding-agent", about: "A minimal, extensible terminal agent, any model",
             site: "pi.dev", transcript: .pi),
@@ -103,13 +108,14 @@ extension AgentManifest {
         // Grok's installer runs again as the update.
         .init(
             id: "grok", name: "Grok", command: "grok", modelFlag: "--model", resumeArgs: ["--continue"],
+            sessionIdFlag: "--session-id", resumeIdFlag: "--resume",
             install: "curl -fsSL https://x.ai/cli/install.sh | bash",
             update: "curl -fsSL https://x.ai/cli/install.sh | bash", about: "xAI’s coding agent", color: "#262626",
             apps: ["Grok"], site: "grok.com"),
         .init(
             id: "antigravity", name: "Antigravity", command: "agy", env: ["AGY_CLI_OSC7501": "on"],
             modelFlag: "--model",
-            effortArgs: Dictionary(uniqueKeysWithValues: ["low", "medium", "high"].map { ($0, ["--effort", $0]) }),
+            effortArgs: Dictionary(uniqueKeysWithValues: efforts.map { ($0, ["--effort", $0]) }),
             resumeArgs: ["--continue"],
             install: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
             about: "Google’s Antigravity agent in the terminal", apps: ["Antigravity"], site: "antigravity.google",
@@ -137,7 +143,12 @@ extension AgentManifest {
             about: "Open source agent, any model provider", site: "kilo.ai"),
         .init(
             id: "crush", name: "Crush", command: "crush", resumeArgs: ["--continue"],
-            install: "brew install charmbracelet/tap/crush", update: "brew upgrade crush",
+            // Homebrew's or npm's, whichever it came from: `brew upgrade` alone fails on an npm install.
+            install: "brew install charmbracelet/tap/crush",
+            update:
+                "if brew list crush >/dev/null 2>&1; then brew upgrade crush; "
+                + "else npm install -g @charmland/crush@latest; fi",
+            npm: "@charmland/crush",
             about: "Charm’s open source agent, any model", site: "charm.land"),
         .init(
             id: "droid", name: "Droid", command: "droid", hooks: .settingsFlag("--settings"),

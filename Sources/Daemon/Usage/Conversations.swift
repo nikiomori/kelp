@@ -155,9 +155,14 @@ final class Conversations: Sendable {
             {
                 return URL(fileURLWithPath: argv[flag + 1])
             }
-            return UsageFormat(rawValue: agent).flatMap(\.defaultRoot).flatMap {
-                PiHistory.newest(cwd: session.cwd, since: session.createdAt, root: $0)
+            let root = UsageFormat(rawValue: agent).flatMap(\.defaultRoot)
+            // Pinned (pi's `--session-id`, or `--session <id>` after a wake): that one, not the folder's latest.
+            if let root, let flag = argv.lastIndex(where: { $0 == "--session-id" || $0 == "--session" }),
+                flag + 1 < argv.count, let file = PiHistory.file(id: argv[flag + 1], root: root)
+            {
+                return file
             }
+            return root.flatMap { PiHistory.newest(cwd: session.cwd, since: session.createdAt, root: $0) }
         case nil: return nil
         }
     }

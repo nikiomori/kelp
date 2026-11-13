@@ -134,6 +134,13 @@ final class SessionSetup: Sendable {
                     env[OpenCode2.cliConfig] = OpenCode2.cliConfig(
                         plugin: Hooks.tuiPlugin(in: dir), config: OpenCode2.configDir(env))
                 } else {
+                    if manifest.id == "kilo" {
+                        let config = ProcessInfo.processInfo.environment.merging(env) { $1 }["XDG_CONFIG_HOME"]
+                        try Self.linkKiloInstructions(
+                            into: dir,
+                            config: config.map { URL(fileURLWithPath: $0) }
+                                ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config"))
+                    }
                     env[key] = dir.path
                 }
             case .settingsFile(let key, let base):
@@ -147,6 +154,16 @@ final class SessionSetup: Sendable {
         } catch {
             Log.session.error("\(manifest.id, privacy: .public)'s hooks weren't written, its screen is read: \(error)")
         }
+    }
+
+    /// Kilo looks for the global AGENTS.md only in KILO_CONFIG_DIR once it's set: the person's own (`config`'s
+    /// kilo/AGENTS.md), linked in, or the link gone with it.
+    static func linkKiloInstructions(into dir: URL, config: URL) throws {
+        let fm = FileManager.default
+        let theirs = config.appendingPathComponent("kilo/AGENTS.md"), link = dir.appendingPathComponent("AGENTS.md")
+        var info = stat()
+        if lstat(link.path, &info) == 0, info.st_mode & S_IFMT == S_IFLNK { try fm.removeItem(at: link) }
+        if fm.fileExists(atPath: theirs.path) { try fm.createSymbolicLink(at: link, withDestinationURL: theirs) }
     }
 
     /// Where a session's Claude conversations are: under its profile's config dir when it has one.
@@ -242,6 +259,21 @@ final class SessionSetup: Sendable {
     /// argv that brings back this session's own conversation. A remote one's conversations are on its host: the agent's
     /// own "latest in this folder" finds it there.
     func resumeArgv(_ rec: Session, _ manifest: AgentManifest) -> [String] {
+        // pi and Grok, pinned: resumed by its id once it wrote its conversation; before its first message it has none
+        // (resuming one would stop it at "No session found"), so it starts under the same id. On a host: pi's
+        // `--session-id` resumes one that's there and starts one that isn't.
+        if ["pi", "grok"].contains(rec.agent), let pin = manifest.sessionIdFlag,
+            let index = rec.argv.firstIndex(of: pin), index + 1 < rec.argv.count
+        {
+            let id = rec.argv[index + 1], root = UsageFormat(rawValue: rec.agent ?? "")?.defaultRoot
+            let written =
+                remotes.of(rec.cwd) == nil
+                && root.map {
+                    rec.agent == "pi" ? PiHistory.file(id: id, root: $0) != nil : PiHistory.grokHas(id: id, root: $0)
+                }
+                    == true
+            return written ? manifest.resuming(rec.argv) : rec.argv
+        }
         guard rec.agent == "claude", remotes.of(rec.cwd) == nil, let flag = manifest.resumeIdFlag,
             let pin = manifest.sessionIdFlag
         else { return manifest.resuming(rec.argv) }

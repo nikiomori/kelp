@@ -7,7 +7,7 @@ public enum AgentHome {
     private static let known: [String: (variable: String?, fallback: String, inside: String)] = [
         "claude": ("CLAUDE_CONFIG_DIR", ".claude", ""), "codex": ("CODEX_HOME", ".codex", ""),
         "grok": ("GROK_HOME", ".grok", ""), "kimi": ("KIMI_CODE_HOME", ".kimi-code", ""),
-        "pi": ("PI_CODING_AGENT_DIR", ".pi/agent", ""), "omp": (nil, ".omp/agent", ""),
+        "pi": ("PI_CODING_AGENT_DIR", ".pi/agent", ""), "omp": ("PI_CODING_AGENT_DIR", ".omp/agent", ""),
         "qwen": ("QWEN_HOME", ".qwen", ""), "copilot": ("COPILOT_HOME", ".copilot", ""),
         // GEMINI_CLI_HOME stands in for the home dir, which holds .gemini.
         "gemini": ("GEMINI_CLI_HOME", "", ".gemini"), "antigravity": (nil, "", ".gemini/antigravity-cli")

@@ -25,7 +25,12 @@ public enum AgentDatabases {
                     env["OPENCODE_DB"].map { URL(fileURLWithPath: $0) }
                         ?? data.appendingPathComponent("opencode/opencode.db")
                 ]
-            case "kilo": [data.appendingPathComponent("kilo/kilo.db")]
+            // KILO_DB (a path, or a name in its folder), else kilo.db and a release channel's kilo-<channel>.db.
+            case "kilo":
+                env["KILO_DB"].map { [URL(fileURLWithPath: $0, relativeTo: data.appendingPathComponent("kilo/"))] }
+                    ?? fm.items(in: data.appendingPathComponent("kilo")).filter {
+                        $0.lastPathComponent.hasPrefix("kilo") && $0.pathExtension == "db"
+                    }
             case "antigravity":
                 (AgentHome.dir(agent).flatMap {
                     fm.enumerator(
