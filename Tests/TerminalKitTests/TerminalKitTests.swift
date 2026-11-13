@@ -72,6 +72,20 @@ import Testing
     #expect(TerminalCopy.clean("▎▎▎ 30%\n▎ next") == "▎▎▎ 30%\n  next")   // a progress bar isn't one
 }
 
+/// A whole reply selected from Claude Code's dot: the dot and gutter go, wrapped rows join, the quote keeps its indent.
+@Test func copyLeavesTheAgentsDotBehind() {
+    let rows = [
+        "● Final text:", "", "  ▎ i deleted 180k tokens", "  ▎", "  ▎ kept the ones that show up in",
+        "  ▎ real text", "", "  What changed:", "  - Added «then had the bigger", "    gemma teach it»."
+    ].joined(separator: "\n")
+    let text =
+        "Final text:\n\n  i deleted 180k tokens\n\n  kept the ones that show up in real text\n\n"
+        + "What changed:\n- Added «then had the bigger gemma teach it»."
+    #expect(TerminalCopy.clean(rows, columns: 34) == text)
+    #expect(TerminalCopy.clean("• done") == "done")
+    #expect(TerminalCopy.clean("• a\n• b") == "• a\n• b")   // a list, not a reply
+}
+
 /// A command Claude Code wrapped in its gutter (wrap-ansi, `hard`, `trim: false`, 30 columns in a 32-column terminal),
 /// copied from its first character: one line again.
 let wrappedCommand =

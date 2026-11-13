@@ -68,7 +68,7 @@ public enum TerminalCopy {
             return dedent(lines, by: indent(lines)).joined(separator: "\n")
         }
         // The first line as it sits on screen, so it lines up with the rows under it.
-        lines[0] = String(repeating: " ", count: column) + lines[0]
+        lines[0] = withoutAgentMark(String(repeating: " ", count: column) + lines[0], under: lines.dropFirst())
         // The indent all lines share (Claude Code and Codex draw their text in a gutter, and wrap it themselves).
         let gutter = indent(lines)
         if let columns, gutter > 0 { lines = unwrap(lines, columns: columns) }
@@ -84,6 +84,16 @@ public enum TerminalCopy {
         let own = line.prefix(while: isBlank), rest = line.dropFirst(own.count)
         guard rest.first == "▎", rest.dropFirst().first.map(isBlank) ?? true else { return line }
         return own + " " + rest.dropFirst()
+    }
+
+    /// The dot an agent starts its reply with ("● " Claude Code, "• " Codex) turned into the gutter it sits in, so a
+    /// selection from the dot loses the gutter too. Only when the rows under it are in that gutter: "• a\n• b" is a list.
+    static func withoutAgentMark(_ line: String, under rest: ArraySlice<String>) -> String {
+        let own = line.prefix(while: isBlank), mark = line.dropFirst(own.count)
+        guard let dot = mark.first, "●⏺•".contains(dot), mark.dropFirst().first == " " else { return line }
+        let gutter = own.count + 2
+        guard rest.allSatisfy({ $0.isEmpty || $0.prefix(while: isBlank).count >= gutter }) else { return line }
+        return own + "  " + mark.dropFirst(2)
     }
 
     static func indent(_ lines: [String]) -> Int {
