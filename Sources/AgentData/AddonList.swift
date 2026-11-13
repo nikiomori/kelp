@@ -92,7 +92,51 @@ public enum AddonList {
                     tokens: ClaudeLoaded.tokens(file.chars),
                     path: URL(fileURLWithPath: cwd).appendingPathComponent(file.name).path))
         }
-        return (items, gone)
+        if let memory = memory(cwd: cwd, files: files), !items.contains(where: { $0.id == memory.id }) {
+            items.append(memory)
+        }
+        return (joined(items), gone)
+    }
+
+    /// Claude Code's memory of the project, which a new chat there gets, when no chat's record says so: its index,
+    /// of which Claude Code reads the first 25 000 bytes.
+    static func memory(cwd: String, files: AddonFiles) -> Addon? {
+        let folder = ClaudeHistory.folder(cwd: cwd, root: files.claude.appendingPathComponent("projects"))
+        let index = folder.appendingPathComponent("memory/MEMORY.md")
+        guard let data = FileManager.default.contents(atPath: index.path) else { return nil }
+        let chars = String(decoding: data.prefix(InstructionChecks.memoryBytes), as: UTF8.self).count
+        return Addon(
+            kind: .instructions, name: "MEMORY.md", source: .yours,
+            origin: files.tilde(index.deletingLastPathComponent().path), agents: ["claude"],
+            tokens: ClaudeLoaded.tokens(chars), path: index.path)
+    }
+
+    /// One instruction file listed under two names (CLAUDE.md a link to AGENTS.md) is one row: the file's own name,
+    /// every agent that reads it, and which name links to it.
+    static func joined(_ items: [Addon]) -> [Addon] {
+        var out: [Addon] = [], at: [String: Int] = [:]
+        for item in items {
+            guard item.kind == .instructions, let path = item.path else {
+                out.append(item)
+                continue
+            }
+            let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+            guard let index = at[real] else {
+                at[real] = out.count
+                out.append(item)
+                continue
+            }
+            var kept = out[index], link = item
+            // The file itself stays, under its own name (a path's folders may be links too: /tmp is /private/tmp).
+            if (real as NSString).lastPathComponent == item.name { swap(&kept, &link) }
+            kept.agents = (kept.agents + link.agents.filter { !kept.agents.contains($0) }).sorted {
+                (order.firstIndex(of: $0) ?? order.count) < (order.firstIndex(of: $1) ?? order.count)
+            }
+            kept.about = "\(link.name) links here"
+            kept.tokens = [kept.tokens, link.tokens].compactMap { $0 }.max()
+            out[index] = kept
+        }
+        return out
     }
 
     /// A listed skill: "plugin:name" is a plugin's (Kelp's own are plugins named kelp-…, claude.ai's sit under

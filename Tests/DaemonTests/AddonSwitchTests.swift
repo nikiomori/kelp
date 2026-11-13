@@ -152,3 +152,28 @@ import Testing
     _ = setup.writeProjectSkills(worktreeId: wt.id, cwd: wt.path)
     #expect(listed() == ["kelp-settings"])
 }
+
+/// Tidy Up keeps the files as they were (a memory index: its whole folder), puts the brief beside them, and hands the
+/// agent one line that points at it; addons.list then knows the copy, for Compare with Before Tidy Up.
+@Test func tidyUpKeepsTheFilesAndPointsTheAgentAtItsBrief() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let agents = URL(fileURLWithPath: wt.path).appendingPathComponent("AGENTS.md")
+    try "# Rules\n- run `swift test`\n".write(to: agents, atomically: true, encoding: .utf8)
+    let memory = w.root.appendingPathComponent("claude-memory")
+    try FileManager.default.createDirectory(at: memory, withIntermediateDirectories: true)
+    try "- [A](a.md) — hook\n".write(to: memory.appendingPathComponent("MEMORY.md"), atomically: true, encoding: .utf8)
+    try "a".write(to: memory.appendingPathComponent("a.md"), atomically: true, encoding: .utf8)
+    let index = memory.appendingPathComponent("MEMORY.md").path
+    let prompt = try await w.c.call(AddonsTidy(worktreeId: wt.id, paths: [agents.path, index]))
+    let brief = try #require(prompt.firstMatch(of: /Read (\S+brief\.md)/).map { String($0.1) })
+    #expect(try String(contentsOfFile: brief, encoding: .utf8).contains("Reply like:"))
+    #expect(prompt.contains("Claude Code's memory in \(memory.path)/"))
+    #expect(TidyRuns.before(agents.path, root: w.root)?.hasSuffix("/before" + agents.path) == true)
+    let kept = try #require(TidyRuns.before(index, root: w.root))
+    #expect(FileManager.default.fileExists(atPath: kept + "/a.md"))
+    await #expect(throws: (any Error).self) {
+        _ = try await w.c.call(AddonsTidy(worktreeId: wt.id, paths: [w.root.appendingPathComponent("none.md").path]))
+    }
+}

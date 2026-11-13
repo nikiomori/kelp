@@ -4,95 +4,58 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// Tidy Up with Agent: the instruction files go to an agent in a new chat, with the `tidyInstructions` recipe (a
-/// project's `.kelp.yaml` can change it). The agent checks what they name, then shortens, merges, moves or archives;
-/// by default it reports first and waits for "apply". Kelp writes none of the files itself: the agent does, the one
-/// whose memory it is.
+/// Tidy Up (Needs a Look › Instructions): the project's instruction files, all at once, go to an agent in a chat of its
+/// own. Kelp copies them first and hands the agent the `tidyInstructions` recipe (`addons.tidy`); the agent reports,
+/// and changes them only when the person says apply. Kelp writes none of the files itself.
 @MainActor
 struct TidyUp {
     let app: AppModel, worktreeId: String
-    /// The instruction files listed: the sheet offers each one that has a file.
-    let files: [Addon]
+    /// What the panel lists: the files to tidy are read from it.
+    let items: [Addon]
 
-    /// `picked`: the file the person asked about; nil (the panel's ⋯): every file that needs a look, else all.
-    func ask(picked: String? = nil) async {
-        let files = files.filter { $0.path != nil }
-        guard !files.isEmpty else { return }
-        let looking = files.filter { $0.check?.needsLook == true }
-        let ticked = picked.map { [$0] } ?? (looking.isEmpty ? files : looking).compactMap(\.path)
-        let boxes = files.map { Self.box($0, on: ticked.contains($0.path ?? "")) }
-        let mode = NSSegmentedControl(
-            labels: [String(localized: "Show Me First"), String(localized: "Make Them Now")],
-            trackingMode: .selectOne, target: nil, action: nil)
-        mode.selectedSegment = 0
-        let agents = app.catalog.installed(app.catalog.all).filter { $0.id != "shell" && $0.id != "custom" }
-        let agent = NSPopUpButton()
-        for a in agents { agent.addItem(withTitle: a.name) }
-        agent.selectItem(at: agents.firstIndex { $0.id == app.catalog.defaultAgent } ?? 0)
-        let weekly = NSButton(checkboxWithTitle: String(localized: "Repeat every week"), target: nil, action: nil)
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Tidy Up Instructions")
-        alert.informativeText = String(
-            localized: """
-                An agent checks every path, name and commit these files mention, then shortens, merges, moves or \
-                archives what no longer holds. Memories aren’t deleted: they move to an archive folder agents don’t \
-                load.
-                """)
-        alert.accessoryView = Self.stack(boxes + [mode, agent, weekly])
-        alert.addButton(withTitle: String(localized: "Start"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        guard await runSheet(alert) == .alertFirstButtonReturn, agents.indices.contains(agent.indexOfSelectedItem)
-        else { return }
-        let chosen = zip(files, boxes).filter { $0.1.state == .on }.compactMap(\.0.path)
-        guard !chosen.isEmpty else { return }
-        await start(
-            chosen, apply: mode.selectedSegment == 1, agent: agents[agent.indexOfSelectedItem].id,
-            weekly: weekly.state == .on)
+    static var title: String { String(localized: "Tidy Up") }
+
+    /// The chat tidying up the workspace's files, while it's open: the button goes to it instead of starting another.
+    static func chat(_ app: AppModel, _ worktreeId: String) -> Session? {
+        app.sessions.first {
+            $0.worktreeId == worktreeId && $0.titleManual && $0.title == title && $0.status != .exited
+        }
     }
 
-    private func start(_ paths: [String], apply: Bool, agent: String, weekly: Bool) async {
-        let vars = [
-            "instructionFiles": Self.described(paths), "mode": apply ? "apply" : "report",
-            "backup": Paths.root.appendingPathComponent("tidy").path + "/<today, as YYYY-MM-DD>"
-        ]
-        guard let prompt = await app.call(RecipeRender(id: worktreeId, name: "tidyInstructions", vars: vars)) else {
+    /// The button: to the chat that's tidying up, else a new one with `agent` (nil: the default one).
+    func run(agent: String? = nil) {
+        if agent == nil, let chat = Self.chat(app, worktreeId) {
+            app.workbench.focus(session: chat.id)
             return
         }
-        let title = String(localized: "Tidy Up")
-        if weekly, let repo = app.worktree(worktreeId)?.repoId {
-            _ = await app.call(
-                RoutineSet(routine: Routine(name: title, repoId: repo, agent: agent, prompt: prompt, every: .weekly)))
+        let paths = AddonGroups.tidied(items).compactMap(\.path)
+        guard !paths.isEmpty else { return }
+        let app = app, worktreeId = worktreeId
+        Task {
+            guard let prompt = await app.call(AddonsTidy(worktreeId: worktreeId, paths: paths)) else { return }
+            let create = SessionCreate(
+                worktreeId: worktreeId, agent: agent ?? app.catalog.defaultAgent, prompt: prompt, title: Self.title)
+            guard let session = await app.call(create) else { return }
+            app.upsert(session)
+            app.workbench.open(TabURI.session(session.id))
         }
-        let create = SessionCreate(worktreeId: worktreeId, agent: agent, prompt: prompt, title: title)
-        guard let session = await app.call(create) else { return }
-        app.upsert(session)
-        app.workbench.open(TabURI.session(session.id))
     }
 
-    /// The files as the agent is told them: Claude Code's memory index stands for its whole folder.
-    nonisolated static func described(_ paths: [String]) -> String {
-        paths.map { path in
-            guard (path as NSString).lastPathComponent == "MEMORY.md" else { return path }
-            let folder = (path as NSString).deletingLastPathComponent
-            return "the Claude Code memory in \(folder)/ (MEMORY.md, its index, and the memory files beside it)"
-        }.joined(separator: "; ")
+    /// Tidy Up with: the agents on this Mac, for a run with another than the default one.
+    func agents() -> NSMenu {
+        let menu = NSMenu()
+        for agent in app.catalog.installed(app.catalog.all) where agent.id != "shell" && agent.id != "custom" {
+            menu.add(agent.name) { run(agent: agent.id) }
+        }
+        return menu
     }
 
-    private static func box(_ file: Addon, on: Bool) -> NSButton {
-        let note = file.check.flatMap(AddonGroups.checkNote)?.text
-        let title = [file.name, note].compactMap { $0 }.joined(separator: " — ")
-        let box = NSButton(checkboxWithTitle: title, target: nil, action: nil)
-        box.state = on ? .on : .off
-        box.toolTip = file.path
-        return box
-    }
-
-    private static func stack(_ views: [NSView]) -> NSView {
-        let stack = NSStackView(views: views)
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = Metrics.gapWide
-        stack.frame.size = stack.fittingSize
-        return stack
+    /// Compare with Before Tidy Up: the copy Kelp made against the file now (a memory index: its folders), in a tab.
+    static func compare(_ app: AppModel, _ file: Addon) {
+        guard let before = file.check?.before, let path = file.path else { return }
+        let now = file.name == "MEMORY.md" ? (path as NSString).deletingLastPathComponent : path
+        let command = ["git", "--no-pager", "diff", "--no-index", "--color=always", "--", before, now]
+            .map(ShellQuote.word).joined(separator: " ")
+        app.workbench.starter?.run(command: command, title: String(localized: "Before Tidy Up: \(file.name)"))
     }
 }

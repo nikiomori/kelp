@@ -48,14 +48,11 @@ import Testing
     #expect(!text.lowercased().contains("</untrusted >") && !text.contains("< /untrusted>"))
 }
 
-/// Tidy Up's brief names the files, the mode and where the files go first; git's own braces (`^{commit}`) stay.
+/// Tidy Up's brief names the files and ends with how to answer; git's own braces (`^{commit}`) stay.
 @Test func theTidyBriefIsFilledAndKeepsGitsBraces() {
-    let brief = Recipes.render(
-        "tidyInstructions", config: RepoConfig(),
-        vars: ["instructionFiles": "/p/AGENTS.md", "mode": "report", "backup": "/k/tidy/<today>"])
+    let brief = Recipes.render("tidyInstructions", config: RepoConfig(), vars: ["instructionFiles": "/p/AGENTS.md"])
     #expect(brief.contains("this project: /p/AGENTS.md."))
-    #expect(brief.contains("Mode: report."))
-    #expect(brief.contains("under /k/tidy/<today>"))
+    #expect(brief.contains("Reply like: 1 keep, 2 drop, apply"))
     #expect(brief.contains("^{commit}"))
-    #expect(!brief.contains("{instructionFiles}") && !brief.contains("{mode}") && !brief.contains("{backup}"))
+    #expect(!brief.contains("{instructionFiles}"))
 }

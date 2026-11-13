@@ -94,10 +94,12 @@ public struct InstructionCheck: Codable, Sendable, Equatable {
     public var dead: [String]
     /// A memory index: its lines whose memory file is missing, and memory files no line of it names.
     public var missing: Int, unlisted: Int
+    /// Its copy from before the last Tidy Up (a memory index: its whole folder), while Kelp keeps one.
+    public var before: String?
 
     public init(
         lines: Int, bytes: Int, maxLines: Int? = nil, maxBytes: Int? = nil, cut: Int = 0, dead: [String] = [],
-        missing: Int = 0, unlisted: Int = 0
+        missing: Int = 0, unlisted: Int = 0, before: String? = nil
     ) {
         self.lines = lines
         self.bytes = bytes
@@ -107,6 +109,7 @@ public struct InstructionCheck: Codable, Sendable, Equatable {
         self.dead = dead
         self.missing = missing
         self.unlisted = unlisted
+        self.before = before
     }
 
     /// How full it is against its limit, the fuller measure (1 = at the limit); nil without one.
@@ -267,6 +270,19 @@ public struct AddonsEntry: InternalMethod {
     public init(worktreeId: String, key: String) {
         self.worktreeId = worktreeId
         self.key = key
+    }
+}
+
+/// Tidy Up: copies the instruction files at `paths` (a memory index: its whole folder) into Kelp's home, puts the
+/// `tidyInstructions` recipe beside them, and answers the one-line prompt that sends an agent to it. Kelp writes none
+/// of the files themselves: the agent does, and reports before it changes anything.
+public struct AddonsTidy: InternalMethod {
+    public static let name = "addons.tidy"
+    public typealias Result = String
+    public var worktreeId: String, paths: [String]
+    public init(worktreeId: String, paths: [String]) {
+        self.worktreeId = worktreeId
+        self.paths = paths
     }
 }
 

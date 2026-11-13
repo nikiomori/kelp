@@ -97,7 +97,11 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     override func viewDidLoad() {
         super.viewDidLoad()
         track(owner: self) { [weak self] in
-            [self?.app.workbench.workspaceId, self?.chat?.id]
+            // A Tidy Up chat starting or ending turns its button into Show Chat and back.
+            [
+                self?.app.workbench.workspaceId, self?.chat?.id,
+                self.flatMap { TidyUp.chat($0.app, $0.app.workbench.workspaceId ?? "")?.id }
+            ]
         } changed: { [weak self] _ in
             self?.reload()
         }
@@ -245,14 +249,13 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         switch lines[row] {
         case .item, .problem: true
-        case .section, .group, .unsigned: false
+        case .section, .group, .unsigned, .instructions: false
         }
     }
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         switch lines[row] {
         case .section: TextSize.of(Metrics.rowSection)
-        case .problem, .unsigned: TextSize.of(Metrics.rowTwoLine)
-        case .item(let addon, _) where addon.check?.needsLook == true: TextSize.of(Metrics.rowTwoLine)
+        case .problem, .unsigned, .instructions: TextSize.of(Metrics.rowTwoLine)
         case .group, .item: TextSize.of(Metrics.row)
         }
     }
@@ -261,6 +264,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         rows.onOpen = { [weak self] path in self?.open(path) }
         rows.onOff = { [weak self] keys in self?.flip(keys, on: false) }
         let items = addons?.items ?? []
+        let workspace = app.workbench.workspaceId ?? ""
+        rows.onTidy = { [app] in TidyUp(app: app, worktreeId: workspace, items: items).run() }
         return switch lines[row] {
         case .section(let section, let count): rows.section(section, count: count)
         case .group(let g, let count, let tokens, let open):
@@ -269,6 +274,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         case .item(let addon, let depth): rows.item(addon, depth: depth, width: tableView.bounds.width)
         case .problem(let addon): rows.problem(addon)
         case .unsigned(let servers): rows.unsigned(servers)
+        case .instructions(let files): rows.instructions(files, tidying: TidyUp.chat(app, workspace) != nil)
         }
     }
 }

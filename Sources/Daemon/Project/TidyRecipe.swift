@@ -1,7 +1,7 @@
 extension Recipes {
-    /// Tidy Up with Agent (Skills & MCP › Instructions): `{instructionFiles}` the files to tidy, `{mode}` "report"
-    /// or "apply", `{backup}` where the files go before the first change. The verbs, and what is never the agent's
-    /// to drop, are the point; tried on Kelp's own memory before it shipped.
+    /// Tidy Up (Skills & MCP › Needs a Look): `{instructionFiles}` the files to tidy. Kelp has copied them before the
+    /// agent starts (`addons.tidy`). The verbs, and what is never the agent's to drop, are the point; tried on Kelp's
+    /// own memory before it shipped.
     static let tidyInstructions = #"""
         You are tidying the files agents read before every chat in this project: {instructionFiles}.
         They grew over months of work. Some lines are stale (point at files, flags or commits that are gone,
@@ -9,9 +9,9 @@ extension Recipes {
         in a file read on demand. Every line here is paid for in every request and dilutes the lines that matter.
         Goal: the same knowledge, fewer lines, nothing the person still needs lost.
 
-        Mode: {mode}. report: change no file and write none, not even a scratch list (keep listings in pipes);
-        find, sort and report, and make the changes only when the person says apply. apply: make the changes, then
-        report what you did.
+        First report and change nothing: write no file, not even a scratch list (keep listings in pipes). Make the
+        changes only after the person answers and says apply. Kelp has copied the files as they are now, so the
+        person can compare afterwards: you needn't copy them.
 
         ## How to work
 
@@ -54,12 +54,12 @@ extension Recipes {
            - anything with a reason you can't check (a decision, a constraint from outside the repository)
            - secrets policy, safety rules, release steps
            Those go to ask if they look stale.
-        6. Write. Before your first change, copy each file you'll change, keeping its folder, under {backup}: the
-           person compares against it. One index line per memory, under ~150 characters, the hook only (the detail
-           lives in the file). Dates absolute. Commit hashes, canvas ids and "built in …" lists leave the index: git
-           and the memory file have them. Aim for each file at 60 % of its limit at most, so it doesn't overflow
-           again next week (MEMORY.md: 120 lines and 15 000 bytes; CLAUDE.md and AGENTS.md: 120 lines). A memory
-           file over ~20 KB is read whole whenever it's opened: cut it to what still holds, the rest to archive.
+        6. Write, once the person says apply. One index line per memory, under ~150 characters, the hook only
+           (the detail lives in the file). Dates absolute. Commit hashes, canvas ids and "built in …" lists leave
+           the index: git and the memory file have them. Aim for each file at 60 % of its limit at most, so it
+           doesn't overflow again next week (MEMORY.md: 120 lines and 15 000 bytes; CLAUDE.md and AGENTS.md:
+           120 lines). A memory file over ~20 KB is read whole whenever it's opened: cut it to what still holds,
+           the rest to archive.
            Other sessions write these files while you work: read a file again right before you change it, change
            lines, never write the whole file back from an old copy. Touch nothing but the files named above.
 
@@ -74,7 +74,9 @@ extension Recipes {
           asks      N
         ```
 
-        Then the questions, numbered, each answered with keep / drop / a word. Having changed nothing yet, end
-        with: "Say apply to make these changes."
+        Then the questions, numbered, each answered with keep / drop / a word. End with these two lines, the first
+        with your own numbers:
+        Reply like: 1 keep, 2 drop, apply
+        Nothing changes until you say apply.
         """#
 }

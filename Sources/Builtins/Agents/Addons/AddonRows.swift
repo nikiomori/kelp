@@ -14,6 +14,8 @@ struct AddonRows {
     var onOpen: (String) -> Void = { _ in }
     /// Off Here: the keys to switch off for the project.
     var onOff: ([String]) -> Void = { _ in }
+    /// Tidy Up, or Show Chat while one tidies up.
+    var onTidy: () -> Void = {}
     private static let most = 3
 
     func section(_ section: AddonLine.Section, count: Int) -> NSView {
@@ -82,27 +84,7 @@ struct AddonRows {
         }
         let tip = AddonGroups.tip(addon) { app.catalog.name($0) }
         row.toolTip = tip.isEmpty ? addon.name : addon.name + "\n" + tip
-        guard let note = addon.check.flatMap(AddonGroups.checkNote) else { return row }
-        return noted(row, note, from: inset + mark.fittingSize.width + Metrics.gap)
-    }
-
-    /// An instruction file that needs a look: its row over what's wrong, the whole width under its name, in the
-    /// warning colour when agents lose lines.
-    private func noted(_ row: AddonCell, _ note: (text: String, warn: Bool), from indent: CGFloat) -> AddonCell {
-        let detail = NSTextField.label(
-            note.text, font: .ui(TextSize.caption), color: note.warn ? .textOrange : .secondaryLabelColor)
-        detail.lineBreakMode = .byTruncatingTail
-        detail.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let under = NSStackView(views: [detail])
-        under.edgeInsets = NSEdgeInsets(top: 0, left: indent, bottom: 0, right: Metrics.inset)
-        let both = AddonCell(views: [row, under])
-        both.orientation = .vertical
-        both.alignment = .leading
-        both.spacing = Metrics.lineGap
-        for part in [row, under] { part.widthAnchor.constraint(equalTo: both.widthAnchor).isActive = true }
-        both.hovered = row.hovered
-        both.toolTip = row.toolTip
-        return both
+        return row
     }
 
     /// The switch and the chat disagree until it restarts: a mark that fits the narrowest panel, its words in the tip.
@@ -125,8 +107,7 @@ struct AddonRows {
     /// Needs a Look: the name over what's wrong, in red, and a button that switches it off here.
     func problem(_ addon: Addon) -> NSView {
         let off = addon.key.flatMap { addon.off ? nil : [$0] } ?? []
-        let row = twoLines(
-            addon.name, addon.problem ?? "", color: .textRed, offHere: off, mark: .textRed)
+        let row = twoLines(addon.name, addon.problem ?? "", color: .textRed, button: offHere(off), mark: .textRed)
         row.toolTip = [addon.problem, AddonGroups.tip(addon)].compactMap { $0 }.joined(separator: "\n")
         return row
     }
@@ -135,13 +116,41 @@ struct AddonRows {
     func unsigned(_ servers: [Addon]) -> NSView {
         let text = AddonGroups.unsignedText(servers)
         let row = twoLines(
-            text.title, text.detail, color: .secondaryLabelColor, offHere: servers.compactMap(\.key), mark: .textOrange)
+            text.title, text.detail, color: .secondaryLabelColor, button: offHere(servers.compactMap(\.key)),
+            mark: .textOrange)
         row.toolTip = servers.map(\.name).joined(separator: ", ")
         return row
     }
 
+    /// Needs a Look: the project's instruction files, the worst of what's wrong with them, and Tidy Up (Show Chat
+    /// while a chat tidies them up).
+    func instructions(_ files: [Addon], tidying: Bool) -> NSView {
+        let text = AddonGroups.instructionsText(files)
+        let button = TextButton(tidying ? String(localized: "Show Chat") : TidyUp.title) { onTidy() }
+        button.toolTip =
+            tidying
+            ? String(localized: "A chat is tidying them up") : String(localized: "An agent checks them, then reports")
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let row = twoLines(
+            text.title, tidying ? String(localized: "Tidying up in a chat") : text.detail,
+            color: text.warn && !tidying ? .textOrange : .secondaryLabelColor, button: button, mark: .textOrange)
+        row.toolTip = files.map { file in
+            ([file.name] + (file.check.map { AddonGroups.findings($0, name: file.name) } ?? [])).joined(separator: "\n")
+        }.joined(separator: "\n\n")
+        return row
+    }
+
+    /// Off Here: switches the keys off for the project; nil when there's nothing to switch.
+    private func offHere(_ keys: [String]) -> TextButton? {
+        guard !keys.isEmpty else { return nil }
+        let button = TextButton(String(localized: "Off Here")) { onOff(keys) }
+        button.toolTip = String(localized: "Off in this project: new chats here don’t get it")
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return button
+    }
+
     private func twoLines(
-        _ title: String, _ detail: String, color: NSColor, offHere keys: [String], mark: NSColor
+        _ title: String, _ detail: String, color: NSColor, button: TextButton?, mark: NSColor
     ) -> AddonCell {
         let warning = NSImageView(image: .symbol("exclamationmark.triangle", String(localized: "Needs a look")))
         warning.symbolConfiguration = .chrome(Metrics.iconSmall)
@@ -154,14 +163,7 @@ struct AddonRows {
         words.alignment = .leading
         words.spacing = Metrics.lineGap
         words.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        var views: [NSView] = [warning, words, NSView()]
-        if !keys.isEmpty {
-            let button = TextButton(String(localized: "Off Here")) { onOff(keys) }
-            button.toolTip = String(localized: "Off in this project: new chats here don’t get it")
-            button.setContentCompressionResistancePriority(.required, for: .horizontal)
-            views.append(button)
-        }
-        return line(views, inset: Metrics.inset)
+        return line([warning, words, NSView()] + [button].compactMap { $0 }, inset: Metrics.inset)
     }
 
     /// The agents that get it, as their icons; nil when the list doesn't say.

@@ -51,12 +51,9 @@ extension AddonsPanel {
             }
         }
         menu.add(String(localized: "Open Skills Folder"), submenu: folders)
-        if let wid = app.workbench.workspaceId, let files = addons?.items.filter({ $0.kind == .instructions }),
-            !files.isEmpty
-        {
-            menu.add(String(localized: "Tidy Up Instructions…")) { [app] in
-                Task { await TidyUp(app: app, worktreeId: wid, files: files).ask() }
-            }
+        if let wid = app.workbench.workspaceId, let items = addons?.items, !AddonGroups.tidied(items).isEmpty {
+            menu.add(
+                String(localized: "Tidy Up with"), submenu: TidyUp(app: app, worktreeId: wid, items: items).agents())
         }
         if shownChat != nil { menu.add(String(localized: "Restart This Chat")) { [weak self] in self?.restart() } }
         menu.add(String(localized: "Refresh")) { [weak self] in self?.reload() }

@@ -41,7 +41,9 @@ extension AddonsList: Handled {
         }
         // What each instruction file says against what's on disk: read every time, the files change under the chats.
         for index in all.indices where all[index].kind == .instructions {
-            all[index].check = all[index].path.flatMap { InstructionChecks.check($0, cwd: chat?.cwd ?? worktree.path) }
+            guard let path = all[index].path else { continue }
+            all[index].check = InstructionChecks.check(path, cwd: chat?.cwd ?? worktree.path)
+            all[index].check?.before = TidyRuns.before(path, root: sessions.root)
         }
         return Addons(items: all, chat: loaded != nil, gone: gone)
     }
@@ -161,6 +163,6 @@ extension AddonsInstall: Handled {
 extension Methods {
     static let addonMethods: [any Answered.Type] = [
         AddonsList.self, AddonsSet.self, AddonsAdd.self, AddonsRemove.self, AddonsEntry.self, AddonsTrash.self,
-        AddonsLink.self, AddonsInstall.self
+        AddonsLink.self, AddonsInstall.self, AddonsTidy.self
     ]
 }

@@ -24,6 +24,10 @@ struct AddonMenu {
         case .group(let g, _, _, _):
             if let plugin = g.plugin { self.plugin(menu, plugin, key: g.key, off: AddonGroups.isOff(g, items)) }
         case .unsigned(let servers): offAll(menu, servers)
+        case .instructions:
+            menu.add(
+                String(localized: "Tidy Up with"),
+                submenu: TidyUp(app: app, worktreeId: worktreeId, items: items).agents())
         case .section: break
         }
         if menu.items.last?.isSeparatorItem == true { menu.removeItem(at: menu.numberOfItems - 1) }
@@ -33,10 +37,9 @@ struct AddonMenu {
         switch addon.kind {
         case .instructions:
             locate(menu, addon.path, open: String(localized: "Open"), folder: false)
-            separate(menu)
-            menu.add(String(localized: "Tidy Up with Agent…")) {
-                let tidy = TidyUp(app: app, worktreeId: worktreeId, files: items.filter { $0.kind == .instructions })
-                Task { await tidy.ask(picked: addon.path) }
+            if addon.check?.before != nil {
+                separate(menu)
+                menu.add(String(localized: "Compare with Before Tidy Up")) { TidyUp.compare(app, addon) }
             }
         case .server: server(menu, addon)
         case .skill where addon.source == .plugin:

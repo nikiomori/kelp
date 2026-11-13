@@ -22291,46 +22291,6 @@
         }
       }
     },
-    "%lld lines not loaded": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не загружено строк: %lld"
-          }
-        }
-      }
-    },
-    "%lld dead links": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Мёртвых ссылок: %lld"
-          }
-        }
-      }
-    },
-    "%lld index lines without a file": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Строк индекса без файла: %lld"
-          }
-        }
-      }
-    },
-    "%lld memories not in the index": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Записей памяти вне индекса: %lld"
-          }
-        }
-      }
-    },
     "%@ of %@": {
       "localizations": {
         "ru": {
@@ -22381,122 +22341,12 @@
         }
       }
     },
-    "Tidy Up with Agent…": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Навести порядок с агентом…"
-          }
-        }
-      }
-    },
-    "Tidy Up Instructions…": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Навести порядок в инструкциях…"
-          }
-        }
-      }
-    },
-    "Tidy Up Instructions": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Порядок в инструкциях"
-          }
-        }
-      }
-    },
     "Tidy Up": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Порядок"
-          }
-        }
-      }
-    },
-    "Show Me First": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сначала показать"
-          }
-        }
-      }
-    },
-    "Make Them Now": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сразу менять"
-          }
-        }
-      }
-    },
-    "Repeat every week": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Повторять каждую неделю"
-          }
-        }
-      }
-    },
-    "An agent checks every path, name and commit these files mention, then shortens, merges, moves or archives what no longer holds. Memories aren’t deleted: they move to an archive folder agents don’t load.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Агент проверит каждый путь, имя и коммит из этих файлов, затем сократит, сольёт, перенесёт или уберёт в архив то, что больше не верно. Память не удаляется: она уходит в папку архива, которую агенты не загружают."
-          }
-        }
-      }
-    },
-    "1 line not loaded": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не загружена 1 строка"
-          }
-        }
-      }
-    },
-    "1 dead link": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Мёртвая ссылка: 1"
-          }
-        }
-      }
-    },
-    "1 index line without a file": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Строка индекса без файла: 1"
-          }
-        }
-      }
-    },
-    "1 memory not in the index": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Запись памяти вне индекса: 1"
           }
         }
       }
@@ -22777,6 +22627,166 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ не предложил коммитов"
+          }
+        }
+      }
+    },
+    "%@ doesn’t read its last line": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не читает последнюю строку"
+          }
+        }
+      }
+    },
+    "%@ doesn’t read its last %lld lines": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ не читает последние строки: %2$lld"
+          }
+        }
+      }
+    },
+    "Almost full": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Почти заполнен"
+          }
+        }
+      }
+    },
+    "Mentions a file that’s gone": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Упоминает удалённый файл"
+          }
+        }
+      }
+    },
+    "Mentions %lld files that are gone": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Упоминает удалённые файлы: %lld"
+          }
+        }
+      }
+    },
+    "A memory in its list is missing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Одной записи из списка нет"
+          }
+        }
+      }
+    },
+    "%lld memories in its list are missing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записей из списка нет: %lld"
+          }
+        }
+      }
+    },
+    "A memory Claude never sees": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Одну запись Claude не видит"
+          }
+        }
+      }
+    },
+    "%lld memories Claude never sees": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записей, которых Claude не видит: %lld"
+          }
+        }
+      }
+    },
+    "Show Chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать чат"
+          }
+        }
+      }
+    },
+    "A chat is tidying them up": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чат наводит в них порядок"
+          }
+        }
+      }
+    },
+    "An agent checks them, then reports": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент проверит их и пришлёт отчёт"
+          }
+        }
+      }
+    },
+    "Tidying up in a chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наводит порядок в чате"
+          }
+        }
+      }
+    },
+    "Tidy Up with": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Навести порядок с"
+          }
+        }
+      }
+    },
+    "Compare with Before Tidy Up": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сравнить с тем, что было до порядка"
+          }
+        }
+      }
+    },
+    "Before Tidy Up: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "До порядка: %@"
           }
         }
       }

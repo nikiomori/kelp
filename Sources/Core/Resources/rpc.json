@@ -2660,6 +2660,10 @@
       "InstructionCheck" : {
         "description" : "How an instruction file holds up. Agents read it before every chat: what's stale there is paid for in every request, and what's past their limit they never see.",
         "properties" : {
+          "before" : {
+            "description" : "Its copy from before the last Tidy Up (a memory index: its whole folder), while Kelp keeps one.",
+            "type" : "string"
+          },
           "bytes" : {
             "type" : "integer"
           },
@@ -5766,6 +5770,37 @@
         "name" : "result",
         "schema" : {
           "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Tidy Up: copies the instruction files at `paths` (a memory index: its whole folder) into Kelp's home, puts the `tidyInstructions` recipe beside them, and answers the one-line prompt that sends an agent to it. Kelp writes none of the files themselves: the agent does, and reports before it changes anything.",
+      "name" : "addons.tidy",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "paths",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "string"
         }
       },
       "x-internal" : true

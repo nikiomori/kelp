@@ -49,6 +49,8 @@ enum AddonLine: Equatable {
     case problem(Addon)
     /// In Needs a Look: the servers that wait for a sign-in and are on, as one line.
     case unsigned([Addon])
+    /// In Needs a Look: the project's instruction files that need a look, as one line with Tidy Up.
+    case instructions([Addon])
 }
 
 /// What the panel lists, in its order, without AppKit: what needs a look, the servers (the person's and the
@@ -114,7 +116,10 @@ private struct Lister {
     func needsLook() -> [AddonLine] {
         // What's off for the project is dealt with: it stays in its own section, grey, and leaves this one.
         let problems = items.filter { $0.problem != nil && !$0.off }, unsigned = AddonGroups.unsigned(items)
-        let lines = problems.map(AddonLine.problem) + (unsigned.isEmpty ? [] : [.unsigned(unsigned)])
+        let tidy = AddonGroups.tidied(items).filter { $0.check?.needsLook == true }
+        let lines =
+            problems.map(AddonLine.problem) + (unsigned.isEmpty ? [] : [.unsigned(unsigned)])
+            + (tidy.isEmpty ? [] : [.instructions(tidy)])
         return lines.isEmpty ? [] : [.section(.needsLook, count: lines.count)] + lines
     }
 

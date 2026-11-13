@@ -47,3 +47,20 @@ private func put(_ text: String, _ url: URL) throws {
     #expect(!check.needsLook)
     #expect(InstructionChecks.check(root.appendingPathComponent("none.md").path, cwd: root.path) == nil)
 }
+
+@Test func claudesMemoryIsListedWithoutAChatAndALinkedFileIsOneRow() throws {
+    let root = tmp(), project = root.appendingPathComponent("work"), claude = root.appendingPathComponent(".claude")
+    try put("# Rules\n", project.appendingPathComponent("AGENTS.md"))
+    try FileManager.default.createSymbolicLink(
+        at: project.appendingPathComponent("CLAUDE.md"), withDestinationURL: project.appendingPathComponent("AGENTS.md")
+    )
+    let memory = ClaudeHistory.folder(cwd: project.path, root: claude.appendingPathComponent("projects"))
+    try put("- [A](a.md) — hook\n", memory.appendingPathComponent("memory/MEMORY.md"))
+    let files = AddonFiles(home: root, claude: claude)
+    let items = AddonList.build(loaded: nil, files: files, cwd: project.path, kelp: [])
+        .filter { $0.kind == .instructions }
+    #expect(items.map(\.name).sorted() == ["AGENTS.md", "MEMORY.md"])
+    let agents = try #require(items.first { $0.name == "AGENTS.md" })
+    #expect(agents.about == "CLAUDE.md links here")
+    #expect(agents.agents.prefix(2) == ["claude", "codex"])
+}

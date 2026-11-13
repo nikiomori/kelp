@@ -193,16 +193,24 @@ private func pluginSkill(_ plugin: String, _ name: String, tokens: Int? = nil) -
     #expect(!lines.contains(.problem(broken)) && !lines.contains { $0 == .section(.needsLook, count: 1) })
 }
 
-@Test func instructionNoteSaysWhatAgentsLoseFirst() {
-    let memory = InstructionCheck(
-        lines: 131, bytes: 27_818, maxLines: 200, maxBytes: 25_000, cut: 15, dead: ["a/b.swift", "c/d.md"])
-    #expect(AddonGroups.checkNote(memory)?.text == "15 lines not loaded · 2 dead links")
-    #expect(AddonGroups.checkNote(memory)?.warn == true)
-    let near = InstructionCheck(lines: 170, bytes: 9_000, maxLines: 200)
-    #expect(AddonGroups.checkNote(near)?.text == "170 of 200 lines")
-    let stale = InstructionCheck(lines: 40, bytes: 2_000, maxLines: 200, dead: ["x/y.swift"])
-    #expect(AddonGroups.checkNote(stale)?.text == "1 dead link")
-    #expect(AddonGroups.checkNote(stale)?.warn == false)
-    #expect(AddonGroups.checkNote(InstructionCheck(lines: 40, bytes: 2_000, maxLines: 200)) == nil)
-    #expect(TidyUp.described(["/m/MEMORY.md", "/p/AGENTS.md"]).hasSuffix("beside it); /p/AGENTS.md"))
+@Test func instructionsNeedingALookAreOneLineWithTheWorstFirst() {
+    let memory = Addon(
+        kind: .instructions, name: "MEMORY.md", source: .yours, path: "/m/MEMORY.md",
+        check: InstructionCheck(
+            lines: 131, bytes: 27_818, maxLines: 200, maxBytes: 25_000, cut: 15, dead: ["a/b.swift"]))
+    let agents = Addon(
+        kind: .instructions, name: "AGENTS.md", source: .project, path: "/p/AGENTS.md",
+        check: InstructionCheck(lines: 40, bytes: 2_000, maxLines: 200, dead: ["x/y.swift"]))
+    let global = Addon(
+        kind: .instructions, name: "CLAUDE.md", source: .yours, path: "/h/.claude/CLAUDE.md",
+        check: InstructionCheck(lines: 400, bytes: 9_000, maxLines: 200))
+    #expect(AddonGroups.tidied([memory, agents, global]).map(\.name) == ["MEMORY.md", "AGENTS.md"])
+    let lines = AddonGroups.lines([agents, memory, global], toggled: [])
+    #expect(lines.prefix(2) == [.section(.needsLook, count: 1), .instructions([agents, memory])])
+    let text = AddonGroups.instructionsText([agents, memory])
+    #expect(text.title == "MEMORY.md, AGENTS.md")
+    #expect(text.detail == "Claude doesn’t read its last 15 lines · 2 more")
+    #expect(text.warn)
+    #expect(AddonGroups.findings(agents.check!, name: "AGENTS.md") == ["Mentions a file that’s gone"])
+    #expect(!AddonGroups.instructionsText([agents]).warn)
 }

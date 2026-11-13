@@ -69,29 +69,6 @@ extension AddonGroups {
         return (title, String(localized: "Idle, \(shortTokens(tokens)) tokens each chat"))
     }
 
-    /// An instruction file's second line when it needs a look: lines its agents never read or how near it is to their
-    /// limit (`warn`: then it's in the warning colour), what it names that's gone, a memory index out of step.
-    static func checkNote(_ check: InstructionCheck) -> (text: String, warn: Bool)? {
-        guard check.needsLook else { return nil }
-        let full = (check.share ?? 0) >= InstructionCheck.near
-        var parts: [String] = []
-        if check.cut == 1 {
-            parts.append(String(localized: "1 line not loaded"))
-        } else if check.cut > 1 {
-            parts.append(String(localized: "\(check.cut) lines not loaded"))
-        } else if full, let size = size(check) {
-            parts.append(size)
-        }
-        let dead = check.dead.count
-        if dead == 1 { parts.append(String(localized: "1 dead link")) }
-        if dead > 1 { parts.append(String(localized: "\(dead) dead links")) }
-        if check.missing == 1 { parts.append(String(localized: "1 index line without a file")) }
-        if check.missing > 1 { parts.append(String(localized: "\(check.missing) index lines without a file")) }
-        if check.unlisted == 1 { parts.append(String(localized: "1 memory not in the index")) }
-        if check.unlisted > 1 { parts.append(String(localized: "\(check.unlisted) memories not in the index")) }
-        return (parts.joined(separator: " · "), check.cut > 0 || full)
-    }
-
     /// Its size against the fuller of its limits: "230 of 200 lines", "27.8 KB of 25 KB".
     static func size(_ check: InstructionCheck) -> String? {
         let byLines = check.maxLines.map { Double(check.lines) / Double($0) } ?? 0
@@ -106,6 +83,7 @@ extension AddonGroups {
     static func tip(_ addon: Addon, names: (String) -> String = { $0 }) -> String {
         var lines = [addon.about, addon.origin] + addon.copies.map { String(localized: "Also in \($0)") }
         if let check = addon.check {
+            lines += findings(check, name: addon.name)
             lines.append(size(check) ?? String(localized: "\(check.lines) lines"))
             if let first = check.dead.first {
                 let more = check.dead.count - 1
