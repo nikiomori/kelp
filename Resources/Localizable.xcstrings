@@ -23628,6 +23628,156 @@
           }
         }
       }
+    },
+    "%@ didn't start": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не запустилась"
+          }
+        }
+      }
+    },
+    "Didn't start": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не запустилась"
+          }
+        }
+      }
+    },
+    "%@ of the Mac's (%@ given)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ памяти Mac (выделено %2$@)"
+          }
+        }
+      }
+    },
+    "%@ in use": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ занято"
+          }
+        }
+      }
+    },
+    "A disk can't be made smaller again. It takes room on this Mac only as it fills.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Диск потом нельзя уменьшить. Место на этом Mac он занимает только по мере заполнения."
+          }
+        }
+      }
+    },
+    "Grow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Увеличить"
+          }
+        }
+      }
+    },
+    "Grow %@'s disk to %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Увеличить диск %1$@ до %2$@?"
+          }
+        }
+      }
+    },
+    "New machine": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая машина"
+          }
+        }
+      }
+    },
+    "Run Terminals In": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Терминалы запускать в"
+          }
+        }
+      }
+    },
+    "Show Log": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать журнал"
+          }
+        }
+      }
+    },
+    "Stop Making": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить создание"
+          }
+        }
+      }
+    },
+    "Stop Making…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить создание…"
+          }
+        }
+      }
+    },
+    "Stop making “%@”?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить создание «%@»?"
+          }
+        }
+      }
+    },
+    "What it downloaded and made so far is deleted.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё, что успело скачаться и создаться, будет удалено."
+          }
+        }
+      }
+    },
+    "↩ makes it · ⎋ closes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↩ создаёт · ⎋ закрывает"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

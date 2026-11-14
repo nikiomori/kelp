@@ -319,7 +319,7 @@ struct MachineView: View {
                 row(
                     String(localized: "Memory"),
                     Stepper(
-                        "\(machine.memoryMiB >> 10) GB",
+                        bytes(machine.memoryMiB << 20),
                         value: Binding(get: { machine.memoryMiB >> 10 }, set: { resize(memory: $0) }),
                         in: machine.kind.memoryRange()))
             } else {
