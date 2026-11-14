@@ -37,6 +37,20 @@ import os
         #expect(!kept.isEmpty)
     }
 
+    /// One deleted while it's being made (Stop Making) is gone for good, not to the Trash: half a machine is nobody's
+    /// work. Its making then sees it gone at its next step, and its download stops there.
+    @Test func oneStoppedWhileMadeIsGoneAndItsStepsSaySo() throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        try folder(["creating": String(decoding: VMMaking(step: .downloading).data, as: UTF8.self), "disk.img": "half"])
+        #expect(vms.step(m, .downloading, progress: 0.5))
+        _ = try vms.control("deb", .delete)
+        #expect(!FileManager.default.fileExists(atPath: home.appendingPathComponent("vms/deb").path))
+        #expect(!vms.step(m, .downloading, progress: 0.6))
+        let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
+        let kept = try FileManager.default.subpathsOfDirectory(atPath: trash).filter { $0.hasSuffix("deb/disk.img") }
+        #expect(!kept.contains { FileManager.default.contents(atPath: trash + "/" + $0) == Data("half".utf8) })
+    }
+
     /// One machine alone wakes at any size it may be given (up to half the Mac's): the quarter is for them together.
     @Test func aMachineAloneWakesWhateverItsSize() throws {
         let half = Int(ProcessInfo.processInfo.physicalMemory >> 20) / 2

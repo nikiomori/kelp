@@ -91,6 +91,7 @@ struct MachineView: View {
                 VStack(spacing: Metrics.gapWide) {
                     LoadingLine(Machines.stepText(info))
                     if let progress = info.progress { ProgressView(value: progress).frame(width: 240) }
+                    Button(String(localized: "Stop Making…")) { Machines.deleteMachine(app, info) }
                 }
                 .offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
             case .error: failed(info)

@@ -143,7 +143,11 @@ struct VMService: Sendable {
         let machine = [.stop, .delete].contains(action) ? try self.machine(name) : try ready(name)
         switch action {
         case .delete:
-            try discard(name, trash: true)
+            // Stopped while it's made: what makes it ended first (its download stops at its next step). Only a made
+            // one's disk is the user's work, for the Trash.
+            let made = making(name) == nil && failure(name) == nil
+            if !made { endLeftovers(name) }
+            try discard(name, trash: made)
             var gone = VMInfo(machine: machine, state: .off)
             gone.detail = String(localized: "Deleted")
             return gone

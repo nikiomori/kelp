@@ -129,10 +129,10 @@ struct MachinesView: View {
             v.state == .creating || v.notMade == true)
         Divider()
         MachineControls(app: app, info: v)
-        if v.state != .creating {
-            Divider()
-            Button(String(localized: "Delete…"), role: .destructive) { Machines.deleteMachine(app, v) }
-        }
+        Divider()
+        Button(
+            v.state == .creating ? String(localized: "Stop Making…") : String(localized: "Delete…"), role: .destructive
+        ) { Machines.deleteMachine(app, v) }
     }
 }
 

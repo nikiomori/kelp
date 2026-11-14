@@ -79,12 +79,19 @@ extension VMService {
         return info(machine)
     }
 
-    func step(_ machine: VMMachine, _ step: VMStep, _ detail: String? = nil, progress: Double? = nil) {
+    /// Notes how far making it got; false once it's been deleted midway (Stop Making), for a download to stop at.
+    @discardableResult
+    func step(_ machine: VMMachine, _ step: VMStep, _ detail: String? = nil, progress: Double? = nil) -> Bool {
+        guard !deleted(machine.name) else { return false }
         let at = VMMaking(step: step, progress: progress, detail: detail)
         Log.vm.attempt("noting \(machine.name)'s progress") {
             try at.data.write(to: folder(machine.name).creating, options: .atomic)
         }
+        return true
     }
+
+    /// Its folder gone while it was being made: the user stopped making it.
+    func deleted(_ name: String) -> Bool { !FileManager.default.fileExists(atPath: folder(name).machine.path) }
 
     func make(_ machine: VMMachine, _ image: VMImage, raw given: URL? = nil) async {
         await making(machine) {
@@ -115,6 +122,11 @@ extension VMService {
     /// `failed`.
     func making(_ machine: VMMachine, _ steps: () async throws -> Void) async {
         do { try await steps() } catch {
+            if deleted(machine.name) {   // stopped by the user: its programs ended, its folder gone with its disk
+                Log.vm.info("making \(machine.name) stopped: it was deleted")
+                Keychain.delete("vm." + machine.name)   // a macOS one's password, if it was set after the delete
+                return
+            }
             Log.vm.error("making \(machine.name): \(error)")
             // A machine half made holds memory for nothing: shut down as the guest would (a power cut loses what was just
             // written into it, Kelp Guest's app included), then its kelp-vm gone.
@@ -141,7 +153,7 @@ extension VMService {
     }
 
     /// The image's raw disk, downloaded and checked the first time.
-    private func image(_ image: VMImage, progress: @escaping @Sendable (VMStep, Double?) -> Void) async throws -> URL {
+    private func image(_ image: VMImage, progress: @escaping @Sendable (VMStep, Double?) -> Bool) async throws -> URL {
         let raw = images.appendingPathComponent(image.id + ".raw")
         if FileManager.default.fileExists(atPath: raw.path) { return raw }
         try Paths.ensure(images)
@@ -162,11 +174,11 @@ extension VMService {
             try await download(image.url, to: archive) { progress(.downloading, $0) }
         }
         defer { remove(archive) }
-        progress(.checking, nil)
+        _ = progress(.checking, nil)
         guard try await blocking({ try Self.sha512(archive) }) == want else {
             throw RPCError.internalError("\(name) doesn't match its published checksum: not used")
         }
-        progress(.unpacking, nil)
+        _ = progress(.unpacking, nil)
         let dir = images.appendingPathComponent(".unpack-\(image.id)-\(UUID().uuidString.prefix(8))")   // another make may unpack too
         try Paths.ensure(dir)
         defer { remove(dir) }
@@ -216,9 +228,10 @@ extension VMService {
             to: folder(machine.name).sshConfig, atomically: true, encoding: .utf8)
     }
 
-    /// curl, which goes on where it stopped (`-C -`); how far (0…1), every few seconds, from a thread of its own. A file
-    /// still growing is another curl's (a kelpd before this one started it): waited for, not downloaded twice.
-    func download(_ url: String, to file: URL, progress: @escaping @Sendable (Double) -> Void) async throws {
+    /// curl, which goes on where it stopped (`-C -`); how far (0…1, nil while that's unknown), every few seconds, from a
+    /// thread of its own. A file still growing is another curl's (a kelpd before this one started it): waited for, not
+    /// downloaded twice. `progress` false (the machine was deleted midway): curl ended and what it got dropped.
+    func download(_ url: String, to file: URL, progress: @escaping @Sendable (Double?) -> Bool) async throws {
         let part = file.appendingPathExtension("part")
         let head = try await blocking { try run(["/usr/bin/curl", "-fsIL", url], limit: 60) }
         let total = Self.contentLength(head)
@@ -230,13 +243,20 @@ extension VMService {
             let before = size()
             try await Task.sleep(nanoseconds: 3_000_000_000)
             if size() == before { break }
-            if total > 0 { progress(size() / total) }
+            guard progress(total > 0 ? size() / total : nil) else { throw CancellationError() }
         }
         if FileManager.default.fileExists(atPath: file.path) { return }   // the other one finished it
         let done = OSAllocatedUnfairLock(initialState: false)
         Thread.detachNewThread {
             while !done.withLock({ $0 }) {
-                if total > 0 { progress(min(1, size() / total)) }
+                guard progress(total > 0 ? min(1, size() / total) : nil) else {
+                    Log.vm.attempt("stopping \(file.lastPathComponent)'s download") {
+                        _ = try Subprocess.run(
+                            ["/usr/bin/pkill", "-TERM", "-f", "--", Self.inFolder(part.path)], cwd: "/", env: [:],
+                            timeLimit: 10)
+                    }
+                    return
+                }
                 Thread.sleep(forTimeInterval: 3)
             }
         }
@@ -245,6 +265,10 @@ extension VMService {
             let curl = ["/usr/bin/curl", "-fsSL", "--retry", "5", "-C", "-", "-o", part.path, url]
             let out = try await Subprocess.run(curl, cwd: "/", env: [:], timeLimit: 6 * 3600)
             guard out.status == 0 else {
+                if !progress(nil) {   // stopped: what it got is no one's now (20 GB of macOS, half of it)
+                    remove(part)
+                    throw CancellationError()
+                }
                 throw RPCError.internalError(
                     "Downloading \(file.lastPathComponent): " + String(decoding: out.stderr, as: UTF8.self))
             }

@@ -110,7 +110,8 @@ enum Machines {
         }
     }
 
-    /// Asks first, then stops it and erases its folder (disk, keys, password): there's no getting it back.
+    /// Asks first, then stops it and erases its folder (disk, keys, password): there's no getting it back. One still being
+    /// made stops being made (Stop Making), what it downloaded dropped.
     static func deleteMachine(_ app: AppModel, _ info: VMInfo) {
         let name = info.machine.name
         Task {
@@ -120,11 +121,16 @@ enum Machines {
                     String(localized: "Its disk and everything on it (\($0)) are erased. This can't be undone.")
                 }
                 ?? String(localized: "Its disk and everything on it are erased. This can't be undone.")
-            guard
-                await confirm(
+            let asked =
+                info.state == .creating
+                ? await confirm(
+                    String(localized: "Stop making “\(name)”?"),
+                    detail: String(localized: "What it downloaded and made so far is deleted."),
+                    action: String(localized: "Stop Making"), destructive: true)
+                : await confirm(
                     String(localized: "Delete “\(name)”?"), detail: detail, action: String(localized: "Delete"),
                     destructive: true)
-            else { return }
+            guard asked else { return }
             guard await app.call(VMControl(name: name, action: .delete)) != nil else { return }
             app.workbench.closeTab(uri: TabURI.machine(name))
             app.watchAgain(.machines)   // as the daemon has it now
