@@ -179,6 +179,7 @@ final class SidebarRowView: NSTableRowView {
     override func prepareForReuse() {
         super.prepareForReuse()
         clipsToBounds = true   // a project's row let its icon's glow out (SidebarController.glow)
+        layer?.removeAnimation(forKey: "cascade")   // a row scrolled away while it came in
         hovering = false
         menuTarget = false
     }

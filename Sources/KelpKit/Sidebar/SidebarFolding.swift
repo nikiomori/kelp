@@ -42,6 +42,7 @@ extension SidebarController {
         folds += 1
         let ticket = folds, key = node.key
         folding[key] = ticket
+        forRows(under: node) { $0.stopCascade() }
         move(node, rows: 0) { [weak self] in
             guard let self, folding[key] == ticket else { return }   // opened again on the way
             folding[key] = nil
@@ -49,17 +50,22 @@ extension SidebarController {
         }
     }
 
-    /// Folded: the outline opens it with its rows at no height and see-through, and they open out from there. Still
-    /// closing: they open out again from where they are.
+    /// Folded: the outline opens it with its rows at no height and they open out from there, coming in one after another
+    /// (`cascade`). Still closing: they open out again from where they are.
     func open(_ node: Node) {
-        if folding.removeValue(forKey: node.key) == nil {
-            folding[node.key] = 0
-            instantly { outline.expandItem(node) }
-            outline.layoutSubtreeIfNeeded()   // the new rows' views, to start from nothing
-            forRows(under: node) { $0.alphaValue = 0 }
-            folding[node.key] = nil
-        }
+        guard folding.removeValue(forKey: node.key) == nil else { return move(node, rows: 1) }
+        folding[node.key] = 0
+        instantly { outline.expandItem(node) }
+        outline.layoutSubtreeIfNeeded()   // the new rows' views, to start from nothing
+        forRows(under: node) { $0.alphaValue = 1 }   // a reused view a fold left see-through
+        folding[node.key] = nil
         move(node, rows: 1)
+        // After the move: its fade to 1 would cover theirs.
+        var delay: TimeInterval = 0
+        forRows(under: node) {
+            $0.cascade(after: delay)
+            delay = min(delay + Motion.stagger, Motion.fast)
+        }
     }
 
     /// One movement: the rows under `node` fade to `alpha`, every row takes its height (none under a fold) and each
@@ -81,7 +87,7 @@ extension SidebarController {
         refreshCell(node.key)
     }
 
-    /// The row views shown under `node`.
+    /// The row views shown under `node`, top to bottom.
     private func forRows(under node: Node, _ body: (NSTableRowView) -> Void) {
         let top = outline.row(forItem: node)
         guard top >= 0 else { return }
@@ -314,5 +320,33 @@ extension SidebarController {
         for row in 0..<outline.numberOfRows {
             (outline.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarRow)?.update()
         }
+    }
+}
+
+extension NSTableRowView {
+    /// A row a fold opened comes in after `delay`: it fades in as it drops a few points into place, so the rows arrive
+    /// one after another rather than as a block.
+    fileprivate func cascade(after delay: TimeInterval) {
+        guard !Motion.reduced, window?.isVisible == true, let layer else { return }
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0
+        fade.toValue = 1
+        let drop = CABasicAnimation(keyPath: "transform.translation.y")
+        drop.fromValue = superview?.isFlipped == true ? -Metrics.gap : Metrics.gap   // from above
+        drop.toValue = 0
+        let both = CAAnimationGroup()
+        both.animations = [fade, drop]
+        both.duration = Motion.fold
+        both.timingFunction = Motion.soft
+        both.beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) + delay
+        both.fillMode = .backwards   // see-through and up while it waits its turn
+        layer.add(both, forKey: "cascade")
+    }
+
+    /// Folded again before it came all the way in: it goes on from what shows, not from where its cascade would end.
+    func stopCascade() {
+        guard let layer, layer.animation(forKey: "cascade") != nil else { return }
+        alphaValue = CGFloat(layer.presentation()?.opacity ?? 1)
+        layer.removeAnimation(forKey: "cascade")
     }
 }
