@@ -380,9 +380,11 @@ import os
     v.machine.os = "linux"
     v.diskMiB = nil
     #expect(Machines.machineLine(app, v) == "Wakes in under a second" && Machines.machineWord(v).text == "Asleep")
-    v.state = .error
+    v.state = .error   // its last start failed: made, so it starts again
     v.detail = "The disk is full"
-    #expect(Machines.machineLine(app, v) == "The disk is full" && Machines.machineWord(v).text == "Failed")
+    #expect(Machines.machineLine(app, v) == "The disk is full" && Machines.machineWord(v).text == "Didn't start")
+    v.notMade = true
+    #expect(Machines.machineWord(v).text == "Failed")
 }
 
 /// A server's heading says nothing while it's fine, and what's wrong otherwise: not connected, out of reach (in red),
