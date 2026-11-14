@@ -30,6 +30,37 @@ public final class IconButton: PointerButton {
     /// "+" of a sidebar row stood 4 pt left of its hover square's centre.
     override public var title: String { didSet { imagePosition = title.isEmpty ? .imageOnly : .imageLeading } }
 
+    /// At work (Refresh while it reads): a spinner stands where the symbol was, which comes back after.
+    public var busy = false {
+        didSet {
+            guard busy != oldValue else { return }
+            crossfade()
+            if busy {
+                idle = image
+                image = nil
+                spinner.isHidden = false
+                spinner.startAnimation(nil)
+            } else {
+                image = idle
+                spinner.stopAnimation(nil)
+                spinner.isHidden = true
+            }
+        }
+    }
+    private var idle: NSImage?
+    private lazy var spinner: NSProgressIndicator = {
+        let spinner = NSProgressIndicator()
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(spinner)
+        NSLayoutConstraint.activate([
+            spinner.centerXAnchor.constraint(equalTo: centerXAnchor),
+            spinner.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+        return spinner
+    }()
+
     override public var intrinsicContentSize: NSSize {
         let size = super.intrinsicContentSize
         return NSSize(width: max(Metrics.iconButton, size.width + (title.isEmpty ? 0 : 6)), height: Metrics.iconButton)

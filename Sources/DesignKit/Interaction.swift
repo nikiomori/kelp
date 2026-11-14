@@ -67,6 +67,20 @@ extension NSView {
         layer.add(animation, forKey: "turn")
     }
 
+    /// Shown, fading in from what shows now: nothing if it was hidden, wherever a fade out had got to if not.
+    public func fadeIn(_ duration: TimeInterval = Motion.fast) {
+        wantsLayer = true
+        let from = isHidden ? 0 : layer?.presentation()?.opacity ?? Float(alphaValue)
+        isHidden = false
+        alphaValue = 1
+        guard !Motion.reduced, window != nil, from < 1, let layer else { return }
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = from
+        fade.toValue = 1
+        fade.duration = duration
+        layer.add(fade, forKey: "opacity")
+    }
+
     /// Where the view stands in its window: take it before a layout changes, for `slide(from:)` after.
     public var placeInWindow: NSPoint { convert(NSPoint(x: bounds.midX, y: bounds.midY), to: nil) }
 

@@ -25,7 +25,9 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     let status = StatusLine(labelWithString: "")
     /// No rows: the list gives way to this, in the middle, with the button that helps (show all, sign in).
     let emptyView = EmptyStateView()
-    let loadingView = LoadingView()
+    let loadingView = LoadingView(rows: true)
+    lazy var refresh = IconButton(
+        .symbol("arrow.clockwise"), tip: String(localized: "Refresh"), target: self, action: #selector(reload))
     let table = NSTableView()
     let detail = NSStackView()
     /// What the selected source lists.
@@ -330,17 +332,18 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         }
         source.isHidden = false
         let slow = whileSlow { [weak self] in
-            guard let self else { return }
-            if rows.isEmpty {
-                showLoading()
-            } else if !quietly {
-                status.stringValue = String(localized: "Loading…")
-            }
+            guard let self, rows.isEmpty else { return }
+            showLoading()
         }
+        // Asked for, over rows it keeps showing: Refresh answers the click at once.
+        if !quietly, !rows.isEmpty { refresh.busy = true }
         let src = shown, filterIndex = filter.indexOfSelectedItem
         let picked = quietly ? row(at: table.selectedRow).flatMap(Self.number) : nil
         Task {
-            defer { slow.cancel() }
+            defer {
+                slow.cancel()
+                if gen == reloads { refresh.busy = false }
+            }
             var rows: [Row] = []
             do {
                 switch src {

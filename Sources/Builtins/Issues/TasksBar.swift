@@ -5,8 +5,6 @@ import KelpKit
 /// The panel's bar: what it lists (source and filter as title words) and Refresh, the last action's word under it.
 extension TasksViewController {
     func makeBar() -> NSView {
-        let refresh = IconButton(
-            .symbol("arrow.clockwise"), tip: String(localized: "Refresh"), target: self, action: #selector(reload))
         status.textColor = .secondaryLabelColor
         status.font = .ui(TextSize.caption)
         status.lineBreakMode = .byWordWrapping
@@ -44,7 +42,8 @@ extension TasksViewController {
     /// The list, or room for the empty state in its place.
     func showList(_ on: Bool) {
         loadingView.show(nil)
-        split.isHidden = !on
+        // The rows come out of what stood in their place (the loading rows fading away over them).
+        if on, split.isHidden { split.fadeIn() } else { split.isHidden = !on }
         placeDivider()
     }
 }
