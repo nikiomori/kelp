@@ -50,7 +50,9 @@ import Testing
     vc.diffs = [FileDiff(path: "f.txt", header: "", hunks: [], binary: false)]   // a row's line is of a file
     vc.rows =
         [row(vc, DiffLine(kind: .add, text: "added", newLine: 1), both: true)]
-        + (2...300).map { row(vc, DiffLine(kind: .context, text: "same \($0)", oldLine: $0, newLine: $0), both: true) }
+        + (2...300).map { (n: Int) in
+            row(vc, DiffLine(kind: .context, text: "same \(n)", oldLine: n, newLine: n), both: true)
+        }
     vc.table.reloadData()
 
     window.display()

@@ -20,7 +20,7 @@ extension TasksViewController {
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return field
     }
-    func button(_ title: String, _ sym: String, _ action: @escaping () -> Void) -> NSButton {
+    func button(_ title: String, _ sym: String, _ action: @escaping @MainActor () -> Void) -> NSButton {
         let button = ClosureButton(title: title, action: action)
         button.image = .symbol(sym)   // Kelp's own drawing where it has one (a branch, a pull request)
         button.imagePosition = .imageLeading

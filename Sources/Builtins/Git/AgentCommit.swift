@@ -252,7 +252,7 @@ extension SourceControlController {
             return Banner.show(String(localized: "Write a message for each commit first."), style: .error)
         }
         begin(wid)
-        Task {
+        Task { [self] in
             var made: [String] = []
             for commit in plan.commits {
                 let result = await app.tryCall(

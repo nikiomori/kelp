@@ -116,7 +116,7 @@ struct RepeatFields: View {
         }
     }
 
-    static func date(_ minutes: Int) -> Date {
+    nonisolated static func date(_ minutes: Int) -> Date {
         Calendar.current.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: Date()) ?? Date()
     }
     static func minutes(_ date: Date) -> Int {

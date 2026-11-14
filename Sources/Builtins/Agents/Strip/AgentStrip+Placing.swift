@@ -170,7 +170,7 @@ extension AgentStrip {
                 },
                 completionHandler: past == frame
                     ? nil
-                    : { [weak self] in
+                    : { @Sendable [weak self] in
                         // AppKit ends its animations on the main thread
                         MainActor.assumeIsolated { self?.springBack(to: frame, after: move) }
                     })

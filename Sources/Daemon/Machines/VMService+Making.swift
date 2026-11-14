@@ -6,10 +6,19 @@ import os
 // Making a machine: its image downloaded, checked and unpacked into its folder, step by step.
 
 extension VMService {
-    func create(_ request: VMCreate) throws -> VMInfo {
-        #if arch(x86_64)
-            throw RPCError.invalidParams("Machines need a Mac with Apple silicon: their images are for ARM.")
+    /// A property, not `#if` around a `throw`: Intel's build would warn that the rest of `create` is never run.
+    private static var appleSilicon: Bool {
+        #if arch(arm64)
+            true
+        #else
+            false
         #endif
+    }
+
+    func create(_ request: VMCreate) throws -> VMInfo {
+        guard Self.appleSilicon else {
+            throw RPCError.invalidParams("Machines need a Mac with Apple silicon: their images are for ARM.")
+        }
         guard VMs.isName(request.name) else {
             throw RPCError.invalidParams(
                 "A machine's name: up to 20 lowercase letters, digits and dashes, starting with a letter.")

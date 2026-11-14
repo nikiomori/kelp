@@ -16,7 +16,7 @@ extension QuickOpen {
             String(localized: "Attach to a tmux session, or type a name for a new one"),
             keys: String(localized: "↑↓ Select    ↩ Attach    ⇧↩ Attach in a Split")
         ) { [weak self] in self?.tmuxItems([], $0) ?? [] }
-        tmuxLoad = Task {
+        tmuxLoad = Task { [self] in
             let found = await app.call(TmuxList(worktreeId: wid)) ?? []
             guard !Task.isCancelled, own != nil else { return }
             own = { [weak self] in self?.tmuxItems(found, $0) ?? [] }

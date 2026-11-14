@@ -79,7 +79,7 @@ private func temporary() -> URL {
     _ = try await w.c.call("settings.set", .obj(["key": "extensions.disabled", "value": .array([.string("off")])]))
     let workspace = try await firstWorkspace(w).id
     let s = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "parent"))
-    let kid = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "child", parent: s.id))
+    _ = try await w.c.call(SessionCreate(worktreeId: workspace, agent: "fake", title: "child", parent: s.id))
     _ = try await w.c.call(SessionReport(id: s.id, state: "done"))
     _ = try await w.c.call(SessionReport(id: s.id, state: "working"))
     // Events are judged in turn, each after the same delay: once this one is heard, the turns of those before it

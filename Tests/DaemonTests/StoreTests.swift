@@ -185,7 +185,7 @@ import os
     #expect(try StateGet(key: LSPOpen.trustKey).handle(ui) == .array([.string("/p")]))
     #expect(try StateGet(key: ExtensionFiles.extensionTrustKey).handle(ui) == .null)
     // and the window's writes of trust go only to the daemon's table
-    try StateSet(key: LSPOpen.trustKey, value: .array([.string("/q")])).handle(ui)
+    _ = try StateSet(key: LSPOpen.trustKey, value: .array([.string("/q")])).handle(ui)
     #expect(try s.uiState(prefix: LSPOpen.trustKey)[LSPOpen.trustKey] == .array([.string("/stale")]))
     #expect(try s.daemonState(LSPOpen.trustKey, as: [String].self) == ["/q"])
 }

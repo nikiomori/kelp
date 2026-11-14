@@ -232,7 +232,7 @@ extension OneAtATime {
 
     @Test func aLongLineScrollsSidewaysUnlessItWraps() throws {
         defer { CodeEditor.set(\.wrapLines, false) }
-        let (e, tv) = editor(String(repeating: "word ", count: 400), selecting: [NSRange(location: 0, length: 0)])
+        let (_, tv) = editor(String(repeating: "word ", count: 400), selecting: [NSRange(location: 0, length: 0)])
         tv.layoutManager?.ensureLayout(for: try #require(tv.textContainer))
         tv.sizeToFit()
         #expect(tv.frame.width > 1000)

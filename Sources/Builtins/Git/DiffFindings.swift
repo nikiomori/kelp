@@ -21,10 +21,11 @@ extension DiffViewController {
             box.state = notes.skipped.contains(c.id) ? .off : .on
             box.toolTip = String(localized: "Send to Agent with the others")
             views.insert(box, at: 0)
-            for (title, run) in [
+            let actions: [(String, @MainActor () -> Void)] = [
                 (String(localized: "Fix This One"), { [weak self] in self?.send([c.id]) }),
                 (String(localized: "Dismiss"), { [weak self] in self?.dismiss(c.id) })
-            ] as [(String, () -> Void)] {
+            ]
+            for (title, run) in actions {
                 let button = ClosureButton(title: title, action: run)
                 button.bezelStyle = .inline
                 button.controlSize = .small

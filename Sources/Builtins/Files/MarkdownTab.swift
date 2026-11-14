@@ -367,7 +367,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                 let colors = CodeEditor.page
                 page = (colors.background.hexString, colors.text.hexString)
             }
-            let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels, marking = marking
+            let kind = self.page, sendTo = pageAuthor?.title, labels = canvasLabels
             let editLabels = canvasEditLabels, again = canvasModeScripts, chrome = canvasChromeLabels
             let themes =
                 CanvasPage.Themes(rawValue: UserDefaults.standard.string(forKey: CanvasPage.themesKey) ?? "")
