@@ -127,7 +127,7 @@ extension AppDelegate {
         }
         file.add("New Tab", submenu: with)
         b.add(
-            file, "workspace.addProject", "workspace.cloneRepository", "workspace.addRemote", "-",
+            file, "workspace.addProject", "workspace.cloneRepository", "workspace.addRemote", "machines.new", "-",
             "workspace.revealInFinder")
         let openIn = NSMenu()
         WorkspaceActions.addOpenIn(to: openIn, path: { app.worktree(app.workbench.workspaceId)?.path }, prefix: "")

@@ -5,7 +5,7 @@ import KelpKit
 import SwiftUI
 
 /// The sidebar's Machines block, over the plan limits: its heading with + (a new machine: Linux, macOS, Android, iOS, or
-/// from a file), there while the Machines extension is on; under it each machine with its state in a word and colour,
+/// from a file), there while the Machines extension is on and there's a machine; under it each machine with its state in a word and colour,
 /// its memory and what runs in it, and the agents with a command there. A click opens its tab; a right-click starts,
 /// sleeps or stops it.
 struct MachinesView: View {
@@ -20,20 +20,24 @@ struct MachinesView: View {
     var body: some View { block }
 
     private var block: some View {
-        // The loader hangs off a container that always exists while it's on: on an EmptyView `.task` never runs.
-        VStack(alignment: .leading, spacing: 0) {
-            Divider()
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: Metrics.gap) {
-                    Text("Machines").sectionTitle()
-                    Spacer(minLength: Metrics.gap)
-                    add
+        // The loader hangs off a container that always exists while it's on: on an EmptyView `.task` never runs. With no
+        // machine it draws nothing (File › New Machine… makes the first): the block is for those who have one.
+        let machines = Machines.machineList(app)
+        return VStack(alignment: .leading, spacing: 0) {
+            Color.clear.frame(height: 0)
+            if !machines.isEmpty {
+                Divider()
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: Metrics.gap) {
+                        Text("Machines").sectionTitle()
+                        Spacer(minLength: Metrics.gap)
+                        add
+                    }
+                    .frame(height: Metrics.rowSection).padding(.leading, Metrics.gap)
+                    ForEach(machines) { row($0) }
                 }
-                .frame(height: Metrics.rowSection).padding(.leading, Metrics.gap)
-                ForEach(Machines.machineList(app)) { row($0) }
+                .padding(.horizontal, Metrics.gapWide).padding(.bottom, Metrics.gapWide)
             }
-            // Room under it even without machines: the plan limits' rule right under the heading read as its first row.
-            .padding(.horizontal, Metrics.gapWide).padding(.bottom, Metrics.gapWide)
         }
         .fontDesign(app.themes.chromeDesign)
         .onAppear {

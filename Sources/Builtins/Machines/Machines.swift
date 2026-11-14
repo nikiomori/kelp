@@ -35,6 +35,31 @@ enum Machines {
         ]
     }
 
+    /// File › New Machine… (and Open Quickly's command): the kinds the sidebar's + offers, listed where the palette
+    /// shows. One this Mac can't run says why and isn't made.
+    static func chooseNew(_ app: AppModel) {
+        let choices = machineChoices
+        app.workbench.showList(
+            String(localized: "New machine"), keys: String(localized: "↩ makes it · ⎋ closes")
+        ) { typed in
+            let text = typed.lowercased()
+            func shown(_ title: String) -> Bool { text.isEmpty || title.lowercased().contains(text) }
+            let kinds = choices.filter { shown($0.title) }.map { choice in
+                QuickItem(
+                    choice.title, detail: choice.missing ?? "",
+                    icon: choice.image == "macos" ? "apple.logo" : choice.image == "ios" ? "iphone" : "shippingbox",
+                    open: { choice.missing == nil ? newMachine(app, choice.image) : NSSound.beep() })
+            }
+            let fromFile = String(localized: "From a File…")
+            guard shown(fromFile) else { return kinds }
+            let file = QuickItem(
+                fromFile,
+                detail: String(localized: "macOS from a restore image (.ipsw), Linux from a cloud image's raw disk"),
+                icon: "doc", open: { machineFromFile(app) })
+            return kinds + [file]
+        }
+    }
+
     /// A machine from a file of the user's: macOS from its restore image, Linux from a cloud image's raw disk.
     static func machineFromFile(_ app: AppModel) {
         Task {
