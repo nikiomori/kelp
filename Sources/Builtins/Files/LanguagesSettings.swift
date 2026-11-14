@@ -171,7 +171,7 @@ extension Builtins {
     static func languagesSettings(_ app: AppModel) -> SettingsSection {
         let languages = app.extensions.all.languages
         return SettingsSection(
-            id: "languages", title: "Languages", icon: "chevron.left.forwardslash.chevron.right", specs: [],
+            id: "languages", title: "Languages", icon: "curlybraces", specs: [],
             custom: { AnyView(LanguagesSettings(app: app)) },
             keywords: ["Language Servers", "LSP", "Linters"] + languages.map { LanguageRows.name($0.id) }
                 + languages.flatMap(\.allServers).map(\.command),

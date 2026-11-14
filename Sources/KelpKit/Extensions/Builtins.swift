@@ -72,7 +72,7 @@ package enum Builtins {
                 specs: generalRows, custom: { AnyView(GeneralSettings()) },
                 keywords: ["Updates", "Background", "Login Items"], order: 5),
             SettingsSection(
-                id: "keyboard", title: "Keyboard", icon: "keyboard", specs: [],
+                id: "keyboard", title: "Keyboard", icon: "command", specs: [],
                 custom: { AnyView(KeyboardSettings()) }, order: 95)
         ]
         return contributions

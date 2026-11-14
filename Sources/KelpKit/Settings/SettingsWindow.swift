@@ -59,14 +59,14 @@ struct SettingsView: View {
             ) {
                 Section {
                     ForEach(sections) { section in
-                        Label(loc(section.title), systemImage: section.icon).tag(Optional(section.id))
+                        SectionRow(icon: section.icon, title: Text(loc(section.title))).tag(Optional(section.id))
                     }
                 }
                 Section {
                     // A row of a ForEach, as the sections are: the list picks a row by the id that gives it, and a row
                     // standing alone with only a tag couldn't be picked.
                     ForEach(["extensions"], id: \.self) { id in
-                        Label("Extensions", systemImage: "puzzlepiece.extension").tag(Optional(id))
+                        SectionRow(icon: "puzzlepiece.extension", title: Text("Extensions")).tag(Optional(id))
                     }
                 }
             }
@@ -146,6 +146,19 @@ struct SettingsView: View {
         to.append(current)
         selection = section
         query = ""
+    }
+}
+
+/// A section in the list: its symbol drawn as the rest of Kelp's are (`SymbolIcon`: one size and weight, one column,
+/// Kelp's own branch). Not a Label: the sidebar list sizes a Label's icon its own way, thin and uneven.
+private struct SectionRow: View {
+    let icon: String
+    let title: Text
+    var body: some View {
+        HStack(spacing: Metrics.gap) {
+            SymbolIcon(icon, size: Metrics.iconLarge).foregroundStyle(.secondary)
+            title
+        }
     }
 }
 
