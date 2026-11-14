@@ -260,8 +260,6 @@ extension VMImage {
     var mark: (letter: String, color: NSColor) {
         switch id {
         case let imageId where imageId.hasPrefix("debian"): ("D", NSColor(hex: 0xA80030))
-        case let imageId where imageId.hasPrefix("ubuntu"): ("U", NSColor(hex: 0xE95420))
-        case let imageId where imageId.hasPrefix("fedora"): ("F", NSColor(hex: 0x51A2DA))
         case "macos": ("", NSColor(hex: 0x5A6B8C))
         case "android": ("", NSColor(hex: 0x2E9E5B))
         case "ios": ("", NSColor(hex: 0x3478F6))
