@@ -56,16 +56,17 @@ package final class StatusMark: NSView {
     private let image = NSImageView()
     private let ring = CAShapeLayer()
     private let size: CGFloat
-    package var status: AgentStatus? { didSet { if status != oldValue { update() } } }
+    // A change of state fades from one mark to the next (not in `update`, which a theme or a window change runs too).
+    package var status: AgentStatus? { didSet { if status != oldValue { changed() } } }
     /// Done and not looked at yet: the filled ✓; seen: no mark.
-    var unread = true { didSet { if unread != oldValue { update() } } }
+    var unread = true { didSet { if unread != oldValue { changed() } } }
     /// Working on shrinking its conversation (Claude's compaction): a slow pulse, not the spin.
     var compacting = false { didSet { if compacting != oldValue { update() } } }
     /// Its turn is over and it waits for its command to end (`Session.waitsForCommand`): a slow ring of dots, a shape of its
     /// own, so it still says so where nothing moves.
     var waitsForCommand = false { didSet { if waitsForCommand != oldValue { update() } } }
     /// Stopped by a plan limit, read or not: a clock, until it does something else.
-    var limited = false { didSet { if limited != oldValue { update() } } }
+    var limited = false { didSet { if limited != oldValue { changed() } } }
     /// Its status is read off the screen (`Session.guessed`): a whole ring of dashes, a guess that looks like one.
     var guessed = false { didSet { if guessed != oldValue { update() } } }
     /// How far it got (0…1), when it says: a pie filling a circle, as Finder's and Safari's progress, not the spinning ring.
@@ -123,6 +124,11 @@ package final class StatusMark: NSView {
         super.viewDidMoveToWindow()
         update()
     }   // animations stop when a view leaves a window
+
+    private func changed() {
+        if window != nil { crossfade() }   // a reused cell being filled shows at once
+        update()
+    }
 
     private func update() {
         let shown = !limited && (status == .idle || (status == .done && !unread)) ? nil : status

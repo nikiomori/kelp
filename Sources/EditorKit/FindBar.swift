@@ -71,8 +71,10 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
 
     func begin(with text: String?) {
+        let shown = !isHidden && !card.isHidden
         isHidden = false
         card.isHidden = false   // Esc hid it
+        if !shown { card.comeIn() }   // as the other find bars
         if let text, !text.isEmpty, text != field.stringValue { field.stringValue = text }
         window?.makeFirstResponder(field)
         field.currentEditor()?.selectAll(nil)
@@ -116,8 +118,9 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
 
     private func toggleReplace() {
-        replaceRow.isHidden.toggle()
+        if replaceRow.isHidden { replaceRow.fadeIn() } else { replaceRow.isHidden = true }
         more.image = .symbol(replaceRow.isHidden ? "chevron.right" : "chevron.down")
+        more.turn(from: replaceRow.isHidden ? -.pi / 2 : .pi / 2)   // as a sidebar row's chevron
     }
 
     func search(moving: Bool) {

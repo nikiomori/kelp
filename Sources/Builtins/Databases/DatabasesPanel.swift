@@ -413,6 +413,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .use: return showUseMenu(at: index)
         case .problem, .project: return
         }
+        table.crossfade(Motion.base)   // a fold: its rows fade out or in rather than snap (too many to move one by one)
         reload()
     }
 

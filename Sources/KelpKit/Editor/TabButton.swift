@@ -29,6 +29,7 @@ final class TabButton: NSControl, NSDraggingSource {
         }
     }
     private let slot = NSView()
+    private var shownSlot: (edited: Bool, state: Bool)?
     private let row = NSStackView()
     /// The title keeps about twelve letters however many tabs there are (six when compact); the rest scroll and are in
     /// the ▾ menu.
@@ -165,6 +166,10 @@ final class TabButton: NSControl, NSDraggingSource {
 
     func updateLook() {
         let edited = item?.edited == true
+        // The icon, the edited dot and the agent's mark take each other's place in a fade, as the close button does.
+        let shows = (edited, showsState)
+        if let was = shownSlot, was != shows, window != nil { slot.crossfade() }
+        shownSlot = shows
         close.isHidden = !hover
         editedDot.isHidden = hover || !edited
         icon.isHidden = hover || edited || showsState

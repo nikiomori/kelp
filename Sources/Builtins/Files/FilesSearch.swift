@@ -9,6 +9,8 @@ extension FilesPanel {
     // MARK: search
     func showContentResults(_ on: Bool) { showResults(on) }
     private func showResults(_ on: Bool) {
+        // The tree and the results take each other's place in a fade, once per switch, not per key.
+        if results.scroll.isHidden == on { results.scroll.superview?.crossfade() }
         results.scroll.isHidden = !on
         leftScroll.isHidden = on || !loadError.isHidden
         if !on { noResults.show(nil) }

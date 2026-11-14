@@ -149,6 +149,13 @@ extension SourceControlController {
     /// The details live in the CI Runs panel (it opens the failed job's log by itself); without it, the run's page.
     func openCI() { worktreeId.map(RowMarks.of(app).openCI) }
 
+    /// The graph's Refresh: it answers the click at once, as reading the graph can take a while.
+    func refreshGraph() async {
+        graphBar.busy = true
+        await loadGraph()
+        graphBar.busy = false
+    }
+
     func loadGraph() async {
         guard let wid = worktreeId else { return }
         // Quiet: git failing shows in the panel from the status read before this; a graph that failed alone keeps the last one.

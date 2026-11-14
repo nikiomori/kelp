@@ -137,7 +137,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         let scroll = list(outline), graphScroll = list(graphOutline)
         graphBar.onToggle = { [weak self] in self?.toggle(.graph) }
         graphBar.onResize = { [weak self] in self?.resizeGraph(by: $0) }
-        graphBar.onRefresh = { [weak self] in Task { await self?.loadGraph() } }
+        graphBar.onRefresh = { [weak self] in Task { await self?.refreshGraph() } }
 
         let root = NSView()
         let sep = NSBox()

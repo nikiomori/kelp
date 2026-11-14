@@ -81,8 +81,19 @@ final class SectionCell: NSTableCellView, Hoverable {
     }
     required init?(coder: NSCoder) { fatalError() }
     func setHover(_ on: Bool) {
+        hovering = on
+        guard !busy else { return }
         actions.superview?.crossfade()
         actions.isHidden = !on
+    }
+    private var hovering = false
+    /// Its first action at work (the graph's Refresh): a spinner in its place, which stays when the pointer goes.
+    var busy = false {
+        didSet {
+            guard busy != oldValue else { return }
+            (actions.arrangedSubviews.first as? IconButton)?.busy = busy
+            if !busy, !hovering { setHover(false) } else { actions.isHidden = false }
+        }
     }
 }
 
@@ -125,6 +136,11 @@ final class GraphBar: NSView {
         }
     }
     private var cell: SectionCell?
+    /// Refresh at work.
+    var busy: Bool {
+        get { cell?.busy ?? false }
+        set { cell?.busy = newValue }
+    }
     /// Under the pointer the header greys in as a list row does (inset, rounded), held it darkens.
     private let fill = NSView()
     private var hovering = false, pressed = false

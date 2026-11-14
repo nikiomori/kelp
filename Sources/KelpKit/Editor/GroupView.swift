@@ -149,8 +149,17 @@ final class GroupView: NSView {
             hintFrame.size.height /= 2
         default: break
         }
-        hint.frame = hintFrame
-        hint.isHidden = false
+        // It fades in where it's needed, then glides from half to whole as the drop's insertion mark does.
+        if hint.isHidden {
+            hint.frame = hintFrame
+            hint.fadeIn()
+        } else if hint.frame != hintFrame {   // every move of the pointer comes here
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = Motion.duration(Motion.fast)
+                ctx.timingFunction = Motion.soft
+                hint.animator().frame = hintFrame
+            }
+        }
     }
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { draggingUpdated(sender) }
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
