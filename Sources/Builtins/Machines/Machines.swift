@@ -118,6 +118,30 @@ enum Machines {
         app.workbench.starterForNewTab?.run(command: line, title: name, cwd: remote ? NSHomeDirectory() : nil)
     }
 
+    /// Run Terminals In ▸ This Mac or a machine: from then on the project's new terminals and Run commands start in that
+    /// machine, in the same folder (the daemon's `SessionSetup.inMachine`); its agents stay here and reach it with
+    /// `kelp vm run`. This Mac's projects only, and only machines that share folders (Linux, macOS).
+    static func addRunIn(to menu: NSMenu, _ repo: Repo, _ app: AppModel) {
+        let machines = machineList(app).filter { $0.machine.kind.sharesFolders && $0.notMade != true }
+        guard RemoteHost.of(repo.path) == nil, !machines.isEmpty else { return }
+        var all: [String: JSONValue] = [:]
+        if case .object(let saved)? = app.uiState[Repo.machineKey] { all = saved }
+        let now = all[repo.id]?.string
+        let sub = NSMenu()
+        func pick(_ name: String?) {
+            all[repo.id] = name.map(JSONValue.string)
+            Task { await app.uiState.save(Repo.machineKey, .object(all)) }
+        }
+        sub.add(String(localized: "This Mac")) { pick(nil) }.state = now == nil ? .on : .off
+        sub.addItem(.separator())
+        for info in machines {
+            let name = info.machine.name
+            sub.add(name) { pick(name) }.state = now == name ? .on : .off
+        }
+        menu.add(String(localized: "Run Terminals In"), submenu: sub)
+        menu.addItem(.separator())
+    }
+
     /// The machines as the daemon last told (`WatchTopic.machines`).
     static func machineList(_ app: AppModel) -> [VMInfo] { app.latest(MachinesEvent.self)?.machines ?? [] }
 

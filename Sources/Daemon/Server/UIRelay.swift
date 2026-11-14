@@ -124,6 +124,7 @@ extension StateSet: Handled {
         switch key {
         case ExtensionFiles.extensionTrustKey: "Only Kelp's window allows an extension to run commands."
         case Repo.devContainerKey: "Only Kelp's window runs a project in its dev container."
+        case Repo.machineKey: "Only Kelp's window runs a project's terminals in a machine."
         case _ where key.hasPrefix("lsp."): "Only Kelp's window can trust a project for language servers."
         default: nil
         }

@@ -63,11 +63,50 @@ final class SessionSetup: Sendable {
                 try DevContainer.inside(argv, manifest), cwd: cwd, in: box,
                 readOnly: DevContainer.named(in: argv), env: Array(own.keys) + Array(secret.keys))
         }
+        if box == nil, run == argv, let machine = machine(cwd), let kelp = PTY.trampoline,
+            let inside = Self.inMachine(argv, manifest, machine: machine, cwd: cwd, kelp: kelp)
+        {
+            run = inside
+        }
         guard let exe = run.first else { throw RPCError.invalidParams("empty command") }
         let resolved = try LoginPath.resolve(exe)
         // Codex's hooks: here, not in the record, as the host's are, so a wake gets this kelpd's.
         let hooks = tmux == nil && box == nil && codexHooksOn(manifest, argv: argv, cwd: cwd) ? CodexHooks.args : []
         return [resolved] + hooks + run.dropFirst()
+    }
+
+    /// The machine `cwd`'s project runs its terminals in (its menu's Run Terminals In), while that machine is there and
+    /// shares folders (Linux, macOS); nil: they run here. A dev container, when the project has one on, comes first.
+    func machine(_ cwd: String) -> String? {
+        guard remotes.of(cwd) == nil,
+            let on = store.look(
+                "the projects in machines", { try $0.daemonState(Repo.machineKey, as: [String: String].self) }),
+            !on.isEmpty,
+            let worktree = (store.look("the workspaces") { try $0.worktrees() } ?? [])
+                .filter({ Paths.inside(cwd, $0.path) }).max(by: { $0.path.count < $1.path.count }),
+            let name = on[worktree.repoId]
+        else { return nil }
+        do {
+            return try VMService(home: root, helper: "").machine(name).kind.sharesFolders ? name : nil
+        } catch {
+            Log.vm.info("\(name), which a project's terminals run in, is gone: they run here")
+            return nil
+        }
+    }
+
+    /// A terminal (`shell`: the machine's login shell) or a command line (`custom`, a Run command) through `kelp vm run`
+    /// in `machine`, in `cwd` there (shared at its own path); nil for what stays here: an agent, a tmux session, a
+    /// command that's already `kelp vm run` (a machine's own terminal).
+    static func inMachine(
+        _ argv: [String], _ manifest: AgentManifest, machine: String, cwd: String, kelp: String
+    ) -> [String]? {
+        let run = [kelp, "vm", "run", machine, "--cwd", cwd]
+        switch manifest.id {
+        case "shell" where Tmux.session(argv) == nil: return run
+        case "custom" where argv.count == 3 && argv[1] == "-lc" && !argv[2].hasPrefix("kelp vm "):
+            return run + ["--", argv[2]]
+        default: return nil
+        }
     }
 
     /// The workspace folder holding `cwd`, and its project's, when that project runs in its dev container and the

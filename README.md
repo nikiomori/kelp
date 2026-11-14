@@ -136,8 +136,9 @@ Panels, commands, settings, themes and agents. A JSON file is enough, and the
 <td valign="top">
 <b>Machines</b><br/>
 Linux and macOS machines on Apple Virtualization, Android emulators, iOS simulators. Agents run commands there, in the
-project's folder at the same path, and tap the app on its screen. A project with a `devcontainer.json` can run its
-terminals and agents in that container (its menu's Run in Dev Container; needs docker and the Dev Containers CLI).
+project's folder at the same path, and tap the app on its screen. A project's terminals can run in a machine (its
+menu's Run Terminals In); one with a `devcontainer.json` can run its terminals and agents in that container (Run in Dev
+Container; needs docker and the Dev Containers CLI).
 </td>
 <td valign="top">
 <b>Artifacts</b><br/>

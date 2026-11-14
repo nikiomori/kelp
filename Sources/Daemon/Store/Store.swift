@@ -198,7 +198,9 @@ final class Store: Sendable {
     }
     /// The keys of the user's trust: Kelp's window writes them with `state.set` and reads them back with `state.get`, as
     /// the rest of its state, but they're kept in `daemonState`, where nothing else the window or a script saves goes.
-    static let trustKeys: Set<String> = [LSPOpen.trustKey, ExtensionFiles.extensionTrustKey, Repo.devContainerKey]
+    static let trustKeys: Set<String> = [
+        LSPOpen.trustKey, ExtensionFiles.extensionTrustKey, Repo.devContainerKey, Repo.machineKey
+    ]
 
     /// What the daemon keeps apart from the app's own state, JSON by key: the user's trust (`trustKeys`), which it
     /// decides by, and what it keeps for itself (`Forwards`). Each is written by the one method that owns it.

@@ -35,6 +35,9 @@ extension Repo {
     /// The state key of the projects whose terminals and agents run in their dev container: their ids, set from Kelp's
     /// window only (`state.set`).
     public static let devContainerKey = "devcontainer.projects"
+    /// The state key of the projects whose terminals run in one of Kelp's machines: project id → machine name, set from
+    /// Kelp's window only (`state.set`). Their agents stay on this Mac and reach it with `kelp vm run`.
+    public static let machineKey = "machines.projects"
 }
 
 public struct Worktree: Codable, Sendable, Equatable, Revised {

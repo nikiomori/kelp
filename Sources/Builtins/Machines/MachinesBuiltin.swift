@@ -37,6 +37,13 @@ extension Builtins {
                         }
                 }
             ],
+            // A project's menu: Run Terminals In, while there's a machine that shares folders.
+            rowMenu: [
+                { row, menu in
+                    guard case .project(let id) = row, let repo = app.repo(id) else { return }
+                    Machines.addRunIn(to: menu, repo, app)
+                }
+            ],
             skills: [machinesSkill]
         )
     }

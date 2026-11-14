@@ -81,3 +81,29 @@ import Testing
         ["/bin/zsh", "-l"], cwd: repo.path, manifest: AgentManifest(id: "shell", name: "Shell", command: "/bin/zsh"))
     #expect(run.first == "/bin/sh" && run[2].contains("--workspace-folder"))
 }
+
+/// A project's terminals run in the machine its menu names (Run Terminals In), while that machine is there: its shell
+/// and Run commands through `kelp vm run` in the same folder; its agents, a tmux session and a machine's own terminal
+/// stay here.
+@Test func aProjectsTerminalsRunInItsMachine() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let repo = try await c.call(RepoAdd(path: try makeRepo()))
+    let setup = d.sessions.setup
+    try d.store.setDaemonState(Repo.machineKey, [repo.id: "deb"])
+    #expect(setup.machine(repo.path) == nil, "no machine called deb")
+    let folder = d.root.appendingPathComponent("vms/deb")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try JSONEncoder().encode(
+        VMMachine(name: "deb", image: "debian-13", cpus: 2, memoryMiB: 2048, diskGiB: 32, user: "niko")
+    ).write(to: folder.appendingPathComponent("machine.json"))
+    #expect(setup.machine(repo.path + "/sub") == "deb")
+    func inside(_ argv: [String], _ id: String) -> [String]? {
+        SessionSetup.inMachine(
+            argv, AgentManifest(id: id, name: id, command: argv[0]), machine: "deb", cwd: "/p", kelp: "/k/kelp")
+    }
+    #expect(inside(["/bin/zsh", "-l"], "shell") == ["/k/kelp", "vm", "run", "deb", "--cwd", "/p"])
+    #expect(inside(["/bin/zsh", "-lc", "npm test"], "custom")?.suffix(2) == ["--", "npm test"])
+    #expect(inside(["/bin/zsh", "-lc", "kelp vm run deb --home"], "custom") == nil)
+    #expect(inside(["claude"], "claude") == nil)
+}
