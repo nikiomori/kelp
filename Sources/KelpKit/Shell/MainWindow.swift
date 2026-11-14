@@ -423,6 +423,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private func land(_ columns: [(side: Side, collapsed: Bool)]) {
         for (side, collapsed) in columns where !collapsed && !hides(side) {
             guard side.panel.superview === side.floater.box else { continue }
+            // The column opens as wide as the floater: the split reopens a collapsed column at the width it last had.
+            if side.item.isCollapsed { side.column.setFrameSize(NSSize(width: side.floater.width, height: 0)) }
             if peeking === side {   // it stays where it stands; nothing watches the pointer for it any more
                 if let monitor = peekMoves { NSEvent.removeMonitor(monitor) }
                 peekMoves = nil
