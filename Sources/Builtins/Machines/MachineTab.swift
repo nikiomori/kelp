@@ -66,18 +66,18 @@ struct MachineView: View {
     /// Nothing to run in: it's being made, or making it failed (a machine whose start failed boots again on a command).
     private var unusable: Bool { info.map { $0.state == .creating || $0.notMade == true } ?? true }
 
-    /// "Debian 13 · 2 CPUs (12%) · 1.2 GB in use · disk 3.1 GB".
+    /// "Debian 13 · 2 CPUs (12%) · 1.2 GB in use · 3.1 GB on disk", sizes as its sidebar row says them.
     private func summary(_ info: VMInfo) -> String {
         let machine = info.machine
         var parts = [VMImage.named(machine.image)?.title ?? machine.image, String(localized: "\(machine.cpus) CPUs")]
         if let cpu = info.cpu { parts[1] += String(format: " (%.0f%%)", cpu) }
         if let now = info.memoryMiB {
-            parts.append(String(format: String(localized: "%.1f GB in use"), Double(now) / 1024))
+            parts.append(String(localized: "\(bytes(now << 20)) in use"))
         } else {
             parts.append(bytes(machine.memoryMiB << 20))
         }
         if let disk = info.diskMiB {
-            parts.append(String(format: String(localized: "disk %.1f GB"), Double(disk) / 1024))
+            parts.append(String(localized: "\(bytes(disk << 20)) on disk"))
         }
         return parts.joined(separator: " · ")
     }
@@ -327,24 +327,21 @@ struct MachineView: View {
                 row(String(localized: "Memory"), text(memory(info)))
             }
             if !phone {
+                let disk = String(localized: "\(bytes((info.diskMiB ?? 0) << 20)) of \(bytes(machine.diskGiB << 30))")
                 if editable && machine.kind == .linux {
                     row(
                         String(localized: "Disk"),
-                        Stepper(
-                            String(
-                                format: String(localized: "%.1f GB of %d GB"), Double(info.diskMiB ?? 0) / 1024,
-                                machine.diskGiB),
-                            value: Binding(get: { machine.diskGiB }, set: { resize(disk: $0) }),
-                            in: machine.diskGiB...2048, step: 8
-                        ))
+                        HStack(spacing: Metrics.gap) {
+                            text(disk)
+                            Menu(String(localized: "Grow")) {
+                                ForEach(Self.growSizes(machine.diskGiB), id: \.self) { gib in
+                                    Button(bytes(gib << 30)) { grow(to: gib) }
+                                }
+                            }
+                            .fixedSize()
+                        })
                 } else {
-                    row(
-                        String(localized: "Disk"),
-                        text(
-                            String(
-                                format: String(localized: "%.1f GB of %d GB"), Double(info.diskMiB ?? 0) / 1024,
-                                machine.diskGiB)
-                        ))
+                    row(String(localized: "Disk"), text(disk))
                 }
                 row(String(localized: "Account"), text(machine.user))
                 row(
@@ -358,9 +355,27 @@ struct MachineView: View {
     }
 
     private func memory(_ info: VMInfo) -> String {
-        let total = Double(info.machine.memoryMiB) / 1024
-        guard let now = info.memoryMiB else { return bytes(info.machine.memoryMiB << 20) }
-        return String(format: String(localized: "%.1f GB of the Mac's (%.0f GB given)"), Double(now) / 1024, total)
+        let given = bytes(info.machine.memoryMiB << 20)
+        guard let now = info.memoryMiB else { return given }
+        return String(localized: "\(bytes(now << 20)) of the Mac's (\(given) given)")
+    }
+
+    /// What a disk of `gib` may grow to: the next few of the usual sizes, up to the 2 TB a machine may have.
+    static func growSizes(_ gib: Int) -> [Int] { Array([64, 128, 256, 512, 1024, 2048].filter { $0 > gib }.prefix(4)) }
+
+    /// A disk only grows: asked first, as there's no making it smaller again.
+    private func grow(to gib: Int) {
+        Task {
+            guard
+                await confirm(
+                    String(localized: "Grow \(name)'s disk to \(bytes(gib << 30))?"),
+                    detail: String(
+                        localized:
+                            "A disk can't be made smaller again. It takes room on this Mac only as it fills."),
+                    action: String(localized: "Grow"))
+            else { return }
+            resize(disk: gib)
+        }
     }
 
     /// 41 → "0:41", 4321 → "1:12:01".
