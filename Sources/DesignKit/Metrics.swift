@@ -89,6 +89,11 @@ public enum Motion {
     // glow that swells and fades rather than switches (at 240 / 160 ms it read as a flash).
     public static let glowIn: TimeInterval = 0.45
     public static let glowOut: TimeInterval = 0.4
+    // A project or workspace folding, the chevron turning with it, rows coming and going: long enough to follow, on
+    // `soft` so it still answers the click at once (at 180 ms on easeOut it read as a snap).
+    public static let fold: TimeInterval = 0.32
+    /// Starts moving at once and settles slowly: a fold, not a switch. easeInEaseOut read as lag on a click.
+    public static var soft: CAMediaTimingFunction { CAMediaTimingFunction(controlPoints: 0.25, 0.8, 0.25, 1) }
 
     // What goes on while a state lasts, one way (a breath is this there and this back).
     public static let spin: TimeInterval = 1   // the ring's turn: working

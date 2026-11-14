@@ -62,8 +62,8 @@ extension NSView {
         let animation = CABasicAnimation(keyPath: "transform")
         animation.fromValue = NSValue(caTransform3D: aboutCentre(CATransform3DMakeRotation(angle, 0, 0, 1)))
         animation.toValue = NSValue(caTransform3D: CATransform3DIdentity)
-        animation.duration = Motion.base
-        animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        animation.duration = Motion.fold
+        animation.timingFunction = Motion.soft
         layer.add(animation, forKey: "turn")
     }
 
@@ -79,7 +79,7 @@ extension NSView {
         animation.fromValue = NSValue(size: NSSize(width: dx, height: superview?.isFlipped == true ? -dy : dy))
         animation.toValue = NSValue(size: .zero)
         animation.duration = duration
-        animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        animation.timingFunction = Motion.soft
         layer.add(animation, forKey: "slide")
     }
 

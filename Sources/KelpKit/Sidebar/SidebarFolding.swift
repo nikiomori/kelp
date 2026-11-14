@@ -68,12 +68,12 @@ extension SidebarController {
     private func move(_ node: Node, rows alpha: CGFloat, then done: (@MainActor () -> Void)? = nil) {
         NSAnimationContext.runAnimationGroup(
             { ctx in
-                ctx.duration = Motion.duration(Motion.base)
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)   // it answers the click at once
-                // Leaving, the rows fade before they're cut short; coming in, they show once there's room for them.
+                ctx.duration = Motion.duration(Motion.fold)
+                ctx.timingFunction = Motion.soft   // it answers the click at once and settles slowly
+                // Leaving, the rows fade before they're cut short; coming in, they show as there's room for them.
                 NSAnimationContext.runAnimationGroup { fade in
-                    fade.duration = Motion.duration(alpha == 0 ? Motion.fast : Motion.base)
-                    fade.timingFunction = CAMediaTimingFunction(name: alpha == 0 ? .easeOut : .easeIn)
+                    fade.duration = Motion.duration(alpha == 0 ? Motion.base : Motion.fold)
+                    fade.timingFunction = CAMediaTimingFunction(name: alpha == 0 ? .easeOut : .easeInEaseOut)
                     forRows(under: node) { $0.animator().alphaValue = alpha }
                 }
                 updateCard()
@@ -221,7 +221,7 @@ extension SidebarController {
         arriving = []
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = Motion.appear
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ctx.timingFunction = Motion.soft
             updateCard()
         }
         for key in came {
@@ -271,7 +271,7 @@ extension SidebarController {
         for (key, card) in cards { if let frame = was[key] { card.frame = frame } }
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = Motion.appear
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ctx.timingFunction = Motion.soft
             for (key, card) in cards { if let end = ends[key] { card.animator().frame = end } }
         }
     }
