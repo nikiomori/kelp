@@ -16,6 +16,20 @@ extension Store {
         return line
     }
 
+    /// Who asks, from the caller (`Sessions.asker`): nil for the user (Kelp's window, a terminal of the user's own);
+    /// else the agent's session to ask, nil inside when there's none to ask (a program of kelpd's, one that left).
+    func agent(origin: String?) -> String?? {
+        guard let origin else { return .none }
+        let session = Caller.session(of: origin)
+        // A session that can't be read is held to an agent's rules, as the fence holds it.
+        if let session, !Caller.typedOrigin(origin),
+            Log.store.attempt("whether \(session) is an agent's", { try forAnAgent(session) }) == false
+        {
+            return .none
+        }
+        return .some(session)
+    }
+
     /// Whether what `id` does is held to an agent's rules: an agent is on its line, or the line breaks off (it stops at a
     /// mark, `Caller.marks`, or at a session that's gone), which can't be told from an agent's.
     func forAnAgent(_ id: String) throws -> Bool {

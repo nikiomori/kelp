@@ -53,6 +53,8 @@ enum AgentRules {
         UIOpen.self, UICommand.self, UIBrowser.self, PortsStop.self, SettingsSet.self, ExtensionFetch.self,
         WorkspaceCreate.self, WorktreeCreate.self, WorktreeNote.self, WorktreeArchive.self, WorktreeRemove.self,
         VMConnect.self, VMScreen.self, VMUI.self, VMType.self, VMControl.self,
+        // a machine it needs, made only once the user allows it on its row (`VMCreate`'s handler)
+        VMCreate.self,
         // its own workspaces' databases: which, their tables, and a statement (read-only, or a change as the database's
         // `agentAccess` says, `Databases.query`); another project's aren't its to look at, production ones included
         DatabaseList.self, DatabaseSchemaRead.self, DatabaseQuery.self

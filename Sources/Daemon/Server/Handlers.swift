@@ -112,6 +112,11 @@ extension SourceControl: DaemonService {
 extension Forges: DaemonService { static func of(_ daemon: Daemon) -> Forges { daemon.forges } }
 extension Databases: DaemonService { static func of(_ daemon: Daemon) -> Databases { daemon.workspaces.databases } }
 extension VMService: DaemonService { static func of(_ daemon: Daemon) -> VMService { daemon.vms } }
+extension VMAsking: DaemonService {
+    static func of(_ daemon: Daemon) -> VMAsking {
+        VMAsking(vms: daemon.vms, sessions: daemon.sessions, offloads: daemon.offloads)
+    }
+}
 extension PhoneBridge: DaemonService {
     static func of(_ daemon: Daemon) -> PhoneBridge { daemon.sessions.phone }
 }

@@ -33,8 +33,9 @@ extension Builtins {
         - A machine pauses after 2 minutes without a connection and sleeps after 10: a server keeps running only while a
           run holds it. Start one that should stay up as a Kelp session, so the user sees it:
           `kelp session new --cmd "kelp vm run <name> -- npm run dev"`.
-        - There's no machine yet: tell the user `kelp vm create <name>` makes one (Debian 13, about 0.2 GB to download;
-          `--image macos` for macOS, over 20 GB). Don't create one yourself.
+        - None fits (macOS, Android or iOS work, and only Linux is there): `kelp vm create <name> --image macos`
+          (or android, ios) asks the user on your row first and waits up to 10 minutes for their answer, then prints
+          how making it goes (macOS: over 20 GB and about 20 minutes). Ask only when the task needs it.
 
         ## A macOS machine's screen
 

@@ -261,6 +261,8 @@ XCUITest runner. A command runs inside over the machine's own SSH (`kelp vm run`
 machine's screen is read and driven from the Mac's side, in turns by session. Idle, a machine pauses, then sleeps (its
 state saved, `kelp-vm` gone), and wakes on the next command. Making one (download, install, first boot) is kelpd's
 (`Sources/Daemon/VM*.swift`), its step in the folder's `creating`, taken up again by the next kelpd if one stopped midway.
+An agent's `vm.create` asks the user on its row first (Allow / Deny, as a database change does); shutting one down or
+deleting it stays the user's. A project's terminals can run in a machine (`machines.projects`, `SessionSetup.inMachine`).
 
 ## Databases
 `db.*` runs every statement in kelpd: Postgres and MySQL over their own protocols at an address kelpd reaches (or a

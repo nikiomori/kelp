@@ -124,6 +124,7 @@ private func rows() async throws -> Rows {
             (agent, VMType(name: "m", text: "hi"), true, "text typed into it"),
             (agent, VMType(name: "m"), false, "not its password"),
             (agent, VMControl(name: "m", action: .sleep), true, "a sleep: the next command wakes it"),
-            (agent, VMControl(name: "m", action: .stop), false, "not a shutdown: other chats run in it")
+            (agent, VMControl(name: "m", action: .stop), false, "not a shutdown: other chats run in it"),
+            (agent, VMCreate(name: "m"), true, "a machine, made once the user allows it on its row")
         ])
 }

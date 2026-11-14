@@ -37,6 +37,9 @@ public struct VMList: RPCMethod {
 public struct VMCreate: RPCMethod {
     public static let name = "vm.create"
     public typealias Result = VMInfo
+    /// An agent's asks the user first, on its row, for up to ten minutes (`answerWithin`); the user's makes it at once.
+    public static let answerWithin: TimeInterval = 600
+    public static var timeout: TimeInterval? { answerWithin + 60 }
     public var name: String
     public var image: String?
     /// Memory in GiB, disk in GiB.

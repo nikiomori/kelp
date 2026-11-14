@@ -1,5 +1,7 @@
+import Agents
 import Core
 import Foundation
+import TestSupport
 import Testing
 import os
 
@@ -297,7 +299,6 @@ import os
 
     /// Agents run commands in machines; making one, shutting it down or deleting it is the user's.
     @Test func whatAgentsMayNotDo() {
-        #expect(VMCreate(name: "x").notForAgents != nil)
         #expect(VMControl(name: "x", action: .stop).notForAgents != nil)
         #expect(VMControl(name: "x", action: .delete).notForAgents != nil)
         #expect(VMControl(name: "x", action: .sleep).notForAgents == nil)
@@ -368,4 +369,38 @@ import os
     try Data("tar: broken".utf8).write(to: folder.appendingPathComponent("failed"))
     await #expect(throws: (any Error).self) { _ = try await c.call(VMConnect(name: "deb", cwd: nil)) }
     await #expect(throws: (any Error).self) { _ = try await c.call(VMConnect(name: "none", cwd: nil)) }
+}
+
+/// An agent's vm.create asks the user on its row first (as a database change does): Deny refuses it, Allow goes on to
+/// make it (here from an image there isn't, so making it fails at once, past the question). A name that can't be a
+/// machine's isn't asked about.
+@Test func anAgentsMachineIsMadeOnlyOnceTheUserAllowsIt() async throws {
+    let bot = AgentManifest(id: "bot", name: "Bot", command: "/bin/sh", args: ["-c", "cat"])
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    let asking = VMAsking.of(w.d)
+    func ask(_ name: String, image: String? = nil) -> Task<VMInfo, Error> {
+        Task {
+            try await Sessions.$asker.withValue(agent.id) {
+                try await VMCreate(name: name, image: image).handle(asking, conn: -1)
+            }
+        }
+    }
+    func summary() throws -> String { try w.d.store.session(agent.id)?.summary ?? "" }
+    let denied = ask("deb")
+    #expect(try await waitFor { try summary() == "Allow making a machine, deb (Debian 13: about 0.2 GB to download)?" })
+    #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "deny", question: try summary())))
+    await #expect(throws: RPCError.self) { try await denied.value }
+    #expect(VMService(home: w.d.root, helper: "").list().isEmpty)
+    await #expect(throws: RPCError.self) { try await ask("Not_A_Name").value }
+    #expect(try summary().isEmpty)
+    let allowed = ask("box", image: "nope")
+    #expect(try await waitFor { try summary().hasPrefix("Allow making a machine, box") })
+    #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: try summary())))
+    do {
+        _ = try await allowed.value
+        Issue.record("a machine of an image there isn't was made")
+    } catch { #expect((error as? RPCError)?.message.hasPrefix("No image nope") == true) }
 }

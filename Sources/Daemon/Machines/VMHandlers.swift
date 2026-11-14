@@ -39,10 +39,50 @@ extension VMDetailRead: Handled {
     func handle(_ vms: VMService) throws -> VMDetail? { vms.detail(name) }
 }
 
-extension VMCreate: Handled {
-    /// It downloads gigabytes and takes memory from every chat's budget: the user's to decide.
-    var notForAgents: String? { "Making a machine is the user's: they run kelp vm create in a terminal of theirs." }
-    func handle(_ vms: VMService) throws -> VMInfo { try vms.create(self) }
+/// It downloads gigabytes and takes memory from every chat's budget: the user's to decide. An agent's asks them on its
+/// row (Allow / Deny), as a database change does; the user's own (Kelp's window, their terminal) makes it at once.
+extension VMCreate: AsyncHandled {
+    func handle(_ asking: VMAsking, conn: Int) async throws -> VMInfo {
+        if case .some(let session) = asking.sessions.store.agent(origin: Sessions.asker) {
+            guard let session, let ls = asking.sessions.existing(session) else {
+                throw RPCError.refused("Making a machine is the user's: tell them kelp vm create \(name) makes one.")
+            }
+            guard VMs.isName(name) else {   // not asked for one that can't be made
+                throw RPCError.invalidParams(
+                    "A machine's name: up to 20 lowercase letters, digits and dashes, starting with a letter.")
+            }
+            let question = Self.question(name, image: image, file: file)
+            ls.askForKelp(question)
+            let answer = await asking.sessions.permissions.waitForKelp(
+                session, question: question, within: Self.answerWithin,
+                asker: asking.sessions.clients.connection(conn)?.peerPID)
+            ls.kelpAsked(question)
+            guard answer == "allow" else {
+                throw RPCError.refused(
+                    answer == "deny" ? "The user didn't allow making \(name)." : "Nobody answered: \(name) wasn't made."
+                )
+            }
+        }
+        return try await asking.offloads.run { [self] in try asking.vms.create(self) }
+    }
+
+    /// What the agent's row asks: "Allow making a machine, deb (Debian 13: about 0.2 GB to download)?".
+    static func question(_ name: String, image: String?, file: String?) -> String {
+        let what =
+            switch file.map({ _ in "file" }) ?? image ?? "debian-13" {
+            case "file": "from \((file.map { ($0 as NSString).lastPathComponent }) ?? "a file")"
+            case "macos": "macOS: over 20 GB to download, 6 GB of memory while it runs"
+            case "android": "Android, from your SDK"
+            case "ios": "iOS, a simulator of your Xcode"
+            default: "\(VMImage.named(image ?? "debian-13")?.title ?? "Linux"): about 0.2 GB to download"
+            }
+        return "Allow making a machine, \(name) (\(what))?"
+    }
+}
+
+/// What answers `vm.create`: the machines, and the sessions whose rows ask the user for an agent's.
+struct VMAsking: Sendable {
+    let vms: VMService, sessions: Sessions, offloads: Slots
 }
 
 extension VMControl: Handled {

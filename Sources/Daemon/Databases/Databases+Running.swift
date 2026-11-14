@@ -4,19 +4,8 @@ import Foundation
 // Running a statement: who asks, the trial and the user's Allow for an agent's change, and what's kept of the run.
 
 extension Databases {
-    /// Who asks, from the caller (`Sessions.asker`): nil for the user (Kelp's window, a terminal of the user's own);
-    /// else the agent's session to ask, nil inside when there's none to ask (a program of kelpd's, one that left).
-    func agent(origin: String?) -> String?? {
-        guard let origin else { return .none }
-        let session = Caller.session(of: origin)
-        // A session that can't be read is held to an agent's rules, as the fence holds it.
-        if let session, !Caller.typedOrigin(origin),
-            Log.store.attempt("whether \(session) is an agent's", { try store.forAnAgent(session) }) == false
-        {
-            return .none
-        }
-        return .some(session)
-    }
+    /// Who asks (`Store.agent(origin:)`): nil for the user, else the agent's session to ask.
+    func agent(origin: String?) -> String?? { store.agent(origin: origin) }
 
     /// `asker`: the program the call came from (the agent's `kelp db query`): a question it waits on ends with it.
     func query(_ q: DatabaseQuery, origin: String?, asker pid: pid_t? = nil) async throws -> QueryResult {
