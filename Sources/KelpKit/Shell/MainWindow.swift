@@ -46,8 +46,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         editors = EditorHost(app: app)
         sidebar = SidebarController(app: app)
         inspector = InspectorController(app: app)
-        left = Side(Self.column(sidebar), sidebar, Floater(width: 260, inset: 0), inner: .trailing)
-        right = Side(Self.column(inspector), inspector, Floater(width: 300, inset: Card.gap), inner: .leading)
+        let leftFloater = Floater(width: 260, inset: 0, autosave: "sidebar.floatWidth")
+        let rightFloater = Floater(width: 300, inset: Card.gap, autosave: "inspector.floatWidth")
+        left = Side(Self.column(sidebar), sidebar, leftFloater, inner: .trailing)
+        right = Side(Self.column(inspector), inspector, rightFloater, inner: .leading)
         surface = DropRoot(app: app)
         super.init(window: created)
         app.workbench.window = self   // what acts on the window reaches it there

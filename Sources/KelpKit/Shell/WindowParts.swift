@@ -47,10 +47,19 @@ final class Floater: NSView {
     private var leading = true
     private var shown = false
     private var slides = 0
-    var width: CGFloat { didSet { widthC?.constant = width } }
+    /// Where its width is kept between launches: the column it took it from starts collapsed when the panel hides.
+    private let autosave: String
+    var width: CGFloat {
+        didSet {
+            widthC?.constant = width
+            UserDefaults.standard.set(Double(width), forKey: autosave)
+        }
+    }
 
-    init(width: CGFloat, inset: CGFloat) {
-        self.width = width
+    init(width: CGFloat, inset: CGFloat, autosave: String) {
+        let saved = UserDefaults.standard.double(forKey: autosave)
+        self.width = saved > 0 ? saved : width
+        self.autosave = autosave
         self.inset = inset
         super.init(frame: .zero)
         isHidden = true
