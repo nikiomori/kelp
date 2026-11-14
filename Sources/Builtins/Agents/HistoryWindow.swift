@@ -19,7 +19,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         checkboxWithTitle: String(localized: "Search inside conversations"), target: nil, action: nil)
     private let status = NSTextField(labelWithString: "")
     private let resumeB = NSButton(), copyB = NSButton()
-    private let empty = EmptyStateView(), loading = LoadingView()
+    private let empty = EmptyStateView(), loading = LoadingView(rows: true)
     private var rows: [AgentSessionInfo] = []
     /// The app whose conversations it lists and resumes.
     private let app: AppModel

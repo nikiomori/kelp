@@ -40,7 +40,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private let branch = BranchChip()   // Source Control's, in the same place: switching panels doesn't move it
     private let empty = EmptyStateView()
     /// Until the first answer for the workspace (gh can take seconds): the panel isn't blank meanwhile.
-    private let loading = LoadingView()
+    private let loading = LoadingView(rows: true)
     private lazy var checkAgain: NSButton = {   // as large as the setup button beside it
         let button = ClosureButton(title: String(localized: "Check Again")) { [weak self] in self?.reload() }
         button.bezelStyle = .push

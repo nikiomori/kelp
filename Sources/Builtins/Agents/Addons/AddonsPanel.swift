@@ -17,7 +17,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     let app: AppModel
     let table = AddonTable()
     let empty = EmptyStateView()
-    let loadingView = LoadingView()
+    let loadingView = LoadingView(rows: true)
     let face = AddonFace()
     private let chatTitle = NSTextField(labelWithString: "")
     let weight = NSHostingView(rootView: AddonWeight(headline: "", shares: []))
