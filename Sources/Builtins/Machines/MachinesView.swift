@@ -126,7 +126,7 @@ struct MachinesView: View {
         let name = v.machine.name
         Button(String(localized: "Open")) { Machines.openMachine(app, name) }
         Button(String(localized: "Open Terminal")) { Machines.runInMachine(app, name) }.disabled(
-            v.state == .creating || v.state == .error)
+            v.state == .creating || v.notMade == true)
         Divider()
         MachineControls(app: app, info: v)
         if v.state != .creating {
@@ -136,22 +136,31 @@ struct MachinesView: View {
     }
 }
 
-/// Start, Sleep and Shut Down as its state allows: its row's menu and its tab's alike.
+/// Start, Sleep and Shut Down as its state allows, Try Again for one whose making failed: its row's menu and its tab's
+/// alike.
 struct MachineControls: View {
     let app: AppModel, info: VMInfo
 
     var body: some View {
         let name = info.machine.name
         switch info.state {
-        case .running, .paused, .starting:
+        case .running, .paused:
             Button(String(localized: "Sleep")) { Machines.control(app, machine: name, .sleep) }
+            Button(String(localized: "Shut Down")) { Machines.control(app, machine: name, .stop) }
+        case .starting:   // one starting can't be saved yet: kelp-vm refuses a sleep until it's up
             Button(String(localized: "Shut Down")) { Machines.control(app, machine: name, .stop) }
         case .sleeping, .off:
             Button(String(localized: "Start")) { Machines.control(app, machine: name, .start) }
             if info.state == .sleeping {   // its saved state forgotten: the next start boots afresh
                 Button(String(localized: "Shut Down")) { Machines.control(app, machine: name, .stop) }
             }
-        case .creating, .error: EmptyView()
+        case .error:
+            if info.notMade == true {
+                Button(String(localized: "Try Again")) { Machines.makeAgain(app, name) }
+            } else {   // made, its last start failed: its disk is whole, and a start tries again
+                Button(String(localized: "Start")) { Machines.control(app, machine: name, .start) }
+            }
+        case .creating: EmptyView()
         }
     }
 }

@@ -103,6 +103,13 @@ enum Machines {
         }
     }
 
+    /// One whose making failed, made again as it was (`vm.create` with its name alone).
+    static func makeAgain(_ app: AppModel, _ name: String) {
+        Task {
+            if await app.call(VMCreate(name: name)) != nil { app.watchAgain(.machines) }   // as the daemon has it now
+        }
+    }
+
     /// Asks first, then stops it and erases its folder (disk, keys, password): there's no getting it back.
     static func deleteMachine(_ app: AppModel, _ info: VMInfo) {
         let name = info.machine.name
@@ -133,7 +140,8 @@ enum Machines {
         case .sleeping: (String(localized: "Asleep"), .secondaryLabelColor)
         case .off: (String(localized: "Off"), .secondaryLabelColor)
         case .creating: (String(localized: "Being made"), .secondaryLabelColor)
-        case .error: (String(localized: "Failed"), .textRed)
+        case .error:
+            v.notMade == true ? (String(localized: "Failed"), .textRed) : (String(localized: "Didn't start"), .textRed)
         }
     }
 

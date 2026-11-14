@@ -5498,12 +5498,20 @@
             "description" : "A Linux or macOS machine's exchange folder on the Mac, `~/Kelp` inside it (`VMs.filesSetup`).",
             "type" : "string"
           },
+          "log" : {
+            "description" : "Its kelp-vm's log on the Mac, once there is one: what went wrong in more words than `detail` has.",
+            "type" : "string"
+          },
           "machine" : {
             "$ref" : "#/components/schemas/VMMachine"
           },
           "memoryMiB" : {
             "description" : "What it holds of the Mac's memory while it runs (its process's footprint, else its balloon's target), MiB.",
             "type" : "integer"
+          },
+          "notMade" : {
+            "description" : "In `error`: true when making it failed (nothing to start: made again or deleted), nil when it was made and its last start failed (starting it again tries again).",
+            "type" : "boolean"
           },
           "progress" : {
             "type" : "number"

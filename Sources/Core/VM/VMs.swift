@@ -96,6 +96,11 @@ public struct VMInfo: Codable, Sendable, Equatable, Identifiable {
     public var step: VMStep?, progress: Double?
     /// A Linux or macOS machine's exchange folder on the Mac, `~/Kelp` inside it (`VMs.filesSetup`).
     public var files: String?
+    /// In `error`: true when making it failed (nothing to start: made again or deleted), nil when it was made and its
+    /// last start failed (starting it again tries again).
+    public var notMade: Bool?
+    /// Its kelp-vm's log on the Mac, once there is one: what went wrong in more words than `detail` has.
+    public var log: String?
 
     public init(
         machine: VMMachine, state: VMState, detail: String? = nil, connections: Int? = nil, memoryMiB: Int? = nil,

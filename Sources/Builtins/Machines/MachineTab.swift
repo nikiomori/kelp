@@ -43,15 +43,17 @@ struct MachineView: View {
             Spacer(minLength: 8)
             if info?.machine.kind.hasScreen == true {
                 Button(String(localized: "Show Screen")) { Machines.control(app, machine: name, .show) }
-                    .disabled(info.map { [.creating, .error].contains($0.state) } ?? true)
+                    .disabled(unusable)
             }
-            Button(String(localized: "Terminal")) { Machines.runInMachine(app, name) }
-                .disabled(info.map { [.creating, .error].contains($0.state) } ?? true)
+            Button(String(localized: "Terminal")) { Machines.runInMachine(app, name) }.disabled(unusable)
             Menu {
                 if let info { MachineControls(app: app, info: info) }
                 Divider()
                 Button(String(localized: "Copy Run Command")) {
                     copyText("kelp vm run \(name) -- ")
+                }
+                if let log = info?.log {
+                    Button(String(localized: "Show Log")) { app.workbench.open(TabURI.file(log)) }
                 }
             } label: {
                 Image(systemName: "ellipsis.circle").font(.symbol())
@@ -60,6 +62,9 @@ struct MachineView: View {
             .accessibilityLabel(String(localized: "More"))
         }
     }
+
+    /// Nothing to run in: it's being made, or making it failed (a machine whose start failed boots again on a command).
+    private var unusable: Bool { info.map { $0.state == .creating || $0.notMade == true } ?? true }
 
     /// "Debian 13 · 2 CPUs (12%) · 1.2 GB in use · disk 3.1 GB".
     private func summary(_ info: VMInfo) -> String {
@@ -88,10 +93,7 @@ struct MachineView: View {
                     if let progress = info.progress { ProgressView(value: progress).frame(width: 240) }
                 }
                 .offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .error:
-                EmptyState(String(localized: "\(name) wasn't made"), symbol: "exclamationmark.triangle") {
-                    Text(info.detail ?? "").font(.ui(TextSize.caption).monospaced()).textSelection(.enabled)
-                }
+            case .error: failed(info)
             case .sleeping, .off:
                 ScrollView {   // what it is stays in view: its files, and its size to change while it's shut down
                     VStack(spacing: 0) {
@@ -103,6 +105,29 @@ struct MachineView: View {
         } else {
             EmptyState(String(localized: "No machine called \(name)"), symbol: "shippingbox") {
                 Text("`kelp vm list` shows the machines.")
+            }
+        }
+    }
+
+    /// Making it failed (Try Again, Delete), or its last start did (its disk is whole: Start tries again).
+    private func failed(_ info: VMInfo) -> some View {
+        let notMade = info.notMade == true
+        return EmptyState(
+            notMade ? String(localized: "\(name) wasn't made") : String(localized: "\(name) didn't start"),
+            symbol: "exclamationmark.triangle"
+        ) {
+            Text(info.detail ?? "").font(.ui(TextSize.caption).monospaced()).textSelection(.enabled)
+        } actions: {
+            if notMade {
+                Button(String(localized: "Try Again")) { Machines.makeAgain(app, name) }.keyboardShortcut(
+                    .defaultAction)
+                Button(String(localized: "Delete…")) { Machines.deleteMachine(app, info) }
+            } else {
+                Button(String(localized: "Start")) { Machines.control(app, machine: name, .start) }
+                    .keyboardShortcut(.defaultAction)
+            }
+            if let log = info.log {
+                Button(String(localized: "Show Log")) { app.workbench.open(TabURI.file(log)) }
             }
         }
     }

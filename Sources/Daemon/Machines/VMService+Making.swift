@@ -23,6 +23,13 @@ extension VMService {
             throw RPCError.invalidParams(
                 "A machine's name: up to 20 lowercase letters, digits and dashes, starting with a letter.")
         }
+        // One whose making failed, asked for again as it was (no image, file or size): made again from what it is.
+        let asItWas = [request.cpus, request.memory, request.disk].allSatisfy { $0 == nil }
+        if failure(request.name) != nil, request.image == nil, request.file == nil, asItWas {
+            let vm = try machine(request.name)
+            makeAgain(vm)
+            return info(vm)
+        }
         let given = request.file.map { URL(fileURLWithPath: $0).standardizedFileURL }
         let id =
             request.image ?? (given.map { $0.pathExtension.lowercased() == "ipsw" ? "macos" : "linux" } ?? "debian-13")

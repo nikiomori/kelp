@@ -93,6 +93,22 @@ import os
         #expect(vms.list().isEmpty)
     }
 
+    /// One whose making failed reads as not made (one whose start failed reads as made); asked for again by its name
+    /// alone, it's made again as it was: here from a raw disk of the user's that's gone, so it fails again, saying why.
+    @Test func aFailedOneIsMadeAgainByItsNameAlone() async throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        try folder(["failed": "tar: broken", "source": "/nonexistent/disk.raw"])
+        #expect(vms.list().first?.notMade == true)
+        #expect(try vms.create(VMCreate(name: "deb")).state == .creating)
+        var again: VMInfo?
+        for _ in 0..<50 {
+            again = vms.list().first
+            if again?.state == .error { break }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        #expect(again?.notMade == true && again?.detail != "tar: broken")
+    }
+
     /// With no kelp-vm to ask, an Android machine is asleep while its emulator's snapshot is kept, as a Linux one is
     /// while its saved state is; shutting it down then forgets that snapshot, and the next start boots afresh.
     @Test func anAndroidMachineSleepsInItsSnapshotUntilItsShutDown() throws {
@@ -254,7 +270,7 @@ import os
     @Test func offOrAsleepFromItsFolderWithoutItsProcess() throws {
         defer { try? FileManager.default.removeItem(at: home) }
         try folder([:])
-        #expect(vms.list().map(\.state) == [.off])
+        #expect(vms.list().map(\.state) == [.off] && vms.list().first?.notMade == nil)
         try folder(["state.vzsave": "x"])
         #expect(vms.list().map(\.state) == [.sleeping])
     }

@@ -79,7 +79,18 @@ struct VMService: Sendable {
     }
 
     func info(_ machine: VMMachine, status known: VMHelper.Reply?? = nil) -> VMInfo {
-        if let failed = failure(machine.name) { return VMInfo(machine: machine, state: .error, detail: failed) }
+        var result = describe(machine, status: known)
+        let log = folder(machine.name).log.path
+        result.log = FileManager.default.fileExists(atPath: log) ? log : nil
+        return result
+    }
+
+    private func describe(_ machine: VMMachine, status known: VMHelper.Reply??) -> VMInfo {
+        if let failed = failure(machine.name) {
+            var result = VMInfo(machine: machine, state: .error, detail: failed)
+            result.notMade = true
+            return result
+        }
         if let at = making(machine.name) {
             var result = VMInfo(machine: machine, state: .creating, detail: at.detail)
             result.step = at.step
