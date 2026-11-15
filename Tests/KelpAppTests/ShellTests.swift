@@ -246,3 +246,21 @@ import WorkbenchKit
     #expect(fieldEnd == buttonsEnd && buttonsEnd == Metrics.sheetWidth - Metrics.sheetInset)
     #expect(grid.column(at: 0).width == Metrics.formLabel)
 }
+
+/// What a template runs again for a tab: an agent anew, a Run command with its title, a shell for a plain terminal;
+/// each read back into the session it starts in the new group.
+@MainActor @Test func aTemplateRunsAgainWhatRanInATab() {
+    func session(_ agent: String, _ argv: [String], title: String = "") -> Session {
+        var s = Session(
+            worktreeId: "w", cwd: "/", command: argv.first ?? "", agent: agent, status: .working, title: title)
+        s.argv = argv
+        return s
+    }
+    let dev = LayoutTemplates.run(
+        LayoutTemplates.running(session("custom", ["/bin/zsh", "-lc", "npm run dev"], title: "dev")))
+    #expect(dev.command == "npm run dev" && dev.title == "dev" && dev.agent == nil)
+    let claude = LayoutTemplates.run(LayoutTemplates.running(session("claude", ["claude"])))
+    #expect(claude.agent == "claude" && claude.command == nil)
+    let shell = LayoutTemplates.run(LayoutTemplates.running(session("shell", ["/bin/zsh", "-l"])))
+    #expect(shell.agent == "shell" && shell.command == nil)
+}

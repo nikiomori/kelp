@@ -312,8 +312,7 @@ extension SidebarController {
         let app = self.app, model = app
         guard let worktree = model.worktree(id) else { return }
         menu.add(String(localized: "Rename")) { [weak self] in self?.startRename(id) }
-        menu.add(String(localized: "Open in Own Window")) { app.workbench.toggleOwnWindow(id) }.state =
-            app.workbench.inOwnWindow(id) ? .on : .off
+        app.workbench.addWindowItems(to: menu, workspace: id)
         menu.addItem(.separator())
         muteItem(menu, [id])
         WorkspaceActions.addLocate(to: menu, path: worktree.path)

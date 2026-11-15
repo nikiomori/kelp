@@ -148,3 +148,38 @@ final class StartRow: PointerControl {
     required init?(coder: NSCoder) { fatalError() }
 
 }
+
+/// The project's group templates (`LayoutTemplates`), first on an empty screen: a click arranges this one as the
+/// template says; gone while the project has none. A row's menu deletes it.
+@MainActor
+final class TemplateGroup: NSStackView {
+    let head = StartView.heading(String(localized: "Templates"))
+
+    init(app: AppModel, workspace w: Worktree) {
+        super.init(frame: .zero)
+        orientation = .vertical
+        alignment = .leading
+        spacing = 6
+        let store = LayoutTemplates(app: app), templates = store.all(w.repoId)
+        isHidden = templates.isEmpty
+        let rows = templates.map { t in
+            let row = StartRow(
+                image: .symbol("rectangle.split.2x1"), title: t.name, detail: store.summary(t), shortcut: nil
+            ) {
+                Task { await store.use(t, in: w.id) }
+            }
+            row.menu = NSMenu()
+            row.menu?.add(String(localized: "Delete Template")) { [weak self, weak row] in
+                store.delete(t.name, in: w.repoId)
+                row?.isHidden = true   // the list isn't read again until the screen is made again
+                self?.isHidden = store.all(w.repoId).isEmpty
+            }
+            return row
+        }
+        let card = StartCard(rows: rows)
+        setViews([head, card], in: .top)
+        head.leadingAnchor.constraint(equalTo: leadingAnchor, constant: StartView.headInset).isActive = true
+        card.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
+    }
+    required init?(coder: NSCoder) { fatalError() }
+}

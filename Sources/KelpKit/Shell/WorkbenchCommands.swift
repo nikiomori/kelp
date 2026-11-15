@@ -30,6 +30,12 @@ extension Builtins {
             ) { _ in
                 if let id = app.workbench.workspaceId { app.workbench.moveToOwnWindow(id) }
             },
+            CommandSpec(
+                id: "workbench.saveTemplate", title: "Save Layout as Template…",
+                enabled: { !app.workbench.tabURIs.isEmpty }
+            ) { _ in
+                if let id = app.workbench.workspaceId { Task { await LayoutTemplates(app: app).save(from: id) } }
+            },
             CommandSpec(id: "workbench.showPanel", title: "Show Panel") { args in
                 if let panel = args["panel"]?.string { app.workbench.window?.showInspector(panel: panel) }
             },

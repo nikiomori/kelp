@@ -381,3 +381,22 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     let c = l.add("session:c", to: g, select: false)
     #expect(l.groups[g]?.selected == b.id && l.focused == f && l.group(of: c.id) == g)
 }
+
+/// A template keeps the panes, what they show and what ran in them as what runs again, each in its own tab (two
+/// Claudes stay two); a moment's tab goes, and so does a pane it leaves empty. Used, each run's session takes its tab.
+@Test func aTemplateKeepsThePanesAndStartsWhatRanInThem() throws {
+    var l = WorkspaceLayout()
+    let a = l.add("session:a"), b = l.add("session:b"), page = l.add("http://localhost:3000")
+    let g = try #require(l.focused)
+    l.split(page.id, from: g, vertical: true, before: false)
+    let right = try #require(l.focused)
+    let untitled = l.add("untitled:1", to: right)
+    l.split(untitled.id, from: right, vertical: false, before: false)
+    let t = LayoutTemplate(name: "Frontend", from: l, ownWindow: true) {
+        ["session:a": "agent:claude", "session:b": "agent:claude"][$0]
+    }
+    #expect(t.layout.allTabs.map(\.uri) == ["agent:claude", "agent:claude", "http://localhost:3000"])
+    #expect(t.layout.root?.sessions.count == 2 && t.runs.map(\.id) == [a.id, b.id])
+    let used = t.filled([a.id: "session:x"])
+    #expect(used.allTabs.map(\.uri) == ["session:x", "http://localhost:3000"])
+}

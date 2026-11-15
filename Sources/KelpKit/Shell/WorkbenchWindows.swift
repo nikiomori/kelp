@@ -17,6 +17,16 @@ extension Workbench {
         if inOwnWindow(id) { returnToMain(id) } else { moveToOwnWindow(id) }
     }
 
+    /// A group's row menu: its own window (ticked while it's in one), and its layout kept as a template.
+    func addWindowItems(to menu: NSMenu, workspace id: String) {
+        let app = self.app
+        menu.add(String(localized: "Open in Own Window")) { app.workbench.toggleOwnWindow(id) }.state =
+            inOwnWindow(id) ? .on : .off
+        menu.add(String(localized: "Save Layout as Template…")) {
+            Task { await LayoutTemplates(app: app).save(from: id) }
+        }
+    }
+
     func moveToOwnWindow(_ id: String) {
         guard let editors = window?.editors, app.worktree(id) != nil else { return }
         // The main window shows what was there before, rather than nothing.

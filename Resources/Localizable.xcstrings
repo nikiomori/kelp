@@ -233,6 +233,16 @@
         }
       }
     },
+    "Delete Template": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить шаблон"
+          }
+        }
+      }
+    },
     "Follow Edits": {
       "localizations": {
         "ru": {
@@ -355,6 +365,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Чат переезжает на %@…"
+          }
+        }
+      }
+    },
+    "New groups in this project can open with these panes and what runs in them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новые группы этого проекта смогут открываться с этими панелями и тем, что в них запущено."
           }
         }
       }
@@ -499,6 +519,26 @@
         }
       }
     },
+    "Save Layout as Template": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить раскладку как шаблон"
+          }
+        }
+      }
+    },
+    "Save Layout as Template…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить раскладку как шаблон…"
+          }
+        }
+      }
+    },
     "Share of cost": {
       "localizations": {
         "ru": {
@@ -535,6 +575,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Свернуть"
+          }
+        }
+      }
+    },
+    "Templates": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шаблоны"
           }
         }
       }

@@ -78,6 +78,8 @@ final class StartView: NSView {
         if let code { views.append(code) }
         let field = agents.contains { $0.id == def } ? promptField() : nil
         if let field { views += [field, planBar] }
+        let templates = TemplateGroup(app: app, workspace: w)
+        views.append(templates)
         let agentsHead = Self.heading(String(localized: "Agents")), openHead = Self.heading(String(localized: "Open"))
         let agentList = agents.isEmpty ? StartCard(rows: installRows()) : tiles(agents)
         // Made again when what it offers changes (Database, once the workspace's databases are read).
@@ -106,6 +108,7 @@ final class StartView: NSView {
             stack.setCustomSpacing(after, after: head)
         }
         stack.setCustomSpacing(18, after: agentList)
+        stack.setCustomSpacing(18, after: templates)
         stack.setCustomSpacing(14, after: run)
         // In a scroll view: a low window scrolls the list rather than growing to hold it.
         let page = FlippedView()
@@ -139,7 +142,7 @@ final class StartView: NSView {
         for head in [agentsHead, openHead, run.head] {
             head.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: Self.headInset).isActive = true
         }
-        for part in [field, agentList, openCard, run].compactMap({ $0 }) {
+        for part in [field, templates, agentList, openCard, run].compactMap({ $0 }) {
             part.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
         followPlans(in: stack, after: field)
