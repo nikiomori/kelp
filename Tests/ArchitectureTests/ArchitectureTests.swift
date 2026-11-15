@@ -317,8 +317,7 @@ func codeOnly(_ s: String) -> String {
     let over400 = sources(["Sources"]).filter { f in
         f.text.split(separator: "\n", omittingEmptySubsequences: false).count > 400
     }.count
-    #expect(over400 <= 29, "files over 400 lines of code: \(over400)")
-    #expect(over400 >= 29, "fewer now (\(over400)): lower the ceiling")
+    #expect(over400 == 29, "files over 400 lines: \(over400); fewer now: lower the count")
 }
 
 /// The daemon starts every program (an extension's command, a formatter, a notebook run, an agent's --version:
@@ -570,14 +569,11 @@ func codeOnly(_ s: String) -> String {
     // Drawn by hand too: a system font at a size of its own (a tile's letters, scaled to the tile), a rounded path's
     // radius typed in (icon tiles). The debt as it is: each ceiling is today's count.
     let fonts = try matches(#"systemFont\(ofSize"#, in: chrome), radii = try matches(#"xRadius: *[0-9]"#, in: chrome)
-    #expect(fonts.count <= 4, "\(fonts)")
-    #expect(fonts.count >= 4, "fewer now: lower the ceiling")
-    #expect(radii.count <= 5, "\(radii)")
-    #expect(radii.count >= 5, "fewer now: lower the ceiling")
+    #expect(fonts.count == 4, "a new one, or fewer now (lower the count): \(fonts)")
+    #expect(radii.count == 5, "a new one, or fewer now (lower the count): \(radii)")
     // Text sizes by name (`TextSize.caption`); what's left is a title, a big number, a tile's glyph, a grid's NULL.
     let typed = try matches(#"\.ui(Mono|Digits)?\(\d"#, in: chrome + ["Sources/DesignKit", "Sources/EditorKit"])
-    #expect(typed.count <= 4, "\(typed)")
-    #expect(typed.count >= 4, "fewer now: lower the ceiling")
+    #expect(typed.count == 4, "a new one, or fewer now (lower the count): \(typed)")
     #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count <= 1)
     #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count >= 1, "fewer now: lower the ceiling")
     // The system's text styles stay at their size whatever Text size says: SwiftUI text takes `Font.ui` too.
