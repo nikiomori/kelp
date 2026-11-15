@@ -171,8 +171,13 @@ private struct Fence {
         }
         // Every workspace a call that acts names, whatever the field: not each method remembering to say. `inWorkspace` is
         // for what the walk can't see (the workspace on screen, `""`) and for a read held to the agent's own (a fetch).
+        let held = try method.writesInFolder.flatMap { folder in
+            IDE.workspace(
+                cwd: folder, among: try store.worktrees().filter { !$0.archived },
+                own: try store.session(own)?.worktreeId)?.id
+        }
         let workspaces = Set(
-            [method.inWorkspace].compactMap { $0 }
+            [method.inWorkspace, held].compactMap { $0 }
                 + (AgentRules.reads.contains(name) ? [] : try store.workspaces(namedBy: method)))
         for workspace in workspaces where try !store.works(own, in: workspace, typed: typed) {
             throw RPCError.refused(

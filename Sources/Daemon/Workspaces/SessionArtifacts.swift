@@ -41,6 +41,7 @@ extension Sessions {
 
 extension ArtifactNew: Handled {
     static var quick: Bool { true }
+    var writesInFolder: String? { cwd }   // the workspace whose panel it lands in
     func handle(_ workspaces: Workspaces) throws -> String {
         let root = try artifactsRoot(workspaces.store, cwd: cwd, session: session)
         return try Artifacts.create(kind, title: title, root: root, session: session).path
@@ -50,6 +51,7 @@ extension ArtifactNew: Handled {
 extension ArtifactAdd: Handled {
     /// An agent's hook waits for it.
     static var quick: Bool { true }
+    var writesInFolder: String? { cwd }
     func handle(_ workspaces: Workspaces) throws -> Bool {
         guard url.hasPrefix("https://") else { throw RPCError.invalidParams("a page's link starts with https://") }
         let root = try artifactsRoot(workspaces.store, cwd: cwd, session: session)

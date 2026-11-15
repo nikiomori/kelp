@@ -43,6 +43,20 @@ import Testing
             true, "and keeps the link to one it published"
         ),
         (
+            .session(mine.id), ArtifactNew(kind: .doc, title: "Plan", cwd: elsewhere.path + "/src", session: mine.id),
+            false, "but not in another's workspace, whose panel would show it"
+        ),
+        (
+            .session(mine.id),
+            ArtifactAdd(
+                url: "https://claude.ai/artifact/x", title: "Deck", type: "page", cwd: elsewhere.path, session: nil),
+            false, "nor keeps a link there, named by its folder alone"
+        ),
+        (
+            .session(mine.id), ArtifactNew(kind: .doc, title: "Plan", cwd: "/usr", session: mine.id), true,
+            "a folder of no project is a chat's own"
+        ),
+        (
             .session(mine.id), ArtifactCheck(path: wt.path + "/.kelp/artifacts/x/canvas.json"), true,
             "and checks a canvas"
         )

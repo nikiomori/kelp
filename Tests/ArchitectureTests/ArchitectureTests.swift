@@ -655,7 +655,7 @@ func codeOnly(_ s: String) -> String {
 @Test func noPropertyIsNamedNearlyLikeAGate() throws {
     let gates = [
         "onlyFromKelp", "reportsFor", "actsOn", "answersQuestion", "inWorkspace", "ends", "notForAgents", "typesInto",
-        "shows", "signs", "makesInProject",
+        "shows", "signs", "makesInProject", "writesInFolder",
         "inOrder", "quick", "timeout"
     ]
     func distance(_ a: String, _ b: String) -> Int {

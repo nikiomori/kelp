@@ -38,6 +38,9 @@ protocol Answered: RPCMethod {
     /// The workspace it works in (`kelp browser`'s tabs, a port's process): an agent works only in its own, whose
     /// pages may carry the user's login it was let into.
     var inWorkspace: String? { get }
+    /// A folder it writes in (an artifact's `cwd`): held to the workspace that holds it, as `inWorkspace` is. One outside
+    /// every workspace (a chat of no project) is anyone's.
+    var writesInFolder: String? { get }
     /// The sessions it ends with what it removes (a workspace, a project's): an agent ends only its own and those it
     /// started, never the user's other agents.
     var ends: Ending? { get }
@@ -62,6 +65,7 @@ extension Answered {
     var actsOn: String? { nil }
     var answersQuestion: Bool { false }
     var inWorkspace: String? { nil }
+    var writesInFolder: String? { nil }
     var ends: Ending? { nil }
     var notForAgents: String? { nil }
     var typesInto: String? { nil }
