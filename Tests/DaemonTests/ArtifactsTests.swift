@@ -72,6 +72,7 @@ private func tempRoot() throws -> URL {
     #expect(dashboard.lastPathComponent == "canvas.json")
     #expect(
         try Artifacts.create(.slides, title: "Deck", root: root.path, session: nil).lastPathComponent == "slides.md")
+    #expect(try Artifacts.create(.proof, title: "Fix", root: root.path, session: nil).lastPathComponent == "proof.md")
     #expect(try Artifacts.keepVersions(root: root.path, session: "s1", label: "make it") == 1)
     #expect(Artifacts.versionPath(target: design.path, 1).hasSuffix("/versions/1.json"))
     #expect(FileManager.default.fileExists(atPath: Artifacts.versionPath(target: design.path, 1)))
@@ -131,6 +132,12 @@ private func tempRoot() throws -> URL {
     #expect(review.contains("Reviews stay in the project") && review.contains("## 1. The question"))
     let slides = try #require(Artifacts.guide("slides", whereTo: "agent"))
     #expect(slides.contains("make it there") && slides.contains("kelp artifact new slides") && slides.contains("`---`"))
+    // A proof's pictures are files beside it, so it stays too; it lists only what was run, and says what wasn't.
+    let proof = try #require(Artifacts.guide("proof", whereTo: "agent"))
+    #expect(proof.contains("Proofs stay in the project") && !proof.contains("If you can publish"))
+    #expect(
+        proof.contains("kelp artifact new proof") && proof.contains("## Not checked") && proof.contains("width=\"49%\"")
+    )
     let design = try #require(Artifacts.guide("design", whereTo: "local"))
     #expect(design.contains("don't publish it elsewhere") && design.contains("light and dark"))
     #expect(Artifacts.guide("poster", whereTo: "agent") == nil)

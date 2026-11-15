@@ -71,7 +71,7 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
 public enum Artifacts {
     /// The kinds Kelp makes on this Mac, and the file each one is: Markdown, or a canvas of boards.
     public enum Kind: String, Codable, CaseIterable, Sendable {
-        case doc, review, slides, design, dashboard
+        case doc, review, slides, design, dashboard, proof
         public var file: String { isCanvas ? "canvas.json" : "\(rawValue).md" }
         /// A canvas of boards Kelp draws (`ArtifactCanvas`), not a Markdown page.
         public var isCanvas: Bool { self == .design || self == .dashboard }
@@ -195,6 +195,9 @@ public enum Artifacts {
         if kind == Kind.review.rawValue {
             out +=
                 "Reviews stay in the project, even if you can publish artifacts elsewhere: the user's picks come back to you from the file.\n"
+        } else if kind == Kind.proof.rawValue {
+            out +=
+                "Proofs stay in the project, even if you can publish artifacts elsewhere: their pictures are files beside the page.\n"
         } else if whereTo == "local" {
             out += "Make it here, on this Mac: don't publish it elsewhere, even if you can.\n"
         } else {
@@ -241,6 +244,21 @@ public enum Artifacts {
         - Kelp shows them one at a time beside a strip of all (← → step, Present fills the pane, Print gives a page
           each).
         - For a deck in the project's own look, make a design instead: `kelp artifact guide design deck`.
+
+        """,
+        "proof": """
+        - For a change you made: what you checked and what you saw, for the user to look at before they commit. Not a
+          plan, not a tour of the code.
+        - One H1: the change, as the user would name it.
+        - `## Checked`: a line per check, the command in backticks and the line of its output that shows the result.
+          Only what you ran in this chat; what you couldn't run goes under `## Not checked`, with why.
+        - A change that shows on screen has pictures, saved beside proof.md: `kelp browser screenshot <file>` for a
+          page, `kelp vm screenshot <name> <file>` for an app in a machine, `kelp shot <file>` for Kelp's own window,
+          the project's own tool for anything else. Look at each picture yourself before you put it on the page.
+        - Where the look changed, before and after on one line, under a line `Before · After`:
+          `<img src="before.png" width="49%"> <img src="after.png" width="49%">` (the only HTML on the page). With no
+          picture from before the change, the after alone: `![what it shows](after.png)`.
+        - Nothing on screen changed: no pictures.
 
         """
     ]

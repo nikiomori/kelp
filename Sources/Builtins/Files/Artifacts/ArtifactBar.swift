@@ -173,6 +173,7 @@ final class ArtifactBar: NSObject {
             case .slides: ("play.rectangle", String(localized: "Slides"))
             case .design: ("square.grid.2x2", String(localized: "Design"))
             case .dashboard: ("chart.bar", String(localized: "Dashboard"))
+            case .proof: ("checkmark.seal", String(localized: "Proof"))
             }
         return .symbol(symbol, name)
     }
@@ -262,7 +263,8 @@ final class ArtifactBar: NSObject {
 
     private static let kindNames = [
         "doc": String(localized: "Doc"), "review": String(localized: "Review"), "slides": String(localized: "Slides"),
-        "design": String(localized: "Design"), "dashboard": String(localized: "Dashboard")
+        "design": String(localized: "Design"), "dashboard": String(localized: "Dashboard"),
+        "proof": String(localized: "Proof")
     ]
 
     /// A dashboard: View and Mark (nothing to change by hand), no Present, and when its figures were drawn.

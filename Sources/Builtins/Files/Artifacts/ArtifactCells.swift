@@ -11,7 +11,7 @@ struct ArtifactCells {
     let panel: ArtifactsPanel
     private static let symbols = [
         "doc": "doc.text", "review": "checklist", "slides": "play.rectangle", "design": "square.grid.2x2",
-        "dashboard": "chart.bar"
+        "dashboard": "chart.bar", "proof": "checkmark.seal"
     ]
 
     func heading(_ text: String) -> NSView {

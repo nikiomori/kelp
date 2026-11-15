@@ -1990,6 +1990,16 @@
         }
       }
     },
+    "Proof": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка"
+          }
+        }
+      }
+    },
     "A page to read and keep": {
       "localizations": {
         "ru": {

@@ -422,7 +422,8 @@
           "review",
           "slides",
           "design",
-          "dashboard"
+          "dashboard",
+          "proof"
         ],
         "type" : "string"
       },
