@@ -50,6 +50,22 @@ public struct VMFolder: Sendable, Equatable {
     public var runnerBuild: URL { file("dd") }
     /// What its kelp-vm prints (kelpd starts it so).
     public var log: URL { file("helper.log") }
+    /// A child kelp-vm started (an emulator, an iOS runner), noted as "<pid> <start time>" (`Lifecycle.remember`).
+    public func child(_ name: String) -> URL { file(name + ".child") }
+
+    /// Ends the child noted as `name` if that same process (by its start time) still runs: SIGTERM to its tree, then
+    /// SIGKILL, before this returns; the note goes either way. Its pid, when one was ended. For what a kelp-vm that was
+    /// killed left: kelp-vm's next boot, and kelpd's sweep before it makes a machine again (an emulator names its AVD in
+    /// its environment, not its arguments: `pkill -f <folder>` doesn't find it).
+    @discardableResult public func endChild(_ name: String) -> pid_t? {
+        guard let words = String(contentsIfAny: child(name))?.split(separator: " "), words.count == 2,
+            let pid = pid_t(words[0]), let start = UInt64(words[1])
+        else { return nil }
+        FileManager.default.removeIfAny(child(name))
+        guard start != 0, Subprocess.started(pid) == start else { return nil }
+        Subprocess.stopTreeNow(pid)
+        return pid
+    }
 
     /// An Android machine's quickboot snapshot, which its emulator saves as it sleeps.
     public func snapshot(_ machine: String) -> URL {

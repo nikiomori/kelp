@@ -80,6 +80,27 @@ import Testing
         #expect(vm.state == .running)
         _ = await ask(vm, .stop)
     }
+
+    /// kelpd's calls to the runner (a tap, a screenshot) go straight to its port, each right after a start: that start
+    /// counts as use for `callWindow`, so the memory budget's sleep doesn't stop the simulator under the call. Once
+    /// it's past, the machine is idle again (a tick doesn't keep it in use).
+    @Test(.timeLimit(.minutes(1))) func aRunnerCallIsUseAndTheBudgetsSleepWaitsForIt() async throws {
+        let (vm, folder) = try iOS()
+        defer { putAway(folder) }
+        var later: TimeInterval = 0
+        vm.now = { Date() + later }
+        vm.exitProcess = {}
+        func sleepIfIdle() async -> String? {
+            await withCheckedContinuation { c in vm.handle(.sleepIfIdle) { c.resume(returning: $0) } }
+        }
+        #expect(await ask(vm, .start) == nil)
+        #expect(await sleepIfIdle()?.contains("in use") == true)
+        #expect(vm.state == .running)
+        later = IOSRuntime.callWindow + 1
+        vm.tick()
+        #expect(await sleepIfIdle() == nil)
+        #expect(vm.state == .off)
+    }
 }
 
 /// A machine's folder with its simulator's udid (one no real program names), the runner built unless `built` is false,

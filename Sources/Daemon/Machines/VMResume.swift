@@ -23,6 +23,20 @@ extension VMService {
         }
     }
 
+    /// Whether this call is the one to make `vm` again (its making failed): checked and claimed under one lock
+    /// (vms/.remaking, a moment), its `failed` gone and its `creating` written before `makeAgain`'s slow part (seconds:
+    /// its kelp-vm quit, a simulator deleted), so a second Try Again meanwhile (the user's twice, an agent's) finds it
+    /// being made.
+    func claimRemake(_ vm: VMMachine) -> Bool {
+        let fd = open(root.appendingPathComponent(".remaking").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        guard fd >= 0 else { return false }
+        defer { close(fd) }   // and the lock with it
+        flock(fd, LOCK_EX)
+        guard failure(vm.name) != nil else { return false }
+        remove(folder(vm.name).failed)
+        return step(vm, .starting)
+    }
+
     /// `vm` made again from the start: what a try before left (its kelp-vm, downloads and installer, an iOS one's
     /// simulator, every file but what it is and what it's made from) gone first. A download goes on where it stopped.
     func makeAgain(_ vm: VMMachine) {
@@ -55,6 +69,7 @@ extension VMService {
     /// The programs still working in its folder (downloads, an installer, an emulator) ended: they outlive the kelpd that
     /// started them, and a machine stopped midway shouldn't go on writing.
     func endLeftovers(_ name: String) {
+        for child in ["emulator", "runner"] { folder(name).endChild(child) }   // one a killed kelp-vm left
         do {
             _ = try Subprocess.run(
                 ["/usr/bin/pkill", "-TERM", "-f", "--", Self.inFolder(folder(name).path)], cwd: "/", env: [:],

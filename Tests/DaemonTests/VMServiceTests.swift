@@ -72,6 +72,33 @@ import os
         #expect(!hits("kelp-vm /k/vms/dev2") && !hits("ssh -F /k/vms/dev2/ssh_config dev2"))
     }
 
+    /// What a killed kelp-vm left (an emulator, which names its AVD in its environment, not its arguments) is ended
+    /// before the machine is made again or deleted midway: found by the pid it noted.
+    @Test func leftoversIncludeANotedEmulator() async throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        try folder([:])
+        let child = try Process.run(URL(fileURLWithPath: "/bin/sleep"), arguments: ["60"])
+        defer { if child.isRunning { kill(child.processIdentifier, SIGKILL) } }
+        let start = try #require(Subprocess.started(child.processIdentifier))
+        try "\(child.processIdentifier) \(start)".write(
+            to: vms.folder("deb").child("emulator"), atomically: true, encoding: .utf8)
+        vms.endLeftovers("deb")
+        #expect(try await waitFor(3) { !child.isRunning })
+    }
+
+    /// Try Again twice (the user's, or the user's and an agent's) makes it again once: the first claims it before the
+    /// seconds `makeAgain` spends ending what's left, and the second is answered as it's being made.
+    @Test func aSecondTryAgainFindsItBeingMade() throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        // of an image there isn't: made again, nothing is downloaded
+        let nope = VMMachine(name: "deb", image: "nope", cpus: 2, memoryMiB: 2048, diskGiB: 32, user: "niko")
+        try folder(["failed": "no disk"])
+        try JSONEncoder().encode(nope).write(to: vms.folder("deb").machine)
+        #expect(vms.claimRemake(nope))
+        #expect(!vms.claimRemake(nope), "claimed already")
+        #expect(try vms.create(VMCreate(name: "deb")).state == .creating)
+    }
+
     /// A sleep counts as memory freed only once the machine says it's down.
     @Test func aSleepFreesOnlyAMachineThatsDown() throws {
         #expect(try vms.asleep(VMHelper.Reply(state: .sleeping, connections: 0)))

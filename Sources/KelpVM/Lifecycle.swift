@@ -40,21 +40,45 @@ enum Lifecycle {
         let pid = process.processIdentifier
         let note = "\(pid) \(Subprocess.started(pid) ?? 0)"
         do {
-            try note.write(to: folder.appendingPathComponent(name + ".child"), atomically: true, encoding: .utf8)
+            try note.write(to: VMFolder(folder).child(name), atomically: true, encoding: .utf8)
         } catch { log("can't note \(name)'s pid: \(error.localizedDescription)") }
     }
 
-    /// Ends the child an earlier kelp-vm noted, if it still runs (the same process, by its start time): SIGTERM, then
-    /// SIGKILL, before this returns. Called under the machine's lock, so it's nobody else's.
+    /// Ends the child an earlier kelp-vm noted, if it still runs (`VMFolder.endChild`). Called under the machine's lock,
+    /// so it's nobody else's.
     static func endLeftover(in folder: URL, _ name: String) {
-        let note = folder.appendingPathComponent(name + ".child")
-        guard let words = String(contentsIfAny: note)?.split(separator: " "), words.count == 2,
-            let pid = pid_t(words[0]), let start = UInt64(words[1])
-        else { return }
-        FileManager.default.removeIfAny(note)
-        guard start != 0, Subprocess.started(pid) == start else { return }
-        log("ending \(name) \(pid), left by a kelp-vm that was killed")
-        Subprocess.stopTreeNow(pid)
+        if let pid = VMFolder(folder).endChild(name) { log("ended \(name) \(pid), left by a kelp-vm that was killed") }
+    }
+
+    /// A loopback port for an emulator or a runner, with the one after it (an emulator's adb port): even, from `start`,
+    /// nothing listening on either, and claimed from every other kelp-vm by a lock on `<machines>/.ports/<port>`, held on
+    /// `fd` until it's closed or kelp-vm ends. Probing alone let two machines woken seconds apart take the same port,
+    /// neither's emulator listening on it yet. None free: `start`, unclaimed (fd -1).
+    static func claimPort(from start: Int, in machines: URL) -> (port: Int, fd: Int32) {
+        let claims = machines.appendingPathComponent(".ports")
+        do { try Paths.ensure(claims) } catch { log("no \(claims.path): \(error.localizedDescription)") }
+        for port in stride(from: start, through: start + 80, by: 2) where !listened(port) && !listened(port + 1) {
+            let fd = open(claims.appendingPathComponent("\(port)").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+            guard fd >= 0 else { continue }
+            if flock(fd, LOCK_EX | LOCK_NB) == 0 { return (port, fd) }
+            close(fd)
+        }
+        return (start, -1)
+    }
+
+    private static func listened(_ port: Int) -> Bool {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        defer { close(fd) }
+        var address = sockaddr_in()
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = UInt16(port).bigEndian
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let result = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        return result == 0
     }
 
     enum IdleStep { case pause, sleep }

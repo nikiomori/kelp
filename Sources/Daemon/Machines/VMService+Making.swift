@@ -23,11 +23,14 @@ extension VMService {
             throw RPCError.invalidParams(
                 "A machine's name: up to 20 lowercase letters, digits and dashes, starting with a letter.")
         }
-        // One whose making failed, asked for again as it was (no image, file or size): made again from what it is.
+        // One whose making failed, asked for again as it was (no image, file or size): made again from what it is. Asked
+        // again while that's under way (Try Again twice): answered as it's being made, not made a second time.
         let asItWas = [request.cpus, request.memory, request.disk].allSatisfy { $0 == nil }
-        if failure(request.name) != nil, request.image == nil, request.file == nil, asItWas {
+        if request.image == nil, request.file == nil, asItWas,
+            failure(request.name) != nil || making(request.name) != nil
+        {
             let vm = try machine(request.name)
-            makeAgain(vm)
+            if claimRemake(vm) { makeAgain(vm) }
             return info(vm)
         }
         let given = request.file.map { URL(fileURLWithPath: $0).standardizedFileURL }

@@ -83,3 +83,17 @@ import Testing
     #expect(await read(["{\"op\":\"status\"}"])?.op == .status)   // its end is its line's end
     #expect(await read(["not json\n"]) == nil)
 }
+
+/// Two machines woken a moment apart never get the same port, though neither listens on it yet: a port is claimed (a
+/// lock in the machines' folder, `flock`'s, so another kelp-vm's too) until its claim is let go.
+@Test func twoMachinesNeverClaimOnePort() throws {
+    let machines = FileManager.default.temporaryDirectory.appendingPathComponent("vms-\(UUID().uuidString.prefix(6))")
+    defer { try? FileManager.default.removeItem(at: machines) }
+    let a = Lifecycle.claimPort(from: 9300, in: machines), b = Lifecycle.claimPort(from: 9300, in: machines)
+    defer { close(b.fd) }
+    #expect(a.fd >= 0 && b.fd >= 0 && a.port != b.port)
+    close(a.fd)
+    let c = Lifecycle.claimPort(from: 9300, in: machines)
+    defer { close(c.fd) }
+    #expect(c.port == a.port, "let go, it's free again")
+}

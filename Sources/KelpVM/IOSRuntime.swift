@@ -10,6 +10,8 @@ final class IOSRuntime {
     private(set) var state: VMState = .off
     private var runner: Process?
     private var port = 0
+    /// Its port's claim (`Lifecycle.claimPort`), held while it may be in use: let go as the next boot claims one.
+    private var portClaim: Int32 = -1
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []
     /// The last shutdown asked of the simulator: a boot waits for it (booted under it, it would be shut down again).
@@ -43,8 +45,17 @@ final class IOSRuntime {
         log("ready: \(machine.name) (iOS \(udid)), off")
     }
 
-    /// In use: what drives the simulator from outside (kelpd's memory budget sleeps an idle machine only).
-    private var using: Int { state == .running ? Usage.clients(of: udid, programs: Self.clients) : 0 }
+    /// In use: what drives the simulator from outside, and kelpd's calls to its runner (kelpd's memory budget sleeps an
+    /// idle machine only). Those go straight to the runner's port, unseen here: each comes right after a start
+    /// (`connect`), so one asked in the last `callWindow` counts as a call under way.
+    private var using: Int {
+        guard state == .running else { return 0 }
+        return clients + (now().timeIntervalSince(lastStart) < Self.callWindow ? 1 : 0)
+    }
+    private var clients: Int { Usage.clients(of: udid, programs: Self.clients) }
+    /// Limit: a runner call longer than this (a `ui` of a huge screen) may be slept under by the budget.
+    static let callWindow: TimeInterval = 30
+    private var lastStart = Date.distantPast
 
     private func reply(_ fd: Int32, _ error: String?) {
         let up = state.isUp   // never paused: a simulator can't be
@@ -64,6 +75,7 @@ final class IOSRuntime {
             done(nil)   // kelpd's wake: answered as it starts
         case .start:
             lastUse = now()
+            lastStart = lastUse
             wake(done)
         // The budget's (`if-idle`): asked of one that was idle a moment ago, refused if it's in use by now. One still
         // booting is left to boot (its start waits on it): answered as it is, up, so the budget counts it as held.
@@ -121,7 +133,8 @@ final class IOSRuntime {
             guard let xctestrun = built.first(where: { $0.pathExtension == "xctestrun" }) else {
                 throw VMError("Kelp's runner isn't built in \(machine.name)'s folder: make the machine again.")
             }
-            port = AndroidRuntime.freePort(from: 8700)
+            close(portClaim)
+            (port, portClaim) = Lifecycle.claimPort(from: 8700, in: folder.deletingLastPathComponent())
             let process = Process()
             process.executableURL = URL(fileURLWithPath: xcrun)
             process.arguments = [
@@ -208,7 +221,7 @@ final class IOSRuntime {
     }
 
     func tick() {   // internal: the tests drive it
-        if state == .running, using > 0 { lastUse = now() }   // a test run is use
+        if state == .running, clients > 0 { lastUse = now() }   // a test run is use
         if state == .running, now().timeIntervalSince(lastUse) > Runtime.sleepAfter { stop {} }
     }
 

@@ -198,3 +198,28 @@ func script(_ url: URL, _ body: String) throws {
     try ("#!/bin/sh\n" + body + "\n").write(to: url, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
 }
+
+extension AndroidRuntimeOnAStandIn {
+    /// SIGTERM after a boot that failed (Android never said it booted) leaves no emulator: it's ended, SIGTERM ignored
+    /// or not, before kelp-vm goes, not left to a SIGKILL that would have died with kelp-vm.
+    @Test(.timeLimit(.minutes(1))) func leavingAfterAFailedBootEndsTheEmulator() async throws {
+        let (vm, sdk, putAway) = try androidStandIn(booting: "trap '' TERM", adb: "*getprop*) ;;")
+        defer { putAway() }
+        var later: TimeInterval = 0
+        vm.now = { Date() + later }
+        vm.handle(.init(op: .start)) { _ in }
+        let pidFile = sdk.appendingPathComponent("emulator.pid")
+        func emulator() -> pid_t? {
+            String(contentsIfAny: pidFile).flatMap { pid_t($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        }
+        try #require(try await waitFor(5) { emulator() != nil })
+        let pid = try #require(emulator())
+        later = 700   // past a first boot's 10 minutes
+        try #require(try await waitFor(5) { vm.state == .error })
+        await withCheckedContinuation { (gone: CheckedContinuation<Void, Never>) in
+            vm.exitProcess = { gone.resume() }
+            vm.leave()
+        }
+        #expect(Subprocess.started(pid) == nil || Subprocess.isZombie(pid), "no emulator left as kelp-vm goes")
+    }
+}

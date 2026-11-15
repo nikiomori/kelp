@@ -16,6 +16,8 @@ final class AndroidRuntime {
     /// The user has the emulator's window: in use, never paused for idling.
     private var hasWindow: Bool { emulator != nil && shown && state != .error }   // not one that failed and is ending
     private var port = 0
+    /// Its port's claim (`Lifecycle.claimPort`), held while it may be in use: let go as the next boot claims one.
+    private var portClaim: Int32 = -1
     private var pausing = false, bootWhenGone = false
     /// SIGTERM came: what's under way ends, nothing new starts (a start meanwhile would leave an emulator nobody ends).
     private var leaving = false, whenSaved: [() -> Void] = []
@@ -119,9 +121,14 @@ final class AndroidRuntime {
         if saving { return whenSaved.append { [weak self] in self?.leave() } }
         sleep { [weak self] error in
             guard let self else { return }
+            guard let process = emulator, process.isRunning else { return exitProcess() }
             // One that couldn't be slept is still up: quit as a stop does, not left with nobody to end it.
-            guard error != nil, emulator != nil else { return exitProcess() }
-            stop { self.exitProcess() }
+            if error != nil { return stop { self.exitProcess() } }
+            // One that failed (`started` is ending it, or it boots again once gone): its tree ended before kelp-vm goes.
+            Task {
+                await self.end(process)
+                self.exitProcess()
+            }
         }
     }
 
@@ -158,7 +165,8 @@ final class AndroidRuntime {
         state = .starting
         // A kelp-vm that was killed took no leave: its emulator holds the AVD, and a second one on it would quit.
         Lifecycle.endLeftover(in: folder, "emulator")
-        port = Self.freePort()
+        close(portClaim)
+        (port, portClaim) = Lifecycle.claimPort(from: 5600, in: folder.deletingLastPathComponent())
         let process = Process()
         process.executableURL = URL(fileURLWithPath: exe)
         process.arguments =
@@ -185,7 +193,7 @@ final class AndroidRuntime {
                     if self.bootWhenGone {
                         self.bootWhenGone = false
                         self.state = .off
-                        return self.boot()
+                        if !self.leaving { return self.boot() }   // leaving: its waiters hang up as kelp-vm goes
                     }
                     if self.state == .starting {
                         self.started(VMError("The emulator quit: see emulator.log in its folder."))
@@ -225,9 +233,9 @@ final class AndroidRuntime {
     private func started(_ error: Error?) {
         if let error {
             log("start failed: \(error.localizedDescription)")
-            emulator?.terminate()
-            // One wedged (why it didn't finish booting) may not heed SIGTERM: killed after a while, so a retry can boot.
-            if let pid = emulator?.processIdentifier { Subprocess.killLater([pid], after: 10) }
+            // Its whole tree (the emulator runs qemu under it); one wedged (why it didn't finish booting) may not heed
+            // SIGTERM: killed after a while, so a retry can boot.
+            if let process = emulator { Task { await end(process, grace: 10) } }
         }
         state = error == nil ? .running : .error
         lastUse = now()
@@ -300,9 +308,9 @@ final class AndroidRuntime {
 
     /// One that didn't quit when told: SIGTERM, then SIGKILL, waited for (kelp-vm may end right after, and a SIGKILL
     /// left for later would never come).
-    private func end(_ process: Process) async {
+    private func end(_ process: Process, grace: TimeInterval = 2) async {
         let pid = process.processIdentifier
-        await Task.detached { Subprocess.stopTreeNow(pid) }.value
+        await Task.detached { Subprocess.stopTreeNow(pid, grace: grace) }.value
     }
 
     /// Quits it and forgets its snapshot: the next start boots afresh.
@@ -362,24 +370,5 @@ final class AndroidRuntime {
             [adb, "-s", serial] + args, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 30)
         guard out.status == 0 else { throw VMError(String(decoding: out.stderr, as: UTF8.self)) }
         return String(decoding: out.stdout, as: UTF8.self)
-    }
-
-    /// An even console port (5554–5680) with it and the next free on this Mac: where adb finds emulators.
-    nonisolated static func freePort(from start: Int = 5600) -> Int {
-        func taken(_ port: Int) -> Bool {
-            let fd = socket(AF_INET, SOCK_STREAM, 0)
-            defer { close(fd) }
-            var address = sockaddr_in()
-            address.sin_family = sa_family_t(AF_INET)
-            address.sin_port = UInt16(port).bigEndian
-            address.sin_addr.s_addr = inet_addr("127.0.0.1")
-            let result = withUnsafePointer(to: &address) {
-                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                    connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
-                }
-            }
-            return result == 0
-        }
-        return stride(from: start, through: start + 80, by: 2).first { !taken($0) && !taken($0 + 1) } ?? start
     }
 }
