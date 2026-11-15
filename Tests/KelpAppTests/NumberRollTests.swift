@@ -1,0 +1,34 @@
+import AppKit
+import Testing
+
+@testable import DesignKit
+@testable import KelpKit
+
+private func digits(in view: NSView) -> [NSTextField] {
+    view.subviews.flatMap { ($0 as? NSTextField).map { [$0] } ?? digits(in: $0) }
+}
+
+/// A panel's count rolls to its new number; the capsule under it stays put.
+@MainActor @Test func aPanelsCountRollsOverItsCapsule() {
+    let badge = CountBadge()
+    let window = onScreen(badge)
+    defer { withExtendedLifetime(window) {} }
+    badge.badge = PanelBadge("3")
+    badge.layoutSubtreeIfNeeded()
+    badge.badge = PanelBadge("4")
+    #expect(digits(in: badge).first?.layer?.animation(forKey: "roll") != nil)
+    #expect(badge.layer?.animation(forKey: "roll") == nil)
+}
+
+/// The count beside an agent's symbol rolls; one coming from nothing just shows.
+@MainActor @Test func aChipsCountRolls() {
+    let chip = Chip()
+    let window = onScreen(chip)
+    defer { withExtendedLifetime(window) {} }
+    chip.show("terminal", count: 2)
+    chip.layoutSubtreeIfNeeded()
+    let count = digits(in: chip).first
+    #expect(count?.layer?.animation(forKey: "roll") == nil)
+    chip.show("terminal", count: 3)
+    #expect(count?.layer?.animation(forKey: "roll") != nil)
+}

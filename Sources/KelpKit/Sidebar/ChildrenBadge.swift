@@ -70,6 +70,9 @@ final class ChildrenBadge: PointerControl {
         let marks = Self.marks(kids: kids, running: running, finished: finished)
         isHidden = marks.pips.isEmpty
         pips.pips = marks.pips
+        if !count.isHidden, let old = Int(count.stringValue), let new = marks.count, old != new {
+            count.roll(up: new > old)
+        }
         count.isHidden = marks.count == nil
         count.stringValue = marks.count.map(String.init) ?? ""
         let done = finished.count + kids.count { Self.status($0) == .done }

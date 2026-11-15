@@ -12,6 +12,8 @@ final class SummarySegment: PointerControl {
     /// After a peek's name, kept whole while the name gives way: "done".
     private let verb = NSTextField(labelWithString: "")
     private var words = [""]
+    /// The number its words start with, as shown (nil while it peeks): a new one rolls in.
+    private var counted: Int?
     /// 0: all it says; 1: without the time; 2: the number (or the clock) alone.
     var level = 0 { didSet { if level != oldValue { show() } } }
     /// The chat that just got here, named for a moment: its name and what it did ("fix flaky test", "done").
@@ -83,7 +85,11 @@ final class SummarySegment: PointerControl {
     }
 
     private func show() {
-        label.stringValue = peek?.name ?? words[min(level, words.count - 1)]
+        let text = peek?.name ?? words[min(level, words.count - 1)]
+        let number = peek == nil ? Int(text.prefix { $0.isNumber }) : nil
+        if let old = counted, let number, old != number { label.roll(up: number > old) }
+        counted = number
+        label.stringValue = text
         verb.stringValue = peek?.verb ?? ""
         verb.isHidden = peek == nil
         label.font = peek == nil ? .uiDigits(TextSize.caption) : .ui(TextSize.caption, weight: .medium)

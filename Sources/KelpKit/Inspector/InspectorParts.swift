@@ -193,38 +193,49 @@ final class PanelIcon: NSButton {
     }
 }
 
-/// A panel's mark on its icon (`PanelBadge`): a grey capsule with the number, or a dot; red for a failure.
+/// A panel's mark on its icon (`PanelBadge`): a grey capsule with the number, or a dot; red for a failure. A new number
+/// rolls in (`roll`) over the capsule, which stays.
 final class CountBadge: NSView {
+    private let digits = NSTextField(labelWithString: "")
     var badge: PanelBadge? {
         didSet {
             guard badge != oldValue else { return }
-            isHidden = badge == nil
+            let old = Self.number(oldValue), new = Self.number(badge)
+            if let old, let new, old != new, !isHidden { digits.roll(up: new > old) }
+            if oldValue == nil { fadeIn() } else if badge == nil { isHidden = true }
+            digits.stringValue = new.map { $0 > 99 ? "99+" : "\($0)" } ?? ""
+            digits.isHidden = new == nil
             invalidateIntrinsicContentSize()
             needsDisplay = true
         }
     }
-    private var text: NSAttributedString? {
-        guard let count = badge?.count, count > 0 else { return nil }
-        return NSAttributedString(
-            string: count > 99 ? "99+" : "\(count)",
-            attributes: [.font: NSFont.uiDigits(TextSize.micro, weight: .semibold), .foregroundColor: NSColor.white])
-    }
+    private static func number(_ badge: PanelBadge?) -> Int? { badge.flatMap { $0.count > 0 ? $0.count : nil } }
     init() {
         super.init(frame: .zero)
         isHidden = true
+        digits.font = .uiDigits(TextSize.micro, weight: .semibold)
+        digits.textColor = .white
+        digits.alignment = .center
+        digits.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(digits)
+        NSLayoutConstraint.activate([
+            digits.centerXAnchor.constraint(equalTo: centerXAnchor),
+            digits.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
     }
     required init?(coder: NSCoder) { fatalError() }
     override var intrinsicContentSize: NSSize {
-        guard let label = text else { return NSSize(width: 7, height: 14) }   // a dot, centred where the number's capsule would be
-        return NSSize(width: max(14, ceil(label.size().width) + 7), height: 14)
+        // No number: a dot, centred where the number's capsule would be.
+        guard Self.number(badge) != nil else { return NSSize(width: 7, height: 14) }
+        return NSSize(width: max(14, ceil(digits.attributedStringValue.size().width) + 7), height: 14)
     }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }   // clicks go to the icon
     override func draw(_ r: NSRect) {
         (badge?.alert == true ? NSColor.systemRed : NSColor.systemGray).setFill()
-        guard let label = text else { return NSBezierPath(ovalIn: NSRect(x: 0, y: 3, width: 7, height: 7)).fill() }
+        guard Self.number(badge) != nil else {
+            return NSBezierPath(ovalIn: NSRect(x: 0, y: 3, width: 7, height: 7)).fill()
+        }
         NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2).fill()
-        let size = label.size()
-        label.draw(at: NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2))
     }
 }
 

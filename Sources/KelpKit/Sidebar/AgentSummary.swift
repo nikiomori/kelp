@@ -166,14 +166,18 @@ final class AgentSummary: NSView {
         seen = (seen ?? questions).union(shown.map(\.id)).union(inbox.viewing).intersection(questions)
 
         // The agent on screen still counts while it asks; with only it asking the capsule loses its glass, not its number.
-        let counted = inbox.counted
+        let counted = inbox.counted, wasShown = !capsule.isHidden
         asking = !counted.isEmpty
         capsule.isHidden = !asking
         glass.isHidden = shown.isEmpty
         capsule.refreshPointer()   // no longer asking: no grey left over from the pointer
         mark.status = AgentStatus.mostUrgent(counted.map(SidebarCell.shownStatus))
         mark.unread = true
-        title.stringValue = String(localized: "\(counted.count) need you")
+        let said = String(localized: "\(counted.count) need you")
+        if wasShown, asking, let was = Int(title.stringValue.prefix { $0.isNumber }), was != counted.count {
+            title.roll(up: counted.count > was)
+        }
+        title.stringValue = said
         capsule.setAccessibilityLabel(String(localized: "Agents that need you: \(counted.count). Show the next one."))
         capsule.toolTip = String(localized: "Show the next agent that needs you (⇧⌘U)")
         if !new.isEmpty, !Motion.reduced {   // a question came in: a brief glow

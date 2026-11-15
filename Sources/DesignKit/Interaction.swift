@@ -111,8 +111,9 @@ extension NSView {
     }
 
     /// About to go in a change that can't animate it: a picture of the view stays where it stood, over `parent`, and
-    /// fades. Call it before the view is removed.
-    public func leaveGhost(in parent: NSView) {
+    /// fades over `duration`, drifting `drift` points up the screen (down when negative). Call it before the view is
+    /// removed or redrawn.
+    public func leaveGhost(in parent: NSView, duration: TimeInterval = Motion.appear, drift: CGFloat = 0) {
         guard !Motion.reduced, window != nil, bounds.width > 0, bounds.height > 0,
             let picture = bitmapImageRepForCachingDisplay(in: bounds)
         else { return }
@@ -121,14 +122,40 @@ extension NSView {
         image.addRepresentation(picture)
         let ghost = Ghost(image: image)
         ghost.frame = parent.convert(bounds, from: self)
+        ghost.wantsLayer = true
         parent.addSubview(ghost)
+        if drift != 0, let layer = ghost.layer {
+            let move = CABasicAnimation(keyPath: "transform.translation.y")
+            move.toValue = parent.isFlipped ? -drift : drift   // a flipped view's layer is flipped: its y runs down
+            move.duration = duration
+            move.timingFunction = Motion.soft
+            move.fillMode = .forwards
+            move.isRemovedOnCompletion = false
+            layer.add(move, forKey: "drift")
+        }
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = Motion.appear
+            ctx.duration = duration
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             ghost.animator().alphaValue = 0
         } completionHandler: {
             MainActor.assumeIsolated { ghost.removeFromSuperview() }   // AppKit runs it on the main thread
         }
+    }
+
+    /// A number on show changed: the old one drifts off and fades while the new one comes in from the other side, up
+    /// the screen when it grew (`up`), down when it fell, as the system's numeric text does. Call it right before
+    /// setting the new number, on a view showing only the number, so its words or its capsule stay put.
+    public func roll(up: Bool) {
+        guard !Motion.reduced, window != nil, let parent = superview, bounds.height > 0 else { return }
+        let shift = bounds.height / 2 * (up ? 1 : -1)
+        leaveGhost(in: parent, duration: Motion.fast, drift: shift)   // what leaves goes in two thirds of the time
+        slide(from: NSPoint(x: placeInWindow.x, y: placeInWindow.y - shift), duration: Motion.base)
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0
+        fade.toValue = 1
+        fade.duration = Motion.base
+        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer?.add(fade, forKey: "roll")
     }
 
     /// Something failed: the view shakes its head, as a password field does.

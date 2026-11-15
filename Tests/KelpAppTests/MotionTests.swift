@@ -48,3 +48,29 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     #expect(outline.numberOfRows == 2)
     #expect(outline.frame.width <= 240)
 }
+
+/// A view in a window: only what's on screen moves.
+@MainActor func onScreen(_ view: NSView, in parent: NSView = NSView()) -> NSWindow {
+    _ = NSApplication.shared
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 200, height: 60), styleMask: [.titled], backing: .buffered, defer: true)
+    window.contentView = parent
+    parent.addSubview(view)
+    view.frame = NSRect(x: 10, y: 10, width: 40, height: 16)
+    return window
+}
+
+/// A number that grew rolls up: the old one drifts up as it fades, the new one comes up from below.
+@MainActor @Test func aGrowingNumberRollsUp() {
+    let parent = NSView(), label = NSTextField(labelWithString: "3")
+    let window = onScreen(label, in: parent)
+    defer { withExtendedLifetime(window) {} }
+    label.roll(up: true)
+    #expect(label.layer?.animation(forKey: "roll") != nil)
+    let slide = label.layer?.animation(forKey: "slide") as? CABasicAnimation
+    #expect(((slide?.fromValue as? NSValue)?.sizeValue.height ?? 0) < 0)   // from below: the window's y runs up
+    let ghost = parent.subviews.first { $0 !== label }
+    let drift = ghost?.layer?.animation(forKey: "drift") as? CABasicAnimation
+    #expect(((drift?.toValue as? NSNumber)?.doubleValue ?? 0) > 0)
+    #expect(drift?.duration == Motion.fast)   // what leaves goes sooner
+}
