@@ -215,7 +215,8 @@ final class TabStrip: NSView {
             moved && window != nil && items.contains { kept[$0.id] != nil }
             ? Dictionary(uniqueKeysWithValues: buttons.map { (ObjectIdentifier($0), $0.placeInWindow) }) : [:]
         for button in buttons where !next.contains(button) {
-            if !places.isEmpty { button.leaveGhost(in: self) }
+            // Gone before the others close over it: two thirds of their `Motion.base`.
+            if !places.isEmpty { button.leaveGhost(in: self, duration: Motion.fast) }
             button.removeFromSuperview()
         }
         for (index, button) in next.enumerated()

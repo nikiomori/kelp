@@ -89,3 +89,13 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     empty.show("No Changes")   // back before it went
     #expect(empty.showing && !empty.isHidden && empty.alphaValue == 1)
 }
+
+/// A closed tab's picture is gone in two thirds of the time its neighbours take to close over it.
+@MainActor @Test func aGhostFadesOverWhatItIsGiven() {
+    let parent = NSView(), tab = NSView()
+    let window = onScreen(tab, in: parent)
+    defer { withExtendedLifetime(window) {} }
+    tab.leaveGhost(in: parent, duration: Motion.fast)
+    let ghost = parent.subviews.first { $0 !== tab }
+    #expect(ghost?.layer?.animation(forKey: "opacity")?.duration == Motion.fast)
+}
