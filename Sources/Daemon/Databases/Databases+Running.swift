@@ -70,7 +70,8 @@ extension Databases {
                 // What the user allowed is what it may change: the table can have changed while it was asked
                 let asked = access == .ask ? run.changed : nil
                 do {
-                    let rows = try await DatabaseEngines.write(target, sql, allowed: asked, off: offloads)
+                    let saying = Self.saying(sql, target.database.engine, tried: tried)
+                    let rows = try await DatabaseEngines.write(target, saying, allowed: asked, off: offloads)
                     run.state = .done
                     return finish(q, &run, rows, started: started, agent: forAgent, tried: tried)
                 } catch let failure as DatabaseFailure { throw failed(q, &run, failure) }
@@ -112,20 +113,14 @@ extension Databases {
         let ms = Int(Date().timeIntervalSince(started) * 1000)
         var result = QueryResult(
             id: run.id, columns: rows.columns, rows: rows.rows, total: rows.total, changed: rows.changed, ms: ms)
-        // A change after its trial: the rows the trial left (RETURNING) stay its rows, for the tab's marks, and with
-        // them what the change did to them (its rows as they were are in the trial's order).
-        if let tried, !tried.columns.isEmpty, result.columns.isEmpty || tried.change != nil {
-            result.columns = tried.columns
-            result.rows = tried.rows
-            result.total = tried.total
-            result.change = tried.change
-        }
         run.rows = rows.total
         run.changed = rows.changed
         run.ms = ms
         // The user's own reads (a page of a table, a count) keep no rows, nothing reads them again, and go whole
         let kept = agent || rows.changed != nil
-        if kept { result = Self.trimmed(result) }
+        // A change after its trial: its rows are the ones it wrote itself (`saying`), never the trial's, and with
+        // them goes what the trial said it does to them (`written`), for the tab's marks and Undo.
+        if kept { result = Self.kept(rows, id: run.id, change: tried.flatMap { Self.written($0, rows) }, ms: ms) }
         note(q.worktreeId, run, result: kept ? result : nil)
         var sent = result
         let rows =

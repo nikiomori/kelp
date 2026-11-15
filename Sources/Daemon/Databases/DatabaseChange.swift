@@ -2,7 +2,7 @@ import Core
 import Foundation
 
 // What an agent's change does to its rows (`RowChange`), read from the rows its trial returned: the card that asks
-// shows it, History keeps it, Undo puts the rows back.
+// shows it. Once it has run, History keeps it with the rows the change itself wrote, and Undo puts those back.
 
 extension Databases {
     /// UPDATE, DELETE or INSERT of one table where the engine says the rows it changed (RETURNING); nil for anything
@@ -90,11 +90,41 @@ extension Databases {
         }
     }
 
-    /// A trial's rows as they're kept, with what the change does to them when they're kept whole: a cell cut or a
-    /// row left out for its size, and there's no saying what to put back.
-    static func kept(_ rows: DatabaseRows, id: String, change: RowChange?) -> QueryResult {
+    /// The statement an agent's change runs as after its trial (`tried`, as it was kept): saying its rows itself
+    /// (RETURNING *) where the trial did, so the rows it's answered and kept with are the ones it wrote. The trial's
+    /// aren't: a value made as it runs (a sequence's next id, now(), random()) is another the next time. As it is
+    /// where the trial gave no rows (a Postgres view RETURNING doesn't fit) or it says them already; DuckDB's write
+    /// asks for them itself, and the other engines have no RETURNING.
+    /// Limit: rows past what Kelp reads of an answer (32 MB) fail the call though the change is made, as a
+    /// statement's own RETURNING does: only rows that outgrew the trial's, which fit.
+    static func saying(_ sql: String, _ engine: DatabaseInfo.Engine, tried: QueryResult?) -> String {
+        guard [.sqlite, .postgres].contains(engine), tried?.columns.isEmpty == false else { return sql }
+        return SQLText.returning(sql) ?? sql
+    }
+
+    /// What the trial said the change does (`tried.change`), for the rows it then wrote: an update's rows as they
+    /// were are found again by the key, since the written rows needn't be the trial's, nor in its order (the table
+    /// can have changed since). nil unless Kelp has every written row as it is, as `rowChange` asks of a trial's;
+    /// no rows as they were unless each written row has one.
+    static func written(_ tried: QueryResult, _ rows: DatabaseRows) -> RowChange? {
+        guard var change = tried.change, rows.columns == tried.columns, !rows.rows.isEmpty,
+            rows.rows.count == rows.total, !rows.opaque
+        else { return nil }
+        if let before = change.before {
+            let at = change.key.compactMap(rows.columns.firstIndex(of:))
+            let key = { (row: [String?]) in at.map { row.indices.contains($0) ? row[$0] : nil } }
+            let was = Dictionary(zip(tried.rows.map(key), before), uniquingKeysWith: { first, _ in first })
+            let found = rows.rows.compactMap { was[key($0)] }
+            change.before = found.count == rows.rows.count ? found : nil
+        }
+        return change
+    }
+
+    /// A change's rows as they're kept (its trial's, then the ones it wrote), with what the change does to them when
+    /// they're kept whole: a cell cut or a row left out for its size, and there's no saying what to put back.
+    static func kept(_ rows: DatabaseRows, id: String, change: RowChange?, ms: Int = 0) -> QueryResult {
         let whole = QueryResult(
-            id: id, columns: rows.columns, rows: rows.rows, total: rows.total, changed: rows.changed, ms: 0)
+            id: id, columns: rows.columns, rows: rows.rows, total: rows.total, changed: rows.changed, ms: ms)
         var kept = trimmed(whole)
         guard var change, kept.rows == whole.rows else { return kept }
         if let before = change.before {
