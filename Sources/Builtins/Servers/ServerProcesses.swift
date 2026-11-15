@@ -198,7 +198,7 @@ private struct FoldedRow: View {
         )
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
-        .onTapGesture { withAnimation(.easeInOut(duration: Motion.fast)) { open.toggle() } }
+        .onTapGesture { withAnimation(Motion.reduced ? nil : .easeInOut(duration: Motion.fast)) { open.toggle() } }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(open ? String(localized: "Collapse") : String(localized: "Expand"))

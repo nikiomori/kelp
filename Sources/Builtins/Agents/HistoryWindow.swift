@@ -200,8 +200,12 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     @objc private func copyCommand() {
         guard table.selectedRow >= 0 else { return }
         copyText(command(rows[table.selectedRow]))
+        status.crossfade()   // as the commit card's "Copied"
         status.stringValue = String(localized: "Copied")
-        DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) { [weak self] in self?.showCount() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) { [weak self] in
+            self?.status.crossfade()
+            self?.showCount()
+        }
     }
     @objc private func resume() {
         let row = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow

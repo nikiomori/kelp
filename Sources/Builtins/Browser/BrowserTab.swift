@@ -276,7 +276,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         let width = progress.superview?.bounds.width ?? 0, loading = web.isLoading
         if loading, progress.alphaValue == 0 { progressWidth.constant = 0 }
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = loading ? Motion.fast : Motion.disappear
+            context.duration = Motion.duration(loading ? Motion.fast : Motion.disappear)
             progressWidth.animator().constant = width * (loading ? web.estimatedProgress : 1)
             progress.animator().alphaValue = loading && web.estimatedProgress < 1 ? 1 : 0
         }
