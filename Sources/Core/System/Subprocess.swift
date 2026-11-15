@@ -73,10 +73,11 @@ public enum Subprocess {
 
     /// `argv[0]` is a path. `env` is the whole environment. Past `limit` bytes a stream is still read to its end, so the
     /// program ends as it would have (its exit status, whatever it does besides printing), but the rest is dropped and
-    /// the output is `truncated`: a caller that needs all of it fails then, one that can show a part says so.
+    /// the output is `truncated`: a caller that needs all of it fails then, one that can show a part says so. `started`
+    /// hears its pid once it runs (a caller that may stop it: `stopTree`).
     public static func run(
         _ argv: [String], cwd: String, env: [String: String], stdin: Data? = nil, timeLimit: TimeInterval,
-        limit: Int = outputLimit
+        limit: Int = outputLimit, started: ((pid_t) -> Void)? = nil
     ) throws -> Output {
         if Thread.current.threadDictionary[quickOnlyKey] != nil {
             let name = argv.first.map { ($0 as NSString).lastPathComponent } ?? "A program"
@@ -98,6 +99,7 @@ public enum Subprocess {
         let pid = process.processIdentifier
         running.withLock { _ = $0.insert(pid) }
         defer { running.withLock { _ = $0.remove(pid) } }
+        started?(pid)
         out.start()
         err.start()
         if let inp, let stdin {
@@ -143,12 +145,13 @@ public enum Subprocess {
     /// every locale. Failing, it's a `ProgramError` with what it said. Of each stream, the first `limit` bytes are kept.
     public static func checked(
         _ argv: [String], cwd: String, env extra: [String: String] = [:], stdin: Data? = nil, ok: Set<Int32> = [0],
-        timeLimit: TimeInterval = 300, limit: Int = outputLimit
+        timeLimit: TimeInterval = 300, limit: Int = outputLimit, started: ((pid_t) -> Void)? = nil
     ) throws -> Output {
         var env = ProcessInfo.processInfo.environment
         env["LC_ALL"] = "C"
         env.merge(extra) { $1 }
-        let result = try run(argv, cwd: cwd, env: env, stdin: stdin, timeLimit: timeLimit, limit: limit)
+        let result = try run(
+            argv, cwd: cwd, env: env, stdin: stdin, timeLimit: timeLimit, limit: limit, started: started)
         guard ok.contains(result.status), !result.timedOut else {
             throw ProgramError(
                 program: argv.first.map { ($0 as NSString).lastPathComponent } ?? "", status: result.status,

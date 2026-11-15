@@ -187,10 +187,6 @@ extension FileEvent: Pushed {
     package var key: String { path }
     package static var forgottenWith: WatchTopic? { .file }
 }
-extension FilesEvent: Pushed {
-    package var key: String { worktree }
-    package static var forgottenWith: WatchTopic? { .files }
-}
 extension ArtifactsEvent: Pushed {
     package var key: String { worktree }
     package static var forgottenWith: WatchTopic? { .artifacts }

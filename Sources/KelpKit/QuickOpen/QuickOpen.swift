@@ -17,7 +17,17 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     }
 
     var choosing: Choosing?
-    var rows: [Row] = []
+    var rows: [Row] = [] {
+        didSet {
+            var count = 0
+            itemIndex = rows.map { row in
+                defer { if row.isItem { count += 1 } }
+                return count
+            }
+        }
+    }
+    /// Each row's place among the items (headings not counted): ⌘1–⌘6 go by it.
+    private(set) var itemIndex: [Int] = []
     /// The file's symbols while ⌘P is open (`QuickOpenPrefixes`).
     var symbols: (path: String, items: [Item])?
     var symbolLoad: Task<Void, Never>?
@@ -38,7 +48,16 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     let field = PaletteField()
     let table = PaletteTable()
     let keys = Keycaps()
-    var all: [Item] = []
+    var all: [Item] = [] {
+        didSet { allKeys = all.map(Self.key) }
+    }
+    /// What `all` is scored by, made with it rather than on every key.
+    private(set) var allKeys: [Match] = []
+    /// The workspace's files: their paths and fuzzy keys, made once per listing; a row's item only once it's shown.
+    var files = Files()
+    struct Files {
+        var root = "", paths: [String] = [], fuzzy: [ProjectFiles.FuzzyPath] = []
+    }
     var commandsOnly = false
     /// The title bar's Search pill, which the palettes grow out of.
     weak var anchor: NSView?
@@ -289,10 +308,9 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         let query = filesOnly ?? typed
         let pool =
             filesOnly != nil
-            ? all.filter { $0.kind == "File" }
-            : commandsOnly && choosing == nil ? all.filter { $0.kind == "Command" || $0.kind == "Setting" } : all
+            ? [] : commandsOnly && choosing == nil ? all.filter { $0.kind == "Command" || $0.kind == "Setting" } : all
         if filesOnly != nil, query.isEmpty {
-            setRows(Array(pool.prefix(200)), grouped: false)
+            setRows(files.paths.indices.prefix(200).map(fileItem), grouped: false)
             return
         }
         if !commandsOnly, choosing == nil, query.hasPrefix("#") {
@@ -304,7 +322,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
             showingRecents = !commandsOnly && choosing == nil && !recents.isEmpty
             let used = commandsOnly && choosing == nil ? Self.recentlyUsed(pool) : []
             let ids = Set(used.map(Self.usedID))
-            let rest = (commandsOnly ? pool : pool.filter { $0.kind != "File" }).filter {
+            let rest = pool.filter {
                 !ids.contains(Self.usedID($0))
             }
             setRows(
@@ -314,25 +332,30 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         } else {
             showingRecents = false
             // Off the main thread: a big project's files take a while to score on every keystroke.
-            let grouped = !commandsOnly && choosing == nil,
-                keys = pool.map { Match(fuzzy: $0.fuzzy, title: $0.title, command: $0.kind == "Command") }
+            let grouped = !commandsOnly && choosing == nil
+            let keys = pool.count == all.count ? allKeys : pool.map(Self.key), fuzzy = grouped ? files.fuzzy : []
             scoring = Task { [weak self] in
-                let best = await Task.detached { Self.best(keys, query) }.value
+                let best = await Task.detached { Self.best(keys, query, files: fuzzy) }.value
                 guard let self, !Task.isCancelled else { return }
-                setRows(best.map { pool[$0] }, grouped: grouped)
+                setRows(best.map { $0 < pool.count ? pool[$0] : fileItem($0 - pool.count) }, grouped: grouped)
             }
         }
     }
 
     struct Match: Sendable { let fuzzy: ProjectFiles.FuzzyPath?, title: String, command: Bool }
-    /// The 200 best matches for `q`, as indices into `items`, best first. Files: fuzzy paths. Everything else: the words of
-    /// its title, so "them" finds Color Theme, not random letters.
-    nonisolated static func best(_ items: [Match], _ q: String) -> [Int] {
+    static func key(_ it: Item) -> Match { Match(fuzzy: nil, title: it.title, command: it.kind == "Command") }
+    /// The 200 best matches for `q`, as indices into `items` and then `files` (counted on from `items.count`), best first.
+    /// Files: fuzzy paths. Everything else: the words of its title, so "them" finds Color Theme, not random letters.
+    nonisolated static func best(_ items: [Match], _ q: String, files: [ProjectFiles.FuzzyPath] = []) -> [Int] {
         let fq = ProjectFiles.fuzzyQuery(q)
-        return items.indices.compactMap { i -> (Int, Int)? in
+        var scored = items.indices.compactMap { i -> (Int, Int)? in
             if let fuzzy = items[i].fuzzy { return ProjectFiles.fuzzyScore(fuzzy, fq).map { (i, $0) } }
             return wordScore(items[i].title, q).map { (i, $0 + (items[i].command ? 2 : 0)) }
-        }.sorted { $0.1 > $1.1 }.prefix(200).map(\.0)
+        }
+        for (i, fuzzy) in files.enumerated() {
+            if let score = ProjectFiles.fuzzyScore(fuzzy, fq) { scored.append((items.count + i, score)) }
+        }
+        return scored.sorted { $0.1 > $1.1 }.prefix(200).map(\.0)
     }
 
     /// Searching, the results come in groups under a heading, the group with the best match first.

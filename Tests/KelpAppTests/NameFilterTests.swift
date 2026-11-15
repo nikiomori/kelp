@@ -42,6 +42,7 @@ extension AppOfItsOwn {
         panel.searchBy(name: true)
         panel.search.stringValue = "server !zz"
         panel.narrowTree()
+        await panel.narrowing?.value   // found off the main thread
         let shown = (0..<panel.outline.numberOfRows).compactMap { (panel.outline.item(atRow: $0) as? FileNode)?.name }
         #expect(shown == ["src", "deep", "server.swift"])
         #expect(panel.isNarrowed)

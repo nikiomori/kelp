@@ -49,7 +49,7 @@ extension FileTab {
         if autosave { autosaving.after(0.6) { [weak self] in Task { await self?.autosaveNow() } } }
         editedStateMayHaveChanged()
         markdown?.textChanged()
-        conflicts?.refresh()
+        conflicts?.edited(editor?.lastEdit)
         guard lspOpenedOn != nil else { return }   // no language server for it (or for a file on another machine)
         lspTask?.cancel()
         lspUnsent = text
@@ -216,9 +216,13 @@ extension FileTab {
 
     /// A new version pushed (`WatchTopic.file`): read again only one this tab didn't read or write itself (a log a dev
     /// server appends to changes every quarter second). One read at a time; versions meanwhile make one more, as do
-    /// versions while a save writes the file.
+    /// versions while a save writes the file. A tab not on screen with nothing unsaved reads it once it shows: an agent
+    /// rewriting files would have every open tab read, compare and take each version.
 
     func diskChanged() {
+        if editor != nil, !isEdited, !whenShown.onScreen, app.latest(FileEvent.self, path)?.stamp != nil {
+            return whenShown.run { [weak self] in self?.diskChanged() }
+        }
         changeBars?.refresh()
         showProblems()
         guard editor != nil, let event = app.latest(FileEvent.self, path) else { return }

@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import os
 
 /// Project files and search. Uses git so .gitignore is honoured exactly like in a terminal.
 extension ProjectFiles {
@@ -86,6 +87,27 @@ extension ProjectFiles {
         return files
     }
 
+    /// The search box's program running in each folder, with its start time (a pid can be another's later).
+    private static let searching = OSAllocatedUnfairLock<[String: (pid: pid_t, start: UInt64?)]>(initialState: [:])
+
+    /// `run` with a `started` that stops the program the last search `in` that folder started, if it still runs, and takes
+    /// its place; nil: a search nothing stops (an agent's).
+    static func replacingSearch<T>(in folder: String?, _ run: (((pid_t) -> Void)?) throws -> T) rethrows -> T {
+        guard let folder else { return try run(nil) }
+        let mine = OSAllocatedUnfairLock<pid_t?>(initialState: nil)
+        defer {
+            let pid = mine.withLock { $0 }
+            searching.withLock { if $0[folder]?.pid == pid { $0[folder] = nil } }
+        }
+        return try run { pid in
+            mine.withLock { $0 = pid }
+            let last = searching.withLock { $0.updateValue((pid, Subprocess.started(pid)), forKey: folder) }
+            if let last, Subprocess.isRunning(last.pid), Subprocess.started(last.pid) == last.start {
+                Subprocess.stopTree(last.pid)
+            }
+        }
+    }
+
     /// Bundled or system ripgrep, else `git grep`.
     static var ripgrep: String? {
         let bundled = Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("rg").path
@@ -94,10 +116,11 @@ extension ProjectFiles {
         }
     }
 
-    /// The first `limit` matches; what rg or git grep print past `searchOutput` bytes is read and dropped.
+    /// The first `limit` matches; what rg or git grep print past `searchOutput` bytes is read and dropped. `replacing`:
+    /// the search box's, a search per pause in the typing, which stops the one before it in the same folder (its rg).
     public static func search(
         _ root: String, query: String, regex: Bool = false, caseSensitive: Bool = false, wholeWord: Bool = false,
-        limit: Int = searchLimit, remotes: Remotes
+        limit: Int = searchLimit, replacing: Bool = false, remotes: Remotes
     ) throws -> [SearchMatch] {
         guard !query.isEmpty else { return [] }
         var args: [String], output: (data: Data, truncated: Bool)
@@ -116,8 +139,10 @@ extension ProjectFiles {
             output = try searchOnHost(host, rg: rgArgs + ["--", query, "."], git: gitArgs + ["-e", query])
         } else if let rg = ripgrep {
             // 1 = no matches
-            let found = try Subprocess.checked(
-                [rg] + rgArgs + ["--", query, "."], cwd: root, ok: [0, 1], limit: searchOutput)
+            let found = try replacingSearch(in: replacing ? root : nil) { started in
+                try Subprocess.checked(
+                    [rg] + rgArgs + ["--", query, "."], cwd: root, ok: [0, 1], limit: searchOutput, started: started)
+            }
             output = (found.stdout, found.truncated)
         } else {
             args = gitArgs

@@ -343,12 +343,17 @@ public struct FilesSearch: RPCMethod {
     public static let name = "files.search"
     public typealias Result = [SearchMatch]
     public var id: String, query: String, regex: Bool?, `case`: Bool?, word: Bool?
-    public init(id: String, query: String, regex: Bool? = nil, case: Bool? = nil, word: Bool? = nil) {
+    /// Kelp's search box: a newer search with it in the same folder stops this one (one is asked per pause in the typing).
+    public var replaces: Bool?
+    public init(
+        id: String, query: String, regex: Bool? = nil, case: Bool? = nil, word: Bool? = nil, replaces: Bool? = nil
+    ) {
         self.id = id
         self.query = query
         self.regex = regex
         self.case = `case`
         self.word = word
+        self.replaces = replaces
     }
 }
 

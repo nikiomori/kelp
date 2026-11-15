@@ -50,13 +50,18 @@ public enum MarkdownHTML {
         return js + """
 
             mermaid.initialize({startOnLoad: false, securityLevel: 'strict', theme: '\(dark ? "dark" : "default")'});
-            document.querySelectorAll('pre > code.language-mermaid').forEach(c => {
-              const d = document.createElement('div'); d.className = 'mermaid'; d.textContent = c.textContent;
-              c.parentElement.replaceWith(d);
-            });
-            mermaid.run().catch(() => {});   // a broken diagram shows mermaid's own error in its place
-            """
+
+            """ + mermaidRun
     }
+
+    /// The page's mermaid blocks drawn, its script in the page already: again after the page's body is replaced.
+    public static let mermaidRun = """
+        document.querySelectorAll('pre > code.language-mermaid').forEach(c => {
+          const d = document.createElement('div'); d.className = 'mermaid'; d.textContent = c.textContent;
+          c.parentElement.replaceWith(d);
+        });
+        mermaid.run().catch(() => {});   // a broken diagram shows mermaid's own error in its place
+        """
 
     static let mermaidJS = resource("mermaid.min", "js")
 
@@ -69,11 +74,16 @@ public enum MarkdownHTML {
 
             (() => {
               const s = document.createElement('style'); s.textContent = atob('\(css)'); document.head.append(s);
-              document.querySelectorAll('.kelp-math').forEach(e => katex.render(e.textContent, e,
-                { displayMode: e.classList.contains('kelp-math-display'), throwOnError: false }));
             })();
-            """
+
+            """ + mathRun
     }
+
+    /// The page's formulas drawn, KaTeX in the page already: again after the page's body is replaced.
+    public static let mathRun = """
+        document.querySelectorAll('.kelp-math').forEach(e => katex.render(e.textContent, e,
+          { displayMode: e.classList.contains('kelp-math-display'), throwOnError: false }));
+        """
 
     static let katexJS = resource("katex.min", "js")
     /// In base64 (all ASCII, so `atob` gives it back as it was).

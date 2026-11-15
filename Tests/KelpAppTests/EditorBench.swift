@@ -8,10 +8,10 @@ import WorkbenchKit
 @testable import BuiltinActivity
 @testable import BuiltinAgents
 @testable import BuiltinBrowser
-@testable import EditorKit
 @testable import BuiltinFiles
 @testable import BuiltinGit
 @testable import BuiltinIssues
+@testable import EditorKit
 @testable import KelpApp
 @testable import KelpKit
 
@@ -56,6 +56,62 @@ extension OneAtATime {
                 format:
                     "BENCH editor %.1f MB on the main thread: keystroke %.2f ms (the editor alone %.2f), same-length edit %.2f ms, lsp.change %.2f ms; save took %.0f ms",
                 Double(text.utf8.count) / 1e6, typed, bare, overtype, lsp, save))
+    }
+
+    /// What a key typed costs the main thread in a file tab on screen, all of it: the keystroke, the coloring pass after it
+    /// and the background parse's coloring when it comes in. A 5 MB Swift file, a 2 MB Markdown one under a top heading
+    /// (sticky scroll, its section to the end). Opt-in: KELP_BENCH=1 swift test --filter editorTypingBench
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["KELP_BENCH"] != nil)) func editorTypingBench() async throws
+    {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        rig.app.settings.set(SettingKeys.markdownMode, "edit")
+        let code = "    let value = compute(index: 42, label: \"größe\") // a line of code\n"
+        let prose = "Some words of a paragraph, as a spec has them, and a few more of them.\n"
+        try rig.write(
+            "big.swift", "func top() {\n" + String(repeating: code, count: 5_000_000 / code.utf8.count) + "}\n")
+        try rig.write("big.md", "# Plan\n\n## Part\n\n" + String(repeating: prose, count: 2_000_000 / prose.utf8.count))
+        for name in ["big.swift", "big.md"] {
+            let t0 = Date()
+            let tab = FileTab(uri: TabURI.file(rig.repo + "/" + name), app: rig.app)
+            await tab.loading?.value
+            let e = try #require(tab.editor), tv = e.textView
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 900, height: 700), styleMask: [.titled], backing: .buffered,
+                defer: true)
+            window.contentView = tab.view
+            window.contentView?.layoutSubtreeIfNeeded()
+            let open = Date().timeIntervalSince(t0) * 1000
+            func drained() async { await withCheckedContinuation { c in DispatchQueue.main.async { c.resume() } } }
+            e.goTo(line: 400)
+            e.scroll(toLine: 380)
+            await drained()
+            try await Task.sleep(for: .seconds(2))   // the first parse
+            var parsing = 0.0, parsed = false
+            let colored = e.highlighter?.parsed
+            e.highlighter?.parsed = {
+                let p0 = Date()
+                colored?()
+                parsing += Date().timeIntervalSince(p0) * 1000
+                parsed = true
+            }
+            var typing = 0.0
+            let keys = 40
+            for _ in 0..<keys {
+                parsed = false
+                let k0 = Date()
+                tv.insertText("x", replacementRange: NSRange(location: NSNotFound, length: 0))
+                await drained()   // the coloring pass the edit asked for
+                typing += Date().timeIntervalSince(k0) * 1000
+                for _ in 0..<400 where !parsed { try await Task.sleep(for: .milliseconds(5)) }
+                await drained()
+            }
+            print(
+                String(
+                    format:
+                        "BENCH typing %@: %.2f ms a key on the main thread (keystroke and its pass %.2f, parse's coloring %.2f); opened in %.0f ms",
+                    name, (typing + parsing) / Double(keys), typing / Double(keys), parsing / Double(keys), open))
+        }
     }
 
     /// How long a file takes to open (until its text is in the editor) and to save, through whatever reads and writes it.

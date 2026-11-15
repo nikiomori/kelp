@@ -55,6 +55,19 @@ final class ConflictBar {
         caretMoved()
     }
 
+    /// After a keystroke: read again only when there are conflicts to follow, or the edit could have made or broken a
+    /// marker line (each keystroke read all of a 5 MB file).
+    func edited(_ edit: [(column: Int, removed: String, inserted: String)]?) {
+        guard conflicts.isEmpty, let edit, !edit.contains(where: Self.couldMark) else { return refresh() }
+    }
+
+    /// Whether an edit's piece can change which lines are markers: one is told by its first eight characters, so a piece
+    /// further along its line matters only with a marker's character or a line break in it.
+    static func couldMark(_ piece: (column: Int, removed: String, inserted: String)) -> Bool {
+        piece.column <= 8
+            || [piece.removed, piece.inserted].contains { $0.contains { $0.isNewline || "<|=>".contains($0) } }
+    }
+
     /// The label follows the caret.
     func caretMoved() {
         guard !conflicts.isEmpty else { return }

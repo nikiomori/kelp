@@ -20,6 +20,8 @@ final class SyntaxHighlighter {
     var colors: [String: NSColor] = [:]
     /// By depth, round and round; none: brackets keep their grammar's colour.
     var bracketColors: [NSColor] = []
+    /// A parse asked for hasn't come in yet (a long text's, on the worker's queue).
+    var waiting: Bool { applied < asked }
     /// A parse done on the worker's queue came in: color again.
     var parsed: (() -> Void)?
     /// Longer texts parse off the main thread so typing never waits for tree-sitter (5 MB took 2 s from scratch); their

@@ -15,6 +15,9 @@ import WorkbenchKit
 @testable import KelpApp
 @testable import KelpKit
 
+/// Windows the tabs sit in for a test: kept, as a view only holds its window weakly.
+@MainActor private enum TabWindows { static var kept: [NSWindow] = [] }
+
 /// A file tab as an agent and the user share it: the agent's change shows when nothing is edited here, ⌘S writes the
 /// user's edit, and never over a change the agent made meanwhile.
 extension AppOfItsOwn {
@@ -25,11 +28,37 @@ extension AppOfItsOwn {
         try text.write(toFile: p, atomically: true, encoding: .utf8)
         return p
     }
-    /// A tab on `p` once the daemon has read it (each test here has a daemon of its own: `AppRig`).
-    private func opened(_ p: String, in rig: AppRig) async -> FileTab {
+    /// A tab on `p` once the daemon has read it (each test here has a daemon of its own: `AppRig`), on screen (in a window
+    /// never shown) unless `hidden`: a hidden one reads a new version only once it shows.
+    private func opened(_ p: String, in rig: AppRig, hidden: Bool = false) async -> FileTab {
         let tab = FileTab(uri: TabURI.file(p), app: rig.app)
         await tab.loading?.value
+        if !hidden { show(tab) }
         return tab
+    }
+    private func show(_ tab: FileTab) {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 400), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.contentView = tab.view
+        TabWindows.kept.append(window)
+    }
+
+    /// A tab that isn't on screen, with nothing unsaved, takes an agent's new version once it shows: an agent rewriting
+    /// files had every open tab read, compare and take each one.
+    @Test func aHiddenTabTakesTheDisksVersionWhenItShows() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let p = try file("one\n")
+        let tab = await opened(p, in: rig, hidden: true)
+        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p) != nil })
+        let was = rig.app.latest(FileEvent.self, p)?.stamp
+        try "two\n".write(toFile: p, atomically: true, encoding: .utf8)   // the agent
+        #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p)?.stamp != was })
+        await mainActorTurns()
+        #expect(tab.editor?.text == "one\n" && !tab.reading)
+        show(tab)
+        #expect(try await waitFor(5) { tab.editor?.text == "two\n" })
     }
 
     /// The caret line's last change, as its menu says it: an agent's turn with its prompt, a commit, or nothing yet.

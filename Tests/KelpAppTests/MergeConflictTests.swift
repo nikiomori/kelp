@@ -63,3 +63,22 @@ private let twoConflicts = """
     bar.refresh()
     #expect(e.text.contains("||||||| base") && !bar.bar.isHidden)
 }
+
+/// A keystroke reads the file for conflicts again only when there are some, or it could make or break a marker line: a
+/// marker's character or a line break in it, or within a line's first eight characters (they tell a marker).
+@MainActor @Test func aKeystrokeLooksForConflictsOnlyWhereItCouldMakeOne() {
+    #expect(!ConflictBar.couldMark((column: 20, removed: "", inserted: "a")))
+    #expect(ConflictBar.couldMark((column: 20, removed: "", inserted: "=")))
+    #expect(ConflictBar.couldMark((column: 20, removed: "\r\n", inserted: "")))
+    #expect(ConflictBar.couldMark((column: 3, removed: "x", inserted: "")))
+    let e = CodeEditor(
+        text: "x<<<<<<< ours\nmine\n=======\ntheirs\n>>>>>>> feature\n", url: URL(fileURLWithPath: "/c.txt"))
+    let bar = ConflictBar(editor: e)
+    #expect(bar.bar.isHidden)
+    e.textView.replace([NSRange(location: 49, length: 0)], with: ["s"])   // "features": nothing to look for
+    bar.edited(e.lastEdit)
+    #expect(bar.bar.isHidden)
+    e.textView.replace([NSRange(location: 0, length: 1)], with: [""])   // the x before the marker goes: a conflict
+    bar.edited(e.lastEdit)
+    #expect(!bar.bar.isHidden)
+}

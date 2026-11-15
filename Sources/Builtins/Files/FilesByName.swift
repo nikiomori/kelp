@@ -36,7 +36,7 @@ struct NameFilter: Equatable {
 
 extension FilesPanel {
     /// So many folders opening at once would hold up the keys: the rest is a word away.
-    private static let mostShown = 2000
+    private nonisolated static let mostShown = 2000
 
     private var nameFilter: NameFilter? {
         byName ? Optional(NameFilter(search.stringValue)).flatMap { $0.isEmpty ? nil : $0 } : nil
@@ -47,18 +47,42 @@ extension FilesPanel {
     func treeShown(_ paths: [String], ignored: [String]) -> [FileNode] {
         guard let filter = nameFilter else { return FileNode.tree(paths, ignored: ignored) }
         if lowered.of != paths { lowered = (paths, paths.map(NameFilter.folded)) }   // the same listing: one buffer, compared at once
-        let low = lowered.paths
-        let kept = paths.indices.lazy.filter {
-            filter.matches(low[$0], folded: true, changed: self.status[paths[$0]] != nil)
-        }
-        return FileNode.tree(Array(kept.prefix(Self.mostShown).map { paths[$0] }))
+        return FileNode.tree(Self.kept(paths, lowered.paths, by: filter, changed: Set(status.keys)))
     }
 
+    /// The first `mostShown` of `paths` (`low`: as `NameFilter.folded` makes them) that `filter` keeps.
+    nonisolated static func kept(_ paths: [String], _ low: [String], by filter: NameFilter, changed: Set<String>)
+        -> [String]
+    {
+        let kept = paths.indices.lazy.filter {
+            filter.matches(low[$0], folded: true, changed: changed.contains(paths[$0]))
+        }
+        return Array(kept.prefix(mostShown).map { paths[$0] })
+    }
+
+    /// As the name filter is typed: what it keeps is found off the main thread (every path, every key), the newest wins.
     func narrowTree() {
         guard let (paths, ignored) = shownPaths else { return }
         listing += 1   // a listing being worked out was for the tree as it was
-        nodes = treeShown(paths, ignored: ignored ?? [])
-        treeBase = isNarrowed ? nil : (paths, ignored ?? [])
+        narrowing?.cancel()
+        guard let filter = nameFilter else {
+            return show(FileNode.tree(paths, ignored: ignored ?? []), base: (paths, ignored ?? []))
+        }
+        let known = lowered.of == paths ? lowered.paths : nil, changed = Set(status.keys), ticket = listing
+        narrowing = Task {
+            let (low, kept) = await Task.detached {
+                let low = known ?? paths.map(NameFilter.folded)
+                return (low, Self.kept(paths, low, by: filter, changed: changed))
+            }.value
+            guard !Task.isCancelled, ticket == listing else { return }   // a newer key, or a newer listing
+            lowered = (paths, low)
+            show(FileNode.tree(kept), base: nil)
+        }
+    }
+
+    private func show(_ tree: [FileNode], base: (paths: [String], ignored: [String])?) {
+        nodes = tree
+        treeBase = base
         outline.reloadData()
         if isNarrowed { outline.expandItem(nil, expandChildren: true) }
     }
@@ -67,12 +91,19 @@ extension FilesPanel {
         (0..<outline.numberOfRows).first { (outline.item(atRow: $0) as? FileNode)?.children == nil }
     }
 
-    /// ↩ in the field opens the first file left; ⇧↩ beside.
+    /// ↩ in the field opens the first file left, once the tree is narrowed; ⇧↩ beside.
     func openFirstOnReturn() {
-        guard isNarrowed, NSApp.currentEvent?.type == .keyDown, let row = firstFileRow,
-            let node = outline.item(atRow: row) as? FileNode
-        else { return }
-        if NSApp.currentEvent?.modifierFlags.contains(.shift) == true {
+        guard let event = NSApp.currentEvent, event.type == .keyDown else { return }
+        let beside = event.modifierFlags.contains(.shift), narrowed = narrowing
+        Task {
+            await narrowed?.value
+            openFirst(beside: beside)
+        }
+    }
+
+    private func openFirst(beside: Bool) {
+        guard isNarrowed, let row = firstFileRow, let node = outline.item(atRow: row) as? FileNode else { return }
+        if beside {
             app.workbench.open(TabURI.file(root + "/" + node.path), split: .right)
         } else {
             openFile(node.path)

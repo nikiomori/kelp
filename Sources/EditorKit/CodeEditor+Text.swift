@@ -34,22 +34,37 @@ extension CodeEditor {
     }
 
     /// The middle two texts don't share: what's in `before`, what's in `after`. Never between a surrogate pair's halves.
+    /// Compared a piece at a time with memcmp: two copies of a 5 MB text, one per tab following the disk, took their time.
     static func changed(_ before: NSString, _ after: NSString) -> (old: NSRange, new: NSRange) {
-        var oldChars = [unichar](repeating: 0, count: before.length),
-            newChars = [unichar](repeating: 0, count: after.length)
-        before.getCharacters(&oldChars, range: NSRange(location: 0, length: before.length))
-        after.getCharacters(&newChars, range: NSRange(location: 0, length: after.length))
-        let shorter = min(oldChars.count, newChars.count)
-        var head = 0, tail = 0
-        while head < shorter, oldChars[head] == newChars[head] { head += 1 }
-        while tail < shorter - head, oldChars[oldChars.count - 1 - tail] == newChars[newChars.count - 1 - tail] {
-            tail += 1
+        let oldCount = before.length, newCount = after.length, shorter = min(oldCount, newCount)
+        let piece = 4096
+        var a = [unichar](repeating: 0, count: piece), b = [unichar](repeating: 0, count: piece)
+        /// How many of the `n` characters at `x` in `before` and `y` in `after` match, from the start (or the end).
+        func matching(_ x: Int, _ y: Int, _ n: Int, fromEnd: Bool) -> Int {
+            before.getCharacters(&a, range: NSRange(location: x, length: n))
+            after.getCharacters(&b, range: NSRange(location: y, length: n))
+            if memcmp(a, b, n * MemoryLayout<unichar>.size) == 0 { return n }
+            var same = 0
+            while fromEnd ? a[n - 1 - same] == b[n - 1 - same] : a[same] == b[same] { same += 1 }
+            return same
         }
-        if head > 0, UTF16.isLeadSurrogate(oldChars[head - 1]) { head -= 1 }
-        if tail > 0, UTF16.isTrailSurrogate(oldChars[oldChars.count - tail]) { tail -= 1 }
+        var head = 0, tail = 0
+        while head < shorter {
+            let n = min(piece, shorter - head), same = matching(head, head, n, fromEnd: false)
+            head += same
+            if same < n { break }
+        }
+        while tail < shorter - head {
+            let n = min(piece, shorter - head - tail)
+            let same = matching(oldCount - tail - n, newCount - tail - n, n, fromEnd: true)
+            tail += same
+            if same < n { break }
+        }
+        if head > 0, UTF16.isLeadSurrogate(before.character(at: head - 1)) { head -= 1 }
+        if tail > 0, UTF16.isTrailSurrogate(before.character(at: oldCount - tail)) { tail -= 1 }
         return (
-            NSRange(location: head, length: oldChars.count - head - tail),
-            NSRange(location: head, length: newChars.count - head - tail)
+            NSRange(location: head, length: oldCount - head - tail),
+            NSRange(location: head, length: newCount - head - tail)
         )
     }
 

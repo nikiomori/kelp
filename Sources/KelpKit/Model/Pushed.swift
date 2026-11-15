@@ -20,6 +20,11 @@ extension GitEvent: Pushed {
     package var key: String { worktree }
     package static var forgottenWith: WatchTopic? { .git }
 }
+/// A workspace's files: Files' tree, and Quick Open's list while that tree is watched.
+extension FilesEvent: Pushed {
+    package var key: String { worktree }
+    package static var forgottenWith: WatchTopic? { .files }
+}
 extension PortsEvent: Pushed {
     package var key: String { worktree }
     package static var forgottenWith: WatchTopic? { .ports }

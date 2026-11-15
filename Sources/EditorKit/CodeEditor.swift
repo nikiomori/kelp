@@ -15,6 +15,14 @@ public final class CodeEditor: NSObject {
 
     let textView = EditorTextView(usingTextLayoutManager: false)
     let scroll: NSScrollView = EditorScrollView()
+    /// The font, colour and tab stops the text storage carries: the same look again touches none of its 5 MB.
+    var styled: NSDictionary?
+    /// A look given while off screen (a hidden tab): applied when it shows (`apply(look:)`).
+    var lookPending = false
+    /// Where the edits since the last coloring pass begin: one below the top line leaves the sticky scopes as they are.
+    private var editedFrom: Int?
+    /// The top line the sticky scopes were found for (`refreshSticky`).
+    var stickyTop: Int?
     public var view: NSView { scroll }
     public var onChange: ((String) -> Void)?
     /// The app's items for the editor's context menu, after Cut, Copy and Paste.
@@ -110,6 +118,9 @@ public final class CodeEditor: NSObject {
     let language: CodeLanguage
     /// Its own: ⌘Z undoes this file's edits, not the last edit in whichever tab.
     private let undo = UndoManager()
+    /// The latest edit, piece by piece, as the old text had it: where in its line each began, what it took out and put in.
+    /// Nil when it wasn't described (undo's, or text set from disk).
+    public private(set) var lastEdit: [(column: Int, removed: String, inserted: String)]?
     /// Setting text that was on disk: no change event, its line count already known.
     private var loading = false
     private var described = false
@@ -148,6 +159,10 @@ public final class CodeEditor: NSObject {
             self, selector: #selector(scrolled), name: NSView.boundsDidChangeNotification, object: scroll.contentView)
         NotificationCenter.default.addObserver(
             self, selector: #selector(scrolled), name: NSView.frameDidChangeNotification, object: textView)
+        (scroll as? EditorScrollView)?.onWindow = { [weak self] in
+            guard let self, lookPending else { return }
+            refreshAppearance()
+        }
         highlighter?.parsed = { [weak self] in
             self?.colored = nil
             self?.colorVisible()
@@ -267,13 +282,6 @@ public final class CodeEditor: NSObject {
         textView.scrollRangeToVisible(NSRange(location: location, length: 0))
     }
 
-    /// The 1-based line at the top of what's on screen.
-    public var topLine: Int {
-        guard let lm = textView.layoutManager, let tc = textView.textContainer else { return 1 }
-        let glyph = lm.glyphIndex(for: NSPoint(x: 0, y: textView.visibleRect.minY), in: tc)
-        return lineIndex.line(at: lm.characterIndexForGlyph(at: glyph), in: textView.string as NSString) + 1
-    }
-
     /// `line` (1-based) at the top of what's on screen; the cursor stays.
     public func scroll(toLine line: Int) {
         let string = textView.string as NSString
@@ -288,7 +296,10 @@ public final class CodeEditor: NSObject {
     public func focus() { textView.window?.makeFirstResponder(textView) }
 
     /// Whole lines filled behind the text: each range's lines, the editor's width. Empty: none.
-    public func tint(_ tints: [(range: NSRange, color: NSColor)]) { textView.lineTints = tints }
+    public func tint(_ tints: [(range: NSRange, color: NSColor)]) {
+        guard !tints.isEmpty || !textView.lineTints.isEmpty else { return }   // none still: nothing to draw again
+        textView.lineTints = tints
+    }
 
     // MARK: Colors
 
@@ -302,7 +313,9 @@ public final class CodeEditor: NSObject {
             colorVisible()
             showProblemTips()
             fitWrapColumn()
-            refreshSticky()
+            let edit = editedFrom
+            editedFrom = nil
+            if !stickyHolds(after: edit) { refreshSticky() }
         }
     }
 
@@ -346,14 +359,17 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
     /// Before an edit, while the old text is there: the tree and the line count hear what's replaced by what.
     func willReplace(_ ranges: [NSRange], with texts: [String]) {
         let string = textView.string as NSString
+        var pieces: [(column: Int, removed: String, inserted: String)] = []
         // From the bottom: each edit's offsets still hold for the next.
         for (range, replacement) in zip(ranges, texts).reversed() {
             highlighter?.willReplace(range, with: replacement, in: string, lines: &lineIndex)
-            lineCount +=
-                replacement.utf16.lazy.filter { $0 == 10 }.count
-                - string.substring(with: range).utf16.lazy.filter { $0 == 10 }.count
+            let removed = string.substring(with: range)
+            lineCount += replacement.utf16.lazy.filter { $0 == 10 }.count - removed.utf16.lazy.filter { $0 == 10 }.count
             marked = marked.compactMap { Self.moved($0, by: range, to: (replacement as NSString).length) }
+            let lineStart = lineIndex.start(ofLine: lineIndex.line(at: range.location, in: string), in: string) ?? 0
+            pieces.append((range.location - lineStart, removed, replacement))
         }
+        lastEdit = pieces
         described = true
     }
 
@@ -366,11 +382,14 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
             lineIndex.invalidate(from: editedRange.location)
             (textView.textContainer as? WrappingContainer)?.edited()
             if !described && !loading { lineCount = LineIndex.breaks(in: textView.string as NSString) + 1 }
+            if !described { lastEdit = nil }
+            editedFrom = min(editedFrom ?? editedRange.location, editedRange.location)
             if !loading { shiftChangeMarks(from: editedRange.location) }
             highlighter?.parse(textView.string as NSString, described: described)
+            // A described edit's parse on its way colors when it's in (`parsed`): the old colors moved with the edit.
+            if !described || highlighter?.waiting != true { colored = nil }
             described = false
             gutter?.needsDisplay = true
-            colored = nil
             scrolled()   // after the edit is laid out: the gutter's width too (resizing it in here broke the layout)
         }
     }

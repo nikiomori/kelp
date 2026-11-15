@@ -20,8 +20,6 @@ extension QuickOpen {
         var choice: JSONValue?
         var checked = false
         var image: NSImage?
-        /// A file's path, ready for fuzzy matching.
-        var fuzzy: ProjectFiles.FuzzyPath?
         /// A command's shortcut, at the end of its title's line as in a menu.
         var key = ""
         /// Run from here lately: on top of ⇧⌘P's empty list, under Recently Used.

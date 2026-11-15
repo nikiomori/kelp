@@ -120,7 +120,7 @@ final class PaletteTable: NSTableView {
 
 /// A palette row's content: on the accent its words and glyphs turn light, as a menu's do (the row says when).
 @MainActor
-final class PaletteCell: NSTableCellView {
+class PaletteCell: NSTableCellView {
     override var backgroundStyle: NSView.BackgroundStyle {
         didSet { apply(backgroundStyle, in: self) }
     }

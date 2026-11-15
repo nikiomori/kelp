@@ -68,6 +68,8 @@ final class FileTab: SavableTab {
     var writing = false
     /// Focused while its text was still on the way: focused (and its line shown) once it's here.
     private var focusWhenLoaded = false
+    /// Whether the tab is on screen, and what waits for it to show (the disk's newest version).
+    @ObservationIgnored lazy var whenShown = WhenShown(view)
     /// The first read (tests wait for it).
     private(set) var loading: Task<Void, Never>?
 

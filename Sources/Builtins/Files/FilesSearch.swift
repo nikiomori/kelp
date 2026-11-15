@@ -87,13 +87,15 @@ extension FilesPanel {
         if query.isEmpty { showReplace() }
         guard !query.isEmpty else { return }
         let options = searchOptions
-        Task {
+        searching?.cancel()   // and the daemon stops its rg when the next one starts (`replaces`)
+        searching = Task {
             let found = await app.tryCall(
                 FilesSearch(
-                    id: current.id, query: query, regex: options.regex, case: options.matchCase, word: options.wholeWord
-                ))
+                    id: current.id, query: query, regex: options.regex, case: options.matchCase,
+                    word: options.wholeWord,
+                    replaces: true))
             // A newer search, options or workspace.
-            guard worktree?.id == current.id, searchOptions == options,
+            guard !Task.isCancelled, worktree?.id == current.id, searchOptions == options,
                 search.stringValue.trimmingCharacters(in: .whitespaces) == query
             else { return }
             // Half typed, a pattern often isn't one yet: what it found last stays.

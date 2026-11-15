@@ -52,7 +52,10 @@ extension CodeEditor {
     public static func apply(look: Look) -> Bool {
         guard look != current else { return false }
         current = look
-        for editor in all.allObjects { editor.refreshAppearance() }
+        // One off screen (a tab not shown) takes it when it shows: each look, the whole text of each.
+        for editor in all.allObjects {
+            if editor.view.window == nil { editor.lookPending = true } else { editor.refreshAppearance() }
+        }
         return true
     }
 
@@ -115,12 +118,16 @@ extension CodeEditor {
         let para = NSMutableParagraphStyle()
         para.defaultTabInterval = CGFloat(tabWidth) * (" " as NSString).size(withAttributes: [.font: font]).width
         para.tabStops = []
+        lookPending = false
         tv.typingAttributes = [.font: font, .foregroundColor: look.text, .paragraphStyle: para]
         tv.defaultParagraphStyle = para
-        if let ts = tv.textStorage, ts.length > 0 {
+        // Text comes in with the typing attributes: only a new font, colour or tab width goes over all of it.
+        let style = tv.typingAttributes as NSDictionary
+        if style != styled, let ts = tv.textStorage, ts.length > 0 {
             ts.addAttributes(tv.typingAttributes, range: NSRange(location: 0, length: ts.length))
         }
-        tv.font = font
+        styled = style
+        if tv.font != font { tv.font = font }   // it sets every character's font, and lays all of them out again
         tv.backgroundColor = look.background
         tv.insertionPointColor = look.text
         tv.selectedTextAttributes = [.backgroundColor: look.selection]

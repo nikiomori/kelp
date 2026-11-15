@@ -68,26 +68,26 @@ extension Folds {
     static func section(_ line: NSRange, in string: NSString, markdown: Bool) -> NSRange? {
         let text = string.substring(with: line).trimmingCharacters(in: .whitespacesAndNewlines)
         let isMark = { (lineText: String) in lineText.hasPrefix("// MARK:") || lineText.hasPrefix("#pragma mark") }
-        let heading = { (lineText: String) -> Int? in
-            let hashes = lineText.prefix { $0 == "#" }.count
-            return hashes > 0 && hashes <= 6 && lineText.dropFirst(hashes).hasPrefix(" ") ? hashes : nil
+        let trimmed = { (range: NSRange) in
+            string.substring(with: range).trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        let ends: (String) -> Bool
+        let ends: (NSRange) -> Bool
         var includesEnd = false
         if isMark(text) {
-            ends = isMark
+            ends = { isMark(trimmed($0)) }
         } else if text.contains("#region") {
-            ends = { $0.contains("#endregion") }
+            ends = { trimmed($0).contains("#endregion") }
             includesEnd = true
-        } else if markdown, let level = heading(text) {
-            ends = { (heading($0) ?? 7) <= level }
+        } else if markdown, let level = headingLevel(line, in: string) {
+            // Read character by character: a top heading's section runs to the end of the file, line after line.
+            ends = { (headingLevel($0, in: string) ?? 7) <= level }
         } else {
             return nil
         }
         var at = NSMaxRange(line), last: NSRange?
         while at < string.length {
             let current = string.lineRange(for: NSRange(location: at, length: 0))
-            if ends(string.substring(with: current).trimmingCharacters(in: .whitespacesAndNewlines)) {
+            if ends(current) {
                 if includesEnd { last = current }
                 break
             }
@@ -103,5 +103,19 @@ extension Folds {
         guard let last else { return nil }
         let start = MultiCursor.lineEnd(string, line.location), end = MultiCursor.lineEnd(string, last.location)
         return end > start ? NSRange(location: start, length: end - start) : nil
+    }
+
+    /// A Markdown heading's level (1–6): hashes after the line's indent, a space, then something; nil for any other line.
+    static func headingLevel(_ line: NSRange, in string: NSString) -> Int? {
+        let end = NSMaxRange(line)
+        var at = line.location
+        func blank(_ c: unichar) -> Bool { c == 32 || c == 9 || c == 10 || c == 13 }
+        while at < end, blank(string.character(at: at)) { at += 1 }
+        let hashes = at
+        while at < end, string.character(at: at) == 35 { at += 1 }
+        let level = at - hashes
+        guard (1...6).contains(level), at < end, string.character(at: at) == 32 else { return nil }
+        while at < end, blank(string.character(at: at)) { at += 1 }
+        return at < end ? level : nil
     }
 }

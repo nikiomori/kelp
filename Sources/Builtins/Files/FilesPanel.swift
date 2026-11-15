@@ -43,6 +43,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     var listing = 0
     /// Those paths in lower case, for the name filter: made once per listing, not for every path on every key.
     var lowered: (of: [String], paths: [String]) = ([], [])
+    /// The content search on its way, and the name filter's narrowing: the next key's takes over.
+    var searching: Task<Void, Never>?
+    var narrowing: Task<Void, Never>?
     /// What the open ignored folders hold, by folder: kept when the tree is built again, read again after an operation.
     var opened: [String: [String]] = [:]
     /// Its files and their git status, pushed by the daemon while the panel is on screen (`WatchTopic.files`, `.git`):

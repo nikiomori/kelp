@@ -273,7 +273,7 @@ extension FilesSearch: Handled {
     func handle(_ scm: SourceControl) throws -> Result {
         try ProjectFiles.search(
             scm.folder(id), query: query, regex: regex == true, caseSensitive: `case` == true,
-            wholeWord: word == true,
+            wholeWord: word == true, replacing: replaces == true,
             remotes: scm.remotes)
     }
 }

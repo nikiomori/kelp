@@ -7868,6 +7868,14 @@
           }
         },
         {
+          "description" : "Kelp's search box: a newer search with it in the same folder stops this one (one is asked per pause in the typing).",
+          "name" : "replaces",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        },
+        {
           "name" : "word",
           "required" : false,
           "schema" : {

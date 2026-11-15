@@ -5,6 +5,13 @@ import DesignKit
 final class EditorScrollView: NSScrollView {
     let marks = ScrollMarks()
     let sticky = StickyLines()
+    /// Told when it comes into a window: a look given while it was off screen is applied then.
+    var onWindow: (() -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil { onWindow?() }
+    }
 
     override func tile() {
         super.tile()
@@ -136,7 +143,21 @@ extension CodeEditor {
         (scroll as? EditorScrollView)?.marks.ticks = ticks
     }
 
-    func stickyLines() -> [Int] { scopeLines(around: topLine - 1) }
+    /// The 1-based line at the top of what's on screen.
+    public var topLine: Int {
+        guard let lm = textView.layoutManager, let tc = textView.textContainer else { return 1 }
+        let glyph = lm.glyphIndex(for: NSPoint(x: 0, y: textView.visibleRect.minY), in: tc)
+        return lineIndex.line(at: lm.characterIndexForGlyph(at: glyph), in: textView.string as NSString) + 1
+    }
+
+    /// An edit that starts below the top line on screen, which is the one the scopes were found for: they stay.
+    func stickyHolds(after edit: Int?) -> Bool {
+        guard let edit, let stickyTop, stickyTop == topLine else { return false }
+        let string = textView.string as NSString
+        return edit >= lineIndex.start(ofLine: stickyTop, in: string) ?? string.length
+    }
+
+    func stickyLines() -> [Int] { scopeLines(around: (stickyTop ?? topLine) - 1) }
 
     /// The scopes around the cursor, outermost first, as `(0-based line, its text)`.
     public var scopesAtCursor: [(line: Int, text: String)] { scopeRows(scopeLines(around: (cursor?.line ?? 1) - 1)) }
@@ -210,6 +231,7 @@ extension CodeEditor {
         guard let view = scroll as? EditorScrollView, let tv = Optional(textView), let lm = tv.layoutManager else {
             return
         }
+        stickyTop = topLine
         let rows = scopeRows(stickyEnabled ? stickyLines() : [])
         let indent =
             (scroll.verticalRulerView?.ruleThickness ?? 0) + tv.textContainerOrigin.x

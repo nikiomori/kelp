@@ -53,18 +53,20 @@ extension QuickOpen {
             }
             filesLoad?.cancel()
             if let wid = app.workbench.workspaceId, let root = app.worktree(wid)?.path {
+                if files.root != root { files = Files() }
+                // As the Files panel was last told them, while it's watching; else listed now.
+                let pushed = app.latest(FilesEvent.self, wid)?.paths, known = files
                 filesLoad = Task {
-                    let files = await app.call(FilesList(id: wid)) ?? []   // why there are none, if it failed
-                    let fuzzy = await Task.detached { files.map(ProjectFiles.FuzzyPath.init) }.value
-                    // Listed again meanwhile (its own load adds them), or a setting's choices are on screen.
+                    var paths = pushed ?? []
+                    // Failing, it says why there are none.
+                    if pushed == nil { paths = await app.call(FilesList(id: wid)) ?? [] }
+                    let listed = paths
+                    let fuzzy =
+                        known.paths == listed
+                        ? known.fuzzy : await Task.detached { listed.map(ProjectFiles.FuzzyPath.init) }.value
+                    // Listed again meanwhile, or a setting's choices are on screen.
                     guard !Task.isCancelled, choosing == nil else { return }
-                    all += zip(files, fuzzy).map { path, fuzzyPath in
-                        Item(
-                            kind: "File", icon: "doc", title: (path as NSString).lastPathComponent, detail: path,
-                            action: { app.workbench.open(TabURI.file(root + "/" + path)) },
-                            split: { app.workbench.open(TabURI.file(root + "/" + path), split: .right) },
-                            fuzzy: fuzzyPath)
-                    }
+                    files = Files(root: root, paths: listed, fuzzy: fuzzy)
                     filter()
                 }
             }
@@ -115,6 +117,15 @@ extension QuickOpen {
             }
         }
         all = items
+    }
+
+    /// The row for the `index`th of `files`.
+    func fileItem(_ index: Int) -> Item {
+        let app = self.app, path = files.paths[index], full = files.root + "/" + path
+        return Item(
+            kind: "File", icon: "doc", title: (path as NSString).lastPathComponent, detail: path,
+            action: { app.workbench.open(TabURI.file(full)) },
+            split: { app.workbench.open(TabURI.file(full), split: .right) })
     }
 
     /// A tab's icon and where it is, in words: a file's path in its workspace (from ~ outside it), a page's address, the

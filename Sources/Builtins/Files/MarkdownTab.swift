@@ -13,7 +13,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     let editor: CodeEditor
     let url: URL
     let app: AppModel
-    private let web = WKWebView()
+    let web = WKWebView()
     private let links: PreviewLinks
     /// Where Kelp's scripts for the preview run (the page's own don't: `PreviewLinks`), and the only world `kelpSync` hears.
     static let world = WKContentWorld.world(name: "kelp")
@@ -22,6 +22,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         trackingMode: .selectOne, target: nil, action: nil)
     private let split = NSSplitView()
     private var renderTask: Task<Void, Never>?
+    /// What the page loaded last was made of, when its body can be replaced in place (`Swap`).
+    private var swappable: Swap?
     /// Edited while the preview was hidden (Edit mode): rendered when it shows.
     private var dirty = false
     /// Documents to read (Kelp's help) open as the preview.
@@ -378,12 +380,11 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             let agents = artifactBar != nil && (kind == .markdown || kind == .slides)
             let markLabels = pageMarkLabels,
                 slideLabels = ["of": String(localized: "of"), "escEnds": canvasLabels.escEnds]
-            let changed =
-                shown == nil && kind == .markdown ? baseline.map { Artifacts.changedLines(from: $0, to: text) } : nil
+            let turn = shown == nil && kind == .markdown ? baseline : nil
             let noSource = String(localized: "Where it came from isn't said: ask its agent for a data-source.")
-            if changed == nil, agents { onChanges?(0) }
-            let (html, scripts) = await Task.detached { [page] () -> (String, [String]) in
-                if kind == .html { return (text, []) }
+            if turn == nil, agents { onChanges?(0) }
+            let (html, scripts, swap) = await Task.detached { [page] () -> (String, [String], Swap?) in
+                if kind == .html { return (text, [], nil) }
                 if kind == .canvas {
                     let snapshot = shown.flatMap(CanvasSnapshot.read) ?? CanvasSnapshot.live(json: text, folder: base)
                     let built = CanvasPage.build(
@@ -394,22 +395,21 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                     let byHand = CanvasEditMode.source(tokens: built.tokens, labels: editLabels)
                     let dash = canvasView.dashboard ? [DashboardPage.source(noSource: noSource)] : []
                     return (
-                        built.html, [CanvasScript.source(issues: built.issues), around, edit, byHand] + dash + again
+                        built.html, [CanvasScript.source(issues: built.issues), around, edit, byHand] + dash + again,
+                        nil
                     )
                 }
                 if kind == .review {
                     let body = ReviewPage.body(Review(text), sendTo: sendTo)
                     return (
                         MarkdownHTML.page(body: body, baseURL: base, dark: dark, page: page) + ReviewPage.style,
-                        [ReviewPage.script]
+                        [ReviewPage.script], nil
                     )
                 }
                 let body = MarkdownHTML.render(text, marking: true)
                 var html = MarkdownHTML.page(body: body, baseURL: base, dark: dark, page: page)
-                var scripts = [
-                    MarkdownHTML.mermaid(for: text, dark: dark), MarkdownHTML.math(for: body), MarkdownHTML.scrollSync
-                ]
-                .compactMap { $0 }
+                let mermaid = MarkdownHTML.mermaid(for: text, dark: dark), math = MarkdownHTML.math(for: body)
+                var scripts = [mermaid, math, MarkdownHTML.scrollSync].compactMap { $0 }
                 if kind == .slides {
                     let system = DesignSystem.dir(root: Self.projectRoot(of: base.path)).appendingPathComponent(
                         "tokens.json")
@@ -419,17 +419,23 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
                     html += SlidesPage.style + SlidesPage.tokens(tokens ?? "")
                     scripts.append(SlidesPage.script(labels: slideLabels))
                 }
-                guard agents else { return (html, scripts) }
+                guard agents else {
+                    let swap = Swap(
+                        folder: base.path, dark: dark, colors: page.map { $0.background + $0.text },
+                        mermaid: mermaid != nil, math: math != nil, body: body)
+                    return (html, scripts, kind == .markdown ? swap : nil)
+                }
                 let marks = CanvasMark.read(Artifacts.small(base.appendingPathComponent(CanvasMark.file).path))
                 html += PageMarks.style
                 scripts += [
                     CanvasChrome.source(themes: "", labels: chrome, floats: false),
                     PageMarks.source(marks: marks, labels: markLabels)
                 ]
-                if let changed { scripts.append(PageMarks.changes(changed)) }
-                return (html, scripts + again)
+                if let turn { scripts.append(PageMarks.changes(Artifacts.changedLines(from: turn, to: text))) }
+                return (html, scripts + again, nil)
             }.value
             guard !Task.isCancelled else { return }
+            if let swap, let swappable, swap.samePage(as: swappable), !web.isLoading, await replace(swap) { return }
             // Keep the reader's place across re-renders, and the slide shown (numbers both, so the async call can't trap
             // on nil).
             let was =
@@ -446,6 +452,37 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             links.load(
                 html, baseURL: base, scripts: scripts + [place], world: Self.world, pageScripts: kind == .canvas,
                 in: web)
+            swappable = swap
+        }
+    }
+
+    /// A plain document's page: what it's made of (its folder, appearance, colours, and the scripts its body needs), and
+    /// its body.
+    struct Swap: Sendable {
+        let folder: String, dark: Bool, colors: String?, mermaid: Bool, math: Bool
+        let body: String
+        func samePage(as other: Swap) -> Bool {
+            (folder, dark, colors, mermaid, math) == (other.folder, other.dark, other.colors, other.mermaid, other.math)
+        }
+    }
+
+    /// The page shown takes `swap`'s body in place, its diagrams and formulas drawn again: a new page for each pause in the
+    /// typing read mermaid's and KaTeX's scripts again and lost the place. False when the page has no body to replace.
+    private func replace(_ swap: Swap) async -> Bool {
+        let place = currentMode == "split" ? "kelpToLine(\(editor.cursor?.line ?? 1));" : ""
+        let js = """
+            (() => {
+              const body = document.querySelector('article.markdown-body');
+              if (!body) return false;
+              body.innerHTML = \(Self.js(swap.body));
+              \(swap.mermaid ? MarkdownHTML.mermaidRun : "")
+              \(swap.math ? MarkdownHTML.mathRun : "")
+              \(place)
+              return true;
+            })()
+            """
+        do { return try await web.evaluateJavaScript(js, contentWorld: Self.world) as? Bool == true } catch {
+            return false   // a new page, then
         }
     }
 

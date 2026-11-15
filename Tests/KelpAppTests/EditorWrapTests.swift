@@ -1,8 +1,8 @@
 import AppKit
-@testable import EditorKit
 import Foundation
 import Testing
 
+@testable import EditorKit
 @testable import KelpKit
 
 extension CodeEditor {
@@ -24,11 +24,16 @@ extension OneAtATime {
             try #require(editor.textView.textContainer).widthTracksTextView
         }
         let open = CodeEditor(text: String(repeating: "word ", count: 200), url: url)
+        let window = NSWindow(   // on screen: a hidden one follows once it shows
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.contentView = open.view
         #expect(try !wraps(open))
 
         CodeEditor.set(\.wrapLines, true)   // the open one follows, nobody telling it
         #expect(try wraps(open))
         #expect(try wraps(CodeEditor(text: "x", url: url)))
+        withExtendedLifetime(window) {}
     }
 
     /// A wrapped line goes on at its own indentation; the setting takes it back to the edge.
