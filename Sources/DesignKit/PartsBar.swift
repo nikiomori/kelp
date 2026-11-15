@@ -80,5 +80,6 @@ public struct MeterBar: View {
             }
         }
         .frame(height: height)
+        .animation(Motion.reduced ? nil : .easeOut(duration: Motion.base), value: share)   // as PartsBar's parts
     }
 }

@@ -47,3 +47,15 @@ import Testing
     #expect(ghost != nil)
     #expect(ghost?.alphaValue ?? 1 < 1 || ghost?.layer?.animationKeys()?.isEmpty == false)
 }
+
+/// The context ring fills on the scale (`Motion.base`), not on a bare layer's quarter second.
+@MainActor @Test func theContextRingFillsOnTheScale() {
+    let meter = ContextMeter()
+    let window = onScreen(meter)
+    defer { withExtendedLifetime(window) {} }
+    meter.usage = .init(used: 120_000, window: 200_000)
+    meter.usage = .init(used: 160_000, window: 200_000)
+    let fill = meter.layer?.sublayers?.compactMap { $0 as? CAShapeLayer }.last
+    #expect(fill?.strokeEnd == 0.8)
+    #expect(fill?.animation(forKey: "strokeEnd")?.duration == Motion.base)
+}

@@ -119,6 +119,8 @@ struct UsageView: View {
                             }
                             Text((row.stale ? "~" : "") + Self.percent(main.used)).fixedSize()
                                 .monospacedDigit().foregroundStyle(UsageView.tint(main.used, quiet: .primary))
+                                .contentTransition(.numericText(value: main.used))   // rolls as the counts do
+                                .animation(Motion.reduced ? nil : .easeOut(duration: Motion.base), value: main.used)
                         }
                         Bar(used: main.used, pace: pace ? main.pace() : nil)
                     }

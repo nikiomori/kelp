@@ -192,6 +192,7 @@ private final class Meter: NSStackView {
     func show(_ percent: Int?) {
         has = percent != nil
         guard let percent else { return }
+        if let old = Int(value.stringValue), old != percent { value.roll(up: percent > old) }
         value.stringValue = "\(percent)"
         value.setAccessibilityLabel("\(percent)%")
         value.textColor = ServerReading.strained(Double(percent) / 100) ? .textOrange : .secondaryLabelColor

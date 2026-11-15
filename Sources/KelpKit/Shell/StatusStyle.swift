@@ -164,10 +164,7 @@ package final class StatusMark: NSView {
                 track.strokeColor = NSColor.secondaryLabelColor.cgColor
                 bar.strokeColor = NSColor.secondaryLabelColor.cgColor
             }
-            CATransaction.begin()
-            CATransaction.setDisableActions(Motion.reduced)   // a layer of its own: it would ease over 0.25 s
-            bar.strokeEnd = min(1, max(0, filling))
-            CATransaction.commit()
+            bar.animate("strokeEnd", to: min(1, max(0, filling)), duration: Motion.base)
             return
         }
         // Motion means state: spinning = working, pulsing = compacting, filled = waiting for you. With Reduce Motion a

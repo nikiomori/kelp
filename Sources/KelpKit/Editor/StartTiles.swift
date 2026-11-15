@@ -98,22 +98,43 @@ final class AgentTile: PointerControl {
 
 }
 
-/// A plan's share as a thin bar, in the plan's colour.
+/// A plan's share as a thin bar, in the plan's colour; a new share grows or shrinks the fill (`Motion.base`).
 @MainActor
 private final class PlanBar: NSView {
     private var used: Double = 0, color: NSColor = .secondaryLabelColor
+    private let fill = CALayer()
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.addSublayer(fill)
+    }
+    required init?(coder: NSCoder) { fatalError() }
     override var intrinsicContentSize: NSSize { NSSize(width: 56, height: 3) }
     func show(_ note: AgentNote?) {
         used = min(note?.used ?? 0, 1)
         color = note?.color ?? .secondaryLabelColor
         needsDisplay = true
+        place(moving: window != nil)
     }
-    override func draw(_ dirty: NSRect) {
-        let track = NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2)
-        NSColor.fillSelected.setFill()
-        track.fill()
-        let fill = NSRect(x: 0, y: 0, width: bounds.width * used, height: bounds.height)
-        color.setFill()
-        NSBezierPath(roundedRect: fill, xRadius: bounds.height / 2, yRadius: bounds.height / 2).fill()
+    override var wantsUpdateLayer: Bool { true }
+    override func updateLayer() {
+        layer?.cornerRadius = bounds.height / 2
+        layer?.backgroundColor = NSColor.fillSelected.cgColor   // drawing runs in the view's appearance
+        fill.backgroundColor = color.cgColor
+    }
+    override func layout() {
+        super.layout()
+        place(moving: false)
+    }
+    private func place(moving: Bool) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)   // a layer of its own would ease these over 0.25 s
+        fill.cornerRadius = bounds.height / 2
+        fill.anchorPoint = .zero
+        fill.position = .zero
+        CATransaction.commit()
+        fill.animate(
+            "bounds", to: NSValue(rect: NSRect(x: 0, y: 0, width: bounds.width * used, height: bounds.height)),
+            duration: moving ? Motion.base : 0)
     }
 }

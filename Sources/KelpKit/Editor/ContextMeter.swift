@@ -62,9 +62,6 @@ final class ContextMeter: NSView {
             track.strokeColor = color.cgColor
             fill.strokeColor = color.cgColor
         }
-        CATransaction.begin()
-        CATransaction.setDisableActions(Motion.reduced)
-        fill.strokeEnd = min(1, share)
-        CATransaction.commit()
+        fill.animate("strokeEnd", to: min(1, share), duration: Motion.base)
     }
 }
