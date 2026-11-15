@@ -12,6 +12,16 @@ extension Daemon {
         try JSONDecoder().decode(M.Result.self, from: await answer(M.name, try method.params() ?? .null, conn: -1))
     }
 
+    /// `ask` without the trip through JSON, for what a watch reads itself, often and large: the handler's result as it
+    /// is (a file list holds up to 200k paths, which `ask` encoded, decoded, and the event then encoded again). Kelp's own
+    /// read: no caller to check. Its errors as `ask` gives them.
+    func direct<M: Handled>(_ method: M) async throws -> M.Result where M.Service: Sendable {
+        let service = M.Service.of(self)
+        do { return try await offload(quick: M.quick) { try method.handle(service, conn: -1) } } catch {
+            throw Self.rpc(error)
+        }
+    }
+
     /// What a folder's branch committed since it left its project's base, for `GitEvent.branchFiles`. A base that
     /// isn't a branch here (a project made before it had one) says nothing, in the log.
     private func branchFiles(_ worktree: Worktree) async throws -> [String]? {
@@ -92,7 +102,9 @@ extension Daemon {
         switch watch.topic {
         case .git:
             let first = FirstRead(), memo = BranchMemo()
-            return Watches.Topic(folder: workspaceFolder(key, ignoring: Git.touchesStatus), backsOffFrom: 10) {
+            return Watches.Topic(
+                folder: workspaceFolder(key, ignoring: { Git.touchesStatus($0.map(\.path)) }), backsOffFrom: 10
+            ) {
                 [self] _ in await gitRead(key, first: first.take(), memo: memo)
             }
         case .ports:
@@ -167,7 +179,9 @@ extension Daemon {
         case .artifacts: return artifactsTopic(key)
         case .databases:
             // Its files are read again (a .env or compose file may have changed); what ran is in memory.
-            return Watches.Topic(folder: workspaceFolder(key) { _ in { $0.contains(where: DatabaseFind.matters) } }) {
+            return Watches.Topic(
+                folder: workspaceFolder(key) { _ in { $0.contains { DatabaseFind.matters($0.path) } } }
+            ) {
                 [self] _ in
                 do { return (line(try await ask(DatabaseActivity(worktreeId: key))), nil) } catch {
                     Log.session.error("reading workspace \(key)'s databases: \(error)")
@@ -203,8 +217,8 @@ extension Daemon {
 
     /// A local workspace's folder, and which of its file events matter (made from its path); nil for a remote one.
     private func workspaceFolder(
-        _ id: String, _ matters: (String) -> @Sendable ([String]) -> Bool
-    ) -> (String, @Sendable ([String]) -> Bool)? {
+        _ id: String, _ matters: (String) -> @Sendable ([FileWatcher.Change]) -> Bool
+    ) -> (String, @Sendable ([FileWatcher.Change]) -> Bool)? {
         guard let worktree = store.look("workspace \(id)", { try $0.worktree(id) }), remotes.of(worktree.path) == nil
         else { return nil }
         return (worktree.path, matters(worktree.path))
@@ -212,8 +226,8 @@ extension Daemon {
 
     /// The events `touches` counts, leaving out the folders git ignores.
     private func workspaceFolder(
-        _ id: String, ignoring touches: @escaping @Sendable ([String]) -> Bool
-    ) -> (String, @Sendable ([String]) -> Bool)? {
+        _ id: String, ignoring touches: @escaping @Sendable ([FileWatcher.Change]) -> Bool
+    ) -> (String, @Sendable ([FileWatcher.Change]) -> Bool)? {
         let remotes = remotes
         return workspaceFolder(id) { path in
             let ignored = IgnoredFolders(root: path, remotes: remotes)
@@ -229,8 +243,8 @@ extension Daemon {
         guard await mayRead(worktree, first: first) else { return (nil, 10) }
         var event: GitEvent
         do {
-            async let branchesRead = ask(GitBranches(id: key))
-            let changes = try await ask(GitStatus(id: key))
+            async let branchesRead = direct(GitBranches(id: key))
+            let changes = try await direct(GitStatus(id: key))
             async let stats = lineStats(key, local: remote ? nil : worktree, changes)
             let branches = try await branchesRead
             event = GitEvent(worktree: key, changes: changes, branches: branches)
@@ -256,7 +270,8 @@ extension Daemon {
         var event: FilesEvent
         do {
             event = FilesEvent(
-                worktree: key, paths: try await ask(FilesList(id: key)), ignored: try? await ask(FilesIgnored(id: key)))
+                worktree: key, paths: try await direct(FilesList(id: key)),
+                ignored: try? await direct(FilesIgnored(id: key)))
         } catch { event = FilesEvent(worktree: key, error: error.rpcMessage) }
         return (line(event), remote ? 10 : nil)   // as git: a remote folder is listed every 10 s while watched
     }
@@ -272,10 +287,10 @@ extension Daemon {
     /// A file's folder, as FSEvents names it (/tmp is /private/tmp), and its events that name it: the file itself may
     /// not be there to resolve.
     /// Limit: a symlink's target changing elsewhere isn't seen; watch the target's folder if that matters.
-    private static func fileFolder(_ path: String) -> (String, @Sendable ([String]) -> Bool) {
+    private static func fileFolder(_ path: String) -> (String, @Sendable ([FileWatcher.Change]) -> Bool) {
         let dir = (path as NSString).deletingLastPathComponent, name = (path as NSString).lastPathComponent
         let names = Set([path, ((Paths.real(dir) ?? dir) as NSString).appendingPathComponent(name)])
-        return (dir, { $0.contains(where: names.contains) })
+        return (dir, { $0.contains { names.contains($0.path) } })
     }
 
     /// A stat: what changed is the version, not the text (the app reads that only for a version it doesn't hold).
@@ -293,8 +308,8 @@ extension Daemon {
     /// moves the canvas too.
     private func artifactsTopic(_ key: String) -> Watches.Topic {
         let root = store.look("workspace \(key)") { try $0.worktree(key) }?.path
-        let matters: @Sendable ([String]) -> Bool = {
-            $0.contains { $0.contains("/\(Artifacts.folder)/") || $0.contains("/\(DesignSystem.folder)/") }
+        let matters: @Sendable ([FileWatcher.Change]) -> Bool = {
+            $0.contains { $0.path.contains("/\(Artifacts.folder)/") || $0.path.contains("/\(DesignSystem.folder)/") }
         }
         return Watches.Topic(folder: root.map { ($0, matters) }) { [self] _ in (await artifacts(key), nil) }
     }

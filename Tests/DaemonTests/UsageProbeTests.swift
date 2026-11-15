@@ -97,11 +97,22 @@ import Testing
     let (d, _, _) = try daemon()
     defer { d.stop() }
     let u = d.agentUsage
-    #expect(u.usedLately().isEmpty)
+    #expect(u.readUsedLately().isEmpty)
     let s = Session(cwd: "/tmp", command: "grok", agent: "grok", status: .exited)
     try d.store.save(s)
-    #expect(u.usedLately() == ["grok"])
+    #expect(u.readUsedLately() == ["grok"])
     try d.store.delete(s)   // pruned: the mark remembers it
-    #expect(u.usedLately() == ["grok"])
-    #expect(u.usedLately(now: Date() + AgentUsage.probeLately + 3600).isEmpty)
+    #expect(u.readUsedLately() == ["grok"])
+    #expect(u.readUsedLately(now: Date() + AgentUsage.probeLately + 3600).isEmpty)
+}
+
+/// The limits are asked every 10 s; which agents ran lately is read from the store at most once an hour.
+@Test func whichAgentsRanLatelyIsReadHourly() throws {
+    let (d, _, _) = try daemon()
+    defer { d.stop() }
+    let u = d.agentUsage, now = Date()
+    #expect(u.usedLately(now: now).isEmpty)
+    try d.store.save(Session(cwd: "/tmp", command: "grok", agent: "grok", status: .exited))
+    #expect(u.usedLately(now: now + 60).isEmpty)
+    #expect(u.usedLately(now: now + 3601) == ["grok"])
 }

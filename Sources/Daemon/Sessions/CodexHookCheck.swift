@@ -47,7 +47,7 @@ final class CodexHookCheck: Sendable {
 
     /// Every Kelp hook listed as trusted.
     static func agrees(
-        _ answer: [String: Any]?, events: [(name: String, label: String, command: String)] = CodexHooks.events
+        _ answer: [String: Any]?, events: [CodexHooks.Event] = CodexHooks.events
     ) -> Bool {
         let entries = (answer?["result"] as? [String: Any])?["data"] as? [[String: Any]] ?? []
         let trusted = Set(

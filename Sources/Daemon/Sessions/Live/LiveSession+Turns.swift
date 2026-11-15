@@ -30,11 +30,13 @@ extension LiveSession {
         // the previous turn's (which credited it with that turn's changes), and snapshots can't land out of order.
         turnWork.async { [weak self] in
             if starting {
-                let tree = try? Git.snapshotTree(cwd, remotes: remotes)   // none in a folder without git
-                self?.state.withLock { $0.turnTree = tree }
-                if let tree, let keep = self?.callbacks.turnStarted {
+                let snapshot = try? Git.turnSnapshot(cwd, remotes: remotes)   // none in a folder without git
+                self?.state.withLock { $0.turnTree = snapshot?.tree }
+                if let snapshot, let keep = self?.callbacks.turnStarted {
                     let head = Log.session.attempt("a turn's HEAD") { try Git.head(cwd, remotes: remotes) } ?? nil
-                    keep(SessionTurns.Mark(session: id, tree: tree, head: head, folder: cwd, prompt: prompt))
+                    keep(
+                        SessionTurns.Mark(session: id, tree: snapshot.tree, head: head, folder: cwd, prompt: prompt),
+                        snapshot.staged)
                 }
             } else if let start, let base = self?.turnBase {
                 let files = ((try? Git.changesSince(tree: base, cwd: cwd, remotes: remotes)) ?? [])

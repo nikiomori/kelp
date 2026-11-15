@@ -1,5 +1,6 @@
 import Agents
 import Core
+import CoreServices
 import Foundation
 import GitKit
 import Testing
@@ -13,6 +14,15 @@ private final class Heard: Sendable {
     func listen(_ c: RPCClient) { c.onNotification = { [self] m, p in all.withLock { $0.append((m, p)) } } }
     func events<E: RPCEvent>(_: E.Type) -> [E] {
         all.withLock { $0 }.filter { $0.0 == E.name }.compactMap { try? $0.1.decode(E.self) }
+    }
+}
+
+/// Events as a save in place makes them: what a file holds changed, nothing made, removed or moved.
+func saved(_ paths: String...) -> [FileWatcher.Change] {
+    paths.map {
+        FileWatcher.Change(
+            path: $0,
+            flags: FSEventStreamEventFlags(kFSEventStreamEventFlagItemModified | kFSEventStreamEventFlagItemIsFile))
     }
 }
 
@@ -53,11 +63,13 @@ private final class Heard: Sendable {
     // a wait says nothing of which event made it.
     let (_, matters) = try #require(w.d.topic(key).folder)
     let built = wt.path + "/dist/js/a.js"
-    #expect(matters([wt.path + "/src.txt"]) && !matters([built]) && !matters([built, wt.path + "/dist/b.js"]))
-    #expect(matters([built, wt.path + "/src.txt"]))   // one that counts among those that don't
+    #expect(
+        matters(saved(wt.path + "/src.txt")) && !matters(saved(built)) && !matters(saved(built, wt.path + "/dist/b.js"))
+    )
+    #expect(matters(saved(built, wt.path + "/src.txt")))   // one that counts among those that don't
     for i in 0..<5 { try "\(i)\n".write(toFile: built, atomically: true, encoding: .utf8) }
     try "\n".write(toFile: wt.path + "/.gitignore", atomically: true, encoding: .utf8)
-    #expect(matters([wt.path + "/.gitignore"]) && matters([built]))   // the rules changed: asked again
+    #expect(matters(saved(wt.path + "/.gitignore")) && matters(saved(built)))   // the rules changed: asked again
     #expect(
         try await waitFor(10) {
             heard.events(GitEvent.self).last?.changes?.contains { $0.path.hasPrefix("dist/") } == true
@@ -229,11 +241,47 @@ private final class Heard: Sendable {
     #expect(heard.events(FilesEvent.self).count == 2)   // …not pushed, and the new file's list once
 }
 
+/// A file made, removed or moved changes the list, and so does what says what's ignored; a save in place doesn't. An
+/// event that names no item (history dropped, a folder to scan again) could be anything.
 @Test func whatChangesAFileList() {
+    func event(_ path: String, _ flags: Int...) -> [FileWatcher.Change] {
+        [FileWatcher.Change(path: path, flags: FSEventStreamEventFlags(flags.reduce(0, |)))]
+    }
+    let file = kFSEventStreamEventFlagItemIsFile
+    for flag in [
+        kFSEventStreamEventFlagItemCreated, kFSEventStreamEventFlagItemRemoved, kFSEventStreamEventFlagItemRenamed
+    ] {
+        #expect(Git.touchesFileList(event("/r/src/a.swift", flag, file, kFSEventStreamEventFlagItemModified)))
+    }
+    #expect(Git.touchesFileList(event("/r/src", kFSEventStreamEventFlagMustScanSubDirs)))
+    #expect(Git.touchesFileList(event("/r/src/a.swift", 0)) && Git.touchesFileList(event("/r", 0)))
+    #expect(!Git.touchesFileList(saved("/r/src/a.swift", "/r/README.md")))
+    #expect(Git.touchesFileList(saved("/r/.gitignore")) && Git.touchesFileList(saved("/r/src/.gitignore")))
     #expect(
-        Git.touchesFileList(["/r/src/a.swift"]) && Git.touchesFileList(["/r/.git/index"])
-            && Git.touchesFileList(["/r/.git/HEAD"]))
-    #expect(!Git.touchesFileList(["/r/.git/objects/ab/cd", "/r/.git/logs/HEAD", "/r/.git"]))
+        Git.touchesFileList(saved("/r/.git/index")) && Git.touchesFileList(saved("/r/.git/HEAD"))
+            && Git.touchesFileList(saved("/r/.git/info/exclude")))
+    #expect(!Git.touchesFileList(saved("/r/.git/objects/ab/cd", "/r/.git/logs/HEAD", "/r/.git")))
+    #expect(!Git.touchesFileList(event("/r/.git/objects/ab/cd", kFSEventStreamEventFlagItemCreated, file)))
+}
+
+/// A workspace's watches, and an open file's in a folder of it, share one FSEvents stream, which stops with the last.
+@Test func aWorkspacesWatchesShareOneStream() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    try FileManager.default.createDirectory(atPath: wt.path + "/src", withIntermediateDirectories: true)
+    try "x\n".write(toFile: wt.path + "/src/a.txt", atomically: true, encoding: .utf8)
+    for topic in [WatchTopic.git, .files, .databases, .artifacts] { w.c.notify(WatchStart(topic, wt.id)) }
+    w.c.notify(WatchStart(.file, wt.path + "/src/a.txt"))
+    _ = try await w.c.call(Ping())
+    #expect(try await waitFor(10) { w.d.watches.count == 5 })
+    #expect(w.d.watches.streams.count == 1)
+    for topic in [WatchTopic.git, .files, .databases, .artifacts] { w.c.notify(WatchStop(topic, wt.id)) }
+    _ = try await w.c.call(Ping())
+    #expect(try await waitFor(10) { w.d.watches.count == 1 })
+    #expect(w.d.watches.streams.count == 1, "the open file's keeps it")
+    w.c.notify(WatchStop(.file, wt.path + "/src/a.txt"))
+    #expect(try await waitFor(10) { w.d.watches.streams.count == 0 })
 }
 
 /// Once the daemon stopped following folders, a project written after that (a late request) doesn't start watching
@@ -364,7 +412,7 @@ private final class Heard: Sendable {
     #expect(try await waitFor(10) { heard.events(ArtifactsEvent.self).last?.items.map(\.title) == ["Plan"] })
     // Judged by hand, as the watch judges its events: no event says a dropped one was seen.
     let (_, matters) = try #require(w.d.topic(Watches.Key(topic: .artifacts, key: wt.id)).folder)
-    #expect(!matters([wt.path + "/other.txt"]) && matters([wt.path + "/\(Artifacts.folder)/plan/index.md"]))
+    #expect(!matters(saved(wt.path + "/other.txt")) && matters(saved(wt.path + "/\(Artifacts.folder)/plan/index.md")))
 }
 
 /// The daemon as it runs keeps no count of reads: one per key ever watched would only grow. Tests turn it on.

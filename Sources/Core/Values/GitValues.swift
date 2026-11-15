@@ -16,14 +16,20 @@ public enum Git {
         }
     }
 
-    /// Whether a change at one of `paths` can change a workspace's file list (`files.list`) or what it shows: anything
-    /// outside .git; in it, only the index (`git rm --cached`, staging) and HEAD (a checkout). git's own churn otherwise
-    /// would list the files again several times a second.
-    public static func touchesFileList(_ paths: [String]) -> Bool {
-        paths.contains { path in
-            guard let range = path.range(of: "/.git/") else { return !path.hasSuffix("/.git") }
+    /// Whether one of `changes` can change a workspace's file list (`files.list`) or what it shows: outside .git, a file
+    /// or folder made, removed or moved (`reshapes`: what a save writes in a file lists the same files) or the rules of
+    /// what's ignored; in .git, only the index (`git rm --cached`, staging), HEAD (a checkout) and info/exclude. git's
+    /// own churn otherwise would list the files again several times a second, and every save once.
+    /// Limit: FSEvents adds up a path's flags for a few seconds, so a file written just after it was made, and every
+    /// atomic save (a rename), still lists them again.
+    public static func touchesFileList(_ changes: [FileWatcher.Change]) -> Bool {
+        changes.contains { change in
+            let path = change.path
+            guard let range = path.range(of: "/.git/") else {
+                return !path.hasSuffix("/.git") && (change.reshapes || path.hasSuffix("/.gitignore"))
+            }
             let rest = path[range.upperBound...]
-            return rest == "index" || rest == "HEAD"
+            return rest == "index" || rest == "HEAD" || rest == "info/exclude"
         }
     }
 

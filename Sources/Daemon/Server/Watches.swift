@@ -15,7 +15,7 @@ final class Watches: Sendable {
         var last: Data?   // the event as last sent (sorted keys): the next goes out only when it differs
         var reading = false, again = false
         var timer: Int?   // the scheduled read's number; a newer one (or none) makes it a no-op
-        var files: FileWatcher?
+        var files: FileStreams.Hold?
         var fastUntil = Date.distantPast
         var tag: String?   // context: the session's status at the last read
         var quiet = 0   // reads in a row that found nothing new
@@ -33,7 +33,7 @@ final class Watches: Sendable {
     /// sent, nil: nothing to say; and when to read it again with nothing else saying so, nil: only when something does),
     /// and from which clock on its reads back off while nothing changes (`slowed`).
     struct Topic: Sendable {
-        var folder: (String, @Sendable ([String]) -> Bool)?
+        var folder: (String, @Sendable ([FileWatcher.Change]) -> Bool)?
         var backsOffFrom = TimeInterval.infinity
         var read: @Sendable (_ fast: Bool) async -> (Data?, TimeInterval?)
     }
@@ -44,6 +44,8 @@ final class Watches: Sendable {
     let reading = OSAllocatedUnfairLock(initialState: Reading())
     private let store: Store
     private let clients: Clients
+    /// The FSEvents streams the watches' folders share.
+    let streams = FileStreams()
 
     private let remotes: Remotes
 
@@ -101,7 +103,7 @@ final class Watches: Sendable {
             byKey[key] = entry
             return nil
         }
-        _ = gone   // its scheduled read finds it gone; its FileWatcher stops as it goes
+        _ = gone   // its scheduled read finds it gone; its hold on a file stream goes with it
     }
 
     /// A connection went away.
@@ -119,7 +121,7 @@ final class Watches: Sendable {
             }
             return out
         }
-        _ = gone   // released here, out of the lock: their FileWatchers stop as they go
+        _ = gone   // released here, out of the lock: their holds on file streams go with them
     }
 
     func stopAll() {
@@ -146,13 +148,12 @@ final class Watches: Sendable {
         let topic = reading.withLock { $0.topic }?(key)
         entries.withLock { byKey in byKey[key]?.topic = topic }
         if let (root, matters) = topic?.folder {
-            // Debounced: a save is several events, a checkout hundreds. A queue of its own: `matters` may run git
-            // (check-ignore), and one slow folder must not hold up every other watch.
-            let fw = FileWatcher(root: root, deliver: DispatchQueue(label: "kelp.watches.files")) { [weak self] paths in
-                guard let self, matters(paths) else { return }
+            // Debounced: a save is several events, a checkout hundreds. On a queue of its own (`FileStreams`).
+            let hold = streams.hold(root) { [weak self] changes in
+                guard let self, matters(changes) else { return }
                 soon(key)
             }
-            entries.withLock { byKey in byKey[key]?.files = fw }
+            entries.withLock { byKey in byKey[key]?.files = hold }
         }
         read(key)
     }

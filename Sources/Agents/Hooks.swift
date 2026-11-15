@@ -20,8 +20,9 @@ public enum Hooks {
 
     /// Here: Stop → done, Notification → waiting (`kelp hook` drops the ones that ask nothing), AskUserQuestion, an MCP
     /// server's question and a permission dialog → waiting until answered (Kelp's Allow or Deny, `session.permissionWait`,
-    /// up to ten minutes); each tool as it starts and ends and each batch of them (`command`: a Bash one for the list,
-    /// `AgentCommand`, any for what it says of the turn, `State.tool`); each subagent as it starts and ends; a compaction.
+    /// up to ten minutes); each tool as it starts, the end of those Kelp acts on (`endsActedOn`), and each batch of them
+    /// (`command`: a Bash one for the list, `AgentCommand`, any for what it says of the turn, `State.tool`); each subagent
+    /// as it starts and ends; a compaction.
     /// On a host each writes its own report (`hostSettingsJSON`). In this order: within a hook the first that matches
     /// comes first.
     static let listens: [Listen] = [
@@ -34,8 +35,8 @@ public enum Hooks {
             host: hostReport("state=blocked:kind=question", payload: true)),
         .init(hook: "PreToolUse", here: "command"),
         .init(hook: "PostToolUse", matcher: "AskUserQuestion", here: "working", host: hostReport("state=working")),
-        .init(hook: "PostToolUse", here: "command"),
-        .init(hook: "PostToolUseFailure", here: "command"),
+        .init(hook: "PostToolUse", matcher: endsActedOn, here: "command"),
+        .init(hook: "PostToolUseFailure", matcher: commandTools, here: "command"),
         // A tool's end isn't the end of a dialog: another of its batch may be asking still, or a subagent's tool ended.
         .init(hook: "PostToolBatch", here: "command", host: hostReport("state=working", unless: hostSubagentsOwn)),
         .init(
@@ -52,6 +53,16 @@ public enum Hooks {
         .init(hook: "PreCompact", here: "compacting"),
         .init(hook: "SessionStart", matcher: "compact", here: "compacted")
     ]
+
+    /// The tools whose end `kelp hook command` acts on: a command for the list (`AgentCommand`: Bash, Droid's Execute),
+    /// a file changed (`SessionHook.edited`), a page published (`Artifacts.published`), a worktree entered or left (the
+    /// hook's `cwd`). Any other tool's end (Read, Grep, WebFetch, a subagent's Task) told Kelp nothing it uses, and each
+    /// cost a shell and a `kelp`. Anchored: Claude Code takes a matcher with more than names and `|` as a regex.
+    static let endsActedOn =
+        "^(Bash|Execute|Edit|Write|MultiEdit|NotebookEdit|EnterWorktree|ExitWorktree)$|^mcp__.*("
+        + Artifacts.publishers.joined(separator: "|") + ")$"
+    /// A failed tool's end is read only for a command's (`AgentCommand`).
+    static let commandTools = "^(Bash|Execute)$"
 
     /// Claude-style settings file of `listens` here. `kelp` must be on PATH in the session.
     public static func settingsJSON() throws -> String {

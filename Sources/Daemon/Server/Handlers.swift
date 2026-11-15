@@ -322,7 +322,7 @@ extension Daemon {
     }
 
     /// git's and the integrations' own errors, as the app shows them; anything else as it is.
-    private static func rpc(_ error: Error) -> Error {
+    static func rpc(_ error: Error) -> Error {
         switch error {
         case let error as GitError: RPCError.internalError(error.message)
         case let error as ForgeError: RPCError.internalError(error.description)

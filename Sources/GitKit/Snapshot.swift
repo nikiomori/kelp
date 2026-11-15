@@ -1,23 +1,48 @@
 import Core
 import Foundation
+import os
 
 extension Git {
     /// The working tree as it is now (tracked and new files, .gitignore respected) written as a tree object, so a
     /// later diff shows exactly what changed since. A copy of the index is updated, never the real one; files whose
     /// stat didn't change aren't hashed again.
     public static func snapshotTree(_ cwd: String, remotes: Remotes) throws -> String {
-        // New files that look like secrets (a key, .env) stay out: refs/kelp/turns would pin them in git for good,
-        // and `git push --mirror` send them.
-        let secrets = try run(
-            ["ls-files", "-z", "-o", "--exclude-standard", "--full-name", "--", ":/"], cwd: cwd, remotes: remotes
-        )
-        .split(separator: "\0").map(String.init).filter { holdsSecrets(($0 as NSString).lastPathComponent) }
-        let add = ["add", "-A"] + (secrets.isEmpty ? [] : ["--", ":/"] + secrets.map { ":(top,exclude,literal)" + $0 })
-        if let host = remotes.of(cwd) { return try onHostIndexCopy(host, [add, ["write-tree"]]) }
+        let add = try addAll(cwd, remotes: remotes)
+        if let host = remotes.of(cwd) { return try onHostIndexCopy(host, [add, ["write-tree"]]).last ?? "" }
         return try onIndexCopy(cwd, remotes: remotes) { env, quiet in
             try run(quiet + add, cwd: cwd, env: env, remotes: remotes)
             return try line(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes)
         }
+    }
+
+    /// What a turn begins with: `snapshotTree`, and what is staged (`indexTree`) written from the same copy of the index
+    /// before `add -A` changes it. nil staged: unresolved conflicts (git writes no tree of those) or a write-tree that
+    /// failed otherwise, which the turn does without.
+    public static func turnSnapshot(_ cwd: String, remotes: Remotes) throws -> (tree: String, staged: String?) {
+        let add = try addAll(cwd, remotes: remotes)
+        if let host = remotes.of(cwd) {
+            let out = try onHostIndexCopy(host, [add, ["write-tree"]], stagedFirst: true)
+            let staged = out.count >= 2 && out[0] != "-" ? out[0] : nil
+            return (out.last ?? "", staged)
+        }
+        return try onIndexCopy(cwd, remotes: remotes) { env, quiet in
+            var staged: String?
+            do { staged = try line(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes) } catch {
+                gitLog.debug("no staged tree for the turn (conflicts, most likely): \(error)")
+            }
+            try run(quiet + add, cwd: cwd, env: env, remotes: remotes)
+            return (try line(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes), staged)
+        }
+    }
+
+    /// `add -A` from the top, new files that look like secrets (a key, .env) left out: refs/kelp/turns would pin them in
+    /// git for good, and `git push --mirror` send them.
+    private static func addAll(_ cwd: String, remotes: Remotes) throws -> [String] {
+        let secrets = try run(
+            ["ls-files", "-z", "-o", "--exclude-standard", "--full-name", "--", ":/"], cwd: cwd, remotes: remotes
+        )
+        .split(separator: "\0").map(String.init).filter { holdsSecrets(($0 as NSString).lastPathComponent) }
+        return ["add", "-A"] + (secrets.isEmpty ? [] : ["--", ":/"] + secrets.map { ":(top,exclude,literal)" + $0 })
     }
 
     /// The object `rev` names (a ref, `HEAD`, `<tree>^{tree}`), nil when there's none: a ref never made, a snapshot
@@ -41,21 +66,30 @@ extension Git {
         try run(["update-ref"] + log + (object.map { [ref, $0] } ?? ["-d", ref]), cwd: cwd, remotes: remotes)
     }
 
-    /// Drops `refs` in one git run; one already gone stops none of the others.
-    public static func deleteRefs(_ refs: [String], cwd: String, remotes: Remotes) throws {
-        try run(
-            ["update-ref", "--stdin"], cwd: cwd, stdin: refs.map { "delete \($0)\n" }.joined(), remotes: remotes)
+    /// Sets each of `set` (ref, object) and drops `refs` in one git run; one already gone stops none of the others.
+    public static func deleteRefs(
+        _ refs: [String], setting set: [(ref: String, object: String)] = [], cwd: String, remotes: Remotes
+    ) throws {
+        let lines = try set.map { "update \($0.ref) \(try rev($0.object))\n" } + refs.map { "delete \($0)\n" }
+        try run(["update-ref", "--stdin"], cwd: cwd, stdin: lines.joined(), remotes: remotes)
     }
 
     /// What is staged now, written as a tree object: kept beside a turn's snapshot, so undoing the turn puts the index
     /// back as well as the files. From a copy of the index too (`write-tree` on the real one rewrites it, under its
     /// lock, which an agent's `git add` then finds taken). nil when there is none to write: unresolved conflicts (git
-    /// writes no tree of those), a remote project. A file added with `git add -N` isn't in it.
+    /// writes no tree of those; asked only once write-tree failed), a remote project. A file added with `git add -N`
+    /// isn't in it.
     public static func indexTree(_ cwd: String, remotes: Remotes) throws -> String? {
-        guard try run(["ls-files", "-u"], cwd: cwd, remotes: remotes).isEmpty else { return nil }
-        if let host = remotes.of(cwd) { return try onHostIndexCopy(host, [["write-tree"]]) }
-        return try onIndexCopy(cwd, remotes: remotes) { env, quiet in
-            try line(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes)
+        do {
+            if let host = remotes.of(cwd) { return try onHostIndexCopy(host, [["write-tree"]]).last }
+            return try onIndexCopy(cwd, remotes: remotes) { env, quiet in
+                try line(quiet + ["write-tree"], cwd: cwd, env: env, remotes: remotes)
+            }
+        } catch let error as GitError {
+            guard case .failed = error, try !run(["ls-files", "-u"], cwd: cwd, remotes: remotes).isEmpty else {
+                throw error
+            }
+            return nil
         }
     }
 
@@ -69,8 +103,7 @@ extension Git {
         if remotes.of(cwd) != nil {
             throw GitError.refused("A remote project's index is copied on its host.")
         }
-        let rel = try line(["rev-parse", "--git-path", "index"], cwd: cwd, remotes: remotes)
-        let real = URL(fileURLWithPath: rel, relativeTo: URL(fileURLWithPath: cwd, isDirectory: true)).path
+        let real = try indexFile(cwd, remotes: remotes)
         let copy = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-index-\(UUID().uuidString)").path
         defer { FileManager.default.removeIfAny(URL(fileURLWithPath: copy)) }
         if FileManager.default.fileExists(atPath: real) { try FileManager.default.copyItem(atPath: real, toPath: copy) }
@@ -81,11 +114,28 @@ extension Git {
         return try body(env, ["-c", "core.hooksPath=/dev/null"])
     }
 
+    /// The real index's file for `cwd` (`--git-path index`: a linked worktree's is in the main repository), asked of git
+    /// once per folder, and again when the file named isn't there.
+    /// Limit: a folder that becomes another repository's worktree while its old index file stays copies that one.
+    static func indexFile(_ cwd: String, remotes: Remotes) throws -> String {
+        if let known = indexFiles.withLock({ $0[cwd] }), FileManager.default.fileExists(atPath: known) { return known }
+        let rel = try line(["rev-parse", "--git-path", "index"], cwd: cwd, remotes: remotes)
+        let real = URL(fileURLWithPath: rel, relativeTo: URL(fileURLWithPath: cwd, isDirectory: true)).path
+        indexFiles.withLock { $0[cwd] = real }
+        return real
+    }
+    private static let indexFiles = OSAllocatedUnfairLock<[String: String]>(initialState: [:])
+
     /// `runs` of git on a remote project's host, one after another, on a copy of its index in the host's temporary
-    /// folder (never the real one) with the repository's hooks off: what the last printed. One round trip.
-    private static func onHostIndexCopy(_ host: RemoteHost, _ runs: [[String]]) throws -> String {
+    /// folder (never the real one) with the repository's hooks off: the lines they printed. One round trip.
+    /// `stagedFirst`: a `write-tree` before them, its line `-` when it fails (conflicts), which stops none of them.
+    private static func onHostIndexCopy(_ host: RemoteHost, _ runs: [[String]], stagedFirst: Bool = false) throws
+        -> [String]
+    {
         let quiet = "git -c core.quotePath=false -c core.fsmonitor=false -c core.hooksPath=/dev/null "
-        let git = runs.map { quiet + $0.map(ShellQuote.word).joined(separator: " ") }.joined(separator: " && ")
+        let git =
+            (stagedFirst ? "{ \(quiet)write-tree 2>/dev/null || echo -; } && " : "")
+            + runs.map { quiet + $0.map(ShellQuote.word).joined(separator: " ") }.joined(separator: " && ")
         let script =
             "cd \(RemoteHost.cdArg(host.path)) && "
             + #"i=$(git rev-parse --git-path index) && t=$(mktemp "${TMPDIR:-/tmp}/kelp-index-XXXXXX") && "#
@@ -94,7 +144,7 @@ extension Git {
             + #"; r=$?; rm -f "$t"; exit $r"#
         do {
             let out = String(decoding: try host.run(script, timeLimit: 300), as: UTF8.self)
-            return out.split(whereSeparator: \.isNewline).last.map(String.init) ?? ""
+            return out.split(whereSeparator: \.isNewline).map(String.init)
         } catch let error as ProgramError {
             throw GitError.failed(args: runs.last ?? [], status: error.status, stderr: error.stderr)
         }

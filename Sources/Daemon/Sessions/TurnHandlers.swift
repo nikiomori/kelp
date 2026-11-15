@@ -61,7 +61,7 @@ struct Turns: Sendable {
 
     /// The folder before the session's last undone turn.
     static func undoneRef(_ session: String) -> String { "refs/kelp/undone/" + session }
-    /// What was staged before it, and what was when a turn began (`Git.indexTree`), each kept as long as the snapshot
+    /// What was staged before it, and what was when a turn began (`Git.turnSnapshot`), each kept as long as the snapshot
     /// it was taken with.
     static func undoneStagedRef(_ session: String) -> String { "refs/kelp/undone-staged/" + session }
     static func stagedRef(_ turn: String) -> String { "refs/kelp/staged/" + turn }
@@ -107,19 +107,20 @@ struct Turns: Sendable {
     /// the turns that drop off the list let theirs go.
     /// Its session deleted while the snapshot was taken: no turn, and no ref. Deleted between the two, the delete's own
     /// `dropRefs` may have run before the ref was made: it's dropped here.
-    func keep(_ mark: SessionTurns.Mark) {
+    /// `staged`: what the user had staged (`Git.turnSnapshot`), for the turn's undo to leave staged. Its refs and the
+    /// dropped turns' in its repository are one git run.
+    func keep(_ mark: SessionTurns.Mark, staged: String?) {
         Log.store.attempt("keeping a turn") {
-            // What the user had staged, for the turn's undo to leave staged. Limit: read here, a moment after the
-            // snapshot (one git run): what an agent stages in that moment counts as the user's.
-            let staged =
-                Log.store.attempt("reading what's staged") {
-                    try Git.indexTree(mark.folder, remotes: remotes)
-                } ?? nil
             guard let dropped = try store.addTurn(mark) else { return }
-            try Git.setRef("refs/kelp/turns/" + mark.id, to: mark.tree, cwd: mark.folder, remotes: remotes)
-            if let staged { try Git.setRef(Self.stagedRef(mark.id), to: staged, cwd: mark.folder, remotes: remotes) }
+            let here = dropped.filter { $0.folder == mark.folder },
+                elsewhere = dropped.filter { $0.folder != mark.folder }
+            try Git.deleteRefs(
+                here.flatMap(Self.refs),
+                setting: [("refs/kelp/turns/" + mark.id, mark.tree)]
+                    + (staged.map { [(Self.stagedRef(mark.id), $0)] } ?? []),
+                cwd: mark.folder, remotes: remotes)
             delete(
-                (dropped + (try store.session(mark.session) == nil ? [mark] : [])).flatMap { old in
+                (elsewhere + (try store.session(mark.session) == nil ? [mark] : [])).flatMap { old in
                     Self.refs(old).map { ($0, old.folder) }
                 })
         }

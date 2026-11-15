@@ -206,7 +206,8 @@ import Testing
     let s = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
     let tree = try Git.snapshotTree(wt.path, remotes: .none)
     w.d.sessions.discard(try #require(try w.d.store.session(s.id)))
-    w.d.sessions.turns.keep(SessionTurns.Mark(session: s.id, tree: tree, head: nil, folder: wt.path, prompt: "p"))
+    w.d.sessions.turns.keep(
+        SessionTurns.Mark(session: s.id, tree: tree, head: nil, folder: wt.path, prompt: "p"), staged: tree)
     #expect(try w.d.store.turns(session: s.id).isEmpty)
     #expect(try Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path, remotes: .none).isEmpty)
 }

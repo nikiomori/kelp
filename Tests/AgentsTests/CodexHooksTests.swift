@@ -1,3 +1,4 @@
+import Core
 import Testing
 
 @testable import Agents
@@ -11,6 +12,18 @@ import Testing
     #expect(
         CodexHooks.hash(label: "user_prompt_submit", command: "kelp hook working")
             == "sha256:0b16a96cac37ba7c706231792a25f83b41e5f784cd61aede6227b1d595496a4a")
+    // With a matcher (Codex 0.166's `currentHash` for this one).
+    #expect(
+        CodexHooks.hash(label: "post_tool_use", command: "kelp hook command", matcher: "^Bash$")
+            == "sha256:1aa78192dcd7a47bf704e0cad25ced58de3d4aa541afad329162320be513b634")
+}
+
+/// A tool's end only for the tools Kelp acts on, as Claude Code's; on a host every one still says it's working.
+@Test func codexHearsAToolsEndOnlyForToolsKelpActsOn() {
+    let matcher = "matcher=" + ShellQuote.doubleQuoted(Hooks.endsActedOn) + ","
+    #expect(CodexHooks.args.contains { $0.hasPrefix("hooks.PostToolUse=[{" + matcher + "hooks=") })
+    #expect(CodexHooks.args.contains { $0.hasPrefix("hooks.PreToolUse=[{hooks=") })
+    #expect(CodexHooks.hostArgs.contains { $0.hasPrefix("hooks.PostToolUse=[{hooks=") })
 }
 
 /// Each hook on its own `-c`, then one table trusting them all by key (a dotted key would split at "config.toml").

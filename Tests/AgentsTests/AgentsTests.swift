@@ -86,9 +86,14 @@ func hooklessCodex() throws -> AgentManifest {
     let v = try JSONDecoder().decode(JSONValue.self, from: Data(Hooks.settingsJSON().utf8))
     #expect(v["hooks"]?["Stop"] != nil)
     #expect(v["hooks"]?["PreToolUse"]?.array?.first?["matcher"]?.string == "AskUserQuestion")
-    for event in ["PreToolUse", "PostToolUse", "PostToolUseFailure", "PostToolBatch"] {   // each tool, as it starts and ends
+    for event in ["PreToolUse", "PostToolBatch"] {   // each tool as it starts, each batch as it ends
         let bash = v["hooks"]?[event]?.array?.first { $0["matcher"] == nil }
         #expect(bash?["hooks"]?.array?.first?["command"]?.string == "kelp hook command")
+    }
+    for (event, matcher) in [("PostToolUse", Hooks.endsActedOn), ("PostToolUseFailure", Hooks.commandTools)] {
+        let end = v["hooks"]?[event]?.array?.first { $0["matcher"]?.string == matcher }
+        #expect(end?["hooks"]?.array?.first?["command"]?.string == "kelp hook command", "\(event)")
+        #expect(v["hooks"]?[event]?.array?.contains { $0["matcher"] == nil } == false, "\(event) for every tool")
     }
     #expect(
         v["hooks"]?["PermissionRequest"]?.array?.first?["hooks"]?.array?.first?["command"]?.string

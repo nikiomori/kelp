@@ -1,3 +1,4 @@
+import Core
 import Foundation
 
 public struct TokenCounts: Codable, Sendable, Equatable {
@@ -125,8 +126,19 @@ public enum CodexUsage {
         return found.max { $0.observedAt < $1.observedAt }
     }
 
-    static func latest(in url: URL) -> CodexLimits? {
-        guard let data = Data(contentsIfAny: url, options: .mappedIfSafe) else { return nil }
+    /// Read again only once the rollout was written to: Usage asks every minute, and most rollouts never change again.
+    static func latest(in url: URL) -> CodexLimits? { rollouts.value(url.path) { read(url) } }
+    private static let rollouts = StatMemo<CodexLimits?>(limit: 512)   // `latest` looks through up to 200
+
+    /// The newest snapshot is near the end: the last MB first, the whole file only when that has none.
+    private static func read(_ url: URL) -> CodexLimits? {
+        guard let tail = Data(tail: 1 << 20, of: url) else { return nil }
+        if let found = latest(inLines: tail) { return found }
+        guard tail.count == 1 << 20 else { return nil }   // that was all of it
+        return Data(contentsIfAny: url, options: .mappedIfSafe).flatMap(latest(inLines:))
+    }
+
+    private static func latest(inLines data: Data) -> CodexLimits? {
         let marker = Data("\"rate_limits\"".utf8)
         return JSONL.lines(data).reversed().lazy.filter { $0.range(of: marker) != nil }.compactMap {
             limits(JSONL.object($0))

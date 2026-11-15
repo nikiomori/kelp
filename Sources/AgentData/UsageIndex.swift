@@ -68,6 +68,8 @@ public final class UsageIndex: Sendable {
         let first = Self.day(since)
         return files.withLock { update(&$0, roots: roots, since: since) }.flatMap { $0.tallies }.compactMap {
             key, tally in
+            // "yyyy-MM-dd|model|cwd" sorts by its day: one before `first` isn't split.
+            guard key >= first else { return nil }
             let parts = key.split(separator: "|", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
             return parts.count == 3 && parts[0] >= first
                 ? Row(day: parts[0], model: parts[1], cwd: parts[2], tally: tally) : nil
@@ -138,11 +140,23 @@ public final class UsageIndex: Sendable {
             return true
         }
         if save {
+            Self.forget(&known, before: Date().addingTimeInterval(-Self.horizon))
             usageLog.attempt("saving the usage index") {
                 try JSONEncoder().encode(known).write(to: cacheURL, options: .atomic)
             }
         }
         return Self.under(roots, known)
+    }
+
+    /// The furthest back any read asks (Usage's year of weeks, 371 days), and a day more.
+    static let horizon: TimeInterval = 372 * 86400
+
+    /// Drops what's known of files gone or last written before `date`: no read goes back that far (`update` skips a file
+    /// older than its `since`), so they only grew the index on disk and every read of it. One written to again is read
+    /// from its start, its old days with it.
+    static func forget(_ known: inout [String: FileState], before date: Date) {
+        let limit = Int(date.timeIntervalSince1970)
+        known = known.filter { path, _ in Artifacts.fileStat(path).map { $0.mtime.tv_sec >= limit } ?? false }
     }
 
     /// The files under `roots` alone (one account's). The enumerator may report /private/var/… for /var/… (and the other way round).

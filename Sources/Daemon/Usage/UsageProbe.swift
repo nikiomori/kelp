@@ -96,9 +96,18 @@ extension AgentUsage {
     /// but unused cost a launch every half hour, up to a GB at once with the others).
     static let probeLately: TimeInterval = 14 * 86400
 
+    /// `readUsedLately`, read at most once an hour: it reads every session in the store, and the limits are asked for
+    /// every 10 s. Limit: an agent first used in a while is probed up to an hour after its session starts.
+    func usedLately(now: Date = Date()) -> Set<String> {
+        if let known = usedLatelyRead.withLock({ $0 }), now.timeIntervalSince(known.at) < 3600 { return known.agents }
+        let agents = readUsedLately(now: now)
+        usedLatelyRead.withLock { $0 = (now, agents) }
+        return agents
+    }
+
     /// The agents with a session in the last `probeLately`. The store forgets an ended session a week after its end, so
     /// `probe/<agent>.used` keeps the date (its modification time, moved at most once a day).
-    func usedLately(now: Date = Date()) -> Set<String> {
+    func readUsedLately(now: Date = Date()) -> Set<String> {
         guard let dir = probeDir.map(URL.init(fileURLWithPath:)) else { return [] }
         do {
             let inStore = Set(try store.sessions().compactMap(\.agent)), fm = FileManager.default

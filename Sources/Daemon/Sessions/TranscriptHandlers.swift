@@ -39,13 +39,19 @@ extension SessionSubagentSteps: Handled {
         var last: Result = [:]
         for run in ls.snapshot.runningSubagents {
             guard let file = SubagentTranscript.file(parent: parent, id: run.id),
-                let tail = Data(tail: 262_144, of: file),
-                let step = SubagentTranscript.lastStep(tail: tail),
-                let touched = try file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+                let step = sessions.agentUsage.subagentTails.value(file.path, { Self.last(file) })
             else { continue }
-            last[run.id] = Last(step: step, touched: touched)
+            last[run.id] = step
         }
         return last
+    }
+
+    private static func last(_ file: URL) -> Last? {
+        guard let tail = Data(tail: 262_144, of: file), let step = SubagentTranscript.lastStep(tail: tail),
+            let written = Artifacts.fileStat(file.path)?.mtime
+        else { return nil }
+        let touched = Date(timeIntervalSince1970: TimeInterval(written.tv_sec) + TimeInterval(written.tv_nsec) / 1e9)
+        return Last(step: step, touched: touched)
     }
 }
 

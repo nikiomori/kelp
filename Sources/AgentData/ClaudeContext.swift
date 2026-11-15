@@ -21,7 +21,12 @@ public enum ClaudeContext {
 
     /// Tokens in the context of a Claude Code conversation: the last reply's input with cache, as Claude Code's own
     /// statusline counts it (the reply's output isn't in it until it's sent back), or what a newer compaction left. `peak` is the most it held (a compaction's starting size counts), for telling the window.
-    public static func usage(transcript url: URL) -> (used: Int, peak: Int, model: String, cacheUntil: Date?)? {
+    /// Read again only once the transcript was written to (`StatMemo`): a working agent's is asked every 15 s.
+    public static func usage(transcript url: URL) -> Usage? { usages.value(url.path) { readUsage(url) } }
+    public typealias Usage = (used: Int, peak: Int, model: String, cacheUntil: Date?)
+    private static let usages = StatMemo<Usage?>()
+
+    private static func readUsage(_ url: URL) -> Usage? {
         guard let data = Data(tail: 1 << 20, of: url) else { return nil }   // a turn's tool results can be hundreds of KB
         var compacted: (pre: Int, post: Int)?
         for line in data.split(separator: 0x0A).reversed() {

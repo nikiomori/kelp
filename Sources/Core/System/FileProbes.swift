@@ -93,3 +93,29 @@ extension FileManager {
         _ = probe("removing", url.path) { try removeItem(at: url) }
     }
 }
+
+/// What was last read from each file, given again while its size and last write stay as they were: a transcript's tail
+/// read every few seconds then costs a stat while nothing is written. Stat before the read, so a write during one reads
+/// again next time. A file that isn't a plain one (gone, a link) is read every time.
+public final class StatMemo<Value: Sendable>: Sendable {
+    private let memo = OSAllocatedUnfairLock<[String: (size: off_t, sec: Int, nsec: Int, value: Value)]>(
+        initialState: [:])
+    private let limit: Int
+
+    /// `limit`: files kept; past it all are forgotten (a host's tails come as new temporary files).
+    public init(limit: Int = 64) { self.limit = limit }
+
+    public func value(_ path: String, _ read: () -> Value) -> Value {
+        guard let stat = Artifacts.fileStat(path) else { return read() }
+        let size = stat.size, sec = stat.mtime.tv_sec, nsec = stat.mtime.tv_nsec
+        if let hit = memo.withLock({ $0[path] }), hit.size == size, hit.sec == sec, hit.nsec == nsec {
+            return hit.value
+        }
+        let value = read()
+        memo.withLock { memo in
+            if memo.count >= limit { memo.removeAll() }
+            memo[path] = (size, sec, nsec, value)
+        }
+        return value
+    }
+}

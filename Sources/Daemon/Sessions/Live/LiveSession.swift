@@ -29,8 +29,8 @@ final class LiveSession: Sendable {
         var busyPort: (@Sendable (Int) -> Void)?
         /// Plan usage the agent printed (Claude Code's "used 80% of your weekly limit").
         var limits: (@Sendable ([LimitScreens.Reading]) -> Void)?
-        /// A turn began: how its folder was, to keep (`SessionTurns`).
-        var turnStarted: (@Sendable (SessionTurns.Mark) -> Void)?
+        /// A turn began: how its folder was, and what was staged then (nil: nothing it could write), to keep (`SessionTurns`).
+        var turnStarted: (@Sendable (SessionTurns.Mark, String?) -> Void)?
         /// A turn ended, started by this prompt: the pages its agent made keep a version (`Artifacts.keepVersions`).
         var turnEnded: (@Sendable (String) -> Void)?
     }

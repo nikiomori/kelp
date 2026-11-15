@@ -25,6 +25,11 @@ final class AgentUsage: Sendable {
     /// Codex's limits as its app server last gave them, and when it was last asked (UsageProbe).
     let codexLive = OSAllocatedUnfairLock<(limits: CodexLimits?, at: Date, running: Bool)>(
         initialState: (nil, .distantPast, false))
+    /// Each running subagent's last step (`session.subagentSteps`, every 3 s while a card shows it): its transcript's
+    /// tail read again only once it grew.
+    let subagentTails = StatMemo<SessionSubagentSteps.Last?>()
+    /// The agents used lately, and when that was read (`usedLately`).
+    let usedLatelyRead = OSAllocatedUnfairLock<(at: Date, agents: Set<String>)?>(initialState: nil)
     /// The usage probes running now, so the daemon's end ends them too.
     let openProbes: OpenProbes
     /// Which file each session's agent keeps its conversation in, and the Codex thread a transcript becomes.

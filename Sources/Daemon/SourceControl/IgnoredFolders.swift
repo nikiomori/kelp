@@ -19,9 +19,11 @@ final class IgnoredFolders: Sendable {
         prefixes = Array(Set([root, Paths.real(root) ?? root].map { $0.hasSuffix("/") ? $0 : $0 + "/" }))
     }
 
-    /// `paths` less those in a folder git ignores.
-    func drop(_ paths: [String]) -> [String] {
-        let rel = paths.map { p in prefixes.first(where: p.hasPrefix).map { String(p.dropFirst($0.count)) } }
+    /// `changes` less those in a folder git ignores.
+    func drop(_ changes: [FileWatcher.Change]) -> [FileWatcher.Change] {
+        let rel = changes.map(\.path).map { p in
+            prefixes.first(where: p.hasPrefix).map { String(p.dropFirst($0.count)) }
+        }
         if rel.contains(where: { $0.map(Self.rulesChange) ?? false }) { known.withLock { $0 = [:] } }
         let folders = rel.map { $0.map(Self.folders) ?? [] }
         var answers = known.withLock { $0 }
@@ -36,7 +38,7 @@ final class IgnoredFolders: Sendable {
                 return cached
             }
         }
-        return zip(paths, folders).filter { _, fs in !fs.contains { answers[$0] == true } }.map(\.0)
+        return zip(changes, folders).filter { _, fs in !fs.contains { answers[$0] == true } }.map(\.0)
     }
 
     /// The folders `rel` is in, outermost first: "a/b/c.txt" is in "a/" and "a/b/". git's own folder is left to `Git.touches…`.
