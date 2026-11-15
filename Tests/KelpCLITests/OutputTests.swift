@@ -1,4 +1,5 @@
 import Core
+import Foundation
 import Testing
 
 @testable import kelp
@@ -102,4 +103,22 @@ import Testing
     let (files, message) = Main.planned(["a.swift", "b c.md", "-m", "feat: a", "-m", "Why."])
     #expect(files == ["a.swift", "b c.md"] && message == "feat: a\n\nWhy.")
     #expect(Main.planned(["a.swift"]).message.isEmpty)   // no -m: refused with its usage, never a commit of everything
+}
+
+/// With no --db, the only database is meant; a branch's own copy stands for the database it's a copy of, and is
+/// listed as that.
+@Test func aBranchesCopyIsMeantWhenNoDatabaseIsNamed() {
+    let shop = DatabaseInfo(name: "shop", engine: .postgres, source: "compose.yaml", host: "localhost", port: 5432)
+    var copy = DatabaseInfo(name: "shop_fix", engine: .postgres, host: "localhost", port: 5432, access: .free)
+    copy.copy = BranchCopy(of: "shop", worktreeId: "w1", at: Date())
+    let cache = DatabaseInfo(name: "cache", engine: .sqlite, source: "db/cache.sqlite3")
+    #expect(Main.unnamed([shop]) == "shop" && Main.unnamed([]) == nil)
+    #expect(Main.unnamed([shop, copy]) == "shop_fix")
+    #expect(Main.unnamed([shop, copy, cache]) == nil)   // two to pick from: the copy and another database
+    // A file copied into the branch's folder keeps its name: it doesn't stand for itself
+    var own = DatabaseInfo(name: "shop", engine: .sqlite, source: "db/shop.sqlite3")
+    own.copy = BranchCopy(of: "shop", worktreeId: "w1", at: Date())
+    #expect(Main.unnamed([own]) == "shop")
+    #expect(
+        Main.place(copy) == "this branch's copy of shop localhost:5432" && Main.words(copy) == "read, change freely")
 }

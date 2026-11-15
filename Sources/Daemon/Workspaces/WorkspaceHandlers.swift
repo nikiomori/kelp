@@ -169,6 +169,7 @@ extension WorktreeRemove: Handled {
             throw RPCError.invalidParams("no worktree")
         }
         try workspaces.removeWorkspace(workspace, repo, force: force == true, dropCommits: dropCommits == true)
+        workspaces.databases.dropCopies(of: workspace)   // its own copies of the project's databases go with it
         return Done()
     }
 }

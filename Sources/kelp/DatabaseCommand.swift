@@ -64,14 +64,21 @@ extension Main {
     static func database(_ named: String?, _ worktreeId: String, _ c: RPCClient) async throws -> String {
         if let named { return named }
         let all = try await c.call(DatabaseList(worktreeId: worktreeId))
-        if all.count == 1 { return all[0].name }
+        if let one = unnamed(all) { return one }
         if all.isEmpty { fail("No databases here: kelp db list") }
         fail("Which one? --db " + all.map(\.name).joined(separator: " | "))
     }
 
+    /// The database meant when none is named: the only one there, this branch's copy standing for the database it's
+    /// of. nil: none, or several to pick from.
+    static func unnamed(_ all: [DatabaseInfo]) -> String? {
+        let own = all.filter { db in !all.contains { $0.copy?.of == db.name && $0.name != db.name } }
+        return own.count == 1 ? own[0].name : nil
+    }
+
     static func place(_ db: DatabaseInfo) -> String {
         [
-            db.source ?? "added by hand",
+            db.copy.map { "this branch's copy of \($0.of)" } ?? db.source ?? "added by hand",
             db.engine.isFile ? nil : "\(db.host ?? "?"):\(db.port.map(String.init) ?? "?")"
         ]
         .compactMap { $0 }.joined(separator: " ")

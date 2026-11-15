@@ -22,7 +22,8 @@ extension Builtins {
         Databases panel.
 
         - `kelp db list` — the databases: name, engine, where it was found, and what agents may do there (read only;
-          read, ask to change; read, change freely).
+          read, ask to change; read, change freely). One listed as this branch's copy is the branch's own, made for
+          trying changes: `--db` left out means it, not the database it's a copy of.
         - `kelp db schema [table] [--db name]` — tables with their row counts; with a table, its columns (type, null,
           primary key, → what a foreign key points to) and indexes. Read it before you write a query.
         - `kelp db query "SELECT …" [--db name] [--limit 200]` — a statement. Rows come as a table, 200 unless you

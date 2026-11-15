@@ -50,11 +50,16 @@ struct DatabasePanelRows {
     /// down the list, not a mark in each name), a key while its password waits, what agents may do. One of All My
     /// Databases ends where that icon would be: the project's icon when it's used there (`used`), else Use in … while
     /// the pointer is over it.
+    /// A branch's copy says whose it is: under the database it's of (`under`) by the branch alone, elsewhere on its
+    /// second line.
     func database(
-        _ db: DatabaseInfo, library: Bool, health: DatabaseHealth?, used: Bool = false, color: ProjectColor? = nil
+        _ db: DatabaseInfo, library: Bool, health: DatabaseHealth?, used: Bool = false, color: ProjectColor? = nil,
+        under: Bool = false
     ) -> NSView {
+        let branch = app.worktree(panel.workspace)?.branch ?? ""
         let name = NSTextField.label(
-            Self.shownName(db), font: .ui(TextSize.row, weight: .medium), color: color?.color ?? .labelColor)
+            under ? String(localized: "Copy for \(branch)") : Self.shownName(db),
+            font: .ui(TextSize.row, weight: .medium), color: color?.color ?? .labelColor)
         var first: [NSView] = [name, NSView()]
         if db.passwordIn != nil {   // still in the app it came from: macOS asks once, when it's opened
             let key = NSImageView(image: .symbol("key"))
@@ -64,11 +69,13 @@ struct DatabasePanelRows {
                 localized: "Its password is read from the app it came from when you open it: macOS asks once.")
             first.append(key)
         }
-        if let chip = DatabaseLook.stageChip(db) { first.append(chip) }
+        // Under the database it's of, its environment is the one right above it
+        if !under, let chip = DatabaseLook.stageChip(db) { first.append(chip) }
         let top = NSStackView(views: first)
         top.spacing = Metrics.gap
         let detail = NSTextField.label(
-            Self.place(db) ?? db.engine.displayName, font: .ui(TextSize.caption), color: .secondaryLabelColor)
+            Self.copyWords(db, branch: branch, under: under) ?? Self.place(db) ?? db.engine.displayName,
+            font: .ui(TextSize.caption), color: .secondaryLabelColor)
         detail.lineBreakMode = .byTruncatingMiddle   // "psqldbread…agrohistory.local : webdb": both ends tell
         detail.toolTip = DatabaseLook.detail(db)
         let words = stack([top, detail])
@@ -98,9 +105,26 @@ struct DatabasePanelRows {
             }
             views.append(access)
         }
-        let row = line(views, inset: Self.inCard, trailing: Metrics.insetTrailing, hovered: hovered)
+        // Under the database it's of: its badge where that one's name starts
+        let inset = Self.inCard + (under ? 19 + Metrics.gap : 0)
+        let row = line(views, inset: inset, trailing: Metrics.insetTrailing, hovered: hovered)
         row.toolTip = card(db, health: health)
         return row
+    }
+
+    /// "agents here use it" under its database (when it was made, where agents don't see it);
+    /// "shop.sqlite3 · copy for fix/orders" on its own; nil for one that isn't a copy.
+    static func copyWords(_ db: DatabaseInfo, branch: String, under: Bool) -> String? {
+        guard let copy = db.copy else { return nil }
+        guard under else {
+            return [place(db), String(localized: "copy for \(branch)")].compactMap { $0 }.joined(separator: " · ")
+        }
+        return db.agentAccess == .hidden ? made(copy) : String(localized: "agents here use it")
+    }
+
+    private static func made(_ copy: BranchCopy) -> String {
+        Date().timeIntervalSince(copy.at) < 60
+            ? String(localized: "made just now") : String(localized: "made \(shortAgo(copy.at)) ago")
     }
 
     /// Where a card's content starts: its icon 4 pt further in than a plain row's, as the selection is.
@@ -197,8 +221,9 @@ struct DatabasePanelRows {
             case .some: health?.reason
             case nil: nil
             }
+        let copied = db.copy.map { String(localized: "A copy of \($0.of), \(Self.made($0))") }
         return [
-            db.address, db.ssh.map { String(localized: "through \($0)") }, state, last,
+            copied, db.address, db.ssh.map { String(localized: "through \($0)") }, state, last,
             String(localized: "Agents: \(DatabaseLook.title(db.agentAccess))")
         ]
         .compactMap { $0 }.joined(separator: "\n")

@@ -109,3 +109,21 @@ private func orders() throws -> String {
     #expect(DatabaseTab.lastAgentChange([undo, agents], to: "users", in: "shop") == nil)
     #expect(DatabaseTab.lastAgentChange([agents], to: "orders", in: "other") == nil)
 }
+
+/// A branch's copy sits under the database it's of, saying agents here use it; one whose database isn't listed with
+/// it (a file copied into the branch's folder under the same name) says whose copy it is on its own row.
+@MainActor @Test func aBranchesCopySitsUnderItsDatabase() {
+    let shop = DatabaseInfo(name: "shop", engine: .postgres, host: "localhost", database: "shop")
+    var copy = DatabaseInfo(name: "shop_fix", engine: .postgres, host: "localhost", database: "shop_fix", access: .free)
+    copy.copy = BranchCopy(of: "shop", worktreeId: "w1", at: Date())
+    #expect(DatabasesPanel.nested(copy, among: [shop, copy]) && !DatabasesPanel.nested(shop, among: [shop, copy]))
+    #expect(DatabasePanelRows.copyWords(copy, branch: "fix/orders", under: true) == "agents here use it")
+    #expect(DatabasePanelRows.copyWords(shop, branch: "fix/orders", under: false) == nil)
+    var own = DatabaseInfo(name: "shop", engine: .sqlite, path: "/p/w/db/shop.sqlite3", access: .free)
+    own.copy = BranchCopy(of: "shop", worktreeId: "w1", at: Date())
+    #expect(!DatabasesPanel.nested(own, among: [own]))
+    #expect(
+        DatabasePanelRows.copyWords(own, branch: "fix/orders", under: false) == "shop.sqlite3 · copy for fix/orders")
+    copy.access = .hidden
+    #expect(DatabasePanelRows.copyWords(copy, branch: "fix/orders", under: true) == "made just now")
+}

@@ -5,7 +5,7 @@ import DesignKit
 import KelpKit
 
 /// A database's menu, in the panel and on its tab: open it, what agents may do, production, its address, edit, forget;
-/// one of All My Projects is used in this project instead.
+/// one of All My Projects is used in this project instead; a branch's copy is made again or deleted.
 @MainActor
 enum DatabaseMenu {
     /// `more` adds to the part about where it's used (All My Databases' groups) and how it looks (its colour).
@@ -17,6 +17,18 @@ enum DatabaseMenu {
             app.workbench.open(DatabaseURI(worktree: worktreeId, name: db.name).uri)
         }
         menu.addItem(.separator())
+        if let copy = db.copy {   // a branch's own: no address to edit, nothing to forget but the copy itself
+            menu.add(String(localized: "Agents"), submenu: agents(db, app: app, worktreeId: worktreeId))
+            copyItems(menu, db, copy, app: app, worktreeId: worktreeId)
+            more(menu)
+            menu.addItem(.separator())
+            menu.add(String(localized: "Copy Address")) { copyText(db.address) }
+            return
+        }
+        let copied =
+            app.latest(DatabasesEvent.self, worktreeId)?.databases.contains {
+                $0.copy?.of == db.name && $0.name != db.name
+            } ?? false
         if library {
             let project = app.projectName(app.worktree(worktreeId)?.repoId) ?? ""
             menu.add(String(localized: "Use in \(project)")) {
@@ -26,7 +38,7 @@ enum DatabaseMenu {
             menu.add(String(localized: "Agents"), submenu: agents(db, app: app, worktreeId: worktreeId))
             production(menu, db, app: app, worktreeId: worktreeId)
             // A copy to change on this branch without touching the project's (`db.copy`): files and a Postgres here.
-            if !db.production, db.engine != .mysql, let branch = app.worktree(worktreeId)?.branch {
+            if !db.production, db.engine != .mysql, !copied, let branch = app.worktree(worktreeId)?.branch {
                 menu.add(String(localized: "Copy for \(branch)")) {
                     Task {
                         guard let copy = await app.call(DatabaseCopy(worktreeId: worktreeId, database: db.name)) else {
@@ -60,6 +72,36 @@ enum DatabaseMenu {
                 !library && mine ? String(localized: "Remove from \(project)") : String(localized: "Forget")
             menu.add(title) {
                 Task { await app.call(DatabaseRemove(worktreeId: worktreeId, name: db.name, library: library)) }
+            }
+        }
+    }
+
+    /// A branch's copy: made again from the database it's of, or deleted. Both say what goes first.
+    private static func copyItems(
+        _ menu: NSMenu, _ db: DatabaseInfo, _ copy: BranchCopy, app: AppModel, worktreeId: String
+    ) {
+        let branch = app.worktree(worktreeId)?.branch ?? ""
+        menu.add(String(localized: "Reset from \(copy.of)…")) {
+            Task {
+                guard
+                    await confirm(
+                        String(localized: "Make \(branch)’s copy of \(copy.of) again?"),
+                        detail: String(localized: "What’s in the copy now is replaced with \(copy.of) as it is."),
+                        action: String(localized: "Reset"), destructive: true),
+                    await app.call(DatabaseCopyRemove(worktreeId: worktreeId, database: db.name)) != nil
+                else { return }
+                await app.call(DatabaseCopy(worktreeId: worktreeId, database: copy.of))
+            }
+        }
+        menu.add(String(localized: "Delete Copy…")) {
+            Task {
+                guard
+                    await confirm(
+                        String(localized: "Delete \(branch)’s copy of \(copy.of)?"),
+                        detail: String(localized: "What’s in the copy is gone. \(copy.of) itself stays as it is."),
+                        action: String(localized: "Delete Copy"), destructive: true)
+                else { return }
+                await app.call(DatabaseCopyRemove(worktreeId: worktreeId, database: db.name))
             }
         }
     }

@@ -162,7 +162,12 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         // The project's own card even empty: All My Databases under it alone read as this project's.
         if !databases.isEmpty || !library.isEmpty {
             list.append(.project(count: databases.count))
-            for db in databases { list += rows(of: db, library: false, find: find) }
+            // A branch's copy sits under the database it's of
+            let under = databases.filter { copy in Self.nested(copy, among: databases) }
+            for db in databases where !under.contains(db) {
+                list += rows(of: db, library: false, find: find)
+                for copy in under where copy.copy?.of == db.name { list += rows(of: copy, library: false, find: find) }
+            }
             if !library.isEmpty { list.append(.use(empty: databases.isEmpty)) }
         }
         if event != nil {
@@ -239,6 +244,12 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     }
 
     static func key(_ name: String, library: Bool) -> String { (library ? "~" : "") + name }
+
+    /// Whether `db` is a copy whose own database is listed with it: then it's shown under that one.
+    static func nested(_ db: DatabaseInfo, among all: [DatabaseInfo]) -> Bool {
+        guard let copy = db.copy else { return false }
+        return all.contains { $0.name == copy.of && $0.name != db.name }
+    }
 
     /// The dots, read once for the databases there are now: not at every run that changes the panel.
     private func checkHealth(_ databases: [DatabaseInfo]) {
@@ -344,7 +355,8 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         case .database(let db, let library):
             parts.database(
                 db, library: library, health: library ? libraryHealth[db.name] : health[db.name],
-                used: library && projectNames.contains(db.name), color: color(of: db.name, group: false))
+                used: library && projectNames.contains(db.name), color: color(of: db.name, group: false),
+                under: !library && Self.nested(db, among: app.latest(DatabasesEvent.self, workspace)?.databases ?? []))
         case .problem(let db, let checked): parts.problem(db, checked)
         case .project(let count): parts.projectHead(count: count)
         case .use(let empty): parts.use(empty: empty)

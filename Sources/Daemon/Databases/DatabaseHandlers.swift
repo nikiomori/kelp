@@ -45,6 +45,13 @@ extension DatabaseCopy: AsyncHandled {
     func handle(_ dbs: Databases) async throws -> DatabaseInfo { try await dbs.copy(worktreeId, database) }
 }
 
+extension DatabaseCopyRemove: AsyncHandled {
+    func handle(_ dbs: Databases) async throws -> Done {
+        try await dbs.dropCopy(worktreeId, database)
+        return Done()
+    }
+}
+
 extension DatabaseActivity: Handled {
     func handle(_ dbs: Databases) throws -> DatabasesEvent { try dbs.activity(worktreeId) }
 }
@@ -56,6 +63,6 @@ extension DatabaseResultRead: Handled {
 extension Methods {
     static let databaseMethods: [any Answered.Type] = [
         DatabaseList.self, DatabaseSchemaRead.self, DatabaseQuery.self, DatabaseSave.self, DatabaseRemove.self,
-        DatabaseCopy.self, DatabaseActivity.self, DatabaseResultRead.self
+        DatabaseCopy.self, DatabaseCopyRemove.self, DatabaseActivity.self, DatabaseResultRead.self
     ]
 }

@@ -50,6 +50,9 @@ package struct WorkspaceActions {
             let work = Work(
                 dirty: await app.call(WorktreeDirty(id: worktree.id)) ?? false,
                 commits: await app.call(WorktreeUnmerged(id: worktree.id)) ?? 0)
+            // Its own copies of the project's databases that aren't files in its folder: dropped with it
+            let copies = (await app.quiet(DatabaseList(worktreeId: worktree.id)) ?? [])
+                .filter { $0.copy != nil && !$0.engine.isFile }.map(\.name).joined(separator: ", ")
             let alert = NSAlert()
             alert.messageText = String(localized: "Delete “\(worktree.displayName)” and its branch?")
             alert.informativeText =
@@ -57,6 +60,7 @@ package struct WorkspaceActions {
                     ? work.words.joined(separator: " ")
                     : String(localized: "The checkout and branch \(worktree.branch) are removed. Running agents stop."))
                 + app.sessions.childrenWords(of: app.sessions.filter { $0.worktreeId == worktree.id }.map(\.id))
+                + (copies.isEmpty ? "" : " " + String(localized: "Its database copy \(copies) goes too."))
             alert.addButton(
                 withTitle: work.isAny
                     ? String(localized: "Delete and Lose Changes") : String(localized: "Delete Folder and Branch")

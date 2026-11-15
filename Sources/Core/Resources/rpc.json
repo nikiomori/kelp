@@ -457,6 +457,27 @@
         ],
         "type" : "object"
       },
+      "BranchCopy" : {
+        "description" : "Whose copy a database is: the database it was copied from, by name, the workspace it's for, and when.",
+        "properties" : {
+          "at" : {
+            "format" : "seconds-since-2001",
+            "type" : "number"
+          },
+          "of" : {
+            "type" : "string"
+          },
+          "worktreeId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "at",
+          "of",
+          "worktreeId"
+        ],
+        "type" : "object"
+      },
       "BranchInfo" : {
         "properties" : {
           "ahead" : {
@@ -1167,6 +1188,10 @@
         "properties" : {
           "access" : {
             "$ref" : "#/components/schemas/DatabaseInfo.Access"
+          },
+          "copy" : {
+            "$ref" : "#/components/schemas/BranchCopy",
+            "description" : "A branch's own copy of another database (`db.copy`): listed in that branch's workspace only, where agents use it before the one it was copied from; it goes with the workspace."
           },
           "database" : {
             "type" : "string"
@@ -7253,6 +7278,34 @@
         "name" : "result",
         "schema" : {
           "$ref" : "#/components/schemas/DatabaseInfo"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Drops a branch's copy (`DatabaseInfo.copy`): its file, or its Postgres database, and Kelp's entry for it. The database it was copied from is the workspace's again.",
+      "name" : "db.copyRemove",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "database",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
         }
       },
       "x-internal" : true

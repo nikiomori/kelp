@@ -15,8 +15,10 @@ struct SavedDatabase: Codable, FetchableRecord, PersistableRecord {
         }
     }
 
-    init(repoId: String, database: DatabaseInfo, byHand: Bool) throws {
-        id = repoId + "/" + database.name
+    /// `copyIn`: a branch's copy found among its workspace's files keeps its settings apart from the project's
+    /// database of the same name ("<project>/<name>@<workspace>").
+    init(repoId: String, database: DatabaseInfo, byHand: Bool, copyIn worktreeId: String? = nil) throws {
+        id = repoId + "/" + database.name + (worktreeId.map { "@" + $0 } ?? "")
         self.repoId = repoId
         self.byHand = byHand
         json = String(decoding: try JSONEncoder().encode(database), as: UTF8.self)
@@ -80,12 +82,12 @@ final class Databases: Sendable {
             var db = item.database
             // What the user said of it holds while it's the same place: a pulled .env that aims `app` at another host
             // is a new database, read only for agents again if it isn't this Mac.
-            if let mine = saved.first(where: { !$0.byHand && $0.database?.name == db.name })?.database,
-                mine.place == db.place
-            {
+            let said = saved.lazy.filter { !$0.byHand }.compactMap(\.database)
+            if let mine = said.first(where: { $0.name == db.name && $0.place == db.place }) {
                 db.access = mine.access
                 db.production = mine.production
                 db.environment = mine.environment
+                db.copy = mine.copy
             } else if !DatabaseFind.isRemote(db) {
                 db.access = DatabaseInfo.Access(rawValue: sessions.settings[SettingKeys.databaseAccess]) ?? .ask
             }
@@ -104,6 +106,8 @@ final class Databases: Sendable {
             all.append(
                 DatabaseConnection(database: db, password: Keychain.get(account), account: account, origin: .project))
         }
+        // Another workspace's copy is that workspace's: not listed here, found in the project's folder or added by hand
+        all.removeAll { $0.database.copy.map { $0.worktreeId != worktreeId } ?? false }
         return all
     }
 
@@ -226,7 +230,10 @@ final class Databases: Sendable {
             db.production = production
             db.environment = environment
         }
-        let entry = try SavedDatabase(repoId: worktree.repoId, database: db, byHand: found == nil)
+        // A branch's copy found among its files keeps its own settings: the project's of that name aren't written over
+        let entry = try SavedDatabase(
+            repoId: worktree.repoId, database: db, byHand: found == nil,
+            copyIn: found?.database.copy.map(\.worktreeId))
         try store.db.write { try entry.save($0) }
         if found == nil, let password {
             if password.isEmpty {

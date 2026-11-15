@@ -119,6 +119,9 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public var production: Bool
     /// Its environment as the user (or the app it came from) said; nil: Production when `production`, else Local.
     public var environment: Stage?
+    /// A branch's own copy of another database (`db.copy`): listed in that branch's workspace only, where agents use
+    /// it before the one it was copied from; it goes with the workspace.
+    public var copy: BranchCopy?
 
     public var id: String { name }
 
@@ -157,6 +160,17 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
         if engine.isFile { return path ?? "" }
         let who = user.map { $0 + "@" } ?? "", at = (host ?? "localhost") + (port.map { ":\($0)" } ?? "")
         return "\(engine.rawValue)://\(who)\(at)/\(database ?? "")"
+    }
+}
+
+/// Whose copy a database is: the database it was copied from, by name, the workspace it's for, and when.
+public struct BranchCopy: Codable, Sendable, Equatable {
+    public var of: String, worktreeId: String
+    public var at: Date
+    public init(of: String, worktreeId: String, at: Date) {
+        self.of = of
+        self.worktreeId = worktreeId
+        self.at = at
     }
 }
 
@@ -441,6 +455,18 @@ public struct DatabaseRemove: InternalMethod {
 public struct DatabaseCopy: InternalMethod {
     public static let name = "db.copy"
     public typealias Result = DatabaseInfo
+    public var worktreeId: String, database: String
+    public init(worktreeId: String, database: String) {
+        self.worktreeId = worktreeId
+        self.database = database
+    }
+}
+
+/// Drops a branch's copy (`DatabaseInfo.copy`): its file, or its Postgres database, and Kelp's entry for it. The
+/// database it was copied from is the workspace's again.
+public struct DatabaseCopyRemove: InternalMethod {
+    public static let name = "db.copyRemove"
+    public typealias Result = Done
     public var worktreeId: String, database: String
     public init(worktreeId: String, database: String) {
         self.worktreeId = worktreeId
