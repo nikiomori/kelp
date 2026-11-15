@@ -163,6 +163,7 @@ extension SidebarController {
             builtinItems(menu, node.kind)
             menu.add(String(localized: "New Chat")) { [weak self] in self?.newChat(id) }
             menu.add(String(localized: "New Group")) { app.workbench.newGroup(repo: id) }
+            app.workbench.addWindowItems(to: menu, workspace: mainWorkspace(of: repo, among: model.worktrees)?.id)
             menu.addItem(.separator())
             menu.add(String(localized: "Rename Project")) { [weak self] in self?.startRename(id, project: true) }
             colorItem(menu, id)
