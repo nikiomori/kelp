@@ -112,3 +112,52 @@ import Testing
     }
     #expect(found == [], "the window reached around Workbench: \(found)")
 }
+
+/// Only TerminalKit touches libghostty: its C API moves with every Ghostty, and a second place that calls it is a second
+/// place to fix. (The app's target is given GhosttyKit too, to link it, so the compiler alone doesn't hold this.)
+@Test func onlyTerminalKitTouchesGhostty() throws {
+    let found = try matches(#"^import GhosttyKit\b|\bghostty_\w+\("#, in: ["Sources"])
+    #expect(found.filter { !$0.hasPrefix("Sources/TerminalKit/") } == [])
+}
+
+/// State is `@Observable` and AppKit follows it with `track`: a notification of the app's own ("go read X again")
+/// reaches whoever remembered to listen, and nothing says who didn't. AppKit's own (a window resized) aren't these.
+/// The one left is the Issues panel's, until the daemon pushes what changed on a pull request.
+@Test func theAppSendsNoNotificationsOfItsOwn() throws {
+    let below = ["Sources/DesignKit", "Sources/EditorKit", "Sources/WorkbenchKit", "Sources/Core"]
+    let names = try matches(#"Notification\.Name\("#, in: appDirs + below)
+    #expect(names.map { String($0.split(separator: ":")[0]) } == ["Sources/Builtins/Issues/PRWork.swift"])
+}
+
+/// `MainActor.assumeIsolated` crashes off the main thread and nothing checks it before it runs: each says, on its line or
+/// the one above, which callback of AppKit, WebKit or FileWatcher brought it there. The count is the ones that don't
+/// say yet. (TerminalKit's aren't counted: it changes only when asked.)
+@Test func anAssumedMainThreadSaysWhoCalled() {
+    let bare = sources(["Sources"]).filter { !$0.path.hasPrefix("Sources/TerminalKit/") }.flatMap { f in
+        let lines = f.text.components(separatedBy: "\n")
+        return lines.indices.filter { i in
+            lines[i].contains("MainActor.assumeIsolated") && !lines[i].contains("//")
+                && !(i > 0 && lines[i - 1].contains("//"))
+        }.map { "\(f.path):\($0 + 1)" }
+    }
+    #expect(bare.count <= 37, "say which callback delivers it on the main thread: \(bare)")
+}
+
+/// UserDefaults holds what one Mac likes to see (a width, a fold, the agent asked last). What names a daemon's record
+/// (a workspace, a session, a project) is the daemon's (`UIState`, `state.get|set`), where a second window, the phone
+/// and a restored home find it; the daemon and the libraries keep no defaults at all. A budget, not a ratchet: a new
+/// per-Mac preference raises it, said in the commit; state that names a record goes to `UIState` instead.
+@Test func defaultsHoldOnlyWhatOneMacPrefers() throws {
+    let all = try matches(#"\bUserDefaults\b"#, in: ["Sources"])
+    let app = all.filter { f in appDirs.contains { f.hasPrefix($0 + "/") } }
+    #expect(app.count <= 68, "names a workspace, session or project? UIState. A per-Mac preference: raise this")
+    #expect(all.count == app.count, "defaults under the app: \(all.filter { !app.contains($0) })")
+}
+
+/// A wait (`asyncAfter`) where an event says the thing is ready works on the Mac it was timed on and nowhere slower:
+/// follow the event (`track`, a delegate call, a completion); a wait that is motion takes `Motion`'s time through
+/// `Debounce` or a timer its owner can cancel. The count is the ones there are; it only goes down.
+@Test func theAppWaitsForEventsNotForTime() throws {
+    let waits = try matches(#"\.asyncAfter\("#, in: appDirs)
+    #expect(waits.count <= 18, "a wait in place of the event that says it's ready: \(waits)")
+}

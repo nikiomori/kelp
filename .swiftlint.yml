@@ -13,7 +13,7 @@ disabled_rules:
 opt_in_rules:
   - force_unwrapping
 force_unwrapping:
-  severity: warning
+  severity: error   # none in Sources or Tests: a new one fails lint
 
 # Limits, not style: a line, a function, a type or a file past these is one to split. (A command dispatcher's `switch`
 # counts as one decision.) Lines are wrapped at 120 by swift-format since 2026-11-08, so the line counts below are a
