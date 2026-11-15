@@ -41,6 +41,26 @@
         }
       }
     },
+    "%@ can be rebuilt, %@ needs a look first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ можно пересобрать, %2$@ стоит сначала проверить."
+          }
+        }
+      }
+    },
+    "%@ chosen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрано %@"
+          }
+        }
+      }
+    },
     "%@ from cache": {
       "localizations": {
         "ru": {
@@ -57,6 +77,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ за последние 12 месяцев · активных дней: %2$lld"
+          }
+        }
+      }
+    },
+    "%@ rebuilds": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сборки: %@"
           }
         }
       }
@@ -97,6 +127,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Агентов без цены: %lld"
+          }
+        }
+      }
+    },
+    "A build in worktree %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сборка в worktree %@"
+          }
+        }
+      }
+    },
+    "A remote project’s files are on its host.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы удалённого проекта лежат на его сервере."
+          }
+        }
+      }
+    },
+    "A worktree is inside it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Внутри есть worktree"
           }
         }
       }
@@ -197,12 +257,42 @@
         }
       }
     },
+    "Check first": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала проверить"
+          }
+        }
+      }
+    },
+    "Claude Code chats": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чаты Claude Code"
+          }
+        }
+      }
+    },
     "Claude Code there signs in with CLAUDE_CODE_OAUTH_TOKEN in Settings › Agents.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Claude Code входит там через CLAUDE_CODE_OAUTH_TOKEN из Settings › Agents."
+          }
+        }
+      }
+    },
+    "Claude Code’s own": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Принадлежит Claude Code"
           }
         }
       }
@@ -243,6 +333,16 @@
         }
       }
     },
+    "Disk Usage": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Место на диске"
+          }
+        }
+      }
+    },
     "Follow Edits": {
       "localizations": {
         "ru": {
@@ -279,6 +379,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Git не отслеживает эту строку"
+          }
+        }
+      }
+    },
+    "Ignored by git": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git игнорирует"
           }
         }
       }
@@ -343,6 +453,56 @@
         }
       }
     },
+    "Left alone": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не трогаем"
+          }
+        }
+      }
+    },
+    "Measure Again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Измерить заново"
+          }
+        }
+      }
+    },
+    "measured %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "измерено %@"
+          }
+        }
+      }
+    },
+    "Measuring %@…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Измеряем %@…"
+          }
+        }
+      }
+    },
+    "Measuring…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Измеряем…"
+          }
+        }
+      }
+    },
     "Merge conflict %lld of %lld": {
       "localizations": {
         "en": {
@@ -355,6 +515,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Конфликт слияния %1$lld из %2$lld"
+          }
+        }
+      }
+    },
+    "Move %lld Items to Trash": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В Корзину: %lld"
+          }
+        }
+      }
+    },
+    "Move 1 Item to Trash": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В Корзину: 1 объект"
+          }
+        }
+      }
+    },
+    "Moved %@ to the Trash — %@ freed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ — в Корзине, освобождено %2$@"
+          }
+        }
+      }
+    },
+    "Moved %lld items to the Trash — %@ freed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В Корзину перемещено: %1$lld, освобождено %2$@"
+          }
+        }
+      }
+    },
+    "Moved %lld to the Trash, kept %lld: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В Корзину: %1$lld, оставлено %2$lld: %3$@"
           }
         }
       }
@@ -425,6 +635,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не использовался за это время"
+          }
+        }
+      }
+    },
+    "Nothing chosen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ничего не выбрано"
+          }
+        }
+      }
+    },
+    "Nothing that rebuilds by itself. %@ needs a look first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пересобираемого нет. %@ стоит сначала проверить."
+          }
+        }
+      }
+    },
+    "Nothing to Measure": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нечего измерять"
+          }
+        }
+      }
+    },
+    "on this Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "на этом Mac"
           }
         }
       }
@@ -509,12 +759,32 @@
         }
       }
     },
+    "Project files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы проекта"
+          }
+        }
+      }
+    },
     "Run in Dev Container": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Запускать в Dev Container"
+          }
+        }
+      }
+    },
+    "Safe to remove": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Можно удалить"
           }
         }
       }
@@ -569,6 +839,16 @@
         }
       }
     },
+    "Show Disk Usage": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать место на диске"
+          }
+        }
+      }
+    },
     "Show Fewer": {
       "localizations": {
         "ru": {
@@ -585,6 +865,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Шаблоны"
+          }
+        }
+      }
+    },
+    "The first time takes a moment.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В первый раз это занимает время."
+          }
+        }
+      }
+    },
+    "The next build makes it again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующая сборка сделает заново"
           }
         }
       }
@@ -615,6 +915,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Токены"
+          }
+        }
+      }
+    },
+    "Tracked by git, with .git": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отслеживается git, вместе с .git"
           }
         }
       }
@@ -1207,6 +1517,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сквозь терминалы виден рабочий стол, в любой теме."
+          }
+        }
+      }
+    },
+    "Worktree in use or with work": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Worktree занят или хранит работу"
+          }
+        }
+      }
+    },
+    "Worktree with nothing uncommitted": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Worktree без незакоммиченного"
+          }
+        }
+      }
+    },
+    "Xcode builds it again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xcode соберёт заново"
           }
         }
       }

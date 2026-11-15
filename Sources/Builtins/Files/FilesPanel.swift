@@ -3,6 +3,7 @@ import Core
 import DesignKit
 import KelpKit
 import Quartz
+import SwiftUI
 import WorkbenchKit
 
 /// The workspace's files: tree with git status (click opens a tab), file operations, and project search.
@@ -11,8 +12,11 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     NSMenuDelegate
 {
     let app: AppModel
-    init(app: AppModel) {
+    /// What the project takes on disk, for the foot (the Files built-in's, which the Disk Usage tab reads too).
+    let disk: DiskSizes
+    init(app: AppModel, disk: DiskSizes = DiskSizes()) {
         self.app = app
+        self.disk = disk
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -84,7 +88,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         let content = NSView()
         let bar = header()
         setUpSearchRows()
-        for subview in [bar, replaceRow, leftScroll, results.scroll, patternError] as [NSView] {
+        let foot = NSHostingView(rootView: DiskFoot(app: app, sizes: disk))
+        foot.sizingOptions = [.intrinsicContentSize]
+        for subview in [bar, replaceRow, leftScroll, results.scroll, patternError, foot] as [NSView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             content.addSubview(subview)
         }
@@ -97,7 +103,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             leftScroll.topAnchor.constraint(equalTo: bar.bottomAnchor),
             leftScroll.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             leftScroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            leftScroll.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            leftScroll.bottomAnchor.constraint(equalTo: foot.topAnchor),
             replaceRow.topAnchor.constraint(equalTo: bar.bottomAnchor),
             replaceRow.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             replaceRow.trailingAnchor.constraint(equalTo: content.trailingAnchor),
@@ -107,7 +113,10 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             patternError.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -Metrics.inset),
             resultsTop, results.scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             results.scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            results.scroll.bottomAnchor.constraint(equalTo: content.bottomAnchor)
+            results.scroll.bottomAnchor.constraint(equalTo: foot.topAnchor),
+            foot.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            foot.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            foot.bottomAnchor.constraint(equalTo: content.bottomAnchor)
         ])
         view = content
         track(owner: self) { [app] in

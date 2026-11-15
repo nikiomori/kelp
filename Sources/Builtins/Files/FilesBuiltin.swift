@@ -26,10 +26,11 @@ extension Builtins {
         "kelp.files", "Files & Editor", "File tree, search and the code editor (tree-sitter, LSP).",
         icon: "doc.text", essential: true
     ) { app in
+        let disk = DiskSizes()
         return Contributions(
             panels: [
                 PanelSpec(id: "files", title: "Files", icon: "folder", extensionId: "kelp.files") {
-                    FilesPanel(app: app)
+                    FilesPanel(app: app, disk: disk)
                 },
                 PanelSpec(id: "artifacts", title: "Artifacts", icon: "doc.richtext", extensionId: "kelp.files") {
                     ArtifactsPanel(app: app)
@@ -174,7 +175,10 @@ extension Builtins {
                     placeholder: { (UntitledTab.title($0), .symbol("doc"), nil) }),
                 TabProvider(
                     schemes: ["prompt"], make: { PromptTab(uri: $0, app: app) },
-                    placeholder: { _ in (String(localized: "Prompt"), .symbol("text.bubble"), nil) })
+                    placeholder: { _ in (String(localized: "Prompt"), .symbol("text.bubble"), nil) }),
+                TabProvider(
+                    schemes: ["disk"], make: { diskUsageTab(uri: $0, app: app, sizes: disk) },
+                    placeholder: { _ in (String(localized: "Disk Usage"), .symbol("internaldrive"), nil) })
             ],
             languages: Languages.all,
             skills: [artifactsSkill]
