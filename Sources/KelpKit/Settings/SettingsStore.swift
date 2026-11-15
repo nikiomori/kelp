@@ -19,7 +19,10 @@ package final class SettingsStore {
     func load() async {
         // else a banner: what's shown may not be settings.json
         if let fetched = await app.call(SettingsGet()) { received(fetched) }
+        if !loaded { loaded = true }
     }
+    /// The daemon's settings were asked for once (read, or not readable): the window waits for this to show its first frame.
+    private(set) var loaded = false
 
     /// The daemon's settings (its event, or a load): a key still being set here keeps the value set here.
     func received(_ incoming: [String: JSONValue]) {

@@ -149,6 +149,10 @@ package final class ThemeManager {
         let themes: [Theme]
     }
 
+    /// Starts libghostty (its config and fonts, on the main thread) before the first terminal asks for it, with the look
+    /// settings.json gives terminals already applied.
+    static func warmTerminals() { _ = GhosttyRuntime.shared }
+
     func apply() {
         let settings = app.settings
         // One choice, like VS Code: a theme with its own look (Kelp Light, Dracula…) sets the whole window's;

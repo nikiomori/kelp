@@ -80,6 +80,8 @@ package final class AppModel {
     /// Whether there's a connection to the daemon now (calls fail at once without one).
     var hasDaemon: Bool { client != nil }
     package var connected = false
+    /// A new connection's state and settings are being read (`opened`): what they change loads the extensions once, at its end.
+    @ObservationIgnored private(set) var opening = false
     /// Connections made so far: each new one may be a new daemon, whose streams (`kelp attach`) start over.
     private(set) package var connections = 0
     package var repos: [Repo] = [] { didSet { reposChanged() } }
@@ -211,7 +213,12 @@ package final class AppModel {
     /// A new connection (`DaemonLink`), maybe to a new daemon: its state, settings and lists read anew, then what the
     /// views watch told to it.
     func opened(_ connection: RPCClient) async {
-        await uiState.load()
+        opening = true
+        defer { opening = false }
+        // Both at once: neither reads the other, and launch waited for the sum.
+        async let stateRead: Void = uiState.load()
+        async let settingsRead: Void = settings.load()
+        _ = await (stateRead, settingsRead)
         if uiState.strings("sidebar.order") != arrangement.order {
             arrangement.order = uiState.strings("sidebar.order")
         }
@@ -221,14 +228,15 @@ package final class AppModel {
         }
         let colors = ProjectColor.read(uiState[ProjectColor.key])
         if colors != arrangement.projectColors { arrangement.projectColors = colors }
-        await settings.load()
         await refresh()
         connected = client === connection   // after the lists: what waits for the connection finds the projects in
         if connected {
             connections += 1
             // Again, as the daemon's state is read anew: an extension changed meanwhile waits to be allowed (`ExtensionTrust`),
-            // and one that waited for the state to be known (a first connection that failed) doesn't any more.
-            if connections > 1 || extensions.loadedWithoutState { extensions.reload() }
+            // and one that waited for the state to be known (a first connection that failed) doesn't any more. Once, for
+            // that and the extensions settings.json switched on or off (`ExtensionRegistry.follow` waits for this).
+            let switched = extensions.disabled != extensions.disabledLoaded
+            if connections > 1 || extensions.loadedWithoutState || switched { extensions.reload() }
         }
         published = nil
         publishRefused = false   // a new daemon knows nothing yet

@@ -102,12 +102,13 @@ enum ExtensionTrust {
 
     /// The first time this Kelp sees the daemon's state without the key, once: what was installed before Kelp asked
     /// (`askedSince`) is allowed as it is, and the record, even an empty one, marks it done. One made since, then or
-    /// later, is asked about.
+    /// later, is asked about. True when one was allowed so (an empty record changes nothing loaded).
     static func adopt(_ folders: [URL], _ app: AppModel) async -> Bool {
         guard app.connected, app.uiState.loaded, app.uiState[ExtensionFiles.extensionTrustKey] == nil else {
             return false
         }
-        return await allow(folders.filter { created($0) < askedSince }, app)
+        let old = folders.filter { created($0) < askedSince }
+        return await allow(old, app) && !old.isEmpty
     }
 
     /// When Kelp began to ask (0.10, 2026-11-06 UTC).

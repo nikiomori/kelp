@@ -108,7 +108,8 @@ package final class ExtensionRegistry {
         track(owner: self, now: false) { [weak self] in
             self?.disabled ?? []
         } changed: { [weak self] off in
-            guard let self, !extensions.isEmpty, off != disabledLoaded else { return }
+            // While a connection is read, its end loads them once (`AppModel.opened`).
+            guard let self, !extensions.isEmpty, off != disabledLoaded, !app.opening else { return }
             reload()
         }
         track(owner: self, now: false) { [weak self] in
@@ -172,9 +173,9 @@ package final class ExtensionRegistry {
             defer { askingTools = false }
             guard let found = await app.quiet(ProcessWhich(commands: commands.sorted())) else { return }
             let now = Dictionary(uniqueKeysWithValues: commands.map { ($0, found[$0] != nil) })
-            guard now.contains(where: { tools[$0.key] != $0.value }) else { return }
+            let changed = now.contains { (tools[$0.key] ?? true) != $0.value }   // one not asked yet counted as there
             tools.merge(now) { _, new in new }
-            reload()
+            if changed { reload() }
         }
     }
 
