@@ -20,9 +20,11 @@ public struct LayoutTemplate: Codable, Equatable {
 
     /// `running`: what runs again for a session's tab; nil leaves the tab out. Tabs that are only a moment's (an
     /// untitled file, a handed-over prompt, a subagent's journal), an agent's own page (its logins are its own), a CI log
-    /// and a commit's draft are left out too, and a pane left empty goes.
+    /// and a commit's draft are left out too, and a pane left empty goes. `ports`: the port each session's tab (by its
+    /// URI) serves: a page on one is kept as that run's page, whatever port it gets next time.
     public init(
-        name: String, from layout: WorkspaceLayout, in place: Place, ownWindow: Bool, running: (String) -> String?
+        name: String, from layout: WorkspaceLayout, in place: Place, ownWindow: Bool, ports: [String: Int] = [:],
+        running: (String) -> String?
     ) {
         self.name = name
         self.ownWindow = ownWindow
@@ -33,6 +35,10 @@ public struct LayoutTemplate: Codable, Equatable {
                 kept.setURI(run, of: tab)   // by its tab: two Claudes are two `agent:claude` tabs
             } else if scheme == "session" || Self.leftOut.contains(scheme) {
                 kept.remove(tab.id)
+            } else if let page = Self.localPage(tab.uri),
+                let run = layout.allTabs.first(where: { ports[$0.uri] == page.port && running($0.uri) != nil })
+            {
+                kept.setURI("\(Self.runPage):\(run.id)\(page.rest)", of: tab)
             } else {
                 kept.setURI(Self.abstract(tab.uri, from: place), of: tab)
             }
@@ -43,11 +49,29 @@ public struct LayoutTemplate: Codable, Equatable {
     /// The tabs started anew when it's used, in order.
     public var runs: [TabRef] { layout.allTabs.filter { TabURI.runs($0.uri) } }
 
+    /// The pages of its runs: each opens in its tab once its run (a tab's id) serves, at `path` on the port it has then.
+    public var pages: [(tab: TabRef, run: String, path: String)] {
+        layout.allTabs.filter { TabURI.scheme($0.uri) == Self.runPage }.map { tab in
+            let body = TabURI.body(tab.uri), cut = body.firstIndex { "/?#".contains($0) } ?? body.endIndex
+            return (tab, String(body[..<cut]), String(body[cut...]))
+        }
+    }
+    /// What a run's page's tab shows until the run serves.
+    public static func waiting(_ tab: TabRef) -> String { "about:blank#" + tab.id }
+
     /// The layout for group `place` using it: `started` gives the session URI each run became; a run that didn't start
     /// leaves its tab out.
     public func filled(_ started: [String: String], in place: Place) -> WorkspaceLayout {
         var out = layout
-        for tab in layout.allTabs where !TabURI.runs(tab.uri) { out.setURI(Self.placed(tab.uri, in: place), of: tab) }
+        for tab in layout.allTabs where !TabURI.runs(tab.uri) {
+            if TabURI.scheme(tab.uri) != Self.runPage {
+                out.setURI(Self.placed(tab.uri, in: place), of: tab)
+            } else if pages.contains(where: { $0.tab == tab && started[$0.run] != nil }) {
+                out.setURI(Self.waiting(tab), of: tab)   // a blank page keeps its pane until the run serves
+            } else {
+                out.remove(tab.id)
+            }
+        }
         for tab in runs {
             if let session = started[tab.id] {
                 out.setURI(session, of: tab)
@@ -61,7 +85,15 @@ public struct LayoutTemplate: Codable, Equatable {
 
 extension LayoutTemplate {
     static let leftOut = ["untitled", "prompt", "subagent", TabURI.agentScheme, "cilog", "commit"]
-    static let groupToken = "{group}", folderToken = "{folder}"
+    static let groupToken = "{group}", folderToken = "{folder}", runPage = "runpage"
+
+    /// A page on this Mac: its port, and what follows it in its address.
+    static func localPage(_ uri: String) -> (port: Int, rest: String)? {
+        guard let c = URLComponents(string: uri), c.scheme == "http", ["localhost", "127.0.0.1"].contains(c.host),
+            let port = c.port, let at = uri.range(of: ":\(port)")
+        else { return nil }
+        return (port, String(uri[at.upperBound...]))
+    }
 
     /// The group's own addresses as the group's: `db:<group>/…`, `diff:<group>…`, a file in its folder.
     static func abstract(_ uri: String, from place: Place) -> String {

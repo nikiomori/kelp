@@ -387,7 +387,7 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
 /// and the group's own addresses (its database's and changes' tabs, its files) are the new group's.
 @Test func aTemplateKeepsThePanesAndStartsWhatRanInThem() throws {
     var l = WorkspaceLayout()
-    let a = l.add("session:a"), b = l.add("session:b"), page = l.add("http://localhost:3000")
+    let a = l.add("session:a"), b = l.add("session:b"), page = l.add("http://localhost:3000/docs?x=1")
     let g = try #require(l.focused)
     l.split(page.id, from: g, vertical: true, before: false)
     let right = try #require(l.focused)
@@ -398,15 +398,18 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     let untitled = l.add("untitled:1", to: right)
     l.split(untitled.id, from: right, vertical: false, before: false)
     let from = LayoutTemplate.Place(workspace: "old", folder: "/w/old dir")
-    let t = LayoutTemplate(name: "Frontend", from: l, in: from, ownWindow: true) {
+    let t = LayoutTemplate(name: "Frontend", from: l, in: from, ownWindow: true, ports: ["session:a": 3000]) {
         ["session:a": "agent:claude", "session:b": "agent:claude"][$0]
     }
     #expect(t.layout.root?.sessions.count == 2 && t.runs.map(\.id) == [a.id, b.id])
     let used = t.filled([a.id: "session:x"], in: .init(workspace: "new", folder: "/w/new"))
     #expect(
         used.allTabs.map(\.uri) == [
-            "session:x", "http://localhost:3000", "db:new/app_dev?table=users",
+            "session:x", LayoutTemplate.waiting(page), "db:new/app_dev?table=users",
             TabURI.file("/w/new/src/app.tsx", line: 3),
             "diff:new?file=a.swift"
         ])
+    // The page a run served is that run's page: it waits, blank, for the new run's port; with no run, it's left out.
+    #expect(t.pages.map(\.run) == [a.id] && t.pages.first?.path == "/docs?x=1")
+    #expect(!t.filled([:], in: from).allTabs.contains { $0.id == page.id })
 }

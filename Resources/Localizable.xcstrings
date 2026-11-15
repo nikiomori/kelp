@@ -473,6 +473,16 @@
         }
       }
     },
+    "Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница"
+          }
+        }
+      }
+    },
     "measured %@": {
       "localizations": {
         "ru": {

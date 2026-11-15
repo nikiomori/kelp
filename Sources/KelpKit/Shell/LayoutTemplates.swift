@@ -28,8 +28,13 @@ struct LayoutTemplates {
             !name.trimmingCharacters(in: .whitespaces).isEmpty
         else { return }
         let place = LayoutTemplate.Place(workspace: id, folder: worktree.path)
-        let made = LayoutTemplate(name: name, from: layout, in: place, ownWindow: app.workbench.inOwnWindow(id)) {
-            uri in
+        // The page a run serves is kept as that run's page: the new group's run gets a port of its own.
+        var ports: [String: Int] = [:]
+        for tab in layout.allTabs where TabURI.scheme(tab.uri) == "session" {
+            ports[tab.uri] = app.session(TabURI.body(tab.uri)).flatMap { app.extensions.all.runs?.port($0) }
+        }
+        let own = app.workbench.inOwnWindow(id)
+        let made = LayoutTemplate(name: name, from: layout, in: place, ownWindow: own, ports: ports) { uri in
             app.session(TabURI.body(uri)).map(Self.running)
         }
         store(all(worktree.repoId).filter { $0.name != name } + [made], worktree.repoId)
@@ -54,8 +59,32 @@ struct LayoutTemplates {
             }
         }
         app.workbench.layouts[id] = template.filled(started, in: .init(workspace: id, folder: worktree.path))
+        for page in template.pages {
+            guard let session = started[page.run].map(TabURI.body) else { continue }
+            openWhenServed(page.tab, path: page.path, by: session, in: id)
+        }
         if template.ownWindow, !app.workbench.inOwnWindow(id) { app.workbench.moveToOwnWindow(id) }
     }
+
+    /// A run's page into the blank tab kept for it, once the run serves (it printed its address, or listens): the
+    /// template was the click that asked for it. Given up when the run ends or the tab was closed meanwhile.
+    private func openWhenServed(_ tab: TabRef, path: String, by session: String, in id: String) {
+        let app = app, blank = LayoutTemplate.waiting(tab), wait = NSObject()
+        Self.waits[tab.id] = wait
+        track(owner: wait) {
+            let run = app.session(session)
+            return run.map { $0.status == .exited ? -1 : app.extensions.all.runs?.port($0) ?? 0 } ?? -1
+        } changed: { port in
+            guard port != 0 else { return }
+            Self.waits[tab.id] = nil
+            guard port > 0 else { return }
+            var layout = app.workbench.layouts[id]
+            if layout.replace(blank, with: "http://localhost:\(port)\(path)") != nil {
+                app.workbench.layouts[id] = layout
+            }
+        }
+    }
+    private static var waits: [String: NSObject] = [:]
 
     /// What its names say on the empty screen: "Claude · npm run dev · localhost:3000".
     func summary(_ template: LayoutTemplate) -> String {
@@ -66,6 +95,7 @@ struct LayoutTemplates {
             case "agent": return app.catalog.name(TabURI.body(uri))
             case "terminal": return value("title") ?? value("cmd") ?? value("tmux") ?? String(localized: "Terminal")
             case "file": return URL(fileURLWithPath: TabURI.filePath(uri).path).lastPathComponent
+            case "runpage": return String(localized: "Page")
             default:
                 return URL(string: TabURI.pageURL(uri)).flatMap { u in
                     u.host.map { $0 + (u.port.map { ":\($0)" } ?? "") }
