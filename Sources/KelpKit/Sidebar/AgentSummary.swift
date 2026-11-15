@@ -151,6 +151,22 @@ final class AgentSummary: NSView {
         }
     }
 
+    /// The last question answered: the capsule fades before it gives the counts its room.
+    private func dismissCapsule() {
+        guard window != nil, !Motion.reduced else { return capsule.isHidden = true }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.fast
+            capsule.animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {   // AppKit ends the group on the main thread
+                guard let self, !self.asking else { return }
+                self.capsule.isHidden = true
+                self.capsule.alphaValue = 1
+                self.needsLayout = true
+            }
+        }
+    }
+
     func update() {
         let inbox = Inbox.current(app)
         let shown = inbox.shown
@@ -168,7 +184,11 @@ final class AgentSummary: NSView {
         // The agent on screen still counts while it asks; with only it asking the capsule loses its glass, not its number.
         let counted = inbox.counted, wasShown = !capsule.isHidden
         asking = !counted.isEmpty
-        capsule.isHidden = !asking
+        if asking, capsule.isHidden || capsule.alphaValue < 1 {
+            capsule.fadeIn(Motion.base)   // in, or back from going
+        } else if !asking, wasShown {
+            dismissCapsule()
+        }
         glass.isHidden = shown.isEmpty
         capsule.refreshPointer()   // no longer asking: no grey left over from the pointer
         mark.status = AgentStatus.mostUrgent(counted.map(SidebarCell.shownStatus))

@@ -33,3 +33,17 @@ import Testing
         #expect(row.layer?.animation(forKey: kCATransition) != nil)   // a transition's key, whatever it was added as
     }
 }
+
+/// A done mark that's been read fades where it stood: a fade on its own layer, hidden at once, never showed.
+@MainActor @Test func aReadDoneMarkFadesWhereItStood() {
+    let parent = NSView(), mark = StatusMark()
+    let window = onScreen(mark, in: parent)
+    defer { withExtendedLifetime(window) {} }
+    mark.status = .done
+    #expect(!mark.isHidden)
+    mark.unread = false
+    #expect(mark.isHidden)
+    let ghost = parent.subviews.first { $0 !== mark }
+    #expect(ghost != nil)
+    #expect(ghost?.alphaValue ?? 1 < 1 || ghost?.layer?.animationKeys()?.isEmpty == false)
+}

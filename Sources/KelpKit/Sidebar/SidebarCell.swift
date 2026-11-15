@@ -386,8 +386,22 @@ extension SidebarCell {
 
     /// Shows `line` under the name, the name moved up to make room for it; nil: one line.
     private func setAsk(_ line: (prefix: (String, NSColor)?, text: String)?) {
+        let coming = ask.isHidden && line != nil, flips = ask.isHidden != (line == nil)
         ask.isHidden = line == nil
-        rowY?.constant = line == nil ? 0 : -TextSize.of(8)
+        // The name moves up as the row opens (in its animation group, `sessionsChanged`), the line a beat after; a
+        // reused cell being filled shows at once.
+        let y = line == nil ? 0 : -TextSize.of(8)
+        if flips, window != nil { rowY?.animator().constant = y } else { rowY?.constant = y }
+        if coming, window != nil, !Motion.reduced {
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0
+            fade.toValue = 1
+            fade.beginTime = CACurrentMediaTime() + Motion.stagger
+            fade.fillMode = .backwards
+            fade.duration = Motion.fast
+            ask.wantsLayer = true
+            ask.layer?.add(fade, forKey: "opacity")
+        }
         guard let line else { return }
         // The same line on the same pill (most news doesn't change it): not styled and measured again.
         let key = [line.prefix?.0, line.prefix?.1.description, line.text, "\(selected)"].map { $0 ?? "" }

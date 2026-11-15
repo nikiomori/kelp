@@ -81,8 +81,14 @@ extension SidebarController {
         let changed = now.filter { shownBefore[$0.id] != $0 }
         shownBefore = Dictionary(now.map { ($0.id, $0) }) { _, last in last }
         guard !changed.isEmpty else { return }
-        rows(showing: changed).forEach(refreshCell)
-        updateCard()   // a row's second line (what it asks) changes its height
+        // A row's second line (what it asks) changes its height: it opens and closes with the line, the rows and cards
+        // below following, on the scale rather than the outline's own quarter second.
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.duration(Motion.base)
+            ctx.timingFunction = Motion.soft
+            rows(showing: changed).forEach(refreshCell)
+            updateCard()
+        }
         updateHeaders()
     }
     /// An agent's row, its parent's, and the rows above it.

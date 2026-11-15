@@ -126,12 +126,20 @@ package final class StatusMark: NSView {
     }   // animations stop when a view leaves a window
 
     private func changed() {
-        if window != nil { crossfade() }   // a reused cell being filled shows at once
+        // A reused cell being filled shows at once. A mark going (a done one read) fades where it stood: a fade on its
+        // own layer, hidden at once, never showed.
+        if window != nil, !isHidden, shown == nil, let parent = superview {
+            leaveGhost(in: parent, duration: Motion.slow)
+        } else if window != nil {
+            crossfade()
+        }
         update()
     }
 
+    /// What it shows: nothing for an idle agent or a done one already looked at.
+    private var shown: AgentStatus? { !limited && (status == .idle || (status == .done && !unread)) ? nil : status }
+
     private func update() {
-        let shown = !limited && (status == .idle || (status == .done && !unread)) ? nil : status
         let filling = shown == .working ? progress : nil
         isHidden = shown == nil
         let dotted = shown == .working && waitsForCommand && !compacting
