@@ -100,12 +100,16 @@ private final class FailureRow: PointerControl {
         self.fix = fix
         super.init(frame: .zero)
         layer?.cornerRadius = Metrics.radiusSM
-        let name = NSTextField(labelWithString: failure.test ?? failure.place ?? "")
+        // A test's name is what tells failures apart: two lines before it gives way.
+        let name = NSTextField(wrappingLabelWithString: failure.test ?? failure.place ?? "")
         name.font = .ui(TextSize.row, weight: .medium)
-        name.lineBreakMode = .byTruncatingTail
+        name.isSelectable = false
+        name.maximumNumberOfLines = 2
+        name.cell?.truncatesLastVisibleLine = true
         name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let head = NSStackView(views: [CIRunLook.mark("completed", "failure"), name])
         head.spacing = Metrics.gap
+        head.alignment = .top
         // A panel is narrow: the file's own name and line. The tooltip has its folder, and the class.
         let place =
             failure.test == nil

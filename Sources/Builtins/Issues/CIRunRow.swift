@@ -66,12 +66,20 @@ final class CIRunMeta: NSView {
     /// "When" keeps its width, so the lengths beside it stand in a column. Under `narrow`, the attempt shrinks to "↻ 2".
     private static let whenColumn: CGFloat = 26, narrow: CGFloat = 216
     private let attempt: AttemptChip?
+    private let who: NSTextField, line: NSStackView
+    /// With the commit, and without it: a narrow panel keeps the run's number whole, the tooltip has the commit.
+    private let whole: NSAttributedString, short: NSAttributedString
+    private var showsCommit = true
+    private lazy var wholeWidth = NSTextField(labelWithAttributedString: whole).fittingSize.width
 
     /// `extras`: what tells this run from its neighbours, after the number and commit (its workflow, its event).
     init(_ run: CIRuns.Run, extras: [String], usual: Double?, clock: CIClock) {
         attempt = run.attempt.flatMap { $0 > 1 ? AttemptChip($0) : nil }
+        whole = Self.who(run, extras, commit: true)
+        short = Self.who(run, extras, commit: run.number == nil)
+        who = NSTextField(labelWithAttributedString: whole)
+        line = NSStackView()
         super.init(frame: .zero)
-        let who = NSTextField(labelWithAttributedString: Self.who(run, extras))
         who.maximumNumberOfLines = 1
         who.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         who.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -85,7 +93,7 @@ final class CIRunMeta: NSView {
         ago.textColor = .secondaryLabelColor
         ago.alignment = .right
         ago.widthAnchor.constraint(greaterThanOrEqualToConstant: TextSize.of(Self.whenColumn)).isActive = true
-        let line = NSStackView(views: [who] + (attempt.map { [$0] } ?? []) + [NSView(), time, ago])
+        line.setViews([who] + (attempt.map { [$0] } ?? []) + [NSView(), time, ago], in: .leading)
         line.spacing = Metrics.gapWide
         line.setCustomSpacing(Metrics.gap, after: who)
         for label in [time, ago] as [NSView] {
@@ -98,10 +106,16 @@ final class CIRunMeta: NSView {
     override func layout() {
         super.layout()
         attempt?.compact = bounds.width < TextSize.of(Self.narrow)   // the time stays whole
+        let need = line.fittingSize.width - who.fittingSize.width + wholeWidth
+        let fits = need <= bounds.width
+        if fits != showsCommit {
+            showsCommit = fits
+            who.attributedStringValue = fits ? whole : short
+        }
     }
 
     /// "#67 2f2111f", the commit in the face of code.
-    private static func who(_ run: CIRuns.Run, _ extras: [String]) -> NSAttributedString {
+    private static func who(_ run: CIRuns.Run, _ extras: [String], commit: Bool) -> NSAttributedString {
         let one = NSMutableParagraphStyle()
         one.lineBreakMode = .byTruncatingTail
         let look: [NSAttributedString.Key: Any] = [
@@ -110,7 +124,7 @@ final class CIRunMeta: NSView {
         ]
         let text = NSMutableAttributedString()
         if let number = run.number { text.append(NSAttributedString(string: "#\(number)", attributes: look)) }
-        if let sha = run.shortSHA {
+        if commit, let sha = run.shortSHA {
             text.append(NSAttributedString(string: text.length > 0 ? " " : "", attributes: look))
             text.append(
                 NSAttributedString(
@@ -143,12 +157,13 @@ enum CIRow {
             let skipped = String(localized: "\(count) steps skipped")
             return line(
                 CIRunLook.mark("completed", "skipped"), skipped, font: .ui(TextSize.caption),
-                color: .tertiaryLabelColor, right: nil
+                color: .secondaryLabelColor, right: nil
             ).cell
         case .upcoming, .one:
             let left = String(localized: "\(count) steps to go")
             return line(
-                CIRunLook.mark("queued", nil), left, font: .ui(TextSize.caption), color: .tertiaryLabelColor, right: nil
+                CIRunLook.mark("queued", nil), left, font: .ui(TextSize.caption), color: .secondaryLabelColor,
+                right: nil
             ).cell
         }
     }
@@ -199,7 +214,7 @@ private final class AttemptChip: PointerControl {
         layer?.cornerRadius = Metrics.radiusXS
         isEnabled = false
         toolTip = String(localized: "Attempt \(attempt) of this run")
-        label.font = .ui(TextSize.micro, weight: .medium)
+        label.font = .ui(TextSize.caption, weight: .medium)
         label.textColor = .secondaryLabelColor
         pin(label, inset: NSEdgeInsets(top: 0, left: 4, bottom: 0, right: 4))
         setContentCompressionResistancePriority(.required, for: .horizontal)

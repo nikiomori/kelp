@@ -10,7 +10,10 @@ final class CIHistoryStrip: NSView {
     var onPick: ((CIRuns.Run) -> Void)?
     private let marks = NSStackView()
     private let words = NSTextField(labelWithString: "")
+    private let line = NSStackView()
     private var height: NSLayoutConstraint?
+    /// "green on #177", and "#177" in green for a panel too narrow for the words, which the tooltip keeps.
+    private var whole = "", short: String?, wholeWidth: CGFloat = 0
 
     init() {
         super.init(frame: .zero)
@@ -19,7 +22,7 @@ final class CIHistoryStrip: NSView {
         words.textColor = .secondaryLabelColor
         words.lineBreakMode = .byTruncatingTail
         words.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let line = NSStackView(views: [marks, NSView(), words])
+        line.setViews([marks, NSView(), words], in: .leading)
         line.spacing = Metrics.gapWide
         pin(line, inset: NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset))
         height = heightAnchor.constraint(equalToConstant: 0)
@@ -41,11 +44,26 @@ final class CIHistoryStrip: NSView {
         }
         guard let history else { return }
         marks.setViews(history.runs.map { r in HistoryMark(r) { [weak self] in self?.onPick?(r) } }, in: .leading)
-        words.stringValue =
+        whole =
             history.lastGreen.map { green in
                 green.number.map { String(localized: "green on #\($0)") }
                     ?? String(localized: "green \(CIRunLook.ago(green.began)) ago")
             } ?? (history.greenInARow > 1 ? String(localized: "\(history.greenInARow) green in a row") : "")
+        short = history.lastGreen?.number.map { "#\($0)" }
+        let probe = NSTextField(labelWithString: whole)
+        probe.font = words.font
+        wholeWidth = probe.fittingSize.width
+        words.toolTip = whole.isEmpty ? nil : whole
+        needsLayout = true   // which of the two fits
+    }
+
+    override func layout() {
+        super.layout()
+        let fits = line.fittingSize.width - words.fittingSize.width + wholeWidth <= line.bounds.width
+        let text = fits ? whole : short ?? whole
+        guard words.stringValue != text else { return }
+        words.stringValue = text
+        words.textColor = text == whole ? .secondaryLabelColor : .textGreen
     }
 }
 

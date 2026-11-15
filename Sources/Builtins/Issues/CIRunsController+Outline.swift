@@ -79,10 +79,12 @@ extension CIRunsController {
             let right =
                 job.status == "completed" || job.steps.isEmpty
                 ? job.seconds().map(ciSpan) : "\(done)/\(job.steps.count)"
-            return CIRow.line(
+            let cell = CIRow.line(
                 CIRunLook.mark(job.status, job.conclusion), job.name, font: .ui(TextSize.row), color: .labelColor,
                 right: right
             ).cell
+            cell.toolTip = job.name   // a narrow panel cuts it
+            return cell
         case .step(let step):
             // The step running now reads like a title; done ones grey, the ones still to come quieter still.
             let color: NSColor =
