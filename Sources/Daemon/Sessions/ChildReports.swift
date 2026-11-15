@@ -83,9 +83,10 @@ final class ChildReports: Sendable {
         let cut =
             body.count > most
             ? "…" + body.suffix(most) + "\n(cut: kelp terminal read \(session.id.prefix(8)) shows more)" : body
-        // As it will be typed: a control character taken out later would close the tag again.
+        // As it will be typed: a control character taken out later would close the tag again. Spaced out ("</ kelp>")
+        // it still reads as the closing tag, as `Untrusted.frame` allows for.
         let safe = LiveSession.typeable(cut).replacingOccurrences(
-            of: "<(/?kelp)", with: "<\\\\$1", options: [.regularExpression, .caseInsensitive])
+            of: #"<(\s*/?\s*kelp)"#, with: "<\\\\$1", options: [.regularExpression, .caseInsensitive])
         return "<kelp from=\"\(name) \(session.id.prefix(8))\" status=\"\(session.status.rawValue)\">\n" + safe
             + "\n</kelp>"
     }
