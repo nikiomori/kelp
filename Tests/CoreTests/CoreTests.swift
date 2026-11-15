@@ -294,8 +294,7 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     defer { close(fd) }
     close(accept(server, nil, nil))   // the daemon side goes away
     let big = Data(repeating: 0x41, count: 1 << 20)
-    var failed = false
-    for _ in 0..<4 where !failed { failed = !Unix.writeAll(fd, big) }
+    let failed = (0..<4).contains { _ in !Unix.writeAll(fd, big) }   // stops at the first that fails
     #expect(failed)   // the write reports it; we're still here
 }
 

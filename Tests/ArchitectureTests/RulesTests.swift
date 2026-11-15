@@ -141,6 +141,7 @@ import Testing
         }.map { "\(f.path):\($0 + 1)" }
     }
     #expect(bare.count <= 37, "say which callback delivers it on the main thread: \(bare)")
+    #expect(bare.count >= 37, "\(bare.count) say nothing now: lower this")
 }
 
 /// UserDefaults holds what one Mac likes to see (a width, a fold, the agent asked last). What names a daemon's record
@@ -151,6 +152,7 @@ import Testing
     let all = try matches(#"\bUserDefaults\b"#, in: ["Sources"])
     let app = all.filter { f in appDirs.contains { f.hasPrefix($0 + "/") } }
     #expect(app.count <= 68, "names a workspace, session or project? UIState. A per-Mac preference: raise this")
+    #expect(app.count >= 68, "\(app.count) now: lower this")
     #expect(all.count == app.count, "defaults under the app: \(all.filter { !app.contains($0) })")
 }
 
@@ -160,4 +162,5 @@ import Testing
 @Test func theAppWaitsForEventsNotForTime() throws {
     let waits = try matches(#"\.asyncAfter\("#, in: appDirs)
     #expect(waits.count <= 18, "a wait in place of the event that says it's ready: \(waits)")
+    #expect(waits.count >= 18, "\(waits.count) now: lower this")
 }

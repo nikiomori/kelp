@@ -131,7 +131,7 @@ import Testing
     for workspace in [clean, work, mine] {
         w.d.sessions.discard(try await w.c.call(SessionCreate(worktreeId: workspace.id, agent: "sleepy")))
     }
-    for _ in 0..<100 where try w.d.store.worktree(clean.id) != nil { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(try await waitFor(5) { try w.d.store.worktree(clean.id) == nil })
     w.d.workspaces.headQueue.sync {}   // the other two were looked at as well
     #expect(try w.d.store.worktree(clean.id) == nil && !Git.branchExists(w.repo.path, "helper/clean", remotes: .none))
     #expect(try w.d.store.worktree(work.id) != nil && w.d.store.worktree(mine.id) != nil)

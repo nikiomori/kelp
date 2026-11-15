@@ -143,12 +143,8 @@ import os
         try folder(["failed": "tar: broken", "source": "/nonexistent/disk.raw"])
         #expect(vms.list().first?.notMade == true)
         #expect(try vms.create(VMCreate(name: "deb")).state == .creating)
-        var again: VMInfo?
-        for _ in 0..<50 {
-            again = vms.list().first
-            if again?.state == .error { break }
-            try await Task.sleep(nanoseconds: 100_000_000)
-        }
+        #expect(try await waitFor(5) { vms.list().first?.state == .error })
+        let again = vms.list().first
         #expect(again?.notMade == true && again?.detail != "tar: broken")
     }
 

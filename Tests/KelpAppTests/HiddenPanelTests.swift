@@ -18,8 +18,9 @@ import Testing
 @MainActor private func cell(_ table: NSTableView, _ row: Int) -> NSView? {
     table.view(atColumn: 0, row: row, makeIfNecessary: true)
 }
-/// Long enough for a change to reach a panel's `track` (the next turn of the main queue), had it been going to.
-@MainActor private func settle() async throws { try await Task.sleep(for: .milliseconds(150)) }
+/// Long enough for a change to reach a panel's `track` (the next turn of the main queue), had it been going to: the
+/// main queue runs in order, so its turns after the change come after `track`'s.
+@MainActor private func settle() async throws { await mainActorTurns() }
 /// Laid out and settled: the cells a row has now are the ones it keeps until it's drawn again.
 @MainActor private func steady(_ table: NSTableView) async throws {
     try await settle()
