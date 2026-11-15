@@ -383,20 +383,30 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
 }
 
 /// A template keeps the panes, what they show and what ran in them as what runs again, each in its own tab (two
-/// Claudes stay two); a moment's tab goes, and so does a pane it leaves empty. Used, each run's session takes its tab.
+/// Claudes stay two); a moment's tab goes, and so does a pane it leaves empty. Used, each run's session takes its tab,
+/// and the group's own addresses (its database's and changes' tabs, its files) are the new group's.
 @Test func aTemplateKeepsThePanesAndStartsWhatRanInThem() throws {
     var l = WorkspaceLayout()
     let a = l.add("session:a"), b = l.add("session:b"), page = l.add("http://localhost:3000")
     let g = try #require(l.focused)
     l.split(page.id, from: g, vertical: true, before: false)
     let right = try #require(l.focused)
+    _ = l.add("db:old/app_dev?table=users", to: right)
+    _ = l.add(TabURI.file("/w/old dir/src/app.tsx", line: 3), to: right)
+    _ = l.add("diff:old?file=a.swift", to: right)
+    _ = l.add("agentweb:http://localhost:3000", to: right)
     let untitled = l.add("untitled:1", to: right)
     l.split(untitled.id, from: right, vertical: false, before: false)
-    let t = LayoutTemplate(name: "Frontend", from: l, ownWindow: true) {
+    let from = LayoutTemplate.Place(workspace: "old", folder: "/w/old dir")
+    let t = LayoutTemplate(name: "Frontend", from: l, in: from, ownWindow: true) {
         ["session:a": "agent:claude", "session:b": "agent:claude"][$0]
     }
-    #expect(t.layout.allTabs.map(\.uri) == ["agent:claude", "agent:claude", "http://localhost:3000"])
     #expect(t.layout.root?.sessions.count == 2 && t.runs.map(\.id) == [a.id, b.id])
-    let used = t.filled([a.id: "session:x"])
-    #expect(used.allTabs.map(\.uri) == ["session:x", "http://localhost:3000"])
+    let used = t.filled([a.id: "session:x"], in: .init(workspace: "new", folder: "/w/new"))
+    #expect(
+        used.allTabs.map(\.uri) == [
+            "session:x", "http://localhost:3000", "db:new/app_dev?table=users",
+            TabURI.file("/w/new/src/app.tsx", line: 3),
+            "diff:new?file=a.swift"
+        ])
 }

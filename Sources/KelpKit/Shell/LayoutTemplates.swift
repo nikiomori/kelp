@@ -27,7 +27,9 @@ struct LayoutTemplates {
                 initial: app.groupName(worktree) ?? "", action: String(localized: "Save")),
             !name.trimmingCharacters(in: .whitespaces).isEmpty
         else { return }
-        let made = LayoutTemplate(name: name, from: layout, ownWindow: app.workbench.inOwnWindow(id)) { uri in
+        let place = LayoutTemplate.Place(workspace: id, folder: worktree.path)
+        let made = LayoutTemplate(name: name, from: layout, in: place, ownWindow: app.workbench.inOwnWindow(id)) {
+            uri in
             app.session(TabURI.body(uri)).map(Self.running)
         }
         store(all(worktree.repoId).filter { $0.name != name } + [made], worktree.repoId)
@@ -38,7 +40,8 @@ struct LayoutTemplates {
     /// The empty group `id` arranged as `template` says: what ran starts again, each in its tab.
     func use(_ template: LayoutTemplate, in id: String) async {
         // Once: a double click, or a second click while the first one's sessions start, leaves it be.
-        guard app.workbench.layouts[id].allTabs.isEmpty, Self.using.insert(id).inserted else { return }
+        guard let worktree = app.worktree(id), app.workbench.layouts[id].allTabs.isEmpty, Self.using.insert(id).inserted
+        else { return }
         defer { Self.using.remove(id) }
         var started: [String: String] = [:]
         for tab in template.runs {
@@ -50,7 +53,7 @@ struct LayoutTemplates {
                 started[tab.id] = TabURI.session(session.id)
             }
         }
-        app.workbench.layouts[id] = template.filled(started)
+        app.workbench.layouts[id] = template.filled(started, in: .init(workspace: id, folder: worktree.path))
         if template.ownWindow, !app.workbench.inOwnWindow(id) { app.workbench.moveToOwnWindow(id) }
     }
 
