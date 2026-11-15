@@ -186,7 +186,8 @@ private final class BannerCard: NSView {
         if let at = leaveAt, at < Date() { leave(after: Motion.linger) }   // its time came while it was read: a moment more, then away
     }
 
-    /// In from the right as it fades in.
+    /// In from the right as it fades in, on the weight of whatever else comes over content (`Motion.appear`): at 120 ms
+    /// it came quicker than it went and read as a flash.
     func appear() {
         alphaValue = 0
         wantsLayer = true
@@ -194,12 +195,12 @@ private final class BannerCard: NSView {
             let slide = CABasicAnimation(keyPath: "transform.translation.x")
             slide.fromValue = 16
             slide.toValue = 0
-            slide.duration = Motion.fast
+            slide.duration = Motion.appear
             slide.timingFunction = CAMediaTimingFunction(name: .easeOut)
             layer?.add(slide, forKey: "in")
         }
         NSAnimationContext.runAnimationGroup {
-            $0.duration = Motion.duration(Motion.fast)
+            $0.duration = Motion.duration(Motion.appear)
             $0.timingFunction = CAMediaTimingFunction(name: .easeOut)   // as its slide
             animator().alphaValue = 1
         }
