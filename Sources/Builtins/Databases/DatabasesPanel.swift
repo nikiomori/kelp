@@ -243,8 +243,6 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         return out
     }
 
-    static func key(_ name: String, library: Bool) -> String { (library ? "~" : "") + name }
-
     /// Whether `db` is a copy whose own database is listed with it: then it's shown under that one.
     static func nested(_ db: DatabaseInfo, among all: [DatabaseInfo]) -> Bool {
         guard let copy = db.copy else { return false }

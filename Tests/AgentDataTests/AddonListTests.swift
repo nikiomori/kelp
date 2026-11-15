@@ -59,7 +59,7 @@ private func home() throws -> (files: AddonFiles, cwd: String) {
     #expect(loaded.files == [.init(path: "/w/CLAUDE.md", type: "Project", chars: 8)])
 
     let (files, cwd) = try home()
-    let items = AddonList.build(loaded: loaded, files: files, cwd: cwd, kelp: [])
+    let items = AddonList.list(loaded: loaded, files: files, cwd: cwd, kelp: []).items
     func item(_ id: String) throws -> Addon { try #require(items.first { $0.id == id }) }
     let perf = try item("skill:web-perf")
     #expect(perf.source == .yours && perf.origin == "~/.agents/skills" && perf.loaded == true)
@@ -83,7 +83,7 @@ private func home() throws -> (files: AddonFiles, cwd: String) {
 
 @Test func withoutAChatTheFilesSay() throws {
     let (files, cwd) = try home()
-    let items = AddonList.build(loaded: nil, files: files, cwd: cwd, kelp: ["kelp-vm"])
+    let items = AddonList.list(loaded: nil, files: files, cwd: cwd, kelp: ["kelp-vm"]).items
     #expect(items.allSatisfy { $0.loaded == nil })
     #expect(
         items.map(\.id).sorted() == [
@@ -138,7 +138,7 @@ private func home() throws -> (files: AddonFiles, cwd: String) {
 /// A row says which file to open, and an error is short on the row and whole beside it.
 @Test func rowsNameTheirFilesAndShortenErrors() throws {
     let (files, cwd) = try home()
-    let items = AddonList.build(loaded: nil, files: files, cwd: cwd, kelp: [])
+    let items = AddonList.list(loaded: nil, files: files, cwd: cwd, kelp: []).items
     #expect(items.first { $0.id == "skill:web-perf" }?.path?.hasSuffix(".agents/skills/web-perf/SKILL.md") == true)
     #expect(items.first { $0.id == "server:pencil" }?.path?.hasSuffix(".claude.json") == true)
     #expect(items.first { $0.id == "instructions:AGENTS.md" }?.path == cwd + "/AGENTS.md")

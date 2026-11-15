@@ -59,7 +59,7 @@ private func put(_ text: String, _ url: URL) throws {
     let memory = ClaudeHistory.folder(cwd: project.path, root: claude.appendingPathComponent("projects"))
     try put("- [A](a.md) — hook\n", memory.appendingPathComponent("memory/MEMORY.md"))
     let files = AddonFiles(home: root, claude: claude)
-    let items = AddonList.build(loaded: nil, files: files, cwd: project.path, kelp: [])
+    let items = AddonList.list(loaded: nil, files: files, cwd: project.path, kelp: []).items
         .filter { $0.kind == .instructions }
     #expect(items.map(\.name).sorted() == ["AGENTS.md", "MEMORY.md"])
     let agents = try #require(items.first { $0.name == "AGENTS.md" })

@@ -109,16 +109,6 @@ enum DatabaseLook {
         return chip
     }
 
-    /// What agents may do, in a word for a chip.
-    static func access(_ db: DatabaseInfo) -> String {
-        switch db.agentAccess {
-        case .hidden: String(localized: "hidden")
-        case .read: String(localized: "read")
-        case .ask: String(localized: "ask")
-        case .free: String(localized: "free")
-        }
-    }
-
     /// What agents may do, as the panel's icon: not see it, read it, ask to change it, change it.
     static func accessSymbol(_ access: DatabaseInfo.Access) -> String {
         switch access {

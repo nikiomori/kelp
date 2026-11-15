@@ -94,13 +94,6 @@ enum ResultText {
                 + row.map { engine.literal($0) }.joined(separator: ", ") + ");"
         }.joined(separator: "\n")
     }
-
-    /// A WHERE condition for a cell's value: "status = 'pending'", "note IS NULL".
-    static func condition(_ column: String, _ value: String?, equal: Bool, engine: DatabaseInfo.Engine) -> String {
-        let name = DatabaseEdits.name(column, engine)
-        guard let value else { return name + (equal ? " IS NULL" : " IS NOT NULL") }
-        return name + (equal ? " = " : " <> ") + engine.literal(value)
-    }
 }
 
 extension ResultGrid: NSMenuDelegate {

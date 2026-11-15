@@ -88,7 +88,7 @@ extension AddonsPanel {
         guard let workspace = app.workbench.workspaceId else { return }
         let project = projectName
         Task { [weak self, app] in
-            guard let typed = await AddonSkillForm(new: true, project: project).ask() else { return }
+            guard let typed = await AddonSkillForm(project: project).ask() else { return }
             let made = await app.call(AddonsInstall(worktreeId: workspace, name: typed.text, project: typed.project))
             self?.reload()
             if let first = made?.first { self?.open(first) }

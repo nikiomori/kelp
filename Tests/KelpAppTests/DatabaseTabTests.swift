@@ -78,8 +78,6 @@ import Testing
     let json = ResultText.json(columns, rows)
     #expect(json.contains(#""id" : 1"#) && json.contains(#""note" : null"#) && json.contains(#""k" : 1"#))
     #expect(ResultText.insert(["id"], [["1"]], table: "t", engine: .sqlite) == #"INSERT INTO "t" ("id") VALUES ('1');"#)
-    #expect(ResultText.condition("note", nil, equal: true, engine: .postgres) == #""note" IS NULL"#)
-    #expect(ResultText.condition("s", "it's", equal: false, engine: .mysql) == "`s` <> 'it''s'")
 }
 
 /// Number columns stand right, found by their type ("interval" starts with "int", "point" ends with it: neither is

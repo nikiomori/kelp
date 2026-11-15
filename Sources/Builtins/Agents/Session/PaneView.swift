@@ -356,9 +356,6 @@ final class PaneView: NSView {
         return nil
     }
 
-    /// What's on screen (tests, "copy context" fallback).
-    var visibleText: String { ghostty?.visibleText ?? "" }
-
     /// Text dropped or dictated into the prompt.
     func insert(_ text: String) { ghostty?.insert(text) }
 

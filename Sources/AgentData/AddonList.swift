@@ -7,17 +7,11 @@ public enum AddonList {
     /// The agents in the order rows show them: the one most chats run first.
     static let order = ["claude", "codex", "cursor", "pi", "copilot", "kimi", "opencode", "grok"]
 
-    /// `loaded`: a Claude Code chat's record, nil without one. `kelp`: the names of Kelp's own skills on disk.
-    /// `kept`: the servers in Kelp's own file, which it hands to Claude Code and Codex.
-    public static func build(
-        loaded: ClaudeLoaded?, files: AddonFiles, cwd: String, kelp: [String], kept: [String] = []
-    ) -> [Addon] {
-        list(loaded: loaded, files: files, cwd: cwd, kelp: kelp, kept: kept).items
-    }
-
-    /// `build`, and what the chat's record names that isn't there any more (`gone`): the record is from the chat's
+    /// The rows, and what the chat's record names that isn't there any more (`gone`): the record is from the chat's
     /// start, and for what lives in files (the person's skills, the project's, their servers) the files are what's true
-    /// now. `builtIn`: the skills Claude Code brings itself, when known (`ClaudeBuiltIns`).
+    /// now. `loaded`: a Claude Code chat's record, nil without one. `kelp`: the names of Kelp's own skills on disk.
+    /// `kept`: the servers in Kelp's own file, which it hands to Claude Code and Codex. `builtIn`: the skills Claude
+    /// Code brings itself, when known (`ClaudeBuiltIns`).
     public static func list(
         loaded: ClaudeLoaded?, files: AddonFiles, cwd: String, kelp: [String], kept: [String] = [],
         builtIn: Set<String>? = nil, kelpHome: URL? = nil
