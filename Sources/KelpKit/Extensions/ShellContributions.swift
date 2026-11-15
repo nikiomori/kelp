@@ -81,8 +81,11 @@ package struct FolderCI {
     package let open: @MainActor (_ folder: String) -> Void
     /// The branch chip's menu for the workspace on screen: Create Pull Request while its branch has none, the CI items.
     let menu: @MainActor (_ menu: NSMenu, _ worktree: String?) -> Void
-    /// The branch's pull request beside the folder: "#12" in its state's colour, what it says, and its page.
-    let pr: @MainActor (_ folder: String) -> (title: NSAttributedString, tip: String, url: String)?
+    /// The branch's pull request beside the folder: "#12" in its state's colour, what it says, the tab a click opens.
+    let pr: @MainActor (_ folder: String) -> (title: NSAttributedString, tip: String, uri: String)?
+    /// A CI mark in the built-in's look (12 pt), for a row, the branch chip or a tile: the view, and what shows a
+    /// state in it (`spelled`: the row is under the pointer), answering how much wider than 12 pt it then is.
+    package let mark: @MainActor () -> (view: NSView, show: @MainActor (CIRuns.State?, _ spelled: Bool) -> CGFloat)
     /// The pull request in full, in the folder's hover card (nil: none).
     let card: @MainActor (_ folder: String) -> AnyView?
     /// The folder whose hover card is open, nil once it closes: its pull request is read meanwhile.
@@ -94,7 +97,8 @@ package struct FolderCI {
         line: @escaping @MainActor (String) -> String?,
         open: @escaping @MainActor (String) -> Void,
         menu: @escaping @MainActor (NSMenu, String?) -> Void,
-        pr: @escaping @MainActor (String) -> (title: NSAttributedString, tip: String, url: String)?,
+        pr: @escaping @MainActor (String) -> (title: NSAttributedString, tip: String, uri: String)?,
+        mark: @escaping @MainActor () -> (view: NSView, show: @MainActor (CIRuns.State?, Bool) -> CGFloat),
         card: @escaping @MainActor (String) -> AnyView?,
         carded: @escaping @MainActor (String?) -> Void
     ) {
@@ -105,6 +109,7 @@ package struct FolderCI {
         self.open = open
         self.menu = menu
         self.pr = pr
+        self.mark = mark
         self.card = card
         self.carded = carded
     }

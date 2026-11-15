@@ -30,13 +30,6 @@ package enum CIRunLook {
         return view
     }
 
-    /// A branch's CI as the sidebar marks it, 12 pt (`CIMark`), for a place outside the window: the Dock strip's tiles.
-    package static func mark(_ state: CIRuns.State) -> NSView {
-        let mark = CIMark()
-        mark.state = state
-        return mark
-    }
-
     package static func words(_ status: String, _ conclusion: String?) -> String {
         switch (status, conclusion) {
         case ("completed", "success"?): String(localized: "Succeeded")
@@ -57,65 +50,46 @@ package enum CIRunLook {
     }
 }
 
-/// A branch's CI in one mark, drawn as agents' states are: the spinning ring while it runs, the orange ◎ while a deploy waits
-/// for someone's approval, the quiet filled ✓ when it passed and you haven't looked, and a red dot when it failed (CI Runs'
-/// filled ✕ was the loudest thing in the sidebar and read as a window's close button); `spelled`, it says "CI" instead.
-/// It sits over a chip's or badge's image slot and lets the click through to it.
+/// The CI built-in's mark (`FolderCI.mark`) where the shell shows one: a sidebar row, the branch chip. Made once a
+/// state is there to show, so a built-in switched on later still marks a row or chip made before.
 @MainActor
-final class CIMark: NSView {
-    private let agentLike = StatusMark(size: 12), word = NSTextField(labelWithString: "CI")
-    var state: CIRuns.State? { didSet { if state != oldValue { update() } } }
-    /// Under the pointer (a sidebar row): a failure says "CI" where its dot was, as the changes dot shows its counts.
-    var spelled = false { didSet { if spelled != oldValue { update() } } }
+final class CIMarkSlot {
+    /// Where the mark sits, 12 pt; clicks go through it to the chip or badge it's on.
+    let view: NSView = PassThrough()
+    private let app: AppModel
+    private var mark: (view: NSView, show: @MainActor (CIRuns.State?, Bool) -> CGFloat)?
+    var state: CIRuns.State? { didSet { if state != oldValue { refresh() } } }
+    /// Under the pointer (a sidebar row): a failure says "CI" where its dot was.
+    var spelled = false { didSet { if spelled != oldValue { refresh() } } }
+    /// How much wider than its 12 pt the mark is now: the room a row must keep for it.
+    private(set) var overhang: CGFloat = 0
 
-    init() {
-        super.init(frame: .zero)
-        translatesAutoresizingMaskIntoConstraints = false
-        agentLike.announces = false   // its words are an agent's; the chip or badge says the CI's
-        word.font = .ui(TextSize.caption, weight: .semibold)
-        word.textColor = .textRed
-        for part in [agentLike, word] as [NSView] {
-            part.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(part)
+    init(_ app: AppModel) {
+        self.app = app
+        view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            view.widthAnchor.constraint(equalToConstant: 12), view.heightAnchor.constraint(equalToConstant: 12)
+        ])
+    }
+
+    private func refresh() {
+        if mark == nil, state != nil, let made = app.extensions.all.ci?.mark() {
+            mark = made
+            view.addSubview(made.view)
             NSLayoutConstraint.activate([
-                part.centerXAnchor.constraint(equalTo: centerXAnchor),
-                part.centerYAnchor.constraint(equalTo: centerYAnchor)
+                made.view.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                made.view.centerYAnchor.constraint(equalTo: view.centerYAnchor)
             ])
         }
-        NSLayoutConstraint.activate([
-            widthAnchor.constraint(equalToConstant: 12), heightAnchor.constraint(equalToConstant: 12)
-        ])
-        update()
-    }
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-
-    /// How much wider than its 12 pt the mark is while it says "CI": the room a row must keep for it.
-    var overhang: CGFloat { spelled && state == .failed ? max(0, ceil(word.intrinsicContentSize.width) - 12) : 0 }
-
-    private func update() {
-        isHidden = state == nil
-        word.isHidden = state != .failed || !spelled
-        needsDisplay = true
-        agentLike.status =
-            switch state {
-            case .running: .working
-            case .waiting: .waiting
-            case .passed: .done
-            case .failed, nil: nil
-            }
-    }
-
-    /// The failure's dot, 6 pt in the mark's 12: drawn here, so it follows the appearance as text colours do.
-    override func draw(_ dirtyRect: NSRect) {
-        guard state == .failed, !spelled else { return }
-        NSColor.textRed.setFill()
-        NSBezierPath(ovalIn: bounds.insetBy(dx: bounds.width / 4, dy: bounds.height / 4)).fill()
+        overhang = mark?.show(state, spelled) ?? 0
     }
 
     /// An empty image: holds the mark's place in a button's title or image slot.
     static func room(_ side: CGFloat) -> NSImage {
         NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in true }
+    }
+
+    private final class PassThrough: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
     }
 }

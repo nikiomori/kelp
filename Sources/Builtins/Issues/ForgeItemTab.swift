@@ -30,7 +30,9 @@ final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
 
     var icon: NSImage? { .symbol(kind == .pr ? "arrow.triangle.pull" : "smallcircle.filled.circle") }
 
-    static func uri(_ kind: Kind, repoId: String, number: Int) -> String { "\(kind.rawValue):\(repoId)/\(number)" }
+    static func uri(_ kind: Kind, repoId: String, number: Int) -> String {
+        kind == .pr ? TabURI.pullRequest(repo: repoId, number: number) : "issue:\(repoId)/\(number)"
+    }
     static func parse(_ uri: String) -> (kind: Kind, repoId: String, number: Int)? {
         guard let colon = uri.firstIndex(of: ":"), let kind = Kind(rawValue: String(uri[..<colon])) else { return nil }
         let rest = uri[uri.index(after: colon)...]

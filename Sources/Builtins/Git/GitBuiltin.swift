@@ -134,6 +134,7 @@ extension Builtins {
                 open: { RowMarks.of(app).openCI($0) },
                 menu: { RowMarks.of(app).menuItems($0, worktree: $1) },
                 pr: { PullRequests.mark($0, app) },
+                mark: CIMark.made,
                 card: { PullRequests.card($0, app) },
                 carded: { RowMarks.of(app).carded = $0 })
         )

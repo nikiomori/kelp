@@ -143,13 +143,14 @@ extension QuickOpen {
         return out
     }
 
-    /// "#123" or "#login": the project's open pull requests (gh), opened in the browser tab. Asked once per opening
-    /// (each keystroke would run `gh` again, and say again that it's missing); what's typed filters them here.
+    /// "#123" or "#login": the project's open pull requests (gh), each opened in its own tab as the Issues panel opens
+    /// it. Asked once per opening (each keystroke would run `gh` again, and say again that it's missing); what's typed
+    /// filters them here.
     func searchPullRequests(_ q: String) {
         let app = self.app
         guard let repo = app.worktree(app.workbench.workspaceId)?.repoId else { return }
         if let pullRequests, pullRequests.repo == repo {   // asked: shown now, or once they come
-            if let list = pullRequests.list { showPullRequests(list, q) }
+            if let list = pullRequests.list { showPullRequests(list, q, repo: repo) }
             return
         }
         prSearch?.cancel()
@@ -159,11 +160,11 @@ extension QuickOpen {
             guard let self, !Task.isCancelled, pullRequests?.repo == repo else { return }
             pullRequests = (repo, prs)
             let typed = field.stringValue
-            if typed.hasPrefix("#") { showPullRequests(prs, typed) }   // what's typed by now
+            if typed.hasPrefix("#") { showPullRequests(prs, typed, repo: repo) }   // what's typed by now
         }
     }
 
-    private func showPullRequests(_ prs: [GitHub.PullRequest], _ q: String) {
+    private func showPullRequests(_ prs: [GitHub.PullRequest], _ q: String, repo: String) {
         let app = self.app, term = String(q.dropFirst()).lowercased()
         setRows(
             prs.filter { pr in
@@ -172,7 +173,8 @@ extension QuickOpen {
             .map { pr in
                 Item(
                     kind: "Pull Request", icon: "arrow.triangle.pull", title: "#\(pr.number) \(pr.title)",
-                    detail: "\(pr.author) · \(pr.headRefName)", action: { app.workbench.open(pr.url) })
+                    detail: "\(pr.author) · \(pr.headRefName)",
+                    action: { app.workbench.open(TabURI.pullRequest(repo: repo, number: pr.number)) })
             }, grouped: false)
     }
 

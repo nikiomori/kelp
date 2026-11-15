@@ -50,10 +50,9 @@ struct SwitcherRow {
         if let said { row.detail = Self.detail(prefix: said.prefix, said.text, badges: badges) }
         row.icon.image = .symbol("folder")
         if let project = app.repo(worktree.repoId) { ProjectIcon.show(project.path, in: row.icon, app: app) }
-        if let state = folder.flatMap({ app.extensions.all.ci?.row($0.id) }) {
-            let ci = CIMark()
-            ci.state = state
-            row.ci = ci
+        if let state = folder.flatMap({ app.extensions.all.ci?.row($0.id) }), let ci = app.extensions.all.ci?.mark() {
+            _ = ci.show(state, false)
+            row.ci = ci.view
         }
         row.spoken = [title] + place + [said.map { (($0.prefix?.0).map { $0 + " " } ?? "") + $0.text } ?? "", row.when]
         return row

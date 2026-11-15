@@ -4,6 +4,7 @@ import TestSupport
 import Testing
 
 @testable import BuiltinAgents
+@testable import BuiltinGit
 @testable import KelpKit
 
 private let places: [(id: String, name: String, repo: String?)] = [
@@ -305,6 +306,7 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
 /// A tile shows its branch's CI in a corner of its own and says it; with none, there's no mark.
 @MainActor @Test func aTileShowsItsBranchesCI() async throws {
     let rig = try await AppRig()
+    rig.app.extensions.reload()   // the mark is Git's (`FolderCI.mark`)
     var item = StripItem(workspace: "w", name: "kelp", cell: .working, session: "s", since: Date())
     item.ci = StripCI(state: .failed, line: "CI: Failed · Tests", folder: "w")
     let tile = StripButton()

@@ -3,18 +3,25 @@ import Core
 import DesignKit
 import KelpKit
 import SwiftUI
+import WorkbenchKit
 
 /// A branch's pull request as Git marks it: "#12" beside its folder and on the window bar (`FolderCI.pr`), in full in
 /// the folder's hover card, and Create Pull Request where the branch has none.
 enum PullRequests {
     /// "#12" in the PR's state colour, and what it says; its checks are the folder's CI mark, the tooltip counts them.
-    /// Nothing while Settings › Appearance › Changes and pull requests is off.
+    /// Nothing while Settings › Appearance › Changes and pull requests is off. A click opens the PR's own tab.
     @MainActor static func mark(_ folder: String, _ app: AppModel) -> (
-        title: NSAttributedString, tip: String, url: String
+        title: NSAttributedString, tip: String, uri: String
     )? {
         guard app.settings[SettingKeys.gitBadges], let pr = app.latest(PREvent.self, folder)?.pr else { return nil }
         let (title, tip) = badge(pr)
-        return (title, tip, pr.url)
+        return (title, tip, uri(folder, number: pr.number, page: pr.url, app))
+    }
+
+    /// The PR's own tab (Issues'), as the Issues panel opens it; its page only while the folder's project isn't known.
+    @MainActor static func uri(_ folder: String, number: Int?, page: String, _ app: AppModel) -> String {
+        guard let repo = app.worktree(folder)?.repoId, let number else { return page }
+        return TabURI.pullRequest(repo: repo, number: number)
     }
 
     @MainActor static func badge(_ pr: GitHub.PullRequest) -> (NSAttributedString, String) {
@@ -103,7 +110,10 @@ struct PRActions {
             Banner.show(
                 url.isEmpty
                     ? String(localized: "Pull request created") : String(localized: "Pull request created: \(url)"))
-            if let link = URL(string: url), !url.isEmpty { app.workbench.open(link.absoluteString) }
+            if let link = URL(string: url), !url.isEmpty {   // ".../pull/12"
+                let number = Int(link.lastPathComponent)
+                app.workbench.open(PullRequests.uri(wid, number: number, page: link.absoluteString, app))
+            }
         }
     }
 }

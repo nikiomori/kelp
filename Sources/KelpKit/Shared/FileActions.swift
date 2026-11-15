@@ -86,7 +86,7 @@ package struct GitFix {
     }
 
     /// The recipe typed into the session, not sent: other people's text (errors, CI logs, review comments) waits for Return.
-    package func type(_ recipe: String, worktree wid: String, vars: [String: String], into sid: String) async -> Bool {
+    func type(_ recipe: String, worktree wid: String, vars: [String: String], into sid: String) async -> Bool {
         guard let text = await app.call(RecipeRender(id: wid, name: recipe, vars: vars)) else { return false }
         await app.call(SessionSend(id: sid, text: text, enter: false))
         return true

@@ -20,5 +20,5 @@ class SheetController: NSWindowController {
         return true
     }
 
-    package override func close() { if let window { window.sheetParent?.endSheet(window) } }
+    override func close() { if let window { window.sheetParent?.endSheet(window) } }
 }

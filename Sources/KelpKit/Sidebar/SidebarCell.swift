@@ -98,7 +98,7 @@ final class SidebarCell: NSTableCellView {
     /// room, the CI mark last.
     let changes = PointerButton(frame: .zero), pr = PointerButton(frame: .zero),
         ci = PointerButton(frame: .zero)
-    let ciMark = CIMark()
+    let ciMark: CIMarkSlot
     var hasBadge = (changes: false, pr: false, ci: false)
     /// "+610 −23", shown in place of the dot while the pointer is on the row.
     var counts: NSAttributedString?
@@ -109,6 +109,7 @@ final class SidebarCell: NSTableCellView {
         self.node = node
         self.owner = owner
         app = owner.app
+        ciMark = CIMarkSlot(owner.app)
         super.init(frame: .zero)
         title.lineBreakMode = .byTruncatingTail
         trailing.font = .uiDigits(TextSize.caption, weight: .regular)
@@ -174,12 +175,12 @@ final class SidebarCell: NSTableCellView {
         changes.action = #selector(openChanges)
         pr.action = #selector(openPR)
         ci.action = #selector(openCI)
-        ci.image = CIMark.room(12)
+        ci.image = CIMarkSlot.room(12)
         ci.imagePosition = .imageOnly
-        ci.addSubview(ciMark)
+        ci.addSubview(ciMark.view)
         NSLayoutConstraint.activate([
-            ciMark.centerXAnchor.constraint(equalTo: ci.centerXAnchor),
-            ciMark.centerYAnchor.constraint(equalTo: ci.centerYAnchor)
+            ciMark.view.centerXAnchor.constraint(equalTo: ci.centerXAnchor),
+            ciMark.view.centerYAnchor.constraint(equalTo: ci.centerYAnchor)
         ])
     }
     required init?(coder: NSCoder) { fatalError() }

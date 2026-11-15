@@ -114,8 +114,8 @@ extension SidebarCell {
         if let folder { app.workbench.open(TabURI.diff(folder.id), workspace: folder.id) }
     }
     @objc func openPR() {
-        if let folder, let url = app.extensions.all.ci?.pr(folder.id)?.url {
-            app.workbench.open(url, workspace: folder.id)
+        if let folder, let uri = app.extensions.all.ci?.pr(folder.id)?.uri {
+            app.workbench.open(uri, workspace: folder.id)
         }
     }
     @objc func openCI() { if let folder { app.extensions.all.ci?.open(folder.id) } }

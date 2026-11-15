@@ -23,6 +23,9 @@ public enum TabURI {
     public static func isPage(_ uri: String) -> Bool {
         ["http", "https", "about", "preview", agentScheme].contains(scheme(uri))
     }
+    /// A pull request in Kelp's own tab (Issues'), wherever it's opened from: the Issues panel, a row's or the window
+    /// bar's PR mark, Quick Open's "#". `repo` is the project's id.
+    public static func pullRequest(repo: String, number: Int) -> String { "pr:\(repo)/\(number)" }
     /// What a subagent of `session` did: a journal, it has no terminal.
     public static func subagent(session: String, id: String) -> String { "subagent:\(session)/\(id)" }
     public static func file(_ path: String, line: Int? = nil) -> String {

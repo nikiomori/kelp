@@ -89,7 +89,7 @@ extension WindowBar {
     @objc func toggleSideBySide() { app.extensions.command("agents.sideBySide")?.run([:]) }
 
     @objc func openPR() {
-        guard let url = prMark?.url else { return }
-        app.workbench.open(url, workspace: worktree?.id)
+        guard let uri = prMark?.uri else { return }
+        app.workbench.open(uri, workspace: worktree?.id)
     }
 }

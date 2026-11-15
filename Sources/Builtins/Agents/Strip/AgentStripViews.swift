@@ -225,7 +225,7 @@ final class StripButton: PointerControl {
         // Every state has its mark in the tile's bite; working's is the spinning arc, so a strip of agents at work reads as
         // work going on, not as a row of Dock icons.
         mark.status = status
-        if ciState != item.ci?.state { show(ci: item.ci?.state) }
+        if ciState != item.ci?.state { show(ci: item.ci?.state, app: app) }
         label.isHidden = !open
         trailing?.isActive = false
         trailing = trailingAnchor.constraint(
@@ -242,10 +242,17 @@ final class StripButton: PointerControl {
             [item.name, status.words, open ? item.words : nil, item.ci?.line].compactMap { $0 }.joined(separator: ", "))
     }
 
-    private func show(ci state: CIRuns.State?) {
+    /// The branch's CI as the sidebar marks it, 12 pt, from the built-in that has CI (`FolderCI.mark`).
+    private func show(ci state: CIRuns.State?, app: AppModel) {
         ciState = state
         ciMark?.removeFromSuperview()
-        ciMark = state.map(CIRunLook.mark)
+        ciMark = state.flatMap { state in
+            app.extensions.all.ci.map { ci in
+                let mark = ci.mark()
+                _ = mark.show(state, false)
+                return mark.view
+            }
+        }
         notch(ci: state != nil)
         guard let ciMark else { return }
         addSubview(ciMark)

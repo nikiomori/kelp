@@ -142,8 +142,8 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +1, nothing new: `focusedTab` is computed from the layout now, and its `package internal(set)` wasn't counted.
     // +5: the Dock strip's card types the quick replies the row card and the banner do (`QuickReply`, Continue, `fits`).
     // +1: its tile mutes a chat as the chat's row does (`Mutes.mute`).
-    // +4: its tile shows a workspace's CI as the sidebar's row does (`CIRunLook.mark`, `FolderCI`'s `row`, `line`,
-    // `open`).
+    // +4: its tile shows a workspace's CI as the sidebar's row does (`FolderCI`'s `mark`, `row`, `line`, `open`): the
+    // mark is Git's to draw (`CIMark`), the shell only places it.
     // +1: the browser's pointer wears the agent's colour, as its tile in the catalog does (`AgentCatalog.color`).
     // +5: the Databases panel colours a database and a group as the sidebar does a project (`ProjectColor`, its `color`,
     // `read`, `value`, and the menu's Color row `addColor`).
@@ -157,8 +157,8 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // workspaces sharing a folder share one watch.
     // +2: what an agent edited is pushed as the commands are (`EditsEvent`'s `key`, `forgottenWith`).
     // +1: a session a built-in starts other than by `starter` is asked at its terminal's size too (`sized`).
-    #expect(declared <= 350, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 350, "fewer now (\(declared)): lower the ceiling")
+    // 350 → 347: three no built-in reached (BranchChip's `init(frame:)`, GitFix's `type`, a sheet's `close`).
+    #expect(declared == 347, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

@@ -7,7 +7,7 @@ import DesignKit
 /// under the pointer.
 @MainActor
 package final class BranchChip: PointerButton {
-    override package init(frame: NSRect) {
+    override init(frame: NSRect) {
         super.init(frame: frame)
         padding = Metrics.gap
         imagePosition = .imageLeading

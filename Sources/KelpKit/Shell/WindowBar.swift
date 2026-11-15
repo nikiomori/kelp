@@ -40,17 +40,17 @@ final class WindowBar: NSView {
     /// The folder the sidebar keeps the pull request and CI for: a workspace shares its project's.
     private var badgeFolder: Worktree? { app.gitFolder(of: app.workbench.workspaceId) }
     /// The branch's CI on the chip (Settings › Appearance › CI): in place of the branch glyph, after the counts, or not at all.
-    private let ciMark = CIMark()
+    private let ciMark: CIMarkSlot
     /// Centred on the glyph's slot (the chip's padding, then 13 pt) or on the room left at the title's end (12 pt).
-    private lazy var ciAtStart = ciMark.centerXAnchor.constraint(
+    private lazy var ciAtStart = ciMark.view.centerXAnchor.constraint(
         equalTo: branch.leadingAnchor, constant: Self.chipPadding + 13 / 2)
-    private lazy var ciAtEnd = ciMark.centerXAnchor.constraint(
+    private lazy var ciAtEnd = ciMark.view.centerXAnchor.constraint(
         equalTo: branch.trailingAnchor, constant: -(Self.chipPadding + 12 / 2))
     private static let chipPadding: CGFloat = 6
     /// The mark and its place, from the built-in that has CI (`FolderCI`); none, and the chip shows no CI.
     private var ci: (state: CIRuns.State, atEnd: Bool)? { badgeFolder.flatMap { app.extensions.all.ci?.chip($0.id) } }
     /// The branch's pull request, from the built-in that has them (`FolderCI`); none, and no PR chip.
-    var prMark: (title: NSAttributedString, tip: String, url: String)? {
+    var prMark: (title: NSAttributedString, tip: String, uri: String)? {
         badgeFolder.flatMap { app.extensions.all.ci?.pr($0.id) }
     }
     /// "CI: Failed · Tests" for the tooltip and VoiceOver, whatever the chip shows.
@@ -58,6 +58,7 @@ final class WindowBar: NSView {
 
     init(app: AppModel) {
         self.app = app
+        ciMark = CIMarkSlot(app)
         search = SearchPill(app: app)
         super.init(frame: .zero)
         name.lineBreakMode = .byTruncatingTail
@@ -69,8 +70,8 @@ final class WindowBar: NSView {
         folder.toolTip = String(localized: "Open In, Reveal in Finder, Copy Path")
         branch.target = self
         branch.action = #selector(branchClicked)
-        branch.addSubview(ciMark)
-        ciMark.centerYAnchor.constraint(equalTo: branch.centerYAnchor).isActive = true
+        branch.addSubview(ciMark.view)
+        ciMark.view.centerYAnchor.constraint(equalTo: branch.centerYAnchor).isActive = true
         pr.target = self
         pr.action = #selector(openPR)
         for chip in [branch, back, forward] {
@@ -320,7 +321,7 @@ final class WindowBar: NSView {
             inPlace = ci != nil && !atEnd && running == nil
         if atEnd {
             let room = NSTextAttachment()
-            room.image = CIMark.room(12)
+            room.image = CIMarkSlot.room(12)
             title.append(NSAttributedString(string: " "))
             title.append(NSAttributedString(attachment: room))
         }
@@ -339,7 +340,7 @@ final class WindowBar: NSView {
             running != nil
             ? .symbol("arrow.triangle.2.circlepath", running ?? "")
             : inPlace
-                ? CIMark.room(13)
+                ? CIMarkSlot.room(13)
                 : Glyph.image("arrow.triangle.branch", size: 13) ?? .symbol("arrow.triangle.branch", "")
         let branchWords = String(localized: "Branch \(info.current ?? "HEAD"), \(behind) to pull, \(ahead) to push")
         branch.setAccessibilityLabel(running ?? ([branchWords] + [said].compactMap { $0 }).joined(separator: ", "))
