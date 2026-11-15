@@ -27,7 +27,9 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
 
     let uri: String
     let view = NSView()
-    var title: String { Self.title(address) }
+    /// What the strip calls the tab: it follows what's shown (`DatabaseTabName`).
+    let name: DatabaseTabName
+    var title: String { name.title }
     static func title(_ address: DatabaseURI) -> String {
         address.table.map { "\($0) · \(address.name)" } ?? address.name
     }
@@ -57,6 +59,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         action: nil)
     let sqlText = NSTextField(wrappingLabelWithString: "")
     lazy var editor = CodeEditor(text: "", url: URL(fileURLWithPath: "/query.sql"))
+    /// What's typed there is kept for the database once typing pauses (`keepDraft`).
+    let draft = Debounce()
     let status = NSTextField(labelWithString: "")
     let changes = NSTextField(labelWithString: "")
     let askBar = NSStackView()
@@ -115,6 +119,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         self.app = app
         address = DatabaseURI(uri) ?? DatabaseURI(worktree: "", name: "")
         mode = address.run.map(Mode.run) ?? .query
+        name = DatabaseTabName(Self.title(address))
         sidebar = DatabaseSidebar(app: app)
         super.init()
         build()
@@ -149,6 +154,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     }
 
     func close() async -> Bool {
+        keepDraft()
         guard isEdited else { return true }
         return await confirm(
             String(localized: "Save the changes to \(address.name)?"),
@@ -167,17 +173,17 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         sqlText.lineBreakMode = .byTruncatingTail
         let sqlBox = NSStackView(views: [sqlText])
         sqlBox.edgeInsets = NSEdgeInsets(top: 6, left: Metrics.inset, bottom: 6, right: Metrics.inset)
-        buildEditor()
+        let rows = buildEditor()   // the query's editor over the rows
         buildAskBar()
         let foot = footBar()
-        let center = NSStackView(views: [askBar, top, filters.view, sqlBox, editor.view, grid.scroll, foot])
+        let center = NSStackView(views: [askBar, top, filters.view, sqlBox, rows, foot])
         center.orientation = .vertical
         center.spacing = 0
         center.detachesHiddenViews = true
-        for v in [askBar, top, filters.view, sqlBox, editor.view, grid.scroll, foot] {
+        for v in [askBar, top, filters.view, sqlBox, rows, foot] {
             v.widthAnchor.constraint(equalTo: center.widthAnchor).isActive = true
         }
-        grid.scroll.setContentHuggingPriority(.defaultLow, for: .vertical)
+        rows.setContentHuggingPriority(.defaultLow, for: .vertical)
         // The list and the details keep their width as the window changes; the rows take the rest. The list's width is
         // the user's to drag, kept per Mac. The details stay closed until a row is picked.
         whole.isVertical = true
@@ -196,7 +202,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         view.pin(whole)
         gate.place(in: view)
         loading.place(in: view)
-        empty.place(in: grid.scroll)
+        empty.place(in: grid.area)   // over the scroll view, not in it: there the rows' ground covers it
         arrange()
     }
 
@@ -320,52 +326,10 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         saveQuery.isHidden = mode != .query
         sqlText.superview?.isHidden = !mode.isRun
         editor.view.isHidden = mode != .query
+        // Until something is picked, the tab is named by its address (a query isn't what it opens on)
+        name.title = mode == .query && !chosen ? Self.title(address) : Self.title(address.name, showing: mode)
         capsuleChanged()
         footChanged()
-    }
-
-    // MARK: The capsule
-
-    var database: DatabaseInfo? {
-        let event = app.latest(DatabasesEvent.self, address.worktree)
-        return (event?.databases ?? []).first { $0.name == address.name }
-            ?? (event?.library ?? []).first { $0.name == address.name }
-    }
-    var engine: DatabaseInfo.Engine { database?.engine ?? .sqlite }
-
-    func capsuleChanged() {
-        let db = database
-        let place: String? =
-            switch mode {
-            case .table(let table): table
-            case .run: String(localized: "an agent’s run")
-            case .query: String(localized: "Query")
-            }
-        let parts = [
-            version ?? db.map { $0.engine.displayName },
-            db?.database ?? db?.path.map { ($0 as NSString).lastPathComponent } ?? address.name,
-            db?.ssh.map { String(localized: "via \($0)") }, place
-        ]
-        capsule.stringValue = parts.compactMap { $0 }.joined(separator: " · ")
-        // The environment as the databases list shows it, a tag; the rest quiet. A whole red line read as an error.
-        capsuleBox.setViews([db.flatMap(DatabaseLook.stageChip), capsule, NSView()].compactMap { $0 }, in: .leading)
-    }
-
-    private func askVersion() async {
-        guard let db = database else { return }
-        let check = await app.quiet(
-            DatabaseCheck(worktreeId: address.worktree, database: db, versionOnly: true), timeout: 30)
-        version = check?.version
-        capsuleChanged()
-    }
-
-    private func capsuleClicked() {
-        guard let db = database else { return }
-        let menu = NSMenu()
-        let library =
-            app.latest(DatabasesEvent.self, address.worktree)?.library?.contains { $0.name == db.name } ?? false
-        DatabaseMenu.fill(menu, db, app: app, worktreeId: address.worktree, library: library)
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: capsuleBox.bounds.height + 4), in: capsuleBox)
     }
 
     // MARK: Loading

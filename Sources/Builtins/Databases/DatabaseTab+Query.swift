@@ -5,13 +5,29 @@ import EditorKit
 import KelpKit
 
 /// A query of the user's own, in Kelp's editor: SQL colours, the database's tables and columns offered as words are
-/// typed, ⌘↩ runs the statement the cursor is in (one at a time, as an agent's), Explain shows the plan.
+/// typed, ⌘↩ runs the statement the cursor is in (one at a time, as an agent's), Explain shows the plan. What's typed
+/// is kept for the database (`db.draft/…`): it's there when the tab is opened again.
 extension DatabaseTab {
-    func buildEditor() {
-        editor.view.heightAnchor.constraint(equalToConstant: 160).isActive = true
+    /// The editor over the rows, the line between them the user's to drag: as tall as they left it (kept per Mac, as
+    /// the tab's other split is).
+    func buildEditor() -> NSView {
         editor.completionProvider = { [weak self] line, column in
             await MainActor.run { self?.completions(line: line, column: column) ?? [] }
         }
+        editor.onChange = { [weak self] _ in self?.draft.after(0.5) { self?.keepDraft() } }
+        let rows = NSSplitView()
+        rows.isVertical = false
+        rows.dividerStyle = .thin
+        for pane in [editor.view, grid.area] { rows.addArrangedSubview(pane) }
+        rows.setHoldingPriority(.init(260), forSubviewAt: 0)
+        rows.setHoldingPriority(.init(200), forSubviewAt: 1)
+        editor.view.heightAnchor.constraint(greaterThanOrEqualToConstant: 60).isActive = true
+        grid.area.heightAnchor.constraint(greaterThanOrEqualToConstant: 80).isActive = true
+        // The split starts from its panes' frames (as the tab's own does): the editor 160 tall until it's dragged
+        editor.view.setFrameSize(NSSize(width: 800, height: 160))
+        grid.area.setFrameSize(NSSize(width: 800, height: 400))
+        rows.autosaveName = "DatabaseQuery"
+        return rows
     }
 
     /// Tables, then the columns of the tables the statement names, then SQL's own words: what starts with the word
@@ -43,9 +59,12 @@ extension DatabaseTab {
     ]
 
     func startedQuery() {
+        // A new query starts from the table just looked at; the list picks none while a query is shown
+        let from = sidebar.current ?? tables.first?.name
+        sidebar.current = nil
         arrange()
-        if editor.text.isEmpty, let first = tables.first {
-            editor.setText("SELECT * FROM " + DatabaseEdits.name(first.name, engine) + " LIMIT 100;")
+        if editor.text.isEmpty, let from {
+            editor.setText("SELECT * FROM " + DatabaseEdits.name(from, engine) + " LIMIT 100;")
         }
         grid.editable = false
         grid.source = nil
@@ -97,13 +116,19 @@ extension DatabaseTab {
 
     // MARK: Saved queries (state.get/set: "db.queries/<project>/<database>")
 
-    private var queriesKey: String {
+    private var queriesKey: String { key("queries") }
+
+    /// "db.<what>/<project>/<database>": the saved queries' and the draft's place in Kelp's state.
+    private func key(_ what: String) -> String {
         let library = app.latest(DatabasesEvent.self, address.worktree)?.library?.contains { $0.name == address.name }
         let project = library == true ? "~" : app.worktree(address.worktree)?.repoId ?? address.worktree
-        return "db.queries/\(project)/\(address.name)"
+        return "db.\(what)/\(project)/\(address.name)"
     }
 
     func loadQueries() async {
+        if case .string(let text)? = await app.quiet(StateGet(key: key("draft"))), editor.text.isEmpty {
+            editor.setText(text)   // what was typed here last
+        }
         guard let value = await app.quiet(StateGet(key: queriesKey)), case .array(let items) = value else { return }
         sidebar.saved = items.compactMap { item in
             guard case .object(let fields) = item, case .string(let name)? = fields["name"],
@@ -111,6 +136,14 @@ extension DatabaseTab {
             else { return nil }
             return DatabaseSidebar.SavedQuery(name: name, sql: sql)
         }
+    }
+
+    /// The editor's text kept for the database, once the workspace's databases are known (the key names its project).
+    func keepDraft() {
+        draft.cancel()
+        guard started else { return }
+        let key = key("draft"), text = editor.text
+        Task { [app] in _ = await app.quiet(StateSet(key: key, value: .string(text))) }
     }
 
     private func storeQueries(_ list: [DatabaseSidebar.SavedQuery]) {

@@ -4,6 +4,7 @@ import Testing
 
 @testable import BuiltinAgents
 @testable import BuiltinDatabases
+@testable import KelpKit
 
 /// Edited cells become one UPDATE a row, found by the primary key as read; NULL and quotes are written as SQL.
 @Test func editedCellsBecomeUpdatesByPrimaryKey() {
@@ -154,4 +155,21 @@ import Testing
     update.change = nil
     #expect(ChangePreview.columns(of: update).isEmpty)
     #expect(RowChange(kind: .insert, table: "\"Order Items\"").tableName == "Order Items")
+}
+
+/// A query names its tab, picks no table in the list and starts from the table that was shown. What the tab says
+/// when there are no rows sits over the rows' scroll view, not in it (there the rows' ground covers it).
+@MainActor @Test func aQueryNamesItsTabAndStartsFromTheTableShown() {
+    let tab = DatabaseTab(uri: "db:w1/shop?table=orders", app: AppModel(builtins: []))
+    #expect(tab.title == "orders · shop")
+    #expect(tab.empty.superview === tab.grid.area && tab.grid.scroll.superview === tab.grid.area)
+    tab.schema = DatabaseSchema(tables: [DatabaseSchema.Table(name: "items"), DatabaseSchema.Table(name: "orders")])
+    tab.sidebar.current = "orders"
+    tab.chosen = true
+    tab.mode = .query
+    tab.startedQuery()
+    #expect(tab.title == "Query · shop" && tab.sidebar.current == nil)
+    #expect(tab.editor.text == #"SELECT * FROM "orders" LIMIT 100;"#)
+    #expect(DatabaseTab.title("shop", showing: .table("users")) == "users · shop")
+    #expect(DatabaseTab.title("shop", showing: .run("r1")) == "shop")
 }

@@ -36,6 +36,7 @@ final class GridTable: NSTableView {
 @MainActor
 final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
     let scroll = NSScrollView()
+    let area = NSView()   // the rows' place in a tab: the scroll view fills it, an empty state goes over it
     let table = GridTable()
     private(set) var columns: [String] = []
     private(set) var rows: [[String?]] = []
@@ -88,6 +89,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         table.headerView?.menu = NSMenu()
         table.headerView?.menu?.delegate = self
         scroll.documentView = table
+        area.pin(scroll)
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
         scroll.autohidesScrollers = true

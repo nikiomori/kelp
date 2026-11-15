@@ -128,10 +128,22 @@ extension DatabaseTab {
             DatabaseQuery(worktreeId: address.worktree, database: address.name, sql: sql, limit: limit))
         if let error {
             grid.show(columns: [], rows: [])
-            empty.showError(String(localized: "\(address.name) said no"), text: error)
+            empty.showError(
+                String(localized: "\(address.name) said no"), text: error, buttons: askAbout(sql, said: error))
             status.stringValue = ""
         }
         return result
+    }
+
+    /// Under a statement the database refused: Ask <agent>, which puts the statement and what the database said in
+    /// the agent's prompt. None without an agent to ask.
+    private func askAbout(_ sql: String, said error: String) -> [NSButton] {
+        guard let agent = agentToAsk else { return [] }
+        let ask = ClosureButton(title: String(localized: "Ask \(app.catalog.name(agent.agent))")) { [weak self] in
+            guard let self else { return }
+            send("This statement fails on \(address.name):\n\(sql)\n\nThe database says: \(error)\n", to: agent)
+        }
+        return [ask]
     }
 
     /// Away from edits only once they're saved or dropped.
