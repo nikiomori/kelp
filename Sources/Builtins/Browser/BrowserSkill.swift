@@ -68,6 +68,8 @@ extension Builtins {
               JSON; for statements, `(() => { … })()`. A longer script from stdin, the shell off its quotes: `kelp
               browser eval - <<'JS'` … `JS`.
             - `kelp browser screenshot [file.png]` — prints where it went; look at it with your image reading.
+            - `kelp browser record [file.mp4|file.gif]` … `record stop` — a video of what you do on the page, for the
+              user (a PR, a bug report): you can't watch it. Prints where it went; the tab must be on screen.
             - `kelp browser viewport 390x844` — the page at that size (CSS pixels), for a layout at a phone's or
               tablet's width; prints the size the page now has. `viewport reset` fills the pane again. Only the size:
               the user agent, touch and pixel ratio stay a Mac's.

@@ -66,6 +66,12 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @ObservationIgnored private lazy var agentSlotHeight = agentSlot.heightAnchor.constraint(equalToConstant: 0)
     @ObservationIgnored private let agentLabel = NSTextField(labelWithString: "")
     @ObservationIgnored private let agentButton = PointerButton()
+    /// The page being recorded (BrowserRecording.swift), and the file the last one went to.
+    @ObservationIgnored var recording: PageRecording?
+    @ObservationIgnored var lastRecording: URL?
+    /// In the bar while the page is recorded, by the user or an agent: it says so, and stops it.
+    let recordButton = IconButton(
+        .symbol("record.circle"), tip: String(localized: "Stop Recording"), target: nil, action: nil)
     @ObservationIgnored private var webFill: [NSLayoutConstraint] = []
     @ObservationIgnored private var webFixed: [NSLayoutConstraint] = []
     var title: String {
@@ -115,7 +121,10 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             localized:
                 "Design Mode: click an element to send its source, HTML, CSS and a screenshot to the agent (⌥-click copies them)"
         )
-        let bar = Bar.content([back, forward, reload, address], [designButton, ext, more], stretching: address)
+        recordButton.contentTintColor = .systemRed
+        recordButton.isHidden = true
+        let bar = Bar.content(
+            [back, forward, reload, address], [recordButton, designButton, ext, more], stretching: address)
         let body = NSView()
         web.translatesAutoresizingMaskIntoConstraints = false
         body.addSubview(web)
@@ -170,6 +179,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         more.action = #selector(showMore(_:))
         designButton.target = self
         designButton.action = #selector(toggleDesign)
+        recordButton.target = self
+        recordButton.action = #selector(saveRecording)
         if agent { watch() }
         track(owner: self) { [weak self] in
             self?.failedServed ?? false
@@ -393,6 +404,12 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
                     Banner.show(String(localized: "Screenshot copied"))
                 }
             }
+        }
+        if recording == nil {
+            menu.add(String(localized: "Record Video")) { [weak self] in self?.recordFromMenu(gif: false) }
+            menu.add(String(localized: "Record GIF")) { [weak self] in self?.recordFromMenu(gif: true) }
+        } else {
+            menu.add(String(localized: "Stop Recording")) { [weak self] in self?.saveRecording() }
         }
         menu.addItem(.separator())
         menu.add(String(localized: "Clear Cookies and Data for This Site")) { [weak self] in self?.clearSiteData() }

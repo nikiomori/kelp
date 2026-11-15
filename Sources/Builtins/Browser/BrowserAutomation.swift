@@ -98,6 +98,7 @@ extension BrowserTab {
                 throw RPCError.internalError("Couldn't write the screenshot")
             }
             return .object(["path": .string(path)])
+        case .record: return try await record(args)
         case .wait:
             let text = args["text"]?.string, selector = args["selector"]?.string
             let seconds = min(args["timeout"]?.number ?? 10, UIBrowser.wait - 5),
@@ -186,7 +187,7 @@ extension BrowserTab {
     }
 
     /// What an agent may still do on a page the user took over: look.
-    static let whileTakenOver: Set<BrowserAction> = [.wait, .info]
+    static let whileTakenOver: Set<BrowserAction> = [.wait, .info, .record]   // a recording pauses meanwhile
 
     /// The snapshot's lines that mention `text` (any case), each under the lines it sits in, so a ref keeps its place,
     /// and over what's inside it (a heading's list, a form's fields), up to 20 lines each.

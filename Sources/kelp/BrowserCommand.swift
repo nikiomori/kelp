@@ -7,7 +7,8 @@ extension Main {
         browser open <url> [--shared] | snapshot [ref] [--find text] | click <ref> | hover <ref> | type <ref> <text> [--submit]
                 | drag <ref> <onto-ref|css> | press <key> [ref] | upload <ref> <file>… | dialog accept [text]|dismiss
                 | scroll [down|up|top|bottom|<ref>] | back | reload | eval <js>|- | viewport <WxH>|reset
-                | screenshot [file] | wait [--text t] [--selector css] [--timeout 10] | console [--clear] | network [--clear] | info
+                | screenshot [file] | record [file.mp4|file.gif] | record stop
+                | wait [--text t] [--selector css] [--timeout 10] | console [--clear] | network [--clear] | info
                 [--json] · no action: one a line from stdin (kelp browser <<'EOF' … EOF)
         """
 
@@ -92,6 +93,12 @@ extension Main {
             }
         case .screenshot:
             if let file = args.first { params["path"] = .string(URL(fileURLWithPath: file).standardizedFileURL.path) }
+        case .record:
+            if args.first == "stop" {
+                params["stop"] = .bool(true)
+            } else if let file = args.first {
+                params["path"] = .string(URL(fileURLWithPath: file).standardizedFileURL.path)
+            }
         case .wait:
             if let text = flag("--text") { params["text"] = .string(text) }
             if let selector = flag("--selector") { params["selector"] = .string(selector) }
@@ -129,6 +136,9 @@ extension Main {
     static func browserText(_ action: BrowserAction, _ what: String, _ answer: JSONValue) -> String? {
         guard action != .eval, case .object(let f) = answer else { return nil }   // eval's value is the page's
         if action == .screenshot { return f["path"]?.string }
+        if action == .record, let path = f["path"]?.string {
+            return f["recording"]?.bool == true ? "recording → \(path) · kelp browser record stop ends it" : path
+        }
         let page = "page \(ShellQuote.doubleQuoted(f["title"]?.string ?? "")) \(f["url"]?.string ?? "")"
         var lines: [String]
         switch action {

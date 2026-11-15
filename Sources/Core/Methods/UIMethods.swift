@@ -141,6 +141,8 @@ public enum BrowserAction: String, CaseIterable, Sendable {
     case open, snapshot, click, hover, type, press, upload, dialog, scroll, back, reload, eval, viewport, screenshot,
         wait, drag
     case console, network, info
+    /// `args.path` (.mp4, .mov or .gif) starts one, `args.stop` ends it: the answer's `path` is the file.
+    case record
 }
 
 /// `kelp browser`: `action` (a `BrowserAction`) on the browser tab of workspace `worktreeId`, done by the app, whose

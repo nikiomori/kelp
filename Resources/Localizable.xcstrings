@@ -24278,6 +24278,56 @@
           }
         }
       }
+    },
+    "Stop Recording": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить запись"
+          }
+        }
+      }
+    },
+    "Record Video": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записать видео"
+          }
+        }
+      }
+    },
+    "Record GIF": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записать GIF"
+          }
+        }
+      }
+    },
+    "Kelp Recording %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запись Kelp %@"
+          }
+        }
+      }
+    },
+    "Recorded %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записано: %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

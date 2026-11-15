@@ -1,3 +1,4 @@
+import AVFoundation
 import AppKit
 import Core
 import Foundation
@@ -572,4 +573,45 @@ import WorkbenchKit
     tab.loadError = nil
     app.watched(PortsEvent(worktree: "w1", ports: [.init(port: 9, pid: 1, command: "vite", session: "s1")]))
     #expect(try await waitFor(10) { tab.loadError != nil })   // it tried again (and the port is still closed)
+}
+
+/// `kelp browser record`: a GIF whose frames are the page's changes (a page that sits still adds none), an MP4 that plays
+/// as long as it was recorded, nothing at all while the user has the page, and a file type it can't write said so.
+@MainActor @Test(.timeLimit(.minutes(1))) func browserRecordsThePage() async throws {
+    let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [], backing: .buffered, defer: false)
+    window.contentView = tab.view
+    tab.web.loadHTMLString("<body style='background: red'>", baseURL: nil)
+    _ = try await tab.browse("info", .object([:]))
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-rec-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    func record(_ name: String, while act: () async throws -> Void) async throws -> URL {
+        _ = try await tab.browse("record", .object(["path": .string(dir.appendingPathComponent(name).path)]))
+        #expect(!tab.recordButton.isHidden)
+        try await act()
+        let done = try await tab.browse("record", .object(["stop": .bool(true)]))
+        #expect(tab.recordButton.isHidden)
+        return URL(fileURLWithPath: try #require(done["path"]?.string))
+    }
+    let colours = {
+        for colour in ["green", "blue"] {
+            try await Task.sleep(for: .milliseconds(400))
+            _ = try await tab.browse("eval", .object(["js": .string("document.body.style.background = '\(colour)'")]))
+        }
+        try await Task.sleep(for: .milliseconds(400))
+    }
+    let gif = try #require(CGImageSourceCreateWithURL(try await record("page.gif", while: colours) as CFURL, nil))
+    #expect(CGImageSourceGetCount(gif) == 3)
+
+    let movie = AVURLAsset(url: try await record("page.mp4", while: colours))
+    #expect(try await movie.load(.duration).seconds > 1)
+    #expect(try await movie.loadTracks(withMediaType: .video).count == 1)
+
+    tab.drive?.takenOver = true
+    await #expect(throws: RPCError.self) { _ = try await record("theirs.gif", while: colours) }
+    tab.drive?.takenOver = false
+    await #expect(throws: RPCError.self) { try await tab.browse("record", .object(["path": .string("/tmp/x.webm")])) }
+    await #expect(throws: RPCError.self) { try await tab.browse("record", .object(["stop": .bool(true)])) }
 }

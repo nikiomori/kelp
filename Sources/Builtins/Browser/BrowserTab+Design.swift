@@ -7,12 +7,13 @@ import WebKit
 
 extension BrowserTab {
     // MARK: Design Mode
-    /// The click watch goes with the tab (a closed tab in Design Mode would leave it on every click).
+    /// The click watch goes with the tab (a closed tab in Design Mode would leave it on every click); a recording is saved.
     func close() async -> Bool {
         if let monitor = clickWatch {
             NSEvent.removeMonitor(monitor)
             clickWatch = nil
         }
+        if recording != nil { saveRecording() }
         return true
     }
 

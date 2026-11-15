@@ -257,8 +257,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 397, "lines over 120: \(over120)")
-    #expect(over120 >= 397, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 396, "lines over 120: \(over120)")
+    #expect(over120 >= 396, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -450,6 +450,9 @@ func codeOnly(_ s: String) -> String {
         ),
         "KelpKit/Inspector/InspectorParts.swift": (
             1, "a menu the pointer opened looks, while it's open, whether the pointer left it: tracking sends no exit"
+        ),
+        "Builtins/Browser/BrowserRecording.swift": (
+            1, "a recording's frames, ten a second: WebKit says when it drew none"
         ),
         "Builtins/Browser/BrowserAutomation.swift": (
             4,
@@ -747,6 +750,7 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Agents/Session/PathPreview.swift": (3, "a path a terminal printed is a file, before it's a link"),
         "Builtins/Browser/BrowserTab.swift": (1, "a local page, shown: it reloads as its folder changes"),
         "Builtins/Browser/BrowserTab+Design.swift": (1, "a page's screenshot"),
+        "Builtins/Browser/BrowserRecording.swift": (1, "a recording written over the file it was asked to go to"),
         "Builtins/Browser/BrowserDownloads.swift": (
             2, "a download's folder (~/Downloads, or Kelp's temporary one) and a name not taken there"
         ),
