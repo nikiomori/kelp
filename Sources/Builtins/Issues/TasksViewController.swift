@@ -163,8 +163,12 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         } changed: { [weak self] in
             if let prs = $0 { self?.pushed(prs) }
         }
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(forgeChanged), name: PRWork.changed, object: nil)
+        // A task started from an item makes its project a workspace: the list reads again, quietly, to mark it.
+        track(owner: self, now: false) { [weak self] in
+            self.map { vc in vc.app.worktrees.filter { $0.repoId == vc.repoId }.map(\.id) } ?? []
+        } changed: { [weak self] _ in
+            self?.load(quietly: true)
+        }
     }
 
     private var laidOutWidth: CGFloat = 0
@@ -313,8 +317,6 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         table.selectRowIndexes([index], byExtendingSelection: false)
     }
     /// A merge, a PR or a group made from here: the list says so now, not in two minutes.
-    @objc private func forgeChanged() { load(quietly: true) }
-
     @objc func reload() { load() }
 
     /// `quietly`: a refresh nobody asked for, which says nothing while it reads and keeps the row picked.

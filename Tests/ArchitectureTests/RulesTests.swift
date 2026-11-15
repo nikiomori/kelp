@@ -122,11 +122,10 @@ import Testing
 
 /// State is `@Observable` and AppKit follows it with `track`: a notification of the app's own ("go read X again")
 /// reaches whoever remembered to listen, and nothing says who didn't. AppKit's own (a window resized) aren't these.
-/// The one left is the Issues panel's, until the daemon pushes what changed on a pull request.
 @Test func theAppSendsNoNotificationsOfItsOwn() throws {
     let below = ["Sources/DesignKit", "Sources/EditorKit", "Sources/WorkbenchKit", "Sources/Core"]
     let names = try matches(#"Notification\.Name\("#, in: appDirs + below)
-    #expect(names.map { String($0.split(separator: ":")[0]) } == ["Sources/Builtins/Issues/PRWork.swift"])
+    #expect(names == [])
 }
 
 /// `MainActor.assumeIsolated` crashes off the main thread and nothing checks it before it runs: each says, on its line or
