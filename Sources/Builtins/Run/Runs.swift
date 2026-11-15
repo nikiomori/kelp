@@ -114,16 +114,25 @@ final class Runs: NSObject, NSMenuDelegate {
             guard ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] == nil, await askPullRequest(pullRequest, info)
             else { return }
         }
-        if !info.trusted {
-            // A snapshot run takes clicks and keys from its environment (DevAids): anyone could start one that presses
-            // Trust, so that window never trusts anything.
-            guard ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] == nil else { return }
-            guard await askTrust(info) else { return }
-            // The digest of the text shown: a file changed since (an agent, a pull) isn't trusted unseen.
-            guard await app.call(ScriptsTrust(worktreeId: wid, digest: info.digest)) != nil else { return }
-        }
+        guard await trust(wid, info) else { return }
         if remember || name == "run" { self.remember("kelp:" + name, in: wid) }
         await start(wid, "kelp:" + name, ScriptsRun(worktreeId: wid, name: name))
+    }
+
+    /// Whether the workspace's .kelp.yaml is trusted, asked first when it isn't (`ProjectRuns.trust`: a template that
+    /// runs its commands asks here, as running one does).
+    func trust(_ wid: String) async -> Bool {
+        guard let info = await load(wid, asked: true) else { return false }
+        return await trust(wid, info)
+    }
+
+    private func trust(_ wid: String, _ info: ScriptsList.Result) async -> Bool {
+        guard !info.trusted else { return true }
+        // A snapshot run takes clicks and keys from its environment (DevAids): anyone could start one that presses
+        // Trust, so that window never trusts anything.
+        guard ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] == nil, await askTrust(info) else { return false }
+        // The digest of the text shown: a file changed since (an agent, a pull) isn't trusted unseen.
+        return await app.call(ScriptsTrust(worktreeId: wid, digest: info.digest)) != nil
     }
 
     /// A new workspace's setup, when its .kelp.yaml has one that waits for the file's trust (asked here first).

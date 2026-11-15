@@ -30,6 +30,8 @@ package struct ProjectRuns {
     let portBusy: @MainActor (PortBusyEvent) -> Void
     /// A new workspace whose .kelp.yaml setup waits for the file's trust; the pull request it holds, if any.
     let setup: @MainActor (_ workspace: String, _ pullRequest: Int?) async -> Void
+    /// Whether the workspace's .kelp.yaml is trusted now, asked first if it isn't (a template that runs its commands).
+    let trust: @MainActor (_ workspace: String) async -> Bool
     package init(
         bar: @escaping @MainActor () -> [any WindowBarItem],
         menu: any NSMenuDelegate,
@@ -41,7 +43,8 @@ package struct ProjectRuns {
         open: @escaping @MainActor (ServedPage, String) -> Void,
         served: @escaping @MainActor (DevServerEvent) -> Void,
         portBusy: @escaping @MainActor (PortBusyEvent) -> Void,
-        setup: @escaping @MainActor (String, Int?) async -> Void
+        setup: @escaping @MainActor (String, Int?) async -> Void,
+        trust: @escaping @MainActor (String) async -> Bool
     ) {
         self.bar = bar
         self.menu = menu
@@ -54,6 +57,7 @@ package struct ProjectRuns {
         self.served = served
         self.portBusy = portBusy
         self.setup = setup
+        self.trust = trust
     }
 }
 

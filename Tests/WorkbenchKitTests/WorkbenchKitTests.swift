@@ -419,14 +419,15 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
 @Test func aTemplateIsReadFromOneLine() throws {
     let t = LayoutTemplate(
         name: "Frontend", spec: "claude, src/my app.tsx | page / run, changes", agents: ["claude"],
-        commands: ["run": "npm run dev"])
+        commands: ["run"])
     guard case .split(true, let columns)? = t.layout.root, case .split(false, let right) = columns[1] else {
         Issue.record("\(String(describing: t.layout.root))")
         return
     }
     #expect(columns.count == 2 && right.count == 2 && t.layout.focused == columns[0].sessions.first)
     let run = try #require(t.runs.last)
-    #expect(t.runs.map(\.uri) == ["agent:claude", "terminal:?cmd=npm%20run%20dev&title=run"])
+    #expect(t.runs.map(\.uri) == ["agent:claude", "terminal:?script=run&title=run"])
+    #expect(t.layout.manual == true)   // as written: not tiled again
     #expect(t.pages.map(\.run) == [run.id])
     let used = t.filled([run.id: "session:r"], in: .init(workspace: "g", folder: "/w/g"))
     #expect(
@@ -435,7 +436,7 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
         ])
     // A page with no command to serve it isn't a tab.
     #expect(
-        LayoutTemplate(name: "x", spec: "page | shell", agents: [], commands: [:]).layout.allTabs.map(\.uri) == [
+        LayoutTemplate(name: "x", spec: "page | shell", agents: [], commands: []).layout.allTabs.map(\.uri) == [
             "terminal:"
         ])
 }

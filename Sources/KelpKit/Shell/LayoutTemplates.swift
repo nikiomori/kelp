@@ -15,12 +15,12 @@ struct LayoutTemplates {
         return Self.log.attempt("reading templates") { try saved.decode([LayoutTemplate].self) } ?? []
     }
 
-    /// The project's own, from its .kelp.yaml's `layout.<name>` lines; none until the file is trusted: they start agents
-    /// and commands.
+    /// The project's own, from its .kelp.yaml's `layout.<name>` lines, listed by name before the file is trusted: using
+    /// one asks for that trust first (`use`), as running one of its commands does.
     func fromFile(_ worktree: Worktree) async -> [LayoutTemplate] {
-        guard let config = await app.quiet(ScriptsList(worktreeId: worktree.id)), config.trusted else { return [] }
+        guard let config = await app.quiet(ScriptsList(worktreeId: worktree.id)) else { return [] }
         let agents = Set(app.catalog.all.map(\.id)).subtracting(["shell"])
-        let commands = Dictionary(config.scripts.map { ($0.name, $0.command) }) { first, _ in first }
+        let commands = Set(config.scripts.map(\.name))
         return (config.layouts ?? []).map {
             LayoutTemplate(name: $0.name, spec: $0.command, agents: agents, commands: commands)
         }
@@ -53,23 +53,39 @@ struct LayoutTemplates {
 
     func delete(_ name: String, in repoId: String) { store(all(repoId).filter { $0.name != name }, repoId) }
 
-    /// The empty group `id` arranged as `template` says: what ran starts again, each in its tab.
+    /// The empty group `id` arranged as `template` says: what ran starts again, each in its tab. One of the project's
+    /// commands (a .kelp.yaml template's) asks for the file's trust first, as Run does, and runs by name.
     func use(_ template: LayoutTemplate, in id: String) async {
         // Once: a double click, or a second click while the first one's sessions start, leaves it be.
         guard let worktree = app.worktree(id), app.workbench.layouts[id].allTabs.isEmpty, Self.using.insert(id).inserted
         else { return }
         defer { Self.using.remove(id) }
+        if template.runs.contains(where: { Self.run($0.uri).script != nil }) {
+            guard await app.extensions.all.runs?.trust(id) == true else { return }
+        }
         var started: [String: String] = [:]
         for tab in template.runs {
             let run = Self.run(tab.uri)
-            let create = app.workbench.sized(
-                SessionCreate(worktreeId: id, agent: run.agent, command: run.command, tmux: run.tmux, title: run.title))
-            if let session = await app.call(create) {
+            let session: Session?
+            if let script = run.script {
+                session = await app.call(ScriptsRun(worktreeId: id, name: script))
+            } else {
+                session = await app.call(
+                    app.workbench.sized(
+                        SessionCreate(
+                            worktreeId: id, agent: run.agent, command: run.command, tmux: run.tmux, title: run.title)))
+            }
+            if let session {
                 app.upsert(session)
                 started[tab.id] = TabURI.session(session.id)
             }
         }
-        app.workbench.layouts[id] = template.filled(started, in: .init(workspace: id, folder: worktree.path))
+        // What was opened in the group while its sessions started stays, beside what the template arranges.
+        var arranged = template.filled(started, in: .init(workspace: id, folder: worktree.path))
+        for tab in app.workbench.layouts[id].allTabs where arranged.tab(uri: tab.uri) == nil {
+            arranged.add(tab.uri, select: false)
+        }
+        app.workbench.layouts[id] = arranged
         for page in template.pages {
             guard let session = started[page.run].map(TabURI.body) else { continue }
             openWhenServed(page.tab, path: page.path, by: session, in: id)
@@ -129,14 +145,16 @@ struct LayoutTemplates {
         return c.string ?? "terminal:"
     }
 
-    /// What a run URI starts (as `EditorArea.runURI` reads one).
-    static func run(_ uri: String) -> (agent: String?, command: String?, title: String?, tmux: String?) {
+    /// What a run URI starts (as `EditorArea.runURI` reads one); `script`: one of the project's commands, by name.
+    static func run(_ uri: String) -> (agent: String?, command: String?, title: String?, tmux: String?, script: String?)
+    {
         let c = URLComponents(string: uri)
         func value(_ name: String) -> String? { c?.queryItems?.first { $0.name == name }?.value }
-        if TabURI.scheme(uri) == "agent" { return (TabURI.body(uri), nil, nil, nil) }
-        if let tmux = value("tmux") { return (nil, nil, nil, tmux) }
-        if let cmd = value("cmd") { return (nil, cmd, value("title"), nil) }
-        return ("shell", nil, nil, nil)
+        if TabURI.scheme(uri) == "agent" { return (TabURI.body(uri), nil, nil, nil, nil) }
+        if let tmux = value("tmux") { return (nil, nil, nil, tmux, nil) }
+        if let script = value("script") { return (nil, nil, value("title"), nil, script) }
+        if let cmd = value("cmd") { return (nil, cmd, value("title"), nil, nil) }
+        return ("shell", nil, nil, nil, nil)
     }
 
     private static var using: Set<String> = []

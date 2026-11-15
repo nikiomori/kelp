@@ -36,6 +36,14 @@ Run's and the server cards are Servers'. The shell gives them places to show up 
   worktree cut from the project's base branch, and its first prompt names both. Its folder is the agent's for good, so a running chat can't move there. What exists
   only on a branch never goes by itself: closing such a group asks (Archive by default) and its last tab leaves it open;
   with nothing of its own it closes like any group, folder to the Trash and branch removed.
+  A group can open arranged from a template (`LayoutTemplate`, `KelpKit/Shell/LayoutTemplates.swift`), listed first on
+  its empty screen: one saved from a group's row (Save Layout as Template…: its panes, files and pages, and what ran,
+  started anew), kept in the daemon's UI state under `templates/<project>`; or a project's own, a `.kelp.yaml` line
+  `layout.<name>: claude | page / run` (panes side by side with `|`, one under another with ` / `, tabs with commas;
+  an agent, `shell`, a project command by name, `page`, `changes` or a file). A file's are listed before it's trusted;
+  using one asks for that trust first, as Run does, and its commands run by name (`scripts.run`). An arranged group isn't
+  tiled again. A group, or a server's or a machine's page, can also open in a window of its own (its row's menu; kept
+  across launches); Kelp counts as seen while any of its windows is.
 - **Agent**: a session in a workspace (`session.*`). Status: working · needs input · done · idle · paused · ended.
   An agent can start another (`kelp session new --agent` inside it, `Session.parent`): the child's result, question or
   failure comes to the parent as its next prompt once it rests, and children end with it (`ChildReports.swift`). The CLI and the
@@ -386,7 +394,8 @@ one not in that record runs nothing. The window's first look adopts, once, those
 
 **Not trusted: what came from someone else** — a cloned repository's files and branches, a pull request, an issue or
 review comment, a project's `.kelp.yaml`. Kelp keeps that from acting as the user:
-- `.kelp.yaml` runs nothing (setup, tabs, shared links, recipes, issueCommand) until the user trusts that exact text,
+- `.kelp.yaml` runs nothing (setup, tabs, shared links, recipes, issueCommand, a `layout.<name>` template's agents and
+  commands) until the user trusts that exact text,
   shown in Kelp's window. The same holds for another tool's file read in its place (`ImportedConfig`: Conductor, Codex,
   Cursor…); only the KelpApp next to the daemon may grant it (`scripts.trust`, checked by the connecting
   program), so a repository's script or an agent's casual call can't.

@@ -47,10 +47,11 @@ public struct LayoutTemplate: Codable, Equatable {
     }
 
     /// A project's own, from its .kelp.yaml (`layout.<name>: claude | page / run`): panes side by side with "|", one
-    /// under another with " / " (spaces round it: a path has none), tabs in a pane with commas. A tab is an agent (`agents`), `shell`, one of the project's
-    /// commands by name (`commands`), `page` (the first command's page, once it serves), `changes`, or a file in the
-    /// group's folder.
-    public init(name: String, spec: String, agents: Set<String>, commands: [String: String]) {
+    /// under another with " / " (spaces round it: a path has none), tabs in a pane with commas. A tab is an agent
+    /// (`agents`), `shell`, one of the project's commands by name (`commands`; run by name, `scripts.run`, so the daemon
+    /// checks the file's trust and runs its text as it is then), `page` (the first command's page, once it serves),
+    /// `changes`, or a file in the group's folder. Kept as written: the group isn't tiled again (`manual`).
+    public init(name: String, spec: String, agents: Set<String>, commands: Set<String>) {
         self.name = name
         ownWindow = false
         var layout = WorkspaceLayout(), wantsPage: [TabRef] = [], firstRun: TabRef?
@@ -66,11 +67,11 @@ public struct LayoutTemplate: Codable, Equatable {
                         tab.uri = "agent:" + item
                     } else if ["shell", "terminal"].contains(item) {
                         tab.uri = "terminal:"
-                    } else if let command = commands[item] {
+                    } else if commands.contains(item) {
                         var c = URLComponents()
                         c.scheme = "terminal"
                         c.queryItems = [
-                            URLQueryItem(name: "cmd", value: command), URLQueryItem(name: "title", value: item)
+                            URLQueryItem(name: "script", value: item), URLQueryItem(name: "title", value: item)
                         ]
                         tab.uri = c.string ?? "terminal:"
                         firstRun = firstRun ?? tab
@@ -90,6 +91,7 @@ public struct LayoutTemplate: Codable, Equatable {
         }
         layout.root = columns.count > 1 ? .split(vertical: true, children: columns) : columns.first
         layout.focused = layout.root?.sessions.first
+        layout.manual = true
         for tab in wantsPage {
             if let firstRun { layout.setURI("\(Self.runPage):\(firstRun.id)", of: tab) } else { layout.remove(tab.id) }
         }

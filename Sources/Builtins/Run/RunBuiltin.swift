@@ -52,7 +52,8 @@ extension Builtins {
                 open: { runs.open($0, in: $1) },
                 served: { runs.served($0) },
                 portBusy: { runs.portBusy($0) },
-                setup: { await runs.setup($0, pullRequest: $1) })
+                setup: { await runs.setup($0, pullRequest: $1) },
+                trust: { await runs.trust($0) })
         )
     }
 
