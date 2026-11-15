@@ -4,15 +4,19 @@ import DesignKit
 import KelpKit
 
 /// Over the foot of an agent's terminal while it waits for the user to allow a change to a database (`kelp db query`):
-/// which database, the statement, how many rows the trial changed, and Show Rows (its tab), Deny, Allow. What's asked
-/// is read from the workspace's database runs (`db.activity`) when its row starts asking; the answer goes as a
-/// permission's does. Made the first time this agent asks anything; it shows only for a database's question.
+/// which database, the statement, the first rows of the change as its trial left them (each value that changes as it
+/// was and as it becomes, `ChangePreview`), how many rows it changed, and Show Rows (its tab), Deny, Allow. What's
+/// asked is read from the workspace's database runs (`db.activity`) when its row starts asking, its rows from
+/// `db.result`; the answer goes as a permission's does. Made the first time this agent asks anything; it shows only
+/// for a database's question.
 @MainActor
 final class DatabaseAskCard: NSView {
     private let app: AppModel, session: String, worktree: String
     private let title = NSTextField(labelWithString: "")
     private let sql = NSTextField(wrappingLabelWithString: "")
     private let detail = NSTextField(labelWithString: "")
+    private let preview = ChangePreview()
+    private lazy var showButton = NSButton(title: "", target: self, action: #selector(showRows))
     private var asking: DatabaseRun?
 
     init(app: AppModel, session: String, worktree: String) {
@@ -30,15 +34,14 @@ final class DatabaseAskCard: NSView {
         sql.maximumNumberOfLines = 3
         sql.lineBreakMode = .byTruncatingTail
         detail.font = .ui(TextSize.row)
-        let show = NSButton(title: String(localized: "Show Rows"), target: self, action: #selector(showRows))
         let deny = NSButton(title: String(localized: "Deny"), target: self, action: #selector(denied))
         let allow = NSButton(title: String(localized: "Allow"), target: self, action: #selector(allowed))
-        for button in [show, deny, allow] { button.bezelStyle = .push }   // no key: the terminal keeps its keys
+        for button in [showButton, deny, allow] { button.bezelStyle = .push }   // no key: the terminal keeps its keys
         let head = NSStackView(views: [mark, title])
         head.spacing = Metrics.gap
-        let buttons = NSStackView(views: [show, NSView(), deny, allow])
+        let buttons = NSStackView(views: [showButton, NSView(), deny, allow])
         buttons.spacing = Metrics.gapWide
-        let stack = NSStackView(views: [head, sql, detail, buttons])
+        let stack = NSStackView(views: [head, sql, preview, detail, buttons])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Metrics.gap
@@ -73,12 +76,38 @@ final class DatabaseAskCard: NSView {
         asking = run
         isHidden = run == nil
         guard let run else { return }
-        let who = app.session(session).map { app.catalog.name($0.agent) } ?? String(localized: "The agent")
-        title.stringValue = String(localized: "\(who) wants to change \(run.database)")
         sql.stringValue = run.sql
+        say(run, nil)
+        Task { [weak self, app, worktree] in
+            let rows = await app.quiet(DatabaseResultRead(worktreeId: worktree, id: run.id)) ?? nil
+            if self?.asking?.id == run.id { self?.say(run, rows) }
+        }
+    }
+
+    /// The words and the rows: with the change's rows, the title says how many of which table, and the line under
+    /// them how many more there are.
+    private func say(_ run: DatabaseRun, _ rows: QueryResult?) {
+        let who = app.session(session).map { app.catalog.name($0.agent) } ?? String(localized: "The agent")
+        let shown = rows.map(preview.show) ?? 0
+        preview.isHidden = shown == 0
+        showButton.title = String(localized: "Show Rows")
+        guard shown > 0, let rows, let table = rows.change?.tableName else {
+            title.stringValue = String(localized: "\(who) wants to change \(run.database)")
+            detail.stringValue =
+                run.changed.map { String(localized: "\($0) rows would change. Tried, then rolled back.") }
+                ?? String(localized: "It couldn't be tried first.")
+            return
+        }
+        title.stringValue =
+            rows.total == 1
+            ? String(localized: "\(who) wants to change 1 row of \(table) in \(run.database)")
+            : String(localized: "\(who) wants to change \(rows.total) rows of \(table) in \(run.database)")
+        let more = rows.total - shown
         detail.stringValue =
-            run.changed.map { String(localized: "\($0) rows would change. Tried, then rolled back.") }
-            ?? String(localized: "It couldn't be tried first.")
+            more > 0
+            ? String(localized: "and \(more) more · tried, then rolled back")
+            : String(localized: "Tried, then rolled back.")
+        if more > 0 { showButton.title = String(localized: "Show All \(rows.total) Rows") }
     }
 
     @objc private func showRows() {

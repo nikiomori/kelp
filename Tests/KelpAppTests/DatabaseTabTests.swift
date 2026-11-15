@@ -2,6 +2,7 @@ import AppKit
 import Core
 import Testing
 
+@testable import BuiltinAgents
 @testable import BuiltinDatabases
 
 /// Edited cells become one UPDATE a row, found by the primary key as read; NULL and quotes are written as SQL.
@@ -134,4 +135,23 @@ import Testing
     let back = try #require(shown.first { $0 === edited || $0 === struck })
     #expect(back.attributedStringValue.attribute(.strikethroughStyle, at: 0, effectiveRange: nil) == nil)
     #expect(!back.drawsBackground && back.toolTip == nil)
+}
+
+/// The card that asks shows an update by its key and the columns it changes, a delete by its first columns; an update
+/// whose rows as they were aren't known has nothing to compare, so no rows.
+@MainActor @Test func aChangesPreviewShowsItsKeyAndWhatChanges() {
+    var update = QueryResult(
+        id: "r", columns: ["status", "id", "total", "note"],
+        rows: [["cancelled", "10", "5", "Expired"], ["cancelled", "20", "7", "x"]], total: 2, changed: 2, ms: 0)
+    update.change = RowChange(
+        kind: .update, table: "orders", key: ["id"], before: [["pending", "10", "5", nil], ["pending", "20", "7", "x"]])
+    #expect(update.changedColumns == [0, 3])
+    #expect(ChangePreview.columns(of: update) == [1, 0, 3])
+    update.change?.before = nil
+    #expect(ChangePreview.columns(of: update).isEmpty)
+    update.change = RowChange(kind: .delete, table: "orders", key: ["id"])
+    #expect(ChangePreview.columns(of: update) == [1, 0, 2, 3])
+    update.change = nil
+    #expect(ChangePreview.columns(of: update).isEmpty)
+    #expect(RowChange(kind: .insert, table: "\"Order Items\"").tableName == "Order Items")
 }

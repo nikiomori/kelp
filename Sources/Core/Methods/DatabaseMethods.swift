@@ -173,6 +173,9 @@ public struct QueryResult: Codable, Sendable, Equatable {
     public var ms: Int
     /// Rows left out for their size (past what Kelp keeps of a result's cells, 1 MB): a larger `limit` gives no more.
     public var cut: Bool?
+    /// What an agent's change does to these rows, when Kelp holds every one of them whole: shown where it's asked,
+    /// and what Undo puts back. Never sent to the agent.
+    public var change: RowChange?
     /// Rows kept of a result, and how far they're counted past that: `total` stops there.
     public static let kept = 1000, counted = 100_000
     public init(id: String, columns: [String], rows: [[String?]], total: Int, changed: Int? = nil, ms: Int) {
@@ -183,6 +186,42 @@ public struct QueryResult: Codable, Sendable, Equatable {
         self.changed = changed
         self.ms = ms
     }
+
+    /// The columns an update changed in any of its rows, by index: none for another change, or one whose rows as
+    /// they were aren't known.
+    public var changedColumns: [Int] {
+        guard let before = change?.before, change?.kind == .update else { return [] }
+        return columns.indices.filter { column in
+            zip(before, rows).contains { was, now in
+                was.indices.contains(column) && now.indices.contains(column) && was[column] != now[column]
+            }
+        }
+    }
+}
+
+/// What one table's UPDATE, DELETE or INSERT does to the rows it returned.
+public struct RowChange: Codable, Sendable, Equatable {
+    public enum Kind: String, Codable, Sendable, CaseIterable {
+        /// The rows are as the change leaves them (`before`: as they were); the rows it removes; the rows it adds.
+        case update, delete, insert
+    }
+    public var kind: Kind
+    /// The table, as the statement names it, its quotes and all: it goes into SQL as it is.
+    public var table: String
+    /// Its primary key's columns, when the rows have them all: what finds a row again. Empty: none.
+    public var key: [String]
+    /// An update's rows as they were, one per row of the result in its order; nil: not read (no key, or the change
+    /// moves it).
+    public var before: [[String?]]?
+    public init(kind: Kind, table: String, key: [String] = [], before: [[String?]]? = nil) {
+        self.kind = kind
+        self.table = table
+        self.key = key
+        self.before = before
+    }
+
+    /// The table's name without its quotes, for words: "orders", "Order Items".
+    public var tableName: String { table.filter { !"\"`".contains($0) } }
 }
 
 /// A statement run on a project's database, by an agent (`session`) or the user.

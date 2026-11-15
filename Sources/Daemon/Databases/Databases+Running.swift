@@ -60,13 +60,15 @@ extension Databases {
                 guard yes else { throw RPCError.refused(run.error ?? "The user didn't allow it.") }
                 fallthrough
             case .free:
+                // An agent's change that asks nobody is tried first too: what it does to its rows is kept with it
+                let tried = access == .ask ? result(wid, id) : forAgent ? await triedFirst(target, sql, id) : nil
                 let started = Date()
                 // What the user allowed is what it may change: the table can have changed while it was asked
                 let asked = access == .ask ? run.changed : nil
                 do {
                     let rows = try await DatabaseEngines.write(target, sql, allowed: asked, off: offloads)
                     run.state = .done
-                    return finish(q, &run, rows, started: started, agent: forAgent)
+                    return finish(q, &run, rows, started: started, agent: forAgent, tried: tried)
                 } catch let failure as DatabaseFailure { throw failed(q, &run, failure) }
             }
         } catch let failure as DatabaseFailure { throw failed(q, &run, failure) }
@@ -82,19 +84,37 @@ extension Databases {
         } catch let failure as DatabaseFailure { throw RPCError.invalidParams(failure.message) }
     }
 
+    /// A row change by an agent on a database that asks nobody, tried and rolled back before it runs: its rows with
+    /// what it does to them (`rowChange`); nil when it can't be tried or isn't one table's rows.
+    /// Limit: the change runs twice (once rolled back), for the rows as they were.
+    private func triedFirst(_ c: DatabaseConnection, _ sql: String, _ id: String) async -> QueryResult? {
+        guard Self.kind(sql, c.database.engine) != nil else { return nil }
+        do {
+            let tried = try await DatabaseEngines.trial(c, sql, off: offloads)
+            guard let change = await rowChange(c, sql, tried) else { return nil }
+            return Self.kept(tried, id: id, change: change)
+        } catch {
+            return nil   // the change itself says what's wrong with it
+        }
+    }
+
+    /// `tried`: the change's trial, as it was kept.
     private func finish(
-        _ q: DatabaseQuery, _ run: inout DatabaseRun, _ rows: DatabaseRows, started: Date, agent: Bool
+        _ q: DatabaseQuery, _ run: inout DatabaseRun, _ rows: DatabaseRows, started: Date, agent: Bool,
+        tried: QueryResult? = nil
     )
         -> QueryResult
     {
         let ms = Int(Date().timeIntervalSince(started) * 1000)
         var result = QueryResult(
             id: run.id, columns: rows.columns, rows: rows.rows, total: rows.total, changed: rows.changed, ms: ms)
-        // A change allowed after its trial: the rows the trial left (RETURNING) stay its rows, for the tab's marks.
-        if result.columns.isEmpty, let tried = self.result(q.worktreeId, run.id), !tried.columns.isEmpty {
+        // A change after its trial: the rows the trial left (RETURNING) stay its rows, for the tab's marks, and with
+        // them what the change did to them (its rows as they were are in the trial's order).
+        if let tried, !tried.columns.isEmpty, result.columns.isEmpty || tried.change != nil {
             result.columns = tried.columns
             result.rows = tried.rows
             result.total = tried.total
+            result.change = tried.change
         }
         run.rows = rows.total
         run.changed = rows.changed
@@ -107,6 +127,7 @@ extension Databases {
         let rows =
             q.limit ?? Int(min(Double(DatabaseEngines.keep), max(0, sessions.settings[SettingKeys.databaseRows])))
         sent.rows = Array(result.rows.prefix(max(0, rows)))
+        sent.change = nil   // the user's to see and undo: an agent has its rows
         return sent
     }
 
@@ -160,15 +181,11 @@ extension Databases {
             throw DatabaseFailure.failed(
                 "\(c.database.name) takes no changes: the server or file is read-only (a standby, a file's rights).")
         }
+        var change: RowChange?
+        if let trial { change = await rowChange(c, sql, trial) }
         run.state = .asks
         run.changed = trial?.changed
-        note(
-            q.worktreeId, run,
-            result: trial.map {
-                Self.trimmed(
-                    QueryResult(
-                        id: run.id, columns: $0.columns, rows: $0.rows, total: $0.total, changed: $0.changed, ms: 0))
-            })
+        note(q.worktreeId, run, result: trial.map { Self.kept($0, id: run.id, change: change) })
         let question = Self.question(
             sql, database: c.database.name, changed: trial?.changed,
             held: DatabaseEngines.runner(c, off: offloads).holdsAllowed)
@@ -227,7 +244,8 @@ extension Databases {
     }
 
     /// The table a change names: UPDATE orders, DELETE FROM "orders", INSERT OR REPLACE INTO public.orders.
-    static func table(_ sql: String) -> String? {
+    /// `asWritten`: with its quotes, to go into SQL as the statement has it.
+    static func table(_ sql: String, asWritten: Bool = false) -> String? {
         let changing =
             #/
             ^(?: UPDATE (?:\s+ONLY)? | DELETE\s+FROM | MERGE\s+INTO
@@ -235,8 +253,8 @@ extension Databases {
             (?<name> (?:"[^"]+"|`[^`]+`|[^\s(,;."`]+) (?: \. (?:"[^"]+"|`[^`]+`|[^\s(,;."`]+) )* )
             /#.ignoresCase()
         guard let match = SQLText.code(sql).firstMatch(of: changing) else { return nil }
-        let name = match.output.name.filter { !"\"`".contains($0) }
-        return name.isEmpty ? nil : String(name)
+        let name = asWritten ? String(match.output.name) : String(match.output.name.filter { !"\"`".contains($0) })
+        return name.isEmpty ? nil : name
     }
 
     func schema(_ worktreeId: String, _ name: String, table: String?, agent: Bool) async throws -> DatabaseSchema {

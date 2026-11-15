@@ -21,6 +21,7 @@ extension DatabaseTab {
         grid.editable = false
         grid.source = nil
         grid.show(columns: result?.columns ?? [], rows: result?.rows ?? [])
+        grid.show(change: result?.change, changed: result?.changedColumns ?? [])
         if let error = record?.error, record?.state != .asks {
             empty.showError(Self.stateTitle(record?.state ?? .failed), text: error)
         } else if result == nil {

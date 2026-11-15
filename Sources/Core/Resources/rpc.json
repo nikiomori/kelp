@@ -3504,6 +3504,10 @@
       "QueryResult" : {
         "description" : "What a statement gave: its columns and rows (text, nil for NULL), cut at the asked limit.",
         "properties" : {
+          "change" : {
+            "$ref" : "#/components/schemas/RowChange",
+            "description" : "What an agent's change does to these rows, when Kelp holds every one of them whole: shown where it's asked, and what Undo puts back. Never sent to the agent."
+          },
           "changed" : {
             "description" : "Rows a change touched; nil for a read.",
             "type" : "integer"
@@ -3885,6 +3889,49 @@
           "runs"
         ],
         "type" : "object"
+      },
+      "RowChange" : {
+        "description" : "What one table's UPDATE, DELETE or INSERT does to the rows it returned.",
+        "properties" : {
+          "before" : {
+            "description" : "An update's rows as they were, one per row of the result in its order; nil: not read (no key, or the change moves it).",
+            "items" : {
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            "type" : "array"
+          },
+          "key" : {
+            "description" : "Its primary key's columns, when the rows have them all: what finds a row again. Empty: none.",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/RowChange.Kind"
+          },
+          "table" : {
+            "description" : "The table, as the statement names it, its quotes and all: it goes into SQL as it is.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "key",
+          "kind",
+          "table"
+        ],
+        "type" : "object"
+      },
+      "RowChange.Kind" : {
+        "enum" : [
+          "update",
+          "delete",
+          "insert"
+        ],
+        "type" : "string"
       },
       "RunDetect.Result" : {
         "properties" : {

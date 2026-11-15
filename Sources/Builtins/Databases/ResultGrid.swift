@@ -45,6 +45,9 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     private var numeric: Set<Int> = []
     var edits = DatabaseEdits()
     var editable = false
+    /// What the change did to these rows, when they're a change's (a run's): an update's cells show what they were, a
+    /// delete's rows are struck out in red, an insert's are green.
+    var change: RowChange?
     /// Rows an agent's last change touched (by index), and that agent's colour.
     var marked = Set<Int>()
     var markColor = NSColor.systemOrange
@@ -62,7 +65,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         didSet { table.rowHeight = TextSize.of(Self.height(density)) }
     }
     static func height(_ density: String) -> CGFloat { density == "comfortable" ? 28 : density == "normal" ? 24 : 20 }
-    private var font: NSFont { .uiMono(density == "comfortable" ? 12.5 : 11.5) }
+    var font: NSFont { .uiMono(density == "comfortable" ? 12.5 : 11.5) }
     /// "Rows Where …" from a cell's menu: a WHERE condition.
     var onFilter: (_ column: String, _ op: DatabaseFilters.Condition, _ value: String?) -> Void = { _, _, _ in }
     /// The table and engine the rows are of, for Copy as INSERT and the filters' quoting.
@@ -100,6 +103,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         self.info = Dictionary(info.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
         edits.clear()
         marked = []
+        change = nil
         numeric = Set(
             columns.indices.filter { columnIndex in
                 if let type = self.info[columns[columnIndex]]?.type { return Self.isNumber(type) }
@@ -197,9 +201,9 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     /// Stripes where there are rows only: none drawn past the last.
     func tableView(_ tableView: NSTableView, didAdd rowView: NSTableRowView, forRow row: Int) {
         rowView.backgroundColor =
-            row >= rows.count
+            row >= rows.count || change?.kind == .insert
             ? NSColor.fillTint(.systemGreen)
-            : edits.deleted.contains(row)
+            : edits.deleted.contains(row) || change?.kind == .delete
                 ? NSColor.fillTint(.systemRed)
                 : row % 2 == 1 ? NSColor.alternatingContentBackgroundColors.last ?? .clear : .clear
     }
@@ -287,7 +291,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             field.font = NSFontManager.shared.convert(.uiMono(10.5), toHaveTrait: .italicFontMask)
             field.textColor = .tertiaryLabelColor
         }
-        if !new, edits.deleted.contains(row) {
+        if !new, showChange(value, in: field, row: row, column: column) { return }
+        if !new, edits.deleted.contains(row) || change?.kind == .delete {
             field.attributedStringValue = NSAttributedString(
                 string: field.stringValue,
                 attributes: [

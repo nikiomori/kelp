@@ -124,7 +124,9 @@ struct SQLiteRun: DatabaseRunner {
         var result = DatabaseRows(columns: statement.columnNames)
         let cursor = try Row.fetchCursor(statement)
         while let row = try cursor.next() {
-            result.add(row.databaseValues.map(DatabaseEngines.text))
+            let values = row.databaseValues
+            if values.contains(where: { if case .blob = $0.storage { true } else { false } }) { result.opaque = true }
+            result.add(values.map(DatabaseEngines.text))
             if result.total >= DatabaseEngines.countLimit { break }
         }
         return result

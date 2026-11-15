@@ -31,6 +31,8 @@ struct DatabaseRows: Equatable, Sendable {
     /// What the kept rows' cells weigh; past `DatabaseEngines.outputLimit` no more are kept and the answer is refused
     /// (`DatabaseEngines.whole`), never sent as fewer rows. Not part of what it says (==).
     var bytes = 0
+    /// A value isn't its own text (a SQLite blob, shown as its size): the rows can't be written back as they are.
+    var opaque = false
 
     /// One more row as it comes: kept up to `DatabaseEngines.keep` and `outputLimit`, counted always.
     mutating func add(columns: [String], _ row: [String?]) {
