@@ -394,3 +394,50 @@ let wrappedRows = [
                 width: 0, height: Double(s.cell_height_px) / scale), to: nil))
     #expect(v.accessibilityFrame(for: caret) == cell, "the cursor's cell, after the two wide characters")
 }
+
+/// A swipe scrolls as far as the finger went: four moves of a row and a half are six rows (Ghostty dropped what was past
+/// a whole row, so each was one row and a fast swipe scrolled in steps; scripts/ghostty-patches/0002).
+@Test @MainActor func scrollingKeepsWhatIsPastAWholeRow() async throws {
+    try await takeTerminal()
+    defer { terminalTaken = false }
+    let v = GhosttyTerminalView(command: "/bin/sh -c 'seq 1 300; sleep 20'", cwd: NSTemporaryDirectory())
+    let surface = try #require(v.surface)
+    let w = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 400, height: 200), styleMask: [.titled], backing: .buffered, defer: false
+    )
+    w.contentView = v
+    w.orderFront(nil)
+    defer { w.orderOut(nil) }
+    let top = { Int(v.visibleText.split(separator: "\n").first ?? "") ?? 0 }
+    #expect(try await waitFor(15) { v.visibleText.contains("300") })
+    let before = top(), row = Double(ghostty_surface_size(surface).cell_height_px)
+    for _ in 0..<4 { ghostty_surface_mouse_scroll(surface, 0, 1.5 * row, 1) }   // 1: precise deltas, in pixels
+    #expect(top() == before - 6)
+}
+
+/// The pointer stops on a word and the chat is scrolled: the word moves away, so no preview of it comes.
+@Test @MainActor func scrollingCancelsAHover() async throws {
+    try await takeTerminal()
+    defer { terminalTaken = false }
+    let v = GhosttyTerminalView(command: "/bin/sh -c 'seq 1 300; sleep 20'", cwd: NSTemporaryDirectory())
+    let w = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 400, height: 200), styleMask: [.titled], backing: .buffered, defer: false
+    )
+    w.contentView = v
+    w.orderFront(nil)
+    defer { w.orderOut(nil) }
+    #expect(try await waitFor(15) { v.visibleText.contains("300") })
+    var shown: [String] = []
+    v.onHoverWord = { texts, _ in shown += texts }
+    let move = try #require(
+        NSEvent.mouseEvent(
+            with: .mouseMoved, location: v.convert(NSPoint(x: 16, y: 40), to: nil), modifierFlags: [], timestamp: 0,
+            windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0))
+    v.mouseMoved(with: move)
+    let scroll = try #require(
+        CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: 1, wheel2: 0, wheel3: 0)
+            .flatMap(NSEvent.init(cgEvent:)))
+    v.scrollWheel(with: scroll)
+    try await Task.sleep(for: .seconds(0.8))
+    #expect(shown.isEmpty)
+}

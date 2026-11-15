@@ -1,0 +1,28 @@
+diff --git a/src/Surface.zig b/src/Surface.zig
+index 79f19be..5091dd5 100644
+--- a/src/Surface.zig
++++ b/src/Surface.zig
+@@ -3615,10 +3615,12 @@ pub fn scrollCallback(
+             break :y .{};
+         }
+ 
+-        // We scroll by the number of rows in the offset and save the remainder
++        // We scroll by the whole rows in the offset and save the remainder
++        // (Kelp: upstream saves poff - amount * cell_size, which is 0, so the
++        // part past a whole row was lost and fast swipes scrolled in steps)
+         const amount = poff / cell_size;
+         assert(@abs(amount) >= 1);
+-        self.mouse.pending_scroll_y = poff - (amount * cell_size);
++        self.mouse.pending_scroll_y = poff - (@trunc(amount) * cell_size);
+ 
+         // Round towards zero.
+         const delta: isize = @intFromFloat(@trunc(amount));
+@@ -3643,7 +3645,7 @@ pub fn scrollCallback(
+ 
+         const amount = poff / cell_size;
+         assert(@abs(amount) >= 1);
+-        self.mouse.pending_scroll_x = poff - (amount * cell_size);
++        self.mouse.pending_scroll_x = poff - (@trunc(amount) * cell_size);
+         const delta: isize = @intFromFloat(@trunc(amount));
+         assert(@abs(delta) >= 1);
+         break :x .{ .delta = delta };

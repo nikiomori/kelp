@@ -388,6 +388,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         ghostty_surface_mouse_pos(surface, -1, -1, Self.mods(event.modifierFlags))
     }
     public override func scrollWheel(with event: NSEvent) {
+        endHover()   // the word under the pointer moves away: no preview of it mid-scroll
         guard let surface else { return }
         var deltaX = event.scrollingDeltaX, deltaY = event.scrollingDeltaY
         let precise = event.hasPreciseScrollingDeltas
