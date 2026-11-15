@@ -9,7 +9,7 @@ let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingL
     .deletingLastPathComponent()
 
 /// The app: its target (main.swift and the list of built-ins), the shell (KelpKit) and the built-ins' modules.
-private let appDirs = ["Sources/KelpApp", "Sources/KelpKit", "Sources/Builtins"]
+let appDirs = ["Sources/KelpApp", "Sources/KelpKit", "Sources/Builtins"]
 
 /// Every .swift file under these folders (relative to the repo), with its text.
 func sources(_ dirs: [String]) -> [(path: String, text: String)] {
@@ -23,7 +23,7 @@ func sources(_ dirs: [String]) -> [(path: String, text: String)] {
     }
 }
 
-private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
+func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     let re = try NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines])
     return sources(dirs).flatMap { f in
         re.matches(in: f.text, range: NSRange(f.text.startIndex..., in: f.text)).map { m in
@@ -341,30 +341,6 @@ func codeOnly(_ s: String) -> String {
         })
     let core = ["System/Subprocess", "System/LoginPath", "Extensions/ExtensionFiles"].map { "Sources/Core/\($0).swift" }
     #expect(starters == Set(core))
-}
-
-/// A session the app starts is asked at its terminal's size (`SessionStarter`, else `workbench.sized`): the first screen
-/// drawn for another width leaves zsh's stray "%" line. It joins the list through `upsert`: its event may come first.
-@Test func theAppStartsSessionsSizedAndOnce() throws {
-    let unsized = try matches(#"(?<!sized\(\s{0,40})\bSessionCreate\("#, in: appDirs)
-        .filter { !$0.hasPrefix("Sources/KelpKit/SessionStarter.swift:") }
-    #expect(unsized == [], "a session asked without its size: \(unsized)")
-    let appended = try matches(#"\bsessions\.append\("#, in: appDirs)
-        .filter { !$0.hasPrefix("Sources/KelpKit/Model/AppModel.swift:") }
-    #expect(appended == [], "a session added beside upsert: \(appended)")
-}
-
-/// `workbench.open` takes links from forges and trackers, so it only shows things. What runs a `terminal:` or `agent:` URI has
-/// a name of its own and these callers, each with a URI Kelp made or a person asked for; data from elsewhere is never among them.
-@Test func onlyKelpsOwnURIsRunAnything() throws {
-    let callers = Set(try matches(#"\.runURI\("#, in: appDirs).map { String($0.split(separator: ":")[0]) })
-    #expect(
-        callers == [
-            "Sources/KelpKit/DevAids/DevAids.swift", "Sources/KelpKit/Editor/EditorArea.swift",
-            "Sources/KelpKit/Extensions/ExtActions.swift",
-            "Sources/KelpKit/QuickOpen/QuickOpenTmux.swift", "Sources/KelpKit/Shell/EditorHost.swift",
-            "Sources/KelpKit/Shell/KelpLinks.swift", "Sources/KelpKit/Shell/WorkbenchActions.swift"
-        ])
 }
 
 /// A handler that types into a session, stops one or a process, ends a workspace's agents or answers a question says on
