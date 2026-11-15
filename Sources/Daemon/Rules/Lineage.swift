@@ -31,9 +31,12 @@ extension Store {
     }
 
     /// Whether what `id` does is held to an agent's rules: an agent is on its line, or the line breaks off (it stops at a
-    /// mark, `Caller.marks`, or at a session that's gone), which can't be told from an agent's.
+    /// mark, `Caller.marks`, or at a session that's gone), which can't be told from an agent's. So is one whose own
+    /// record is gone: a caller is looked up once per connection (`Callers.caller`) and outlives its session (a
+    /// restart deletes the old one's record), and who started that session can't be read any more.
     func forAnAgent(_ id: String) throws -> Bool {
         let line = try lineage(id)
+        guard !line.isEmpty else { return true }
         let cameFrom = line.last.flatMap { $0.parent ?? $0.startedBy ?? $0.origin }
         let typed = line.contains { Caller.typedOrigin($0.origin) }   // started by an agent the user typed in
         return line.contains(where: \.isAgent) || cameFrom != nil || typed

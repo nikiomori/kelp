@@ -7,8 +7,18 @@ import Foundation
 /// A database of a project: found in its files (compose, .env, database.yml, a SQLite file) or added by hand.
 /// A database's tab: `db:<workspace>/<name>`, with one run (`?run=`) or table (`?table=`) shown; the name and the table
 /// percent-encoded (an imported name may hold a "?" or "/"). The one builder of it: the tab, the agent's row,
-/// `kelp db`.
+/// `kelp db`. And the one reader (`parts`): the daemon decides whether an agent may open a tab by the workspace and
+/// database the tab will show, so the two read an address alike.
 public enum DatabaseTabURI {
+    /// The workspace and database `uri` names, and what follows its "?"; nil when it isn't a database tab's.
+    public static func parts(_ uri: String) -> (worktree: String, name: String, query: String?)? {
+        guard let colon = uri.firstIndex(of: ":"), uri[..<colon].lowercased() == "db" else { return nil }
+        let body = uri[uri.index(after: colon)...].split(separator: "?", maxSplits: 1)
+        let parts = body.first?.split(separator: "/", maxSplits: 1).map(String.init) ?? []
+        guard parts.count == 2 else { return nil }
+        return (parts[0], parts[1].removingPercentEncoding ?? parts[1], body.count > 1 ? String(body[1]) : nil)
+    }
+
     public static func uri(worktree: String, name: String, run: String? = nil, table: String? = nil) -> String {
         var allowed = CharacterSet.urlPathAllowed
         allowed.remove(charactersIn: "?/")

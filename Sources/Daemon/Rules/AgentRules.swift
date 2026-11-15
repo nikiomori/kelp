@@ -69,16 +69,20 @@ extension AgentRules {
     /// counts, so a method needn't remember to say so. A program the daemon started (an extension's, a git hook), one gone
     /// before it was looked at and one Kelp can't tell for the user's (`Caller.detached`) are held to the same with no
     /// session of their own; one under an agent the user typed into a terminal (`Caller.typedAgent`) as that terminal's
-    /// agent. The user's own terminals, and programs under an app, drive any. Limit (docs/architecture.md): a program that
+    /// agent; one whose own session's record is gone (a restart's old one) as an agent in no session (`forAnAgent`).
+    /// The user's own terminals, and programs under an app, drive any. Limit (docs/architecture.md): a program that
     /// has an app start one for the user to watch (`open -a Terminal`), and files left for the user to run.
-    static func allow(_ method: any Answered, caller: Caller, store: Store, live: SessionTable) throws {
-        try Fence(store: store, live: live).allow(method, caller)
+    static func allow(
+        _ method: any Answered, caller: Caller, store: Store, live: SessionTable, databases: Databases
+    ) throws {
+        try Fence(store: store, live: live, databases: databases).allow(method, caller)
     }
 }
 
-/// `AgentRules.allow`'s reads: the records, and the sessions running now (one that asks a question).
+/// `AgentRules.allow`'s reads: the records, the sessions running now (one that asks a question), and the databases an
+/// agent may use (a tab of one).
 private struct Fence {
-    let store: Store, live: SessionTable
+    let store: Store, live: SessionTable, databases: Databases
 
     func allow(_ method: any Answered, _ caller: Caller) throws {
         switch caller {
@@ -158,6 +162,13 @@ private struct Fence {
                 "An agent starts sessions under its own account, not another of the user's: leave out `profile`, or "
                     + "ask the user to start it from Kelp's window.")
         }
+        // The first local page such a session prints opens by itself as a plain page tab, logged in as the user, which
+        // `UIOpen` refuses an agent for that reason: what an agent serves, it opens with cookies of its own.
+        if (method as? any LaunchOptions)?.openURLs == true {
+            throw RPCError.refused(
+                "A page that opens by itself (`openURLs`) is logged in as the user: leave it out, and open what the "
+                    + "session serves with `kelp browser open <url>`, which gives it cookies of its own.")
+        }
         // A typed agent's own session is the user's terminal it was typed into: it names it as anyone in it would (a child's
         // parent, its reports, its tab), but neither types into it nor acts on it (Stop, Restart, a question there).
         func itsOwn(_ id: String) -> Bool { id == own && !(typed && (id == method.typesInto || id == method.actsOn)) }
@@ -183,6 +194,16 @@ private struct Fence {
             throw RPCError.refused(
                 "An agent works only in its own workspace: make one with `kelp worktree create <branch>`, or ask the "
                     + "user to do this there.")
+        }
+        // A database's tab reads its tables and rows as the user, and `kelp shot` hands the agent the picture: only of
+        // one the agent may read itself (`Databases.connection`: what `db.list` gives it, and not an address from the
+        // project's files before the user opened it, which the tab would have kelpd dial). That one's refusal says why.
+        if let tab = (method as? UIOpen).flatMap({ DatabaseTabURI.parts($0.uri) }) {
+            do { _ = try databases.connection(tab.worktree, tab.name, agent: true) } catch let error as RPCError
+                where !error.isRefusal
+            {
+                throw RPCError.refused("An agent opens a tab only of a database it may use: `kelp db list` says which.")
+            }
         }
         if let repo = method.makesInProject,
             try !store.worktrees(repo: repo).contains(where: {

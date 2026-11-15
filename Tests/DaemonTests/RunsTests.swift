@@ -80,6 +80,34 @@ private func printed(_ files: [String: String], tools: [String]) -> String {
         })
 }
 
+/// The page read from what a run prints is one this Mac serves: its host ends where a port, a path, a query or the end
+/// of the word begins. One that only starts like it (`localhost.evil.tld`) or stands behind it as a user name
+/// (`localhost@mail.example`) is another host's, and the page opens by itself, as the user.
+@Test func onlyAPageThisMacServesIsReadFromWhatARunPrints() {
+    func page(_ printed: String) -> String? {
+        LiveSession.urlRegex.firstMatch(in: printed, range: NSRange(printed.startIndex..., in: printed))
+            .flatMap { Range($0.range, in: printed) }.map { String(printed[$0]) }
+    }
+    for host in ["localhost", "127.0.0.1", "0.0.0.0", "[::1]"] {
+        for rest in ["", ":5173", "/", ":5173/", "/app", ":5173/app/?tab=1#top", "?token=abc", ":8888/lab?token=abc"] {
+            let url = "http://" + host + rest
+            #expect(page("  ➜  Local:   \(url)\n") == url, "\(url)")
+            #expect(page("Local: \(url)") == url, "\(url) at the end of what it printed")
+        }
+    }
+    #expect(page("Local: https://localhost:3000 (h for help)") == "https://localhost:3000")
+    #expect(page(#"open "http://127.0.0.1:8000/docs" in a browser"#) == "http://127.0.0.1:8000/docs")
+    for hostile in [
+        "http://localhost@mail.example/x", "http://localhost.evil.tld/x", "http://localhost:3000@mail.example/x",
+        "http://localhost:@mail.example/x", #"http://localhost\@mail.example/x"#, "http://localhost-evil.tld/x",
+        "http://127.0.0.1.evil.tld/x", "http://0.0.0.0.evil.tld:8080/x", "http://[::1].evil.tld/x"
+    ] {
+        #expect(page("Local: \(hostile)\n") == nil, "\(hostile)")
+    }
+    // The next one that is this Mac's, past one that isn't.
+    #expect(page("docs: https://localhost.evil.tld/x app: http://localhost:5173/") == "http://localhost:5173/")
+}
+
 /// A remote project's files are read on its host, in one call through the shared connection.
 @Test func detectOnARemoteHost() async throws {
     _ = localSSH

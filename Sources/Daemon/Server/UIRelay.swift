@@ -40,8 +40,10 @@ extension UIOpen: Handled {
     }
     /// The workspace a tab of one names in its body (`db:<workspace>/<name>`, `diff:<workspace>?…`): the app opens it as
     /// the user, so it's held as that field would be. Else `worktreeId` (none named: the one on screen, where it shows a
-    /// file or a page).
+    /// file or a page). A database's tab names its workspace as the tab itself reads it (`DatabaseTabURI.parts`, which
+    /// reads past a `?` or `/` before the id), and which database it may be is the fence's (`AgentRules.allow`).
     var inWorkspace: String? {
+        if let database = DatabaseTabURI.parts(uri) { return database.worktree }
         let named = shows == nil && UUID(uuidString: lead) != nil ? lead : nil
         return named ?? worktreeId
     }

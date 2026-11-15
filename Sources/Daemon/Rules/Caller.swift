@@ -4,7 +4,8 @@ import Foundation
 enum Caller: Hashable, Sendable {
     /// Outside every session: the user's own terminal, Kelp's window, the daemon itself. Not held to an agent's rules.
     case user
-    /// A program in that session's process tree, or its terminal: held to an agent's rules when an agent is on its line.
+    /// A program in that session's process tree, or its terminal: held to an agent's rules when an agent is on its
+    /// line, or once the session's record is gone (`forAnAgent`).
     case session(String)
     /// A program run under an agent the user started by hand in that session's terminal (`claude` typed into a shell):
     /// held to an agent's rules as that session's, whatever the session is.

@@ -266,7 +266,9 @@ extension Daemon {
     /// `caller`: who sent it, when that was found before (input queued for a session that wakes).
     func allow(_ method: any Answered, conn: Int, caller known: Caller? = nil) throws {
         if let refusal = method.onlyFromKelp { try clients.requireApp(conn, refusal) }
-        try AgentRules.allow(method, caller: known ?? callers.caller(conn), store: store, live: sessions.live)
+        try AgentRules.allow(
+            method, caller: known ?? callers.caller(conn), store: store, live: sessions.live,
+            databases: workspaces.databases)
     }
 
     /// `allow` for `conn`'s caller as it is now, asked again later as that caller: input queued for a session that wakes

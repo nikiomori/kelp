@@ -4,8 +4,8 @@ import Testing
 
 @testable import Daemon
 
-// The rest of the agent rules' table (`whoMayDoWhat`): what acts on a workspace or a session, and how many of the
-// methods agents may call still have no row.
+// The rest of the agent rules' table (`whoMayDoWhat`): what acts on a workspace or a session, a caller whose session is
+// gone, and how many of the methods agents may call still have no row.
 
 /// What acts on a workspace is held to the agent's own; a remote op there is a fetch, never a push; a session the user
 /// started isn't the agent's to mark, while its own terminal's size it may set, as an attach does.
@@ -62,6 +62,27 @@ import Testing
         )
     ]
     try expectRows(w.d, table)
+}
+
+/// A connection's caller is looked up once and outlives its session: a restart deletes the old one's record, and a
+/// program of that terminal still on its connection can't be told from an agent's any more: held to an agent's rules.
+@Test func aCallerWhoseSessionIsGoneIsHeldToAnAgentsRules() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await workspace(w, "feat/x")
+    let term = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "cat"))
+    // This test's connection, found as that terminal's (as a program in it is, as it connects).
+    for id in 0..<64 { w.d.clients.connection(id)?.owner.withLock { $0 = .session(term.id) } }
+    let phone = SettingsSet(key: "phone.url", value: .string("https://x.example"))
+    _ = try await w.c.call(phone)   // a terminal of the user's is the user
+    _ = try await w.c.call(SessionRestart(id: term.id))
+    #expect(try w.d.sessions.store.session(term.id) == nil)   // the old record went; the connection is still its
+    var refused = false
+    do { _ = try await w.c.call(phone) } catch let error as RPCError where error.isRefusal { refused = true }
+    #expect(refused, "a user-only call from a connection whose session's record is gone")
+    #expect(w.d.callers.heldAsAgent(term.id))
+    // What reads who asks from the caller's origin (`db.list`'s hidden databases, `vm.create`'s question): the same.
+    #expect(w.d.sessions.store.agent(origin: term.id) != nil)
 }
 
 /// Each row's call allowed or refused by the rules (`RPCError.refused`), not by any error: a missing record or a store's

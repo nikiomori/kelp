@@ -53,9 +53,11 @@ final class LiveSession: Sendable {
     static let busyRegex = try! NSRegularExpression(
         pattern: #"port (\d{2,5}) is (?:already )?in use|(?:EADDRINUSE|address already in use)[^\n]*?[: ](\d{4,5})\b"#,
         options: .caseInsensitive)
+    // A page this Mac serves. Its host ends where a port, a path, a query or the end of the word begins: the page opens
+    // by itself, and `localhost@mail.example` or `localhost.evil.tld` is another host's.
     // swiftlint:disable:next force_try
     static let urlRegex = try! NSRegularExpression(
-        pattern: #"https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1?\])(:\d+)?[^\s\x1b'"]*"#)
+        pattern: #"https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1?\])(:\d+)?(?=[/?#\s\x1b'"]|$)[^\s\x1b'"]*"#)
     /// What an agent prints once its turn was cut short: Claude Code's "Interrupted · What should Claude do instead?" (and
     /// "User declined to answer questions" for Esc on its question, which ends the turn with no hook), Codex's
     /// "■ Conversation interrupted - tell the model what to do differently." Words placed one by one come with odd spacing.

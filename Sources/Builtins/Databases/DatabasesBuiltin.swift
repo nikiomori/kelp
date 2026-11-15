@@ -122,17 +122,13 @@ struct DatabaseURI: Equatable {
         self.table = table
     }
 
+    /// Read by `DatabaseTabURI.parts`, as the daemon reads it for what an agent may open.
     init?(_ uri: String) {
-        guard TabURI.scheme(uri) == TabURI.databaseScheme else { return nil }
-        let body = TabURI.body(uri).split(separator: "?", maxSplits: 1).map(String.init)
-        let parts = body[0].split(separator: "/", maxSplits: 1).map(String.init)
-        guard parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty else { return nil }
-        worktree = parts[0]
-        name = parts[1].removingPercentEncoding ?? parts[1]
-        run = body.count > 1 && body[1].hasPrefix("run=") ? String(body[1].dropFirst(4)) : nil
-        table =
-            body.count > 1 && body[1].hasPrefix("table=")
-            ? String(body[1].dropFirst(6)).removingPercentEncoding : nil
+        guard let parts = DatabaseTabURI.parts(uri) else { return nil }
+        (worktree, name) = (parts.worktree, parts.name)
+        let query = parts.query ?? ""
+        run = query.hasPrefix("run=") ? String(query.dropFirst(4)) : nil
+        table = query.hasPrefix("table=") ? String(query.dropFirst(6)).removingPercentEncoding : nil
     }
 
     var uri: String { DatabaseTabURI.uri(worktree: worktree, name: name, run: run, table: table) }

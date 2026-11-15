@@ -282,7 +282,8 @@ caller isn't told "timed out" of a change still made. A MySQL server that takes 
 10 s. What kelpd reads of an answer stops at 32 MB, refused whole rather than sent as fewer rows. The
 table tab's edits are the user's (`db.apply`, one transaction). Agents call only `db.list`, `db.schema` and `db.query`,
 all three in their own workspaces; `databases.agents` (the default access) and the window's watch of the databases
-are the user's.
+are the user's. A database's tab reads as the user, so an agent's `kelp db open` opens one only of a database it could
+read itself (`Databases.connection`: not a hidden one, nor an address from the project's files the user hasn't opened).
 
 What read-only doesn't stop: a function the database runs with its owner's rights (a `SECURITY DEFINER` function that
 writes), or what the user granted that role. It holds the
@@ -337,7 +338,9 @@ status report (hooks, `kelp report`, herdr's) from a program running inside a se
 `Caller`, looked up as it connects, in Daemon/Rules/CallerLookup.swift): the session it runs in, by its process tree or a
 terminal it or a parent of it has, or for a tmux pane by who is attached to that tmux session; `kelpd` for a program kelpd
 itself started (an extension's command or event, a repository's git hook, whatever they left running: kelpd leads its
-own process session, where it can); `unknown` for one gone before it could be read. It's the user's when Kelp can tell:
+own process session, where it can); `unknown` for one gone before it could be read. One whose session's record is gone
+since (a restart deletes the old one's, and a connection outlives it) is held to an agent's rules, as who started that
+session can't be read any more (`Store.forAnAgent`). It's the user's when Kelp can tell:
 Kelp's window and its terminals, a terminal of Kelp's no agent is on the line of, a program that came from a system
 service (an ancestor of another account that isn't a setuid program: `sshd`, cron; not `login`, which anyone can start),
 or from an app that isn't a Kelp (Terminal, iTerm and its session server, an editor). The rest is `detached`, held to
@@ -361,7 +364,8 @@ the ones they started (any session id a call names counts), work in their own wo
 `Worktree.madeBy`; any workspace id a call that acts names in a field of its own counts, `AgentRules.reads` aside,
 and one named another way, by the window, a path or a tab's address (`db:<workspace>/…`, `diff:<workspace>`), says so
 with `inWorkspace`), open web pages only with cookies of their own (`kelp browser open`; a plain page tab is the
-user's, logged in, and `kelp shot` would see it), make workspaces only in the project
+user's, logged in, and `kelp shot` would see it, so neither `ui.open` nor a session started with `openURLs`, whose
+printed page opens by itself, gives an agent one), make workspaces only in the project
 they work in (`makesInProject`), run only the app's commands that show something (`UICommand.forAgents`, ids no extension may take), start
 sessions only under their own account (`profile`), set no setting of the
 user's own (`SettingsSet.usersOnly`, the keyboard's included), never answer a question (one a hook said, until what
@@ -427,7 +431,10 @@ review comment, a project's `.kelp.yaml`. Kelp keeps that from acting as the use
 - A repository's own git config (a folder that came as a download carries one) runs nothing on what Kelp runs by
   itself: no fsmonitor, no external diff or textconv in diffs, and its own `filter.*` drivers are off for reads (status,
   diff, log…). What the user does (add, commit, checkout, fetch) runs git as a terminal would, hooks and filters included.
-- A remote project's marker counts only under `~/.kelp/remote`; gh/glab don't run for remote projects.
+- A remote project's marker counts only under `~/.kelp/remote`. gh and glab don't run in its folder here, which holds
+  only that marker (their git would walk up into whatever repository holds it): one whose origin on the host is on
+  GitHub gets gh on this Mac, with the user's own login, on that repository (`GH_REPO`, `HostRepo`); one on GitLab or
+  elsewhere has no pull requests or CI yet (`Daemon.refuseRemoteForge`).
 
 Tests run with their own `KELP_HOME`, agent config dirs, keychain service and git config, set as the test bundle
 loads (`Tests/TestSupportC`), so no test reads or writes the user's own. Their sessions start through `kelp __ctty`
