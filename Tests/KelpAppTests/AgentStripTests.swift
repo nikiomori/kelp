@@ -330,3 +330,23 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     tile.update(item, open: false, app: rig.app)
     #expect(tile.constraints.map(ObjectIdentifier.init) != before)
 }
+
+/// A refresh for nothing it shows (Kelp coming to the front with the strip set to stay, a screen's other change) lays
+/// nothing out, and a move to another place doesn't measure the same tiles again.
+@MainActor @Test func theStripIsMeasuredOnlyWhenItsTilesChange() async throws {
+    let rig = try await AppRig()
+    defer { rig.done() }
+    _ = NSApplication.shared
+    let strip = AgentStrip(app: rig.app)
+    strip.front = { false }   // behind another app, whatever another test brings forward
+    strip.animates = false
+    strip.start()
+    rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
+    #expect(try await waitFor(5) { strip.isShowing })
+    let measured = strip.measures
+    for _ in 0..<3 { strip.refresh() }
+    strip.put(appearing: false)
+    #expect(strip.measures == measured)
+    rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow rm -rf build?")]
+    #expect(try await waitFor(5) { strip.measures == measured + 1 })
+}

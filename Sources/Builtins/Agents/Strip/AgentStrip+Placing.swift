@@ -144,8 +144,7 @@ extension AgentStrip {
         guard let area = screen(appearing: appearing, of: window)?.visibleFrame, let content = window.contentView else {
             return
         }
-        content.layoutSubtreeIfNeeded()
-        let size = NSSize(width: content.fittingSize.width, height: StripButton.stripHeight)
+        let size = NSSize(width: width(of: content), height: StripButton.stripHeight)
         let behind = place?.edge.map { StripModel.tucked(size, in: area, edge: $0, y: place?.y ?? 0, out: peeking) }
         let frame = behind ?? StripModel.frame(size, in: area, at: corner)
         guard animates else {   // where it ends, at once
@@ -177,6 +176,23 @@ extension AgentStrip {
             return
         }
         window.slideIn(to: frame, by: CGVector(dx: 0, dy: Motion.reduced ? 0 : corner.isTop ? 8 : -8))
+    }
+
+    /// What the strip's width follows: its tiles, the open one, the edge it hides behind (the handle's room) and the text size.
+    struct Measured: Equatable {
+        let items: [StripItem], opened: String?, edge: StripEdge?, scale: CGFloat
+    }
+
+    /// Measured once per look of the row: the panel's `fittingSize` is a whole Auto Layout pass (~100 ms seen on Kelp
+    /// coming to the front). Not kept while the row waits under the pointer (`deferred`): it shows older tiles then.
+    private func width(of content: NSView) -> CGFloat {
+        let key = Measured(items: state.items, opened: laidOut?.opened, edge: place?.edge, scale: TextSize.scale)
+        if !deferred, let measured, measured.key == key { return measured.width }
+        measures += 1
+        content.layoutSubtreeIfNeeded()
+        let width = content.fittingSize.width
+        measured = deferred ? nil : (key, width)
+        return width
     }
 
     /// The spring's way back from a little past its place, unless it was sent somewhere else since.

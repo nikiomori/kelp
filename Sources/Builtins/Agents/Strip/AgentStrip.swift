@@ -53,10 +53,18 @@ final class AgentStrip {
     private var card: StripCard?
     private var observers: [NSObjectProtocol] = []
     /// What the strip was last laid out with: under the pointer it stays so (`frozen`).
-    private var laidOut: (opened: String?, peeking: Bool)?
+    private(set) var laidOut: (opened: String?, peeking: Bool)?
     /// Something changed while it stood still under the pointer: laid out once the pointer leaves.
-    private var deferred = false
+    private(set) var deferred = false
     private var relayout: Timer?
+    /// The row's last width, and what it was measured for (`width(of:)`); how many times it was measured, for tests.
+    var measured: (key: Measured, width: CGFloat)?
+    var measures = 0
+    /// What the strip showed and where, at its last layout: the same again lays out nothing.
+    private var lastLook: Look?
+    private struct Look: Equatable {
+        let state: State, place: StripPlace?, peeking: Bool, pointerOn: Bool, screens: [NSRect]
+    }
 
     init(app: AppModel) { self.app = app }
 
@@ -171,6 +179,11 @@ final class AgentStrip {
             goAway()
             return
         }
+        // Up as it was, showing the same where it stood (the screens' room too): a refresh for nothing it shows.
+        let look = Look(
+            state: state, place: place, peeking: peeking, pointerOn: row.pointerOn,
+            screens: NSScreen.screens.map(\.visibleFrame))
+        if look == lastLook, isShowing, card == nil, !goesOn, !deferred, !calls.inCall { return }
         panel?.apply(fullScreen: state.fullScreen)
         line.apply(fullScreen: state.fullScreen)
         let wasUp = isShowing
@@ -211,6 +224,7 @@ final class AgentStrip {
         }
         showEdge(hidden: hidden)
         if !frozen { put(appearing: !wasUp) }
+        lastLook = frozen ? nil : look
         follow(opened)
         expireDone()
         tell(hidden: hidden, appeared: !wasUp)
@@ -411,6 +425,7 @@ final class AgentStrip {
     }
 
     private func goAway() {
+        lastLook = nil   // it fades while it's still up: wanted back meanwhile, it's laid out again
         closeCard()
         tip?.hide()
         line.hide()
