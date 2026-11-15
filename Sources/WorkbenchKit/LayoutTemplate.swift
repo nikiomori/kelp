@@ -46,6 +46,56 @@ public struct LayoutTemplate: Codable, Equatable {
         self.layout = kept
     }
 
+    /// A project's own, from its .kelp.yaml (`layout.<name>: claude | page / run`): panes side by side with "|", one
+    /// under another with " / " (spaces round it: a path has none), tabs in a pane with commas. A tab is an agent (`agents`), `shell`, one of the project's
+    /// commands by name (`commands`), `page` (the first command's page, once it serves), `changes`, or a file in the
+    /// group's folder.
+    public init(name: String, spec: String, agents: Set<String>, commands: [String: String]) {
+        self.name = name
+        ownWindow = false
+        var layout = WorkspaceLayout(), wantsPage: [TabRef] = [], firstRun: TabRef?
+        func parts(_ text: String, _ by: String) -> [String] {
+            text.components(separatedBy: by).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        }
+        let columns: [LayoutNode] = parts(spec, "|").compactMap { column in
+            let panes: [LayoutNode] = parts(column, " / ").map { pane in
+                var group = GroupModel()
+                for item in parts(pane, ",") {
+                    var tab = TabRef(uri: "")
+                    if agents.contains(item) {
+                        tab.uri = "agent:" + item
+                    } else if ["shell", "terminal"].contains(item) {
+                        tab.uri = "terminal:"
+                    } else if let command = commands[item] {
+                        var c = URLComponents()
+                        c.scheme = "terminal"
+                        c.queryItems = [
+                            URLQueryItem(name: "cmd", value: command), URLQueryItem(name: "title", value: item)
+                        ]
+                        tab.uri = c.string ?? "terminal:"
+                        firstRun = firstRun ?? tab
+                    } else if item == "page" {
+                        wantsPage.append(tab)
+                    } else if item == "changes" {
+                        tab.uri = "diff:" + Self.groupToken
+                    } else {
+                        tab.uri = TabURI.file(Self.folderToken) + "/" + TabURI.file(item).dropFirst("file://".count)
+                    }
+                    group.tabs.append(tab)
+                }
+                layout.groups[group.id] = group
+                return .pane(group.id)
+            }
+            return panes.count > 1 ? .split(vertical: false, children: panes) : panes.first
+        }
+        layout.root = columns.count > 1 ? .split(vertical: true, children: columns) : columns.first
+        layout.focused = layout.root?.sessions.first
+        for tab in wantsPage {
+            if let firstRun { layout.setURI("\(Self.runPage):\(firstRun.id)", of: tab) } else { layout.remove(tab.id) }
+        }
+        self.layout = layout
+    }
+
     /// The tabs started anew when it's used, in order.
     public var runs: [TabRef] { layout.allTabs.filter { TabURI.runs($0.uri) } }
 

@@ -49,7 +49,7 @@ extension Workspaces {
     /// Nothing in it runs, links, or speaks to an agent for the user: a file like that needs no trust.
     static func asksNothing(_ config: RepoConfig) -> Bool {
         config.setup == nil && config.scripts.isEmpty && config.tabs.isEmpty && config.shared.isEmpty
-            && config.clone.isEmpty
+            && config.clone.isEmpty && config.layouts.isEmpty   // a layout starts agents and commands
             && config.recipes.isEmpty && config.issueCommand == nil
     }
 
@@ -74,7 +74,7 @@ extension ScriptsList: Handled {
         // Everything trusting it would allow, and the digest of exactly this text (one read): trust is given to what was shown.
         return Result(
             scripts: cfg.scripts, setup: cfg.setup, tabs: cfg.tabs, shared: cfg.shared, recipes: cfg.recipes,
-            issueCommand: cfg.issueCommand,
+            issueCommand: cfg.issueCommand, layouts: cfg.layouts.isEmpty ? nil : cfg.layouts,
             digest: Workspaces.digest(read.text), trusted: read.trusted, file: read.path)
     }
 }

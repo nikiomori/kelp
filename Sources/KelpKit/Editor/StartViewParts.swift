@@ -149,30 +149,43 @@ final class StartRow: PointerControl {
 
 }
 
-/// The project's group templates (`LayoutTemplates`), first on an empty screen: a click arranges this one as the
-/// template says; gone while the project has none. A row's menu deletes it.
+/// The project's group templates (`LayoutTemplates`), first on an empty screen: the ones saved here, then its
+/// .kelp.yaml's once that's read (and trusted). A click arranges this screen as the template says; gone while there are
+/// none. A saved one's menu deletes it; the file's are changed in the file.
 @MainActor
 final class TemplateGroup: NSStackView {
     let head = StartView.heading(String(localized: "Templates"))
+    private let store: LayoutTemplates, workspace: Worktree
 
     init(app: AppModel, workspace w: Worktree) {
+        store = LayoutTemplates(app: app)
+        workspace = w
         super.init(frame: .zero)
         orientation = .vertical
         alignment = .leading
         spacing = 6
-        let store = LayoutTemplates(app: app), templates = store.all(w.repoId)
-        isHidden = templates.isEmpty
-        let rows = templates.map { t in
+        show(file: [])
+        Task { [weak self] in
+            let file = await LayoutTemplates(app: app).fromFile(w)
+            if !file.isEmpty { self?.show(file: file) }
+        }
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func show(file: [LayoutTemplate]) {
+        let store = store, w = workspace, saved = store.all(w.repoId)
+        isHidden = saved.isEmpty && file.isEmpty
+        let rows = (saved.map { ($0, true) } + file.map { ($0, false) }).map { t, mine in
             let row = StartRow(
                 image: .symbol("rectangle.split.2x1"), title: t.name, detail: store.summary(t), shortcut: nil
             ) {
                 Task { await store.use(t, in: w.id) }
             }
+            guard mine else { return row }
             row.menu = NSMenu()
-            row.menu?.add(String(localized: "Delete Template")) { [weak self, weak row] in
+            row.menu?.add(String(localized: "Delete Template")) { [weak self] in
                 store.delete(t.name, in: w.repoId)
-                row?.isHidden = true   // the list isn't read again until the screen is made again
-                self?.isHidden = store.all(w.repoId).isEmpty
+                self?.show(file: file)
             }
             return row
         }
@@ -181,5 +194,4 @@ final class TemplateGroup: NSStackView {
         head.leadingAnchor.constraint(equalTo: leadingAnchor, constant: StartView.headInset).isActive = true
         card.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
     }
-    required init?(coder: NSCoder) { fatalError() }
 }

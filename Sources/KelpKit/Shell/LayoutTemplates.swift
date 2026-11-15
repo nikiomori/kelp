@@ -15,6 +15,17 @@ struct LayoutTemplates {
         return Self.log.attempt("reading templates") { try saved.decode([LayoutTemplate].self) } ?? []
     }
 
+    /// The project's own, from its .kelp.yaml's `layout.<name>` lines; none until the file is trusted: they start agents
+    /// and commands.
+    func fromFile(_ worktree: Worktree) async -> [LayoutTemplate] {
+        guard let config = await app.quiet(ScriptsList(worktreeId: worktree.id)), config.trusted else { return [] }
+        let agents = Set(app.catalog.all.map(\.id)).subtracting(["shell"])
+        let commands = Dictionary(config.scripts.map { ($0.name, $0.command) }) { first, _ in first }
+        return (config.layouts ?? []).map {
+            LayoutTemplate(name: $0.name, spec: $0.command, agents: agents, commands: commands)
+        }
+    }
+
     /// Save Layout as Template… on a group's row: its panes and what runs in them, under a name; one of that name is
     /// replaced (how one is changed: arrange a group, save it again). In its own window now, it opens in one.
     func save(from id: String) async {
@@ -96,6 +107,7 @@ struct LayoutTemplates {
             case "terminal": return value("title") ?? value("cmd") ?? value("tmux") ?? String(localized: "Terminal")
             case "file": return URL(fileURLWithPath: TabURI.filePath(uri).path).lastPathComponent
             case "runpage": return String(localized: "Page")
+            case "diff": return String(localized: "Changes")
             default:
                 return URL(string: TabURI.pageURL(uri)).flatMap { u in
                     u.host.map { $0 + (u.port.map { ":\($0)" } ?? "") }

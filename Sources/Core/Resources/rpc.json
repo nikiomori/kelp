@@ -3983,6 +3983,13 @@
           "issueCommand" : {
             "type" : "string"
           },
+          "layouts" : {
+            "description" : "Its `layout.<name>` lines in the file's order, each as written (\"claude | page / run\"): the project's group templates.",
+            "items" : {
+              "$ref" : "#/components/schemas/ScriptsList.Script"
+            },
+            "type" : "array"
+          },
           "recipes" : {
             "additionalProperties" : {
               "type" : "string"

@@ -58,3 +58,17 @@ import Testing
     #expect(brief.contains("^{commit}"))
     #expect(!brief.contains("{instructionFiles}"))
 }
+
+/// A project's group templates are its `layout.<name>` lines, as written and in the file's order; the first of a name wins.
+@Test func layoutsAreReadInTheFilesOrder() {
+    let c = RepoConfig.parse(
+        "run: npm run dev\nlayout.Frontend: claude | page / run\nlayout.Review: codex | changes\nlayout.Review: x")
+    #expect(c.layouts.map(\.name) == ["Frontend", "Review"] && c.layouts[1].command == "codex | changes")
+    #expect(c.scripts.map(\.name) == ["run"])
+}
+
+/// A file with nothing but a layout still waits for trust: using it starts agents and commands.
+@Test func aLayoutAloneNeedsTrust() {
+    #expect(!Workspaces.asksNothing(RepoConfig.parse("layout.Frontend: claude | shell")))
+    #expect(Workspaces.asksNothing(RepoConfig.parse("# nothing")))
+}

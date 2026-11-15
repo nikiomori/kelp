@@ -15,14 +15,18 @@ public struct ScriptsList: RPCMethod {
     public struct Result: Codable, Sendable, Equatable {
         public var scripts: [Script], setup: String?, tabs: [String], shared: [String], recipes: [String: String],
             issueCommand: String?
+        /// Its `layout.<name>` lines in the file's order, each as written ("claude | page / run"): the project's group
+        /// templates.
+        public var layouts: [Script]?
         /// Of exactly the text read: `scripts.trust` trusts what was shown, not a later version.
         public var digest: String
         public var trusted: Bool, file: String
         public init(
             scripts: [Script], setup: String?, tabs: [String], shared: [String], recipes: [String: String],
-            issueCommand: String?,
+            issueCommand: String?, layouts: [Script]? = nil,
             digest: String, trusted: Bool, file: String
         ) {
+            self.layouts = layouts
             self.scripts = scripts
             self.setup = setup
             self.tabs = tabs

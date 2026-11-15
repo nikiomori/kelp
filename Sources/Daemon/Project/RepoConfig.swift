@@ -6,6 +6,8 @@ import Foundation
 ///   clone: node_modules   (an APFS copy in each worktree: its own, made in seconds)
 ///   tabs: claude, shell   (sessions opened in a new worktree)      issueCommand: prompt template for issue worktrees
 ///   recipe.<action>: prompt template with {stagedPatch} {branch} {diffStat} {error} {linkedIssue}
+///   layout.<name>: claude | page / run   (a group template: panes side by side with |, one under another with " / ",
+///     tabs in a pane with commas; an agent, shell, a command's name, page (the run's), changes, or a file)
 ///   run / test / lint / build: the project's commands (Run menu, ⌘R ⌘U)      script.<name>: any other one
 /// Its commands run only once the project is trusted (`Trust`), and again after the file changes.
 struct RepoConfig: Sendable, Equatable {
@@ -16,6 +18,8 @@ struct RepoConfig: Sendable, Equatable {
     var recipes: [String: String] = [:]
     /// Named commands in the file's order.
     var scripts: [Script] = []
+    /// Group templates in the file's order, each as written (the app reads them: `LayoutTemplate(name:spec:…)`).
+    var layouts: [Script] = []
     typealias Script = ScriptsList.Script
     /// Run before each of its commands: the variables another tool's scripts expect (`ImportedConfig`); "" for a .kelp.yaml.
     var prelude = ""
@@ -43,6 +47,11 @@ struct RepoConfig: Sendable, Equatable {
             case "clone": config.clone = list
             case "tabs": config.tabs = list
             default:
+                if key.hasPrefix("layout."), !value.isEmpty,
+                    !config.layouts.contains(where: { $0.name == key.dropFirst(7) })
+                {
+                    config.layouts.append(Script(name: String(key.dropFirst(7)), command: value))
+                }
                 if key.hasPrefix("recipe.") {
                     config.recipes[String(key.dropFirst(7))] = value.replacingOccurrences(of: "\\n", with: "\n")
                 }

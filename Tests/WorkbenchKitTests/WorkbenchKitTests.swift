@@ -413,3 +413,29 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     #expect(t.pages.map(\.run) == [a.id] && t.pages.first?.path == "/docs?x=1")
     #expect(!t.filled([:], in: from).allTabs.contains { $0.id == page.id })
 }
+
+/// A project's template as its .kelp.yaml writes it: panes side by side and one under another, each tab an agent, a
+/// command by name, that command's page, the group's changes or a file in its folder.
+@Test func aTemplateIsReadFromOneLine() throws {
+    let t = LayoutTemplate(
+        name: "Frontend", spec: "claude, src/my app.tsx | page / run, changes", agents: ["claude"],
+        commands: ["run": "npm run dev"])
+    guard case .split(true, let columns)? = t.layout.root, case .split(false, let right) = columns[1] else {
+        Issue.record("\(String(describing: t.layout.root))")
+        return
+    }
+    #expect(columns.count == 2 && right.count == 2 && t.layout.focused == columns[0].sessions.first)
+    let run = try #require(t.runs.last)
+    #expect(t.runs.map(\.uri) == ["agent:claude", "terminal:?cmd=npm%20run%20dev&title=run"])
+    #expect(t.pages.map(\.run) == [run.id])
+    let used = t.filled([run.id: "session:r"], in: .init(workspace: "g", folder: "/w/g"))
+    #expect(
+        used.allTabs.map(\.uri) == [
+            TabURI.file("/w/g/src/my app.tsx"), LayoutTemplate.waiting(t.pages[0].tab), "session:r", "diff:g"
+        ])
+    // A page with no command to serve it isn't a tab.
+    #expect(
+        LayoutTemplate(name: "x", spec: "page | shell", agents: [], commands: [:]).layout.allTabs.map(\.uri) == [
+            "terminal:"
+        ])
+}

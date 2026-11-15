@@ -230,6 +230,7 @@ setup: npm install              # runs in every new worktree
 shared: node_modules            # symlinked from the main checkout instead of reinstalling
 clone: .venv                    # or each worktree gets its own copy, an APFS clone: seconds, next to no disk
 tabs: claude, shell             # sessions opened in each new worktree
+layout.Frontend: claude | page / run   # a group template: panes with |, one under another with " / ", tabs with commas
 run: PORT=$KELP_PORT npm run dev   # Run menu (⌘R). Also test (⌘U), lint, build, script.<name>
 test: npm test
 issueCommand: "Fix {title}: {body}"
