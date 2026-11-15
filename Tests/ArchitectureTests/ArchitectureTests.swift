@@ -312,6 +312,13 @@ func codeOnly(_ s: String) -> String {
         return code.count > 600 ? "\(f.path): \(code.count)" : nil
     }
     #expect(big == [])
+    // Past 400 lines, comments and all, is the review's mark (`files_over_400` in scripts/metrics.py): those there are
+    // the debt, a count that only goes down.
+    let over400 = sources(["Sources"]).filter { f in
+        f.text.split(separator: "\n", omittingEmptySubsequences: false).count > 400
+    }.count
+    #expect(over400 <= 29, "files over 400 lines of code: \(over400)")
+    #expect(over400 >= 29, "fewer now (\(over400)): lower the ceiling")
 }
 
 /// The daemon starts every program (an extension's command, a formatter, a notebook run, an agent's --version:
@@ -559,14 +566,18 @@ func codeOnly(_ s: String) -> String {
     let chrome = ["Sources/KelpKit", "Sources/Builtins"]
     #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count <= 1)
     #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count >= 1, "fewer now: lower the ceiling")
-    #expect(try matches(#"cornerRadius( =|:) *[0-9]"#, in: chrome).count <= 1)
+    #expect(try matches(#"cornerRadius( =|:) *[0-9]"#, in: chrome).count == 0)
     // Drawn by hand too: a system font at a size of its own (a tile's letters, scaled to the tile), a rounded path's
     // radius typed in (icon tiles). The debt as it is: each ceiling is today's count.
-    #expect(try matches(#"systemFont\(ofSize"#, in: chrome).count <= 4)
-    #expect(try matches(#"xRadius: *[0-9]"#, in: chrome).count <= 5)
+    let fonts = try matches(#"systemFont\(ofSize"#, in: chrome), radii = try matches(#"xRadius: *[0-9]"#, in: chrome)
+    #expect(fonts.count <= 4, "\(fonts)")
+    #expect(fonts.count >= 4, "fewer now: lower the ceiling")
+    #expect(radii.count <= 5, "\(radii)")
+    #expect(radii.count >= 5, "fewer now: lower the ceiling")
     // Text sizes by name (`TextSize.caption`); what's left is a title, a big number, a tile's glyph, a grid's NULL.
     let typed = try matches(#"\.ui(Mono|Digits)?\(\d"#, in: chrome + ["Sources/DesignKit", "Sources/EditorKit"])
-    #expect(typed.count <= 12, "\(typed)")
+    #expect(typed.count <= 4, "\(typed)")
+    #expect(typed.count >= 4, "fewer now: lower the ceiling")
     #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count <= 1)
     #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count >= 1, "fewer now: lower the ceiling")
     // The system's text styles stay at their size whatever Text size says: SwiftUI text takes `Font.ui` too.
@@ -796,7 +807,9 @@ func codeOnly(_ s: String) -> String {
 @Test func appModelIsTheDaemonsMirror() {
     let names = sources(["Sources/KelpKit", "Sources/Builtins"]).filter { file in
         !file.path.hasSuffix("/AppModel.swift")
-            && file.text.range(of: #"(?m)^extension AppModel\b"#, options: .regularExpression) != nil
+            // however it's spelled: `package extension AppModel`, `@MainActor extension AppModel`
+            && file.text.range(of: #"(?m)^(@\w+ +)*(\w+ +)?extension AppModel\b"#, options: .regularExpression)
+                != nil
     }.map(\.path).sorted()
     #expect(names.count <= 3, "files extending AppModel: \(names)")
     #expect(names.count >= 3, "fewer now (\(names)): lower the ceiling")
