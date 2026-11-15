@@ -48,14 +48,34 @@ final class SidebarCell: NSTableCellView {
     /// An agent's own icon after its name, grey, when it isn't the default agent (Settings › Appearance › Agent icons).
     let glyph = NSImageView()
     /// A project's colour after its name, in the Dot style.
-    /// On the row that was muted (`Mutes`), not on what's inside it.
-    let muted: NSImageView = {
-        let view = NSImageView(image: .symbol("bell.slash", String(localized: "Notifications muted")))
-        view.symbolConfiguration = .chrome(Metrics.iconSmall)
-        view.contentTintColor = .secondaryLabelColor
-        view.toolTip = view.image?.accessibilityDescription
-        view.isHidden = true
-        return view
+    /// On the row that was muted (`Mutes`), not on what's inside it; a click unmutes it, as the hover card's Unmute does.
+    lazy var muted: PointerButton = {
+        let button = PointerButton(image: .symbol("bell.slash", String(localized: "Notifications muted"))) {
+            [weak self] in
+            guard let self else { return }
+            app.arrangement.mute(node.muteIds, until: nil)
+        }
+        button.radius = nil
+        button.symbolConfiguration = .chrome(Metrics.iconSmall)
+        button.contentTintColor = .secondaryLabelColor
+        button.setAccessibilityLabel(String(localized: "Unmute"))
+        button.isHidden = true
+        return button
+    }()
+    /// A project whose folder is gone: "Folder missing", in orange, and a click to say where it went.
+    lazy var locate: PointerButton = {
+        let button = PointerButton { [weak self] in
+            guard let self, case .project(let id) = node.kind, let repo = app.repo(id) else { return }
+            WorkspaceActions(app).relocate(repo)
+        }
+        button.attributedTitle = NSAttributedString(
+            string: String(localized: "Folder missing"),
+            attributes: [.font: NSFont.ui(TextSize.caption, weight: .semibold), .foregroundColor: NSColor.textOrange])
+        button.radius = Metrics.radiusXS
+        button.padding = 3
+        button.toolTip = String(localized: "Locate…")
+        button.isHidden = true
+        return button
     }()
     /// Under an agent that asks or failed: what it asks, or what went wrong (Settings › Appearance › What agents ask).
     let ask = NSTextField(labelWithString: "")
@@ -122,8 +142,6 @@ final class SidebarCell: NSTableCellView {
             // A name, not a section label: what's under it is the project's. On the right only what needs doing.
             title.font = .ui(TextSize.body, weight: .semibold)
             title.textColor = .labelColor
-            trailing.font = .ui(TextSize.caption, weight: .semibold)
-            trailing.textColor = .textOrange
             let button = Self.newChatButton { [weak owner] in owner?.newChat(id) }
             add = button   // on hover, like Finder's sidebar
             icon.imageScaling = .scaleProportionallyUpOrDown
@@ -138,7 +156,7 @@ final class SidebarCell: NSTableCellView {
             detail.lineBreakMode = .byTruncatingTail
             detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the project's name
             detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the room, the badges sit at the right
-            layout(row: [slot, title, muted, detail, stack, changes, pr, ci, trailing, button])
+            layout(row: [slot, title, muted, detail, stack, changes, pr, ci, locate, button])
             detail.isHidden = true
         case .workspace:
             // A row like any other, with what's in it a step further in: a heading didn't say where it ended.
@@ -222,7 +240,9 @@ final class SidebarCell: NSTableCellView {
 
     func update() {
         defer { trailing.isHidden = trailing.stringValue.isEmpty }   // an empty label would still take its spacing
-        muted.isHidden = app.arrangement.mutedUntil(node.muteIds) == nil
+        let mutedUntil = app.arrangement.mutedUntil(node.muteIds)
+        muted.isHidden = mutedUntil == nil
+        muted.toolTip = mutedUntil.map(Mutes.line)
         updateBadges()
         switch node.kind {
         case .project(let id):
@@ -251,7 +271,7 @@ final class SidebarCell: NSTableCellView {
                 ? String(localized: "\(repo?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.")
                 : repo.map(app.projectPlace)
             // Who needs you is on the agents' own rows and in the line above the projects; folded, the row sums them up.
-            trailing.stringValue = missing ? String(localized: "Folder missing") : ""
+            locate.isHidden = !missing
             if !detail.isEditable {
                 detail.stringValue = ""
                 detail.isHidden = true

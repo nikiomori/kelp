@@ -29,4 +29,19 @@ extension OneAtATime {
         a.status = .exited
         #expect(SidebarController.place(a) != place)   // ended: its row goes
     }
+
+    /// A muted row's bell is a button: a click unmutes it, as the hover card's Unmute does.
+    @Test func aMutedRowsBellUnmutesIt() throws {
+        try withSidebar(
+            repos: [atlas], worktrees: [Worktree(id: "w1", repoId: "r1", branch: "main", path: atlas.path)],
+            sessions: []
+        ) { vc, o in
+            vc.app.arrangement.mute(["r1"], until: Mutes.forever)
+            let cell = try #require(o.view(atColumn: 0, row: 0, makeIfNecessary: true) as? SidebarCell)
+            cell.update()
+            #expect(!cell.muted.isHidden)
+            cell.muted.performClick(nil)
+            #expect(vc.app.arrangement.mutedUntil(["r1"]) == nil)
+        }
+    }
 }
