@@ -9,7 +9,9 @@ import DesignKit
 final class OwnWindow: NSWindowController, NSWindowDelegate {
     private let card = Card()
     private let surface: DropRoot
-    private let becameKey: () -> Void, closed: () -> Void
+    private let becameKey: () -> Void
+    /// What its close button does, and ⌘W while it has the keys.
+    let closed: () -> Void
 
     init(
         app: AppModel, name: String, content: NSView, beside main: NSWindow?, title: @escaping @MainActor () -> String?,
@@ -67,7 +69,13 @@ final class OwnWindow: NSWindowController, NSWindowDelegate {
             y: max(screen.midY - fit.height / 2 - shift, screen.minY), width: fit.width, height: fit.height)
     }
 
-    func windowDidBecomeKey(_ notification: Notification) { becameKey() }
+    /// It has the keys, as AppKit last said: kept from its calls (a test's window never gets them from the system).
+    private(set) var hasKeys = false
+    func windowDidBecomeKey(_ notification: Notification) {
+        hasKeys = true
+        becameKey()
+    }
+    func windowDidResignKey(_ notification: Notification) { hasKeys = false }
 
     /// The close button: its owner closes the window, once what's in it is put away.
     func windowShouldClose(_ sender: NSWindow) -> Bool {

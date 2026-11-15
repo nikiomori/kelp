@@ -66,8 +66,10 @@ extension Builtins {
             cmd("view.paneBelow", "Pane Below", "opt+cmd+down") { editor(app)?.focusGroup(toward: .minY) },
             cmd("editor.nextTab", "Next Tab", "shift+cmd+]") { editor(app)?.cycleTab(1) },
             cmd("editor.previousTab", "Previous Tab", "shift+cmd+[") { editor(app)?.cycleTab(-1) },
-            // ⌘W: the focused tab; in a workspace with nothing open, the workspace itself.
+            // ⌘W: the focused tab; in a workspace with nothing open, the workspace itself; in a server's or a machine's
+            // own window, that window, as its close button does.
             cmd("editor.closeTab", "Close Tab", "cmd+w") {
+                if let page = app.workbench.keyPageWindow { return page.closed() }
                 guard let area = editor(app) else { return }
                 if area.focusedContent == nil, let worktree = area.worktree {
                     WorkspaceActions(app).close(worktree)

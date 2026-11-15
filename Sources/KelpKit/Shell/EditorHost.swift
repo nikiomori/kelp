@@ -306,7 +306,10 @@ final class EditorHost: NSViewController {
             }
         }
         if let shown = mainArea, areas[shown.workspaceId] == nil { mainArea = nil }
-        if let shown = current, areas[shown.workspaceId] == nil { current = mainArea }
+        if let shown = current, areas[shown.workspaceId] == nil {
+            current = mainArea
+            app.workbench.mainWindowBecameKey()   // a group gone with the keys: the main window's is on screen
+        }
         // The others reconcile when shown.
         ([mainArea] + own.keys.map { areas[$0] }).forEach { $0?.reconcile() }
         if mainArea == nil, page == nil { showWelcome() }

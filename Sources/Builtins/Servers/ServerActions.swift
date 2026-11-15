@@ -19,7 +19,8 @@ enum ServerActions {
     static func runOnServer(_ app: AppModel, _ host: String, command: String? = nil, title: String? = nil) {
         guard let wid = serverWorkspace(app, host) else { return }
         app.workbench.show(workspace: wid)
-        app.workbench.starter?.run(command: command, title: title)
+        // Not `starter`: asked from the server's own window, that window has the keys and no editor area does.
+        app.workbench.starterForNewTab?.run(command: command, title: title)
     }
 
     /// htop where the host has it, else top.

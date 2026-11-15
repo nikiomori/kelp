@@ -17,8 +17,8 @@ extension AppModel {
     ]
     private func paused(_ start: WatchStart) -> Bool { away && Self.seenOnly.contains(start.topic) }
 
-    /// Kelp's window was hidden, minimized or covered (`away`), or seen again: what only it shows stops or starts again,
-    /// and the daemon hears it (its token scan waits too).
+    /// Kelp's windows are all hidden, minimized or covered (`away`: `Workbench.sightChanged`), or one is seen again: what
+    /// only they show stops or starts again, and the daemon hears it (its token scan waits too).
     func setAway(_ now: Bool) {
         guard now != away else { return }
         away = now

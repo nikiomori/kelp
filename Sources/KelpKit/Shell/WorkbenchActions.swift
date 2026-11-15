@@ -9,8 +9,11 @@ extension Workbench {
     /// Every unsaved file in the app: the main window's loaded workspaces'.
     package var editedFiles: [SavableTab] { window?.editors.editedFiles ?? [] }
     /// The editor area with the keyboard: the workspace on screen's.
-    /// Nil while a page is on screen: what acts on tabs waits until a workspace is back.
-    var editor: EditorArea? { page == nil || inOwnWindow(workspaceId) ? window?.editors.current : nil }
+    /// Nil while a page is on screen or a page's own window has the keys: what acts on tabs waits until a workspace is
+    /// back, rather than reach into another window.
+    var editor: EditorArea? {
+        keyPageWindow == nil && (page == nil || inOwnWindow(workspaceId)) ? window?.editors.current : nil
+    }
     /// What starts agents and terminals in the workspace on screen; nil with none (or a page) on screen.
     package var starter: SessionStarter? { editor?.starter }
     /// What starts them for what adds a tab (a command in a terminal, an agent): a page on screen gives way to the

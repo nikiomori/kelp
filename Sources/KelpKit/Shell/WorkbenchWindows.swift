@@ -33,7 +33,10 @@ extension Workbench {
         guard let editors = window?.editors, app.worktree(id) != nil else { return }
         // The main window shows what was there before, rather than nothing.
         let next = recentWorkspaces.first { $0 != id && !inOwnWindow($0) && app.worktree($0) != nil }
-        editors.moveToOwnWindow(id, next: mainWorkspaceId == id ? next : nil)
+        let fromMain = mainWorkspaceId == id
+        editors.moveToOwnWindow(id, next: fromMain ? next : nil)
+        // A server's page over it went with it (the main window shows `next`): its row opens it again.
+        if fromMain { page = nil }
         saveOwnWindows()
         ownWindowBecameKey(id)
     }
@@ -54,9 +57,10 @@ extension Workbench {
         history.visit(id)
     }
 
-    /// The main window got the keys back from a group's own window: its workspace is the one on screen.
+    /// The main window got the keys back from a group's own window, or that group went and its window with it (removed
+    /// from elsewhere: `EditorHost.refresh`): the main window's workspace is the one on screen.
     func mainWindowBecameKey() {
-        guard inOwnWindow(workspaceId) else { return }
+        guard inOwnWindow(workspaceId) || app.worktree(workspaceId) == nil else { return }
         window?.editors.becameKey(nil)
         guard let main = mainWorkspaceId else { return }
         workspaceId = main
@@ -95,6 +99,26 @@ extension Workbench {
         guard let made = pageWindows[uri] else { return false }
         made.showWindow(nil)
         return true
+    }
+
+    /// The page's own window that has the keys: no editor area has the keyboard then (`editor`), and ⌘W closes it.
+    var keyPageWindow: OwnWindow? { pageWindows.values.first(where: \.hasKeys) }
+
+    /// One of Kelp's windows was covered, minimized or seen again: Kelp is away (`AppModel.setAway`) only while none
+    /// that shows a workspace or a page is seen: the main one, a group's own, a server's or a machine's page's.
+    /// `seen`: a test's own (its windows are never on screen).
+    func sightChanged(seen: (NSWindow) -> Bool = { $0.occlusionState.contains(.visible) }) {
+        let groups = window?.editors.ownWindowIds.map { window?.editors.ownWindow($0) } ?? []
+        let places = [window?.window] + groups + pageWindows.values.map(\.window)
+        app.setAway(!places.contains { $0.map(seen) ?? false })
+    }
+
+    /// The editor area someone can be reading: the one with the keyboard, while the window it's in (the main one, or
+    /// its group's own) is the key window and seen. `front`: a test's own (its windows never are).
+    func editorInFront(
+        _ front: (NSWindow) -> Bool = { $0.isKeyWindow && $0.occlusionState.contains(.visible) }
+    ) -> EditorArea? {
+        activeWindow.map(front) == true ? editor : nil
     }
 
     private static let pageWindowsKey = "workbench.pageWindows"

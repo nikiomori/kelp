@@ -209,8 +209,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? { dockIcon.menu() }
 
-    /// Kelp going behind or coming forward (the glance clock), and its window seen or not (`AppModel.setAway`: hidden,
-    /// minimized or covered, what only the window shows isn't read).
+    /// Kelp going behind or coming forward (the glance clock), and its windows seen or not (`AppModel.setAway`: all
+    /// hidden, minimized or covered, what only they show isn't read).
     private func followSight() {
         let center = NotificationCenter.default
         for name in [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification] {
@@ -218,12 +218,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 MainActor.assumeIsolated { self?.timeGlances() }   // queue: .main
             }
         }
+        // Any window's: a group's or a page's own keeps Kelp in sight while the main one is covered.
         let seen = NSWindow.didChangeOcclusionStateNotification
-        _ = center.addObserver(forName: seen, object: main.window, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated {   // queue: .main
-                guard let self, let window = self.main.window else { return }
-                self.app.setAway(!window.occlusionState.contains(.visible))
-            }
+        _ = center.addObserver(forName: seen, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.app.workbench.sightChanged() }   // queue: .main
         }
     }
 
@@ -246,15 +244,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     private func trackGlances() {
-        let window = main?.window, editor = app.workbench.editor
-        // And someone is there: a front window in an empty room reads nothing (`Presence`).
-        let front =
-            NSApp.isActive && window?.isKeyWindow == true && window?.occlusionState.contains(.visible) == true
-            && editor != nil
-            && Presence.here()
+        // The area in the window in front (the main one or a group's own), and someone is there: a front window in an
+        // empty room reads nothing (`Presence`).
+        let editor = NSApp.isActive && Presence.here() ? app.workbench.editorInFront() : nil
         let app = app
         let mark = glances.tick(
-            front: front, shown: editor?.attendedSessions ?? [],
+            front: editor != nil, shown: editor?.attendedSessions ?? [],
             readable: { app.session($0).map(Self.readOnSight) ?? false },
             unread: { app.session($0)?.unread == true }, now: Date())
         for sid in mark {
