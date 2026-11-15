@@ -119,13 +119,24 @@ struct DiskUsage: Sendable {
     }
 
     /// Blocks on disk as `du` counts them, for each path that's there; one program for many paths, here or on `host`.
+    /// A `du` that failed (took too long, was killed, isn't there) fails the measure and is logged with what it was
+    /// measuring: read as 0 bytes, a worktree dropped off the list and its bytes went to the project's files.
     static func du(_ paths: [String], on host: RemoteHost? = nil) throws -> [String: Int] {
         var out: [String: Int] = [:]
         for chunk in stride(from: 0, to: paths.count, by: 256).map({ Array(paths[$0..<min($0 + 256, paths.count)]) }) {
-            // 1: something in it couldn't be read; the rest is counted.
-            let data =
-                try host.map { try $0.run("du -sk -- \(chunk.map(ShellQuote.word).joined(separator: " ")) || true") }
-                ?? Subprocess.output(["/usr/bin/du", "-sk"] + chunk, cwd: "/", ok: [0, 1])
+            let data: Data
+            do {
+                // 1: something in it couldn't be read; the rest is counted.
+                data =
+                    try host.map {
+                        try $0.run("du -sk -- \(chunk.map(ShellQuote.word).joined(separator: " ")); \(Self.duEnded)")
+                    } ?? Subprocess.output(["/usr/bin/du", "-sk"] + chunk, cwd: "/", ok: [0, 1])
+            } catch {
+                let what = chunk.count == 1 ? chunk[0] : "\(chunk.count) folders", place = host?.host ?? "this Mac"
+                Log.store.error("du of \(what, privacy: .public) on \(place, privacy: .public) failed: \(error)")
+                throw RPCError.internalError(
+                    "\(what) wasn't measured: \((error as? ProgramError)?.message ?? error.rpcMessage)")
+            }
             for line in String(decoding: data, as: UTF8.self).split(separator: "\n") {
                 guard let tab = line.firstIndex(of: "\t"), let kb = Int(line[..<tab]) else { continue }
                 out[String(line[line.index(after: tab)...])] = kb * 1024
@@ -133,6 +144,10 @@ struct DiskUsage: Sendable {
         }
         return out
     }
+
+    /// sh after a host's `du`: 0 and 1 (something unreadable or not there) are an answer; anything else ends the
+    /// script with it, where `|| true` took a `du` that was killed or isn't installed for folders with nothing in them.
+    static let duEnded = "s=$?; [ $s -le 1 ] || exit $s"
 
     /// Without those inside another of them.
     static func outermost(_ rels: [String]) -> [String] {
@@ -150,14 +165,16 @@ struct DiskUsage: Sendable {
 extension DiskUsage {
     func measure(_ repo: Repo) throws -> [Item] {
         if let remote = workspaces.remotes.of(repo.path) { return try measure(repo, on: remote) }
+        // Swept now, not as a hover card found them a moment ago: Measure Again asks this, and so does the tab once
+        // it moved something. Limit: so does its first measure; the method doesn't say which it is.
         return try Self.measure(
-            root: Self.real(repo.path), worktrees: RepoWorktreeSizes(id: repo.id).handle(workspaces),
+            root: Self.real(repo.path), worktrees: RepoWorktreeSizes.sizes(of: repo, workspaces, again: true),
             remotes: workspaces.remotes)
     }
 
     /// Worktrees as `removeWorktrees` takes them; anything else to the Trash only if it's in the project's folder or a
-    /// worktree, git ignores it and tracks nothing in it, and no worktree is inside; or it's DerivedData Xcode keeps for
-    /// the project. A remote project's go aside on its host (`trash(_:of:on:)`).
+    /// worktree, git ignores it and tracks nothing in it, and it neither is a worktree nor has one inside; or it's
+    /// DerivedData Xcode keeps for the project. A remote project's go aside on its host (`trash(_:of:on:)`).
     func trash(_ paths: [String], of repo: Repo, derived: URL = derivedData) throws -> RepoRemoveWorktrees.Result {
         if let remote = workspaces.remotes.of(repo.path) { return try trash(paths, of: repo, on: remote) }
         let remotes = workspaces.remotes, root = Self.real(repo.path)
@@ -188,6 +205,9 @@ extension DiskUsage {
         guard try Git.ignored([rel], cwd: base, remotes: remotes).contains(rel),
             try Git.run(["ls-files", "-z", "--", rel], cwd: base, remotes: remotes).isEmpty
         else { return "Git tracks it." }
-        return roots.contains { $0.hasPrefix(path + "/") } ? "A worktree is inside it." : nil
+        // A worktree's own folder too, spelled other than git prints it (a link, `..`): it goes as `removeWorktrees`
+        // takes it, with its checks, or not at all. In an ignored folder it's ignored with nothing tracked in it.
+        guard let held = roots.first(where: { Paths.inside($0, path) }) else { return nil }
+        return Paths.inside(path, held) ? "It is a worktree." : "A worktree is inside it."
     }
 }

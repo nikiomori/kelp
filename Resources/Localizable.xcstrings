@@ -403,6 +403,16 @@
         }
       }
     },
+    "Into the project’s .git/kelp-trash on %@, which keeps them a week.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В .git/kelp-trash проекта на %@: там они хранятся неделю."
+          }
+        }
+      }
+    },
     "Kelp's background service runs them; macOS allows it in Login Items.": {
       "localizations": {
         "ru": {
@@ -469,6 +479,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Измерить заново"
+          }
+        }
+      }
+    },
+    "Move %lld Items Aside": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отложить: %lld"
+          }
+        }
+      }
+    },
+    "Move 1 Item Aside": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отложить: 1 объект"
+          }
+        }
+      }
+    },
+    "on %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "на %@"
           }
         }
       }

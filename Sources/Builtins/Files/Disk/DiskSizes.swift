@@ -4,9 +4,9 @@ import Foundation
 import KelpKit
 import Observation
 
-/// What each project takes on this Mac, as last measured (`repo.diskUsage`): the foot of Files and the Disk Usage tab
-/// read it, and measure when it's missing or old, so only while one of them is on screen. One for the app, made with
-/// the Files built-in's contributions and handed to both.
+/// What each project takes on its disk (this Mac's, or a remote project's host's), as last measured
+/// (`repo.diskUsage`): the foot of Files and the Disk Usage tab read it, and measure when it's missing or old, so only
+/// while one of them is on screen. One for the app, made with the Files built-in's contributions and handed to both.
 @MainActor @Observable
 final class DiskSizes {
     struct Measured {
@@ -93,6 +93,32 @@ enum DiskNames {
     }
 
     static func size(_ bytes: Int) -> String { DesignKit.bytes(bytes, file: true) }
+
+    /// Whose disk the sizes are of: a remote project's is its host's (`host`), measured there.
+    static func place(host: String?) -> String {
+        host.map { String(localized: "on \($0)") } ?? String(localized: "on this Mac")
+    }
+
+    /// The foot's words after the size: how much of it the next build makes again, else whose disk it is on.
+    static func foot(_ items: [RepoDiskUsage.Item], host: String?) -> String {
+        let rebuilds = items.of(.rebuilds).bytes
+        return rebuilds > 0 ? String(localized: "\(size(rebuilds)) rebuilds") : place(host: host)
+    }
+
+    /// The button for the chosen parts: a host has no Trash, they go aside there (`aside(on:)` says where, `moved`
+    /// that they went).
+    static func move(count: Int, host: String?) -> String {
+        if host != nil {
+            return count == 1 ? String(localized: "Move 1 Item Aside") : String(localized: "Move \(count) Items Aside")
+        }
+        return count == 1
+            ? String(localized: "Move 1 Item to Trash") : String(localized: "Move \(count) Items to Trash")
+    }
+
+    /// Where a host's parts go and for how long, said before they do (the button's help).
+    static func aside(on host: String) -> String {
+        String(localized: "Into the project’s .git/kelp-trash on \(host), which keeps them a week.")
+    }
 
     /// What went, where, and that it isn't freed yet: the Trash holds it until it's emptied, a host's .git/kelp-trash
     /// for a week (the Files panel's trash there). `what`: the one part's name; nil for several.

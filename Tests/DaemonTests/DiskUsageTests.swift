@@ -3,6 +3,7 @@ import Core
 import Foundation
 import GitKit
 import Testing
+import os
 
 @testable import Daemon
 
@@ -113,6 +114,140 @@ private func blob(_ path: String, mb: Int = 2) throws {
     #expect(!FileManager.default.fileExists(atPath: real + "/.build"))
     let bin = try FileManager.default.subpathsOfDirectory(atPath: real + "/.git/kelp-trash")
     #expect(bin.contains { $0.hasSuffix(".build/debug/app") })
+}
+
+/// On a host, a build in a worktree beside the project's folder is the one that goes. Its path there is as long as the
+/// main checkout's: with that length dropped unchecked, the main checkout's build went in its place.
+@Test func aHostsWorktreeBuildGoesNotTheMainCheckouts() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let (repo, _, there) = try await remoteProject(c)
+    let real = DiskUsage.real(there), beside = DiskUsage.real(tmp().path)
+    try #require(real.count == beside.count)
+    try ".build/\n".write(toFile: real + "/.git/info/exclude", atomically: true, encoding: .utf8)
+    try Git.run(["worktree", "add", "-q", "-b", "feat", beside], cwd: real, remotes: .none)
+    try blob(real + "/.build/app")
+    try blob(beside + "/.build/app")
+
+    let items = try await c.call(RepoDiskUsage(id: repo.id))
+    let build = try #require(items.first { $0.worktree == beside })   // named as the host names it
+    #expect(build.path == beside + "/.build" && build.removable)
+    let res = try await c.call(RepoDiskTrash(id: repo.id, paths: [build.path]))
+    #expect(res.removed == [build.path] && res.kept.isEmpty, "\(res)")
+    #expect(!FileManager.default.fileExists(atPath: beside + "/.build"), "the worktree's build is still there")
+    #expect(FileManager.default.fileExists(atPath: real + "/.build/app"), "the main checkout's build went")
+}
+
+/// A remote project's file is named on its host by its path as it reads with `..` taken out, and only when it's in
+/// the project's folder: any other path's rest names another file there.
+@Test func aHostsNameIsOnlyForAPathInTheProject() throws {
+    let files = HostFiles(folder: "/k/remote/box/app-2", remote: RemoteHost(host: "box", path: "/srv/app"))
+    #expect(try files.there("/k/remote/box/app-2/src/a.txt") == "/srv/app/src/a.txt")
+    #expect(try files.there("/k/remote/box/app-2") == "/srv/app")
+    #expect(try files.there("/k/remote/box/app-2/../app-2/x") == "/srv/app/x")   // not app-2 beside it on the host
+    #expect(throws: RPCError.self) { try files.there("/k/remote/box/other/x") }   // as long as the folder
+}
+
+/// A worktree's own folder never goes aside on a host as an ignored folder: in `.claude/` git ignores it and tracks
+/// nothing in it, and it would go whole, uncommitted work and all.
+@Test func aWorktreesOwnFolderIsNeverTrashedOnAHost() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let (repo, _, there) = try await remoteProject(c)
+    let real = DiskUsage.real(there), beside = DiskUsage.real(tmp().path)
+    try ".claude/\n".write(toFile: real + "/.git/info/exclude", atomically: true, encoding: .utf8)
+    try Git.run(["worktree", "add", "-q", "-b", "agent", ".claude/worktrees/agent"], cwd: real, remotes: .none)
+    try Git.run(["worktree", "add", "-q", "-b", "feat", beside], cwd: real, remotes: .none)
+    try "work\n".write(toFile: real + "/.claude/worktrees/agent/new.txt", atomically: true, encoding: .utf8)
+
+    let own = repo.path + "/.claude/worktrees/agent"
+    let res = try await c.call(RepoDiskTrash(id: repo.id, paths: [own, own + "/", beside, repo.path + "/.claude"]))
+    #expect(res.removed.isEmpty, "\(res)")
+    #expect(res.kept[own] == "It is a worktree." && res.kept[own + "/"] == "It is a worktree.")
+    #expect(res.kept[beside] == "Not part of the project.")
+    #expect(res.kept[repo.path + "/.claude"] == "A worktree is inside it.")
+    #expect(FileManager.default.fileExists(atPath: real + "/.claude/worktrees/agent/new.txt"))
+}
+
+/// Nor here, spelled other than git prints it (through `..`, a link, with a slash after it): as git prints it, it goes
+/// as a worktree does, kept while it holds work.
+@Test func aWorktreesOwnFolderIsNeverTrashedHere() async throws {
+    let (d, c, _, repo) = try await world()
+    defer { d.stop() }
+    let root = DiskUsage.real(repo.path), worktree = root + "/.claude/worktrees/agent"
+    try ".claude/\n".write(toFile: root + "/.git/info/exclude", atomically: true, encoding: .utf8)
+    try Git.run(["worktree", "add", "-q", "-b", "agent", ".claude/worktrees/agent"], cwd: root, remotes: .none)
+    try "work\n".write(toFile: worktree + "/new.txt", atomically: true, encoding: .utf8)
+    try FileManager.default.createSymbolicLink(atPath: root + "/.claude/link", withDestinationPath: worktree)
+
+    let spelled = [root + "/.claude/worktrees/../worktrees/agent", root + "/.claude/link", worktree + "/"]
+    let res = try await c.call(RepoDiskTrash(id: repo.id, paths: spelled + [worktree]))
+    #expect(res.removed.isEmpty, "\(res)")
+    #expect(spelled.allSatisfy { res.kept[$0] == "It is a worktree." } && res.kept[worktree] != nil, "\(res)")
+    #expect(FileManager.default.fileExists(atPath: worktree + "/new.txt"))
+}
+
+/// A `du` that failed is an error naming what it was measuring, never 0 bytes: here when it can't run, on a host when
+/// it's killed there. One that only couldn't read something (1) still counts the rest.
+@Test func aFailedDuIsNeverANumber() throws {
+    let folder = DiskUsage.real(tmp().path)
+    try blob(folder + "/a")
+    #expect(try RepoWorktreeSizes.du(folder) >= 2 << 20)
+    #expect(throws: RPCError.self) { try Subprocess.quickOnly { try RepoWorktreeSizes.du(folder) } }
+    // A host of its own: its `ssh` runs the command here, with a `du` that ends as it's told first in PATH.
+    let bin = tmp()
+    func script(_ name: String, _ text: String) throws {
+        try ("#!/bin/sh\n" + text + "\n").write(to: bin.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        chmod(bin.appendingPathComponent(name).path, 0o755)
+    }
+    try script("ssh", "for last; do :; done\nPATH=\"\(bin.path):$PATH\" exec /bin/sh -c \"$last\"")
+    var host = RemoteHost(host: "box", path: folder)
+    host.ssh = bin.appendingPathComponent("ssh").path
+    try script("du", "/usr/bin/du \"$@\"; exit 1")
+    #expect(try DiskUsage.du([folder], on: host)[folder] ?? 0 >= 2 << 20)
+    try script("du", "/usr/bin/du \"$@\"; exit 137")
+    #expect {
+        try DiskUsage.du([folder], on: host)
+    } throws: { error in
+        (error as? RPCError)?.message.hasPrefix("\(folder) wasn't measured: ") == true
+    }
+}
+
+/// Two asks for a project's worktrees' sizes at once run one sweep and share it, and one a moment later is given it
+/// again (every hover card of the project asks); a Disk Usage measure sweeps anew, and so does anyone once worktrees
+/// were removed.
+@Test func worktreeSizesAreSweptOnceAtATime() async throws {
+    let (d, c, _, repo) = try await world()
+    defer { d.stop() }
+    let runs = OSAllocatedUnfairLock(initialState: 0), sweeps = d.workspaces.sweeps
+    let sweep: @Sendable () -> [RepoWorktreeSizes.Item] = {
+        runs.withLock { $0 += 1 }
+        Thread.sleep(forTimeInterval: 0.2)
+        return []
+    }
+    DispatchQueue.concurrentPerform(iterations: 2) { _ in _ = sweeps.sizes(of: "p", sweep) }
+    #expect(runs.withLock { $0 } == 1)
+    _ = sweeps.sizes(of: "p", again: true, sweep)
+    _ = sweeps.sizes(of: "q", sweep)   // another project's own
+    #expect(runs.withLock { $0 } == 3)
+
+    // Through the daemon, by what it finds: a file added since isn't counted until someone measures.
+    let root = DiskUsage.real(repo.path), worktree = root + "/.claude/worktrees/"
+    for name in ["work", "clean"] {
+        try Git.run(["worktree", "add", "-q", "-b", name, ".claude/worktrees/" + name], cwd: root, remotes: .none)
+    }
+    try blob(worktree + "work/a")
+    let first = try await c.call(RepoWorktreeSizes(id: repo.id))
+    try blob(worktree + "work/b", mb: 3)
+    #expect(try await c.call(RepoWorktreeSizes(id: repo.id)) == first)
+    let measured = try await c.call(RepoDiskUsage(id: repo.id)).first { $0.path == worktree + "work" }
+    #expect((measured?.bytes ?? 0) >= 5 << 20)
+    #expect(try await c.call(RepoWorktreeSizes(id: repo.id)).first?.bytes ?? 0 >= 5 << 20)   // and left its answer
+    let res = try await c.call(RepoRemoveWorktrees(id: repo.id, paths: [worktree + "clean"]))
+    #expect(res.removed == [worktree + "clean"], "\(res)")
+    #expect(try await c.call(RepoWorktreeSizes(id: repo.id)).map(\.path) == [worktree + "work"])
 }
 
 /// A real host, read only (KELP_TEST_REMOTE=host:/path of a project there): GNU du and git there answer as on this Mac,

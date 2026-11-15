@@ -24,6 +24,7 @@ final class Workspaces: Sendable {
     /// The commits agents proposed (`kelp commit add`), by workspace, until the window takes them: in memory, as a
     /// message being written is.
     let commitPlans = OSAllocatedUnfairLock(initialState: [String: [PlannedCommit]]())
+    let sweeps = WorktreeSweeps()   // the projects' other worktrees' sizes: one sweep each at a time, kept a moment
 
     init(root: URL, store: Store, remotes: Remotes, sessions: Sessions, clients: Clients) {
         self.root = root
@@ -354,6 +355,7 @@ final class Workspaces: Sendable {
         }
         sessions.discard(try store.sessions().filter { $0.worktreeId == workspace.id })
         try store.delete(workspace)
+        sweeps.forget(repo.id)   // the project's card doesn't list it a moment longer
         if host != nil, remotes.of(workspace.path) != nil {   // its stand-in here: only the marker
             Log.store.attempt("removing a remote worktree's folder here") {
                 try FileManager.default.removeItem(atPath: workspace.path)
@@ -430,6 +432,7 @@ final class Workspaces: Sendable {
         let linked = try Git.linkedWorktrees(repo.path, remotes: remotes)
         let ours = try RepoWorktreeSizes.ours(store, repo)
         var out = RepoRemoveWorktrees.Result(removed: [], kept: [:])
+        defer { sweeps.forget(repo.id) }   // their sizes as last swept still list what goes here
         // A paused agent comes back where it last worked: its folder is as much in use as a running one's.
         let stored = try store.sessions().filter { $0.status != .exited }.map(\.currentDir)
         let inUse = sessions.live.all.map(\.snapshot.currentDir) + stored

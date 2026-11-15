@@ -213,13 +213,24 @@ extension WorktreeNote: Handled {
 extension RepoWorktreeSizes: Handled {
     func handle(_ workspaces: Workspaces) throws -> [Item] {
         guard let repo = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
+        return try Self.sizes(of: repo, workspaces)
+    }
+
+    /// One sweep of a project at a time, its answer given again for a moment (`WorktreeSweeps`): every hover card of
+    /// the project asks. `again`: swept now (a Disk Usage measure, which Measure Again and a removal ask for).
+    static func sizes(of repo: Repo, _ workspaces: Workspaces, again: Bool = false) throws -> [Item] {
         guard workspaces.remotes.of(repo.path) == nil else { return [] }   // their disk is on the host
+        return try workspaces.sweeps.sizes(of: repo.id, again: again) { try sweep(repo, workspaces) }
+    }
+
+    /// A `du` and two git for each worktree, one after another.
+    private static func sweep(_ repo: Repo, _ workspaces: Workspaces) throws -> [Item] {
         let ours = try Self.ours(workspaces.store, repo)
         return try Git.linkedWorktrees(repo.path, remotes: workspaces.remotes).filter {
             FileManager.default.fileExists(atPath: $0.path)
         }.map { worktree in
             Item(
-                path: worktree.path, bytes: Self.du(worktree.path),
+                path: worktree.path, bytes: try Self.du(worktree.path),
                 removable: !worktree.locked && !ours.contains(Self.real(worktree.path))
                     && (try? Git.isDirty(worktree.path, remotes: workspaces.remotes)) == false
                     && (try? Git.commitsOnNoBranch(worktree.path, remotes: workspaces.remotes)) == 0)
@@ -232,14 +243,10 @@ extension RepoWorktreeSizes: Handled {
     }
     static func real(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
 
-    /// Blocks on disk as `du` counts them (16 GB of build products: about a second); unreadable files leave out only themselves.
-    static func du(_ path: String) -> Int {
-        let out =
-            (try? Subprocess.output(["/usr/bin/du", "-sk", path], cwd: path, ok: [0, 1])).map {
-                String(decoding: $0, as: UTF8.self)
-            } ?? ""
-        return (Int(out.prefix { $0.isNumber }) ?? 0) * 1024
-    }
+    /// Blocks on disk as `du` counts them (16 GB of build products: about a second); unreadable files leave out only
+    /// themselves. A `du` that failed throws (`DiskUsage.du`): it isn't 0 bytes. The one line's number, whatever the
+    /// path is spelled with (a newline in it would split the line).
+    static func du(_ path: String) throws -> Int { try DiskUsage.du([path]).values.first ?? 0 }
 }
 
 extension RepoRemoveWorktrees: Handled {

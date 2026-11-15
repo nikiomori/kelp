@@ -45,8 +45,10 @@ extension DiskUsage {
     /// Claude Code's conversations on the host for those folders (in its config folder there).
     private func chats(of folders: [String], on remote: RemoteHost) throws -> [Item] {
         let names = folders.map { "\"$d\"/" + ShellQuote.word(Self.claudeName($0)) }.joined(separator: " ")
+        // 1: a folder with no conversations isn't there (most aren't). A `du` that failed fails the measure
+        // (`duEnded`).
         let out = try remote.run(
-            #"d="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"; du -sk -- "# + names + " 2>/dev/null || true",
+            #"d="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"; du -sk -- "# + names + " 2>/dev/null; " + Self.duEnded,
             timeLimit: 60)
         return String(decoding: out, as: UTF8.self).split(separator: "\n").compactMap { line in
             guard let tab = line.firstIndex(of: "\t"), let kb = Int(line[..<tab]) else { return nil }
@@ -55,7 +57,8 @@ extension DiskUsage {
     }
 
     /// Into the project's `.git/kelp-trash` on the host, as the Files panel's trash there (kept a week, then gone): only
-    /// what's in the project's folder or a worktree, git ignores and tracks nothing in, with no worktree inside.
+    /// what's in the project's folder or a worktree, git ignores and tracks nothing in, and neither is a worktree nor
+    /// has one inside.
     func trash(_ paths: [String], of repo: Repo, on remote: RemoteHost) throws -> RepoRemoveWorktrees.Result {
         let root = try real(on: remote),
             linked = try Git.linkedWorktrees(repo.path, remotes: workspaces.remotes).map(\.path)
@@ -75,8 +78,10 @@ extension DiskUsage {
                 out.kept[path] = "Not part of the project."
                 continue
             }
-            if let why = roots.contains(where: { $0.hasPrefix(there + "/") }) ? "A worktree is inside it." : nil {
-                out.kept[path] = why
+            // A worktree's own folder too: in an ignored one (`.claude/worktrees/x`) git ignores it and tracks nothing
+            // in it, and it would go whole, uncommitted work and all.
+            if roots.contains(where: { ($0 + "/").hasPrefix(there + "/") }) {
+                out.kept[path] = roots.contains(there) ? "It is a worktree." : "A worktree is inside it."
                 continue
             }
             do {
@@ -87,7 +92,9 @@ extension DiskUsage {
                         + "&& echo ok || echo tracked", timeLimit: 60)
                 switch String(decoding: said, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) {
                 case "ok":
-                    _ = try aside.trash(there)
+                    // The path that was checked, as the host names it: one in a worktree beside the project's folder
+                    // isn't under `root`, and has no name here to turn back into one there.
+                    _ = try aside.trash(there: there)
                     out.removed.append(path)
                 case "missing": out.kept[path] = "Not part of the project."
                 default: out.kept[path] = "Git tracks it."

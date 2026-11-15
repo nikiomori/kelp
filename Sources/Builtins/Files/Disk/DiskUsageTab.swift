@@ -5,8 +5,9 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// "disk:<project>" — what the project takes on this Mac: its parts sorted by what removing them costs, beside a map of
-/// them; what's chosen goes to the Trash in one click (the Finder puts it back).
+/// "disk:<project>" — what the project takes on its disk (this Mac's, or a remote project's host's): its parts sorted
+/// by what removing them costs, beside a map of them; what's chosen goes to the Trash in one click (the Finder puts
+/// it back), a remote project's aside on its host (its `.git/kelp-trash`, kept a week).
 @MainActor
 func diskUsageTab(uri: String, app: AppModel, sizes: DiskSizes) -> KelpKit.TabContent {   // not SwiftUI's
     HostedTabContent(
@@ -33,7 +34,7 @@ struct DiskUsageView: View {
             if let measured, !measured.items.isEmpty {
                 HStack(spacing: 0) {
                     DiskList(
-                        items: measured.items, root: root, local: host == nil, chosen: $chosen, trash: trash,
+                        items: measured.items, root: root, host: host, chosen: $chosen, trash: trash,
                         trashing: trashing
                     )
                     .frame(width: 340)
@@ -109,7 +110,8 @@ struct DiskUsageView: View {
 
 /// The total, then the parts by group (a box for each that can go), and the button that moves the chosen ones.
 struct DiskList: View {
-    let items: [RepoDiskUsage.Item], root: String, local: Bool
+    /// `host`: a remote project's, where its parts are and where they go aside; nil on this Mac.
+    let items: [RepoDiskUsage.Item], root: String, host: String?
     @Binding var chosen: Set<String>
     let trash: () -> Void, trashing: Bool
 
@@ -134,7 +136,9 @@ struct DiskList: View {
                             }
                             .font(.ui(TextSize.caption, weight: .semibold)).foregroundStyle(.secondary)
                             .padding(.horizontal, Metrics.inset).frame(height: Metrics.rowSection)
-                            ForEach(these, id: \.path) { DiskRow(item: $0, root: root, local: local, chosen: $chosen) }
+                            ForEach(these, id: \.path) {
+                                DiskRow(item: $0, root: root, local: host == nil, chosen: $chosen)
+                            }
                         }
                     }
                 }
@@ -149,12 +153,9 @@ struct DiskList: View {
                 )
                 .font(.ui(TextSize.caption)).foregroundStyle(.secondary).monospacedDigit()
                 Spacer()
-                Button(
-                    picked.count == 1
-                        ? String(localized: "Move 1 Item to Trash")
-                        : String(localized: "Move \(picked.count) Items to Trash"), action: trash
-                )
-                .buttonStyle(.borderedProminent).disabled(picked.isEmpty || trashing)
+                Button(DiskNames.move(count: picked.count, host: host), action: trash)
+                    .buttonStyle(.borderedProminent).disabled(picked.isEmpty || trashing)
+                    .help(host.map(DiskNames.aside) ?? "")
             }
             .padding(.horizontal, Metrics.inset).frame(height: Metrics.panelHeader + Metrics.gapWide)
         }
@@ -165,7 +166,7 @@ struct DiskList: View {
         return VStack(alignment: .leading, spacing: Metrics.gap) {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.gapWide) {
                 Text(DiskNames.size(items.bytes)).font(.ui(TextSize.title, weight: .semibold)).monospacedDigit()
-                Text("on this Mac").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                Text(DiskNames.place(host: host)).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
             }
             Text(
                 rebuilds > 0
