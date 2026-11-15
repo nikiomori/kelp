@@ -323,9 +323,11 @@ extension AppOfItsOwn {
         window.contentView = tab.view
         let tv = try #require(tab.editor?.textView)
         let end = tv.length - 10
+        // Ten compares on the main thread take a second or more; ten keystrokes without them, a few ms. The bound is
+        // wide so a busy CI runner doesn't fail it.
         let t0 = Date()
-        for _ in 0..<5 { tv.replace([NSRange(location: end, length: 0)], with: ["x"]) }
-        #expect(Date().timeIntervalSince(t0) < 0.15)
+        for _ in 0..<10 { tv.replace([NSRange(location: end, length: 0)], with: ["x"]) }
+        #expect(Date().timeIntervalSince(t0) < 0.5 * testSlowness)
         #expect(tab.isEdited)
         #expect(await tab.save())
         #expect(!tab.isEdited)
