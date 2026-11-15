@@ -230,6 +230,61 @@ public struct RepoRemoveWorktrees: InternalMethod {
     }
 }
 
+/// What the project takes on this Mac, biggest first: what git ignores in its folder and its other worktrees, each
+/// worktree's builds on their own, Xcode's DerivedData for it, Claude Code's chats there, and the files git tracks.
+/// A remote project's disk is on its host: none.
+public struct RepoDiskUsage: InternalMethod {
+    public static let name = "repo.diskUsage"
+    /// What a part is, and so whether removing it costs anything.
+    public enum What: String, Codable, Sendable, CaseIterable {
+        /// A build's output or a package manager's folder (`.build`, `node_modules`, DerivedData): the next build makes it again.
+        case build
+        /// Something else git ignores (`dist`, `.env`, a local database): only the user knows.
+        case ignored
+        /// Another git worktree, less its builds; `removable` when nothing in it is only there.
+        case worktree
+        /// Claude Code's conversations in the project's folders: its own, Kelp leaves them.
+        case chats
+        /// What git tracks, with `.git`.
+        case files
+
+        /// Safe to remove without asking what it is.
+        public var rebuilds: Bool { self == .build }
+        /// Kelp never offers to remove it.
+        public var leftAlone: Bool { self == .chats || self == .files }
+    }
+    public struct Item: Codable, Sendable, Equatable {
+        public var path: String, bytes: Int, what: What
+        /// Kelp may move it to the Trash (`repo.diskTrash`).
+        public var removable: Bool
+        /// The other worktree it's in; nil in the project's folder.
+        public var worktree: String?
+        public init(path: String, bytes: Int, what: What, removable: Bool, worktree: String? = nil) {
+            self.path = path
+            self.bytes = bytes
+            self.what = what
+            self.removable = removable
+            self.worktree = worktree
+        }
+    }
+    public typealias Result = [Item]
+    public var id: String
+    public static var timeout: TimeInterval? { 600 }   // du over a big tree, the first time
+    public init(id: String) { self.id = id }
+}
+
+/// Moves those of `paths` that `repo.diskUsage` lists as removable to the Trash: a worktree as `repo.removeWorktrees`
+/// does (kept if it holds work), anything else only while git still ignores it. What was kept says why.
+public struct RepoDiskTrash: InternalMethod {
+    public static let name = "repo.diskTrash"
+    public typealias Result = RepoRemoveWorktrees.Result
+    public var id: String, paths: [String]
+    public init(id: String, paths: [String]) {
+        self.id = id
+        self.paths = paths
+    }
+}
+
 /// The workspace's name.
 public struct WorktreeNote: RPCMethod {
     public static let name = "worktree.note"

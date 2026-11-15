@@ -3651,6 +3651,45 @@
         ],
         "type" : "object"
       },
+      "RepoDiskUsage.Item" : {
+        "properties" : {
+          "bytes" : {
+            "type" : "integer"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "removable" : {
+            "description" : "Kelp may move it to the Trash (`repo.diskTrash`).",
+            "type" : "boolean"
+          },
+          "what" : {
+            "$ref" : "#/components/schemas/RepoDiskUsage.What"
+          },
+          "worktree" : {
+            "description" : "The other worktree it's in; nil in the project's folder.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "bytes",
+          "path",
+          "removable",
+          "what"
+        ],
+        "type" : "object"
+      },
+      "RepoDiskUsage.What" : {
+        "description" : "What a part is, and so whether removing it costs anything.",
+        "enum" : [
+          "build",
+          "ignored",
+          "worktree",
+          "chats",
+          "files"
+        ],
+        "type" : "string"
+      },
       "RepoRemoveWorktrees.Result" : {
         "properties" : {
           "kept" : {
@@ -11019,6 +11058,61 @@
           "type" : "null"
         }
       }
+    },
+    {
+      "description" : "Moves those of `paths` that `repo.diskUsage` lists as removable to the Trash: a worktree as `repo.removeWorktrees` does (kept if it holds work), anything else only while git still ignores it. What was kept says why.",
+      "name" : "repo.diskTrash",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "paths",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/RepoRemoveWorktrees.Result"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "What the project takes on this Mac, biggest first: what git ignores in its folder and its other worktrees, each worktree's builds on their own, Xcode's DerivedData for it, Claude Code's chats there, and the files git tracks. A remote project's disk is on its host: none.",
+      "name" : "repo.diskUsage",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/RepoDiskUsage.Item"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
     },
     {
       "description" : "A remote project's own icon, looked for on its host where `IconSearch` looks → the path of its copy in the project's folder here (it shows without the host), or null when it has none. A copy kept from before is answered at once and looked for again in the background.",

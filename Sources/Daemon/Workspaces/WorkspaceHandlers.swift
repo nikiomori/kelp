@@ -249,11 +249,27 @@ extension RepoRemoveWorktrees: Handled {
     }
 }
 
+extension RepoDiskUsage: Handled {
+    func handle(_ disk: DiskUsage) throws -> Result {
+        guard let repo = try disk.workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
+        return try disk.measure(repo)
+    }
+}
+
+extension RepoDiskTrash: Handled {
+    var notForAgents: String? { "Only the user clears a project's disk." }
+    func handle(_ disk: DiskUsage) throws -> Result {
+        guard let repo = try disk.workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
+        guard disk.workspaces.remotes.of(repo.path) == nil else { throw RPCError.invalidParams("a remote project") }
+        return try disk.trash(paths, of: repo)
+    }
+}
+
 extension Methods {
     static let workspaceMethods: [any Answered.Type] = [
         RepoAdd.self, RepoList.self, ScratchEnsure.self, RepoRelocate.self, RepoRename.self, RepoRemove.self,
         WorkspaceCreate.self, WorktreeCreate.self, WorktreeList.self, WorktreeArchive.self, WorktreeRemove.self,
         WorktreeUnarchive.self, WorktreeUnmerged.self, WorktreeDirty.self, WorktreeNote.self, RepoWorktreeSizes.self,
-        RepoRemoveWorktrees.self
+        RepoRemoveWorktrees.self, RepoDiskUsage.self, RepoDiskTrash.self
     ]
 }
