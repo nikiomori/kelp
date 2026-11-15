@@ -5,11 +5,14 @@ import DesignKit
 /// A folded project's or group's chats on its row: one agent logo each, side by side (logos on no tile ran together when
 /// they overlapped), the most pressing first, its state in a corner cut out of the logo (none when it's only ready), as
 /// macOS marks a person's status on their picture. Four at most, then "+N"; the tooltip names each and what it does.
+/// A logo opens its chat; "+N" unfolds the row (`onMore`).
 @MainActor
 final class AgentStack: NSView {
     private static let side = AgentFace.side, step: CGFloat = 17, most = 4
-    private let more = NSTextField(labelWithString: "")
-    private var faces: [NSView] = []
+    private let more = PointerButton(frame: .zero)
+    private var faces: [PointerButton] = []
+    /// "+N" clicked: the row opens to show the rest.
+    var onMore: (() -> Void)?
     private var total = 0
     /// How many logos the row has room for (SidebarCell.fitBadges): the rest are counted in "+N".
     var cap = 4 { didSet { if cap != oldValue { place() } } }
@@ -19,10 +22,11 @@ final class AgentStack: NSView {
     init() {
         super.init(frame: .zero)
         more.font = .uiDigits(TextSize.caption, weight: .medium)
-        more.textColor = .secondaryLabelColor
+        more.radius = Metrics.radiusXS
+        more.onClick = { [weak self] in self?.onMore?() }
         addSubview(more)
         setAccessibilityElement(true)
-        setAccessibilityRole(.staticText)
+        setAccessibilityRole(.group)   // its logos are buttons of their own
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -70,8 +74,11 @@ final class AgentStack: NSView {
     private func place() {
         let shown = min(cap, faces.count)
         for (index, logo) in faces.enumerated() { logo.isHidden = index >= shown }
-        more.stringValue = total > shown && shown > 0 ? "+\(total - shown)" : ""
-        more.isHidden = more.stringValue.isEmpty
+        let words = total > shown && shown > 0 ? "+\(total - shown)" : ""
+        more.attributedTitle = NSAttributedString(
+            string: words, attributes: [.font: more.font as Any, .foregroundColor: NSColor.secondaryLabelColor])
+        more.toolTip = words.isEmpty ? nil : String(localized: "Show All")
+        more.isHidden = words.isEmpty
         invalidateIntrinsicContentSize()
         needsLayout = true
     }
@@ -82,25 +89,41 @@ final class AgentStack: NSView {
         return [.waiting, .error, .working].contains(st) || (st == .done && session.unread) ? st : nil
     }
 
-    private func face(_ session: Session, _ app: AppModel) -> NSView {
+    /// A logo that opens its chat, as picking its row would; a round grey under the pointer, a little wider than the logo.
+    private func face(_ session: Session, _ app: AppModel) -> PointerButton {
         let face = AgentFace()
         let image = app.catalog.icon(session.agent, size: Self.side)
         face.image = session.status == .paused ? image.map(app.agentIcons.grey) : image
         face.mark.status = Self.badge(session)
         face.mark.unread = true
         face.cut()
-        return face
+        let id = session.id
+        let button = PointerButton { [weak app] in
+            app?.workbench.focus(session: id)
+            app?.arrangement.parkedBack[id] = nil   // opened: its "Back:" line has been read
+        }
+        button.radius = nil
+        button.frame.size = NSSize(width: Self.hit, height: Self.hit)
+        face.setFrameOrigin(NSPoint(x: (Self.hit - Self.side) / 2, y: (Self.hit - Self.side) / 2))
+        button.addSubview(face)
+        button.toolTip = app.catalog.displayName(session) + " · " + session.statusWords
+        button.setAccessibilityLabel(button.toolTip)
+        return button
     }
+    /// A logo's button: its fill shows around the logo, and the logos still sit `step` apart.
+    private static let hit: CGFloat = 18
 
     override var intrinsicContentSize: NSSize { NSSize(width: width(showing: cap), height: Self.side) }
 
     override func layout() {
         super.layout()
         let top = (bounds.height - Self.side) / 2
-        for (index, face) in faces.enumerated() { face.setFrameOrigin(NSPoint(x: CGFloat(index) * Self.step, y: top)) }
+        let inset = (Self.hit - Self.side) / 2
+        for (index, face) in faces.enumerated() {
+            face.setFrameOrigin(NSPoint(x: CGFloat(index) * Self.step - inset, y: top - inset))
+        }
         let moreX = CGFloat(max(min(cap, faces.count) - 1, 0)) * Self.step + Self.side + Self.gap
         more.frame = NSRect(
-            x: moreX, y: (bounds.height - more.intrinsicContentSize.height) / 2,
-            width: labelWidth(more.stringValue), height: more.intrinsicContentSize.height)
+            x: moreX, y: (bounds.height - Self.hit) / 2, width: labelWidth(more.title), height: Self.hit)
     }
 }

@@ -172,6 +172,7 @@ final class SidebarCell: NSTableCellView {
             badge.restFill = badge === pr ? .fillRest : nil
             badge.target = self
         }
+        stack.onMore = { [weak owner, node] in owner?.toggle(node) }
         changes.action = #selector(openChanges)
         pr.action = #selector(openPR)
         ci.action = #selector(openCI)

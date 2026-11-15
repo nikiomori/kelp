@@ -179,6 +179,13 @@ extension OneAtATime {
                 v as? AgentStack ?? v.subviews.lazy.compactMap(stack).first
             }
             #expect(stack(cell)?.toolTip == "Fix login bug · Needs your input")   // and its agents, by what they do
+            let logo = try #require(
+                stack(cell)?.subviews.compactMap { $0 as? PointerButton }.first {
+                    $0.toolTip == "Fix login bug · Needs your input"
+                })
+            vc.app.workbench.show(workspace: "w2")
+            logo.performClick(nil)
+            #expect(vc.app.workbench.workspaceId == "w1")   // a logo opens its chat
             #expect(vc.app.uiState.strings("sidebar.collapsed") == ["p:r1"])   // kept for the next launch
             try fold().performClick(nil)
             #expect(o.numberOfRows == 4)   // its workspaces open as they were
@@ -202,11 +209,13 @@ extension OneAtATime {
             }
             let logos = try #require(stack(cell))
             logos.layoutSubtreeIfNeeded()
-            let more = try #require(logos.subviews.compactMap { $0 as? NSTextField }.first { !$0.isHidden })
-            #expect(more.stringValue.hasPrefix("+"))
+            let more = try #require(
+                logos.subviews.compactMap { $0 as? PointerButton }.first { $0.title.hasPrefix("+") })
             #expect(more.frame.maxX <= logos.intrinsicContentSize.width)
-            // The words and the 2 pt a label keeps on each side of them: narrower, the last digit's edge is cut.
-            #expect(more.frame.width >= ceil(more.attributedStringValue.size().width) + 4)
+            // The words and 2 pt on each side of them: narrower, the last digit's edge is cut.
+            #expect(more.frame.width >= ceil(more.attributedTitle.size().width) + 4)
+            more.performClick(nil)
+            #expect(o.numberOfRows > 1)   // "+N" opens the row to show the rest
         }
     }
 
