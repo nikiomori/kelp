@@ -26,3 +26,29 @@ import Testing
     plan.merge()
     #expect(plan.commits.count == 1 && plan.commits[0].message == "feat: a\n\n")
 }
+
+extension AppOfItsOwn {
+    /// The daemon forgets a plan as it hands it over, so the panel takes it last, once the changed files are read: a
+    /// status that failed leaves the plan there and says nothing of the agent. It was taken first, the failed read then
+    /// passed for no changes, and the panel said "No commits from …" with the proposal gone.
+    @Test func anAgentsPlanIsTakenLastAndOutlivesAStatusThatFailed() async throws {
+        let rig = try await AppRig()
+        defer { rig.done() }
+        let wid = rig.workspace.id, vc = SourceControlController(app: rig.app)
+        rig.show(vc, 320, 700)
+        try rig.write("f.txt", "b\n")
+        func agentStops() async throws {
+            _ = try await rig.client.call(CommitPlanAdd(worktreeId: wid, files: ["f.txt"], message: "fix: f"))
+            vc.agentCommits[wid] = AgentCommit(agentId: "claude", agent: "Claude Code", hint: "", files: 1)
+            await vc.finishAgent(wid)?.value
+        }
+        try await agentStops()
+        #expect(vc.message.string == "fix: f")   // one commit of every file: the message, in the field
+        #expect(try await rig.client.call(CommitPlanTake(worktreeId: wid)).isEmpty)
+
+        try rig.write(".git/index", "junk")   // git can't read the folder: its status fails
+        try await agentStops()
+        #expect(vc.notes[wid] == nil, "\(vc.notes[wid]?.text ?? "")")
+        #expect(try await rig.client.call(CommitPlanTake(worktreeId: wid)).map(\.message) == ["fix: f"])
+    }
+}

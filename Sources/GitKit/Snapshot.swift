@@ -17,9 +17,11 @@ extension Git {
 
     /// What a turn begins with: `snapshotTree`, and what is staged (`indexTree`) written from the same copy of the index
     /// before `add -A` changes it. nil staged: unresolved conflicts (git writes no tree of those) or a write-tree that
-    /// failed otherwise, which the turn does without.
-    public static func turnSnapshot(_ cwd: String, remotes: Remotes) throws -> (tree: String, staged: String?) {
-        let add = try addAll(cwd, remotes: remotes)
+    /// failed otherwise, which the turn does without. nil in a folder without git, which has no tree to write: not a
+    /// failure, as anything else git couldn't do here is.
+    public static func turnSnapshot(_ cwd: String, remotes: Remotes) throws -> (tree: String, staged: String?)? {
+        let add: [String]
+        do { add = try addAll(cwd, remotes: remotes) } catch  where ProjectFiles.outsideGit(error) { return nil }
         if let host = remotes.of(cwd) {
             let out = try onHostIndexCopy(host, [add, ["write-tree"]], stagedFirst: true)
             let staged = out.count >= 2 && out[0] != "-" ? out[0] : nil

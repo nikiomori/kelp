@@ -8,6 +8,7 @@ import os
 /// it into whatever repository holds Kelp's home). Its origin is read on the host once in ten minutes.
 enum HostRepo {
     private static let known = OSAllocatedUnfairLock<[String: (repo: String?, at: Date)]>(initialState: [:])
+    private static let reading = OSAllocatedUnfairLock<[String: NSLock]>(initialState: [:])
 
     /// The remote project `cwd` is in (by the home it's under, `<home>/remote/…`), and how its host is reached.
     static func project(_ cwd: String) -> (folder: String, remotes: Remotes)? {
@@ -21,7 +22,19 @@ enum HostRepo {
     /// origin isn't on a GitHub.
     static func github(_ cwd: String) -> String? {
         guard let (folder, remotes) = project(cwd) else { return nil }
-        if let hit = known.withLock({ $0[folder] }), Date().timeIntervalSince(hit.at) < 600 { return hit.repo }
+        let fresh = { known.withLock { $0[folder] }.flatMap { Date().timeIntervalSince($0.at) < 600 ? $0 : nil } }
+        if let hit = fresh() { return hit.repo }
+        // One read of a folder's origin at a time: the asks that come meanwhile (the sidebar's, every folder at once)
+        // wait for its answer instead of each dialing the host.
+        let turn = reading.withLock { turns -> NSLock in
+            if let turn = turns[folder] { return turn }
+            let turn = NSLock()
+            turns[folder] = turn
+            return turn
+        }
+        turn.lock()
+        defer { turn.unlock() }
+        if let hit = fresh() { return hit.repo }
         let origin = Logger.kelp("integrations").attempt("reading \(folder)'s origin") {
             try Git.origin(folder, remotes: remotes)
         }

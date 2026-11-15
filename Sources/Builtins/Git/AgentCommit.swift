@@ -177,12 +177,17 @@ extension SourceControlController {
     }
 
     /// The agent stopped: what it proposed becomes the message or the plan, and its session ends; when it proposed
-    /// nothing, its tab opens beside instead, to see why.
-    private func finishAgent(_ wid: String) {
-        guard let run = agentCommits.removeValue(forKey: wid) else { return }
-        Task {
-            let proposed = await app.quiet(CommitPlanTake(worktreeId: wid)) ?? []
-            let status = await app.quiet(GitStatus(id: wid)) ?? []
+    /// nothing, its tab opens beside instead, to see why. Its work, for a test to wait on.
+    @discardableResult
+    func finishAgent(_ wid: String) -> Task<Void, Never>? {
+        guard let run = agentCommits.removeValue(forKey: wid) else { return nil }
+        return Task {
+            // The files first and the plan last: the daemon forgets a plan as it hands it over, so nothing that can
+            // fail comes after. A read that failed says so (a banner), and never passes for an agent that proposed
+            // nothing; its session stays, and a plan not taken yet comes with the next ask's.
+            guard let status = await app.call(GitStatus(id: wid)),
+                let proposed = await app.call(CommitPlanTake(worktreeId: wid))
+            else { return showAgentCommit(in: wid) }
             let all = GitCommit.takesEverything(status)
             let scope = status.filter { all || ($0.staged && !$0.conflicted) }.map(\.path)
             let plan = CommitPlan(agent: run.agent, proposed: proposed, changed: scope)

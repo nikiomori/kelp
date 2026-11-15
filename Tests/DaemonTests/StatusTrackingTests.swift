@@ -254,6 +254,25 @@ private func onHost() -> LiveSession.State {
     #expect(s.detector.status == .working)
 }
 
+/// What the watchdog reads off a still screen is a guess, marked as one like any other read off the screen: after a lost
+/// Stop the row said Done as if the agent had, and a banner fired that a guessed Done is spared. A hook's word isn't one.
+@Test func whatAStillScreenSaysIsMarkedAsAGuess() {
+    let screens: [(String, AgentStatus)] = [
+        ("", .done), ("Do you want to proceed?\r\n❯ 1. Yes\r\n  2. No\r\n", .waiting),
+        ("⏺\r\n Interrupted · What should Claude do instead?\r\n ❯ \r\n", .idle)
+    ]
+    for (screen, status) in screens {
+        var s = hooked()
+        s.hook(.working)
+        #expect(s.sync()?.guessed == nil)
+        s.ring = Data(screen.utf8)
+        s.releaseStale(at: s.lastLifeUp + 200)
+        #expect(s.sync()?.status == status && s.record.guessed == true, "\(status) off a still screen")
+        s.hook(.working)
+        #expect(s.sync()?.guessed == nil)
+    }
+}
+
 /// Notifications that ask nothing leave the row alone (a finished background agent turned an idle row into "needs you").
 @Test func aNotificationThatAsksNothingIsNoQuestion() async throws {
     let w = try await world()

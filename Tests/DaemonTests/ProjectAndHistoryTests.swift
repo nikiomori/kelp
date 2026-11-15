@@ -181,6 +181,49 @@ import Testing
     #expect(try await ping.value.string == "pong")
 }
 
+/// A remote project's forge reads (the sidebar's, one per folder at once) look its origin up on the host: through
+/// `offload`, one ssh for them all, so a host that doesn't answer leaves the daemon answering. Each ran its own on the
+/// request's task, and held a pool thread until ssh gave up.
+@Test func aRemoteForgeReadOnAHostThatDoesntAnswerLeavesTheDaemonAnswering() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let home = tmp(), there = home.appendingPathComponent("held-host").path
+    try FileManager.default.createDirectory(atPath: there, withIntermediateDirectories: true)
+    try Git.run(["init", "-q", "-b", "main"], cwd: there, remotes: .none)
+    try Git.run(["commit", "-q", "--allow-empty", "-m", "a"], cwd: there, remotes: .none)
+    let repo = try await c.call(RepoAddRemote(host: "box", path: there))
+    let shim = URL(fileURLWithPath: localSSH).deletingLastPathComponent()
+    let flag = shim.appendingPathComponent("held-host").path, log = shim.appendingPathComponent("ssh.log").path
+    /// How many times its origin was asked of the host so far.
+    func lookups() -> Int {
+        let asked = (try? String(contentsOfFile: log, encoding: .utf8))?.split(separator: "\n") ?? []
+        return asked.filter { $0.contains(home.lastPathComponent + "/held-host") && $0.contains("get-url") }.count
+    }
+    let before = lookups()
+    FileManager.default.createFile(atPath: flag, contents: nil)
+    defer { try? FileManager.default.removeItem(atPath: flag) }
+    let n = ProcessInfo.processInfo.activeProcessorCount * 2, params = JSONValue.obj(["repoId": .string(repo.id)])
+    let asks = (0..<n).map { _ in Task { try await d.handle(GitHubForge.name, params, conn: -1) } }
+    // Blocking waits from here to the release, as `signals` does: with the lookups on the pool an await never resumed.
+    let deadline = Date().addingTimeInterval(20)
+    while lookups() == before, Date() < deadline { usleep(50_000) }
+    let answered = DispatchSemaphore(value: 0)
+    let ping = Task {
+        let r = try await d.handle("ping", .null, conn: -1)
+        answered.signal()
+        return r
+    }
+    let answeredInTime = signals(answered, 1, by: .now() + 20) == 1
+    let held = lookups() - before
+    try FileManager.default.removeItem(atPath: flag)   // the host answers
+    for ask in asks { #expect(try await ask.value == .null) }   // its origin names no GitHub: null for the sidebar
+    #expect(answeredInTime && held == 1, "answered: \(answeredInTime), origin asked \(held) times")
+    #expect(try await ping.value.string == "pong")
+    // And none is applied in order, on a connection's reader thread, where nothing asks this (`answerNow`).
+    #expect(Methods.localForge.allSatisfy { Daemon.methods[$0]?.inOrder == false })
+}
+
 /// History and usage answer from the agents' folders (empty, then one conversation), now off the cooperative pool.
 @Test func historyAndUsageFromAgentFolders() async throws {
     let d = try Daemon(root: tmp()), home = tmp()

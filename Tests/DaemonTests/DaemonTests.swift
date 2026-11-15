@@ -25,6 +25,7 @@ let localSSH: String = {
     printf '%s\\n' "$1" >> "$(dirname "$0")/ssh.log"
     case "$1" in *cut-short*) head -c 3 | exec /bin/sh -c "$1";; esac   # a connection dropped part way through
     case "$1" in *slow-host*) if [ -e "$(dirname "$0")/slow-host" ]; then : > "$(dirname "$0")/slow-asked"; sleep 3; fi;; esac   # slow, when asked to be
+    case "$1" in *held-host*) while [ -e "$(dirname "$0")/held-host" ]; do sleep 0.1; done;; esac   # no answer, while asked for none
     exec /bin/sh -c "$1"
     """.write(to: shim, atomically: true, encoding: .utf8)
     chmod(shim.path, 0o755)

@@ -249,8 +249,9 @@ extension LiveSession {
             trail.add("\(record.status.rawValue) → \(status.rawValue)  \(detector.source)")
             record.status = status
             // Read off the screen: a guess, said as one (`Session.guessed`). Hooks and the program's own reports aren't.
+            // `releaseStale`'s too ("no sign of life"): a still screen is all it had, whatever the agent reported before.
             let src = detector.source
-            record.guessed = src.hasPrefix("screen") || src.hasPrefix("no hook") ? true : nil
+            record.guessed = ["screen", "no hook", "no sign of life"].contains(where: src.hasPrefix) ? true : nil
             if status == .done || status == .waiting || status == .exited || status == .error { record.unread = true }
             if status == .done || status == .error {
                 settleLimit()

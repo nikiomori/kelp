@@ -322,3 +322,38 @@ import Testing
     #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "agent's\n")
     #expect(FileManager.default.fileExists(atPath: wt.path + "/ro/new.txt"))
 }
+
+/// What the turn queued so far has run: its snapshot taken, or its changes read.
+private func turnSettled(_ live: LiveSession) async {
+    await withCheckedContinuation { done in live.turnWork.async { done.resume() } }
+}
+
+/// A turn whose changes couldn't be read, or that had no snapshot to read them against, has no result: "changed no
+/// files" was a claim nobody checked, and the turn before's stood as the last.
+@Test func aTurnThatCouldntBeReadHasNoResult() async throws {
+    let w = try await world(agents: [AgentManifest(id: "claude-like", name: "Agent", command: "/bin/cat")])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w), index = wt.path + "/.git/index"
+    let s: Session = try await w.c.call(
+        "session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
+    let live = try #require(w.d.sessions.existing(s.id))
+    let breakGit = { try "junk".write(toFile: index, atomically: true, encoding: .utf8) }   // it can't read the folder
+    /// One turn; `meanwhile` runs once its snapshot is taken (or wasn't).
+    func turn(_ meanwhile: () throws -> Void = {}) async throws {
+        live.noteTurn(.working)
+        await turnSettled(live)
+        try meanwhile()
+        live.noteTurn(.idle)
+        await turnSettled(live)
+    }
+    try await turn()
+    #expect(live.lastTurn?.files.isEmpty == true)   // read, and nothing changed: that it may say
+    try await turn(breakGit)
+    #expect(live.lastTurn == nil, "a diff that failed read as \(live.lastTurn?.files.count ?? -1) files changed")
+    try FileManager.default.removeItem(atPath: index)   // git reads it again
+    try await turn()
+    #expect(live.lastTurn != nil)
+    try breakGit()
+    try await turn()   // no snapshot this time
+    #expect(live.turnBase == nil && live.lastTurn == nil, "the turn before's result stood as this one's")
+}

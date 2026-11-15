@@ -16,7 +16,7 @@ import Testing
     try "key\n".write(toFile: repo + "/id_rsa", atomically: true, encoding: .utf8)
     let cached = try Git.run(["diff", "--cached", "--name-only"], cwd: repo, remotes: .none)
 
-    let turn = try Git.turnSnapshot(repo, remotes: .none)
+    let turn = try #require(try Git.turnSnapshot(repo, remotes: .none))
     #expect(turn.tree == (try Git.snapshotTree(repo, remotes: .none)))
     let staged = try Git.indexTree(repo, remotes: .none)
     #expect(turn.staged == staged && staged != nil && staged != turn.tree)
@@ -39,7 +39,7 @@ import Testing
     let unmerged = try Git.run(["ls-files", "-u"], cwd: repo, remotes: .none)
     #expect(!unmerged.isEmpty)
 
-    let turn = try Git.turnSnapshot(repo, remotes: .none)
+    let turn = try #require(try Git.turnSnapshot(repo, remotes: .none))
     let staged = try Git.indexTree(repo, remotes: .none)
     #expect(turn.staged == nil && staged == nil)
     #expect(turn.tree == (try Git.snapshotTree(repo, remotes: .none)))
@@ -62,12 +62,21 @@ import Testing
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: ssh.path)
     let remotes = Remotes(home: home, ssh: ssh.path)
 
-    let turn = try Git.turnSnapshot(folder.path, remotes: remotes)
+    let turn = try #require(try Git.turnSnapshot(folder.path, remotes: remotes))
     let runs = try String(contentsOf: log, encoding: .utf8).split(separator: "\n").count
     #expect(runs == 2)
     #expect(turn.tree == (try Git.snapshotTree(repo, remotes: .none)))
     let staged = try Git.indexTree(repo, remotes: .none)
     #expect(turn.staged == staged && staged != nil)
+}
+
+/// A folder without git has no snapshot to take, and that's no failure; a repository git can't read is one. Both threw,
+/// so the caller took every failure for "no git here" and said nothing.
+@Test func aFolderWithoutGitHasNoTurnSnapshotAndABrokenRepositoryFails() throws {
+    #expect(try Git.turnSnapshot(tmp().path, remotes: .none) == nil)
+    let repo = try tempRepo()
+    try "junk".write(toFile: repo + "/.git/index", atomically: true, encoding: .utf8)
+    #expect(throws: GitError.self) { try Git.turnSnapshot(repo, remotes: .none) }
 }
 
 /// A turn's refs are set, and the old turns' dropped, in the same git run; one already gone stops none of them.

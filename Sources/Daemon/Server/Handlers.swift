@@ -300,15 +300,14 @@ extension Daemon {
     /// The reply's result, encoded once.
     func answer(_ method: String, _ params: JSONValue, conn: Int) async throws -> Data {
         guard let methodType = Self.methods[method] else { throw RPCError.methodNotFound }
-        if let quiet = try refuseRemoteForge(methodType, params) { return quiet }
+        if let quiet = try await refuseRemoteForge(methodType, params) { return quiet }
         do { return try await methodType.answer(params, self, conn: conn) } catch { throw Self.rpc(error) }
     }
 
     /// An in-order method, here on the connection's reader thread, where everything sent after it waits: it starts no
     /// program (`Subprocess.quickOnly` refuses one, so the call fails at once instead of holding up the connection), and
-    /// one that still took long says so in the log.
+    /// one that still took long says so in the log. None is a forge's (`refuseRemoteForge`): those run gh or glab.
     func answerNow(_ methodType: any Handled.Type, _ params: JSONValue, conn: Int) throws -> Data {
-        if let quiet = try refuseRemoteForge(methodType, params) { return quiet }
         let start = DispatchTime.now()
         defer {
             let ms = (DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000
@@ -339,10 +338,12 @@ extension Daemon {
     /// gh / glab run in the folder here; a remote project's is only a marker under ~/.kelp, and their git would walk up to
     /// whatever repository holds it (a dotfiles home). One on GitHub runs gh on the repository its origin names
     /// (`HostRepo`); on GitLab or elsewhere, a `LocalForge` method is refused, or answers null when the sidebar asked.
-    private func refuseRemoteForge(_ methodType: any Answered.Type, _ params: JSONValue) throws -> Data? {
+    /// That origin is read on the host, over ssh: through `offload` like any git run, and only for a remote project's
+    /// call. On the request's own task, a host that didn't answer held a pool thread for each of the sidebar's reads.
+    private func refuseRemoteForge(_ methodType: any Answered.Type, _ params: JSONValue) async throws -> Data? {
         guard Methods.localForge.contains(methodType.name),
             let path = (try? store.repoPath(params)).map({ $0.1 }), remotes.of(path) != nil,
-            !methodType.name.hasPrefix("gitlab."), GitHub.repo(onHost: path) == nil
+            !methodType.name.hasPrefix("gitlab."), try await offloads.run({ GitHub.repo(onHost: path) }) == nil
         else { return nil }
         if Methods.quietOnRemote.contains(methodType.name) { return Data("null".utf8) }
         throw RPCError.invalidParams("Pull requests and CI aren't available for remote projects yet.")
