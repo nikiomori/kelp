@@ -38,8 +38,9 @@ extension SidebarController {
     }
     /// Settings › Appearance › Row height; Match System reads macOS's Sidebar icon size (small, medium, large), as
     /// Finder and Mail do. Limit: only the height follows it, the text stays 13 pt (Text size scales that).
-    private var rowBase: CGFloat {
-        switch app.settings[SettingKeys.rowHeight] {
+    var rowBase: CGFloat {
+        if let passRowBase { return passRowBase }
+        return switch app.settings[SettingKeys.rowHeight] {
         case "compact": 24
         case "regular": 28
         case "large": 32

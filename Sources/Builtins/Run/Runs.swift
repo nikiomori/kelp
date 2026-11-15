@@ -285,8 +285,9 @@ final class Runs: NSObject, NSMenuDelegate {
         let app = self.app
         guard !watching else { return }
         watching = true
-        track(owner: self) {
-            app.sessions.filter { $0.status == .exited }
+        // Only the runs going on: not every session that ever ended, on every agent's news.
+        track(owner: self) { [state] in
+            state.active.keys.sorted().compactMap { app.session($0) }.filter { $0.status == .exited }
         } changed: { [weak self] ended in
             guard let self else { return }
             for session in ended {

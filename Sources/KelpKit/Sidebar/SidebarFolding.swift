@@ -5,12 +5,20 @@ import DesignKit
 /// fade while the card and the rows below follow, in one movement; the outline's own animation dropped the leaving
 /// rows' text and card, and brought new rows in one by one over a card that grew in steps.
 extension SidebarController {
-    func updateCard() {
+    /// `only`: the rows whose height can have changed (an agent's news); the others keep the height they had.
+    func updateCard(only: Set<Node>? = nil) {
+        passRowBase = rowBase   // read once for all the rows asked
+        defer { passRowBase = nil }
+        let count = outline.numberOfRows
+        let known = only != nil && rowHeights.count == count
+        let asked = known ? only?.map { outline.row(forItem: $0) }.filter { $0 >= 0 } ?? [] : Array(0..<count)
+        var heights = known ? rowHeights : Array(repeating: 0, count: count)
         // Only rows that changed: told of all of them, the table lays every one out, on every session's change.
-        let heights = (0..<outline.numberOfRows).map {
-            outline.item(atRow: $0).map { outlineView(outline, heightOfRowByItem: $0) } ?? 0
+        var changed: [Int] = []
+        for row in asked {
+            heights[row] = outline.item(atRow: row).map { outlineView(outline, heightOfRowByItem: $0) } ?? 0
+            if !rowHeights.indices.contains(row) || rowHeights[row] != heights[row] { changed.append(row) }
         }
-        let changed = heights.indices.filter { !rowHeights.indices.contains($0) || rowHeights[$0] != heights[$0] }
         rowHeights = heights
         if !changed.isEmpty { outline.noteHeightOfRows(withIndexesChanged: IndexSet(changed)) }
         outline.enumerateAvailableRowViews { v, row in self.place(v, row) }

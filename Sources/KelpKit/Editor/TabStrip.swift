@@ -80,7 +80,7 @@ final class TabStrip: NSView {
     private var laidOutWidth: CGFloat = 0
     /// How wide the tabs and the buttons beside them want to be: the same at any width of the strip, and asking takes a
     /// layout pass, for each step of a panel sliding by.
-    private var measured: (tabs: CGFloat, others: CGFloat, regular: CGFloat)?
+    private(set) var measured: (tabs: CGFloat, others: CGFloat, regular: CGFloat)?
     /// Settings › Appearance › Tab width: "regular", "compact", or "auto": regular while the tabs fit at their
     /// narrowest, compact once they would scroll.
     var tabWidth = "auto" {
@@ -91,7 +91,7 @@ final class TabStrip: NSView {
         }
     }
     private var compact = false
-    private var revealing = false
+    private(set) var revealing = false
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -205,7 +205,7 @@ final class TabStrip: NSView {
 
     func set(_ items: [Item], selected: String?) {
         guard items != self.items || selected != selectedId else { return }   // any session's change comes here, for every pane
-        measured = nil
+        let reveal = selected != selectedId || items.map(\.id) != self.items.map(\.id)
         // A button stays with its tab: closing, opening or moving one moves only that, and the rest slide.
         let kept = Dictionary(zip(self.items.map(\.id), buttons)) { first, _ in first }
         let next = items.map { kept[$0.id] ?? newButton() }
@@ -224,15 +224,22 @@ final class TabStrip: NSView {
             stack.insertArrangedSubview(button, at: index)
         }
         buttons = next
+        // Only the tabs that changed take it, and only a change of size measures the strip again.
+        var resized = moved
         for (button, item) in zip(buttons, items) {
             button.stripDimmed = dimmed
-            button.set(item, selected: item.id == selected, groupFocused: focused)
+            let chosen = item.id == selected
+            guard button.item != item || button.selected != chosen else { continue }
+            if button.set(item, selected: chosen, groupFocused: focused) { resized = true }
         }
         self.items = items
         selectedId = selected
-        needsLayout = true
+        if resized {
+            measured = nil
+            needsLayout = true
+        }
         if !places.isEmpty { settle(from: places) }
-        revealSoon()
+        if reveal { revealSoon() }
     }
 
     /// The titles' font changed: the tabs take it, and their widths with it.

@@ -24,6 +24,8 @@ final class EditorArea: NSViewController {
     var recent: [String] = []   // tab ids by when last shown, newest last (EditorRelease)
     var hiddenAt: [String: Date] = [:]   // since when each built tab is off screen (EditorRelease)
     var groupViews: [String: GroupView] = [:]
+    /// Groups whose tabs changed while the area was off screen (`refreshShown`).
+    private(set) var unshown: Set<String> = []
     /// The card under an agent's tab, one for all of this workspace's strips: moving along them goes from card to card.
     private lazy var tabCard = HoverCard(app: app, underTabs: true)
     private var renders = 0
@@ -53,7 +55,9 @@ final class EditorArea: NSViewController {
 
     override func loadView() {
         let app = self.app
-        view = NSView()
+        let area = AreaView()
+        area.cameBack = { [weak self] in self?.refreshUnshown() }
+        view = area
         // A tab opened, replaced or closed here while another workspace is on screen lands in the layout: drawn here.
         track(owner: self, now: false) { [weak self] in
             self.map { $0.app.workbench.layouts[$0.workspaceId] }
@@ -365,6 +369,7 @@ final class EditorArea: NSViewController {
         if let content = contents[tab.id] { return content }
         let content = app.extensions.tabProvider(for: tab.uri)?.make(tab.uri) ?? UnavailableTab(uri: tab.uri, app: app)
         contents[tab.id] = content
+        var saved = (content.uri, content.title)   // what the UI state keeps of it
         track(owner: content, now: false) { [weak content] in
             content.map(TabLook.init)
         } changed: { [weak self] look in
@@ -375,10 +380,27 @@ final class EditorArea: NSViewController {
                 group.tabs[index].uri = look.uri
                 layout.groups[gid] = group   // e.g. the browser navigated
             }
-            refreshGroup(gid)
-            app.publishUIState()
+            refreshShown(gid)
+            if (look.uri, look.title) != saved {
+                saved = (look.uri, look.title)
+                app.publishUIState()
+            }
         }
         return content
+    }
+
+    /// A workspace kept loaded off screen doesn't redraw its strips at each agent's step: it does on coming back.
+    private func refreshShown(_ gid: String) {
+        guard view.window != nil else {
+            unshown.insert(gid)
+            return
+        }
+        refreshGroup(gid)
+    }
+    private func refreshUnshown() {
+        let stale = unshown
+        unshown = []
+        stale.forEach(refreshGroup)
     }
 
     private func rebuildStart() {
@@ -403,5 +425,14 @@ final class EditorArea: NSViewController {
         start = startView
         view.pin(startView)
         DispatchQueue.main.async { startView.focus() }
+    }
+}
+
+/// The area's own view: told when it comes back into a window, where tabs that changed meanwhile are drawn.
+private final class AreaView: NSView {
+    var cameBack: @MainActor () -> Void = {}
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil { cameBack() }
     }
 }

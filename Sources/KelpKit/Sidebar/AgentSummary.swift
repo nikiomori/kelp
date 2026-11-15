@@ -44,7 +44,7 @@ final class AgentSummary: NSView {
     private var seen: Set<String>?
     private var settleTimer: Timer?
     /// The times in the counts move on by the minute.
-    private var tick: Timer?
+    private(set) var tick: Timer?
     /// The rows to light in the list (SidebarController.light).
     var light: (Set<String>) -> Void = { _ in }
     private var lit = Set<String>()
@@ -104,8 +104,9 @@ final class AgentSummary: NSView {
             content.leadingAnchor.constraint(equalTo: capsule.leadingAnchor, constant: 10),
             content.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -12)
         ])
-        track(owner: self) { [app] in
-            app.sessions
+        // Only what the row shows: an agent's progress or title, a few a second while it works, draws nothing again.
+        track(owner: self) { [weak self, app] in
+            SummaryShown(app, card: self?.card.kind)
         } changed: { [weak self] _ in
             self?.update()
         }
@@ -168,16 +169,10 @@ final class AgentSummary: NSView {
     }
 
     func update() {
-        let inbox = Inbox.current(app)
+        let queue = AttentionQueue(app).sessions
+        let inbox = Inbox.current(app, queue: queue)
         let shown = inbox.shown
-        settleTimer?.invalidate()
-        settleTimer = nil
-        if let due = inbox.settlesAt {
-            settleTimer = Timer.scheduledTimer(withTimeInterval: due.timeIntervalSinceNow, repeats: false) {
-                [weak self] _ in   // main run loop
-                MainActor.assumeIsolated { self?.update() }
-            }
-        }
+        settleTimer = again(settleTimer, at: inbox.settlesAt)
         let questions = Set(inbox.queue.map(\.id)), new = shown.map(\.id).filter { !(seen ?? questions).contains($0) }
         seen = (seen ?? questions).union(shown.map(\.id)).union(inbox.viewing).intersection(questions)
 
@@ -208,7 +203,7 @@ final class AgentSummary: NSView {
             }
         }
 
-        counts = SummaryCounts(chats: app.sessions, done: AttentionQueue(app).sessions)
+        counts = SummaryCounts(chats: app.sessions, done: queue)
         notice()
         let any = SummaryKind.allCases.contains { !counts[$0].isEmpty }
         for segment in segments {
@@ -221,14 +216,22 @@ final class AgentSummary: NSView {
         row.edgeInsets.left = asking ? 0 : any ? Metrics.gapWide - Metrics.gap : Metrics.gapWide
         card.refresh(counts)
         relight()
-        tick?.invalidate()
-        tick =
-            counts[.working].isEmpty && counts[.quiet].isEmpty
-            ? nil
-            : Timer.scheduledTimer(withTimeInterval: 60, repeats: false) { [weak self] _ in   // main run loop
-                MainActor.assumeIsolated { self?.update() }
-            }
+        let timed = !counts[.working].isEmpty || !counts[.quiet].isEmpty
+        let next = tick.map(\.fireDate).flatMap { $0 > Date() ? $0 : nil } ?? Date(timeIntervalSinceNow: 60)
+        tick = again(tick, at: timed ? next : nil)
         needsLayout = true
+    }
+
+    /// A timer that calls `update` at `date` (none for nil): `timer` itself while it's still to come then.
+    private func again(_ timer: Timer?, at date: Date?) -> Timer? {
+        if let timer, timer.isValid, timer.fireDate == date, timer.fireDate > Date() { return timer }
+        timer?.invalidate()
+        guard let date else { return nil }
+        let next = Timer(fire: date, interval: 0, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.update() }   // the main run loop's
+        }
+        RunLoop.main.add(next, forMode: .default)
+        return next
     }
 
     private func segment(_ kind: SummaryKind) -> SummarySegment? { segments.first { $0.kind == kind } }
@@ -321,11 +324,30 @@ final class AgentSummary: NSView {
     }
 }
 
+/// What the row over the projects shows of the sessions: who is in each count, since when, and the open card's chats.
+struct SummaryShown: Equatable {
+    struct Entry: Equatable {
+        let id: String, status: AgentStatus, since: Date, until: Date?
+    }
+    let queue: [Entry], counts: [[Entry]], card: [Session]
+
+    @MainActor init(_ app: AppModel, card: SummaryKind?) {
+        let attention = AttentionQueue(app).sessions
+        let counts = SummaryCounts(chats: app.sessions, done: attention)
+        func entry(_ s: Session, _ since: Date) -> Entry {
+            Entry(id: s.id, status: SidebarCell.shownStatus(s), since: since, until: s.continueAt)
+        }
+        queue = attention.map { entry($0, $0.statusAt ?? $0.createdAt) }
+        self.counts = SummaryKind.allCases.map { kind in counts[kind].map { entry($0, SummaryCounts.since($0, kind)) } }
+        self.card = card.map { counts[$0] } ?? []
+    }
+}
+
 extension Inbox {
     /// Who needs you now; `shown` leaves out the agent on screen (the capsule goes to the others), `counted` keeps it.
-    @MainActor static func current(_ app: AppModel) -> Inbox {
+    @MainActor static func current(_ app: AppModel, queue: [Session]) -> Inbox {
         // A finished agent keeps its mark in the row: it asks for nothing, so it isn't counted as needing you.
-        var inbox = Inbox(queue: AttentionQueue(app).sessions.filter { SidebarCell.shownStatus($0) != .done })
+        var inbox = Inbox(queue: queue.filter { SidebarCell.shownStatus($0) != .done })
         let tab = app.workbench.focusedTab ?? ""
         if TabURI.scheme(tab) == "session" { inbox.viewing = [TabURI.body(tab)] }
         return inbox

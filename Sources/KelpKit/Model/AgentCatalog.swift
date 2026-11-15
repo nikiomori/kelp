@@ -54,13 +54,10 @@ package struct AgentCatalog {
     /// Sidebar, tabs, notifications and menus all use this, so they agree.
     package func displayName(_ s: Session) -> String {
         if !s.title.isEmpty { return s.title }
-        let same = app.sessions.filter {
-            $0.worktreeId == s.worktreeId && $0.status != .exited && $0.title.isEmpty && $0.agent == s.agent
-        }
-        .sorted { $0.createdAt < $1.createdAt }
         let base = name(s.agent)
-        guard same.count > 1, let index = same.firstIndex(where: { $0.id == s.id }), index > 0 else { return base }
-        return "\(base) \(index + 1)"
+        // From an index: asked for every row and tab on every session's news.
+        guard let number = app.untitledNumber(s.id) else { return base }
+        return "\(base) \(number)"
     }
 
     /// Agent `id`'s own colour (`#rrggbb`), if its manifest has one.

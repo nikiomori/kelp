@@ -7,8 +7,8 @@ import DesignKit
 @MainActor
 final class TabButton: NSControl, NSDraggingSource {
     weak var strip: TabStrip?
-    private var item: TabStrip.Item?
-    private var selected = false
+    private(set) var item: TabStrip.Item?
+    private(set) var selected = false
     var groupFocused = false { didSet { if groupFocused != oldValue { updateLook() } } }
     var stripDimmed = false { didSet { if stripDimmed != oldValue { updateLook() } } }
     /// The row of what it shows, which fades in a dimmed strip; the fill and the glow stay as they are.
@@ -118,7 +118,9 @@ final class TabButton: NSControl, NSDraggingSource {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    func set(_ it: TabStrip.Item, selected: Bool, groupFocused: Bool) {
+    /// Shows `it`; true when its width may have changed (the strip measures again).
+    @discardableResult func set(_ it: TabStrip.Item, selected: Bool, groupFocused: Bool) -> Bool {
+        let before = sizeKey
         item = it
         self.selected = selected
         self.groupFocused = groupFocused
@@ -143,6 +145,17 @@ final class TabButton: NSControl, NSDraggingSource {
         setAccessibilityLabel((it.badge?.status).map { "\(it.title), \($0.words)" } ?? it.title)
         setAccessibilityValue(selected)
         updateLook()
+        return sizeKey != before
+    }
+
+    /// What the tab's width comes from: its title and weight, and which of chip, meter and percentage show.
+    private var sizeKey: SizeKey {
+        SizeKey(
+            title: title.stringValue, font: title.font, chip: chip.isHidden ? 0 : item?.badge?.background ?? 0,
+            meter: meter.isHidden, full: full.isHidden ? "" : full.stringValue)
+    }
+    private struct SizeKey: Equatable {
+        let title: String, font: NSFont?, chip: Int, meter: Bool, full: String
     }
 
     /// Working, asking, failed, or finished and not looked at: the state says more than the agent's icon.

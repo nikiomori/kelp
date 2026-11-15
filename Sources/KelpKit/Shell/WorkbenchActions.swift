@@ -220,9 +220,16 @@ extension Workbench {
     private var keptHidden: Set<String> {
         app.extensions.all.sessionHidden.reduce(into: []) { $0.formUnion($1()) }
     }
+    /// The commands agent `id`'s line shows (`isOnLine`), from an index: each agent's bar asks on every session's news.
+    package func onLine(of id: String) -> [Session] {
+        let mine = app.started(by: id)
+        guard !mine.isEmpty else { return [] }   // no UI state read for an agent that started none
+        let inTab = Set(app.uiState.strings(Session.inTabKey))
+        return mine.filter { isOnLine($0, inTab: inTab) }
+    }
     /// A command its agent's line shows, not moved to a tab of its own (`openInTab`).
     func isOnLine(_ session: Session, inTab: Set<String>? = nil) -> Bool {
-        app.sessions.owner(of: session) != nil
+        app.owner(of: session) != nil
             && !(inTab ?? Set(app.uiState.strings(Session.inTabKey))).contains(session.id)
     }
     /// A command off its agent's line, as any tab (it stays one; only live ones are kept in the list).

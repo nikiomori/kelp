@@ -158,7 +158,8 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +2: what an agent edited is pushed as the commands are (`EditsEvent`'s `key`, `forgottenWith`).
     // +1: a session a built-in starts other than by `starter` is asked at its terminal's size too (`sized`).
     // 350 → 347: three no built-in reached (BranchChip's `init(frame:)`, GitFix's `type`, a sheet's `close`).
-    #expect(declared == 347, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +1: an agent's bar lists the commands on its line from the shell's index (`onLine(of:)`), not a scan of all sessions.
+    #expect(declared == 348, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

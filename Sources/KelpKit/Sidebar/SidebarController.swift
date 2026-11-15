@@ -103,8 +103,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     var renaming: (id: String, project: Bool)?
     lazy var card = HoverCard(app: app)
     var rowHeights: [CGFloat] = []
+    /// The row height for one pass over the rows (`updateCard`): settings and UserDefaults read once, not per row.
+    var passRowBase: CGFloat?
     /// The sessions the rows last showed (`sessionsChanged`).
     var shownBefore: [String: Session] = [:]
+    /// Where those sessions' rows were (`place`): a change there builds the tree again.
+    var shownPlaces: [String]?
     /// A server's header is folding or opening: its projects move, however many (`fewRows`).
     var foldingHost = false
 
@@ -207,14 +211,15 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     /// updates the rows that show it.
     private func followSessions() {
         track(owner: self) { [app] in
-            app.workbench.shownSessions.map(Self.place)
-        } changed: { [weak self] _ in
-            self?.refresh()
-        }
-        track(owner: self) { [app] in
             app.workbench.shownSessions
-        } changed: { [weak self] in
-            self?.sessionsChanged($0)
+        } changed: { [weak self] now in
+            guard let self else { return }
+            let places = now.map(Self.place)
+            if places != shownPlaces {
+                shownPlaces = places
+                refresh()
+            }
+            sessionsChanged(now)
         }
     }
 

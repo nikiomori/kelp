@@ -94,6 +94,8 @@ package final class AppModel {
             sessionAt = nil
             sessionsIn = nil
             startedBy = nil
+            commandsOf = nil
+            untitled = nil
         }
     }
     /// Where each session is in `sessions`, made on the first lookup after a change: `session(_:)` is asked for every row
@@ -103,6 +105,10 @@ package final class AppModel {
     @ObservationIgnored private var sessionsIn: [String: [Session]]?
     /// The agents each agent started that haven't ended, made the same way: every agent's row asks for its own.
     @ObservationIgnored private var startedBy: [String: [Session]]?
+    /// The sessions each agent started from its line (`Session.startedBy`), made the same way: each agent's bar asks.
+    @ObservationIgnored private var commandsOf: [String: [Session]]?
+    /// Each untitled chat's number among its agent's untitled chats in a workspace (`AgentCatalog.displayName`).
+    @ObservationIgnored private var untitled: [String: Int]?
     /// Projects and workspaces by id, made the same way: asked for inside loops over every session and workspace.
     @ObservationIgnored private var repoBy: [String: Repo]?
     @ObservationIgnored private var worktreeBy: [String: Worktree]?
@@ -513,6 +519,38 @@ package final class AppModel {
 }
 
 extension AppModel {
+    /// The agent whose line shows the command `s`: nil for any other session, and once that agent ended or went away.
+    func owner(of s: Session) -> Session? {
+        guard let id = s.startedBy, let agent = session(id), agent.status != .exited, agent.worktreeId == s.worktreeId
+        else { return nil }
+        return agent
+    }
+
+    /// The sessions agent `id` started from its line, ended or not, in `sessions`' order.
+    func started(by id: String) -> [Session] {
+        let all = sessions   // read through the observed property, as `session(_:)` does
+        if commandsOf == nil {
+            commandsOf = Dictionary(grouping: all.filter { $0.startedBy != nil }) { $0.startedBy ?? "" }
+        }
+        return commandsOf?[id] ?? []
+    }
+
+    /// A live untitled chat's number among its agent's in its workspace, oldest first: nil for the first or only one.
+    func untitledNumber(_ id: String) -> Int? {
+        let all = sessions   // read through the observed property, as `session(_:)` does
+        if untitled == nil {
+            var numbers: [String: Int] = [:]
+            let live = all.filter { $0.status != .exited && $0.title.isEmpty }
+            for same in Dictionary(grouping: live, by: { [$0.worktreeId, $0.agent] }).values where same.count > 1 {
+                for (i, s) in same.sorted(by: { $0.createdAt < $1.createdAt }).enumerated() where i > 0 {
+                    numbers[s.id] = i + 1
+                }
+            }
+            untitled = numbers
+        }
+        return untitled?[id]
+    }
+
     /// The agents `id` started that haven't ended, and those they started (`[Session].children(of:)`, from an index).
     func children(of id: String) -> [Session] {
         let all = sessions   // read through the observed property, as `session(_:)` does

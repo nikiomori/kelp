@@ -119,10 +119,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
             self?.show($0)
         }
         track(owner: self) { [app] in
-            let inTabs = app.uiState.strings(Session.inTabKey)
-            return app.sessions.filter {
-                $0.startedBy == session && !inTabs.contains($0.id) && app.sessions.owner(of: $0) != nil
-            }
+            app.workbench.onLine(of: session)
         } changed: { [weak self] in
             self?.show(runs: $0)
         }

@@ -318,14 +318,6 @@ public struct Session: Codable, Sendable, Equatable, Revised {
 }
 
 extension [Session] {
-    /// The agent whose line shows the command `s`: nil for any other session, and once that agent ended or went elsewhere.
-    public func owner(of session: Session) -> Session? {
-        guard let id = session.startedBy, let agent = first(where: { $0.id == id }), agent.status != .exited,
-            agent.worktreeId == session.worktreeId
-        else { return nil }
-        return agent
-    }
-
     /// The agents `id` started that haven't ended, and those they started.
     public func children(of id: String) -> [Session] {
         filter { $0.parent == id && $0.status != .exited }.flatMap { [$0] + children(of: $0.id) }
