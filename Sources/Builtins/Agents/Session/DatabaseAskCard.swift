@@ -88,6 +88,8 @@ final class DatabaseAskCard: NSView {
     /// them how many more there are.
     private func say(_ run: DatabaseRun, _ rows: QueryResult?) {
         let who = app.session(session).map { app.catalog.name($0.agent) } ?? String(localized: "The agent")
+        sql.isHidden = rows?.statements != nil   // several: each is on its line of the list
+        if let parts = rows?.statements { return say(run, parts, who) }
         let shown = rows.map(preview.show) ?? 0
         preview.isHidden = shown == 0
         showButton.title = String(localized: "Show Rows")
@@ -108,6 +110,20 @@ final class DatabaseAskCard: NSView {
             ? String(localized: "and \(more) more · tried, then rolled back")
             : String(localized: "Tried, then rolled back.")
         if more > 0 { showButton.title = String(localized: "Show All \(rows.total) Rows") }
+    }
+
+    /// Several statements asked as one: a line each, and that they're kept together or not at all.
+    private func say(_ run: DatabaseRun, _ parts: [StatementResult], _ who: String) {
+        let shown = preview.show(statements: parts)
+        preview.isHidden = false
+        title.stringValue = String(localized: "\(who) wants to change \(run.database)")
+        let together = String(localized: "\(parts.count) statements in one transaction: all of them or none.")
+        detail.stringValue =
+            together + " "
+            + (run.changed.map { String(localized: "\($0) rows would change. Tried, then rolled back.") } ?? "")
+        showButton.title =
+            parts.count > shown
+            ? String(localized: "Show All \(parts.count) Statements") : String(localized: "Show Statements")
     }
 
     @objc private func showRows() {

@@ -3538,6 +3538,13 @@
             },
             "type" : "array"
           },
+          "statements" : {
+            "description" : "Several statements run in one transaction (`kelp db query \"a; b\"`), each with the rows it changed: all of them were kept, or none. nil: one statement.",
+            "items" : {
+              "$ref" : "#/components/schemas/StatementResult"
+            },
+            "type" : "array"
+          },
           "total" : {
             "description" : "The rows it gave, `rows` or more: past the limit they're counted only up to what Kelp keeps.",
             "type" : "integer"
@@ -4812,6 +4819,22 @@
           "id",
           "name",
           "path"
+        ],
+        "type" : "object"
+      },
+      "StatementResult" : {
+        "description" : "One of several statements run in one transaction.",
+        "properties" : {
+          "changed" : {
+            "description" : "Rows it changed; nil: it doesn't say (a read).",
+            "type" : "integer"
+          },
+          "sql" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "sql"
         ],
         "type" : "object"
       },

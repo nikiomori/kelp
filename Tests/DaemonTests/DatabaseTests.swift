@@ -211,8 +211,9 @@ private func count(_ path: String, _ sql: String) throws -> Int {
         DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "UPDATE orders SET status = 'paid' WHERE id = 2"))
     #expect(change.changed == 1)
     #expect(try count(path, "SELECT count(*) FROM orders WHERE status = 'paid'") == 2)
+    // Several statements run in a transaction of Kelp's own: one that ends it isn't run, nor what follows it
     await #expect(throws: RPCError.self) {
-        try await w.c.call(DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT 1; DELETE FROM orders"))
+        try await w.c.call(DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "COMMIT; DELETE FROM orders"))
     }
     let activity = try await w.c.call(DatabaseActivity(worktreeId: wt.id))
     #expect(activity.runs.map(\.state) == [.done, .done] && activity.runs.allSatisfy { $0.session == nil })

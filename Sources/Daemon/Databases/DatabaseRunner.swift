@@ -15,6 +15,9 @@ protocol DatabaseRunner: Sendable {
     func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows
     /// The user's edits, all or none, in one transaction: the rows they changed.
     func apply(_ statements: [String]) async throws -> Int
+    /// Several statements in one transaction: the rows each changed (nil: a read). Kept when `keep` says so of
+    /// those counts (a trial keeps none), else rolled back. A runner that can't refuses.
+    func batch(_ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool) async throws -> [Int?]
     func schema() async throws -> DatabaseSchema
     /// Whether `write` holds a change to the rows allowed; else the question says the number is only the trial's.
     var holdsAllowed: Bool { get }
@@ -25,6 +28,11 @@ protocol DatabaseRunner: Sendable {
 
 extension DatabaseRunner {
     var holdsAllowed: Bool { true }
+    /// Limit: SQLite and the servers kelpd speaks to itself run several; a client program's or Appwrite's don't yet.
+    func batch(_ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool) async throws -> [Int?] {
+        throw DatabaseFailure.failed(
+            "Several statements in one go aren't run on this database yet: run them one by one.")
+    }
     func version() async throws -> String? { nil }
     func databases() async throws -> [String] { [] }
 }

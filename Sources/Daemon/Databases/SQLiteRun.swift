@@ -103,6 +103,33 @@ struct SQLiteRun: DatabaseRunner {
         }
     }
 
+    /// A statement that changes nothing (a read) says no count; the rest, the rows they and their triggers changed.
+    func batch(_ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool) async throws -> [Int?] {
+        let path = try DatabaseEngines.path(c)
+        return try await off.run {
+            try Self.run {
+                var changed: [Int?] = []
+                let queue = try Self.open(path, readOnly: false)
+                try Self.stopped(queue, after: DatabaseEngines.writeTimeout) {
+                    try queue.inTransaction { db in
+                        for sql in statements {
+                            let statement = try db.makeStatement(sql: sql)
+                            guard !statement.isReadonly else {
+                                changed.append(nil)
+                                continue
+                            }
+                            let before = db.totalChangesCount
+                            try statement.execute()
+                            changed.append(db.totalChangesCount - before)
+                        }
+                        return keep(changed) ? .commit : .rollback
+                    }
+                }
+                return changed
+            }
+        }
+    }
+
     static func stopped<T>(_ queue: DatabaseQueue, after timeout: TimeInterval, _ body: () throws -> T) throws -> T {
         let stop = DispatchWorkItem { queue.interrupt() }
         DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: stop)

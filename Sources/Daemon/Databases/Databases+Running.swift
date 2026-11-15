@@ -13,11 +13,13 @@ extension Databases {
         let (wid, name) = (q.worktreeId, q.database)
         // Off the pool: a remote project's are read on its host, and reached through a forwarded port.
         let target = try await offloads.run { [self] in try reach(connection(wid, name, agent: forAgent), wid) }
-        let sql: String
-        do { sql = try SQLText.single(q.sql, target.database.engine) } catch let failure as DatabaseFailure {
+        let all: [String]
+        do { all = try SQLText.several(q.sql, target.database.engine) } catch let failure as DatabaseFailure {
             throw RPCError.invalidParams(failure.message)
         }
-        if forAgent, let why = SQLText.pastTheDatabase(sql, target.database.engine) { throw RPCError.refused(why) }
+        if forAgent, let why = all.lazy.compactMap({ SQLText.pastTheDatabase($0, target.database.engine) }).first {
+            throw RPCError.refused(why)
+        }
         if forAgent, target.database.production, target.database.engine == .postgres, try await superuser(target) {
             throw RPCError.refused(
                 "\(target.database.name) is production, and Kelp reaches it as a superuser, whom a read-only "
@@ -25,7 +27,9 @@ extension Databases {
                     + "then agents can't use it."
             )
         }
-        let id = UUID().uuidString, session = asker ?? nil
+        // Several statements are one change: tried, asked about and run together (`batch`)
+        guard all.count == 1 else { return try await batch(q, target, all, asker: (asker, pid)) }
+        let id = UUID().uuidString, session = asker ?? nil, sql = all[0]
         var run = DatabaseRun(
             id: id, database: target.database.name, sql: sql, session: session, at: Date(), state: .done)
         let access = forAgent ? target.database.agentAccess : .free
@@ -151,7 +155,7 @@ extension Databases {
         return out
     }
 
-    private func failed(_ q: DatabaseQuery, _ run: inout DatabaseRun, _ failure: DatabaseFailure) -> RPCError {
+    func failed(_ q: DatabaseQuery, _ run: inout DatabaseRun, _ failure: DatabaseFailure) -> RPCError {
         run.state = .failed
         run.error = failure.message
         note(q.worktreeId, run)
@@ -164,13 +168,7 @@ extension Databases {
         _ q: DatabaseQuery, _ c: DatabaseConnection, _ sql: String, _ run: inout DatabaseRun,
         asker: (session: String?, pid: pid_t?)
     ) async throws -> Bool {
-        let pid = asker.pid
-        guard let session = asker.session, let ls = sessions.existing(session) else {
-            run.state = .refused
-            run.error = "Nobody to ask: a change to \(c.database.name) needs the user's Allow on an agent's row."
-            note(q.worktreeId, run)
-            return false
-        }
+        guard let ls = whoToAsk(q, c, &run, asker.session) else { return false }
         var trial: DatabaseRows?
         do { trial = try await DatabaseEngines.trial(c, sql, off: offloads) } catch DatabaseFailure.failed(
             let why)
@@ -189,9 +187,31 @@ extension Databases {
         let question = Self.question(
             sql, database: c.database.name, changed: trial?.changed,
             held: DatabaseEngines.runner(c, off: offloads).holdsAllowed)
+        return await answered(q, &run, ls, question, asker: asker)
+    }
+
+    /// The agent's session a change is asked on; nil (and the run refused) when there's none to ask.
+    func whoToAsk(_ q: DatabaseQuery, _ c: DatabaseConnection, _ run: inout DatabaseRun, _ session: String?)
+        -> LiveSession?
+    {
+        guard let session, let ls = sessions.existing(session) else {
+            run.state = .refused
+            run.error = "Nobody to ask: a change to \(c.database.name) needs the user's Allow on an agent's row."
+            note(q.worktreeId, run)
+            return nil
+        }
+        return ls
+    }
+
+    /// `question` asked on the agent's row and waited for: whether the user allowed it, and agents may still change
+    /// the database. `asker`: the agent's session, and the program its command runs in.
+    func answered(
+        _ q: DatabaseQuery, _ run: inout DatabaseRun, _ ls: LiveSession, _ question: String,
+        asker: (session: String?, pid: pid_t?)
+    ) async -> Bool {
         ls.askForKelp(question)
         let answer = await sessions.permissions.waitForKelp(
-            session, question: question, within: DatabaseQuery.answerWithin, asker: pid)
+            asker.session ?? "", question: question, within: DatabaseQuery.answerWithin, asker: asker.pid)
         ls.kelpAsked(question)
         guard answer == "allow" else {
             run.state = .denied
@@ -215,7 +235,7 @@ extension Databases {
         }
         guard let now, [.ask, .free].contains(now) else {
             run.state = .refused
-            run.error = "\(c.database.name) became read-only for agents while it was asked: it didn't run."
+            run.error = "\(run.database) became read-only for agents while it was asked: it didn't run."
             note(q.worktreeId, run)
             return false
         }

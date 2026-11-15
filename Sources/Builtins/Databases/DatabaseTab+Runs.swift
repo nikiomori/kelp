@@ -20,10 +20,19 @@ extension DatabaseTab {
         let result = await app.quiet(DatabaseResultRead(worktreeId: address.worktree, id: id)) ?? nil
         grid.editable = false
         grid.source = nil
-        grid.show(columns: result?.columns ?? [], rows: result?.rows ?? [])
-        grid.show(change: result?.change, changed: result?.changedColumns ?? [])
+        if let parts = result?.statements {   // several run as one: a line each, with the rows it changed
+            grid.show(
+                columns: [String(localized: "statement"), String(localized: "rows changed")],
+                rows: parts.map { [$0.sql, $0.changed.map(String.init)] })
+            grid.table.tableColumns.dropFirst().first.map(grid.sizeToFit)   // the statement, as much as fits
+        } else {
+            grid.show(columns: result?.columns ?? [], rows: result?.rows ?? [])
+            grid.show(change: result?.change, changed: result?.changedColumns ?? [])
+        }
         if let error = record?.error, record?.state != .asks {
             empty.showError(Self.stateTitle(record?.state ?? .failed), text: error)
+        } else if result?.statements != nil {
+            empty.show(nil)
         } else if result == nil {
             empty.show(
                 String(localized: "Not Kept"), symbol: "clock",

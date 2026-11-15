@@ -72,6 +72,21 @@ struct PostgresWire: DatabaseRunner {
         }
     }
 
+    func batch(_ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool) async throws -> [Int?] {
+        try await Self.with(c, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
+            try await Self.run(conn, "BEGIN")
+            try await Self.run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
+            var changed: [Int?] = []
+            for sql in statements { changed.append(try await Self.command(conn, sql).changed) }
+            guard keep(changed) else {
+                await DatabaseWire.close { try await Self.run(conn, "ROLLBACK") }
+                return changed
+            }
+            try await Self.run(conn, "COMMIT")
+            return changed
+        }
+    }
+
     func schema() async throws -> DatabaseSchema {
         try await Self.with(c) { conn in
             try await Self.run(conn, "BEGIN TRANSACTION READ ONLY")

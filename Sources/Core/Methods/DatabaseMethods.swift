@@ -176,6 +176,9 @@ public struct QueryResult: Codable, Sendable, Equatable {
     /// What an agent's change does to these rows, when Kelp holds every one of them whole: shown where it's asked,
     /// and what Undo puts back. Never sent to the agent.
     public var change: RowChange?
+    /// Several statements run in one transaction (`kelp db query "a; b"`), each with the rows it changed: all of
+    /// them were kept, or none. nil: one statement.
+    public var statements: [StatementResult]?
     /// Rows kept of a result, and how far they're counted past that: `total` stops there.
     public static let kept = 1000, counted = 100_000
     public init(id: String, columns: [String], rows: [[String?]], total: Int, changed: Int? = nil, ms: Int) {
@@ -196,6 +199,17 @@ public struct QueryResult: Codable, Sendable, Equatable {
                 was.indices.contains(column) && now.indices.contains(column) && was[column] != now[column]
             }
         }
+    }
+}
+
+/// One of several statements run in one transaction.
+public struct StatementResult: Codable, Sendable, Equatable {
+    public var sql: String
+    /// Rows it changed; nil: it doesn't say (a read).
+    public var changed: Int?
+    public init(sql: String, changed: Int?) {
+        self.sql = sql
+        self.changed = changed
     }
 }
 

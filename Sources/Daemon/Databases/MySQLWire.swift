@@ -60,6 +60,22 @@ struct MySQLWire: DatabaseRunner {
         }
     }
 
+    /// Not where some table can't roll back (`MySQLRun.unrollable`): all of them or none couldn't be kept.
+    func batch(_ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool) async throws -> [Int?] {
+        try await Self.with(c, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
+            let tables = try await Self.run(conn, MySQLRun.unrollable).rows.first?.first ?? nil
+            guard tables == "0" else { throw MySQLRun.cantRollBack }
+            _ = try await Self.run(conn, "START TRANSACTION")
+            var changed: [Int?] = []
+            for sql in statements {
+                _ = try await Self.run(conn, sql)
+                changed.append(try await Self.changed(conn))
+            }
+            _ = try await Self.run(conn, keep(changed) ? "COMMIT" : "ROLLBACK")
+            return changed
+        }
+    }
+
     func schema() async throws -> DatabaseSchema {
         try await Self.with(c) { conn in
             var schema = DatabaseSchemaBuilder.build(

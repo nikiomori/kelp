@@ -216,6 +216,34 @@ enum SQLText {
         return only
     }
 
+    /// What starts, ends or hands over a transaction (PREPARE TRANSACTION, XA): not one of several statements.
+    private static let endsATransaction: Set<String> = [
+        "BEGIN", "START", "COMMIT", "END", "ROLLBACK", "ABORT", "SAVEPOINT", "RELEASE", "PREPARE", "XA"
+    ]
+
+    /// The statements a call may run: one (`single`), or several to run in one transaction, each checked as one is.
+    /// Refused where the engine's readings don't agree on where they end, and where one of them starts or ends a
+    /// transaction: they run in Kelp's own.
+    static func several(_ sql: String, _ engine: DatabaseInfo.Engine) throws -> [String] {
+        let readings = Reading.of(engine)
+        let all = statements(sql, readings[0])
+        guard all.count > 1 else { return [try single(sql, engine)] }
+        guard readings.allSatisfy({ statements(sql, $0) == all }) else {
+            throw DatabaseFailure.failed(
+                "Kelp can't tell where these statements end (a \\' or --x reads differently in each engine, a \\' in "
+                    + "E'…' too): write the quote as '' and put a space after --.")
+        }
+        for one in all {
+            _ = try single(one, engine)
+            if Self.endsATransaction.contains(verb(one)) {
+                throw DatabaseFailure.failed(
+                    "Several statements run in one transaction of Kelp's own, all of them or none: leave out "
+                        + "\(verb(one)).")
+            }
+        }
+        return all
+    }
+
     /// What reaches past a Postgres database to the server it runs on, and a read-only transaction lets through: COPY
     /// (to a file or a program), a DO block (whose EXECUTE builds a statement no text check sees), the functions that
     /// read or write the server's files or end others' sessions, and the built-in ones that run a query given as text

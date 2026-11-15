@@ -139,6 +139,13 @@ enum DatabaseEngines {
         try await runner(c, off: off).apply(statements)
     }
 
+    /// Several statements in one transaction, kept when `keep` says so of the rows each changed (`DatabaseRunner.batch`).
+    static func batch(
+        _ c: DatabaseConnection, _ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool, off: Slots
+    ) async throws -> [Int?] {
+        try await explained(c) { try await runner(c, off: off).batch(statements, keep: keep) }
+    }
+
     static func schema(_ c: DatabaseConnection, table: String?, off: Slots) async throws -> DatabaseSchema {
         let schema = try await explained(c) { try await runner(c, off: off).schema() }
         guard let table else { return schema }

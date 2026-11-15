@@ -3,7 +3,7 @@ import Foundation
 
 extension Main {
     static let dbUsage = """
-        db list | schema [table] [--db name] | query <sql> [--db name] [--limit 200] [--json]
+        db list | schema [table] [--db name] | query <sql; sql…> [--db name] [--limit 200] [--json]
            | open [name] | copy [name]
         """
 
@@ -34,7 +34,11 @@ extension Main {
             let sql = args.joined(separator: " ")
             let result = try await c.call(
                 DatabaseQuery(worktreeId: worktree.id, database: name, sql: sql, limit: limit))
-            if json {
+            if let parts = result.statements {   // several, in one transaction: what each changed
+                let said = batch(parts, changed: result.changed, ms: result.ms, json: json)
+                print(said.rows)
+                if json { FileHandle.standardError.write(Data((said.footer + "\n").utf8)) } else { print(said.footer) }
+            } else if json {
                 // One object a line (`jq` reads them as they come); the footer goes to stderr, out of the rows' way
                 for row in result.rows { print(line(Self.object(result.columns, row))) }
                 FileHandle.standardError.write(Data((footer(result, sql: sql, limit: limit) + "\n").utf8))
@@ -82,6 +86,19 @@ extension Main {
             case .free: "read, change freely"
             }
         return db.production ? access + " (production)" : access
+    }
+
+    /// Several statements run as one: a line each with the rows it changed (`json`: an object each), and what they
+    /// changed in all.
+    static func batch(_ parts: [StatementResult], changed: Int?, ms: Int, json: Bool) -> (rows: String, footer: String)
+    {
+        let counts = parts.map { $0.changed.map(String.init) }
+        let rows =
+            json
+            ? zip(parts, counts).map { line(object(["statement", "changed"], [$0.sql, $1])) }.joined(separator: "\n")
+            : table(["statement", "changed"], zip(parts, counts).map { [cell($0.sql), $1 ?? "-"] })
+        let all = changed.map { $0 == 1 ? "1 row" : "\($0) rows" } ?? "No rows"
+        return (rows, "\(all) changed by \(parts.count) statements in one transaction · \(ms) ms")
     }
 
     /// A cell as one short line: NULL spelled out, newlines shown, past 200 characters cut.

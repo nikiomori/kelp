@@ -25,7 +25,7 @@ extension Builtins {
           read, ask to change; read, change freely).
         - `kelp db schema [table] [--db name]` — tables with their row counts; with a table, its columns (type, null,
           primary key, → what a foreign key points to) and indexes. Read it before you write a query.
-        - `kelp db query "SELECT …" [--db name] [--limit 200]` — one statement. Rows come as a table, 200 unless you
+        - `kelp db query "SELECT …" [--db name] [--limit 200]` — a statement. Rows come as a table, 200 unless you
           ask, 1000 at most (page with LIMIT and OFFSET past that); cells over 200 characters are cut; a read stops
           after 15 s. `--json` prints one JSON object a line (every value a string, NULL as null), the summary on
           stderr. `--db` can be left out when there's one.
@@ -40,7 +40,9 @@ extension Builtins {
         - read (and every production database): refused. Tell the user what you would run, or use a dev database.
         - free: it runs.
 
-        One statement per call, each on a connection of its own: a transaction can't span calls. Appwrite takes
+        A change that takes several statements goes in one call, separated by `;`: Kelp runs them in one transaction,
+        all of them or none, and asks the user once (SQLite, and Postgres or MySQL at an address; leave out BEGIN
+        and COMMIT). Calls share nothing: each is on a connection of its own. Appwrite takes
         Kelp's narrow SQL only (SELECT, INSERT, UPDATE and DELETE on one table, a change by a WHERE): its error says
         what's in it. Prefer a migration in the project's own tool for schema changes the code depends on; use
         `kelp db` to look, to try a query, and for data fixes the user asked for.
