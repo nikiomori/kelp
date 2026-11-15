@@ -216,6 +216,7 @@ enum ServerHeaders {
     /// The header's; the sidebar adds how the card looks under it.
     static func serverMenu(_ menu: NSMenu, _ host: String, _ app: AppModel) {
         menu.add(String(localized: "Open Server")) { app.workbench.openServer(host) }
+        menu.add(String(localized: "Open in Own Window")) { app.workbench.openInOwnWindow("host:" + host) }
         menu.addItem(.separator())
         menu.add(String(localized: "New Terminal on \(host)")) { ServerActions.runOnServer(app, host) }
         menu.add(String(localized: "Open htop")) { ServerActions.openHtop(app, host) }

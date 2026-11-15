@@ -208,11 +208,11 @@ import WorkbenchKit
 /// window rather than exactly over it, and never past the display's edges.
 @MainActor @Test func aGroupsOwnWindowOpensOnAnotherDisplay() {
     let laptop = NSRect(x: 0, y: 0, width: 1512, height: 944), studio = NSRect(x: 1512, y: 0, width: 2560, height: 1415)
-    let other = WorkspaceWindow.frame(NSSize(width: 1100, height: 760), screens: [laptop, studio], avoiding: laptop)
+    let other = OwnWindow.frame(NSSize(width: 1100, height: 760), screens: [laptop, studio], avoiding: laptop)
     #expect(studio.contains(other) && other.midX == studio.midX)
-    let alone = WorkspaceWindow.frame(NSSize(width: 1100, height: 760), screens: [laptop], avoiding: laptop)
+    let alone = OwnWindow.frame(NSSize(width: 1100, height: 760), screens: [laptop], avoiding: laptop)
     #expect(laptop.contains(alone) && alone.midX != laptop.midX)
-    let big = WorkspaceWindow.frame(NSSize(width: 3000, height: 2000), screens: [laptop], avoiding: laptop)
+    let big = OwnWindow.frame(NSSize(width: 3000, height: 2000), screens: [laptop], avoiding: laptop)
     #expect(laptop.contains(big))
 }
 

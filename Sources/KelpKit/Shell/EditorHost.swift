@@ -25,8 +25,8 @@ final class EditorHost: NSViewController {
     private(set) var mainArea: EditorArea? {
         didSet { app.workbench.mainWorkspaceId = mainArea?.workspaceId }
     }
-    /// Groups in windows of their own (`WorkspaceWindow`).
-    private var own: [String: WorkspaceWindow] = [:]
+    /// Groups in windows of their own (`OwnWindow`).
+    private var own: [String: OwnWindow] = [:]
     func ownWindow(_ id: String?) -> NSWindow? { id.flatMap { own[$0]?.window } }
     var ownWindowIds: [String] { Array(own.keys) }
     /// A workspace's editor area while it's loaded (shown lately), on screen or not.
@@ -156,7 +156,14 @@ final class EditorHost: NSViewController {
             mainArea = nil
             showInMain(next)
         }
-        let window = WorkspaceWindow(app: app, area: area, beside: view.window)
+        let app = app
+        let window = OwnWindow(app: app, name: "workspace." + id, content: area.view, beside: view.window) {
+            app.worktree(id).map { app.groupName($0) ?? app.projectName($0.repoId) ?? $0.displayName }
+        } becameKey: {
+            app.workbench.ownWindowBecameKey(id)
+        } closed: {
+            app.workbench.returnToMain(id)
+        }
         own[id] = window
         current = area
         area.reconcile()

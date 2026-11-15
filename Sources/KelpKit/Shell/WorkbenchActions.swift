@@ -62,7 +62,7 @@ extension Workbench {
 
     /// A page in place of the workspace (`page`).
     func show(page uri: String) {
-        guard page != uri, window?.showPage(uri) == true else { return }
+        guard !raiseOwnWindow(uri), page != uri, window?.showPage(uri) == true else { return }
         page = uri
         noteShown()
     }
@@ -97,6 +97,7 @@ extension Workbench {
     }
 
     package func open(_ uri: String, split: SplitDirection? = nil, workspace: String? = nil, focus: Bool = true) {
+        if raiseOwnWindow(uri) { return }
         area(workspace)?.open(uri, split: split, focus: focus)
     }
 

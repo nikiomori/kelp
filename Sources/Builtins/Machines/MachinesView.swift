@@ -129,6 +129,7 @@ struct MachinesView: View {
     @ViewBuilder private func menu(_ v: VMInfo) -> some View {
         let name = v.machine.name
         Button(String(localized: "Open")) { Machines.openMachine(app, name) }
+        Button(String(localized: "Open in Own Window")) { Machines.openMachine(app, name, ownWindow: true) }
         Button(String(localized: "Open Terminal")) { Machines.runInMachine(app, name) }.disabled(
             v.state == .creating || v.notMade == true)
         Divider()

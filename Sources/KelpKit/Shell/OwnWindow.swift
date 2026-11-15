@@ -1,19 +1,22 @@
 import AppKit
 import DesignKit
 
-/// A group in a window of its own (its row's Open in Own Window): its editor area in a card under the title, nothing
-/// else; the sidebar and the inspector stay in the main window and follow whichever window has the keys. It opens where
-/// it was last, else on a display the main window isn't on. Its close button puts the group back in the main window.
+/// A place in a window of its own (its row's Open in Own Window): a group's editor area, or a server's or a machine's
+/// page, in a card under the title, nothing else; the sidebar and the inspector stay in the main window. It opens where
+/// it was last (`name`), else on a display the main window isn't on. What its close button does is its owner's
+/// (`closed`): a group goes back to the main window, a page goes.
 @MainActor
-final class WorkspaceWindow: NSWindowController, NSWindowDelegate {
-    let workspaceId: String
-    private let app: AppModel
+final class OwnWindow: NSWindowController, NSWindowDelegate {
     private let card = Card()
     private let surface: DropRoot
+    private let becameKey: () -> Void, closed: () -> Void
 
-    init(app: AppModel, area: EditorArea, beside main: NSWindow?) {
-        workspaceId = area.workspaceId
-        self.app = app
+    init(
+        app: AppModel, name: String, content: NSView, beside main: NSWindow?, title: @escaping @MainActor () -> String?,
+        becameKey: @escaping () -> Void = {}, closed: @escaping () -> Void
+    ) {
+        self.becameKey = becameKey
+        self.closed = closed
         surface = DropRoot(app: app)
         let made = NSWindow(
             contentRect: NSRect(origin: .zero, size: Self.size),
@@ -30,25 +33,21 @@ final class WorkspaceWindow: NSWindowController, NSWindowDelegate {
         root.view = surface
         surface.pin(card, inset: NSEdgeInsets(top: WindowBar.height, left: Card.gap, bottom: Card.gap, right: Card.gap))
         card.identifier = Banner.anchor   // banners sit in its corner while this window is in front
-        card.pin(area.view)
+        card.pin(content)
         made.contentViewController = root
-        let name = "workspace." + workspaceId
         if !made.setFrameUsingName(name) {
             let screens = NSScreen.screens.map(\.visibleFrame)
             made.setFrame(
                 Self.frame(Self.size, screens: screens, avoiding: main?.screen?.visibleFrame), display: false)
         }
         made.setFrameAutosaveName(name)   // Limit: a closed group's saved frame stays in the defaults
-        let id = workspaceId
         track(owner: self) {
             app.themes.look
         } changed: { [weak self] look in
             self?.surface.show(look)
             self?.card.look = look
         }
-        track(owner: self) {
-            app.worktree(id).map { app.groupName($0) ?? app.projectName($0.repoId) ?? $0.displayName }
-        } changed: { [weak self] in
+        track(owner: self, title) { [weak self] in
             self?.window?.title = $0 ?? String(localized: "Kelp")
         }
     }
@@ -68,11 +67,11 @@ final class WorkspaceWindow: NSWindowController, NSWindowDelegate {
             y: max(screen.midY - fit.height / 2 - shift, screen.minY), width: fit.width, height: fit.height)
     }
 
-    func windowDidBecomeKey(_ notification: Notification) { app.workbench.ownWindowBecameKey(workspaceId) }
+    func windowDidBecomeKey(_ notification: Notification) { becameKey() }
 
-    /// The close button: the group goes back to the main window, nothing in it closes.
+    /// The close button: its owner closes the window, once what's in it is put away.
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        app.workbench.returnToMain(workspaceId)
+        closed()
         return false
     }
 }

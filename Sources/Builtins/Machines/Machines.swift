@@ -100,8 +100,9 @@ enum Machines {
         }
     }
 
-    /// The machine's tab, on the screen in front.
-    static func openMachine(_ app: AppModel, _ name: String) {
+    /// The machine's tab, on the screen in front, or its page in a window of its own.
+    static func openMachine(_ app: AppModel, _ name: String, ownWindow: Bool = false) {
+        if ownWindow { return app.workbench.openInOwnWindow(TabURI.machine(name)) }
         app.workbench.open(TabURI.machine(name), workspace: app.workbench.workspaceId ?? app.worktrees.first?.id)
     }
 

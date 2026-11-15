@@ -93,6 +93,8 @@ package final class Workbench {
     var inspectorPanel: String = UserDefaults.standard.string(forKey: "inspectorPanel") ?? "" {   // none yet: the first
         didSet { UserDefaults.standard.set(inspectorPanel, forKey: "inspectorPanel") }
     }
+    /// Servers' and machines' pages in windows of their own, by URI (`openInOwnWindow`).
+    @ObservationIgnored var pageWindows: [String: OwnWindow] = [:]
     /// Every workspace's layout, loaded or not (`WorkspaceLayouts`).
     @ObservationIgnored lazy var layouts = WorkspaceLayouts(state: app.uiState)
     /// What ⇧⌘T brings back. Here, not in `EditorArea`: an area not seen lately leaves memory.

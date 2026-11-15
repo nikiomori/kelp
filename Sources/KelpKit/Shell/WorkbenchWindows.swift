@@ -1,7 +1,7 @@
 import AppKit
 import Core
 
-/// Groups in windows of their own (`WorkspaceWindow`): the keys say which workspace is on screen — the main window's or
+/// Groups in windows of their own (`OwnWindow`): the keys say which workspace is on screen — the main window's or
 /// the group's whose window has them — and the sidebar, the inspector and every command follow.
 @MainActor
 extension Workbench {
@@ -67,6 +67,39 @@ extension Workbench {
     /// At launch, after the main window shows its workspace: the groups that were in windows of their own.
     func reopenOwnWindows() {
         for id in app.uiState.strings(Self.ownWindowsKey) where app.worktree(id) != nil { moveToOwnWindow(id) }
+        for uri in app.uiState.strings(Self.pageWindowsKey) { openInOwnWindow(uri) }
+    }
+
+    /// A server's or a machine's page (`host:`, `vm:`) in a window of its own, from its row's menu; already in one, that
+    /// window comes to the front. Kept across launches, where a server's page connects as it does when opened by hand.
+    package func openInOwnWindow(_ uri: String) {
+        guard !raiseOwnWindow(uri), let page = app.extensions.tabProvider(for: uri)?.make(uri) else { return }
+        let app = self.app
+        let made = OwnWindow(app: app, name: "page." + uri, content: page.view, beside: window?.window) {
+            page.title
+        } closed: {
+            Task {
+                guard await page.close() else { return }
+                app.workbench.pageWindows.removeValue(forKey: uri)?.close()
+                app.workbench.savePageWindows()
+            }
+        }
+        pageWindows[uri] = made
+        savePageWindows()
+        made.showWindow(nil)
+        page.focus()
+    }
+
+    /// What's asked for is in a window of its own: that window comes to the front instead.
+    func raiseOwnWindow(_ uri: String) -> Bool {
+        guard let made = pageWindows[uri] else { return false }
+        made.showWindow(nil)
+        return true
+    }
+
+    private static let pageWindowsKey = "workbench.pageWindows"
+    private func savePageWindows() {
+        app.uiState[Self.pageWindowsKey] = .array(pageWindows.keys.sorted().map(JSONValue.string))
     }
 
     private static let ownWindowsKey = "workbench.ownWindows"
