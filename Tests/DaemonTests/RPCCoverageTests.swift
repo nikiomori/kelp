@@ -259,13 +259,12 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 /// fx reports to herdr: the socket and pane come from its environment, the line is fx's own (a string id, no "jsonrpc").
 @Test func anAgentReportingToHerdrReportsToKelp() async throws {
     let report =
-        #"r() { zsocket $HERDR_SOCKET_PATH; print -u $REPLY "{\"id\":\"$1\",\"method\":\"pane.report_agent\",\"params\":"#
-        + #"{\"pane_id\":\"$HERDR_PANE_ID\",\"source\":\"custom:fx\",\"agent\":\"fx\",\"state\":\"$2\"}}"; read -u $REPLY; exec {REPLY}>&-; }"#
+        #"r() { ask "{\"id\":\"ask\",\"method\":\"pane.report_agent\",\"params\":{\"pane_id\":\"$HERDR_PANE_ID\","#
+        + #"\"source\":\"custom:fx\",\"agent\":\"fx\",\"state\":\"$1\"}}" $HERDR_SOCKET_PATH; }"#
     let fx = AgentManifest(id: "fx", name: "fx", command: "/bin/zsh", hooks: .herdr, resumeArgs: ["--continue"])
     var m = fx
     m.args = [
-        "-c",
-        "zmodload zsh/net/socket; \(report); r 1 idle; echo ready; read; r 2 working; read; r 3 blocked; read; r 4 idle; cat"
+        "-c", "\(zshAsk); \(report); r idle; echo ready; read; r working; read; r blocked; read; r idle; cat"
     ]
     let w = try await world(agents: [m])
     defer { w.d.stop() }
@@ -473,11 +472,8 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let r = try await rig()
     defer { r.d.stop() }
     let other = try await session(r, "cat")
-    let say =
-        #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session.report\",\"params\":"#
-        + #"{\"id\":\"$1\",\"state\":\"$2\"}}"; read -u $REPLY line; print -r -- "$line"; exec {REPLY}>&-; }"#
-    let me = try await session(
-        r, "/bin/zsh -c 'zmodload zsh/net/socket; \(say); r \(other.id) blocked; r $KELP_SESSION done; cat'")
+    let say = #"s() { r $2 session.report "{\"id\":\"$1\",\"state\":\"$2\"}"; }"#
+    let me = try await session(r, "/bin/zsh -c '\(zshCall); \(say); s \(other.id) blocked; s $KELP_SESSION done; cat'")
     #expect(try await waitFor(10) { try await sessions(r).first { $0.id == me.id }?.status == .done })
     // The status comes over the socket, the refusal it printed through the terminal, which can be behind it.
     #expect(try await waitFor(10) { try await r.c.call(SessionRead(id: me.id)).contains("speaks only for itself") })

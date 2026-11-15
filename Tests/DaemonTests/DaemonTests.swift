@@ -55,6 +55,33 @@ func makeRepo() throws -> String {
 /// Another client of the daemon whose home is `root` (a "restarted UI").
 func client(_ root: URL) throws -> RPCClient { try RPCClient(socket: root.appendingPathComponent("kelp.sock").path) }
 
+/// zsh for a test's script that talks to the socket as a program would: `ask <request> [socket]` sends the line on a
+/// connection of its own and leaves its answer in `$line`. The answer is the line with the request's id (`"ask"`), not
+/// the first that comes: once a connection has asked, the daemon's events go to it as to every client
+/// (`Clients.targets`), and one can be ahead of the answer (a session's record written late under Thread Sanitizer
+/// was, and read as a refusal that never came). No single quote in it: a script runs as `zsh -c '…'`.
+let zshAsk =
+    #"zmodload zsh/net/socket; ask() { zsocket ${2:-$KELP_SOCKET}; print -r -u $REPLY -- "$1"; "#
+    + #"while read -r -u $REPLY line && [[ $line != *\"id\":\"ask\"* ]]; do :; done; exec {REPLY}>&-; }"#
+/// `zshAsk` and `r <label> <method> <params>`: the call, then `<label> ` and its answer on a line.
+let zshCall =
+    zshAsk + #"; r() { ask "{\"jsonrpc\":\"2.0\",\"id\":\"ask\",\"method\":\"$2\",\"params\":$3}"; "#
+    + #"print -r -- "<$1> $line"; }"#
+
+/// A script's `ask` leaves its own answer, though an event reached its connection first: its hook's wait is answered
+/// only when the test says, after an event was sent to everyone.
+@Test func aScriptsAskTakesItsOwnAnswerNotAnEventAheadOfIt() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wait = #"r wait session.permissionWait "{\"id\":\"$KELP_SESSION\"}""#
+    let me = try await w.c.call(
+        SessionCreate(worktreeId: try await firstWorkspace(w).id, command: "/bin/zsh -c '\(zshCall); \(wait); cat'"))
+    #expect(try await waitFor(10) { w.d.sessions.permissions.waits.withLock { $0[me.id] != nil } })
+    w.d.notify(ChangedEvent.worktree)
+    w.d.sessions.permissions.answerPermission(me.id, "allow")
+    #expect(try await waitFor(10) { try await w.c.call(SessionRead(id: me.id)).contains(#/<wait> [^\n]*"allow"/#) })
+}
+
 /// A daemon on a fresh home with `agents` in its agents folder, started, and a client of it.
 func daemon(agents: [AgentManifest] = [], lspDelays: (retry: TimeInterval, idle: TimeInterval)? = nil) throws -> (
     d: Daemon, c: RPCClient, root: URL

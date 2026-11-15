@@ -26,15 +26,14 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     defer { r.d.stop() }
     let other = try await session(r, "cat")
     let call =
-        #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}"; "#
-        + #"read -u $REPLY line; print -r -- "$1 $line"; exec {REPLY}>&-; }"#
+        #"r() { ask "{\"jsonrpc\":\"2.0\",\"id\":\"ask\",\"method\":\"$1\",\"params\":$2}"; print -r -- "$1 $line"; }"#
     let send = #"r session.send "{\"id\":\"$1\",\"text\":\"hi\",\"enter\":false}""#
     // `kelp attach`: the stream's line, then what it types.
     let attach =
         #"a() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session.stream\",\"params\":{\"id\":\"$1\"}}"; "#
         + #"print -u $REPLY typed; read -t 3 -u $REPLY line; print -r -- "stream $line"; exec {REPLY}>&-; }"#
     let script =
-        "zmodload zsh/net/socket; \(call); \(attach); s() { \(send); }; read kid; s \(other.id); s $kid; "
+        "\(zshAsk); \(call); \(attach); s() { \(send); }; read kid; s \(other.id); s $kid; "
         + #"r session.restart "{\"id\":\"\#(other.id)\"}"; a \#(other.id); "#
         + #"r comment.send "{\"id\":\"\#(r.wt.id)\",\"session\":\"\#(other.id)\"}"; "#
         + #"r ui.browser "{\"action\":\"info\",\"worktreeId\":\"elsewhere\"}"; "#
@@ -81,12 +80,9 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     defer { r.d.stop() }
     let other = try await session(r, "cat")
     let away = try await r.c.call(WorktreeCreate(repoId: r.repo.id, branch: "away", setup: false)).worktree
-    let call =
-        #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$2\",\"params\":$3}"; "#
-        + #"read -u $REPLY line; print -r -- "<$1> $line"; exec {REPLY}>&-; }"#
     let wt = r.wt.id, o = other.id
     let script =
-        "zmodload zsh/net/socket; \(call); read go; "
+        "\(zshCall); read go; "
         + #"r parent session.create "{\"worktreeId\":\"\#(wt)\",\"agent\":\"claude\",\"parent\":\"\#(o)\"}"; "#
         + #"r outlive session.create "{\"worktreeId\":\"\#(wt)\",\"command\":\"cat\"}"; "#
         + #"r read session.read "{\"id\":\"\#(o)\"}"; r markRead session.markRead "{\"id\":\"\#(o)\"}"; "#
@@ -155,18 +151,15 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let r = try await rig()
     defer { r.d.stop() }
     let other = try await session(r, "cat")
-    let call =
-        #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$2\",\"params\":$3}"; "#
-        + #"read -u $REPLY line; print -r -- "<$1> $line"; exec {REPLY}>&-; }"#
     let choose = #"session.choose "{\"id\":\"\#(other.id)\",\"answer\":\"allow\"}""#
     let ran = try await r.c.call(
         ProcessRun(
-            argv: ["/bin/zsh", "-c", "zmodload zsh/net/socket; \(call); r kelpd \(choose)"],
+            argv: ["/bin/zsh", "-c", "\(zshCall); r kelpd \(choose)"],
             cwd: nil, stdin: nil, timeLimit: 20, extensionId: nil))
     #expect(ran.stdout.contains(#/<kelpd> [^\n]*has no session to act for/#), "\(ran.stdout) \(ran.stderr)")
     let me = try await session(
         r,
-        "/bin/zsh -c 'zmodload zsh/net/socket zsh/system; \(call); read go; ( { until (( sysparams[ppid] == 1 )); do sleep 0.05; done; r forked \(choose); } & ); cat'"
+        "/bin/zsh -c 'zmodload zsh/system; \(zshCall); read go; ( { until (( sysparams[ppid] == 1 )); do sleep 0.05; done; r forked \(choose); } & ); cat'"
     )
     let ls = try #require(r.d.sessions.existing(me.id))
     _ = ls.update { $0.agent = "claude" }
@@ -208,13 +201,9 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 @Test func anAgentDoesntTypeIntoAQuestion() async throws {
     let r = try await rig()
     defer { r.d.stop() }
-    let call =
-        #"r() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$2\",\"params\":$3}"; "#
-        + #"read -u $REPLY line; print -r -- "<$1> $line"; exec {REPLY}>&-; }"#
     let write = #"r write session.write "{\"id\":\"$KELP_SESSION\",\"base64\":\"MQ0=\"}""#
     let go = r.wt.path + "/go"   // not typed: a key from the user would end the question
-    let me = try await session(
-        r, "/bin/zsh -c 'zmodload zsh/net/socket; \(call); until [[ -e \(go) ]]; do sleep 0.1; done; \(write); cat'")
+    let me = try await session(r, "/bin/zsh -c '\(zshCall); until [[ -e \(go) ]]; do sleep 0.1; done; \(write); cat'")
     let ls = try #require(r.d.sessions.existing(me.id))
     _ = ls.update { $0.agent = "claude" }
     r.d.sessions.publish(ls)
