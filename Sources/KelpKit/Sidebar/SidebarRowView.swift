@@ -165,6 +165,7 @@ final class SidebarRowView: NSTableRowView {
     override var isSelected: Bool {
         didSet {
             guard isSelected != oldValue else { return }
+            if window != nil { crossfade() }   // the pill goes and comes as the hover grey under it does
             needsDisplay = true
             showHover()   // the pill takes over from the hover grey
             for case let cell as SidebarCell in subviews { cell.selected = isSelected }   // its grey text a step lighter on the pill

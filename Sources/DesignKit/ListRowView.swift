@@ -55,7 +55,13 @@ public final class ListRowView: NSTableRowView {
     /// subviews are its cells (`view(atColumn:)` counts them).
     private let hoverFill = CALayer()
     private var hovering = false { didSet { showHover() } }
-    override public var isSelected: Bool { didSet { showHover() } }
+    override public var isSelected: Bool {
+        didSet {
+            // The selection goes and comes, as the hover does.
+            if isSelected != oldValue, window != nil { crossfade() }
+            showHover()
+        }
+    }
 
     override public func updateTrackingAreas() {
         super.updateTrackingAreas()

@@ -52,8 +52,47 @@ extension InspectorController {
 final class CapsuleStack: NSStackView {
     /// Off inside glass, which is the capsule then.
     var filled = true { didSet { needsDisplay = true } }
+    /// The icon on the chosen grey: one pill under the icons, moving from one to the next on `soft` as a segmented
+    /// control's does on macOS 26. nil: none (a pane's buttons).
+    var chosen: NSView? {
+        didSet {
+            guard chosen !== oldValue else { return }
+            place(moving: oldValue?.superview === self && window != nil)
+        }
+    }
+    private let pill = CALayer()
     override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() { layer?.backgroundColor = filled ? NSColor.fillRest.cgColor : nil }
+    override func updateLayer() {
+        layer?.backgroundColor = filled ? NSColor.fillRest.cgColor : nil
+        pill.backgroundColor = NSColor.fillSelected.cgColor   // drawing runs in the view's appearance
+    }
+    private func place(moving: Bool) {
+        wantsLayer = true
+        guard let layer else { return }
+        if pill.superlayer !== layer { layer.insertSublayer(pill, at: 0) }
+        let frame = chosen.flatMap { $0.superview === self && !$0.isHidden ? $0.frame : nil }
+        let from = pill.isHidden ? nil : pill.presentation()?.frame ?? pill.frame
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        pill.isHidden = frame == nil
+        if let frame, pill.frame != frame {   // a layout mid-move leaves the move going
+            pill.frame = frame
+            pill.cornerRadius = min(frame.width, frame.height) / 2
+        }
+        CATransaction.commit()
+        guard moving, let from, let frame, from != frame, !Motion.reduced else { return }
+        for (key, old, new) in [
+            ("position", NSValue(point: NSPoint(x: from.midX, y: from.midY)), NSValue(point: pill.position)),
+            ("bounds", NSValue(rect: NSRect(origin: .zero, size: from.size)), NSValue(rect: pill.bounds))
+        ] {
+            let move = CABasicAnimation(keyPath: key)
+            move.fromValue = old
+            move.toValue = new
+            move.duration = Motion.base
+            move.timingFunction = Motion.soft
+            pill.add(move, forKey: key)
+        }
+    }
     /// A column's count badges hang past its edge (`PanelIcon` lets them out of the icon).
     override var clipsToBounds: Bool {
         get { false }
@@ -62,6 +101,7 @@ final class CapsuleStack: NSStackView {
     override func layout() {
         super.layout()
         layer?.cornerRadius = min(bounds.width, bounds.height) / 2   // a row or a column
+        place(moving: false)
     }
 }
 
@@ -99,7 +139,8 @@ final class PanelIcon: NSButton {
     override func updateLayer() {
         let on = state == .on
         // Chosen is one grey everywhere (sidebar rows, tabs, Settings), in glass too: a white bubble said it a second way.
-        fadeBackground(to: on || isHighlighted ? .fillSelected : hover ? .fillHover : nil, held: isHighlighted)   // held, it darkens
+        // The capsule draws it under the chosen icon (`CapsuleStack.chosen`), so it can move; held, an icon darkens.
+        fadeBackground(to: isHighlighted ? .fillSelected : hover && !on ? .fillHover : nil, held: isHighlighted)
         contentTintColor = on ? .labelColor : .secondaryLabelColor
     }
     override func layout() {
