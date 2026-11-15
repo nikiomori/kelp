@@ -7,8 +7,9 @@ import Foundation
 extension Databases {
     /// UPDATE, DELETE or INSERT of one table where the engine says the rows it changed (RETURNING); nil for anything
     /// else. An INSERT that may write over a row (ON CONFLICT, OR REPLACE) is no insert to undo: nil too.
+    /// Nor is one with a RETURNING of its own: its rows may leave columns out, and what's left out can't be put back.
     static func kind(_ sql: String, _ engine: DatabaseInfo.Engine) -> RowChange.Kind? {
-        guard [.sqlite, .postgres, .duckdb].contains(engine) else { return nil }
+        guard [.sqlite, .postgres, .duckdb].contains(engine), SQLText.returning(sql) != nil else { return nil }
         switch SQLText.verb(sql) {
         case "UPDATE": return .update
         case "DELETE": return .delete

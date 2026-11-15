@@ -46,6 +46,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     var onSaved: (SavedQuery) -> Void = { _ in }
     var onForget: (SavedQuery) -> Void = { _ in }
     var onRun: (DatabaseRun, _ toEditor: Bool) -> Void = { _, _ in }
+    var onUndo: (DatabaseRun) -> Void = { _ in }
     var onAsk: (String) -> Void = { _ in }
     var onCopyCreate: (String) -> Void = { _ in }
 
@@ -300,6 +301,9 @@ extension DatabaseSidebar: NSMenuDelegate {
             menu.add(String(localized: "Forget")) { [weak self] in self?.onForget(query) }
         case .run(let run):
             menu.add(String(localized: "Show Rows")) { [weak self] in self?.onRun(run, false) }
+            if run.session != nil, run.state == .done, (run.changed ?? 0) > 0 {   // an agent's change: put back
+                menu.add(String(localized: "Undo This Change…")) { [weak self] in self?.onUndo(run) }
+            }
             menu.add(String(localized: "Put in the Editor")) { [weak self] in self?.onRun(run, true) }
             menu.add(String(localized: "Copy SQL")) { copyText(run.sql) }
         default: break

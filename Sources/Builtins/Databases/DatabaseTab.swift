@@ -294,6 +294,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         sidebar.onSaved = { [weak self] q in self?.openSaved(q) }
         sidebar.onForget = { [weak self] q in self?.forget(q) }
         sidebar.onRun = { [weak self] run, toEditor in self?.openRun(run, toEditor: toEditor) }
+        sidebar.onUndo = { [weak self] run in self?.undo(run) }
         sidebar.onAsk = { [weak self] table in self?.askAbout(table) }
         sidebar.onCopyCreate = { [weak self] name in
             guard let self, let table = tables.first(where: { $0.name == name }) else { return }

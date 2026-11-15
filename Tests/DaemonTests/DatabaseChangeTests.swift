@@ -126,5 +126,6 @@ private func free(_ w: World, _ worktree: String) async throws {
     #expect(kind("INSERT INTO t VALUES (1) ON CONFLICT (id) DO UPDATE SET a = 1") == nil)
     #expect(kind("WITH x AS (SELECT 1) UPDATE t SET a = 1") == nil && kind("MERGE INTO t USING s ON true") == nil)
     #expect(kind("UPDATE t SET a = 1", .mysql) == nil)   // no RETURNING: no rows to say it with
+    #expect(kind("UPDATE t SET a = 1, b = 2 RETURNING a") == nil)   // its own: b isn't among the rows
     #expect(Databases.table("UPDATE \"Order Items\" SET a = 1", asWritten: true) == "\"Order Items\"")
 }

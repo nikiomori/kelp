@@ -157,12 +157,7 @@ extension DatabaseTab {
     private func mark(_ name: String, primary: [String], still: () -> Bool) async {
         guard !primary.isEmpty else { return }
         let runs = app.latest(DatabasesEvent.self, address.worktree)?.runs ?? []
-        let short = name.split(separator: ".").last.map { $0.lowercased() } ?? name
-        guard
-            let last = runs.first(where: {
-                $0.database == address.name && $0.session != nil && $0.state == .done && ($0.changed ?? 0) > 0
-                    && $0.sql.lowercased().contains(short)
-            }),
+        guard let last = Self.lastAgentChange(runs, to: name, in: address.name),
             let result = await app.quiet(DatabaseResultRead(worktreeId: address.worktree, id: last.id)) ?? nil
         else { return }
         guard still() else { return }   // the grid shows another page, table or filter now
@@ -179,6 +174,16 @@ extension DatabaseTab {
         grid.changed()
         let who = last.session.flatMap(app.session).map { app.catalog.name($0.agent) } ?? String(localized: "an agent")
         status.stringValue += " · ▍" + String(localized: "\(grid.marked.count) changed by \(who) \(shortAgo(last.at))")
+    }
+
+    /// The latest change to `table` (`runs`: newest first), when an agent made it: one the user made since (an undo, an
+    /// edit) leaves no rows to mark as the agent's.
+    static func lastAgentChange(_ runs: [DatabaseRun], to table: String, in database: String) -> DatabaseRun? {
+        let short = table.split(separator: ".").last.map { $0.lowercased() } ?? table
+        let last = runs.first {
+            $0.database == database && $0.state == .done && ($0.changed ?? 0) > 0 && $0.sql.lowercased().contains(short)
+        }
+        return last?.session == nil ? nil : last
     }
 
     // MARK: Structure
