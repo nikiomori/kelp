@@ -83,3 +83,52 @@ private func blob(_ path: String, mb: Int = 2) throws {
         ])
     #expect(items.filter { $0.what == .build }.map(\.path) == [mine.path])
 }
+
+/// A remote project's disk is measured on its host and named as its folder here names it; a build there goes into the
+/// project's .git/kelp-trash on the host, a tracked file and a path out of the project stay.
+@Test func aRemoteProjectsDiskIsMeasuredAndTrashedOnItsHost() async throws {
+    _ = localSSH   // before the daemon: it reads KELP_SSH as it starts
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let (repo, _, there) = try await remoteProject(c)
+    let real = DiskUsage.real(there)
+    try ".build/\ndist/\n.claude/\n".write(toFile: real + "/.git/info/exclude", atomically: true, encoding: .utf8)
+    try blob(real + "/.build/debug/app")
+    try blob(real + "/dist/app.tar")
+    try Git.run(["worktree", "add", "-q", "-b", "agent", ".claude/worktrees/agent"], cwd: real, remotes: .none)
+    try blob(real + "/.claude/worktrees/agent/.build/x", mb: 3)
+
+    let items = try await c.call(RepoDiskUsage(id: repo.id))
+    let by = Dictionary(items.map { ($0.path, $0) }, uniquingKeysWith: { a, _ in a })
+    let worktree = repo.path + "/.claude/worktrees/agent"
+    #expect(by[repo.path + "/.build"]?.what == .build && by[repo.path + "/.build"]?.removable == true)
+    #expect(by[worktree + "/.build"]?.worktree == worktree)
+    #expect(by[repo.path + "/dist"]?.what == .ignored && by[repo.path]?.what == .files)
+
+    let res = try await c.call(
+        RepoDiskTrash(id: repo.id, paths: [repo.path + "/.build", repo.path + "/a.txt", repo.path + "/../x", "/etc"]))
+    #expect(res.removed == [repo.path + "/.build"])
+    #expect(res.kept[repo.path + "/a.txt"] == "Git tracks it." && res.kept["/etc"] == "Not part of the project.")
+    #expect(res.kept[repo.path + "/../x"] == "Not part of the project.")
+    #expect(!FileManager.default.fileExists(atPath: real + "/.build"))
+    let bin = try FileManager.default.subpathsOfDirectory(atPath: real + "/.git/kelp-trash")
+    #expect(bin.contains { $0.hasSuffix(".build/debug/app") })
+}
+
+/// A real host, read only (KELP_TEST_REMOTE=host:/path of a project there): GNU du and git there answer as on this Mac,
+/// the parts add up to the folder, and nothing is moved.
+@Test(.enabled(if: ProcessInfo.processInfo.environment["KELP_TEST_REMOTE"] != nil))
+func aRealHostsProjectIsMeasuredThere() async throws {
+    let target = (ProcessInfo.processInfo.environment["KELP_TEST_REMOTE"] ?? "").split(separator: ":", maxSplits: 1)
+        .map(String.init)
+    try #require(target.count == 2)
+    let w = try await world()
+    defer { w.d.stop() }
+    let repo = try await w.c.call(RepoAddRemote(host: target[0], path: target[1]))
+    let started = Date()
+    let items = try await w.c.call(RepoDiskUsage(id: repo.id))
+    for item in items { print("HOST", item.what, item.bytes >> 20, "MB", item.path, item.removable) }
+    print("HOST took", Date().timeIntervalSince(started))
+    let files = try #require(items.first { $0.what == .files })
+    #expect(files.path == repo.path && items.allSatisfy { $0.bytes >= 0 })
+}

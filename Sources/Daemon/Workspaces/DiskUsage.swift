@@ -3,7 +3,8 @@ import Core
 import Foundation
 import GitKit
 
-/// What a project takes on this Mac (`repo.diskUsage`), and moving its parts to the Trash (`repo.diskTrash`): handed the
+/// What a project takes on its disk (`repo.diskUsage`), and moving its parts aside (`repo.diskTrash`): on this Mac, or
+/// on the host of a remote project, where git and `du` run over its connection (`DiskUsage+Host`). Handed the
 /// workspaces, whose worktrees it measures and removes.
 struct DiskUsage: Sendable {
     typealias Item = RepoDiskUsage.Item
@@ -19,59 +20,83 @@ struct DiskUsage: Sendable {
     static let derivedData = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Developer/Xcode/DerivedData")
 
-    /// `target` is Cargo's or Maven's only beside its manifest; elsewhere it may be anything.
-    static func isBuild(_ path: String) -> Bool {
+    /// `target` is Cargo's or Maven's only beside its manifest; elsewhere it may be anything. Limit: on a host, where
+    /// the manifest isn't looked for, `target` isn't taken for a build.
+    static func isBuild(_ path: String, here: Bool = true) -> Bool {
         let url = URL(fileURLWithPath: path), name = url.lastPathComponent
         if buildNames.contains(name) { return true }
         let dir = url.deletingLastPathComponent().path
-        return name == "target" && ["Cargo.toml", "pom.xml"].contains { exists(dir + "/" + $0) }
+        return here && name == "target" && ["Cargo.toml", "pom.xml"].contains { exists(dir + "/" + $0) }
     }
 
-    /// `root` is the project's folder as git prints it (symlinks resolved); `worktrees` its other worktrees with their
-    /// sizes (`repo.worktreeSizes`).
+    /// The project as measured, here or on its host.
+    struct Gathered {
+        var root = "", total = 0, here = true
+        var worktrees: [RepoWorktreeSizes.Item] = []
+        /// What git ignores in the project's folder, outermost, and whether git ignores it itself.
+        var ignored: [(rel: String, really: Bool)] = []
+        /// The builds in the other worktrees, and which worktree each is in.
+        var builds: [(path: String, worktree: String)] = []
+        var sizes: [String: Int] = [:]
+        /// Xcode's DerivedData and Claude Code's chats: outside every checkout.
+        var extra: [Item] = []
+    }
+
+    /// The parts, biggest first: each ignored entry less the worktrees in it, each worktree less its builds, and the
+    /// rest of the folder as its files.
+    static func parts(_ g: Gathered) -> [Item] {
+        let inside = { (dir: String) in g.worktrees.filter { $0.path.hasPrefix(dir + "/") } }
+        var items: [Item] = [], outside = g.total - inside(g.root).reduce(0) { $0 + $1.bytes }
+        for (rel, really) in g.ignored {
+            let path = g.root + "/" + rel
+            guard !g.worktrees.contains(where: { $0.path == path }) else { continue }
+            let nested = inside(path), bytes = (g.sizes[path] ?? 0) - nested.reduce(0) { $0 + $1.bytes }
+            outside -= bytes
+            let what: RepoDiskUsage.What = isBuild(path, here: g.here) ? .build : .ignored
+            items.append(Item(path: path, bytes: bytes, what: what, removable: nested.isEmpty && really))
+        }
+        items.append(Item(path: g.root, bytes: max(0, outside), what: .files, removable: false))
+        for worktree in g.worktrees {
+            var rest = worktree.bytes
+            for build in g.builds where build.worktree == worktree.path {
+                let bytes = g.sizes[build.path] ?? 0
+                rest -= bytes
+                items.append(
+                    Item(path: build.path, bytes: bytes, what: .build, removable: true, worktree: worktree.path))
+            }
+            items.append(Item(path: worktree.path, bytes: max(0, rest), what: .worktree, removable: worktree.removable))
+        }
+        return (items + g.extra).filter { $0.bytes >= smallest || $0.what == .files }.sorted { $0.bytes > $1.bytes }
+    }
+
+    /// On this Mac. `root` is the project's folder as git prints it (links resolved); `worktrees` its other worktrees
+    /// with their sizes (`repo.worktreeSizes`).
     static func measure(
         root: String, worktrees: [RepoWorktreeSizes.Item], remotes: Remotes, chats: URL = ClaudeHistory.defaultRoot,
         derived: URL = derivedData
     ) throws -> [Item] {
-        let inside = { (dir: String) in worktrees.filter { $0.path.hasPrefix(dir + "/") } }
-        // The project's folder: what git ignores, less the worktrees inside it (measured as their own).
-        // git lists a folder whose every entry it ignores along with those entries (`.kelp/` and `.kelp/artifacts/`):
-        // the entries count, the folder doesn't, and nothing counts twice.
+        var g = Gathered(root: root, worktrees: worktrees)
         let listed = try ProjectFiles.ignored(root, remotes: remotes).map(trimmed)
-        let really = try Git.ignored(listed, cwd: root, remotes: remotes)
-        let rels = outermost(
-            listed.filter { rel in really.contains(rel) || !listed.contains { $0.hasPrefix(rel + "/") } })
-        let ignored = rels.map { root + "/" + $0 }, sizes = try du(ignored), total = try du([root])[root] ?? 0
-        var items: [Item] = [], outside = total - inside(root).reduce(0) { $0 + $1.bytes }
-        for (rel, path) in zip(rels, ignored) where !worktrees.contains(where: { $0.path == path }) {
-            let nested = inside(path), bytes = (sizes[path] ?? 0) - nested.reduce(0) { $0 + $1.bytes }
-            outside -= bytes
-            items.append(
-                Item(
-                    path: path, bytes: bytes, what: isBuild(path) ? .build : .ignored,
-                    removable: nested.isEmpty && really.contains(rel)))
-        }
-        items.append(Item(path: root, bytes: max(0, outside), what: .files, removable: false))
-        // Each other worktree: its builds, then the rest of it.
+        g.ignored = kept(listed, really: try Git.ignored(listed, cwd: root, remotes: remotes))
         for worktree in worktrees {
-            let builds = outermost(try ProjectFiles.ignored(worktree.path, remotes: remotes).map(trimmed))
-                .map { worktree.path + "/" + $0 }.filter(isBuild)
-            let sizes = try du(builds)
-            var rest = worktree.bytes
-            for path in builds {
-                rest -= sizes[path] ?? 0
-                items.append(
-                    Item(path: path, bytes: sizes[path] ?? 0, what: .build, removable: true, worktree: worktree.path))
-            }
-            items.append(Item(path: worktree.path, bytes: max(0, rest), what: .worktree, removable: worktree.removable))
+            g.builds += outermost(try ProjectFiles.ignored(worktree.path, remotes: remotes).map(trimmed))
+                .map { worktree.path + "/" + $0 }.filter { isBuild($0) }.map { ($0, worktree.path) }
         }
-        let roots = [root] + worktrees.map(\.path)
-        let xcode = builtFor(roots, in: derived), sizesX = try du(xcode)
-        items += xcode.map { Item(path: $0, bytes: sizesX[$0] ?? 0, what: .build, removable: true) }
-        let talks = roots.map { chats.appendingPathComponent(claudeName($0)).path }.filter(exists),
-            sizesC = try du(talks)
-        items += talks.map { Item(path: $0, bytes: sizesC[$0] ?? 0, what: .chats, removable: false) }
-        return items.filter { $0.bytes >= smallest || $0.what == .files }.sorted { $0.bytes > $1.bytes }
+        let roots = [root] + worktrees.map(\.path), xcode = builtFor(roots, in: derived)
+        let talks = roots.map { chats.appendingPathComponent(claudeName($0)).path }.filter(exists)
+        g.sizes = try du(g.ignored.map { root + "/" + $0.rel } + g.builds.map(\.path) + xcode + talks)
+        g.total = try du([root])[root] ?? 0
+        g.extra =
+            xcode.map { Item(path: $0, bytes: g.sizes[$0] ?? 0, what: .build, removable: true) }
+            + talks.map { Item(path: $0, bytes: g.sizes[$0] ?? 0, what: .chats, removable: false) }
+        return parts(g)
+    }
+
+    /// Of what git lists, those it ignores itself or whose contents it doesn't list too (it lists `.kelp/` along with
+    /// `.kelp/artifacts/` when it ignores everything in it); then the outermost, so nothing counts twice.
+    static func kept(_ listed: [String], really: Set<String>) -> [(rel: String, really: Bool)] {
+        outermost(listed.filter { rel in really.contains(rel) || !listed.contains { $0.hasPrefix(rel + "/") } })
+            .map { ($0, really.contains($0)) }
     }
 
     /// The DerivedData folders Xcode keeps for a workspace or package in one of `roots`.
@@ -93,12 +118,14 @@ struct DiskUsage: Sendable {
         String(path.unicodeScalars.map { CharacterSet.alphanumerics.contains($0) && $0.isASCII ? Character($0) : "-" })
     }
 
-    /// Blocks on disk as `du` counts them, for each path that's there; one program for many paths.
-    static func du(_ paths: [String]) throws -> [String: Int] {
+    /// Blocks on disk as `du` counts them, for each path that's there; one program for many paths, here or on `host`.
+    static func du(_ paths: [String], on host: RemoteHost? = nil) throws -> [String: Int] {
         var out: [String: Int] = [:]
         for chunk in stride(from: 0, to: paths.count, by: 256).map({ Array(paths[$0..<min($0 + 256, paths.count)]) }) {
             // 1: something in it couldn't be read; the rest is counted.
-            let data = try Subprocess.output(["/usr/bin/du", "-sk"] + chunk, cwd: "/", ok: [0, 1])
+            let data =
+                try host.map { try $0.run("du -sk -- \(chunk.map(ShellQuote.word).joined(separator: " ")) || true") }
+                ?? Subprocess.output(["/usr/bin/du", "-sk"] + chunk, cwd: "/", ok: [0, 1])
             for line in String(decoding: data, as: UTF8.self).split(separator: "\n") {
                 guard let tab = line.firstIndex(of: "\t"), let kb = Int(line[..<tab]) else { continue }
                 out[String(line[line.index(after: tab)...])] = kb * 1024
@@ -122,7 +149,7 @@ struct DiskUsage: Sendable {
 
 extension DiskUsage {
     func measure(_ repo: Repo) throws -> [Item] {
-        guard workspaces.remotes.of(repo.path) == nil else { return [] }   // their disk is on the host
+        if let remote = workspaces.remotes.of(repo.path) { return try measure(repo, on: remote) }
         return try Self.measure(
             root: Self.real(repo.path), worktrees: RepoWorktreeSizes(id: repo.id).handle(workspaces),
             remotes: workspaces.remotes)
@@ -130,8 +157,9 @@ extension DiskUsage {
 
     /// Worktrees as `removeWorktrees` takes them; anything else to the Trash only if it's in the project's folder or a
     /// worktree, git ignores it and tracks nothing in it, and no worktree is inside; or it's DerivedData Xcode keeps for
-    /// the project.
+    /// the project. A remote project's go aside on its host (`trash(_:of:on:)`).
     func trash(_ paths: [String], of repo: Repo, derived: URL = derivedData) throws -> RepoRemoveWorktrees.Result {
+        if let remote = workspaces.remotes.of(repo.path) { return try trash(paths, of: repo, on: remote) }
         let remotes = workspaces.remotes, root = Self.real(repo.path)
         let linked = try Git.linkedWorktrees(repo.path, remotes: remotes).map(\.path)
         let roots = [root] + linked, xcode = Set(Self.builtFor(roots, in: derived))

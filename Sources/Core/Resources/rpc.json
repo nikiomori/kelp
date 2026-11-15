@@ -11060,7 +11060,7 @@
       }
     },
     {
-      "description" : "Moves those of `paths` that `repo.diskUsage` lists as removable to the Trash: a worktree as `repo.removeWorktrees` does (kept if it holds work), anything else only while git still ignores it. What was kept says why.",
+      "description" : "Moves those of `paths` that `repo.diskUsage` lists as removable to the Trash: a worktree as `repo.removeWorktrees` does (kept if it holds work), anything else only while git still ignores it. A remote project's go into its `.git/kelp-trash` on the host, kept a week. What was kept says why.",
       "name" : "repo.diskTrash",
       "paramStructure" : "by-name",
       "params" : [
@@ -11091,7 +11091,7 @@
       "x-internal" : true
     },
     {
-      "description" : "What the project takes on this Mac, biggest first: what git ignores in its folder and its other worktrees, each worktree's builds on their own, Xcode's DerivedData for it, Claude Code's chats there, and the files git tracks. A remote project's disk is on its host: none.",
+      "description" : "What the project takes on this Mac, biggest first: what git ignores in its folder and its other worktrees, each worktree's builds on their own, Xcode's DerivedData for it, Claude Code's chats there, and the files git tracks. A remote project's are measured on its host (no DerivedData there).",
       "name" : "repo.diskUsage",
       "paramStructure" : "by-name",
       "params" : [

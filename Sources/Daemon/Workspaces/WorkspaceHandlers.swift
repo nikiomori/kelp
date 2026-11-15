@@ -260,7 +260,6 @@ extension RepoDiskTrash: Handled {
     var notForAgents: String? { "Only the user clears a project's disk." }
     func handle(_ disk: DiskUsage) throws -> Result {
         guard let repo = try disk.workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
-        guard disk.workspaces.remotes.of(repo.path) == nil else { throw RPCError.invalidParams("a remote project") }
         return try disk.trash(paths, of: repo)
     }
 }

@@ -15,6 +15,8 @@ final class DiskSizes {
     }
     private(set) var byRepo: [String: Measured] = [:]
     private(set) var measuring: Set<String> = []
+    /// Why the last measure failed (a host out of reach): the tab says it, the foot says nothing.
+    private(set) var failed: [String: String] = [:]
     /// Measured this recently, it shows as it is.
     static let fresh: TimeInterval = 600
 
@@ -23,8 +25,9 @@ final class DiskSizes {
         guard !measuring.contains(repoId), again || old else { return }
         measuring.insert(repoId)
         Task {
-            let items = await app.quiet(RepoDiskUsage(id: repoId), timeout: 600)
+            let (items, error) = await app.tryCall(RepoDiskUsage(id: repoId))
             if let items { byRepo[repoId] = Measured(items: items, at: Date()) }
+            failed[repoId] = error
             measuring.remove(repoId)
         }
     }
@@ -90,4 +93,20 @@ enum DiskNames {
     }
 
     static func size(_ bytes: Int) -> String { DesignKit.bytes(bytes, file: true) }
+
+    /// What went, where, and that it isn't freed yet: the Trash holds it until it's emptied, a host's .git/kelp-trash
+    /// for a week (the Files panel's trash there). `what`: the one part's name; nil for several.
+    static func moved(_ what: String?, count: Int, size: String, host: String?) -> String {
+        if let host {
+            guard let what else {
+                return String(
+                    localized: "Moved \(count) items aside on \(host) (\(size)): .git/kelp-trash keeps them a week.")
+            }
+            return String(localized: "Moved \(what) aside on \(host) (\(size)): .git/kelp-trash keeps it a week.")
+        }
+        guard let what else {
+            return String(localized: "Moved \(count) items to the Trash (\(size)). Empty the Trash to free them.")
+        }
+        return String(localized: "Moved \(what) to the Trash (\(size)). Empty the Trash to free it.")
+    }
 }

@@ -232,7 +232,7 @@ public struct RepoRemoveWorktrees: InternalMethod {
 
 /// What the project takes on this Mac, biggest first: what git ignores in its folder and its other worktrees, each
 /// worktree's builds on their own, Xcode's DerivedData for it, Claude Code's chats there, and the files git tracks.
-/// A remote project's disk is on its host: none.
+/// A remote project's are measured on its host (no DerivedData there).
 public struct RepoDiskUsage: InternalMethod {
     public static let name = "repo.diskUsage"
     /// What a part is, and so whether removing it costs anything.
@@ -274,7 +274,8 @@ public struct RepoDiskUsage: InternalMethod {
 }
 
 /// Moves those of `paths` that `repo.diskUsage` lists as removable to the Trash: a worktree as `repo.removeWorktrees`
-/// does (kept if it holds work), anything else only while git still ignores it. What was kept says why.
+/// does (kept if it holds work), anything else only while git still ignores it. A remote project's go into its
+/// `.git/kelp-trash` on the host, kept a week. What was kept says why.
 public struct RepoDiskTrash: InternalMethod {
     public static let name = "repo.diskTrash"
     public typealias Result = RepoRemoveWorktrees.Result

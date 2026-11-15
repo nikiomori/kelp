@@ -20,7 +20,10 @@ struct DiskUsageView: View {
     @State private var trashing = false
 
     private var repo: Repo? { app.repo(repoId) }
-    private var root: String { repo.map { Paths.real($0.path) ?? $0.path } ?? "" }
+    /// The project's folder as the daemon names it (its files' part): a remote one's stand-in, links resolved here.
+    private var root: String { sizes.byRepo[repoId]?.items.first { $0.what == .files }?.path ?? repo?.path ?? "" }
+    /// A remote project's host: its parts are there, out of the Finder's reach.
+    private var host: String? { repo.flatMap { RemoteHost.of($0.path)?.host } }
 
     var body: some View {
         let measured = sizes.byRepo[repoId]
@@ -29,15 +32,24 @@ struct DiskUsageView: View {
             Divider()
             if let measured, !measured.items.isEmpty {
                 HStack(spacing: 0) {
-                    DiskList(items: measured.items, root: root, chosen: $chosen, trash: trash, trashing: trashing)
-                        .frame(width: 340)
+                    DiskList(
+                        items: measured.items, root: root, local: host == nil, chosen: $chosen, trash: trash,
+                        trashing: trashing
+                    )
+                    .frame(width: 340)
                     Divider()
                     DiskMap(items: measured.items, root: root, chosen: $chosen).padding(Metrics.gap)
                 }
             } else if measured != nil {
                 EmptyState(String(localized: "Nothing to Measure"), symbol: "internaldrive") {
-                    Text("A remote project’s files are on its host.")
+                    Text("The project’s folder isn’t there any more.")
                 } actions: {
+                }
+            } else if let error = sizes.failed[repoId], !sizes.measuring.contains(repoId) {
+                EmptyState(String(localized: "Couldn’t Measure"), symbol: "exclamationmark.triangle") {
+                    Text(error)
+                } actions: {
+                    Button(String(localized: "Try Again")) { sizes.measure(repoId, app: app, again: true) }
                 }
             } else {
                 EmptyState(String(localized: "Measuring \(repo?.name ?? "")…"), symbol: "internaldrive") {
@@ -82,16 +94,12 @@ struct DiskUsageView: View {
         Task {
             defer { trashing = false }
             guard let result = await app.call(RepoDiskTrash(id: repoId, paths: paths)) else { return }
-            let gone = items.filter { result.removed.contains($0.path) }, freed = DiskNames.size(gone.bytes)
+            let gone = items.filter { result.removed.contains($0.path) }, size = DiskNames.size(gone.bytes)
+            let what = gone.count == 1 ? gone.first.map { DiskNames.name($0, root: root) } : nil
             if let why = result.kept.values.first {
-                Banner.show(
-                    String(localized: "Moved \(gone.count) to the Trash, kept \(result.kept.count): \(why)"),
-                    style: .error)
-            } else if gone.count == 1, let one = gone.first {
-                Banner.show(
-                    String(localized: "Moved \(DiskNames.name(one, root: root)) to the Trash — \(freed) freed"))
+                Banner.show(String(localized: "Moved \(gone.count), kept \(result.kept.count): \(why)"), style: .error)
             } else {
-                Banner.show(String(localized: "Moved \(gone.count) items to the Trash — \(freed) freed"))
+                Banner.show(DiskNames.moved(what, count: gone.count, size: size, host: host))
             }
             chosen.subtract(result.removed)
             sizes.measure(repoId, app: app, again: true)
@@ -101,7 +109,7 @@ struct DiskUsageView: View {
 
 /// The total, then the parts by group (a box for each that can go), and the button that moves the chosen ones.
 struct DiskList: View {
-    let items: [RepoDiskUsage.Item], root: String
+    let items: [RepoDiskUsage.Item], root: String, local: Bool
     @Binding var chosen: Set<String>
     let trash: () -> Void, trashing: Bool
 
@@ -126,7 +134,7 @@ struct DiskList: View {
                             }
                             .font(.ui(TextSize.caption, weight: .semibold)).foregroundStyle(.secondary)
                             .padding(.horizontal, Metrics.inset).frame(height: Metrics.rowSection)
-                            ForEach(these, id: \.path) { DiskRow(item: $0, root: root, chosen: $chosen) }
+                            ForEach(these, id: \.path) { DiskRow(item: $0, root: root, local: local, chosen: $chosen) }
                         }
                     }
                 }
@@ -173,7 +181,8 @@ struct DiskList: View {
 
 /// A part: its box when it can go, its name and what it is, its size; Show in Finder under the pointer.
 struct DiskRow: View {
-    let item: RepoDiskUsage.Item, root: String
+    /// `local`: on this Mac, where the Finder can show it.
+    let item: RepoDiskUsage.Item, root: String, local: Bool
     @Binding var chosen: Set<String>
     @State private var hovering = false
 
@@ -199,7 +208,8 @@ struct DiskRow: View {
             } label: {
                 Image(systemName: "magnifyingglass").font(.symbol())
             }
-            .buttonStyle(PointerButtonStyle()).help(String(localized: "Show in Finder")).opacity(hovering ? 1 : 0)
+            .buttonStyle(PointerButtonStyle()).help(String(localized: "Show in Finder"))
+            .opacity(hovering && local ? 1 : 0).disabled(!local)
         }
         .padding(.horizontal, Metrics.gap).frame(minHeight: Metrics.rowTwoLine)
         .background(

@@ -141,16 +141,6 @@
         }
       }
     },
-    "A remote project’s files are on its host.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Файлы удалённого проекта лежат на его сервере."
-          }
-        }
-      }
-    },
     "A worktree is inside it": {
       "localizations": {
         "ru": {
@@ -319,6 +309,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Продолжить на"
+          }
+        }
+      }
+    },
+    "Couldn’t Measure": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось измерить"
           }
         }
       }
@@ -539,32 +539,52 @@
         }
       }
     },
-    "Moved %@ to the Trash — %@ freed": {
+    "Moved %@ aside on %@ (%@): .git/kelp-trash keeps it a week.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ — в Корзине, освобождено %2$@"
+            "value": "%1$@ отложено на %2$@ (%3$@): .git/kelp-trash хранит неделю."
           }
         }
       }
     },
-    "Moved %lld items to the Trash — %@ freed": {
+    "Moved %@ to the Trash (%@). Empty the Trash to free it.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "В Корзину перемещено: %1$lld, освобождено %2$@"
+            "value": "%1$@ — в Корзине (%2$@). Очистите Корзину, чтобы освободить место."
           }
         }
       }
     },
-    "Moved %lld to the Trash, kept %lld: %@": {
+    "Moved %lld items aside on %@ (%@): .git/kelp-trash keeps them a week.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "В Корзину: %1$lld, оставлено %2$lld: %3$@"
+            "value": "Отложено на %2$@: %1$lld (%3$@), .git/kelp-trash хранит неделю."
+          }
+        }
+      }
+    },
+    "Moved %lld items to the Trash (%@). Empty the Trash to free them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В Корзине: %1$lld (%2$@). Очистите Корзину, чтобы освободить место."
+          }
+        }
+      }
+    },
+    "Moved %lld, kept %lld: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перемещено: %1$lld, оставлено: %2$lld — %3$@"
           }
         }
       }
@@ -885,6 +905,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Следующая сборка сделает заново"
+          }
+        }
+      }
+    },
+    "The project’s folder isn’t there any more.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Папки проекта больше нет."
           }
         }
       }
