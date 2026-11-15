@@ -71,18 +71,8 @@ final class ChangeBars {
                 return
             }
             hunks = diff.first?.hunks ?? []
-            editor.changeMarks = LineChange.of(hunks).map(Self.mark)
+            editor.changeMarks = LineChange.of(hunks)
         }
-    }
-
-    private static func mark(_ change: LineChange) -> CodeEditor.ChangeMark {
-        let kind: CodeEditor.ChangeMark.Kind =
-            switch change.kind {
-            case .added: .added
-            case .changed: .changed
-            case .removed: .removed
-            }
-        return CodeEditor.ChangeMark(kind: kind, line: change.line, count: change.count, hunk: change.hunk)
     }
 
     // MARK: the card

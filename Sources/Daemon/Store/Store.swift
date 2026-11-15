@@ -212,27 +212,17 @@ final class Store: Sendable {
             .map { try JSONDecoder().decode(T.self, from: Data($0.utf8)) }
     }
     /// No value deletes the key.
-    func setDaemonState(_ key: String, _ value: (some Encodable)?) throws {
+    func setDaemonState(_ key: String, _ value: (some Encodable)?) throws { try set("daemonState", key, value) }
+    func setUIState(_ key: String, _ value: JSONValue?) throws { try set("uiState", key, value) }
+
+    private func set(_ table: String, _ key: String, _ value: (some Encodable)?) throws {
         let text = try value.map { String(decoding: try JSONEncoder().encode($0), as: UTF8.self) }
         try db.write { database in
             if let text {
                 try database.execute(
-                    sql: "INSERT OR REPLACE INTO daemonState (key, value) VALUES (?, ?)", arguments: [key, text])
+                    sql: "INSERT OR REPLACE INTO \(table) (key, value) VALUES (?, ?)", arguments: [key, text])
             } else {
-                try database.execute(sql: "DELETE FROM daemonState WHERE key = ?", arguments: [key])
-            }
-        }
-    }
-
-    /// No value deletes the key.
-    func setUIState(_ key: String, _ value: JSONValue?) throws {
-        let text = try value.flatMap { String(bytes: try JSONEncoder().encode($0), encoding: .utf8) }
-        try db.write { database in
-            if let text {
-                try database.execute(
-                    sql: "INSERT OR REPLACE INTO uiState (key, value) VALUES (?, ?)", arguments: [key, text])
-            } else {
-                try database.execute(sql: "DELETE FROM uiState WHERE key = ?", arguments: [key])
+                try database.execute(sql: "DELETE FROM \(table) WHERE key = ?", arguments: [key])
             }
         }
     }

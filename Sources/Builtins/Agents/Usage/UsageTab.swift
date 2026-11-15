@@ -9,22 +9,6 @@ import SwiftUI
 /// each: its days on its own scale, its share of the cost, its tokens and what they'd cost at API prices (a subscription
 /// bills differently), from its own logs on this Mac. A click on a row or a project narrows what's under it to that one.
 /// Window › Usage (⌥⌘U).
-@MainActor
-final class UsageTab: KelpKit.TabContent {   // not SwiftUI's
-    let uri = "usage:"
-    let view: NSView
-    var title: String { String(localized: "Usage") }
-    var icon: NSImage? { .symbol("chart.bar") }
-    init(app: AppModel) {
-        let host = NSHostingView(
-            rootView: UsageReportView(app: app).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        )
-        host.sizingOptions = []   // a tab fills the space it's given; it must never resize the window to its ideal size
-        view = host
-    }
-    func focus() {}
-}
-
 struct UsageReportView: View {
     let app: AppModel
     init(app: AppModel) { self.app = app }

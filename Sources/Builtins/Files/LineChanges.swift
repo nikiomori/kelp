@@ -1,16 +1,11 @@
 import Core
+import EditorKit
 
-/// A run of lines that differ from HEAD, as an editor's gutter marks it.
-struct LineChange: Equatable, Sendable {
-    enum Kind: Sendable { case added, changed, removed }
-    let kind: Kind
-    /// 0-based, in the file as it is now; of `removed`, the line under the gap.
-    let line: Int
-    /// 0 for `removed`: no line is left of it.
-    let count: Int
-    /// Index of the hunk it came from.
-    let hunk: Int
+/// A run of lines that differ from HEAD, as an editor's gutter marks it: 0-based in the file as it is now (a removal on
+/// the line under the gap, with a count of 0), and the index of the hunk it came from.
+typealias LineChange = CodeEditor.ChangeMark
 
+extension LineChange {
     /// Reads the hunks of one file, top to bottom.
     static func of(_ hunks: [Hunk]) -> [LineChange] {
         var out: [LineChange] = []

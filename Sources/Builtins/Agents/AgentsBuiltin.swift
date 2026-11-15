@@ -55,7 +55,12 @@ extension Builtins {
                     closeUnbuilt: { await SessionTab.close(app, session: TabURI.body($0)) },
                     menu: { SessionTab.menu(app, $0, uri: $1, workspace: $2, openBeside: $3) }),
                 TabProvider(
-                    schemes: ["usage"], make: { _ in UsageTab(app: app) },
+                    schemes: ["usage"],
+                    make: {
+                        HostedTabContent(
+                            uri: $0, title: String(localized: "Usage"), icon: "chart.bar", app: app,
+                            UsageReportView(app: app))
+                    },
                     placeholder: { _ in (String(localized: "Usage"), .symbol("chart.bar"), nil) }),
                 TabProvider(
                     schemes: ["subagent"], make: { SubagentTab(uri: $0, app: app) },
