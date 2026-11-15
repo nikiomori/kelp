@@ -59,3 +59,19 @@ import Testing
     #expect(fill?.strokeEnd == 0.8)
     #expect(fill?.animation(forKey: "strokeEnd")?.duration == Motion.base)
 }
+
+/// A pane's capsule (its agent and "+" buttons) keeps its round ends: nothing chosen, no pill, its layer left alone.
+@MainActor @Test func aCapsuleWithNothingChosenKeepsItsRoundEnds() {
+    let parent = NSView(), capsule = CapsuleStack()
+    parent.wantsLayer = true
+    let window = onScreen(capsule, in: parent)
+    defer { withExtendedLifetime(window) {} }
+    let button = NSButton()
+    capsule.addArrangedSubview(button)
+    capsule.frame = NSRect(x: 0, y: 0, width: 60, height: 26)
+    window.display()   // its layer comes from the parent's, as in a pane
+    capsule.needsLayout = true
+    capsule.layoutSubtreeIfNeeded()
+    #expect(capsule.layer?.cornerRadius == 13)
+    #expect(capsule.layer?.sublayers?.contains { $0.superlayer === capsule.layer && $0.delegate == nil } != true)
+}

@@ -57,6 +57,9 @@ final class CapsuleStack: NSStackView {
     var chosen: NSView? {
         didSet {
             guard chosen !== oldValue else { return }
+            // The pill is a layer of its own. Asked for here, never in layout: a pane's capsule (nothing chosen) lost its
+            // round ends when layout gave it a new layer after rounding the old one.
+            wantsLayer = true
             place(moving: oldValue?.superview === self && window != nil)
         }
     }
@@ -67,8 +70,7 @@ final class CapsuleStack: NSStackView {
         pill.backgroundColor = NSColor.fillSelected.cgColor   // drawing runs in the view's appearance
     }
     private func place(moving: Bool) {
-        wantsLayer = true
-        guard let layer else { return }
+        guard let layer, chosen != nil || pill.superlayer != nil else { return }   // a pane's buttons: no pill
         if pill.superlayer !== layer { layer.insertSublayer(pill, at: 0) }
         let frame = chosen.flatMap { $0.superview === self && !$0.isHidden ? $0.frame : nil }
         let from = pill.isHidden ? nil : pill.presentation()?.frame ?? pill.frame
@@ -100,8 +102,8 @@ final class CapsuleStack: NSStackView {
     }
     override func layout() {
         super.layout()
-        layer?.cornerRadius = min(bounds.width, bounds.height) / 2   // a row or a column
         place(moving: false)
+        layer?.cornerRadius = min(bounds.width, bounds.height) / 2   // a row or a column
     }
 }
 
