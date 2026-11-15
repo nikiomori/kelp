@@ -74,3 +74,18 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     #expect(((drift?.toValue as? NSNumber)?.doubleValue ?? 0) > 0)
     #expect(drift?.duration == Motion.fast)   // what leaves goes sooner
 }
+
+/// An empty state fades as the list comes back rather than going at once, and one state crossfades into the next.
+@MainActor @Test func anEmptyStateFadesOutAndIntoTheNext() {
+    let empty = EmptyStateView()
+    let window = onScreen(empty)
+    defer { withExtendedLifetime(window) {} }
+    empty.show("No Changes")
+    empty.show("Git Isn't Available")
+    #expect(empty.layer?.animation(forKey: kCATransition) != nil)
+    empty.show(nil)
+    #expect(!empty.showing)
+    #expect(!empty.isHidden)   // still there, fading
+    empty.show("No Changes")   // back before it went
+    #expect(empty.showing && !empty.isHidden && empty.alphaValue == 1)
+}

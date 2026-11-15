@@ -64,7 +64,7 @@ extension SourceControlController {
     /// The graph is a pane of its own under the changes, as in VS Code, so a long list of changes never pushes it
     /// out of sight: its header folds it, dragging the header sizes it.
     func layoutGraph() {
-        let has = !commits.isEmpty && empty.isHidden, open = has && !collapsed.contains(Section.graph.rawValue)
+        let has = !commits.isEmpty && !empty.showing, open = has && !collapsed.contains(Section.graph.rawValue)
         graphBar.isHidden = !has
         graphBar.expanded = open
         graphOutline.enclosingScrollView?.isHidden = !open

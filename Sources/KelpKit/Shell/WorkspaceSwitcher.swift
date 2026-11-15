@@ -86,9 +86,9 @@ final class WorkspaceSwitcher {
         panel = floating
         // On screen once ⌃ is held a moment, as ⌘Tab: a quick ⌃Tab flips without the panel flashing up.
         _ = Task { [weak self] in
-            try await Task.sleep(for: .milliseconds(120))
+            try await Task.sleep(for: .seconds(Motion.fast))
             guard self?.panel === floating else { return }
-            window.addChildWindow(floating, ordered: .above)
+            Self.comeIn(floating, over: window)
             UserDefaults.standard.set(UserDefaults.standard.integer(forKey: Self.hintsKey) + 1, forKey: Self.hintsKey)
         }
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) {
@@ -101,6 +101,39 @@ final class WorkspaceSwitcher {
             MainActor.assumeIsolated { self?.close() }   // queue: .main
         }
         return first
+    }
+
+    /// On screen as Quick Open comes: faint and a little up, and down into place.
+    private static func comeIn(_ floating: NSPanel, over window: NSWindow) {
+        let end = floating.frame
+        guard !Motion.reduced else { return window.addChildWindow(floating, ordered: .above) }
+        floating.setFrame(end.offsetBy(dx: 0, dy: Metrics.gapWide), display: false)
+        floating.alphaValue = 0
+        window.addChildWindow(floating, ordered: .above)
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.base
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            floating.animator().setFrame(end, display: true)
+            floating.animator().alphaValue = 1
+        }
+    }
+
+    /// Away a little quicker than it came; where it went happens at once, without waiting for this.
+    private static func goAway(_ shown: NSPanel) {
+        guard shown.isVisible, !Motion.reduced else {
+            shown.parent?.removeChildWindow(shown)
+            return shown.orderOut(nil)
+        }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.fast
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            shown.animator().alphaValue = 0
+        } completionHandler: {
+            MainActor.assumeIsolated {   // AppKit runs it on the main thread
+                shown.parent?.removeChildWindow(shown)
+                shown.orderOut(nil)
+            }
+        }
     }
 
     /// Over the window's middle, a little high, and on screen when the window is partly off it.
@@ -186,10 +219,7 @@ final class WorkspaceSwitcher {
         monitor = nil
         if let resigned { NotificationCenter.default.removeObserver(resigned) }
         resigned = nil
-        if let shown = panel {
-            shown.parent?.removeChildWindow(shown)
-            shown.orderOut(nil)
-        }
+        if let shown = panel { Self.goAway(shown) }
         panel = nil
         rows = []
         items = []

@@ -11,6 +11,8 @@ public final class EmptyStateView: NSView {
     private let fix = NSTextField(wrappingLabelWithString: "")
     private let buttons = NSStackView()
     private let stack = NSStackView()
+    /// It has something to say (it may still be fading out when it hasn't).
+    public private(set) var showing = false
 
     public init() {
         super.init(frame: .zero)
@@ -46,20 +48,35 @@ public final class EmptyStateView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// Away as the list comes back under it: faded, not cut.
+    private func leave() {
+        guard showing else { return }
+        showing = false
+        guard window != nil, !Motion.reduced else { return isHidden = true }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.fast
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {   // AppKit runs it on the main thread
+                guard let self, !self.showing else { return }   // shown again meanwhile
+                self.isHidden = true
+                self.alphaValue = 1
+            }
+        }
+    }
+
     /// Shows the block; nil `title` hides it. `symbol` is an SF Symbol's name.
     public func show(
         _ title: String?, symbol: String? = nil, text: String? = nil, fix: String? = nil, buttons: [NSButton] = []
     ) {
-        let appearing = isHidden && title != nil
-        isHidden = title == nil
-        guard let title else { return }
-        if appearing, !Motion.reduced {   // it fades in rather than flashing up over the list it replaces
-            alphaValue = 0
-            NSAnimationContext.runAnimationGroup {
-                $0.duration = Motion.fast
-                animator().alphaValue = 1
-            }
+        guard let title else { return leave() }
+        if isHidden || !showing {
+            fadeIn()   // in rather than flashing up over the list it replaces, or back from going
+        } else if self.title.stringValue != title, window != nil {
+            crossfade()   // one state into the next ("No Changes" into an error)
         }
+        showing = true
         self.title.stringValue = title
         self.text.stringValue = text ?? ""
         self.fix.stringValue = fix ?? ""

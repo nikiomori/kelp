@@ -34,6 +34,6 @@ final class MarkdownSelectionBar: NSView {
         let originY = fits ? above : container.isFlipped ? selection.maxY + gap : selection.minY - gap - size.height
         let originX = min(max(selection.minX, 4), container.bounds.width - size.width - 4)
         setFrameOrigin(NSPoint(x: originX, y: originY))
-        isHidden = false
+        if isHidden { fadeIn() }   // it comes in over the text rather than popping up
     }
 }
