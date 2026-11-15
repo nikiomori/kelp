@@ -305,8 +305,11 @@ the listening socket, the home's lock and each session's terminal fd (`Handover`
 process's children and keep working, and their output waits in the terminal for the few hundred milliseconds this takes.
 Connections drop; the app reconnects and its terminals attach again, the history read back from each session's log. The
 new kelpd also reaps the old run's other programs (a git still running) once they end. Restart Background Service works
-the same way, with the same binary. A kelpd from before `daemon.upgrade` existed is restarted instead, which ends the
-sessions; the app asks first when any are running.
+the same way, with the same binary. Before anything is given up, the new kelpd is asked (`kelpd --can-adopt`, in a home
+of its own) and opens a copy of the store there, migrations and all: one that can't is refused while the agents still run
+on the old one. Past the exec, a new kelpd that still fails to start (a full disk) ends the sessions, as a crash would. A
+kelpd from before `daemon.upgrade` existed is restarted instead, which ends the sessions; the app asks first when any are
+running.
 
 ## When the daemon misbehaves
 - **Its log:** `log stream --predicate 'subsystem == "dev.kelp.daemon"'` (or Console.app). It logs what would otherwise

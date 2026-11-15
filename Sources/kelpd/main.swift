@@ -4,8 +4,9 @@ import Foundation
 
 // kelpd: background daemon. Run by launchd (see `kelp install`) or started on demand by the app/CLI.
 if CommandLine.arguments.contains("--can-adopt") {
-    print(Handover.canAdopt)
-    exit(0)
+    let answer = Handover.canAdopt(root: Paths.root)
+    if answer.ok { print(answer.said) } else { FileHandle.standardError.write(Data((answer.said + "\n").utf8)) }
+    exit(answer.ok ? 0 : 1)
 }   // asked before an update execs this
 // Its own process session where it can have one: what it starts that isn't a terminal's stays in it, and is told for
 // kelpd's by that (`Callers.session(running:)`). A process-group leader can't (launchd starts it as one, and the app's

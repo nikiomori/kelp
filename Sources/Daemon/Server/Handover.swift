@@ -52,26 +52,54 @@ public struct Handover: Codable, Sendable {
     /// any session is given up. One that can't (another architecture, a broken signature, a kelpd from before the flag)
     /// prints something else or nothing.
     public static let canAdopt = "kelpd adopts handover 1"
+    static let storeFile = "kelp.sqlite"
 
-    /// Whether the kelpd at `executable` takes sessions over (`canAdopt`), asked by running it. In an empty home of its
-    /// own: a kelpd from before the flag starts as a daemon instead, there, touching nothing of this one's (its store, its
-    /// lock), and is stopped at the time limit. `home`: where that empty one is made.
-    static func adoptable(_ executable: String, home: URL) -> Bool {
+    /// `kelpd --can-adopt`'s answer in `root`: `canAdopt` once the store there, if any (`adoptable`'s copy), opens and
+    /// migrates; else why not.
+    public static func canAdopt(root: URL) -> (ok: Bool, said: String) {
+        let path = root.appendingPathComponent(storeFile).path
+        guard FileManager.default.fileExists(atPath: path) else { return (true, canAdopt) }
+        do {
+            _ = try Store(path: path)
+            return (true, canAdopt)
+        } catch {
+            return (false, "kelpd can't open the store it would take over: \(error)")
+        }
+    }
+
+    /// Whether the kelpd at `executable` takes sessions over (`canAdopt`), asked by running it. In a home of its own: a
+    /// kelpd from before the flag starts as a daemon instead, there, touching nothing of this one's (its store, its
+    /// lock), and is stopped at the time limit. `home`: where that one is made. `store`: puts a copy of this one's store
+    /// there, which the new kelpd opens and migrates as it would after the exec: one that can't is refused here, while
+    /// every agent can still go on, not after the exec, which would end them all. Asked in an empty home first: a kelpd
+    /// from before the flag mustn't start on a copy of the user's sessions.
+    static func adoptable(_ executable: String, home: URL, store: (_ copy: URL) throws -> Void = { _ in }) -> Bool {
         let scratch = home.appendingPathComponent("adopt-check-\(getpid())")
         defer {
             Log.start.attempt("removing the adopt check's home") { try FileManager.default.removeItem(at: scratch) }
         }
-        guard Log.start.attempt("making the adopt check's home", { try Paths.ensure(scratch) }) != nil,
-            let result = Log.start.attempt(
-                "asking \(executable) whether it adopts",
-                {
-                    try Subprocess.run(
-                        [executable, "--can-adopt"], cwd: "/", env: ["KELP_HOME": scratch.path], timeLimit: 10)
-                })
-        else { return false }
-        return result.status == 0
-            && String(decoding: result.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-                == canAdopt
+        func answers() -> Bool {
+            guard
+                let result = Log.start.attempt(
+                    "asking \(executable) whether it adopts",
+                    {
+                        try Subprocess.run(
+                            [executable, "--can-adopt"], cwd: "/", env: ["KELP_HOME": scratch.path], timeLimit: 30)
+                    })
+            else { return false }
+            if result.status != 0 {
+                let said = String(decoding: result.stderr, as: UTF8.self)
+                Log.start.error("\(executable, privacy: .public) can't adopt: \(said, privacy: .public)")
+            }
+            return result.status == 0
+                && String(decoding: result.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+                    == canAdopt
+        }
+        return Log.start.attempt("making the adopt check's home", { try Paths.ensure(scratch) }) != nil && answers()
+            && Log.start.attempt(
+                "copying the store for the adopt check", { try store(scratch.appendingPathComponent(storeFile)) })
+                != nil
+            && answers()
     }
 
     /// The file `kelpd --adopt` names, read and removed. Nil if it can't be read: then the lock this process still holds

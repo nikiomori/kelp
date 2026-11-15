@@ -311,6 +311,10 @@ private func name(_ pid: pid_t) -> String {
     let real = URL(fileURLWithPath: kelp).deletingLastPathComponent().appendingPathComponent("kelpd").path
     let home = tmp(), fake = home.appendingPathComponent("kelpd").path
     #expect(Handover.adoptable(real, home: home))
+    // It opens a copy of the store as it would after the exec: one it can't open or migrate is refused here.
+    let store = try Store(path: home.appendingPathComponent("source.sqlite").path)
+    #expect(Handover.adoptable(real, home: home, store: store.copy))
+    #expect(!Handover.adoptable(real, home: home) { try Data("not a database".utf8).write(to: $0) })
     try "#!/bin/sh\necho something else\n".write(toFile: fake, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fake)
     #expect(!Handover.adoptable(fake, home: home))

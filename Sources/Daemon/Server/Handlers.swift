@@ -144,9 +144,10 @@ extension Shutdown: DaemonService {
 }
 extension Upgrade: DaemonService {
     static func of(_ daemon: Daemon) -> Upgrade {
-        let root = daemon.root, offloads = daemon.offloads
+        let root = daemon.root, offloads = daemon.offloads, store = daemon.store
         return Upgrade(
-            executable: Daemon.executable, root: root, adoptable: { Handover.adoptable(Daemon.executable, home: root) },
+            executable: Daemon.executable, root: root,
+            adoptable: { Handover.adoptable(Daemon.executable, home: root, store: store.copy) },
             waitIdle: { offloads.waitIdle(seconds: 5) }
         ) { [weak daemon] in daemon?.upgrade(checked: true) }
     }

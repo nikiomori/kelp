@@ -50,6 +50,9 @@ final class Store: Sendable {
         try Self.migrator.migrate(db)
     }
 
+    /// A consistent copy at `path` while this one goes on writing (an update's adopt check opens it).
+    func copy(to path: URL) throws { try db.backup(to: try DatabaseQueue(path: path.path)) }
+
     func repos() throws -> [Repo] { try db.read { try Repo.order(Column("name")).fetchAll($0) } }
     func repo(_ id: String) throws -> Repo? { try db.read { try Repo.fetchOne($0, key: id) } }
     func worktrees(repo: String? = nil) throws -> [Worktree] {

@@ -62,7 +62,7 @@ public final class Daemon: Sendable {
         signal(SIGPIPE, SIG_IGN)
         self.root = root
         try Paths.ensure(root)
-        self.store = try store ?? Store(path: root.appendingPathComponent("kelp.sqlite").path)
+        self.store = try store ?? Store(path: root.appendingPathComponent(Handover.storeFile).path)
         self.settings = SettingsStore(root: root)
         self.remotes = Remotes(home: root)
         self.agentUsage = AgentUsage(root: root, settings: settings, store: self.store, remotes: remotes)
@@ -301,7 +301,7 @@ public final class Daemon: Sendable {
     ) -> Daemon? {
         // Nothing is given up to a kelpd that couldn't take it: every agent would end with this process. The reason is
         // kept, so the app's next daemon.upgrade is refused and it asks the user instead of trying again.
-        guard checked || Handover.adoptable(executable, home: root) else {
+        guard checked || Handover.adoptable(executable, home: root, store: store.copy) else {
             Log.start.error("not updating in place: \(executable, privacy: .public) doesn't adopt this hand-over")
             Upgrade.refuse(
                 root: root, executable: executable, "The new background service can't take the running sessions over.")
