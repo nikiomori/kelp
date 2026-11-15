@@ -399,13 +399,17 @@ extension Daemon {
 
 extension WatchStart: Handled {
     static var inOrder: Bool { true }   // a start and a stop sent in a row apply in that order
-    /// A project's databases as the window sees them: hidden ones, All My Projects (hosts, users, keychain items)
-    /// and the user's own statements. An agent asks `db.list` and `db.query`, which say what it may see.
+    /// A topic reads as the user (`ask`), so each says whether an agent may watch it: a new one is decided here, not let
+    /// through by default. The ones agents watch read only what they may read themselves (`AgentRules.reading`, a file's
+    /// problems). Databases are the window's view: hidden ones, All My Projects (hosts, users, keychain items) and the
+    /// user's own statements; an agent asks `db.list` and `db.query`, which say what it may see.
     var notForAgents: String? {
         switch topic {
         case .databases: "The databases' activity is the user's: `kelp db list` says which an agent may use."
         case .phone: "The phones and their pairing link are the user's."
-        default: nil
+        case .git, .ports, .activity, .ci, .pr, .context, .limits, .commands, .subagents, .edits, .file, .files, .host,
+            .hostDetail, .machines, .machineDetail, .artifacts, .prs:
+            nil
         }
     }
     func handle(_ watches: Watches, conn: Int) throws -> Done {
