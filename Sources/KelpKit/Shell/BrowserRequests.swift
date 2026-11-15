@@ -43,8 +43,10 @@ extension EditorArea {
     /// the user, so the user says so first.
     func pageForOpen(shared: Bool, args: JSONValue) async throws -> TabRef? {
         let url = args["url"]?.string ?? ""
-        // A shared page is the one site the user allowed: another site is asked for again, in a tab of its own.
+        // A shared page is the one site the user allowed: another site is asked for again, in a tab of its own. A local
+        // page (`preview:`) is a tab's start, not an address to go to, so it gets a tab of its own too.
         if let page = ownPage(), shared == (TabURI.scheme(page.uri) != TabURI.agentScheme),
+            TabURI.scheme(url) != "preview",
             !shared || url.isEmpty
                 || PageOrigin.of(URL(string: url)) == PageOrigin.of(URL(string: TabURI.pageURL(page.uri)))
         {

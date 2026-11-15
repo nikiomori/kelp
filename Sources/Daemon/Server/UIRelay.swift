@@ -24,10 +24,11 @@ extension UIOpen: Handled {
         if ["terminal", "agent"].contains(scheme) {
             return "An agent starts terminals and agents with `kelp session new`, which keeps them its own."
         }
-        // A plain page tab has the user's cookies (and `kelp shot` sees it): an agent's page has its own.
-        if ["http", "https"].contains(scheme) {
-            return "A page tab opened this way is logged in as the user: open it with `kelp browser open <url>`, "
-                + "which gives it cookies of its own."
+        // A plain page tab has the user's cookies (and `kelp shot` sees it): an agent's page has its own. A local page
+        // (`preview:`) has them too, and it can go on to any site.
+        if ["http", "https", "preview"].contains(scheme) {
+            return "A page tab opened this way is logged in as the user: open it with `kelp browser open <url>` "
+                + "(a local page: `kelp browser open preview:<path>`), which gives it cookies of its own."
         }
         return nil
     }
@@ -35,15 +36,20 @@ extension UIOpen: Handled {
     /// bare ids only).
     var shows: String? {
         guard ["session", "subagent"].contains(scheme) else { return nil }
-        return String(uri.drop { $0 != ":" }.dropFirst().prefix { $0.isHexDigit || $0 == "-" })
+        return lead
     }
     /// The workspace a tab of one names in its body (`db:<workspace>/<name>`, `diff:<workspace>?…`): the app opens it as
     /// the user, so it's held as that field would be. Else `worktreeId` (none named: the one on screen, where it shows a
     /// file or a page).
     var inWorkspace: String? {
-        let lead = uri.drop { $0 != ":" }.dropFirst().prefix { $0.isHexDigit || $0 == "-" }
-        let named = shows == nil && UUID(uuidString: String(lead)) != nil ? String(lead) : nil
+        let named = shows == nil && UUID(uuidString: lead) != nil ? lead : nil
         return named ?? worktreeId
+    }
+    /// The id at the start of the body, read as the app reads it: tabs take their address apart with `URLComponents`,
+    /// which decodes `%31…` to `1…`, so an id spelled that way is still the id.
+    private var lead: String {
+        let body = String(uri.drop { $0 != ":" }.dropFirst())
+        return String((body.removingPercentEncoding ?? body).prefix { $0.isHexDigit || $0 == "-" })
     }
     func handle(_ clients: Clients) throws -> Delivered {
         if let split, split != "right", split != "down" {

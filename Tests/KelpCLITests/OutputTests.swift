@@ -50,6 +50,7 @@ import Testing
     #expect(Main.address("127.0.0.1:8080/x") == "http://127.0.0.1:8080/x")
     #expect(Main.address("example.com") == "https://example.com")
     #expect(Main.address("file:///tmp/a.html") == "file:///tmp/a.html" && Main.address("about:blank") == "about:blank")
+    #expect(Main.address("preview:/tmp/a.html") == "preview:/tmp/a.html")   // a local page, as `kelp open` refuses it
 }
 
 /// An action's answer reads as one line, what came under it; a line from stdin splits into words as a shell would.

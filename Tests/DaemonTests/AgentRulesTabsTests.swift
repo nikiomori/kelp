@@ -28,10 +28,18 @@ import Testing
                 own, UIOpen(uri: "diff:" + elsewhere.id, worktreeId: wt.id), false,
                 "nor another's changes, whatever workspace the tab opens in"
             ),
+            (
+                own,
+                UIOpen(
+                    uri: "commit:%" + String(format: "%02X", elsewhere.id.utf8.first ?? 0)
+                        + elsewhere.id.dropFirst() + "?push=1", worktreeId: wt.id), false,
+                "nor one whose address spells the id percent-encoded, as the tab decodes it"
+            ),
             (own, UIOpen(uri: DatabaseTabURI.uri(worktree: wt.id, name: "db")), true, "its own workspace's it opens"),
             (own, UIOpen(uri: "file:///tmp/a.txt"), true, "and a file"),
             (own, UIOpen(uri: "https://mail.example/inbox"), false, "not a page logged in as the user"),
             (own, UIOpen(uri: "HTTP://mail.example/inbox"), false, "however its scheme is spelled"),
+            (own, UIOpen(uri: "preview:/tmp/a.html"), false, "nor a local page, which can go on to any site"),
             (.user, UIOpen(uri: "https://mail.example/inbox"), true, "the user opens any page"),
             (.user, UIOpen(uri: DatabaseTabURI.uri(worktree: elsewhere.id, name: "prod")), true, "and any database")
         ])
