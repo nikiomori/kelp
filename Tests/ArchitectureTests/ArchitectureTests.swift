@@ -156,8 +156,9 @@ private func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +1: a workspace's git and CI are watched and read under its folder's key (`gitKey`), as the sidebar's, so
     // workspaces sharing a folder share one watch.
     // +2: what an agent edited is pushed as the commands are (`EditsEvent`'s `key`, `forgottenWith`).
-    #expect(declared <= 349, "\(declared) package declarations in KelpKit")
-    #expect(declared >= 349, "fewer now (\(declared)): lower the ceiling")
+    // +1: a session a built-in starts other than by `starter` is asked at its terminal's size too (`sized`).
+    #expect(declared <= 350, "\(declared) package declarations in KelpKit")
+    #expect(declared >= 350, "fewer now (\(declared)): lower the ceiling")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -253,8 +254,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 404, "lines over 120: \(over120)")
-    #expect(over120 >= 404, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 403, "lines over 120: \(over120)")
+    #expect(over120 >= 403, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -340,6 +341,17 @@ func codeOnly(_ s: String) -> String {
         })
     let core = ["System/Subprocess", "System/LoginPath", "Extensions/ExtensionFiles"].map { "Sources/Core/\($0).swift" }
     #expect(starters == Set(core))
+}
+
+/// A session the app starts is asked at its terminal's size (`SessionStarter`, else `workbench.sized`): the first screen
+/// drawn for another width leaves zsh's stray "%" line. It joins the list through `upsert`: its event may come first.
+@Test func theAppStartsSessionsSizedAndOnce() throws {
+    let unsized = try matches(#"(?<!sized\(\s{0,40})\bSessionCreate\("#, in: appDirs)
+        .filter { !$0.hasPrefix("Sources/KelpKit/SessionStarter.swift:") }
+    #expect(unsized == [], "a session asked without its size: \(unsized)")
+    let appended = try matches(#"\bsessions\.append\("#, in: appDirs)
+        .filter { !$0.hasPrefix("Sources/KelpKit/Model/AppModel.swift:") }
+    #expect(appended == [], "a session added beside upsert: \(appended)")
 }
 
 /// `workbench.open` takes links from forges and trackers, so it only shows things. What runs a `terminal:` or `agent:` URI has
@@ -586,7 +598,7 @@ func codeOnly(_ s: String) -> String {
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {
     let ceilings = [
-        "Daemon": 57, "KelpKit": 50, "Core": 27, "GitKit": 15, "AgentData": 8, "Agents": 13, "kelp": 10,
+        "Daemon": 57, "KelpKit": 46, "Core": 27, "GitKit": 14, "AgentData": 8, "Agents": 13, "kelp": 10,
         "Builtins": 8,
         "Integrations": 7, "LSPKit": 2, "Markdown": 4, "TerminalKit": 3, "KelpVM": 10, "KelpGuest": 4, "EditorKit": 3,
         "WorkbenchKit": 0, "DesignKit": 0
@@ -747,7 +759,7 @@ func codeOnly(_ s: String) -> String {
         "KelpKit/Extensions/DeclarativeExtension.swift": (5, "an extension's manifest, and whether its page is there"),
         "KelpKit/Extensions/ExtensionReview.swift": (1, "an extension's manifest, before it's installed"),
         "KelpKit/Extensions/ExtPages.swift": (1, "an extension's own page, served to its web view"),
-        "KelpKit/Extensions/AgentSkills.swift": (5, "the skills Kelp gives agents, and which are there"),
+        "KelpKit/Extensions/AgentSkills.swift": (6, "the skills Kelp gives agents, and which are there"),
         "KelpKit/Shell/Help.swift": (1, "the guide, written to Kelp's home"),
         "KelpKit/Shell/WorkbenchActions.swift": (1, "a dropped path: a file, a folder, or nothing"),
         "KelpKit/Shell/KelpLinks.swift": (2, "a linked path: a file, a folder, or nothing"),

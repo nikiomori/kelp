@@ -37,8 +37,10 @@ struct TidyUp {
         let app = app, worktreeId = worktreeId
         Task {
             guard let prompt = await app.call(AddonsTidy(worktreeId: worktreeId, paths: paths)) else { return }
-            let create = SessionCreate(
-                worktreeId: worktreeId, agent: agent ?? app.catalog.defaultAgent, prompt: prompt, title: Self.title)
+            let create = app.workbench.sized(
+                SessionCreate(
+                    worktreeId: worktreeId, agent: agent ?? app.catalog.defaultAgent, prompt: prompt, title: Self.title)
+            )
             guard let session = await app.call(create) else { return }
             app.upsert(session)
             app.workbench.open(TabURI.session(session.id))

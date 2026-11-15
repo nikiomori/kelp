@@ -16,6 +16,15 @@ extension Workbench {
     /// What starts them for what adds a tab (a command in a terminal, an agent): a page on screen gives way to the
     /// workspace, as for `open`.
     package var starterForNewTab: SessionStarter? { area(nil)?.starter }
+    /// `create` asked at the size its terminal will have, for a session started other than by `starter` (its tab opened
+    /// by hand, hidden, in another workspace): a first screen drawn for another width leaves zsh's stray "%" line.
+    package func sized(_ create: SessionCreate, split: SplitDirection? = nil) -> SessionCreate {
+        if let starter { return starter.sized(create, split: split) }
+        var create = create
+        create.cols = terminalGrid?.cols
+        create.rows = terminalGrid?.rows
+        return create
+    }
 
     // What a built-in may do to the workspace on screen's tabs (it never gets the editor area itself).
     /// The tab with focus there, built.
@@ -391,12 +400,7 @@ extension Workbench {
     private func startChat(on id: String, cwd: String? = nil, agent: String? = nil) async {
         var chat: Session?
         if let kind = agent ?? app.catalog.startable {
-            var request = SessionCreate(cwd: cwd, worktreeId: id, agent: kind)
-            if let grid = terminalGrid {
-                request.cols = grid.cols
-                request.rows = grid.rows
-            }
-            chat = await app.call(request)
+            chat = await app.call(sized(SessionCreate(cwd: cwd, worktreeId: id, agent: kind)))
         }
         if let chat {
             app.upsert(chat)

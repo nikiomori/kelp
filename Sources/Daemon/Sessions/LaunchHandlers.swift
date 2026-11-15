@@ -316,10 +316,10 @@ extension RecipeRender: Handled {
         ]
         all.merge(vars ?? [:]) { $1 }
         if all["stagedPatch"] == nil {
-            all["stagedPatch"] = String(
-                ((try? Git.run(["diff", "--cached", "--stat"], cwd: worktree.path, remotes: workspaces.remotes)) ?? "")
-                    .prefix(
-                        4000))
+            let stat = Log.session.attempt("git diff --cached --stat for a recipe") {
+                try Git.run(["diff", "--cached", "--stat"], cwd: worktree.path, remotes: workspaces.remotes)
+            }
+            all["stagedPatch"] = String((stat ?? "").prefix(4000))
         }
         return Recipes.render(name, config: cfg, vars: all)
     }

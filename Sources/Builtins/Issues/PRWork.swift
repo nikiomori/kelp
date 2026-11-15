@@ -104,9 +104,10 @@ struct PRWork {
     private func start(_ prompt: String, in wt: Worktree, draft: Bool, title: String?) async {
         guard
             let session = await app.call(
-                SessionCreate(
-                    worktreeId: wt.id, agent: app.catalog.defaultAgent, prompt: prompt, title: title,
-                    draft: draft ? true : nil))
+                app.workbench.sized(
+                    SessionCreate(
+                        worktreeId: wt.id, agent: app.catalog.defaultAgent, prompt: prompt, title: title,
+                        draft: draft ? true : nil)))
         else { return }
         app.upsert(session)
         app.workbench.focus(session: session.id)

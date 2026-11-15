@@ -102,9 +102,10 @@ struct AccountsSettings: View {
         Task {
             guard
                 let session = await app.call(
-                    SessionCreate(
-                        worktreeId: wid, agent: profile.agent, title: String(localized: "Log in: \(profile.name)"),
-                        profile: profile.name))
+                    app.workbench.sized(
+                        SessionCreate(
+                            worktreeId: wid, agent: profile.agent, title: String(localized: "Log in: \(profile.name)"),
+                            profile: profile.name)))
             else { return }
             app.upsert(session)
             app.workbench.open(TabURI.session(session.id))

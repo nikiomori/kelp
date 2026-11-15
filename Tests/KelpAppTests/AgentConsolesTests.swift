@@ -127,6 +127,29 @@ extension OneAtATime {
     }
 }
 
+/// The clocks that move times on (a running command's on the agent's bar, the sidebar's rows) end with what they're
+/// for, not tick on for nobody.
+@MainActor @Test func aClockEndsWithItsView() {
+    _ = testHome
+    let app = AppModel(builtins: [])
+    weak var sidebarClock: Timer?, barClock: Timer?
+    autoreleasepool {
+        let sidebar = SidebarController(app: app)
+        _ = sidebar.view
+        sidebarClock = sidebar.clock
+        let bar = CommandsBar(session: "s", app: app, watch: false)
+        bar.commands = [AgentCommand(id: "c", command: "swift build")]
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered,
+            defer: true)   // never shown
+        window.isReleasedWhenClosed = false
+        window.contentView = bar   // released with the window, never taken out of it
+        barClock = bar.clock
+        #expect(sidebar.clock?.isValid == true && bar.clock?.isValid == true)
+    }
+    #expect(sidebarClock?.isValid != true && barClock?.isValid != true)
+}
+
 /// What a command last printed: the last line with anything on it, a progress line's latest state.
 @MainActor @Test func aRunsLastLineIsWhatItPrintedLast() {
     #expect(CommandsBar.lastLine("Compiling\n[1/5] a\r[2/5] b\r\n\n") == "[2/5] b")

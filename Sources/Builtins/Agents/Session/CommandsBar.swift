@@ -46,8 +46,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     private var escape: Any?
     /// The console closed from the keyboard: the keys go back to the agent.
     var onClosed: (() -> Void)?
-    /// Ticks while one runs, for its time.
-    private var clock: Timer?
+    /// Ticks while one runs, for its time; ended with the bar.
+    private(set) var clock: Timer?
     let popover = NSPopover()
     /// Rows the list shows before it scrolls, alone and over a console.
     private static let shownRows = 8, rowsOverConsole = 4
@@ -337,6 +337,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         text.split(whereSeparator: \.isNewline).lazy.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .last { !$0.isEmpty }.map { String($0.prefix(200)) }
     }
+
+    isolated deinit { clock?.invalidate() }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()

@@ -15,6 +15,8 @@ final class PromptTab: TabContent {
     let view: NSView
     private let path: String
     private var editor: CodeEditor?
+    /// The file as it was read or last found: an edit saved meanwhile (another tab of it) isn't written over unasked.
+    private var stamp: FileStamp?
     private var cancelled = false
     var title: String { String(localized: "Prompt") }
     var icon: NSImage? { .symbol("text.bubble") }
@@ -28,11 +30,12 @@ final class PromptTab: TabContent {
         Task { [weak self] in
             let read = await app.tryCall(FilesRead(path: path))
             guard let self else { return }
-            guard let text = read.value?.text else {
+            guard let read = read.value else {
                 app.workbench.closeTab(uri: uri, remember: false)
                 return
             }
-            show(text)
+            stamp = read.stamp
+            show(read.text)
         }
     }
 
@@ -66,9 +69,16 @@ final class PromptTab: TabContent {
     }
 
     /// Written before the tab goes: the agent reads the file once `kelp edit` ends.
+    /// Changed since: the tab stays and says so; closing again puts this text there.
     func close() async -> Bool {
-        if !cancelled, let text = editor?.text, await app.call(FilesWrite(path: path, text: text, base: nil)) == nil {
-            return false
+        if !cancelled, let text = editor?.text {
+            guard let written = await app.call(FilesWrite(path: path, text: text, base: stamp)) else { return false }
+            if let conflict = written.conflict {
+                stamp = conflict.stamp
+                Banner.show(
+                    String(localized: "The prompt was changed elsewhere. Close again to keep yours, or Cancel."))
+                return false
+            }
         }
         await app.call(FilesWrite(path: path + TabURI.promptDone, text: "", base: nil))
         return true

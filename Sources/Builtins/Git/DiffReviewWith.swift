@@ -43,9 +43,10 @@ extension DiffViewController {
                 let prompt = await app.call(
                     RecipeRender(id: wid, name: "reviewWith", vars: ["scope": scope, "command": command])),
                 let session = await app.call(
-                    SessionCreate(
-                        worktreeId: wid, agent: a.id, model: model, prompt: prompt,
-                        title: Self.reviewTitle(a.name)))
+                    app.workbench.sized(
+                        SessionCreate(
+                            worktreeId: wid, agent: a.id, model: model, prompt: prompt,
+                            title: Self.reviewTitle(a.name)), split: .right))
             else { return }
             app.upsert(session)
             reviewer = session.id

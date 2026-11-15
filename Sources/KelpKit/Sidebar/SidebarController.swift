@@ -49,7 +49,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     private var addTrailing = NSLayoutConstraint(), sectionsTrailing = NSLayoutConstraint()
     /// The list's frame changing (`keepOpenInView`): let go of with the sidebar.
     private var frameWatch: NSObjectProtocol?
-    isolated deinit { frameWatch.map(NotificationCenter.default.removeObserver) }
+    /// What moves the times on the rows on: ended with the sidebar.
+    private(set) var clock: Timer?
+    isolated deinit {
+        frameWatch.map(NotificationCenter.default.removeObserver)
+        clock?.invalidate()
+    }
     /// Where the built-ins' blocks go (`Contributions.sidebarSections`).
     weak var sections: NSStackView?
     /// Room at the right that is the sidebar's own: the floater's margin inside its border (8 pt); docked, 0 (the gap
@@ -313,7 +318,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             self?.updateHeaders()
         }
         // "now" becomes "1m": the times on the right move on their own (a clock: nothing is asked of the daemon).
-        Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in   // main run loop
+        clock = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in   // main run loop
             MainActor.assumeIsolated {
                 if self?.view.window?.occlusionState.contains(.visible) == true { self?.updateVisibleCells() }
             }

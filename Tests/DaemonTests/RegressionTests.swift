@@ -290,6 +290,21 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     #expect(FileManager.default.fileExists(atPath: wt.path + "/a.txt"))
 }
 
+/// One folder added several times at once (a double click, the app and `kelp` together): one project, each told it,
+/// never the store's UNIQUE error.
+@Test func aFolderAddedTwiceAtOnceIsOneProject() async throws {
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let path = try makeRepo()
+    let ids = try await withThrowingTaskGroup(of: String.self) { group in
+        for _ in 0..<8 {
+            group.addTask { try await c.call("repo.add", .obj(["path": .string(path)]), as: Repo.self).id }
+        }
+        return try await group.reduce(into: Set<String>()) { $0.insert($1) }
+    }
+    #expect(ids.count == 1)
+}
+
 /// Worktree folders never collide or leave `worktrees/`: "feat/a" and "feat-a" get two folders, a project named "../x"
 /// stays inside.
 @Test func worktreeFoldersNeitherCollideNorEscape() async throws {

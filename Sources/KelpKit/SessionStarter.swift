@@ -52,11 +52,8 @@ package struct SessionStarter {
 
     /// A new shell where `old` was, in the tab left for it; attached again when `old` was tmux's.
     func newShell(like old: Session, inTabOf uri: String) {
-        var create = SessionCreate(cwd: old.cwd, worktreeId: workspaceId, agent: "shell", tmux: Tmux.session(old.argv))
-        if let (cols, rows) = terminalSize(split: nil) {
-            create.cols = cols
-            create.rows = rows
-        }
+        let create = sized(
+            SessionCreate(cwd: old.cwd, worktreeId: workspaceId, agent: "shell", tmux: Tmux.session(old.argv)))
         let app = app, area = area
         Task {
             guard let shell = await app.call(create) else { return }
@@ -73,11 +70,7 @@ package struct SessionStarter {
     private func createSession(
         _ create: SessionCreate, split: SplitDirection?, focus: Bool = true, created: ((Session) -> Void)? = nil
     ) {
-        var create = create
-        if let (cols, rows) = terminalSize(split: split) {
-            create.cols = cols
-            create.rows = rows
-        }
+        let create = sized(create, split: split)
         let app = app
         Task {
             guard let session = await app.call(create) else { return }
@@ -85,6 +78,16 @@ package struct SessionStarter {
             created?(session)
             show(TabURI.session(session.id), split: split, focus: focus)
         }
+    }
+
+    /// `create` asked at the size its terminal will have (`split`: in a new pane beside or below).
+    func sized(_ create: SessionCreate, split: SplitDirection? = nil) -> SessionCreate {
+        var create = create
+        if let (cols, rows) = terminalSize(split: split) {
+            create.cols = cols
+            create.rows = rows
+        }
+        return create
     }
 
     /// The size the new terminal will have, so the shell's first screen isn't drawn for another width (zsh's stray "%"

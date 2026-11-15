@@ -32,7 +32,13 @@ extension RepoAdd: Handled {
         let repo = Repo(
             name: name ?? (root as NSString).lastPathComponent, path: root,
             baseBranch: Git.defaultBranch(repo: root, remotes: workspaces.remotes))
-        try workspaces.store.save(repo)
+        do {
+            try workspaces.store.save(repo)
+        } catch {
+            // Added meanwhile (two adds of one folder at once): that project, as when it was there before.
+            if let added = try workspaces.store.repos().first(where: { $0.path == root }) { return added }
+            throw error
+        }
         try workspaces.syncMainWorkspaces()
         workspaces.notify(ChangedEvent.repo)
         return repo
@@ -215,7 +221,7 @@ extension RepoWorktreeSizes: Handled {
                 path: worktree.path, bytes: Self.du(worktree.path),
                 removable: !worktree.locked && !ours.contains(Self.real(worktree.path))
                     && (try? Git.isDirty(worktree.path, remotes: workspaces.remotes)) == false
-                    && Git.commitsOnNoBranch(worktree.path, remotes: workspaces.remotes) == 0)
+                    && (try? Git.commitsOnNoBranch(worktree.path, remotes: workspaces.remotes)) == 0)
         }.sorted { $0.bytes > $1.bytes }
     }
 

@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import os
 
 /// Kelp's skills for agents, each a Claude Code plugin in ~/.kelp/agent-skills that the daemon loads per session
 /// (--plugin-dir): how to write and connect an extension and how to change settings (the shell's, made from what's
@@ -7,6 +8,9 @@ import Foundation
 /// does turning off the built-in that gives it. Nothing is written to the agent's own config.
 @MainActor
 enum AgentSkills {
+    /// What couldn't be written or removed: an agent would go on with an old skill, or none, unseen.
+    private static let log = Logger.kelp("skills")
+
     static func write(_ app: AppModel) {
         // Nothing before the extensions are loaded: most skills are theirs, and the settings guide lists their rows.
         guard !app.extensions.extensions.isEmpty else { return }
@@ -41,7 +45,8 @@ enum AgentSkills {
             guard old.hasPrefix("kelp-") || old.hasPrefix("krill-"), !given.contains(old) else { continue }
             put(old, on: false, description: "", body: "")
         }
-        try? ExtensionFiles.writeGuide(in: ExtensionRegistry.userDir)   // the guide also sits next to the user's extensions, for people
+        // The guide also sits next to the user's extensions, for people.
+        log.attempt("writing the extension guide") { try ExtensionFiles.writeGuide(in: ExtensionRegistry.userDir) }
     }
 
     /// The exact folder this Kelp loads extensions from (the guide below says ~/.kelp, which a custom KELP_HOME changes).
@@ -70,7 +75,8 @@ enum AgentSkills {
     private static func put(_ name: String, on: Bool, description: String, body: String) {
         let plugin = Paths.agentSkills.appendingPathComponent(name)
         guard on else {
-            try? FileManager.default.removeItem(at: plugin)
+            guard FileManager.default.fileExists(atPath: plugin.path) else { return }
+            log.attempt("removing the skill \(name)") { try FileManager.default.removeItem(at: plugin) }
             return
         }
         let manifest: [String: Any] = [
@@ -87,8 +93,11 @@ enum AgentSkills {
 
     private static func writeIfChanged(_ url: URL, _ text: String) {
         guard (try? String(contentsOf: url, encoding: .utf8)) != text else { return }
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? text.write(to: url, atomically: true, encoding: .utf8)
+        log.attempt("writing \(url.path.replacingOccurrences(of: Paths.agentSkills.path, with: "agent-skills"))") {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try text.write(to: url, atomically: true, encoding: .utf8)
+        }
     }
 
     /// Every setting the installed extensions declare, with how to change it.

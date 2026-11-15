@@ -19,8 +19,22 @@ import Testing
     #expect(try Git.run(["status", "--short"], cwd: a, remotes: .none).isEmpty)
     // A folder that isn't a worktree of the repo stays where it is.
     let other = tmp().path
-    #expect(throws: GitError.self) { try Git.removeWorktree(repo: repo, path: other, branch: nil, force: true, remotes: .none) }
+    #expect(throws: GitError.self) {
+        try Git.removeWorktree(repo: repo, path: other, branch: nil, force: true, remotes: .none)
+    }
     #expect(FileManager.default.fileExists(atPath: other))
+}
+
+/// Commits on no branch that git can't count (the folder isn't a repository it can read) refuse the removal rather than
+/// read as none; a worktree on a branch has none, even before its first commit.
+@Test func uncountableCommitsOnNoBranchRefuseTheRemoval() throws {
+    #expect(throws: GitError.self) {
+        try Git.checkRemovable(repo: tmp().path, path: tmp().path, branch: nil, force: true, remotes: .none)
+    }
+    let repo = try tempRepo()
+    #expect(try Git.commitsOnNoBranch(repo, remotes: .none) == 0)
+    try Git.run(["checkout", "-q", "--orphan", "unborn"], cwd: repo, remotes: .none)
+    #expect(try Git.commitsOnNoBranch(repo, remotes: .none) == 0)
 }
 
 /// A locked worktree isn't removed: neither its folder nor its record, rather than the folder in the Trash and git's
@@ -28,9 +42,12 @@ import Testing
 @Test func aLockedWorktreeStays() throws {
     let repo = try tempRepo()
     let p = try Git.addWorktree(
-        repo: repo, branch: "kept", base: "main", into: URL(fileURLWithPath: repo + "-kept"), copyFiles: [], remotes: .none)
+        repo: repo, branch: "kept", base: "main", into: URL(fileURLWithPath: repo + "-kept"), copyFiles: [],
+        remotes: .none)
     try Git.run(["worktree", "lock", p], cwd: repo, remotes: .none)
-    #expect(throws: GitError.self) { try Git.removeWorktree(repo: repo, path: p, branch: "kept", force: true, remotes: .none) }
+    #expect(throws: GitError.self) {
+        try Git.removeWorktree(repo: repo, path: p, branch: "kept", force: true, remotes: .none)
+    }
     #expect(FileManager.default.fileExists(atPath: p))
     #expect(try Git.linkedWorktrees(repo, remotes: .none).map(\.branch) == ["kept"])
 }

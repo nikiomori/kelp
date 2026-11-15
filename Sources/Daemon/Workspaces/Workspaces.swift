@@ -445,12 +445,14 @@ final class Workspaces: Sendable {
                 out.kept[path] = "An agent works in it."
                 continue
             }
-            // git removes one whose commits are on no branch (a detached HEAD): they'd be left to `git gc`.
-            if case let commits = Git.commitsOnNoBranch(path, remotes: remotes), commits > 0 {
-                out.kept[path] = "It has \(commits) commit\(commits == 1 ? "" : "s") on no branch (a detached HEAD)."
-                continue
-            }
             do {
+                // git removes one whose commits are on no branch (a detached HEAD): they'd be left to `git gc`. Not
+                // counted, it's kept too (the catch says why).
+                if case let commits = try Git.commitsOnNoBranch(path, remotes: remotes), commits > 0 {
+                    out.kept[path] =
+                        "It has \(commits) commit\(commits == 1 ? "" : "s") on no branch (a detached HEAD)."
+                    continue
+                }
                 // Kept with changes, untracked files or a lock; else the folder goes to the Trash, ignored files (.env, a
                 // local database) and all, which `git worktree remove` would delete for good. Its branch stays: below.
                 try Git.removeWorktree(repo: repo.path, path: path, branch: nil, force: false, remotes: remotes)

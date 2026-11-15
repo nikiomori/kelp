@@ -112,10 +112,11 @@ extension SourceControlController {
         Task {
             guard let prompt = await app.call(RecipeRender(id: wid, name: "commitPlan", vars: vars)),
                 let session = await app.call(
-                    SessionCreate(
-                        cwd: remote == nil ? nil : NSHomeDirectory(), worktreeId: wid, agent: a.id, model: model,
-                        prompt: prompt,
-                        title: String(localized: "Commit: \(a.name)")))
+                    app.workbench.sized(
+                        SessionCreate(
+                            cwd: remote == nil ? nil : NSHomeDirectory(), worktreeId: wid, agent: a.id, model: model,
+                            prompt: prompt,
+                            title: String(localized: "Commit: \(a.name)"))))
             else {
                 agentCommits[wid] = nil
                 return showAgentCommit(in: wid)

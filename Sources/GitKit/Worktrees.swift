@@ -300,7 +300,7 @@ extension Git {
         if let branch, !dropCommits { try checkBranchDeletable(repo: repo, branch, remotes: remotes) }
         // Commits made on a detached HEAD belong to no branch at all: removing the folder would leave them to `git gc`.
         if !dropCommits, remotes.of(path) != nil || FileManager.default.fileExists(atPath: path),
-            case let count = commitsOnNoBranch(path, remotes: remotes), count > 0
+            case let count = try commitsOnNoBranch(path, remotes: remotes), count > 0
         {
             throw GitError.refused(
                 "This workspace has \(count) commit\(count == 1 ? "" : "s") on no branch (a detached HEAD). Create a branch for them first."
@@ -341,11 +341,18 @@ extension Git {
         if let branch { try run(["branch", "-D", rev(branch)], cwd: repo, remotes: remotes) }
     }
 
-    /// Commits made on a detached HEAD in the worktree at `path` that no branch or remote has (no commits yet: 0).
-    public static func commitsOnNoBranch(_ path: String, remotes: Remotes) -> Int {
-        let out = try? line(
-            ["rev-list", "--count", "HEAD", "--not", "--branches", "--remotes"], cwd: path, remotes: remotes)
-        return Int(out ?? "") ?? 0
+    /// Commits made on a detached HEAD in the worktree at `path` that no branch or remote has (on a branch, its commits
+    /// are that branch's, even none yet: 0). Refused when git can't count them: none is not a guess to remove on.
+    public static func commitsOnNoBranch(_ path: String, remotes: Remotes) throws -> Int {
+        if succeeds(["symbolic-ref", "-q", "HEAD"], cwd: path, remotes: remotes) { return 0 }
+        do {
+            return Int(
+                try line(
+                    ["rev-list", "--count", "HEAD", "--not", "--branches", "--remotes"], cwd: path, remotes: remotes))
+                ?? 0
+        } catch {
+            throw GitError.refused("Kelp couldn't tell whether this workspace has commits on no branch: \(error)")
+        }
     }
 
     /// Whether `branch` was made with a group made at `since` and has moved since: its oldest reflog entry, its making, is

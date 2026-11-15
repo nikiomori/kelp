@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import os
 
 @testable import Core
 @testable import Daemon
@@ -40,6 +41,19 @@ private func tempRoot() throws -> URL {
 
     let exclude = try String(contentsOf: root.appendingPathComponent(".git/info/exclude"), encoding: .utf8)
     #expect(exclude == "/.kelp/artifacts/\n")
+}
+
+/// Pages with one title made at once (two `kelp artifact new "Plan"`) each get a folder of their own.
+@Test func artifactsMadeAtOnceGetAFolderEach() throws {
+    let root = try tempRoot()
+    _ = try Artifacts.create(.doc, title: "Plan", root: root.path, session: nil)   // the artifacts folder there
+    let made = OSAllocatedUnfairLock<[String]>(initialState: [])
+    DispatchQueue.concurrentPerform(iterations: 16) { _ in
+        let page = try? Artifacts.create(.doc, title: "Plan", root: root.path, session: nil)
+        made.withLock { $0.append(page?.deletingLastPathComponent().lastPathComponent ?? "failed") }
+    }
+    let folders = made.withLock { $0 }
+    #expect(Set(folders).count == 16 && !folders.contains("failed"), "\(folders.sorted())")
 }
 
 /// A design and a dashboard are canvases (their boards in boards/); slides are Markdown. Their versions keep their

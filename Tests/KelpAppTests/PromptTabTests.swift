@@ -32,6 +32,21 @@ extension AppOfItsOwn {
         #expect(try String(contentsOfFile: path, encoding: .utf8) == "long prompt\n")
         #expect(FileManager.default.fileExists(atPath: path + TabURI.promptDone))
     }
+
+    /// Saved meanwhile in another tab: closing keeps that and stays open; closing again puts this text there.
+    @Test func closingAPromptChangedElsewhereAsksFirst() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let (tab, path) = try await opened(rig, text: "draft")
+        #expect(try await waitFor(5) { !(tab.typed == nil) })
+        try "saved elsewhere\n".write(toFile: path, atomically: true, encoding: .utf8)
+        tab.type("mine\n")
+        #expect(await tab.close() == false)
+        #expect(try String(contentsOfFile: path, encoding: .utf8) == "saved elsewhere\n")
+        #expect(!FileManager.default.fileExists(atPath: path + TabURI.promptDone))
+        #expect(await tab.close())
+        #expect(try String(contentsOfFile: path, encoding: .utf8) == "mine\n")
+    }
 }
 
 extension AppOfItsOwn {

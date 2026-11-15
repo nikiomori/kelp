@@ -117,19 +117,25 @@ extension Artifacts {
         try encoder.encode(record).write(to: folder.appendingPathComponent("artifact.json"), options: .atomic)   // the panel reads it meanwhile
     }
 
-    /// `<slug>`, or `<slug>-2`… when taken; the first one also keeps the folder out of git.
+    /// `<slug>`, or `<slug>-2`… when taken; the first one also keeps the folder out of git. Each is claimed by making it,
+    /// which fails when it's there: two pages made at once never share one.
     private static func newFolder(_ title: String, root: String) throws -> URL {
         let base = dir(root: root), fm = FileManager.default
-        if !fm.fileExists(atPath: base.path) { try excludeFromGit(root: root) }
-        let stem = slug(title)
-        var name = stem, suffix = 2
-        while fm.fileExists(atPath: base.appendingPathComponent(name).path) {
-            name = "\(stem)-\(suffix)"
-            suffix += 1
+        if !fm.fileExists(atPath: base.path) {
+            try excludeFromGit(root: root)
+            try fm.createDirectory(at: base, withIntermediateDirectories: true)
         }
-        let folder = base.appendingPathComponent(name)
-        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder
+        let stem = slug(title)
+        var suffix = 1
+        while true {
+            let folder = base.appendingPathComponent(suffix == 1 ? stem : "\(stem)-\(suffix)")
+            do {
+                try fm.createDirectory(at: folder, withIntermediateDirectories: false)
+                return folder
+            } catch CocoaError.fileWriteFileExists {
+                suffix += 1
+            }
+        }
     }
 
     /// A line in the repository's own `info/exclude` (never a tracked file): git status stays clean. Removing it shares them.

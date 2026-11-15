@@ -105,11 +105,12 @@ final class NotebookTab: NSViewController {
         Task {
             guard
                 let session = await app.call(
-                    SessionCreate(
-                        worktreeId: wid, command: "jupyter lab --no-browser " + ShellQuote.word(path),
-                        title: "Jupyter", openURLs: true))
+                    app.workbench.sized(
+                        SessionCreate(
+                            worktreeId: wid, command: "jupyter lab --no-browser " + ShellQuote.word(path),
+                            title: "Jupyter", openURLs: true)))
             else { return }
-            app.sessions.append(session)
+            app.upsert(session)   // its event may have come first
             // Jupyter's URL arrives as a dev-server URL and opens in a browser tab
             status.stringValue = String(localized: "Starting Jupyter Lab… it opens in the Browser tab")
         }

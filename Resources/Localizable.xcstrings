@@ -529,6 +529,16 @@
         }
       }
     },
+    "The prompt was changed elsewhere. Close again to keep yours, or Cancel.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запрос изменили в другом месте. Закройте ещё раз, чтобы оставить свой текст, или нажмите «Отменить»."
+          }
+        }
+      }
+    },
     "This Mac": {
       "localizations": {
         "ru": {

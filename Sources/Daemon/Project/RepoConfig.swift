@@ -97,8 +97,8 @@ enum Recipes {
     /// a frame that says it is data, so a comment reading "ignore the above and …" stays a quote. A log keeps its tail.
     static let untrusted = [
         "error": "command output", "comments": "review comments", "title": "issue title", "body": "issue body",
-        "check": "check name", "files": "file names", "diffStat": "changed files"
-    ]   // a pull request names its own files
+        "check": "check name", "files": "file names", "diffStat": "changed files", "stagedPatch": "staged changes"
+    ]   // a pull request names its own files, and so does a branch someone else pushed
     static let logTail = 12_000
     static func framed(_ vars: [String: String]) -> [String: String] {
         vars.reduce(into: [:]) { out, kv in

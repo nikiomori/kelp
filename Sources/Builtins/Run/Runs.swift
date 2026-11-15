@@ -142,7 +142,9 @@ final class Runs: NSObject, NSMenuDelegate {
         Task {
             guard let cmd = await tab.command(name) else { return }
             let title = "\(name) \(tab.title)"
-            await start(wid, title, SessionCreate(worktreeId: wid, command: cmd, title: title))
+            await start(
+                wid, title,
+                app.workbench.sized(SessionCreate(worktreeId: wid, command: cmd, title: title), split: .down))
         }
     }
 
