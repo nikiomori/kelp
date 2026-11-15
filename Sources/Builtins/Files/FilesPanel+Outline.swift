@@ -16,44 +16,14 @@ extension FilesPanel {
     func outlineView(_ tree: NSOutlineView, isItemExpandable item: Any) -> Bool { (item as? FileNode)?.children != nil }
     func outlineView(_ tree: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
         guard let node = item as? FileNode else { return nil }
-        let cell = NSTableCellView()
-        let tf = NSTextField(labelWithString: node.name)
-        let img = NSImageView()
-        img.image = app.fileIcons.image(node.name, folder: node.children != nil, expanded: tree.isItemExpanded(node))
-        tf.lineBreakMode = .byTruncatingMiddle
-        // The name gives way, not its git letter.
-        tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        tf.font = .ui(TextSize.row)
-        let badge = NSTextField(labelWithString: "")
-        if let change = status[node.path] {
-            let (letter, color) = change.badge
-            badge.stringValue = letter
-            badge.textColor = color
-        } else if node.children != nil, changedFolders.contains(node.path) {
-            badge.stringValue = "●"
-            badge.textColor = .tertiaryLabelColor
-            badge.setAccessibilityLabel(String(localized: "Has changes"))
-        } else if node.ignored {
-            tf.textColor = .secondaryLabelColor
-            img.alphaValue = 0.5
-        }
-        badge.font = badge.stringValue == "●" ? .ui(7) : .ui(TextSize.micro, weight: .bold)
-        for subview in [img, tf, badge] as [NSView] {
-            subview.translatesAutoresizingMaskIntoConstraints = false
-            cell.addSubview(subview)
-        }
-        cell.textField = tf
-        cell.imageView = img
-        NSLayoutConstraint.activate([
-            img.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
-            img.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            img.widthAnchor.constraint(equalToConstant: 16), img.heightAnchor.constraint(equalToConstant: 16),
-            tf.leadingAnchor.constraint(equalTo: img.trailingAnchor, constant: 4),
-            tf.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            badge.leadingAnchor.constraint(greaterThanOrEqualTo: tf.trailingAnchor, constant: 4),
-            badge.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
-            badge.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
-        ])
+        let cell = tree.makeView(withIdentifier: FileRowCell.id, owner: nil) as? FileRowCell ?? FileRowCell()
+        let badge: (String, NSColor)? =
+            status[node.path]?.badge
+            ?? (node.children != nil && changedFolders.contains(node.path) ? ("●", .tertiaryLabelColor) : nil)
+        cell.show(
+            node.name,
+            icon: app.fileIcons.image(node.name, folder: node.children != nil, expanded: tree.isItemExpanded(node)),
+            badge: badge, dimmed: badge == nil && node.ignored)
         return cell
     }
     /// An ignored folder's files are read when it opens (node_modules can hold 100k).
@@ -81,6 +51,28 @@ extension FilesPanel {
         let row = outline.row(forItem: note.userInfo?["NSObject"])
         if row >= 0 { outline.reloadData(forRowIndexes: [row], columnIndexes: [0]) }
     }
+    /// A listing with a few files in or out: they go in where they belong and out where they were, and only those rows
+    /// move (the rest keep their cells, the folders opened, the selection and the scroll). False: the tree is to be built
+    /// again (a file became a folder).
+    func patchTree(added: [String], removed: [String]) -> Bool {
+        guard let edits = FileNode.patch(&nodes, added: added, removed: removed) else { return false }
+        // Rows into a folder on show; a closed one (or one inside one) is asked again when it opens.
+        let live = edits.map { edit in
+            edit.parent.map { outline.row(forItem: $0) >= 0 && outline.isItemExpanded($0) } ?? true
+        }
+        outline.beginUpdates()
+        for (edit, live) in zip(edits, live) where live {
+            if edit.inserted {
+                outline.insertItems(at: [edit.index], inParent: edit.parent, withAnimation: [])
+            } else {
+                outline.removeItems(at: [edit.index], inParent: edit.parent, withAnimation: [])
+            }
+        }
+        outline.endUpdates()
+        for case let (edit, false) in zip(edits, live) { outline.reloadItem(edit.parent, reloadChildren: true) }
+        return true
+    }
+
     // drag files out (to terminals = into the agent prompt, to Finder) and within the tree (move)
     func outlineView(_ tree: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
         (item as? FileNode).map { URL(fileURLWithPath: root).appendingPathComponent($0.path) as NSURL }
@@ -104,5 +96,52 @@ extension FilesPanel {
         }
         copy(urls.map(\.path), into: destDir.path, undo: String(localized: "Copy"))
         return true
+    }
+}
+
+/// A file's or folder's row: its icon, its name and git's letter (a dot on a folder holding a change). Made once; `show`
+/// sets all it shows, as the outline hands back the rows it set aside.
+final class FileRowCell: NSTableCellView {
+    static let id = NSUserInterfaceItemIdentifier("files.row")
+    private let name = NSTextField(labelWithString: ""), icon = NSImageView(), badge = NSTextField(labelWithString: "")
+
+    init() {
+        super.init(frame: .zero)
+        identifier = Self.id
+        name.lineBreakMode = .byTruncatingMiddle
+        // The name gives way, not its git letter.
+        name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        name.font = .ui(TextSize.row)
+        for subview in [icon, name, badge] as [NSView] {
+            subview.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(subview)
+        }
+        textField = name
+        imageView = icon
+        NSLayoutConstraint.activate([
+            icon.leadingAnchor.constraint(equalTo: leadingAnchor),
+            icon.centerYAnchor.constraint(equalTo: centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 16), icon.heightAnchor.constraint(equalToConstant: 16),
+            name.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 4),
+            name.centerYAnchor.constraint(equalTo: centerYAnchor),
+            badge.leadingAnchor.constraint(greaterThanOrEqualTo: name.trailingAnchor, constant: 4),
+            badge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            badge.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    /// `dimmed`: what git ignores, drawn as VS Code does.
+    func show(_ text: String, icon image: NSImage, badge mark: (String, NSColor)?, dimmed: Bool) {
+        name.stringValue = text
+        name.isEditable = false   // a row renamed in place before
+        name.textColor = dimmed ? .secondaryLabelColor : .labelColor
+        icon.image = image
+        icon.alphaValue = dimmed ? 0.5 : 1
+        let dot = mark?.0 == "●"
+        badge.stringValue = mark?.0 ?? ""
+        badge.textColor = mark?.1
+        badge.font = dot ? .ui(7) : .ui(TextSize.micro, weight: .bold)
+        badge.setAccessibilityLabel(dot ? String(localized: "Has changes") : nil)
     }
 }

@@ -34,8 +34,13 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     var status: [String: FileChange] = [:]
     /// Folders with a changed file somewhere under them (a grey dot).
     var changedFolders = Set<String>()
-    /// The paths the tree was built from (listed, ignored): an edit that adds or removes none only changes badges.
+    /// The latest listing (listed, ignored), which the name filter narrows.
     var shownPaths: ([String], [String]?)?
+    /// The listing the whole tree on show was built from, what the next one is compared with: nil while it's narrowed
+    /// or not built, and the next is built anew.
+    var treeBase: (paths: [String], ignored: [String])?
+    /// Which listing is the latest: one worked out meanwhile off the main actor gives way to it.
+    var listing = 0
     /// Those paths in lower case, for the name filter: made once per listing, not for every path on every key.
     var lowered: (of: [String], paths: [String]) = ([], [])
     /// What the open ignored folders hold, by folder: kept when the tree is built again, read again after an operation.
@@ -188,6 +193,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             nodes = []
             status = [:]
             shownPaths = nil
+            treeBase = nil
+            listing += 1
             opened = [:]
             outline.reloadData()
         }
@@ -234,23 +241,55 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
                 guard worktree?.id == current.id else { return }
                 opened[folder] = entries   // gone: nil drops it
             }
-            shownPaths = nil
-            listed(
-                FilesEvent(
-                    worktree: current.id, paths: result.value, ignored: await app.quiet(FilesIgnored(id: current.id)),
-                    error: result.error))
+            treeBase = nil   // the open ignored folders were read again: the tree is built with them
+            let event = FilesEvent(
+                worktree: current.id, paths: result.value, ignored: await app.quiet(FilesIgnored(id: current.id)),
+                error: result.error)
+            await listed(event)?.value
             done?()
         }
     }
 
-    /// The workspace's files as listed (pushed, or read after an operation): the tree, or why there's none.
-    private func listed(_ event: FilesEvent?) {
+    /// The workspace's files as listed (pushed, or read after an operation): the tree, or why there's none. How it
+    /// changed is worked out off the main actor; a few files in or out go where they belong, more build it again.
+    @discardableResult
+    func listed(_ event: FilesEvent?) -> Task<Void, Never>? {
         // Another workspace's (switched meanwhile), or a rename in place, which a reload would end (it reads after).
-        guard let event, event.worktree == worktree?.id, renaming == nil else { return }
+        guard let event, event.worktree == worktree?.id, renaming == nil else { return nil }
         showLoadError(event.error)
-        // an agent saving a file changes its badge, not the tree
-        guard let paths = event.paths, shownPaths.map({ $0 != paths || $1 != event.ignored }) ?? true else { return }
+        guard let paths = event.paths else { return nil }
+        let ignored = event.ignored ?? []
+        let same = isNarrowed && shownPaths.map { $0 == paths && $1 == event.ignored } == true
         shownPaths = (paths, event.ignored)
+        listing += 1
+        guard !isNarrowed else {
+            if !same { showTree(treeShown(paths, ignored: ignored), base: nil) }   // a few thousand rows at most
+            return nil
+        }
+        let ticket = listing, was = treeBase, opened = opened
+        return Task {
+            let update = await Task.detached {
+                FileNode.update(was: was, paths: paths, ignored: ignored, opened: opened)
+            }.value
+            guard ticket == listing, renaming == nil, worktree?.id == event.worktree else { return }
+            switch update {
+            case .same: break   // an agent saving a file changes its badge, not the tree
+            case .tree(let tree): showTree(tree, base: (paths, ignored))
+            case .patch(let added, let removed):
+                let places = outline.rowPlaces(rowKey)
+                showFadedRows()
+                guard patchTree(added: added, removed: removed) else {
+                    treeBase = nil   // a file became a folder: built anew
+                    return await listed(event)?.value ?? ()
+                }
+                treeBase = (paths, ignored)
+                settled(places)
+            }
+        }
+    }
+
+    /// A tree built anew: the folders that were open open again, the selection stays on its file.
+    func showTree(_ tree: [FileNode], base: (paths: [String], ignored: [String])?) {
         let expanded = Set(
             (0..<outline.numberOfRows).compactMap {
                 (outline.item(atRow: $0) as? FileNode).flatMap { outline.isItemExpanded($0) ? $0.path : nil }
@@ -258,11 +297,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         let selected = (outline.item(atRow: outline.selectedRow) as? FileNode)?.path
         let places = outline.rowPlaces(rowKey)
         showFadedRows()
-        nodes = treeShown(paths, ignored: event.ignored ?? [])
-        // outer first
-        for folder in opened.keys.sorted(by: { $0.count < $1.count }) {
-            FileNode.find(folder, in: nodes).map { if $0.ignored { $0.read(opened[folder] ?? []) } }
-        }
+        nodes = tree
+        treeBase = base
+        if base == nil { FileNode.open(opened, in: nodes) }   // a whole tree had them read off the main actor
         outline.reloadData()
         @MainActor func expand(_ ns: [FileNode]) {
             for node in ns where node.children != nil && expanded.contains(node.path) {
@@ -275,6 +312,11 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         if let selected, let found = node(at: selected) {
             outline.selectRowIndexes([outline.row(forItem: found)], byExtendingSelection: false)
         }
+        settled(places)
+    }
+
+    /// After the tree changed: the rows that stayed travel from `places`, and Quick Look follows.
+    private func settled(_ places: [String: NSPoint]) {
         outline.settleRows(from: places, rowKey)
         if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
             QLPreviewPanel.shared().reloadData()

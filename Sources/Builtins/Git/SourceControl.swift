@@ -17,15 +17,34 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         case merge = "Merge Changes", staged = "Staged Changes", changes = "Changes", graph = "Graph"
     }
 
+    /// A row, kept across rebuilds by its key (a section, a path, a hash): the outline keeps its place and its cell.
     final class Node: NSObject {
         enum Kind {
             case section(Section), file(FileChange, Section), commit(Int), commitFile(String, FileChange), note(String)
         }
-        let kind: Kind
+        /// What a file's or commit's row shows: a rebuild draws again only the rows whose look changed.
+        enum Look: Equatable {
+            case file(FileChange, shared: [String], commit: Int?)
+            case commit(GraphCommit, head: Bool, pushed: Bool?, lands: Double?, arrives: Double?)
+            case commitFile(FileChange, lanes: [Int])
+        }
+        var kind: Kind
+        var look: Look?
         var children: [Node] = []
         var files: [FileChange] = []   // a section's, also while it's folded
         init(_ k: Kind) { kind = k }
     }
+    /// The rows of the last rebuild, by key (`Node`).
+    var changeNodes: [String: Node] = [:], graphNodes: [String: Node] = [:]
+    /// What each workspace showed when another one came on screen: switching back shows it at once, and git is read
+    /// again only where the status the daemon pushes says it changed (`apply`). `info` is what its graph was read for.
+    var seen: [String: Seen] = [:]
+    struct Seen {
+        var changes: [FileChange], info: BranchInfo?, commits: [GraphCommit], unpushed: Set<String>, more: Bool,
+            limit: Int
+    }
+    /// The branches the graph on show was read for.
+    var graphInfo: BranchInfo?
 
     let outline = NSOutlineView()
     let graphOutline = NSOutlineView()

@@ -35,5 +35,7 @@ extension FilesPanel {
         outline.indentationPerLevel = 12
     }
 
-    func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { ListRowView() }
+    func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? {
+        outlineView.listRowView()
+    }
 }

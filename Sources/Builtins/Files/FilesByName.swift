@@ -56,7 +56,9 @@ extension FilesPanel {
 
     func narrowTree() {
         guard let (paths, ignored) = shownPaths else { return }
+        listing += 1   // a listing being worked out was for the tree as it was
         nodes = treeShown(paths, ignored: ignored ?? [])
+        treeBase = isNarrowed ? nil : (paths, ignored ?? [])
         outline.reloadData()
         if isNarrowed { outline.expandItem(nil, expandChildren: true) }
     }

@@ -8,16 +8,23 @@ import KelpKit
 extension SourceControlController {
     func bind(_ wid: String?) {
         guard wid != worktreeId else { return }
-        if let old = worktreeId { drafts[old] = message.string.isEmpty ? nil : message.string }
+        if let old = worktreeId {
+            drafts[old] = message.string.isEmpty ? nil : message.string
+            seen[old] = Seen(
+                changes: changes, info: graphInfo, commits: commits, unpushed: unpushed, more: more, limit: limit)
+        }
         worktreeId = wid
         showNoProject(wid == nil)
-        changes = []
-        info = nil
-        commits = []
-        unpushed = []
+        let back = wid.flatMap { seen[$0] }
+        changes = back?.changes ?? []
+        info = back?.info
+        graphInfo = back?.info
+        commits = back?.commits ?? []
+        unpushed = back?.unpushed ?? []
+        more = back?.more ?? false
+        limit = back?.limit ?? 200
         commitFiles = [:]
         openCommits = []
-        limit = 200
         ciRuns = []
         ciRow.show([], failure: nil)
         message.string = wid.flatMap { drafts[$0] } ?? ""
@@ -27,6 +34,7 @@ extension SourceControlController {
         confirmed = nil
         commitButton?.work = .none
         showWork()
+        updateHeader()
         rebuild()
         followWatches()
         apply(app.latest(GitEvent.self, gitKey ?? ""))
@@ -58,6 +66,7 @@ extension SourceControlController {
             changes = []
             info = nil
             commits = []
+            graphInfo = nil
             showError(error)
             updateHeader()
             rebuild()
@@ -158,10 +167,12 @@ extension SourceControlController {
 
     func loadGraph() async {
         guard let wid = worktreeId else { return }
+        let asked = info
         // Quiet: git failing shows in the panel from the status read before this; a graph that failed alone keeps the last one.
         let graph = await app.quiet(GitGraph(id: wid, limit: limit), timeout: 60)
         guard wid == worktreeId else { return }
         if let graph {
+            graphInfo = asked
             let list = graph.commits, known = Set(commits.map(\.hash))
             noteArrivals(list, known: known)
             commits = list

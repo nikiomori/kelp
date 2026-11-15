@@ -78,19 +78,23 @@ extension AppOfItsOwn {
         rig.app.land(FilesEvent(worktree: wid, paths: ["a.txt", "b.txt"], ignored: []))
         #expect(try await waitFor(5) { panel.outline.numberOfRows == 2 })
         try await steady(panel.outline)
-        let a = cell(panel.outline, 0), b = cell(panel.outline, 1)
+        // A row's git letter: a row is drawn again in the cell it had (cells are used again), so it's read, not compared.
+        @MainActor func letter(_ row: Int) -> String {
+            let fields = cell(panel.outline, row)?.subviews.compactMap { $0 as? NSTextField } ?? []
+            return fields.last?.stringValue ?? ""
+        }
+        let b = cell(panel.outline, 1)
         rig.app.land(GitEvent(worktree: wid, changes: [FileChange(path: "a.txt", index: ".", worktree: "M")]))
-        #expect(try await waitFor(5) { cell(panel.outline, 0) !== a })
-        #expect(cell(panel.outline, 1) === b)   // its badge didn't change
+        #expect(try await waitFor(5) { letter(0) == "M" })
+        #expect(cell(panel.outline, 1) === b && letter(1).isEmpty)   // its badge didn't change: not drawn again
 
         try await steady(panel.outline)
-        let shown = (cell(panel.outline, 0), cell(panel.outline, 1))
         panel.view.isHidden = true
         rig.app.land(GitEvent(worktree: wid, changes: [FileChange(path: "b.txt", index: ".", worktree: "M")]))
         try await settle()
-        #expect(cell(panel.outline, 0) === shown.0 && cell(panel.outline, 1) === shown.1)
+        #expect(letter(0) == "M" && letter(1).isEmpty)   // hidden: nothing drawn
         panel.view.isHidden = false
-        #expect(cell(panel.outline, 0) !== shown.0 && cell(panel.outline, 1) !== shown.1)
+        #expect(letter(0).isEmpty && letter(1) == "M")
     }
 
     @Test func activityRedrawsOnlyFiguresThatShowAChange() async throws {

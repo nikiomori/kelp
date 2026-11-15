@@ -184,6 +184,77 @@ extension AppOfItsOwn {
     }
 }
 
+/// A file an agent adds goes into the tree where it belongs: the folders around it are the same nodes, still open, the
+/// rows already there keep their cells and the selection stays. Building the whole tree again for each push took tens
+/// of milliseconds per change in a big repository, on the main thread.
+extension AppOfItsOwn {
+    @Test func aFileAddedGoesIntoTheTreeAsItIs() async throws {
+        let rig = try await AppRig(files: ["top.txt": "t\n"])
+        defer { rig.done() }
+        try FileManager.default.createDirectory(atPath: rig.repo + "/sub", withIntermediateDirectories: true)
+        try rig.write("sub/a.txt", "a\n")
+        let panel = FilesPanel(app: rig.app)
+        rig.show(panel, 300, 500)
+        panel.viewWillAppear()
+        @MainActor func row(_ path: String) -> Int? {
+            (0..<panel.outline.numberOfRows).first { (panel.outline.item(atRow: $0) as? FileNode)?.path == path }
+        }
+        #expect(try await waitFor(4) { !(row("sub") == nil) })
+        let subRow = try #require(row("sub"))
+        let sub = try #require(panel.outline.item(atRow: subRow) as? FileNode)
+        panel.outline.expandItem(sub)
+        let top = try #require(row("top.txt"))
+        panel.outline.selectRowIndexes([top], byExtendingSelection: false)
+        panel.view.window?.layoutIfNeeded()   // the rows on show have their cells
+        let cell = panel.outline.view(atColumn: 0, row: top, makeIfNecessary: true)
+        try rig.write("sub/b.txt", "b\n")
+        #expect(try await waitFor(5) { !(row("sub/b.txt") == nil) })
+        #expect(row("sub").map { panel.outline.item(atRow: $0) as? FileNode } == sub)
+        #expect(panel.outline.isItemExpanded(sub) && row("sub/b.txt") == (row("sub/a.txt") ?? 0) + 1)
+        #expect(panel.outline.selectedRow == row("top.txt"))
+        #expect(row("top.txt").flatMap { panel.outline.view(atColumn: 0, row: $0, makeIfNecessary: false) } === cell)
+        // Worked out off the main actor: the listing isn't in the tree when `listed` returns, it is once that's done.
+        let shown = try #require(panel.shownPaths)
+        let task = panel.listed(FilesEvent(worktree: rig.workspace.id, paths: shown.0 + ["z.txt"], ignored: shown.1))
+        #expect(task != nil && row("z.txt") == nil)
+        await task?.value
+        #expect(row("z.txt") != nil)
+        panel.viewDidDisappear()
+    }
+}
+
+/// A few paths in or out patch the tree in order, each where its folder sorts it, and say which rows moved; a file
+/// that became a folder, or a listing changed as a whole, builds it again.
+@Test func aListingPatchesTheTreeOrBuildsItAgain() throws {
+    var nodes = FileNode.tree(["src/b.swift", "src/d.swift", "old/x.txt", "README"])
+    let src = try #require(nodes.first { $0.name == "src" })
+    let edits = try #require(
+        FileNode.patch(&nodes, added: ["src/c.swift", "new/y.txt"], removed: ["old/x.txt"]))
+    #expect(nodes.map(\.name) == ["new", "src", "README"] && nodes[1] === src)
+    #expect(src.children?.map(\.name) == ["b.swift", "c.swift", "d.swift"])
+    #expect(
+        edits.map { "\($0.parent?.name ?? "/") \($0.index) \($0.inserted)" } == [
+            "old 0 false", "/ 0 false",   // the file, then its folder left empty
+            "src 1 true", "/ 0 true"   // a new folder comes in with its file in it
+        ])
+    #expect(FileNode.patch(&nodes, added: ["README/z"], removed: []) == nil && nodes.count == 3)
+    func kind(_ update: TreeUpdate) -> String {
+        switch update {
+        case .same: "same"
+        case .patch(let added, let removed): "patch +\(added) -\(removed)"
+        case .tree: "tree"
+        }
+    }
+    let paths = ["a", "b"], many = (0...FileNode.mostPatched).map { "f\($0)" }
+    #expect(kind(FileNode.update(was: (paths, []), paths: paths, ignored: [], opened: [:])) == "same")
+    #expect(
+        kind(FileNode.update(was: (paths, []), paths: ["b", "c"], ignored: [], opened: [:]))
+            == "patch +[\"c\"] -[\"a\"]")
+    #expect(kind(FileNode.update(was: (paths, []), paths: many, ignored: [], opened: [:])) == "tree")   // a checkout
+    #expect(kind(FileNode.update(was: (paths, []), paths: ["b", "c"], ignored: ["x/"], opened: [:])) == "tree")
+    #expect(kind(FileNode.update(was: nil, paths: paths, ignored: [], opened: [:])) == "tree")
+}
+
 @MainActor @Test func problemsListTheProjectsErrorsFirst() {
     let warning = CodeProblem(line: 1, column: 0, endLine: 1, endColumn: 1, isError: false, message: "unused")
     let error = CodeProblem(line: 9, column: 0, endLine: 9, endColumn: 1, isError: true, message: "wrong")

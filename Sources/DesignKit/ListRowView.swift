@@ -94,6 +94,7 @@ public final class ListRowView: NSTableRowView {
     }
     override public func prepareForReuse() {
         super.prepareForReuse()
+        alphaValue = 1   // a row faded on its way out, set aside before it came back
         setHovering(false)
     }
     private func recheckPointer() {
@@ -157,6 +158,18 @@ public final class ListRowView: NSTableRowView {
         shape.size.height = (card.last ? bounds.height - Self.cardPad + 4 : bounds.height + 2 * r) - shape.minY
         card.fill.setFill()
         NSBezierPath(roundedRect: shape, xRadius: r, yRadius: r).fill()
+    }
+}
+
+extension NSTableView {
+    private static let listRowId = NSUserInterfaceItemIdentifier("list.row")
+    /// A plain `ListRowView` for `rowViewForRow`: one the table set aside when its row went, else a new one. A new one
+    /// per row made each row scrolled in (and each reload) a view and a scroll watch.
+    public func listRowView() -> ListRowView {
+        if let row = makeView(withIdentifier: Self.listRowId, owner: nil) as? ListRowView { return row }
+        let row = ListRowView()
+        row.identifier = Self.listRowId
+        return row
     }
 }
 

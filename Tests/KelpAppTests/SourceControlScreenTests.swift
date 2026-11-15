@@ -81,6 +81,83 @@ extension AppOfItsOwn {
         #expect(vc.message.string == "half a message" && !vc.busy)
     }
 
+    /// A status or graph read again keeps its rows: a file still changed keeps its node and its cell (one new cell per
+    /// row on every change of the list was what the profile showed), and the graph's cells come back after a reload.
+    @Test func sourceControlRowsAndCellsOutliveARebuild() async throws {
+        let rig = try await AppRig(files: ["kept.txt": "a\n"])
+        defer { rig.done() }
+        try rig.write("kept.txt", "b\n")
+        let vc = SourceControlController(app: rig.app)
+        rig.show(vc, 320, 700)
+        vc.followWatches()
+        let outline = try #require(outlines(in: vc.view).first), graph = try #require(outlines(in: vc.view).last)
+        @MainActor func row(_ path: String) -> Int? {
+            (0..<outline.numberOfRows).first {
+                (outline.view(atColumn: 0, row: $0, makeIfNecessary: true) as? FileCell)?.path == path
+            }
+        }
+        #expect(try await waitFor(5) { !(row("kept.txt") == nil || graph.numberOfRows < 1) })
+        let kept = try #require(row("kept.txt"))
+        let node = outline.item(atRow: kept) as AnyObject?,
+            cell = outline.view(atColumn: 0, row: kept, makeIfNecessary: false)
+        let commit = graph.view(atColumn: 0, row: 0, makeIfNecessary: true)
+        vc.rebuild()
+        #expect(outline.view(atColumn: 0, row: kept, makeIfNecessary: false) === cell)
+        #expect(graph.view(atColumn: 0, row: 0, makeIfNecessary: false) === commit)
+        try rig.write("new.txt", "n\n")
+        vc.reloadAll()
+        #expect(try await waitFor(5) { !(row("new.txt") == nil) })
+        #expect(outline.item(atRow: try #require(row("kept.txt"))) as AnyObject? === node)
+    }
+
+    /// Scrolling the graph shows each commit in a cell set aside by one that scrolled away, not in a new one.
+    @Test func theGraphsCellsAreUsedAgainAsItScrolls() async throws {
+        let rig = try await AppRig(files: ["kept.txt": "a\n"])
+        defer { rig.done() }
+        for i in 0..<60 {
+            try rig.write("kept.txt", "\(i)\n")
+            try rig.git("commit", "-qam", "c\(i)")
+        }
+        let vc = SourceControlController(app: rig.app)
+        vc.collapsed = []   // open, whatever another test left in the defaults
+        rig.show(vc, 320, 500)
+        vc.followWatches()
+        let graph = try #require(outlines(in: vc.view).last)
+        #expect(try await waitFor(5) { !(graph.numberOfRows < 61) })
+        vc.graphHeight?.constant = 200   // a height of its own: one dragged in another test is a default too
+        vc.graphHeight?.isActive = true
+        vc.view.layoutSubtreeIfNeeded()
+        var cells = Set<ObjectIdentifier>()
+        for row in stride(from: 0, to: graph.numberOfRows, by: 4) {
+            graph.scrollRowToVisible(row)
+            graph.layoutSubtreeIfNeeded()
+            graph.enumerateAvailableRowViews { rowView, _ in
+                if let cell = rowView.view(atColumn: 0) as? CommitCell { cells.insert(ObjectIdentifier(cell)) }
+            }
+        }
+        let shown = graph.rows(in: graph.visibleRect).length
+        #expect(
+            shown > 0 && shown < 40 && cells.count < shown + 20,
+            "\(cells.count) cells for \(shown) rows on show; graph \(graph.visibleRect)")
+    }
+
+    /// Back on a workspace seen before, its changes and graph show at once, before git is read again: switching used
+    /// to read the whole graph each time.
+    @Test func aWorkspaceShownAgainShowsItsGraphAtOnce() async throws {
+        let rig = try await AppRig(files: ["kept.txt": "a\n"])
+        defer { rig.done() }
+        let vc = SourceControlController(app: rig.app), here = rig.workspace.id
+        rig.show(vc, 320, 700)
+        vc.followWatches()
+        #expect(try await waitFor(5) { !vc.commits.isEmpty })
+        vc.bind("another")
+        #expect(vc.commits.isEmpty)
+        vc.bind(here)
+        #expect(vc.commits.count == 1 && vc.info?.current == "main")
+        let graph = try #require(outlines(in: vc.view).last)
+        #expect(graph.numberOfRows == 1)
+    }
+
     /// A push started anywhere (the window bar's popover, a command) is the panel's too: it shows, and no second one
     /// starts beside it, from the panel or from anywhere else. Staging meanwhile doesn't end it.
     @Test func oneSyncRunsPerBranchWhoeverStartedIt() async throws {

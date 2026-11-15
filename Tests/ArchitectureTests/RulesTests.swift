@@ -7,7 +7,8 @@ import Testing
 /// safe, and a new one is added here with its own, or it fails. One that goes comes off the list.
 @Test func uncheckedSendablesSayWhatGuardsThem() throws {
     let guarded: [String: String] = [
-        "Sources/Core/System/FileWatcher.swift: FileWatcher": "an FSEventStream, started here and stopped on its own queue",
+        "Sources/Core/System/FileWatcher.swift: FileWatcher":
+            "an FSEventStream, started here and stopped on its own queue",
         "Sources/LSPKit/LSPClient.swift: LSPClient": "Process and Pipe; what changes is under `state`'s lock",
         "Sources/Daemon/Daemon.swift: Running": "the sources, set up and cancelled under `running`'s lock",
         "Sources/Daemon/Sessions/Live/PTY.swift: PTY":
@@ -15,7 +16,9 @@ import Testing
         "Sources/EditorKit/SyntaxHighlighter.swift: Worker":
             "the parser and its tree: the main thread's for a short text, `queue`'s alone once long",
         "Sources/EditorKit/SyntaxHighlighter.swift: Text": "an immutable copy of the text, or read under `queue.sync`",
-        "Sources/EditorKit/Folding.swift: Folds": "the main thread only: the layout manager asks for glyphs there"
+        "Sources/EditorKit/Folding.swift: Folds": "the main thread only: the layout manager asks for glyphs there",
+        "Sources/Builtins/Files/FileNode.swift: FileNode":
+            "a tree built off the main actor (`FileNode.update`) and handed over whole: read and changed on main only"
     ]
     let declaration = try NSRegularExpression(
         pattern: #"\b(?:class|struct|enum|actor|extension)\s+(\w+)\b[^{\n]*@unchecked\s+Sendable"#)

@@ -4,8 +4,19 @@ import Core
 import DesignKit
 import KelpKit
 
+/// A commit's row in the graph. Its views are made once; `show` sets all it shows, as the outline hands a row set aside
+/// when it scrolled away for the commit scrolling in.
 final class CommitCell: NSTableCellView, Hoverable {
-    private let subject: NSTextField, up = NSImageView()
+    static let id = NSUserInterfaceItemIdentifier("scm.commit")
+    private let subject = NSTextField(labelWithString: ""), up = NSImageView(), graph = GraphView()
+    /// A breaking change ("feat!:"): a red "!" before the words.
+    private let bang = NSTextField(labelWithString: "!"), mark = NSImageView()
+    private let scope = NSTextField(labelWithString: ""), date = NSTextField(labelWithString: "")
+    private let row = NSStackView()
+    private var badges: [NSView] = [], refs: [String]?
+    private var graphWidth: NSLayoutConstraint?
+    /// Which `show` is on: a landing or arrival timed for the commit it showed before doesn't play on the next one.
+    private var shown = 0
     /// The pointer came onto or left the row: the commit's card follows it.
     var onHover: ((Bool) -> Void)?
     func setHover(_ on: Bool) { onHover?(on) }
@@ -13,8 +24,6 @@ final class CommitCell: NSTableCellView, Hoverable {
     /// The commit's line; its branch or tag leads it, right after its dot.
     static var lineHeight: CGFloat { TextSize.of(Metrics.row) }
 
-    /// `pushed` is nil without a remote; a commit not pushed yet has an arrow before its time.
-    /// A commit that just reached the remote (`landsAfter`) starts as it was and lands after that many seconds.
     /// The scope, while the row can spare it: in a narrow panel the subject keeps the room.
     private var scopeLabel: NSTextField?
     override func layout() {
@@ -23,89 +32,116 @@ final class CommitCell: NSTableCellView, Hoverable {
     }
 
     /// A commit's row, for following it across a rebuild.
-    let commitHash: String
-    init(
-        _ c: GraphCommit, graphWidth: CGFloat, isHead: Bool, pushed: Bool?, landsAfter delay: Double? = nil,
-        arrivesAfter arrival: Double? = nil
-    ) {
-        let parsedSubject = CommitSubject(c.subject)
-        subject = NSTextField(labelWithString: parsedSubject.text)
-        commitHash = c.hash
+    private(set) var commitHash = ""
+    init() {
         super.init(frame: .zero)
-        if let arrival, !Motion.reduced {
-            alphaValue = 0
-            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.settle + arrival) { [weak self] in self?.arrive() }
-        }
-        let unpushed = pushed == false
-        let graph = GraphView()
-        graph.commit = c
-        graph.isHead = isHead
+        identifier = Self.id
         graph.translatesAutoresizingMaskIntoConstraints = false
         addSubview(graph)
-        subject.font = .ui(TextSize.row, weight: isHead ? .semibold : .regular)
         subject.textColor = .labelColor
         subject.lineBreakMode = .byTruncatingTail
         subject.setContentCompressionResistancePriority(.init(200), for: .horizontal)
-        // A breaking change ("feat!:"): a red "!" before the words.
-        let bang = parsedSubject.breaking ? NSTextField(labelWithString: "!") : nil
-        bang?.font = .ui(TextSize.row, weight: .semibold)
-        bang?.textColor = .textRed
-        bang?.setAccessibilityLabel(String(localized: "Breaking change"))
-        let mark = Self.mark(parsedSubject, merge: c.parents.count > 1).map { typeMark in
-            let markView = NSImageView(
-                image: .symbol(typeMark.symbol, parsedSubject.type ?? String(localized: "Merge commit")))
-            // One colour in the list, so the subjects lead; the card under the pointer shows the type's own.
-            markView.symbolConfiguration = .chrome(Metrics.iconSmall)
-            markView.contentTintColor = .secondaryLabelColor
-            markView.widthAnchor.constraint(equalToConstant: 13).isActive = true
-            return markView
-        }
-        let scope = NSTextField(labelWithString: parsedSubject.scope ?? "")
+        bang.font = .ui(TextSize.row, weight: .semibold)
+        bang.textColor = .textRed
+        bang.setAccessibilityLabel(String(localized: "Breaking change"))
+        // One colour in the list, so the subjects lead; the card under the pointer shows the type's own.
+        mark.symbolConfiguration = .chrome(Metrics.iconSmall)
+        mark.contentTintColor = .secondaryLabelColor
+        mark.widthAnchor.constraint(equalToConstant: 13).isActive = true
         scope.font = .ui(TextSize.caption)
         scope.textColor = .secondaryLabelColor
         scope.lineBreakMode = .byTruncatingTail
         scope.setContentCompressionResistancePriority(.init(250), for: .horizontal)
         scope.widthAnchor.constraint(lessThanOrEqualToConstant: TextSize.of(80)).isActive = true
-        let date = NSTextField(labelWithString: Self.relative(c.date))
         date.font = .uiDigits(TextSize.caption)
         date.textColor = .secondaryLabelColor
         // Not on the remote yet: an arrow before the time, as in GitHub Desktop.
-        let notPushed = String(localized: "Not pushed yet")
-        up.image = .symbol("arrow.up", notPushed)
+        up.image = .symbol("arrow.up", String(localized: "Not pushed yet"))
         up.symbolConfiguration = .chrome(Metrics.iconTiny)
         up.contentTintColor = .secondaryLabelColor
-        up.toolTip = notPushed
-        up.isHidden = !unpushed && delay == nil
-        if let delay {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.settle + delay) { [weak self] in self?.land() }
-        }
-        // A row with a branch or tag leaves out the scope: the badge says where the commit is, the words keep their room.
-        let badges = Self.badges(c.refs)
-        scope.isHidden = !badges.isEmpty
-        scopeLabel = badges.isEmpty ? scope : nil
-        let row = NSStackView(views: badges + [mark, bang, subject].compactMap { $0 } + [NSView(), scope, up, date])
+        up.toolTip = String(localized: "Not pushed yet")
+        for view in [mark, bang, subject, NSView(), scope, up, date] { row.addArrangedSubview(view) }
         row.spacing = Metrics.gap
         row.alignment = .centerY
-        if let bang { row.setCustomSpacing(2, after: bang) }
+        row.setCustomSpacing(2, after: bang)
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
+        let width = graph.widthAnchor.constraint(equalToConstant: 0)
+        graphWidth = width
         NSLayoutConstraint.activate([
             graph.leadingAnchor.constraint(equalTo: leadingAnchor, constant: GraphView.leading),
             graph.topAnchor.constraint(equalTo: topAnchor),
-            graph.bottomAnchor.constraint(equalTo: bottomAnchor),
-            graph.widthAnchor.constraint(equalToConstant: graphWidth),
+            graph.bottomAnchor.constraint(equalTo: bottomAnchor), width,
             row.leadingAnchor.constraint(equalTo: graph.trailingAnchor, constant: 2),
             row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             row.topAnchor.constraint(equalTo: topAnchor), row.heightAnchor.constraint(equalToConstant: Self.lineHeight)
         ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    /// `pushed` is nil without a remote; a commit not pushed yet has an arrow before its time.
+    /// A commit that just reached the remote (`landsAfter`) starts as it was and lands after that many seconds.
+    func show(
+        _ c: GraphCommit, graphWidth width: CGFloat, isHead: Bool, pushed: Bool?, landsAfter delay: Double? = nil,
+        arrivesAfter arrival: Double? = nil
+    ) {
+        shown += 1
+        let ticket = shown, parsedSubject = CommitSubject(c.subject), unpushed = pushed == false
+        commitHash = c.hash
+        settle()
+        if let arrival, !Motion.reduced {
+            alphaValue = 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.settle + arrival) { [weak self] in
+                if self?.shown == ticket { self?.arrive() }
+            }
+        }
+        graph.commit = c
+        graph.isHead = isHead
+        graph.needsDisplay = true
+        graphWidth?.constant = width
+        subject.stringValue = parsedSubject.text
+        subject.font = .ui(TextSize.row, weight: isHead ? .semibold : .regular)
+        bang.isHidden = !parsedSubject.breaking
+        let typeMark = Self.mark(parsedSubject, merge: c.parents.count > 1)
+        mark.image = typeMark.map { .symbol($0.symbol, parsedSubject.type ?? String(localized: "Merge commit")) }
+        mark.isHidden = typeMark == nil
+        scope.stringValue = parsedSubject.scope ?? ""
+        date.stringValue = Self.relative(c.date)
+        up.isHidden = !unpushed && delay == nil
+        if let delay {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.settle + delay) { [weak self] in
+                if self?.shown == ticket { self?.land() }
+            }
+        }
+        showBadges(c.refs)
         // The card (CommitCard) shows all this to the pointer; VoiceOver reads it here.
         let when = Date(timeIntervalSince1970: c.date).formatted(date: .abbreviated, time: .shortened)
         setAccessibilityHelp(
             "\(c.subject)\n\n\(c.author) · \(when)\n\(c.hash.prefix(10))"
                 + (c.refs.isEmpty ? "" : "\n" + c.refs.joined(separator: ", "))
-                + (unpushed ? "\n" + notPushed : ""))
+                + (unpushed ? "\n" + String(localized: "Not pushed yet") : ""))
     }
-    required init?(coder: NSCoder) { fatalError() }
+
+    /// What the commit it showed before was doing stops: its arrival, its arrow's landing or pulse.
+    private func settle() {
+        alphaValue = 1
+        layer?.removeAllAnimations()
+        up.removeAllSymbolEffects()
+        up.layer?.removeAnimation(forKey: "land")
+        up.alphaValue = 1
+    }
+
+    /// A row with a branch or tag leaves out the scope: the badge says where the commit is, the words keep their room.
+    private func showBadges(_ refs: [String]) {
+        if refs != self.refs {
+            self.refs = refs
+            badges.forEach { $0.removeFromSuperview() }
+            badges = Self.badges(refs)
+            for (index, badge) in badges.enumerated() { row.insertArrangedSubview(badge, at: index) }
+        }
+        scopeLabel = badges.isEmpty ? scope : nil
+        scope.isHidden = !badges.isEmpty || bounds.width < TextSize.of(340)
+    }
 
     /// New in the graph: it comes in from above its place, where new commits come from.
     private func arrive() {
