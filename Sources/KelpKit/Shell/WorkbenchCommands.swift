@@ -23,6 +23,13 @@ extension Builtins {
                 app.workbench.window?.toggleInspectorPanel()
             },
             cmd("workbench.toggleFocusMode", "Focus Mode", "ctrl+cmd+z") { app.workbench.window?.toggleFocusMode() },
+            // The screen you're on, into a window of its own; its close button puts it back.
+            CommandSpec(
+                id: "workbench.ownWindow", title: "Open in Own Window",
+                enabled: { app.workbench.workspaceId != nil && !app.workbench.inOwnWindow(app.workbench.workspaceId) }
+            ) { _ in
+                if let id = app.workbench.workspaceId { app.workbench.moveToOwnWindow(id) }
+            },
             CommandSpec(id: "workbench.showPanel", title: "Show Panel") { args in
                 if let panel = args["panel"]?.string { app.workbench.window?.showInspector(panel: panel) }
             },

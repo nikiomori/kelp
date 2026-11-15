@@ -10,7 +10,7 @@ extension Workbench {
     package var editedFiles: [SavableTab] { window?.editors.editedFiles ?? [] }
     /// The editor area with the keyboard: the workspace on screen's.
     /// Nil while a page is on screen: what acts on tabs waits until a workspace is back.
-    var editor: EditorArea? { page == nil ? window?.editors.current : nil }
+    var editor: EditorArea? { page == nil || inOwnWindow(workspaceId) ? window?.editors.current : nil }
     /// What starts agents and terminals in the workspace on screen; nil with none (or a page) on screen.
     package var starter: SessionStarter? { editor?.starter }
     /// What starts them for what adds a tab (a command in a terminal, an agent): a page on screen gives way to the
@@ -49,14 +49,15 @@ extension Workbench {
     package func show(workspace id: String) { show(workspace: id, remember: true) }
 
     private func show(workspace id: String, remember: Bool) {
-        guard workspaceId != id || page != nil || window?.editors.current == nil else { return }
+        let own = inOwnWindow(id)
+        guard workspaceId != id || page != nil && !own || window?.editors.current?.workspaceId != id else { return }
         let left = workspaceId
-        page = nil
+        if !own { page = nil }
         workspaceId = id
-        if let left, left != id { WorkspaceActions(app).left(left) }
         noteShown()
         if remember { history.visit(id) }
         window?.showWorkspace(id)
+        if let left, left != id, !isOnScreen(left) { WorkspaceActions(app).left(left) }
     }
 
     /// A page in place of the workspace (`page`).
@@ -140,7 +141,7 @@ extension Workbench {
 
     /// No notification for an agent whose tab the user is looking at.
     func isViewing(session id: String) -> Bool {
-        window?.window?.isKeyWindow == true && editor?.layout.focusedGroup?.selectedTab?.uri == TabURI.session(id)
+        activeWindow?.isKeyWindow == true && editor?.layout.focusedGroup?.selectedTab?.uri == TabURI.session(id)
     }
 
     /// Workspaces in sidebar order (⌃1–9, ⌃⌘↑ / ↓).

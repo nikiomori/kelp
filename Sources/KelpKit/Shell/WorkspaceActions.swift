@@ -254,7 +254,7 @@ package struct WorkspaceActions {
     /// what to open next and goes when the screen moves on (`left`). One on a branch with work of its own stays, and says
     /// so: nothing there is decided by closing a tab. `ended`: that tab's session, still on its way out.
     func closeEmpty(_ id: String, ended: String?) {
-        guard app.workbench.workspaceId != id else { return }
+        guard !app.workbench.isOnScreen(id) else { return }
         // Its children end with it, a moment later: they have no tab, and nothing would come back to close this.
         var ending = Set([ended].compactMap { $0 })
         while case let more = Set(app.sessions.filter { $0.parent.map(ending.contains) == true }.map(\.id)).subtracting(

@@ -419,6 +419,16 @@
         }
       }
     },
+    "Open in Own Window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в отдельном окне"
+          }
+        }
+      }
+    },
     "Output": {
       "localizations": {
         "ru": {

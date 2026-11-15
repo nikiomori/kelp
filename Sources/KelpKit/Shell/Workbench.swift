@@ -21,10 +21,12 @@ package final class Workbench {
     package internal(set) var inFocusMode = false
 
     // What an extension may ask of the window (it never gets the window itself).
-    /// Brings the main window to the front, as after a sheet or a settings change made elsewhere.
-    package func bringToFront() { window?.window?.makeKeyAndOrderFront(nil) }
-    /// The main window's content: where a menu with no button to open under shows (near its top).
-    package var windowContent: NSView? { window?.window?.contentView }
+    /// Brings the workspace on screen's window to the front, as after a sheet or a settings change made elsewhere.
+    package func bringToFront() { activeWindow?.makeKeyAndOrderFront(nil) }
+    /// That window's content: where a menu with no button to open under shows (near its top).
+    package var windowContent: NSView? { activeWindow?.contentView }
+    /// The window the workspace on screen is in: a group's own window, else the main window. Sheets hang off it.
+    var activeWindow: NSWindow? { window?.editors.ownWindow(workspaceId) ?? window?.window }
     /// Shows an inspector panel by its id ("files", "ci"…).
     package func showPanel(_ id: String) { window?.showInspector(panel: id) }
     /// The panel that shows `role`, whichever built-in's it is; none on, nothing happens.
@@ -37,6 +39,8 @@ package final class Workbench {
     package var panelBeside: String? { inspectorDocked ? inspectorPanel : nil }
     /// The inspector is in its column beside the editors, not hidden or only peeking over them (the window says so).
     var inspectorDocked = false
+    /// The workspace the main window shows; `workspaceId` differs while a group's own window has the keys.
+    var mainWorkspaceId: String?
     package var workspaceId: String? {
         didSet {
             app.uiState["workbench.lastWorkspace"] = workspaceId.map(JSONValue.string)

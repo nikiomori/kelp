@@ -124,7 +124,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         created.delegate = self
         if created.frame.origin == .zero { created.center() }
         track {
-            app.worktree(app.workbench.workspaceId)
+            app.worktree(app.workbench.mainWorkspaceId)
         } changed: { [weak self] _ in
             self?.updateTitle()
         }
@@ -195,7 +195,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func updateTitle() {
-        let worktree = app.worktree(app.workbench.workspaceId)
+        let worktree = app.worktree(app.workbench.mainWorkspaceId)
         window?.title = app.groupName(worktree) ?? app.projectName(worktree?.repoId) ?? String(localized: "Kelp")
         editors.current?.showEdited()   // a workspace with unsaved files keeps saying so after a switch
     }
@@ -441,6 +441,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             place()
         }
     }
+
+    func windowDidBecomeKey(_ notification: Notification) { app.workbench.mainWindowBecameKey() }
 
     /// Closing the window quits (the daemon keeps agents running) — through the unsaved-files question; Cancel keeps it.
     func windowShouldClose(_ sender: NSWindow) -> Bool {

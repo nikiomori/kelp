@@ -204,6 +204,18 @@ import WorkbenchKit
     #expect(recent == ["g", "a", "b", "c"] && gone == ["d", "e"])
 }
 
+/// A group's own window first opens on the largest display the main window isn't on; with one display, beside the main
+/// window rather than exactly over it, and never past the display's edges.
+@MainActor @Test func aGroupsOwnWindowOpensOnAnotherDisplay() {
+    let laptop = NSRect(x: 0, y: 0, width: 1512, height: 944), studio = NSRect(x: 1512, y: 0, width: 2560, height: 1415)
+    let other = WorkspaceWindow.frame(NSSize(width: 1100, height: 760), screens: [laptop, studio], avoiding: laptop)
+    #expect(studio.contains(other) && other.midX == studio.midX)
+    let alone = WorkspaceWindow.frame(NSSize(width: 1100, height: 760), screens: [laptop], avoiding: laptop)
+    #expect(laptop.contains(alone) && alone.midX != laptop.midX)
+    let big = WorkspaceWindow.frame(NSSize(width: 3000, height: 2000), screens: [laptop], avoiding: laptop)
+    #expect(laptop.contains(big))
+}
+
 /// Agents Side by Side is in the title bar only with two agents or more that would tile: not a terminal, a run, an ended
 /// or paused one, nor another workspace's.
 @MainActor @Test func sideBySideCountsTheAgentsThatWouldTile() {

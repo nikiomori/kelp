@@ -86,6 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // The first run's Welcome, not the No Project screen, when there's nothing to go back to.
             let first = app.worktrees.first { !$0.archived && !NoProject.holds(app.repo($0.repoId)) }
             if let workspace = pick ?? last ?? first { app.workbench.show(workspace: workspace.id) }
+            app.workbench.reopenOwnWindows()
             await UnsavedBackups.reopen(app, in: app.workbench.editors)
             app.updates.sayInstalled()
             let early = pendingOpens ?? []

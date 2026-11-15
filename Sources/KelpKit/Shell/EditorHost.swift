@@ -17,8 +17,18 @@ final class EditorHost: NSViewController {
     /// The editor area (or the welcome) is in this card, under the window bar, which lies over this view's top.
     private let card = Card()
     private var areas: [String: EditorArea] = [:]
+    /// The main window's areas, latest first; one in a window of its own isn't counted (it stays loaded).
     private var recent: [String] = []
+    /// The area with the keyboard: the main window's, or a group's in a window of its own.
     private(set) var current: EditorArea?
+    /// The area the main window's card shows.
+    private(set) var mainArea: EditorArea? {
+        didSet { app.workbench.mainWorkspaceId = mainArea?.workspaceId }
+    }
+    /// Groups in windows of their own (`WorkspaceWindow`).
+    private var own: [String: WorkspaceWindow] = [:]
+    func ownWindow(_ id: String?) -> NSWindow? { id.flatMap { own[$0]?.window } }
+    var ownWindowIds: [String] { Array(own.keys) }
     /// A workspace's editor area while it's loaded (shown lately), on screen or not.
     func area(_ id: String) -> EditorArea? { areas[id] }
     var editedFiles: [SavableTab] { areas.values.flatMap(\.editedFiles) }
@@ -75,30 +85,44 @@ final class EditorHost: NSViewController {
         held = []
     }
 
+    /// `id` gets the keyboard: a group in a window of its own comes to the front there, any other goes into the main
+    /// window's card (and the main window to the front, if a group's own window had the keys).
     func show(_ id: String?) {
+        if let id, let window = own[id], let area = areas[id] {
+            current = area
+            window.showWindow(nil)
+            area.focusSelected()
+            return
+        }
+        let wasOwn = current != nil && current !== mainArea
+        showInMain(id)
+        current = mainArea
+        if wasOwn { view.window?.makeKeyAndOrderFront(nil) }
+    }
+
+    private func showInMain(_ id: String?) {
         if let previous = page {   // back from a page: it goes (it reads its server only while it's there)
             previous.view.removeFromSuperview()
             page = nil
-            if let shown = current, shown.workspaceId == id {
+            if let shown = mainArea, shown.workspaceId == id {
                 card.pin(shown.view)
                 shown.focusSelected()
                 return
             }
         }
-        if let shown = current, shown.workspaceId == id { return }
-        current?.view.removeFromSuperview()
+        if let shown = mainArea, shown.workspaceId == id {
+            shown.focusSelected()
+            return
+        }
+        mainArea?.view.removeFromSuperview()
         guard let id, app.worktree(id) != nil else {
-            current = nil
+            mainArea = nil
             showWelcome()
             return
         }
         welcome?.removeFromSuperview()
         welcome = nil
-        let area = areas[id] ?? EditorArea(app: app, workspaceId: id)
-        if areas[id] == nil {
-            areas[id] = area
-            addChild(area)
-        }
+        let area = loaded(id)
         recent.removeAll { $0 == id }
         recent.insert(id, at: 0)
         // Their terminals detach.
@@ -108,11 +132,49 @@ final class EditorHost: NSViewController {
             areas[old]?.removeFromParent()
             areas[old] = nil
         }
-        current = area
+        mainArea = area
         card.pin(area.view)
         area.reconcile()
         area.focusSelected()
     }
+
+    private func loaded(_ id: String) -> EditorArea {
+        if let area = areas[id] { return area }
+        let area = EditorArea(app: app, workspaceId: id)
+        areas[id] = area
+        addChild(area)
+        return area
+    }
+
+    /// `id` into a window of its own, with the keys; the main window shows `next` if it showed `id`.
+    func moveToOwnWindow(_ id: String, next: String?) {
+        guard own[id] == nil, app.worktree(id) != nil else { return }
+        let area = loaded(id)
+        recent.removeAll { $0 == id }
+        if mainArea === area {
+            area.view.removeFromSuperview()
+            mainArea = nil
+            showInMain(next)
+        }
+        let window = WorkspaceWindow(app: app, area: area, beside: view.window)
+        own[id] = window
+        current = area
+        area.reconcile()
+        window.showWindow(nil)
+        area.focusSelected()
+    }
+
+    /// `id`'s own window closes; its area stays loaded, for the main window to show.
+    func leaveOwnWindow(_ id: String) {
+        guard let window = own.removeValue(forKey: id) else { return }
+        areas[id]?.view.removeFromSuperview()
+        recent.insert(id, at: 0)
+        if current?.workspaceId == id { current = mainArea }
+        window.close()
+    }
+
+    /// A window got the keys: its area is the one they go to (nil: the main window's).
+    func becameKey(_ id: String?) { current = id.flatMap { own[$0] != nil ? areas[$0] : nil } ?? mainArea }
 
     /// What `showPage` shows in place of the workspace's area, which stays loaded behind it.
     private var page: TabContent?
@@ -121,7 +183,8 @@ final class EditorHost: NSViewController {
     func showPage(_ uri: String) -> TabContent? {
         guard let made = app.extensions.tabProvider(for: uri)?.make(uri) else { return nil }
         page?.view.removeFromSuperview()
-        current?.view.removeFromSuperview()
+        mainArea?.view.removeFromSuperview()
+        current = mainArea
         welcome?.removeFromSuperview()
         welcome = nil
         page = made
@@ -217,6 +280,7 @@ final class EditorHost: NSViewController {
     private func refresh() {
         for (id, area) in areas where app.worktree(id) == nil {
             area.view.removeFromSuperview()
+            own.removeValue(forKey: id)?.close()
             areas[id] = nil
             app.workbench.layouts.forget(id)
             recent.removeAll { $0 == id }
@@ -234,9 +298,11 @@ final class EditorHost: NSViewController {
                 area.removeFromParent()
             }
         }
-        if let shown = current, areas[shown.workspaceId] == nil { current = nil }
-        current?.reconcile()   // the others reconcile when shown
-        if current == nil, page == nil { showWelcome() }
+        if let shown = mainArea, areas[shown.workspaceId] == nil { mainArea = nil }
+        if let shown = current, areas[shown.workspaceId] == nil { current = mainArea }
+        // The others reconcile when shown.
+        ([mainArea] + own.keys.map { areas[$0] }).forEach { $0?.reconcile() }
+        if mainArea == nil, page == nil { showWelcome() }
     }
 
     private func showWelcome() {

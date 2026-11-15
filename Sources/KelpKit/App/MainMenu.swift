@@ -249,6 +249,7 @@ extension AppDelegate {
         let win = b.sub("Window")
         win.addItem(withTitle: "Minimize", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m")
         win.addItem(withTitle: "Zoom", action: #selector(NSWindow.zoom(_:)), keyEquivalent: "")
+        b.add(win, "workbench.ownWindow")
         win.addItem(.separator())
         b.add(win, "agents.nextNeedingYou", "agents.usage", "workbench.scratch", "workspace.switch")
         let back = win.add(String(localized: "Previous Screen"), key: "\t") {
