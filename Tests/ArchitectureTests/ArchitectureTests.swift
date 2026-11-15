@@ -321,7 +321,7 @@ func codeOnly(_ s: String) -> String {
     let over400 = sources(["Sources"]).filter { f in
         f.text.split(separator: "\n", omittingEmptySubsequences: false).count > 400
     }.count
-    #expect(over400 == 29, "files over 400 lines: \(over400); fewer now: lower the count")
+    #expect(over400 == 25, "files over 400 lines: \(over400); fewer now: lower the count")
 }
 
 /// The daemon starts every program (an extension's command, a formatter, a notebook run, an agent's --version:
@@ -732,7 +732,8 @@ func codeOnly(_ s: String) -> String {
         "KelpKit/Model/AgentIcons.swift": (4, "agents' icons, cached in Kelp's home"),
         "KelpKit/Model/AppModel.swift": (1, "whether the projects' folders are there, off the main thread"),
         "KelpKit/Model/DaemonLink.swift": (2, "why kelpd didn't start, in Kelp's home; the bundled kelpd's date"),
-        "KelpKit/DevAids/DevAids.swift": (3, "snapshots for tests"),
+        "KelpKit/DevAids/DevAids.swift": (1, "snapshots for tests"),
+        "KelpKit/DevAids/DevAids+Snapshot.swift": (2, "snapshots for tests"),
         "KelpKit/Sheets/CloneSheet.swift": (2, "whether the folder new projects go in is there"),
         "KelpKit/Settings/IconTheme.swift": (2, "an icon theme an extension brings"),
         "KelpKit/Settings/ExtensionsSettings.swift": (1, "an extension's own folder"),
