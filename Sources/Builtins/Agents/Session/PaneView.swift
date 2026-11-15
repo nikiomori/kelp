@@ -20,7 +20,7 @@ final class PaneView: NSView {
     private lazy var closeButton = NSButton(
         title: String(localized: "Close"), target: self, action: #selector(closeTapped))
     private let endedSlot = NSView()
-    private lazy var endedHeight = endedSlot.heightAnchor.constraint(equalToConstant: 0)
+    private(set) lazy var endedHeight = endedSlot.heightAnchor.constraint(equalToConstant: 0)
     private var endedLeaving = false
     /// Under the terminal: what an agent's shell tool ran.
     private let commands: CommandsBar
@@ -184,7 +184,8 @@ final class PaneView: NSView {
             reattach(session)
         }
         let paused = !attached && session?.status == .paused
-        let stopped = !embedded && (!attached || session?.status == .exited)
+        // Let go of while hidden is no stop: the ended bar would greet the tab shown again, then fade.
+        let stopped = !embedded && (!attached && !released || session?.status == .exited)
         if stopped, endedLeaving {   // back while it was going
             endedLeaving = false
             endedBar.animator().alphaValue = 1
@@ -228,6 +229,7 @@ final class PaneView: NSView {
         findBar = nil   // it searched the old terminal
         ghostty?.removeFromSuperview()
         attached = true
+        released = false
         attachedTo = app.connections
         buildTerminal(s)
         if focused { focus() }
@@ -238,26 +240,38 @@ final class PaneView: NSView {
         settle(shown: true)
         offScreen?.cancel()
         offScreen = nil
-        let minutes = app.settings[SettingKeys.hibernateMinutes]
-        guard window == nil, minutes > 0 else { return }
+        guard window == nil else { return }
+        let wait = Self.offScreenWait(hibernateMinutes: app.settings[SettingKeys.hibernateMinutes])
         offScreen = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(minutes * 60))
+            try? await Task.sleep(for: .seconds(wait))
             if !Task.isCancelled { self?.letGo() }
         }
     }
 
-    private var offScreen: Task<Void, Never>?
+    private(set) var offScreen: Task<Void, Never>?
 
-    /// Out of sight as long as an idle agent takes to pause: its terminal goes, and `kelp attach` with it. An attached
-    /// session counts as watched and never pauses, and a tab once shown stays built while it's in the layout. Shown
-    /// again, it attaches anew (`settle`): one history replay, or a wake if its agent was paused meanwhile.
-    private func letGo() {
+    /// How long a terminal out of sight keeps its surface (~50 MB of GPU memory each: a few hidden tabs add up).
+    static let releaseAfter: TimeInterval = 5 * 60
+    /// `releaseAfter`, or sooner when idle agents pause sooner: the daemon pauses only one nobody is attached to.
+    static func offScreenWait(hibernateMinutes: Double) -> TimeInterval {
+        hibernateMinutes > 0 ? min(releaseAfter, hibernateMinutes * 60) : releaseAfter
+    }
+
+    /// Let go of while out of sight (`letGo`): not stopped, only not drawn. Shown again, it attaches anew.
+    private(set) var released = false
+
+    /// Out of sight a while (`offScreenWait`): its terminal goes, and `kelp attach` with it, while the session runs on in
+    /// the daemon. The release pauses nothing; with nobody attached an idle agent may pause (Pause idle agents, the
+    /// daemon's). A tab in any window (a group's own window too, minimised or not) is never let go of. Shown again, it
+    /// attaches anew (`settle`): one history replay, or a wake if its agent was paused meanwhile.
+    func letGo() {
         guard window == nil, attached else { return }
         findBar?.removeFromSuperview()
         findBar = nil
         ghostty?.removeFromSuperview()
         ghostty = nil
         attached = false
+        released = true
     }
 
     /// A link ⌘-clicked in the terminal: local pages open as a browser tab, the rest in the default browser; ⌥ swaps

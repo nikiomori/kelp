@@ -140,7 +140,10 @@ public final class GhosttyRuntime {
     /// at 3 Nord's red, 3.06:1 by the book, came out white, and errors looked like any other text.
     /// Limit: Ghostty holds text against the background times its opacity, so a light terminal counts as grey: at 50%,
     /// colours over 0.14 luminance go black. A light theme that's see-through picks its palette for it (Frost does).
-    private static let defaults = "minimum-contrast = 2.9\n"
+    /// Scrollback: 4 MB per terminal (bytes, the visible screen included; Ghostty's default is 10 MB, grown lazily). A
+    /// replayed agent history fills it, and every open terminal holds its own. Here, not in `overrides`: the user's own
+    /// Ghostty config may set another.
+    private static let defaults = "minimum-contrast = 2.9\nscrollback-limit = 4000000\n"
 
     // App shortcuts (⌘T, ⌘D, ⌘W…) belong to Kelp; Ghostty keeps only terminal ones. Text size too: Ghostty's would change
     // one terminal, Kelp's commands change them all and the editor.
