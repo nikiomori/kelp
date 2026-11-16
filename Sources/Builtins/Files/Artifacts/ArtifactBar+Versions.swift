@@ -1,0 +1,90 @@
+import AppKit
+import Core
+import DesignKit
+import KelpKit
+
+/// A page's kept versions in its bar: back and forward through them, one shown in the preview and restored, the
+/// menu that lists them, and the version a doc's changes are counted from.
+extension ArtifactBar {
+    /// A doc's changes count from the version its agent's last turn started from: the one before the last kept, or
+    /// the last while a turn is writing the file (it differs from it).
+    func followBaseline(versions: [ArtifactVersion], live: Bool) {
+        let n = (live ? versions.last : versions.dropLast().last)?.n
+        guard n != baselineN else { return }
+        baselineN = n
+        guard let n else { return markdown.baseline = nil }
+        Task {
+            let file = await app.quiet(FilesRead(path: Artifacts.versionPath(target: path, n)))
+            if baselineN == n { markdown.baseline = file?.text }
+        }
+    }
+
+    func step(_ by: Int) {
+        let index = (shown ?? entries.count - 1) + by
+        guard entries.indices.contains(index) else { return }
+        show(index == entries.count - 1 ? nil : index)
+    }
+
+    /// Entry `i` in the preview (nil: the file as it is).
+    func show(_ index: Int?) {
+        guard let index, let version = entries[index].version else {
+            shownN = nil
+            markdown.showVersion(nil)
+            return update()
+        }
+        Task {
+            guard let file = await app.call(FilesRead(path: Artifacts.versionPath(target: path, version.n))) else {
+                return
+            }
+            shownN = version.n
+            markdown.showVersion(file.text)
+            update()
+        }
+    }
+
+    func restoreShown() {
+        guard let text = markdown.shownVersion else { return }
+        markdown.restore(text)
+        show(nil)
+    }
+
+    func showVersions() {
+        let menu = NSMenu()
+        for (index, entry) in entries.enumerated().reversed() {
+            let when = [
+                Self.time(entry.at),
+                entry.version == nil && index == entries.count - 1 && !status.stringValue.isEmpty && shown == nil
+                    ? String(localized: "now writing") : nil
+            ].compactMap { $0 }.joined(separator: " · ")
+            let item = menu.add("\(index + 1)  \(entry.label)") { [weak self] in
+                self?.show(index == (self?.entries.count ?? 0) - 1 ? nil : index)
+            }
+            item.state = index == (shown ?? entries.count - 1) ? .on : .off
+            item.toolTip = when
+            item.attributedTitle = Self.menuTitle("\(index + 1)  \(entry.label)", when)
+        }
+        menu.addItem(.separator())
+        menu.addItem(
+            withTitle: String(localized: "Kelp keeps the last \(Artifacts.keptVersions) turns"), action: nil,
+            keyEquivalent: ""
+        ).isEnabled = false
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: count.bounds.height + 4), in: count)
+    }
+
+    static func time(_ seconds: Double?) -> String {
+        guard let seconds else { return "" }
+        let date = Date(timeIntervalSince1970: seconds)
+        return Calendar.current.isDateInToday(date)
+            ? date.formatted(date: .omitted, time: .shortened) : date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    static func menuTitle(_ title: String, _ detail: String) -> NSAttributedString {
+        let text = NSMutableAttributedString(string: title, attributes: [.font: NSFont.menuFont(ofSize: 0)])
+        guard !detail.isEmpty else { return text }
+        text.append(
+            NSAttributedString(
+                string: "\n" + detail,
+                attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor]))
+        return text
+    }
+}

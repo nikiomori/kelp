@@ -9,16 +9,20 @@ import KelpKit
 @MainActor
 final class ArtifactBar: NSObject {
     /// A version to show: a kept one, or the file as it is (nil).
-    private struct Entry { var version: ArtifactVersion?, label: String, at: Double? }
+    struct Entry {
+        var version: ArtifactVersion?
+        var label: String
+        var at: Double?
+    }
 
-    private let app: AppModel, path: String
-    private unowned let markdown: MarkdownTab   // which holds this bar
+    let app: AppModel, path: String
+    unowned let markdown: MarkdownTab   // which holds this bar
     private let watched: Watched
     private let workspace: String?
     /// `path` without symlinks, as the daemon lists it.
     private let real: String
     private let kind = NSTextField(labelWithString: "")
-    private let status = NSTextField(labelWithString: "")
+    let status = NSTextField(labelWithString: "")
     private let ring = NSProgressIndicator()
     private lazy var back = IconButton(.symbol("chevron.left"), tip: String(localized: "Older Version")) {
         [weak self] in self?.step(-1)
@@ -26,7 +30,7 @@ final class ArtifactBar: NSObject {
     private lazy var forward = IconButton(.symbol("chevron.right"), tip: String(localized: "Newer Version")) {
         [weak self] in self?.step(1)
     }
-    private let count = PointerButton()
+    let count = PointerButton()
     private let latest = TextButton(String(localized: "Show Latest"))
     private let restore = TextButton(String(localized: "Restore"))
     private let author = TextButton("")
@@ -47,7 +51,7 @@ final class ArtifactBar: NSObject {
     private let fresh = NSTextField(labelWithString: "")
     private let refresh = TextButton(String(localized: "Update"))
     /// The kept version a doc's changes are counted from.
-    private var baselineN: Int?
+    var baselineN: Int?
     private var issues: [String] = []
     /// A canvas's time as the list last said: its boards' and the design system's latest change.
     private var canvasTime: Double?
@@ -58,11 +62,11 @@ final class ArtifactBar: NSObject {
     /// Its own record, read when the list doesn't have it; and its kind, from either.
     private var recorded: ArtifactRecord?
     private(set) var pageKind: Artifacts.Kind?
-    private var entries: [Entry] = []
+    var entries: [Entry] = []
     /// What's on screen: a version's number, which a new version or one dropped doesn't move; nil for the file as it is.
-    private var shownN: Int?
+    var shownN: Int?
     /// Where that version is in `entries` now.
-    private var shown: Int? { shownN.flatMap { number in entries.firstIndex { $0.version?.n == number } } }
+    var shown: Int? { shownN.flatMap { number in entries.firstIndex { $0.version?.n == number } } }
 
     private(set) lazy var view: NSView = {
         kind.font = .ui(TextSize.row, weight: .medium)
@@ -200,7 +204,7 @@ final class ArtifactBar: NSObject {
                 || Artifacts.olderFiles.contains(String(rest[1])))
     }
 
-    private func update() {
+    func update() {
         item = app.latest(ArtifactsEvent.self, workspace ?? "")?.items.first {
             (Paths.real($0.target) ?? $0.target) == real
         }
@@ -278,71 +282,6 @@ final class ArtifactBar: NSObject {
             fresh.isHidden = false
             fresh.stringValue = String(localized: "Data from \(Self.time(time))")
         }
-    }
-
-    /// A doc's changes count from the version its agent's last turn started from: the one before the last kept, or
-    /// the last while a turn is writing the file (it differs from it).
-    private func followBaseline(versions: [ArtifactVersion], live: Bool) {
-        let n = (live ? versions.last : versions.dropLast().last)?.n
-        guard n != baselineN else { return }
-        baselineN = n
-        guard let n else { return markdown.baseline = nil }
-        Task {
-            let file = await app.quiet(FilesRead(path: Artifacts.versionPath(target: path, n)))
-            if baselineN == n { markdown.baseline = file?.text }
-        }
-    }
-
-    private func step(_ by: Int) {
-        let index = (shown ?? entries.count - 1) + by
-        guard entries.indices.contains(index) else { return }
-        show(index == entries.count - 1 ? nil : index)
-    }
-
-    /// Entry `i` in the preview (nil: the file as it is).
-    private func show(_ index: Int?) {
-        guard let index, let version = entries[index].version else {
-            shownN = nil
-            markdown.showVersion(nil)
-            return update()
-        }
-        Task {
-            guard let file = await app.call(FilesRead(path: Artifacts.versionPath(target: path, version.n))) else {
-                return
-            }
-            shownN = version.n
-            markdown.showVersion(file.text)
-            update()
-        }
-    }
-
-    private func restoreShown() {
-        guard let text = markdown.shownVersion else { return }
-        markdown.restore(text)
-        show(nil)
-    }
-
-    private func showVersions() {
-        let menu = NSMenu()
-        for (index, entry) in entries.enumerated().reversed() {
-            let when = [
-                Self.time(entry.at),
-                entry.version == nil && index == entries.count - 1 && !status.stringValue.isEmpty && shown == nil
-                    ? String(localized: "now writing") : nil
-            ].compactMap { $0 }.joined(separator: " · ")
-            let item = menu.add("\(index + 1)  \(entry.label)") { [weak self] in
-                self?.show(index == (self?.entries.count ?? 0) - 1 ? nil : index)
-            }
-            item.state = index == (shown ?? entries.count - 1) ? .on : .off
-            item.toolTip = when
-            item.attributedTitle = Self.menuTitle("\(index + 1)  \(entry.label)", when)
-        }
-        menu.addItem(.separator())
-        menu.addItem(
-            withTitle: String(localized: "Kelp keeps the last \(Artifacts.keptVersions) turns"), action: nil,
-            keyEquivalent: ""
-        ).isEnabled = false
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: count.bounds.height + 4), in: count)
     }
 
     private func show(check found: [String]) {
@@ -433,21 +372,4 @@ final class ArtifactBar: NSObject {
     }
 
     private func goToChat() { if let id = item?.session { app.workbench.focus(session: id) } }
-
-    private static func time(_ seconds: Double?) -> String {
-        guard let seconds else { return "" }
-        let date = Date(timeIntervalSince1970: seconds)
-        return Calendar.current.isDateInToday(date)
-            ? date.formatted(date: .omitted, time: .shortened) : date.formatted(date: .abbreviated, time: .shortened)
-    }
-
-    private static func menuTitle(_ title: String, _ detail: String) -> NSAttributedString {
-        let text = NSMutableAttributedString(string: title, attributes: [.font: NSFont.menuFont(ofSize: 0)])
-        guard !detail.isEmpty else { return text }
-        text.append(
-            NSAttributedString(
-                string: "\n" + detail,
-                attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor]))
-        return text
-    }
 }
