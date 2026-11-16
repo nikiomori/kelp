@@ -27,9 +27,9 @@ import Testing
     let table: [(Caller, any Answered, Bool, String)] = [
         (.session(mine.id), WorktreeRemove(id: elsewhere.id), false, "it doesn't remove another's workspace"),
         (.session(mine.id), WorktreeArchive(id: elsewhere.id), false, "nor archive it"),
-        (.session(mine.id), GitRemoteOp(id: elsewhere.id, op: "fetch"), false, "nor fetch there"),
-        (.session(mine.id), GitRemoteOp(id: wt.id, op: "fetch"), true, "in its own it fetches"),
-        (.session(mine.id), GitRemoteOp(id: wt.id, op: "push"), false, "but never pushes"),
+        (.session(mine.id), GitRemoteOp(id: elsewhere.id, op: .fetch), false, "nor fetch there"),
+        (.session(mine.id), GitRemoteOp(id: wt.id, op: .fetch), true, "in its own it fetches"),
+        (.session(mine.id), GitRemoteOp(id: wt.id, op: .push), false, "but never pushes"),
         (typed, SessionMarkRead(id: theirs.id), false, "nor marks read what the user started"),
         (typed, SessionResize(id: term.id, cols: 80, rows: 24), true, "its terminal's size it may set"),
         (

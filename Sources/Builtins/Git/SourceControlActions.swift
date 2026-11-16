@@ -22,7 +22,7 @@ extension SourceControlController {
 
     /// Pull, push or fetch (`ops` one after another), through `GitSync` like the window bar's: the branch chip shows it,
     /// and one runs at a time. `done`: what the button says after; nil, nothing unless it failed.
-    func remote(_ ops: [String], done: String?, title: String? = nil) {
+    func remote(_ ops: [GitRemoteOp.Step], done: String?, title: String? = nil) {
         guard let wid = worktreeId, !busy else {   // the menu's Pull and Push too: a second one would race the first
             NSSound.beep()
             return
@@ -31,9 +31,9 @@ extension SourceControlController {
             let error = await GitSync.run(app, wid, ops, title: title)
             if let error {
                 // A rejected push or a pull that stopped on conflicts is work for the agent; other failures just say why.
-                if ops == ["push"] {
+                if ops == [.push] {
                     GitFix(app).offer(error, recipe: "fixPush", worktree: wid)
-                } else if ops.contains("pull"), error.lowercased().contains("conflict") {
+                } else if ops.contains(.pull), error.lowercased().contains("conflict") {
                     GitFix(app).offer(
                         error, recipe: "resolveConflicts", worktree: wid,
                         vars: [
@@ -184,11 +184,11 @@ extension SourceControlController {
     @objc func sync() {
         guard let info, !busy else { return }
         if info.upstream == nil {
-            remote(["push"], done: String(localized: "Published \(info.current ?? "HEAD")"))
+            remote([.push], done: String(localized: "Published \(info.current ?? "HEAD")"))
             return
         }
         guard let wid = worktreeId else { return }
-        let ops = (info.ahead ?? 0) > 0 ? ["pull", "push"] : ["pull"]
+        let ops: [GitRemoteOp.Step] = (info.ahead ?? 0) > 0 ? [.pull, .push] : [.pull]
         Task {
             let error = await GitSync.run(app, wid, ops, title: String(localized: "Syncing…"))
             if let error { Banner.show(error, style: .error) }
@@ -197,15 +197,15 @@ extension SourceControlController {
         }
     }
 
-    func pullPressed() { remote(["pull"], done: String(localized: "Pulled")) }
-    func fetchPressed() { remote(["fetch"], done: nil) }
+    func pullPressed() { remote([.pull], done: String(localized: "Pulled")) }
+    func fetchPressed() { remote([.fetch], done: nil) }
     /// Push, or publish a branch with no upstream.
     func pushPressed() {
         if info?.upstream == nil {
             sync()
             return
         }
-        remote(["push"], done: String(localized: "Pushed"))
+        remote([.push], done: String(localized: "Pushed"))
     }
 
     @objc func branchMenu() {
@@ -248,7 +248,7 @@ extension SourceControlController {
             self?.pullPressed()
         }
         menu.add(String(localized: "Push")) { [weak self] in
-            self?.remote(["push"], done: String(localized: "Pushed"))
+            self?.remote([.push], done: String(localized: "Pushed"))
         }
         menu.add(String(localized: "Fetch")) { [weak self] in self?.fetchPressed() }
         menu.add(String(localized: "Refresh")) { [weak self] in self?.reloadAll() }

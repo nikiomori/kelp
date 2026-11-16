@@ -275,7 +275,7 @@ extension SourceControlController {
             let all = plans[wid] == nil
             var pushed = false
             if all, push {
-                let refused = await GitSync.run(app, wid, ["push"])
+                let refused = await GitSync.run(app, wid, [.push])
                 if let refused { GitFix(app).offer(refused, recipe: "fixPush", worktree: wid) }
                 pushed = refused == nil
             }

@@ -53,13 +53,13 @@ extension Builtins {
                     controller.askLastAgent()
                 },
                 CommandSpec(id: "git.pull", title: "Git: Pull", key: "opt+cmd+x") { _ in
-                    remote(app, panel, "pull", String(localized: "Pulled")) { $0.pullPressed() }
+                    remote(app, panel, .pull, String(localized: "Pulled")) { $0.pullPressed() }
                 },
                 CommandSpec(id: "git.push", title: "Git: Push", key: "opt+cmd+p") { _ in
-                    remote(app, panel, "push", String(localized: "Pushed")) { $0.pushPressed() }
+                    remote(app, panel, .push, String(localized: "Pushed")) { $0.pushPressed() }
                 },
                 CommandSpec(id: "git.fetch", title: "Git: Fetch", key: "opt+cmd+f") { _ in
-                    remote(app, panel, "fetch", String(localized: "Fetched")) { $0.fetchPressed() }
+                    remote(app, panel, .fetch, String(localized: "Fetched")) { $0.fetchPressed() }
                 }
             ],
             settings: [
@@ -149,7 +149,8 @@ private final class LivePanel { weak var controller: SourceControlController? }
 
 @MainActor
 private func remote(
-    _ app: AppModel, _ panel: LivePanel, _ op: String, _ done: String, _ viaPanel: (SourceControlController) -> Void
+    _ app: AppModel, _ panel: LivePanel, _ op: GitRemoteOp.Step, _ done: String,
+    _ viaPanel: (SourceControlController) -> Void
 ) {
     guard let workspace = app.workbench.workspaceId else { return }
     if let controller = panel.controller, controller.worktreeId == workspace {

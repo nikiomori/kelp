@@ -49,3 +49,9 @@ import Testing
     #expect(try GitDiff.decoded(.obj(["id": "w", "source": "staged"])).source == .staged)
     #expect(try GitDiff.decoded(.obj(["id": "w"])).source == nil)
 }
+
+/// A remote step other than pull, push or fetch is refused as it's read (`git.remote`'s `op`).
+@Test func anUnknownRemoteStepIsRefused() throws {
+    #expect(throws: RPCError.self) { try GitRemoteOp.decoded(.obj(["id": "w", "op": "rebase"])) }
+    #expect(try GitRemoteOp.decoded(.obj(["id": "w", "op": "fetch"])).op == .fetch)
+}

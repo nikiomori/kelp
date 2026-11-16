@@ -41,9 +41,8 @@ public enum TabURI {
         _ worktree: String, file: String? = nil, source: GitDiff.Source? = nil, commit: String? = nil
     ) -> String {
         var components = URLComponents()
-        components.queryItems = [("file", file), ("source", source?.rawValue), ("commit", commit)].compactMap { name, value in
-            value.map { URLQueryItem(name: name, value: $0) }
-        }
+        let items = [("file", file), ("source", source?.rawValue), ("commit", commit)]
+        components.queryItems = items.compactMap { name, value in value.map { URLQueryItem(name: name, value: $0) } }
         return "diff:\(worktree)"
             + (components.queryItems?.isEmpty == false ? "?" + (components.percentEncodedQuery ?? "") : "")
     }

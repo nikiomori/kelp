@@ -20,7 +20,7 @@ extension SyncPopover: NSTextFieldDelegate {
 extension SyncPopover {
     // MARK: actions
 
-    func sync(_ ops: [String]) {
+    func sync(_ ops: [GitRemoteOp.Step]) {
         guard GitSync.state(app).running[wid] == nil else { return }
         let before = app.latest(GitEvent.self, folder)?.branches
         let ahead = before?.ahead ?? 0, behind = before?.behind ?? 0
@@ -31,14 +31,14 @@ extension SyncPopover {
             listKey = ""   // the lists and the fetch time are read again, even when no count moved
             if let error {
                 failed(error, ops: ops)
-            } else if ops.contains("push") {
+            } else if ops.contains(.push) {
                 let text =
                     !published
                     ? String(localized: "Published \(branch).")
                     : ahead == 1
                         ? String(localized: "Pushed 1 commit.") : String(localized: "Pushed \(max(ahead, 1)) commits.")
                 result = (text, false, false)
-            } else if ops.contains("pull") {
+            } else if ops.contains(.pull) {
                 result = (
                     behind == 1
                         ? String(localized: "Pulled 1 commit.") : String(localized: "Pulled \(behind) commits."), false,
@@ -50,8 +50,8 @@ extension SyncPopover {
     }
 
     /// A pull that stopped on conflicts is work for the agent (and for Source Control); anything else says why, here.
-    private func failed(_ error: String, ops: [String]) {
-        guard ops.contains("pull"), error.lowercased().contains("conflict") else {
+    private func failed(_ error: String, ops: [GitRemoteOp.Step]) {
+        guard ops.contains(.pull), error.lowercased().contains("conflict") else {
             result = (Self.summary(error), true, GitSync.isRejected(error))
             return
         }
@@ -94,7 +94,7 @@ extension SyncPopover {
             message.stringValue = ""
             if thenPush {
                 committing = false
-                sync(["push"])
+                sync([.push])
             }
         }
     }

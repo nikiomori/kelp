@@ -94,7 +94,8 @@ extension GitDiff {
         // HEAD against its base's merge base
         case .branch: return Basis(branches: event.branches, error: event.error)
         case .commit: return Basis(head: commit == "HEAD" ? event.branches?.head : nil, error: event.error)
-        case .unstaged, .turn: return Basis(changes: event.changes, stats: event.stats, error: event.error)   // the files against the index, or a snapshot
+        // the files against the index, or a snapshot
+        case .unstaged, .turn: return Basis(changes: event.changes, stats: event.stats, error: event.error)
         case .all, .staged, .tidy:
             return Basis(changes: event.changes, stats: event.stats, head: event.branches?.head, error: event.error)   // against HEAD
         }
@@ -255,7 +256,7 @@ enum GitCommit {
         }
         guard push else { return (true, false) }
         // The app's one push: the branch chip says "Pushing…", and CI is looked for.
-        let refused = await GitSync.run(app, wid, ["push"])
+        let refused = await GitSync.run(app, wid, [.push])
         if let refused { GitFix(app).offer(refused, recipe: "fixPush", worktree: wid) }
         return (true, refused == nil)
     }

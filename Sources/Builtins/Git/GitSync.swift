@@ -10,8 +10,8 @@ final class SyncState {
     struct Running: Equatable {
         /// "Pushing…", or the caller's word for several steps ("Syncing…").
         var title: String
-        /// The step running now: pull | push | fetch.
-        var op: String
+        /// The step running now.
+        var op: GitRemoteOp.Step
     }
     var running: [String: Running] = [:]
 }
@@ -24,7 +24,7 @@ enum GitSync {
 
     /// Runs `ops` (pull | push | fetch) one after another and stops at the first failure: its message, else nil. A push
     /// starts CI: the branch chip looks for its run now. While one runs on the branch, another is refused.
-    static func run(_ app: AppModel, _ wid: String, _ ops: [String], title: String? = nil) async -> String? {
+    static func run(_ app: AppModel, _ wid: String, _ ops: [GitRemoteOp.Step], title: String? = nil) async -> String? {
         guard state(app).running[wid] == nil else {
             return String(localized: "A pull or push is already running on this branch.")
         }
@@ -35,16 +35,16 @@ enum GitSync {
         for op in ops {
             state(app).running[wid] = .init(title: title ?? Self.title(op), op: op)
             if let error = await app.tryCall(GitRemoteOp(id: wid, op: op)).error { return error }
-            if op == "push" { app.watchAgain(.ci, app.gitKey(wid)) }
+            if op == .push { app.watchAgain(.ci, app.gitKey(wid)) }
         }
         return nil
     }
 
-    static func title(_ op: String) -> String {
+    static func title(_ op: GitRemoteOp.Step) -> String {
         switch op {
-        case "push": String(localized: "Pushing…")
-        case "pull": String(localized: "Pulling…")
-        default: String(localized: "Fetching…")
+        case .push: String(localized: "Pushing…")
+        case .pull: String(localized: "Pulling…")
+        case .fetch: String(localized: "Fetching…")
         }
     }
 

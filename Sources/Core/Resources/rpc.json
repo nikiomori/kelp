@@ -2371,6 +2371,14 @@
         ],
         "type" : "object"
       },
+      "GitRemoteOp.Step" : {
+        "enum" : [
+          "pull",
+          "push",
+          "fetch"
+        ],
+        "type" : "string"
+      },
       "GitWebPages.Pages" : {
         "description" : "`forge`: \"github\" | \"gitlab\" | \"bitbucket\"; `ci`: Actions / Pipelines; `pulls`: pull or merge requests.",
         "properties" : {
@@ -8768,7 +8776,7 @@
           "name" : "op",
           "required" : true,
           "schema" : {
-            "type" : "string"
+            "$ref" : "#/components/schemas/GitRemoteOp.Step"
           }
         }
       ],

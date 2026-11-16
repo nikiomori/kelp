@@ -272,8 +272,9 @@ public struct GitUndoDiscard: InternalMethod {
 public struct GitRemoteOp: RPCMethod {
     public static let name = "git.remote"
     public typealias Result = Done
-    public var id: String, op: String
-    public init(id: String, op: String) {
+    public enum Step: String, Codable, Sendable, CaseIterable { case pull, push, fetch }
+    public var id: String, op: Step
+    public init(id: String, op: Step) {
         self.id = id
         self.op = op
     }

@@ -71,7 +71,7 @@ extension AppOfItsOwn {
         let vc = SourceControlController(app: rig.app), here = rig.workspace.id
         rig.show(vc, 320, 700)
         vc.message.string = "half a message"
-        GitSync.state(rig.app).running[here] = .init(title: "Pushing…", op: "push")
+        GitSync.state(rig.app).running[here] = .init(title: "Pushing…", op: .push)
         vc.begin(here)
         vc.bind("another")
         #expect(vc.message.string.isEmpty && !vc.busy && vc.syncing == nil)
@@ -166,15 +166,15 @@ extension AppOfItsOwn {
         let vc = SourceControlController(app: rig.app), here = rig.workspace.id
         rig.show(vc, 320, 700)
         let sync = GitSync.state(rig.app)
-        sync.running[here] = .init(title: "Pushing…", op: "push")   // as the popover's push leaves it while it runs
+        sync.running[here] = .init(title: "Pushing…", op: .push)   // as the popover's push leaves it while it runs
         #expect(vc.busy && vc.syncing?.title == "Pushing…" && vc.syncing?.push == true)
         vc.begin(here)
         vc.end(here)
         #expect(vc.busy && vc.syncing?.title == "Pushing…")
         vc.pushPressed()   // refused here: nothing else runs
-        #expect(vc.work[here] == nil && sync.running[here]?.op == "push")
-        #expect(await GitSync.run(rig.app, here, ["pull"]) != nil)   // and through GitSync itself
-        #expect(sync.running[here]?.op == "push")
+        #expect(vc.work[here] == nil && sync.running[here]?.op == .push)
+        #expect(await GitSync.run(rig.app, here, [.pull]) != nil)   // and through GitSync itself
+        #expect(sync.running[here]?.op == .push)
         sync.running[here] = nil
         #expect(!vc.busy && vc.syncing == nil)
     }

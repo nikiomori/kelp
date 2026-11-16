@@ -85,22 +85,23 @@ extension SyncPopover {
         primary.isEnabled = running == nil
     }
 
-    private static func action(ahead: Int, behind: Int, published: Bool, rejected: Bool) -> (String, [String]) {
-        if !published { return (String(localized: "Publish Branch"), ["push"]) }
+    private static func action(ahead: Int, behind: Int, published: Bool, rejected: Bool) -> (String, [GitRemoteOp.Step])
+    {
+        if !published { return (String(localized: "Publish Branch"), [.push]) }
         if rejected || (ahead > 0 && behind > 0) {
             let title =
                 behind > 0
                 ? String(localized: "Pull \(behind), then push \(ahead)") : String(localized: "Pull, then push")
-            return (title, ["pull", "push"])
+            return (title, [.pull, .push])
         }
         if behind > 0 {
             return (
-                behind == 1 ? String(localized: "Pull 1 commit") : String(localized: "Pull \(behind) commits"), ["pull"]
+                behind == 1 ? String(localized: "Pull 1 commit") : String(localized: "Pull \(behind) commits"), [.pull]
             )
         }
         if ahead > 0 {
             return (
-                ahead == 1 ? String(localized: "Push 1 commit") : String(localized: "Push \(ahead) commits"), ["push"]
+                ahead == 1 ? String(localized: "Push 1 commit") : String(localized: "Push \(ahead) commits"), [.push]
             )
         }
         return ("", [])

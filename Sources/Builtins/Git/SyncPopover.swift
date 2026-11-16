@@ -19,7 +19,7 @@ final class SyncPopover: NSViewController {
     weak var popover: NSPopover?
 
     let name = PointerButton(frame: .zero), state = NSTextField(labelWithString: "")
-    lazy var fetch = PointerButton(title: String(localized: "Fetch")) { [weak self] in self?.sync(["fetch"]) }
+    lazy var fetch = PointerButton(title: String(localized: "Fetch")) { [weak self] in self?.sync([.fetch]) }
     lazy var primary = ClosureButton(title: "") { [weak self] in self.map { $0.sync($0.primaryOps) } }
     lazy var commit = ClosureButton(title: String(localized: "Commit")) { [weak self] in self?.commitPressed() }
     let busy = NSProgressIndicator(), note = NSTextField(wrappingLabelWithString: ""), status = NSStackView()
@@ -36,7 +36,7 @@ final class SyncPopover: NSViewController {
     var unsynced: Unsynced?
     var listKey = ""
     var result: (text: String, failed: Bool, rejected: Bool)?
-    var primaryOps: [String] = []
+    var primaryOps: [GitRemoteOp.Step] = []
     var showIncoming = false, committing = false
 
     init(app: AppModel, worktree: String) {

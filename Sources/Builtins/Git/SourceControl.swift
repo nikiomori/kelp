@@ -101,7 +101,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     /// The pull, push or fetch running on the branch, whoever started it: what the button says, and whether the ↑ and ↓
     /// arrows pulse.
     var syncing: (title: String, push: Bool, pull: Bool)? {
-        worktreeId.flatMap { GitSync.state(app).running[$0] }.map { ($0.title, $0.op == "push", $0.op == "pull") }
+        worktreeId.flatMap { GitSync.state(app).running[$0] }.map { ($0.title, $0.op == .push, $0.op == .pull) }
     }
     var busy: Bool { worktreeId.flatMap { work[$0] } != nil || syncing != nil }
     var more = false, limit = 200, loadingMore = false
@@ -295,7 +295,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         commitMenu.add(String(localized: "Commit & Push")) { [weak self] in self?.commit(push: true, amend: false) }
         commitMenu.add(String(localized: "Commit (Amend)")) { [weak self] in self?.commit(push: false, amend: true) }
         syncMenu.add(String(localized: "Push")) { [weak self] in
-            self?.remote(["push"], done: String(localized: "Pushed"))
+            self?.remote([.push], done: String(localized: "Pushed"))
         }
         pullItem = syncMenu.add(String(localized: "Pull")) { [weak self] in self?.pullPressed() }
         // The panel's main action: the accent colour while there's something to commit (macOS 26's primary tint).

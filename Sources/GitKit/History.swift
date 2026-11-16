@@ -323,7 +323,7 @@ extension Git {
         return parts.filter { !$0.isEmpty }
     }
 
-    public enum Remote: String, Sendable { case pull, push, fetch }
+    public typealias Remote = GitRemoteOp.Step
 
     public static func remote(_ path: String, _ op: Remote, remotes: Remotes) throws {
         switch op {
