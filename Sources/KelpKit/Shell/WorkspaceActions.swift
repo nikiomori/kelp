@@ -20,7 +20,7 @@ package struct WorkspaceActions {
     }
 
     /// What exists only in a branch's folder: nothing about it may go without being asked.
-    private struct Work {
+    struct Work {
         var dirty: Bool, commits: Int
         var isAny: Bool { dirty || commits > 0 }
         var words: [String] {
@@ -47,30 +47,38 @@ package struct WorkspaceActions {
 
     func delete(_ worktree: Worktree) {
         Task {
-            let work = Work(
-                dirty: await app.call(WorktreeDirty(id: worktree.id)) ?? false,
-                commits: await app.call(WorktreeUnmerged(id: worktree.id)) ?? 0)
-            // Its own copies of the project's databases that aren't files in its folder: dropped with it
-            let copies = (await app.quiet(DatabaseList(worktreeId: worktree.id)) ?? [])
-                .filter { $0.copy != nil && !$0.engine.isFile }.map(\.name).joined(separator: ", ")
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Delete “\(worktree.displayName)” and its branch?")
-            alert.informativeText =
-                (work.isAny
-                    ? work.words.joined(separator: " ")
-                    : String(localized: "The checkout and branch \(worktree.branch) are removed. Running agents stop."))
-                + app.sessions.childrenWords(of: app.sessions.filter { $0.worktreeId == worktree.id }.map(\.id))
-                + (copies.isEmpty ? "" : " " + String(localized: "Its database copy \(copies) goes too."))
-            alert.addButton(
-                withTitle: work.isAny
-                    ? String(localized: "Delete and Lose Changes") : String(localized: "Delete Folder and Branch")
-            )
-            .hasDestructiveAction = true
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            alert.alertStyle = work.isAny ? .critical : .warning
-            guard await runSheet(alert) == .alertFirstButtonReturn else { return }
+            guard let (alert, work) = await deleteQuestion(worktree), await runSheet(alert) == .alertFirstButtonReturn
+            else { return }
             await discard(worktree, work)
         }
+    }
+
+    /// Nil when what it would lose can't be told: the failed call's banner says why, rather than a question that reads
+    /// as if nothing would be lost.
+    func deleteQuestion(_ worktree: Worktree) async -> (NSAlert, Work)? {
+        guard let dirty = await app.call(WorktreeDirty(id: worktree.id)),
+            let commits = await app.call(WorktreeUnmerged(id: worktree.id))
+        else { return nil }
+        let work = Work(dirty: dirty, commits: commits)
+        // Its own copies of the project's databases that aren't files in its folder: dropped with it
+        let copies = (await app.quiet(DatabaseList(worktreeId: worktree.id)) ?? [])
+            .filter { $0.copy != nil && !$0.engine.isFile }.map(\.name).joined(separator: ", ")
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Delete “\(worktree.displayName)” and its branch?")
+        alert.informativeText =
+            (work.isAny
+                ? work.words.joined(separator: " ")
+                : String(localized: "The checkout and branch \(worktree.branch) are removed. Running agents stop."))
+            + app.sessions.childrenWords(of: app.sessions.filter { $0.worktreeId == worktree.id }.map(\.id))
+            + (copies.isEmpty ? "" : " " + String(localized: "Its database copy \(copies) goes too."))
+        alert.addButton(
+            withTitle: work.isAny
+                ? String(localized: "Delete and Lose Changes") : String(localized: "Delete Folder and Branch")
+        )
+        .hasDestructiveAction = true
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.alertStyle = work.isAny ? .critical : .warning
+        return (alert, work)
     }
 
     private func discard(_ worktree: Worktree, _ work: Work) async {
