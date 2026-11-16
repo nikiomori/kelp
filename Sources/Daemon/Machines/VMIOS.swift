@@ -6,7 +6,7 @@ import Foundation
 extension VMService {
     func makeIOS(_ machine: VMMachine) async {
         await making(machine) {
-            step(machine, .device)
+            try next(machine, .device)
             let json = try await blocking {
                 try run(["/usr/bin/xcrun", "simctl", "list", "-j", "runtimes"], limit: 120)
             }
@@ -16,7 +16,7 @@ extension VMService {
             }
             try made.trimmingCharacters(in: .whitespacesAndNewlines).write(
                 to: folder(machine.name).udid, atomically: true, encoding: .utf8)
-            step(machine, .building)
+            try next(machine, .building)
             let project = folder(machine.name).file("runner")
             guard let files = IOSRunner.files else {
                 throw RPCError.internalError("This build of Kelp lacks the iOS runner's files.")
@@ -36,7 +36,7 @@ extension VMService {
                         "CODE_SIGNING_ALLOWED=NO", "-quiet"
                     ], limit: 1200)
             }
-            step(machine, .starting)
+            try next(machine, .starting)
             try await blocking {
                 try startHelper(machine)
                 try check(ask(machine.name, .init(op: .start), wait: 620))

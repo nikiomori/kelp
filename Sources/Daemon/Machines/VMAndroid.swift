@@ -12,7 +12,7 @@ extension VMService {
                     "An Android machine runs on your Android SDK (Android Studio): it needs the SDK's "
                         + "command-line tools and an arm64 system image (Android Studio › Settings › Android SDK).")
             }
-            step(machine, .device, image.split(separator: ";").dropFirst().prefix(2).joined(separator: " "))
+            try next(machine, .device, image.split(separator: ";").dropFirst().prefix(2).joined(separator: " "))
             let avd = folder(machine.name).avd
             try Paths.ensure(avd)
             var env = ProcessInfo.processInfo.environment
@@ -33,7 +33,7 @@ extension VMService {
                 throw RPCError.internalError(
                     "avdmanager: " + String(decoding: made.stderr + made.stdout, as: UTF8.self))
             }
-            step(machine, .starting)
+            try next(machine, .starting)
             try await blocking {
                 try startHelper(machine)
                 try check(ask(machine.name, .init(op: .start), wait: 620))

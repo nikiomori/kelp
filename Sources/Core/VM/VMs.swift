@@ -16,6 +16,9 @@ public struct VMMachine: Codable, Sendable, Equatable {
     /// x86-64 Linux programs run through Rosetta (when the Mac has it).
     public var rosetta: Bool
     public var network: Bool
+    /// Which making of that name this is (a UUID set when it's made): one deleted and made again under its name is
+    /// another, and the first one's making stops rather than going on in the new one's folder. Nil: made before this.
+    public var made: String?
 
     public init(
         name: String, os: String = "linux", image: String, cpus: Int, memoryMiB: Int, diskGiB: Int, user: String,

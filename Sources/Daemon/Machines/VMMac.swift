@@ -12,7 +12,7 @@ extension VMService {
         await making(machine) {
             var ipsw = given ?? images, version = given?.deletingPathExtension().lastPathComponent ?? ""
             if given == nil {
-                step(machine, .asking)
+                try next(machine, .asking)
                 let latest = try await blocking { try run([helper, "--latest"], limit: 120) }
                 struct Latest: Decodable { var url: String, build: String, version: String }
                 let release = try JSONDecoder().decode(Latest.self, from: Data(latest.utf8))
@@ -25,18 +25,18 @@ extension VMService {
                 }
             }
             try await blocking { try makeMacFolder(machine) }
-            step(machine, .installing, version)
+            try next(machine, .installing, version)
             let image = ipsw
             try await blocking {
                 _ = try run([helper, "--install", folder(machine.name).path, image.path], limit: 3600)
             }
             if given == nil { remove(ipsw) }   // ours, and over 20 GB: the user's own stays
-            step(machine, .firstBoot)
+            try next(machine, .firstBoot)
             try await blocking {
                 try startHelper(machine)
                 try check(ask(machine.name, .init(op: .start), wait: 1800))
             }
-            step(machine, .lettingIn)
+            try next(machine, .lettingIn)
             try await blocking {
                 try letKelpIn(machine)
                 try installGuest(machine)

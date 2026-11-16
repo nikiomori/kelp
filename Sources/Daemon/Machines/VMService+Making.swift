@@ -52,9 +52,10 @@ extension VMService {
             throw RPCError.invalidParams(
                 "--cpus 1–\(cores), --memory \(memories.lowerBound)–\(memories.upperBound) GB, --disk 8–2048 GB.")
         }
-        let machine = VMMachine(
+        var machine = VMMachine(
             name: request.name, os: image.os, image: image.id, cpus: cpus, memoryMiB: memory << 10, diskGiB: disk,
             user: VMs.user(NSUserName()), rosetta: kind == .linux)
+        machine.made = UUID().uuidString
         let machineFolder = folder(machine.name).url
         // an earlier try's remains, its simulator and password with it
         if failure(machine.name) != nil { try discard(machine.name) }
@@ -85,7 +86,7 @@ extension VMService {
     /// Notes how far making it got; false once it's been deleted midway (Stop Making), for a download to stop at.
     @discardableResult
     func step(_ machine: VMMachine, _ step: VMStep, _ detail: String? = nil, progress: Double? = nil) -> Bool {
-        guard !deleted(machine.name) else { return false }
+        guard !deleted(machine) else { return false }
         let at = VMMaking(step: step, progress: progress, detail: detail)
         Log.vm.attempt("noting \(machine.name)'s progress") {
             try at.data.write(to: folder(machine.name).creating, options: .atomic)
@@ -93,8 +94,19 @@ extension VMService {
         return true
     }
 
-    /// Its folder gone while it was being made: the user stopped making it.
-    func deleted(_ name: String) -> Bool { !FileManager.default.fileExists(atPath: folder(name).machine.path) }
+    /// Its folder gone while it was being made (the user stopped making it), or another machine's now: deleted and made
+    /// again under its name while this making still ran.
+    func deleted(_ machine: VMMachine) -> Bool {
+        guard FileManager.default.fileExists(atPath: folder(machine.name).machine.path) else { return true }
+        guard let now = Log.vm.attempt("reading \(machine.name)'s machine.json", { try self.machine(machine.name) })
+        else { return true }
+        return now.made != machine.made
+    }
+
+    /// The next step noted, or the making ended there: the machine was deleted (or made again) meanwhile.
+    func next(_ machine: VMMachine, _ at: VMStep, _ detail: String? = nil) throws {
+        guard step(machine, at, detail) else { throw CancellationError() }
+    }
 
     func make(_ machine: VMMachine, _ image: VMImage, raw given: URL? = nil) async {
         await making(machine) {
@@ -104,9 +116,9 @@ extension VMService {
             } else {
                 raw = try await self.image(image) { step(machine, $0, image.title, progress: $1) }
             }
-            step(machine, .disk)
+            try next(machine, .disk)
             try await blocking { try makeFolder(machine, from: raw) }
-            step(machine, .starting)
+            try next(machine, .starting)
             try await blocking {
                 try startHelper(machine)
                 try check(ask(machine.name, .init(op: .start), wait: 620))
@@ -127,7 +139,7 @@ extension VMService {
     /// `failed`.
     func making(_ machine: VMMachine, _ steps: () async throws -> Void) async {
         do { try await steps() } catch {
-            if deleted(machine.name) {   // stopped by the user: its programs ended, its folder gone with its disk
+            if deleted(machine) {   // stopped by the user: its programs ended, its folder gone with its disk
                 Log.vm.info("making \(machine.name) stopped: it was deleted")
                 Keychain.delete("vm." + machine.name)   // a macOS one's password, if it was set after the delete
                 return

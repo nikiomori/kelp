@@ -53,6 +53,24 @@ import os
         #expect(!kept.contains { FileManager.default.contents(atPath: trash + "/" + $0) == Data("half".utf8) })
     }
 
+    /// Deleted while it's made and made again under its name: the first making's next step finds another machine there
+    /// and stops, rather than going on in the new one's folder.
+    @Test func aMachineMadeAgainUnderItsNameStopsTheFirstMaking() throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        var first = m, second = m
+        first.made = "first"
+        second.made = "second"
+        let f = home.appendingPathComponent("vms/deb")
+        try FileManager.default.createDirectory(at: f, withIntermediateDirectories: true)
+        try JSONEncoder().encode(first).write(to: f.appendingPathComponent("machine.json"))
+        #expect(vms.step(first, .unpacking))
+        try JSONEncoder().encode(second).write(to: f.appendingPathComponent("machine.json"))
+        #expect(vms.deleted(first))
+        #expect(!vms.step(first, .disk))
+        #expect(throws: CancellationError.self) { try vms.next(first, .disk) }
+        #expect(vms.step(second, .disk))
+    }
+
     /// One machine alone wakes at any size it may be given (up to half the Mac's): the quarter is for them together.
     @Test func aMachineAloneWakesWhateverItsSize() throws {
         let half = Int(ProcessInfo.processInfo.physicalMemory >> 20) / 2
