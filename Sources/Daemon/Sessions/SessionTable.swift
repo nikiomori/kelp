@@ -26,15 +26,20 @@ final class SessionTable: Sendable {
         var held: [String: Phase] = [:]
     }
     private let table = OSAllocatedUnfairLock(initialState: State())
+    /// Told when the table goes from none to one: the daemon's ticker speeds up again (`Daemon.pace`).
+    private let firstAdded = OSAllocatedUnfairLock<(@Sendable () -> Void)?>(initialState: nil)
+    func whenFirstAdded(_ tell: @escaping @Sendable () -> Void) { firstAdded.withLock { $0 = tell } }
 
     subscript(id: String) -> LiveSession? { table.withLock { $0.live[id] } }
     var all: [LiveSession] { table.withLock { Array($0.live.values) } }
     /// Refused once the daemon is stopping (`close`): one started then would outlive it, running with nobody to pause it.
     func add(_ ls: LiveSession) throws {
-        try table.withLock { state in
+        let first = try table.withLock { state in
             guard !state.closed else { throw RPCError.internalError("Kelp's background service is stopping") }
-            state.live[ls.snapshot.id] = ls
+            defer { state.live[ls.snapshot.id] = ls }
+            return state.live.isEmpty
         }
+        if first { firstAdded.withLock { $0 }?() }
     }
     /// No more from now on: what runs, for the daemon to pause as it stops.
     func close() -> [LiveSession] {

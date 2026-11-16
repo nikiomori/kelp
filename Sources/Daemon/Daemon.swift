@@ -16,6 +16,8 @@ public final class Daemon: Sendable {
     private struct Running: @unchecked Sendable {   // the sources are only set up and cancelled, under `running`'s lock
         var listenFD: Int32 = -1, instanceLock: Int32 = -1
         var accept: DispatchSourceRead?, ticker: DispatchSourceTimer?, prune: DispatchSourceTimer?
+        /// The ticker's round, s: `Daemon.pace`.
+        var tickEvery = 0.5
         /// An update whose exec failed: the daemon in this process that took the sessions back (`upgrade`), stopped with it.
         var successor: Daemon?
     }
@@ -204,6 +206,7 @@ public final class Daemon: Sendable {
         let ticker = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "kelp.ticker"))
         ticker.schedule(deadline: .now() + 0.5, repeating: 0.5, leeway: .milliseconds(100))   // woken with the Mac's other timers
         ticker.setEventHandler { [self] in tick() }
+        sessions.live.whenFirstAdded { [weak self] in self?.pace(busy: true) }
         let prune = DispatchSource.makeTimerSource(queue: .global(qos: .background))
         prune.schedule(deadline: .now() + 60, repeating: 86400)   // ended sessions past `keepEnded`
         prune.setEventHandler { [self] in sessions.pruneEnded() }
@@ -346,14 +349,30 @@ public final class Daemon: Sendable {
     func notify(_ event: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(event, to: only) }
 
     /// One round of the 0.5 s ticker. With no session running there's nothing to tick, pause or restart: only the Mac's
-    /// keep-awake is applied, so the last session's ending lets it go (and "always" keeps it). Whether the round ran.
+    /// keep-awake is applied, so the last session's ending lets it go (and "always" keeps it), and the rounds slow down
+    /// until one starts. Whether the round ran.
     @discardableResult
     func tick() -> Bool {
         guard !sessions.live.all.isEmpty else {
             sessions.applyKeepAwake()
+            pace(busy: false)
             return false
         }
+        pace(busy: true)   // one that started as the round before slowed down
         _ = sessions.tick()
         return true
     }
+
+    /// Twice a second while a session runs; with none, every 5 s for the keep-awake alone: a login item that wakes the
+    /// Mac twice a second for nothing costs its battery.
+    func pace(busy: Bool) {
+        running.withLock { running in
+            let every = busy ? 0.5 : 5
+            guard running.tickEvery != every, let ticker = running.ticker else { return }
+            running.tickEvery = every
+            ticker.schedule(
+                deadline: .now() + (busy ? 0 : every), repeating: every, leeway: .milliseconds(busy ? 100 : 1000))
+        }
+    }
+    var tickEvery: Double { running.withLock { $0.tickEvery } }
 }
