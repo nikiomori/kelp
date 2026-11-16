@@ -15,7 +15,8 @@ final class Sessions: Sendable {
     let wakeTries = OSAllocatedUnfairLock(initialState: 0)
     let permissions = PermissionWaits()   // a permission question's hook, waiting for Allow or Deny
     let lanes = SessionLanes()   // input for a paused session wakes it off the reader thread, in order
-    let pausingIdle = OSAllocatedUnfairLock(initialState: false)   // one round of idle pausing at a time, off the ticker
+    /// One round of idle pausing at a time, off the ticker (`busy`), and when the ticker last looked (`idleCheckDue`).
+    let pausingIdle = OSAllocatedUnfairLock(initialState: (busy: false, lookedAt: Date.distantPast))
     let updates: AgentUpdates   // Claude Code restarted into the update it installed (AgentUpdates.swift)
     let keepAwake = KeepAwake()   // the Mac kept awake while agents work (`applyKeepAwake`)
     let store: Store
@@ -358,10 +359,27 @@ final class Sessions: Sendable {
         }
     }
 
+    /// The idle pause counts in minutes: looked for at most every 15 s, not on each 0.5 s tick.
+    static let idleCheckEvery: TimeInterval = 15
+
+    /// A look for idle agents is due: `every` seconds since the last (a short setting is looked for more often).
+    func idleCheckDue(_ now: Date, every: TimeInterval = idleCheckEvery) -> Bool {
+        pausingIdle.withLock { idle in
+            guard now.timeIntervalSince(idle.lookedAt) >= every || now < idle.lookedAt else {
+                return false
+            }
+            idle.lookedAt = now
+            return true
+        }
+    }
+
     /// Settings › keepAwake, while an agent works or always (`KeepAwake.apply`).
     func applyKeepAwake() {
         keepAwake.apply(
             settings[SettingKeys.keepAwake],
-            working: live.all.contains { $0.snapshot.status == .working && $0.snapshot.agent != "shell" })
+            working: live.all.contains { ls in
+                let session = ls.snapshot
+                return session.status == .working && session.agent != "shell"
+            })
     }
 }

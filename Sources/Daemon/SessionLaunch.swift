@@ -17,10 +17,12 @@ extension Sessions {
     /// The ticker's round (every 0.5 s): the live sessions with something to do, then what spans them all (sleep, pauses
     /// and updates are for sessions at rest too, and read flags only). How many sessions were ticked.
     @discardableResult
-    func tick() -> Int {
+    func tick(now: Date = Date()) -> Int {
         let ticked = live.all.count { $0.tick() }
         applyKeepAwake()
-        hibernateIdle()
+        // Looked for as often as a quarter of the setting, up to every 15 s: a pause is late by at most a quarter of it.
+        let minutes = settings[SettingKeys.hibernateMinutes]
+        if minutes > 0, idleCheckDue(now, every: min(Self.idleCheckEvery, minutes * 15)) { hibernateIdle(now: now) }
         updates.restartOutdated()
         return ticked
     }
@@ -32,24 +34,24 @@ extension Sessions {
         let minutes = settings[SettingKeys.hibernateMinutes]
         guard minutes > 0 else { return }
         // Only one a pause can bring back (`LiveSession.resumable`, known since its start: nothing is read on the tick).
-        let parents = Set(live.all.compactMap(\.snapshot.parent))   // what their children say next would find nobody
-        let candidates = live.all.filter { ls in
+        let all = live.all.map { ($0, $0.snapshot) }   // each record copied once, under its lock
+        let parents = Set(all.compactMap(\.1.parent))   // what their children say next would find nobody
+        let candidates = all.filter { ls, session in
             // A pause stops what it left in the background too: a server someone uses isn't idle.
-            !parents.contains(ls.snapshot.id) && ls.resumable && [.done, .idle].contains(ls.snapshot.status)
-                && ls.snapshot.continueAt == nil
-                && (ls.snapshot.background ?? []).isEmpty
-                && !ls.isAttached && ls.idleSeconds(at: now) > minutes * 60
-        }.map { ($0, $0.inputs) }
+            !parents.contains(session.id) && ls.resumable && [.done, .idle].contains(session.status)
+                && session.continueAt == nil && (session.background ?? []).isEmpty && !ls.isAttached
+                && ls.idleSeconds(at: now) > minutes * 60
+        }.map { ls, _ in (ls, ls.inputs) }
         // Off the ticker: waiting for programs to exit (up to 10 s each) must not hold up status for everyone else.
-        let start = pausingIdle.withLock { busy -> Bool in
-            guard !busy, !candidates.isEmpty else { return false }
-            busy = true
+        let start = pausingIdle.withLock { idle -> Bool in
+            guard !idle.busy, !candidates.isEmpty else { return false }
+            idle.busy = true
             return true
         }
         guard start else { return }
         Thread.detachNewThread { [self] in
             for (ls, seen) in candidates { pauseIdle(ls, inputs: seen) }
-            pausingIdle.withLock { $0 = false }
+            pausingIdle.withLock { $0.busy = false }
         }
     }
 
