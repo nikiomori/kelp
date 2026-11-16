@@ -3,6 +3,7 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
+import UniformTypeIdentifiers
 import WebKit
 
 extension BrowserTab {
@@ -63,16 +64,21 @@ extension BrowserTab {
     }
 
     /// The image as a PNG at `path` (a temporary file named after `kind` when nil); nil when it couldn't be written.
-    static func savePNG(_ image: NSImage?, kind: String, to path: String? = nil) -> String? {
-        guard let tiff = image?.tiffRepresentation,
-            let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
-        else { return nil }
+    /// Encoded and written off the main thread: a Retina page's PNG takes a while.
+    static func savePNG(_ image: NSImage?, kind: String, to path: String? = nil) async -> String? {
+        guard let picture = image?.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
         let url =
             path.map { URL(fileURLWithPath: $0) }
             ?? FileManager.default.temporaryDirectory.appendingPathComponent(
                 "kelp-\(kind)-\(UUID().uuidString.prefix(6)).png")
-        do { try png.write(to: url) } catch { return nil }
-        return url.path
+        return await Task.detached { writePNG(picture, to: url) ? url.path : nil }.value
+    }
+
+    nonisolated static func writePNG(_ image: CGImage, to url: URL) -> Bool {
+        guard let file = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil)
+        else { return false }
+        CGImageDestinationAddImage(file, image, nil)
+        return CGImageDestinationFinalize(file)
     }
 
     /// A field the page wrote, for the draft: one line, short, with nothing that ends Kelp's framing (a fence, a backtick).
@@ -86,7 +92,10 @@ extension BrowserTab {
     }
 
     private func sendDesign(_ element: [String: Any], image: NSImage?) {
-        let shot = Self.savePNG(image, kind: "design") ?? ""
+        Task { sendDesign(element, shot: await Self.savePNG(image, kind: "design") ?? "") }
+    }
+
+    private func sendDesign(_ element: [String: Any], shot: String) {
         let styles = (element["styles"] as? [String: String] ?? [:]).filter {
             !$0.value.isEmpty && $0.value != "none" && $0.value != "normal"
         }

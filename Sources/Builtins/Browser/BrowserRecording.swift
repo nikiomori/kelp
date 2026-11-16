@@ -84,7 +84,7 @@ extension BrowserTab {
 /// still (or isn't taken) until it's shown.
 @MainActor
 final class PageRecording {
-    static let fps = 10.0, longest: TimeInterval = 600
+    nonisolated static let fps = 10.0, longest: TimeInterval = 600
     nonisolated static let sRGB = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
     let to: URL
     private let sink: FrameSink
@@ -110,7 +110,7 @@ final class PageRecording {
                 if !paused(), let image = await Self.picture(of: web),
                     let frame = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
                 {
-                    sink.add(frame, at: now.timeIntervalSince(start))
+                    await sink.add(frame, at: now.timeIntervalSince(start))
                 }
                 do {
                     try await Task.sleep(for: .seconds(max(0.02, 1 / Self.fps - Date().timeIntervalSince(now))))
@@ -150,8 +150,8 @@ final class PageRecording {
     }
 }
 
-@MainActor
-private protocol FrameSink: AnyObject {
+/// Off the main thread: a frame's drawing and encoding, and a GIF's finish, take a while for each of 10 a second.
+private protocol FrameSink: Actor {
     func add(_ image: CGImage, at time: TimeInterval)
     func finish(at time: TimeInterval) async throws
 }
@@ -160,8 +160,7 @@ private protocol FrameSink: AnyObject {
 private let nothingRecorded = RPCError.internalError(
     "Nothing was recorded: the page's tab wasn't on screen. Show it and record again.")
 
-@MainActor
-private final class MovieSink: FrameSink {
+private actor MovieSink: FrameSink {
     private let writer: AVAssetWriter
     private var input: AVAssetWriterInput?, adaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var first: TimeInterval?
@@ -232,8 +231,7 @@ private final class MovieSink: FrameSink {
 }
 
 /// A frame the same as the one before only makes that one last longer: a page that sits still costs nothing.
-@MainActor
-private final class GIFSink: FrameSink {
+private actor GIFSink: FrameSink {
     private let file: CGImageDestination
     private var size: (width: Int, height: Int)?
     private var held: (image: CGImage, bytes: Data?, at: TimeInterval)?

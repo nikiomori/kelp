@@ -632,6 +632,22 @@ import WorkbenchKit
     await #expect(throws: RPCError.self) { try await tab.browse("record", .object(["stop": .bool(true)])) }
 }
 
+/// A screenshot's PNG is encoded and written off the main thread, at the picture's own pixels.
+@MainActor @Test func aScreenshotIsWrittenOffTheMainThread() async throws {
+    let image = NSImage(size: NSSize(width: 30, height: 20), flipped: false) { rect in
+        NSColor.red.setFill()
+        rect.fill()
+        return true
+    }
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-shot-\(UUID().uuidString).png")
+    defer { try? FileManager.default.removeItem(at: url) }
+    let picture = try #require(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
+    #expect(await Task.detached { BrowserTab.writePNG(picture, to: url) }.value)   // nonisolated: no main thread
+    let path = try #require(await BrowserTab.savePNG(image, kind: "test", to: url.path))
+    let read = try #require(NSImage(contentsOfFile: path)?.representations.first)
+    #expect(read.pixelsWide == picture.width && read.pixelsHigh == picture.height)
+}
+
 /// `kelp browser ask`: the page is the user's while the agent's question is on it; Done (allow) gives it back, any other
 /// answer leaves it theirs. The strip says which.
 @MainActor @Test(.timeLimit(.minutes(1))) func anAgentsQuestionHandsItsPageToTheUser() async throws {

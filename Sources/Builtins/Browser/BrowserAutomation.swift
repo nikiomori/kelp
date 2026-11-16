@@ -110,7 +110,7 @@ extension BrowserTab {
                 throw RPCError.internalError(
                     "No screenshot: \(error.localizedDescription) Show the page's tab and try again.")
             }
-            guard let path = Self.savePNG(image, kind: "page", to: args["path"]?.string) else {
+            guard let path = await Self.savePNG(image, kind: "page", to: args["path"]?.string) else {
                 throw RPCError.internalError("Couldn't write the screenshot")
             }
             return .object(["path": .string(path)])
