@@ -9,6 +9,7 @@ dev-home:
 beta:
 	scripts/bundle.sh beta
 publish-beta:
+	scripts/ci-green.sh "$$(plutil -extract KelpCommit raw 'dist/beta/Kelp Beta.app/Contents/Info.plist')"
 	scripts/publish-beta.sh
 release:
 	scripts/bundle.sh
@@ -16,5 +17,6 @@ release:
 install:
 	scripts/install.sh
 publish:
+	scripts/ci-green.sh
 	scripts/publish.sh
 .PHONY: dev dev-home beta publish-beta release install publish
