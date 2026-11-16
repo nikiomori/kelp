@@ -114,6 +114,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         let cfg = WKWebViewConfiguration()
         if agent { cfg.websiteDataStore = .nonPersistent() }
         cfg.preferences.isElementFullscreenEnabled = true
+        cfg.applicationNameForUserAgent = Self.safariName
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")   // "Inspect Element" in the page's context menu
         // A window the user's page opened (BrowserDialogs.swift): WebKit made it, with the opener's cookies and a
         // `window.opener`, and is loading it already.
@@ -404,6 +405,13 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     private static func openIn(_ browser: (name: String, icon: NSImage)?) -> String {
         browser.map { String(localized: "Open in \($0.name)") } ?? String(localized: "Open in Browser")
     }
+
+    /// What Safari adds to WebKit's user agent. Without it sites take the page for an unknown browser and serve it
+    /// their fallback layout (old Google, "browser not supported").
+    static let safariName: String = {
+        let safari = Bundle(path: "/Applications/Safari.app")?.infoDictionary?["CFBundleShortVersionString"] as? String
+        return "Version/\(safari ?? "26.0") Safari/605.1.15"
+    }()
 
     /// The browser that opens web links on this Mac, by name and with its icon: the button says where the page goes.
     private static func defaultBrowser() -> (name: String, icon: NSImage)? {

@@ -713,3 +713,10 @@ import WorkbenchKit
     host.pageSet.pills[""]?.onClick?()
     #expect(host.pageSet.shown == "" && host.shownPage === agents.tab)
 }
+
+/// A page sees Safari's user agent, not WebKit's bare one, or sites serve it their unknown-browser layout.
+@MainActor @Test(.timeLimit(.minutes(1))) func aPageSeesSafarisUserAgent() async throws {
+    let tab = BrowserTab(uri: "about:blank", app: AppModel())
+    let ua = try #require(try await tab.web.evaluateJavaScript("navigator.userAgent") as? String)
+    #expect(ua.contains(" Version/") && ua.hasSuffix(" Safari/605.1.15"))
+}
