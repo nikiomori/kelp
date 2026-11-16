@@ -265,26 +265,33 @@ struct FileService: Sendable {
         -> FilesWrite.Result
     {
         let file = ShellQuote.word(path)
-        // Changed there since it was read: the caller decides. Compared by the bytes' digest; one that can't be read
-        // (permissions) fails the save rather than being written over.
-        if let base {
-            let out = try remote.run("if [ -e \(file) ]; then echo present; cat -- \(file); else echo missing; fi")
-            guard let nl = out.firstIndex(of: 0x0A) else {
-                throw RPCError.internalError("\(remote.host) didn't answer.")
-            }
-            if out[..<nl].elementsEqual("missing".utf8) { return .init(missing: true) }
-            let now = out[(nl + 1)...], stamp = Self.digest(now)
-            if stamp != base { return .init(conflict: .init(stamp: stamp, text: String(data: now, encoding: .utf8))) }
-        }
         // Sent to a file beside it, then copied over it on the host once all of it came (a dropped connection ends the
         // upload as if it were done: its size tells), so the file keeps its mode, owner and links. Limit: a disk that fills up
         // during that copy leaves it short, so the copy beside it stays then, and the error says where.
-        let tmp = ShellQuote.word(path + ".kelp-XXXXXX")
+        // Changed there since it was read: its digest compared in that same run, right before the copy, so an edit on
+        // the host between a look and the write isn't written over (exit 3: the caller decides; 4: gone). One that
+        // can't be read (permissions) fails the save. Limit: a host without sha256sum, shasum or openssl writes it
+        // unchecked.
+        let tmp = ShellQuote.word(path + ".kelp-XXXXXX"), drop = "{ rm -f \"$t\"; exit"
+        let check =
+            base.map { base in
+                let want = ShellQuote.word(String(base.dropFirst("sha256:".count)))
+                let cannot = ShellQuote.word("Can't read \(path) there.")
+                return "[ -e \(file) ] || \(drop) 4; }; "
+                    + "[ -r \(file) ] || { printf '%s\\n' \(cannot) >&2; \(drop) 1; }; }; "
+                    + "now=$({ sha256sum || shasum -a 256 || openssl dgst -sha256 -r; } < \(file) 2>/dev/null "
+                    + "| cut -c1-64); "
+                    + "if [ -n \"$now\" ] && [ \"$now\" != \(want) ]; then \(drop) 3; }; fi; "
+            } ?? ""
         let script =
             "t=$(mktemp \(tmp)) || exit 1; "
             + "if ! { cat > \"$t\" && [ \"$(wc -c < \"$t\" | tr -d ' ')\" = \(data.count) ]; }; then rm -f \"$t\"; exit 1; fi; "
+            + check
             + "cat \"$t\" > \(file) || { echo \"not written whole; your text is in $t\" >&2; exit 1; }; rm -f \"$t\""
-        try remote.run(script, stdin: data)
+        do { _ = try remote.run(script, stdin: data) } catch let error as ProgramError where error.status == 3 {
+            let now = try remote.run("cat -- \(file)")
+            return .init(conflict: .init(stamp: Self.digest(now), text: String(data: now, encoding: .utf8)))
+        } catch let error as ProgramError where error.status == 4 { return .init(missing: true) }
         return .init(stamp: Self.digest(data))
     }
 }

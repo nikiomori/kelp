@@ -147,6 +147,25 @@ import Testing
     #expect(!FileManager.default.fileExists(atPath: repo.path + "/new.txt"))
 }
 
+/// A save over the version read is one run on the host, its check and its write together: between two runs an
+/// agent's edit there would be written over unseen.
+@Test func aRemoteSaveChecksAndWritesInOneRun() async throws {
+    let log = URL(fileURLWithPath: localSSH).deletingLastPathComponent().appendingPathComponent("ssh.log")
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let there = try makeRepo(), name = "once-\(UUID().uuidString.prefix(6)).txt"
+    try "hello\n".write(toFile: there + "/" + name, atomically: true, encoding: .utf8)
+    let repo = try await c.call(RepoAddRemote(host: "box", path: there))
+    let read = try await c.call(FilesRead(path: repo.path + "/" + name))
+    func runs() throws -> Int {
+        try String(contentsOf: log, encoding: .utf8).split(separator: "\n").filter { $0.contains(name) }.count
+    }
+    let before = try runs()
+    #expect(try await c.call(FilesWrite(path: repo.path + "/" + name, text: "mine\n", base: read.stamp)).stamp != nil)
+    #expect(try runs() - before == 1)
+    #expect(try String(contentsOfFile: there + "/" + name, encoding: .utf8) == "mine\n")
+}
+
 /// An upload cut short (the connection dropped) looks finished to the host's `cat`: the file isn't written with half of it.
 @Test func aRemoteSaveCutShortLeavesTheFile() async throws {
     _ = localSSH
