@@ -606,6 +606,8 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let n = try await c.call("comment.send", .obj(["id": .string(wt.id), "session": .string(s.id)]))
     #expect(n.int == 1)
     #expect(try await waitFor { box.output(s.id).contains("rename this") })
+    // The remark is the user's; the lines it quotes are the file's, which anyone who changed it wrote: framed as data.
+    #expect(box.output(s.id).contains("<untrusted what=\"quoted lines\">"))
     // On a removed line: it says so, and in which commit its numbers count.
     let gone: DiffComment = try await c.call(
         CommentAdd(id: wt.id, file: "a.txt", start: 3, quote: "bye", text: "why remove?", side: "old"))

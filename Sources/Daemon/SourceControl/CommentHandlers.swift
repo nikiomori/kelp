@@ -150,16 +150,20 @@ extension CommentSend: Handled {
                 ? "\(comment.startLine)" : "\(comment.startLine)-\(comment.endLine)"
             let removed = comment.side == "old" ? " (removed lines, numbered as in the file before this change)" : ""
             let past = comment.onCommit.map { " (in commit \($0.prefix(12)), not the current changes)" } ?? ""
-            var entry = "\(comment.file):\(range)\(removed)\(past)\n"
-            for line in comment.quote.split(separator: "\n", omittingEmptySubsequences: false) {
-                entry += "   > \(line)\n"
+            let head = "\(comment.file):\(range)\(removed)\(past)\n"
+            let quote = comment.quote.split(separator: "\n", omittingEmptySubsequences: false).map { "   > \($0)" }
+                .joined(separator: "\n")
+            let entry: String
+            if let author = comment.author {
+                // Another agent's finding is data to weigh, not the user's word: it may quote what a pull request said.
+                // All of it, where and what it quotes too: each is what that agent wrote.
+                entry = Untrusted.frame(head + quote + "\n   " + comment.text, what: "\(author)'s finding")
+            } else {
+                // The user's remark is theirs; the lines it quotes are the file's, written by whoever changed it last.
+                let quoted = comment.quote.isEmpty ? "" : Untrusted.frame(quote, what: "quoted lines") + "\n"
+                entry = head + quoted + "   " + comment.text
             }
-            entry += "   " + comment.text
-            // Another agent's finding is data to weigh, not the user's word: it may quote what a pull request said. All
-            // of it, where and what it quotes too: each is what that agent wrote.
-            body +=
-                "\n\(index + 1). " + (comment.author.map { Untrusted.frame(entry, what: "\($0)'s finding") } ?? entry)
-                + "\n"
+            body += "\n\(index + 1). " + entry + "\n"
         }
         return body
     }
