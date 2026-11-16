@@ -4,6 +4,7 @@ import TestSupport
 import Testing
 import WorkbenchKit
 
+@testable import BuiltinRun
 @testable import KelpApp
 @testable import KelpKit
 
@@ -32,5 +33,25 @@ extension AppOfItsOwn {
         let ran = try await rig.client.call(SessionList()).map(\.argv).joined().joined(separator: " ")
         #expect(ran.contains("sleep 31") && !ran.contains("sleep 30"), "\(ran)")
         #expect(rig.app.workbench.layouts[wid].manual == true)
+    }
+
+    /// A template's project command is a run of Run's, as one from the Run menu is: kept as the workspace's run, and an
+    /// earlier copy of it ended first rather than left beside the new one.
+    @Test func aTemplatesCommandRunsAsRunRunsIt() async throws {
+        let rig = try await AppRig()
+        defer { rig.done() }
+        rig.app.extensions.reload()
+        let wid = rig.workspace.id
+        try rig.write(".kelp.yaml", "run: sleep 30\nlayout.dev: run\n")
+        let dev = try #require(await LayoutTemplates(app: rig.app).fromFile(rig.workspace).first)
+        let now = try await rig.client.call(ScriptsList(worktreeId: wid))
+        _ = try await rig.client.call(ScriptsTrust(worktreeId: wid, digest: now.digest))
+        let runs = rig.app.part { Runs(app: rig.app) }
+        await LayoutTemplates(app: rig.app).use(dev, in: wid)
+        let first = try #require(runs.running(in: wid).first)
+        #expect(runs.state.active[first]?.choice == "kelp:run")
+        rig.app.workbench.layouts[wid] = WorkspaceLayout()   // the group emptied, the template used again
+        await LayoutTemplates(app: rig.app).use(dev, in: wid)
+        #expect(try await waitFor(5) { runs.running(in: wid).count == 1 && runs.running(in: wid) != [first] })
     }
 }

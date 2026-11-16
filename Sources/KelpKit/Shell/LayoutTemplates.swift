@@ -68,7 +68,7 @@ struct LayoutTemplates {
             let run = Self.run(tab.uri)
             let session: Session?
             if let script = run.script {
-                session = await app.call(ScriptsRun(worktreeId: id, name: script))
+                session = await app.extensions.all.runs?.run(id, script)
             } else {
                 session = await app.call(
                     app.workbench.sized(
@@ -77,7 +77,8 @@ struct LayoutTemplates {
             }
             if let session {
                 app.upsert(session)
-                started[tab.id] = TabURI.session(session.id)
+                // Put away in the Run menu (its last copy was): it stays there, with no tab.
+                if !app.workbench.isHidden(session.id) { started[tab.id] = TabURI.session(session.id) }
             }
         }
         // What was opened in the group while its sessions started stays, beside what the template arranges.

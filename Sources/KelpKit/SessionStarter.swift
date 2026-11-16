@@ -81,7 +81,7 @@ package struct SessionStarter {
     }
 
     /// `create` asked at the size its terminal will have (`split`: in a new pane beside or below).
-    func sized(_ create: SessionCreate, split: SplitDirection? = nil) -> SessionCreate {
+    func sized<M: StartsSized>(_ create: M, split: SplitDirection? = nil) -> M {
         var create = create
         if let (cols, rows) = terminalSize(split: split) {
             create.cols = cols

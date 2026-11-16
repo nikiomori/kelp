@@ -1,6 +1,13 @@
 import Foundation
 
 /// How a session starts: the same optional fields on every method that starts one.
+/// A method that starts a terminal, asked at the size it will be shown at (the app's `workbench.sized`), so its first
+/// screen isn't drawn for another width; nil: 120 × 32.
+public protocol StartsSized {
+    var cols: Int? { get set }
+    var rows: Int? { get set }
+}
+
 public protocol LaunchOptions {
     var model: String? { get }
     var effort: String? { get }
@@ -18,7 +25,7 @@ public protocol LaunchOptions {
 /// A session in `worktreeId`'s folder, or in `cwd` (which wins): agent `agent`, else the shell command `command`;
 /// `tmux`: a terminal attached to that tmux session, started if there is none (see `Tmux`). `parent`: the agent session that
 /// started this agent, or this command (see `Session.parent`, `Session.startedBy`), if it is an agent.
-public struct SessionCreate: RPCMethod, LaunchOptions {
+public struct SessionCreate: RPCMethod, LaunchOptions, StartsSized {
     public static let name = "session.create"
     public typealias Result = Session
     public var cwd: String?, worktreeId: String?, agent: String?, command: String?, tmux: String?, parent: String?

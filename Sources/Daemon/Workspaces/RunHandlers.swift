@@ -41,6 +41,7 @@ extension RunStart: Handled {
             option.folder.isEmpty ? option.name : "\((option.folder as NSString).lastPathComponent) › \(option.name)"
         launch.openURLs = true
         launch.onHostInTmux = true
+        (launch.cols, launch.rows) = Sessions.Launch.size(cols: cols, rows: rows)
         let command =
             option.folder.isEmpty ? option.command : "cd \(ShellQuote.word(option.folder)) && \(option.command)"
         return try workspaces.sessions.spawn(

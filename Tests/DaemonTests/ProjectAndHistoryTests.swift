@@ -29,6 +29,11 @@ import Testing
     _ = try await trustAsShown(c, id["worktreeId"] ?? .null)
     _ = try await c.call("scripts.run", .obj(["worktreeId": .string(w.id), "name": "test"]))
     #expect(try await waitFor { FileManager.default.fileExists(atPath: w.path + "/TESTED") })
+    // Asked at its terminal's size, its first screen is drawn at that width.
+    try "test: stty size > SIZE\n".write(toFile: path + "/.kelp.yaml", atomically: true, encoding: .utf8)
+    _ = try await trustAsShown(c, id["worktreeId"] ?? .null)
+    _ = try await c.call(ScriptsRun(worktreeId: w.id, name: "test", cols: 77, rows: 21))
+    #expect(try await waitFor { (try? String(contentsOfFile: w.path + "/SIZE", encoding: .utf8)) == "21 77\n" })
     try "test: false\n".write(toFile: path + "/.kelp.yaml", atomically: true, encoding: .utf8)
     #expect(try await c.call("scripts.list", id)["trusted"]?.bool == false)
 }

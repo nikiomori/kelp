@@ -52,13 +52,15 @@ public struct ScriptsTrust: RPCMethod {
     }
 }
 /// Runs command `name` (or "setup") in the workspace's folder → the session.
-public struct ScriptsRun: RPCMethod {
+public struct ScriptsRun: RPCMethod, StartsSized {
     public static let name = "scripts.run"
     public typealias Result = Session
-    public var worktreeId: String, name: String
-    public init(worktreeId: String, name: String) {
+    public var worktreeId: String, name: String, cols: Int?, rows: Int?
+    public init(worktreeId: String, name: String, cols: Int? = nil, rows: Int? = nil) {
         self.worktreeId = worktreeId
         self.name = name
+        self.cols = cols
+        self.rows = rows
     }
 }
 
@@ -107,13 +109,15 @@ public struct RunDetect: RPCMethod {
 }
 /// Runs option `id` (as run.detect gives it, read again now) in the workspace → the session. The first local URL it prints
 /// comes as event.devserver; a remote project's runs go in tmux on the host, their port forwarded to this Mac.
-public struct RunStart: RPCMethod {
+public struct RunStart: RPCMethod, StartsSized {
     public static let name = "run.start"
     public typealias Result = Session
-    public var worktreeId: String, id: String
-    public init(worktreeId: String, id: String) {
+    public var worktreeId: String, id: String, cols: Int?, rows: Int?
+    public init(worktreeId: String, id: String, cols: Int? = nil, rows: Int? = nil) {
         self.worktreeId = worktreeId
         self.id = id
+        self.cols = cols
+        self.rows = rows
     }
 }
 

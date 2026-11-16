@@ -75,7 +75,8 @@ extension Runs {
             }
             Task {
                 row.install
-                    ? await self.start(wid, row.id, RunStart(worktreeId: wid, id: row.id))
+                    ? await self.start(
+                        wid, row.id, self.app.workbench.sized(RunStart(worktreeId: wid, id: row.id), split: .down))
                     : await self.start(choice: row.id, in: wid)
             }
         }

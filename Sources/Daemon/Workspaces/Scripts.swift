@@ -124,6 +124,7 @@ extension ScriptsRun: Handled {
         }
         var options = Sessions.Launch()
         options.title = name
+        (options.cols, options.rows) = Sessions.Launch.size(cols: cols, rows: rows)
         return try workspaces.sessions.spawn(
             cwd: worktree.path, manifest: .custom(cfg.shell(script.command)), worktreeId: worktree.id, options)
     }

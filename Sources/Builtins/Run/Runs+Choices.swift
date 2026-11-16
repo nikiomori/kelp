@@ -56,7 +56,7 @@ extension Runs {
             return true
         }
         remember(choice, in: wid)
-        return await start(wid, choice, RunStart(worktreeId: wid, id: choice))
+        return await start(wid, choice, app.workbench.sized(RunStart(worktreeId: wid, id: choice), split: .down))
     }
 
     /// What the chip and the list call a choice: "dev", "frontend › dev".

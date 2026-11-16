@@ -11590,10 +11590,24 @@
       "paramStructure" : "by-name",
       "params" : [
         {
+          "name" : "cols",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
           "name" : "id",
           "required" : true,
           "schema" : {
             "type" : "string"
+          }
+        },
+        {
+          "name" : "rows",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
           }
         },
         {
@@ -11652,10 +11666,24 @@
       "paramStructure" : "by-name",
       "params" : [
         {
+          "name" : "cols",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
           "name" : "name",
           "required" : true,
           "schema" : {
             "type" : "string"
+          }
+        },
+        {
+          "name" : "rows",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
           }
         },
         {

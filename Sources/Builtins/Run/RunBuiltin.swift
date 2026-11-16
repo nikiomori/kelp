@@ -53,7 +53,8 @@ extension Builtins {
                 served: { runs.served($0) },
                 portBusy: { runs.portBusy($0) },
                 setup: { await runs.setup($0, pullRequest: $1) },
-                trust: { await runs.trust($0) })
+                trust: { await runs.trust($0) },
+                run: { await runs.runForTemplate($0, $1) })
         )
     }
 

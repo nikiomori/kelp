@@ -32,6 +32,9 @@ package struct ProjectRuns {
     let setup: @MainActor (_ workspace: String, _ pullRequest: Int?) async -> Void
     /// Whether the workspace's .kelp.yaml is trusted now, asked first if it isn't (a template that runs its commands).
     let trust: @MainActor (_ workspace: String) async -> Bool
+    /// A .kelp.yaml command started as Run starts one (an earlier copy ended, kept as the workspace's run, put away in
+    /// the Run menu if its last copy was), its tab left to the caller: a template's, which places it.
+    let run: @MainActor (_ workspace: String, _ name: String) async -> Session?
     package init(
         bar: @escaping @MainActor () -> [any WindowBarItem],
         menu: any NSMenuDelegate,
@@ -44,7 +47,8 @@ package struct ProjectRuns {
         served: @escaping @MainActor (DevServerEvent) -> Void,
         portBusy: @escaping @MainActor (PortBusyEvent) -> Void,
         setup: @escaping @MainActor (String, Int?) async -> Void,
-        trust: @escaping @MainActor (String) async -> Bool
+        trust: @escaping @MainActor (String) async -> Bool,
+        run: @escaping @MainActor (String, String) async -> Session?
     ) {
         self.bar = bar
         self.menu = menu
@@ -58,6 +62,7 @@ package struct ProjectRuns {
         self.portBusy = portBusy
         self.setup = setup
         self.trust = trust
+        self.run = run
     }
 }
 

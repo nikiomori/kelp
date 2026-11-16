@@ -21,7 +21,7 @@ extension Workbench {
     package var starterForNewTab: SessionStarter? { area(nil)?.starter }
     /// `create` asked at the size its terminal will have, for a session started other than by `starter` (its tab opened
     /// by hand, hidden, in another workspace): a first screen drawn for another width leaves zsh's stray "%" line.
-    package func sized(_ create: SessionCreate, split: SplitDirection? = nil) -> SessionCreate {
+    package func sized<M: StartsSized>(_ create: M, split: SplitDirection? = nil) -> M {
         if let starter { return starter.sized(create, split: split) }
         var create = create
         create.cols = terminalGrid?.cols

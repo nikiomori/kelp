@@ -84,7 +84,7 @@ final class Runs: NSObject, NSMenuDelegate {
             if name == "run", let last = remembered(wid), await start(choice: last, in: wid) { return }
             let found = await detect(wid)
             if name == "test", let test = found?.options.first(where: { $0.kind == "test" && $0.missing == nil }) {
-                await start(wid, test.id, RunStart(worktreeId: wid, id: test.id))
+                await start(wid, test.id, app.workbench.sized(RunStart(worktreeId: wid, id: test.id), split: .down))
                 return
             }
             if name == "run", found?.options.isEmpty == false {
@@ -116,7 +116,13 @@ final class Runs: NSObject, NSMenuDelegate {
         }
         guard await trust(wid, info) else { return }
         if remember || name == "run" { self.remember("kelp:" + name, in: wid) }
-        await start(wid, "kelp:" + name, ScriptsRun(worktreeId: wid, name: name))
+        await start(wid, "kelp:" + name, app.workbench.sized(ScriptsRun(worktreeId: wid, name: name), split: .down))
+    }
+
+    /// A .kelp.yaml command a layout template starts (`ProjectRuns.run`), its trust asked already: as Run starts one,
+    /// an earlier copy of it ending first and the run kept as the workspace's, but its tab is the template's to place.
+    func runForTemplate(_ wid: String, _ name: String) async -> Session? {
+        await launch(wid, "kelp:" + name, app.workbench.sized(ScriptsRun(worktreeId: wid, name: name)), tab: false)
     }
 
     /// Whether the workspace's .kelp.yaml is trusted, asked first when it isn't (`ProjectRuns.trust`: a template that
@@ -160,6 +166,12 @@ final class Runs: NSObject, NSMenuDelegate {
     /// Again: start over, like Xcode's Run (the last run's tab gives way to the new one). False when it didn't start.
     @discardableResult func start<M: RPCMethod>(_ wid: String, _ choice: String, _ method: M) async -> Bool
     where M.Result == Session {
+        await launch(wid, choice, method) != nil
+    }
+
+    /// `start`, the session it started; `tab` false leaves its tab to the caller (put away in the Run menu, it has none).
+    private func launch<M: RPCMethod>(_ wid: String, _ choice: String, _ method: M, tab: Bool = true) async -> Session?
+    where M.Result == Session {
         watch()
         let same = running(in: wid).filter { app.session($0).flatMap(self.choice(of:)) == choice }
         // Put away in the Run menu: started over, it stays there.
@@ -172,21 +184,22 @@ final class Runs: NSObject, NSMenuDelegate {
         starting += 1
         let made = await app.call(method)
         starting -= 1
-        guard let session = made else { return false }
+        guard let session = made else { return nil }
         let sid = session.id
         state.active[sid] = RunState.Run(workspace: wid, choice: choice, url: state.early.removeValue(forKey: sid))
         app.upsert(session)
         if hidden {
             hide(sid)
-            return true
+            return session
         }
+        guard tab else { return session }
         // Below what you're doing, like a console; the keys stay where they were.
         if wid == app.workbench.workspaceId {
             app.workbench.open(TabURI.session(sid), split: .down, workspace: wid, focus: false)
         } else {
             app.workbench.openInBackground(TabURI.session(sid), workspace: wid)
         }
-        return true
+        return session
     }
 
     func stop() {
