@@ -456,10 +456,13 @@ private func fakeLinter(_ name: String, can: String, line: Int, in dir: String) 
         LSPOpen(
             root: root, path: file, languageId: "python", command: "/usr/bin/python3", args: lint.args, text: "x",
             options: .object(["fast": .bool(true)]), settings: settings))
-    #expect(try await waitFor(5) { lines(lint.log).contains { $0.hasPrefix("settings") } })
+    #expect(try await waitFor(5) { lines(lint.log).count >= 4 })
+    let log = lines(lint.log)
+    #expect(Array(log.prefix(2)) == [#"options {"fast": true}"#, "asks true"])
+    // The push and the answer to its ask cross on the way: either may come first.
     #expect(
-        lines(lint.log) == [
-            #"options {"fast": true}"#, "asks true", #"pushed {"settings": {"lint": {"select": ["E"]}}}"#,
+        Set(log.dropFirst(2)) == [
+            #"pushed {"settings": {"lint": {"select": ["E"]}}}"#,
             #"settings [["E"], null, {"lint": {"select": ["E"]}}]"#
         ])
 }
