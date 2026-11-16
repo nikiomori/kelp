@@ -302,8 +302,10 @@ final class Workspaces: Sendable {
 
     /// The workspace and its agents go. One in the project's folder leaves the folder as it is (a project keeps at least
     /// one); a worktree's folder goes too, and its branch with it unless it has commits no other branch has (`dropCommits`)
-    /// or its folder holds changes (`force`).
-    func removeWorkspace(_ workspace: Worktree, _ repo: Repo, force: Bool, dropCommits drop: Bool) throws {
+    /// or its folder holds changes (`force`), or it isn't the workspace's to delete (`keepBranch`: one checked out there).
+    func removeWorkspace(
+        _ workspace: Worktree, _ repo: Repo, force: Bool, dropCommits drop: Bool, keepBranch: Bool = false
+    ) throws {
         if isMain(workspace, repo) {
             guard try store.worktrees(repo: repo.id).filter({ isMain($0, repo) }).count > 1 else {
                 throw RPCError.invalidParams("A project keeps at least one workspace; remove the project instead.")
@@ -320,7 +322,7 @@ final class Workspaces: Sendable {
             notify(ChangedEvent.worktree)
             return
         }
-        let branch = branchNow(of: workspace, in: repo)
+        let branch = keepBranch ? nil : branchNow(of: workspace, in: repo)
         // A remote project's folder is on its host: looked for there, by the path its stand-in here names.
         let host = remotes.of(repo.path)   // the project's: its worktrees are on its host too
         let there = remotes.of(workspace.path)?.path ?? workspace.path
@@ -402,8 +404,12 @@ final class Workspaces: Sendable {
                 || (workspace.madeBy != nil && here.isEmpty
                     && (someoneLeft || workspace.createdAt.timeIntervalSinceNow < -300))
             {
-                do { try removeWorkspace(workspace, repo, force: false, dropCommits: squashed) } catch GitError.refused
-                {
+                // A branch that was there before (the user's, checked out with `--existing`) stays: only its folder goes.
+                let theirs =
+                    try !landed && !Git.made(repo: repo.path, branch, at: workspace.createdAt, remotes: remotes)
+                do {
+                    try removeWorkspace(workspace, repo, force: false, dropCommits: squashed, keepBranch: theirs)
+                } catch GitError.refused {
                     return   // work that's only there: kept, and its row says what
                 }
             } else {

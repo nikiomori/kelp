@@ -113,7 +113,8 @@ import Testing
 }
 
 /// A branch an agent made for a helper goes when its last session does and nothing is only there; a new link in it (the
-/// project's Vendor) is no work, a new file is. The user's own branch stays whatever its agents do.
+/// project's Vendor) is no work, a new file is. The user's own branch stays whatever its agents do, and so does one of
+/// the user's an agent only checked out (`--existing`): its folder goes, the branch doesn't.
 @Test func anAgentsBranchGoesWithItsLastSession() async throws {
     let w = try await world(agents: [
         AgentManifest(id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "sleep 30", "x"])
@@ -121,20 +122,29 @@ import Testing
     defer { w.d.stop() }
     var clean = try await workspace(w, "helper/clean"), work = try await workspace(w, "helper/work")
     let mine = try await workspace(w, "mine")
+    try Git.run(["branch", "theirs"], cwd: w.repo.path, remotes: .none)
+    var asked = WorktreeCreate(repoId: w.repo.id, branch: "theirs", setup: false)
+    asked.existing = true
+    var theirs = try await w.c.call(asked).worktree
+    theirs.createdAt = Date().addingTimeInterval(120)   // the branch was there two minutes before
     clean.madeBy = "AGENT"
     work.madeBy = "AGENT"
+    theirs.madeBy = "AGENT"
     try w.d.store.save(clean)
     try w.d.store.save(work)
+    try w.d.store.save(theirs)
     try FileManager.default.createSymbolicLink(atPath: clean.path + "/Vendor", withDestinationPath: w.repo.path)
     try "notes".write(toFile: work.path + "/notes.txt", atomically: true, encoding: .utf8)
     #expect(try !Git.isDirty(clean.path, remotes: .none) && Git.isDirty(work.path, remotes: .none))
-    for workspace in [clean, work, mine] {
+    for workspace in [clean, work, mine, theirs] {
         w.d.sessions.discard(try await w.c.call(SessionCreate(worktreeId: workspace.id, agent: "sleepy")))
     }
-    #expect(try await waitFor(5) { try w.d.store.worktree(clean.id) == nil })
+    #expect(try await waitFor(5) { try w.d.store.worktree(clean.id) == nil && w.d.store.worktree(theirs.id) == nil })
     w.d.workspaces.headQueue.sync {}   // the other two were looked at as well
     #expect(try w.d.store.worktree(clean.id) == nil && !Git.branchExists(w.repo.path, "helper/clean", remotes: .none))
     #expect(try w.d.store.worktree(work.id) != nil && w.d.store.worktree(mine.id) != nil)
+    #expect(
+        Git.branchExists(w.repo.path, "theirs", remotes: .none) && !FileManager.default.fileExists(atPath: theirs.path))
 }
 
 /// A branch group whose work is in the base branch goes by itself: removed with nobody on it, archived with its chat.

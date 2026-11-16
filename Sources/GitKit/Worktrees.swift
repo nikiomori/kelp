@@ -359,17 +359,25 @@ extension Git {
     /// from then (a minute either side) and not where it is now. A branch that was there before (one opened to look at)
     /// or that git didn't log the making of says no: what it holds isn't the group's own work.
     public static func moved(repo: String, _ branch: String, since: Date, remotes: Remotes) throws -> Bool {
+        try madeOn(repo, branch, at: since, remotes).map {
+            try $0 != line(["rev-parse", "refs/heads/" + branch], cwd: repo, remotes: remotes)
+        } ?? false
+    }
+
+    /// Whether `branch` was made at `at`, not there before (the user's, checked out with `--existing`): `madeOn`.
+    public static func made(repo: String, _ branch: String, at: Date, remotes: Remotes) throws -> Bool {
+        try madeOn(repo, branch, at: at, remotes) != nil
+    }
+
+    /// The commit `branch` was made on, if its oldest reflog entry, its making, is from `at` (a minute either side).
+    private static func madeOn(_ repo: String, _ branch: String, at: Date, _ remotes: Remotes) throws -> String? {
         let ref = "refs/heads/" + branch
-        guard isRevision(branch), succeeds(["rev-parse", "--verify", "--quiet", ref], cwd: repo, remotes: remotes)
-        else {
-            return false
-        }
-        let tip = try line(["rev-parse", ref], cwd: repo, remotes: remotes)
-        let log = try run(["reflog", "show", "--format=%H %ct", ref], cwd: repo, remotes: remotes)
-        guard let oldest = log.split(separator: "\n").last?.split(separator: " "), oldest.count == 2,
-            let made = TimeInterval(String(oldest[1]))
-        else { return false }
-        return abs(made - since.timeIntervalSince1970) < 60 && String(oldest[0]) != tip
+        guard isRevision(branch), succeeds(["rev-parse", "--verify", "--quiet", ref], cwd: repo, remotes: remotes),
+            let oldest = try run(["reflog", "show", "--format=%H %ct", ref], cwd: repo, remotes: remotes)
+                .split(separator: "\n").last?.split(separator: " "), oldest.count == 2,
+            let made = TimeInterval(String(oldest[1])), abs(made - at.timeIntervalSince1970) < 60
+        else { return nil }
+        return String(oldest[0])
     }
 
     /// Whether the commit `branch` is on now is in `base` (merged or fast-forwarded there).
