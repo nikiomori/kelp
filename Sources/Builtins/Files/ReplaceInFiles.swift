@@ -11,6 +11,13 @@ struct ReplaceFile {
     var result: String {
         ReplaceInText.applying(matches.enumerated().filter { chosen.contains($0.offset) }.map(\.element), to: text)
     }
+
+    /// What Replace All says when there's nothing to show: files it couldn't read aren't files with nothing to change.
+    static func nothingWords(unread: [String], failure: String?) -> String {
+        guard let first = unread.first else { return String(localized: "Nothing to replace.") }
+        let which = unread.count == 1 ? first : String(localized: "\(first) and \(unread.count - 1) more")
+        return String(localized: "Couldn’t read \(which): \(failure ?? "")")
+    }
 }
 
 @MainActor
@@ -28,9 +35,14 @@ extension FilesPanel {
         func real(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
         let edited = Set(app.workbench.editedFiles.compactMap { $0.fileURL.map { real($0.path) } })
         Task { @MainActor in
-            var files: [ReplaceFile] = []
+            var files: [ReplaceFile] = [], unread: [String] = [], failure: String?
             for name in names where !edited.contains(real(root + "/" + name)) {
-                guard let contents = await app.quiet(FilesRead(path: root + "/" + name)) else { continue }
+                let (read, error) = await app.tryCall(FilesRead(path: root + "/" + name))
+                guard let contents = read else {
+                    unread.append(name)
+                    failure = failure ?? error
+                    continue
+                }
                 do {
                     let text = contents.text   // the regex over a big file is off the main thread
                     let plan = try await Task.detached { [options] in
@@ -46,7 +58,10 @@ extension FilesPanel {
                     return Banner.show(String(localized: "Not a valid pattern"), style: .error)
                 }
             }
-            guard !files.isEmpty else { return Banner.show(String(localized: "Nothing to replace.")) }
+            guard !files.isEmpty else {
+                let why = ReplaceFile.nothingWords(unread: unread, failure: failure)
+                return Banner.show(why, style: unread.isEmpty ? .info : .error)
+            }
             let sheet = ReplaceSheet(files, leftOut: names.count - files.count)
             guard let window = sheet.window, await runSheet(window) == .OK else { return }
             await Self.write(sheet.files, app: app)

@@ -72,3 +72,11 @@ extension AppOfItsOwn {
     #expect(await FileBatch.undo(done, app: rig.app) == [b])
     #expect(try String(contentsOfFile: b, encoding: .utf8) == "agent again\n")
 }
+
+/// Files Replace All couldn't read (a timeout, no daemon) are said as such, not as nothing to replace.
+@Test func replaceAllSaysWhatItCouldntRead() {
+    #expect(ReplaceFile.nothingWords(unread: [], failure: nil) == "Nothing to replace.")
+    let one = ReplaceFile.nothingWords(unread: ["a.swift"], failure: "Kelp didn't answer in 30 s")
+    #expect(one.contains("a.swift") && one.contains("didn't answer") && !one.contains("Nothing"))
+    #expect(ReplaceFile.nothingWords(unread: ["a.swift", "b.swift", "c.swift"], failure: "x").contains("2 more"))
+}

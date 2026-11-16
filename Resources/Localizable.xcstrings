@@ -24358,6 +24358,26 @@
           }
         }
       }
+    },
+    "Couldn’t read %@: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать %@: %@"
+          }
+        }
+      }
+    },
+    "%@ and %lld more": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ и ещё %lld"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
