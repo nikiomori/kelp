@@ -107,7 +107,10 @@ public enum Motion {
     public static let hoverOpenWarm: TimeInterval = 0.12
     public static let hoverClose: TimeInterval = 0.2
 
-    public static var reduced: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    /// Reduce Motion, as the Mac says unless `pinned`.
+    public static var reduced: Bool { pinned ?? NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    /// Set by tests, so what moves is checked whatever the Mac running them asks (CI's runners ask for less motion).
+    public static var pinned: Bool?
     /// What a press scales a view of `size` to: 4 pt off its longer side, and no more than 10 %. A share alone took 90 pt
     /// off a bar under a terminal for the 2 pt it takes off an icon.
     public static func pressDip(_ size: CGSize) -> CGFloat { 1 - min(0.1, 4 / max(size.width, size.height, 1)) }

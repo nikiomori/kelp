@@ -49,9 +49,10 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     #expect(outline.frame.width <= 240)
 }
 
-/// A view in a window: only what's on screen moves.
-@MainActor func onScreen(_ view: NSView, in parent: NSView = NSView()) -> NSWindow {
+/// A view in a window: only what's on screen moves. Motion as asked for, whatever the Mac running the tests asks.
+@MainActor func onScreen(_ view: NSView, in parent: NSView = NSView(), reduced: Bool = false) -> NSWindow {
     _ = NSApplication.shared
+    Motion.pinned = reduced
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 200, height: 60), styleMask: [.titled], backing: .buffered, defer: true)
     window.contentView = parent
@@ -73,6 +74,16 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     let drift = ghost?.layer?.animation(forKey: "drift") as? CABasicAnimation
     #expect(((drift?.toValue as? NSNumber)?.doubleValue ?? 0) > 0)
     #expect(drift?.duration == Motion.fast)   // what leaves goes sooner
+}
+
+/// Under Reduce Motion a number changes in place: nothing rolls, no picture is left behind.
+@MainActor @Test func aNumberDoesntRollUnderReduceMotion() {
+    let parent = NSView(), label = NSTextField(labelWithString: "3")
+    let window = onScreen(label, in: parent, reduced: true)
+    defer { withExtendedLifetime(window) {} }
+    label.roll(up: true)
+    #expect(label.layer?.animation(forKey: "roll") == nil)
+    #expect(parent.subviews == [label])
 }
 
 /// An empty state fades as the list comes back rather than going at once, and one state crossfades into the next.

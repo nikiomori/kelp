@@ -61,6 +61,9 @@ import Testing
     #expect(added.drawsBackground)
     vc.table.scrollRowToVisible(250)
     window.display()
-    let back = try #require(shownCells(vc.table).first { $0 === added } as? NSTextField)
-    #expect(!back.drawsBackground && back.stringValue.contains("same"))
+    // Whichever cell AppKit hands back for the rows now shown (the one that showed "added", or a new one), none keeps
+    // its tint.
+    let shown = shownCells(vc.table).compactMap { $0 as? NSTextField }
+    #expect(!shown.isEmpty && !vc.table.rows(in: vc.table.visibleRect).contains(0))
+    #expect(shown.allSatisfy { !$0.drawsBackground })
 }
