@@ -69,11 +69,16 @@ extension VMService {
     /// The programs still working in its folder (downloads, an installer, an emulator) ended: they outlive the kelpd that
     /// started them, and a machine stopped midway shouldn't go on writing.
     func endLeftovers(_ name: String) {
-        for child in ["emulator", "runner"] { folder(name).endChild(child) }   // one a killed kelp-vm left
+        endChildren(name)
         do {
             _ = try Subprocess.run(
                 ["/usr/bin/pkill", "-TERM", "-f", "--", Self.inFolder(folder(name).path)], cwd: "/", env: [:],
                 timeLimit: 10)
         } catch { Log.vm.error("ending what was making \(name): \(error)") }
+    }
+
+    /// An emulator or runner a killed kelp-vm left (SIGKILL: no leave), by the pid it noted; none if that process is gone.
+    func endChildren(_ name: String) {
+        for child in ["emulator", "runner"] { folder(name).endChild(child) }
     }
 }

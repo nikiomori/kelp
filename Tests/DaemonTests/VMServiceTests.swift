@@ -86,6 +86,21 @@ import os
         #expect(try await waitFor(3) { !child.isRunning })
     }
 
+    /// A made machine deleted, or stopped, after its kelp-vm was killed: the emulator it left ends too.
+    @Test func aDeleteOrStopEndsWhatAKilledKelpVMLeft() async throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        for action in [VMControl.Action.stop, .delete] {
+            try folder([:])
+            let child = try Process.run(URL(fileURLWithPath: "/bin/sleep"), arguments: ["60"])
+            defer { if child.isRunning { kill(child.processIdentifier, SIGKILL) } }
+            let start = try #require(Subprocess.started(child.processIdentifier))
+            try "\(child.processIdentifier) \(start)".write(
+                to: vms.folder("deb").child("emulator"), atomically: true, encoding: .utf8)
+            _ = try vms.control("deb", action)
+            #expect(try await waitFor(3) { !child.isRunning }, "\(action)")
+        }
+    }
+
     /// Try Again twice (the user's, or the user's and an agent's) makes it again once: the first claims it before the
     /// seconds `makeAgain` spends ending what's left, and the second is answered as it's being made.
     @Test func aSecondTryAgainFindsItBeingMade() throws {

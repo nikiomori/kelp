@@ -168,6 +168,7 @@ struct VMService: Sendable {
             if alive(name) {
                 try check(ask(name, .init(op: .stop), wait: 60))
             } else {
+                endChildren(name)   // what a killed kelp-vm left runs on, holding its memory
                 if let kept = folder(name).sleepState(machine) { remove(kept) }   // an Android one's snapshot too
             }
         }
@@ -352,16 +353,15 @@ struct VMService: Sendable {
         for _ in 0..<100 where alive(name) { usleep(100_000) }
     }
 
-    /// The machine gone: its kelp-vm, an iOS one's simulator (it lives in Xcode's device set), its folder, its password.
-    /// Limit: an emulator or runner left by a kelp-vm that was killed (SIGKILL: no leave) is ended by that machine's next
-    /// start (`Lifecycle.endLeftover`, from the pid noted in its folder), not here: deleted first, it runs on until it's
-    /// quit by hand.
+    /// The machine gone: its kelp-vm, what a killed one left (an emulator, a runner), an iOS one's simulator (it lives in
+    /// Xcode's device set), its folder, its password.
     /// `trash`: a machine the user deletes goes to the Trash (its disk is their work); a failed try's remains don't.
     func discard(_ name: String, trash: Bool = false) throws {
         quit(name)
         guard !alive(name) else {
             throw RPCError.internalError("\(name) didn't stop: try again in a moment, or restart the Mac.")
         }
+        endChildren(name)
         if let udid = text(folder(name).udid) {
             do {
                 try run(["/usr/bin/xcrun", "simctl", "delete", udid.trimmingCharacters(in: .whitespacesAndNewlines)])
