@@ -61,6 +61,16 @@ import Testing
         #expect(vm.state == .error)
     }
 
+    /// A runner that ends by itself takes its simulator down with it: left booted and off, nothing would count its memory.
+    @Test(.timeLimit(.minutes(1))) func aRunnerThatEndsShutsItsSimulatorDown() async throws {
+        let (vm, folder) = try iOS()
+        defer { putAway(folder) }
+        #expect(await ask(vm, .start) == nil)
+        kill(try runnerPid(folder), SIGKILL)
+        #expect(try await waitFor(5) { vm.state == .off })
+        #expect(try await waitFor(5) { try asked(folder).contains("simctl shutdown \(try udid(folder))") })
+    }
+
     /// Unused for `sleepAfter` it shuts down (a simulator can't be paused) and kelp-vm stays, for the next start to
     /// boot.
     @Test(.timeLimit(.minutes(1))) func idleItShutsDownAndTheNextStartBoots() async throws {

@@ -152,6 +152,8 @@ final class IOSRuntime: MachineRuntime {
                         guard let self, self.runner === ended else { return }
                         self.runner = nil
                         if self.state == .running {
+                            // the simulator with it: booted and off, it would hold its memory with no tick to see it
+                            _ = self.shutDown()
                             Lifecycle.move(&self.state, to: .off)
                             log("the runner ended: see runner.log")
                         }
