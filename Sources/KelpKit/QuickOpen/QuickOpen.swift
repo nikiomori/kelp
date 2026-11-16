@@ -38,10 +38,8 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     var showingRecents = false
     /// Fading away (`hide`).
     var hiding = false
-    var prSearch: Task<Void, Never>?
-    /// The project's open pull requests, asked once per opening: each "#" keystroke filters them (`searchPullRequests`).
-    /// Nil `list`: being asked.
-    var pullRequests: (repo: String, list: [GitHub.PullRequest]?)?
+    /// A built-in's list for what's typed after its character ("#": the pull requests), being made.
+    var prefixedLoad: Task<Void, Never>?
     var filesLoad: Task<Void, Never>?
     /// The typed query's matches being scored; the next keystroke cancels it.
     var scoring: Task<Void, Never>?
@@ -71,7 +69,6 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         if panel == nil { build() }
         self.commandsOnly = commandsOnly
         symbols = nil
-        pullRequests = nil
         list(query: "")
         if !text.isEmpty {
             field.stringValue = text
@@ -313,9 +310,10 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
             setRows(files.paths.indices.prefix(200).map(fileItem), grouped: false)
             return
         }
-        if !commandsOnly, choosing == nil, query.hasPrefix("#") {
-            setRows([], grouped: false)
-            searchPullRequests(query)
+        if !commandsOnly, choosing == nil,
+            let (mark, rows) = app.extensions.all.quickPrefixes.first(where: { query.hasPrefix($0.key) })
+        {
+            listPrefixed(String(query.dropFirst(mark.count)), rows)
             return
         }
         if query.isEmpty {

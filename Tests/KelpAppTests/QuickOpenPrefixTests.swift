@@ -1,4 +1,5 @@
 import Core
+import TestSupport
 import Testing
 
 @testable import KelpKit
@@ -23,23 +24,27 @@ import Testing
         ])
 }
 
-/// "#": the project's pull requests are asked once per opening, not per keystroke (each runs `gh` in the daemon, and
-/// with gh missing each would say so again); what's typed after filters them.
-@MainActor @Test func pullRequestsAreAskedOncePerOpening() async throws {
+/// "#": the project's open pull requests are Issues', as its watch read them last (no `gh` run for a keystroke); what's
+/// typed after filters them.
+@MainActor @Test func pullRequestsComeFromTheirWatch() async throws {
     let rig = try await AppRig()
     defer { rig.done() }
+    rig.app.extensions.reload()   // "#" is the Issues built-in's
+    rig.app.workbench.workspaceId = rig.workspace.id
+    let fix = GitHub.PullRequest(
+        number: 7, title: "Fix login", url: "", author: "amy", headRefName: "fix", isDraft: false, state: "OPEN", checks: .init())
+    // The watch's own first reading (this folder has no GitHub remote) lands before the one the test stands in for.
+    #expect(try await waitFor(10) { rig.app.latest(PRsEvent.self, rig.workspace.repoId) != nil })
+    rig.app.land(PRsEvent(repo: rig.workspace.repoId, prs: [fix]))
     let open = rig.app.quickOpen
-    open.show(commandsOnly: false, text: "#1")
-    let asked = try #require(open.prSearch)
-    open.field.stringValue = "#12"
-    open.filter()
-    #expect(open.prSearch == asked, "a keystroke while they're asked asks again")
-    await asked.value
-    #expect(open.pullRequests?.list != nil)
-    open.field.stringValue = "#123"
-    open.filter()
-    #expect(open.prSearch == asked, "nor once they're here")
-    open.show(commandsOnly: false, text: "#1")
-    #expect(open.prSearch != asked, "a new opening asks again")
-    open.prSearch?.cancel()
+    func shown(_ typed: String) async -> [String] {
+        open.show(commandsOnly: false, text: typed)
+        await open.prefixedLoad?.value
+        return open.rows.compactMap { if case .item(let it) = $0 { it.title } else { nil } }
+    }
+    #expect(await shown("#7") == ["#7 Fix login"])
+    #expect(await shown("#login") == ["#7 Fix login"])
+    #expect(await shown("#9").isEmpty)
+    rig.app.land(PRsEvent(repo: rig.workspace.repoId, error: "GitHub CLI isn't signed in — run gh auth login."))
+    #expect(await shown("#") == ["GitHub CLI isn't signed in — run gh auth login."])
 }

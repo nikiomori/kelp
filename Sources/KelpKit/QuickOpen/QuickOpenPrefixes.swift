@@ -4,7 +4,8 @@ import EditorKit
 import WorkbenchKit
 
 /// What the first character of ⌘P's field asks for: ":120" a line, "/name" (or "file:name") files alone, "@name" the symbols
-/// of the file on screen, "@@name" the project's. ">" and "#" are the commands' and the pull requests'.
+/// of the file on screen, "@@name" the project's. ">" is the commands'; a built-in may have a character of its own
+/// ("#": Issues' pull requests, `Contributions.quickPrefixes`).
 extension QuickOpen {
     enum Prefix: Equatable {
         case line(Int?, column: Int? = nil), files(String), symbols(String), everywhere(String)
@@ -143,39 +144,21 @@ extension QuickOpen {
         return out
     }
 
-    /// "#123" or "#login": the project's open pull requests (gh), each opened in its own tab as the Issues panel opens
-    /// it. Asked once per opening (each keystroke would run `gh` again, and say again that it's missing); what's typed
-    /// filters them here.
-    func searchPullRequests(_ q: String) {
-        let app = self.app
-        guard let repo = app.worktree(app.workbench.workspaceId)?.repoId else { return }
-        if let pullRequests, pullRequests.repo == repo {   // asked: shown now, or once they come
-            if let list = pullRequests.list { showPullRequests(list, q, repo: repo) }
-            return
+    /// What a built-in lists for what's typed after its character (`Contributions.quickPrefixes`: "#123" or "#login",
+    /// Issues' pull requests), each row opened as it says; what's typed by the time they come is what they're for.
+    func listPrefixed(_ term: String, _ rows: @escaping @MainActor (String) async -> [QuickItem]) {
+        prefixedLoad?.cancel()
+        let asked = field.stringValue
+        prefixedLoad = Task { [weak self] in
+            let items = await rows(term)
+            guard let self, !Task.isCancelled, field.stringValue == asked else { return }
+            setRows(
+                items.map { row in
+                    Item(
+                        kind: "", icon: row.icon, title: row.title, detail: row.detail, action: row.open,
+                        split: row.split, image: row.image, accessory: row.accessory)
+                }, grouped: false)
         }
-        prSearch?.cancel()
-        pullRequests = (repo, nil)
-        prSearch = Task { [weak self] in
-            let prs = await app.call(GitHubPRs(repoId: repo, filter: .open)) ?? []   // gh missing or signed out: says so
-            guard let self, !Task.isCancelled, pullRequests?.repo == repo else { return }
-            pullRequests = (repo, prs)
-            let typed = field.stringValue
-            if typed.hasPrefix("#") { showPullRequests(prs, typed, repo: repo) }   // what's typed by now
-        }
-    }
-
-    private func showPullRequests(_ prs: [GitHub.PullRequest], _ q: String, repo: String) {
-        let app = self.app, term = String(q.dropFirst()).lowercased()
-        setRows(
-            prs.filter { pr in
-                term.isEmpty || "\(pr.number)".hasPrefix(term) || pr.title.lowercased().contains(term)
-            }
-            .map { pr in
-                Item(
-                    kind: "Pull Request", icon: "arrow.triangle.pull", title: "#\(pr.number) \(pr.title)",
-                    detail: "\(pr.author) · \(pr.headRefName)",
-                    action: { app.workbench.open(TabURI.pullRequest(repo: repo, number: pr.number)) })
-            }, grouped: false)
     }
 
     /// A title matches when it contains the query, or each query word starts a word of the title.

@@ -168,7 +168,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // 371 → 359: an agent's page is the Browser built-in's again: it shows on the row, the tab and the card through the
     // shell's generic places (`RowMark`, `TabProvider.driven`, `agentCards`, `subagentSteps`, `browser`), and acts in a
     // loaded workspace's tabs through Workbench (`loadedTabs`, `content`, `openBeside`); a subagent's `title` is read.
-    #expect(declared == 359, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +3: a project's open pull requests are read from their watch by the Issues panel, ⌘P's "#" (Issues', through
+    // `quickPrefixes`) and the new-branch sheet alike (`PRsEvent`'s `key`, `forgottenWith`, `open`).
+    #expect(declared == 362, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -264,8 +266,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 394, "lines over 120: \(over120)")
-    #expect(over120 >= 394, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 393, "lines over 120: \(over120)")
+    #expect(over120 >= 393, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out

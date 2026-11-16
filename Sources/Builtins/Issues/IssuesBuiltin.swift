@@ -58,7 +58,9 @@ extension Builtins {
                             .symbol($0.hasPrefix("pr:") ? "arrow.triangle.pull" : "smallcircle.filled.circle"), nil
                         )
                     })
-            ]
+            ],
+            // ⌘P "#123" or "#login": the project's open pull requests.
+            quickPrefixes: ["#": { watch.quickRows($0) }]
         )
     }
 }

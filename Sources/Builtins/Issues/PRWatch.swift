@@ -2,11 +2,7 @@ import Core
 import DesignKit
 import Foundation
 import KelpKit
-
-extension PRsEvent: Pushed {
-    package var key: String { repo }
-    package static var forgottenWith: WatchTopic? { .prs }
-}
+import WorkbenchKit
 
 /// What the pull requests ask of you while you're elsewhere: the open PRs of the project on screen, watched (the daemon
 /// reads them every two minutes), how many wait for your review (the number on the panel's icon), and which changed
@@ -34,6 +30,24 @@ final class PRWatch {
 
     /// The project's open PRs as last read; nil until then, or when they couldn't be.
     func prs(_ repo: String?) -> [GitHub.PullRequest]? { app.latest(PRsEvent.self, repo ?? "")?.prs }
+
+    /// ⌘P's "#123" or "#login": the open PRs of the project on screen, as watched (no gh run for a keystroke), each opened
+    /// in its own tab as the panel opens it; why there are none when they couldn't be read.
+    func quickRows(_ term: String) -> [QuickItem] {
+        guard let repo = app.worktree(app.workbench.workspaceId)?.repoId, let read = app.latest(PRsEvent.self, repo)
+        else { return [] }
+        if let error = read.error {
+            return [QuickItem(error, detail: "", icon: "exclamationmark.triangle", open: {})]
+        }
+        let app = app, term = term.lowercased()
+        return (read.prs ?? []).filter { pr in
+            term.isEmpty || "\(pr.number)".hasPrefix(term) || pr.title.lowercased().contains(term)
+        }.map { pr in
+            QuickItem(
+                "#\(pr.number) \(pr.title)", detail: "\(pr.author) · \(pr.headRefName)", icon: "arrow.triangle.pull",
+                open: { app.workbench.open(TabURI.pullRequest(repo: repo, number: pr.number)) })
+        }
+    }
 
     var badge: PanelBadge? {
         guard let viewer, let prs = prs(app.worktree(app.workbench.workspaceId)?.repoId) else { return nil }

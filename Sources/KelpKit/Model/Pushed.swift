@@ -29,6 +29,24 @@ extension PortsEvent: Pushed {
     package var key: String { worktree }
     package static var forgottenWith: WatchTopic? { .ports }
 }
+/// A project's open pull requests: the Issues panel and its number, ⌘P's "#", the new-branch sheet.
+extension PRsEvent: Pushed {
+    package var key: String { repo }
+    package static var forgottenWith: WatchTopic? { .prs }
+
+    /// A project's open pull requests as its watch read them last (the project on screen's is watched while Issues is
+    /// on), asked again when `again`; read once from gh before a reading has landed (a project not on screen).
+    @MainActor package static func open(_ repo: String, in app: AppModel, again: Bool = false) async throws -> [GitHub
+        .PullRequest]
+    {
+        guard let read = app.latest(PRsEvent.self, repo) else {
+            return try await app.get(GitHubPRs(repoId: repo, filter: .open))
+        }
+        if again { app.watchAgain(.prs, repo) }   // what it reads lands in the store: its readers follow
+        if let error = read.error { throw RPCError.internalError(error) }
+        return read.prs ?? []
+    }
+}
 extension CIEvent: Pushed {
     package var key: String { worktree }
     package static var forgottenWith: WatchTopic? { .ci }

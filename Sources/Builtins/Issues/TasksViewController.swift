@@ -351,8 +351,11 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 switch src {
                 case .pulls:
                     viewer = await Viewer.get(app)
-                    let prs = try await app.get(
-                        GitHubPRs(repoId: repoId, filter: filterIndex == 1 ? .closed : .open))
+                    // Open ones from the project's watch (asked again on a click), the latest closed ones from gh.
+                    let prs =
+                        filterIndex == 1
+                        ? try await app.get(GitHubPRs(repoId: repoId, filter: .closed))
+                        : try await PRsEvent.open(repoId, in: app, again: !quietly)
                     unseen = PRWatch.unseen(prs)
                     rows = prs.map(Row.pr)
                 case .issues:

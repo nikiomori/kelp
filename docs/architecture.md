@@ -94,6 +94,7 @@ part of the card) is Browser's. The shell gives them places to show up in: the c
 | sidebarSections (built-ins only) | a block of its own under the projects (Machines), made while it's on; a `foot` one under all the rest (the plan limits) |
 | rowMarks (built-ins only) | marks on rows (`RowMark`): on an agent's row in its chip's place, the machine it runs a command in (Machines'), or a button beside its dots, the page it drives, lighting its subagents' dots (Browser's); on an agent's tile in the Dock strip, its workspace's CI (Git's) |
 | agentCards (built-ins only) | a part of an agent's hover card under what the card says of it (the page it drives, Browser's) |
+| quickPrefixes (built-ins only) | ⌘P's list for what's typed after a character of the built-in's ("#": the project's open pull requests, Issues', from their watch) |
 | subagentSteps (built-ins only) | a subagent's last command in the built-in's words on its agent's card ("Browser · clicks “Pay now”") |
 | browser (built-ins only) | `kelp browser`'s commands, done by the built-in that has pages (Browser), which acts in a loaded workspace's tabs through Workbench (`loadedTabs`, `content`, `openBeside`); none, and the command is told the Browser is off |
 | branch (built-ins only) | the window bar's branch chip: what runs on the branch, the popover a click opens (Git's sync); the top of a project's menu for its folder's branch (a merged PR's switch) |

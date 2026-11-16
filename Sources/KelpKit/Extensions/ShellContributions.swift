@@ -220,7 +220,8 @@ package struct Contributions {
         skills: [SkillSpec] = [],
         agentCards: [@MainActor (_ session: Session, _ close: @escaping @MainActor () -> Void) -> AnyView?] = [],
         subagentSteps: [@MainActor (_ session: String, _ subagent: String, _ command: String) -> String?] = [],
-        browser: (@MainActor (UIBrowserEvent) -> Void)? = nil
+        browser: (@MainActor (UIBrowserEvent) -> Void)? = nil,
+        quickPrefixes: [String: @MainActor (_ typed: String) async -> [QuickItem]] = [:]
     ) {
         self.panels = panels
         self.editors = editors
@@ -245,6 +246,7 @@ package struct Contributions {
         self.agentCards = agentCards
         self.subagentSteps = subagentSteps
         self.browser = browser
+        self.quickPrefixes = quickPrefixes
     }
     package var panels: [PanelSpec] = []
     var editors: [EditorSpec] = []
@@ -297,6 +299,9 @@ package struct Contributions {
     /// `kelp browser`: an agent's command, done by the built-in that has pages, which answers it (`UIBrowserReply`).
     /// None, and the command is told the Browser is off.
     var browser: (@MainActor (UIBrowserEvent) -> Void)?
+    /// ⌘P's lists for what's typed after a character of the built-in's ("#": Issues' pull requests); the first built-in's
+    /// wins a character.
+    var quickPrefixes: [String: @MainActor (_ typed: String) async -> [QuickItem]] = [:]
 
     /// Another extension's, after this one's (the registry merges them in load order): a list takes its items after
     /// these, a single hook stays the first one's. A new field gets its line here, beside the fields.
@@ -327,5 +332,6 @@ package struct Contributions {
         agentCards += c.agentCards
         subagentSteps += c.subagentSteps
         browser = browser ?? c.browser
+        quickPrefixes.merge(c.quickPrefixes) { first, _ in first }
     }
 }

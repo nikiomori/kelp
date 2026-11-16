@@ -40,8 +40,7 @@ extension QuickOpen {
         if panel == nil { build() }
         stopChoosing()
         filesLoad?.cancel()
-        prSearch?.cancel()
-        pullRequests = nil
+        prefixedLoad?.cancel()
         tmuxLoad?.cancel()
         commandsOnly = false
         recents = []
