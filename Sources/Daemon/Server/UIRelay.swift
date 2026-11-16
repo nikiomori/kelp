@@ -99,9 +99,8 @@ extension UIBrowser: AsyncHandled {
 }
 
 /// What answers `ui.browser`: the window it goes to, and the sessions that say which subagent asks.
-struct BrowserRelay: DaemonService {
+struct BrowserRelay {
     let ui: UIStore, sessions: Sessions
-    static func of(_ daemon: Daemon) -> BrowserRelay { BrowserRelay(ui: .of(daemon), sessions: daemon.sessions) }
 }
 
 extension UIBrowserReply: Handled {

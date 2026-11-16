@@ -100,6 +100,13 @@ struct AgentWork: View {
 
     private func step(of run: Subagent) -> String? {
         guard let last = model.app.latest(SubagentsEvent.self, id)?.steps[run.id] else { return nil }
+        // On a page: what it did there, in words, not the command that did it.
+        if last.step.detail.contains("kelp browser"),
+            let done = model.app.agentPages.of(session: id).first(where: { $0.page.subagent == run.id })?.page.steps
+                .last
+        {
+            return String(localized: "Browser · \(done.text)")
+        }
         let text = last.step.tool + "  " + last.step.detail, quiet = Date().timeIntervalSince(last.touched)
         return quiet < Self.quietAfter ? text : String(localized: "\(text) · quiet for \(shortSpan(quiet))")
     }

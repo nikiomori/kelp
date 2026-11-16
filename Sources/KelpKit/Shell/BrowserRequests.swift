@@ -89,6 +89,13 @@ extension EditorArea {
         guard let tab = content(page), let browse = app.extensions.tabProvider(for: page.uri)?.browse else {
             throw RPCError.invalidParams("That tab shows no page.")
         }
+        // Where the page is, for the marks the shell shows of it outside its tab (`AgentPages`).
+        var args = args
+        if case .object(var fields) = args {
+            fields["tab"] = .string(page.id)
+            fields["workspace"] = .string(workspaceId)
+            args = .object(fields)
+        }
         return try await browse(tab, action.rawValue, args)
     }
 

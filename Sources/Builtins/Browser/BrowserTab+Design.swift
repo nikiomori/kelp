@@ -14,6 +14,7 @@ extension BrowserTab {
             clickWatch = nil
         }
         if recording != nil { saveRecording() }
+        app.agentPages.closed(pageId)
         return true
     }
 

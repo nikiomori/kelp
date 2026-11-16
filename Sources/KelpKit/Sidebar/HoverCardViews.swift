@@ -81,6 +81,7 @@ struct CardView: View {
                             1)
                     }
                 }
+                if model.agentOnly { AgentPageCard(model: model, session: agent.id) }
                 AgentWork(model: model, id: agent.id)
                 if QuickReply.fits(agent.session) {
                     HStack(spacing: 6) {

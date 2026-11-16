@@ -289,6 +289,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         } changed: { [weak self] _ in
             self?.updateVisibleCells()
         }
+        followAgentPages()
         track(owner: self) { [app] in
             app.extensions.all.ci?.rows() ?? [:]
         } changed: { [weak self] _ in

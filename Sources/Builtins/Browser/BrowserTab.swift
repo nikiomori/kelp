@@ -53,6 +53,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         .symbol("chevron.right"), tip: String(localized: "Forward"), target: nil, action: nil)
     private let reload = IconButton(
         .symbol("arrow.clockwise"), tip: String(localized: "Reload (⌘R)"), target: nil, action: nil)
+    /// This page among those agents drive (`AgentPages`).
+    let pageId = UUID().uuidString
     /// What `kelp browser` keeps here once an agent drives the page (`watch()`); nil on a page only the user browses.
     @ObservationIgnored var drive: AgentDrive?
     /// Downloads under way (BrowserDownloads.swift): where each goes, where from, from which page.
@@ -195,6 +197,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         }
     }
 
+    isolated deinit { app.agentPages.closed(pageId) }
+
     /// The local address that failed is served now (its dev server started in this screen).
     private var failedServed: Bool {
         guard let failed, let port = failed.port, Self.isLocal(failed), let wid = serving.key else { return false }
@@ -223,6 +227,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             agentSlotHeight.isActive = false
         }
         let takenOver = drive?.takenOver == true
+        app.agentPages.change(pageId) { $0.holder = takenOver ? .user : .agent }
         agentLabel.stringValue =
             (takenOver
                 ? String(localized: "You took this page over: the agent waits until you hand it back")
@@ -299,6 +304,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         guard let url = blank ? failed ?? web.url : web.url else { return }
         page = (url, blank ? nil : web.title)
         if address.currentEditor() == nil, previewFile == nil { address.stringValue = url.absoluteString }
+        showDriven()
     }
 
     @objc private func reloadOrStop() {

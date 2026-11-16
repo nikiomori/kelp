@@ -161,7 +161,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +1: an agent's bar lists the commands on its line from the shell's index (`onLine(of:)`), not a scan of all sessions.
     // +2: ⌘P lists the files the Files panel was last told (`FilesEvent`'s `key`, `forgottenWith`, moved from Files).
     // +1: a server's and a machine's rows open their page in a window of its own (`openInOwnWindow`).
-    #expect(declared == 351, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +16 so an agent's page shows outside its tab: what the browser tells the shell of each page it drives (`AgentPages`,
+    // its `Page`, `Holder`, `drives` / `change` / `acted` / `closed`), and what the shell asks of a page (`DrivenPage`).
+    #expect(declared == 367, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -451,6 +453,7 @@ func codeOnly(_ s: String) -> String {
         "KelpKit/Inspector/InspectorParts.swift": (
             1, "a menu the pointer opened looks, while it's open, whether the pointer left it: tracking sends no exit"
         ),
+        "KelpKit/Shell/AgentPages.swift": (1, "a page an agent acted on stays lit for ten seconds, then goes grey"),
         "Builtins/Browser/BrowserRecording.swift": (
             1, "a recording's frames, ten a second: WebKit says when it drew none"
         ),

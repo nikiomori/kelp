@@ -133,6 +133,9 @@ extension SettingsEvents: DaemonService { static func of(_ daemon: Daemon) -> Se
 extension UIStore: DaemonService {
     static func of(_ daemon: Daemon) -> UIStore { UIStore(store: daemon.store, clients: daemon.clients) }
 }
+extension BrowserRelay: DaemonService {
+    static func of(_ daemon: Daemon) -> BrowserRelay { BrowserRelay(ui: .of(daemon), sessions: daemon.sessions) }
+}
 extension ForgeWork: DaemonService {
     static func of(_ daemon: Daemon) -> ForgeWork { ForgeWork(forges: daemon.forges, workspaces: daemon.workspaces) }
 }

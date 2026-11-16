@@ -82,6 +82,12 @@ final class EditorArea: NSViewController {
         } changed: { [weak self] _ in
             self?.groupViews.keys.forEach { self?.refreshGroup($0) }
         }
+        // A page an agent drives: its tab glows while it acts (`pageLook`).
+        track(owner: self, now: false) { [weak self, app] in
+            app.agentPages.tabMarks(workspace: self?.workspaceId ?? "")
+        } changed: { [weak self] _ in
+            self?.groupViews.keys.forEach { self?.refreshGroup($0) }
+        }
         track(owner: self) {
             app.themes.chromeText
         } changed: { [weak self] _ in   // the tabs' titles take the new size

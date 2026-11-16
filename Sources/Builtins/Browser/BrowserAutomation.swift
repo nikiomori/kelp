@@ -34,6 +34,7 @@ extension BrowserTab {
         if drive.takenOver, !Self.whileTakenOver.contains(action) {
             throw RPCError.internalError("The user took this page over: only wait and info until they hand it back")
         }
+        told(action, args)
         return try await looked(action, ref: args["ref"]?.string, try await perform(action, args, drive, need))
     }
 

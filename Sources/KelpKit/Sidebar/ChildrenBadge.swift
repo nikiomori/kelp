@@ -9,11 +9,17 @@ import DesignKit
 final class ChildrenBadge: PointerControl {
     /// Filled works, hollow finished; the two that want someone are coloured. In the order they stand.
     enum Pip: Int, Comparable {
-        case failed, asks, works, finished
+        case failed, asks, browses, works, finished
         static func < (lhs: Pip, rhs: Pip) -> Bool { lhs.rawValue < rhs.rawValue }
     }
     static let mostPips = 4
     private let pips = PipsView(), count = NSTextField(labelWithString: "")
+    /// The subagents that acted on a page lately (`AgentPages`): their dots are lit, in `browsingColor`.
+    var browsing: Set<String> = []
+    var browsingColor: NSColor {
+        get { pips.lit }
+        set { pips.lit = newValue }
+    }
 
     init() {
         super.init(frame: .zero)
@@ -48,7 +54,9 @@ final class ChildrenBadge: PointerControl {
 
     /// The dots for what runs under an agent, and the number beside them when they don't fit. A turn's finished subagents
     /// stand only beside one still at work: a started agent lives on until its parent ends, so it always shows.
-    static func marks(kids: [Session], running: [Subagent], finished: [Subagent]) -> (pips: [Pip], count: Int?) {
+    static func marks(kids: [Session], running: [Subagent], finished: [Subagent], browsing: Set<String> = []) -> (
+        pips: [Pip], count: Int?
+    ) {
         guard !kids.isEmpty || !running.isEmpty else { return ([], nil) }
         let started: [Pip] = kids.map {
             switch status($0) {
@@ -59,7 +67,7 @@ final class ChildrenBadge: PointerControl {
             }
         }
         let all =
-            (started + running.map { $0.asks == true ? .asks : .works }
+            (started + running.map { $0.asks == true ? .asks : browsing.contains($0.id) ? .browses : .works }
             + (running.isEmpty ? [] : finished.map { _ in .finished })).sorted()
         if all.count <= mostPips { return (all, nil) }
         let atWork = all.count { $0 != .finished }
@@ -67,7 +75,7 @@ final class ChildrenBadge: PointerControl {
     }
 
     func show(_ kids: [Session], running: [Subagent], finished: [Subagent]) {
-        let marks = Self.marks(kids: kids, running: running, finished: finished)
+        let marks = Self.marks(kids: kids, running: running, finished: finished, browsing: browsing)
         isHidden = marks.pips.isEmpty
         pips.pips = marks.pips
         if !count.isHidden, let old = Int(count.stringValue), let new = marks.count, old != new {
@@ -93,6 +101,8 @@ final class PipsView: NSView {
         }
     }
     private var dots: [CALayer] = []
+    /// A lit dot's colour (`Pip.browses`): the agent's.
+    var lit: NSColor = .systemPurple { didSet { if lit != oldValue { needsDisplay = true } } }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -160,12 +170,13 @@ final class PipsView: NSView {
     }
 
     private func paint(_ dot: CALayer, _ pip: ChildrenBadge.Pip) {
-        let color: NSColor = pip == .asks ? .systemOrange : pip == .failed ? .systemRed : .secondaryLabelColor
+        let color: NSColor =
+            pip == .asks ? .systemOrange : pip == .failed ? .systemRed : pip == .browses ? lit : .secondaryLabelColor
         dot.backgroundColor = pip == .finished ? NSColor.clear.cgColor : color.cgColor
         dot.borderColor = color.cgColor
         dot.borderWidth = pip == .finished ? 1 : 0
         dot.shadowColor = color.cgColor
-        dot.shadowOpacity = pip == .asks ? 0.8 : 0
+        dot.shadowOpacity = pip == .asks || pip == .browses ? 0.8 : 0
     }
 }
 

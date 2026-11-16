@@ -33,8 +33,12 @@ extension BrowserTab {
             noteRequest(
                 "\(status) \(entry["method"] as? String ?? "GET") \(entry["url"] as? String ?? "") (\(entry["type"] as? String ?? "")\(ms)"
                     + (text.isEmpty ? ")" : ": \(text))"))
+            if (entry["status"] as? Int).map({ $0 == 0 || $0 >= 400 }) ?? true {
+                noteError("\(entry["method"] as? String ?? "GET") \(entry["url"] as? String ?? "") \(status)")
+            }
         } else {
             noteLog("[\(entry["level"] as? String ?? "log")] \(text)")
+            if entry["level"] as? String == "error" { noteError(text) }
         }
     }
 

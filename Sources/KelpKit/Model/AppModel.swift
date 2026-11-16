@@ -53,6 +53,8 @@ package final class AppModel {
     @ObservationIgnored private(set) package lazy var themes = ThemeManager(app: self)
     @ObservationIgnored private(set) package lazy var availability = AgentAvailability(app: self)
     @ObservationIgnored private(set) lazy var agentIcons = AgentIcons()
+    /// The pages agents drive (`kelp browser`), as the sidebar, the tabs and the cards show them.
+    @ObservationIgnored private(set) package lazy var agentPages = AgentPages(app: self)
     /// The agents it offers (see `AgentCatalog`), and file icons in the theme it's set to: views over the parts above.
     package var catalog: AgentCatalog { AgentCatalog(app: self) }
     package var fileIcons: FileIcon { FileIcon(app: self) }
