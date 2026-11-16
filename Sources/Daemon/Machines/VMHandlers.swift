@@ -11,10 +11,11 @@ extension VMList: Handled {
 // every session (the user's own terminal or window).
 extension VMType: Handled {
     /// No text types the machine's password (Type Password): into whatever has its focus, which the user looks at first.
-    var notForAgents: String? {
-        text == nil
-            ? "Typing a machine's password is the user's: ask them to press Type Password at the top of its window "
-                + "(kelp vm show <name> opens it) or in its tab in Kelp." : nil
+    var fence: Fence {
+        Fence(
+            notForAgents: text == nil
+                ? "Typing a machine's password is the user's: ask them to press Type Password at the top of its window "
+                    + "(kelp vm show <name> opens it) or in its tab in Kelp." : nil)
     }
     func handle(_ vms: VMService) throws -> Done {
         try vms.type(name, text, session: Sessions.asker)
@@ -87,15 +88,17 @@ struct VMAsking: Sendable {
 
 extension VMControl: Handled {
     /// Other chats run commands in it: shutting it down or deleting it is the user's (sleeping is fine: the next command wakes it).
-    var notForAgents: String? {
-        [.stop, .delete].contains(action)
-            ? "Shutting a machine down or deleting it is the user's: other chats may be running in it." : nil
+    var fence: Fence {
+        Fence(
+            notForAgents: [.stop, .delete].contains(action)
+                ? "Shutting a machine down or deleting it is the user's: other chats may be running in it." : nil)
     }
     func handle(_ vms: VMService) throws -> VMInfo { try vms.control(name, action) }
 }
 
 extension VMConnect: Handled {
-    var writesInFolder: String? { cwd }   // the folder a command runs in on the machine, the project's own on the Mac
+    // the folder a command runs in on the machine, the project's own on the Mac
+    var fence: Fence { Fence(writesInFolder: cwd) }
     func handle(_ vms: VMService) throws -> VMConnection { try vms.connect(name, cwd: cwd) }
 }
 

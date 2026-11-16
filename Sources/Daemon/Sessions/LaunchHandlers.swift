@@ -6,11 +6,14 @@ import GitKit
 import Integrations
 
 extension SessionCreate: Handled {
-    var inWorkspace: String? { worktreeId }   // said, not left to the walk: a session made there would let an agent into it
-    var writesInFolder: String? { cwd }   // where it runs wins over `worktreeId`: held to the workspace that holds it
-    /// A tmux session by name would attach to one of the user's (`new-session -A`), and type in it as the agent.
-    var notForAgents: String? {
-        tmux == nil ? nil : "An agent's terminals aren't tmux sessions: tmux sessions are the user's to attach."
+    /// Its workspace said, not left to the walk: a session made there would let an agent into it. Where it runs (`cwd`)
+    /// wins over `worktreeId`: held to the workspace that holds it. A tmux session by name would attach to one of the
+    /// user's (`new-session -A`), and type in it as the agent.
+    var fence: Fence {
+        Fence(
+            inWorkspace: worktreeId, writesInFolder: cwd,
+            notForAgents: tmux == nil
+                ? nil : "An agent's terminals aren't tmux sessions: tmux sessions are the user's to attach.")
     }
     func handle(_ sessions: Sessions) throws -> Session {
         // cwd wins when both are given (e.g. an agent building an extension, shown in the current workspace).
@@ -57,7 +60,7 @@ extension SessionCreate: Handled {
 }
 
 extension SessionRestart: Handled {
-    var actsOn: String? { id }   // it stops the session, and may brief it anew
+    var fence: Fence { Fence(actsOn: id) }   // it stops the session, and may brief it anew
     func handle(_ sessions: Sessions) throws -> Session {
         guard try sessions.store.session(id) != nil else { throw RPCError.invalidParams("no session") }
         sessions.reports.restarting(id, true)   // it comes back: its children stay, and its parent hears nothing

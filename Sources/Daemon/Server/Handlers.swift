@@ -21,40 +21,8 @@ protocol Answered: RPCMethod {
     static var inOrder: Bool { get }
     /// The result as the reply's JSON.
     static func answer(_ params: JSONValue, _ daemon: Daemon, conn: Int) async throws -> Data
-    /// Who may call it: nil for any client of the socket (the app, the CLI, agents and their scripts), else what anyone
-    /// but Kelp's window is told (`Clients.requireApp`). Its params may decide (`state.set` of an `lsp.` key).
-    var onlyFromKelp: String? { get }
-    /// The session whose status it reports (hooks, `kelp report`, herdr's): a program running inside one session may
-    /// report only for that one. From outside every session (the app, a terminal elsewhere), for any.
-    var reportsFor: String? { get }
-    /// The session it types into or stops. Not a gate of its own: every session a call names, in any field, is held to
-    /// the agent's own and those it started (`Store.named(by:)`), so for one that exists this adds nothing. It does
-    /// refuse an id that names no session, and keeps a typed agent from acting on the user's terminal it was typed into,
-    /// which it may still name (`AgentRules.allow`).
-    var actsOn: String? { get }
-    /// Whether it answers an agent's question (Allow / Deny): the user's to answer, so never from a session an agent runs or
-    /// started, which would approve its own question or another agent's.
-    var answersQuestion: Bool { get }
-    /// The workspace it works in (`kelp browser`'s tabs, a port's process): an agent works only in its own, whose
-    /// pages may carry the user's login it was let into.
-    var inWorkspace: String? { get }
-    /// A folder it writes in (an artifact's `cwd`): held to the workspace that holds it, as `inWorkspace` is. One outside
-    /// every workspace (a chat of no project) is anyone's.
-    var writesInFolder: String? { get }
-    /// The sessions it ends with what it removes (a workspace, a project's): an agent ends only its own and those it
-    /// started, never the user's other agents.
-    var ends: Ending? { get }
-    /// Why an agent, or a program it runs, may not call it at all (a routine starts agents of the user's later): nil if it may.
-    var notForAgents: String? { get }
-    /// The session it types keys into as they are: never an agent's while that one asks a question, which a key answers.
-    var typesInto: String? { get }
-    /// A session it shows (a tab of it), checked as any session a call names: a typed agent's own terminal included.
-    var shows: String? { get }
-    /// Words it leaves for another to read (a review comment), whose author is `reportsFor`'s: an agent names its session,
-    /// or they would read as the user's.
-    var signs: Bool { get }
-    /// The project it makes something in (a workspace): one the agent works in, not any of the user's.
-    var makesInProject: String? { get }
+    /// Who may call it, and on what (`Fence`): checked before it runs, for every caller (`Daemon.allow`).
+    var fence: Fence { get }
     /// Whether it runs gh in the project's folder: then, for a remote project with no GitHub origin, what it answers
     /// (`Daemon.refuseRemoteForge`). nil for one that runs nothing there.
     static var onRemote: RemoteForge? { get }
@@ -62,19 +30,48 @@ protocol Answered: RPCMethod {
 
 enum Ending { case workspace(String), project(String) }
 
+/// Who may call a method and what it reaches, as its handler says once (`Answered.fence`): what `Clients.requireApp`
+/// and `AgentRules.allow` check before it runs. Each gate is a label of the init, none by default, so one misspelled
+/// doesn't compile and none is left to a protocol's default.
+struct Fence {
+    /// Who may call it: nil for any client of the socket (the app, the CLI, agents and their scripts), else what anyone
+    /// but Kelp's window is told (`Clients.requireApp`). Its params may decide (`state.set` of an `lsp.` key).
+    var onlyFromKelp: String?
+    /// The session whose status it reports (hooks, `kelp report`, herdr's): a program running inside one session may
+    /// report only for that one. From outside every session (the app, a terminal elsewhere), for any.
+    var reportsFor: String?
+    /// The session it types into or stops. Not a gate of its own: every session a call names, in any field, is held to
+    /// the agent's own and those it started (`Store.named(by:)`), so for one that exists this adds nothing. It does
+    /// refuse an id that names no session, and keeps a typed agent from acting on the user's terminal it was typed into,
+    /// which it may still name (`AgentRules.allow`).
+    var actsOn: String?
+    /// Whether it answers an agent's question (Allow / Deny): the user's to answer, so never from a session an agent runs or
+    /// started, which would approve its own question or another agent's.
+    var answersQuestion: Bool = false
+    /// The workspace it works in (`kelp browser`'s tabs, a port's process): an agent works only in its own, whose
+    /// pages may carry the user's login it was let into.
+    var inWorkspace: String?
+    /// A folder it writes in (an artifact's `cwd`): held to the workspace that holds it, as `inWorkspace` is. One outside
+    /// every workspace (a chat of no project) is anyone's.
+    var writesInFolder: String?
+    /// The sessions it ends with what it removes (a workspace, a project's): an agent ends only its own and those it
+    /// started, never the user's other agents.
+    var ends: Ending?
+    /// Why an agent, or a program it runs, may not call it at all (a routine starts agents of the user's later): nil if it may.
+    var notForAgents: String?
+    /// The session it types keys into as they are: never an agent's while that one asks a question, which a key answers.
+    var typesInto: String?
+    /// A session it shows (a tab of it), checked as any session a call names: a typed agent's own terminal included.
+    var shows: String?
+    /// Words it leaves for another to read (a review comment), whose author is `reportsFor`'s: an agent names its session,
+    /// or they would read as the user's.
+    var signs: Bool = false
+    /// The project it makes something in (a workspace): one the agent works in, not any of the user's.
+    var makesInProject: String?
+}
+
 extension Answered {
-    var onlyFromKelp: String? { nil }
-    var reportsFor: String? { nil }
-    var actsOn: String? { nil }
-    var answersQuestion: Bool { false }
-    var inWorkspace: String? { nil }
-    var writesInFolder: String? { nil }
-    var ends: Ending? { nil }
-    var notForAgents: String? { nil }
-    var typesInto: String? { nil }
-    var shows: String? { nil }
-    var signs: Bool { false }
-    var makesInProject: String? { nil }
+    var fence: Fence { Fence() }
     static var onRemote: RemoteForge? { nil }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
@@ -279,7 +276,7 @@ extension Daemon {
     /// call only Kelp's window makes (`onlyFromKelp`), then what its caller may reach (`AgentRules.allow`).
     /// `caller`: who sent it, when that was found before (input queued for a session that wakes).
     func allow(_ method: any Answered, conn: Int, caller known: Caller? = nil) throws {
-        if let refusal = method.onlyFromKelp { try clients.requireApp(conn, refusal) }
+        if let refusal = method.fence.onlyFromKelp { try clients.requireApp(conn, refusal) }
         try AgentRules.allow(
             method, caller: known ?? callers.caller(conn), store: store, live: sessions.live,
             databases: workspaces.databases)

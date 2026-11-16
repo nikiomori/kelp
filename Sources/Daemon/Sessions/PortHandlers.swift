@@ -11,7 +11,8 @@ extension SessionUsage: Handled {
 }
 
 extension PortsStop: Handled {
-    var inWorkspace: String? { worktreeId }   // said, not left to the walk: it stops a process, and an id of no workspace finds none
+    // said, not left to the walk: it stops a process, and an id of no workspace finds none
+    var fence: Fence { Fence(inWorkspace: worktreeId) }
     func handle(_ processes: SessionProcesses) throws -> Done {
         let pid = Int32(clamping: pid ?? 0)
         guard pid > 0, processes.ports(worktree: worktreeId).contains(where: { $0.pid == pid }) else {

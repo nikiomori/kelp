@@ -103,8 +103,7 @@ extension RepoRename: Handled {
 
 /// Its workspaces go with it, and so do their agents: none keeps working out of sight.
 extension RepoRemove: Handled {
-    var ends: Ending? { .project(id) }
-    var notForAgents: String? { "Only the user removes a project from Kelp." }
+    var fence: Fence { Fence(ends: .project(id), notForAgents: "Only the user removes a project from Kelp.") }
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let repo = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
         let ids = Set(try workspaces.store.worktrees(repo: repo.id).map(\.id))
@@ -118,7 +117,7 @@ extension RepoRemove: Handled {
 }
 
 extension WorkspaceCreate: Handled {
-    var makesInProject: String? { repoId }
+    var fence: Fence { Fence(makesInProject: repoId) }
     func handle(_ workspaces: Workspaces) throws -> Worktree {
         guard let repo = try workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
         var workspace = try workspaces.createWorkspace(in: repo)
@@ -132,7 +131,7 @@ extension WorkspaceCreate: Handled {
 }
 
 extension WorktreeCreate: Handled {
-    var makesInProject: String? { repoId }
+    var fence: Fence { Fence(makesInProject: repoId) }
     func handle(_ workspaces: Workspaces) throws -> Result {
         guard let repo = try workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
         return try workspaces.createBranchWorkspace(in: repo, self)
@@ -147,7 +146,7 @@ extension WorktreeList: Handled {
 }
 
 extension WorktreeArchive: Handled {
-    var ends: Ending? { .workspace(id) }
+    var fence: Fence { Fence(ends: .workspace(id)) }
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let workspace = try workspaces.store.worktree(id), let repo = try workspaces.store.repo(workspace.repoId)
         else {
@@ -159,9 +158,11 @@ extension WorktreeArchive: Handled {
 }
 
 extension WorktreeRemove: Handled {
-    var ends: Ending? { .workspace(id) }
-    var notForAgents: String? {
-        force == true || dropCommits == true ? "Only the user removes a workspace with its changes or commits." : nil
+    var fence: Fence {
+        Fence(
+            ends: .workspace(id),
+            notForAgents: force == true || dropCommits == true
+                ? "Only the user removes a workspace with its changes or commits." : nil)
     }
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let workspace = try workspaces.store.worktree(id), let repo = try workspaces.store.repo(workspace.repoId)
@@ -250,7 +251,7 @@ extension RepoWorktreeSizes: Handled {
 }
 
 extension RepoRemoveWorktrees: Handled {
-    var notForAgents: String? { "Only the user clears a project's worktrees." }
+    var fence: Fence { Fence(notForAgents: "Only the user clears a project's worktrees.") }
     func handle(_ workspaces: Workspaces) throws -> Result {
         guard let repo = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
         return try workspaces.removeWorktrees(paths, of: repo)
@@ -265,7 +266,7 @@ extension RepoDiskUsage: Handled {
 }
 
 extension RepoDiskTrash: Handled {
-    var notForAgents: String? { "Only the user clears a project's disk." }
+    var fence: Fence { Fence(notForAgents: "Only the user clears a project's disk.") }
     func handle(_ disk: DiskUsage) throws -> Result {
         guard let repo = try disk.workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
         return try disk.trash(paths, of: repo)

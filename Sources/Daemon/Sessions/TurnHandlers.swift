@@ -5,7 +5,7 @@ import GitKit
 // An agent's turns: their snapshots kept under refs/kelp/turns/, listed, undone and redone.
 
 extension SessionTurnUndo: Handled {
-    var actsOn: String? { id }   // an agent undoes only its own turns and its children's
+    var fence: Fence { Fence(actsOn: id) }   // an agent undoes only its own turns and its children's
     func handle(_ turns: Turns) throws -> Result {
         let (mark, dir) = try turns.place(session: id, turn: turn), remotes = turns.remotes
         let plan = try Git.changed(since: mark.tree, cwd: dir, remotes: remotes)
@@ -39,7 +39,7 @@ extension SessionTurnUndo: Handled {
 }
 
 extension SessionTurnRedo: Handled {
-    var actsOn: String? { id }
+    var fence: Fence { Fence(actsOn: id) }
     func handle(_ turns: Turns) throws -> Done {
         let (_, dir) = try turns.place(session: id, turn: turn), remotes = turns.remotes, ref = Turns.undoneRef(id)
         guard let before = try turns.kept(ref, in: dir) else {

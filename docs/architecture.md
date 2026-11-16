@@ -345,11 +345,11 @@ hostile process of the same user (it could edit `~/.kelp`, drive the app with sy
 what it does keep is an agent's reach through Kelp itself to its own work (below).
 
 What only Kelp's window may do — publish what's on screen (`ui.publish`), trust a project's commands (`scripts.trust`) or
-its language servers (`state.set` of `lsp.*`) — each method says itself (`Answered.onlyFromKelp`), and the dispatcher
+its language servers (`state.set` of `lsp.*`) — each method says itself (`Fence.onlyFromKelp`), and the dispatcher
 checks it for every call, by the program at the other end of the socket as the daemon accepted it (Limit: a process
 of the user's that stops kelpd, connects and execs KelpApp, its socket kept by a child, passes for the window). A
 status report (hooks, `kelp report`, herdr's) from a program running inside a session is for that session only
-(`Answered.reportsFor`), so one agent can't mark another done or asking.
+(`Fence.reportsFor`), so one agent can't mark another done or asking.
 
 **An agent is held to its own sessions.** The daemon tells who calls by the caller's process (`Callers.caller`, a
 `Caller`, looked up as it connects, in Daemon/Rules/CallerLookup.swift): the session it runs in, by its process tree or a

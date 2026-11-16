@@ -355,10 +355,10 @@ import os
 
     /// Agents run commands in machines; making one, shutting it down or deleting it is the user's.
     @Test func whatAgentsMayNotDo() {
-        #expect(VMControl(name: "x", action: .stop).notForAgents != nil)
-        #expect(VMControl(name: "x", action: .delete).notForAgents != nil)
-        #expect(VMControl(name: "x", action: .sleep).notForAgents == nil)
-        #expect(VMControl(name: "x", action: .start).notForAgents == nil)
+        #expect(VMControl(name: "x", action: .stop).fence.notForAgents != nil)
+        #expect(VMControl(name: "x", action: .delete).fence.notForAgents != nil)
+        #expect(VMControl(name: "x", action: .sleep).fence.notForAgents == nil)
+        #expect(VMControl(name: "x", action: .start).fence.notForAgents == nil)
     }
 }
 

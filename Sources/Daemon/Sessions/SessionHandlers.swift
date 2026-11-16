@@ -70,8 +70,7 @@ extension SessionAttach: Handled {
 
 /// Answered by the connection itself (`Daemon.serve`), which it makes a terminal's byte pipe: never a call's reply.
 extension SessionStream: Handled {
-    var actsOn: String? { id }   // what comes after is typing, so it's held to session.write's rules
-    var typesInto: String? { id }
+    var fence: Fence { Fence(actsOn: id, typesInto: id) }   // what comes after is typing: held to session.write's rules
     func handle(_: NoService) throws -> Done {
         throw RPCError.invalidParams(
             "session.stream is a terminal's first line on a connection of its own, not a call.")
@@ -87,8 +86,7 @@ extension SessionDetach: Handled {
 
 extension SessionWrite: SessionInput {
     static var inOrder: Bool { true }   // keystrokes
-    var actsOn: String? { id }
-    var typesInto: String? { id }
+    var fence: Fence { Fence(actsOn: id, typesInto: id) }
     func apply(to session: LiveSession) throws -> Done {
         let data: Data
         if let base64, let decoded = Data(base64Encoded: base64) {
@@ -107,10 +105,10 @@ extension SessionWrite: SessionInput {
 extension SessionSend: SessionInput {
     /// Two sends in a row reach the session in that order (`submit` only queues: nothing here waits on the agent).
     static var inOrder: Bool { true }
-    var actsOn: String? { id }
     /// An agent's send to a session that asks something (a hookless agent's "(y/n)" read off its screen included) is
-    /// refused, not queued: `submit` holds text only for a question an agent said, and its Enter would answer this one.
-    var typesInto: String? { id }
+    /// refused, not queued (`typesInto`): `submit` holds text only for a question an agent said, and its Enter would
+    /// answer this one.
+    var fence: Fence { Fence(actsOn: id, typesInto: id) }
     func apply(to session: LiveSession) throws -> Done {
         // Still starting (woken just now, by this send or anyone else), a question open, an unread draft in the box, or
         // text still waiting ahead: queued, and typed once the program is ready for it (`LiveSession.submit`). A paused
@@ -133,7 +131,7 @@ extension SessionResize: Handled {
 /// Under its wake lock, as waking is: a paused session marked ended here can't be woken halfway through, nor this kill land
 /// on the old copy while a wake starts a new one.
 extension SessionKill: Handled {
-    var actsOn: String? { id }
+    var fence: Fence { Fence(actsOn: id) }
     func handle(_ sessions: Sessions) throws -> Done {
         // A remote agent's tmux session ends with it, and its record then names none: it reads as ended, not as an agent
         // still running on the host (`connectionLost`). The live record too, before its exit is saved.
@@ -154,8 +152,7 @@ extension SessionKill: Handled {
 }
 
 extension SessionChoose: Handled {
-    var actsOn: String? { id }
-    var answersQuestion: Bool { true }
+    var fence: Fence { Fence(actsOn: id, answersQuestion: true) }
     func handle(_ sessions: Sessions) throws -> Bool {
         guard let ls = sessions.existing(id) else { return false }
         // Not Allow or Deny but one of a question's answers (`Session.choices`): picked in its menu, by its label.
@@ -182,7 +179,7 @@ extension SessionChoose: Handled {
 }
 
 extension SessionPermissionWait: AsyncHandled {
-    var reportsFor: String? { id }   // only the session's own hook waits for its answer
+    var fence: Fence { Fence(reportsFor: id) }   // only the session's own hook waits for its answer
     func handle(_ permissions: PermissionWaits) async throws -> String? {
         await permissions.waitForPermission(id, within: 600)
     }
@@ -356,7 +353,7 @@ extension SessionMarkUnread: Handled {
 }
 
 extension SessionContinueAt: Handled {
-    var actsOn: String? { id }   // it types "continue" into the session later
+    var fence: Fence { Fence(actsOn: id) }   // it types "continue" into the session later
     func handle(_ sessions: Sessions) throws -> Done {
         guard let ls = sessions.existing(id) else { throw RPCError.invalidParams("no session") }
         ls.continueAt(at)

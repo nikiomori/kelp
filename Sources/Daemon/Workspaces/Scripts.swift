@@ -87,8 +87,8 @@ extension ScriptsTrust: Handled {
     /// child reads as the window: what it is at accept is what counts, and the audit token is read then too. What this
     /// guards against is a cloned repository's .kelp.yaml running unseen, not a hostile agent: a process of this user
     /// can also drive the app (synthetic key events) or write trusted-configs.json itself.
-    var onlyFromKelp: String? {
-        "Only Kelp's window can trust a project's commands: open the project there and run one."
+    var fence: Fence {
+        Fence(onlyFromKelp: "Only Kelp's window can trust a project's commands: open the project there and run one.")
     }
     func handle(_ workspaces: Workspaces) throws -> Done {
         let (_, repo) = try workspaces.configRepo(worktreeId)

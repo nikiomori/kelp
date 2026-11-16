@@ -13,7 +13,7 @@ final class CommitPlans: Sendable {
 
 extension CommitPlanAdd: Handled {
     static var quick: Bool { true }
-    var reportsFor: String? { session }   // a plan names its own session's agent, not another's
+    var fence: Fence { Fence(reportsFor: session) }   // a plan names its own session's agent, not another's
     func handle(_ commits: CommitPlans) throws -> Int {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
         let paths = files.filter { !$0.isEmpty }

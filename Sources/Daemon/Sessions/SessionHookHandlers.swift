@@ -6,7 +6,7 @@ import Foundation
 
 /// A late one (it was paused or ended since) wakes nothing.
 extension SessionHook: Handled {
-    var reportsFor: String? { id }
+    var fence: Fence { Fence(reportsFor: id) }
     static var quick: Bool { true }   // the agent waits for its hook
     func handle(_ sessions: Sessions) throws -> Done {
         guard let ls = sessions.existing(id) else {
@@ -130,7 +130,7 @@ extension SessionHook: Handled {
 extension SessionAnnotate: Handled {
     static var quick: Bool { true }
     /// The window's own reading of a session (its notifier's summary): no agent sets another's status or summary.
-    var onlyFromKelp: String? { "Only Kelp's window annotates a session." }
+    var fence: Fence { Fence(onlyFromKelp: "Only Kelp's window annotates a session.") }
     func handle(_ sessions: Sessions) throws -> Done {
         guard let ls = sessions.existing(id), ifStatus.map({ $0 == ls.snapshot.status.rawValue }) ?? true else {
             return Done()
@@ -145,7 +145,7 @@ extension SessionAnnotate: Handled {
 }
 
 extension SessionReport: Handled {
-    var reportsFor: String? { id }
+    var fence: Fence { Fence(reportsFor: id) }
     static var quick: Bool { true }   // `kelp report`: the agent waits for it
     func handle(_ sessions: Sessions) throws -> Done {
         guard ProgramStatus.states.contains(state) else {
@@ -162,7 +162,7 @@ extension SessionReport: Handled {
 
 /// herdr has no "done": idle after work is a finished turn (`StatusDetector.program`).
 extension PaneReportAgent: Handled {
-    var reportsFor: String? { paneId }
+    var fence: Fence { Fence(reportsFor: paneId) }
     static var quick: Bool { true }   // fx waits for the reply
     func handle(_ sessions: Sessions) throws -> Done {
         guard ["idle", "working", "blocked"].contains(state) else {

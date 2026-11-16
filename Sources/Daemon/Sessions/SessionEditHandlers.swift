@@ -28,7 +28,8 @@ extension SessionMove: Handled {
 }
 
 extension SessionRename: Handled {
-    var actsOn: String? { id }   // its title on the user's row: an agent names only its own and those it started
+    // its title on the user's row: an agent names only its own and those it started
+    var fence: Fence { Fence(actsOn: id) }
     func handle(_ sessions: Sessions) throws -> Done {
         try sessions.edit(id) { [title] in
             $0.title = title

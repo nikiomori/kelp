@@ -270,8 +270,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 391, "lines over 120: \(over120)")
-    #expect(over120 >= 391, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 388, "lines over 120: \(over120)")
+    #expect(over120 >= 388, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -366,13 +366,13 @@ func codeOnly(_ s: String) -> String {
 }
 
 /// A handler that types into a session, stops one or a process, ends a workspace's agents or answers a question says on
-/// what (`actsOn`, `answersQuestion`, `reportsFor`, `inWorkspace`, `ends`, `onlyFromKelp`), so `Daemon.allow` checks it
-/// before an agent's call gets that far. One that doesn't is a way around the check.
+/// what in its `fence` (`actsOn`, `answersQuestion`, `reportsFor`, `inWorkspace`, `ends`, `onlyFromKelp`), so
+/// `Daemon.allow` checks it before an agent's call gets that far. One that doesn't is a way around the check.
 @Test func whatActsOnASessionSaysOnWhich() throws {
     let acts =
         #/SessionSend\(|\.submit\(|\.userInput\(|\.write\(data\)|\.continueAt\(|answerPermission\(|\.terminate\(|\bkill\(/#
     let ends = #/pauseSessions\(|sessions\.discard\(|\.archive\(|removeWorkspace\(/#
-    let says = #/var (actsOn|answersQuestion|reportsFor|inWorkspace|ends|onlyFromKelp)\b/#
+    let says = #/\b(actsOn|answersQuestion|reportsFor|inWorkspace|ends|onlyFromKelp):/#
     // What types text in (a send, raw input) names that session as `typesInto` too: a question there refuses an agent's.
     let types = #/SessionSend\(|\.submit\(|\.userInput\(/#
     var unsaid: [String] = [], untyped: [String] = []
@@ -385,7 +385,7 @@ func codeOnly(_ s: String) -> String {
             if body.contains(acts) || body.contains(ends), !body.contains(says) {
                 unsaid.append("\(f.path): \(head.prefix { $0 != ":" })")
             }
-            if body.contains(types), !body.contains(#/var typesInto\b/#) {
+            if body.contains(types), !body.contains(#/\btypesInto:/#) {
                 untyped.append("\(f.path): \(head.prefix { $0 != ":" })")
             }
         }
@@ -651,34 +651,26 @@ func codeOnly(_ s: String) -> String {
         reads.map { $0.split(separator: ":")[0] } == ["Sources/Daemon/Sessions/SessionLanes.swift"],
         "params read without the caller check: \(reads)")
     // ui.publish, scripts.trust, state.set, session.annotate, ui.browser.reply
-    #expect(try matches(#"var onlyFromKelp: String\? \{(?!\s*(?:nil|get)\s*\})"#, in: ["Sources/Daemon"]).count == 5)
+    #expect(try matches(#"Fence\(\s*onlyFromKelp:"#, in: ["Sources/Daemon"]).count == 5)
 }
 
-/// Who may call a method is said by properties a protocol extension gives defaults for (`Answered`, `Handled`,
-/// `RPCMethod`): one spelled with another type (`static let timeout: TimeInterval` for `TimeInterval?`) compiles as a
-/// property of its own, and the default answers instead, quietly. Each is spelled as its requirement is.
+/// Who may call a method is its `fence` (`Fence`, whose gates are labels the compiler checks); what else a protocol
+/// extension gives defaults for (`Handled.inOrder`, `quick`, `RPCMethod.timeout`) compiles as a property of its own
+/// when spelled with another type or name (`static let timeout: TimeInterval` for `TimeInterval?`, `var fenc: Fence`),
+/// and the default answers instead, quietly. Each is spelled as its requirement is.
 @Test func gatePropertiesHaveTheirRequirementsTypes() throws {
-    let gates = "onlyFromKelp|reportsFor|actsOn|inWorkspace|notForAgents|typesInto|shows|makesInProject"
-    var wrong = try matches(#"\b(?:static )?(?:var|let) (?:\#(gates))\b(?!: String\? \{)"#, in: ["Sources/Daemon"])
-    wrong += try matches(
-        #"\bstatic (?:var|let) (?:\#(gates))\b|\b(?:let|static var|static let) (?:answersQuestion|signs|ends)\b"#,
-        in: ["Sources/Daemon"])
-    wrong += try matches(
-        #"\bvar (?:answersQuestion|signs)\b(?!: Bool \{)|\bvar ends\b(?!: Ending\? \{)"#, in: ["Sources/Daemon"])
+    var wrong = try matches(#"\b(?:static )?(?:var|let) (?!fence\b)\w+: Fence\b"#, in: ["Sources/Daemon"])
+    wrong += try matches(#"\b(?:static (?:var|let)|let) fence\b|\bvar fence\b(?!: Fence \{)"#, in: ["Sources/Daemon"])
     wrong += try matches(#"\bstatic (?:var|let) (?:inOrder|quick)\b(?!: Bool \{)"#, in: ["Sources/Daemon"])
     wrong += try matches(
         #"\bstatic (?:var|let) timeout\b(?!: TimeInterval\? \{)"#, in: ["Sources/Core", "Sources/Daemon"])
     #expect(wrong.isEmpty, "spelled unlike their requirements: \(wrong)")
 }
 
-/// A gate misspelled (`var inWorkpace`) is a property of its own, and the protocol's default answers in its place: no
-/// property in the daemon is named one or two letters off a gate's name.
+/// A requirement with a default misspelled (`static var inOrdr`) is a property of its own, and the protocol's default
+/// answers in its place: no property in the daemon is named one or two letters off one.
 @Test func noPropertyIsNamedNearlyLikeAGate() throws {
-    let gates = [
-        "onlyFromKelp", "reportsFor", "actsOn", "answersQuestion", "inWorkspace", "ends", "notForAgents", "typesInto",
-        "shows", "signs", "makesInProject", "writesInFolder",
-        "inOrder", "quick", "timeout"
-    ]
+    let gates = ["inOrder", "timeout"]
     func distance(_ a: String, _ b: String) -> Int {
         let a = Array(a.lowercased()), b = Array(b.lowercased())
         var row = Array(0...b.count)
@@ -697,10 +689,8 @@ func codeOnly(_ s: String) -> String {
         for m in re.matches(in: f.text, range: NSRange(f.text.startIndex..., in: f.text)) {
             guard let r = Range(m.range(at: 1), in: f.text) else { continue }
             let name = String(f.text[r])
-            let words: Set = ["action", "timedOut"]   // words of their own, a letter or two from a gate's name
-            if !gates.contains(name), !words.contains(name),
-                let g = gates.first(where: { $0.count > 5 && distance($0, name) <= 2 })
-            {
+            let words: Set = ["timedOut"]   // a word of its own, a letter or two from a requirement's name
+            if !gates.contains(name), !words.contains(name), let g = gates.first(where: { distance($0, name) <= 2 }) {
                 near.append("\(f.path): \(name) ~ \(g)")
             }
         }

@@ -23,8 +23,7 @@ extension GitLineStats: Handled {
 /// `git.remote`'s push under its older name (the CLI's `kelp git push`, scripts): the same rules, the same code.
 extension GitPush: Handled {
     private var op: GitRemoteOp { GitRemoteOp(id: id, op: .push) }
-    var inWorkspace: String? { op.inWorkspace }
-    var notForAgents: String? { op.notForAgents }
+    var fence: Fence { op.fence }
     func handle(_ scm: SourceControl) throws -> Done { try op.handle(scm) }
 }
 
@@ -222,12 +221,15 @@ extension GitUndoDiscard: Handled {
 }
 
 extension GitRemoteOp: Handled {
-    var inWorkspace: String? { id }   // a fetch, in an agent's own workspace
-    /// A pull merges into a tree and a push publishes a branch: the user's, as commits are (`AgentRules`).
-    var notForAgents: String? {
-        op == .fetch
-            ? nil
-            : "A \(op) is the user's: an agent fetches; it pulls and pushes with git in its own terminal, which the user sees."
+    /// A fetch, in an agent's own workspace. A pull merges into a tree and a push publishes a branch: the user's, as
+    /// commits are (`AgentRules`).
+    var fence: Fence {
+        Fence(
+            inWorkspace: id,
+            notForAgents: op == .fetch
+                ? nil
+                : "A \(op) is the user's: an agent fetches; it pulls and pushes with git in its own terminal, "
+                    + "which the user sees.")
     }
     func handle(_ scm: SourceControl) throws -> Done {
         try Git.remote(scm.folder(id), op, remotes: scm.remotes)

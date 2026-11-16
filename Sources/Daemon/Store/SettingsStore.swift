@@ -205,9 +205,10 @@ extension SettingsSet: Handled {
         // every project's language servers, with their own settings: some name a program they run (a check command)
         SettingKeys.languageServers.key
     ]
-    var notForAgents: String? {
-        Self.usersOnly.contains { key.hasPrefix($0) } || key == "keys"
-            ? "“\(key)” is the user's to set: in Settings, or `kelp settings set` in a terminal of theirs." : nil
+    var fence: Fence {
+        Fence(
+            notForAgents: Self.usersOnly.contains { key.hasPrefix($0) } || key == "keys"
+                ? "“\(key)” is the user's to set: in Settings, or `kelp settings set` in a terminal of theirs." : nil)
     }
     func handle(_ settings: SettingsEvents) throws -> [String: JSONValue] {
         let all = try settings.store.set(key, value)

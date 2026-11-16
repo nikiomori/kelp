@@ -7,7 +7,7 @@ import Foundation
 extension UIPublish: Handled {
     static var inOrder: Bool { true }
     /// Only Kelp's window says what's on screen (and gets event.ui): an agent can't stand in for it.
-    var onlyFromKelp: String? { "Only Kelp's window publishes its state." }
+    var fence: Fence { Fence(onlyFromKelp: "Only Kelp's window publishes its state.") }
     func handle(_ clients: Clients, conn: Int) throws -> Done {
         clients.publishUI(state, from: conn)
         return Done()
@@ -20,7 +20,8 @@ extension UIOpen: Handled {
     /// A terminal or an agent the app starts is nobody's: one an agent asks for comes from `kelp session new`, which makes it its own.
     /// Its scheme as the app reads it (`TabURI.scheme`: any case), not as it's spelled: `TERMINAL:` runs a command too.
     private var scheme: String { uri.firstIndex(of: ":").map { uri[..<$0].lowercased() } ?? "file" }
-    var notForAgents: String? {
+    var fence: Fence { Fence(inWorkspace: workspace, notForAgents: refusal, shows: shown) }
+    private var refusal: String? {
         if ["terminal", "agent"].contains(scheme) {
             return "An agent starts terminals and agents with `kelp session new`, which keeps them its own."
         }
@@ -34,7 +35,7 @@ extension UIOpen: Handled {
     }
     /// A session's tab shows its screen, a subagent's its journal: an agent's own, or one it started (`named(by:)` sees
     /// bare ids only).
-    var shows: String? {
+    private var shown: String? {
         guard ["session", "subagent"].contains(scheme) else { return nil }
         return lead
     }
@@ -42,9 +43,9 @@ extension UIOpen: Handled {
     /// the user, so it's held as that field would be. Else `worktreeId` (none named: the one on screen, where it shows a
     /// file or a page). A database's tab names its workspace as the tab itself reads it (`DatabaseTabURI.parts`, which
     /// reads past a `?` or `/` before the id), and which database it may be is the fence's (`AgentRules.allow`).
-    var inWorkspace: String? {
+    private var workspace: String? {
         if let database = DatabaseTabURI.parts(uri) { return database.worktree }
-        let named = shows == nil && UUID(uuidString: lead) != nil ? lead : nil
+        let named = shown == nil && UUID(uuidString: lead) != nil ? lead : nil
         return named ?? worktreeId
     }
     /// The id at the start of the body, read as the app reads it: tabs take their address apart with `URLComponents`,
@@ -62,10 +63,12 @@ extension UIOpen: Handled {
 }
 
 extension UICommand: Handled {
-    var notForAgents: String? {
-        Self.forAgents.contains(id)
-            ? nil
-            : "“\(id)” is the user's to run: an agent runs only commands that show something, and starts sessions with `kelp session`."
+    var fence: Fence {
+        Fence(
+            notForAgents: Self.forAgents.contains(id)
+                ? nil
+                : "“\(id)” is the user's to run: an agent runs only commands that show something, and starts sessions "
+                    + "with `kelp session`.")
     }
     func handle(_ clients: Clients) throws -> Delivered { try clients.relay(UIEvent(self)) }
 }
@@ -73,7 +76,8 @@ extension UICommand: Handled {
 /// To the app, which does it in a browser tab and answers with `ui.browser.reply`; this waits for that answer.
 /// A subagent's command says whose it is (`args.subagent`): Claude Code's hook told which subagent runs it.
 extension UIBrowser: AsyncHandled {
-    var inWorkspace: String? { worktreeId ?? "" }   // none named: the one on screen, which needn't be the agent's
+    // none named: the one on screen, which needn't be the agent's
+    var fence: Fence { Fence(inWorkspace: worktreeId ?? "") }
     func handle(_ relay: BrowserRelay) async throws -> JSONValue {
         let ui = relay.ui
         ui.browserUsed(in: worktreeId)   // an agent wants pages here, whether or not the app is there to show one
@@ -110,7 +114,7 @@ extension UIBrowser: AsyncHandled {
 /// The page goes to the user with the question, and the agent's row asks it, as Kelp's own questions are asked
 /// (`askForKelp`): Done on the page answers Allow. Then the page leaves the question, and the answer is where it is.
 extension UIBrowserAsk: AsyncHandled {
-    var inWorkspace: String? { worktreeId ?? "" }
+    var fence: Fence { Fence(inWorkspace: worktreeId ?? "") }
     func handle(_ relay: BrowserRelay, conn: Int) async throws -> JSONValue {
         // An agent asks on its own row, never one it names; the user's script, on the row of the session it runs in.
         let row: String? =
@@ -148,7 +152,7 @@ struct BrowserRelay {
 }
 
 extension UIBrowserReply: Handled {
-    var onlyFromKelp: String? { "Only Kelp's window answers browser requests." }
+    var fence: Fence { Fence(onlyFromKelp: "Only Kelp's window answers browser requests.") }
     func handle(_ clients: Clients) throws -> Done {
         clients.answer(request, error.map { .failure(RPCError.internalError($0)) } ?? .success(result ?? .null))
         return Done()
@@ -191,7 +195,8 @@ extension StateSet: Handled {
     static var inOrder: Bool { true }
     /// Which projects may run their own code in language servers and formatters, and which extensions may run commands:
     /// the user's say, in Kelp's window (as `scripts.trust`); an agent's call or a repository's script can't record it.
-    var onlyFromKelp: String? {
+    var fence: Fence { Fence(onlyFromKelp: trustedBy) }
+    private var trustedBy: String? {
         switch key {
         case ExtensionFiles.extensionTrustKey: "Only Kelp's window allows an extension to run commands."
         case Repo.devContainerKey: "Only Kelp's window runs a project in its dev container."
