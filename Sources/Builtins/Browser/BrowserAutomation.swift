@@ -10,12 +10,10 @@ import WorkbenchKit
 extension BrowserTab {
     static let world = WKContentWorld.world(name: "kelp.browser")
 
-    func browse(_ name: String, _ args: JSONValue) async throws -> JSONValue {
-        guard let action = BrowserAction(rawValue: name) else {
-            throw RPCError.invalidParams("kelp browser knows no \(name)")
-        }
+    func browse(_ action: BrowserAction, _ args: JSONValue) async throws -> JSONValue {
+        let name = action.rawValue
         // A subagent's own page, in this tab (BrowserPages.swift).
-        if agent, host == nil, let page = pageSet.route(action, args) { return try await page.browse(name, args) }
+        if agent, host == nil, let page = pageSet.route(action, args) { return try await page.browse(action, args) }
         defer { (host ?? self).pageSetActed(self) }
         func need(_ key: String) throws -> String {
             guard let value = args[key]?.string, !value.isEmpty else {

@@ -4,14 +4,14 @@ import Core
 import KelpKit
 import WebKit
 
-extension BrowserTab: DrivenPage {
+extension BrowserTab {
     /// An agent's action, about to be done here: the page is its session's (and subagent's), lit, with this step last.
     /// A call from outside a session (the user's own `kelp browser`) leaves no mark.
     func told(_ action: BrowserAction, _ args: JSONValue) {
         guard let session = args["session"]?.string, let tab = args["tab"]?.string,
             let workspace = args["workspace"]?.string
         else { return }
-        let pages = app.agentPages
+        let pages = AgentPages.of(app)
         var page =
             pages.pages[pageId]
             ?? AgentPages.Page(session: session, subagent: nil, workspace: workspace, tab: tab)
@@ -66,7 +66,7 @@ extension BrowserTab: DrivenPage {
     /// An error the page reported (a console error, a request that failed), for the card.
     func noteError(_ text: String) {
         let line = String(text.prefix(160))
-        app.agentPages.change(pageId) { page in
+        AgentPages.of(app).change(pageId) { page in
             page.errors += 1
             page.lastError = line
         }
@@ -75,7 +75,7 @@ extension BrowserTab: DrivenPage {
     /// Its address and title, as the card says them.
     func showDriven() {
         let title = title, url = web.url?.absoluteString ?? start
-        app.agentPages.change(pageId) { page in
+        AgentPages.of(app).change(pageId) { page in
             page.title = title
             page.url = url
         }

@@ -24,10 +24,10 @@ import WorkbenchKit
         <a href="/docs">Docs</a><p id="out"></p><span role="link">Ghost</span>
         <div style="cursor: pointer">Card <button>Buy</button></div>
         """, baseURL: URL(string: "http://localhost/"))
-    _ = try await tab.browse("info", .object([:]))
-    #expect(try await tab.browse("eval", .object(["js": .string("innerWidth > 0 && innerHeight > 0")])) == .bool(true))
+    _ = try await tab.browse(.info, .object([:]))
+    #expect(try await tab.browse(.eval, .object(["js": .string("innerWidth > 0 && innerHeight > 0")])) == .bool(true))
 
-    let page = try #require(try await tab.browse("snapshot", .object([:])).string)
+    let page = try #require(try await tab.browse(.snapshot, .object([:])).string)
     #expect(page.contains(#"- heading "Cart" [level=1]"#))
     #expect(page.contains(#"- textbox "Email" [ref=e1]"#))
     #expect(page.contains(#"- button "Save" [ref=e2]"#))
@@ -36,15 +36,15 @@ import WorkbenchKit
     #expect(page.contains(#"- link "Ghost" [ref=e4]"#) && !page.contains("Ghost\" [ref=e4] ->"))
     #expect(page.contains("- clickable [ref=e5]") && page.contains(#"- button "Buy" [ref=e6]"#))   // what's inside a clickable
 
-    _ = try await tab.browse("type", .object(["ref": .string("e1"), "text": .string("a@b.c")]))
-    #expect(try await tab.browse("click", .object(["ref": .string("e2")]))["change"] == .string("page changed"))
+    _ = try await tab.browse(.type, .object(["ref": .string("e1"), "text": .string("a@b.c")]))
+    #expect(try await tab.browse(.click, .object(["ref": .string("e2")]))["change"] == .string("page changed"))
     #expect(
-        try await tab.browse("eval", .object(["js": .string("document.getElementById('out').textContent")]))
+        try await tab.browse(.eval, .object(["js": .string("document.getElementById('out').textContent")]))
             == .string("saved a@b.c"))
-    #expect(try await tab.browse("eval", .object(["js": .string("({n: 1 + 1})")])) == .object(["n": .int(2)]))
-    _ = try await tab.browse("wait", .object(["text": .string("saved")]))
+    #expect(try await tab.browse(.eval, .object(["js": .string("({n: 1 + 1})")])) == .object(["n": .int(2)]))
+    _ = try await tab.browse(.wait, .object(["text": .string("saved")]))
 
-    await #expect(throws: RPCError.self) { try await tab.browse("click", .object(["ref": .string("e9")])) }
+    await #expect(throws: RPCError.self) { try await tab.browse(.click, .object(["ref": .string("e9")])) }
 }
 
 /// An agent's page keeps what it logged from its first script on, and its fetch calls, failed ones too.
@@ -52,17 +52,17 @@ import WorkbenchKit
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
     tab.web.loadHTMLString(
         "<script>console.log('hi', {a: 1})</script><p>x</p>", baseURL: URL(string: "http://127.0.0.1:9/"))
-    _ = try await tab.browse("info", .object([:]))
+    _ = try await tab.browse(.info, .object([:]))
     _ = try await tab.browse(
-        "eval", .object(["js": .string("fetch('/api/x').catch(() => 0).then(() => console.error(new Error('boom')))")]))
+        .eval, .object(["js": .string("fetch('/api/x').catch(() => 0).then(() => console.error(new Error('boom')))")]))
     #expect(try await waitFor(5) { (tab.drive?.logs ?? []).contains { $0.contains("boom") } })
 
-    let log = try #require(try await tab.browse("console", .object(["clear": .bool(true)])).string)
+    let log = try #require(try await tab.browse(.console, .object(["clear": .bool(true)])).string)
     #expect(
         log.contains(#"[log] hi {"a":1}"#) && log.contains("[error] Error: boom")
             && log.contains("[page] http://127.0.0.1:9/"))
-    #expect(try await tab.browse("console", .object([:])) == .string("No console messages."))
-    let net = try #require(try await tab.browse("network", .object([:])).string)
+    #expect(try await tab.browse(.console, .object([:])) == .string("No console messages."))
+    let net = try #require(try await tab.browse(.network, .object([:])).string)
     #expect(net.contains("failed GET http://127.0.0.1:9/api/x (fetch"))
 }
 
@@ -77,29 +77,29 @@ import WorkbenchKit
         <script>addEventListener('keydown', e => { if (e.key === 'Escape') out.textContent += 'escape ' })</script>
         <div style="height: 5000px"></div>
         """, baseURL: URL(string: "http://localhost/"))
-    _ = try await tab.browse("info", .object([:]))
-    _ = try await tab.browse("snapshot", .object([:]))
-    func out() async throws -> JSONValue { try await tab.browse("eval", .object(["js": .string("out.textContent")])) }
+    _ = try await tab.browse(.info, .object([:]))
+    _ = try await tab.browse(.snapshot, .object([:]))
+    func out() async throws -> JSONValue { try await tab.browse(.eval, .object(["js": .string("out.textContent")])) }
 
-    _ = try await tab.browse("press", .object(["key": .string("Tab"), "ref": .string("e1")]))
+    _ = try await tab.browse(.press, .object(["key": .string("Tab"), "ref": .string("e1")]))
     #expect(
-        try await tab.browse("eval", .object(["js": .string("document.activeElement.localName")])) == .string("button"))
-    _ = try await tab.browse("press", .object(["key": .string("Enter")]))
-    _ = try await tab.browse("press", .object(["key": .string("Esc")]))
+        try await tab.browse(.eval, .object(["js": .string("document.activeElement.localName")])) == .string("button"))
+    _ = try await tab.browse(.press, .object(["key": .string("Enter")]))
+    _ = try await tab.browse(.press, .object(["key": .string("Esc")]))
     #expect(try await out() == .string("clicked escape "))
-    await #expect(throws: RPCError.self) { try await tab.browse("press", .object(["key": .string("Hyper")])) }
+    await #expect(throws: RPCError.self) { try await tab.browse(.press, .object(["key": .string("Hyper")])) }
 
-    let page = try #require(try await tab.browse("snapshot", .object([:])).string)
+    let page = try #require(try await tab.browse(.snapshot, .object([:])).string)
     #expect(!page.contains("hovered"))
     _ = try await tab.browse(
-        "eval", .object(["js": .string("document.querySelector('div').setAttribute('role', 'button')")]))
+        .eval, .object(["js": .string("document.querySelector('div').setAttribute('role', 'button')")]))
     let menu = try #require(
-        try await tab.browse("snapshot", .object([:])).string?.split(separator: "\n")
+        try await tab.browse(.snapshot, .object([:])).string?.split(separator: "\n")
             .first { $0.contains("\"Menu\"") }.flatMap { $0.firstMatch(of: /ref=(e\d+)/)?.1 })
-    _ = try await tab.browse("hover", .object(["ref": .string(String(menu))]))
+    _ = try await tab.browse(.hover, .object(["ref": .string(String(menu))]))
     #expect(try await out() == .string("clicked escape hovered "))
 
-    let down = try await tab.browse("scroll", .object(["to": .string("down")]))
+    let down = try await tab.browse(.scroll, .object(["to": .string("down")]))
     #expect(down["scroll"]?.string?.hasPrefix("0 of") == false)
 
 }
@@ -112,34 +112,32 @@ import WorkbenchKit
     try Data(#"<a href="two.html">Two</a>"#.utf8).write(to: dir.appendingPathComponent("one.html"))
     try Data("<p>two</p>".utf8).write(to: dir.appendingPathComponent("two.html"))
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
-    await #expect(throws: RPCError.self) { try await tab.browse("back", .object([:])) }
+    await #expect(throws: RPCError.self) { try await tab.browse(.back, .object([:])) }
     tab.web.loadFileURL(dir.appendingPathComponent("one.html"), allowingReadAccessTo: dir)
-    _ = try await tab.browse("info", .object([:]))
-    _ = try await tab.browse("snapshot", .object([:]))
-    let went = try await tab.browse("click", .object(["ref": .string("e1")]))
+    _ = try await tab.browse(.info, .object([:]))
+    _ = try await tab.browse(.snapshot, .object([:]))
+    let went = try await tab.browse(.click, .object(["ref": .string("e1")]))
     #expect(went["url"]?.string?.hasSuffix("two.html") == true && went["change"] == .string("new page"))
     #expect(went["element"] == .string(#"link "Two""#) && went["page"] == .string(#"- text: "two""#))
-    #expect(try await tab.browse("back", .object([:]))["url"]?.string?.hasSuffix("one.html") == true)
+    #expect(try await tab.browse(.back, .object([:]))["url"]?.string?.hasSuffix("one.html") == true)
 
     // Opening the page it shows loads it again (a page's own state goes), as reload does.
-    _ = try await tab.browse("eval", .object(["js": .string("window.kept = 1")]))
+    _ = try await tab.browse(.eval, .object(["js": .string("window.kept = 1")]))
     let here = try #require(tab.web.url?.absoluteString)
-    _ = try await tab.browse("open", .object(["url": .string(here)]))
-    #expect(try await tab.browse("eval", .object(["js": .string("window.kept ?? 0")])) == .int(0))
-    _ = try await tab.browse("eval", .object(["js": .string("window.kept = 1")]))
-    _ = try await tab.browse("reload", .object([:]))
-    #expect(try await tab.browse("eval", .object(["js": .string("window.kept ?? 0")])) == .int(0))
+    _ = try await tab.browse(.open, .object(["url": .string(here)]))
+    #expect(try await tab.browse(.eval, .object(["js": .string("window.kept ?? 0")])) == .int(0))
+    _ = try await tab.browse(.eval, .object(["js": .string("window.kept = 1")]))
+    _ = try await tab.browse(.reload, .object([:]))
+    #expect(try await tab.browse(.eval, .object(["js": .string("window.kept ?? 0")])) == .int(0))
 }
 
 /// The user's own page tabs carry their logins: `kelp browser` drives only a page an agent opened, never one of those.
 @MainActor @Test func anAgentDrivesOnlyItsOwnPage() async throws {
-    let rig = try await AppRig(files: [:])
-    defer { rig.done() }
-    let area = EditorArea(app: rig.app, workspaceId: rig.workspace.id)
-    _ = area.layout.add("https://example.com/", to: nil)   // as the tab's own (no provider here: `open` would hand it to Safari)
-    #expect(area.browsedPage() == nil)
-    _ = area.layout.add(TabURI.agentPage("about:blank"), to: nil)
-    #expect(area.browsedPage()?.uri == TabURI.agentPage("about:blank"))
+    var layout = WorkspaceLayout()
+    _ = layout.add("https://example.com/", to: nil)   // the user's own
+    #expect(BrowserRequests.ownPage(layout.allTabs, last: nil) == nil)
+    _ = layout.add(TabURI.agentPage("about:blank"), to: nil)
+    #expect(BrowserRequests.ownPage(layout.allTabs, last: nil)?.uri == TabURI.agentPage("about:blank"))
 }
 
 /// An extension's page runs its own scripts, and markup it shows from elsewhere (an issue's title through innerHTML) runs
@@ -193,10 +191,10 @@ import WorkbenchKit
         <button onclick="f.click()">Choose</button><input id="f" type="file" hidden><p id="out"></p>
         <input type="password" value="hunter2">
         """, baseURL: URL(string: "http://localhost/"))
-    _ = try await tab.browse("info", .object([:]))
-    func eval(_ js: String) async throws -> JSONValue { try await tab.browse("eval", .object(["js": .string(js)])) }
+    _ = try await tab.browse(.info, .object([:]))
+    func eval(_ js: String) async throws -> JSONValue { try await tab.browse(.eval, .object(["js": .string(js)])) }
     func act(_ a: String, _ args: [String: JSONValue]) async throws -> JSONValue {
-        try await tab.browse(a, .object(args))
+        try await tab.browse(try #require(BrowserAction(rawValue: a)), .object(args))
     }
 
     let page = try #require(try await act("snapshot", [:]).string)
@@ -277,7 +275,7 @@ import WorkbenchKit
     let tab = BrowserTab(uri: "https://app.example.com/start", app: AppModel())
     tab.web.loadHTMLString("<p>mail</p>", baseURL: URL(string: "https://mail.other.com/"))
     #expect(try await waitFor(5) { !(tab.web.url?.host != "mail.other.com") })
-    await #expect(throws: RPCError.self) { try await tab.browse("snapshot", .object([:])) }
+    await #expect(throws: RPCError.self) { try await tab.browse(.snapshot, .object([:])) }
 }
 
 @Test func aSnapshotFindKeepsTheLinesAMatchSitsIn() {
@@ -321,9 +319,9 @@ import WorkbenchKit
         <a id="get" download="\(name)">Get</a>
         <script>get.href = URL.createObjectURL(new Blob(['hello'], {type: 'text/plain'}))</script>
         """, baseURL: URL(string: "http://localhost/"))
-    _ = try await tab.browse("info", .object([:]))
-    _ = try await tab.browse("snapshot", .object([:]))
-    let answer = try await tab.browse("click", .object(["ref": .string("e1")]))
+    _ = try await tab.browse(.info, .object([:]))
+    _ = try await tab.browse(.snapshot, .object([:]))
+    let answer = try await tab.browse(.click, .object(["ref": .string("e1")]))
     let said = (answer["downloads"]?.array ?? []).compactMap { $0.string }
     let file = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-downloads").appendingPathComponent(
         name)
@@ -345,13 +343,13 @@ import WorkbenchKit
 @MainActor @Test(.timeLimit(.minutes(1))) func anAgentSetsThePagesSize() async throws {
     let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
     tab.web.loadHTMLString("<p>hi</p>", baseURL: URL(string: "http://localhost/"))
-    _ = try await tab.browse("info", .object([:]))
+    _ = try await tab.browse(.info, .object([:]))
     func act(_ size: String) async throws -> JSONValue {
-        try await tab.browse("viewport", .object(["size": .string(size)]))
+        try await tab.browse(.viewport, .object(["size": .string(size)]))
     }
     #expect(try await act("390x844")["viewport"] == .string("390x844"))
     #expect(
-        try await tab.browse("eval", .object(["js": .string("matchMedia('(max-width: 400px)').matches")]))
+        try await tab.browse(.eval, .object(["js": .string("matchMedia('(max-width: 400px)').matches")]))
             == .bool(true))
     #expect(try await act("reset")["viewport"] == .string("1280x800"))
     await #expect(throws: RPCError.self) { try await act("tiny") }
@@ -371,9 +369,9 @@ import WorkbenchKit
         <button id="under" style="position: fixed; top: 300px">Under</button>
         <div role="dialog" aria-label="Cookies" style="position: fixed; top: 280px; height: 100px; left: 0; right: 0"></div>
         """, baseURL: URL(string: "http://localhost/"))
-    _ = try await tab.browse("info", .object([:]))
+    _ = try await tab.browse(.info, .object([:]))
     func act(_ a: String, _ args: [String: JSONValue] = [:]) async throws -> JSONValue {
-        try await tab.browse(a, .object(args))
+        try await tab.browse(try #require(BrowserAction(rawValue: a)), .object(args))
     }
     let page = try #require(try await act("snapshot").string)
     #expect(!page.contains("Saved") && !page.contains("[new]"))
@@ -416,9 +414,9 @@ import WorkbenchKit
         </select><input type="date" id="d">
         <iframe title="Editor" srcdoc="<button onclick=&quot;this.textContent = 'done'&quot;>Inside</button>"></iframe>
         """, baseURL: URL(string: "http://localhost/"))
-    _ = try await tab.browse("info", .object([:]))
+    _ = try await tab.browse(.info, .object([:]))
     func act(_ a: String, _ args: [String: JSONValue] = [:]) async throws -> JSONValue {
-        try await tab.browse(a, .object(args))
+        try await tab.browse(try #require(BrowserAction(rawValue: a)), .object(args))
     }
     func message(_ a: String, _ args: [String: JSONValue]) async -> String {
         do { _ = try await act(a, args) } catch { return AppModel.message(error) }
@@ -477,9 +475,9 @@ import WorkbenchKit
         zone.addEventListener('drop', e => out.textContent += 'file ' + e.dataTransfer.files[0].name);
         </script>
         """, baseURL: URL(string: "http://localhost/"))
-    _ = try await tab.browse("info", .object([:]))
+    _ = try await tab.browse(.info, .object([:]))
     func act(_ a: String, _ args: [String: JSONValue] = [:]) async throws -> JSONValue {
-        try await tab.browse(a, .object(args))
+        try await tab.browse(try #require(BrowserAction(rawValue: a)), .object(args))
     }
     _ = try await act(
         "eval",
@@ -599,22 +597,22 @@ import WorkbenchKit
         contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [], backing: .buffered, defer: false)
     window.contentView = tab.view
     tab.web.loadHTMLString("<body style='background: red'>", baseURL: nil)
-    _ = try await tab.browse("info", .object([:]))
+    _ = try await tab.browse(.info, .object([:]))
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-rec-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     func record(_ name: String, while act: () async throws -> Void) async throws -> URL {
-        _ = try await tab.browse("record", .object(["path": .string(dir.appendingPathComponent(name).path)]))
+        _ = try await tab.browse(.record, .object(["path": .string(dir.appendingPathComponent(name).path)]))
         #expect(!tab.recordButton.isHidden)
         try await act()
-        let done = try await tab.browse("record", .object(["stop": .bool(true)]))
+        let done = try await tab.browse(.record, .object(["stop": .bool(true)]))
         #expect(tab.recordButton.isHidden)
         return URL(fileURLWithPath: try #require(done["path"]?.string))
     }
     let colours = {
         for colour in ["green", "blue"] {
             try await Task.sleep(for: .milliseconds(400))
-            _ = try await tab.browse("eval", .object(["js": .string("document.body.style.background = '\(colour)'")]))
+            _ = try await tab.browse(.eval, .object(["js": .string("document.body.style.background = '\(colour)'")]))
         }
         try await Task.sleep(for: .milliseconds(400))
     }
@@ -628,8 +626,8 @@ import WorkbenchKit
     tab.drive?.takenOver = true
     await #expect(throws: RPCError.self) { _ = try await record("theirs.gif", while: colours) }
     tab.drive?.takenOver = false
-    await #expect(throws: RPCError.self) { try await tab.browse("record", .object(["path": .string("/tmp/x.webm")])) }
-    await #expect(throws: RPCError.self) { try await tab.browse("record", .object(["stop": .bool(true)])) }
+    await #expect(throws: RPCError.self) { try await tab.browse(.record, .object(["path": .string("/tmp/x.webm")])) }
+    await #expect(throws: RPCError.self) { try await tab.browse(.record, .object(["stop": .bool(true)])) }
 }
 
 /// A screenshot's PNG is encoded and written off the main thread, at the picture's own pixels.
@@ -655,13 +653,13 @@ import WorkbenchKit
     tab.web.loadHTMLString("<button>Go</button>", baseURL: URL(string: "https://example.com/"))
     try await waitFor(5) { !tab.web.isLoading }
     tab.watch()
-    _ = try await tab.browse("ask", .object(["text": .string("Sign in"), "session": .string("s1")]))
+    _ = try await tab.browse(.ask, .object(["text": .string("Sign in"), "session": .string("s1")]))
     #expect(tab.drive?.takenOver == true && tab.stripLook().button == "Done")
     #expect(tab.stripLook().text.hasSuffix("asks: Sign in"))
-    _ = try await tab.browse("ask", .object(["ended": .string("deny")]))
+    _ = try await tab.browse(.ask, .object(["ended": .string("deny")]))
     #expect(tab.drive?.takenOver == true && tab.drive?.asked == nil && tab.stripLook().button == "Hand Back")
-    _ = try await tab.browse("ask", .object(["text": .string("Sign in"), "session": .string("s1")]))
-    let answer = try await tab.browse("ask", .object(["ended": .string("allow")]))
+    _ = try await tab.browse(.ask, .object(["text": .string("Sign in"), "session": .string("s1")]))
+    let answer = try await tab.browse(.ask, .object(["ended": .string("allow")]))
     #expect(tab.drive?.takenOver == false && answer["url"]?.string == "https://example.com/")
 }
 
@@ -675,14 +673,14 @@ import WorkbenchKit
     app.sessions = [session]
     let host = BrowserTab(uri: TabURI.agentPage("about:blank"), app: app)
     let own: [String: JSONValue] = ["session": .string(session.id)]
-    _ = try await host.browse("info", .object(own))
+    _ = try await host.browse(.info, .object(own))
     #expect(host.pageSet.owner == "" && host.pageSet.pages.isEmpty)
     var mobile = own
     mobile["subagent"] = "a1"
-    _ = try await host.browse("info", .object(mobile))   // no page of its own yet: the shared one
+    _ = try await host.browse(.info, .object(mobile))   // no page of its own yet: the shared one
     #expect(host.pageSet.pages.isEmpty)
     mobile["url"] = "about:blank#mobile"
-    _ = try await host.browse("open", .object(mobile))
+    _ = try await host.browse(.open, .object(mobile))
     let page = try #require(host.pageSet.pages.first)
     #expect(page.who == "a1" && host.pageSet.shown == "a1" && host.shownPage === page.tab && page.tab.host === host)
     #expect(host.title.hasSuffix(" +1"))

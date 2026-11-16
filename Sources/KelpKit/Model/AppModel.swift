@@ -53,8 +53,6 @@ package final class AppModel {
     @ObservationIgnored private(set) package lazy var themes = ThemeManager(app: self)
     @ObservationIgnored private(set) package lazy var availability = AgentAvailability(app: self)
     @ObservationIgnored private(set) lazy var agentIcons = AgentIcons()
-    /// The pages agents drive (`kelp browser`), as the sidebar, the tabs and the cards show them.
-    @ObservationIgnored private(set) package lazy var agentPages = AgentPages(app: self)
     /// The agents it offers (see `AgentCatalog`), and file icons in the theme it's set to: views over the parts above.
     package var catalog: AgentCatalog { AgentCatalog(app: self) }
     package var fileIcons: FileIcon { FileIcon(app: self) }
@@ -396,7 +394,13 @@ package final class AppModel {
         case let clone as CloneEvent: CloneSheet.cloneProgress(id: clone.id, line: clone.line)
         case let change as SettingsEvent: settings.received(change.settings)
         case let request as UIEvent: UIRequests(self).handle(request)
-        case let request as UIBrowserEvent: UIRequests(self).browse(request)
+        case let request as UIBrowserEvent:
+            guard let browser = extensions.all.browser else {
+                let off = "Kelp's Browser is turned off: the user turns it on in Settings › Extensions."
+                Task { _ = await quiet(UIBrowserReply(request: request.request, error: off)) }
+                return
+            }
+            browser(request)
         default: watched(event)   // event.changed is left: the records themselves follow (event.repo / .worktree / .removed)
         }
     }

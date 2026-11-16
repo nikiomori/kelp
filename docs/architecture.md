@@ -6,7 +6,8 @@ what you see. The app itself provides the window, the layout, a registry of cont
 command palette and settings. Each feature is a built-in of its own: the branch's sync and the CI
 and pull request marks are Git's; the plan limits are Agents' (the sidebar's foot, the Dock's usage face, the strip over
 a stopped agent's terminal, and every word said of a plan or a stop, `plans`), as is the agent strip; the run menu is
-Run's and the server cards are Servers'. The shell gives them places to show up in: the contributions below.
+Run's, the server cards are Servers', and an agent's page outside its tab (the mark on its row, the tab's glow, its
+part of the card) is Browser's. The shell gives them places to show up in: the contributions below.
 
 ```
 ┌ Sidebar ────────┐┌ Editor area ─────────────────────────────┐┌ Inspector ──────┐
@@ -89,9 +90,12 @@ Run's and the server cards are Servers'. The shell gives them places to show up 
 | themes | Appearance settings; build the window round the terminal and editor, and color all three |
 | agents | agent CLIs offered in the "+" menu and the empty workspace |
 | languages | file tabs: completion and jump to definition from the language server; Run File, Test at Cursor and Format Document (⌘R / ⌘U without project commands) (built in: Swift, TS/JS, Python, Go, Rust) |
-| tabs (built-ins only) | a tab for a URI scheme of its own (`vm:`, `host:`, `cilog:`) |
+| tabs (built-ins only) | a tab for a URI scheme of its own (`vm:`, `host:`, `cilog:`); its tabs an agent drives (`driven`: a page), which wear the agent's logo and card and glow while it acts |
 | sidebarSections (built-ins only) | a block of its own under the projects (Machines), made while it's on; a `foot` one under all the rest (the plan limits) |
-| rowMarks (built-ins only) | marks on rows (`RowMark`): on an agent's row in its chip's place, the machine it runs a command in (Machines'); on an agent's tile in the Dock strip, its workspace's CI (Git's) |
+| rowMarks (built-ins only) | marks on rows (`RowMark`): on an agent's row in its chip's place, the machine it runs a command in (Machines'), or a button beside its dots, the page it drives, lighting its subagents' dots (Browser's); on an agent's tile in the Dock strip, its workspace's CI (Git's) |
+| agentCards (built-ins only) | a part of an agent's hover card under what the card says of it (the page it drives, Browser's) |
+| subagentSteps (built-ins only) | a subagent's last command in the built-in's words on its agent's card ("Browser · clicks “Pay now”") |
+| browser (built-ins only) | `kelp browser`'s commands, done by the built-in that has pages (Browser), which acts in a loaded workspace's tabs through Workbench (`loadedTabs`, `content`, `openBeside`); none, and the command is told the Browser is off |
 | branch (built-ins only) | the window bar's branch chip: what runs on the branch, the popover a click opens (Git's sync); the top of a project's menu for its folder's branch (a merged PR's switch) |
 | ci (built-ins only) | a folder's CI and pull request marks beside its sidebar row, in ⌃Tab and on the window bar ("#12"): what they say, where a click goes, the PR in its hover card, the branch chip menu's Create Pull Request and CI items (Git's); none, and no CI or PR shows |
 | pushed (built-ins only) | each reading the daemon pushes, as it lands, not only the latest (a limit's pace, its notifications) |

@@ -2,20 +2,16 @@ import AppKit
 import Core
 import Foundation
 import Testing
+import WorkbenchKit
 
+@testable import BuiltinBrowser
 @testable import KelpKit
-
-@MainActor private final class StandIn: DrivenPage {
-    var held: Bool?
-    func picture() async -> NSImage? { nil }
-    func bringForward() {}
-    func hold(_ user: Bool) { held = user }
-}
 
 /// An agent's page marks its row: lit after an action, in the agent's colour; grey once that's past; the user's when
 /// they take it; gone with the page. A subagent's lights its dot and its tab.
 @MainActor @Test func aDrivenPageMarksItsAgentsRowAndTab() async throws {
-    let pages = AgentPages(app: AppModel()), page = StandIn()
+    let app = AppModel(), pages = AgentPages(app: app),
+        page = BrowserTab(uri: TabURI.agentPage("about:blank"), app: app)
     #expect(pages.mark(for: "s1") == nil)
     var own = AgentPages.Page(session: "s1", subagent: nil, workspace: "w", tab: "t1")
     own.color = .systemOrange
@@ -36,8 +32,7 @@ import Testing
 
     pages.change("p1") { $0.holder = .user }
     #expect(pages.mark(for: "s1")?.holder == .user)
-    pages.handle("p1")?.hold(false)
-    #expect(page.held == false)
+    #expect(pages.handle("p1") === page)
 
     pages.closed("p1")
     pages.closed("p2")
@@ -48,4 +43,28 @@ import Testing
 @MainActor @Test func aSubagentOnAPageHasALitDot() {
     let a = Subagent(id: "a", kind: "", task: nil), b = Subagent(id: "b", kind: "", task: nil)
     #expect(ChildrenBadge.marks(kids: [], running: [a, b], finished: [], browsing: ["b"]).pips == [.browses, .works])
+}
+
+/// The browser's mark on an agent's row, through the shell's one kind of row mark: grey while the page is only open,
+/// lit in the agent's colour after an action, its subagents' dots lit too; the accent colour once the user has it.
+@MainActor @Test func aDrivenPagesRowMarkSaysWhoHasIt() throws {
+    let app = AppModel(), pages = AgentPages.of(app), tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: app)
+    #expect(BrowserMarks.row(.agent("s1"), app).isEmpty)
+    var own = AgentPages.Page(session: "s1", subagent: nil, workspace: "w", tab: "t1")
+    own.color = .systemOrange
+    own.title = "Checkout"
+    pages.drives("p1", own, handle: tab)
+    var mark: RowMark? = try #require(BrowserMarks.row(.agent("s1"), app).first)
+    #expect(mark?.place == .button && mark?.glow == nil && mark?.tip == "Its page: Checkout")
+    var sub = AgentPages.Page(session: "s1", subagent: "a1", workspace: "w", tab: "t1")
+    sub.color = .systemOrange
+    pages.drives("p2", sub, handle: tab)
+    pages.acted("p2", "clicks")
+    mark = BrowserMarks.row(.agent("s1"), app).first
+    #expect(mark?.glow == .systemOrange && mark?.lights == ["a1"] && mark?.tip == "Working in its page: Checkout")
+    #expect(BrowserMarks.driven("w", app)["t1"]?.glow == .systemOrange)
+    pages.change("p1") { $0.holder = .user }
+    mark = BrowserMarks.row(.agent("s1"), app).first
+    #expect(mark?.tint == .themeAccent && mark?.glow == nil && mark?.tip == "You have its page: Checkout")
+    #expect(BrowserMarks.row(.workspace("w"), app).isEmpty)
 }

@@ -2,18 +2,21 @@
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 import SwiftUI
 
 /// The page an agent (or one of its subagents) acted on last: a picture, taken while the card is up (when it opens and
 /// after each action, never otherwise), its last steps, the errors it reported, and Show Page / Take Over. Several
 /// pages: small pictures of the others under it, a click shows that one.
 struct AgentPageCard: View {
-    let model: CardModel, session: String
+    let app: AppModel, session: String
+    /// Puts the card away (a page shown takes its place).
+    let close: @MainActor () -> Void
     @State private var picked: String?
     @State private var pictures: [String: NSImage] = [:]
 
     var body: some View {
-        let pages = model.app.agentPages.of(session: session)
+        let pages = AgentPages.of(app).of(session: session)
         if let shown = pages.first(where: { $0.id == picked }) ?? Self.latest(pages) {
             VStack(alignment: .leading, spacing: 6) {
                 head(shown.page)
@@ -71,7 +74,7 @@ struct AgentPageCard: View {
     }
 
     private func subagentTitle(_ id: String) -> String {
-        model.app.session(session)?.runningSubagents.first { $0.id == id }?.title ?? String(localized: "Subagent")
+        app.session(session)?.runningSubagents.first { $0.id == id }?.title ?? String(localized: "Subagent")
     }
 
     /// `localhost:3000/checkout`.
@@ -109,8 +112,8 @@ struct AgentPageCard: View {
                     .buttonStyle(.plain)
                     .task(id: other.page.steps.last?.at) { await take(other.id) }
                     Text(
-                        other.page.subagent.map(subagentTitle) ?? model.app.session(session).map(
-                            model.app.catalog.displayName) ?? ""
+                        other.page.subagent.map(subagentTitle) ?? app.session(session).map(
+                            app.catalog.displayName) ?? ""
                     )
                     .font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
                 }
@@ -136,18 +139,18 @@ struct AgentPageCard: View {
         HStack(spacing: 6) {
             Button(String(localized: "Show Page")) { show(shown.id) }.controlSize(.small)
             Button(shown.page.holder == .agent ? String(localized: "Take Over") : String(localized: "Hand Back")) {
-                model.app.agentPages.handle(shown.id)?.hold(shown.page.holder == .agent)
+                AgentPages.of(app).handle(shown.id)?.hold(shown.page.holder == .agent)
             }
             .controlSize(.small)
         }
     }
 
     private func show(_ id: String) {
-        model.app.agentPages.show(id)
-        model.closeCard()
+        AgentPages.of(app).show(id)
+        close()
     }
 
     private func take(_ id: String) async {
-        if let image = await model.app.agentPages.handle(id)?.picture() { pictures[id] = image }
+        if let image = await AgentPages.of(app).handle(id)?.picture() { pictures[id] = image }
     }
 }

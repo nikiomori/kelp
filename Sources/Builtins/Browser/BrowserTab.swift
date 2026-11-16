@@ -217,7 +217,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
 
     isolated deinit {
-        app.agentPages.closed(pageId)
+        AgentPages.of(app).closed(pageId)
         stopWatchingUser()
     }
 
@@ -250,7 +250,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             watchUser()
         }
         let asked = drive?.asked?.text, takenOver = drive?.takenOver == true
-        app.agentPages.change(pageId) { $0.holder = asked.map { .asked($0) } ?? (takenOver ? .user : .agent) }
+        AgentPages.of(app).change(pageId) { $0.holder = asked.map { .asked($0) } ?? (takenOver ? .user : .agent) }
         let look = stripLook()
         agentLabel.stringValue =
             look.text + (viewport.map { " · " + String(localized: "page \(Int($0.width))×\(Int($0.height))") } ?? "")

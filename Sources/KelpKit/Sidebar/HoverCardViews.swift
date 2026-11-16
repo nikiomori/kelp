@@ -73,15 +73,12 @@ struct CardView: View {
                         Text(elsewhere).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
                             .truncationMode(.middle)
                     }
-                    if model.agentOnly, let browser = agent.session.browser {
-                        Text("Browser \(BrowserSkillWords.line(browser))").font(.ui(TextSize.caption)).foregroundStyle(
-                            .tertiary
-                        )
-                        .lineLimit(
-                            1)
-                    }
                 }
-                if model.agentOnly { AgentPageCard(model: model, session: agent.id) }
+                if model.agentOnly {
+                    let close: @MainActor () -> Void = { [model] in model.closeCard() }
+                    let parts = model.app.extensions.all.agentCards.compactMap { $0(agent.session, close) }
+                    ForEach(parts.indices, id: \.self) { parts[$0] }
+                }
                 AgentWork(model: model, id: agent.id)
                 if QuickReply.fits(agent.session) {
                     HStack(spacing: 6) {

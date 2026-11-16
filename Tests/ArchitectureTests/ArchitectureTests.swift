@@ -165,7 +165,10 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // its `Page`, `Holder`, `drives` / `change` / `acted` / `closed`), and what the shell asks of a page (`DrivenPage`).
     // +4: one kind of mark on a row for every built-in (`RowMark`, its place, view, tip, key, open, `==`), the session
     // marks' type and the four of `FolderCI` the Dock strip read gone.
-    #expect(declared == 371, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // 371 → 359: an agent's page is the Browser built-in's again: it shows on the row, the tab and the card through the
+    // shell's generic places (`RowMark`, `TabProvider.driven`, `agentCards`, `subagentSteps`, `browser`), and acts in a
+    // loaded workspace's tabs through Workbench (`loadedTabs`, `content`, `openBeside`); a subagent's `title` is read.
+    #expect(declared == 359, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -461,7 +464,7 @@ func codeOnly(_ s: String) -> String {
         "KelpKit/Inspector/InspectorParts.swift": (
             1, "a menu the pointer opened looks, while it's open, whether the pointer left it: tracking sends no exit"
         ),
-        "KelpKit/Shell/AgentPages.swift": (1, "a page an agent acted on stays lit for ten seconds, then goes grey"),
+        "Builtins/Browser/AgentPages.swift": (1, "a page an agent acted on stays lit for ten seconds, then goes grey"),
         "Builtins/Browser/BrowserRecording.swift": (
             1, "a recording's frames, ten a second: WebKit says when it drew none"
         ),

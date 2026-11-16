@@ -31,14 +31,15 @@ extension Builtins {
                         let path = TabURI.body(uri)
                         return ((path as NSString).lastPathComponent, .symbol("eye"), path)
                     },
-                    browse: { tab, action, args in
-                        guard let page = tab as? BrowserTab else {
-                            throw RPCError.invalidParams("That tab shows no page.")
-                        }
-                        return try await page.browse(action, args)
-                    })
+                    driven: { BrowserMarks.driven($0, app) })
             ],
-            skills: [browserSkill]
+            // The page an agent drives: a mark on its row, and in a project's menu whether new chats get the skill.
+            rowMarks: [{ BrowserMarks.row($0, app) }],
+            rowMenu: [{ BrowserMarks.menu($0, $1, app) }],
+            skills: [browserSkill],
+            agentCards: [{ BrowserMarks.card($0, app, close: $1) }],
+            subagentSteps: [{ BrowserMarks.step($0, $1, $2, app) }],
+            browser: { BrowserRequests(app: app).browse($0) }
         )
     }
 }

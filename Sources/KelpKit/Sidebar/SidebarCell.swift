@@ -90,8 +90,9 @@ final class SidebarCell: NSTableCellView {
         badge.onClick = { [weak owner, node] in owner?.openCard(node) }
         return badge
     }()
-    /// An agent's: the page it drives (`showPage`).
-    lazy var page = Self.pageButton(self)
+    /// An agent's: a built-in's button mark (the page it drives), and the mark it shows (`showMarkButton`).
+    lazy var markButton = Self.markButton(self)
+    var buttonMark: RowMark?
     var add: NSButton?
     /// A group on a branch that holds nothing of its own and has nobody on it: it can simply go (`showGroupLine`).
     lazy var remove: TextButton = {
@@ -177,7 +178,7 @@ final class SidebarCell: NSTableCellView {
             fillSlot(lead())
             action.image = .symbol("xmark", String(localized: "Close Chat"))
             action.toolTip = String(localized: "Close Chat")
-            layout(row: [slot, title, muted, glyph, chip, family, page, trailing])
+            layout(row: [slot, title, muted, glyph, chip, family, markButton, trailing])
             addAsk()
         case .host, .parked: break   // a server's header (ServerCards), a ParkedHeader
         }
@@ -331,7 +332,7 @@ final class SidebarCell: NSTableCellView {
                 : app.arrangement.parked[sid].flatMap { app.arrangement.isParked(sid) ? Parking.until($0) : nil }
                     ?? quiet ?? picked
             alphaValue = app.arrangement.isParked(sid) ? 0.55 : 1   // out of the way, as the canvas draws it
-            showPage(sid)
+            showMarkButton(sid)
             family.show(
                 app.children(of: sid), running: session.runningSubagents, finished: session.finishedSubagents)
             showChip(session)

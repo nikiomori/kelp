@@ -8,7 +8,7 @@ extension EditorArea {
     /// A run's tab (the Run menu's) among the terminals: its purpose's symbol in colour and a glow of that colour. Any
     /// session's tab says the port it serves, a label only: the title bar's capsule opens it.
     func runLook(_ item: TabStrip.Item, _ tab: TabRef) -> TabStrip.Item {
-        if TabURI.isPage(tab.uri) { return pageLook(item, tab) }
+        if let driven = app.extensions.tabProvider(for: tab.uri)?.driven { return drivenLook(item, tab, driven) }
         guard TabURI.scheme(tab.uri) == "session", let session = app.session(TabURI.body(tab.uri)),
             session.status != .exited
         else {
@@ -25,16 +25,17 @@ extension EditorArea {
         return item
     }
 
-    /// A page an agent drives (`AgentPages`): the agent's logo for its icon, its card under the pointer, and a glow in
-    /// its colour while it acts there.
-    func pageLook(_ item: TabStrip.Item, _ tab: TabRef) -> TabStrip.Item {
-        guard let session = app.agentPages.of(tab: tab.id).first.flatMap({ app.session($0.page.session) }) else {
-            return item
-        }
+    /// A tab an agent drives (a page, `TabProvider.driven`): the agent's logo for its icon, its card under the pointer,
+    /// and a glow in its colour while it acts there.
+    func drivenLook(
+        _ item: TabStrip.Item, _ tab: TabRef,
+        _ driven: @MainActor (String) -> [String: (session: String, glow: NSColor?)]
+    ) -> TabStrip.Item {
+        guard let by = driven(workspaceId)[tab.id], let session = app.session(by.session) else { return item }
         var item = item
         item.icon = app.catalog.icon(session.agent, size: 14) ?? item.icon
         item.card = .agent(session.id)
-        item.run = app.agentPages.glow(tab: tab.id)
+        item.run = by.glow
         return item
     }
 

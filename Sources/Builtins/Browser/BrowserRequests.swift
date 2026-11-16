@@ -1,11 +1,15 @@
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 import WorkbenchKit
 
 /// `kelp browser`: an agent's command, done in a page tab of its workspace. That workspace needn't be on screen, only
 /// loaded (shown lately): its tabs live on while another one is shown.
-extension UIRequests {
+@MainActor
+struct BrowserRequests {
+    let app: AppModel
+
     func browse(_ event: UIBrowserEvent) {
         Task {
             let reply: UIBrowserReply
@@ -20,32 +24,30 @@ extension UIRequests {
         guard let wid = event.worktreeId ?? app.workbench.workspaceId else {
             throw RPCError.invalidParams("No workspace to open a page in.")
         }
-        guard let area = app.workbench.editors?.area(wid) else {
+        guard app.workbench.loadedTabs(wid) != nil else {
             throw RPCError.invalidParams("This workspace isn't open in Kelp's window: show it once, then try again.")
         }
         guard let action = BrowserAction(rawValue: event.action) else {
             throw RPCError.invalidParams("kelp browser knows no \(event.action)")
         }
         let args = event.args ?? .object([:])
-        if action == .open, let page = try await area.pageForOpen(shared: args["shared"]?.bool == true, args: args) {
-            return try await area.browse(page, .info, args)
+        if action == .open, let page = try await pageForOpen(wid, shared: args["shared"]?.bool == true, args: args) {
+            return try await browse(page, in: wid, .info, args)
         }
-        guard let page = area.browsedPage() else {
+        guard let page = browsedPage(wid) else {
             throw RPCError.invalidParams("No page of yours open in this workspace: kelp browser open <url> first.")
         }
-        return try await area.browse(page, action, args)
+        return try await browse(page, in: wid, action, args)
     }
-}
 
-extension EditorArea {
     /// A new page tab for `open`, beside the agent's pane; nil when there's one to navigate already: the page it drove, or
     /// an agent's own, of the kind asked (`shared`: the user's cookies, which only a plain page has). A shared one acts as
     /// the user, so the user says so first.
-    func pageForOpen(shared: Bool, args: JSONValue) async throws -> TabRef? {
+    private func pageForOpen(_ wid: String, shared: Bool, args: JSONValue) async throws -> TabRef? {
         let url = args["url"]?.string ?? ""
         // A shared page is the one site the user allowed: another site is asked for again, in a tab of its own. A local
         // page (`preview:`) is a tab's start, not an address to go to, so it gets a tab of its own too.
-        if let page = ownPage(), shared == (TabURI.scheme(page.uri) != TabURI.agentScheme),
+        if let page = ownPage(wid), shared == (TabURI.scheme(page.uri) != TabURI.agentScheme),
             TabURI.scheme(url) != "preview",
             !shared || url.isEmpty
                 || PageOrigin.of(URL(string: url)) == PageOrigin.of(URL(string: TabURI.pageURL(page.uri)))
@@ -57,22 +59,16 @@ extension EditorArea {
             throw RPCError.invalidParams(
                 "The user didn't let you use their logged-in browser: kelp browser open without --shared.")
         }
-        let uri = shared ? url : TabURI.agentPage(url)
-        if app.workbench.editors?.current === self {
-            showAside(uri, split: .right)
-        } else {
-            open(uri, split: .right, focus: false)
-        }
-        guard let page = layout.tab(uri: uri) ?? layout.pageTab(for: uri) else { return nil }
-        browsing = page.id
+        guard let page = app.workbench.openBeside(shared ? url : TabURI.agentPage(url), in: wid) else { return nil }
+        AgentPages.of(app).browsed[wid] = page.id
         return page
     }
 
     /// The page `kelp browser` drives here: one it opened. The user's own page tabs carry their logins, so an agent never
     /// takes one of those by itself.
-    func browsedPage() -> TabRef? {
-        let page = ownPage()
-        browsing = page?.id
+    private func browsedPage(_ wid: String) -> TabRef? {
+        let page = ownPage(wid)
+        AgentPages.of(app).browsed[wid] = page?.id
         return page
     }
 
@@ -84,24 +80,30 @@ extension EditorArea {
             action: String(localized: "Allow"), cancel: String(localized: "Don't Allow"))
     }
 
-    /// The action, by the tab's provider, on the tab, built if it wasn't yet.
-    func browse(_ page: TabRef, _ action: BrowserAction, _ args: JSONValue) async throws -> JSONValue {
-        guard let tab = content(page), let browse = app.extensions.tabProvider(for: page.uri)?.browse else {
+    /// The action on the page, its tab built if it wasn't yet.
+    private func browse(_ page: TabRef, in wid: String, _ action: BrowserAction, _ args: JSONValue) async throws
+        -> JSONValue
+    {
+        guard let tab = app.workbench.content(page, in: wid) as? BrowserTab else {
             throw RPCError.invalidParams("That tab shows no page.")
         }
-        // Where the page is, for the marks the shell shows of it outside its tab (`AgentPages`).
+        // Where the page is, for the marks it shows outside its tab (`AgentPages`).
         var args = args
         if case .object(var fields) = args {
             fields["tab"] = .string(page.id)
-            fields["workspace"] = .string(workspaceId)
+            fields["workspace"] = .string(wid)
             args = .object(fields)
         }
-        return try await browse(tab, action.rawValue, args)
+        return try await tab.browse(action, args)
     }
 
-    /// The page it drove last (one it opened: `browsing` is set only by `open` and by this), else an agent's own.
-    private func ownPage() -> TabRef? {
-        layout.allTabs.first { $0.id == browsing && TabURI.isPage($0.uri) }
-            ?? layout.allTabs.first { TabURI.scheme($0.uri) == TabURI.agentScheme }
+    /// The page it drove last (one it opened: `browsed` is set only by `open` and by this), else an agent's own.
+    private func ownPage(_ wid: String) -> TabRef? {
+        Self.ownPage(app.workbench.loadedTabs(wid) ?? [], last: AgentPages.of(app).browsed[wid])
+    }
+
+    static func ownPage(_ tabs: [TabRef], last: String?) -> TabRef? {
+        tabs.first { $0.id == last && TabURI.isPage($0.uri) }
+            ?? tabs.first { TabURI.scheme($0.uri) == TabURI.agentScheme }
     }
 }

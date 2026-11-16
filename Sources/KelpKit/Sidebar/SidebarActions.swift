@@ -168,7 +168,6 @@ extension SidebarController {
             menu.add(String(localized: "Rename Project")) { [weak self] in self?.startRename(id, project: true) }
             colorItem(menu, id)
             muteItem(menu, node.muteIds)
-            browserItem(menu, id)
             WorkspaceActions(app).addDevContainer(to: menu, repo)
             menu.addItem(.separator())
             WorkspaceActions.addLocate(to: menu, path: repo.path)
@@ -253,26 +252,6 @@ extension SidebarController {
     }
 
     /// A project's colour: a row of dots, or Color ▸ for VoiceOver and the keyboard, which reach only a menu's items.
-    /// Whether new chats here get Kelp's browser skill: as Settings say (the daemon says why, a moment after the menu
-    /// opens), or always or never in this project.
-    private func browserItem(_ menu: NSMenu, _ id: String) {
-        guard let worktree = app.gitFolder(project: id), RemoteHost.of(worktree.path) == nil else { return }
-        let app = self.app, key = BrowserSkill.choiceKey(id), own = app.uiState[key]?.string
-        let list = NSMenu()
-        list.add(String(localized: "Automatic")) { app.uiState[key] = nil }.state = own == nil ? .on : .off
-        list.add(String(localized: "On")) { app.uiState[key] = .string("on") }.state = own == "on" ? .on : .off
-        list.add(String(localized: "Off")) { app.uiState[key] = .string("off") }.state = own == "off" ? .on : .off
-        list.addItem(.separator())
-        let why = list.addItem(
-            withTitle: String(localized: "For new chats in this project"), action: nil, keyEquivalent: "")
-        why.isEnabled = false
-        Task {
-            guard let skill = await app.quiet(SkillsBrowser(worktreeId: worktree.id)) else { return }
-            why.title = String(localized: "New chats: browser \(BrowserSkillWords.line(skill.line))")
-        }
-        menu.add(String(localized: "Browser for Agents"), submenu: list)
-    }
-
     private func colorItem(_ menu: NSMenu, _ id: String) {
         let app = self.app, now = app.arrangement.projectColors[id]
         let arrangement = app.arrangement
@@ -376,24 +355,5 @@ extension SidebarController {
                 AgentActions(app).stop(Array(Set(picked)))
             }
         }
-    }
-}
-
-/// The daemon's line about a chat's browser skill ("on · Vite in package.json", `BrowserSkill.line`), in the app's language
-/// where its words are fixed (a framework's name stays as it is).
-enum BrowserSkillWords {
-    static func line(_ daemonLine: String) -> String {
-        let parts = daemonLine.components(separatedBy: " · ")
-        guard parts.count == 2 else { return daemonLine }
-        let fixed = [
-            "set for this project": String(localized: "set for this project"),
-            "Always, in Settings": String(localized: "Always, in Settings"),
-            "Never, in Settings": String(localized: "Never, in Settings"),
-            "an agent used it here": String(localized: "an agent used it here"),
-            "a local page is open here": String(localized: "a local page is open here"),
-            "no web app found": String(localized: "no web app found")
-        ]
-        return (parts[0] == "on" ? String(localized: "on") : String(localized: "off")) + " · "
-            + (fixed[parts[1]] ?? parts[1])
     }
 }

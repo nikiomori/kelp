@@ -14,7 +14,7 @@ final class ChildrenBadge: PointerControl {
     }
     static let mostPips = 4
     private let pips = PipsView(), count = NSTextField(labelWithString: "")
-    /// The subagents that acted on a page lately (`AgentPages`): their dots are lit, in `browsingColor`.
+    /// The subagents a built-in's mark lights (`RowMark.lights`: they acted on a page lately), in `browsingColor`.
     var browsing: Set<String> = []
     var browsingColor: NSColor {
         get { pips.lit }
@@ -178,13 +178,6 @@ final class PipsView: NSView {
         dot.shadowColor = color.cgColor
         dot.shadowOpacity = pip == .asks || pip == .browses ? 0.8 : 0
     }
-}
-
-extension Subagent {
-    /// What it does, or else all that's known of it.
-    var title: String { task ?? (kind.isEmpty ? String(localized: "Subagent") : kind) }
-    /// Its kind beside what it does: nine in ten are general-purpose, which tells them apart from nothing.
-    var shownKind: String? { task == nil || kind.isEmpty || kind == "general-purpose" ? nil : kind }
 }
 
 extension SidebarCell {

@@ -40,8 +40,6 @@ final class EditorArea: NSViewController {
     var startDraft = ""
     /// The group shown alone (⇧⌘↩), not saved: a relaunch shows every pane.
     var zoomed: String?
-    /// The page `kelp browser` last drove here (a tab id): its next command goes to the same one.
-    var browsing: String?
 
     var worktree: Worktree? { app.worktree(workspaceId) }
 
@@ -82,9 +80,11 @@ final class EditorArea: NSViewController {
         } changed: { [weak self] _ in
             self?.groupViews.keys.forEach { self?.refreshGroup($0) }
         }
-        // A page an agent drives: its tab glows while it acts (`pageLook`).
+        // A tab an agent drives (a page): it glows while the agent acts there (`drivenLook`).
         track(owner: self, now: false) { [weak self, app] in
-            app.agentPages.tabMarks(workspace: self?.workspaceId ?? "")
+            app.extensions.all.tabs.compactMap(\.driven).flatMap { driven in
+                driven(self?.workspaceId ?? "").map { "\($0.key) \($0.value.session) \($0.value.glow != nil)" }
+            }.sorted()
         } changed: { [weak self] _ in
             self?.groupViews.keys.forEach { self?.refreshGroup($0) }
         }

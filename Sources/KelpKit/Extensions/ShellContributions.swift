@@ -17,7 +17,7 @@ package struct TabProvider {
                 _ menu: NSMenu, _ uri: String, _ workspace: String, _ openBeside: @escaping @MainActor (String) -> Void
             ) -> Void
         )? = nil,
-        browse: (@MainActor (_ tab: TabContent, _ action: String, _ args: JSONValue) async throws -> JSONValue)? = nil
+        driven: (@MainActor (_ workspace: String) -> [String: (session: String, glow: NSColor?)])? = nil
     ) {
         self.schemes = schemes
         self.make = make
@@ -26,7 +26,7 @@ package struct TabProvider {
         self.releasable = releasable
         self.closeUnbuilt = closeUnbuilt
         self.menu = menu
-        self.browse = browse
+        self.driven = driven
     }
     let schemes: [String]
     let make: @MainActor (String) -> TabContent?
@@ -48,8 +48,9 @@ package struct TabProvider {
                 _ menu: NSMenu, _ uri: String, _ workspace: String, _ openBeside: @escaping @MainActor (String) -> Void
             ) -> Void
         )?
-    /// `kelp browser`'s `action` on a page tab it made (`UIBrowser`).
-    var browse: (@MainActor (_ tab: TabContent, _ action: String, _ args: JSONValue) async throws -> JSONValue)?
+    /// Its tabs in `workspace` that an agent drives (a page `kelp browser` acts in), by tab id: whose, and the glow
+    /// while it acts. Such a tab wears the agent's logo and card. Read under observation: it must not do work.
+    var driven: (@MainActor (_ workspace: String) -> [String: (session: String, glow: NSColor?)])?
 }
 
 /// Everything one extension adds. Built-ins fill it in Swift; folders from extension.json.
@@ -216,7 +217,10 @@ package struct Contributions {
         pushed: [@MainActor (any Pushed) -> Void] = [], plans: PlanWords? = nil, servers: ServerCards? = nil,
         launched: [@MainActor () -> Void] = [], dockMenu: [@MainActor (NSMenu) -> Void] = [],
         dockUsage: (@MainActor () -> DockFace?)? = nil, runs: ProjectRuns? = nil, languages: [LanguageSpec] = [],
-        skills: [SkillSpec] = []
+        skills: [SkillSpec] = [],
+        agentCards: [@MainActor (_ session: Session, _ close: @escaping @MainActor () -> Void) -> AnyView?] = [],
+        subagentSteps: [@MainActor (_ session: String, _ subagent: String, _ command: String) -> String?] = [],
+        browser: (@MainActor (UIBrowserEvent) -> Void)? = nil
     ) {
         self.panels = panels
         self.editors = editors
@@ -238,6 +242,9 @@ package struct Contributions {
         self.runs = runs
         self.languages = languages
         self.skills = skills
+        self.agentCards = agentCards
+        self.subagentSteps = subagentSteps
+        self.browser = browser
     }
     package var panels: [PanelSpec] = []
     var editors: [EditorSpec] = []
@@ -281,6 +288,15 @@ package struct Contributions {
     package var languages: [LanguageSpec] = []
     /// What it teaches agents (`AgentSkills`).
     var skills: [SkillSpec] = []
+    /// Its part of an agent's hover card, under what the card says of the agent (the page it drives); `close` puts the
+    /// card away. Made while the card is up.
+    var agentCards: [@MainActor (_ session: Session, _ close: @escaping @MainActor () -> Void) -> AnyView?] = []
+    /// What a subagent's last command did, in its own words, for the agent's card (the page's last step for a
+    /// `kelp browser` one); nil: the command as it ran.
+    var subagentSteps: [@MainActor (_ session: String, _ subagent: String, _ command: String) -> String?] = []
+    /// `kelp browser`: an agent's command, done by the built-in that has pages, which answers it (`UIBrowserReply`).
+    /// None, and the command is told the Browser is off.
+    var browser: (@MainActor (UIBrowserEvent) -> Void)?
 
     /// Another extension's, after this one's (the registry merges them in load order): a list takes its items after
     /// these, a single hook stays the first one's. A new field gets its line here, beside the fields.
@@ -308,5 +324,8 @@ package struct Contributions {
         dockUsage = dockUsage ?? c.dockUsage
         runs = runs ?? c.runs
         skills += c.skills
+        agentCards += c.agentCards
+        subagentSteps += c.subagentSteps
+        browser = browser ?? c.browser
     }
 }

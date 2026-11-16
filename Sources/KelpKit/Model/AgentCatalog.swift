@@ -237,3 +237,11 @@ package final class AgentAvailability {
         return await Shell.exec(app, [path, "--version"], timeout: 8).code == 0 ? binary : nil   // hung: killed, counts as missing
     }
 }
+
+/// What a subagent is called where agents are listed (a card, a row's dots).
+extension Subagent {
+    /// What it does, or else all that's known of it.
+    package var title: String { task ?? (kind.isEmpty ? String(localized: "Subagent") : kind) }
+    /// Its kind beside what it does: nine in ten are general-purpose, which tells them apart from nothing.
+    var shownKind: String? { task == nil || kind.isEmpty || kind == "general-purpose" ? nil : kind }
+}

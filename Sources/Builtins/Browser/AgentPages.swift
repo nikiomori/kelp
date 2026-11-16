@@ -1,15 +1,18 @@
-// The pages agents drive (`kelp browser`), as the shell shows them outside the page's own tab.
+// The pages agents drive (`kelp browser`), as they show outside the page's own tab.
 import AppKit
 import Core
 import DesignKit
+import KelpKit
 
 /// What each page an agent (or one of its subagents) drives is doing: the browser mark on the agent's row, lit in the
 /// agent's colour for a while after each action (`litFor`) and grey while the page is only open; the glow on the page's
-/// tab; the page in the agent's card. The browser built-in tells it (`drives`, `acted`, `change`, `closed`); the shell
-/// reads it under observation, and asks a page for its picture or to come forward through its `DrivenPage`.
+/// tab; the page in the agent's card. The pages tell it (`drives`, `acted`, `change`, `closed`); the marks the shell
+/// shows (`BrowserMarks`) read it under observation, and ask a page for its picture or to come forward. The app's one.
 @MainActor
 @Observable
-package final class AgentPages {
+final class AgentPages {
+    static func of(_ app: AppModel) -> AgentPages { app.part { AgentPages(app: app) } }
+
     /// How long a page stays lit after an action.
     static let litFor: TimeInterval = 10
     /// How many steps a page keeps for the card.
@@ -23,23 +26,23 @@ package final class AgentPages {
         }
     }
     /// Who has the page: the agent, the user (they took it), or the user because the agent asked (`kelp browser ask`).
-    package enum Holder: Equatable, Sendable {
+    enum Holder: Equatable, Sendable {
         case agent, user
         case asked(String)
     }
-    package struct Page: Equatable {
-        package var session: String, subagent: String?
+    struct Page: Equatable {
+        var session: String, subagent: String?
         /// The workspace and the tab it's in.
-        package var workspace: String, tab: String
-        package var title = "", url = ""
+        var workspace: String, tab: String
+        var title = "", url = ""
         /// The colour its pointer has: the agent's, made to stand out on a page.
-        package var color: NSColor = .systemPurple
+        var color: NSColor = .systemPurple
         /// The last few things done there, oldest first.
         var steps: [Step] = []
         /// What the page reported as errors since it was opened: how many, and the last.
-        package var errors = 0, lastError: String?
-        package var holder: Holder = .agent
-        package init(session: String, subagent: String?, workspace: String, tab: String) {
+        var errors = 0, lastError: String?
+        var holder: Holder = .agent
+        init(session: String, subagent: String?, workspace: String, tab: String) {
             self.session = session
             self.subagent = subagent
             self.workspace = workspace
@@ -48,9 +51,11 @@ package final class AgentPages {
     }
 
     /// By page id (one for each web view an agent drives).
-    package private(set) var pages: [String: Page] = [:]
+    private(set) var pages: [String: Page] = [:]
     /// The pages that acted in the last `litFor` seconds.
     private(set) var lit: Set<String> = []
+    /// The page `kelp browser` last drove in each workspace (a tab id): its next command goes to the same one.
+    @ObservationIgnored var browsed: [String: String] = [:]
     @ObservationIgnored private var handles: [String: WeakPage] = [:]
     @ObservationIgnored private var dimming: [String: Task<Void, Never>] = [:]
     @ObservationIgnored private unowned let app: AppModel
@@ -60,19 +65,19 @@ package final class AgentPages {
     // MARK: told by the browser
 
     /// `id` is driven now, as `page` says; `handle` gives its picture and takes the user's buttons.
-    package func drives(_ id: String, _ page: Page, handle: DrivenPage) {
+    func drives(_ id: String, _ page: Page, handle: BrowserTab) {
         handles[id] = WeakPage(page: handle)
         if pages[id] != page { pages[id] = page }
     }
 
-    package func change(_ id: String, _ edit: (inout Page) -> Void) {
+    func change(_ id: String, _ edit: (inout Page) -> Void) {
         guard var page = pages[id] else { return }
         edit(&page)
         if pages[id] != page { pages[id] = page }
     }
 
     /// An action done there: the last step, and the page lit for `litFor`.
-    package func acted(_ id: String, _ step: String) {
+    func acted(_ id: String, _ step: String) {
         change(id) { page in
             page.steps.append(Step(step))
             if page.steps.count > Self.keptSteps { page.steps.removeFirst(page.steps.count - Self.keptSteps) }
@@ -85,14 +90,14 @@ package final class AgentPages {
         }
     }
 
-    package func closed(_ id: String) {
+    func closed(_ id: String) {
         pages[id] = nil
         lit.remove(id)
         handles[id] = nil
         dimming.removeValue(forKey: id)?.cancel()
     }
 
-    // MARK: read by the shell
+    // MARK: read by the marks
 
     /// A session's pages, its own first, then its subagents' by when they last acted.
     func of(session: String) -> [(id: String, page: Page)] {
@@ -135,29 +140,18 @@ package final class AgentPages {
         }.sorted()
     }
 
-    func handle(_ id: String) -> DrivenPage? { handles[id]?.page }
+    func handle(_ id: String) -> BrowserTab? { handles[id]?.page }
 
     /// The page's group comes up, the page in front.
     func show(_ id: String) {
         guard let page = pages[id] else { return }
         app.workbench.show(workspace: page.workspace)
-        guard let area = app.workbench.editors?.area(page.workspace) else { return }
-        area.select(page.tab, focus: false)
+        guard let tab = app.workbench.loadedTabs(page.workspace)?.first(where: { $0.id == page.tab }) else { return }
+        app.workbench.open(tab.uri, workspace: page.workspace, focus: false)
         handle(id)?.bringForward()
     }
 }
 
-/// A page an agent drives, as the shell asks it things (`AgentPages`).
-@MainActor
-package protocol DrivenPage: AnyObject {
-    /// The page as it looks now; nil when there's none to be had.
-    func picture() async -> NSImage?
-    /// Shown in its tab (a tab holding several pages).
-    func bringForward()
-    /// The user takes the page (`true`) or hands it back.
-    func hold(_ user: Bool)
-}
-
 private struct WeakPage {
-    weak var page: DrivenPage?
+    weak var page: BrowserTab?
 }
