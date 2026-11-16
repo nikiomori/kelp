@@ -2,18 +2,20 @@ import AppKit
 import Core
 import DesignKit
 
-/// A folded project's or group's chats on its row: one agent logo each, side by side (logos on no tile ran together when
-/// they overlapped), the most pressing first, its state in a corner cut out of the logo (none when it's only ready), as
-/// macOS marks a person's status on their picture. Four at most, then "+N"; the tooltip names each and what it does.
-/// A logo opens its chat; "+N" unfolds the row (`onMore`).
+/// A folded project's or group's chats on its row: a logo for each one at work or waiting for you (asking, failed,
+/// working, done and not looked at), the most pressing first, its state in a corner cut out of the logo, as macOS marks a
+/// person's status on their picture. Two at most, then "+N" for the rest; with none of them, the chats' count alone
+/// (four ready logos said less than a number). The tooltip names each and what it does. A logo opens its chat; the
+/// number unfolds the row (`onMore`).
 @MainActor
 final class AgentStack: NSView {
-    private static let side = AgentFace.side, step: CGFloat = 17, most = 4
+    private static let side = AgentFace.side, step: CGFloat = 17, most = 2
     private let more = PointerButton(frame: .zero)
     private var faces: [PointerButton] = []
     /// "+N" clicked: the row opens to show the rest.
     var onMore: (() -> Void)?
-    private var total = 0
+    /// All its chats, logo or not.
+    private(set) var total = 0
     /// How many logos the row has room for (SidebarCell.fitBadges): the rest are counted in "+N".
     var cap = 4 { didSet { if cap != oldValue { place() } } }
     /// What was drawn last: a status change re-reads the row, and the marks keep spinning rather than being made again.
@@ -50,17 +52,21 @@ final class AgentStack: NSView {
         shown = now
         faces.forEach { $0.removeFromSuperview() }
         total = sorted.count
-        faces = sorted.prefix(Self.most).map { face($0, app) }
+        faces = sorted.filter { Self.badge($0) != nil }.prefix(Self.most).map { face($0, app) }
         faces.forEach(addSubview)
         place()
     }
 
-    /// The width `logos` logos take, "+N" after them for the rest.
+    /// The width `logos` logos take, "+N" after them for the rest; no logo: the count alone.
     func width(showing logos: Int) -> CGFloat {
-        let logos = min(logos, faces.count)
-        guard logos > 0 else { return 0 }
-        let rest = total - logos
+        guard total > 0 else { return 0 }
+        let logos = min(logos, faces.count), rest = total - logos
+        guard logos > 0 else { return labelWidth(Self.words(logos: 0, total: total)) }
         return Self.side + CGFloat(logos - 1) * Self.step + (rest > 0 ? Self.gap + labelWidth("+\(rest)") : 0)
+    }
+    /// After the logos, the rest: "+4"; with none shown, all of them: "5".
+    private static func words(logos: Int, total: Int) -> String {
+        total <= logos ? "" : logos > 0 ? "+\(total - logos)" : "\(total)"
     }
     /// Between the last logo and "+N".
     private static let gap: CGFloat = 4
@@ -74,7 +80,7 @@ final class AgentStack: NSView {
     private func place() {
         let shown = min(cap, faces.count)
         for (index, logo) in faces.enumerated() { logo.isHidden = index >= shown }
-        let words = total > shown && shown > 0 ? "+\(total - shown)" : ""
+        let words = Self.words(logos: shown, total: total)
         more.attributedTitle = NSAttributedString(
             string: words, attributes: [.font: more.font as Any, .foregroundColor: NSColor.secondaryLabelColor])
         more.toolTip = words.isEmpty ? nil : String(localized: "Show All")
@@ -126,7 +132,8 @@ final class AgentStack: NSView {
         for (index, face) in faces.enumerated() {
             face.setFrameOrigin(NSPoint(x: CGFloat(index) * Self.step - inset, y: top - inset))
         }
-        let moreX = CGFloat(max(min(cap, faces.count) - 1, 0)) * Self.step + Self.side + Self.gap
+        let shown = min(cap, faces.count)
+        let moreX = shown > 0 ? CGFloat(shown - 1) * Self.step + Self.side + Self.gap : 0
         more.frame = NSRect(
             x: moreX, y: (bounds.height - Self.hit) / 2, width: labelWidth(more.title), height: Self.hit)
     }

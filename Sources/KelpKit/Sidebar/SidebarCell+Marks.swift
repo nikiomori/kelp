@@ -170,15 +170,25 @@ extension SidebarCell {
         // Fitting, not intrinsic, size: the slot and the "+" are sized by constraints and have no intrinsic width, so the
         // name lost their room to the marks ("K…").
         var room = bounds.width - 2 - others.reduce(0) { $0 + $1.fittingSize.width + rowStack.spacing }
-        for (badge, has) in [(ci, hasBadge.ci), (changes, hasBadge.changes), (pr, hasBadge.pr)] {
-            let need = badge.intrinsicContentSize.width + (badge === ci ? ciMark.overhang : 0) + rowStack.spacing,
-                show = has && room >= need
-            if show { room -= need }
+        let gap = rowStack.spacing
+        func take(_ badge: NSView, _ has: Bool, _ need: CGFloat) {
+            let show = has && room >= need + gap
+            if show { room -= need + gap }
             rowStack.setVisibilityPriority(show ? .mustHold : .notVisible, for: badge)
         }
-        // The agents' logos take what's left: fewer of them, then none ("+N" counts the rest; the tooltip names all).
-        let fits = (0...stack.count).last { stack.width(showing: $0) + rowStack.spacing <= room } ?? 0
-        stack.cap = fits
-        rowStack.setVisibilityPriority(fits > 0 ? .mustHold : .notVisible, for: stack)
+        // What stays longest goes first: a failed CI, the chats (one logo, else their count; the tooltip names all), the
+        // changes, the PR, then the second logo.
+        take(ci, hasBadge.ci, ci.intrinsicContentSize.width + ciMark.overhang)
+        var logos = stack.total == 0 ? nil : [min(1, stack.count), 0].first { stack.width(showing: $0) + gap <= room }
+        if let least = logos { room -= stack.width(showing: least) + gap }
+        take(changes, hasBadge.changes, changes.intrinsicContentSize.width)
+        take(pr, hasBadge.pr, pr.intrinsicContentSize.width)
+        if let least = logos {
+            logos = (least...max(least, stack.count)).last {
+                stack.width(showing: $0) - stack.width(showing: least) <= room
+            }
+        }
+        stack.cap = logos ?? 0
+        rowStack.setVisibilityPriority(logos == nil ? .notVisible : .mustHold, for: stack)
     }
 }
