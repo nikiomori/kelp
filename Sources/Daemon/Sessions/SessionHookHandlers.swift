@@ -32,7 +32,7 @@ extension SessionHook: Handled {
             return Done()
         }
         if event == .command, let command {   // a Bash command for the list and the row, whenever its hook arrives
-            if ls.ran(command) != nil { sessions.publish(ls) }
+            if ls.ran(command, by: agentId) != nil { sessions.publish(ls) }
             sessions.touchCommands(ls)
         }
         if let endedTasks, ls.tasksEnded(endedTasks) { sessions.publish(ls) }

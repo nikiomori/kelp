@@ -71,17 +71,37 @@ extension UICommand: Handled {
 }
 
 /// To the app, which does it in a browser tab and answers with `ui.browser.reply`; this waits for that answer.
+/// A subagent's command says whose it is (`args.subagent`): Claude Code's hook told which subagent runs it.
 extension UIBrowser: AsyncHandled {
     var inWorkspace: String? { worktreeId ?? "" }   // none named: the one on screen, which needn't be the agent's
-    func handle(_ ui: UIStore) async throws -> JSONValue {
+    func handle(_ relay: BrowserRelay) async throws -> JSONValue {
+        let ui = relay.ui
         ui.browserUsed(in: worktreeId)   // an agent wants pages here, whether or not the app is there to show one
         let clients = ui.clients, apps = clients.apps
         guard !apps.isEmpty else { throw RPCError.internalError("The Kelp app isn't running") }
+        var call = self
+        if case .object(var fields) = args, let session = fields["session"]?.string,
+            let subagent = relay.sessions.existing(session)?.browsing(Self.words(action, args))
+        {
+            fields["subagent"] = .string(subagent)
+            call.args = .object(fields)
+        }
         let request = UUID().uuidString
         return try await clients.reply(to: request, from: apps, within: Self.wait) {
-            clients.notify(UIBrowserEvent(self, request: request), to: apps)
+            clients.notify(UIBrowserEvent(call, request: request), to: apps)
         }
     }
+
+    /// What the command line says after `kelp browser`: `click e12`, `open http://localhost:3000`.
+    static func words(_ action: String, _ args: JSONValue?) -> String {
+        ([action] + ["ref", "key", "url"].compactMap { args?[$0]?.string }.prefix(1)).joined(separator: " ")
+    }
+}
+
+/// What answers `ui.browser`: the window it goes to, and the sessions that say which subagent asks.
+struct BrowserRelay: DaemonService {
+    let ui: UIStore, sessions: Sessions
+    static func of(_ daemon: Daemon) -> BrowserRelay { BrowserRelay(ui: .of(daemon), sessions: daemon.sessions) }
 }
 
 extension UIBrowserReply: Handled {

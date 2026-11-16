@@ -146,9 +146,10 @@ extension LiveSession {
     }
 
     /// A command its shell tool started or ended (`kelp hook command`), into its list; the row says the one running. The
-    /// record when what it runs changed.
-    func ran(_ command: AgentCommand) -> Session? {
+    /// record when what it runs changed. `agent`: the subagent whose tool it is.
+    func ran(_ command: AgentCommand, by agent: String? = nil) -> Session? {
         state.withLock { st in
+            st.commandAgents[command.id] = command.outcome == nil ? agent : nil
             if let index = st.commands.lastIndex(where: { $0.id == command.id }) {
                 let started = st.commands[index].started   // the end keeps the start it was told of
                 st.commands[index] = command
@@ -157,6 +158,8 @@ extension LiveSession {
                 st.commands.append(command)
                 if st.commands.count > Self.commandLimit {
                     st.commands.removeFirst(st.commands.count - Self.commandLimit)
+                    let kept = Set(st.commands.map(\.id))
+                    st.commandAgents = st.commandAgents.filter { kept.contains($0.key) }
                 }
             }
             _ = st.newCommands()
@@ -165,6 +168,19 @@ extension LiveSession {
             let shown = st.showRunning()
             return moved || shown ? st.record : nil
         }
+    }
+
+    /// The subagent whose `kelp browser` command asks now (nil: the agent's own): `LiveSession.browsing`.
+    func browsing(_ words: String) -> String? {
+        state.withLock { st in Self.browsing(words, st.commands, st.commandAgents) }
+    }
+
+    /// Of the commands still running that run `kelp browser`, the one whose words hold `words` (`click e12`), else the
+    /// first; its subagent. Limit: two subagents running the very same words at once can't be told apart.
+    static func browsing(_ words: String, _ commands: [AgentCommand], _ agents: [String: String]) -> String? {
+        let running = commands.filter { $0.outcome == nil && $0.command.contains("kelp browser") }
+        let match = running.first { $0.command.contains("browser " + words) } ?? running.first
+        return match.flatMap { agents[$0.id] }
     }
 
     /// The time to `release` by, if a Stop is held (an update took the wait for it along: it starts over).

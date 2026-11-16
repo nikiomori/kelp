@@ -138,3 +138,19 @@ private func folder(_ files: [String: String]) throws -> URL {
     try fm.createDirectory(at: w.root.appendingPathComponent("vms/dev"), withIntermediateDirectories: true)
     #expect(vm())
 }
+
+/// A subagent's `kelp browser` says whose it is: of the commands running, the one with its words, by its hook's agent.
+@Test func aBrowserCommandIsTheSubagentsThatRunsIt() {
+    let main = AgentCommand(id: "t1", command: "npm test")
+    let mobile = AgentCommand(id: "t2", command: "kelp browser click e12")
+    let desktop = AgentCommand(id: "t3", command: "cd web && kelp browser type e4 'hi'")
+    let agents = ["t2": "mobile", "t3": "desktop"]
+    #expect(LiveSession.browsing("click e12", [main, mobile, desktop], agents) == "mobile")
+    #expect(LiveSession.browsing("type e4", [main, mobile, desktop], agents) == "desktop")
+    #expect(LiveSession.browsing("info", [main, desktop], agents) == "desktop")   // only one runs it
+    var ended = mobile
+    ended.outcome = .ok
+    #expect(LiveSession.browsing("click e12", [ended], agents) == nil)   // over: not this call's
+    #expect(LiveSession.browsing("info", [AgentCommand(id: "t4", command: "kelp browser info")], agents) == nil)   // the agent's own
+    #expect(UIBrowser.words("click", .object(["ref": "e12", "session": "s"])) == "click e12")
+}
