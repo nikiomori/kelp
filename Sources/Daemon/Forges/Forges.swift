@@ -35,32 +35,47 @@ final class Forges: Sendable {
 
     static let linearKeyAccount = "linear-api-key"
 
-    var linear: LinearClient? { Keychain.get(Self.linearKeyAccount).map(LinearClient.init(apiKey:)) }
+    /// Nil without an account; a keychain that can't be read now (locked) throws, its reason said.
+    var linear: LinearClient? {
+        get throws { try Keychain.find(Self.linearKeyAccount).map(LinearClient.init(apiKey:)) }
+    }
 
     /// Jira / Bitbucket credentials: one JSON blob each in the keychain.
     static let jiraAccount = "jira", bitbucketAccount = "bitbucket"
     var jira: JiraClient? {
-        guard let secret = Keychain.get(Self.jiraAccount),
-            let fields = Log.store.attempt(
-                "reading Jira's keychain item",
-                { try JSONDecoder().decode([String: String].self, from: Data(secret.utf8)) }),
-            let site = fields["site"], let email = fields["email"], let token = fields["token"]
-        else { return nil }
-        return JiraClient(site: site, email: email, token: token)
+        get throws {
+            guard let secret = try Keychain.find(Self.jiraAccount),
+                let fields = Log.store.attempt(
+                    "reading Jira's keychain item",
+                    { try JSONDecoder().decode([String: String].self, from: Data(secret.utf8)) }),
+                let site = fields["site"], let email = fields["email"], let token = fields["token"]
+            else { return nil }
+            return JiraClient(site: site, email: email, token: token)
+        }
     }
     var bitbucket: BitbucketClient? {
-        guard let secret = Keychain.get(Self.bitbucketAccount),
-            let fields = Log.store.attempt(
-                "reading Bitbucket's keychain item",
-                { try JSONDecoder().decode([String: String].self, from: Data(secret.utf8)) }),
-            let user = fields["user"], let token = fields["token"]
-        else { return nil }
-        return BitbucketClient(user: user, token: token)
+        get throws {
+            guard let secret = try Keychain.find(Self.bitbucketAccount),
+                let fields = Log.store.attempt(
+                    "reading Bitbucket's keychain item",
+                    { try JSONDecoder().decode([String: String].self, from: Data(secret.utf8)) }),
+                let user = fields["user"], let token = fields["token"]
+            else { return nil }
+            return BitbucketClient(user: user, token: token)
+        }
     }
-    /// The keychain can keep a caller waiting (a locked login keychain): these read it off the cooperative pool.
-    func linearClient() async -> LinearClient? { try? await offloads.run { [self] in linear } }
-    func jiraClient() async -> JiraClient? { try? await offloads.run { [self] in jira } }
-    func bitbucketClient() async -> BitbucketClient? { try? await offloads.run { [self] in bitbucket } }
+    /// The keychain can keep a caller waiting (a locked login keychain): these read it off the cooperative pool. Nil:
+    /// no account; one that can't be read throws, so it isn't taken for "add credentials".
+    func linearClient() async throws -> LinearClient? { try await offloads.run { [self] in try linear } }
+    func jiraClient() async throws -> JiraClient? { try await offloads.run { [self] in try jira } }
+    func bitbucketClient() async throws -> BitbucketClient? { try await offloads.run { [self] in try bitbucket } }
+    /// For what runs on its own (an issue moved along with its PR): the keychain's failure logged, then nothing.
+    private func client<C>(_ name: String, _ read: () async throws -> C?) async -> C? {
+        do { return try await read() } catch {
+            Log.rpc.error("reading \(name, privacy: .public)'s keychain item: \(error)")
+            return nil
+        }
+    }
     /// Saved there, off the pool as well; an empty one removes the account.
     func keepSecret(_ value: String, account: String) async throws {
         try await offloads.run {
@@ -70,7 +85,7 @@ final class Forges: Sendable {
 
     /// Jira issues linked to a worktree ("ENG-12") move along with the PR, like Linear.
     func moveJira(_ worktree: Worktree, toName hint: String, category: String) async {
-        guard let client = await jiraClient(),
+        guard let client = await client("Jira", jiraClient),
             worktree.issue.range(of: #"^[A-Z][A-Z0-9]+-\d+$"#, options: .regularExpression) != nil,
             worktree.linearIssueId.isEmpty
         else { return }
@@ -82,7 +97,7 @@ final class Forges: Sendable {
 
     /// Move a linked Linear issue to a workflow state kind; quiet no-op without a key or link.
     func moveLinear(_ worktree: Worktree, to kind: LinearClient.StateKind) async {
-        guard !worktree.linearIssueId.isEmpty, let client = await linearClient(),
+        guard !worktree.linearIssueId.isEmpty, let client = await client("Linear", linearClient),
             // Limit: finds the team via my issues; query the issue by id if tasks assigned to others need moving
             let issue = try? await client.myIssues().first(where: { $0.id == worktree.linearIssueId }) ?? nil,
             let states = try? await client.workflowStates(teamId: issue.team.id),

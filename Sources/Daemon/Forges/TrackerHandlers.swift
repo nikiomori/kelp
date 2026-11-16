@@ -17,14 +17,14 @@ extension LinearSetKey: AsyncHandled {
 }
 extension LinearStatus: AsyncHandled {
     func handle(_ forges: Forges) async throws -> Result {
-        guard let linear = await forges.linearClient() else { return Result(connected: false) }
+        guard let linear = try await forges.linearClient() else { return Result(connected: false) }
         let me = try? await linear.viewer()
         return Result(connected: me != nil, name: me?.name ?? "")
     }
 }
 extension LinearIssues: AsyncHandled {
     func handle(_ forges: Forges) async throws -> [LinearIssue] {
-        guard let linear = await forges.linearClient() else {
+        guard let linear = try await forges.linearClient() else {
             throw RPCError.invalidParams("Linear is not connected (Settings › Integrations)")
         }
         if let teamId { return try await linear.teamIssues(teamId: teamId) }
@@ -33,19 +33,21 @@ extension LinearIssues: AsyncHandled {
 }
 extension LinearTeams: AsyncHandled {
     func handle(_ forges: Forges) async throws -> [LinearTeam] {
-        guard let linear = await forges.linearClient() else { return [] }
+        guard let linear = try await forges.linearClient() else { return [] }
         return try await linear.teams()
     }
 }
 extension LinearStates: AsyncHandled {
     func handle(_ forges: Forges) async throws -> [LinearState] {
-        guard let linear = await forges.linearClient() else { return [] }
+        guard let linear = try await forges.linearClient() else { return [] }
         return try await linear.workflowStates(teamId: teamId)
     }
 }
 extension LinearSetState: AsyncHandled {
     func handle(_ forges: Forges) async throws -> Done {
-        guard let linear = await forges.linearClient() else { throw RPCError.invalidParams("Linear is not connected") }
+        guard let linear = try await forges.linearClient() else {
+            throw RPCError.invalidParams("Linear is not connected")
+        }
         try await linear.setState(issueId: issueId, stateId: stateId)
         return Done()
     }
@@ -66,14 +68,14 @@ extension JiraSetCredentials: AsyncHandled {
 }
 extension JiraStatus: AsyncHandled {
     func handle(_ forges: Forges) async throws -> Result {
-        guard let jira = await forges.jiraClient() else { return Result(connected: false) }
+        guard let jira = try await forges.jiraClient() else { return Result(connected: false) }
         let name = try? await jira.myself()
         return Result(connected: name != nil, name: name ?? "", site: jira.site)
     }
 }
 extension JiraIssues: AsyncHandled {
     func handle(_ forges: Forges) async throws -> [JiraIssue] {
-        guard let jira = await forges.jiraClient() else {
+        guard let jira = try await forges.jiraClient() else {
             throw RPCError.invalidParams("Jira is not connected (Settings › Integrations)")
         }
         return try await jira.search(jql: jql ?? JiraClient.myOpenJQL)
@@ -81,13 +83,13 @@ extension JiraIssues: AsyncHandled {
 }
 extension JiraTransitions: AsyncHandled {
     func handle(_ forges: Forges) async throws -> [JiraTransition] {
-        guard let jira = await forges.jiraClient() else { return [] }
+        guard let jira = try await forges.jiraClient() else { return [] }
         return try await jira.transitions(key: key)
     }
 }
 extension JiraTransitionIssue: AsyncHandled {
     func handle(_ forges: Forges) async throws -> Done {
-        guard let jira = await forges.jiraClient() else { throw RPCError.invalidParams("Jira is not connected") }
+        guard let jira = try await forges.jiraClient() else { throw RPCError.invalidParams("Jira is not connected") }
         try await jira.transition(key: key, id: id)
         return Done()
     }

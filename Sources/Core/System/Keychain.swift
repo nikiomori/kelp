@@ -31,6 +31,14 @@ public enum Keychain {
         do { return try read(account) } catch { return nil }
     }
 
+    /// The value, or nil when there's none; any other failure (a locked keychain, access refused) is thrown, not read as
+    /// "none" (which would ask for credentials that are there).
+    public static func find(_ account: String) throws -> String? {
+        do { return try read(account) } catch let error as NSError where error.code == Int(errSecItemNotFound) {
+            return nil
+        }
+    }
+
     /// The value, or the keychain's reason it can't be had (its OSStatus: -25300 not there, -25308 not allowed now…).
     public static func read(_ account: String) throws -> String {
         let query: [String: Any] = [

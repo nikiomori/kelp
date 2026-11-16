@@ -45,7 +45,7 @@ extension Forges {
         switch try await offloads.run({ self.forge(path) }) {
         case .bitbucket:
             guard let slug = try await offloads.run({ BitbucketClient.slug(cwd: path) }),
-                let client = await bitbucketClient()
+                let client = try await bitbucketClient()
             else { throw Self.bitbucketNeedsCredentials }
             url = try await client.createPR(
                 workspace: slug.workspace, repo: slug.repo, title: title, body: body, source: branch, destination: base)
@@ -289,7 +289,7 @@ extension GitHubPRs: AsyncHandled {
         switch try await forges.offloads.run({ forges.forge(path) }) {
         case .bitbucket:
             guard let slug = try await forges.offloads.run({ BitbucketClient.slug(cwd: path) }),
-                let bb = await forges.bitbucketClient()
+                let bb = try await forges.bitbucketClient()
             else { throw Forges.bitbucketNeedsCredentials }
             return try await bb.pullRequests(workspace: slug.workspace, repo: slug.repo)
         case .gitlab:
@@ -323,7 +323,7 @@ extension GitHubPRMerge: AsyncHandled {
         case .bitbucket:
             // Bitbucket's API or nothing: gh would look for the number on whatever GitHub repository it found.
             guard let slug = try await forges.offloads.run({ BitbucketClient.slug(cwd: workspace.path) }),
-                let bb = await forges.bitbucketClient()
+                let bb = try await forges.bitbucketClient()
             else { throw Forges.bitbucketNeedsCredentials }
             try await bb.merge(workspace: slug.workspace, repo: slug.repo, id: number)
         case .gitlab:
@@ -353,7 +353,9 @@ extension BitbucketSetCredentials: AsyncHandled {
     }
 }
 extension BitbucketStatus: AsyncHandled {
-    func handle(_ forges: Forges) async throws -> Result { Result(connected: await forges.bitbucketClient() != nil) }
+    func handle(_ forges: Forges) async throws -> Result {
+        Result(connected: try await forges.bitbucketClient() != nil)
+    }
 }
 
 extension Methods {

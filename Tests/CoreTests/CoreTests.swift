@@ -1,4 +1,5 @@
 import Foundation
+import Security
 import TestSupport
 import Testing
 import os
@@ -184,6 +185,22 @@ private extension Data {
     #expect(Keychain.get(account) == "two")
     Keychain.delete(account)
     #expect(Keychain.get(account) == nil)
+}
+
+/// None is nil; one that can't be read (here: not text, as a locked keychain can't be either) is an error, not "none".
+@Test func aKeychainItemThatCantBeReadIsntNone() throws {
+    _ = TestIsolation.root
+    let account = "kelp-test-\(UUID().uuidString)"
+    defer { Keychain.delete(account) }
+    #expect(try Keychain.find(account) == nil)
+    let add: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: Keychain.service,
+        kSecAttrAccount as String: account, kSecValueData as String: Data([0xFF, 0xFE])
+    ]
+    #expect(SecItemAdd(add as CFDictionary, nil) == errSecSuccess)
+    #expect(throws: (any Error).self) { try Keychain.find(account) }
+    try Keychain.set("key", account: account)
+    #expect(try Keychain.find(account) == "key")
 }
 
 /// The app installs its handlers after connecting (with awaits in between): a daemon that drops first must still be noticed.
