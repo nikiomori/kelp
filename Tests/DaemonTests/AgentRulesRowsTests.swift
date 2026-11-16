@@ -120,7 +120,9 @@ func expectRows(_ daemon: Daemon, _ table: [(Caller, any Answered, Bool, String)
     let text = try FileManager.default.contentsOfDirectory(atPath: folder)
         .filter { $0.hasPrefix("AgentRules") && $0.hasSuffix("Tests.swift") }
         .map { try String(contentsOfFile: folder + "/" + $0, encoding: .utf8) }.joined()
+    // Calls in code only: a name in a comment, or one ending another's (`Status(` in `GitStatus(`), isn't a row.
+    let code = text.split(separator: "\n").map { $0.components(separatedBy: "//")[0] }.joined(separator: "\n")
     let untested = AgentRules.methods.compactMap { Daemon.methods[$0] }.map { String(describing: $0) }
-        .filter { !text.contains($0 + "(") }.sorted()
+        .filter { code.range(of: #"\b"# + $0 + #"\("#, options: .regularExpression) == nil }.sorted()
     #expect(untested.isEmpty, "\(untested.count) without a row: \(untested.joined(separator: ", "))")
 }
