@@ -65,6 +65,10 @@ final class Store: Sendable {
     func worktree(_ id: String) throws -> Worktree? { try db.read { try Worktree.fetchOne($0, key: id) } }
     func sessions() throws -> [Session] { try db.read { try Session.order(Column("createdAt")).fetchAll($0) } }
     func session(_ id: String) throws -> Session? { try db.read { try Session.fetchOne($0, key: id) } }
+    /// The sessions these started (`parent`), read through its index.
+    func children(of parents: Set<String>) throws -> [Session] {
+        try db.read { try Session.filter(parents.contains(Column("parent"))).fetchAll($0) }
+    }
     func owe(_ all: [OwedInput]) throws { try db.write { d in for input in all { try input.insert(d) } } }
     /// What's owed to `session`, in the order it came, and it's no longer kept here.
     func takeOwed(_ session: String) throws -> [OwedInput] {

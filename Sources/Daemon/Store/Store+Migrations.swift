@@ -291,6 +291,12 @@ extension Store {
         migrator.registerMigration("session.role") { db in   // the job Kelp started it for (`SessionRole`)
             try db.alter(table: "session") { t in t.add(column: "role", .text) }
         }
+        // Sessions are read by their workspace (an agent's every acting call, `ending`) and by who started them
+        // (`endChildren`): looked up, not every session read.
+        migrator.registerMigration("session.indexes") { db in
+            try db.create(index: "session_worktreeId", on: "session", columns: ["worktreeId"])
+            try db.create(index: "session_parent", on: "session", columns: ["parent"])
+        }
         return migrator
     }
 }

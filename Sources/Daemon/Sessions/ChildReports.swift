@@ -120,7 +120,7 @@ extension Sessions {
                 tell(parent, ChildReports.text(session, body: body))
             }
             if session.status == .exited {
-                endChildren(of: session.id)
+                endChildren(of: [session.id])
                 reports.ended(session.id)
             }
         }
@@ -183,8 +183,8 @@ extension Sessions {
         guard !left.isEmpty else { return }
         reports.make { [weak self] in
             guard let self else { return }
+            endChildren(of: Set(left.map(\.id)))   // one read for all of them
             for var session in left {
-                endChildren(of: session.id)
                 guard let parent = session.parent, !ids.contains(parent), settings[SettingKeys.childReports]
                 else { continue }
                 session.status = .exited
@@ -201,9 +201,9 @@ extension Sessions {
         familyHeard(session)
     }
 
-    private func endChildren(of id: String) {
-        Log.session.attempt("ending the children of \(id)") {
-            for child in try store.sessions() where child.parent == id && child.status != .exited {
+    private func endChildren(of ids: Set<String>) {
+        Log.session.attempt("ending the children of \(ids.sorted().joined(separator: ", "))") {
+            for child in try store.children(of: ids) where child.status != .exited {
                 _ = try SessionKill(id: child.id).handle(self)
             }
         }

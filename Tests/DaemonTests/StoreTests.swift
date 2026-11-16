@@ -17,6 +17,20 @@ import os
     #expect(try s.worktrees().isEmpty)   // cascade
 }
 
+/// Sessions are looked up by workspace and by who started them, through an index: not every session read on an
+/// agent's call or a workspace's close.
+@Test func sessionsAreFoundByWorkspaceAndParentThroughAnIndex() throws {
+    let s = try Store()
+    for column in ["worktreeId", "parent"] {
+        let plan = try s.db.read { db in
+            try Row.fetchAll(db, sql: "EXPLAIN QUERY PLAN SELECT * FROM session WHERE \(column) = 'x'").map {
+                $0["detail"] as String? ?? ""
+            }
+        }
+        #expect(plan.contains { $0.contains("USING INDEX session_\(column)") }, "\(column): \(plan)")
+    }
+}
+
 /// Each write gives a record the next revision, however it's written: of two copies, the newer is the one with the higher.
 @Test func eachWriteGivesARecordTheNextRevision() throws {
     let s = try Store()
