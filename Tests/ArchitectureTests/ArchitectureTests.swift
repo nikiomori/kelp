@@ -334,7 +334,7 @@ func codeOnly(_ s: String) -> String {
     let over400 = sources(["Sources"]).filter { f in
         f.text.split(separator: "\n", omittingEmptySubsequences: false).count > 400
     }.count
-    #expect(over400 == 16, "files over 400 lines: \(over400); fewer now: lower the count")
+    #expect(over400 == 15, "files over 400 lines: \(over400); fewer now: lower the count")
 }
 
 /// The daemon starts every program (an extension's command, a formatter, a notebook run, an agent's --version:

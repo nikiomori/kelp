@@ -30,69 +30,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         .symbol("arrow.clockwise"), tip: String(localized: "Refresh"), target: self, action: #selector(reload))
     let table = NSTableView()
     let detail = NSStackView()
-    /// What the selected source lists.
-    enum Row {
-        case pr(GitHub.PullRequest), issue(GitHub.Issue), linear(LinearIssue), jira(JiraIssue), item(GitHub.ProjectItem)
-        var url: String? {
-            switch self {
-            case .pr(let pr): pr.url
-            case .issue(let issue): issue.url
-            case .linear(let issue): issue.url
-            case .jira(let issue): issue.url
-            case .item(let item): item.url
-            }
-        }
-    }
-    /// What the source menu lists, in its order.
-    enum Source: Int, CaseIterable {
-        case pulls, issues, linear, jira, projects
-
-        var title: String {
-            switch self {
-            case .pulls: String(localized: "Pull Requests")
-            case .issues: String(localized: "Issues")
-            case .linear: String(localized: "Linear")
-            case .jira: String(localized: "Jira")
-            case .projects: String(localized: "Projects")
-            }
-        }
-        /// The filter menu's own items (Linear adds its teams to them, Projects its boards once they're read).
-        var filters: [String] {
-            switch self {
-            case .pulls: [String(localized: "Open"), String(localized: "Recently Closed")]
-            case .issues: [String(localized: "All open"), String(localized: "Assigned to me")]
-            case .linear: [String(localized: "My issues")]
-            case .jira: [String(localized: "My open issues"), String(localized: "Custom JQL…")]
-            case .projects: [String(localized: "Loading projects…")]
-            }
-        }
-        /// Read from the project's forge (gh or glab): a missing remote or CLI is what an error says. Linear and Jira
-        /// need neither.
-        var needsRemote: Bool { self != .linear && self != .jira }
-        /// What to do when it can't be read and gh or glab has no fix to offer; nil: the error's own words.
-        var connectHint: String? {
-            switch self {
-            case .linear: String(localized: "Connect Linear in Settings › Integrations")
-            case .jira: String(localized: "Connect Jira in Settings › Integrations")
-            case .projects: String(localized: "Projects need `gh auth refresh -s read:project`")
-            case .pulls, .issues: nil
-            }
-        }
-        /// Empty with no filter; nil: "Nothing here", and no filter narrows it to say so.
-        var none: String? {
-            switch self {
-            case .pulls: String(localized: "No Open Pull Requests")
-            case .issues: String(localized: "No Open Issues")
-            case .linear, .jira, .projects: nil
-            }
-        }
-    }
     var shown: Source { Source(rawValue: source.selectedTag()) ?? .pulls }
     var rows: [Row] = []
-    /// What the table shows: the rows, with headings over the parts of a list of PRs.
-    enum Line {
-        case heading(String), row(Row)
-    }
     var lines: [Line] = []
     func row(at index: Int) -> Row? {
         guard lines.indices.contains(index), case .row(let row) = lines[index] else { return nil }
@@ -103,7 +42,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     /// The tab the last click opened: the next click puts its own there, unless a double-click kept it.
     var lastOpened: String?
     /// PRs changed since their tab was last opened: a dot on the row.
-    private var unseen: Set<Int> = []
+    var unseen: Set<Int> = []
     private(set) var repoId: String?
     private var projectOwner: String?
     /// Bumped by every reload and every filter menu built: a reply for an older one (another project, list or filter)
@@ -425,15 +364,6 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         }
     }
 
-    /// A PR's or an issue's number, which names it across a refresh.
-    private static func number(_ row: Row) -> Int? {
-        switch row {
-        case .pr(let pr): pr.number
-        case .issue(let issue): issue.number
-        case .linear, .jira, .item: nil
-        }
-    }
-
     /// PRs in their parts (`ForgeRows.sections`), the rest as they came.
     private func lined(_ rows: [Row]) -> [Line] {
         let prs = rows.compactMap { if case .pr(let pr) = $0 { pr } else { nil } }
@@ -444,83 +374,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         }
     }
 
-    func numberOfRows(in tableView: NSTableView) -> Int { lines.count }
-    func tableView(_ tableView: NSTableView, heightOfRow index: Int) -> CGFloat {
-        guard let row = row(at: index) else { return TextSize.of(Metrics.rowSection) }
-        let width = max(80, table.bounds.width - ForgeRows.titleMargin)
-        switch row {
-        case .pr(let pr): return ForgeRows.height(title: pr.title, width: width)
-        case .issue(let issue): return ForgeRows.height(title: issue.title, width: width)
-        case .linear, .jira, .item: return TextSize.of(Metrics.rowTwoLine)
-        }
-    }
-    func tableView(_ tableView: NSTableView, shouldSelectRow index: Int) -> Bool { row(at: index) != nil }
-    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row index: Int) -> NSView? {
-        guard let row = row(at: index) else {
-            if case .heading(let text) = lines[index] { return ForgeRows.heading(text) }
-            return nil
-        }
-        switch row {
-        case .pr(let pr):
-            let folder = repoId.map { PRWork(app: app, repoId: $0, pr: pr).worktree != nil } ?? false
-            return ForgeRows.pr(pr, worktree: folder, unseen: unseen.contains(pr.number))
-        case .issue(let issue):
-            let working = app.worktrees.contains {
-                $0.repoId == repoId && $0.issue == "#\(issue.number)" && !$0.archived
-            }
-            return ForgeRows.issue(issue, working: working)
-        case .linear, .jira, .item: return trackerCell(row)
-        }
-    }
-
-    /// A tracker's task, a project's item: its title and a line under it.
-    private func trackerCell(_ row: Row) -> NSView {
-        let (title, sub): (String, String) =
-            switch row {
-            case .linear(let issue): ("\(issue.identifier)  \(issue.title)", "\(issue.state.name) · \(issue.team.name)")
-            case .jira(let issue):
-                ("\(issue.key)  \(issue.title)", "\(issue.status) · \(issue.type) · \(issue.project)")
-            case .item(let item): (item.title, "\(item.status ?? String(localized: "No status")) · \(item.type)")
-            case .pr(let pr): ("#\(pr.number)  \(pr.title)", pr.author)
-            case .issue(let issue): ("#\(issue.number)  \(issue.title)", "")
-            }
-        let t1 = NSTextField(labelWithString: title)
-        t1.font = .ui(TextSize.body, weight: .medium)
-        t1.lineBreakMode = .byTruncatingTail
-        let t2 = NSTextField(labelWithString: sub)
-        t2.font = .ui(TextSize.caption)
-        t2.textColor = .secondaryLabelColor
-        t2.lineBreakMode = .byTruncatingTail
-        // Give way to the stack's insets: a title that doesn't fit is cut there, not pushed out past the line under it.
-        for field in [t1, t2] { field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
-        let stack = NSStackView(views: [t1, t2])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = Metrics.lineGap
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
-        return stack
-    }
-    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
-    func tableViewSelectionDidChange(_ notification: Notification) {
-        let picked = row(at: table.selectedRow)
-        switch picked {
-        case .pr(let pr)?:
-            open(.pr, pr.number)
-            PRWatch.saw(pr)
-            if unseen.remove(pr.number) != nil {
-                table.reloadData(forRowIndexes: [table.selectedRow], columnIndexes: [0])
-            }
-        case .issue(let issue)?: open(.issue, issue.number)
-        case .linear?, .jira?, .item?, nil: break
-        }
-        let tracker =
-            picked.map { if case .pr = $0 { false } else if case .issue = $0 { false } else { true } } ?? false
-        showDetailPane(tracker)
-        showDetail(tracker ? picked : nil)
-    }
-
-    /// In a tab where the last click's was, unless that one was kept (a double-click) or closed since.
-    private func open(_ kind: ForgeItemTab.Kind, _ number: Int) {
+    func open(_ kind: ForgeItemTab.Kind, _ number: Int) {
         guard let repoId else { return }
         let uri = ForgeItemTab.uri(kind, repoId: repoId, number: number)
         guard uri != lastOpened else { return }
