@@ -6,7 +6,7 @@ import Foundation
 /// it (`show` starts it again with one, from its snapshot). As a Linux or macOS machine: kelpd's `start` (each command)
 /// counts as use; idle 2 minutes, its CPU stops (`adb emu avd stop`); 10, it saves its quickboot snapshot and quits.
 @MainActor
-final class AndroidRuntime {
+final class AndroidRuntime: MachineRuntime {
     let folder: URL, machine: VMMachine
     private(set) var state: VMState
     private var emulator: Process?
@@ -67,51 +67,39 @@ final class AndroidRuntime {
     }
 
     func handle(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {   // internal: the tests drive it
-        switch request.op {
-        case .status: done(nil)
-        // kelpd's wake: answered as it starts; `show` first, for a boot with its window.
-        case .start where request.begins:
-            lastUse = now()
-            // for a boot to come, not one up already
-            if request.beginsShown, emulator == nil || saving { nextBootShown = true }
-            wake { _ in }
-            done(nil)
-        case .start:
-            lastUse = now()
-            wake(done)
-        // The budget's (`if-idle`): asked of one that was idle a moment ago, refused if it's in use by now.
-        case .sleep where Lifecycle.refusesSleep(request, inUse: using > 0): done("\(machine.name) is in use.")
-        case .sleep: sleep(done)
-        case .stop:
-            stop {
-                done(nil)
-                self.exitProcess()
-            }   // off, nothing kept: the next start is the kelp-vm installed then
-        case .share, .screen: done(Lifecycle.unsupported(request.op, machine))
-        case .show:
-            lastUse = now()
-            // Has its window: up, or coming up (no boot to ask it of). Not one being slept: it boots again once saved.
-            if hasWindow, !saving { return wake(done) }
-            nextBootShown = true   // a boot is to come (off, headless, or being slept): it has the window
-            if emulator == nil { return wake(done) }   // down: it boots with its window
-            // From its snapshot, now with a window; one that couldn't be slept is still up without one, and Show is told.
-            let again = {
-                self.sleep { error in
-                    guard let error, [.running, .paused].contains(self.state) else { return self.wake(done) }
-                    done(error)
-                }
-            }
-            // Started headless (an agent's run): once it's up, slept and woken again with its window.
-            if state == .starting { return ready.append { _ in again() } }
-            again()
-        case .quit:
-            if let refused = Lifecycle.refusesQuit(request, hasVM: emulator != nil, state: state, name: machine.name) {
-                return done(refused)
-            }
-            done(nil)
-            stop { self.exitProcess() }
-        }
+        Lifecycle.handle(request, on: self, done)
     }
+
+    var hasMachine: Bool { emulator != nil }
+    var inUse: Bool { using > 0 }
+    func end() { exitProcess() }
+
+    func used(_ request: VMHelper.Request) {
+        lastUse = now()
+        // kelpd's wake with the window: for a boot to come, not one up already
+        if request.beginsShown, emulator == nil || saving { nextBootShown = true }
+    }
+
+    func sleep(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) { sleep(done) }
+
+    func show(_ done: @escaping (String?) -> Void) {
+        // Has its window: up, or coming up (no boot to ask it of). Not one being slept: it boots again once saved.
+        if hasWindow, !saving { return wake(done) }
+        nextBootShown = true   // a boot is to come (off, headless, or being slept): it has the window
+        if emulator == nil { return wake(done) }   // down: it boots with its window
+        // From its snapshot, now with a window; one that couldn't be slept is still up without one, and Show is told.
+        let again = {
+            self.sleep { error in
+                guard let error, [.running, .paused].contains(self.state) else { return self.wake(done) }
+                done(error)
+            }
+        }
+        // Started headless (an agent's run): once it's up, slept and woken again with its window.
+        if state == .starting { return ready.append { _ in again() } }
+        again()
+    }
+
+    func quit() { stop { self.exitProcess() } }
 
     /// SIGTERM (a logout, an install): asleep, then gone; never with an emulator left booting or saving, which would hold
     /// its AVD with nobody to end it. One booting is slept once it's up; one being saved, once it's saved.
@@ -134,7 +122,7 @@ final class AndroidRuntime {
 
     // MARK: the emulator
 
-    private func wake(_ done: @escaping (String?) -> Void) {
+    func wake(_ done: @escaping (String?) -> Void) {
         if leaving { return done("Kelp's machine helper is stopping: start it again in a moment.") }
         if saving { return afterSave.append(done) }
         switch state {
@@ -314,7 +302,7 @@ final class AndroidRuntime {
     }
 
     /// Quits it and forgets its snapshot: the next start boots afresh.
-    private func stop(_ done: @escaping () -> Void) {
+    func stop(_ done: @escaping () -> Void) {
         let forget = { [self] in
             FileManager.default.removeIfAny(snapshot)
             state = .off

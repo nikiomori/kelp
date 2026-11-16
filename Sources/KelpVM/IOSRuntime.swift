@@ -5,7 +5,7 @@ import Foundation
 /// Kelp's runner in it (`IOSRunner`, built into the machine's folder), which agents' commands reach on the Mac's loopback.
 /// A simulator can't be paused or saved: idle 10 minutes, it shuts down; the next command boots it again (10–25 s).
 @MainActor
-final class IOSRuntime {
+final class IOSRuntime: MachineRuntime {
     let folder: URL, machine: VMMachine
     private(set) var state: VMState = .off
     private var runner: Process?
@@ -67,47 +67,43 @@ final class IOSRuntime {
     }
 
     func handle(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {   // internal: the tests drive it
-        switch request.op {
-        case .status: done(nil)
-        case .start where request.begins:
-            lastUse = now()
-            wake { _ in }
-            done(nil)   // kelpd's wake: answered as it starts
-        case .start:
-            lastUse = now()
-            lastStart = lastUse
-            wake(done)
-        // The budget's (`if-idle`): asked of one that was idle a moment ago, refused if it's in use by now. One still
-        // booting is left to boot (its start waits on it): answered as it is, up, so the budget counts it as held.
-        case .sleep where request.ifIdle && state == .starting: done(nil)
-        case .sleep where Lifecycle.refusesSleep(request, inUse: using > 0): done("\(machine.name) is in use.")
-        case .sleep, .stop:
-            stop {
-                done(nil)
-                self.exitProcess()
-            }   // a simulator keeps no running state to save; the next start is a new kelp-vm
-        case .share, .screen: done(Lifecycle.unsupported(request.op, machine))
-        case .show:
-            lastUse = now()
-            wake { error in
-                let simulator = ["-a", "Simulator", "--args", "-CurrentDeviceUDID", self.udid]
-                if error == nil {
-                    do { _ = try Process.run(URL(fileURLWithPath: "/usr/bin/open"), arguments: simulator) } catch {
-                        log("opening Simulator: \(error.localizedDescription)")
-                    }
-                }
-                done(error)
-            }
-        case .quit:
-            if let refused = Lifecycle.refusesQuit(request, hasVM: runner != nil, state: state, name: machine.name) {
-                return done(refused)
-            }
+        Lifecycle.handle(request, on: self, done)
+    }
+
+    var hasMachine: Bool { runner != nil }
+    var inUse: Bool { using > 0 }
+    func end() { exitProcess() }
+
+    func used(_ request: VMHelper.Request) {
+        lastUse = now()
+        if request.op == .start, !request.begins { lastStart = lastUse }   // a runner call comes right after (`using`)
+    }
+
+    /// The budget's, of one still booting: left to boot (its start waits on it), answered as it is, up, so the budget
+    /// counts it as held. Else down: a simulator keeps no running state to save; the next start is a new kelp-vm.
+    func sleep(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {
+        if request.ifIdle, state == .starting { return done(nil) }
+        stop {
             done(nil)
-            stop { self.exitProcess() }
+            self.exitProcess()
         }
     }
 
-    private func wake(_ done: @escaping (String?) -> Void) {
+    func show(_ done: @escaping (String?) -> Void) {
+        wake { error in
+            let simulator = ["-a", "Simulator", "--args", "-CurrentDeviceUDID", self.udid]
+            if error == nil {
+                do { _ = try Process.run(URL(fileURLWithPath: "/usr/bin/open"), arguments: simulator) } catch {
+                    log("opening Simulator: \(error.localizedDescription)")
+                }
+            }
+            done(error)
+        }
+    }
+
+    func quit() { stop { self.exitProcess() } }
+
+    func wake(_ done: @escaping (String?) -> Void) {
         switch state {
         case .running: done(nil)
         case .starting: ready.append(done)
@@ -189,7 +185,7 @@ final class IOSRuntime {
 
     /// The runner gone and the simulator shut down: nothing of it runs. Off from the moment it's asked: a start that
     /// comes meanwhile boots it again once it's down (`boot` waits), and no tick asks for another shutdown.
-    private func stop(_ done: @escaping () -> Void) {
+    func stop(_ done: @escaping () -> Void) {
         state = .off
         let down = shutDown()
         Task {

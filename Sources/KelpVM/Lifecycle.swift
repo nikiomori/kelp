@@ -1,9 +1,68 @@
 import Core
 import Foundation
 
+/// A kind of machine kelp-vm runs (Linux and macOS: `Runtime`; `AndroidRuntime`; `IOSRuntime`): what each does its own
+/// way. Which request does what is the same for every kind, `Lifecycle.handle`.
+@MainActor protocol MachineRuntime: AnyObject {
+    var machine: VMMachine { get }
+    var state: VMState { get }
+    /// A VM, an emulator or a runner is there (up, or ending): a quit for a new size is refused while it is.
+    var hasMachine: Bool { get }
+    /// In use now (a connection, a command, a window the user has): kelpd's memory budget sleeps an idle machine only.
+    var inUse: Bool { get }
+    /// A start or a Show counted as use, as it comes.
+    func used(_ request: VMHelper.Request)
+    /// Up (booted, woken, resumed), then `done`.
+    func wake(_ done: @escaping (String?) -> Void)
+    /// A sleep (the budget's not refused for use), answered by `done`; kelp-vm may end after it.
+    func sleep(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void)
+    /// Off, nothing kept: the next start boots afresh.
+    func stop(_ done: @escaping () -> Void)
+    /// Its screen shown, then `done`.
+    func show(_ done: @escaping (String?) -> Void)
+    /// Down as a quit takes it (after its answer), then kelp-vm ends.
+    func quit()
+    /// kelp-vm ends: the process's exit, a test's own.
+    func end()
+    func listen()
+}
+
 /// What kelp-vm decides about its machine from where the machine is, apart from Virtualization so it can be tested
 /// (KelpVMTests): the runtimes ask these.
 enum Lifecycle {
+    /// kelpd's request, the same for every kind; what's a kind's own is its runtime's (`MachineRuntime`).
+    @MainActor static func handle(
+        _ request: VMHelper.Request, on runtime: some MachineRuntime, _ done: @escaping (String?) -> Void
+    ) {
+        switch request.op {
+        case .status: done(nil)
+        case .start:
+            runtime.used(request)
+            guard request.begins else { return runtime.wake(done) }
+            runtime.wake { _ in }
+            done(nil)   // kelpd's wake: answered as it starts, the boot going on
+        // The budget's (`if-idle`): asked of one that was idle a moment ago, refused if it's in use by now.
+        case .sleep where refusesSleep(request, inUse: runtime.inUse): done("\(runtime.machine.name) is in use.")
+        case .sleep: runtime.sleep(request, done)
+        case .stop:
+            runtime.stop {
+                done(nil)
+                runtime.end()
+            }   // nothing kept: the next start is the kelp-vm installed then
+        case .share, .screen: done(unsupported(request.op, runtime.machine))
+        case .show:
+            runtime.used(request)
+            runtime.show(done)
+        case .quit:
+            let name = runtime.machine.name
+            if let refused = refusesQuit(request, hasVM: runtime.hasMachine, state: runtime.state, name: name) {
+                return done(refused)
+            }
+            done(nil)
+            runtime.quit()
+        }
+    }
+
     /// A quit asked `ifDown` (a new size is to be written) refused, and why: the machine runs, or a boot is under way
     /// (one tried again has no VM for a second, and is still starting). Every kind's runtime asks it.
     static func refusesQuit(_ request: VMHelper.Request, hasVM: Bool, state: VMState, name: String) -> String? {

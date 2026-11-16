@@ -65,20 +65,20 @@ case .some(let path) where args.count == 1 && !path.hasPrefix("-"):
         log("can't read the machine: \(error)")
         exit(1)
     }
-    // An Android machine is the SDK's emulator, not Virtualization's: a runtime of its own, the same protocol.
-    let android = machine.kind == .android ? AndroidRuntime(folder: folder, machine: machine) : nil
-    let ios = machine.kind == .ios ? IOSRuntime(folder: folder, machine: machine) : nil
-    var runtime: Runtime?
-    if android == nil, ios == nil {
-        do { runtime = try Runtime(folder: folder) } catch { log("can't make the machine: \(error)") }
+    // An Android machine is the SDK's emulator, an iOS one a simulator, not Virtualization's: runtimes of their own, one
+    // protocol (`MachineRuntime`).
+    let runtime: any MachineRuntime
+    switch machine.kind {
+    case .android: runtime = AndroidRuntime(folder: folder, machine: machine)
+    case .ios: runtime = IOSRuntime(folder: folder, machine: machine)
+    default:
+        do { runtime = try Runtime(folder: folder) } catch {
+            log("can't make the machine: \(error)")
+            log("can't start \(machine.name)")
+            exit(1)
+        }
     }
-    guard android != nil || ios != nil || runtime != nil else {
-        log("can't start \(machine.name)")
-        exit(1)
-    }
-    android?.listen()
-    ios?.listen()
-    runtime?.listen()
+    runtime.listen()
     // AppKit's run loop, not dispatchMain() (that ends the main thread, and the main queue, the VM's and MainActor's, would
     // run elsewhere): a macOS machine's screen is a window.
     NSApplication.shared.setActivationPolicy(.accessory)

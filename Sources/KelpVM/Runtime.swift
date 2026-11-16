@@ -8,7 +8,7 @@ func log(_ message: String) { print("\(Date().formatted(.iso8601)) \(message)") 
 /// The machine and its connections. Everything here runs on the main queue: the VM's (VZVirtualMachine's default) and
 /// the sockets' handlers alike.
 @MainActor
-final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
+final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, MachineRuntime {
     let folder: URL, machine: VMMachine
     private var vm: VZVirtualMachine?
     private(set) var state: VMState
@@ -167,95 +167,90 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
         }
     }
 
-    /// Internal: the tests drive it.
+    /// Internal: the tests drive it. A share, and a macOS machine's screen, are this kind's own; the rest is every kind's.
     func handle(_ request: VMHelper.Request, _ done: @escaping (String?, Int?) -> Void) {
         switch request.op {
-        case .status: done(nil, nil)
-        // `begin` (kelpd's wake, holding its lock): starting is answered at once, the boot goes on.
-        case .start where request.begins:
-            lastUse = now()
-            wake { _ in }
-            done(nil, nil)
-        case .start:
-            lastUse = now()
-            wake { done($0, nil) }
-        // Asleep or off, nothing is kept here (the state is on disk): it ends, and the next start is the kelp-vm Kelp has
-        // then, an update's included. Its answer is written before (`reply` writes and closes).
-        // Ends only once its machine is down: one still starting isn't put to sleep (`sleep` answers at once), and ending
-        // then would cut its power.
-        // Starting covers a boot tried again in a second (`awaitSSH`), with no VM meanwhile.
-        // The budget's (`if-idle`): asked of one that was idle a moment ago, refused if it's in use by now (a command
-        // that connected since, a window opened).
-        case .sleep where Lifecycle.refusesSleep(request, inUse: using > 0):
-            done("\(machine.name) is in use.", nil)
-        case .sleep:
-            sleep { error in
-                done(error, nil)
-                if Lifecycle.endsAfterSleep(error: error, hasVM: self.vm != nil, state: self.state) { self.leaveSoon() }
-            }
-        case .stop:
-            stop {
-                done(nil, nil)
-                self.leaveSoon()
-            }
-        case .show:
-            lastUse = now()
-            wake { error in
-                if error == nil { self.show() }
-                done(error, nil)
-            }
-        case .screen:
-            if let no = Lifecycle.unsupported(.screen, machine) { return done(no, nil) }
-            lastUse = now()
-            wake { error in
-                guard error == nil else { return done(error, nil) }
-                guard let view = self.screen() else { return done("The machine has no screen yet.", nil) }
-                self.screening += 1
-                Screen.run(request.args ?? [], session: request.session ?? "-", view: view) {
-                    self.screening -= 1
-                    self.lastUse = self.now()
-                    done($0, nil)
-                }
-            }
-        case .quit:
-            // `ifDown` (a new size): not while it runs, which a command may have woken it to since it was asked.
-            // Starting with no VM for a moment is a boot tried again (`awaitSSH`): in use too.
-            if let refused = Lifecycle.refusesQuit(request, hasVM: vm != nil, state: state, name: machine.name) {
-                return done(refused, nil)
-            }
-            done(nil, nil)
-            guard let vm else { return leaveSoon() }
-            vm.stop { _ in self.leaveSoon() }
-        case .share:
-            guard let path = request.path else { return done("share: a path", nil) }
-            let free = shares.first { $0.value == path }?.key ?? (0..<VMs.shareSlots).first { shares[$0] == nil }
-            // A folder taken from its slot goes stale under whatever runs in it: only an idle machine gives one up.
-            guard free != nil || connections == 0 else {
-                return done(
-                    "\(VMs.shareSlots) folders are shared with \(machine.name) and commands run in it: try again when they end.",
-                    nil)
-            }
-            let slot =
-                free ?? (0..<VMs.shareSlots).min { shareUse[$0] ?? .distantPast < shareUse[$1] ?? .distantPast } ?? 0
-            shareUse[slot] = Date()
-            guard shares[slot] != path else { return done(nil, slot) }
-            shares[slot] = path
-            do { try JSONEncoder().encode(shares).write(to: paths.shares) } catch {
-                return done("\(error)", nil)
-            }
-            if let dev = vm?.directorySharingDevices.first(where: {
-                ($0 as? VZVirtioFileSystemDevice)?.tag == "kelp\(slot)"
-            }) as? VZVirtioFileSystemDevice {
-                dev.share = VZSingleDirectoryShare(
-                    directory: VZSharedDirectory(url: URL(fileURLWithPath: path), readOnly: false))
-            }
-            done(nil, slot)
+        case .share: share(request, done)
+        case .screen where Lifecycle.unsupported(.screen, machine) == nil: screen(request) { done($0, nil) }
+        default: Lifecycle.handle(request, on: self) { done($0, nil) }
         }
+    }
+
+    var hasMachine: Bool { vm != nil }
+    var inUse: Bool { using > 0 }
+    func used(_ request: VMHelper.Request) { lastUse = now() }
+
+    // Asleep or off, nothing is kept here (the state is on disk): it ends, and the next start is the kelp-vm Kelp has
+    // then, an update's included. Its answer is written before (`reply` writes and closes).
+    // Ends only once its machine is down: one still starting isn't put to sleep (`sleep` answers at once), and ending
+    // then would cut its power.
+    // Starting covers a boot tried again in a second (`awaitSSH`), with no VM meanwhile.
+    func sleep(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {
+        sleep { error in
+            done(error)
+            if Lifecycle.endsAfterSleep(error: error, hasVM: self.vm != nil, state: self.state) { self.end() }
+        }
+    }
+
+    func show(_ done: @escaping (String?) -> Void) {
+        wake { error in
+            if error == nil { self.show() }
+            done(error)
+        }
+    }
+
+    /// Its screen read or driven (`Screen`), the machine woken for it.
+    private func screen(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {
+        lastUse = now()
+        wake { error in
+            guard error == nil else { return done(error) }
+            guard let view = self.screen() else { return done("The machine has no screen yet.") }
+            self.screening += 1
+            Screen.run(request.args ?? [], session: request.session ?? "-", view: view) {
+                self.screening -= 1
+                self.lastUse = self.now()
+                done($0)
+            }
+        }
+    }
+
+    // `ifDown` (a new size): not while it runs, which a command may have woken it to since it was asked. Starting with
+    // no VM for a moment is a boot tried again (`awaitSSH`): in use too (`Lifecycle.refusesQuit`).
+    func quit() {
+        guard let vm else { return end() }
+        vm.stop { _ in self.end() }
+    }
+
+    /// A folder shared into a slot, the answer's `slot`.
+    private func share(_ request: VMHelper.Request, _ done: @escaping (String?, Int?) -> Void) {
+        guard let path = request.path else { return done("share: a path", nil) }
+        let free = shares.first { $0.value == path }?.key ?? (0..<VMs.shareSlots).first { shares[$0] == nil }
+        // A folder taken from its slot goes stale under whatever runs in it: only an idle machine gives one up.
+        guard free != nil || connections == 0 else {
+            return done(
+                "\(VMs.shareSlots) folders are shared with \(machine.name) and commands run in it: try again when they end.",
+                nil)
+        }
+        let slot =
+            free ?? (0..<VMs.shareSlots).min { shareUse[$0] ?? .distantPast < shareUse[$1] ?? .distantPast } ?? 0
+        shareUse[slot] = Date()
+        guard shares[slot] != path else { return done(nil, slot) }
+        shares[slot] = path
+        do { try JSONEncoder().encode(shares).write(to: paths.shares) } catch {
+            return done("\(error)", nil)
+        }
+        if let dev = vm?.directorySharingDevices.first(where: {
+            ($0 as? VZVirtioFileSystemDevice)?.tag == "kelp\(slot)"
+        }) as? VZVirtioFileSystemDevice {
+            dev.share = VZSingleDirectoryShare(
+                directory: VZSharedDirectory(url: URL(fileURLWithPath: path), readOnly: false))
+        }
+        done(nil, slot)
     }
 
     /// Ends once what this turn of the main queue answers is written: a stop or a sleep that waited for a save is told
     /// in the same turn as the sleep it waited for, after that one's reply.
-    private func leaveSoon() {
+    func end() {
         DispatchQueue.main.async { MainActor.assumeIsolated { self.exitProcess() } }   // the main queue
     }
 
@@ -275,7 +270,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
 
     // MARK: the machine
 
-    private func wake(_ done: @escaping (String?) -> Void) {
+    func wake(_ done: @escaping (String?) -> Void) {
         if saving { return afterSave.append(done) }   // resumed under a save, it would run on as the save ends it
         switch state {
         case .running: done(nil)
@@ -452,7 +447,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate {
             }
         case .sleep where now().timeIntervalSince(saveFailed ?? .distantPast) > 600:
             sleep { error in
-                if Lifecycle.endsAfterSleep(error: error, hasVM: self.vm != nil, state: self.state) { self.leaveSoon() }
+                if Lifecycle.endsAfterSleep(error: error, hasVM: self.vm != nil, state: self.state) { self.end() }
             }   // as `.sleep` does
         case .sleep: break   // its save failed a moment ago
         case nil: if state == .running, ticks % 3 == 0 { adjustMemory() }
@@ -613,7 +608,7 @@ extension Runtime {
     }
 
     /// Shuts the guest down (30 s, then off), and forgets a saved state: the next start boots.
-    private func stop(_ done: @escaping () -> Void) {
+    func stop(_ done: @escaping () -> Void) {
         if saving { return saveDone.append { [weak self] _ in self?.stop(done) } }   // resumed under the save, it would fail it
         FileManager.default.removeIfAny(saved)
         guard let vm else {
