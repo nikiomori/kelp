@@ -64,10 +64,12 @@ extension SessionRecap: AsyncHandled {
                 try Subprocess.run(argv, cwd: NSHomeDirectory(), env: env, stdin: Data(), timeLimit: 90)
             }
         } else {
-            let argv = Self.arguments(try LoginPath.resolve(manifest.command), conversation: conversation)
+            let command = manifest.command
             out = try await sessions.offloads.run { [env] in
+                // found in the slot too: the login PATH's first read runs the login shell
+                let argv = Self.arguments(try LoginPath.resolve(command), conversation: conversation)
                 // stdin given: -p waits 3 s for it otherwise
-                try Subprocess.run(argv, cwd: cwd, env: env, stdin: Data(), timeLimit: 90)
+                return try Subprocess.run(argv, cwd: cwd, env: env, stdin: Data(), timeLimit: 90)
             }
         }
         let line =
