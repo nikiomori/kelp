@@ -131,6 +131,23 @@ private func write(_ r: Rig, _ name: String, _ text: String) throws {
     #expect(CommentPlaces.place(of: ["x"], near: 5, in: ["x", "a", "b", "c", "d", "x", "e"]) == 6, "the nearest")
 }
 
+/// Following its lines writes the lines only: a comment sent (or resolved) while it was being followed stays so, not
+/// put back to open by the earlier copy, to be sent a second time.
+@Test func followingACommentKeepsAStateChangedMeanwhile() async throws {
+    let r = try await rig()
+    defer { r.d.stop() }
+    let file = r.wt.path + "/a.txt"
+    try "one\ntwo\n".write(toFile: file, atomically: true, encoding: .utf8)
+    let c = try await r.c.call(CommentAdd(id: r.wt.id, file: "a.txt", start: 2, quote: "two", text: "fix"))
+    let read = try r.d.store.comments(worktree: r.wt.id)
+    try "new\none\ntwo\n".write(toFile: file, atomically: true, encoding: .utf8)
+    _ = try await r.c.call("comment.setState", .obj(["id": .string(c.id), "state": "sent"]))
+    let followed = try CommentPlaces.follow(read, in: r.wt.path, SourceControl.of(r.d))
+    #expect(followed.first?.state == .sent && followed.first?.startLine == 3)
+    let kept = try #require(try r.d.store.comments(worktree: r.wt.id).first)
+    #expect(kept.state == .sent && kept.startLine == 3)
+}
+
 @Test func projectSearchFindsTextInTheWorkspace() async throws {
     let r = try await rig()
     defer { r.d.stop() }

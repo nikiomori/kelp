@@ -67,9 +67,13 @@ enum CommentPlaces {
             guard let start = place(of: quote, near: comment.startLine, in: files[comment.file] ?? []),
                 start != comment.startLine
             else { continue }
-            comment.startLine = start
-            comment.endLine = start + quote.count - 1
-            try scm.store.save(comment)
+            // the lines only: a copy read before would put back a state changed meanwhile (sent, resolved)
+            let end = start + quote.count - 1
+            comment =
+                try scm.store.update(DiffComment.self, comment.id) {
+                    $0.startLine = start
+                    $0.endLine = end
+                } ?? comment
         }
         return out
     }
