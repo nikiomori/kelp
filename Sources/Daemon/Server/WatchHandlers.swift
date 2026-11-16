@@ -4,24 +4,9 @@ import Foundation
 import GitKit
 import os
 
-// What `Watches` reads, asked as a client would ask it, and the records pushed as they change.
+// What `Watches` reads for each topic, asked as a client would ask it (`ask`, Server.swift).
 
 extension Daemon {
-    /// A method answered as a client would get it (refusals and error mapping included), its result as its type.
-    func ask<M: Answered>(_ method: M) async throws -> M.Result {
-        try JSONDecoder().decode(M.Result.self, from: await answer(M.name, try method.params() ?? .null, conn: -1))
-    }
-
-    /// `ask` without the trip through JSON, for what a watch reads itself, often and large: the handler's result as it
-    /// is (a file list holds up to 200k paths, which `ask` encoded, decoded, and the event then encoded again). Kelp's own
-    /// read: no caller to check. Its errors as `ask` gives them.
-    func direct<M: Handled>(_ method: M) async throws -> M.Result where M.Service: Sendable {
-        let service = M.Service.of(self)
-        do { return try await offload(quick: M.quick) { try method.handle(service, conn: -1) } } catch {
-            throw Self.rpc(error)
-        }
-    }
-
     /// What a folder's branch committed since it left its project's base, for `GitEvent.branchFiles`. A base that
     /// isn't a branch here (a project made before it had one) says nothing, in the log.
     private func branchFiles(_ worktree: Worktree) async throws -> [String]? {
@@ -397,72 +382,4 @@ extension Daemon {
         return data
     }
 
-    /// A project or workspace record changed, or a record went: it goes to every client (they keep their lists from these).
-    func recordChanged(_ change: Store.Change) {
-        switch change {
-        case .repo(let repo): notify(repo)
-        case .worktree(let worktree): notify(worktree)
-        case .repoRemoved(let id): notify(RemovedEvent(repo: id))
-        case .worktreeRemoved(let id): notify(RemovedEvent(worktree: id))
-        case .sessionRemoved(let id, _):
-            notify(RemovedEvent(session: id))
-            sessions.phone.hear(.removed(id))
-        case .sessionEnded: break   // its record went out as it was saved
-        }
-    }
-}
-
-extension WatchStart: Handled {
-    static var inOrder: Bool { true }   // a start and a stop sent in a row apply in that order
-    /// A topic reads as the user (`ask`), so each says whether an agent may watch it: a new one is decided here, not let
-    /// through by default. The ones agents watch read only what they may read themselves (`AgentRules.reading`, a file's
-    /// problems). Databases are the window's view: hidden ones, All My Projects (hosts, users, keychain items) and the
-    /// user's own statements; an agent asks `db.list` and `db.query`, which say what it may see.
-    var notForAgents: String? {
-        switch topic {
-        case .databases: "The databases' activity is the user's: `kelp db list` says which an agent may use."
-        case .phone: "The phones and their pairing link are the user's."
-        case .git, .ports, .activity, .ci, .pr, .context, .limits, .commands, .subagents, .edits, .file, .files, .host,
-            .hostDetail, .machines, .machineDetail, .artifacts, .prs:
-            nil
-        }
-    }
-    func handle(_ watches: Watches, conn: Int) throws -> Done {
-        watches.start(.init(topic: topic, key: key), conn: conn)
-        return Done()
-    }
-}
-
-extension WatchStop: Handled {
-    static var inOrder: Bool { true }
-    func handle(_ watches: Watches, conn: Int) throws -> Done {
-        watches.stop(.init(topic: topic, key: key), conn: conn)
-        return Done()
-    }
-}
-
-extension Methods {
-    static let watchMethods: [any Answered.Type] = [WatchStart.self, WatchStop.self]
-}
-
-/// A watch's first read, once: what someone just put on screen, which may connect to a host (`mayRead`).
-private final class FirstRead: Sendable {
-    private let left = OSAllocatedUnfairLock(initialState: true)
-    func take() -> Bool {
-        left.withLock {
-            defer { $0 = false }
-            return $0
-        }
-    }
-}
-
-/// A git watch's last `branchWork`, and the branches it was read for.
-final class BranchMemo: Sendable {
-    struct Seen: Equatable, Sendable {
-        var branches: BranchInfo, base: String?, branch: String
-    }
-    typealias Work = (files: [String]?, only: Int?)
-    private let last = OSAllocatedUnfairLock<(seen: Seen, work: Work)?>(initialState: nil)
-    func known(_ seen: Seen) -> Work? { last.withLock { $0.flatMap { $0.seen == seen ? $0.work : nil } } }
-    func keep(_ seen: Seen, _ work: Work) { last.withLock { $0 = (seen, work) } }
 }

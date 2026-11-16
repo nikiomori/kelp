@@ -3,7 +3,7 @@ import Foundation
 import GitKit
 import os
 
-/// What clients watch (`watch.start`). A topic and key is read only while someone watches it, once for all of them, and
+/// What clients watch (`watch.start`, `watch.stop`: below; what each topic reads: WatchHandlers.swift). A topic and key is read only while someone watches it, once for all of them, and
 /// pushed to them when it changed: the first value right away, the last one to whoever joins. A git topic is read when its
 /// folder's files change (FSEvents here, not one watcher per panel in the app); the rest on their topic's clock, which
 /// each read sets (CI goes on only while a run does). A connection that goes away stops watching.
@@ -235,4 +235,59 @@ final class Watches: Sendable {
         guard next >= from else { return next }
         return min(next * pow(2, Double(min(quiet, 6))), next >= 60 ? next * 8 : 60)
     }
+}
+
+extension WatchStart: Handled {
+    static var inOrder: Bool { true }   // a start and a stop sent in a row apply in that order
+    /// A topic reads as the user (`ask`), so each says whether an agent may watch it: a new one is decided here, not let
+    /// through by default. The ones agents watch read only what they may read themselves (`AgentRules.reading`, a file's
+    /// problems). Databases are the window's view: hidden ones, All My Projects (hosts, users, keychain items) and the
+    /// user's own statements; an agent asks `db.list` and `db.query`, which say what it may see.
+    var notForAgents: String? {
+        switch topic {
+        case .databases: "The databases' activity is the user's: `kelp db list` says which an agent may use."
+        case .phone: "The phones and their pairing link are the user's."
+        case .git, .ports, .activity, .ci, .pr, .context, .limits, .commands, .subagents, .edits, .file, .files, .host,
+            .hostDetail, .machines, .machineDetail, .artifacts, .prs:
+            nil
+        }
+    }
+    func handle(_ watches: Watches, conn: Int) throws -> Done {
+        watches.start(.init(topic: topic, key: key), conn: conn)
+        return Done()
+    }
+}
+
+extension WatchStop: Handled {
+    static var inOrder: Bool { true }
+    func handle(_ watches: Watches, conn: Int) throws -> Done {
+        watches.stop(.init(topic: topic, key: key), conn: conn)
+        return Done()
+    }
+}
+
+extension Methods {
+    static let watchMethods: [any Answered.Type] = [WatchStart.self, WatchStop.self]
+}
+
+/// A watch's first read, once: what someone just put on screen, which may connect to a host (`mayRead`).
+final class FirstRead: Sendable {
+    private let left = OSAllocatedUnfairLock(initialState: true)
+    func take() -> Bool {
+        left.withLock {
+            defer { $0 = false }
+            return $0
+        }
+    }
+}
+
+/// A git watch's last `branchWork`, and the branches it was read for.
+final class BranchMemo: Sendable {
+    struct Seen: Equatable, Sendable {
+        var branches: BranchInfo, base: String?, branch: String
+    }
+    typealias Work = (files: [String]?, only: Int?)
+    private let last = OSAllocatedUnfairLock<(seen: Seen, work: Work)?>(initialState: nil)
+    func known(_ seen: Seen) -> Work? { last.withLock { $0.flatMap { $0.seen == seen ? $0.work : nil } } }
+    func keep(_ seen: Seen, _ work: Work) { last.withLock { $0 = (seen, work) } }
 }

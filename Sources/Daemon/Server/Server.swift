@@ -3,8 +3,9 @@ import Core
 import Foundation
 import os
 
-// The socket's side of the daemon: each connection's reader, how a request is answered and its reply goes out, and a
-// terminal's raw stream (`session.stream`).
+// The socket's side of the daemon: each connection's reader, how a request is answered and its reply goes out, a
+// terminal's raw stream (`session.stream`), a method answered as a client would get it (`ask`, for what the watches
+// read), and the records every client is sent as they change.
 
 extension Daemon {
     /// A request as it comes: JSON-RPC lets the id be a string too, and the reply carries it back as it came.
@@ -239,5 +240,34 @@ extension Daemon {
     }
     static func errorLine(id: JSONValue, _ error: Error) -> Data? {
         try? Wire.line(Reply(id: id, error: (error as? RPCError) ?? .internalError("\(error)")))
+    }
+
+    /// A method answered as a client would get it (refusals and error mapping included), its result as its type.
+    func ask<M: Answered>(_ method: M) async throws -> M.Result {
+        try JSONDecoder().decode(M.Result.self, from: await answer(M.name, try method.params() ?? .null, conn: -1))
+    }
+
+    /// `ask` without the trip through JSON, for what a watch reads itself, often and large: the handler's result as it
+    /// is (a file list holds up to 200k paths, which `ask` encoded, decoded, and the event then encoded again). Kelp's own
+    /// read: no caller to check. Its errors as `ask` gives them.
+    func direct<M: Handled>(_ method: M) async throws -> M.Result where M.Service: Sendable {
+        let service = M.Service.of(self)
+        do { return try await offload(quick: M.quick) { try method.handle(service, conn: -1) } } catch {
+            throw Self.rpc(error)
+        }
+    }
+
+    /// A project or workspace record changed, or a record went: it goes to every client (they keep their lists from these).
+    func recordChanged(_ change: Store.Change) {
+        switch change {
+        case .repo(let repo): notify(repo)
+        case .worktree(let worktree): notify(worktree)
+        case .repoRemoved(let id): notify(RemovedEvent(repo: id))
+        case .worktreeRemoved(let id): notify(RemovedEvent(worktree: id))
+        case .sessionRemoved(let id, _):
+            notify(RemovedEvent(session: id))
+            sessions.phone.hear(.removed(id))
+        case .sessionEnded: break   // its record went out as it was saved
+        }
     }
 }
