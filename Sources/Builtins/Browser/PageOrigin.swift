@@ -4,9 +4,9 @@ import Foundation
 /// and `www.example.com` are one site, `example.org` another. A country's second level (`co.uk`, `com.au`) and a host
 /// that gives each customer a subdomain (`vercel.app`, `github.io`…) count as the suffix, so `a.vercel.app` and
 /// `b.vercel.app` are two sites. An IP address or a one-label host (`localhost`) is itself, with its port. Limit: no full
-/// public suffix list; a shared host missing from `shared` is one site.
-public enum PageOrigin {
-    public static func of(_ url: URL?) -> String? {
+/// public suffix list; a shared host missing from `sharedHosts` is one site.
+enum PageOrigin {
+    static func of(_ url: URL?) -> String? {
         guard let url, let scheme = url.scheme?.lowercased(), let host = url.host?.lowercased(), !host.isEmpty else {
             return nil
         }
@@ -18,13 +18,13 @@ public enum PageOrigin {
             && ["co", "com", "net", "org", "gov", "ac", "edu", "ne", "or"].contains(labels[labels.count - 2])
         // The longest shared suffix it ends in (`s3.amazonaws.com` before `amazonaws.com`), and one label more.
         let suffix =
-            (1..<labels.count).reversed().first { shared.contains(labels.suffix($0).joined(separator: ".")) }
+            (1..<labels.count).reversed().first { sharedHosts.contains(labels.suffix($0).joined(separator: ".")) }
             ?? (country ? 2 : 1)
         return "\(scheme)://" + labels.suffix(suffix + 1).joined(separator: ".")
     }
 
     /// Hosts whose subdomains are different people's sites.
-    static let shared: Set<String> = [
+    static let sharedHosts: Set<String> = [
         "vercel.app", "netlify.app", "github.io", "gitlab.io", "pages.dev", "workers.dev", "web.app", "firebaseapp.com",
         "herokuapp.com", "onrender.com", "fly.dev", "railway.app", "glitch.me", "repl.co", "ngrok.io", "ngrok-free.app",
         "azurewebsites.net", "cloudfront.net", "amazonaws.com", "s3.amazonaws.com", "appspot.com", "blogspot.com",

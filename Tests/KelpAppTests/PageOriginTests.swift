@@ -1,6 +1,7 @@
 import Foundation
 import Testing
-import WorkbenchKit
+
+@testable import BuiltinBrowser
 
 /// A login reaches a domain's subdomains, not another domain or scheme; a local server is its port.
 @Test func aPagesSiteIsItsDomain() {
