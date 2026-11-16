@@ -34,13 +34,20 @@ extension BrowserTab {
         sized()
         drive.drivenAt = Date()
         // Taken over, the user may be signing in: what the page holds now (fields, pixels, requests) is theirs. The command
-        // waits for them to hand it back, as long as the daemon waits for its answer.
-        if drive.takenOver, !Self.whileTakenOver.contains(action),
-            await !drive.handedBack(within: Self.handBackWait)
-        {
-            throw RPCError.internalError(
-                "The user has this page still (they took it over): kelp browser info or wait until they hand it back, "
-                    + "or kelp browser ask them")
+        // waits for them to hand it back, as long as the daemon waits for its answer. One that acts doesn't act then:
+        // what it needs after (the page settling) could outlast the daemon's wait, and the agent, told it didn't
+        // answer, would do it twice.
+        if drive.takenOver, !Self.whileTakenOver.contains(action) {
+            guard await drive.handedBack(within: Self.handBackWait) else {
+                throw RPCError.internalError(
+                    "The user has this page still (they took it over): kelp browser info or wait until they hand it "
+                        + "back, or kelp browser ask them")
+            }
+            if !Self.looks.contains(action) {
+                throw RPCError.internalError(
+                    "The user just handed the page back: nothing was done. kelp browser snapshot to see it now, "
+                        + "then run the command again")
+            }
         }
         told(action, args)
         return try await looked(action, ref: args["ref"]?.string, try await perform(action, args, drive, need))
@@ -198,6 +205,9 @@ extension BrowserTab {
 
     /// How long a command waits for the user to hand the page back: as long as the daemon waits for its answer.
     static var handBackWait = UIBrowser.wait - 10
+
+    /// What only reads the page: run once it's handed back, as it changes nothing.
+    static let looks: Set<BrowserAction> = [.snapshot, .screenshot, .console, .network, .info, .wait]
 
     /// What an agent may still do on a page the user took over: look.
     static let whileTakenOver: Set<BrowserAction> = [.wait, .info, .record, .ask]   // a recording pauses meanwhile

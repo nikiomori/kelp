@@ -243,6 +243,14 @@ import WorkbenchKit
     try await Task.sleep(for: .milliseconds(300))
     tab.drive?.takenOver = false
     #expect(try await waiting.value.string?.contains("[ref=e1]") == true)
+    // One that acts doesn't act once it's handed back: told the daemon didn't answer in time, the agent would do it twice.
+    _ = try await eval("out.textContent = 'untouched'")
+    tab.drive?.takenOver = true
+    let clicking = Task { try await act("click", ["ref": .string("e1")]) }
+    try await Task.sleep(for: .milliseconds(300))
+    tab.drive?.takenOver = false
+    await #expect(throws: RPCError.self) { try await clicking.value }
+    #expect(try await eval("out.textContent") == .string("untouched"))
 }
 
 /// The user let the agent into their logged-in browser for one site: while it drives the page it stays on that site.
