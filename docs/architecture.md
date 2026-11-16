@@ -37,9 +37,10 @@ part of the card) is Browser's. The shell gives them places to show up in: the c
   worktree cut from the project's base branch, and its first prompt names both. Its folder is the agent's for good, so a running chat can't move there. What exists
   only on a branch never goes by itself: closing such a group asks (Archive by default) and its last tab leaves it open;
   with nothing of its own it closes like any group, folder to the Trash and branch removed.
-  A group can open arranged from a template (`LayoutTemplate`, `KelpKit/Shell/LayoutTemplates.swift`), listed first on
-  its empty screen: one saved from a group's row (Save Layout as Template…: its panes, files and pages, and what ran,
-  started anew), kept in the daemon's UI state under `templates/<project>`; or a project's own, a `.kelp.yaml` line
+  A group can open arranged from a template (`LayoutTemplate` in `WorkbenchKit/LayoutTemplate.swift`, applied by
+  `KelpKit/Shell/LayoutTemplates.swift`), listed first on its empty screen: one saved from a group's row (Save Layout
+  as Template…: its panes, files and pages, and what ran, started anew), kept in the daemon's UI state under
+  `templates/<project>`; or a project's own, a `.kelp.yaml` line
   `layout.<name>: claude | page / run` (panes side by side with `|`, one under another with ` / `, tabs with commas;
   an agent, `shell`, a project command by name, `page`, `changes` or a file). A file's are listed before it's trusted;
   using one asks for that trust first, as Run does, and its commands run by name (`scripts.run`). An arranged group isn't

@@ -376,7 +376,7 @@ final class PaneView: NSView {
             keyEquivalent: ""
         ).target = terminal
         menu.addItem(.separator())
-        let shell = app.session(sessionId)?.agent == Session.shellAgent
+        let shell = app.session(sessionId)?.isTerminal == true
         if shell, let text = terminal.selection, !text.isEmpty {   // a build's error, handed over without copying it
             menu.add(String(localized: "Send Selection to Agent")) { [app] in FileActions(app).sendToAgent(text: text) }
         }

@@ -74,7 +74,9 @@ final class AgentUsage: Sendable {
     typealias AgentRow = (agent: String, row: UsageIndex.Row)
     func agentRows(since: Date) -> [AgentRow] {
         let roots = agentRoots(), exists = { (url: URL) in FileManager.default.fileExists(atPath: url.path) }
-        var out: [AgentRow] = usageIndex.rows(roots: roots.claude.filter(exists), since: since).map { ("claude", $0) }
+        var out: [AgentRow] = usageIndex.rows(roots: roots.claude.filter(exists), since: since).map {
+            (Session.claudeAgent, $0)
+        }
         for (format, index) in agentIndexes {
             let folders = format == .codex ? roots.codex : [format.defaultRoot].compactMap { $0 }
             out += index.rows(roots: folders.filter(exists), since: since).map { (format.rawValue, $0) }

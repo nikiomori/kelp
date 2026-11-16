@@ -25,13 +25,13 @@ extension SessionSetup {
         }
         // On a host, pinned with nothing typed yet: no conversation there to resume ("No conversation found"), so it
         // starts under the same id.
-        if rec.agent == "claude", let remote = remotes.of(rec.cwd), let pin = manifest.sessionIdFlag,
+        if rec.agent == Session.claudeAgent, let remote = remotes.of(rec.cwd), let pin = manifest.sessionIdFlag,
             let index = rec.argv.firstIndex(of: pin), index + 1 < rec.argv.count,
             agentUsage.conversations.hostLacks(rec.argv[index + 1], on: remote)
         {
             return rec.argv
         }
-        guard rec.agent == "claude", remotes.of(rec.cwd) == nil, let flag = manifest.resumeIdFlag,
+        guard rec.agent == Session.claudeAgent, remotes.of(rec.cwd) == nil, let flag = manifest.resumeIdFlag,
             let pin = manifest.sessionIdFlag
         else { return manifest.resuming(rec.argv) }
         if let index = rec.argv.firstIndex(of: flag) {
@@ -61,7 +61,9 @@ extension SessionSetup {
                 }
             })
         let next =
-            all.filter { $0.agent == "claude" && $0.cwd == rec.cwd && $0.createdAt > rec.createdAt }.map(\.createdAt)
+            all.filter { $0.agent == Session.claudeAgent && $0.cwd == rec.cwd && $0.createdAt > rec.createdAt }.map(
+                \.createdAt
+            )
             .min() ?? .distantFuture
         let own =
             conversations

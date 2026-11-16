@@ -16,7 +16,7 @@ extension Main {
         }
         switch sub {
         case "add":
-            let prompt = flag("--prompt"), agent = flag("--agent") ?? "claude", model = flag("--model")
+            let prompt = flag("--prompt"), agent = flag("--agent") ?? Session.claudeAgent, model = flag("--model")
             let every = Routine.Every(rawValue: flag("--every") ?? "weekdays") ?? .weekdays
             let at = flag("--at") ?? (every == .hourly ? ":00" : "9:00"), day = flag("--day") ?? "mon",
                 skip = has("--skip-missed")

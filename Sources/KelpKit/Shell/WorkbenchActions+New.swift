@@ -61,7 +61,7 @@ extension Workbench {
             // The project's watch's (`PRsEvent.open`), else read once; none (gh missing): a branch or a name still.
             var prs = app.latest(PRsEvent.self, rid)?.prs
             if prs == nil { prs = await app.quiet(GitHubPRs(repoId: rid, filter: .open)) }
-            let agents = app.catalog.installed(app.catalog.all).filter { $0.id != "shell" }.map {
+            let agents = app.catalog.installed(app.catalog.all).filter { $0.id != Session.shellAgent }.map {
                 (id: $0.id, name: $0.name)
             }
             let sheet = NewChatSheet(

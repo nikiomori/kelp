@@ -14,7 +14,7 @@ extension SessionSetup {
         let (on, browser) = chosenSkills(worktreeId: worktreeId, cwd: cwd)
         let folder = URL(fileURLWithPath: cwd).appendingPathComponent(Self.projectSkills)
         Log.store.attempt("Kelp's skills in \(cwd)") {
-            let kelps = WebApp.folders(in: root.appendingPathComponent("agent-skills")).map(\.lastPathComponent)
+            let kelps = WebApp.folders(in: Paths.agentSkills(in: root)).map(\.lastPathComponent)
             try Self.copy(on, into: folder, kelps: Set(kelps))
             if !on.isEmpty { try Artifacts.excludeFromGit(root: cwd, entry: "/\(Self.projectSkills)/kelp-*/") }
         }

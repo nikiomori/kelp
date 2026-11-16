@@ -26,3 +26,13 @@ func count(_ pattern: String, in dirs: [String]) throws -> Int {
     #expect(daemon == 99, "remotes.of / remotes.containing in the daemon and GitKit: \(daemon)")
     #expect(app == 32, "RemoteHost.of in the app: \(app)")
 }
+
+/// Kelp's home folders are named in `Paths` (`Paths.agents(in:)` for a home given, as the daemon's): spelled out here
+/// and there, a rename would have to find each.
+@Test func homeFoldersAreNamedInPaths() {
+    let spelled = sources(["Sources"]).filter { !$0.path.hasSuffix("/Core/System/Paths.swift") }.filter {
+        $0.text.range(of: #"appendingPathComponent\("(agents|agent-skills|extensions)"\)"#, options: .regularExpression)
+            != nil
+    }.map(\.path)
+    #expect(spelled == [], "through Paths: \(spelled)")
+}

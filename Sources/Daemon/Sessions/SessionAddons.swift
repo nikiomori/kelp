@@ -29,7 +29,7 @@ extension SessionSetup {
     /// something off, that too, in a file of the project's own. One file: a second `--settings` would replace the first.
     func settingsFile(_ manifest: AgentManifest, worktreeId: String?) throws -> URL {
         let plain = hooksDir(manifest).appendingPathExtension("json")
-        let (repo, off) = manifest.id == "claude" ? addonsOff(worktreeId: worktreeId) : (nil, [])
+        let (repo, off) = manifest.id == Session.claudeAgent ? addonsOff(worktreeId: worktreeId) : (nil, [])
         let extra = AddonSwitches.claudeSettings(off, plugins: AddonFiles().claudePlugins())
         guard let repo, !extra.isEmpty,
             case .object(var all) = try JSONDecoder().decode(JSONValue.self, from: Data(Hooks.settingsJSON().utf8))

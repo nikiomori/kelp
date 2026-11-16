@@ -286,12 +286,11 @@ extension Sessions {
         if renamed?.note == topic { notify(ChangedEvent.worktree) }
     }
 
-    /// Closing a workspace ends its agents and forgets its layout; the folder is untouched. The last one stays.
-    /// Out of sight, nothing lost: its agents pause (they resume their conversations when it comes back), its tabs stay.
-    /// A workspace going out of sight: agents that can resume their conversation pause (they come back with it), the
-    /// rest stop. Returns once their programs are gone, so nothing writes into the folder after this.
+    /// A workspace going out of sight, nothing lost: agents that can resume their conversation pause (they come back
+    /// with it), the rest stop; its tabs stay. Returns once their programs are gone, so nothing writes into the folder
+    /// after this.
     func pauseSessions(of wid: String) throws {
-        let manifests = AgentManifest.load(dir: root.appendingPathComponent("agents"))
+        let manifests = AgentManifest.load(dir: Paths.agents(in: root))
         var pids: [pid_t] = []
         // Under their wake locks, as idle pausing is: a wake that comes meanwhile waits until the programs are gone instead
         // of starting a second one (on the same log, in a folder about to be removed).
@@ -304,7 +303,7 @@ extension Sessions {
 
     /// One session paused, as its workspace's are: it comes back with its conversation when shown (a chat moved away).
     func pauseOne(_ id: String) {
-        let manifests = AgentManifest.load(dir: root.appendingPathComponent("agents"))
+        let manifests = AgentManifest.load(dir: Paths.agents(in: root))
         wakeLocks.withLocks([id]) {
             if let ls = live.remove(id) { Self.waitGone(pause(ls, manifests)) }
         }

@@ -23,9 +23,9 @@ extension AddonsList: Handled {
         let chat = try session.flatMap { id in try addons.existing(id)?.snapshot ?? addons.store.session(id) }
         let loaded = chat.flatMap(addons.agentUsage.conversations.transcript(of:))
             .flatMap(ClaudeLoaded.read(transcript:))
-        let kelp = WebApp.folders(in: addons.root.appendingPathComponent("agent-skills")).map(\.lastPathComponent)
+        let kelp = WebApp.folders(in: Paths.agentSkills(in: addons.root)).map(\.lastPathComponent)
         // An account profile's chat reads that profile's folder.
-        let own = chat?.profile.flatMap { addons.setup.profile($0, agent: "claude") }.map {
+        let own = chat?.profile.flatMap { addons.setup.profile($0, agent: Session.claudeAgent) }.map {
             URL(fileURLWithPath: $0.dir)
         }
         let files = own.map { AddonFiles(claude: $0) } ?? AddonFiles()
@@ -112,7 +112,8 @@ extension AddonsEntry: Handled {
         let files = AddonFiles()
         let found =
             ServerFiles.read(setup.serversFile)[name] ?? ServerFiles.read(shared)[name]
-            ?? files.entry(name, of: "claude", cwd: worktree.path) ?? files.entry(name, of: "codex", cwd: worktree.path)
+            ?? files.entry(name, of: Session.claudeAgent, cwd: worktree.path)
+            ?? files.entry(name, of: Session.codexAgent, cwd: worktree.path)
         guard key.hasPrefix("server:"), let found else {
             throw RPCError.invalidParams("no file here names a server \(name)")
         }

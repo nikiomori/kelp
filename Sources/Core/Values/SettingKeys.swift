@@ -3,7 +3,7 @@
 /// declared there, in an extension of this. The rows in Settings are the built-ins' (`Builtins.s`).
 public enum SettingKeys {
     // Agents
-    public static let defaultAgent = Setting("agents.default", "claude")
+    public static let defaultAgent = Setting("agents.default", Session.claudeAgent)
     public static let editInKelp = Setting("agents.editInKelp", true)
     public static let hibernateMinutes = Setting<Double>("sessions.hibernateMinutes", 0)
     public static let updateIdle = Setting("agents.updateIdle", true)

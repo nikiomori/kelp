@@ -18,7 +18,7 @@ extension SessionCreate: Handled {
         if let worktreeId, dir == nil {
             let worktree = try sessions.store.worktree(named: worktreeId)
             // An agent with no project ("No Project"): a folder of its own for its task, not the shared one.
-            let agentHere = tmux == nil && command == nil && agent.map { $0 != "shell" } == true
+            let agentHere = tmux == nil && command == nil && !Session.isTerminal(agent)
             dir =
                 agentHere && ScratchChats(root: sessions.root).holds(worktree.path)
                 ? try ScratchChats(root: sessions.root).newChat() : worktree.path
@@ -37,7 +37,7 @@ extension SessionCreate: Handled {
             guard !name.isEmpty else { throw RPCError.invalidParams("Name the tmux session.") }
             launch.argv = Tmux.argv(name)
             if launch.title == nil { launch.title = "tmux \(name)" }
-        } else if command == nil, (agent ?? Session.shellAgent) == Session.shellAgent,
+        } else if command == nil, Session.isTerminal(agent),
             sessions.settings[SettingKeys.tmux]
         {
             // a terminal in a tmux session of its own, which ends with it (Tmux.isOwn): on a host as an agent's is there,
@@ -50,7 +50,8 @@ extension SessionCreate: Handled {
         }
         return try sessions.spawn(
             cwd: dir,
-            manifest: sessions.setup.manifest(tmux == nil ? agent : "shell", command: tmux == nil ? command : nil),
+            manifest: sessions.setup.manifest(
+                tmux == nil ? agent : Session.shellAgent, command: tmux == nil ? command : nil),
             worktreeId: worktreeId, launch)
     }
 }
@@ -206,7 +207,7 @@ extension RecipeRender: Handled {
 /// The agents on this Mac, side by side, each through `offload`; latest from npm where they publish there.
 extension AgentsVersions: AsyncHandled {
     func handle(_ sessions: Sessions) async throws -> [Item] {
-        let manifests = AgentManifest.load(dir: sessions.root.appendingPathComponent("agents"))
+        let manifests = AgentManifest.load(dir: Paths.agents(in: sessions.root))
         return await withTaskGroup(of: Item?.self) { group in
             for manifest in manifests {
                 group.addTask {

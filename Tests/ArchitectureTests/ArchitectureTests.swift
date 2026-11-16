@@ -734,7 +734,7 @@ func codeOnly(_ s: String) -> String {
     let unsafe = try found(#"nonisolated\(unsafe\)"#, in: files)
     let statics = try found(#"\bstatic var \w+(?:\s*:\s*[^={\n]+)?\s*="#, in: files)
     let home = try found(
-        #"\bPaths\.(?:root|socket|agents|extensions|agentSkills|scratch)\b|\bfunc daemonError\(in root: URL ="#,
+        #"\bPaths\.(?:root|socket|agents|extensions|agentSkills|scratch)\b(?!\(in:)|\bfunc daemonError\(in root: URL ="#,
         in: files.filter { $0.path != "Sources/Core/System/Paths.swift" })
     #expect(named(unsafe) == [], "nonisolated(unsafe)")
     #expect(named(statics) == [], "state in a static var")

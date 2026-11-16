@@ -189,14 +189,14 @@ final class Sessions: Sendable {
             argv = try setup.withSettings(
                 argv, flag: flag, manifest: manifest, worktreeId: worktreeId, fresh: launch.argv == nil)
         }
-        if local, manifest.id == "codex" { argv = setup.withCodexSwitches(argv, worktreeId: worktreeId) }
+        if local, manifest.id == Session.codexAgent { argv = setup.withCodexSwitches(argv, worktreeId: worktreeId) }
         var manifest = manifest
         if local, manifest.id == "opencode", setup.openCode2.runs(argv) {
             let v2 = OpenCode2.argv(argv)
             argv = v2.argv
             if manifest.env[OpenCode2.serverConfig] == nil { manifest.env[OpenCode2.serverConfig] = v2.config }
         }
-        if local, manifest.id == "claude" { argv = setup.withServers(argv, flag: "--mcp-config") }
+        if local, manifest.id == Session.claudeAgent { argv = setup.withServers(argv, flag: "--mcp-config") }
         // Kelp's skills (written by the app into this home), for this session only: nothing goes into ~/.claude. A restart's
         // argv carries the ones it had: they're chosen again, as for a new chat (the browser's may differ by now).
         if local, let flag = manifest.pluginDirFlag, launch.argv == nil || SessionSetup.hasSkills(argv, root: root) {
@@ -311,7 +311,7 @@ final class Sessions: Sendable {
     /// Every running one, as the daemon stops: paused (a resumable agent comes back paused, not as a second copy) or
     /// ended, its whole tree gone before this returns. None starts or wakes from now on.
     func pauseAll() {
-        let manifests = AgentManifest.load(dir: root.appendingPathComponent("agents"))
+        let manifests = AgentManifest.load(dir: Paths.agents(in: root))
         Self.waitGone(live.close().flatMap { ls in live.remove(ls.snapshot.id).map { pause($0, manifests) } ?? [] })
     }
 
@@ -388,7 +388,7 @@ final class Sessions: Sendable {
             settings[SettingKeys.keepAwake],
             working: live.all.contains { ls in
                 let session = ls.snapshot
-                return session.status == .working && session.agent != Session.shellAgent
+                return session.status == .working && !session.isTerminal
             })
     }
 }

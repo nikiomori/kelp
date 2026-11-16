@@ -88,7 +88,7 @@ final class NewChatSheet: NSObject {
                 ? prs.first { $0.number == pr.selectedItem?.representedObject as? Int }?.headRefName
                 : branch.titleOfSelectedItem,
             pr: current == .pullRequest ? pr.selectedItem?.representedObject as? Int : nil,
-            agent: agent.selectedItem?.representedObject as? String ?? "claude")
+            agent: agent.selectedItem?.representedObject as? String ?? Session.claudeAgent)
     }
 
     /// What the daemon is asked to make for `choice`.

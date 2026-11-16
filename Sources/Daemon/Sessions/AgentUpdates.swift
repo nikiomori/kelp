@@ -26,7 +26,8 @@ final class AgentUpdates: Sendable {
             let installed = Paths.real(NSHomeDirectory() + "/.local/bin/claude")
         else { return }
         for ls in live.all
-        where ls.snapshot.agent == "claude" && Self.outdated(running: Unix.executable(ls.pty.pid), installed: installed)
+        where ls.snapshot.agent == Session.claudeAgent
+            && Self.outdated(running: Unix.executable(ls.pty.pid), installed: installed)
         {
             // A tab on screen is being read, and a restart redraws it.
             if ls.restartAgent(into: installed, quiet: ls.isAttached ? 300 : 30) { return }

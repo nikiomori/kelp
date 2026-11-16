@@ -113,7 +113,6 @@ import Testing
         "Sources/Builtins/Files/FilesPanel+Outline.swift": "the file tree's keys, all spelled from its root",
         "Sources/Builtins/Files/FilesSearch.swift": "the search's keys, spelled from its root",
         "Sources/Builtins/Files/FileNode.swift": "the file tree's keys, all spelled from its root",
-        "Sources/Builtins/Files/FileTab+Language.swift": "a file's path shown from the project's top",
         "Sources/Daemon/Databases/DatabaseCopy.swift": "both sides resolved first, after `Paths.inside`",
         "Sources/Daemon/Hosts/HostFiles.swift": "a host's path, which this Mac can't resolve",
         "Sources/Daemon/Workspaces/DiskUsage+Host.swift": "a host's paths, rebased from one root to another",

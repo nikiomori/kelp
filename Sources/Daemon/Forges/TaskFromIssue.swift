@@ -58,7 +58,7 @@ extension TaskFromIssue: AsyncHandled {
                 updated,
                 try work.workspaces.sessions.spawn(
                     cwd: updated.path,
-                    manifest: work.workspaces.sessions.setup.manifest(agent ?? "claude", command: nil),
+                    manifest: work.workspaces.sessions.setup.manifest(agent ?? Session.claudeAgent, command: nil),
                     worktreeId: updated.id, launch)
             )
         }

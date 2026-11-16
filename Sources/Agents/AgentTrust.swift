@@ -17,9 +17,9 @@ public enum AgentTrust {
     public static func trustedFolders(agent: String, env: [String: String], home: String) -> [String] {
         let dir = AgentHome.dir(agent, env: env, home: home)?.path ?? home
         return switch agent {
-        case "claude":   // in its config folder when one is set; else beside that folder, in the home folder
+        case Session.claudeAgent:   // in its config folder when one is set; else beside that folder, in the home folder
             claude((AgentHome.variable(agent).flatMap { env[$0] } == nil ? home : dir) + "/.claude.json")
-        case "codex": codex(dir + "/config.toml")
+        case Session.codexAgent: codex(dir + "/config.toml")
         case "gemini": gemini(dir + "/trustedFolders.json")
         case "kimi": kimi(dir)
         default: []   // no way to read its trust: Kelp doesn't answer for it

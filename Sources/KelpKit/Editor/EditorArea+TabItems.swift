@@ -15,7 +15,7 @@ extension EditorArea {
             return item
         }
         var item = item
-        if session.agent != Session.shellAgent { item.card = .agent(session.id) }   // an agent's tab shows the sidebar's card; a terminal keeps its tooltip
+        if !session.isTerminal { item.card = .agent(session.id) }   // an agent's tab shows the sidebar's card; a terminal keeps its tooltip
         let runs = app.extensions.all.runs
         if let look = runs?.look(session) {
             item.icon = look.icon

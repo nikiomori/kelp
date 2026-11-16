@@ -102,7 +102,7 @@ final class ExtensionEvents: Sendable {
             struct Handler: Decodable { var on: String, run: String }
             var id: String, contributes: Contributes?
         }
-        let dir = root.appendingPathComponent("extensions"),
+        let dir = Paths.extensions(in: root),
             off = Set(settings[SettingKeys.disabledExtensions] ?? [])
         let found = FileManager.default.enumerator(
             at: dir, includingPropertiesForKeys: nil, options: [.skipsSubdirectoryDescendants])

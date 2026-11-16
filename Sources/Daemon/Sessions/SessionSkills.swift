@@ -15,7 +15,7 @@ extension SessionSetup {
     func skillArgs(flag: String, contextFlag: String?, worktreeId: String?, cwd: String, profile: String? = nil) -> (
         argv: [String], browser: String?
     ) {
-        let dir = root.appendingPathComponent("agent-skills")
+        let dir = Paths.agentSkills(in: root)
         let (on, browser) = chosenSkills(worktreeId: worktreeId, cwd: cwd, claude: true, profile: profile)
         var argv = on.flatMap { [flag, $0.path] }
         let guide = browser.flatMap {
@@ -32,7 +32,7 @@ extension SessionSetup {
     func chosenSkills(worktreeId: String?, cwd: String, claude: Bool = false, profile: String? = nil) -> (
         on: [URL], browser: BrowserSkill?
     ) {
-        let dir = root.appendingPathComponent("agent-skills")
+        let dir = Paths.agentSkills(in: root)
         let all = WebApp.folders(in: dir).map(\.lastPathComponent).sorted()
             .map { dir.appendingPathComponent($0) }   // this home's own spelling (not /private/tmp for /tmp): a restart finds them by it
         let hasBrowser = all.contains { $0.lastPathComponent == "kelp-browser" }
@@ -74,7 +74,7 @@ extension SessionSetup {
         let recent =
             Log.store.attempt("the last Claude Code chats") {
                 try store.db.read {
-                    try Session.filter(Column("agent") == "claude" && Column("profile") == profile)
+                    try Session.filter(Column("agent") == Session.claudeAgent && Column("profile") == profile)
                         .order(Column("createdAt").desc).limit(5).fetchAll($0)
                 }
             } ?? []
@@ -107,13 +107,13 @@ extension SessionSetup {
 
     /// The argv names this home's skills (a restart's, from the record).
     static func hasSkills(_ argv: [String], root: URL) -> Bool {
-        let dir = root.appendingPathComponent("agent-skills").path
+        let dir = Paths.agentSkills(in: root).path
         return argv.contains { Paths.inside($0, dir) }
     }
 
     /// The argv without this home's skill folders and Kelp's sentence, for choosing them again.
     static func withoutSkills(_ argv: [String], root: URL, flag: String, contextFlag: String?) -> [String] {
-        let dir = root.appendingPathComponent("agent-skills").path
+        let dir = Paths.agentSkills(in: root).path
         var out: [String] = [], index = 0
         while index < argv.count {
             let next = index + 1 < argv.count ? argv[index + 1] : nil

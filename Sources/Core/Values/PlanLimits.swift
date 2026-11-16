@@ -100,8 +100,8 @@ extension UsageGet.Result {
                     window: UsageGet.window($0.kind), readAt: at)
             }
         }
-        for (agent, ls) in plans ?? [:] where agent != "claude" { add(agent, ls) }
-        add("claude", plans?["claude"] ?? claudeLimits ?? [])
+        for (agent, ls) in plans ?? [:] where agent != Session.claudeAgent { add(agent, ls) }
+        add(Session.claudeAgent, plans?[Session.claudeAgent] ?? claudeLimits ?? [])
         if let latest = codex.first {
             let at = { (seconds: Double?) in seconds.map { Date(timeIntervalSince1970: $0) } },
                 read = Date(timeIntervalSince1970: latest.observedAt)
@@ -113,7 +113,8 @@ extension UsageGet.Result {
                 let kind = UsageGet.Codex.kind(minutes: minutes, primary: primary)
                 out.append(
                     Reading(
-                        agent: "codex", limit: .init(kind: kind, percent: percent, resets: nil), resetAt: at(reset),
+                        agent: Session.codexAgent, limit: .init(kind: kind, percent: percent, resets: nil),
+                        resetAt: at(reset),
                         window: minutes.map { $0 * 60 } ?? UsageGet.window(kind), readAt: read))
             }
         }

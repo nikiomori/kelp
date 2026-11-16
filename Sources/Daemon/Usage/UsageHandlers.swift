@@ -48,7 +48,7 @@ extension UsageReport: Handled {
         let since = AgentUsage.since(days: days)
         let rows = usage.usageIndex.rows(
             roots: usage.agentRoots().claude.filter { FileManager.default.fileExists(atPath: $0.path) }, since: since)
-        let all = rows.map { ("claude", $0) }, project = usage.projects()
+        let all = rows.map { (Session.claudeAgent, $0) }, project = usage.projects()
         func group(_ key: (AgentUsage.AgentRow) -> String) -> [Group] { AgentUsage.groups(all, by: key) }
         return Result(
             days: group { $0.row.day }, models: group { $0.row.model }, projects: group { project($0.row.cwd) },

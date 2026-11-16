@@ -166,7 +166,7 @@ final class SessionSetup: Sendable {
         var env = hookedEnv(manifest, rec)
         env["PATH"] = Sessions.childPath
         // What Kelp's servers sign in with, by the names Codex's command line gives them. The person's own stays theirs.
-        if manifest.id == "codex", remotes.of(rec.cwd) == nil {
+        if manifest.id == Session.codexAgent, remotes.of(rec.cwd) == nil {
             env.merge(codexEnvironment(worktreeId: rec.worktreeId)) { theirs, _ in theirs }
         }
         return env
@@ -211,7 +211,7 @@ final class SessionSetup: Sendable {
 
     /// Where a session's Claude conversations are: under its profile's config dir when it has one.
     func claudeProjects(_ rec: Session) -> URL {
-        rec.profile.flatMap { profile($0, agent: "claude") }.map {
+        rec.profile.flatMap { profile($0, agent: Session.claudeAgent) }.map {
             URL(fileURLWithPath: $0.dir).appendingPathComponent("projects")
         }
             ?? agentUsage.conversations.homes.withLock { $0 }.claude
@@ -234,7 +234,7 @@ final class SessionSetup: Sendable {
 
     /// The agent's manifest: nil for a terminal or a command, or an agent whose file is gone.
     func agent(_ id: String?) -> AgentManifest? {
-        AgentManifest.load(dir: root.appendingPathComponent("agents")).first { $0.id == id }
+        AgentManifest.load(dir: Paths.agents(in: root)).first { $0.id == id }
     }
 
     /// The conversation `agent` keeps on disk, as its manifest says.
@@ -254,11 +254,7 @@ final class SessionSetup: Sendable {
                 command: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
                 args: ["-l"], tracksStatus: false)
         }
-        guard
-            let manifest = AgentManifest.load(dir: root.appendingPathComponent("agents")).first(where: { $0.id == id })
-        else {
-            throw RPCError.invalidParams("unknown agent \(id)")
-        }
+        guard let manifest = agent(id) else { throw RPCError.invalidParams("unknown agent \(id)") }
         return manifest
     }
 }

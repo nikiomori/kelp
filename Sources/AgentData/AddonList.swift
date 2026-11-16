@@ -18,7 +18,7 @@ public enum AddonList {
     ) -> (items: [Addon], gone: [String]) {
         var gone: [String] = []
         let plugins = loaded == nil ? [:] : files.plugins()
-        let kelpSkills = kelpHome?.appendingPathComponent("agent-skills")
+        let kelpSkills = kelpHome.map(Paths.agentSkills(in:))
         let keptFile = kelpHome?.appendingPathComponent("mcp.json").path
         let onDisk = files.skills(cwd: cwd)
         let own = files.servers(cwd: cwd).filter { !kept.contains($0.name) }

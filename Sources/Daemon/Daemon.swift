@@ -138,7 +138,7 @@ public final class Daemon: Sendable {
         running.withLock { $0.instanceLock = lockFD }
         // Sessions from a previous daemon run lost their PTYs, unless it handed them over; resumable ones come back as
         // paused, the rest as exited.
-        let manifests = AgentManifest.load(dir: root.appendingPathComponent("agents"))
+        let manifests = AgentManifest.load(dir: Paths.agents(in: root))
         let adopted = Set(handover?.sessions.map(\.id) ?? [])
         do {
             for var session in try store.sessions() where session.status != .exited && !adopted.contains(session.id) {
@@ -296,8 +296,8 @@ public final class Daemon: Sendable {
     /// `daemon.upgrade`: this process runs the kelpd now at `executable`, which takes every running session over. Returns
     /// only if it couldn't: refused before anything was given up (nil), or with the daemon that took the sessions back
     /// here after the exec failed. `exec`: the exec itself (tests make it fail).
-    @discardableResult
     /// `checked`: daemon.upgrade's handler asked the new kelpd and waited for running git before it answered.
+    @discardableResult
     func upgrade(
         to executable: String = Daemon.executable, checked: Bool = false,
         exec: (Handover, _ executable: String, _ file: String) throws -> Void = { try $0.exec($1, file: $2) }

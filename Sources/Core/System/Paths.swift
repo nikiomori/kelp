@@ -26,10 +26,14 @@ public enum Paths {
     }()
     private static let home = FileManager.default.homeDirectoryForCurrentUser
     public static var socket: URL { root.appendingPathComponent("kelp.sock") }
-    public static var agents: URL { root.appendingPathComponent("agents") }
-    public static var extensions: URL { root.appendingPathComponent("extensions") }
+    public static var agents: URL { agents(in: root) }
+    public static var extensions: URL { extensions(in: root) }
     /// Claude Code plugins with Kelp's skills (one per skill that's turned on), loaded per session with --plugin-dir.
-    public static var agentSkills: URL { root.appendingPathComponent("agent-skills") }
+    public static var agentSkills: URL { agentSkills(in: root) }
+    /// The same folders in a home given (the daemon's, or a test's), not this process's own.
+    public static func agents(in root: URL) -> URL { root.appendingPathComponent("agents") }
+    public static func extensions(in root: URL) -> URL { root.appendingPathComponent("extensions") }
+    public static func agentSkills(in root: URL) -> URL { root.appendingPathComponent("agent-skills") }
     /// A folder of its own for agents and terminals outside any project (Window › Scratch); not listed with the projects.
     public static var scratch: URL { root.appendingPathComponent("scratch") }
     /// Why kelpd last failed to start (written by kelpd, gone once one starts): what the app's banner says.

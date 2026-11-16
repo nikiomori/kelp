@@ -296,7 +296,7 @@ extension AgentSetSecret: Handled {
 
 extension AgentSave: Handled {
     func handle(_ setup: SessionSetup) throws -> Done {
-        let dir = setup.root.appendingPathComponent("agents")
+        let dir = Paths.agents(in: setup.root)
         guard let manifest else {
             AgentManifest.resetOverride(id: agent, dir: dir)
             return Done()

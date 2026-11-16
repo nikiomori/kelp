@@ -71,7 +71,7 @@ extension SidebarController {
     /// What decides the rows a session has (`SidebarTree.build`): the same for all of a session's news but where it is,
     /// whose it is and whether it ended.
     static func place(_ s: Session) -> String {
-        let shell = s.agent == Session.shellAgent ? "sh" : ""
+        let shell = s.isTerminal ? "sh" : ""
         return [s.id, s.worktreeId ?? "", s.parent ?? "", shell, s.status == .exited ? "x" : ""].joined(separator: "|")
     }
 

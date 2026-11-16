@@ -32,10 +32,10 @@ final class Conversations: Sendable {
         var claude = [homes.claude], codex = [homes.codex]
         for profile in settings[SettingKeys.accounts] {
             guard let dir = profile["dir"]?.string else { continue }
-            if profile["agent"]?.string == "claude" {
+            if profile["agent"]?.string == Session.claudeAgent {
                 claude.append(URL(fileURLWithPath: dir).appendingPathComponent("projects"))
             }
-            if profile["agent"]?.string == "codex" {
+            if profile["agent"]?.string == Session.codexAgent {
                 codex.append(URL(fileURLWithPath: dir).appendingPathComponent("sessions"))
             }
         }
@@ -49,7 +49,7 @@ final class Conversations: Sendable {
     }
     func transcript(of session: Session) -> URL? {
         let argv = session.argv
-        guard session.agent == "claude",
+        guard session.agent == Session.claudeAgent,
             let flagIndex = argv.lastIndex(where: { $0 == "--session-id" || $0 == "--resume" }),
             flagIndex + 1 < argv.count
         else { return nil }
@@ -65,7 +65,9 @@ final class Conversations: Sendable {
         if let remote = remotes.of(session.cwd) {
             return remoteTail(of: session, on: remote).flatMap(ClaudeHistory.lastReply(tail:))
         }
-        guard session.agent == "codex" else { return transcript(of: ls).flatMap(ClaudeHistory.lastReply(transcript:)) }
+        guard session.agent == Session.codexAgent else {
+            return transcript(of: ls).flatMap(ClaudeHistory.lastReply(transcript:))
+        }
         if let open = Self.openRollout(pid: session.pid) { return CodexHistory.lastReply(rollout: open) }
         return roots().codex.lazy.compactMap {
             CodexHistory.lastReply(cwd: session.cwd, since: session.createdAt, root: $0)
@@ -76,7 +78,7 @@ final class Conversations: Sendable {
     /// The last turns of a Claude Code's or a Codex's conversation, for someone away from the terminal (the phone's
     /// page); none for other agents and before there is one. Waits on a disk, `lsof` or a host: off the caller's thread.
     func turns(of session: Session, live: LiveSession?) -> [ConversationTurns.Turn] {
-        guard ["claude", "codex"].contains(session.agent) else { return [] }
+        guard [Session.claudeAgent, Session.codexAgent].contains(session.agent) else { return [] }
         if let remote = remotes.of(session.cwd) {
             return remoteTail(of: session, on: remote).map { ConversationTurns.last(inTail: $0) } ?? []
         }
@@ -98,7 +100,7 @@ final class Conversations: Sendable {
 
     /// What `read` (sh reading the file on its stdin) prints of that conversation on the host.
     func remoteConversation(of session: Session, on remote: RemoteHost, read: String) -> Data? {
-        guard session.agent == "claude", remote.connection != nil else { return nil }
+        guard session.agent == Session.claudeAgent, remote.connection != nil else { return nil }
         let argv = session.argv
         let id = argv.lastIndex { $0 == "--session-id" || $0 == "--resume" }.flatMap { index in
             index + 1 < argv.count ? argv[index + 1] : nil
@@ -172,8 +174,8 @@ final class Conversations: Sendable {
     /// opened it with, else the newest written here since it started).
     func conversationFile(of session: Session, live: LiveSession?) -> URL? {
         switch session.agent {
-        case "claude": return live.flatMap(transcript(of:)) ?? transcript(of: session)
-        case "codex":
+        case Session.claudeAgent: return live.flatMap(transcript(of:)) ?? transcript(of: session)
+        case Session.codexAgent:
             if live != nil, let open = Self.openRollout(pid: session.pid) { return open }
             return roots().codex.lazy.compactMap {
                 CodexHistory.rollouts(cwd: session.cwd, since: session.createdAt, root: $0).first

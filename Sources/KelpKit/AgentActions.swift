@@ -54,7 +54,7 @@ package struct AgentActions {
     /// menu: the changes of its last turn after Copy Context, Restart last and no Stop.
     package func addSessionItems(to m: NSMenu, _ sid: String, lastTurn: (@MainActor () -> Void)? = nil) {
         m.add(String(localized: "Rename…")) { rename(sid) }
-        if app.session(sid)?.agent != Session.shellAgent {   // a terminal has no conversation to copy or hand over
+        if app.session(sid)?.isTerminal != true {   // a terminal has no conversation to copy or hand over
             m.add(String(localized: "Hand Off to"), submenu: handoffMenu(sid))
             addFork(to: m, sid)
             addMove(to: m, sid)

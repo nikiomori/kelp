@@ -40,7 +40,7 @@ extension QuickOpen {
                 let wt = app.worktree(s.worktreeId)
                 items.append(
                     Item(
-                        kind: s.agent == Session.shellAgent ? "Terminal" : "Agent", icon: "terminal",
+                        kind: s.isTerminal ? "Terminal" : "Agent", icon: "terminal",
                         title: app.catalog.displayName(s),
                         detail: [
                             s.statusWords, shortAgo(s.statusAt ?? s.createdAt),

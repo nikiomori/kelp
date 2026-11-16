@@ -63,8 +63,7 @@ extension SessionSetup {
             var id: String
             var name: String?
         }
-        // Paths.extensions of this home
-        let file = root.appendingPathComponent("extensions").appendingPathComponent(id).appendingPathComponent(
+        let file = Paths.extensions(in: root).appendingPathComponent(id).appendingPathComponent(
             "extension.json")
         guard !id.isEmpty, (id as NSString).lastPathComponent == id, id != "..", id != ".",
             let data = FileManager.default.contents(atPath: file.path),
@@ -96,7 +95,7 @@ extension SessionSetup {
         else { return false }
         let now =
             read.map { ExtensionFiles.extensionDigest($0) }
-            ?? ExtensionFiles.extensionDigest(root.appendingPathComponent("extensions").appendingPathComponent(name))
+            ?? ExtensionFiles.extensionDigest(Paths.extensions(in: root).appendingPathComponent(name))
         return state[name]?.string == now
     }
 }

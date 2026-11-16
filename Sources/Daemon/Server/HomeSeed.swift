@@ -74,7 +74,7 @@ public enum HomeSeed {
             worktree.path = moved(worktree.path)
             try store.save(worktree)
         }
-        let manifests = AgentManifest.load(dir: home.appendingPathComponent("agents"))
+        let manifests = AgentManifest.load(dir: Paths.agents(in: home))
         for var session in try store.sessions() {
             if Sessions.tmuxName(session) != nil {
                 try store.delete(session)

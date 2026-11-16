@@ -11,7 +11,7 @@ extension SessionSetup {
     /// Read once a half hour per folder and flags; nil for another agent, a remote project, or when it can't be read.
     /// Limit: the project's own MCP servers aren't counted.
     func claudeSetup(_ session: Session) -> SessionContextParts.Setup? {
-        guard session.agent == "claude", remotes.of(session.cwd) == nil else { return nil }
+        guard session.agent == Session.claudeAgent, remotes.of(session.cwd) == nil else { return nil }
         let carried = ["--plugin-dir", "--append-system-prompt", "--model", "--mcp-config"]
         // Not Kelp's servers file: with it this copy would start them, and nobody watches it.
         let flags = session.argv.indices.dropLast().filter {
@@ -23,7 +23,7 @@ extension SessionSetup {
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = Sessions.childPath
         env["NO_COLOR"] = "1"
-        if let name = session.profile, let home = profile(name, agent: "claude") { env[home.key] = home.dir }
+        if let name = session.profile, let home = profile(name, agent: Session.claudeAgent) { env[home.key] = home.dir }
         var setup: SessionContextParts.Setup?
         do {
             if configSettled(session) {

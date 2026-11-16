@@ -45,7 +45,7 @@ extension PhoneBridge {
     /// Limit: found on the login shell's PATH, not asked whether it runs (a shim whose program is gone counts).
     func kinds() async -> [Kind] {
         guard settings[SettingKeys.phoneStartAgents] else { return [] }
-        let agents = root.appendingPathComponent("agents"), usual = settings[SettingKeys.defaultAgent]
+        let agents = Paths.agents(in: root), usual = settings[SettingKeys.defaultAgent]
         let found = await offloaded {
             AgentManifest.load(dir: agents).filter { Session.isAgent($0.id) && LoginPath.find($0.command) != nil }
                 .map { Kind(id: $0.id, name: $0.name, isDefault: $0.id == usual) }
@@ -124,7 +124,7 @@ extension PhoneBridge {
     /// A Claude Code's or a Codex's conversation, its last turns: nil for other agents and before there is one, when
     /// the page shows the last reply alone.
     func turns(of session: Session) async -> [JSONValue]? {
-        guard ["claude", "codex"].contains(session.agent) else { return nil }
+        guard [Session.claudeAgent, Session.codexAgent].contains(session.agent) else { return nil }
         let conversations = conversations, running = live[session.id]
         let turns = await offloaded {
             conversations.turns(of: session, live: running)

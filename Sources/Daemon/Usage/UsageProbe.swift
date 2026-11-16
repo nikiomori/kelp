@@ -58,7 +58,7 @@ extension AgentUsage {
     static let planProbes = [
         // Opened in a terminal, every reading was a session of its own in Claude's /resume and a "/usage" in its prompt history.
         PlanProbe(
-            agent: "claude", command: "claude", every: 600, parse: LimitScreens.parseUsage,
+            agent: Session.claudeAgent, command: "claude", every: 600, parse: LimitScreens.parseUsage,
             printArgs: ["-p", "/usage", "--no-session-persistence", "--strict-mcp-config"]),   // no MCP server starts for it
         // With any hook of the user's own, Grok asks "Do you trust the contents of this directory?" in every folder; this
         // run alone does without the question, and nothing is written to its trusted_folders.toml.
@@ -186,7 +186,7 @@ extension AgentUsage {
     /// A turn just ended, so the agent's usage moved: read its plan half a minute from now instead of at the next round
     /// (up to 10 minutes late for Claude), and not within `planGap` of the last reading. The UI's next `usage.get` starts the read.
     func planUsed(_ agent: String) {
-        if agent == "codex" {
+        if agent == Session.codexAgent {
             codexLive.withLock { $0.at = min($0.at, Date().addingTimeInterval(30 - Self.codexEvery)) }
         }
         guard let probe = Self.planProbes.first(where: { $0.agent == agent }) else { return }

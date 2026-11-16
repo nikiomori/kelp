@@ -109,7 +109,7 @@ extension Main {
         case ("github", "issue"), ("linear", "start"):   // kelp github issue 123 | kelp linear start ENG-123
             let repo = try await currentRepoID(c)
             guard let ref = args.first else { fail("issue number / identifier required") }
-            let agent = flag("--agent") ?? "claude", draft: Bool? = has("--send") ? false : nil
+            let agent = flag("--agent") ?? Session.claudeAgent, draft: Bool? = has("--send") ? false : nil
             let request: TaskFromIssue
             if cmd == "github" {
                 let number = Int(ref.trimmingCharacters(in: CharacterSet(charactersIn: "#"))) ?? 0

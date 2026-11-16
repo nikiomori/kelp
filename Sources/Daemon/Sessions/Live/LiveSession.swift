@@ -250,7 +250,7 @@ final class LiveSession: Sendable {
             if st.record.status == .paused { return }
             st.detector.exited()
             let exitCode = (code & 0x7f) == 0 ? (code >> 8) & 0xff : 0   // killed by a signal (closed, stopped) isn't a failure
-            if exitCode != 0, st.record.agent != Session.shellAgent {
+            if exitCode != 0, !st.record.isTerminal {
                 st.record.summary = "Ended with an error (exit code \(exitCode))"
             }
             st.endCommands(at: Date())

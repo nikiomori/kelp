@@ -70,7 +70,7 @@ package struct TabBadge: Equatable {
         // A terminal shows a state only while a program in it says how far it got (a build).
         TabBadge(
             status: s.flatMap {
-                $0.agent == Session.shellAgent
+                $0.isTerminal
                     ? ($0.progress == nil ? nil : .working) : $0.endedWithError ? .error : $0.markStatus
             },
             unread: s?.unread ?? false, meter: meter, progress: s?.progress.map { Double($0) / 100 },
@@ -80,7 +80,7 @@ package struct TabBadge: Equatable {
     /// The ring around its pane: it asks (orange) or failed (red). Finished is quiet, as its mark in the sidebar: the
     /// unread dot and the bold name say it's new.
     private static func attention(_ s: Session) -> NSColor? {
-        guard s.agent != Session.shellAgent else { return nil }
+        guard !s.isTerminal else { return nil }
         if s.status == .waiting { return .systemOrange }
         return (s.status == .error || s.endedWithError) && s.unread ? .systemRed : nil
     }

@@ -43,7 +43,7 @@ package final class ExtensionRegistry {
     private(set) var disabledLoaded: Set<String> = []
     @ObservationIgnored private var watcher: FileWatcher?
 
-    static var userDir: URL { Paths.root.appendingPathComponent("extensions") }
+    static var userDir: URL { Paths.extensions }
     /// Required tools (`requires`) the daemon found on its login-shell PATH, or didn't: command → found. One not asked yet
     /// counts as there (the daemon may still be reading that PATH, which takes seconds); each reload asks again, so a
     /// tool installed meanwhile counts, and an answer that changes anything reloads.
