@@ -109,8 +109,38 @@ final class AgentDrive {
     static let keep = 500
     /// When `kelp browser` last acted here (`BrowserTab.agentAnswers`).
     var drivenAt = Date.distantPast
-    /// The user took the agent's page over: its questions go to the user, and the agent's commands are refused.
-    var takenOver = false
+    /// The user took the agent's page over (Take Over, or a click or a key in it): its questions go to the user, and the
+    /// agent's commands wait until it's handed back (`handedBack`).
+    var takenOver = false {
+        didSet {
+            guard !takenOver else { return }
+            asked = nil
+            for waiting in waiters.values { waiting.resume(returning: true) }
+            waiters = [:]
+        }
+    }
+    /// What the agent asked the user to do on the page (`kelp browser ask`), and the session that asked.
+    var asked: (text: String, session: String)?
+    /// The session that acted here last: whose name the strip says.
+    var driver: String?
+    /// When the user last clicked or typed in the page while it was theirs.
+    var userAt = Date.distantPast
+    private var waiters: [UUID: CheckedContinuation<Bool, Never>] = [:]
+
+    /// Whether the user handed the page back within `seconds` (at once when it's the agent's).
+    func handedBack(within seconds: TimeInterval) async -> Bool {
+        guard takenOver else { return true }
+        let id = UUID()
+        return await withCheckedContinuation { continuation in
+            waiters[id] = continuation
+            // A timeout, not a wait for something to be ready.
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+                MainActor.assumeIsolated {   // the main queue
+                    self.waiters.removeValue(forKey: id)?.resume(returning: false)
+                }
+            }
+        }
+    }
     /// `kelp browser dialog`: how the agent answers the page's next question (BrowserDialogs.swift).
     var dialogAnswer: (accept: Bool, text: String?)?
     /// `kelp browser console | network`.

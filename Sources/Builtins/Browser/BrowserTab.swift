@@ -19,6 +19,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     var designOn = false
     @ObservationIgnored var clicks = DesignClicks()
     @ObservationIgnored var clickWatch: Any?
+    /// The user's clicks and keys in the page while an agent drives it (`watchUser`).
+    @ObservationIgnored var userWatch: Any?
     /// `preview:/path/page.html`: a local page shown as the browser sees it, reloaded whenever a file next to it changes.
     private var previewFile: String? { start.hasPrefix("preview:") ? String(start.dropFirst("preview:".count)) : nil }
     private var watcher: FileWatcher?
@@ -197,7 +199,10 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         }
     }
 
-    isolated deinit { app.agentPages.closed(pageId) }
+    isolated deinit {
+        app.agentPages.closed(pageId)
+        stopWatchingUser()
+    }
 
     /// The local address that failed is served now (its dev server started in this screen).
     private var failedServed: Bool {
@@ -225,22 +230,20 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             agentButton.onClick = { [weak self] in self?.toggleTakeOver() }
             agentSlot.pin(Bar.content([icon, agentLabel], [agentButton]))
             agentSlotHeight.isActive = false
+            watchUser()
         }
-        let takenOver = drive?.takenOver == true
-        app.agentPages.change(pageId) { $0.holder = takenOver ? .user : .agent }
+        let asked = drive?.asked?.text, takenOver = drive?.takenOver == true
+        app.agentPages.change(pageId) { $0.holder = asked.map { .asked($0) } ?? (takenOver ? .user : .agent) }
+        let look = stripLook()
         agentLabel.stringValue =
-            (takenOver
-                ? String(localized: "You took this page over: the agent waits until you hand it back")
-                : String(localized: "An agent is using this page"))
-            + (viewport.map { " · " + String(localized: "page \(Int($0.width))×\(Int($0.height))") } ?? "")
-        agentButton.title = takenOver ? String(localized: "Hand Back") : String(localized: "Take Over")
-        agentButton.toolTip =
-            takenOver
-            ? String(localized: "Let the agent click and type here again")
-            : String(localized: "Stop the agent's clicks and typing here; the page's questions come to you")
+            look.text + (viewport.map { " · " + String(localized: "page \(Int($0.width))×\(Int($0.height))") } ?? "")
+        agentLabel.textColor = takenOver ? .labelColor : .secondaryLabelColor
+        agentButton.title = look.button
+        agentButton.toolTip = look.tip
     }
 
     private func toggleTakeOver() {
+        if drive?.asked != nil { return done() }
         drive?.takenOver.toggle()
         showAgentBar()
     }

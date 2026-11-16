@@ -9,6 +9,7 @@ extension Main {
                 | scroll [down|up|top|bottom|<ref>] | back | reload | eval <js>|- | viewport <WxH>|reset
                 | screenshot [file] | record [file.mp4|file.gif] | record stop
                 | wait [--text t] [--selector css] [--timeout 10] | console [--clear] | network [--clear] | info
+                | ask <what the user should do on the page>
                 [--json] · no action: one a line from stdin (kelp browser <<'EOF' … EOF)
         """
 
@@ -44,10 +45,16 @@ extension Main {
     static func browse(_ sub: String, js: String? = nil, _ c: RPCClient, _ workspace: String?, json: Bool) async throws
     {
         guard let action = BrowserAction(rawValue: sub) else { fail("usage: kelp " + browserUsage) }
+        if action == .ask, args.isEmpty { fail("browser ask <what the user should do on the page, then hand it back>") }
         var params = js.map { ["js": .string($0)] } ?? browserParams(action)
+        if action == .ask { params["text"] = .string(args.joined(separator: " ")) }
         // Whose pointer the user sees on the page: the agent's name and colour.
         if let session = ProcessInfo.processInfo.environment["KELP_SESSION"] { params["session"] = .string(session) }
-        let answer = try await c.call(UIBrowser(action: action.rawValue, args: .object(params), worktreeId: workspace))
+        let answer =
+            action == .ask
+            ? try await c.call(
+                UIBrowserAsk(question: params["text"]?.string ?? "", args: .object(params), worktreeId: workspace))
+            : try await c.call(UIBrowser(action: action.rawValue, args: .object(params), worktreeId: workspace))
         let what = [params["key"]?.string, params["ref"]?.string ?? params["to"]?.string].compactMap { $0 }
         if !json, let text = browserText(action, what.joined(separator: " "), answer) {
             print(text)
@@ -122,7 +129,7 @@ extension Main {
                 fail("browser viewport <width>x<height> | reset  (390x844, 768x1024, 1440x900)")
             }
             params["size"] = .string(size)
-        case .info, .back, .reload: break
+        case .info, .back, .reload, .ask: break
         }
         if case .eval = action, params["js"]?.string?.isEmpty != false {
             fail("browser eval <js> | eval - (from stdin)")
@@ -142,6 +149,15 @@ extension Main {
         let page = "page \(ShellQuote.doubleQuoted(f["title"]?.string ?? "")) \(f["url"]?.string ?? "")"
         var lines: [String]
         switch action {
+        case .ask:
+            let said =
+                switch f["answer"]?.string {
+                case "allow": "the user is done: the page is yours again"
+                case "deny": "the user won't: the page stays theirs until they hand it back"
+                case "gone": "asked no more: the page stays the user's until they hand it back"
+                default: "no answer yet: the page stays the user's (kelp browser ask again waits more)"
+                }
+            lines = [said, page]
         case .open, .reload, .back, .info, .viewport, .wait:
             let found = action == .wait ? "shown · " : ""
             lines = [found + page + (f["viewport"]?.string.map { " · viewport \($0)" } ?? "")]

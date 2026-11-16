@@ -143,6 +143,9 @@ public enum BrowserAction: String, CaseIterable, Sendable {
     case console, network, info
     /// `args.path` (.mp4, .mov or .gif) starts one, `args.stop` ends it: the answer's `path` is the file.
     case record
+    /// The agent hands its page to the user, saying what for (`args.text`), and its row asks them (`UIBrowserAsk`); the
+    /// answer (`args.ended`: allow, deny, none, gone) takes the question off the page.
+    case ask
 }
 
 /// `kelp browser`: `action` (a `BrowserAction`) on the browser tab of workspace `worktreeId`, done by the app, whose
@@ -160,6 +163,23 @@ public struct UIBrowser: InternalMethod {
         self.worktreeId = worktreeId
     }
 }
+/// `kelp browser ask <question>`: the agent hands its page to the user, and waits until they're done (Done on the page,
+/// Allow on its row), say they won't (Deny), or `wait` passes. The answer is the page then, and `answer`.
+public struct UIBrowserAsk: InternalMethod {
+    public static let name = "ui.browser.ask"
+    public typealias Result = JSONValue
+    public static let wait: TimeInterval = 600
+    public static var timeout: TimeInterval? { wait + UIBrowser.wait + 10 }
+    public var question: String, args: JSONValue?, worktreeId: String?
+    /// What the agent's row and its notification ask (Allow is Done), and Done on the page answers.
+    public static func rowQuestion(_ question: String) -> String { "On its page: \(question)" }
+    public init(question: String, args: JSONValue? = nil, worktreeId: String? = nil) {
+        self.question = question
+        self.args = args
+        self.worktreeId = worktreeId
+    }
+}
+
 /// The app's answer to a request the daemon relayed to it (`event.ui.browser`, `event.artifact.check`): the result, or
 /// what went wrong. Only Kelp's window.
 public struct UIBrowserReply: InternalMethod {

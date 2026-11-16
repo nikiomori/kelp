@@ -50,7 +50,8 @@ enum AgentRules {
         GitHunk.self,
         // the IDE: what it shows anywhere (`ui.command`'s `forAgents`), what it opens or changes in its own workspaces
         // (`inWorkspace`), settings but the user's own (`SettingsSet.usersOnly`), and what its skills do
-        UIOpen.self, UICommand.self, UIBrowser.self, PortsStop.self, SettingsSet.self, ExtensionFetch.self,
+        UIOpen.self, UICommand.self, UIBrowser.self, UIBrowserAsk.self, PortsStop.self, SettingsSet.self,
+        ExtensionFetch.self,
         WorkspaceCreate.self, WorktreeCreate.self, WorktreeNote.self, WorktreeArchive.self, WorktreeRemove.self,
         VMConnect.self, VMScreen.self, VMUI.self, VMType.self, VMControl.self,
         // a machine it needs, made only once the user allows it on its row (`VMCreate`'s handler)

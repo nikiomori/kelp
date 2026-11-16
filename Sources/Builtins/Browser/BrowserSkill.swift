@@ -99,9 +99,11 @@ extension Builtins {
             Clicks and typing are DOM events: a page that only takes trusted ones (some payment and captcha widgets)
             ignores them. Tell the user rather than work around it.
 
-            The user can take your page over (a bar over it says an agent uses it): then only snapshot, screenshot,
-            wait, console, network and info work, and the error says so. Wait for them or ask; don't open another page
-            around it.
+            The user can take your page over (Take Over, or a click or a key in it): then info and wait answer, and
+            every other command waits until they hand it back, failing after about 50 s. Don't open another page
+            around it. For what only they can do there (sign in, a captcha, a payment), hand it to them:
+            `kelp browser ask "Sign in with the test account"` waits until they press Done (up to 10 minutes: give
+            the command that long) and prints where the page is then.
 
             """
     )

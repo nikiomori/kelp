@@ -98,6 +98,36 @@ extension UIBrowser: AsyncHandled {
     }
 }
 
+/// The page goes to the user with the question, and the agent's row asks it, as Kelp's own questions are asked
+/// (`askForKelp`): Done on the page answers Allow. Then the page leaves the question, and the answer is where it is.
+extension UIBrowserAsk: AsyncHandled {
+    var inWorkspace: String? { worktreeId ?? "" }
+    func handle(_ relay: BrowserRelay, conn: Int) async throws -> JSONValue {
+        // An agent's own session, else the one the command runs in (the user's script asks on its row too).
+        let asker = relay.sessions.store.agent(origin: Sessions.asker) ?? nil
+        guard let session = asker ?? args?["session"]?.string, let ls = relay.sessions.existing(session) else {
+            throw RPCError.invalidParams("kelp browser ask runs in a session of Kelp's: its row asks the user.")
+        }
+        func page(_ fields: [String: JSONValue]) async throws -> JSONValue {
+            var all: [String: JSONValue] = ["session": .string(session)]
+            if case .object(let given) = args { all.merge(given) { $1 } }
+            all.merge(fields) { $1 }
+            return try await UIBrowser(action: BrowserAction.ask.rawValue, args: .object(all), worktreeId: worktreeId)
+                .handle(relay)
+        }
+        _ = try await page(["text": .string(question)])
+        let asked = Self.rowQuestion(question)
+        ls.askForKelp(asked)
+        let answer = await relay.sessions.permissions.waitForKelp(
+            session, question: asked, within: Self.wait, asker: relay.sessions.clients.connection(conn)?.peerPID)
+        ls.kelpAsked(asked)
+        let ended = answer ?? "none"
+        guard case .object(var shown) = try await page(["ended": .string(ended)]) else { return .null }
+        shown["answer"] = .string(ended)
+        return .object(shown)
+    }
+}
+
 /// What answers `ui.browser`: the window it goes to, and the sessions that say which subagent asks.
 struct BrowserRelay {
     let ui: UIStore, sessions: Sessions
@@ -177,7 +207,8 @@ extension ClientEvents: Handled {
 
 extension Methods {
     static let uiMethods: [any Answered.Type] = [
-        UIPublish.self, UIStateGet.self, UIOpen.self, UICommand.self, UIBrowser.self, UIBrowserReply.self,
+        UIPublish.self, UIStateGet.self, UIOpen.self, UICommand.self, UIBrowser.self, UIBrowserAsk.self,
+        UIBrowserReply.self,
         StateGet.self, StateSet.self, ClientEvents.self
     ]
 }

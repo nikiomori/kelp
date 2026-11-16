@@ -13352,6 +13352,41 @@
       "x-internal" : true
     },
     {
+      "description" : "`kelp browser ask <question>`: the agent hands its page to the user, and waits until they're done (Done on the page, Allow on its row), say they won't (Deny), or `wait` passes. The answer is the page then, and `answer`.",
+      "name" : "ui.browser.ask",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "args",
+          "required" : false,
+          "schema" : {
+
+          }
+        },
+        {
+          "name" : "question",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "worktreeId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+
+        }
+      },
+      "x-internal" : true
+    },
+    {
       "description" : "The app's answer to a request the daemon relayed to it (`event.ui.browser`, `event.artifact.check`): the result, or what went wrong. Only Kelp's window.",
       "name" : "ui.browser.reply",
       "paramStructure" : "by-name",

@@ -230,11 +230,19 @@ import WorkbenchKit
             == .array([.string("note.txt"), .int(5), .string("text/plain")]))
 
     tab.drive?.takenOver = true
+    BrowserTab.handBackWait = 0.3
+    defer { BrowserTab.handBackWait = UIBrowser.wait - 10 }
     await #expect(throws: RPCError.self) { try await act("click", ["ref": .string("e1")]) }
     // The user may be signing in: what the page holds is theirs until they hand it back.
     await #expect(throws: RPCError.self) { try await act("snapshot", [:]) }
     await #expect(throws: RPCError.self) { try await act("screenshot", [:]) }
     _ = try await act("info", [:])
+    // Handed back while a command waits: it goes on.
+    BrowserTab.handBackWait = 10
+    let waiting = Task { try await act("snapshot", [:]) }
+    try await Task.sleep(for: .milliseconds(300))
+    tab.drive?.takenOver = false
+    #expect(try await waiting.value.string?.contains("[ref=e1]") == true)
 }
 
 /// The user let the agent into their logged-in browser for one site: while it drives the page it stays on that site.
@@ -614,4 +622,21 @@ import WorkbenchKit
     tab.drive?.takenOver = false
     await #expect(throws: RPCError.self) { try await tab.browse("record", .object(["path": .string("/tmp/x.webm")])) }
     await #expect(throws: RPCError.self) { try await tab.browse("record", .object(["stop": .bool(true)])) }
+}
+
+/// `kelp browser ask`: the page is the user's while the agent's question is on it; Done (allow) gives it back, any other
+/// answer leaves it theirs. The strip says which.
+@MainActor @Test(.timeLimit(.minutes(1))) func anAgentsQuestionHandsItsPageToTheUser() async throws {
+    let tab = BrowserTab(uri: TabURI.agentPage("about:blank"), app: AppModel())
+    tab.web.loadHTMLString("<button>Go</button>", baseURL: URL(string: "https://example.com/"))
+    try await waitFor(5) { !tab.web.isLoading }
+    tab.watch()
+    _ = try await tab.browse("ask", .object(["text": .string("Sign in"), "session": .string("s1")]))
+    #expect(tab.drive?.takenOver == true && tab.stripLook().button == "Done")
+    #expect(tab.stripLook().text.hasSuffix("asks: Sign in"))
+    _ = try await tab.browse("ask", .object(["ended": .string("deny")]))
+    #expect(tab.drive?.takenOver == true && tab.drive?.asked == nil && tab.stripLook().button == "Hand Back")
+    _ = try await tab.browse("ask", .object(["text": .string("Sign in"), "session": .string("s1")]))
+    let answer = try await tab.browse("ask", .object(["ended": .string("allow")]))
+    #expect(tab.drive?.takenOver == false && answer["url"]?.string == "https://example.com/")
 }

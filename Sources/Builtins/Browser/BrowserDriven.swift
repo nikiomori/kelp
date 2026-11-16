@@ -23,6 +23,10 @@ extension BrowserTab: DrivenPage {
         page.url = web.url?.absoluteString ?? start
         page.color = Self.vivid(app.catalog.color(app.session(session)?.agent))
         pages.drives(pageId, page, handle: self)
+        if drive?.driver != session {
+            drive?.driver = session
+            showAgentBar()   // says who
+        }
         pages.acted(pageId, Self.step(action, args, named: args["ref"]?.string.flatMap { drive?.names[$0] }))
     }
 
@@ -49,6 +53,9 @@ extension BrowserTab: DrivenPage {
         case .console: return String(localized: "reads the console")
         case .network: return String(localized: "reads the requests")
         case .info: return String(localized: "looks at the page")
+        case .ask:
+            return args["text"]?.string.map { String(localized: "asks you: \($0)") }
+                ?? String(localized: "hears your answer")
         }
     }
 
@@ -82,6 +89,7 @@ extension BrowserTab: DrivenPage {
 
     func hold(_ user: Bool) {
         guard let drive, drive.takenOver != user else { return }
+        if !user, drive.asked != nil { return done() }
         drive.takenOver = user
         showAgentBar()
     }

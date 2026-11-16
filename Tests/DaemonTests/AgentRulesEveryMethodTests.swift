@@ -115,6 +115,10 @@ private func rows() async throws -> Rows {
             (agent, UIBrowser(action: "open", worktreeId: r.wt.id), true, "a page tab in its own workspace"),
             (agent, UIBrowser(action: "open", worktreeId: r.elsewhere.id), false, "not in another's"),
             (agent, UIBrowser(action: "open"), false, "nor in the one on screen, which needn't be its own"),
+            (
+                agent, UIBrowserAsk(question: "Sign in", worktreeId: r.elsewhere.id), false,
+                "nor hand another's page over"
+            ),
             (agent, UICommand(id: "editor.goToLine"), true, "a command that shows something"),
             (agent, UICommand(id: "git.commit"), false, "not one of the user's"),
             (agent, ExtensionFetch(source: "https://example.com/x"), true, "an extension's files, to read"),

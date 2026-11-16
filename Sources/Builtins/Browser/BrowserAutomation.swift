@@ -30,9 +30,14 @@ extension BrowserTab {
         let drive = watch()
         sized()
         drive.drivenAt = Date()
-        // Taken over, the user may be signing in: what the page holds now (fields, pixels, requests) is theirs.
-        if drive.takenOver, !Self.whileTakenOver.contains(action) {
-            throw RPCError.internalError("The user took this page over: only wait and info until they hand it back")
+        // Taken over, the user may be signing in: what the page holds now (fields, pixels, requests) is theirs. The command
+        // waits for them to hand it back, as long as the daemon waits for its answer.
+        if drive.takenOver, !Self.whileTakenOver.contains(action),
+            await !drive.handedBack(within: Self.handBackWait)
+        {
+            throw RPCError.internalError(
+                "The user has this page still (they took it over): kelp browser info or wait until they hand it back, "
+                    + "or kelp browser ask them")
         }
         told(action, args)
         return try await looked(action, ref: args["ref"]?.string, try await perform(action, args, drive, need))
@@ -100,6 +105,7 @@ extension BrowserTab {
             }
             return .object(["path": .string(path)])
         case .record: return try await record(args)
+        case .ask: return try await ask(args)
         case .wait:
             let text = args["text"]?.string, selector = args["selector"]?.string
             let seconds = min(args["timeout"]?.number ?? 10, UIBrowser.wait - 5),
@@ -187,8 +193,11 @@ extension BrowserTab {
         return try await settled(["viewport": .string(now as? String ?? "")])
     }
 
+    /// How long a command waits for the user to hand the page back: as long as the daemon waits for its answer.
+    static var handBackWait = UIBrowser.wait - 10
+
     /// What an agent may still do on a page the user took over: look.
-    static let whileTakenOver: Set<BrowserAction> = [.wait, .info, .record]   // a recording pauses meanwhile
+    static let whileTakenOver: Set<BrowserAction> = [.wait, .info, .record, .ask]   // a recording pauses meanwhile
 
     /// The snapshot's lines that mention `text` (any case), each under the lines it sits in, so a ref keeps its place,
     /// and over what's inside it (a heading's list, a form's fields), up to 20 lines each.
@@ -232,7 +241,7 @@ extension BrowserTab {
     /// Where the page is once what an action started has loaded (a click that navigates); a load that fails says why.
     /// After an action (`before`: the page as it was), once the page is quiet, `change` says what the action did: `new
     /// page`, `page changed` or `nothing changed`. Typing changes the field: for it only a change the page made counts.
-    private func settled(
+    func settled(
         _ extra: [String: JSONValue] = [:], within: TimeInterval = 30, after before: Probe? = nil, typing: Bool = false
     ) async throws -> JSONValue {
         let acted = Date()
