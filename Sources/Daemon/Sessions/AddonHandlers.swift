@@ -4,33 +4,38 @@ import Foundation
 
 // addons.*: what the workspace's agents get, read from their own files and from a chat's own record.
 
-/// What `addons.*` reads with: the sessions (a chat's record, its account profile) and where Kelp's own skills are.
+/// What `addons.*` reads with: the agents' setup (a chat's account profile, where Kelp's own skills are) and the
+/// sessions running, not the whole of `Sessions`.
 struct AgentAddons {
-    let sessions: Sessions
+    let setup: SessionSetup, live: SessionTable
+    var store: Store { setup.store }
+    var remotes: Remotes { setup.remotes }
+    var root: URL { setup.root }
+    var agentUsage: AgentUsage { setup.agentUsage }
+    func existing(_ id: String) -> LiveSession? { live[id] }
 }
 
 extension AddonsList: Handled {
     func handle(_ addons: AgentAddons) throws -> Addons {
-        let sessions = addons.sessions
-        let worktree = try sessions.store.worktree(named: worktreeId)
+        let worktree = try addons.store.worktree(named: worktreeId)
         // A remote project's agents and their files are on its host: nothing to read here.
-        guard sessions.remotes.of(worktree.path) == nil else { return Addons(items: [], chat: false) }
-        let chat = try session.flatMap { id in try sessions.existing(id)?.snapshot ?? sessions.store.session(id) }
-        let loaded = chat.flatMap(sessions.agentUsage.conversations.transcript(of:))
+        guard addons.remotes.of(worktree.path) == nil else { return Addons(items: [], chat: false) }
+        let chat = try session.flatMap { id in try addons.existing(id)?.snapshot ?? addons.store.session(id) }
+        let loaded = chat.flatMap(addons.agentUsage.conversations.transcript(of:))
             .flatMap(ClaudeLoaded.read(transcript:))
-        let kelp = WebApp.folders(in: sessions.root.appendingPathComponent("agent-skills")).map(\.lastPathComponent)
+        let kelp = WebApp.folders(in: addons.root.appendingPathComponent("agent-skills")).map(\.lastPathComponent)
         // An account profile's chat reads that profile's folder.
-        let own = chat?.profile.flatMap { sessions.setup.profile($0, agent: "claude") }.map {
+        let own = chat?.profile.flatMap { addons.setup.profile($0, agent: "claude") }.map {
             URL(fileURLWithPath: $0.dir)
         }
         let files = own.map { AddonFiles(claude: $0) } ?? AddonFiles()
-        let kept = ServerFiles.read(sessions.setup.serversFile).keys.sorted()
+        let kept = ServerFiles.read(addons.setup.serversFile).keys.sorted()
         // Which skills are Claude Code's own: learnt from its /context, read once here if nothing read one yet.
-        if loaded != nil, ClaudeBuiltIns.names == nil, let chat { _ = sessions.setup.claudeSetup(chat) }
+        if loaded != nil, ClaudeBuiltIns.names == nil, let chat { _ = addons.setup.claudeSetup(chat) }
         let (items, gone) = AddonList.list(
             loaded: loaded, files: files, cwd: chat?.cwd ?? worktree.path, kelp: kelp.sorted(), kept: kept,
-            builtIn: ClaudeBuiltIns.names, kelpHome: sessions.root)
-        let off = sessions.setup.addonsOff(worktreeId: worktreeId).off
+            builtIn: ClaudeBuiltIns.names, kelpHome: addons.root)
+        let off = addons.setup.addonsOff(worktreeId: worktreeId).off
         var all = AddonSwitches.applied(off, to: items)
         // A plugin that's off has no skill listed to say which install it is: its line still names it, to uninstall.
         if all.contains(where: { $0.kind == .plugin }) {
@@ -43,16 +48,16 @@ extension AddonsList: Handled {
         for index in all.indices where all[index].kind == .instructions {
             guard let path = all[index].path else { continue }
             all[index].check = InstructionChecks.check(path, cwd: chat?.cwd ?? worktree.path)
-            all[index].check?.before = TidyRuns.before(path, root: sessions.root)
+            all[index].check?.before = TidyRuns.before(path, root: addons.root)
         }
-        return Addons(items: all, chat: loaded != nil, gone: gone, tidied: tidied(sessions))
+        return Addons(items: all, chat: loaded != nil, gone: gone, tidied: tidied(addons))
     }
 
     /// The workspace's Tidy Up waiting for review, with what it saved.
-    private func tidied(_ sessions: Sessions) -> Tidied? {
-        guard let (run, info) = TidyRuns.open(worktreeId, root: sessions.root) else { return nil }
+    private func tidied(_ addons: AgentAddons) -> Tidied? {
+        guard let (run, info) = TidyRuns.open(worktreeId, root: addons.root) else { return nil }
         let changed: Int
-        do { changed = try TidyRuns.diff(run, info, remotes: sessions.remotes).count } catch { return nil }
+        do { changed = try TidyRuns.diff(run, info, remotes: addons.remotes).count } catch { return nil }
         return Tidied(
             tokensBefore: TidyRuns.tokens(info, base: run.path + "/before"), tokensNow: TidyRuns.tokens(info, base: ""),
             changed: changed)
@@ -61,14 +66,14 @@ extension AddonsList: Handled {
 
 extension AddonsSet: Handled {
     func handle(_ addons: AgentAddons) throws -> Done {
-        try addons.sessions.setup.setAddon(key, on: on, worktreeId: worktreeId)
+        try addons.setup.setAddon(key, on: on, worktreeId: worktreeId)
         return Done()
     }
 }
 
 extension AddonsAdd: Handled {
     func handle(_ addons: AgentAddons) throws -> Done {
-        let setup = addons.sessions.setup, worktree = try setup.store.worktree(named: worktreeId)
+        let setup = addons.setup, worktree = try setup.store.worktree(named: worktreeId)
         let found = entry ?? from.flatMap { AddonFiles().entry(name, of: $0, cwd: worktree.path) }
         guard let found, found.command != nil || found.url != nil else {
             throw RPCError.invalidParams("a server needs a command or an address")
@@ -86,7 +91,7 @@ extension AddonsAdd: Handled {
 
 extension AddonsRemove: Handled {
     func handle(_ addons: AgentAddons) throws -> Done {
-        let setup = addons.sessions.setup, worktree = try setup.store.worktree(named: worktreeId)
+        let setup = addons.setup, worktree = try setup.store.worktree(named: worktreeId)
         guard key.hasPrefix("server:") else { throw RPCError.invalidParams("only a server is removed") }
         let name = String(key.dropFirst(7)), mine = setup.serversFile
         let shared = URL(fileURLWithPath: worktree.path).appendingPathComponent(".mcp.json")
@@ -101,7 +106,7 @@ extension AddonsRemove: Handled {
 
 extension AddonsEntry: Handled {
     func handle(_ addons: AgentAddons) throws -> ServerEntry {
-        let setup = addons.sessions.setup, worktree = try setup.store.worktree(named: worktreeId)
+        let setup = addons.setup, worktree = try setup.store.worktree(named: worktreeId)
         let name = String(key.dropFirst("server:".count))
         let shared = URL(fileURLWithPath: worktree.path).appendingPathComponent(".mcp.json")
         let files = AddonFiles()
@@ -125,7 +130,7 @@ private func ownSkill(_ key: String) throws -> String {
 
 extension AddonsTrash: Handled {
     func handle(_ addons: AgentAddons) throws -> Done {
-        let setup = addons.sessions.setup, worktree = try setup.store.worktree(named: worktreeId)
+        let setup = addons.setup, worktree = try setup.store.worktree(named: worktreeId)
         try AddonFiles().trashSkill(try ownSkill(key), cwd: worktree.path)
         try setup.setAddon(key, on: true, worktreeId: worktreeId)   // its switch goes with it
         return Done()
@@ -134,7 +139,7 @@ extension AddonsTrash: Handled {
 
 extension AddonsLink: Handled {
     func handle(_ addons: AgentAddons) throws -> Done {
-        let worktree = try addons.sessions.setup.store.worktree(named: worktreeId)
+        let worktree = try addons.setup.store.worktree(named: worktreeId)
         try AddonFiles().linkSkill(try ownSkill(key), cwd: worktree.path)
         return Done()
     }
@@ -142,7 +147,7 @@ extension AddonsLink: Handled {
 
 extension AddonsInstall: Handled {
     func handle(_ addons: AgentAddons) throws -> [String] {
-        let worktree = try addons.sessions.setup.store.worktree(named: worktreeId), files = AddonFiles()
+        let worktree = try addons.setup.store.worktree(named: worktreeId), files = AddonFiles()
         guard let source, !source.isEmpty else {
             return [try files.newSkill(name ?? "", cwd: worktree.path, project: project)]
         }

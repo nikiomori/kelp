@@ -103,7 +103,7 @@ extension ChatMoves: DaemonService {
     static func of(_ daemon: Daemon) -> ChatMoves { .init(workspaces: daemon.workspaces) }
 }
 extension AgentAddons: DaemonService {
-    static func of(_ daemon: Daemon) -> AgentAddons { AgentAddons(sessions: daemon.sessions) }
+    static func of(_ daemon: Daemon) -> AgentAddons { .init(setup: daemon.sessions.setup, live: daemon.sessions.live) }
 }
 extension SessionSetup: DaemonService { static func of(_ daemon: Daemon) -> SessionSetup { daemon.sessions.setup } }
 extension SessionProcesses: DaemonService {

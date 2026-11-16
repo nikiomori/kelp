@@ -96,10 +96,19 @@ def main():
     app_ext = [p for p in swift_files("Sources/KelpKit", "Sources/Builtins")
                if p.name != "AppModel.swift" and re.search(r"^(@\w+ +)*(\w+ +)?extension AppModel\b", p.read_text(errors="replace"), re.M)]
     sessions_ext = grep_count(r"(?m)^extension Sessions\b", swift_files("Sources/Daemon"))
-    # As ArchitectureTests counts them: a handler is a `handle(_:)` (or `handle(_:conn:)`) taking the service
+    # As ArchitectureTests counts them: a handler is a `handle(_:)` (or `handle(_:conn:)`) taking the service, counted
+    # for each of the daemon's own (`daemon.sessions`) its service is handed in Handlers.swift.
     daemon = "\n".join(p.read_text(errors="replace") for p in swift_files("Sources/Daemon"))
     handlers = re.findall(r"func handle\(_ \w+: (\w+)(?:, conn: Int)?\)", daemon)
-    workspaces_handlers, sessions_handlers = handlers.count("Workspaces"), handlers.count("Sessions")
+    handing, by_root = Path("Sources/Daemon/Server/Handlers.swift").read_text(), {}
+    for m in re.finditer(r"extension (\w+): DaemonService \{", handing):
+        depth, end = 1, m.end()
+        while depth:
+            depth += {"{": 1, "}": -1}.get(handing[end], 0)
+            end += 1
+        for root in set(re.findall(r"daemon\??\.(\w+)(?![\w.(])", handing[m.end():end])):
+            by_root[root] = by_root.get(root, 0) + handlers.count(m.group(1))
+    workspaces_handlers, sessions_handlers = by_root.get("workspaces", 0), by_root.get("sessions", 0)
     # A key typed as text: read from the settings, or named as what another setting `requires:`.
     settings_literals = grep_count(
         r"""settings(?:\[|\.(?:string|bool|int|double|value)\()\s*"[a-z]+\.[\w.]+|requires: *"[a-z]+\.[\w.]+""", sources)

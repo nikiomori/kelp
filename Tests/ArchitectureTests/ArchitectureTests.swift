@@ -526,11 +526,11 @@ func codeOnly(_ s: String) -> String {
         f.text.matches(of: #/func handle\(_ \w+: (\w+)(?:, conn: Int)?\)/#).map { String($0.1) }
     }
     let byService = Dictionary(grouping: services) { $0 }.mapValues(\.count)
-    #expect(byService.values.allSatisfy { $0 <= 40 }, "a service answers more than 40 methods: \(byService)")
-    let most = byService.values.max() ?? 0
-    // 36 since `handle(_:conn:)` counts too (Sessions' two were missed: 34 then, really 36).
-    #expect(most <= 36, "the busiest service's handlers: \(most)")
-    #expect(most >= 36, "fewer now: lower the ceiling")
+    let byRoot = try handlersByRoot(byService)   // a wrapper handed all of Sessions counts as Sessions
+    #expect(byRoot.values.allSatisfy { $0 <= 40 }, "a service answers more than 40 methods: \(byRoot)")
+    let most = byRoot.values.max() ?? 0
+    #expect(most <= 39, "the busiest service's handlers: \(byRoot)")
+    #expect(most >= 39, "fewer now: lower the ceiling")
     // 3: the connections' side (Server.swift) is the daemon's own, beside its dispatch (Handlers.swift).
     #expect(extensions.count <= 3, "extensions of Daemon: \(extensions)")
     #expect(extensions.count >= 3, "fewer now: lower the ceiling")
