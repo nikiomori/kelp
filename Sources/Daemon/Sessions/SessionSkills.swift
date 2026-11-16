@@ -1,3 +1,4 @@
+import AgentData
 import Core
 import Foundation
 import GRDB
@@ -11,11 +12,11 @@ extension SessionSetup {
         "This Claude Code session runs inside Kelp, a macOS IDE; the user sees Kelp's window, not Claude Code's UI."
 
     /// The flags for the skills on disk, and the hover card's line about the browser's (nil without it).
-    func skillArgs(flag: String, contextFlag: String?, worktreeId: String?, cwd: String) -> (
+    func skillArgs(flag: String, contextFlag: String?, worktreeId: String?, cwd: String, profile: String? = nil) -> (
         argv: [String], browser: String?
     ) {
         let dir = root.appendingPathComponent("agent-skills")
-        let (on, browser) = chosenSkills(worktreeId: worktreeId, cwd: cwd)
+        let (on, browser) = chosenSkills(worktreeId: worktreeId, cwd: cwd, claude: true, profile: profile)
         var argv = on.flatMap { [flag, $0.path] }
         let guide = browser.flatMap {
             $0.on || !$0.hint ? nil : dir.appendingPathComponent("kelp-browser/skills/kelp-browser/SKILL.md").path
@@ -27,7 +28,10 @@ extension SessionSetup {
     }
 
     /// Kelp's skills on disk that a chat starting in `cwd` gets (each a plugin folder), and the browser's choice.
-    func chosenSkills(worktreeId: String?, cwd: String) -> (on: [URL], browser: BrowserSkill?) {
+    /// `claude`: a Claude Code chat (of account `profile`), which may have pages of its own (`artifactsSkill`).
+    func chosenSkills(worktreeId: String?, cwd: String, claude: Bool = false, profile: String? = nil) -> (
+        on: [URL], browser: BrowserSkill?
+    ) {
         let dir = root.appendingPathComponent("agent-skills")
         let all = WebApp.folders(in: dir).map(\.lastPathComponent).sorted()
             .map { dir.appendingPathComponent($0) }   // this home's own spelling (not /private/tmp for /tmp): a restart finds them by it
@@ -38,14 +42,49 @@ extension SessionSetup {
                 at: root.appendingPathComponent("vms"), includingPropertiesForKeys: nil,
                 options: [.skipsSubdirectoryDescendants, .skipsHiddenFiles])?.nextObject() != nil
         let hasDatabases = all.contains { $0.lastPathComponent == "kelp-db" } && hasDatabases(worktreeId: worktreeId)
+        let artifacts =
+            all.contains { $0.lastPathComponent == "kelp-artifacts" }
+            && artifactsSkill(claude: claude, profile: profile)
         let off = addonsOff(worktreeId: worktreeId).off   // the project's own switches (`addons.set`)
         let on = all.filter {
             !off.contains("kelp:\($0.lastPathComponent)")
                 && ($0.lastPathComponent != "kelp-browser" || browser?.on == true)
                 && ($0.lastPathComponent != "kelp-vm" || machines)
                 && ($0.lastPathComponent != "kelp-db" || hasDatabases)
+                && ($0.lastPathComponent != "kelp-artifacts" || artifacts)
         }
         return (on, browser)
+    }
+
+    /// Whether a chat gets Kelp's pages (`agents.skills.artifacts`): every agent, none, or (the default) those with no
+    /// artifacts of their own. A Claude Code that publishes its own is sent there by Kelp's guide anyway: the skill
+    /// would cost every chat its line and every page a detour.
+    func artifactsSkill(claude: Bool, profile: String?) -> Bool {
+        switch settings[SettingKeys.skillArtifacts] {
+        case "off": false
+        case "all": true
+        default: !claude || !claudePublishesPages(profile: profile)
+        }
+    }
+
+    /// Whether the account's last Claude Code chat loaded claude.ai's artifacts, as its transcript says; the newest with
+    /// a note on what it loaded decides (one just started has none yet).
+    /// Limit: a Mac's or a profile's first chat has nothing to go by, and gets Kelp's.
+    func claudePublishesPages(profile: String?) -> Bool {
+        let recent =
+            Log.store.attempt("the last Claude Code chats") {
+                try store.db.read {
+                    try Session.filter(Column("agent") == "claude" && Column("profile") == profile)
+                        .order(Column("createdAt").desc).limit(5).fetchAll($0)
+                }
+            } ?? []
+        for chat in recent {
+            guard let url = agentUsage.conversations.transcript(of: chat),
+                let loaded = ClaudeLoaded.read(transcript: url), !loaded.tools.isEmpty || !loaded.notes.isEmpty
+            else { continue }
+            return loaded.publishesPages
+        }
+        return false
     }
 
     /// One sentence naming the skills that are on. Without it, "add a panel" reads as a request for the agent's own UI.

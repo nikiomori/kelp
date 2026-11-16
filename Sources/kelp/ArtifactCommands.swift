@@ -8,7 +8,8 @@ extension Main {
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
         switch sub {
         case "guide":
-            let whereTo = try await SettingKeys.artifactsWhere.read(in: c.call(SettingsGet()))
+            let whereTo =
+                try await SettingKeys.skillArtifacts.read(in: c.call(SettingsGet())) == "all" ? "local" : "agent"
             let root = try await projectRoot(cwd, c)
             let system = FileManager.default.fileExists(
                 atPath: DesignSystem.dir(root: root).appendingPathComponent("kit.css").path)

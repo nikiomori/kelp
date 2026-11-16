@@ -17,7 +17,10 @@ final class SettingsStore: Sendable {
     init(root: URL) {
         url = root.appendingPathComponent("settings.json")
         if FileManager.default.fileExists(atPath: url.path) {
-            _ = reloadIfChanged()
+            // Only a file that parsed: a broken one is the user's, not to be written over.
+            if reloadIfChanged(), let upgraded = Self.upgraded(values) {
+                file.withLock { _ = Log.store.attempt("upgrading settings.json") { try write(upgraded) } }
+            }
             return
         }
         file.withLock { _ = Log.store.attempt("writing a new settings.json") { try write([:]) } }
@@ -72,6 +75,25 @@ final class SettingsStore: Sendable {
             if let loaded = onDisk ?? kept { st.values = loaded }
         }
         return onDisk != nil
+    }
+
+    /// What older Kelps wrote, as today's settings; nil when there's nothing to change. The artifacts switch and
+    /// `artifacts.where` became one choice: switched off is "off", Claude Code's pages kept on this Mac is "all".
+    static func upgraded(_ values: [String: JSONValue]) -> [String: JSONValue]? {
+        let key = SettingKeys.skillArtifacts.key, place = "artifacts.where"
+        var was: Bool?
+        if case .bool(let on)? = values[key] { was = on }
+        guard was != nil || values[place] != nil else { return nil }
+        var out = values
+        if was == false {
+            out[key] = "off"
+        } else if values[place] == "local" {
+            out[key] = "all"
+        } else if was == true {
+            out[key] = nil   // the default
+        }
+        out[place] = nil
+        return out
     }
 
     private static func read(_ file: URL) -> (data: Data, values: [String: JSONValue])? {

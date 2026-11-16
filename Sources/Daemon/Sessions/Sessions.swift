@@ -200,7 +200,8 @@ final class Sessions: Sendable {
         if local, let flag = manifest.pluginDirFlag, launch.argv == nil || SessionSetup.hasSkills(argv, root: root) {
             argv = SessionSetup.withoutSkills(argv, root: root, flag: flag, contextFlag: manifest.contextFlag)
             let skills = setup.skillArgs(
-                flag: flag, contextFlag: manifest.contextFlag, worktreeId: worktreeId, cwd: cwd)
+                flag: flag, contextFlag: manifest.contextFlag, worktreeId: worktreeId, cwd: cwd, profile: launch.profile
+            )
             argv += skills.argv
             rec.browser = skills.browser
         }

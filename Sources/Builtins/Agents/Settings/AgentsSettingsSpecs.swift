@@ -93,17 +93,7 @@ extension Builtins {
                     labels: labels(["off", "70", "80", "90"]) {
                         $0 == "off" ? String(localized: "Off") : "\($0)%"
                     },
-                    group: "Plan limits", requires: SettingKeys.readPlans.key),
-                s(
-                    SettingKeys.artifactsWhere, "Where agents make pages", .enum,
-                    "Docs, slides and designs; reviews stay in the project.",
-                    help:
-                        "Docs, slides and designs: an agent with artifacts of its own (Claude Code on claude.ai) makes them there. Reviews stay in the project.",
-                    options: ["agent", "local"],
-                    labels: [
-                        "agent": String(localized: "Agent’s Own When It Has One"),
-                        "local": String(localized: "Always on This Mac")
-                    ])
+                    group: "Plan limits", requires: SettingKeys.readPlans.key)
             ] + skillSpecs, custom: { AnyView(AccountsSettings(app: app)) }, keywords: ["Accounts"], order: 30,
             previews: ["Plan limits": { AnyView(LimitsSample()) }])
     }
@@ -134,9 +124,15 @@ extension Builtins {
                 group: "Claude Code skills",
                 icon: ("sparkles", NSColor(hex: 0xAF52DE))),
             s(
-                SettingKeys.skillArtifacts, "Make docs and reviews", .boolean,
-                "Claude Code puts a doc, or choices for you to pick from, on a page beside it.",
-                group: "Claude Code skills",
+                SettingKeys.skillArtifacts, "Make docs and reviews", .enum,
+                "Codex, Grok and others put a doc, or choices for you to pick from, on a page beside them.",
+                help:
+                    "Codex, Grok and others put a doc, or choices for you to pick from, on a page beside them. Claude Code makes them in its own artifacts on claude.ai; All Agents gives it Kelp’s pages too.",
+                options: ["auto", "all", "off"],
+                labels: [
+                    "auto": String(localized: "Agents Without Their Own"), "all": String(localized: "All Agents"),
+                    "off": String(localized: "Off")
+                ], group: "Claude Code skills",
                 icon: ("doc.text.fill", NSColor(hex: 0x30B0C7))),
             s(
                 SettingKeys.skillVM, "Run commands in Kelp machines", .boolean,

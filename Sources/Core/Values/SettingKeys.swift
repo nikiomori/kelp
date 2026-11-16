@@ -10,7 +10,6 @@ public enum SettingKeys {
     public static let recap = Setting("agents.recap", true)
     public static let childReports = Setting("agents.childReports", true)
     public static let keepAwake = Setting("power.keepAwake", "agents")
-    public static let artifactsWhere = Setting("artifacts.where", "agent")
     public static let accounts = Setting<[JSONValue]>("accounts.profiles", [])
 
     // Plan limits
@@ -25,7 +24,10 @@ public enum SettingKeys {
     public static let skillSettings = Setting("agents.skills.settings", true)
     public static let skillTerminals = Setting("agents.skills.terminals", true)
     public static let skillAgents = Setting("agents.skills.agents", true)
-    public static let skillArtifacts = Setting("agents.skills.artifacts", true)
+    /// Which chats get Kelp's pages (docs, reviews): "auto" (agents without artifacts of their own: Claude Code's
+    /// claude-artifacts counts), "all" (Claude Code makes them in Kelp too), "off". A switch and `artifacts.where` before
+    /// (`SettingsStore.upgraded`).
+    public static let skillArtifacts = Setting("agents.skills.artifacts", "auto")
     public static let skillVM = Setting("agents.skills.vm", true)
     public static let skillDatabases = Setting("agents.skills.databases", true)
     /// What agents may do with a database Kelp found, until its own menu says otherwise: "read", "ask" or "free".

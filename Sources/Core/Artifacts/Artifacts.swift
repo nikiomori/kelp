@@ -173,6 +173,11 @@ public enum Artifacts {
         "Claude_Docs__update"
     ]
 
+    /// An MCP server those tools come from: claude.ai's artifacts, or its docs ("claude_ai_Claude_Docs").
+    package static func publishes(server: String) -> Bool {
+        server == "claude-artifacts" || server.hasSuffix("Claude_Docs")
+    }
+
     /// Every string in a value: an MCP answer is text holding JSON, or JSON itself.
     package static func strings(in value: JSONValue) -> [String] {
         switch value {
@@ -185,7 +190,7 @@ public enum Artifacts {
 
     // MARK: the guide an agent reads
 
-    /// What `kelp artifact guide <kind> [part]` prints. `whereTo`: the `artifacts.where` setting ("agent" or "local");
+    /// What `kelp artifact guide <kind> [part]` prints. `whereTo`: "local" when Settings give Claude Code Kelp's pages too, else "agent";
     /// `system`: whether the project has its design system (a design's guide says to make it first if not).
     public static func guide(_ kind: String, whereTo: String, part: String? = nil, system: Bool = false) -> String? {
         let canvas = Kind(rawValue: kind).flatMap { $0.isCanvas ? $0 : nil }

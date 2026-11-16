@@ -3180,6 +3180,36 @@
         }
       }
     },
+    "Agents Without Their Own": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агентам без своих"
+          }
+        }
+      }
+    },
+    "Codex, Grok and others put a doc, or choices for you to pick from, on a page beside them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex, Grok и другие кладут документ или варианты на выбор на страницу рядом с собой."
+          }
+        }
+      }
+    },
+    "Codex, Grok and others put a doc, or choices for you to pick from, on a page beside them. Claude Code makes them in its own artifacts on claude.ai; All Agents gives it Kelp’s pages too.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex, Grok и другие кладут документ или варианты на выбор на страницу рядом с собой. Claude Code делает их в своих артефактах на claude.ai; «Все агенты» даёт и ему страницы Kelp."
+          }
+        }
+      }
+    },
     "Always on This Mac": {
       "localizations": {
         "ru": {

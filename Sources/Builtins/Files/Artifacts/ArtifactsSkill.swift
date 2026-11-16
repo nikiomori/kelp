@@ -2,14 +2,14 @@ import Core
 import KelpKit
 
 extension Builtins {
-    /// `kelp artifact`, for agents: where a doc, a review or a plan goes, and how.
+    /// `kelp artifact`, for agents: where a doc, a review or a plan goes, and how. Always written: which chats get it
+    /// is the daemon's choice (Settings' `agents.skills.artifacts`).
     static let artifactsSkill = SkillSpec(
         name: "kelp-artifacts",
         description:
             "Use when the user asks for a doc, report or plan, choices to pick from, slides, a design, a dashboard or proof "
             + "that a change works, in Kelp, the IDE this session runs in: run kelp artifact guide <type> first. It says "
             + "where to make it (your own artifact tools come first) and how.",
-        setting: SettingKeys.skillArtifacts,
         body: """
             # Docs, reviews and other pages in Kelp
 

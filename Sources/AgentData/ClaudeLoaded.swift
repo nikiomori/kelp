@@ -25,6 +25,11 @@ public struct ClaudeLoaded: Sendable, Equatable {
 
     static let head = 4 << 20
 
+    /// It can publish pages of its own (claude.ai's artifacts or docs), so Kelp's skill for them would only send it there.
+    public var publishesPages: Bool {
+        tools.keys.contains(where: Artifacts.publishes) || notes.keys.contains(where: Artifacts.publishes)
+    }
+
     public static func read(transcript url: URL) -> ClaudeLoaded? { Data(head: head, of: url).map(read) }
 
     static func read(_ data: Data) -> ClaudeLoaded {
