@@ -92,14 +92,21 @@ private func rows() async throws -> Rows {
         AgentsVersions(), BitbucketStatus(), ClientEvents(events: true), DaemonInfo(), ExtensionLibrary(),
         FilesFetch(path: r.wt.path + "/a"), FilesRead(path: r.wt.path + "/a"),
         GitHubProjectItems(owner: "o", number: nil), GitHubStatus(), GitLabStatus(), GitWebURL(path: r.wt.path),
-        HistoryList(), HostStatsRead(host: "h"), JiraIssues(), JiraStatus(), JiraTransitions(key: "K-1"),
-        LinearIssues(), LinearStates(teamId: "t"), LinearStatus(), LinearTeams(), Ping(),
+        HistoryList(), HostStatsRead(host: "h"), JiraStatus(), LinearStatus(), Ping(),
         ProcessWhich(commands: ["git"]), RemoteListFolders(host: "h", path: "/"), RepoIcon(path: r.wt.path),
         RepoList(), RoutineList(), SessionUsage(), SettingsGet(), StateGet(), UIStateGet(), UsageAgents(),
         UsageGet(), UsageReport(), VMDetailRead(name: "m"), VMList(), WatchStop(.git, r.wt.id)
     ]
     let agent = Caller.session(r.mine.id)
-    try expectRows(r.w.d, calls.map { (agent, $0, true, "open to agents") })
+    // The trackers' contents are the user's: read with their keys, a query reaching the whole site.
+    let trackers: [any Answered] = [
+        JiraIssues(jql: "project = SECRET"), JiraTransitions(key: "K-1"), LinearIssues(), LinearStates(teamId: "t"),
+        LinearTeams()
+    ]
+    try expectRows(
+        r.w.d,
+        calls.map { (agent, $0, true, "open to agents") }
+            + trackers.map { (agent, $0, false, "not a tracker's issues, teams or transitions") })
 }
 
 /// What acts in the IDE or a machine: in its own workspace, and only what an agent's skills do.
@@ -130,5 +137,26 @@ private func rows() async throws -> Rows {
             (agent, VMControl(name: "m", action: .sleep), true, "a sleep: the next command wakes it"),
             (agent, VMControl(name: "m", action: .stop), false, "not a shutdown: other chats run in it"),
             (agent, VMCreate(name: "m"), true, "a machine, made once the user allows it on its row")
+        ])
+}
+
+/// Settings an agent may set, but the user's own (`SettingsSet.usersOnly`): how an agent calls the user, and every
+/// project's language servers.
+@Test func whoMaySetASetting() async throws {
+    let r = try await rows()
+    defer { r.w.d.stop() }
+    let agent = Caller.session(r.mine.id)
+    try expectRows(
+        r.w.d,
+        [
+            (agent, SettingsSet(key: SettingKeys.editorFontSize.key, value: .double(13)), true, "how the editor looks"),
+            (agent, SettingsSet(key: SettingKeys.onWaiting.key, value: .string("none")), false, "not how it calls"),
+            (agent, SettingsSet(key: SettingKeys.onFinish.key, value: .string("none")), false, "when done"),
+            (agent, SettingsSet(key: SettingKeys.onError.key, value: .string("none")), false, "or failed"),
+            (agent, SettingsSet(key: SettingKeys.holdBanners.key, value: .bool(false)), false, "nor its banners"),
+            (
+                agent, SettingsSet(key: SettingKeys.languageServers.key, value: .object([:])), false,
+                "nor every project's language servers, some of which run a program their settings name"
+            )
         ])
 }

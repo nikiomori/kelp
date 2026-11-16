@@ -22,9 +22,10 @@ enum AgentRules {
         GitLog.self, GitRemoteOp.self, GitStatus.self, GitUnsynced.self, GitWebPages.self, GitWebURL.self,
         GitHubBranchPR.self, GitHubChecks.self, GitHubFailedLog.self, GitHubForge.self, GitHubIssues.self,
         GitHubProjectItems.self, GitHubProjects.self, GitHubPRs.self, GitHubReviewComments.self, GitHubStatus.self,
-        GitHubPRView.self, GitHubIssueView.self, GitLabStatus.self, BitbucketStatus.self, JiraIssues.self,
-        JiraStatus.self, JiraTransitions.self,
-        LinearIssues.self, LinearStates.self, LinearStatus.self, LinearTeams.self, HistoryList.self,
+        GitHubPRView.self, GitHubIssueView.self, GitLabStatus.self, BitbucketStatus.self,
+        // whether Jira and Linear are connected, not what's in them: their issues, teams and transitions are read with
+        // the user's keys, which an agent's own shell can't read, and a query (`jql`) reaches the whole site
+        JiraStatus.self, LinearStatus.self, HistoryList.self,
         HostStatsRead.self, PortsList.self, ProcessWhich.self, RecipeRender.self, RemoteListFolders.self,
         RepoIcon.self, RepoList.self, RepoWorktreeSizes.self, RoutineList.self, RunDetect.self, ScriptsList.self,
         SessionBusy.self, SessionCommands.self, SessionContext.self, SessionContextParts.self,

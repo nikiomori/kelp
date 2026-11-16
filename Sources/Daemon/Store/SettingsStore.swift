@@ -199,7 +199,11 @@ extension SettingsSet: Handled {
         "phone.", "accounts.", SettingKeys.extensionLibrary.key, SettingKeys.disabledExtensions.key,
         SettingKeys.tmux.key, SettingKeys.childReports.key, SettingKeys.worktreesFolder.key,
         SettingKeys.databaseAccess.key,   // what agents may do to the databases found: the Allow it would lift
-        SettingKeys.databaseTimeout.key   // how long an agent's read may hold a database
+        SettingKeys.databaseTimeout.key,   // how long an agent's read may hold a database
+        // how an agent calls the user (waiting, done, failed) and whether the banner stays: not the agent's to quiet
+        SettingKeys.onWaiting.key, SettingKeys.onFinish.key, SettingKeys.onError.key, SettingKeys.holdBanners.key,
+        // every project's language servers, with their own settings: some name a program they run (a check command)
+        SettingKeys.languageServers.key
     ]
     var notForAgents: String? {
         Self.usersOnly.contains { key.hasPrefix($0) } || key == "keys"

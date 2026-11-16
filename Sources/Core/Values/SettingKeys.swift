@@ -84,6 +84,9 @@ public enum SettingKeys {
     public static let renderWhitespace = Setting("editor.renderWhitespace", "selection")
     public static let bracketColors = Setting("editor.bracketColors", false)
     public static let indentGuides = Setting("editor.indentGuides", false)
+    /// A language server's own `options` and `settings`, by its command: `{ "gopls": { "settings": { … } } }`. The
+    /// daemon names it too: the user's only (`SettingsSet.usersOnly`).
+    public static let languageServers = Setting("editor.languageServers", JSONValue.object([:]))
     public static let markdownMode = Setting("markdown.defaultMode", "preview")
 
     // Source Control
