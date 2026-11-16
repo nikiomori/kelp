@@ -4,7 +4,8 @@ import Foundation
 /// Kelp's skills for an agent with no flag that loads them for one session (Codex, Antigravity, Grok…): copied into the
 /// folder it works in, `.agents/skills/kelp-*/SKILL.md`, the place those agents all read a project's skills from, and
 /// kept out of git by the repository's own info/exclude. Nothing goes into the agent's own config. The same skills a
-/// Claude Code chat there would get (`chosenSkills`); one turned off since goes from the folder.
+/// Claude Code chat there would get (`chosenSkills`); one of Kelp's turned off since goes from the folder, and a
+/// skill of anyone else's named `kelp-…` stays.
 extension SessionSetup {
     static let projectSkills = ".agents/skills"
 
@@ -13,14 +14,16 @@ extension SessionSetup {
         let (on, browser) = chosenSkills(worktreeId: worktreeId, cwd: cwd)
         let folder = URL(fileURLWithPath: cwd).appendingPathComponent(Self.projectSkills)
         Log.store.attempt("Kelp's skills in \(cwd)") {
-            try Self.copy(on, into: folder)
+            let kelps = WebApp.folders(in: root.appendingPathComponent("agent-skills")).map(\.lastPathComponent)
+            try Self.copy(on, into: folder, kelps: Set(kelps))
             if !on.isEmpty { try Artifacts.excludeFromGit(root: cwd, entry: "/\(Self.projectSkills)/kelp-*/") }
         }
         return browser?.line
     }
 
-    /// Each plugin's skill folder as `<folder>/<name>/`, written only where it differs; Kelp's others there go.
-    static func copy(_ plugins: [URL], into folder: URL) throws {
+    /// Each plugin's skill folder as `<folder>/<name>/`, written only where it differs; Kelp's others there (`kelps`:
+    /// the names of all Kelp's skills) go.
+    static func copy(_ plugins: [URL], into folder: URL, kelps: Set<String>) throws {
         let fm = FileManager.default
         let names = Set(plugins.map(\.lastPathComponent))
         for plugin in plugins {
@@ -36,8 +39,7 @@ extension SessionSetup {
             }
         }
         guard fm.fileExists(atPath: folder.path) else { return }
-        for old in try fm.contentsOfDirectory(atPath: folder.path) where old.hasPrefix("kelp-") && !names.contains(old)
-        {
+        for old in try fm.contentsOfDirectory(atPath: folder.path) where kelps.contains(old) && !names.contains(old) {
             try fm.removeItem(at: folder.appendingPathComponent(old))
         }
     }

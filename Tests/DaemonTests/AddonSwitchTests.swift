@@ -129,7 +129,7 @@ import Testing
 }
 
 /// An agent with no flag for Kelp's skills (Codex, Antigravity, Grok) finds them in the folder it works in, out of git;
-/// one turned off in the project goes from there too.
+/// one turned off in the project goes from there too, and a skill of the project's own named like Kelp's stays.
 @Test func kelpsSkillsGoIntoTheProjectForAgentsWithoutAFlag() async throws {
     let w = try await world()
     defer { w.d.stop() }
@@ -148,9 +148,12 @@ import Testing
     let exclude = try String(
         contentsOf: URL(fileURLWithPath: wt.path).appendingPathComponent(".git/info/exclude"), encoding: .utf8)
     #expect(exclude.contains("/.agents/skills/kelp-*/"))
+    let theirs = folder.appendingPathComponent("kelp-deploy/SKILL.md")
+    try FileManager.default.createDirectory(at: theirs.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try "---\nname: kelp-deploy\n---\n".write(to: theirs, atomically: true, encoding: .utf8)
     _ = try await w.c.call(AddonsSet(worktreeId: wt.id, key: "kelp:kelp-terminals", on: false))
     _ = setup.writeProjectSkills(worktreeId: wt.id, cwd: wt.path)
-    #expect(listed() == ["kelp-settings"])
+    #expect(listed() == ["kelp-deploy", "kelp-settings"])
 }
 
 /// Tidy Up keeps the files as they were (a memory index: its whole folder), puts the brief beside them, and hands the
