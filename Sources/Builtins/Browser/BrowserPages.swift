@@ -20,7 +20,8 @@ final class PageSet {
     /// The page on show: one of `pages`, or nil for the tab's own.
     private(set) var shown: String?
     @ObservationIgnored private let row = NSStackView()
-    @ObservationIgnored private var pills: [String: PointerButton] = [:]
+    /// A pill each, by who drives its page: the tab's own page's under its `owner`, which no other page has.
+    @ObservationIgnored private(set) var pills: [String: PointerButton] = [:]
     @ObservationIgnored private var following = false
 
     init(host: BrowserTab) {
@@ -98,17 +99,19 @@ final class PageSet {
     /// The row: a pill for each page, who drives it and what it did last, the one on show filled.
     private func showRow() {
         host.switchHeight.isActive = pages.isEmpty
-        let all = [("", host)] + pages.map { ($0.who, $0.tab) }
-        for (index, (who, page)) in all.enumerated() {
-            let pill = pills[who] ?? makePill(who)
+        // The agent's own page ("") is one of `pages` when a subagent drove the tab first: keyed by its owner, the
+        // tab's own pill isn't the agent's.
+        let all = [(owner ?? "", host, true)] + pages.map { ($0.who, $0.tab, false) }
+        for (index, (who, page, own)) in all.enumerated() {
+            let pill = pills[who] ?? makePill(who, own: own)
             if pill.superview == nil { row.insertArrangedSubview(pill, at: min(index, row.arrangedSubviews.count)) }
             pill.title = name(who, page)
-            pill.restFill = (who.isEmpty ? nil : who) == shown ? .fillSelected : .fillRest
+            pill.restFill = (own ? nil : who) == shown ? .fillSelected : .fillRest
         }
     }
 
-    private func makePill(_ who: String) -> PointerButton {
-        let pill = PointerButton(title: "") { [weak self] in self?.show(who.isEmpty ? nil : who) }
+    private func makePill(_ who: String, own: Bool) -> PointerButton {
+        let pill = PointerButton(title: "") { [weak self] in self?.show(own ? nil : who) }
         pill.padding = Metrics.gap
         pill.font = .ui(TextSize.caption)
         pill.lineBreakMode = .byTruncatingTail
@@ -118,7 +121,7 @@ final class PageSet {
 
     /// `mobile · clicks “Pay now”`: who drives it (a subagent by what it was asked, the agent by name) and its last step.
     private func name(_ who: String, _ page: BrowserTab) -> String {
-        let whose = page.driverName(page === host ? owner ?? "" : who)
+        let whose = page.driverName(who)
         let step = page.drive?.lastStep
         return [String(whose.prefix(28)), step.map { String($0.prefix(28)) }].compactMap { $0 }.joined(separator: " · ")
     }

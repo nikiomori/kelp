@@ -679,3 +679,23 @@ import WorkbenchKit
     try await waitFor(5) { host.pageSet.pages.isEmpty }
     #expect(!host.title.hasSuffix(" +1"))
 }
+
+/// A subagent drove the tab first, then the agent itself opened a page: a pill each, and each brings its own page.
+@MainActor @Test(.timeLimit(.minutes(1))) func theAgentsPageHasItsOwnPillWhenASubagentCameFirst() async throws {
+    let app = AppModel()
+    var session = Session(cwd: "/", command: "claude")
+    session.status = .working
+    session.subagents = ["a1": "general-purpose"]
+    app.sessions = [session]
+    let host = BrowserTab(uri: TabURI.agentPage("about:blank"), app: app)
+    _ = try await host.browse("info", .object(["session": .string(session.id), "subagent": "a1"]))
+    #expect(host.pageSet.owner == "a1")
+    _ = try await host.browse("open", .object(["session": .string(session.id), "url": "about:blank#agent"]))
+    let agents = try #require(host.pageSet.pages.first)
+    #expect(agents.who == "" && host.pageSet.shown == "")
+    #expect(host.pageSet.pills.count == 2)
+    host.pageSet.pills["a1"]?.onClick?()
+    #expect(host.pageSet.shown == nil && host.shownPage === host)
+    host.pageSet.pills[""]?.onClick?()
+    #expect(host.pageSet.shown == "" && host.shownPage === agents.tab)
+}
