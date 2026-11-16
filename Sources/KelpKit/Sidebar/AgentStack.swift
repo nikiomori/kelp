@@ -102,7 +102,11 @@ final class AgentStack: NSView {
             app?.workbench.focus(session: id)
             app?.arrangement.parkedBack[id] = nil   // opened: its "Back:" line has been read
         }
-        button.radius = nil
+        // Round, and not clipped to that circle: it cut the state mark in the logo's corner. AppKit turns clipping back on
+        // whenever the radius changes, so the radius is set for good first.
+        button.radius = Self.hit / 2
+        button.layer?.cornerRadius = Self.hit / 2
+        button.clipsToBounds = false
         button.frame.size = NSSize(width: Self.hit, height: Self.hit)
         face.setFrameOrigin(NSPoint(x: (Self.hit - Self.side) / 2, y: (Self.hit - Self.side) / 2))
         button.addSubview(face)

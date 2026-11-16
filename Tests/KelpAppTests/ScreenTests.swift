@@ -183,6 +183,8 @@ extension OneAtATime {
                 stack(cell)?.subviews.compactMap { $0 as? PointerButton }.first {
                     $0.toolTip == "Fix login bug · Needs your input"
                 })
+            logo.layoutSubtreeIfNeeded()
+            #expect(!logo.clipsToBounds)   // the state mark in the logo's corner stands out of the round fill
             vc.app.workbench.show(workspace: "w2")
             logo.performClick(nil)
             #expect(vc.app.workbench.workspaceId == "w1")   // a logo opens its chat
