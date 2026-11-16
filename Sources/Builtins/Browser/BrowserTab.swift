@@ -11,10 +11,10 @@ import WorkbenchKit
 final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMessageHandler, NSTextFieldDelegate {
     let view: NSView
     let web: WKWebView
-    private let address = NSTextField()
+    let address = NSTextField()
     let designButton = PointerButton(frame: .zero)
     /// Shown instead of a blank page: the workspace's servers.
-    private let ports: PortsView
+    let ports: PortsView
     let app: AppModel
     var designOn = false
     @ObservationIgnored var clicks = DesignClicks()
@@ -43,12 +43,12 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// Why the last load failed, until the next one commits (`kelp browser` says it).
     var loadError: String?
     /// The address that failed while its error page shows: the bar, the tab and Reload keep to it, not to about:blank.
-    private var failed: URL?
+    var failed: URL?
     @ObservationIgnored private var watches: [NSKeyValueObservation] = []
     /// ⌘F's card (BrowserFind.swift), made the first time.
     @ObservationIgnored var finding: FindCard?
     /// The workspace's servers while a local address failed: the page loads again once its port is served.
-    @ObservationIgnored private lazy var serving = Watched(.ports, in: app)
+    @ObservationIgnored lazy var serving = Watched(.ports, in: app)
     /// How far the page has loaded, as a line under the bar while it loads.
     @ObservationIgnored private let progress = NSView()
     @ObservationIgnored private lazy var progressWidth = progress.widthAnchor.constraint(equalToConstant: 0)
@@ -56,7 +56,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// pane's top, in the middle, at that size; nil fills the pane (`placeWeb`).
     @ObservationIgnored var viewport: CGSize?
     /// The user's typing in the address bar removed text: no completion is offered for it.
-    @ObservationIgnored private var deleting = false
+    @ObservationIgnored var deleting = false
     private let back = IconButton(.symbol("chevron.left"), tip: String(localized: "Back"), target: nil, action: nil)
     private let forward = IconButton(
         .symbol("chevron.right"), tip: String(localized: "Forward"), target: nil, action: nil)
@@ -320,7 +320,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     }
 
     /// The page's address and title in the bar and the tab; the bar keeps what the user is typing in it.
-    private func showPage() {
+    func showPage() {
         let blank = web.url?.absoluteString == "about:blank"
         guard let url = blank ? failed ?? web.url : web.url else { return }
         page = (url, blank ? nil : web.title)
@@ -341,24 +341,6 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         } else {
             web.reload()
         }
-    }
-
-    /// Completes the address as it's typed from the pages visited (`BrowserHistory`), the rest selected, as Safari does.
-    func controlTextDidChange(_ notification: Notification) {
-        guard let editor = address.currentEditor() as? NSTextView, !deleting else { return }
-        let typed = address.stringValue, end = (typed as NSString).length
-        guard editor.selectedRange == NSRange(location: end, length: 0), let rest = BrowserHistory.completion(typed)
-        else { return }
-        address.stringValue = typed + rest
-        editor.selectedRange = NSRange(location: end, length: (rest as NSString).length)
-    }
-
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
-        deleting = [
-            #selector(NSText.delete(_:)), #selector(NSTextView.deleteBackward(_:)),
-            #selector(NSTextView.deleteForward(_:)), #selector(NSTextView.deleteWordBackward(_:))
-        ].contains(selector)
-        return false
     }
 
     func focus() {
@@ -400,11 +382,6 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         load(BrowserHistory.address(for: address.stringValue))
         view.window?.makeFirstResponder(web)
     }
-    @objc private func openExternal() { if let url = web.url { PreviewLinks.openOutside(url) } }
-
-    private static func openIn(_ browser: (name: String, icon: NSImage)?) -> String {
-        browser.map { String(localized: "Open in \($0.name)") } ?? String(localized: "Open in Browser")
-    }
 
     /// What Safari adds to WebKit's user agent. Without it sites take the page for an unknown browser and serve it
     /// their fallback layout (old Google, "browser not supported").
@@ -412,187 +389,4 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         let safari = Bundle(path: "/Applications/Safari.app")?.infoDictionary?["CFBundleShortVersionString"] as? String
         return "Version/\(safari ?? "26.0") Safari/605.1.15"
     }()
-
-    /// The browser that opens web links on this Mac, by name and with its icon: the button says where the page goes.
-    private static func defaultBrowser() -> (name: String, icon: NSImage)? {
-        guard let probe = URL(string: "https://example.com"),
-            let app = NSWorkspace.shared.urlForApplication(toOpen: probe)
-        else { return nil }
-        let icon = NSWorkspace.shared.icon(forFile: app.path)
-        icon.size = NSSize(width: Metrics.appIcon, height: Metrics.appIcon)
-        return ((FileManager.default.displayName(atPath: app.path) as NSString).deletingPathExtension, icon)
-    }
-
-    @objc private func showMore(_ sender: NSButton) {
-        let menu = NSMenu()
-        menu.add(Self.openIn(Self.defaultBrowser())) { [weak self] in self?.openExternal() }
-        menu.addItem(pageSizes())
-        menu.addItem(.separator())
-        menu.add(String(localized: "Reload Ignoring Cache")) { [weak self] in self?.reloadPage(fromOrigin: true) }
-        menu.add(String(localized: "Copy Screenshot")) { [weak self] in
-            self?.web.takeSnapshot(with: nil) { img, _ in   // WebKit answers on main
-                MainActor.assumeIsolated {
-                    guard let img else { return }
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.writeObjects([img])
-                    Banner.show(String(localized: "Screenshot copied"))
-                }
-            }
-        }
-        if recording == nil {
-            menu.add(String(localized: "Record Video")) { [weak self] in self?.recordFromMenu(gif: false) }
-            menu.add(String(localized: "Record GIF")) { [weak self] in self?.recordFromMenu(gif: true) }
-        } else {
-            menu.add(String(localized: "Stop Recording")) { [weak self] in self?.saveRecording() }
-        }
-        menu.addItem(.separator())
-        menu.add(String(localized: "Clear Cookies and Data for This Site")) { [weak self] in self?.clearSiteData() }
-        menu.addItem(.separator())
-        let tip = menu.addItem(
-            withTitle: String(localized: "Inspect: right-click the page › Inspect Element"), action: nil,
-            keyEquivalent: "")
-        tip.isEnabled = false
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
-    }
-
-    /// ⋯ › Page Size: the page at a phone's, a tablet's or a laptop's size, to see its layout there, or filling the pane.
-    private func pageSizes() -> NSMenuItem {
-        let sizes: [(String, CGSize?)] = [
-            (String(localized: "Fill the Pane"), nil),
-            (String(localized: "Phone 390×844"), CGSize(width: 390, height: 844)),
-            (String(localized: "Tablet 820×1180"), CGSize(width: 820, height: 1180)),
-            (String(localized: "Laptop 1280×800"), CGSize(width: 1280, height: 800))
-        ]
-        let menu = NSMenu()
-        for (name, size) in sizes {
-            menu.add(name) { [weak self] in
-                self?.viewport = size
-                self?.placeWeb()
-            }
-            .state = viewport == size ? .on : .off
-        }
-        if let viewport, !sizes.contains(where: { $0.1 == viewport }) {
-            menu.add(String(localized: "\(Int(viewport.width))×\(Int(viewport.height)) (the agent's)")) {}.state = .on
-        }
-        let item = NSMenuItem(title: String(localized: "Page Size"), action: nil, keyEquivalent: "")
-        item.submenu = menu
-        return item
-    }
-
-    private func clearSiteData() {
-        guard let host = web.url?.host else {
-            NSSound.beep()
-            return
-        }
-        let store = web.configuration.websiteDataStore, types = WKWebsiteDataStore.allWebsiteDataTypes()
-        store.fetchDataRecords(ofTypes: types) { [weak self] records in
-            guard self != nil else { return }
-            let mine = records.filter { host == $0.displayName || host.hasSuffix("." + $0.displayName) }
-            store.removeData(ofTypes: types, for: mine) { [weak self] in   // WebKit answers on main
-                MainActor.assumeIsolated {
-                    Banner.show(String(localized: "Cleared \(host)'s cookies and data"))
-                    self?.web.reload()
-                }
-            }
-        }
-    }
-
-    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        if webView.url?.absoluteString != "about:blank" {   // the error page (about:blank) keeps them
-            loadError = nil
-            failed = nil
-            serving.key = nil
-        }
-        ports.isHidden = true
-        showPage()
-        if drive != nil, let pageURL = webView.url?.absoluteString, pageURL != "about:blank" {
-            noteLog("[page] \(pageURL)")
-        }
-    }
-    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async
-        -> WKNavigationResponsePolicy
-    {
-        if drive != nil, navigationResponse.isForMainFrame,
-            let httpResponse = navigationResponse.response as? HTTPURLResponse, let url = httpResponse.url
-        {
-            noteRequest("\(httpResponse.statusCode) \(url.absoluteString) (page)")
-        }
-        return Self.downloads(navigationResponse) ? .download : .allow
-    }
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        showPage()
-        if !agent, let url = webView.url { BrowserHistory.visited(url) }
-        if designOn { webView.evaluateJavaScript(Self.designJS(accent: .themeAccent)) }
-        if drive != nil { webView.evaluateJavaScript(Self.watchJS) }   // a load begun before watch(): from now
-    }
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { showError(error) }
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        showError(error)
-    }
-    /// WebKit's page process quit (a crash, memory pressure): the pane stays white until something loads again.
-    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        if drive != nil { noteLog("[page] the page's process ended; loaded again") }
-        reloadPage()
-    }
-    private func showError(_ error: Error) {
-        let ns = error as NSError
-        // Not failures: a navigation cancelled by the next one (a click or Back while loading), a download handed off.
-        // Showing the error page for those cancelled the navigation the user had just started.
-        if ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled
-            || ns.domain == "WebKitErrorDomain" && ns.code == 102
-        {
-            return
-        }
-        failed = ns.userInfo[NSURLErrorFailingURLErrorKey] as? URL ?? failed
-        if let failed, Self.isLocal(failed) { serving.key = app.workbench.workspaceId }
-        loadError =
-            ns.localizedDescription
-            + ((ns.userInfo[NSURLErrorFailingURLStringErrorKey] as? String).map { " (\($0))" } ?? "")
-        let said = ns.localizedDescription, stop = said.hasSuffix(".") ? " " : ". "
-        let local = failed.map(Self.isLocal) == true
-        let text =
-            said + stop
-            + (local
-                ? String(localized: "Is the dev server running? The page opens once it starts here; ⌘R tries now.")
-                : String(localized: "Reload (⌘R) tries again."))
-        web.loadHTMLString(EmptyStateView.html(String(localized: "Can't open this page"), text: text), baseURL: nil)
-    }
-
-}
-
-/// Holds a browser tab. While the focus is in it (the page or its address), ⌘R reloads the page before the menu bar
-/// gives it to Run, as in Safari; elsewhere ⌘R stays Run. ⌘F there finds on the page.
-private final class BrowserBox: NSView {
-    var reload: () -> Void = {}
-    var find: (NSFindPanelAction?) -> Void = { _ in }
-
-    /// Edit › Find and ⌘G from the page (WKWebView doesn't answer them): the tab's find card.
-    @objc func performFindPanelAction(_ sender: Any?) {
-        find(NSFindPanelAction(rawValue: UInt((sender as? NSMenuItem)?.tag ?? 1)))
-    }
-
-    override func performKeyEquivalent(with e: NSEvent) -> Bool {
-        let mods = e.modifierFlags.intersection([.command, .shift, .option, .control])
-        guard mods == .command, let focus = window?.firstResponder as? NSView, focus.isDescendant(of: self) else {
-            return super.performKeyEquivalent(with: e)
-        }
-        // ⌘F by key code (a Russian layout sends another letter): the address field's editor would take it otherwise.
-        if e.keyCode == 3 {
-            find(nil)
-            return true
-        }
-        guard e.charactersIgnoringModifiers?.lowercased() == "r" else { return super.performKeyEquivalent(with: e) }
-        reload()
-        return true
-    }
-}
-
-/// The user's clicks on the page in Design Mode: each one lets one element's message through, within a second of it.
-struct DesignClicks {
-    private var at: Date?
-    mutating func note(_ now: Date = Date()) { at = now }
-    mutating func take(_ now: Date = Date()) -> Bool {
-        defer { at = nil }
-        return at.map { now.timeIntervalSince($0) < 1 } ?? false
-    }
 }

@@ -221,3 +221,13 @@ extension BrowserTab {
             })();
             """
 }
+
+/// The user's clicks on the page in Design Mode: each one lets one element's message through, within a second of it.
+struct DesignClicks {
+    private var at: Date?
+    mutating func note(_ now: Date = Date()) { at = now }
+    mutating func take(_ now: Date = Date()) -> Bool {
+        defer { at = nil }
+        return at.map { now.timeIntervalSince($0) < 1 } ?? false
+    }
+}

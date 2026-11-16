@@ -1,0 +1,89 @@
+import AppKit
+import Core
+import DesignKit
+import KelpKit
+import WebKit
+import WorkbenchKit
+
+/// What the page's loads tell the tab (a commit or a finish shows the page, a failure shows why in its place, an agent
+/// driving the page hears its address and status), and the address bar completing what's typed.
+extension BrowserTab {
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        if webView.url?.absoluteString != "about:blank" {   // the error page (about:blank) keeps them
+            loadError = nil
+            failed = nil
+            serving.key = nil
+        }
+        ports.isHidden = true
+        showPage()
+        if drive != nil, let pageURL = webView.url?.absoluteString, pageURL != "about:blank" {
+            noteLog("[page] \(pageURL)")
+        }
+    }
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async
+        -> WKNavigationResponsePolicy
+    {
+        if drive != nil, navigationResponse.isForMainFrame,
+            let httpResponse = navigationResponse.response as? HTTPURLResponse, let url = httpResponse.url
+        {
+            noteRequest("\(httpResponse.statusCode) \(url.absoluteString) (page)")
+        }
+        return Self.downloads(navigationResponse) ? .download : .allow
+    }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        showPage()
+        if !agent, let url = webView.url { BrowserHistory.visited(url) }
+        if designOn { webView.evaluateJavaScript(Self.designJS(accent: .themeAccent)) }
+        if drive != nil { webView.evaluateJavaScript(Self.watchJS) }   // a load begun before watch(): from now
+    }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { showError(error) }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        showError(error)
+    }
+    /// WebKit's page process quit (a crash, memory pressure): the pane stays white until something loads again.
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        if drive != nil { noteLog("[page] the page's process ended; loaded again") }
+        reloadPage()
+    }
+    func showError(_ error: Error) {
+        let ns = error as NSError
+        // Not failures: a navigation cancelled by the next one (a click or Back while loading), a download handed off.
+        // Showing the error page for those cancelled the navigation the user had just started.
+        if ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled
+            || ns.domain == "WebKitErrorDomain" && ns.code == 102
+        {
+            return
+        }
+        failed = ns.userInfo[NSURLErrorFailingURLErrorKey] as? URL ?? failed
+        if let failed, Self.isLocal(failed) { serving.key = app.workbench.workspaceId }
+        loadError =
+            ns.localizedDescription
+            + ((ns.userInfo[NSURLErrorFailingURLStringErrorKey] as? String).map { " (\($0))" } ?? "")
+        let said = ns.localizedDescription, stop = said.hasSuffix(".") ? " " : ". "
+        let local = failed.map(Self.isLocal) == true
+        let text =
+            said + stop
+            + (local
+                ? String(localized: "Is the dev server running? The page opens once it starts here; ⌘R tries now.")
+                : String(localized: "Reload (⌘R) tries again."))
+        web.loadHTMLString(EmptyStateView.html(String(localized: "Can't open this page"), text: text), baseURL: nil)
+    }
+
+    /// Completes the address as it's typed from the pages visited (`BrowserHistory`), the rest selected, as Safari does.
+    func controlTextDidChange(_ notification: Notification) {
+        guard let editor = address.currentEditor() as? NSTextView, !deleting else { return }
+        let typed = address.stringValue, end = (typed as NSString).length
+        guard editor.selectedRange == NSRange(location: end, length: 0), let rest = BrowserHistory.completion(typed)
+        else { return }
+        address.stringValue = typed + rest
+        editor.selectedRange = NSRange(location: end, length: (rest as NSString).length)
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        deleting = [
+            #selector(NSText.delete(_:)), #selector(NSTextView.deleteBackward(_:)),
+            #selector(NSTextView.deleteForward(_:)), #selector(NSTextView.deleteWordBackward(_:))
+        ].contains(selector)
+        return false
+    }
+}
