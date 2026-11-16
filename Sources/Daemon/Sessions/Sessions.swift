@@ -362,6 +362,13 @@ final class Sessions: Sendable {
     /// The idle pause counts in minutes: looked for at most every 15 s, not on each 0.5 s tick.
     static let idleCheckEvery: TimeInterval = 15
 
+    /// The ticker looks for idle agents as often as a quarter of Settings › hibernateMinutes, at most every 15 s: a pause
+    /// is late by a quarter of it at most. Switched off, never.
+    func idlePauseDue(_ now: Date) -> Bool {
+        let minutes = settings[SettingKeys.hibernateMinutes]
+        return minutes > 0 && idleCheckDue(now, every: min(Self.idleCheckEvery, minutes * 15))
+    }
+
     /// A look for idle agents is due: `every` seconds since the last (a short setting is looked for more often).
     func idleCheckDue(_ now: Date, every: TimeInterval = idleCheckEvery) -> Bool {
         pausingIdle.withLock { idle in

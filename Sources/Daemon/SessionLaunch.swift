@@ -20,9 +20,7 @@ extension Sessions {
     func tick(now: Date = Date()) -> Int {
         let ticked = live.all.count { $0.tick() }
         applyKeepAwake()
-        // Looked for as often as a quarter of the setting, up to every 15 s: a pause is late by at most a quarter of it.
-        let minutes = settings[SettingKeys.hibernateMinutes]
-        if minutes > 0, idleCheckDue(now, every: min(Self.idleCheckEvery, minutes * 15)) { hibernateIdle(now: now) }
+        if idlePauseDue(now) { hibernateIdle(now: now) }
         updates.restartOutdated()
         return ticked
     }
