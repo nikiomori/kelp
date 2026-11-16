@@ -34,7 +34,8 @@ import Testing
 }
 
 /// Every method is called by a test, by its type or its name: one no test calls can break unseen. The ones no test calls
-/// yet are listed; the list only shrinks (a new method comes with its test, and one that gets a test comes off it).
+/// yet are listed; the list only shrinks (a new method comes with its test, and one that gets a test comes off it). A
+/// call is made in code: `Name(` (not `Name.self` in a list, nor a mention in a comment) or its wire name as a string.
 @Test func everyMethodIsCalledByATest() throws {
     let untested: Set<String> = []
     let declaration = try NSRegularExpression(
@@ -49,15 +50,18 @@ import Testing
     }
     #expect(methods.count > 150, "the methods weren't found: \(methods.count)")
     let tests = sources(["Tests"]).filter { !$0.path.hasPrefix("Tests/ArchitectureTests/") }
-    let word = try NSRegularExpression(pattern: #"\b[A-Z]\w*"#)
+    let made = try NSRegularExpression(pattern: #"\b([A-Z]\w*)\("#)
     let names = Set(
         tests.flatMap { f in
             let code = codeOnly(f.text)
-            return word.matches(in: code, range: NSRange(code.startIndex..., in: code)).compactMap {
-                Range($0.range, in: code).map { String(code[$0]) }
+            return made.matches(in: code, range: NSRange(code.startIndex..., in: code)).compactMap {
+                Range($0.range(at: 1), in: code).map { String(code[$0]) }
             }
         })
-    let text = tests.map(\.text).joined(separator: "\n")
+    // Strings kept, comments gone (a `//` after a space or at a line's start: not the one in "https://").
+    let comment = #"(?m)(^|\s)//.*$"#
+    let text = tests.map { $0.text.replacingOccurrences(of: comment, with: "", options: .regularExpression) }
+        .joined(separator: "\n")
     let called = Set(
         methods.filter { type, name in names.contains(type) || (!name.isEmpty && text.contains("\"\(name)\"")) }.keys)
     let uncalled = Set(methods.keys).subtracting(called)
@@ -97,6 +101,33 @@ import Testing
         }
     }
     #expect(found == [], "use Paths.inside")
+    // Any other `x.hasPrefix(y + "/")`: each file that has one says why it isn't this question, or it fails.
+    let spelled: [String: String] = [
+        "Sources/Core/System/Paths.swift": "`Paths.relative`, given a root it then drops",
+        "Sources/Core/System/RemoteHost.swift": "a host's path, which this Mac can't resolve",
+        "Sources/Core/Extensions/ExtensionFiles.swift": "both sides resolved first (`Paths.real`)",
+        "Sources/Core/VM/VMs.swift": "a standardized path against the home folder, then the part below it",
+        "Sources/Agents/PermissionAsk.swift": "shown with ~ for the home folder",
+        "Sources/Builtins/Agents/Addons/AddonTexts.swift": "an item's path against folders built from the same root",
+        "Sources/Builtins/Browser/BrowserHistory.swift": "addresses, not paths",
+        "Sources/Builtins/Files/FilesPanel+Outline.swift": "the file tree's keys, all spelled from its root",
+        "Sources/Builtins/Files/FilesSearch.swift": "the search's keys, spelled from its root",
+        "Sources/Builtins/Files/FileNode.swift": "the file tree's keys, all spelled from its root",
+        "Sources/Builtins/Files/FileTab+Language.swift": "a file's path shown from the project's top",
+        "Sources/Daemon/Databases/DatabaseCopy.swift": "both sides resolved first, after `Paths.inside`",
+        "Sources/Daemon/Hosts/HostFiles.swift": "a host's path, which this Mac can't resolve",
+        "Sources/Daemon/Workspaces/DiskUsage+Host.swift": "a host's paths, rebased from one root to another",
+        "Sources/Daemon/Workspaces/DiskUsage.swift": "paths of one listing (git's, du's), relative or spelled alike",
+        "Sources/KelpKit/Extensions/ExtPages.swift": "both sides resolved first (`resolvingSymlinksInPath`)"
+    ]
+    let prefix = try NSRegularExpression(pattern: #"\.hasPrefix\([\w.$]+ \+ "/"\)"#)
+    let files = Set(
+        sources(["Sources"]).filter { f in
+            let code = f.text.replacingOccurrences(of: #"(?m)(^|\s)//.*$"#, with: "", options: .regularExpression)
+            return prefix.firstMatch(in: code, range: NSRange(code.startIndex..., in: code)) != nil
+        }.map(\.path))
+    #expect(files.subtracting(spelled.keys).sorted() == [], "use Paths.inside, or say here why it's not that question")
+    #expect(Set(spelled.keys).subtracting(files).sorted() == [], "none left: take it off the list")
 }
 
 /// The main window is Workbench's to reach (`Shell/Workbench*.swift`): the rest of the shell asks it (`editors`,
@@ -164,4 +195,16 @@ import Testing
     // asks whether to hand a page back that the user left alone (`BrowserTab.remindAfter`).
     #expect(waits.count <= 20, "a wait in place of the event that says it's ready: \(waits)")
     #expect(waits.count >= 20, "\(waits.count) now: lower this")
+}
+
+/// A test waits for what it waits on (`waitFor`), not for a time: a sleep guesses how long something takes, too long on
+/// a quiet machine and too short on a busy one, and a "nothing happened" after one passes whatever happened later. The
+/// count holds both ways: a sleep that goes lowers it.
+@Test func testsSleepOnlyWhereTimeIsTheSubject() throws {
+    let sleep = try NSRegularExpression(pattern: #"Task\.sleep|usleep\(|Thread\.sleep|sleep\(for:"#)
+    let count = sources(["Tests"]).map { f in
+        let code = codeOnly(f.text)
+        return sleep.numberOfMatches(in: code, range: NSRange(code.startIndex..., in: code))
+    }.reduce(0, +)
+    #expect(count == 29, "sleeps in the tests: wait for the event instead (`waitFor`), or lower the count")
 }
