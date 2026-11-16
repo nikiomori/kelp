@@ -36,7 +36,7 @@ struct PRWork {
     func showFiles() {
         Task {
             guard let wt = await folder() else { return }
-            app.workbench.open(TabURI.diff(wt.id, source: "branch"), workspace: wt.id)
+            app.workbench.open(TabURI.diff(wt.id, source: .branch), workspace: wt.id)
         }
     }
 
@@ -52,7 +52,7 @@ struct PRWork {
             ]
             guard let prompt = await app.call(RecipeRender(id: wt.id, name: "reviewWith", vars: vars)) else { return }
             await start(prompt, in: wt, draft: false, title: String(localized: "Review: #\(pr.number)"))
-            app.workbench.open(TabURI.diff(wt.id, source: "branch"), split: .right, workspace: wt.id, focus: false)
+            app.workbench.open(TabURI.diff(wt.id, source: .branch), split: .right, workspace: wt.id, focus: false)
         }
     }
 

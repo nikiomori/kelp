@@ -33,21 +33,21 @@ extension GitDiff: Handled {
         let workspace = try scm.store.worktree(named: id)
         var dir = workspace.path
         let src: DiffSource
-        switch source ?? "all" {
-        case "tidy":
+        switch source ?? .all {
+        case .tidy:
             // Tidy Up's copies against the files now: not the workspace's git, the instruction files Kelp kept.
             guard let (run, info) = TidyRuns.open(id, root: scm.root) else { return [] }
             return try TidyRuns.diff(run, info, remotes: scm.remotes).filter { file == nil || $0.path == file }
-        case "turn": (dir, src) = try scm.turnDiff(session: session, turn: turn)
-        case "unstaged": src = .unstaged
-        case "staged": src = .staged
-        case "branch":
+        case .turn: (dir, src) = try scm.turnDiff(session: session, turn: turn)
+        case .unstaged: src = .unstaged
+        case .staged: src = .staged
+        case .branch:
             src = .branch(
                 base: try clientRef(base) ?? (try scm.store.repo(workspace.repoId)?.baseBranch ?? "main"))
-        case "commit":
+        case .commit:
             guard let commit else { throw RPCError.invalidParams("missing commit") }
             src = .commit(try clientRef(commit) ?? "")
-        default: src = .allUncommitted
+        case .all: src = .allUncommitted
         }
         return try Git.diff(
             dir, source: src, file: file, ignoreSpace: ignoreSpace == true, context: context ?? 3,

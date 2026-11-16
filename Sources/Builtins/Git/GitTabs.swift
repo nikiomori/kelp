@@ -41,7 +41,7 @@ final class DiffTab: TabContent {
         worktreeId = components?.path ?? ""
         func item(_ n: String) -> String? { components?.queryItems?.first { $0.name == n }?.value }
         file = item("file")
-        source = item("source").flatMap(DiffSource.init(wire:))
+        source = item("source").flatMap(GitDiff.Source.init(rawValue:)).flatMap(DiffSource.init(wire:))
         commit = item("commit")
         _ = controller.view
         if let file {
@@ -90,12 +90,12 @@ extension GitDiff {
 
     func basis(_ event: GitEvent?) -> Basis? {
         guard let event else { return nil }
-        switch source ?? "all" {
+        switch source ?? .all {
         // HEAD against its base's merge base
-        case "branch": return Basis(branches: event.branches, error: event.error)
-        case "commit": return Basis(head: commit == "HEAD" ? event.branches?.head : nil, error: event.error)
-        case "unstaged", "turn": return Basis(changes: event.changes, stats: event.stats, error: event.error)   // the files against the index, or a snapshot
-        default:
+        case .branch: return Basis(branches: event.branches, error: event.error)
+        case .commit: return Basis(head: commit == "HEAD" ? event.branches?.head : nil, error: event.error)
+        case .unstaged, .turn: return Basis(changes: event.changes, stats: event.stats, error: event.error)   // the files against the index, or a snapshot
+        case .all, .staged, .tidy:
             return Basis(changes: event.changes, stats: event.stats, head: event.branches?.head, error: event.error)   // against HEAD
         }
     }

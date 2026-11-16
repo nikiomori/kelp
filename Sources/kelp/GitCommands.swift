@@ -6,7 +6,12 @@ extension Main {
     static func git(_ cmd: String, _ sub: String?, _ c: RPCClient) async throws {
         switch (cmd, sub) {
         case ("diff", _):
-            for f in try await c.call(GitDiff(id: try await currentWorktreeID(c), source: flag("--source") ?? "all")) {
+            let named = flag("--source") ?? "all"
+            guard let source = GitDiff.Source(rawValue: named) else {
+                let known = GitDiff.Source.allCases.map(\.rawValue).joined(separator: ", ")
+                throw RPCError.invalidParams("no diff source “\(named)”: one of \(known)")
+            }
+            for f in try await c.call(GitDiff(id: try await currentWorktreeID(c), source: source)) {
                 print(
                     "\(f.path)  "
                         + (f.tooLarge == true ? "(too large to count here)" : "+\(f.additions) -\(f.deletions)"))

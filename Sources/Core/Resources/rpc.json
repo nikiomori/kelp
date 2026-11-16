@@ -1888,6 +1888,19 @@
         ],
         "type" : "object"
       },
+      "GitDiff.Source" : {
+        "description" : "What the diff is taken against; a name the daemon doesn't know is refused, not read as `all`.",
+        "enum" : [
+          "all",
+          "unstaged",
+          "staged",
+          "branch",
+          "commit",
+          "turn",
+          "tidy"
+        ],
+        "type" : "string"
+      },
       "GitEvent" : {
         "description" : "A watched workspace's git, read again after its files changed. `error`: git couldn't say (not a repository…).",
         "properties" : {
@@ -8407,7 +8420,7 @@
           "name" : "source",
           "required" : false,
           "schema" : {
-            "type" : "string"
+            "$ref" : "#/components/schemas/GitDiff.Source"
           }
         },
         {

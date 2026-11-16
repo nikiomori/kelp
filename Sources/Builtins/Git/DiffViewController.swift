@@ -350,19 +350,19 @@ enum DiffSource: Int, CaseIterable {
     /// for it, not in the menu.
     case tidy
 
-    var wire: String {
+    var wire: GitDiff.Source {
         switch self {
-        case .uncommitted: "all"
-        case .unstaged: "unstaged"
-        case .staged: "staged"
-        case .branch: "branch"
-        case .commit: "commit"
-        case .turn: "turn"
-        case .tidy: "tidy"
+        case .uncommitted: .all
+        case .unstaged: .unstaged
+        case .staged: .staged
+        case .branch: .branch
+        case .commit: .commit
+        case .turn: .turn
+        case .tidy: .tidy
         }
     }
 
-    init?(wire: String) {
+    init?(wire: GitDiff.Source) {
         guard let found = Self.allCases.first(where: { $0.wire == wire }) else { return nil }
         self = found
     }

@@ -82,7 +82,7 @@ final class ChangeBars {
         let shown = hunks[mark.hunk], wid = worktree.id, file = file
         Task { [weak self] in
             // Stage and Revert work on what isn't staged yet, as `git.hunk` finds it: the same lines of the unstaged diff.
-            let unstaged = await self?.app.quiet(GitDiff(id: wid, source: "unstaged", file: file))?.first?.hunks ?? []
+            let unstaged = await self?.app.quiet(GitDiff(id: wid, source: .unstaged, file: file))?.first?.hunks ?? []
             guard let self else { return }
             let hunk = Self.counterpart(of: shown, in: unstaged)
             let popover = NSPopover()

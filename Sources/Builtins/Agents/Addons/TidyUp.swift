@@ -57,7 +57,7 @@ struct TidyUp {
     }
 
     /// Review: every change against Kelp's copies, in the diff tab.
-    func review() { app.workbench.open(TabURI.diff(worktreeId, source: "tidy")) }
+    func review() { app.workbench.open(TabURI.diff(worktreeId, source: .tidy)) }
 
     /// Keep Changes: the result leaves the panel; the copies stay in Kelp's home.
     func keep(_ done: @escaping () -> Void) async {

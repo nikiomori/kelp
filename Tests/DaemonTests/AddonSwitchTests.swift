@@ -195,7 +195,7 @@ import Testing
     try "- rule 1\n".write(to: agents, atomically: true, encoding: .utf8)
     let tidied = try #require(try await w.c.call(AddonsList(worktreeId: wt.id)).tidied)
     #expect(tidied.changed == 1 && tidied.tokensNow < tidied.tokensBefore)
-    let diff = try await w.c.call(GitDiff(id: wt.id, source: "tidy"))
+    let diff = try await w.c.call(GitDiff(id: wt.id, source: .tidy))
     #expect(diff.map(\.path) == ["AGENTS.md"])
     _ = try await w.c.call(AddonsTidyEnd(worktreeId: wt.id, undo: true))
     #expect(try String(contentsOf: agents, encoding: .utf8) == long)

@@ -37,11 +37,11 @@ public enum TabURI {
     public static func promptPath(_ uri: String) -> String { body(uri).removingPercentEncoding ?? body(uri) }
     public static let promptDone = Core.Prompts.done
     /// A workspace's changes: all of them, one file's, a source's ("staged", "turn"…) or a commit's.
-    public static func diff(_ worktree: String, file: String? = nil, source: String? = nil, commit: String? = nil)
-        -> String
-    {
+    public static func diff(
+        _ worktree: String, file: String? = nil, source: GitDiff.Source? = nil, commit: String? = nil
+    ) -> String {
         var components = URLComponents()
-        components.queryItems = [("file", file), ("source", source), ("commit", commit)].compactMap { name, value in
+        components.queryItems = [("file", file), ("source", source?.rawValue), ("commit", commit)].compactMap { name, value in
             value.map { URLQueryItem(name: name, value: $0) }
         }
         return "diff:\(worktree)"

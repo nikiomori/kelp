@@ -170,7 +170,7 @@ final class PreviewModel {
         guard let worktree else { return }
         Task {
             // Uncommitted changes in it: show those (the hunk with the line asked about, else the first).
-            let diff = await app.quiet(GitDiff(id: worktree, source: "all", file: path))
+            let diff = await app.quiet(GitDiff(id: worktree, source: .all, file: path))
             guard let hunks = diff?.first?.hunks, !hunks.isEmpty else { return }
             let hunk =
                 hunks.first { hunk in line.map { l in hunk.lines.contains { $0.newLine == l } } ?? false } ?? hunks[0]

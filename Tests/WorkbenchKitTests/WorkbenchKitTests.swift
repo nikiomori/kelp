@@ -95,7 +95,7 @@ import WorkbenchKit
 @Test func diffURIsCarryWhatTheyShow() {
     #expect(TabURI.diff("w1") == "diff:w1")
     #expect(
-        TabURI.diff("w1", file: "my dir/a&b.swift", source: "staged")
+        TabURI.diff("w1", file: "my dir/a&b.swift", source: .staged)
             == "diff:w1?file=my%20dir/a%26b.swift&source=staged")
     #expect(TabURI.scheme(TabURI.diff("w1", commit: "abc")) == "diff")
 }

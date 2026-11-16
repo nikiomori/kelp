@@ -42,3 +42,10 @@ import Testing
 @Test func theClientRecognisesTheDaemonsReplies() {
     #expect(RPCClient.resultID(Daemon.replyLine(id: .int(5), result: Data("[1]".utf8))) == 5)
 }
+
+/// A diff source the daemon doesn't know is refused, not read as every change (`git.diff`'s `source`).
+@Test func anUnknownDiffSourceIsRefused() throws {
+    #expect(throws: RPCError.self) { try GitDiff.decoded(.obj(["id": "w", "source": "everything"])) }
+    #expect(try GitDiff.decoded(.obj(["id": "w", "source": "staged"])).source == .staged)
+    #expect(try GitDiff.decoded(.obj(["id": "w"])).source == nil)
+}

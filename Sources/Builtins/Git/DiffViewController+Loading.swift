@@ -33,16 +33,16 @@ extension DiffViewController {
     private func request() -> GitDiff {
         let id = worktreeId ?? ""
         if let single {
-            return single.commit.map { GitDiff(id: id, source: "commit", file: single.file, commit: $0) }
+            return single.commit.map { GitDiff(id: id, source: .commit, file: single.file, commit: $0) }
                 ?? GitDiff(id: id, source: single.source.wire, file: single.file)
         }
         switch sourcePicked {
         case .uncommitted, .unstaged, .staged, .branch, .tidy: return GitDiff(id: id, source: sourcePicked.wire)
-        case .commit: return GitDiff(id: id, source: "commit", commit: commitHash ?? "HEAD")
+        case .commit: return GitDiff(id: id, source: .commit, commit: commitHash ?? "HEAD")
         case .turn:
             // The agent whose turns the picker lists, not whichever has the focus by now.
             let listed = (turnPop.itemArray.first?.representedObject as? SessionTurns.Mark)?.session
-            var turn = GitDiff(id: id, source: "turn", session: listed ?? FileActions(app).targetAgent?.id ?? "")
+            var turn = GitDiff(id: id, source: .turn, session: listed ?? FileActions(app).targetAgent?.id ?? "")
             turn.turn = chosenTurn
             return turn
         }

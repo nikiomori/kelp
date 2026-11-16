@@ -36,7 +36,12 @@ public struct GitPush: RPCMethod {
 public struct GitDiff: RPCMethod {
     public static let name = "git.diff"
     public typealias Result = [FileDiff]
-    public var id: String, source: String?, file: String?, base: String?, commit: String?, session: String?
+    /// What the diff is taken against; a name the daemon doesn't know is refused, not read as `all`.
+    public enum Source: String, Codable, Sendable, CaseIterable {
+        case all, unstaged, staged, branch, commit, turn
+        case tidy   // Tidy Up's copies of the instruction files against the files now
+    }
+    public var id: String, source: Source?, file: String?, base: String?, commit: String?, session: String?
     /// Changes of whitespace alone left out (`git diff -w`).
     public var ignoreSpace: Bool?
     /// Unchanged lines around each change, 3 when nil (git's -U).
@@ -44,7 +49,7 @@ public struct GitDiff: RPCMethod {
     /// With source "turn": that turn (`SessionTurns.Mark.id`), up to where the next one began; nil: the last turn.
     public var turn: String?
     public init(
-        id: String, source: String? = nil, file: String? = nil, base: String? = nil, commit: String? = nil,
+        id: String, source: Source? = nil, file: String? = nil, base: String? = nil, commit: String? = nil,
         session: String? = nil,
         ignoreSpace: Bool? = nil
     ) {

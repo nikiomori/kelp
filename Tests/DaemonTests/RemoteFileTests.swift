@@ -55,7 +55,7 @@ import Testing
         }.count
     }
     let before = reads()
-    let diffs = try await c.call(GitDiff(id: w.id, source: "unstaged"))
+    let diffs = try await c.call(GitDiff(id: w.id, source: .unstaged))
     #expect(
         (1...5).allSatisfy { i in
             diffs.first { $0.path == "new\(i).txt" }?.hunks.first?.lines.map(\.text) == ["file \(i)"]

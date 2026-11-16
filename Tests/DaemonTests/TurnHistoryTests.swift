@@ -30,10 +30,10 @@ import Testing
     try await turn("now the second one", writes: "two.txt")
     let marks = try await w.c.call(SessionTurns(id: s.id))
     #expect(marks.map(\.prompt) == ["now the second one", "write the first file"])
-    var first = GitDiff(id: wt.id, source: "turn", session: s.id)
+    var first = GitDiff(id: wt.id, source: .turn, session: s.id)
     first.turn = marks[1].id
     #expect(try await w.c.call(first).map(\.path) == ["one.txt"])   // not the second turn's file
-    var last = GitDiff(id: wt.id, source: "turn", session: s.id)
+    var last = GitDiff(id: wt.id, source: .turn, session: s.id)
     last.turn = marks[0].id
     #expect(try await w.c.call(last).map(\.path) == ["two.txt"])
     #expect(try Git.run(["log", "--all", "--oneline"], cwd: wt.path, remotes: .none).split(separator: "\n").count == 1)   // nothing in the project's history
@@ -41,7 +41,7 @@ import Testing
     let one = try #require(try await w.c.call(GitLineOrigin(worktreeId: wt.id, file: "one.txt", line: 1)))
     #expect(one.turn?.prompt == "write the first file" && one.author == "Agent" && one.commit != nil)
     // Its changes read as that commit's: the turn's file, not the next one's.
-    #expect(try await w.c.call(GitDiff(id: wt.id, source: "commit", commit: one.commit)).map(\.path) == ["one.txt"])
+    #expect(try await w.c.call(GitDiff(id: wt.id, source: .commit, commit: one.commit)).map(\.path) == ["one.txt"])
     let two = try await w.c.call(GitLineOrigin(worktreeId: wt.id, file: "two.txt", line: 1))
     #expect(two?.turn?.id == marks[0].id)
     #expect(try Git.run(["log", "--all", "--oneline"], cwd: wt.path, remotes: .none).split(separator: "\n").count == 1)
@@ -49,7 +49,7 @@ import Testing
     try w.d.sessions.pauseSessions(of: wt.id)
     #expect(w.d.sessions.existing(s.id) == nil)
     #expect(try await w.c.call(last).map(\.path) == ["two.txt"])
-    #expect(try await w.c.call(GitDiff(id: wt.id, source: "turn", session: s.id)).map(\.path) == ["two.txt"])
+    #expect(try await w.c.call(GitDiff(id: wt.id, source: .turn, session: s.id)).map(\.path) == ["two.txt"])
     #expect(w.d.sessions.existing(s.id) == nil)
 }
 
