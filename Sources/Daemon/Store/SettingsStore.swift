@@ -50,6 +50,9 @@ final class SettingsStore: Sendable {
                     values = onDisk
                 }
                 values[key] = value == .null ? nil : value
+                // Limit: an editor's save between this look and the write's rename (encoding and writing the file,
+                // well under a millisecond) is written over, and the last good copy then holds Kelp's, not the hand
+                // edit. Editors don't lock the file, so there is nothing to wait on that would close it.
                 guard modified() == seen else { continue }
                 try write(values)
                 return values
