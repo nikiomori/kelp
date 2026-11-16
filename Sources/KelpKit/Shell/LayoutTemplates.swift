@@ -61,14 +61,14 @@ struct LayoutTemplates {
         else { return }
         defer { Self.using.remove(id) }
         if template.runs.contains(where: { Self.run($0.uri).script != nil }) {
-            guard await app.extensions.all.runs?.trust(id) == true else { return }
+            guard await KelpFile(app: app).trusted(id) else { return }
         }
         var started: [String: String] = [:]
         for tab in template.runs {
             let run = Self.run(tab.uri)
             let session: Session?
             if let script = run.script {
-                session = await app.extensions.all.runs?.run(id, script)
+                session = await KelpFile(app: app).run(id, script)
             } else {
                 session = await app.call(
                     app.workbench.sized(

@@ -54,4 +54,24 @@ extension AppOfItsOwn {
         await LayoutTemplates(app: rig.app).use(dev, in: wid)
         #expect(try await waitFor(5) { runs.running(in: wid).count == 1 && runs.running(in: wid) != [first] })
     }
+
+    /// Run switched off, a template's project command still runs (its trust is the shell's to ask, `KelpFile`), as a
+    /// session of its own, rather than the click doing nothing.
+    @Test func aTemplatesCommandRunsWithRunSwitchedOff() async throws {
+        let rig = try await AppRig()
+        defer { rig.done() }
+        rig.app.extensions.reload()
+        rig.app.settings.apply([SettingKeys.disabledExtensions.key: .array(["kelp.run"])])
+        #expect(try await waitFor(5) { rig.app.extensions.all.runs == nil })
+        let wid = rig.workspace.id
+        try rig.write(".kelp.yaml", "run: sleep 32\nlayout.dev: run\n")
+        let dev = try #require(await LayoutTemplates(app: rig.app).fromFile(rig.workspace).first)
+        let now = try await rig.client.call(ScriptsList(worktreeId: wid))
+        _ = try await rig.client.call(ScriptsTrust(worktreeId: wid, digest: now.digest))
+        await LayoutTemplates(app: rig.app).use(dev, in: wid)
+        let tabs = rig.app.workbench.layouts[wid].allTabs.map(\.uri)
+        #expect(tabs.count == 1 && TabURI.scheme(tabs[0]) == "session", "\(tabs)")
+        let ran = try await rig.client.call(SessionList()).map(\.argv).joined().joined(separator: " ")
+        #expect(ran.contains("sleep 32"), "\(ran)")
+    }
 }

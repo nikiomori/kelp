@@ -170,7 +170,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // loaded workspace's tabs through Workbench (`loadedTabs`, `content`, `openBeside`); a subagent's `title` is read.
     // +3: a project's open pull requests are read from their watch by the Issues panel, ⌘P's "#" (Issues', through
     // `quickPrefixes`) and the new-branch sheet alike (`PRsEvent`'s `key`, `forgottenWith`, `open`).
-    #expect(declared == 362, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +3: a .kelp.yaml's trust is the shell's to ask (`KelpFile`, its `init`, `trusted`), so a layout template and a new
+    // workspace's setup run with Run turned off; Run asks it there too.
+    #expect(declared == 365, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -266,8 +268,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 392, "lines over 120: \(over120)")
-    #expect(over120 >= 392, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 391, "lines over 120: \(over120)")
+    #expect(over120 >= 391, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out

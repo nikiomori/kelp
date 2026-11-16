@@ -4,8 +4,9 @@ import WorkbenchKit
 
 /// What runs in a workspace, from the built-in that runs a project's commands (Run): the window bar's run chip and the
 /// page it serves, the Run menu's project commands, how a run's tab looks and its menu, what the "+" menu and the empty
-/// workspace offer to run, and a new workspace's setup. None, and nothing of it shows: no chip, no run choices. What the
-/// tabs follow (`look`, `port`, `tabsFollow`, `choices`) is read under observation: it must not do work. Runs put away in the Run menu are its `Contributions.sessionHidden`.
+/// workspace offer to run. None, and nothing of it shows: no chip, no run choices (a template's and a new workspace's
+/// commands run as plain sessions, `KelpFile`). What the tabs follow (`look`, `port`, `tabsFollow`, `choices`) is read
+/// under observation: it must not do work. Runs put away in the Run menu are its `Contributions.sessionHidden`.
 package struct ProjectRuns {
     /// Right of the search in the window bar, before the cup.
     let bar: @MainActor () -> [any WindowBarItem]
@@ -23,12 +24,8 @@ package struct ProjectRuns {
     let choices: @MainActor (_ workspace: String) -> [NewTabChoices.Action]
     /// A page the hover card lists, opened beside you (one that isn't a web page has its address copied).
     let open: @MainActor (ServedPage, _ workspace: String) -> Void
-    /// A new workspace whose .kelp.yaml setup waits for the file's trust; the pull request it holds, if any.
-    let setup: @MainActor (_ workspace: String, _ pullRequest: Int?) async -> Void
-    /// Whether the workspace's .kelp.yaml is trusted now, asked first if it isn't (a template that runs its commands).
-    let trust: @MainActor (_ workspace: String) async -> Bool
     /// A .kelp.yaml command started as Run starts one (an earlier copy ended, kept as the workspace's run, put away in
-    /// the Run menu if its last copy was), its tab left to the caller: a template's, which places it.
+    /// the Run menu if its last copy was), its trust asked already (`KelpFile`), its tab left to the caller.
     let run: @MainActor (_ workspace: String, _ name: String) async -> Session?
     package init(
         bar: @escaping @MainActor () -> [any WindowBarItem],
@@ -39,8 +36,6 @@ package struct ProjectRuns {
         tabMenu: @escaping @MainActor (NSMenu, Session) -> Void,
         choices: @escaping @MainActor (String) -> [NewTabChoices.Action],
         open: @escaping @MainActor (ServedPage, String) -> Void,
-        setup: @escaping @MainActor (String, Int?) async -> Void,
-        trust: @escaping @MainActor (String) async -> Bool,
         run: @escaping @MainActor (String, String) async -> Session?
     ) {
         self.bar = bar
@@ -51,8 +46,6 @@ package struct ProjectRuns {
         self.tabMenu = tabMenu
         self.choices = choices
         self.open = open
-        self.setup = setup
-        self.trust = trust
         self.run = run
     }
 }

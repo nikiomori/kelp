@@ -46,7 +46,7 @@ extension Workbench {
             guard let rid = await project(repo), let made = await app.call(WorktreeCreate(repoId: rid)) else { return }
             let id = made.worktree.id
             show(workspace: id)
-            if made.setupNeedsTrust == true { await app.extensions.all.runs?.setup(id, nil) }
+            if made.setupNeedsTrust == true { await KelpFile(app: app).setup(id, pullRequest: nil) }
         }
     }
 
@@ -78,7 +78,7 @@ extension Workbench {
             let choice = sheet.choice
             guard let made = await app.call(NewChatSheet.request(choice, repo: rid)) else { return }
             await startChat(on: made.worktree.id, agent: choice.agent)
-            if made.setupNeedsTrust == true { await app.extensions.all.runs?.setup(made.worktree.id, choice.pr) }
+            if made.setupNeedsTrust == true { await KelpFile(app: app).setup(made.worktree.id, pullRequest: choice.pr) }
         }
     }
 

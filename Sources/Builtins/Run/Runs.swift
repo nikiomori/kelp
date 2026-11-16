@@ -105,16 +105,10 @@ final class Runs: NSObject, NSMenuDelegate {
         }
     }
 
-    /// A .kelp.yaml command, trusted first if the file isn't yet. Its run (or one picked in the list) becomes ⌘R's.
-    /// `pullRequest`: the folder holds that PR's code, which the file's trust doesn't cover; it's asked about every time.
-    func runKelp(
-        _ wid: String, _ name: String, _ info: ScriptsList.Result, remember: Bool = false, pullRequest: Int? = nil
-    ) async {
-        if let pullRequest {
-            guard ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] == nil, await askPullRequest(pullRequest, info)
-            else { return }
-        }
-        guard await trust(wid, info) else { return }
+    /// A .kelp.yaml command, trusted first if the file isn't yet (`KelpFile`). Its run (or one picked in the list)
+    /// becomes ⌘R's.
+    func runKelp(_ wid: String, _ name: String, _ info: ScriptsList.Result, remember: Bool = false) async {
+        guard await KelpFile(app: app).trusted(wid, info) else { return }
         if remember || name == "run" { self.remember("kelp:" + name, in: wid) }
         await start(wid, "kelp:" + name, app.workbench.sized(ScriptsRun(worktreeId: wid, name: name), split: .down))
     }
@@ -123,27 +117,6 @@ final class Runs: NSObject, NSMenuDelegate {
     /// an earlier copy of it ending first and the run kept as the workspace's, but its tab is the template's to place.
     func runForTemplate(_ wid: String, _ name: String) async -> Session? {
         await launch(wid, "kelp:" + name, app.workbench.sized(ScriptsRun(worktreeId: wid, name: name)), tab: false)
-    }
-
-    /// Whether the workspace's .kelp.yaml is trusted, asked first when it isn't (`ProjectRuns.trust`: a template that
-    /// runs its commands asks here, as running one does).
-    func trust(_ wid: String) async -> Bool {
-        guard let info = await load(wid, asked: true) else { return false }
-        return await trust(wid, info)
-    }
-
-    private func trust(_ wid: String, _ info: ScriptsList.Result) async -> Bool {
-        guard !info.trusted else { return true }
-        // A snapshot run takes clicks and keys from its environment (DevAids): anyone could start one that presses
-        // Trust, so that window never trusts anything.
-        guard ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] == nil, await askTrust(info) else { return false }
-        // The digest of the text shown: a file changed since (an agent, a pull) isn't trusted unseen.
-        return await app.call(ScriptsTrust(worktreeId: wid, digest: info.digest)) != nil
-    }
-
-    /// A new workspace's setup, when its .kelp.yaml has one that waits for the file's trust (asked here first).
-    func setup(_ wid: String, pullRequest: Int?) async {
-        if let info = await load(wid), info.setup != nil { await runKelp(wid, "setup", info, pullRequest: pullRequest) }
     }
 
     /// Run File / Test at Cursor: the file's language's `run` / `test`, run like the project's commands. Languages come
@@ -241,66 +214,11 @@ final class Runs: NSObject, NSMenuDelegate {
         }
     }
 
-    /// The first time a project's commands would run: everything trusting the file allows (commands, the agents and links
-    /// a new workspace gets, the prompts it puts in agents' mouths), and whose it is.
-    private func askTrust(_ info: ScriptsList.Result) async -> Bool {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Run this project's commands?")
-        alert.informativeText =
-            String(
-                localized:
-                    "\((info.file as NSString).abbreviatingWithTildeInPath) asks Kelp to run these as you, in this folder. "
-            )
-            + String(
-                localized:
-                    "Trust it only if you know where this project comes from. Kelp asks again if the file changes.")
-        alert.accessoryView = Self.trustText(info)
-        alert.addButton(withTitle: String(localized: "Trust and Run"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        return await runSheet(alert) == .alertFirstButtonReturn
-    }
-
-    private func askPullRequest(_ number: Int, _ info: ScriptsList.Result) async -> Bool {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Run setup on pull request #\(number)?")
-        alert.informativeText =
-            String(
-                localized:
-                    "Its code comes from whoever wrote the pull request: what setup installs or builds can run their scripts as you. "
-            )
-            + String(localized: "Skip it to read the code first.")
-        alert.accessoryView = Self.trustText(info)
-        alert.addButton(withTitle: String(localized: "Run Setup"))
-        alert.addButton(withTitle: String(localized: "Skip"))
-        return await runSheet(alert) == .alertFirstButtonReturn
-    }
-
     /// A project's commands file as the menu names it: from its first folder that starts with a dot (`.conductor/settings.toml`,
     /// `.codex/environments/environment.toml`), else its own name (`conductor.json`).
     static func shortName(_ path: String) -> String {
         let parts = path.split(separator: "/").suffix(3)
         return (parts.firstIndex { $0.hasPrefix(".") }.map { parts[$0...] } ?? parts.suffix(1)).joined(separator: "/")
-    }
-
-    /// The file's effects as the file spells them, scrollable when long.
-    static func trustText(_ info: ScriptsList.Result) -> NSView {
-        var lines: [String] = []
-        if let setup = info.setup { lines.append("setup: \(setup)") }
-        for script in info.scripts { lines.append("\(script.name): \(script.command)") }
-        if !info.tabs.isEmpty { lines.append("tabs: " + info.tabs.joined(separator: ", ")) }
-        if !info.shared.isEmpty { lines.append("shared: " + info.shared.joined(separator: ", ")) }
-        if let command = info.issueCommand { lines.append("issueCommand: \(command)") }
-        for (name, recipe) in info.recipes.sorted(by: { $0.key < $1.key }) { lines.append("recipe.\(name): \(recipe)") }
-        let scroll = NSTextView.scrollableTextView()
-        scroll.frame = NSRect(x: 0, y: 0, width: 360, height: min(220, CGFloat(max(lines.count, 1)) * 16 + 8))
-        scroll.drawsBackground = false
-        if let text = scroll.documentView as? NSTextView {
-            text.string = lines.joined(separator: "\n")
-            text.isEditable = false
-            text.drawsBackground = false
-            text.font = .uiMono(TextSize.caption)
-        }
-        return scroll
     }
 
     /// How a run ended, said once: failed (with its output a click away), finished, or — on a host — cut off with the
