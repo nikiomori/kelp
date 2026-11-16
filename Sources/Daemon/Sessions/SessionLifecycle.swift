@@ -367,7 +367,7 @@ extension Sessions {
         callbacks.turnEnded = { [weak self] prompt in
             self?.keepArtifactVersions(session: sid, worktree: rec.worktreeId, prompt: prompt)
         }
-        if !["shell", "custom"].contains(rec.agent ?? "custom") {
+        if rec.isAgent {
             callbacks.topic = { [weak self] topic in
                 guard let self else { return }
                 DispatchQueue.global(qos: .utility).async { self.retitle(session: sid, topic: topic) }

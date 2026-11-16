@@ -42,7 +42,7 @@ final class SessionSetup: Sendable {
         if let remote = remotes.of(cwd), argv.first != remote.ssh {
             let (own, secret) = Self.hostEnv(manifest, env), envFile = try Self.sendEnv(secret, to: remote)
             // A command line (`.custom`: zsh -lc "…") goes to sh there: the host may have no zsh.
-            var onHost = manifest.id == "custom" && argv.count == 3 && argv[1] == "-lc" ? ["sh", "-c", argv[2]] : argv
+            var onHost = Session.customCommand(agent: manifest.id, argv).map { ["sh", "-c", $0] } ?? argv
             // Here, not in the record: every start gets this kelpd's, and a title or a restart never sees it.
             if tmux != nil, case .settingsFlag(let flag)? = manifest.hooks, !onHost.contains(flag) {
                 onHost += [flag, try Hooks.hostSettingsJSON()]
@@ -50,7 +50,7 @@ final class SessionSetup: Sendable {
             if tmux != nil, manifest.hooks == .codexConfig, !onHost.isEmpty, codexHooks.agrees(on: remote) {
                 onHost.insert(contentsOf: CodexHooks.hostArgs, at: 1)
             }
-            let loginShell = manifest.id == "shell" && Tmux.session(argv) == nil
+            let loginShell = manifest.id == Session.shellAgent && Tmux.session(argv) == nil
             let command =
                 tmux.map { remote.command(loginShell ? [] : onHost, inTmux: $0, envFile: envFile, exports: own) }
                 ?? remote.command(loginShell ? nil : onHost, envFile: envFile, exports: own)
@@ -102,9 +102,12 @@ final class SessionSetup: Sendable {
     ) -> [String]? {
         let run = [kelp, "vm", "run", machine, "--cwd", cwd]
         switch manifest.id {
-        case "shell" where Tmux.session(argv) == nil: return run
-        case "custom" where argv.count == 3 && argv[1] == "-lc" && !argv[2].hasPrefix("kelp vm "):
-            return run + ["--", argv[2]]
+        case Session.shellAgent where Tmux.session(argv) == nil: return run
+        case Session.customAgent:
+            guard let line = Session.customCommand(agent: manifest.id, argv), !line.hasPrefix("kelp vm ") else {
+                return nil
+            }
+            return run + ["--", line]
         default: return nil
         }
     }
@@ -200,7 +203,7 @@ final class SessionSetup: Sendable {
     /// the string at spaces. Not for a shell, which has no prompt to hand over, nor on a host, which has no `kelp`.
     private func promptEditor(_ manifest: AgentManifest, _ rec: Session, given: String?) -> String? {
         let mine = given ?? ProcessInfo.processInfo.environment["VISUAL"]
-        guard mine == nil, manifest.id != "shell", remotes.of(rec.cwd) == nil, Tmux.session(rec.argv) == nil,
+        guard mine == nil, manifest.id != Session.shellAgent, remotes.of(rec.cwd) == nil, Tmux.session(rec.argv) == nil,
             settings[SettingKeys.editInKelp]
         else { return nil }
         return "kelp edit --wait"
@@ -239,13 +242,16 @@ final class SessionSetup: Sendable {
 
     func manifest(_ id: String?, command: String?, fallbackArgv: [String]? = nil) throws -> AgentManifest {
         if let command { return .custom(command) }
-        if id == "custom", let argv = fallbackArgv {
-            return .init(id: "custom", name: "Custom", command: argv.first ?? "/bin/zsh", args: Array(argv.dropFirst()))
-        }
-        let id = id ?? "shell"
-        if id == "shell" {
+        if id == Session.customAgent, let argv = fallbackArgv {
             return .init(
-                id: "shell", name: "Shell", command: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
+                id: Session.customAgent, name: "Custom", command: argv.first ?? "/bin/zsh",
+                args: Array(argv.dropFirst()))
+        }
+        let id = id ?? Session.shellAgent
+        if id == Session.shellAgent {
+            return .init(
+                id: Session.shellAgent, name: "Shell",
+                command: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
                 args: ["-l"], tracksStatus: false)
         }
         guard

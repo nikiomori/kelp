@@ -36,7 +36,9 @@ extension SessionCreate: Handled {
             guard !name.isEmpty else { throw RPCError.invalidParams("Name the tmux session.") }
             launch.argv = Tmux.argv(name)
             if launch.title == nil { launch.title = "tmux \(name)" }
-        } else if command == nil, (agent ?? "shell") == "shell", sessions.settings[SettingKeys.tmux] {
+        } else if command == nil, (agent ?? Session.shellAgent) == Session.shellAgent,
+            sessions.settings[SettingKeys.tmux]
+        {
             // a terminal in a tmux session of its own, which ends with it (Tmux.isOwn): on a host as an agent's is there,
             // the host's login shell, and without tmux there the shell alone
             if sessions.remotes.of(dir) != nil {
