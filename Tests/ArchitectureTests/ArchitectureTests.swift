@@ -86,7 +86,7 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // The window's own parts stay the shell's: nothing in them is declared for a built-in to reach.
     let windowParts =
         sources(["Sources/KelpKit/Sidebar", "Sources/KelpKit/Inspector"])
-        + sources(["Sources/KelpKit/Shell"]).filter { $0.path.hasSuffix("/MainWindow.swift") }
+        + sources(["Sources/KelpKit/Shell"]).filter { ($0.path as NSString).lastPathComponent.hasPrefix("MainWindow") }
     #expect(windowParts.filter { codeOnly($0.text).contains("package ") }.map(\.path) == [])
     // What the built-ins may reach of the shell. It goes down when a built-in stops using one (that goes too), and up only
     // with a built-in feature that needs the shell, said beside the number: what the feature does itself stays in its
@@ -330,7 +330,7 @@ func codeOnly(_ s: String) -> String {
     let over400 = sources(["Sources"]).filter { f in
         f.text.split(separator: "\n", omittingEmptySubsequences: false).count > 400
     }.count
-    #expect(over400 == 19, "files over 400 lines: \(over400); fewer now: lower the count")
+    #expect(over400 == 18, "files over 400 lines: \(over400); fewer now: lower the count")
 }
 
 /// The daemon starts every program (an extension's command, a formatter, a notebook run, an agent's --version:
