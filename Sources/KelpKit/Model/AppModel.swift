@@ -376,8 +376,6 @@ package final class AppModel {
                 syncContextWatches()
                 arrangement.followParked(session)
             }
-        case let devServer as DevServerEvent: extensions.all.runs?.served(devServer)
-        case let busy as PortBusyEvent: extensions.all.runs?.portBusy(busy)
         case let repo as Repo: record(repo, in: \.repos)
         case let worktree as Worktree: record(worktree, in: \.worktrees)
         case let removal as RemovedEvent: removed(removal)
@@ -394,14 +392,13 @@ package final class AppModel {
         case let clone as CloneEvent: CloneSheet.cloneProgress(id: clone.id, line: clone.line)
         case let change as SettingsEvent: settings.received(change.settings)
         case let request as UIEvent: UIRequests(self).handle(request)
-        case let request as UIBrowserEvent:
-            guard let browser = extensions.all.browser else {
+        default:
+            if extensions.all.events.contains(where: { $0(event) }) { return }
+            if let request = event as? UIBrowserEvent {   // no built-in has pages: the agent waits for nobody
                 let off = "Kelp's Browser is turned off: the user turns it on in Settings › Extensions."
                 Task { _ = await quiet(UIBrowserReply(request: request.request, error: off)) }
-                return
             }
-            browser(request)
-        default: watched(event)   // event.changed is left: the records themselves follow (event.repo / .worktree / .removed)
+            watched(event)   // event.changed is left: the records themselves follow (event.repo / .worktree / .removed)
         }
     }
 

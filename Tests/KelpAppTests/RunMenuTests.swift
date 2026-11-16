@@ -1,7 +1,9 @@
 import AppKit
+import Core
 import Testing
 
 @testable import BuiltinRun
+@testable import KelpKit
 
 @MainActor private func row(
     _ name: String, _ command: String, kind: String = "other", file: String = "", folder: String = ""
@@ -58,4 +60,15 @@ import Testing
     #expect(Runs.shortName("/p/.codex/environments/environment.toml") == ".codex/environments/environment.toml")
     #expect(Runs.shortName("/Users/a/p/.conductor/settings.toml") == ".conductor/settings.toml")
     #expect(Runs.shortName("/Users/a/p/conductor.json") == "conductor.json")
+}
+
+/// A page a run printed reaches Run through the built-ins' events (`Contributions.events`), not a case of the shell's
+/// own: the run's chip holds it for a click.
+@MainActor @Test func aPageARunPrintedReachesRunThroughItsEvents() {
+    let app = AppModel(builtins: [Builtins.run])
+    app.extensions.reload()
+    let runs = app.part { Runs(app: app) }
+    runs.state.active["s"] = .init(workspace: "w", choice: "kelp:run")
+    app.handle(DevServerEvent(worktree: "w", url: "http://localhost:3000", session: "s"))
+    #expect(runs.state.active["s"]?.url == "http://localhost:3000")
 }

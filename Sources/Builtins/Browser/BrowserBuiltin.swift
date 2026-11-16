@@ -39,7 +39,13 @@ extension Builtins {
             skills: [browserSkill],
             agentCards: [{ BrowserMarks.card($0, app, close: $1) }],
             subagentSteps: [{ BrowserMarks.step($0, $1, $2, app) }],
-            browser: { BrowserRequests(app: app).browse($0) }
+            events: [
+                {
+                    guard let request = $0 as? UIBrowserEvent else { return false }
+                    BrowserRequests(app: app).browse(request)
+                    return true
+                }
+            ]
         )
     }
 }

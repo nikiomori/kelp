@@ -50,11 +50,20 @@ extension Builtins {
                 tabMenu: { runs.tabItems($0, $1) },
                 choices: { runs.choices($0) },
                 open: { runs.open($0, in: $1) },
-                served: { runs.served($0) },
-                portBusy: { runs.portBusy($0) },
                 setup: { await runs.setup($0, pullRequest: $1) },
                 trust: { await runs.trust($0) },
-                run: { await runs.runForTemplate($0, $1) })
+                run: { await runs.runForTemplate($0, $1) }),
+            // A page a session printed (a run's waits on the chip for a click), a run whose port another program holds.
+            events: [
+                {
+                    switch $0 {
+                    case let page as DevServerEvent: runs.served(page)
+                    case let busy as PortBusyEvent: runs.portBusy(busy)
+                    default: return false
+                    }
+                    return true
+                }
+            ]
         )
     }
 

@@ -4,9 +4,8 @@ import WorkbenchKit
 
 /// What runs in a workspace, from the built-in that runs a project's commands (Run): the window bar's run chip and the
 /// page it serves, the Run menu's project commands, how a run's tab looks and its menu, what the "+" menu and the empty
-/// workspace offer to run, the pages a run prints and a new workspace's setup. None, and nothing of it shows: no chip,
-/// no run choices. What the tabs follow (`look`, `port`, `tabsFollow`, `choices`) is read under observation: it must not
-/// do work. Runs put away in the Run menu are its `Contributions.sessionHidden`.
+/// workspace offer to run, and a new workspace's setup. None, and nothing of it shows: no chip, no run choices. What the
+/// tabs follow (`look`, `port`, `tabsFollow`, `choices`) is read under observation: it must not do work. Runs put away in the Run menu are its `Contributions.sessionHidden`.
 package struct ProjectRuns {
     /// Right of the search in the window bar, before the cup.
     let bar: @MainActor () -> [any WindowBarItem]
@@ -24,10 +23,6 @@ package struct ProjectRuns {
     let choices: @MainActor (_ workspace: String) -> [NewTabChoices.Action]
     /// A page the hover card lists, opened beside you (one that isn't a web page has its address copied).
     let open: @MainActor (ServedPage, _ workspace: String) -> Void
-    /// A page a session printed (`event.devserver`): a run's waits on the chip for a click, another's opens beside you.
-    let served: @MainActor (DevServerEvent) -> Void
-    /// A run that couldn't start: says who holds its port.
-    let portBusy: @MainActor (PortBusyEvent) -> Void
     /// A new workspace whose .kelp.yaml setup waits for the file's trust; the pull request it holds, if any.
     let setup: @MainActor (_ workspace: String, _ pullRequest: Int?) async -> Void
     /// Whether the workspace's .kelp.yaml is trusted now, asked first if it isn't (a template that runs its commands).
@@ -44,8 +39,6 @@ package struct ProjectRuns {
         tabMenu: @escaping @MainActor (NSMenu, Session) -> Void,
         choices: @escaping @MainActor (String) -> [NewTabChoices.Action],
         open: @escaping @MainActor (ServedPage, String) -> Void,
-        served: @escaping @MainActor (DevServerEvent) -> Void,
-        portBusy: @escaping @MainActor (PortBusyEvent) -> Void,
         setup: @escaping @MainActor (String, Int?) async -> Void,
         trust: @escaping @MainActor (String) async -> Bool,
         run: @escaping @MainActor (String, String) async -> Session?
@@ -58,8 +51,6 @@ package struct ProjectRuns {
         self.tabMenu = tabMenu
         self.choices = choices
         self.open = open
-        self.served = served
-        self.portBusy = portBusy
         self.setup = setup
         self.trust = trust
         self.run = run

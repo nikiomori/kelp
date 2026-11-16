@@ -220,7 +220,7 @@ package struct Contributions {
         skills: [SkillSpec] = [],
         agentCards: [@MainActor (_ session: Session, _ close: @escaping @MainActor () -> Void) -> AnyView?] = [],
         subagentSteps: [@MainActor (_ session: String, _ subagent: String, _ command: String) -> String?] = [],
-        browser: (@MainActor (UIBrowserEvent) -> Void)? = nil,
+        events: [@MainActor (any RPCEvent) -> Bool] = [],
         quickPrefixes: [String: @MainActor (_ typed: String) async -> [QuickItem]] = [:]
     ) {
         self.panels = panels
@@ -245,7 +245,7 @@ package struct Contributions {
         self.skills = skills
         self.agentCards = agentCards
         self.subagentSteps = subagentSteps
-        self.browser = browser
+        self.events = events
         self.quickPrefixes = quickPrefixes
     }
     package var panels: [PanelSpec] = []
@@ -296,9 +296,10 @@ package struct Contributions {
     /// What a subagent's last command did, in its own words, for the agent's card (the page's last step for a
     /// `kelp browser` one); nil: the command as it ran.
     var subagentSteps: [@MainActor (_ session: String, _ subagent: String, _ command: String) -> String?] = []
-    /// `kelp browser`: an agent's command, done by the built-in that has pages, which answers it (`UIBrowserReply`).
-    /// None, and the command is told the Browser is off.
-    var browser: (@MainActor (UIBrowserEvent) -> Void)?
+    /// A daemon event the shell keeps nothing of (a page a session printed, a port another program holds, an agent's
+    /// `kelp browser` command), heard as it comes: true when it took it, and the next ones aren't asked. None takes
+    /// an agent's browser command, and it is told the Browser is off.
+    var events: [@MainActor (any RPCEvent) -> Bool] = []
     /// ⌘P's lists for what's typed after a character of the built-in's ("#": Issues' pull requests); the first built-in's
     /// wins a character.
     var quickPrefixes: [String: @MainActor (_ typed: String) async -> [QuickItem]] = [:]
@@ -331,7 +332,7 @@ package struct Contributions {
         skills += c.skills
         agentCards += c.agentCards
         subagentSteps += c.subagentSteps
-        browser = browser ?? c.browser
+        events += c.events
         quickPrefixes.merge(c.quickPrefixes) { first, _ in first }
     }
 }
