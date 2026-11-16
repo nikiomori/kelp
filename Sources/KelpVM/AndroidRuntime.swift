@@ -135,7 +135,7 @@ final class AndroidRuntime: MachineRuntime {
                 }
                 // Slept meanwhile (kelpd's budget, `kelp vm sleep`): woken from where that left it, not taken for running.
                 guard state == .paused, !saving else { return wake(done) }
-                state = .running
+                Lifecycle.move(&state, to: .running)
                 done(nil)
             }
         case .off, .sleeping, .error, .creating:
@@ -150,7 +150,7 @@ final class AndroidRuntime: MachineRuntime {
             nextBootShown = false   // no boot to have it: a later one isn't asked of by a Show that was told this failed
             return started(VMError("No Android SDK: install Android Studio, or set ANDROID_HOME."))
         }
-        state = .starting
+        Lifecycle.move(&state, to: .starting)
         // A kelp-vm that was killed took no leave: its emulator holds the AVD, and a second one on it would quit.
         Lifecycle.endLeftover(in: folder, "emulator")
         close(portClaim)
@@ -180,13 +180,13 @@ final class AndroidRuntime: MachineRuntime {
                     self.emulator = nil   // its window went with it (closed, slept, quit): the next boot has one only if Show asks
                     if self.bootWhenGone {
                         self.bootWhenGone = false
-                        self.state = .off
+                        Lifecycle.move(&self.state, to: .off)
                         if !self.leaving { return self.boot() }   // leaving: its waiters hang up as kelp-vm goes
                     }
                     if self.state == .starting {
                         self.started(VMError("The emulator quit: see emulator.log in its folder."))
                     }
-                    if self.state != .sleeping { self.state = .off }
+                    if self.state != .sleeping { Lifecycle.move(&self.state, to: .off) }
                 }
             }
         }
@@ -225,7 +225,7 @@ final class AndroidRuntime: MachineRuntime {
             // SIGTERM: killed after a while, so a retry can boot.
             if let process = emulator { Task { await end(process, grace: 10) } }
         }
-        state = error == nil ? .running : .error
+        Lifecycle.move(&state, to: error == nil ? .running : .error)
         lastUse = now()
         ready.flush(error)
     }
@@ -236,7 +236,7 @@ final class AndroidRuntime: MachineRuntime {
         guard !saving, let process = emulator, [.running, .paused].contains(state) else { return done(nil) }
         saving = true
         Task {
-            if state == .paused, await tell(["emu", "avd", "start"]) { state = .running }
+            if state == .paused, await tell(["emu", "avd", "start"]) { Lifecycle.move(&state, to: .running) }
             let error = await save(process)
             saving = false
             // Still up without its window: no later boot is asked of it by the Show that waited for this one.
@@ -266,14 +266,14 @@ final class AndroidRuntime: MachineRuntime {
         }
         guard await gone(process) else {
             await end(process)
-            state = .off
+            Lifecycle.move(&state, to: .off)
             return "\(machine.name)'s emulator didn't quit in 30 s and was ended: its state isn't saved."
         }
         guard written(since: since) else {
-            state = .off
+            Lifecycle.move(&state, to: .off)
             return "\(machine.name)'s emulator quit without saving its state: the next start boots it."
         }
-        state = .sleeping
+        Lifecycle.move(&state, to: .sleeping)
         return nil
     }
 
@@ -305,7 +305,7 @@ final class AndroidRuntime: MachineRuntime {
     func stop(_ done: @escaping () -> Void) {
         let forget = { [self] in
             FileManager.default.removeIfAny(snapshot)
-            state = .off
+            Lifecycle.move(&state, to: .off)
             done()
         }
         guard let process = emulator else { return forget() }
@@ -327,12 +327,12 @@ final class AndroidRuntime: MachineRuntime {
                 guard await tell(["emu", "avd", "stop"]) else { return }   // not stopped: the next tick tries again
                 // A start while it stopped is answered running: it goes on, not paused under that caller's command.
                 if state == .running, now().timeIntervalSince(lastUse) > Runtime.pauseAfter {
-                    state = .paused
+                    Lifecycle.move(&state, to: .paused)
                     log("paused")
                 } else {
                     do { _ = try await adb(["emu", "avd", "start"]) } catch {
                         log("couldn't go on after a start: \(error)")
-                        if state == .running { state = .paused }   // stopped it is: the next wake tries again (not a later state)
+                        if state == .running { Lifecycle.move(&state, to: .paused) }   // stopped it is: the next wake tries again (not a later state)
                     }
                 }
             }

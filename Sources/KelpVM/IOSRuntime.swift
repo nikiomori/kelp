@@ -109,7 +109,7 @@ final class IOSRuntime: MachineRuntime {
         case .starting: ready.append(done)
         default:
             ready.append(done)
-            state = .starting
+            Lifecycle.move(&state, to: .starting)
             Task { await boot() }
         }
     }
@@ -152,7 +152,7 @@ final class IOSRuntime: MachineRuntime {
                         guard let self, self.runner === ended else { return }
                         self.runner = nil
                         if self.state == .running {
-                            self.state = .off
+                            Lifecycle.move(&self.state, to: .off)
                             log("the runner ended: see runner.log")
                         }
                     }
@@ -178,7 +178,7 @@ final class IOSRuntime: MachineRuntime {
             log("start failed: \(error.localizedDescription)")
             _ = shutDown()   // half started, its simulator would stay booted: no tick looks at one that isn't running
         }
-        state = error == nil ? .running : .error
+        Lifecycle.move(&state, to: error == nil ? .running : .error)
         lastUse = now()
         ready.flush(error)
     }
@@ -186,7 +186,7 @@ final class IOSRuntime: MachineRuntime {
     /// The runner gone and the simulator shut down: nothing of it runs. Off from the moment it's asked: a start that
     /// comes meanwhile boots it again once it's down (`boot` waits), and no tick asks for another shutdown.
     func stop(_ done: @escaping () -> Void) {
-        state = .off
+        Lifecycle.move(&state, to: .off)
         let down = shutDown()
         Task {
             await down.value

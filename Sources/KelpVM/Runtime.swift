@@ -277,7 +277,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         case .starting: ready.append(done)
         case .paused:
             ready.append(done)
-            state = .starting
+            Lifecycle.move(&state, to: .starting)
             vm?.resume { r in MainActor.assumeIsolated { self.started(r.failure) } }   // the VM's queue
         case .off, .sleeping, .error, .creating:
             ready.append(done)
@@ -286,7 +286,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
     }
 
     private func boot() {
-        state = .starting
+        Lifecycle.move(&state, to: .starting)
         targetMiB = machine.memoryMiB   // a new machine, restored or booted, has all of it: `adjustMemory` sets its balloon again
         let vm: VZVirtualMachine
         do { vm = VZVirtualMachine(configuration: try configuration()) } catch { return started(error) }
@@ -400,7 +400,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
             vm?.stop { _ in }   // half started holds its memory and disk for nothing
             vm = nil
         }
-        state = error == nil ? .running : .error
+        Lifecycle.move(&state, to: error == nil ? .running : .error)
         lastUse = now()
         ready.flush(error)
         if error == nil { adjustMemory() }
@@ -408,7 +408,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
 
     private func down() {
         vm = nil
-        state = .off
+        Lifecycle.move(&state, to: .off)
         let waiting = stopped
         stopped = []
         waiting.forEach { $0() }
@@ -424,7 +424,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         MainActor.assumeIsolated {
             log("stopped: \(error.localizedDescription)")
             down()
-            state = .error
+            Lifecycle.move(&state, to: .error)
         }
     }
 
@@ -440,7 +440,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
             vm?.pause { result in
                 MainActor.assumeIsolated {
                     if result.failure == nil, self.state == .running {
-                        self.state = .paused
+                        Lifecycle.move(&self.state, to: .paused)
                         log("paused")
                     }
                 }
@@ -579,17 +579,17 @@ extension Runtime {
                     MainActor.assumeIsolated {
                         if let error {
                             log("save failed: \(error.localizedDescription)")
-                            self.state = .paused
+                            Lifecycle.move(&self.state, to: .paused)
                             return end(error.localizedDescription)
                         }
                         guard rename(tmp.path, self.saved.path) == 0 else {
-                            self.state = .paused
+                            Lifecycle.move(&self.state, to: .paused)
                             return end(String(cString: strerror(errno)))
                         }
                         vm.stop { _ in
                             MainActor.assumeIsolated {
                                 self.vm = nil
-                                self.state = .sleeping
+                                Lifecycle.move(&self.state, to: .sleeping)
                                 log("asleep")
                                 end(nil)
                             }
@@ -612,7 +612,7 @@ extension Runtime {
         if saving { return saveDone.append { [weak self] _ in self?.stop(done) } }   // resumed under the save, it would fail it
         FileManager.default.removeIfAny(saved)
         guard let vm else {
-            state = .off
+            Lifecycle.move(&state, to: .off)
             return done()
         }
         stopped.append(done)

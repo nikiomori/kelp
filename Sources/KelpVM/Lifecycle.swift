@@ -63,6 +63,10 @@ enum Lifecycle {
         }
     }
 
+    /// Every move of a runtime's state, here alone (ArchitectureTests counts the writes): the one place to log or check a
+    /// move. Its first state, read off its folder, is set as it's made.
+    static func move(_ state: inout VMState, to next: VMState) { state = next }
+
     /// A quit asked `ifDown` (a new size is to be written) refused, and why: the machine runs, or a boot is under way
     /// (one tried again has no VM for a second, and is still starting). Every kind's runtime asks it.
     static func refusesQuit(_ request: VMHelper.Request, hasVM: Bool, state: VMState, name: String) -> String? {
