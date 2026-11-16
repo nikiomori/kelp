@@ -71,6 +71,21 @@ import Testing
     #expect(IDE.workspace(cwd: "/elsewhere", among: all, own: "w2") == nil)
 }
 
+/// A worktree inside the project's folder (`.claude/worktrees/x`): a command run in it means that one, not the project.
+@Test func theDeepestWorkspaceHoldingTheFolderIsMeant() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ide-\(UUID().uuidString.prefix(6))").path
+    let inner = dir + "/.claude/worktrees/x"
+    try FileManager.default.createDirectory(atPath: inner + "/src", withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(atPath: dir) }
+    let all = [
+        Worktree(id: "main", repoId: "r", branch: "main", path: dir),
+        Worktree(id: "x", repoId: "r", branch: "x", path: inner)
+    ]
+    #expect(IDE.workspace(cwd: inner + "/src", among: all, own: nil)?.id == "x")
+    #expect(IDE.workspace(cwd: inner + "/src", among: all, own: "main")?.id == "main", "its own wins")
+    #expect(IDE.workspace(cwd: dir, among: all, own: nil)?.id == "main")
+}
+
 /// "Is this path in that folder" by what the paths are, not how they're spelled.
 @Test func aPathIsInsideAFolderAsItReallyIs() throws {
     let base = FileManager.default.temporaryDirectory.appendingPathComponent("in-\(UUID().uuidString.prefix(6))").path

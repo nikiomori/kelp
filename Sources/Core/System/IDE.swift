@@ -38,10 +38,11 @@ public enum IDE {
     }
 
     /// Workspaces of a project share its folder, so the folder alone can't tell them apart: the agent's own (`own`, its
-    /// KELP_SESSION's workspace) wins when it holds `cwd`, else the first one that does.
+    /// KELP_SESSION's workspace) wins when it holds `cwd`, else the deepest one that does (a worktree inside the project's
+    /// folder, `.claude/worktrees/x`, over the project), the first of those sharing that folder.
     public static func workspace(cwd: String, among all: [Worktree], own: String?) -> Worktree? {
         let here = all.filter { Paths.inside(cwd, $0.path) }
-        return here.first { $0.id == own } ?? here.first
+        return here.first { $0.id == own } ?? here.max { $0.path.count < $1.path.count }
     }
 
     static func absolute(_ path: String, cwd: String) -> String {
