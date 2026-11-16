@@ -503,7 +503,8 @@ func saved(_ paths: String...) -> [FileWatcher.Change] {
     #expect(items[0].preview == nil, "its file is on the host: /etc/hosts here is another file")
     #expect(try String(contentsOfFile: try #require(items[1].preview), encoding: .utf8) == "<p>one</p>")
 
-    try await Task.sleep(for: .seconds(1))   // the reads its own writes start are over
+    let key = Watches.Key(topic: .artifacts, key: workspace.id), reads = { d.watches.reads.withLock { $0?[key] ?? 0 } }
+    #expect(try await waitFor(10) { reads() >= 2 })   // the read its own writes start is over
     // A later turn edits it: its end reads the list again; the edit is applied once, however often that happens.
     try append([
         call(
@@ -513,8 +514,9 @@ func saved(_ paths: String...) -> [FileWatcher.Change] {
     ])
     d.sessions.keepArtifactVersions(session: session.id, worktree: workspace.id, prompt: "edit it")
     #expect(try await waitFor(10) { heard.events(ArtifactsEvent.self).last?.items.first?.url == plan })
+    let before = reads()
     d.sessions.keepArtifactVersions(session: session.id, worktree: workspace.id, prompt: "again")
-    try await Task.sleep(for: .seconds(1))   // that read, too
+    #expect(try await waitFor(10) { reads() > before })   // that read, too
     items = Artifacts.items(root: workspace.path)
     #expect(items.count == 2 && items[0].url == plan)
     #expect(try String(contentsOfFile: try #require(items[0].preview), encoding: .utf8) == "<p>one one</p>")

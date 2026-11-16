@@ -173,9 +173,9 @@ private func end(_ session: String) {
     #expect(try await tmuxSessions(c, wt).contains(name))   // still working on the host
     _ = try await c.call("session.attach", .obj(["id": .string(s.id)]))
     #expect(try await waitFor(15) { try await screen(c, s.id).contains("did the work") })
-    // Time: output that goes on is work to the screen reader, so the redraw's has to have had that long.
-    try await Task.sleep(for: .seconds(4))
-    #expect(try await status(c, s.id) == .idle)   // the redraw was no turn
+    // The redraw was no turn (however late it comes, and what follows its seconds is work again: on a moved clock in
+    // `aLateRedrawAfterAttachingIsNoTurn`).
+    #expect(try await status(c, s.id) == .idle)
 
     let r: Session = try await c.call("session.restart", .obj(["id": .string(s.id)]), as: Session.self)
     #expect(r.tmux == name)

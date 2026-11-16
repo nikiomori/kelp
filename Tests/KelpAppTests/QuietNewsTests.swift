@@ -9,8 +9,11 @@ import WorkbenchKit
 /// An agent's news (a few a second while it works) redraws what shows it, not everything that reads the sessions.
 /// The probes below are values a redraw would put back: still there, nothing was redrawn.
 
-/// Long enough for a change to reach a `track` (the next turn of the main queue), had it been going to.
-@MainActor private func settle() async throws { try await Task.sleep(for: .milliseconds(100)) }
+/// A change reaches a `track` on the next turn of the main queue (`Tracker.run`): after that turn, it had, had it been
+/// going to.
+@MainActor private func settle() async throws {
+    await withCheckedContinuation { turned in DispatchQueue.main.async { turned.resume() } }
+}
 
 @MainActor private func find(_ view: NSView, _ match: (NSView) -> Bool) -> NSView? {
     if match(view) { return view }

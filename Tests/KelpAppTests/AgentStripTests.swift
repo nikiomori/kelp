@@ -239,7 +239,7 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     strip.hoverStrip(true)
     // An older question elsewhere: it would open into the pill.
     rig.app.sessions.append(session(other.id, .waiting, summary: "Which port, 3000 or 8080?", at: 1))
-    try await Task.sleep(for: .milliseconds(300))
+    #expect(try await waitFor(5) { strip.deferred })   // the news came, and was put off
     #expect(strip.frame == before)
     strip.hoverStrip(false)
     #expect(try await waitFor(5) { strip.frame != before })
