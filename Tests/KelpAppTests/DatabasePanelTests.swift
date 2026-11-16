@@ -115,3 +115,35 @@ private func db(
     #expect(json.contains(#""bad" : "{not json""#))
     #expect(ResultText.tsv(["a", "b"], [["1", nil]]) == "a\tb\n1\tNULL")
 }
+
+/// The panel's rows in order: a copy under the database it's of, a stopped one's problem under it, All My Databases
+/// by group (a folded group shows only its card), and what was found leaves out the rest.
+@MainActor @Test func thePanelsRowsAreInTheirOrder() {
+    var copy = db("shop_fix", host: "localhost", database: "shop_fix")
+    copy.copy = BranchCopy(of: "shop", worktreeId: "w", at: Date())
+    var dev = db("dev"), loose = db("loose")
+    dev.group = "Work"
+    var list = DatabasePanelList(
+        databases: [copy, db("shop", host: "localhost", database: "shop")], library: [dev, loose],
+        folded: ["Work"], health: ["shop": DatabaseHealth(name: "shop", state: .stopped)])
+    func names(_ rows: [DatabasesPanel.Row]) -> [String] {
+        rows.map {
+            switch $0 {
+            case .heading(let h): "heading \(h)"
+            case .database(let db, let library): (library ? "lib " : "") + db.name
+            case .problem(let db, _): "problem \(db.name)"
+            case .group(let name, let count): "group \(name) \(count)"
+            case .project(let count): "project \(count)"
+            case .use(let empty): "use \(empty)"
+            case .asks(let run), .run(let run): "run \(run.id)"
+            }
+        }
+    }
+    #expect(
+        names(list.rows) == [
+            "project 2", "shop", "problem shop", "shop_fix", "use false", "heading library(2)", "group Work 1",
+            "lib loose"
+        ])
+    list.find = "dev"
+    #expect(names(list.rows) == ["project 2", "use false", "heading library(2)", "group Work 1", "lib dev"])
+}
