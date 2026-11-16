@@ -106,8 +106,8 @@ public struct GitHubProjectItems: RPCMethod {
 public struct GitHubPRs: RPCMethod {
     public static let name = "github.prs"
     public typealias Result = [GitHub.PullRequest]
-    public var worktreeId: String?, repoId: String?, filter: String?
-    public init(worktreeId: String? = nil, repoId: String? = nil, filter: String? = nil) {
+    public var worktreeId: String?, repoId: String?, filter: GitHub.PRFilter?
+    public init(worktreeId: String? = nil, repoId: String? = nil, filter: GitHub.PRFilter? = nil) {
         self.worktreeId = worktreeId
         self.repoId = repoId
         self.filter = filter

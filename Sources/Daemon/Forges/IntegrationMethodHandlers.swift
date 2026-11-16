@@ -293,16 +293,9 @@ extension GitHubPRs: AsyncHandled {
             else { throw Forges.bitbucketNeedsCredentials }
             return try await bb.pullRequests(workspace: slug.workspace, repo: slug.repo)
         case .gitlab:
-            return try await forges.offloads.run { try GitLab.mergeRequests(cwd: path, mine: filter == "mine") }
+            return try await forges.offloads.run { try GitLab.mergeRequests(cwd: path, mine: filter == .mine) }
         case .github:
-            let prFilter: GitHub.PRFilter =
-                switch filter {
-                case "mine": .mine
-                case "review": .reviewRequested
-                case "closed": .closed
-                default: .open
-                }
-            return try await forges.offloads.run { try GitHub.pullRequests(cwd: path, filter: prFilter) }
+            return try await forges.offloads.run { try GitHub.pullRequests(cwd: path, filter: filter ?? .open) }
         }
     }
 }

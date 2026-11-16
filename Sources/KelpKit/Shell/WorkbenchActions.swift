@@ -375,7 +375,7 @@ extension Workbench {
             let worktree = app.worktrees.first { $0.repoId == rid }, base = app.repo(rid)?.baseBranch ?? "main"
             var branches: BranchInfo?
             if let worktree { branches = await app.quiet(GitBranches(id: worktree.id)) }
-            let prs = await app.quiet(GitHubPRs(repoId: rid, filter: "open")) ?? []
+            let prs = await app.quiet(GitHubPRs(repoId: rid, filter: .open)) ?? []
             let agents = app.catalog.installed(app.catalog.all).filter { $0.id != "shell" }.map {
                 (id: $0.id, name: $0.name)
             }

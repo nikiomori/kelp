@@ -31,7 +31,6 @@ public struct ForgeError: Error, CustomStringConvertible, Sendable {
 /// GitHub via the `gh` CLI; auth is whatever `gh auth` has. Every call takes the repo checkout `cwd`
 /// so gh resolves owner/repo from its remotes. Blocking — call off the main thread. Its values are Core's.
 extension GitHub {
-    public enum PRFilter: Sendable { case open, mine, reviewRequested, closed }
     public enum MergeMethod: String, Sendable { case squash, merge, rebase }
 
     static let prFields =

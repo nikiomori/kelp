@@ -47,7 +47,7 @@ extension Daemon {
 
     /// A project's open pull requests, for the Issues panel and its number: other people's change on the forge only.
     private func prsRead(_ repo: String) async -> Data? {
-        do { return line(PRsEvent(repo: repo, prs: try await ask(GitHubPRs(repoId: repo, filter: "open")))) } catch {
+        do { return line(PRsEvent(repo: repo, prs: try await ask(GitHubPRs(repoId: repo, filter: .open)))) } catch {
             return line(PRsEvent(repo: repo, error: error.rpcMessage))
         }
     }

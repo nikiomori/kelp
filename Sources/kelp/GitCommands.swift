@@ -77,7 +77,13 @@ extension Main {
     static func forge(_ cmd: String, _ sub: String?, _ c: RPCClient) async throws {
         switch (cmd, sub) {
         case ("github", "prs"):
-            for x in try await c.call(GitHubPRs(repoId: try await currentRepoID(c), filter: flag("--filter"))) {
+            let filter = flag("--filter").map { asked -> GitHub.PRFilter in
+                guard let filter = GitHub.PRFilter(rawValue: asked) else {
+                    fail("kelp github prs --filter mine|review|closed")
+                }
+                return filter
+            }
+            for x in try await c.call(GitHubPRs(repoId: try await currentRepoID(c), filter: filter)) {
                 print("#\(x.number)  \(x.title)  \(x.url)")
             }
         case ("github", "issues"):

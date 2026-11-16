@@ -82,6 +82,12 @@ private func rig() async throws -> World {
     #expect(issue.issue.author == "amy" && issue.comments.first?.body == "Seen it")
     _ = try await r.c.call("github.prs", .obj(["repoId": .string(r.repo.id), "filter": "closed"]))
     #expect(calls().contains { $0.hasPrefix("pr list") && $0.contains("--state closed") })
+    _ = try await r.c.call(GitHubPRs(repoId: r.repo.id, filter: .reviewRequested))
+    #expect(calls().contains { $0.hasPrefix("pr list") && $0.contains("review-requested:@me") })
+    // A filter it doesn't know is refused, not read as "open".
+    await #expect(throws: RPCError.self) {
+        try await r.c.call("github.prs", .obj(["repoId": .string(r.repo.id), "filter": "clsoed"]))
+    }
 }
 
 @Test func issuesAskForMineOnlyWhenToldTo() async throws {

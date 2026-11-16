@@ -9,6 +9,11 @@ public enum GitHub {
     /// What gh's error comes back as when the project's git has no remote on GitHub: a state the panels show quietly,
     /// not a failure.
     public static let noRemote = "This project has no GitHub remote."
+    /// Which pull requests `github.prs` lists: open, mine, those asking for my review, or the latest closed or merged.
+    public enum PRFilter: String, Codable, CaseIterable, Sendable {
+        case open, mine, closed
+        case reviewRequested = "review"
+    }
     public struct PullRequest: Codable, Sendable, Equatable {
         public struct Checks: Codable, Sendable, Equatable {
             public var passed = 0, failed = 0, pending = 0

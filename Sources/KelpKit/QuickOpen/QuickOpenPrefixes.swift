@@ -156,7 +156,7 @@ extension QuickOpen {
         prSearch?.cancel()
         pullRequests = (repo, nil)
         prSearch = Task { [weak self] in
-            let prs = await app.call(GitHubPRs(repoId: repo, filter: "open")) ?? []   // gh missing or signed out: says so
+            let prs = await app.call(GitHubPRs(repoId: repo, filter: .open)) ?? []   // gh missing or signed out: says so
             guard let self, !Task.isCancelled, pullRequests?.repo == repo else { return }
             pullRequests = (repo, prs)
             let typed = field.stringValue

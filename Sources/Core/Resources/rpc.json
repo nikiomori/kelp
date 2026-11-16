@@ -2136,6 +2136,16 @@
         ],
         "type" : "object"
       },
+      "GitHub.PRFilter" : {
+        "description" : "Which pull requests `github.prs` lists: open, mine, those asking for my review, or the latest closed or merged.",
+        "enum" : [
+          "open",
+          "mine",
+          "closed",
+          "review"
+        ],
+        "type" : "string"
+      },
       "GitHub.PRView" : {
         "description" : "A pull request as its own tab reads it: the list's line, and what is said and changed on it.",
         "properties" : {
@@ -9484,7 +9494,7 @@
           "name" : "filter",
           "required" : false,
           "schema" : {
-            "type" : "string"
+            "$ref" : "#/components/schemas/GitHub.PRFilter"
           }
         },
         {
