@@ -27,9 +27,7 @@ struct BrowserRequests {
         guard app.workbench.loadedTabs(wid) != nil else {
             throw RPCError.invalidParams("This workspace isn't open in Kelp's window: show it once, then try again.")
         }
-        guard let action = BrowserAction(rawValue: event.action) else {
-            throw RPCError.invalidParams("kelp browser knows no \(event.action)")
-        }
+        let action = event.action
         let args = event.args ?? .object([:])
         if action == .open, let page = try await pageForOpen(wid, shared: args["shared"]?.bool == true, args: args) {
             return try await browse(page, in: wid, .info, args)

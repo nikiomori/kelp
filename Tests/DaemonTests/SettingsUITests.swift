@@ -125,7 +125,7 @@ final class EventBox: @unchecked Sendable {
     try d.sessions.store.save(mine)
     try d.sessions.store.save(other)
     let relay = BrowserRelay.of(d), id = mine.id
-    let call = UIBrowser(action: "snapshot", args: .obj(["session": .string(other.id), "subagent": "a1"]))
+    let call = UIBrowser(action: .snapshot, args: .obj(["session": .string(other.id), "subagent": "a1"]))
     let page = Task { try await Sessions.$asker.withValue(id) { try await call.handle(relay) } }
     #expect(try await waitFor { box.last("event.ui.browser") != nil })
     let sent = try #require(box.last("event.ui.browser"))

@@ -126,17 +126,37 @@ public struct SkillsBrowser: InternalMethod {
     public init(worktreeId: String) { self.worktreeId = worktreeId }
 }
 public struct BrowserSkill: Codable, Sendable, Equatable {
-    /// `why`: "Vite in package.json", "no web app found"… `choice`: the project's own, nil when it follows Settings.
-    /// `hint`: off, but the agent is told where the guide is (not when Settings says Never).
-    public var on: Bool, why: String, choice: String?, hint: Bool
-    public init(on: Bool, why: String, choice: String? = nil, hint: Bool = false) {
+    /// Why it's on or off when that isn't a web app found: its words are `why`'s, and the app's to translate.
+    public enum Reason: String, Codable, CaseIterable, Sendable {
+        case project = "set for this project", always = "Always, in Settings", never = "Never, in Settings"
+        case used = "an agent used it here", localPage = "a local page is open here", noWebApp = "no web app found"
+    }
+    /// The project's own choice (UI state `browser.choice.<repo>`).
+    public enum Choice: String, Codable, CaseIterable, Sendable { case on, off }
+    /// `why`: a `Reason`'s words, or the web app found ("Vite in package.json"). `choice`: the project's own, nil when it
+    /// follows Settings. `hint`: off, but the agent is told where the guide is (not when Settings says Never).
+    public var on: Bool, why: String, choice: Choice?, hint: Bool
+    public init(on: Bool, _ reason: Reason, choice: Choice? = nil, hint: Bool = false) {
+        self.init(on: on, why: reason.rawValue, choice: choice, hint: hint)
+    }
+    /// On because of a web app it found: `framework` says which ("Vite in package.json").
+    public init(framework: String) { self.init(on: true, why: framework) }
+    private init(on: Bool, why: String, choice: Choice? = nil, hint: Bool = false) {
         self.on = on
         self.why = why
         self.choice = choice
         self.hint = hint
     }
-    /// The hover card's line.
+    public var reason: Reason? { Reason(rawValue: why) }
+    /// The web app found, when that's why.
+    public var framework: String? { reason == nil ? why : nil }
+    /// The hover card's line, as a session keeps it (`Session.browser`); `parse` reads it back.
     public var line: String { (on ? "on · " : "off · ") + why }
+    public static func parse(_ line: String) -> BrowserSkill? {
+        let parts = line.components(separatedBy: " · ")
+        guard parts.count == 2, ["on", "off"].contains(parts[0]) else { return nil }
+        return BrowserSkill(on: parts[0] == "on", why: parts[1])
+    }
     /// The project's choice in UI state.
     public static func choiceKey(_ repo: String) -> String { "browser.choice.\(repo)" }
 }

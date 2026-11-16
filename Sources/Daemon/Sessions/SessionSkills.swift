@@ -154,23 +154,20 @@ extension SessionSetup {
     func browserSkill(worktreeId: String?, cwd: String) -> BrowserSkill {
         let repo = worktreeId.flatMap { id in Log.store.attempt("the workspace \(id)") { try store.worktree(id) } ?? nil
         }?.repoId
-        let choice = repo.flatMap { repoId in state(BrowserSkill.choiceKey(repoId))?.string }.flatMap {
-            ["on", "off"].contains($0) ? $0 : nil
-        }
+        let choice = repo.flatMap { repoId in state(BrowserSkill.choiceKey(repoId))?.string }.flatMap(
+            BrowserSkill.Choice.init(rawValue:))
         if let choice {
-            return BrowserSkill(on: choice == "on", why: "set for this project", choice: choice, hint: choice == "off")
+            return BrowserSkill(on: choice == .on, .project, choice: choice, hint: choice == .off)
         }
         switch Self.browserSetting(settings[SettingKeys.skillBrowser.key]) {
-        case "on": return BrowserSkill(on: true, why: "Always, in Settings")
-        case "off": return BrowserSkill(on: false, why: "Never, in Settings")
+        case "on": return BrowserSkill(on: true, .always)
+        case "off": return BrowserSkill(on: false, .never)
         default: break
         }
-        if let repo, state(Self.browserUsedKey(repo)) != nil {
-            return BrowserSkill(on: true, why: "an agent used it here")
-        }
-        if let repo, localPageOpen(repo: repo) { return BrowserSkill(on: true, why: "a local page is open here") }
-        if let found = WebApp.found(in: URL(fileURLWithPath: cwd)) { return BrowserSkill(on: true, why: found) }
-        return BrowserSkill(on: false, why: "no web app found", hint: true)
+        if let repo, state(Self.browserUsedKey(repo)) != nil { return BrowserSkill(on: true, .used) }
+        if let repo, localPageOpen(repo: repo) { return BrowserSkill(on: true, .localPage) }
+        if let found = WebApp.found(in: URL(fileURLWithPath: cwd)) { return BrowserSkill(framework: found) }
+        return BrowserSkill(on: false, .noWebApp, hint: true)
     }
 
     /// "auto", "on" or "off"; the switch it used to be counts as on / off.

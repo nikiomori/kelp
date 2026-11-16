@@ -519,16 +519,43 @@
         ],
         "type" : "object"
       },
+      "BrowserAction" : {
+        "description" : "What `kelp browser` does on a page (`UIBrowser.action`): the CLI's words, the shell's and the page tab's alike.",
+        "enum" : [
+          "open",
+          "snapshot",
+          "click",
+          "hover",
+          "type",
+          "press",
+          "upload",
+          "dialog",
+          "scroll",
+          "back",
+          "reload",
+          "eval",
+          "viewport",
+          "screenshot",
+          "wait",
+          "drag",
+          "console",
+          "network",
+          "info",
+          "record",
+          "ask"
+        ],
+        "type" : "string"
+      },
       "BrowserSkill" : {
         "properties" : {
           "choice" : {
-            "type" : "string"
+            "$ref" : "#/components/schemas/BrowserSkill.Choice"
           },
           "hint" : {
             "type" : "boolean"
           },
           "on" : {
-            "description" : "`why`: \"Vite in package.json\", \"no web app found\"… `choice`: the project's own, nil when it follows Settings. `hint`: off, but the agent is told where the guide is (not when Settings says Never).",
+            "description" : "`why`: a `Reason`'s words, or the web app found (\"Vite in package.json\"). `choice`: the project's own, nil when it follows Settings. `hint`: off, but the agent is told where the guide is (not when Settings says Never).",
             "type" : "boolean"
           },
           "why" : {
@@ -541,6 +568,14 @@
           "why"
         ],
         "type" : "object"
+      },
+      "BrowserSkill.Choice" : {
+        "description" : "The project's own choice (UI state `browser.choice.<repo>`).",
+        "enum" : [
+          "on",
+          "off"
+        ],
+        "type" : "string"
       },
       "CIEvent" : {
         "properties" : {
@@ -5044,7 +5079,7 @@
         "description" : "An agent's `ui.browser`, relayed to the app: it answers with `ui.browser.reply` and the same `request`.",
         "properties" : {
           "action" : {
-            "type" : "string"
+            "$ref" : "#/components/schemas/BrowserAction"
           },
           "args" : {
 
@@ -13346,7 +13381,7 @@
       "x-internal" : true
     },
     {
-      "description" : "`kelp browser`: `action` (a `BrowserAction`) on the browser tab of workspace `worktreeId`, done by the app, whose answer is the result. It waits for the page, up to `wait` seconds.",
+      "description" : "`kelp browser`: `action` on the browser tab of workspace `worktreeId`, done by the app, whose answer is the result. It waits for the page, up to `wait` seconds.",
       "name" : "ui.browser",
       "paramStructure" : "by-name",
       "params" : [
@@ -13354,7 +13389,7 @@
           "name" : "action",
           "required" : true,
           "schema" : {
-            "type" : "string"
+            "$ref" : "#/components/schemas/BrowserAction"
           }
         },
         {

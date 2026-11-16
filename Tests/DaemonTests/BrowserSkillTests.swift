@@ -48,10 +48,10 @@ private func folder(_ files: [String: String]) throws -> URL {
     func skill() async throws -> BrowserSkill { try await w.c.call(SkillsBrowser(worktreeId: wt.id)) }
     func state(_ k: String, _ v: JSONValue?) async throws { _ = try await w.c.call(StateSet(key: k, value: v)) }
 
-    #expect(try await skill() == BrowserSkill(on: false, why: "no web app found", hint: true))
+    #expect(try await skill() == BrowserSkill(on: false, .noWebApp, hint: true))
     try #"{"scripts": {"dev": "vite"}, "devDependencies": {"vite": "5"}}"#.write(
         toFile: wt.path + "/package.json", atomically: true, encoding: .utf8)
-    #expect(try await skill() == BrowserSkill(on: true, why: "Vite in package.json"))
+    #expect(try await skill() == BrowserSkill(framework: "Vite in package.json"))
     try FileManager.default.removeItem(atPath: wt.path + "/package.json")
 
     let tabs: JSONValue = .object([
@@ -64,16 +64,16 @@ private func folder(_ files: [String: String]) throws -> URL {
         .object(["groups": .object(["g": .object(["tabs": .array([.object(["uri": "https://github.com/x"])])])])]))
     #expect(try await skill().on == false)
 
-    _ = try? await w.c.call(UIBrowser(action: "info", worktreeId: wt.id))   // no app to do it, but the try counts
-    #expect(try await skill() == BrowserSkill(on: true, why: "an agent used it here"))
+    _ = try? await w.c.call(UIBrowser(action: .info, worktreeId: wt.id))   // no app to do it, but the try counts
+    #expect(try await skill() == BrowserSkill(on: true, .used))
 
     try await state(BrowserSkill.choiceKey(w.repo.id), "off")
-    #expect(try await skill() == BrowserSkill(on: false, why: "set for this project", choice: "off", hint: true))
+    #expect(try await skill() == BrowserSkill(on: false, .project, choice: .off, hint: true))
     try await state(BrowserSkill.choiceKey(w.repo.id), nil)
     _ = try w.d.settings.set("agents.skills.browser", "off")
-    #expect(try await skill() == BrowserSkill(on: false, why: "Never, in Settings"))
+    #expect(try await skill() == BrowserSkill(on: false, .never))
     _ = try w.d.settings.set("agents.skills.browser", .bool(true))   // the switch it used to be
-    #expect(try await skill() == BrowserSkill(on: true, why: "Always, in Settings"))
+    #expect(try await skill() == BrowserSkill(on: true, .always))
 }
 
 /// Each skill is its own --plugin-dir; one that's off is left out, and the agent hears where its guide is. A restart's argv
@@ -152,7 +152,7 @@ private func folder(_ files: [String: String]) throws -> URL {
     ended.outcome = .ok
     #expect(LiveSession.browsing("click e12", [ended], agents) == nil)   // over: not this call's
     #expect(LiveSession.browsing("info", [AgentCommand(id: "t4", command: "kelp browser info")], agents) == nil)   // the agent's own
-    #expect(UIBrowser.words("click", .object(["ref": "e12", "session": "s"])) == "click e12")
+    #expect(UIBrowser.words(.click, .object(["ref": "e12", "session": "s"])) == "click e12")
     // The agent's own command, its address as typed, while a subagent's waits: the agent's, not the subagent's.
     let asking = AgentCommand(id: "t5", command: "kelp browser ask 'Log in please'")
     let opening = AgentCommand(id: "t6", command: "kelp browser open localhost:3000")

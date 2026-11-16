@@ -102,8 +102,8 @@ extension UIBrowser: AsyncHandled {
     }
 
     /// What the command line says after `kelp browser`: `click e12`, `open http://localhost:3000`.
-    static func words(_ action: String, _ args: JSONValue?) -> String {
-        ([action] + ["ref", "key", "url"].compactMap { args?[$0]?.string }.prefix(1)).joined(separator: " ")
+    static func words(_ action: BrowserAction, _ args: JSONValue?) -> String {
+        ([action.rawValue] + ["ref", "key", "url"].compactMap { args?[$0]?.string }.prefix(1)).joined(separator: " ")
     }
 }
 
@@ -126,7 +126,7 @@ extension UIBrowserAsk: AsyncHandled {
             if case .object(let given) = args { all = given }
             all.merge(fields) { $1 }
             all["session"] = .string(session)   // the row that asks
-            return try await UIBrowser(action: BrowserAction.ask.rawValue, args: .object(all), worktreeId: worktreeId)
+            return try await UIBrowser(action: .ask, args: .object(all), worktreeId: worktreeId)
                 .handle(relay)
         }
         _ = try await page(["text": .string(question)])

@@ -102,7 +102,7 @@ public struct UIEvent: RPCEvent {
 /// An agent's `ui.browser`, relayed to the app: it answers with `ui.browser.reply` and the same `request`.
 public struct UIBrowserEvent: RPCEvent {
     public static let name = "event.ui.browser"
-    public var request: String, action: String, args: JSONValue?, worktreeId: String?
+    public var request: String, action: BrowserAction, args: JSONValue?, worktreeId: String?
     public init(_ method: UIBrowser, request: String) {
         self.request = request
         action = method.action

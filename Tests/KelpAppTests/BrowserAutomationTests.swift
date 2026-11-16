@@ -702,9 +702,9 @@ import WorkbenchKit
     session.subagents = ["a1": "general-purpose"]
     app.sessions = [session]
     let host = BrowserTab(uri: TabURI.agentPage("about:blank"), app: app)
-    _ = try await host.browse("info", .object(["session": .string(session.id), "subagent": "a1"]))
+    _ = try await host.browse(.info, .object(["session": .string(session.id), "subagent": "a1"]))
     #expect(host.pageSet.owner == "a1")
-    _ = try await host.browse("open", .object(["session": .string(session.id), "url": "about:blank#agent"]))
+    _ = try await host.browse(.open, .object(["session": .string(session.id), "url": "about:blank#agent"]))
     let agents = try #require(host.pageSet.pages.first)
     #expect(agents.who == "" && host.pageSet.shown == "")
     #expect(host.pageSet.pills.count == 2)

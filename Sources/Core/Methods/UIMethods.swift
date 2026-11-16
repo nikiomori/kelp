@@ -137,7 +137,7 @@ public struct UICommand: InternalMethod {
 }
 
 /// What `kelp browser` does on a page (`UIBrowser.action`): the CLI's words, the shell's and the page tab's alike.
-public enum BrowserAction: String, CaseIterable, Sendable {
+public enum BrowserAction: String, Codable, CaseIterable, Sendable {
     case open, snapshot, click, hover, type, press, upload, dialog, scroll, back, reload, eval, viewport, screenshot,
         wait, drag
     case console, network, info
@@ -148,7 +148,7 @@ public enum BrowserAction: String, CaseIterable, Sendable {
     case ask
 }
 
-/// `kelp browser`: `action` (a `BrowserAction`) on the browser tab of workspace `worktreeId`, done by the app, whose
+/// `kelp browser`: `action` on the browser tab of workspace `worktreeId`, done by the app, whose
 /// answer is the result. It waits for the page, up to `wait` seconds.
 public struct UIBrowser: InternalMethod {
     public static let name = "ui.browser"
@@ -156,8 +156,8 @@ public struct UIBrowser: InternalMethod {
     /// How long the daemon waits for the app's answer; the call itself a little longer.
     public static let wait: TimeInterval = 60
     public static var timeout: TimeInterval? { wait + 5 }
-    public var action: String, args: JSONValue?, worktreeId: String?
-    public init(action: String, args: JSONValue? = nil, worktreeId: String? = nil) {
+    public var action: BrowserAction, args: JSONValue?, worktreeId: String?
+    public init(action: BrowserAction, args: JSONValue? = nil, worktreeId: String? = nil) {
         self.action = action
         self.args = args
         self.worktreeId = worktreeId

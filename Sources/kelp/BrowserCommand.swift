@@ -54,7 +54,7 @@ extension Main {
             action == .ask
             ? try await c.call(
                 UIBrowserAsk(question: params["text"]?.string ?? "", args: .object(params), worktreeId: workspace))
-            : try await c.call(UIBrowser(action: action.rawValue, args: .object(params), worktreeId: workspace))
+            : try await c.call(UIBrowser(action: action, args: .object(params), worktreeId: workspace))
         let what = [params["key"]?.string, params["ref"]?.string ?? params["to"]?.string].compactMap { $0 }
         if !json, let text = browserText(action, what.joined(separator: " "), answer) {
             print(text)

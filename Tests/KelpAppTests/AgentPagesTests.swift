@@ -68,3 +68,17 @@ import WorkbenchKit
     #expect(mark?.tint == .themeAccent && mark?.glow == nil && mark?.tip == "You have its page: Checkout")
     #expect(BrowserMarks.row(.workspace("w"), app).isEmpty)
 }
+
+/// A chat's browser skill line is read back by its enums, not its English: a reason in the app's words, the web app
+/// found as it is, anything else left alone.
+@Test func aBrowserSkillLineIsReadByItsReason() {
+    #expect(BrowserSkill.parse("off · no web app found")?.reason == .noWebApp)
+    #expect(BrowserSkill.parse("on · Vite in package.json")?.framework == "Vite in package.json")
+    for reason in BrowserSkill.Reason.allCases {
+        #expect(BrowserSkill.parse(BrowserSkill(on: true, reason).line)?.reason == reason)
+        #expect(
+            BrowserSkillWords.line(BrowserSkill(on: true, reason).line) == "on · " + BrowserSkillWords.words(reason))
+    }
+    #expect(BrowserSkillWords.line("on · Vite in package.json") == "on · Vite in package.json")
+    #expect(BrowserSkillWords.line("something else") == "something else")
+}

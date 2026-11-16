@@ -67,11 +67,12 @@ enum BrowserMarks {
         guard case .project(let id) = row, let worktree = app.gitFolder(project: id),
             RemoteHost.of(worktree.path) == nil
         else { return }
-        let key = BrowserSkill.choiceKey(id), own = app.uiState[key]?.string
+        let key = BrowserSkill.choiceKey(id), own = app.uiState[key]?.string.flatMap(BrowserSkill.Choice.init)
         let list = NSMenu()
         list.add(String(localized: "Automatic")) { app.uiState[key] = nil }.state = own == nil ? .on : .off
-        list.add(String(localized: "On")) { app.uiState[key] = .string("on") }.state = own == "on" ? .on : .off
-        list.add(String(localized: "Off")) { app.uiState[key] = .string("off") }.state = own == "off" ? .on : .off
+        for (choice, title) in [(BrowserSkill.Choice.on, String(localized: "On")), (.off, String(localized: "Off"))] {
+            list.add(title) { app.uiState[key] = .string(choice.rawValue) }.state = own == choice ? .on : .off
+        }
         list.addItem(.separator())
         let why = list.addItem(
             withTitle: String(localized: "For new chats in this project"), action: nil, keyEquivalent: "")
@@ -85,21 +86,23 @@ enum BrowserMarks {
     }
 }
 
-/// The daemon's line about a chat's browser skill ("on · Vite in package.json", `BrowserSkill.line`), in the app's
-/// language where its words are fixed (a framework's name stays as it is).
+/// Whether a chat gets the browser skill and why ("on · Vite in package.json", `BrowserSkill.line`), in the app's
+/// language: a reason in its words, the web app found as it is.
 enum BrowserSkillWords {
     static func line(_ daemonLine: String) -> String {
-        let parts = daemonLine.components(separatedBy: " · ")
-        guard parts.count == 2 else { return daemonLine }
-        let fixed = [
-            "set for this project": String(localized: "set for this project"),
-            "Always, in Settings": String(localized: "Always, in Settings"),
-            "Never, in Settings": String(localized: "Never, in Settings"),
-            "an agent used it here": String(localized: "an agent used it here"),
-            "a local page is open here": String(localized: "a local page is open here"),
-            "no web app found": String(localized: "no web app found")
-        ]
-        return (parts[0] == "on" ? String(localized: "on") : String(localized: "off")) + " · "
-            + (fixed[parts[1]] ?? parts[1])
+        guard let skill = BrowserSkill.parse(daemonLine) else { return daemonLine }
+        return (skill.on ? String(localized: "on") : String(localized: "off")) + " · "
+            + (skill.reason.map(words) ?? skill.why)
+    }
+
+    static func words(_ reason: BrowserSkill.Reason) -> String {
+        switch reason {
+        case .project: String(localized: "set for this project")
+        case .always: String(localized: "Always, in Settings")
+        case .never: String(localized: "Never, in Settings")
+        case .used: String(localized: "an agent used it here")
+        case .localPage: String(localized: "a local page is open here")
+        case .noWebApp: String(localized: "no web app found")
+        }
     }
 }

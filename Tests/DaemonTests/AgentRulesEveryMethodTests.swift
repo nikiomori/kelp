@@ -112,9 +112,9 @@ private func rows() async throws -> Rows {
         [
             (agent, PortsStop(worktreeId: r.wt.id, pid: nil), true, "a port's process in its own workspace"),
             (agent, PortsStop(worktreeId: r.elsewhere.id, pid: nil), false, "not in another's"),
-            (agent, UIBrowser(action: "open", worktreeId: r.wt.id), true, "a page tab in its own workspace"),
-            (agent, UIBrowser(action: "open", worktreeId: r.elsewhere.id), false, "not in another's"),
-            (agent, UIBrowser(action: "open"), false, "nor in the one on screen, which needn't be its own"),
+            (agent, UIBrowser(action: .open, worktreeId: r.wt.id), true, "a page tab in its own workspace"),
+            (agent, UIBrowser(action: .open, worktreeId: r.elsewhere.id), false, "not in another's"),
+            (agent, UIBrowser(action: .open), false, "nor in the one on screen, which needn't be its own"),
             (
                 agent, UIBrowserAsk(question: "Sign in", worktreeId: r.elsewhere.id), false,
                 "nor hand another's page over"
