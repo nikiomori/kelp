@@ -57,6 +57,20 @@ import Testing
             "a folder of no project is a chat's own"
         ),
         (
+            .session(mine.id), SessionCreate(cwd: elsewhere.path, worktreeId: wt.id, command: "cat"), false,
+            "it starts no session in another's workspace, by its folder"
+        ),
+        (
+            .session(mine.id), SessionCreate(cwd: wt.path + "/src", worktreeId: wt.id, command: "cat"), true,
+            "but in its own, at any folder"
+        ),
+        (
+            .session(mine.id), SessionCreate(cwd: "/usr", worktreeId: wt.id, command: "cat"), true,
+            "or in a folder of no project"
+        ),
+        (.session(mine.id), VMConnect(name: "linux", cwd: elsewhere.path), false, "nor runs a machine's command there"),
+        (.session(mine.id), VMConnect(name: "linux", cwd: wt.path), true, "but does in its own"),
+        (
             .session(mine.id), ArtifactCheck(path: wt.path + "/.kelp/artifacts/x/canvas.json"), true,
             "and checks a canvas"
         )

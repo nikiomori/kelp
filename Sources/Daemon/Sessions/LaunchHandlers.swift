@@ -7,6 +7,7 @@ import Integrations
 
 extension SessionCreate: Handled {
     var inWorkspace: String? { worktreeId }   // said, not left to the walk: a session made there would let an agent into it
+    var writesInFolder: String? { cwd }   // where it runs wins over `worktreeId`: held to the workspace that holds it
     /// A tmux session by name would attach to one of the user's (`new-session -A`), and type in it as the agent.
     var notForAgents: String? {
         tmux == nil ? nil : "An agent's terminals aren't tmux sessions: tmux sessions are the user's to attach."

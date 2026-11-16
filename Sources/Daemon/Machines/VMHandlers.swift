@@ -95,6 +95,7 @@ extension VMControl: Handled {
 }
 
 extension VMConnect: Handled {
+    var writesInFolder: String? { cwd }   // the folder a command runs in on the machine, the project's own on the Mac
     func handle(_ vms: VMService) throws -> VMConnection { try vms.connect(name, cwd: cwd) }
 }
 
