@@ -153,7 +153,9 @@ extension AppOfItsOwn {
             b = try #require(vc.rows.firstIndex { shown($0)?.text == "ONE" })
         vc.table.selectRowIndexes([a, b], byExtendingSelection: false)
         vc.openDraft()
-        #expect(vc.notes.draft?.file == "a.txt" && vc.notes.draft?.start == 5 && vc.notes.draft?.end == 5 && vc.notes.draft?.quote == "FIVE")
+        #expect(
+            vc.notes.draft?.file == "a.txt" && vc.notes.draft?.start == 5 && vc.notes.draft?.end == 5
+                && vc.notes.draft?.quote == "FIVE")
     }
 
     /// A comment is written in a card under its line, which a new read of the diff keeps, and ⌘↩'s button saves.
@@ -312,6 +314,26 @@ extension AppOfItsOwn {
         vc.gitChanged(edited)
         #expect(try await waitFor(5) { !(vc.loads.reads == reads) })   // a busy runner took over 300 ms
         #expect(vc.loads.reads == reads + 1)
+    }
+
+    /// A read that answers the diff on screen again colours nothing again; a changed one is coloured.
+    @Test func theSameDiffIsntColouredAgain() async throws {
+        let rig = try await AppRig(files: ["f.swift": "let a = 1\n"])
+        defer { rig.done() }
+        try rig.write("f.swift", "let a = 2\n")
+        let vc = DiffViewController(app: rig.app)
+        rig.show(vc, 900, 700)
+        vc.show(worktree: rig.workspace.id)
+        await vc.load()
+        let coloured = vc.loads.colourings
+        #expect(!vc.syntax.isEmpty)
+        vc.reload()
+        await vc.load()
+        #expect(vc.loads.colourings == coloured && !vc.syntax.isEmpty)
+        try rig.write("f.swift", "let a = 3\n")
+        vc.reload()
+        await vc.load()
+        #expect(vc.loads.colourings == coloured + 1)
     }
 
     /// A file past one file's share of a review is listed, says it's too large, and opens on its own.

@@ -20,6 +20,8 @@ struct DiffLoads {
     var basis: GitDiff.Basis?
     /// Reads so far: tests see a burst of events make one more, not one each.
     var reads = 0
+    /// Diffs coloured so far: an answer the same as the diff on screen isn't coloured again.
+    var colourings = 0
 }
 
 extension DiffViewController {
@@ -113,9 +115,12 @@ extension DiffViewController {
             }
             cm = (await app.quiet(CommentList(id: wid)) ?? []).filter { [on = shownCommit] in $0.isOn(on) }   // a past commit's on its diff
         }
-        if newDiffs != diffs { opened = [:] }   // lines opened between changes may have moved
-        let grammars = newDiffs == diffs ? [:] : DiffColors.grammars(newDiffs)   // the same diff keeps its colours
-        async let parsed = Task.detached { DiffColors.spans(newDiffs, grammars: grammars) }.value
+        // Compared once, off the main thread: a big diff (a lock file beside an agent's edit) is megabytes.
+        let shown = diffs, same = await Task.detached { newDiffs == shown }.value
+        if !same { opened = [:] }   // lines opened between changes may have moved
+        let grammars = same ? [:] : DiffColors.grammars(newDiffs)   // the same diff keeps its colours
+        if !same { loads.colourings += 1 }
+        async let parsed = Task.detached { same ? nil : DiffColors.spans(newDiffs, grammars: grammars) }.value
         let layout = sideBySide, built = await buildRows(newDiffs, cm, sideBySide: layout)
         let printed = await Task.detached {
             Dictionary(newDiffs.map { ($0.path, ViewedFiles.print($0)) }) { a, _ in a }
@@ -124,7 +129,7 @@ extension DiffViewController {
         // Rows, cell tags and the hunk buttons index `diffs`: they change together, once every answer is in.
         guard asked == loads.asking, wid == worktreeId else { return }
         loads.builds += 1   // rows a layout change is still building are the old diff's
-        if newDiffs != diffs {
+        if let spans {
             position.stringValue = ""
             syntax = spans
         }   // "Change 3 of 17" counted another diff
