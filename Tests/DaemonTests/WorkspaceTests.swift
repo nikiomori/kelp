@@ -74,6 +74,24 @@ import Testing
     _ = try await creating.value
 }
 
+/// The project's folder follows its checked-out branch; one git can't read (its folder away, git timing out) keeps the
+/// branch it had, not the project's base written over it.
+@Test func aBranchThatCantBeReadIsntWrittenAsTheBase() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    try Git.run(["checkout", "-q", "-b", "feature"], cwd: w.repo.path, remotes: .none)
+    try w.d.workspaces.syncMainWorkspaces()
+    func branch() throws -> String? {
+        try w.d.store.worktrees(repo: w.repo.id).first { $0.path == w.repo.path }?.branch
+    }
+    #expect(try branch() == "feature")
+    let git = w.repo.path + "/.git"
+    try FileManager.default.moveItem(atPath: git, toPath: git + "-away")
+    defer { try? FileManager.default.moveItem(atPath: git + "-away", toPath: git) }
+    try w.d.workspaces.syncMainWorkspaces()
+    #expect(try branch() == "feature")
+}
+
 /// Remove Clean Worktrees puts each folder in the Trash, the ignored files git doesn't count (.env) with it, and keeps the
 /// one a paused agent last worked in.
 @Test func removingCleanWorktreesTrashesIgnoredFilesAndKeepsAPausedAgentsFolder() async throws {

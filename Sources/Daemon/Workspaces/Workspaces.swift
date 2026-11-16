@@ -96,16 +96,16 @@ final class Workspaces: Sendable {
             // A remote project's branch is read over ssh: not on every sync (an unreachable host would stall each one for
             // its connect timeout). Its workspaces keep the branch they have; git.status and the like read it when asked.
             if remotes.of(repo.path) != nil, !workspaces.isEmpty { continue }
-            let branch =
-                remotes.of(repo.path) != nil
-                ? repo.baseBranch : (try? Git.currentBranch(repo.path, remotes: remotes)) ?? repo.baseBranch
+            // Not read (git timed out, the folder's away): its workspaces keep the branch they have, not the base.
+            let read = remotes.of(repo.path) == nil ? try? Git.currentBranch(repo.path, remotes: remotes) : nil
+            let branch = read ?? repo.baseBranch
             if workspaces.isEmpty {
                 try store.save(
                     Worktree(repoId: repo.id, branch: branch, path: repo.path, note: "Workspace 1", base: branch))
             }
-            for worktree in workspaces where worktree.branch != branch || worktree.note.isEmpty {
+            for worktree in workspaces where (read != nil && worktree.branch != branch) || worktree.note.isEmpty {
                 try store.update(Worktree.self, worktree.id) {
-                    $0.branch = branch
+                    if read != nil { $0.branch = branch }
                     if $0.note.isEmpty { $0.note = "Workspace 1" }   // was the project's "main" workspace
                 }
             }
