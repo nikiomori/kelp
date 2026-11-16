@@ -362,6 +362,6 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
 
     /// A "custom command" agent: any shell command.
     public static func custom(_ command: String) -> AgentManifest {
-        .init(id: "custom", name: "Custom", command: "/bin/zsh", args: ["-lc", command])
+        .init(id: Session.customAgent, name: "Custom", command: "/bin/zsh", args: ["-lc", command])
     }
 }

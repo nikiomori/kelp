@@ -138,8 +138,8 @@ struct LayoutTemplates {
         var c = URLComponents()
         c.scheme = "terminal"
         if s.isAgent, let agent = s.agent { return "agent:" + agent }
-        if s.agent == "custom", s.argv.count == 3, s.argv[1] == "-lc" {
-            c.queryItems = [URLQueryItem(name: "cmd", value: s.argv[2]), URLQueryItem(name: "title", value: s.title)]
+        if let line = s.customCommand {
+            c.queryItems = [URLQueryItem(name: "cmd", value: line), URLQueryItem(name: "title", value: s.title)]
         } else if let tmux = Tmux.session(s.argv) {
             c.queryItems = [URLQueryItem(name: "tmux", value: tmux)]
         }

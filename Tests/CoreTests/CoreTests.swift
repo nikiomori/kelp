@@ -704,3 +704,13 @@ final class Flag: @unchecked Sendable {   // the bool under lock
         #expect(!FileManager.default.fileExists(atPath: file.path), "read once, then gone")
     }
 }
+
+/// A plain command's line is read off its argv once: only `custom`'s `zsh -lc <line>` has one.
+@Test func aPlainCommandsLineIsItsCustomCommand() {
+    var s = Session(cwd: "/", command: "zsh", argv: ["/bin/zsh", "-lc", "npm run dev"])
+    s.agent = Session.customAgent
+    #expect(s.customCommand == "npm run dev")
+    s.agent = "claude"
+    #expect(s.customCommand == nil)
+    #expect(Session.customCommand(agent: Session.customAgent, ["/bin/zsh", "-c", "x"]) == nil)
+}

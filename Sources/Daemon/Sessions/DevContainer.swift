@@ -23,7 +23,7 @@ enum DevContainer {
         if manifest.id == "shell" {
             return ["sh", "-c", "if command -v bash >/dev/null 2>&1; then exec bash -l; else exec sh -l; fi"]
         }
-        if manifest.id == "custom", argv.count == 3, argv[1] == "-lc" { return ["sh", "-lc", argv[2]] }
+        if let line = Session.customCommand(agent: manifest.id, argv) { return ["sh", "-lc", line] }
         var run = argv
         if case .settingsFlag(let flag)? = manifest.hooks {
             if let at = run.firstIndex(of: flag), at + 1 < run.count {

@@ -241,7 +241,14 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     public var isChat: Bool { agent != "shell" && startedBy == nil }
     /// An agent runs in it: not a terminal (`shell`) nor a plain command (`custom`: a dev server, a script).
     public var isAgent: Bool { Self.isAgent(agent) }
-    public static func isAgent(_ id: String?) -> Bool { !["shell", "custom"].contains(id ?? "shell") }
+    public static func isAgent(_ id: String?) -> Bool { ![shellAgent, customAgent].contains(id ?? shellAgent) }
+    /// The agent id of a terminal, and of a plain command (`AgentManifest.custom`).
+    public static let shellAgent = "shell", customAgent = "custom"
+    /// The command line a plain command runs (`zsh -lc <line>`), nil for anything else.
+    public var customCommand: String? { Self.customCommand(agent: agent, argv) }
+    public static func customCommand(agent: String?, _ argv: [String]) -> String? {
+        agent == customAgent && argv.count == 3 && argv[1] == "-lc" ? argv[2] : nil
+    }
     /// Its turn is over and it stays only to see that command end. Not while it asks, and not for a server: `awaiting`
     /// comes from a Stop.
     public var waitsForCommand: Bool { status == .working && awaiting != nil }
