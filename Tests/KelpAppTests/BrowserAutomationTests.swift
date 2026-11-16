@@ -640,3 +640,34 @@ import WorkbenchKit
     let answer = try await tab.browse("ask", .object(["ended": .string("allow")]))
     #expect(tab.drive?.takenOver == false && answer["url"]?.string == "https://example.com/")
 }
+
+/// A subagent that opens a page gets one of its own in the agent's page tab, the row over it switching; what it does
+/// before that, and what the page's first driver does, goes to the tab's own page. Its page goes when it ends.
+@MainActor @Test(.timeLimit(.minutes(1))) func aSubagentsPageIsItsOwnInTheAgentsTab() async throws {
+    let app = AppModel()
+    var session = Session(cwd: "/", command: "claude")
+    session.status = .working
+    session.subagents = ["a1": "general-purpose"]
+    app.sessions = [session]
+    let host = BrowserTab(uri: TabURI.agentPage("about:blank"), app: app)
+    let own: [String: JSONValue] = ["session": .string(session.id)]
+    _ = try await host.browse("info", .object(own))
+    #expect(host.pageSet.owner == "" && host.pageSet.pages.isEmpty)
+    var mobile = own
+    mobile["subagent"] = "a1"
+    _ = try await host.browse("info", .object(mobile))   // no page of its own yet: the shared one
+    #expect(host.pageSet.pages.isEmpty)
+    mobile["url"] = "about:blank#mobile"
+    _ = try await host.browse("open", .object(mobile))
+    let page = try #require(host.pageSet.pages.first)
+    #expect(page.who == "a1" && host.pageSet.shown == "a1" && host.shownPage === page.tab && page.tab.host === host)
+    #expect(host.title.hasSuffix(" +1"))
+    page.tab.bringForward()
+    host.bringForward()
+    #expect(host.pageSet.shown == nil && host.shownPage === host)
+
+    session.subagents = [:]
+    app.sessions = [session]
+    try await waitFor(5) { host.pageSet.pages.isEmpty }
+    #expect(!host.title.hasSuffix(" +1"))
+}

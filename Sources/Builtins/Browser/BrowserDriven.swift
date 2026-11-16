@@ -23,11 +23,15 @@ extension BrowserTab: DrivenPage {
         page.url = web.url?.absoluteString ?? start
         page.color = Self.vivid(app.catalog.color(app.session(session)?.agent))
         pages.drives(pageId, page, handle: self)
-        if drive?.driver != session {
+        let subagent = args["subagent"]?.string
+        if drive?.driver != session || drive?.subagent != subagent {
             drive?.driver = session
+            drive?.subagent = subagent
             showAgentBar()   // says who
         }
-        pages.acted(pageId, Self.step(action, args, named: args["ref"]?.string.flatMap { drive?.names[$0] }))
+        let step = Self.step(action, args, named: args["ref"]?.string.flatMap { drive?.names[$0] })
+        drive?.lastStep = step
+        pages.acted(pageId, step)
     }
 
     /// What an action is, as the card lists it: `clicks “Pay now”`, `opens localhost:3000/checkout`.
@@ -85,7 +89,18 @@ extension BrowserTab: DrivenPage {
         }
     }
 
-    func bringForward() {}
+    func bringForward() {
+        if let host {
+            host.pageSet.show(host.pageSet.pages.first { $0.tab === self }?.who)
+        } else if agent {
+            pageSet.show(nil)
+        }
+    }
+
+    /// After an action here: the row of pages shows it, when the tab has one (not made for a tab that has none).
+    func pageSetActed(_ page: BrowserTab) {
+        if agent, host == nil, !pageSet.pages.isEmpty { pageSet.acted(page) }
+    }
 
     func hold(_ user: Bool) {
         guard let drive, drive.takenOver != user else { return }

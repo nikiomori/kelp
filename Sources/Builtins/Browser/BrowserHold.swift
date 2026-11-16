@@ -71,12 +71,18 @@ extension BrowserTab {
         Task { await app.call(SessionChoose(id: asked.session, answer: "allow", question: question)) }
     }
 
+    /// Who drives the page, as the user reads it: a subagent (`who`) by what it was asked, else the agent's name.
+    func driverName(_ who: String) -> String {
+        let session = drive?.driver.flatMap { app.session($0) }
+        guard !who.isEmpty else { return session.map { app.catalog.name($0.agent) } ?? String(localized: "The agent") }
+        let run = session?.runningSubagents.first { $0.id == who }
+        return run.flatMap { $0.task ?? ($0.kind.isEmpty ? nil : $0.kind) } ?? String(localized: "A subagent")
+    }
+
     /// What the strip says and offers now: who has the page, and the one thing to do about it.
     func stripLook() -> (text: String, button: String, tip: String) {
         guard let drive else { return ("", "", "") }
-        let who =
-            drive.driver.flatMap { app.session($0) }.map { app.catalog.name($0.agent) }
-            ?? String(localized: "The agent")
+        let who = driverName(drive.subagent ?? "")
         if let asked = drive.asked {
             return (
                 String(localized: "\(who) asks: \(asked.text)"), String(localized: "Done"),

@@ -19,6 +19,13 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     var designOn = false
     @ObservationIgnored var clicks = DesignClicks()
     @ObservationIgnored var clickWatch: Any?
+    /// An agent page's tab with its subagents' pages too (BrowserPages.swift): the row that switches between them, over
+    /// the page area, which holds this page's own content and theirs; and, on theirs, the tab they're in.
+    let switchSlot = NSView(), pageArea = NSView()
+    @ObservationIgnored private(set) lazy var switchHeight = switchSlot.heightAnchor.constraint(equalToConstant: 0)
+    @ObservationIgnored private(set) var ownContent = NSView()
+    @ObservationIgnored private(set) lazy var pageSet = PageSet(host: self)
+    @ObservationIgnored weak var host: BrowserTab?
     /// The user's clicks and keys in the page while an agent drives it (`watchUser`).
     @ObservationIgnored var userWatch: Any?
     /// `preview:/path/page.html`: a local page shown as the browser sees it, reloaded whenever a file next to it changes.
@@ -78,7 +85,14 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         .symbol("record.circle"), tip: String(localized: "Stop Recording"), target: nil, action: nil)
     @ObservationIgnored private var webFill: [NSLayoutConstraint] = []
     @ObservationIgnored private var webFixed: [NSLayoutConstraint] = []
+    /// The page this tab shows now: its own, or a subagent's (`pageSet`).
+    var shownPage: BrowserTab { agent ? pageSet.shownTab : self }
+
     var title: String {
+        let pages = agent && !pageSet.pages.isEmpty ? " +\(pageSet.pages.count)" : ""
+        return ownTitle + pages
+    }
+    private var ownTitle: String {
         previewFile.map { ($0 as NSString).lastPathComponent } ?? page.title.flatMap { $0.isEmpty ? nil : $0 } ?? page
             .url?.host
             ?? String(localized: "New Page")
@@ -139,12 +153,15 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         progress.translatesAutoresizingMaskIntoConstraints = false
         body.addSubview(progress)
         let box = BrowserBox()
-        box.pin(stacked(bar, agentSlot, body))
+        ownContent = stacked(bar, agentSlot, body)
+        pageArea.pin(ownContent)
+        box.pin(stacked(switchSlot, pageArea))
         view = box
         super.init()
-        box.reload = { [weak self] in self?.reloadPage() }
-        box.find = { [weak self] in self?.find($0) }
+        box.reload = { [weak self] in self?.shownPage.reloadPage() }
+        box.find = { [weak self] in self?.shownPage.find($0) }
         agentSlotHeight.isActive = true
+        switchHeight.isActive = true
         webFill = [
             web.topAnchor.constraint(equalTo: body.topAnchor), web.bottomAnchor.constraint(equalTo: body.bottomAnchor),
             web.leadingAnchor.constraint(equalTo: body.leadingAnchor),

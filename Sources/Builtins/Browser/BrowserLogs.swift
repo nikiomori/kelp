@@ -121,8 +121,10 @@ final class AgentDrive {
     }
     /// What the agent asked the user to do on the page (`kelp browser ask`), and the session that asked.
     var asked: (text: String, session: String)?
-    /// The session that acted here last: whose name the strip says.
-    var driver: String?
+    /// The session that acted here last: whose name the strip says; and what it did (`BrowserTab.step`).
+    var driver: String?, lastStep: String?
+    /// The subagent that acted here last; nil: the agent itself.
+    var subagent: String?
     /// When the user last clicked or typed in the page while it was theirs.
     var userAt = Date.distantPast
     private var waiters: [UUID: CheckedContinuation<Bool, Never>] = [:]
