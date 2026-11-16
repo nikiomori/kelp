@@ -366,6 +366,18 @@ final class NoteBox: @unchecked Sendable {
     }
 }
 
+/// Workspaces made at once (parallel subagents' `kelp worktree create`) each get a "ws-N" of their own.
+@Test func workspacesMadeAtOnceGetBranchesOfTheirOwn() async throws {
+    let (d, c, _, repo) = try await world()
+    defer { d.stop() }
+    let made = try await withThrowingTaskGroup(of: Worktree.self) { group in
+        for _ in 0..<3 { group.addTask { try await c.call(WorktreeCreate(repoId: repo.id, setup: false)).worktree } }
+        return try await group.reduce(into: []) { $0.append($1) }
+    }
+    #expect(Set(made.map(\.branch)) == ["ws-2", "ws-3", "ws-4"])
+    #expect(Set(made.map(\.note)).count == 3)
+}
+
 /// A workspace in the project folder has no branch or checkout of its own; closing one leaves the files, the last stays.
 @Test func workspacesShareTheProjectFolder() async throws {
     let (d, c, _, repo) = try await world()

@@ -25,6 +25,9 @@ final class Workspaces: Sendable {
     /// message being written is.
     let commitPlans = OSAllocatedUnfairLock(initialState: [String: [PlannedCommit]]())
     let sweeps = WorktreeSweeps()   // the projects' other worktrees' sizes: one sweep each at a time, kept a moment
+    /// Branches being made into workspaces ("repo/branch"), until their record is saved: two made at once don't pick
+    /// the same "ws-N" (git would refuse the second).
+    let making = OSAllocatedUnfairLock(initialState: Set<String>())
 
     init(root: URL, store: Store, remotes: Remotes, sessions: Sessions, clients: Clients) {
         self.root = root
@@ -190,14 +193,23 @@ final class Workspaces: Sendable {
         return worktree
     }
 
-    /// "Workspace 3" on branch "ws-3": instant, and renamed from the first prompt later (see autoTitle).
+    /// "Workspace 3" on branch "ws-3": instant, and renamed from the first prompt later (see autoTitle). The branch is
+    /// claimed (`making`) until `made` lets it go.
     func nextWorkspace(in repo: Repo) throws -> (name: String, branch: String) {
         let taken = Set(try store.worktrees(repo: repo.id).map(\.note))
         var number = 2
-        while taken.contains("Workspace \(number)") || Git.branchExists(repo.path, "ws-\(number)", remotes: remotes) {
-            number += 1
-        }
+        while taken.contains("Workspace \(number)") || !claimed(repo, "ws-\(number)") { number += 1 }
         return ("Workspace \(number)", "ws-\(number)")
+    }
+
+    /// `branch` isn't there, nor being made by another create: now it's this one's.
+    private func claimed(_ repo: Repo, _ branch: String) -> Bool {
+        guard !Git.branchExists(repo.path, branch, remotes: remotes) else { return false }
+        return making.withLock { $0.insert(repo.id + "/" + branch).inserted }
+    }
+
+    private func made(_ repo: Repo, _ branches: [String]) {
+        making.withLock { claims in for branch in branches { claims.remove(repo.id + "/" + branch) } }
     }
 
     /// A workspace on a branch of its own, in a worktree of `repo`, as `asked` says: its `branch` (else "ws-N", or named
@@ -210,6 +222,8 @@ final class Workspaces: Sendable {
             throw RPCError.invalidParams("“\(repo.name)” isn't a Git repository, so it has no branches.")
         }
         let auto = try nextWorkspace(in: repo)
+        var claims = [auto.branch]
+        defer { made(repo, claims) }
         var branch = try clientRef(asked.branch.flatMap { $0.isEmpty ? nil : $0 }) ?? auto.branch
         // A name given for a new branch names it too, as a first prompt would (`nameBranch`), "-2" if it's taken.
         if asked.branch == nil, pr == nil, let given = note?.trimmingCharacters(in: .whitespaces), !given.isEmpty,
@@ -218,10 +232,11 @@ final class Workspaces: Sendable {
             let wanted = sessions.branchPrefix + Naming.slug(given)
             var suffix = 2
             branch = wanted
-            while Git.branchExists(repo.path, branch, remotes: remotes) {
+            while !claimed(repo, branch) {
                 branch = "\(wanted)-\(suffix)"
                 suffix += 1
             }
+            claims.append(branch)
         }
         if let pr {
             branch = try Git.fetchPullRequest(
