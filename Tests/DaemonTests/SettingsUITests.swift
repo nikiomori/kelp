@@ -109,6 +109,31 @@ final class EventBox: @unchecked Sendable {
     _ = try await app.call("ui.browser.reply", .obj(["request": second, "result": "late"]))   // nobody waits: nothing happens
 }
 
+/// An agent's `kelp browser` drives the page as itself: a session (or subagent) it names in its args, another agent's,
+/// is replaced with its own, so the page's card, pointer and Done don't put its work on someone else.
+@Test func anAgentDrivesAPageAsItselfWhateverSessionItNames() async throws {
+    let (d, _, root) = try daemon()
+    defer { d.stop() }
+    let app = try client(root)
+    let box = EventBox()
+    app.onNotification = { box.add($0, $1) }
+    _ = try await app.call("ui.publish", .obj(["state": .object([:])]))
+    var mine = Session(worktreeId: "w1", cwd: "/tmp", command: "cat", argv: ["cat"]), other = mine
+    other.id = UUID().uuidString
+    mine.agent = "claude"
+    other.agent = "claude"
+    try d.sessions.store.save(mine)
+    try d.sessions.store.save(other)
+    let relay = BrowserRelay.of(d), id = mine.id
+    let call = UIBrowser(action: "snapshot", args: .obj(["session": .string(other.id), "subagent": "a1"]))
+    let page = Task { try await Sessions.$asker.withValue(id) { try await call.handle(relay) } }
+    #expect(try await waitFor { box.last("event.ui.browser") != nil })
+    let sent = try #require(box.last("event.ui.browser"))
+    #expect(sent["args"]?["session"] == .string(mine.id) && sent["args"]?["subagent"] == nil)
+    _ = try await app.call("ui.browser.reply", .obj(["request": try #require(sent["request"]), "result": "ok"]))
+    #expect(try await page.value == "ok")
+}
+
 /// What the app restores lives in the daemon: by key, by prefix, null deletes; a removed workspace takes its layout along.
 @Test func uiStateByKeyAndPrefix() async throws {
     let (d, c, _) = try daemon()

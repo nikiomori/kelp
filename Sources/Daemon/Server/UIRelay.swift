@@ -80,7 +80,16 @@ extension UIBrowser: AsyncHandled {
         let clients = ui.clients, apps = clients.apps
         guard !apps.isEmpty else { throw RPCError.internalError("The Kelp app isn't running") }
         var call = self
-        if case .object(var fields) = args, let session = fields["session"]?.string,
+        // An agent drives the page as itself, whichever session it names: the page's card, pointer and Done say who.
+        if case .some(let own) = relay.sessions.store.agent(origin: Sessions.asker) {
+            guard case .object(var fields) = args ?? .object([:]) else {
+                throw RPCError.invalidParams("kelp browser's args are an object")
+            }
+            fields["session"] = own.map(JSONValue.string)
+            fields["subagent"] = nil   // which subagent is the hook's to say, below
+            call.args = .object(fields)
+        }
+        if case .object(var fields) = call.args, let session = fields["session"]?.string,
             let subagent = relay.sessions.existing(session)?.browsing(Self.words(action, args))
         {
             fields["subagent"] = .string(subagent)
@@ -103,15 +112,20 @@ extension UIBrowser: AsyncHandled {
 extension UIBrowserAsk: AsyncHandled {
     var inWorkspace: String? { worktreeId ?? "" }
     func handle(_ relay: BrowserRelay, conn: Int) async throws -> JSONValue {
-        // An agent's own session, else the one the command runs in (the user's script asks on its row too).
-        let asker = relay.sessions.store.agent(origin: Sessions.asker) ?? nil
-        guard let session = asker ?? args?["session"]?.string, let ls = relay.sessions.existing(session) else {
+        // An agent asks on its own row, never one it names; the user's script, on the row of the session it runs in.
+        let row: String? =
+            switch relay.sessions.store.agent(origin: Sessions.asker) {
+            case .some(let own): own
+            case .none: args?["session"]?.string
+            }
+        guard let session = row, let ls = relay.sessions.existing(session) else {
             throw RPCError.invalidParams("kelp browser ask runs in a session of Kelp's: its row asks the user.")
         }
         func page(_ fields: [String: JSONValue]) async throws -> JSONValue {
-            var all: [String: JSONValue] = ["session": .string(session)]
-            if case .object(let given) = args { all.merge(given) { $1 } }
+            var all: [String: JSONValue] = [:]
+            if case .object(let given) = args { all = given }
             all.merge(fields) { $1 }
+            all["session"] = .string(session)   // the row that asks
             return try await UIBrowser(action: BrowserAction.ask.rawValue, args: .object(all), worktreeId: worktreeId)
                 .handle(relay)
         }
