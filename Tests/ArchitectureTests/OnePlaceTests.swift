@@ -16,3 +16,13 @@ func count(_ pattern: String, in dirs: [String]) throws -> Int {
     let writes = try count(#"(^|[^.\w])(self\.)?state = "#, in: ["Sources/KelpVM"])
     #expect(writes == 3, "state written \(writes) times in kelp-vm: through Lifecycle.move")
 }
+
+/// Whether a path is on another machine is asked feature by feature (`remotes.of`, `RemoteHost.of`): each new feature
+/// that asks itself shipped local-only first, then a fix for its remote projects followed. The counts only go down: new
+/// work goes through the one place once there is one.
+@Test func remoteIsDecidedInFewerPlaces() throws {
+    let daemon = try count(#"\bremotes\.(of|containing)\("#, in: ["Sources/Daemon", "Sources/GitKit"])
+    let app = try count(#"\bRemoteHost\.of\("#, in: appDirs)
+    #expect(daemon == 101, "remotes.of / remotes.containing in the daemon and GitKit: \(daemon)")
+    #expect(app == 32, "RemoteHost.of in the app: \(app)")
+}

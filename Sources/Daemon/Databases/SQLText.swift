@@ -3,6 +3,9 @@ import Foundation
 
 /// SQL as text: its statements, and what kind the first one is. Quotes ('…', "…", `…`, $tag$…$tag$) and comments
 /// (-- …, /* … */) are skipped, so a ";" inside them doesn't split.
+/// Limit: this is Kelp's own reading of each engine's grammar, and what it decides (one statement or several, which
+/// kind) guards an agent's writes beyond the READ ONLY transaction the engine enforces. A form it misreads is a fix of
+/// its own: the category is open-ended, not closed by the cases here.
 enum SQLText {
     /// How an engine reads quotes and comments, where engines differ: MySQL takes \\' as an escaped quote (unless
     /// NO_BACKSLASH_ESCAPES), `#` as a comment and `--` as one only before a space, and has no $tag$; Postgres (and
