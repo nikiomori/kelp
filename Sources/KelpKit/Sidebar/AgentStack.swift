@@ -85,7 +85,7 @@ final class AgentStack: NSView {
 
     /// Asking, failed, working, or done and not looked at: what earns a mark in the corner.
     private static func badge(_ session: Session) -> AgentStatus? {
-        let st = SidebarCell.shownStatus(session)
+        let st = session.shownStatus
         return [.waiting, .error, .working].contains(st) || (st == .done && session.unread) ? st : nil
     }
 

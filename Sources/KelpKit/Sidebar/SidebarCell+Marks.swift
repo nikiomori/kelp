@@ -60,7 +60,7 @@ extension SidebarCell {
     /// VoiceOver reads the row as one sentence: "Fix login, needs your input, Asks: may I run npm test?, Atlas, now",
     /// not its mark, name, line and time one by one.
     func speak(_ session: Session) {
-        let st = Self.shownStatus(session), project = app.projectName(app.worktree(session.worktreeId)?.repoId)
+        let st = session.shownStatus, project = app.projectName(app.worktree(session.worktreeId)?.repoId)
         let state = mark.isHidden ? nil : st.words
         let line = ask.isHidden ? nil : ask.stringValue, quiet = muted.isHidden ? nil : muted.toolTip
         setAccessibilityElement(true)

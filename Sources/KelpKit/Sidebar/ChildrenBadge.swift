@@ -49,7 +49,7 @@ final class ChildrenBadge: PointerControl {
     /// continuing it by itself: someone has to decide.
     static func status(_ session: Session) -> AgentStatus {
         session.status == .done && session.limitHit != nil && session.continueAt == nil
-            ? .waiting : SidebarCell.shownStatus(session)
+            ? .waiting : session.shownStatus
     }
 
     /// The dots for what runs under an agent, and the number beside them when they don't fit. A turn's finished subagents
@@ -177,58 +177,5 @@ final class PipsView: NSView {
         dot.borderWidth = pip == .finished ? 1 : 0
         dot.shadowColor = color.cgColor
         dot.shadowOpacity = pip == .asks || pip == .browses ? 0.8 : 0
-    }
-}
-
-extension SidebarCell {
-    /// A row's second line: what it asks itself, or else what a child of its asks (`children`: the agents it started
-    /// and theirs, `AppModel.children(of:)`), under the child's name.
-    /// `back`: why a parked agent came back (`Arrangement.parkedBack`), said when nothing more urgent is. `plans`: what
-    /// a plan limit that stopped one says (`Contributions.plans`).
-    static func line(
-        _ session: Session, mode: String, children: [Session], back: String? = nil, plans: PlanWords? = nil
-    ) -> (prefix: (String, NSColor)?, text: String)? {
-        let own = askLine(session, mode: mode, plans: plans)
-        guard own?.prefix == nil else { return own }
-        if let back { return ((String(localized: "Back:"), .secondaryLabelColor), back) }
-        for child in children {
-            if let line = askLine(child, mode: mode, plans: plans), let color = line.prefix?.1 {
-                return ((child.displayTitle + ":", color), line.text)
-            }
-        }
-        return own
-    }
-}
-
-/// What an agent's row says of its state, for the sidebar and everyone who counts like it.
-extension SidebarCell {
-    /// "Limit: resets 3:40 PM": a plan limit stopped it. "Asks: may I run npm test?", "Failed: rate limit until 14:00": what an
-    /// agent that needs you wants, in its own words (its summary); with `always` every agent says what it's on. Nil: no second
-    /// line.
-    static func askLine(_ session: Session, mode: String, plans: PlanWords? = nil) -> (
-        prefix: (String, NSColor)?, text: String
-    )? {
-        let st = shownStatus(session), text = session.summary.isEmpty ? session.statusWords : session.summary
-        if mode != "never", let limit = plans?.rowLine(session) { return ((limit.word, .textOrange), limit.text) }
-        switch (mode, st) {
-        case ("never", _): return nil
-        case (_, .waiting): return ((String(localized: "Asks:"), .textOrange), text)
-        case (_, .error): return ((String(localized: "Failed:"), .textRed), text)
-        case ("always", _): return (nil, text)
-        default: return nil
-        }
-    }
-
-    /// Asks for you, failed, or finished and not looked at yet.
-    static func wantsYou(_ session: Session) -> Bool {
-        let st = shownStatus(session)
-        return session.isChat && (st == .waiting || st == .error || (st == .done && session.unread))
-    }
-
-    static func shownStatus(_ session: Session) -> AgentStatus { session.shownStatus }
-
-    /// Something to look at: finished or asking, and not opened since (bold, like unread mail).
-    static func isNews(_ session: Session) -> Bool {
-        session.unread && [.done, .waiting, .error].contains(shownStatus(session))
     }
 }

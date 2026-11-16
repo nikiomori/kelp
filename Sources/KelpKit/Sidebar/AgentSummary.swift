@@ -186,7 +186,7 @@ final class AgentSummary: NSView {
         }
         glass.isHidden = shown.isEmpty
         capsule.refreshPointer()   // no longer asking: no grey left over from the pointer
-        mark.status = AgentStatus.mostUrgent(counted.map(SidebarCell.shownStatus))
+        mark.status = AgentStatus.mostUrgent(counted.map(\.shownStatus))
         mark.unread = true
         let said = String(localized: "\(counted.count) need you")
         if wasShown, asking, let was = Int(title.stringValue.prefix { $0.isNumber }), was != counted.count {
@@ -335,7 +335,7 @@ struct SummaryShown: Equatable {
         let attention = AttentionQueue(app).sessions
         let counts = SummaryCounts(chats: app.sessions, done: attention)
         func entry(_ s: Session, _ since: Date) -> Entry {
-            Entry(id: s.id, status: SidebarCell.shownStatus(s), since: since, until: s.continueAt)
+            Entry(id: s.id, status: s.shownStatus, since: since, until: s.continueAt)
         }
         queue = attention.map { entry($0, $0.statusAt ?? $0.createdAt) }
         self.counts = SummaryKind.allCases.map { kind in counts[kind].map { entry($0, SummaryCounts.since($0, kind)) } }
@@ -347,7 +347,7 @@ extension Inbox {
     /// Who needs you now; `shown` leaves out the agent on screen (the capsule goes to the others), `counted` keeps it.
     @MainActor static func current(_ app: AppModel, queue: [Session]) -> Inbox {
         // A finished agent keeps its mark in the row: it asks for nothing, so it isn't counted as needing you.
-        var inbox = Inbox(queue: queue.filter { SidebarCell.shownStatus($0) != .done })
+        var inbox = Inbox(queue: queue.filter { $0.shownStatus != .done })
         let tab = app.workbench.focusedTab ?? ""
         if TabURI.scheme(tab) == "session" { inbox.viewing = [TabURI.body(tab)] }
         return inbox

@@ -307,8 +307,8 @@ final class SidebarCell: NSTableCellView {
             guard let session = app.session(sid) else { return }
             showIcon(session)
             title.stringValue = app.catalog.displayName(session)
-            title.font = .ui(TextSize.body, weight: Self.isNews(session) ? .semibold : .regular)
-            mark.status = Self.shownStatus(session)
+            title.font = .ui(TextSize.body, weight: session.isNews ? .semibold : .regular)
+            mark.status = session.shownStatus
             mark.unread = session.unread
             mark.limited = session.limitHit != nil
             mark.compacting = session.compacting
@@ -324,10 +324,10 @@ final class SidebarCell: NSTableCellView {
                 ? (session.cwd as NSString).lastPathComponent : ""
             // Working with no news for minutes says so where the time goes: a ring alone would say it's busy (`quietSince`).
             let quiet =
-                Self.shownStatus(session) == .working
+                session.shownStatus == .working
                 ? session.quietSince.map { String(localized: "quiet \(shortAgo($0))") } : nil
             trailing.stringValue =
-                [.waiting, .error].contains(Self.shownStatus(session))
+                [.waiting, .error].contains(session.shownStatus)
                 ? shortAgo(session.statusAt ?? session.createdAt)
                 : app.arrangement.parked[sid].flatMap { app.arrangement.isParked(sid) ? Parking.until($0) : nil }
                     ?? quiet ?? picked
@@ -403,8 +403,8 @@ extension SidebarCell {
 
     /// The second line, and the name moved up to make room for it; the outline gives the row the height (`hasAsk`).
     private func showAsk(_ session: Session) {
-        let line = Self.line(
-            session, mode: app.settings[SettingKeys.agentDetail], children: app.children(of: session.id),
+        let line = session.rowLine(
+            mode: app.settings[SettingKeys.agentDetail], children: app.children(of: session.id),
             back: app.arrangement.parkedBack[session.id], plans: app.extensions.all.plans)
         setAsk(line)
     }

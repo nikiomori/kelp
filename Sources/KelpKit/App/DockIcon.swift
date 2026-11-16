@@ -29,7 +29,7 @@ package final class DockIcon {
     func menu() -> NSMenu {
         let menu = NSMenu()
         for s in AttentionQueue(app).sessions { add(s, to: menu) }
-        let busy = Self.onSidebar(app).filter { $0.isChat && SidebarCell.shownStatus($0) == .working }.count
+        let busy = Self.onSidebar(app).filter { $0.isChat && $0.shownStatus == .working }.count
         if busy > 0 { menu.addItem(withTitle: String(localized: "\(busy) working"), action: nil, keyEquivalent: "") }
         if !menu.items.isEmpty { menu.addItem(.separator()) }
         menu.add(String(localized: "New Chat")) { [app] in
@@ -88,7 +88,7 @@ package final class DockIcon {
 
     package static func cell(_ s: Session) -> DockFace.Cell? {
         guard s.isChat else { return nil }
-        switch SidebarCell.shownStatus(s) {
+        switch s.shownStatus {
         case .waiting: return .asks
         case .error: return .failed
         case .working: return .working

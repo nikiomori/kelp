@@ -191,7 +191,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     func updateBadge() {
         // Who waits for an answer, as Needs You's marks say: finished work you haven't opened is no question.
-        let count = app.sessions.filter { SidebarCell.wantsYou($0) && SidebarCell.shownStatus($0) != .done }.count
+        let count = app.sessions.filter { $0.wantsYou && $0.shownStatus != .done }.count
         let label = count > 0 ? "\(count)" : nil
         if NSApp.dockTile.badgeLabel != label { NSApp.dockTile.badgeLabel = label }
         clearSeen()

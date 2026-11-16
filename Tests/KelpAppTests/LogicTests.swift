@@ -205,9 +205,9 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(LimitStop.title("Claude Code", s, now: before).hasPrefix("Claude Code will continue at"))
     #expect(Notifier.category(s) == nil)   // its banner asks nothing typed: the tab has the choices
     let plans = PlanNote.words(AppModel())   // the Agents built-in's words, where the shell shows them
-    #expect(SidebarCell.askLine(s, mode: "needsYou", plans: plans)?.prefix?.0 == "Continues")
-    #expect(SidebarCell.askLine(s, mode: "never", plans: plans) == nil)
-    #expect(SidebarCell.askLine(s, mode: "needsYou")?.prefix?.0 != "Continues")   // without them, no limit line
+    #expect(s.askLine(mode: "needsYou", plans: plans)?.prefix?.0 == "Continues")
+    #expect(s.askLine(mode: "never", plans: plans) == nil)
+    #expect(s.askLine(mode: "needsYou")?.prefix?.0 != "Continues")   // without them, no limit line
 }
 
 /// While you type, a finished agent's banner waits (a question doesn't); 20 s without a key, it goes; they come as one.
@@ -336,17 +336,17 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 }
 
 @MainActor @Test func theSidebarFlagsWhatWantsYou() {
-    #expect(SidebarCell.wantsYou(session(.waiting)))
-    #expect(SidebarCell.wantsYou(session(.error)))
-    #expect(SidebarCell.wantsYou(session(.done, unread: true)))
-    #expect(!SidebarCell.wantsYou(session(.done, unread: false)))   // seen
-    #expect(!SidebarCell.wantsYou(session(.waiting, agent: "shell")))   // a plain terminal never asks
-    #expect(SidebarCell.wantsYou(session(.paused, unread: true)))   // paused, but it finished and you haven't looked
-    #expect(!SidebarCell.wantsYou(session(.paused)))
+    #expect(session(.waiting).wantsYou)
+    #expect(session(.error).wantsYou)
+    #expect(session(.done, unread: true).wantsYou)
+    #expect(!session(.done, unread: false).wantsYou)   // seen
+    #expect(!session(.waiting, agent: "shell").wantsYou)   // a plain terminal never asks
+    #expect(session(.paused, unread: true).wantsYou)   // paused, but it finished and you haven't looked
+    #expect(!session(.paused).wantsYou)
     #expect(
-        SidebarCell.isNews(session(.done, unread: true)) && !SidebarCell.isNews(session(.idle, unread: true))
-            && !SidebarCell.isNews(session(.done)))
-    #expect(SidebarCell.isNews(session(.paused, unread: true)))   // bold as long as it's counted
+        session(.done, unread: true).isNews && !session(.idle, unread: true).isNews
+            && !session(.done).isNews)
+    #expect(session(.paused, unread: true).isNews)   // bold as long as it's counted
 }
 
 @MainActor @Test func aProjectTileShowsTheInitialsOfItsFirstTwoWords() {
@@ -364,12 +364,12 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 }
 
 @MainActor @Test func anAgentThatNeedsYouSaysWhatUnderItsName() {
-    let ask = SidebarCell.askLine(session(.waiting, summary: "May I run npm test?"), mode: "needsYou")
+    let ask = session(.waiting, summary: "May I run npm test?").askLine(mode: "needsYou")
     #expect(ask?.prefix?.0 == "Asks:" && ask?.text == "May I run npm test?")
-    #expect(SidebarCell.askLine(session(.error), mode: "needsYou")?.prefix?.0 == "Failed:")   // no summary: its state in words
-    #expect(SidebarCell.askLine(session(.working, summary: "Editing"), mode: "needsYou") == nil)   // one line unless it needs you
-    #expect(SidebarCell.askLine(session(.working, summary: "Editing"), mode: "always")?.text == "Editing")
-    #expect(SidebarCell.askLine(session(.waiting, summary: "May I?"), mode: "never") == nil)
+    #expect(session(.error).askLine(mode: "needsYou")?.prefix?.0 == "Failed:")   // no summary: its state in words
+    #expect(session(.working, summary: "Editing").askLine(mode: "needsYou") == nil)   // one line unless it needs you
+    #expect(session(.working, summary: "Editing").askLine(mode: "always")?.text == "Editing")
+    #expect(session(.waiting, summary: "May I?").askLine(mode: "never") == nil)
 }
 
 @MainActor @Test func activityNumbersAndPercentagesAreReadable() {
