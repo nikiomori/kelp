@@ -1,6 +1,6 @@
 import Foundation
 
-// Source control, files and review comments of a workspace (`id` is its worktree id). Results are Core's values
+// Source control of a workspace (`id` is its worktree id). Results are Core's values
 // (GitValues), as GitKit returns them in the daemon.
 
 /// The changed files of workspace `id`.
@@ -323,99 +323,6 @@ public struct GitWebPages: RPCMethod {
     public init(worktreeId: String? = nil, repoId: String? = nil) {
         self.worktreeId = worktreeId
         self.repoId = repoId
-    }
-}
-
-/// The project's files, relative paths.
-public struct FilesList: RPCMethod {
-    public static let name = "files.list"
-    public typealias Result = [String]
-    public var id: String
-    public init(id: String) { self.id = id }
-}
-/// What git ignores in the project (.build/, .env…), relative paths; a folder ignored whole ends with "/" and isn't
-/// opened. `folder` (one of those): what's in it, one level, its folders ending with "/".
-public struct FilesIgnored: RPCMethod {
-    public static let name = "files.ignored"
-    public typealias Result = [String]
-    public var id: String, folder: String?
-    public init(id: String, folder: String? = nil) {
-        self.id = id
-        self.folder = folder
-    }
-}
-/// Searches the workspace's files for `query`, as a `regex` if set, matching `case` if set, whole words only if `word` is.
-public struct FilesSearch: RPCMethod {
-    public static let name = "files.search"
-    public typealias Result = [SearchMatch]
-    public var id: String, query: String, regex: Bool?, `case`: Bool?, word: Bool?
-    /// Kelp's search box: a newer search with it in the same folder stops this one (one is asked per pause in the typing).
-    public var replaces: Bool?
-    public init(
-        id: String, query: String, regex: Bool? = nil, case: Bool? = nil, word: Bool? = nil, replaces: Bool? = nil
-    ) {
-        self.id = id
-        self.query = query
-        self.regex = regex
-        self.case = `case`
-        self.word = word
-        self.replaces = replaces
-    }
-}
-
-/// A review comment on lines `start`…`end` of `file` in workspace `id`.
-public struct CommentAdd: RPCMethod {
-    public static let name = "comment.add"
-    public typealias Result = DiffComment
-    public var id: String, file: String, start: Int?, end: Int?, quote: String?, text: String
-    /// "old": on removed lines, numbered in the old file.
-    public var side: String?
-    /// The session it comes from (`kelp comment add` in an agent's terminal): its agent is named as the comment's author.
-    public var session: String?
-    /// The commit whose diff it's on, when that isn't the folder's HEAD (a past commit on screen).
-    public var commit: String?
-    public init(
-        id: String, file: String, start: Int? = nil, end: Int? = nil, quote: String? = nil, text: String,
-        side: String? = nil,
-        session: String? = nil, commit: String? = nil
-    ) {
-        self.id = id
-        self.file = file
-        self.start = start
-        self.end = end
-        self.quote = quote
-        self.text = text
-        self.side = side
-        self.session = session
-        self.commit = commit
-    }
-}
-/// The workspace's review comments.
-public struct CommentList: RPCMethod {
-    public static let name = "comment.list"
-    public typealias Result = [DiffComment]
-    public var id: String
-    public init(id: String) { self.id = id }
-}
-/// `id`: the comment's. `state`: open | sent | resolved.
-public struct CommentSetState: RPCMethod {
-    public static let name = "comment.setState"
-    public typealias Result = Done
-    public var id: String, state: String
-    public init(id: String, state: String) {
-        self.id = id
-        self.state = state
-    }
-}
-/// The workspace's open comments (`only` those, when given) as one message into `session` → how many went.
-public struct CommentSend: RPCMethod {
-    public static let name = "comment.send"
-    public typealias Result = Int
-    public var id: String, session: String, only: [String]?
-    public init(id: String, session: String, only: [String]? = nil) {
-        self.id = id
-        self.session = session
-        self.only = only
     }
 }
 

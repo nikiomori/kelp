@@ -1530,6 +1530,7 @@
         "type" : "object"
       },
       "DiffComment" : {
+        "description" : "A comment on lines of a diff, the user's or a reviewer agent's, until it is sent to an agent or resolved.",
         "properties" : {
           "author" : {
             "description" : "The agent that wrote it (a reviewer's finding); nil: the user.",

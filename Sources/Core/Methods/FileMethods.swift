@@ -1,7 +1,8 @@
 import Foundation
 
 // A file's text and the operations the Files panel makes, for a file on this Mac or in a remote project (on its host).
-// Paths are absolute.
+// Paths are absolute; the project's list and search (`files.list`, `files.ignored`, `files.search`) name a workspace
+// (`id`, its worktree id) and answer paths relative to it.
 
 /// A version of a file: the same stamp, the same bytes. Opaque: its size, modification time and inode here (through
 /// symlinks), the SHA-256 of its bytes on a host.
@@ -127,4 +128,41 @@ public struct FilesFetch: InternalMethod {
     public typealias Result = String
     public var path: String
     public init(path: String) { self.path = path }
+}
+
+/// The project's files, relative paths.
+public struct FilesList: RPCMethod {
+    public static let name = "files.list"
+    public typealias Result = [String]
+    public var id: String
+    public init(id: String) { self.id = id }
+}
+/// What git ignores in the project (.build/, .env…), relative paths; a folder ignored whole ends with "/" and isn't
+/// opened. `folder` (one of those): what's in it, one level, its folders ending with "/".
+public struct FilesIgnored: RPCMethod {
+    public static let name = "files.ignored"
+    public typealias Result = [String]
+    public var id: String, folder: String?
+    public init(id: String, folder: String? = nil) {
+        self.id = id
+        self.folder = folder
+    }
+}
+/// Searches the workspace's files for `query`, as a `regex` if set, matching `case` if set, whole words only if `word` is.
+public struct FilesSearch: RPCMethod {
+    public static let name = "files.search"
+    public typealias Result = [SearchMatch]
+    public var id: String, query: String, regex: Bool?, `case`: Bool?, word: Bool?
+    /// Kelp's search box: a newer search with it in the same folder stops this one (one is asked per pause in the typing).
+    public var replaces: Bool?
+    public init(
+        id: String, query: String, regex: Bool? = nil, case: Bool? = nil, word: Bool? = nil, replaces: Bool? = nil
+    ) {
+        self.id = id
+        self.query = query
+        self.regex = regex
+        self.case = `case`
+        self.word = word
+        self.replaces = replaces
+    }
 }
