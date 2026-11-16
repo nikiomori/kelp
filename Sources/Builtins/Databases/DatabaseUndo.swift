@@ -5,8 +5,10 @@ import Foundation
 /// rows are still as the change left them, and the statements that restore them, one a row, each found by the table's
 /// key.
 enum DatabaseUndo {
-    /// Why this change can't be put back; nil: it can.
-    static func refusal(_ result: QueryResult?) -> String? {
+    /// Why this change can't be put back; nil: it can. `readFailure`: the read of what Kelp kept failed (a timeout, no
+    /// daemon), which isn't Kelp having let the rows go.
+    static func refusal(_ result: QueryResult?, readFailure: String? = nil) -> String? {
+        if let readFailure { return String(localized: "Can’t read what Kelp kept of this change: \(readFailure)") }
         guard let result else {
             return String(localized: "Kelp no longer keeps this change's rows: it keeps the latest changes only.")
         }
@@ -43,17 +45,21 @@ enum DatabaseUndo {
     }
 
     /// What puts the rows back: an update's changed values as they were, a delete's rows again, an insert's rows gone.
+    /// Each finds its row by its key and as the change left it (`unchanged` read it so before the question), so a row
+    /// changed while the question was up changes nothing; `db.apply`'s `each: 1` then keeps none of them.
     static func statements(_ result: QueryResult, _ engine: DatabaseInfo.Engine) -> [String] {
         guard let change = result.change else { return [] }
         switch change.kind {
         case .update:
             return zip(change.before ?? [], result.rows).compactMap { was, now in
-                let set = result.columns.indices.filter {
+                let changed = result.columns.indices.filter {
                     was.indices.contains($0) && now.indices.contains($0) && was[$0] != now[$0]
                 }
-                .map { "\(engine.quoted(result.columns[$0])) = \(engine.literal(was[$0]))" }
+                let set = changed.map { "\(engine.quoted(result.columns[$0])) = \(engine.literal(was[$0]))" }
                 guard !set.isEmpty else { return nil }
+                let still = changed.map { holds($0, now[$0], result, engine) }.joined(separator: " AND ")
                 return "UPDATE \(change.table) SET \(set.joined(separator: ", ")) WHERE \(found(now, result, engine))"
+                    + " AND " + still
             }
         case .delete:
             let names = result.columns.map(engine.quoted).joined(separator: ", ")
@@ -62,7 +68,12 @@ enum DatabaseUndo {
                     + row.map { engine.literal($0) }.joined(separator: ", ") + ")"
             }
         case .insert:
-            return result.rows.map { "DELETE FROM \(change.table) WHERE \(found($0, result, engine))" }
+            return result.rows.map { row in
+                let still = result.columns.indices.filter { !key(result).contains($0) && row.indices.contains($0) }
+                    .map { holds($0, row[$0], result, engine) }
+                return "DELETE FROM \(change.table) WHERE "
+                    + ([found(row, result, engine)] + still).joined(separator: " AND ")
+            }
         }
     }
 
@@ -75,6 +86,13 @@ enum DatabaseUndo {
 
     private static func values(_ row: [String?], _ at: [Int]) -> [String?] {
         at.map { row.indices.contains($0) ? row[$0] : nil }
+    }
+
+    /// "note" = 'x', or "note" IS NULL: the column holds this value.
+    private static func holds(
+        _ column: Int, _ value: String?, _ result: QueryResult, _ engine: DatabaseInfo.Engine
+    ) -> String {
+        engine.quoted(result.columns[column]) + (value == nil ? " IS NULL" : " = " + engine.literal(value))
     }
 
     /// "id" = '10' AND "day" = '2026-02-01': the row with this key.

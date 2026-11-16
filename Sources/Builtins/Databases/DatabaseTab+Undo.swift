@@ -10,8 +10,11 @@ extension DatabaseTab {
         let worktree = address.worktree, name = address.name, engine = engine
         let who = run.session.flatMap(app.session).map { app.catalog.name($0.agent) } ?? String(localized: "the agent")
         Task {
-            let kept = await app.quiet(DatabaseResultRead(worktreeId: worktree, id: run.id)) ?? nil
-            if let why = DatabaseUndo.refusal(kept) { return Banner.show(why) }
+            let (read, unread) = await app.tryCall(DatabaseResultRead(worktreeId: worktree, id: run.id))
+            let kept = read ?? nil
+            if let why = DatabaseUndo.refusal(kept, readFailure: read == nil ? unread ?? "" : nil) {
+                return Banner.show(why, style: read == nil ? .error : .info)
+            }
             guard let kept, let table = kept.change?.tableName else { return }
             let (now, failure) = await app.tryCall(
                 DatabaseQuery(
@@ -28,11 +31,17 @@ extension DatabaseTab {
             let statements = DatabaseUndo.statements(kept, engine)
             guard !statements.isEmpty, await confirmed(statements, who: who, table: table, at: run.at) else { return }
             let (done, error) = await app.tryCall(
-                DatabaseApply(worktreeId: worktree, database: name, statements: statements))
+                DatabaseApply(worktreeId: worktree, database: name, statements: statements, each: 1))
             guard let done else {
                 return Banner.show(String(localized: "Nothing was put back: \(error ?? "")"))
             }
-            Banner.show(String(localized: "\(Self.rows(done.changed ?? 0).capitalizedFirst) of \(table) put back."))
+            let back = done.changed ?? 0
+            guard back == statements.count else {   // a database that can't count each (`Databases.applied`)
+                let rows = Self.rows(back).capitalizedFirst
+                return Banner.show(
+                    String(localized: "\(rows) of \(table) put back: the others changed since Kelp read them."))
+            }
+            Banner.show(String(localized: "\(Self.rows(back).capitalizedFirst) of \(table) put back."))
             refresh()
         }
     }

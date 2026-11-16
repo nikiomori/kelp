@@ -320,6 +320,9 @@ enum DatabaseFailure: Error, Equatable {
     case change
     case failed(String)
 
+    /// What a runner that can't run several statements in one transaction says (`DatabaseRunner.batch`).
+    static let noBatch = failed("Several statements in one go aren't run on this database yet: run them one by one.")
+
     var message: String {
         switch self {
         case .change: "It changes the database."

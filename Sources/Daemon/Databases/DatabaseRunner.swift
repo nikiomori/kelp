@@ -30,8 +30,7 @@ extension DatabaseRunner {
     var holdsAllowed: Bool { true }
     /// Limit: SQLite and the servers kelpd speaks to itself run several; a client program's or Appwrite's don't yet.
     func batch(_ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool) async throws -> [Int?] {
-        throw DatabaseFailure.failed(
-            "Several statements in one go aren't run on this database yet: run them one by one.")
+        throw DatabaseFailure.noBatch
     }
     func version() async throws -> String? { nil }
     func databases() async throws -> [String] { [] }

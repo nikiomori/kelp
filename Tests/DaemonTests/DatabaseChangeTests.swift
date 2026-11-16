@@ -269,3 +269,25 @@ func aDuckDBChangeIsKeptWithTheRowsItWrote() async throws {
     #expect(kind("UPDATE t SET a = 1, b = 2 RETURNING a") == nil)   // its own: b isn't among the rows
     #expect(Databases.table("UPDATE \"Order Items\" SET a = 1", asWritten: true) == "\"Order Items\"")
 }
+
+/// Undo This Change's statements, each found as it was checked, are kept only if every one finds its row (`each: 1`):
+/// one row changed while the question was up, none of them is written, and the rows stay as they are.
+@Test func anUndoWhoseRowChangedSinceWritesNothing() async throws {
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let path = try changeDB(in: wt.path)
+    let undo = [
+        "UPDATE orders SET status = 'pending' WHERE id = 1 AND status = 'cancelled'",
+        "UPDATE orders SET status = 'pending' WHERE id = 3 AND status = 'paid'"
+    ]
+    await #expect(throws: RPCError.self) {
+        try await w.c.call(DatabaseApply(worktreeId: wt.id, database: "shop", statements: undo, each: 1))
+    }
+    #expect(try table(path).map { $0[1] } == ["pending", "pending", "paid"])
+    let undone = try await w.c.call(
+        DatabaseApply(
+            worktreeId: wt.id, database: "shop", statements: [undo[1], "DELETE FROM orders WHERE id = 2"], each: 1))
+    #expect(undone.changed == 2)
+    #expect(try table(path).map { $0[1] } == ["pending", "pending"])
+}

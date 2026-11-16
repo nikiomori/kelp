@@ -215,9 +215,12 @@ public struct DatabaseApply: InternalMethod {
     public typealias Result = QueryResult
     public static var timeout: TimeInterval? { DatabaseTimes.apply + DatabaseTimes.slack }
     public var worktreeId: String, database: String, statements: [String]
-    public init(worktreeId: String, database: String, statements: [String]) {
+    /// Rows each statement must change (Undo This Change: 1, its rows found as they were checked), else none is kept.
+    public var each: Int?
+    public init(worktreeId: String, database: String, statements: [String], each: Int? = nil) {
         self.worktreeId = worktreeId
         self.database = database
         self.statements = statements
+        self.each = each
     }
 }

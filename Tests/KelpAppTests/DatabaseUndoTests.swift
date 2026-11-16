@@ -56,11 +56,13 @@ private func orders() throws -> String {
     let statements = DatabaseUndo.statements(change, .sqlite)
     #expect(
         statements == [
-            #"UPDATE orders SET "status" = 'pending', "note" = NULL WHERE "id" = '10'"#,
-            #"UPDATE orders SET "status" = 'pending', "note" = 'it''s' WHERE "id" = '20'"#
+            #"UPDATE orders SET "status" = 'pending', "note" = NULL WHERE "id" = '10' AND "status" = 'cancelled' AND "note" = 'Expired'"#,
+            #"UPDATE orders SET "status" = 'pending', "note" = 'it''s' WHERE "id" = '20' AND "status" = 'cancelled' AND "note" = 'Expired'"#
         ])
+    // A row changed while the question was up (by the agent, again) isn't written over.
+    _ = try run(path, "UPDATE orders SET note = 'Again' WHERE id = 20")
     _ = try run(path, statements.joined(separator: ";"))
-    #expect(try run(path, listed) == "10:pending:NULL 20:pending:it's 30:paid:NULL")
+    #expect(try run(path, listed) == "10:pending:NULL 20:cancelled:Again 30:paid:NULL")
 }
 
 /// A delete's rows are inserted again as they were, an insert's deleted by their key.
@@ -76,7 +78,10 @@ private func orders() throws -> String {
     _ = try run(path, "INSERT INTO orders VALUES (40, 'new', NULL)")
     let added = result(.insert, [["40", "new", nil]])
     #expect(DatabaseUndo.unchanged(added, now: [["40", "new", nil]]))
-    #expect(DatabaseUndo.statements(added, .sqlite) == [#"DELETE FROM orders WHERE "id" = '40'"#])
+    #expect(
+        DatabaseUndo.statements(added, .sqlite) == [
+            #"DELETE FROM orders WHERE "id" = '40' AND "status" = 'new' AND "note" IS NULL"#
+        ])
     _ = try run(path, DatabaseUndo.statements(added, .sqlite).joined(separator: ";"))
     #expect(try run(path, listed) == "10:pending:NULL 20:pending:it's 30:paid:NULL")
 }
@@ -85,6 +90,9 @@ private func orders() throws -> String {
 /// without its rows as they were.
 @Test func aChangeKelpDidntKeepWholeIsntUndone() {
     #expect(DatabaseUndo.refusal(nil) != nil)
+    // A read that failed says so, not that the rows are gone.
+    let failed = DatabaseUndo.refusal(nil, readFailure: "Kelp didn't answer in 30 s")
+    #expect(failed?.contains("didn't answer") == true && failed?.contains("no longer keeps") == false)
     var none = result(.update, [["10", "x", nil]], before: [["10", "y", nil]])
     none.change = nil
     #expect(DatabaseUndo.refusal(none) != nil)

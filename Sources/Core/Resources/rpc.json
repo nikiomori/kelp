@@ -7169,6 +7169,14 @@
           }
         },
         {
+          "description" : "Rows each statement must change (Undo This Change: 1, its rows found as they were checked), else none is kept.",
+          "name" : "each",
+          "required" : false,
+          "schema" : {
+            "type" : "integer"
+          }
+        },
+        {
           "name" : "statements",
           "required" : true,
           "schema" : {
