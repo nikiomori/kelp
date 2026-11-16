@@ -167,7 +167,9 @@ extension SidebarCell {
     func fitBadges() {
         guard let rowStack = changes.superview as? NSStackView else { return }
         let others = rowStack.views.filter { $0 !== changes && $0 !== pr && $0 !== ci && $0 !== stack && !$0.isHidden }
-        var room = bounds.width - 2 - others.reduce(0) { $0 + max(0, $1.intrinsicContentSize.width) + rowStack.spacing }
+        // Fitting, not intrinsic, size: the slot and the "+" are sized by constraints and have no intrinsic width, so the
+        // name lost their room to the marks ("K…").
+        var room = bounds.width - 2 - others.reduce(0) { $0 + $1.fittingSize.width + rowStack.spacing }
         for (badge, has) in [(ci, hasBadge.ci), (changes, hasBadge.changes), (pr, hasBadge.pr)] {
             let need = badge.intrinsicContentSize.width + (badge === ci ? ciMark.overhang : 0) + rowStack.spacing,
                 show = has && room >= need
