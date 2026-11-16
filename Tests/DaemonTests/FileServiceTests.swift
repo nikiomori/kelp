@@ -141,9 +141,6 @@ import Testing
         try await c.call(FilesWrite(path: file, text: "mine\n", base: wrote.stamp)).conflict?.text == "an agent's\n")
     try FileManager.default.removeItem(atPath: there + "/a.txt")
     #expect(try await c.call(FilesWrite(path: file, text: "mine\n", base: wrote.stamp)).missing == true)
-    // The old method, as an older app calls it: a file that's gone is written again.
-    #expect(try await c.call(FilesWriteRemote(path: file, text: "again\n", base: "édité ✓\n")) == nil)
-    #expect(try String(contentsOfFile: there + "/a.txt", encoding: .utf8) == "again\n")
     // Made there, never in the folder here (`aRemoteProjectsFilesAreChangedOnItsHost`).
     _ = try await c.call(FilesCreate(path: repo.path + "/new.txt"))
     #expect(FileManager.default.fileExists(atPath: there + "/new.txt"))

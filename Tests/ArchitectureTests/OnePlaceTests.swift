@@ -23,6 +23,6 @@ func count(_ pattern: String, in dirs: [String]) throws -> Int {
 @Test func remoteIsDecidedInFewerPlaces() throws {
     let daemon = try count(#"\bremotes\.(of|containing)\("#, in: ["Sources/Daemon", "Sources/GitKit"])
     let app = try count(#"\bRemoteHost\.of\("#, in: appDirs)
-    #expect(daemon == 101, "remotes.of / remotes.containing in the daemon and GitKit: \(daemon)")
+    #expect(daemon == 99, "remotes.of / remotes.containing in the daemon and GitKit: \(daemon)")
     #expect(app == 32, "RemoteHost.of in the app: \(app)")
 }

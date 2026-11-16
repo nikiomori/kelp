@@ -85,7 +85,7 @@ import Testing
     try "outside\n".write(
         toFile: (there as NSString).deletingLastPathComponent + "/outside.txt", atomically: true, encoding: .utf8)
     await #expect(throws: (any Error).self) {
-        _ = try await c.call("files.readRemote", .obj(["path": .string(repo.path + "/../outside.txt")]))
+        _ = try await c.call(FilesRead(path: repo.path + "/../outside.txt"))
     }
     // No GitHub origin there: gh / glab would run in the local marker folder (and its git walk up to ~), so they're
     // refused, said plainly (one on GitHub: `aRemoteProjectsPullRequestsComeFromGitHub`).
@@ -95,16 +95,13 @@ import Testing
     } catch { #expect("\(error)".contains("remote projects")) }
     #expect(try await c.call("github.branchPR", .obj(["worktreeId": .string(w.id)])) == .null)
     #expect(try await c.call("files.list", .obj(["id": .string(w.id)]), as: [String].self).contains("a.txt"))
-    #expect(try await c.call("files.readRemote", .obj(["path": .string(repo.path + "/a.txt")])).string == "changed\n")
+    let read = try await c.call(FilesRead(path: repo.path + "/a.txt"))
+    #expect(read.text == "changed\n")
     // Saving writes it there; an edit there since it was read comes back instead, and nothing is written over it.
-    let save = { (text: String, base: String) in
-        try await c.call(
-            "files.writeRemote",
-            .obj(["path": .string(repo.path + "/a.txt"), "text": .string(text), "base": .string(base)]))
-    }
-    #expect(try await save("mine\n", "changed\n") == .null)
+    let save = { (text: String) in try await c.call(FilesWrite(path: repo.path + "/a.txt", text: text, base: read.stamp)) }
+    #expect(try await save("mine\n").conflict == nil)
     #expect(try String(contentsOfFile: there + "/a.txt", encoding: .utf8) == "mine\n")
-    #expect(try await save("again\n", "changed\n") == .obj(["changed": "mine\n"]))
+    #expect(try await save("again\n").conflict?.text == "mine\n")
     #expect(try String(contentsOfFile: there + "/a.txt", encoding: .utf8) == "mine\n")
     #expect(try FileManager.default.contentsOfDirectory(atPath: there).allSatisfy { !$0.contains(".kelp-") })
     try "changed\n".write(toFile: there + "/a.txt", atomically: true, encoding: .utf8)

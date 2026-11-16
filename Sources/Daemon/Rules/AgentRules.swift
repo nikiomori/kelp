@@ -17,7 +17,7 @@ enum AgentRules {
         AgentsVersions.self, CIFailures.self, CIFullLog.self, CIJobs.self, CILog.self, CIRunsList.self,
         AddonsList.self, ArtifactCheck.self,
         CommentList.self, DaemonInfo.self, Ping.self, ExtensionLibrary.self, FilesFetch.self, FilesIgnored.self,
-        FilesList.self, FilesRead.self, FilesReadRemote.self, FilesSearch.self, GitAuthorAvatar.self, GitBranches.self,
+        FilesList.self, FilesRead.self, FilesSearch.self, GitAuthorAvatar.self, GitBranches.self,
         GitCommitDetails.self, GitCommitFiles.self, GitDiff.self, GitGraph.self, GitLineStats.self,
         GitLog.self, GitRemoteOp.self, GitStatus.self, GitUnsynced.self, GitWebPages.self, GitWebURL.self,
         GitHubBranchPR.self, GitHubChecks.self, GitHubFailedLog.self, GitHubForge.self, GitHubIssues.self,

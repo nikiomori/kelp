@@ -120,33 +120,6 @@ extension RepoAddRemote: Handled {
     }
 }
 
-/// `files.read` for a remote project's file, as the app first asked it: the text alone.
-extension FilesReadRemote: Handled {
-    func handle(_ files: FileService) throws -> String {
-        guard files.remotes.containing(path) != nil else { throw RPCError.invalidParams("Not in a remote project.") }
-        return try files.read(path).text
-    }
-}
-
-/// `files.write` with the text read as its base instead of a stamp; a file that's gone is just written again.
-extension FilesWriteRemote: Handled {
-    func handle(_ files: FileService) throws -> Changed? {
-        guard let host = files.remotes.containing(path)?.remote.host else {
-            throw RPCError.invalidParams("Not in a remote project.")
-        }
-        let result = try files.write(path, text, base: base.map { FileService.digest(Data($0.utf8)) })
-        if let conflict = result.conflict {
-            // A version there that isn't UTF-8 text can't be shown, and writing over it unasked could lose it.
-            guard let now = conflict.text else {
-                throw RPCError.invalidParams("It changed on \(host) and isn't UTF-8 text now: not written.")
-            }
-            return Changed(changed: now)
-        }
-        if result.missing == true { _ = try files.write(path, text, base: nil) }
-        return nil
-    }
-}
-
 /// A host's keys as ssh-keyscan reads them where ~/.ssh/config sends `host` (`ssh -G`): its known_hosts lines, and
 /// the file ssh keeps them in.
 private func scanKeys(_ remotes: Remotes, _ host: String) -> (lines: [String], knownHosts: String)? {
@@ -226,7 +199,7 @@ extension RemoteTrustHost: Handled {
 
 extension Methods {
     static let remoteMethods: [any Answered.Type] = [
-        RemoteListFolders.self, RepoAddRemote.self, FilesReadRemote.self, FilesWriteRemote.self, RemoteHostKey.self,
+        RemoteListFolders.self, RepoAddRemote.self, RemoteHostKey.self,
         RemoteTrustHost.self, HostCommands.self
     ]
 }

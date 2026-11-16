@@ -177,7 +177,7 @@ public struct RepoAddRemote: RPCMethod {
     }
 }
 /// Why a tab shows a reason instead of a file's text: one rule for a file on this Mac and one on a remote project's host
-/// (`files.readRemote` fails with it as its error's `data`).
+/// (`files.read` fails with it as its error's `data`).
 public enum Unopenable: Codable, Sendable, Equatable {
     /// A pipe or a device (/dev/zero): reading it would block or never end.
     case special
@@ -204,30 +204,6 @@ public enum Unopenable: Codable, Sendable, Equatable {
     }
 }
 
-/// A file in a remote project's folder, read on the host. Fails with an `Unopenable` error where a tab here would refuse
-/// the file (a pipe, past the size limit, not UTF-8).
-public struct FilesReadRemote: InternalMethod {
-    public static let name = "files.readRemote"
-    public typealias Result = String
-    public var path: String
-    public init(path: String) { self.path = path }
-}
-/// Writes `text` to that file on the host → null; → {changed: its text there} instead, unwritten, when it's no longer `base`
-/// (an agent there edited it since it was read).
-public struct FilesWriteRemote: InternalMethod {
-    public static let name = "files.writeRemote"
-    public struct Changed: Codable, Sendable, Equatable {
-        public var changed: String
-        public init(changed: String) { self.changed = changed }
-    }
-    public typealias Result = Changed?
-    public var path: String, text: String, base: String?
-    public init(path: String, text: String, base: String?) {
-        self.path = path
-        self.text = text
-        self.base = base
-    }
-}
 /// A remote project's own icon, looked for on its host where `IconSearch` looks → the path of its copy in the project's
 /// folder here (it shows without the host), or null when it has none. A copy kept from before is answered at once and
 /// looked for again in the background.

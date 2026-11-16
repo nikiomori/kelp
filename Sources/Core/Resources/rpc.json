@@ -1912,17 +1912,6 @@
         ],
         "type" : "object"
       },
-      "FilesWriteRemote.Changed" : {
-        "properties" : {
-          "changed" : {
-            "type" : "string"
-          }
-        },
-        "required" : [
-          "changed"
-        ],
-        "type" : "object"
-      },
       "GitDiff.Source" : {
         "description" : "What the diff is taken against; a name the daemon doesn't know is refused, not read as `all`.",
         "enum" : [
@@ -8058,27 +8047,6 @@
       }
     },
     {
-      "description" : "A file in a remote project's folder, read on the host. Fails with an `Unopenable` error where a tab here would refuse the file (a pipe, past the size limit, not UTF-8).",
-      "name" : "files.readRemote",
-      "paramStructure" : "by-name",
-      "params" : [
-        {
-          "name" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }
-      ],
-      "result" : {
-        "name" : "result",
-        "schema" : {
-          "type" : "string"
-        }
-      },
-      "x-internal" : true
-    },
-    {
       "description" : "Searches the workspace's files for `query`, as a `regex` if set, matching `case` if set, whole words only if `word` is.",
       "name" : "files.search",
       "paramStructure" : "by-name",
@@ -8193,41 +8161,6 @@
           "$ref" : "#/components/schemas/FilesWrite.Result"
         }
       }
-    },
-    {
-      "description" : "Writes `text` to that file on the host → null; → {changed: its text there} instead, unwritten, when it's no longer `base` (an agent there edited it since it was read).",
-      "name" : "files.writeRemote",
-      "paramStructure" : "by-name",
-      "params" : [
-        {
-          "name" : "base",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        },
-        {
-          "name" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        },
-        {
-          "name" : "text",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }
-      ],
-      "result" : {
-        "name" : "result",
-        "schema" : {
-          "$ref" : "#/components/schemas/FilesWriteRemote.Changed"
-        }
-      },
-      "x-internal" : true
     },
     {
       "description" : "The picture of a commit author's account on the project's GitHub or GitLab (through gh / glab), as image data. nil: no account has the email, or the project isn't on either.",

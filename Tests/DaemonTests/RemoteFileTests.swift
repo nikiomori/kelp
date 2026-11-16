@@ -13,7 +13,7 @@ import Testing
     let there = try makeRepo()
     let repo = try await c.call(RepoAddRemote(host: "box", path: there))
     func read(_ name: String) async -> Result<String, Error> {
-        do { return .success(try await c.call(FilesReadRemote(path: repo.path + "/" + name))) } catch {
+        do { return .success(try await c.call(FilesRead(path: repo.path + "/" + name)).text) } catch {
             return .failure(error)
         }
     }
@@ -21,18 +21,16 @@ import Testing
         guard case .failure(let e) = await read(name) else { return nil }
         return Unopenable(e)
     }
-    #expect(try await c.call(FilesReadRemote(path: repo.path + "/a.txt")) == "hello\n")
+    #expect(try await c.call(FilesRead(path: repo.path + "/a.txt")).text == "hello\n")
     #expect(FileManager.default.createFile(atPath: there + "/big.log", contents: nil))
     #expect(truncate(there + "/big.log", 60 << 20) == 0)   // sparse
     #expect(await refusal("big.log") == .tooBig(60 << 20))
     let latin1 = Data([0x63, 0x61, 0x66, 0xE9, 0x0A])   // "café" in Latin-1
     try latin1.write(to: URL(fileURLWithPath: there + "/latin1.txt"))
     #expect(await refusal("latin1.txt") == .binary)
-    // A client that read it lossily (an older app) saves: refused, the file stays as it was.
-    await #expect(throws: (any Error).self) {
-        _ = try await c.call(
-            FilesWriteRemote(path: repo.path + "/latin1.txt", text: "café, edited\n", base: "caf\u{FFFD}\n"))
-    }
+    // A save over what a lossy read gave: refused, the file stays as it was.
+    let lossy = FileService.digest(Data("caf\u{FFFD}\n".utf8))
+    _ = try? await c.call(FilesWrite(path: repo.path + "/latin1.txt", text: "café, edited\n", base: lossy))
     #expect(try Data(contentsOf: URL(fileURLWithPath: there + "/latin1.txt")) == latin1)
     #expect(mkfifo(there + "/pipe", 0o600) == 0)
     #expect(await refusal("pipe") == .special)   // (the old code blocked here forever: not run against it)

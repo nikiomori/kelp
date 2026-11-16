@@ -90,7 +90,7 @@ private func rows() async throws -> Rows {
     defer { r.w.d.stop() }
     let calls: [any Answered] = [
         AgentsVersions(), BitbucketStatus(), ClientEvents(events: true), DaemonInfo(), ExtensionLibrary(),
-        FilesFetch(path: r.wt.path + "/a"), FilesRead(path: r.wt.path + "/a"), FilesReadRemote(path: "/tmp/a"),
+        FilesFetch(path: r.wt.path + "/a"), FilesRead(path: r.wt.path + "/a"),
         GitHubProjectItems(owner: "o", number: nil), GitHubStatus(), GitLabStatus(), GitWebURL(path: r.wt.path),
         HistoryList(), HostStatsRead(host: "h"), JiraIssues(), JiraStatus(), JiraTransitions(key: "K-1"),
         LinearIssues(), LinearStates(teamId: "t"), LinearStatus(), LinearTeams(), Ping(),
