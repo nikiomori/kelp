@@ -178,7 +178,7 @@ extension Runs {
     private func server(_ port: PortsList.Port, in menu: NSMenu, _ wid: String) {
         let session = app.session(port.session)
         let agent = session?.agent.flatMap { id in
-            ["shell", "custom"].contains(id) ? nil : app.catalog.all.first { $0.id == id }
+            !Session.isAgent(id) ? nil : app.catalog.all.first { $0.id == id }
         }
         let tasks = session?.background ?? []
         let what =

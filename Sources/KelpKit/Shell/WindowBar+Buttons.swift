@@ -56,7 +56,7 @@ extension WindowBar {
     /// Agents that tile side by side in a workspace, as `EditorArea.arrange` picks them: below two the button does nothing.
     static func liveAgents(_ app: AppModel, in wid: String?) -> Int {
         app.sessions.filter {
-            $0.worktreeId == wid && !["shell", "custom"].contains($0.agent) && ![.exited, .paused].contains($0.status)
+            $0.worktreeId == wid && $0.isAgent && ![.exited, .paused].contains($0.status)
         }.count
     }
 

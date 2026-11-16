@@ -207,7 +207,7 @@ final class Sessions: Sendable {
             rec.browser = skills.browser
         }
         // An agent with no such flag reads them from the folder it works in.
-        if local, manifest.pluginDirFlag == nil, !["shell", "custom"].contains(manifest.id) {
+        if local, manifest.pluginDirFlag == nil, Session.isAgent(manifest.id) {
             rec.browser = setup.writeProjectSkills(worktreeId: worktreeId, cwd: cwd)
         }
         // Its own id, unless it resumes one (a restart's argv carries none: see session.restart). A remote project's too:
@@ -221,7 +221,7 @@ final class Sessions: Sendable {
         rec.startedBy = launch.startedBy
         rec.origin = launch.origin ?? Self.asker
         // A remote agent runs in a tmux session of its own on the host: a dropped connection or a daemon restart leaves it working.
-        if !local, launch.onHostInTmux || !["shell", "custom"].contains(manifest.id) {
+        if !local, launch.onHostInTmux || Session.isAgent(manifest.id) {
             rec.tmux = launch.tmux ?? Tmux.own()
         }
         let env = setup.launchEnv(manifest, rec)
@@ -386,7 +386,7 @@ final class Sessions: Sendable {
             settings[SettingKeys.keepAwake],
             working: live.all.contains { ls in
                 let session = ls.snapshot
-                return session.status == .working && session.agent != "shell"
+                return session.status == .working && session.agent != Session.shellAgent
             })
     }
 }

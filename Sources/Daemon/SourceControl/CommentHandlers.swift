@@ -23,7 +23,7 @@ extension CommentAdd: Handled {
         if commit != nil, full.isEmpty { throw RPCError.invalidParams("No commit \(on) here.") }
         let head = String(full.prefix(12))
         let agent = session.flatMap { scm.sessions.existing($0)?.snapshot.agent }.flatMap {
-            $0 == "shell" || $0 == "custom" ? nil : $0
+            Session.isAgent($0) ? $0 : nil
         }
         // A program in a terminal (an agent typed into it, a script) is named too: only the window's own comments are the
         // user's, unframed when they're sent.

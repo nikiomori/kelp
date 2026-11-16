@@ -20,7 +20,7 @@ enum DevContainer {
     /// `argv` as it runs in the container: a terminal's login shell is the container's (bash, else sh), a command line
     /// goes to sh (it may have no zsh), and Claude-style hooks are the ones that report through the terminal.
     static func inside(_ argv: [String], _ manifest: AgentManifest) throws -> [String] {
-        if manifest.id == "shell" {
+        if manifest.id == Session.shellAgent {
             return ["sh", "-c", "if command -v bash >/dev/null 2>&1; then exec bash -l; else exec sh -l; fi"]
         }
         if let line = Session.customCommand(agent: manifest.id, argv) { return ["sh", "-lc", line] }

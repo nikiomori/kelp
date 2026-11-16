@@ -19,7 +19,7 @@ struct LayoutTemplates {
     /// one asks for that trust first (`use`), as running one of its commands does.
     func fromFile(_ worktree: Worktree) async -> [LayoutTemplate] {
         guard let config = await app.quiet(ScriptsList(worktreeId: worktree.id)) else { return [] }
-        let agents = Set(app.catalog.all.map(\.id)).subtracting(["shell"])
+        let agents = Set(app.catalog.all.map(\.id)).subtracting([Session.shellAgent])
         let commands = Set(config.scripts.map(\.name))
         return (config.layouts ?? []).map {
             LayoutTemplate(name: $0.name, spec: $0.command, agents: agents, commands: commands)
@@ -155,7 +155,7 @@ struct LayoutTemplates {
         if let tmux = value("tmux") { return (nil, nil, nil, tmux, nil) }
         if let script = value("script") { return (nil, nil, value("title"), nil, script) }
         if let cmd = value("cmd") { return (nil, cmd, value("title"), nil, nil) }
-        return ("shell", nil, nil, nil, nil)
+        return (Session.shellAgent, nil, nil, nil, nil)
     }
 
     private static var using: Set<String> = []

@@ -21,7 +21,7 @@ package struct AgentCatalog {
         app.availability.refreshHost(host, workspace: w.id, commands: all.map(\.command))
         guard let there = app.availability.onHost[host] else { return installed(all) }
         return all.filter {
-            ["shell", "custom"].contains($0.id) || there.contains(($0.command as NSString).lastPathComponent)
+            !Session.isAgent($0.id) || there.contains(($0.command as NSString).lastPathComponent)
         }
     }
 
@@ -46,7 +46,7 @@ package struct AgentCatalog {
     var startable: String? { installed(all).isEmpty ? nil : defaultAgent }
     package func name(_ id: String?) -> String {
         guard let id else { return "Terminal" }
-        if id == "shell" { return String(localized: "Terminal") }
+        if id == Session.shellAgent { return String(localized: "Terminal") }
         return all.first { $0.id == id }?.name ?? id.capitalized
     }
 
@@ -97,8 +97,8 @@ package struct AgentCatalog {
     /// The same image each time: a tab's look is compared with its last one, on every session's every change, and a new
     /// image never equals the last. `agentIcons` is still read, so whoever shows this hears when the real icon arrives.
     package func icon(_ id: String?, size: CGFloat = 16) -> NSImage? {
-        guard let id, id != "shell", id != "custom" else {
-            let name = id == "custom" ? "apple.terminal" : "terminal"
+        guard let id, Session.isAgent(id) else {
+            let name = id == Session.customAgent ? "apple.terminal" : "terminal"
             if let known = app.agentIcons.made[name] { return known.image }
             let image = NSImage.symbol(name)
             app.agentIcons.made[name] = (nil, image)
@@ -172,7 +172,7 @@ package final class AgentAvailability {
         }
         guard force || Date().timeIntervalSince(checkedAt) > 300 else { return }
         checking = true
-        let commands = app.catalog.all.filter { $0.id != "custom" }.map { ($0.id, $0.command) }
+        let commands = app.catalog.all.filter { $0.id != Session.customAgent }.map { ($0.id, $0.command) }
         let ran = UserDefaults.standard.dictionary(forKey: "agents.ran") as? [String: Double] ?? [:]
         Task.detached(priority: .utility) {
             // The daemon runs the `--version`s: without it every agent would look missing. Asked again next time.

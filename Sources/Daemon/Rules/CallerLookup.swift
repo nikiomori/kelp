@@ -87,7 +87,7 @@ final class Callers: Sendable {
     /// The programs of the agents Kelp knows (its presets'), by the name they're run as.
     static let agentPrograms: Set<String> = {
         Set(
-            AgentManifest.presets.filter { !["shell", "custom"].contains($0.id) }.map {
+            AgentManifest.presets.filter { Session.isAgent($0.id) }.map {
                 URL(fileURLWithPath: $0.command).lastPathComponent
             })
     }()

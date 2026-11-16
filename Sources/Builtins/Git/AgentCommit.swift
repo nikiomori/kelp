@@ -38,7 +38,7 @@ extension SourceControlController {
         return agents.first { $0.id == id } ?? agents.first { $0.id == "claude" } ?? agents.first
     }
     private var commitAgents: [AgentManifest] {
-        app.catalog.installed(app.catalog.all).filter { $0.id != "shell" && $0.id != "custom" }
+        app.catalog.installed(app.catalog.all).filter { Session.isAgent($0.id) }
     }
     private func model(for a: AgentManifest) -> String? {
         if let picked = UserDefaults.standard.string(forKey: "scm.commitModel.\(a.id)") {

@@ -252,7 +252,7 @@ package struct StatusIcon: NSViewRepresentable {
 extension Session {
     /// What its mark shows: a terminal or a command (not an agent) works while a program in it shows how far it got.
     package var markStatus: AgentStatus {
-        progress != nil && (agent == "shell" || agent == "custom") ? .working : status
+        progress != nil && !isAgent ? .working : status
     }
     /// What its row's mark shows: a paused agent's row is dimmed, but what it finished and you haven't read keeps its
     /// bright mark.

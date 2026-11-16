@@ -136,7 +136,7 @@ extension AppModel {
     /// its workspace shows, so it's there at once, until its agent ends.
     func syncContextWatches() {
         let shown = workbench.workspaceId
-        let live = Set(sessions.filter { $0.agent != "shell" && $0.status != .exited }.map(\.id))
+        let live = Set(sessions.filter { $0.agent != Session.shellAgent && $0.status != .exited }.map(\.id))
         let want = live.filter { session($0)?.worktreeId == shown }
         let have = Set(watching.keys.filter { $0.topic == .context }.map(\.key))
         for id in want.subtracting(have) { watch(.context, id) }

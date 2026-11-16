@@ -33,7 +33,7 @@ final class ExtensionEvents: Sendable {
     func event(of session: Session) -> String? {
         told.withLock { told in
             if session.status == .working || session.status == .exited { told[session.id] = nil }
-            guard session.agent != nil, session.agent != "shell", session.agent != "custom",
+            guard session.isAgent,
                 told[session.id] != session.status,
                 (session.statusAt ?? .distantPast) >= started,
                 let name = [.waiting: "agent.waiting", .done: "agent.done", .error: "agent.failed"][session.status],

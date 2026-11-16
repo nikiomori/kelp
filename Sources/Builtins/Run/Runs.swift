@@ -218,7 +218,9 @@ final class Runs: NSObject, NSMenuDelegate {
     /// and agents (run.start, scripts.run) — known by its command line.
     func choice(of session: Session) -> String? {
         if let run = state.active[session.id] { return run.choice }
-        guard session.agent == "custom", let wid = session.worktreeId, let line = session.argv.last else { return nil }
+        guard session.agent == Session.customAgent, let wid = session.worktreeId, let line = session.argv.last else {
+            return nil
+        }
         if let option = state.found[wid]?.options.first(where: {
             ($0.folder.isEmpty ? $0.command : "cd \(ShellQuote.word($0.folder)) && \($0.command)") == line
         }) {

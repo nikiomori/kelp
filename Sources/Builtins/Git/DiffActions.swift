@@ -144,7 +144,7 @@ extension DiffViewController {
         }
         return await pick(
             String(localized: "Send to which agent?"),
-            from: live.map { ("\($0.agent ?? "shell") [\($0.id.prefix(6))]", $0.id) },
+            from: live.map { ("\($0.agent ?? Session.shellAgent) [\($0.id.prefix(6))]", $0.id) },
             action: String(localized: "Send"),
             width: 240)
     }

@@ -29,7 +29,7 @@ final class SessionTab: TabContent {
         } changed: { [weak self] session in
             guard let self, let session else { return }
             pane.update(session)
-            if running, session.status == .exited, session.agent == "shell", session.exitCode == 0 {
+            if running, session.status == .exited, session.agent == Session.shellAgent, session.exitCode == 0 {
                 app.workbench.closeTab(uri: uri)
             }
             running = session.status != .exited
@@ -72,7 +72,7 @@ final class SessionTab: TabContent {
     static func close(_ app: AppModel, session sid: String) async -> Bool {
         let session = app.session(sid)
         let beside = session?.aside ?? [], names = beside.joined(separator: ", ")
-        if let session, session.agent != "shell",
+        if let session, session.agent != Session.shellAgent,
             session.status == .working || !beside.isEmpty || !app.sessions.childrenWords(of: [sid]).isEmpty
         {
             let detail =
@@ -85,7 +85,7 @@ final class SessionTab: TabContent {
                     String(localized: "Stop \(app.catalog.displayName(session))?"), detail: detail,
                     action: String(localized: "Stop Agent"))
             else { return false }
-        } else if session?.agent == "shell", let program = await busy(app, sid) {
+        } else if session?.agent == Session.shellAgent, let program = await busy(app, sid) {
             guard
                 await confirm(
                     String(localized: "Stop “\(program)”?"),

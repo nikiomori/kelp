@@ -20,7 +20,7 @@ extension LiveSession {
         let (shell, starting, ending, start, cwd, prompt, id) = state.withLock { st in
             // A shell or a plain command (a dev server, a script) has no turns: its output comes and goes, and each change
             // would copy the index and hash the tree again.
-            let shell = st.record.agent == "shell" || st.record.agent == "custom"
+            let shell = !st.record.isAgent
             let (starting, ending) = st.turnMoved(to: status)
             if starting { st.turnPrompt = st.lastSent }
             return (shell, starting, ending, st.turnStart, st.turnFolder ?? st.record.cwd, st.turnPrompt, st.record.id)

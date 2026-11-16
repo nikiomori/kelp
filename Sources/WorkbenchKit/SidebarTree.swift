@@ -48,7 +48,8 @@ public struct SidebarTree {
             // Agents only: terminals are tabs, not something to keep an eye on. One on another screen keeps a row there:
             // it's what that screen holds.
             let agents = sessions.filter {
-                $0.worktreeId == w.id && $0.status != .exited && $0.agent != "shell" && !parked.contains($0.id)
+                $0.worktreeId == w.id && $0.status != .exited && $0.agent != Session.shellAgent
+                    && !parked.contains($0.id)
             }
             let rows = agents.filter { a in !agents.contains { $0.id == a.parent } }
             return SidebarItem(kind: .workspace(w.id), children: rows.map { SidebarItem(kind: .agent($0.id)) })

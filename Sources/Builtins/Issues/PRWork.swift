@@ -89,7 +89,7 @@ struct PRWork {
     private func hand(_ recipe: String, _ vars: [String: String], to wt: Worktree) async {
         guard let text = await app.call(RecipeRender(id: wt.id, name: recipe, vars: vars)) else { return }
         if let agent = app.sessions.last(where: {
-            $0.worktreeId == wt.id && $0.status != .exited && $0.agent != "shell" && $0.agent != "custom"
+            $0.worktreeId == wt.id && $0.status != .exited && $0.isAgent
         }) {
             await app.call(SessionSend(id: agent.id, text: text, enter: false))
             app.workbench.focus(session: agent.id)

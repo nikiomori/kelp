@@ -105,10 +105,10 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         let app = self.app
         let entry = rows[row], session = entry.session, model = app
         let icon = NSImageView(
-            image: (session.agent == "shell" ? NSImage.symbol("terminal") : app.catalog.icon(session.agent))
+            image: (session.agent == Session.shellAgent ? NSImage.symbol("terminal") : app.catalog.icon(session.agent))
                 ?? NSImage())
         let name = NSTextField(
-            labelWithString: session.agent == "shell"
+            labelWithString: session.agent == Session.shellAgent
                 ? (session.title.isEmpty ? String(localized: "Terminal") : session.title)
                 : app.catalog.displayName(session))
         name.font = .ui(TextSize.row, weight: .medium)

@@ -71,7 +71,7 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
                 app.sessions.filter(\.isChat).map { session in
                     .obj([
                         "id": .string(session.id), "title": .string(app.catalog.displayName(session)),
-                        "agent": .string(session.agent ?? "shell"),
+                        "agent": .string(session.agent ?? Session.shellAgent),
                         "status": .string(session.status.rawValue), "workspace": .string(session.worktreeId ?? ""),
                         "unread": .bool(session.unread)
                     ])

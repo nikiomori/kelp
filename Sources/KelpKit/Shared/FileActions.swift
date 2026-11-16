@@ -20,7 +20,7 @@ package struct FileActions {
     /// The agent the user was last with in this workspace (never a plain terminal).
     package var targetAgent: Session? {
         let model = app, wid = app.workbench.workspaceId
-        if let session = app.workbench.lastSession.flatMap(model.session), session.agent != "shell",
+        if let session = app.workbench.lastSession.flatMap(model.session), session.agent != Session.shellAgent,
             session.worktreeId == wid,
             session.status != .exited
         {

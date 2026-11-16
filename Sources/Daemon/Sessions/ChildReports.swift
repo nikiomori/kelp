@@ -96,7 +96,7 @@ extension Sessions {
     /// The parent of `create`, if it makes one: an agent's, and of an agent. A shell or a test run has no input to report to:
     /// typed there, a report would be run as a command. A command it runs is its own affair too.
     func parent(_ id: String?, of create: SessionCreate) throws -> String? {
-        guard let id, create.command == nil, create.tmux == nil, !["shell", nil].contains(create.agent),
+        guard let id, create.command == nil, create.tmux == nil, ![Session.shellAgent, nil].contains(create.agent),
             let agent = try store.session(id), agent.isAgent
         else { return nil }
         return agent.id

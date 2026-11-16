@@ -23,7 +23,7 @@ package struct SessionStarter {
                 draft: draft ? true : nil), split: split, focus: focus)
     }
     package func newTerminal(split: SplitDirection? = nil, focus: Bool = true) {
-        createSession(SessionCreate(worktreeId: workspaceId, agent: "shell"), split: split, focus: focus)
+        createSession(SessionCreate(worktreeId: workspaceId, agent: Session.shellAgent), split: split, focus: focus)
     }
     /// A terminal attached to tmux session `name` (started if tmux has none); the tab already attached to it, if there is one.
     func newTmux(_ name: String, split: SplitDirection? = nil, focus: Bool = true) {
@@ -53,7 +53,8 @@ package struct SessionStarter {
     /// A new shell where `old` was, in the tab left for it; attached again when `old` was tmux's.
     func newShell(like old: Session, inTabOf uri: String) {
         let create = sized(
-            SessionCreate(cwd: old.cwd, worktreeId: workspaceId, agent: "shell", tmux: Tmux.session(old.argv)))
+            SessionCreate(
+                cwd: old.cwd, worktreeId: workspaceId, agent: Session.shellAgent, tmux: Tmux.session(old.argv)))
         let app = app, area = area
         Task {
             guard let shell = await app.call(create) else { return }

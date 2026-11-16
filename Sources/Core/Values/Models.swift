@@ -234,11 +234,11 @@ public struct Session: Codable, Sendable, Equatable, Revised {
         self.summary = summary
         self.argv = argv
     }
-    public var displayTitle: String { title.isEmpty ? (agent ?? "shell") : title }
+    public var displayTitle: String { title.isEmpty ? (agent ?? Self.shellAgent) : title }
     /// Where the app keeps the commands moved off their agent's line to a tab (a list in UI state).
     public static let inTabKey = "run.inTab"
     /// A conversation or a program of its own: not a terminal, nor a command on an agent's line.
-    public var isChat: Bool { agent != "shell" && startedBy == nil }
+    public var isChat: Bool { agent != Self.shellAgent && startedBy == nil }
     /// An agent runs in it: not a terminal (`shell`) nor a plain command (`custom`: a dev server, a script).
     public var isAgent: Bool { Self.isAgent(agent) }
     public static func isAgent(_ id: String?) -> Bool { ![shellAgent, customAgent].contains(id ?? shellAgent) }
@@ -321,7 +321,9 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// Its program ended by itself with an error (exit code 1–127; 128 and up is the signal that stopped it, as closing or
     /// Stop does). A terminal's code is its last command's, not the terminal failing. Limit: a program that exits with 128
     /// or more by itself reads as stopped.
-    public var endedWithError: Bool { status == .exited && agent != "shell" && (1...127).contains(exitCode ?? 0) }
+    public var endedWithError: Bool {
+        status == .exited && agent != Self.shellAgent && (1...127).contains(exitCode ?? 0)
+    }
 }
 
 extension [Session] {

@@ -43,7 +43,7 @@ extension EditorArea {
         guard let session = app.session(sid) else { return }
         closed.remove(sid)
         place(closedTab)
-        if session.agent == "shell" {
+        if session.agent == Session.shellAgent {
             starter.newShell(like: session, inTabOf: closedTab.uri)
         } else {
             AgentActions(app).restart(sid)
