@@ -234,7 +234,7 @@ final class Routines: Sendable {
 }
 
 extension RoutineList: Handled {
-    func handle(_ workspaces: Workspaces) throws -> RoutinesEvent { try workspaces.routines.list() }
+    func handle(_ routines: Routines) throws -> RoutinesEvent { try routines.list() }
 }
 
 extension RoutineSet: Handled {
@@ -242,13 +242,13 @@ extension RoutineSet: Handled {
     static let theUsers =
         "A routine is the user's to set up: in Kelp's window (Routines), or `kelp routine` in a terminal of theirs."
     var notForAgents: String? { Self.theUsers }
-    func handle(_ workspaces: Workspaces) throws -> Routine { try workspaces.routines.set(routine) }
+    func handle(_ routines: Routines) throws -> Routine { try routines.set(routine) }
 }
 
 extension RoutineDelete: Handled {
     var notForAgents: String? { RoutineSet.theUsers }
-    func handle(_ workspaces: Workspaces) throws -> Done {
-        try workspaces.routines.delete(id)
+    func handle(_ routines: Routines) throws -> Done {
+        try routines.delete(id)
         return Done()
     }
 }

@@ -1,11 +1,20 @@
 import Core
 import Foundation
 import GitKit
+import os
+
+/// The commits agents proposed (`kelp commit add`), by workspace, until the window takes them: in memory, as a message
+/// being written is.
+final class CommitPlans: Sendable {
+    let store: Store
+    let plans = OSAllocatedUnfairLock(initialState: [String: [PlannedCommit]]())
+    init(store: Store) { self.store = store }
+}
 
 extension CommitPlanAdd: Handled {
     static var quick: Bool { true }
     var reportsFor: String? { session }   // a plan names its own session's agent, not another's
-    func handle(_ workspaces: Workspaces) throws -> Int {
+    func handle(_ commits: CommitPlans) throws -> Int {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
         let paths = files.filter { !$0.isEmpty }
         guard !paths.isEmpty, !text.isEmpty else {
@@ -15,9 +24,9 @@ extension CommitPlanAdd: Handled {
         guard !paths.contains(where: { $0.contains(where: \.isNewline) }) else {
             throw RPCError.invalidParams("A file's path has no line breaks.")
         }
-        _ = try workspaces.store.worktree(named: worktreeId)
+        _ = try commits.store.worktree(named: worktreeId)
         let commit = PlannedCommit(files: paths, message: text)
-        return workspaces.commitPlans.withLock { plans in
+        return commits.plans.withLock { plans in
             plans[worktreeId, default: []].append(commit)
             return plans[worktreeId]?.count ?? 0
         }
@@ -26,8 +35,8 @@ extension CommitPlanAdd: Handled {
 
 extension CommitPlanTake: Handled {
     static var quick: Bool { true }
-    func handle(_ workspaces: Workspaces) throws -> [PlannedCommit] {
-        workspaces.commitPlans.withLock { $0.removeValue(forKey: worktreeId) ?? [] }
+    func handle(_ commits: CommitPlans) throws -> [PlannedCommit] {
+        commits.plans.withLock { $0.removeValue(forKey: worktreeId) ?? [] }
     }
 }
 

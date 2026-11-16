@@ -21,9 +21,7 @@ final class Workspaces: Sendable {
     let trustLock = NSLock()   // trusted-configs.json: read-modify-write under it
     let routines: Routines   // agents on a schedule, each in a workspace of its own
     let databases: Databases   // their projects' databases (db.*): what agents may do with them, what they ran
-    /// The commits agents proposed (`kelp commit add`), by workspace, until the window takes them: in memory, as a
-    /// message being written is.
-    let commitPlans = OSAllocatedUnfairLock(initialState: [String: [PlannedCommit]]())
+    let commitPlans: CommitPlans   // the commits agents proposed, until the window takes them
     let sweeps = WorktreeSweeps()   // the projects' other worktrees' sizes: one sweep each at a time, kept a moment
     /// Branches being made into workspaces ("repo/branch"), until their record is saved: two made at once don't pick
     /// the same "ws-N" (git would refuse the second).
@@ -36,6 +34,7 @@ final class Workspaces: Sendable {
         self.sessions = sessions
         self.clients = clients
         self.routines = Routines(store: store, sessions: sessions, clients: clients)
+        self.commitPlans = CommitPlans(store: store)
         self.databases = Databases(
             store: store, sessions: sessions, watches: sessions.watches, remotes: remotes, offloads: sessions.offloads)
     }

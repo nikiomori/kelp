@@ -42,8 +42,8 @@ extension Sessions {
 extension ArtifactNew: Handled {
     static var quick: Bool { true }
     var writesInFolder: String? { cwd }   // the workspace whose panel it lands in
-    func handle(_ workspaces: Workspaces) throws -> String {
-        let root = try artifactsRoot(workspaces.store, cwd: cwd, session: session)
+    func handle(_ store: Store) throws -> String {
+        let root = try artifactsRoot(store, cwd: cwd, session: session)
         return try Artifacts.create(kind, title: title, root: root, session: session).path
     }
 }
@@ -52,9 +52,9 @@ extension ArtifactAdd: Handled {
     /// An agent's hook waits for it.
     static var quick: Bool { true }
     var writesInFolder: String? { cwd }
-    func handle(_ workspaces: Workspaces) throws -> Bool {
+    func handle(_ store: Store) throws -> Bool {
         guard url.hasPrefix("https://") else { throw RPCError.invalidParams("a page's link starts with https://") }
-        let root = try artifactsRoot(workspaces.store, cwd: cwd, session: session)
+        let root = try artifactsRoot(store, cwd: cwd, session: session)
         return try Artifacts.addNative(url: url, title: title, type: type, root: root, session: session, page: page)
             != nil
     }
@@ -88,7 +88,7 @@ extension ArtifactCheck: AsyncHandled {
 
 extension ArtifactCost: Handled {
     /// From a little before the page was made (the turn read its guide first) to its last change.
-    func handle(_ workspaces: Workspaces) throws -> Spent? {
+    func handle(_: NoService) throws -> Spent? {
         guard let marker = path.range(of: "/\(Artifacts.folder)/") else { return nil }
         let folder = URL(fileURLWithPath: path).deletingLastPathComponent(), root = String(path[..<marker.lowerBound])
         guard let record = Artifacts.record(in: folder), let session = record.session,

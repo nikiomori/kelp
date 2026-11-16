@@ -114,6 +114,11 @@ extension PermissionWaits: DaemonService {
     static func of(_ daemon: Daemon) -> PermissionWaits { daemon.sessions.permissions }
 }
 extension Workspaces: DaemonService { static func of(_ daemon: Daemon) -> Workspaces { daemon.workspaces } }
+extension Routines: DaemonService { static func of(_ daemon: Daemon) -> Routines { daemon.workspaces.routines } }
+extension CommitPlans: DaemonService {
+    static func of(_ daemon: Daemon) -> CommitPlans { daemon.workspaces.commitPlans }
+}
+extension Store: DaemonService { static func of(_ daemon: Daemon) -> Store { daemon.store } }
 extension DiskUsage: DaemonService {
     static func of(_ daemon: Daemon) -> DiskUsage { DiskUsage(workspaces: daemon.workspaces) }
 }
