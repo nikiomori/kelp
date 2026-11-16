@@ -24,12 +24,15 @@ package final class UIState {
     func all(prefix: String) -> [String: JSONValue] { values.filter { $0.key.hasPrefix(prefix) } }
 
     /// Written with an answer, for what the daemon may refuse (trust: only Kelp's own window may record it). False, and a
-    /// banner saying why, when it did; kept for this run only without a daemon, as the subscript does.
+    /// banner saying why, when it did; kept for this run only without a daemon, as the subscript does. Read back as saved
+    /// at once: a second change of the key, made from what it read meanwhile, would drop this one. Put back if refused.
     @discardableResult
     package func save(_ key: String, _ value: JSONValue?) async -> Bool {
-        if app.hasDaemon, await app.call(StateSet(key: key, value: value)) == nil { return false }
+        let before = values[key]
         values[key] = value
-        return true
+        guard app.hasDaemon, await app.call(StateSet(key: key, value: value)) == nil else { return true }
+        if values[key] == value { values[key] = before }   // unless saved again meanwhile
+        return false
     }
 
     /// Whether the daemon's state was read: until then a key that's missing may only not be known yet (`ExtensionTrust`).
