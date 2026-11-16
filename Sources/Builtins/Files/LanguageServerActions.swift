@@ -7,7 +7,7 @@ import WorkbenchKit
 
 /// What a language server does beyond the file on screen: where a symbol is used, renaming it, its fixes.
 @MainActor
-struct ServerActions {
+struct LanguageServerActions {
     let app: AppModel, tab: FileTab, root: String
 
     private var place: (path: String, line: Int, column: Int)? {
@@ -75,7 +75,7 @@ struct ServerActions {
                                     button: String(localized: "Apply"))
                             else { return }
                         }
-                        await ServerActions(app: app, tab: tab, root: tab.root).apply(action.files)
+                        await LanguageServerActions(app: app, tab: tab, root: tab.root).apply(action.files)
                     }
                 }
             }

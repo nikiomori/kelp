@@ -12,7 +12,7 @@ extension FileTab {
     var reopenURI: String? { TabURI.file(path, line: selectedLines?.lowerBound) }
 
     /// What the language server can change or find from here.
-    var server: ServerActions { ServerActions(app: app, tab: self, root: root) }
+    var server: LanguageServerActions { LanguageServerActions(app: app, tab: self, root: root) }
 
     func contextMenu(_ menu: NSMenu) {
         let app = self.app, path = self.path
