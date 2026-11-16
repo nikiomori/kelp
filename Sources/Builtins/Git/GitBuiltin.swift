@@ -110,6 +110,8 @@ extension Builtins {
             ],
             // A merged PR's switch in its project's menu.
             // An agent writing a commit has no tab and no row until its Show.
+            // An agent's tile in the Dock strip: its workspace's CI, as the folder's sidebar row marks it.
+            rowMarks: [{ row in RowMarks.of(app).tile(row).map { [$0] } ?? [] }],
             sessionHidden: [{ panel.controller?.hiddenAgentSessions ?? [] }],
             rowMenu: [
                 { row, menu in

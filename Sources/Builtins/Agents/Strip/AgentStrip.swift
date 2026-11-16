@@ -128,13 +128,10 @@ final class AgentStrip {
             fullScreen: app.settings[SettingKeys.dockStripFullScreen])
     }
 
-    /// The item with its workspace's CI, read as the sidebar's rows read it (under observation: no work).
+    /// The item with its workspace's CI, the mark a built-in puts on its tile (under observation: no work).
     private static func ci(_ item: StripItem, _ app: AppModel) -> StripItem {
-        guard let ci = app.extensions.all.ci, let folder = app.gitFolder(of: item.workspace)?.id,
-            let state = ci.row(folder)
-        else { return item }
         var with = item
-        with.ci = StripCI(state: state, line: ci.line(folder) ?? String(localized: "CI"), folder: folder)
+        with.ci = app.extensions.rowMarks(.workspace(item.workspace)).first { $0.place == .tile }
         return with
     }
 

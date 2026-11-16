@@ -2,6 +2,7 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
+import WorkbenchKit
 
 /// What Git marks beside a folder in the sidebar, the ⌃Tab switcher and the window bar (`FolderCI`): its CI, its
 /// branch's PR (`PullRequests`), and a PR that merged (`MergedPR`). Every folder the sidebar lists is watched for CI
@@ -100,6 +101,20 @@ extension RowMarks {
     /// Every folder's sidebar mark: the rows follow this, not each CI read.
     var sidebarMarks: [String: CIRuns.State] {
         Set(app.latest(CIEvent.self).byKey.keys).union(prs.keys).reduce(into: [:]) { $0[$1] = sidebarCI($1) }
+    }
+    /// A workspace's CI on its agents' tiles in the Dock strip, as its folder's sidebar row marks it.
+    func tile(_ row: SidebarItem.Kind) -> RowMark? {
+        guard case .workspace(let workspace) = row, let folder = app.gitFolder(of: workspace)?.id,
+            let state = sidebarCI(folder)
+        else { return nil }
+        return RowMark(
+            .tile,
+            view: {
+                let mark = CIMark.made()
+                _ = mark.show(state, false)
+                return mark.view
+            }, tip: ciLine(folder) ?? String(localized: "CI"), key: "\(state)"
+        ) { [weak self] in self?.openCI(folder) }
     }
     /// On the branch chip: a pass for its first minute on screen.
     func chipCI(_ id: String) -> CIRuns.State? {

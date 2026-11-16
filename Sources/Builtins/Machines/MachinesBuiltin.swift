@@ -28,13 +28,13 @@ extension Builtins {
                 }
             ],
             // An agent running a command in a machine (`kelp vm run`) says so on its row.
-            sessionMarks: [
-                { session in
-                    Machines.machineList(app).first { $0.sessions?.contains(session.id) == true }
-                        .map {
-                            SessionMark(
-                                symbol: "shippingbox", tip: String(localized: "Runs a command in \($0.machine.name)"))
-                        }
+            rowMarks: [
+                { row in
+                    guard case .agent(let sid) = row else { return [] }
+                    return Machines.machineList(app).filter { $0.sessions?.contains(sid) == true }.prefix(1).map {
+                        let tip = String(localized: "Runs a command in \($0.machine.name)")
+                        return RowMark(.chip, symbol: "shippingbox", tip: tip)
+                    }
                 }
             ],
             // A project's menu: Run Terminals In, while there's a machine that shares folders.

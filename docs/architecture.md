@@ -91,7 +91,7 @@ Run's and the server cards are Servers'. The shell gives them places to show up 
 | languages | file tabs: completion and jump to definition from the language server; Run File, Test at Cursor and Format Document (⌘R / ⌘U without project commands) (built in: Swift, TS/JS, Python, Go, Rust) |
 | tabs (built-ins only) | a tab for a URI scheme of its own (`vm:`, `host:`, `cilog:`) |
 | sidebarSections (built-ins only) | a block of its own under the projects (Machines), made while it's on; a `foot` one under all the rest (the plan limits) |
-| sessionMarks (built-ins only) | a mark on an agent's row for where it runs something of the built-in's (a machine) |
+| rowMarks (built-ins only) | marks on rows (`RowMark`): on an agent's row in its chip's place, the machine it runs a command in (Machines'); on an agent's tile in the Dock strip, its workspace's CI (Git's) |
 | branch (built-ins only) | the window bar's branch chip: what runs on the branch, the popover a click opens (Git's sync); the top of a project's menu for its folder's branch (a merged PR's switch) |
 | ci (built-ins only) | a folder's CI and pull request marks beside its sidebar row, in ⌃Tab and on the window bar ("#12"): what they say, where a click goes, the PR in its hover card, the branch chip menu's Create Pull Request and CI items (Git's); none, and no CI or PR shows |
 | pushed (built-ins only) | each reading the daemon pushes, as it lands, not only the latest (a limit's pace, its notifications) |

@@ -87,7 +87,7 @@ extension SidebarCell {
     /// ended before it could be read. The tooltip and the card say them.
     func showChip(_ session: Session) {
         let beside = session.aside.count,
-            mark = beside == 0 ? app.extensions.all.sessionMarks.lazy.compactMap({ $0(session) }).first : nil
+            mark = beside == 0 ? app.extensions.rowMarks(.agent(session.id)).first(where: { $0.place == .chip }) : nil
         // Beside the dots there's no room for both it and the name: the card lists what it says.
         chip.isHidden = !family.isHidden || (session.goal == nil && beside == 0 && mark == nil)
         if let goal = session.goal {

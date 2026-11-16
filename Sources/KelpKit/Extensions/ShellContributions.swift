@@ -73,19 +73,19 @@ package struct BranchActions {
 package struct FolderCI {
     /// Every folder's CI mark beside its row: the rows follow this, not each CI read.
     let rows: @MainActor () -> [String: CIRuns.State]
-    package let row: @MainActor (_ folder: String) -> CIRuns.State?
+    let row: @MainActor (_ folder: String) -> CIRuns.State?
     /// On the branch chip: the mark, and whether it sits at the title's end (else in the branch glyph's place).
     let chip: @MainActor (_ folder: String) -> (state: CIRuns.State, atEnd: Bool)?
     /// "CI: Failed · Tests, Deploy", for tooltips and VoiceOver.
-    package let line: @MainActor (_ folder: String) -> String?
-    package let open: @MainActor (_ folder: String) -> Void
+    let line: @MainActor (_ folder: String) -> String?
+    let open: @MainActor (_ folder: String) -> Void
     /// The branch chip's menu for the workspace on screen: Create Pull Request while its branch has none, the CI items.
     let menu: @MainActor (_ menu: NSMenu, _ worktree: String?) -> Void
     /// The branch's pull request beside the folder: "#12" in its state's colour, what it says, the tab a click opens.
     let pr: @MainActor (_ folder: String) -> (title: NSAttributedString, tip: String, uri: String)?
     /// A CI mark in the built-in's look (12 pt), for a row, the branch chip or a tile: the view, and what shows a
     /// state in it (`spelled`: the row is under the pointer), answering how much wider than 12 pt it then is.
-    package let mark: @MainActor () -> (view: NSView, show: @MainActor (CIRuns.State?, _ spelled: Bool) -> CGFloat)
+    let mark: @MainActor () -> (view: NSView, show: @MainActor (CIRuns.State?, _ spelled: Bool) -> CGFloat)
     /// The pull request in full, in the folder's hover card (nil: none).
     let card: @MainActor (_ folder: String) -> AnyView?
     /// The folder whose hover card is open, nil once it closes: its pull request is read meanwhile.
@@ -115,12 +115,45 @@ package struct FolderCI {
     }
 }
 
-/// A mark on a session's row: an SF Symbol and what it says.
-package struct SessionMark: Equatable {
-    let symbol: String, tip: String
-    package init(symbol: String, tip: String) {
+/// A mark a built-in puts on a row, read under observation (it must not do work): the machine an agent runs a command
+/// in, the page it drives, its workspace's CI on its tile in the Dock strip. Each reader shows the places it has.
+package struct RowMark: Equatable {
+    /// On an agent's sidebar row: in the chip's place, when the row has no goal or command of its own to show (`chip`),
+    /// or a button of its own beside the dots, in `tint`, glowing in `glow`, a click doing `open` (`button`). On an
+    /// agent's tile in the Dock strip, of its workspace: in the tile's corner, the menu offering `open` under `tip`
+    /// (`tile`).
+    package enum Place: Sendable { case chip, button, tile }
+    package let place: Place
+    /// An SF Symbol, else `view`: a mark the built-in draws itself (Git's CI mark), made when it's shown.
+    let symbol: String?
+    package let view: (@MainActor () -> NSView)?
+    let tint: NSColor?, glow: NSColor?
+    package let tip: String
+    /// The subagents whose dots it lights on the agent's row, and in what colour (the ones acting on a page).
+    let lights: Set<String>, lightColor: NSColor?
+    package let open: (@MainActor () -> Void)?
+    /// What a `view` shows, for a reader to tell it changed (CI's state).
+    package let key: String
+    package init(
+        _ place: Place, symbol: String? = nil, view: (@MainActor () -> NSView)? = nil, tint: NSColor? = nil,
+        glow: NSColor? = nil, tip: String, lights: Set<String> = [], lightColor: NSColor? = nil, key: String = "",
+        open: (@MainActor () -> Void)? = nil
+    ) {
+        self.place = place
         self.symbol = symbol
+        self.view = view
+        self.tint = tint
+        self.glow = glow
         self.tip = tip
+        self.lights = lights
+        self.lightColor = lightColor
+        self.key = key
+        self.open = open
+    }
+    /// What shows: the closures aside.
+    package static func == (a: RowMark, b: RowMark) -> Bool {
+        (a.place, a.symbol, a.tint, a.glow, a.tip) == (b.place, b.symbol, b.tint, b.glow, b.tip)
+            && (a.lights, a.lightColor, a.key) == (b.lights, b.lightColor, b.key)
     }
 }
 
@@ -177,7 +210,7 @@ package struct Contributions {
     package init(
         panels: [PanelSpec] = [], editors: [EditorSpec] = [], commands: [CommandSpec] = [],
         settings: [SettingsSection] = [], tabs: [TabProvider] = [], sidebarSections: [SidebarSection] = [],
-        sessionMarks: [@MainActor (Session) -> SessionMark?] = [], sessionHidden: [@MainActor () -> Set<String>] = [],
+        rowMarks: [@MainActor (SidebarItem.Kind) -> [RowMark]] = [], sessionHidden: [@MainActor () -> Set<String>] = [],
         rowMenu: [@MainActor (_ row: SidebarItem.Kind, _ menu: NSMenu) -> Void] = [], branch: BranchActions? = nil,
         ci: FolderCI? = nil,
         pushed: [@MainActor (any Pushed) -> Void] = [], plans: PlanWords? = nil, servers: ServerCards? = nil,
@@ -191,7 +224,7 @@ package struct Contributions {
         self.settings = settings
         self.tabs = tabs
         self.sidebarSections = sidebarSections
-        self.sessionMarks = sessionMarks
+        self.rowMarks = rowMarks
         self.sessionHidden = sessionHidden
         self.rowMenu = rowMenu
         self.branch = branch
@@ -216,9 +249,8 @@ package struct Contributions {
     var tabs: [TabProvider] = []
     /// Blocks of its own in the sidebar, under the projects (Machines), made when the sidebar is and only while it's on.
     var sidebarSections: [SidebarSection] = []
-    /// A mark on an agent's sidebar row for where it runs something of the built-in's (a machine): the first that has one
-    /// shows, when the row has no goal or command of its own to show. Read under observation: it must not do work.
-    var sessionMarks: [@MainActor (Session) -> SessionMark?] = []
+    /// Marks on rows (`RowMark`): an agent's row, its tile in the Dock strip. Read under observation: no work.
+    var rowMarks: [@MainActor (SidebarItem.Kind) -> [RowMark]] = []
     /// Sessions it keeps running with no tab and no sidebar row (Run's runs put away in the Run menu). Read under
     /// observation: it must not do work.
     var sessionHidden: [@MainActor () -> Set<String>] = []
@@ -263,7 +295,7 @@ package struct Contributions {
         tabs += c.tabs
         languages += c.languages
         sidebarSections += c.sidebarSections
-        sessionMarks += c.sessionMarks
+        rowMarks += c.rowMarks
         sessionHidden += c.sessionHidden
         rowMenu += c.rowMenu
         branch = branch ?? c.branch

@@ -156,7 +156,7 @@ final class StripButton: PointerControl {
     var onHover: ((Bool) -> Void)?
     private let icon = NSImageView(), mark = StatusMark(size: 12), label = NSTextField(labelWithString: "")
     /// Its branch's CI, in a bite out of the tile's other right corner.
-    private var ciMark: NSView?, ciState: CIRuns.State?
+    private var ciMark: NSView?, ciShown: String?
     private let glow = EdgeGlow(radius: StripButton.height / 2, spread: 2, strength: 0.35)
     private var trailing: NSLayoutConstraint?
     private var anyApp: NSTrackingArea?
@@ -225,7 +225,7 @@ final class StripButton: PointerControl {
         // Every state has its mark in the tile's bite; working's is the spinning arc, so a strip of agents at work reads as
         // work going on, not as a row of Dock icons.
         mark.status = status
-        if ciState != item.ci?.state { show(ci: item.ci?.state, app: app) }
+        if ciShown != item.ci?.key { show(ci: item.ci) }
         label.isHidden = !open
         trailing?.isActive = false
         trailing = trailingAnchor.constraint(
@@ -239,21 +239,15 @@ final class StripButton: PointerControl {
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(
-            [item.name, status.words, open ? item.words : nil, item.ci?.line].compactMap { $0 }.joined(separator: ", "))
+            [item.name, status.words, open ? item.words : nil, item.ci?.tip].compactMap { $0 }.joined(separator: ", "))
     }
 
-    /// The branch's CI as the sidebar marks it, 12 pt, from the built-in that has CI (`FolderCI.mark`).
-    private func show(ci state: CIRuns.State?, app: AppModel) {
-        ciState = state
+    /// The branch's CI as the sidebar marks it, 12 pt, drawn by the built-in that has CI (`RowMark.view`).
+    private func show(ci: RowMark?) {
+        ciShown = ci?.key
         ciMark?.removeFromSuperview()
-        ciMark = state.flatMap { state in
-            app.extensions.all.ci.map { ci in
-                let mark = ci.mark()
-                _ = mark.show(state, false)
-                return mark.view
-            }
-        }
-        notch(ci: state != nil)
+        ciMark = ci?.view?()
+        notch(ci: ciMark != nil)
         guard let ciMark else { return }
         addSubview(ciMark)
         NSLayoutConstraint.activate([
@@ -357,7 +351,7 @@ final class StripTip {
 
     func show(_ item: StripItem, over tile: NSRect, below: Bool) {
         name.stringValue = item.name
-        agents.stringValue = ([Self.lines(item.agents)] + [item.ci?.line].compactMap { $0 }).joined(separator: "\n")
+        agents.stringValue = ([Self.lines(item.agents)] + [item.ci?.tip].compactMap { $0 }).joined(separator: "\n")
         let content = panel.contentView
         content?.layoutSubtreeIfNeeded()
         let size = content?.fittingSize ?? .zero

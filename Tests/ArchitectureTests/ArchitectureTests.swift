@@ -163,7 +163,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +1: a server's and a machine's rows open their page in a window of its own (`openInOwnWindow`).
     // +16 so an agent's page shows outside its tab: what the browser tells the shell of each page it drives (`AgentPages`,
     // its `Page`, `Holder`, `drives` / `change` / `acted` / `closed`), and what the shell asks of a page (`DrivenPage`).
-    #expect(declared == 367, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +4: one kind of mark on a row for every built-in (`RowMark`, its place, view, tip, key, open, `==`), the session
+    // marks' type and the four of `FolderCI` the Dock strip read gone.
+    #expect(declared == 371, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

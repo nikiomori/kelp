@@ -201,6 +201,9 @@ package final class ExtensionRegistry {
         app.settings.set(SettingKeys.disabledExtensions, off.sorted())
     }
 
+    /// Every built-in's marks on a row (`RowMark`), in load order.
+    package func rowMarks(_ row: SidebarItem.Kind) -> [RowMark] { all.rowMarks.flatMap { $0(row) } }
+
     func tabProvider(for uri: String) -> TabProvider? {
         let scheme = TabURI.scheme(uri)
         if scheme == "ext", viewInfo(uri) == nil { return nil }   // its extension is off or gone

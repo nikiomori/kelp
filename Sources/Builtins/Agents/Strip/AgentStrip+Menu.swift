@@ -26,10 +26,10 @@ extension AgentStrip {
             NSApp.activate()
             app.workbench.focus(session: id)
         }
-        if let ci = item.ci, let open = app.extensions.all.ci?.open {
-            menu.add(ci.line) {
+        if let ci = item.ci, let open = ci.open {
+            menu.add(ci.tip) {
                 NSApp.activate()
-                open(ci.folder)
+                open()
             }
         }
         if let session = app.session(id), QuickReply.fits(session) {

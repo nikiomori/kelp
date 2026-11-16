@@ -283,9 +283,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             self?.updateVisibleCells()
         }
         // Who runs in which machine: their CPU and memory (new every 5 s while one runs) aren't on the rows.
-        // The marks built-ins put on agents' rows (a machine one runs in), as they change.
+        // The marks built-ins put on agents' rows (a machine one runs in, the page it drives), as they change.
         track(owner: self) { [app] in
-            app.sessions.map { s in app.extensions.all.sessionMarks.compactMap { $0(s) } }
+            app.sessions.map { app.extensions.rowMarks(.agent($0.id)) }
         } changed: { [weak self] _ in
             self?.updateVisibleCells()
         }
