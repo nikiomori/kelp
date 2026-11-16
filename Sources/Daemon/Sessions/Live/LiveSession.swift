@@ -41,6 +41,8 @@ final class LiveSession: Sendable {
     let resumable: Bool
     let state: OSAllocatedUnfairLock<State>
     private let log: FileHandle?
+    /// A write of the history that failed was logged: once, as a full disk fails every chunk after it.
+    private let logFailed = OSAllocatedUnfairLock(initialState: false)
     let logURL: URL
     let trail: StatusTrail
     /// Everything written into the program, in order: text Kelp types (Enter included, see `type`) and the user's keys,
@@ -173,7 +175,14 @@ final class LiveSession: Sendable {
         }
         let heard = state.withLock { hear(chunk, text, &$0) }
         // Disk, off the lock: a slow disk or the trim (a megabyte read back) doesn't hold up typing, attaching or status.
-        try? log?.write(contentsOf: chunk)   // per chunk, unlogged: a full disk would flood the log (the trim says so)
+        do { try log?.write(contentsOf: chunk) } catch {   // per chunk: said the first time only
+            if !logFailed.withLock({
+                defer { $0 = true }
+                return $0
+            }) {
+                Log.session.error("history of \(self.snapshot.id, privacy: .public) stops here: \(error)")
+            }
+        }
         if heard.trimLog, let size = Self.trimmed(log, logURL) { state.withLock { $0.logSize = size } }
         if heard.probe { write(Data(ProgramStatus.queryReply.utf8)) }   // "I read OSC 7501": the agent starts reporting
         if heard.probe, heard.attached.isEmpty, text.contains(ProgramStatus.attributesQuery) {
