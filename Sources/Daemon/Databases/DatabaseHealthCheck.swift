@@ -115,10 +115,13 @@ extension Databases {
         guard let service = target.container, let docker = Self.docker() else {
             throw RPCError.invalidParams("\(name) isn't a compose service Kelp can start.")
         }
-        let out = try await Subprocess.run(
-            [docker, "compose", "-f", service.file, "up", "-d", service.name],
-            cwd: (service.file as NSString).deletingLastPathComponent,
-            env: ["PATH": "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin", "HOME": NSHomeDirectory()], timeLimit: 170)
+        let out = try await offloads.run {
+            try Subprocess.run(
+                [docker, "compose", "-f", service.file, "up", "-d", service.name],
+                cwd: (service.file as NSString).deletingLastPathComponent,
+                env: ["PATH": "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin", "HOME": NSHomeDirectory()],
+                timeLimit: 170)
+        }
         guard out.status == 0 else {
             let said = String(decoding: out.stderr, as: UTF8.self).split(whereSeparator: \.isNewline).last
             throw RPCError.invalidParams(said.map(String.init) ?? "docker compose couldn't start \(service.name).")

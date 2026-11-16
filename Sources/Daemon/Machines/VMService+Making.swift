@@ -115,6 +115,8 @@ extension VMService {
     }
 
     /// Slow work that waits on a program or a socket: on a thread of its own, never one of Swift's few pool threads.
+    /// Not `offload`'s slots: a machine's making runs for hours and goes on across an update (`resumeMaking`), and
+    /// closed slots would refuse its next step and leave it failed.
     func blocking<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             Thread.detachNewThread { continuation.resume(with: Result { try work() }) }
@@ -185,8 +187,10 @@ extension VMService {
         let dir = images.appendingPathComponent(".unpack-\(image.id)-\(UUID().uuidString.prefix(8))")   // another make may unpack too
         try Paths.ensure(dir)
         defer { remove(dir) }
-        let out = try await Subprocess.run(
-            ["/usr/bin/tar", "-xf", archive.path, "-C", dir.path, image.member], cwd: "/", env: [:], timeLimit: 600)
+        let out = try await blocking {
+            try Subprocess.run(
+                ["/usr/bin/tar", "-xf", archive.path, "-C", dir.path, image.member], cwd: "/", env: [:], timeLimit: 600)
+        }
         guard out.status == 0 else {
             throw RPCError.internalError("tar: " + String(decoding: out.stderr, as: UTF8.self))
         }
@@ -266,7 +270,7 @@ extension VMService {
         defer { done.withLock { $0 = true } }
         if total == 0 || size() < total {
             let curl = ["/usr/bin/curl", "-fsSL", "--retry", "5", "-C", "-", "-o", part.path, url]
-            let out = try await Subprocess.run(curl, cwd: "/", env: [:], timeLimit: 6 * 3600)
+            let out = try await blocking { try Subprocess.run(curl, cwd: "/", env: [:], timeLimit: 6 * 3600) }
             guard out.status == 0 else {
                 if !progress(nil) {   // stopped: what it got is no one's now (20 GB of macOS, half of it)
                     remove(part)

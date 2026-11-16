@@ -59,14 +59,16 @@ extension SessionRecap: AsyncHandled {
         let out: Subprocess.Output
         if let remote {
             let run = remote.command(Self.arguments(manifest.command, conversation: conversation))
-            out = try await Subprocess.run(
-                [remote.ssh] + remote.sshArgs(tty: false) + ["sh -c " + ShellQuote.word(run)], cwd: NSHomeDirectory(),
-                env: env, stdin: Data(), timeLimit: 90)
+            let argv = [remote.ssh] + remote.sshArgs(tty: false) + ["sh -c " + ShellQuote.word(run)]
+            out = try await sessions.offloads.run { [env] in
+                try Subprocess.run(argv, cwd: NSHomeDirectory(), env: env, stdin: Data(), timeLimit: 90)
+            }
         } else {
-            let claude = try LoginPath.resolve(manifest.command)
-            out = try await Subprocess.run(
-                Self.arguments(claude, conversation: conversation), cwd: cwd, env: env,
-                stdin: Data(), timeLimit: 90)   // -p waits 3 s for stdin otherwise
+            let argv = Self.arguments(try LoginPath.resolve(manifest.command), conversation: conversation)
+            out = try await sessions.offloads.run { [env] in
+                // stdin given: -p waits 3 s for it otherwise
+                try Subprocess.run(argv, cwd: cwd, env: env, stdin: Data(), timeLimit: 90)
+            }
         }
         let line =
             String(decoding: out.stdout, as: UTF8.self).split(whereSeparator: \.isNewline).first

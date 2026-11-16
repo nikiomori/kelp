@@ -331,6 +331,12 @@ func codeOnly(_ s: String) -> String {
 /// the app launching kelpd itself, and DevAids' `sample` of a stuck main thread (a developer's tool). Core's helpers that
 /// start one count too: LoginPath runs the login shell (the app asks the daemon: `process.which`), the library's index and
 /// download run curl and tar.
+/// The daemon runs a program through `offload` (its slots cap how many at once), or VM making's `blocking`: never the
+/// async `Subprocess.run`, which starts a thread of its own past every cap.
+@Test func theDaemonRunsProgramsThroughItsSlots() throws {
+    #expect(try matches(#"await\s+Subprocess\.run\("#, in: ["Sources/Daemon"]) == [])
+}
+
 @Test func theAppStartsNoPrograms() throws {
     let allowed = ["Sources/KelpKit/Model/DaemonLink.swift", "Sources/KelpKit/DevAids/DevAids.swift"]
     let found = try matches(

@@ -73,6 +73,7 @@ extension Forges {
 /// its agent.
 struct ForgeWork {
     let forges: Forges, workspaces: Workspaces
+    let offloads: Slots   // the daemon's, for the git these run (`Daemon.offload`)
 }
 
 // MARK: gh / glab / git only

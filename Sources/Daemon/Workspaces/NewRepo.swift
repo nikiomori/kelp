@@ -131,7 +131,7 @@ extension RepoClone: AsyncHandled {
     func handle(_ work: ForgeWork, conn: Int) async throws -> Repo {
         let dest = try await work.forges.clone(
             url, into: parent, folder: folder, id: id ?? UUID().uuidString, conn: conn)
-        return try await work.forges.offloads.run { try RepoAdd(path: dest).handle(work.workspaces) }   // runs git: off the cooperative pool
+        return try await work.offloads.run { try RepoAdd(path: dest).handle(work.workspaces) }   // runs git: off the cooperative pool
     }
 }
 extension RepoCloneCancel: AsyncHandled {

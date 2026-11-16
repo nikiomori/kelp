@@ -366,7 +366,7 @@ extension TaskFromIssue: AsyncHandled {
             ?? IssueRef.branchName(ref.hasPrefix("#") ? String(ref.dropFirst()) : ref.lowercased(), title: title)
         let prefix = branchPrefix ?? work.workspaces.sessions.branchPrefix
         if !prefix.isEmpty, !branch.hasPrefix(prefix) { branch = prefix + branch }
-        let unique = try await work.forges.offloads.run { [branch] in
+        let unique = try await work.offloads.run { [branch] in
             var unique = branch, number = 2
             while Git.branchExists(repo.path, unique, remotes: work.workspaces.remotes) {
                 unique = "\(branch)-\(number)"
@@ -374,12 +374,12 @@ extension TaskFromIssue: AsyncHandled {
             }
             return unique
         }
-        let created = try await work.forges.offloads.run {
+        let created = try await work.offloads.run {
             try work.workspaces.createBranchWorkspace(
                 in: repo, WorktreeCreate(repoId: repo.id, branch: unique, note: "\(ref) \(title)", tabs: false))
         }
         // The record, the repo's config and the agent's PTY: disk and a process, through `offload` like the rest.
-        let (worktree, session) = try await work.forges.offloads.run { () throws -> (Worktree, Session) in
+        let (worktree, session) = try await work.offloads.run { () throws -> (Worktree, Session) in
             guard
                 let updated = try work.workspaces.store.update(
                     Worktree.self, created.worktree.id,

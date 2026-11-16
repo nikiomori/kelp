@@ -137,7 +137,9 @@ extension BrowserRelay: DaemonService {
     static func of(_ daemon: Daemon) -> BrowserRelay { BrowserRelay(ui: .of(daemon), sessions: daemon.sessions) }
 }
 extension ForgeWork: DaemonService {
-    static func of(_ daemon: Daemon) -> ForgeWork { ForgeWork(forges: daemon.forges, workspaces: daemon.workspaces) }
+    static func of(_ daemon: Daemon) -> ForgeWork {
+        ForgeWork(forges: daemon.forges, workspaces: daemon.workspaces, offloads: daemon.offloads)
+    }
 }
 extension Shutdown: DaemonService {
     static func of(_ daemon: Daemon) -> Shutdown {

@@ -230,7 +230,10 @@ else a `NotificationCenter` name.
   (`theDaemonKeepsNoProcessGlobals`).
 - **Threads.** Each connection has a reader thread. A request runs in a task of its own; one that blocks (git, gh, ssh,
   files) moves to a thread of its own through `offload`, so a slow host never holds Swift's cooperative pool; at most
-  128 run at once, the rest wait their turn. A quick one (`Handled.quick`: `session.hook`, `session.report`,
+  128 run at once, the rest wait their turn. An async handler (`AsyncHandled`) runs its programs through the same slots
+  (`offloads.run`), never the async `Subprocess.run`, which starts a thread past them
+  (`theDaemonRunsProgramsThroughItsSlots`); only a machine's making, hours long and carried over an update, has threads
+  of its own (`VMService.blocking`). A quick one (`Handled.quick`: `session.hook`, `session.report`,
   `state.get`…) takes no turn: it starts no program (`Subprocess.quickOnly` fails one that would). Store writes and the
   events they push go one at a time, in commit order. Accepting connections and the 2 Hz ticker (session ticks, keep-awake, pausing idle agents, restarting finished ones into a Claude Code update; settings.json is watched with FSEvents) have their own
   queues.
