@@ -4,15 +4,17 @@
 # nothing, or when the launch or a workspace switch takes longer than its budget. Run after `swift build` (KELP_APP: a
 # build elsewhere); the pictures and logs go to $1 (default /tmp/kelp-ui) for a look by eye.
 #
-# Budgets: the slowest of five local runs (an M-series Mac under a load of 30, debug build) times 3, rounded up. The
-# first launch (daemon start, window, the snapshot's 1.5 s wait, quit) took 6.0-8.1 s, a switch 46-79 ms.
+# Budgets: about 1.5 times CI's median over seven runs, so a slowdown of half shows. The first launch (daemon start,
+# window, the snapshot's 1.5 s wait, quit) took 6.7-8.0 s there (median 6.9), the slowest of four switches 49-86 ms
+# (median 66): 11 s and 120 ms, which the slowest run still keeps a quarter under. A local run under load may need
+# KELP_LAUNCH_BUDGET_MS / KELP_SWITCH_BUDGET_MS raised.
 set -eu
 out=${1:-/tmp/kelp-ui}
 mkdir -p "$out"
 home=$(mktemp -d /tmp/kui.XXXX)   # short: the daemon's socket path must fit in 104 bytes
 app=${KELP_APP:-.build/debug/KelpApp}
-launch_budget_ms=${KELP_LAUNCH_BUDGET_MS:-25000}
-switch_budget_ms=${KELP_SWITCH_BUDGET_MS:-250}
+launch_budget_ms=${KELP_LAUNCH_BUDGET_MS:-11000}
+switch_budget_ms=${KELP_SWITCH_BUDGET_MS:-120}
 now_ms() { perl -MTime::HiRes=time -e 'printf "%d\n", time * 1000'; }
 # A project to show: a repository with a commit and a README.
 repo="$home/demo"
