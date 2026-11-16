@@ -334,7 +334,7 @@ func codeOnly(_ s: String) -> String {
     let over400 = sources(["Sources"]).filter { f in
         f.text.split(separator: "\n", omittingEmptySubsequences: false).count > 400
     }.count
-    #expect(over400 == 15, "files over 400 lines: \(over400); fewer now: lower the count")
+    #expect(over400 == 14, "files over 400 lines: \(over400); fewer now: lower the count")
 }
 
 /// The daemon starts every program (an extension's command, a formatter, a notebook run, an agent's --version:
@@ -448,7 +448,7 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Agents/Session/CommandsBar.swift": (1, "a running command's time goes on (\"12s\" becomes \"13s\")"),
         "Builtins/Issues/CIRunRow.swift": (1, "a running job's time goes on, counted from when it began"),
         "Builtins/Files/FileTab+Saving.swift": (1, "typing settles before the language server hears it"),
-        "Builtins/Files/MarkdownTab.swift": (1, "typing settles before the preview renders again"),
+        "Builtins/Files/MarkdownTab+Render.swift": (1, "typing settles before the preview renders again"),
         "Builtins/Databases/DatabaseForm.swift": (1, "typing settles before Add Database connects to check it"),
         "Builtins/Databases/DatabaseTab+Table.swift": (
             1, "a read says Reading… only past half a second: a quick one doesn't flicker"
