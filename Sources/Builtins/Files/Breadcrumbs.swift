@@ -68,8 +68,8 @@ final class Breadcrumbs: NSView {
 
     /// The path's parts inside the project; only the file's name for a file outside it.
     static func parts(_ path: String, root: String) -> [String] {
-        guard path.hasPrefix(root + "/") else { return [(path as NSString).lastPathComponent] }
-        return path.dropFirst(root.count + 1).split(separator: "/").map(String.init)
+        guard let inRoot = Paths.relative(path, to: root) else { return [(path as NSString).lastPathComponent] }
+        return inRoot.split(separator: "/").map(String.init)
     }
 
     /// What's directly in `folder` ("" the top): folders first, each once.

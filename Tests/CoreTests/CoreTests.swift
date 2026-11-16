@@ -714,3 +714,11 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     #expect(s.customCommand == nil)
     #expect(Session.customCommand(agent: Session.customAgent, ["/bin/zsh", "-c", "x"]) == nil)
 }
+
+/// A path under a root, as written: a sibling with the root's name as a prefix isn't under it, nor is the root itself.
+@Test func aPathIsRelativeToTheRootItIsWrittenUnder() {
+    #expect(Paths.relative("/p/src/a.swift", to: "/p") == "src/a.swift")
+    #expect(Paths.relative("/pq/a.swift", to: "/p") == nil)
+    #expect(Paths.relative("/p", to: "/p") == nil)
+    #expect(Paths.relative("/a", to: "/") == nil)   // as written: "/" + "/" isn't a prefix
+}

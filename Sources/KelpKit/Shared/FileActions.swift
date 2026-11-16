@@ -12,7 +12,7 @@ package struct FileActions {
     /// "Sources/App.swift:12-30": workspace-relative, the way agents read a reference.
     func reference(_ path: String, lines: ClosedRange<Int>?) -> String {
         let root = app.worktree(app.workbench.workspaceId)?.path ?? ""
-        let rel = !root.isEmpty && path.hasPrefix(root + "/") ? String(path.dropFirst(root.count + 1)) : path
+        let rel = (root.isEmpty ? nil : Paths.relative(path, to: root)) ?? path
         let suffix = lines.map { $0.count == 1 ? ":\($0.lowerBound)" : ":\($0.lowerBound)-\($0.upperBound)" } ?? ""
         return ShellQuote.escapedPath(rel) + suffix
     }

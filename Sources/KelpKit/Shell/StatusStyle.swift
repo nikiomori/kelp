@@ -267,9 +267,7 @@ extension Session {
     /// "Works in .claude/worktrees/fix-login" when the agent went out of the folder it started in.
     package var workingElsewhere: String? {
         guard let dir = workDir else { return nil }
-        let inside =
-            dir.hasPrefix(cwd + "/")
-            ? String(dir.dropFirst(cwd.count + 1)) : (dir as NSString).abbreviatingWithTildeInPath
+        let inside = Paths.relative(dir, to: cwd) ?? (dir as NSString).abbreviatingWithTildeInPath
         return String(localized: "Works in \(inside)")
     }
 }

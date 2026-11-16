@@ -141,8 +141,8 @@ extension BrowserTab {
     private func relativeSource(_ source: String) -> String {
         var path = source.replacingOccurrences(of: "file://", with: "")
         if let root = app.worktree(app.workbench.workspaceId)?.path {
-            for prefix in [root, (root as NSString).resolvingSymlinksInPath] where path.hasPrefix(prefix + "/") {
-                path = String(path.dropFirst(prefix.count + 1))
+            for prefix in [root, (root as NSString).resolvingSymlinksInPath] {
+                path = Paths.relative(path, to: prefix) ?? path
             }
         }
         return path

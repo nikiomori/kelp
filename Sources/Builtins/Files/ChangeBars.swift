@@ -47,9 +47,8 @@ final class ChangeBars {
         let url = URL(fileURLWithPath: path), folder = url.deletingLastPathComponent().path
         let real = (Paths.real(folder) ?? folder) + "/" + url.lastPathComponent
         let found = worktrees.compactMap { worktree -> (Worktree, String)? in
-            for (candidate, base) in [(path, worktree.path), (real, Paths.real(worktree.path) ?? worktree.path)]
-            where candidate.hasPrefix(base + "/") {
-                return (worktree, String(candidate.dropFirst(base.count + 1)))
+            for (candidate, base) in [(path, worktree.path), (real, Paths.real(worktree.path) ?? worktree.path)] {
+                if let inside = Paths.relative(candidate, to: base) { return (worktree, inside) }
             }
             return nil
         }

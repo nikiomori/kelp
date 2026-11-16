@@ -83,8 +83,8 @@ extension TerminalPaths {
         let parts = text.split(separator: ":", omittingEmptySubsequences: false)
         let line = parts.count > 1 ? Int(parts[1]) : nil
         var path = String(parts.first ?? "")
-        if path.hasPrefix(root + "/") {
-            path.removeFirst(root.count + 1)
+        if let inRoot = Paths.relative(path, to: root) {
+            path = inRoot
         } else if path.hasPrefix("/") || path.hasPrefix("~") {
             return nil
         } else if path.hasPrefix("a/") || path.hasPrefix("b/") {
@@ -156,9 +156,7 @@ final class PreviewModel {
         self.app = app
         name = (path as NSString).lastPathComponent
         let dir = (path as NSString).deletingLastPathComponent, root = (cwd as NSString).standardizingPath   // both without /private
-        folder =
-            dir.hasPrefix(root + "/")
-            ? String(dir.dropFirst(root.count + 1)) : dir == root ? "" : (dir as NSString).abbreviatingWithTildeInPath
+        folder = Paths.relative(dir, to: root) ?? (dir == root ? "" : (dir as NSString).abbreviatingWithTildeInPath)
     }
 
     func load(worktree: String?) {

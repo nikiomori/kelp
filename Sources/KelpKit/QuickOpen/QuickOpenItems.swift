@@ -134,7 +134,7 @@ extension QuickOpen {
         switch TabURI.scheme(uri) {
         case "file":
             let path = TabURI.filePath(uri).path
-            if let root, path.hasPrefix(root + "/") { return ("doc", String(path.dropFirst(root.count + 1))) }
+            if let root, let inRoot = Paths.relative(path, to: root) { return ("doc", inRoot) }
             return ("doc", (path as NSString).abbreviatingWithTildeInPath)
         case "diff": return ("plus.forwardslash.minus", String(localized: "Changes"))
         case "http", "https": return ("safari", URL(string: uri)?.host() ?? uri)

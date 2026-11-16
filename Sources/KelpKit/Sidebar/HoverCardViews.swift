@@ -151,8 +151,7 @@ struct WorktreeSizes: View {
         }
     }
     static func name(_ path: String, root: String) -> String {
-        path.hasPrefix(root + "/")
-            ? String(path.dropFirst(root.count + 1)) : (path as NSString).abbreviatingWithTildeInPath
+        Paths.relative(path, to: root) ?? (path as NSString).abbreviatingWithTildeInPath
     }
     static func size(_ bytes: Int) -> String {
         DesignKit.bytes(bytes, file: true)

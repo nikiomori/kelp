@@ -56,6 +56,12 @@ public enum Paths {
         return path == folder || path.hasPrefix(folder.hasSuffix("/") ? folder : folder + "/")
     }
 
+    /// `path` as written under `root` (`src/a.swift`), nil when it isn't under it: compared as written, for showing a
+    /// path. Whether a path is really in a folder (links, `..`) is `inside`.
+    public static func relative(_ path: String, to root: String) -> String? {
+        path.hasPrefix(root + "/") ? String(path.dropFirst(root.count + 1)) : nil
+    }
+
     /// A path as it really is; one not there (yet) is its nearest folder that is, as it really is, and the rest as written.
     public static func realNearest(_ path: String) -> String {
         let standard = (URL(fileURLWithPath: path).path as NSString).standardizingPath

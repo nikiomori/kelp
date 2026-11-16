@@ -38,9 +38,7 @@ extension Git {
             let top = try line(["rev-parse", "--show-toplevel"], cwd: dir, remotes: remotes)
             let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path,
                 root = URL(fileURLWithPath: top).resolvingSymlinksInPath().path
-            file =
-                real.hasPrefix(root + "/")
-                ? String(real.dropFirst(root.count + 1)) : (path as NSString).lastPathComponent
+            file = Paths.relative(real, to: root) ?? (path as NSString).lastPathComponent
         }
         guard let url = webURL(remote: remote, sha: sha, file: file, lines: lines) else {
             throw GitError.refused("Origin (\(remote)) isn't a GitHub, GitLab or Bitbucket address")

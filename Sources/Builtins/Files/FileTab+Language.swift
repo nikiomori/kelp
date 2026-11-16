@@ -107,7 +107,7 @@ extension FileTab {
                 await LSPManager.of(app).symbol(root: root, path: path, line: line)
                 ?? LanguageSpec.word(in: editor?.text ?? "", line: line, column: column)
         }
-        let relative = path.hasPrefix(root + "/") ? String(path.dropFirst(root.count + 1)) : path
+        let relative = Paths.relative(path, to: root) ?? path
         // A remote project's command runs on its host: its paths are the host's.
         let top = RemoteHost.of(root)?.path ?? root, file = path.hasPrefix(root + "/") ? top + "/" + relative : path
         let vars = [

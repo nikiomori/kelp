@@ -69,8 +69,7 @@ enum DiskNames {
         default:
             // A build in another worktree by that worktree's name: `black-theme/.build`.
             let base = item.worktree.map { ($0 as NSString).deletingLastPathComponent } ?? root
-            guard item.path.hasPrefix(base + "/") else { return (item.path as NSString).lastPathComponent }
-            return String(item.path.dropFirst(base.count + 1))
+            return Paths.relative(item.path, to: base) ?? (item.path as NSString).lastPathComponent
         }
     }
 
