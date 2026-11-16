@@ -26,6 +26,7 @@ public final class EmptyStateView: NSView {
         fix.isSelectable = true
         for label in [title, text, fix] { label.alignment = .center }
         buttons.spacing = Metrics.gapWide
+        buttons.setHuggingPriority(.defaultHigh, for: .horizontal)   // as wide as its buttons: centred
         stack.setViews([icon, title, text, fix, buttons], in: .center)
         stack.orientation = .vertical
         stack.spacing = Metrics.gapWide

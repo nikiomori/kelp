@@ -101,6 +101,24 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     #expect(empty.showing && !empty.isHidden && empty.alphaValue == 1)
 }
 
+/// The button under a long, wrapped line sits in the middle with the rest of the block, not at its left edge.
+@MainActor @Test func anEmptyStatesButtonIsCentred() {
+    let empty = EmptyStateView(), area = NSView(frame: NSRect(x: 0, y: 0, width: 270, height: 400))
+    let window = onScreen(NSView(), in: area)
+    defer { withExtendedLifetime(window) {} }
+    empty.place(in: area)
+    area.layoutSubtreeIfNeeded()
+    let button = NSButton(title: "Add Database…", target: nil, action: nil)
+    empty.show(
+        "No Databases", symbol: "cylinder",
+        text:
+            "Kelp looks in compose files, .env, config/database.yml, .idea and SQLite or DuckDB files of the project.",
+        buttons: [button])
+    area.layoutSubtreeIfNeeded()
+    let frame = button.convert(button.bounds, to: empty)
+    #expect(abs(frame.midX - empty.bounds.midX) < 1)
+}
+
 /// A closed tab's picture is gone in two thirds of the time its neighbours take to close over it.
 @MainActor @Test func aGhostFadesOverWhatItIsGiven() {
     let parent = NSView(), tab = NSView()
