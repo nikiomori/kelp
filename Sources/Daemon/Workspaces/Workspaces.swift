@@ -112,67 +112,6 @@ final class Workspaces: Sendable {
         }
     }
 
-    /// One local project's .git, watched for its HEAD.
-    struct HeadWatch: Sendable { let dir: String, watcher: FileWatcher }
-
-    /// At start: workspaces catch up with branches switched while no daemon ran, and from then on follow them.
-    func followHeads() {
-        watchHeads()
-        do { try syncMainWorkspaces() } catch {
-            Log.store.error("workspaces didn't follow their folders' branches: \(error)")
-        }
-    }
-
-    /// Workspaces follow their folder's branch as it moves, also when it's switched outside Kelp: a watcher on each local
-    /// project's .git sees HEAD change, and the sync pushes the workspaces it updated (event.worktree), so listing only reads.
-    /// Runs at start and whenever a project is written or removed (the store's change hook), always on `headQueue`: two
-    /// runs side by side could each drop the other's new watcher, and a store write doesn't wait on FSEvents setup.
-    /// Limit: a project that is itself a linked worktree (its .git a file) follows at the next start or new workspace.
-    func watchHeads() {
-        dispatchPrecondition(condition: .onQueue(headQueue))
-        let local = (store.look("the projects") { try $0.repos() } ?? []).filter { remotes.of($0.path) == nil }
-        let want = Dictionary(local.map { ($0.id, $0.path + "/.git") }, uniquingKeysWith: { a, _ in a })
-        guard let have = heads.withLock({ $0?.mapValues(\.dir) }) else { return }
-        var made: [String: HeadWatch] = [:]
-        for (id, dir) in want where have[id] != dir {
-            var isDir: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue else { continue }
-            let fw = FileWatcher(root: dir, deliver: headQueue) { [weak self] paths in
-                let real = paths.filter { !$0.contains("/logs/") }
-                if Self.movesHead(real) {
-                    do { try self?.syncMainWorkspaces(only: id) } catch {
-                        Log.store.error("workspaces didn't follow their branch: \(error)")
-                    }
-                }
-                // A branch moved (a merge into the base, a pull): a group whose work is in the base now is done with.
-                if real.contains(where: { $0.contains("/refs/heads/") || $0.hasSuffix("/packed-refs") }) {
-                    self?.tidyBranches(in: id)
-                }
-            }
-            if let fw { made[id] = HeadWatch(dir: dir, watcher: fw) }
-        }
-        let gone = heads.withLock { [made] current -> [HeadWatch] in
-            guard let all = current else { return Array(made.values) }   // stopped meanwhile
-            let gone = all.filter { want[$0.key] != $0.value.dir }.map(\.value)
-            current = all.filter { want[$0.key] == $0.value.dir }.merging(made) { old, _ in old }
-            return gone
-        }
-        _ = gone   // their streams stop as they go, out of the lock
-    }
-
-    /// Whether events in a project's .git moved its own HEAD, which its workspaces follow: not FETCH_HEAD, ORIG_HEAD, a
-    /// remote's HEAD, nor a linked worktree's (only the project's own folder's workspaces follow theirs).
-    static func movesHead(_ paths: [String]) -> Bool { paths.contains { $0.hasSuffix("/.git/HEAD") } }
-
-    /// The daemon stops: the folders aren't followed any more.
-    func stopWatching() {
-        let stopped = heads.withLock { current in
-            defer { current = nil }
-            return current
-        }
-        _ = stopped   // the streams stop here, out of the lock
-    }
-
     /// A new workspace in the project's folder: instant, named "Workspace N" until its first prompt names it (see autoTitle).
     func createWorkspace(in repo: Repo) throws -> Worktree {
         // Read before the lock: a remote project's is read over ssh, and a host that doesn't answer would hold every
@@ -378,71 +317,6 @@ final class Workspaces: Sendable {
             }
         }
         notify(ChangedEvent.worktree)
-    }
-
-    /// A branch group done with, closed with nobody asked: one an agent made (`kelp worktree create`) once nobody is left
-    /// on it, and anyone's once the work done on it since the group was made landed in the base branch (merged or
-    /// fast-forwarded there, or its pull request merged with the branch where the forge last saw it). Never while an agent there works or asks, never with
-    /// uncommitted files, never with commits that are only there, unless the merged pull request carries them. A landed
-    /// group that still has chats is archived with them (nothing of theirs is lost), one without is removed: folder to the
-    /// Trash, branch deleted. Limit: a remote project's groups aren't looked at; a branch merged while its agent worked
-    /// goes at the next change of the project's branches, its pull request's next read or Kelp's next start.
-    /// `someoneLeft`: a session there just ended; else an agent's empty branch goes only once it's 5 minutes old (its
-    /// agent starts a moment after its branch).
-    func tidyBranch(_ id: String, merged pr: GitHub.PullRequest? = nil, someoneLeft: Bool = false) {
-        dispatchPrecondition(condition: .onQueue(headQueue))
-        Log.store.attempt("tidying a branch group") {
-            guard let workspace = try store.worktree(id), !workspace.archived,
-                let repo = try store.repo(workspace.repoId),
-                !isMain(workspace, repo), remotes.of(repo.path) == nil,
-                FileManager.default.fileExists(atPath: workspace.path)
-            else { return }
-            let here = try store.sessions().filter { $0.worktreeId == id }.map {
-                sessions.existing($0.id)?.snapshot ?? $0
-            }
-            .filter { $0.status != .exited }
-            guard !here.contains(where: { [.working, .waiting].contains($0.status) }),
-                try !Git.isDirty(workspace.path, remotes: remotes)
-            else { return }
-            let branch = branchNow(of: workspace, in: repo)
-            let tip = try Git.line(["rev-parse", "HEAD"], cwd: workspace.path, remotes: remotes)
-            // Only a branch that did something since the group was made: one opened to look at, already merged, stays.
-            let moved = try Git.moved(repo: repo.path, branch, since: workspace.createdAt, remotes: remotes)
-            let squashed =
-                moved && pr.map { $0.headRefName == branch && $0.headRefOid != nil && $0.headRefOid == tip } ?? false
-            let landed =
-                squashed || (moved && Git.isIn(repo: repo.path, branch, base: repo.baseBranch, remotes: remotes))
-            if landed, !here.isEmpty {
-                try archive(workspace, repo)
-            } else if landed
-                || (workspace.madeBy != nil && here.isEmpty
-                    && (someoneLeft || workspace.createdAt.timeIntervalSinceNow < -300))
-            {
-                // A branch that was there before (the user's, checked out with `--existing`) stays: only its folder goes.
-                let theirs =
-                    try !landed && !Git.made(repo: repo.path, branch, at: workspace.createdAt, remotes: remotes)
-                do {
-                    try removeWorkspace(workspace, repo, force: false, dropCommits: squashed, keepBranch: theirs)
-                } catch GitError.refused {
-                    return   // work that's only there: kept, and its row says what
-                }
-            } else {
-                return
-            }
-            if landed {
-                notify(
-                    LandedEvent(
-                        worktree: id, name: workspace.displayName, base: repo.baseBranch, archived: !here.isEmpty))
-            }
-        }
-    }
-
-    /// Every branch group of `repo` (all at start): those done with while no daemon ran, or since its branches moved.
-    func tidyBranches(in repo: String? = nil) {
-        dispatchPrecondition(condition: .onQueue(headQueue))
-        for workspace in store.look("the workspaces", { try $0.worktrees(repo: repo) }) ?? [] {
-            tidyBranch(workspace.id)
-        }
     }
 
     /// The project's other worktrees at `paths` (ones Kelp didn't make), each to the Trash, unless it's in use, holds
