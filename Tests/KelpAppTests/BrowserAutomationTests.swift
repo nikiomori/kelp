@@ -640,8 +640,11 @@ import WorkbenchKit
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-shot-\(UUID().uuidString).png")
     defer { try? FileManager.default.removeItem(at: url) }
     let picture = try #require(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
-    #expect(await Task.detached { BrowserTab.writePNG(picture, to: url) }.value)   // nonisolated: no main thread
-    let path = try #require(await BrowserTab.savePNG(image, kind: "test", to: url.path))
+    // Called from the main actor, written off it: a writer that refuses on the main thread writes it all the same.
+    let path = try #require(
+        await BrowserTab.savePNG(image, kind: "test", to: url.path) { picture, url in
+            !Thread.isMainThread && BrowserTab.writePNG(picture, to: url)
+        })
     let read = try #require(NSImage(contentsOfFile: path)?.representations.first)
     #expect(read.pixelsWide == picture.width && read.pixelsHigh == picture.height)
 }
