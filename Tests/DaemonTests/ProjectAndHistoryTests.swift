@@ -221,7 +221,7 @@ import Testing
     #expect(answeredInTime && held == 1, "answered: \(answeredInTime), origin asked \(held) times")
     #expect(try await ping.value.string == "pong")
     // And none is applied in order, on a connection's reader thread, where nothing asks this (`answerNow`).
-    #expect(Methods.localForge.allSatisfy { Daemon.methods[$0]?.inOrder == false })
+    #expect(Daemon.methods.values.filter { $0.onRemote != nil }.allSatisfy { !$0.inOrder })
 }
 
 /// History and usage answer from the agents' folders (empty, then one conversation), now off the cooperative pool.

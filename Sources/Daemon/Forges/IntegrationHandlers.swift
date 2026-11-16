@@ -27,15 +27,12 @@ extension Store {
     }
 }
 
-extension Methods {
-    /// The methods that run gh or glab in the project's folder (`Daemon.refuseRemoteForge`): every GitHub, GitLab and CI
-    /// method, by its name. (GitHub goes through `gh`, with its auth; the trackers' clients: `Forges`.)
-    static var localForge: Set<String> {
-        Set(
-            integrationMethods.map { $0.name }.filter { name in
-                ["github.", "gitlab.", "ci."].contains { name.hasPrefix($0) }
-            })
-    }
-    /// Asked by the sidebar on its own: null for a remote project instead of an error.
-    static let quietOnRemote: Set = [GitHubBranchPR.name, GitHubForge.name]
+/// What a method that runs gh in the project's folder answers for a remote project, whose folder here is only a marker
+/// (`Answered.onRemote`, `Daemon.refuseRemoteForge`). (GitHub goes through `gh`, with its auth; the trackers' clients:
+/// `Forges`.)
+enum RemoteForge {
+    /// Refused, saying so.
+    case refused
+    /// null instead of an error: what the sidebar asks on its own.
+    case quiet
 }

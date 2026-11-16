@@ -55,6 +55,9 @@ protocol Answered: RPCMethod {
     var signs: Bool { get }
     /// The project it makes something in (a workspace): one the agent works in, not any of the user's.
     var makesInProject: String? { get }
+    /// Whether it runs gh in the project's folder: then, for a remote project with no GitHub origin, what it answers
+    /// (`Daemon.refuseRemoteForge`). nil for one that runs nothing there.
+    static var onRemote: RemoteForge? { get }
 }
 
 enum Ending { case workspace(String), project(String) }
@@ -72,6 +75,7 @@ extension Answered {
     var shows: String? { nil }
     var signs: Bool { false }
     var makesInProject: String? { nil }
+    static var onRemote: RemoteForge? { nil }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
     static func checked(_ params: JSONValue, _ daemon: Daemon, conn: Int) throws -> Self {
@@ -311,7 +315,7 @@ extension Daemon {
 
     /// An in-order method, here on the connection's reader thread, where everything sent after it waits: it starts no
     /// program (`Subprocess.quickOnly` refuses one, so the call fails at once instead of holding up the connection), and
-    /// one that still took long says so in the log. None is a forge's (`refuseRemoteForge`): those run gh or glab.
+    /// one that still took long says so in the log. None runs gh (`onRemote`, `refuseRemoteForge`).
     func answerNow(_ methodType: any Handled.Type, _ params: JSONValue, conn: Int) throws -> Data {
         let start = DispatchTime.now()
         defer {
@@ -342,15 +346,15 @@ extension Daemon {
 
     /// gh / glab run in the folder here; a remote project's is only a marker under ~/.kelp, and their git would walk up to
     /// whatever repository holds it (a dotfiles home). One on GitHub runs gh on the repository its origin names
-    /// (`HostRepo`); on GitLab or elsewhere, a `LocalForge` method is refused, or answers null when the sidebar asked.
+    /// (`HostRepo`); on GitLab or elsewhere, a method that runs gh (`onRemote`) is refused, or answers null when the
+    /// sidebar asked.
     /// That origin is read on the host, over ssh: through `offload` like any git run, and only for a remote project's
     /// call. On the request's own task, a host that didn't answer held a pool thread for each of the sidebar's reads.
     private func refuseRemoteForge(_ methodType: any Answered.Type, _ params: JSONValue) async throws -> Data? {
-        guard Methods.localForge.contains(methodType.name),
-            let path = (try? store.repoPath(params)).map({ $0.1 }), remotes.of(path) != nil,
-            !methodType.name.hasPrefix("gitlab."), try await offloads.run({ GitHub.repo(onHost: path) }) == nil
+        guard let onRemote = methodType.onRemote, let path = (try? store.repoPath(params)).map({ $0.1 }),
+            remotes.of(path) != nil, try await offloads.run({ GitHub.repo(onHost: path) }) == nil
         else { return nil }
-        if Methods.quietOnRemote.contains(methodType.name) { return Data("null".utf8) }
+        if onRemote == .quiet { return Data("null".utf8) }
         throw RPCError.invalidParams("Pull requests and CI aren't available for remote projects yet.")
     }
 

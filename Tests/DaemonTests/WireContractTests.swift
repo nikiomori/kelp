@@ -20,12 +20,14 @@ import Testing
             == .obj(["action": "open", "uri": "file:///x", "split": "right"]))
 }
 
-/// gh and glab run in the project's folder, which for a remote project is only a marker here: every GitHub, GitLab and CI
-/// method is in `Methods.localForge`, so it's refused for one.
+/// gh runs in the project's folder, which for a remote project is only a marker here: every GitHub and CI method says what
+/// it answers for one (`onRemote`), the sidebar's two null and the rest a refusal; no other method does.
 @Test func everyForgeMethodIsRefusedForARemoteProject() {
     let forge = Daemon.methods.filter { $0.key.hasPrefix("github.") || $0.key.hasPrefix("ci.") }
     #expect(forge.count > 10)
-    #expect(forge.keys.filter { !Methods.localForge.contains($0) }.sorted() == [])
+    #expect(forge.filter { $0.value.onRemote == nil }.keys.sorted() == [])
+    #expect(Daemon.methods.filter { $0.value.onRemote != nil }.count == forge.count)
+    #expect(Daemon.methods.filter { $0.value.onRemote == .quiet }.keys.sorted() == ["github.branchPR", "github.forge"])
 }
 
 /// A typed reply goes out as its result's JSON with the id around it, and reads back as the same value.

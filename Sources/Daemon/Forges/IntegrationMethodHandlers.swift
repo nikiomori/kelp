@@ -79,6 +79,7 @@ struct ForgeWork {
 // MARK: gh / glab / git only
 
 extension GitHubBranchPR: Handled {
+    static var onRemote: RemoteForge? { .quiet }
     func handle(_ forges: Forges) throws -> GitHub.PullRequest? {
         let workspace = try forges.store.worktree(named: worktreeId), branch = forges.checkedOut(workspace),
             key = workspace.path + "@" + branch
@@ -99,6 +100,7 @@ extension GitHubBranchPR: Handled {
 }
 
 extension GitHubForge: Handled {
+    static var onRemote: RemoteForge? { .quiet }
     func handle(_ forges: Forges) throws -> String {
         let (_, path) = try forges.store.repoPath(worktreeId: worktreeId, repoId: repoId)
         return forges.forge(path).rawValue
@@ -106,6 +108,7 @@ extension GitHubForge: Handled {
 }
 
 extension CIRunsList: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> Result {
         let workspace = try forges.store.worktree(named: worktreeId), branch = forges.checkedOut(workspace)
         return Result(
@@ -114,21 +117,25 @@ extension CIRunsList: Handled {
     }
 }
 extension CIJobs: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> [CIRuns.Job] {
         try CIRuns.jobs(cwd: forges.store.worktree(named: worktreeId).path, run: run ?? 0)
     }
 }
 extension CILog: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> String {
         try CIRuns.log(cwd: forges.store.worktree(named: worktreeId).path, job: job ?? 0)
     }
 }
 extension CIFullLog: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> String {
         try CIRuns.fullLog(cwd: forges.store.worktree(named: worktreeId).path, job: job ?? 0)
     }
 }
 extension CIFailures: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> CIRuns.Report {
         let path = try forges.store.worktree(named: worktreeId).path
         if let job { return try CIRuns.report(cwd: path, job: job) }
@@ -136,30 +143,35 @@ extension CIFailures: Handled {
     }
 }
 extension CIRerun: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> Done {
         try CIRuns.rerunFailed(cwd: forges.store.worktree(named: worktreeId).path, run: run ?? 0)
         return Done()
     }
 }
 extension CIRerunAll: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> Done {
         try CIRuns.rerunAll(cwd: forges.store.worktree(named: worktreeId).path, run: run ?? 0)
         return Done()
     }
 }
 extension CIRerunJob: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> Done {
         try CIRuns.rerunJob(cwd: forges.store.worktree(named: worktreeId).path, job: job ?? 0)
         return Done()
     }
 }
 extension CIRunCancel: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> Done {
         try CIRuns.cancel(cwd: forges.store.worktree(named: worktreeId).path, run: run ?? 0)
         return Done()
     }
 }
 extension CIDispatch: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> Done {
         try CIRuns.dispatch(
             cwd: forges.store.worktree(named: worktreeId).path, workflow: workflow, branch: clientRef(branch) ?? "",
@@ -169,6 +181,7 @@ extension CIDispatch: Handled {
 }
 
 extension GitHubStatus: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_: NoService) throws -> Result {
         let account = GitHub.account()
         return Result(installed: account.installed, user: account.user)
@@ -181,6 +194,7 @@ extension GitLabStatus: Handled {
     }
 }
 extension GitHubIssues: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> [GitHub.Issue] {
         let (_, path) = try forges.store.repoPath(worktreeId: worktreeId, repoId: repoId)
         switch forges.forge(path) {
@@ -190,11 +204,13 @@ extension GitHubIssues: Handled {
     }
 }
 extension GitHubChecks: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> [GitHub.Check] {
         try GitHub.checks(cwd: forges.store.repoPath(worktreeId: worktreeId, repoId: repoId).1, pr: pr ?? 0)
     }
 }
 extension GitHubFailedLog: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> String {
         try CIRuns.report(
             cwd: forges.store.repoPath(worktreeId: worktreeId, repoId: repoId).1, run: runId ?? 0, attempt: nil
@@ -202,26 +218,31 @@ extension GitHubFailedLog: Handled {
     }
 }
 extension GitHubReviewComments: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> [GitHub.ReviewComment] {
         try GitHub.reviewComments(cwd: forges.store.repoPath(worktreeId: worktreeId, repoId: repoId).1, pr: pr ?? 0)
     }
 }
 extension GitHubPRView: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ work: ForgeWork) throws -> GitHub.PRView {
         try GitHub.pullRequestView(cwd: work.workspaces.store.repoPath(worktreeId: nil, repoId: repoId).1, number: pr)
     }
 }
 extension GitHubIssueView: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ work: ForgeWork) throws -> GitHub.IssueView {
         try GitHub.issueView(cwd: work.workspaces.store.repoPath(worktreeId: nil, repoId: repoId).1, number: issue)
     }
 }
 extension GitHubProjects: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> [GitHub.Project] {
         try GitHub.projects(cwd: forges.store.repoPath(worktreeId: worktreeId, repoId: repoId).1)
     }
 }
 extension GitHubProjectItems: Handled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_: NoService) throws -> [GitHub.ProjectItem] {
         try GitHub.projectItems(owner: owner, number: number ?? 0)
     }
@@ -262,6 +283,7 @@ extension GitAuthorAvatar: AsyncHandled {
 }
 
 extension GitHubPRs: AsyncHandled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) async throws -> [GitHub.PullRequest] {
         let (_, path) = try forges.store.repoPath(worktreeId: worktreeId, repoId: repoId), filter = filter
         switch try await forges.offloads.run({ forges.forge(path) }) {
@@ -286,6 +308,7 @@ extension GitHubPRs: AsyncHandled {
 }
 
 extension GitHubPRCreate: AsyncHandled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) async throws -> Result {
         guard let workspace = try forges.store.worktree(worktreeId), let repo = try forges.store.repo(workspace.repoId)
         else {
@@ -297,6 +320,7 @@ extension GitHubPRCreate: AsyncHandled {
 }
 
 extension GitHubPRMerge: AsyncHandled {
+    static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) async throws -> Done {
         guard let workspace = try forges.store.worktree(worktreeId), let number = pr ?? workspace.prNumber else {
             throw RPCError.invalidParams("no PR linked")
