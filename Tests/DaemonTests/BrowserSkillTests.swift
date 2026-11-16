@@ -153,4 +153,12 @@ private func folder(_ files: [String: String]) throws -> URL {
     #expect(LiveSession.browsing("click e12", [ended], agents) == nil)   // over: not this call's
     #expect(LiveSession.browsing("info", [AgentCommand(id: "t4", command: "kelp browser info")], agents) == nil)   // the agent's own
     #expect(UIBrowser.words("click", .object(["ref": "e12", "session": "s"])) == "click e12")
+    // The agent's own command, its address as typed, while a subagent's waits: the agent's, not the subagent's.
+    let asking = AgentCommand(id: "t5", command: "kelp browser ask 'Log in please'")
+    let opening = AgentCommand(id: "t6", command: "kelp browser open localhost:3000")
+    let quoted = AgentCommand(id: "t7", command: #"kelp browser click "e12""#)
+    let all = agents.merging(["t5": "mobile", "t7": "desktop"]) { $1 }
+    #expect(LiveSession.browsing("open http://localhost:3000", [asking, opening], all) == nil)
+    #expect(LiveSession.browsing("click e12", [asking, quoted], all) == "desktop")
+    #expect(LiveSession.browsing("info", [asking, opening], all) == nil)   // two run it, neither said so: the agent's
 }

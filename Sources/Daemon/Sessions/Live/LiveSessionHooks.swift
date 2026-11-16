@@ -175,11 +175,19 @@ extension LiveSession {
         state.withLock { st in Self.browsing(words, st.commands, st.commandAgents) }
     }
 
-    /// Of the commands still running that run `kelp browser`, the one whose words hold `words` (`click e12`), else the
-    /// first; its subagent. Limit: two subagents running the very same words at once can't be told apart.
+    /// Of the commands still running that run `kelp browser`, the one whose words hold `words` (`click e12`), quotes
+    /// aside and an address as typed (`open localhost:3000` for `open http://localhost:3000`); else the only one
+    /// running; its subagent. None found, it's the agent's own. Limit: two subagents running the very same words at once
+    /// can't be told apart.
     static func browsing(_ words: String, _ commands: [AgentCommand], _ agents: [String: String]) -> String? {
         let running = commands.filter { $0.outcome == nil && $0.command.contains("kelp browser") }
-        let match = running.first { $0.command.contains("browser " + words) } ?? running.first
+        let bare = words.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: "")
+        let typed = [words, bare]
+        let match =
+            running.first { command in
+                let said = command.command.filter { $0 != "\"" && $0 != "'" }
+                return typed.contains { said.contains("browser " + $0) }
+            } ?? (running.count == 1 ? running.first : nil)
         return match.flatMap { agents[$0.id] }
     }
 
