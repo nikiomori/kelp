@@ -25,6 +25,11 @@ struct DiffLoads {
 }
 
 extension DiffViewController {
+    /// The agent whose turns a turn diff shows: the one text goes to without asking (`FileActions.agent`), else the newest.
+    func turnAgent(_ wid: String) -> String? {
+        (FileActions(app).agent(in: wid) ?? FileActions(app).agents(in: wid).last)?.id
+    }
+
     func diffRequest() -> GitDiff {
         var query = request()
         query.ignoreSpace = hidesSpace ? true : nil
@@ -42,7 +47,7 @@ extension DiffViewController {
         case .turn:
             // The agent whose turns the picker lists, not whichever has the focus by now.
             let listed = (turnPop.itemArray.first?.representedObject as? SessionTurns.Mark)?.session
-            var turn = GitDiff(id: id, source: .turn, session: listed ?? FileActions(app).targetAgent?.id ?? "")
+            var turn = GitDiff(id: id, source: .turn, session: listed ?? turnAgent(id) ?? "")
             turn.turn = chosenTurn
             return turn
         }
@@ -89,7 +94,7 @@ extension DiffViewController {
             }
         }
         askCommit = false
-        let agent = FileActions(app).targetAgent?.id   // read once: the focus can move during the reads below
+        let agent = turnAgent(wid)   // read once: the focus can move during the reads below
         if single == nil, sourcePicked == .turn, agent == nil {
             loads.builds += 1
             diffs = []

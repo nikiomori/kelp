@@ -56,7 +56,7 @@ struct CIActions {
 
     /// False, said in a banner: nobody to ask.
     var hasAgent: Bool {
-        if FileActions(app).targetAgent != nil { return true }
+        if !FileActions(app).agents(in: worktree).isEmpty { return true }
         Banner.show(String(localized: "No agent on this screen. Start one with ⌥⌘T, then ask again."), style: .error)
         return false
     }

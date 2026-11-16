@@ -30,7 +30,7 @@ public struct SessionCreate: RPCMethod, LaunchOptions, StartsSized {
     public typealias Result = Session
     public var cwd: String?, worktreeId: String?, agent: String?, command: String?, tmux: String?, parent: String?
     public var model: String?, effort: String?, prompt: String?, title: String?, profile: String?, draft: Bool?,
-        openURLs: Bool?, cols: Int?, rows: Int?
+        openURLs: Bool?, cols: Int?, rows: Int?, role: SessionRole?
     public init(
         cwd: String? = nil, worktreeId: String? = nil, agent: String? = nil, command: String? = nil,
         tmux: String? = nil,

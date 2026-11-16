@@ -191,12 +191,12 @@ extension DatabaseTab {
         detailsChanged()
     }
 
-    /// The chat a run came from, else the one every "send to agent" picks (`FileActions.targetAgent`).
+    /// The chat a run came from, else the one every "send to agent" goes to without asking (`FileActions.agent`).
     var agentToAsk: Session? {
         if case .run(let id) = mode, let sid = record(id)?.session, let ran = app.session(sid), ran.status != .exited {
             return ran
         }
-        return FileActions(app).targetAgent
+        return FileActions(app).agent(in: address.worktree)
     }
 
     @objc func askAgent() {

@@ -197,6 +197,7 @@ public struct Session: Codable, Sendable, Equatable, Revised {
     /// The agent a command belongs to (`kelp session new --cmd` inside it): the line under that agent's terminal shows it,
     /// instead of a tab and a sidebar row of its own. Unlike a child, it goes on when the agent ends, and gets a tab then.
     public var startedBy: String?
+    public var role: SessionRole?   // the job Kelp started it for (`SessionRole`), kept across a restart
     /// The session whose program asked for it (`session.create` from inside one, `--outlive` too), as the daemon saw the
     /// caller's process, never from what it sent: what an agent starts stays the agent's to act on, and no more than that.
     public var origin: String?

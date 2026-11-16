@@ -288,6 +288,9 @@ extension Store {
                     WHERE key = 'ports.forwards' AND json_valid(value) AND json_type(value) = 'text'
                     """)
         }
+        migrator.registerMigration("session.role") { db in   // the job Kelp started it for (`SessionRole`)
+            try db.alter(table: "session") { t in t.add(column: "role", .text) }
+        }
         return migrator
     }
 }

@@ -46,7 +46,8 @@ extension DiffViewController {
                     app.workbench.sized(
                         SessionCreate(
                             worktreeId: wid, agent: a.id, model: model, prompt: prompt,
-                            title: Self.reviewTitle(a.name)), split: .right))
+                            title: Self.reviewTitle(a.name)
+                        ).started(as: .reviewer), split: .right))
             else { return }
             app.upsert(session)
             reviewer = session.id
@@ -55,7 +56,7 @@ extension DiffViewController {
         }
     }
 
-    /// The reviewer's tab title, by which Send to Agent knows it isn't the agent findings go to.
+    /// The reviewer's tab title (its `SessionRole.reviewer` is what keeps findings from it).
     static func reviewTitle(_ agent: String) -> String { String(localized: "Review: \(agent)") }
 
     /// What the diff shows, in words and as the command that prints it, for the reviewer.

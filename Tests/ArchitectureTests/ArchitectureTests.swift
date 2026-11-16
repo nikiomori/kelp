@@ -172,7 +172,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // `quickPrefixes`) and the new-branch sheet alike (`PRsEvent`'s `key`, `forgottenWith`, `open`).
     // +3: a .kelp.yaml's trust is the shell's to ask (`KelpFile`, its `init`, `trusted`), so a layout template and a new
     // workspace's setup run with Run turned off; Run asks it there too.
-    #expect(declared == 365, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +2: one rule for which agent text goes to (`FileActions.agents`, `agent`, `pickAgent` for `targetAgent`), so a
+    // diff's findings, a pull request's fixes and Send to Agent pick alike and none goes to a reviewer.
+    #expect(declared == 367, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

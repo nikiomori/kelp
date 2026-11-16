@@ -127,25 +127,12 @@ extension DiffViewController {
         }
     }
 
-    /// The focused agent if it is in this worktree, the only one, else ask: not `FileActions.targetAgent`'s last chat,
-    /// since findings sent to the wrong one of several agents would have it change code it didn't write.
+    /// The agent findings go to (`FileActions.pickAgent`): never a reviewer, they go to the agent that wrote the code.
     func pickAgentSession(_ wid: String) async -> String? {
-        // Not a reviewer: findings go to the agent that wrote the code.
-        let reviewers = Set(app.catalog.all.map { Self.reviewTitle($0.name) })
-        let live = app.sessions.filter {   // agents only: a terminal would run the message's lines
-            $0.worktreeId == wid && $0.status != .exited && $0.id != reviewer && !reviewers.contains($0.title)
-                && $0.isAgent
-        }
-        if let cur = app.workbench.lastSession, live.contains(where: { $0.id == cur }) { return cur }
-        if live.count == 1 { return live[0].id }
-        guard !live.isEmpty else {
+        guard !FileActions(app).agents(in: wid).isEmpty else {
             status.stringValue = String(localized: "No running agent in this worktree")
             return nil
         }
-        return await pick(
-            String(localized: "Send to which agent?"),
-            from: live.map { ("\($0.agent ?? Session.shellAgent) [\($0.id.prefix(6))]", $0.id) },
-            action: String(localized: "Send"),
-            width: 240)
+        return await FileActions(app).pickAgent(in: wid)?.id
     }
 }

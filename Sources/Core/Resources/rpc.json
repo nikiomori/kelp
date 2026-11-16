@@ -1220,6 +1220,7 @@
         "type" : "string"
       },
       "DatabaseInfo" : {
+        "description" : "A database of a project: found in its files (compose, .env, database.yml, a SQLite file) or added by hand.",
         "properties" : {
           "access" : {
             "$ref" : "#/components/schemas/DatabaseInfo.Access"
@@ -4329,6 +4330,9 @@
           "revision" : {
             "type" : "integer"
           },
+          "role" : {
+            "$ref" : "#/components/schemas/SessionRole"
+          },
           "running" : {
             "description" : "The command its shell tool runs now (`AgentCommand`, from its hooks); nil between them.",
             "type" : "string"
@@ -4571,6 +4575,13 @@
           "window"
         ],
         "type" : "object"
+      },
+      "SessionRole" : {
+        "description" : "What a session Kelp started for a job is for (`Session.role`). `reviewer`: it reviews another agent's work (Review with…, a pull request's review) and leaves findings, so findings and other text for \"the agent\" never go to it.",
+        "enum" : [
+          "reviewer"
+        ],
+        "type" : "string"
       },
       "SessionSubagentJournal.Journal" : {
         "properties" : {
@@ -11977,6 +11988,13 @@
           "required" : false,
           "schema" : {
             "type" : "string"
+          }
+        },
+        {
+          "name" : "role",
+          "required" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/SessionRole"
           }
         },
         {

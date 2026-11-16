@@ -51,7 +51,8 @@ struct PRWork {
                 "command": "git diff " + ShellQuote.word(range)
             ]
             guard let prompt = await app.call(RecipeRender(id: wt.id, name: "reviewWith", vars: vars)) else { return }
-            await start(prompt, in: wt, draft: false, title: String(localized: "Review: #\(pr.number)"))
+            let title = String(localized: "Review: #\(pr.number)")
+            await start(prompt, in: wt, draft: false, title: title, role: .reviewer)
             app.workbench.open(TabURI.diff(wt.id, source: .branch), split: .right, workspace: wt.id, focus: false)
         }
     }
@@ -84,27 +85,26 @@ struct PRWork {
         }
     }
 
-    /// A recipe with someone else's words in it (a log, comments): typed into the folder's agent for the user to send,
-    /// or a new agent started with it as a draft.
+    /// A recipe with someone else's words in it (a log, comments): typed into the folder's agent for the user to send
+    /// (`FileActions.pickAgent`), or a new agent started with it as a draft when the folder has none.
     private func hand(_ recipe: String, _ vars: [String: String], to wt: Worktree) async {
         guard let text = await app.call(RecipeRender(id: wt.id, name: recipe, vars: vars)) else { return }
-        if let agent = app.sessions.last(where: {
-            $0.worktreeId == wt.id && $0.status != .exited && $0.isAgent
-        }) {
-            await app.call(SessionSend(id: agent.id, text: text, enter: false))
-            app.workbench.focus(session: agent.id)
-        } else {
-            await start(text, in: wt, draft: true, title: nil)
+        guard !FileActions(app).agents(in: wt.id).isEmpty else {
+            return await start(text, in: wt, draft: true, title: nil)
         }
+        guard let agent = await FileActions(app).pickAgent(in: wt.id) else { return }
+        await app.call(SessionSend(id: agent.id, text: text, enter: false))
+        app.workbench.focus(session: agent.id)
     }
 
-    private func start(_ prompt: String, in wt: Worktree, draft: Bool, title: String?) async {
+    private func start(_ prompt: String, in wt: Worktree, draft: Bool, title: String?, role: SessionRole? = nil) async {
         guard
             let session = await app.call(
                 app.workbench.sized(
                     SessionCreate(
                         worktreeId: wt.id, agent: app.catalog.defaultAgent, prompt: prompt, title: title,
-                        draft: draft ? true : nil)))
+                        draft: draft ? true : nil
+                    ).started(as: role)))
         else { return }
         app.upsert(session)
         app.workbench.focus(session: session.id)

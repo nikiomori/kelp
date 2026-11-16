@@ -17,38 +17,54 @@ package struct FileActions {
         return ShellQuote.escapedPath(rel) + suffix
     }
 
-    /// The agent the user was last with in this workspace (never a plain terminal).
-    package var targetAgent: Session? {
-        let model = app, wid = app.workbench.workspaceId
-        if let session = app.workbench.lastSession.flatMap(model.session), session.agent != Session.shellAgent,
-            session.worktreeId == wid,
-            session.status != .exited
-        {
-            return session
+    /// The agents text for "the agent" may go to in a workspace (the one on screen when nil): running, an agent (not a
+    /// terminal, whose shell would run the text's lines, nor a plain command), and not a reviewer (`SessionRole`), which
+    /// reports on others' work rather than changing it.
+    package func agents(in workspace: String? = nil) -> [Session] {
+        let wid = workspace ?? app.workbench.workspaceId
+        return app.sessions.filter {
+            $0.worktreeId == wid && $0.status != .exited && $0.isAgent && $0.role != .reviewer
         }
-        return model.sessions.last { $0.worktreeId == wid && $0.isChat && $0.status != .exited }
+    }
+
+    /// The one of them it goes to without asking: the one the user was last with, else the only one. Nil when there's
+    /// none, or several and the user was with none of them.
+    package func agent(in workspace: String? = nil) -> Session? {
+        let live = agents(in: workspace)
+        if let last = app.workbench.lastSession, let session = live.first(where: { $0.id == last }) { return session }
+        return live.count == 1 ? live[0] : nil
+    }
+
+    /// `agent(in:)`, else asked which of several: findings sent to the wrong one would have it change code it didn't
+    /// write. Nil when there's none or the user picked none.
+    package func pickAgent(in workspace: String? = nil) async -> Session? {
+        if let sure = agent(in: workspace) { return sure }
+        let live = agents(in: workspace)
+        guard live.count > 1 else { return nil }
+        let id = await pick(
+            String(localized: "Send to which agent?"),
+            from: live.map { ("\($0.displayTitle) [\($0.id.prefix(6))]", $0.id) },
+            action: String(localized: "Send"), width: 240)
+        return id.flatMap { id in live.first { $0.id == id } }
     }
 
     /// Types the reference into the agent's prompt without pressing Return, and shows the agent.
     package func sendToAgent(_ path: String, lines: ClosedRange<Int>? = nil) {
-        guard let agent = targetAgent else {
-            Banner.show(
-                String(localized: "No agent on this screen. Start one with ⌥⌘T, then send again."), style: .error)
-            return
-        }
-        Task { await app.call(SessionSend(id: agent.id, text: reference(path, lines: lines) + " ", enter: false)) }
-        app.workbench.focus(session: agent.id)
+        sendToAgent(text: reference(path, lines: lines))
     }
 
     /// Words into the agent's prompt, not sent: the user adds what to do with them.
     package func sendToAgent(text: String) {
-        guard let agent = targetAgent else {
+        guard !agents().isEmpty else {
             Banner.show(
                 String(localized: "No agent on this screen. Start one with ⌥⌘T, then send again."), style: .error)
             return
         }
-        Task { await app.call(SessionSend(id: agent.id, text: text + " ", enter: false)) }
-        app.workbench.focus(session: agent.id)
+        Task {
+            guard let agent = await pickAgent() else { return }
+            await app.call(SessionSend(id: agent.id, text: text + " ", enter: false))
+            app.workbench.focus(session: agent.id)
+        }
     }
 
     package func copyReference(_ path: String, lines: ClosedRange<Int>?) {
@@ -64,7 +80,7 @@ package struct GitFix {
     package init(_ app: AppModel) { self.app = app }
 
     package func offer(_ error: String, recipe: String, worktree wid: String, vars: [String: String] = [:]) {
-        guard FileActions(app).targetAgent != nil else {
+        guard !FileActions(app).agents(in: wid).isEmpty else {
             Banner.show(error, style: .error)
             return
         }
@@ -79,8 +95,8 @@ package struct GitFix {
     }
 
     package func send(_ recipe: String, worktree wid: String, vars: [String: String]) {
-        guard let agent = FileActions(app).targetAgent else { return }
         Task {
+            guard let agent = await FileActions(app).pickAgent(in: wid) else { return }
             if await type(recipe, worktree: wid, vars: vars, into: agent.id) { app.workbench.focus(session: agent.id) }
         }
     }

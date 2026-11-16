@@ -288,7 +288,7 @@ extension SourceControlController {
             alert.informativeText =
                 files.joined(separator: "\n") + String(localized: "\n\nThe merge was aborted; nothing changed.")
             alert.addButton(withTitle: String(localized: "OK"))
-            if FileActions(app).targetAgent != nil {
+            if !FileActions(app).agents(in: wid).isEmpty {
                 alert.addButton(withTitle: String(localized: "Ask Agent to Resolve"))
             }
             if await runSheet(alert) == .alertSecondButtonReturn, let worktree = app.worktree(wid),

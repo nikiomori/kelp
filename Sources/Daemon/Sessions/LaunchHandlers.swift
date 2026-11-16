@@ -29,6 +29,7 @@ extension SessionCreate: Handled {
         let asked = parent.map { Sessions.asker ?? $0 }
         launch.parent = try sessions.parent(asked, of: self)
         launch.startedBy = try sessions.starter(asked, of: self)
+        launch.role = role
         // "swift build", not the program's "Custom"; a prompt names the session itself, and its fresh workspace and branch.
         if launch.title == nil, prompt == nil, let command { launch.title = CommandName.of(command) }
         if let tmux {   // a terminal running tmux: the record keeps the argv that attaches again (Tmux.session)
@@ -90,6 +91,7 @@ extension SessionRestart: Handled {
         launch.parent = old.parent
         launch.startedBy = old.startedBy
         launch.origin = old.origin
+        launch.role = old.role
         if launch.profile == nil { launch.profile = old.profile }   // the same account unless told otherwise
         // A remote agent still running in its tmux session on the host: the new tab attaches to it (after a dropped
         // connection, that's all a restart is), so there's still one copy. Starting afresh ends it.
