@@ -6,8 +6,16 @@ import AppKit
 @MainActor
 open class PointerButton: NSButton {
     private var area: NSTrackingArea?
-    private var hovering = false { didSet { if hovering != oldValue { showFill() } } }
+    private var hovering = false {
+        didSet {
+            guard hovering != oldValue else { return }
+            showFill()
+            onHover?(hovering)
+        }
+    }
     private var pressed = false { didSet { if pressed != oldValue { showFill() } } }
+    /// The pointer came onto it (true) or left (false): a badge that says more under the pointer.
+    public var onHover: ((Bool) -> Void)?
     /// What a click does, in place of a target and action.
     public var onClick: (() -> Void)? {
         didSet {

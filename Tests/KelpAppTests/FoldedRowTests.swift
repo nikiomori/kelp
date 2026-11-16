@@ -73,4 +73,24 @@ extension OneAtATime {
             }
         }
     }
+
+    /// The pointer on the row brings its "+" and leaves the git marks as dots; on the changes dot itself, its counts.
+    @Test func aGitMarkSaysItsWordsOnlyUnderThePointerOnIt() throws {
+        try withSidebar(repos: [atlas], worktrees: [home], sessions: []) { vc, o in
+            let cell = try foldedRow(vc, o, width: 280)
+            cell.counts = NSAttributedString(string: "+2 −1")
+            cell.showHoverControls(true)
+            #expect(cell.changes.attributedTitle.string == "•")
+            @MainActor func pointer(_ type: NSEvent.EventType) throws -> NSEvent {
+                try #require(
+                    NSEvent.enterExitEvent(
+                        with: type, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
+                        eventNumber: 0, trackingNumber: 0, userData: nil))
+            }
+            cell.changes.mouseEntered(with: try pointer(.mouseEntered))
+            #expect(cell.changes.attributedTitle.string == "+2 −1")
+            cell.changes.mouseExited(with: try pointer(.mouseExited))
+            #expect(cell.changes.attributedTitle.string == "•")
+        }
+    }
 }

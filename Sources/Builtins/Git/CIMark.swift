@@ -11,7 +11,8 @@ import KelpKit
 final class CIMark: NSView {
     private let agentLike = StatusMark(size: 12), word = NSTextField(labelWithString: "CI")
     var state: CIRuns.State? { didSet { if state != oldValue { update() } } }
-    /// Under the pointer (a sidebar row): a failure says "CI" where its dot was, as the changes dot shows its counts.
+    /// Under the pointer (a sidebar row's CI badge): a failure says "CI" where its dot was, as the changes dot shows its
+    /// counts.
     var spelled = false { didSet { if spelled != oldValue { update() } } }
 
     init() {

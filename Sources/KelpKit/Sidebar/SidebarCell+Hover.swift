@@ -6,11 +6,10 @@ import WorkbenchKit
 
 extension SidebarCell {
     /// The + comes in and the badges step aside (or out, where the name needs the room) in one movement: they jumped.
-    /// The slot follows a moment later, and goes back at once. Reduce Motion: at once.
+    /// The slot follows a moment later, and goes back at once. Reduce Motion: at once. The badges keep their dots: each
+    /// says its words only under the pointer itself (`spell`), so the row doesn't grow as the pointer passes over it.
     func showHoverControls(_ on: Bool) {
         hovering = on
-        showChanges()
-        ciMark.spelled = on
         if on {
             reveal.after(Motion.settle) { [weak self] in self?.showAction() }
         } else {
@@ -35,6 +34,20 @@ extension SidebarCell {
             fade.duration = Motion.fast
             fade.timingFunction = CAMediaTimingFunction(name: .easeIn)
             add.layer?.add(fade, forKey: "fadeIn")
+        }
+    }
+
+    /// A git mark under the pointer says itself: the changes dot its counts, a failed CI's dot "CI". It stays while the
+    /// pointer is on it, whatever room the name needs (hidden, it would go out from under the pointer and come back).
+    func spell(_ badge: NSView?, _ on: Bool) {
+        if on { spelling = badge } else if spelling === badge { spelling = nil }
+        showChanges()
+        ciMark.spelled = spelling === ci
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.duration(Motion.fast)
+            ctx.allowsImplicitAnimation = true
+            fitBadges()
+            layoutSubtreeIfNeeded()
         }
     }
 

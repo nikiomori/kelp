@@ -150,9 +150,11 @@ extension SidebarCell {
         hasBadge = (changeCounts != nil || sharedTip != nil, prBadge != nil, state != nil)
         fitBadges()
     }
-    /// A quiet dot at rest; under the pointer the counts, on a pill as the PR's number is (bare they read as the name's).
+    /// A quiet dot at rest; under the pointer on it the counts, on a pill as the PR's number is (bare they read as the
+    /// name's).
     func showChanges() {
-        let full = hovering ? counts : nil, title = full ?? Self.dot(shares ? .textOrange : .secondaryLabelColor)
+        let full = spelling === changes ? counts : nil,
+            title = full ?? Self.dot(shares ? .textOrange : .secondaryLabelColor)
         if changes.attributedTitle != title { changes.attributedTitle = title }
         changes.padding = full == nil ? 3 : Metrics.gap
         changes.restFill = full == nil ? nil : .fillRest
@@ -172,7 +174,7 @@ extension SidebarCell {
         var room = bounds.width - 2 - others.reduce(0) { $0 + $1.fittingSize.width + rowStack.spacing }
         let gap = rowStack.spacing
         func take(_ badge: NSView, _ has: Bool, _ need: CGFloat) {
-            let show = has && room >= need + gap
+            let show = has && (room >= need + gap || badge === spelling)
             if show { room -= need + gap }
             rowStack.setVisibilityPriority(show ? .mustHold : .notVisible, for: badge)
         }

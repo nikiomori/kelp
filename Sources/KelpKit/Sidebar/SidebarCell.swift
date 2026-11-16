@@ -123,8 +123,10 @@ final class SidebarCell: NSTableCellView {
         ci = PointerButton(frame: .zero)
     let ciMark: CIMarkSlot
     var hasBadge = (changes: false, pr: false, ci: false)
-    /// "+610 −23", shown in place of the dot while the pointer is on the row.
+    /// "+610 −23", shown in place of the dot while the pointer is on it.
     var counts: NSAttributedString?
+    /// The git mark under the pointer, which says itself in words (`spell`).
+    weak var spelling: NSView?
     /// Another folder of the project changes some of these files too: the dot is orange (`GitFolders.shared`).
     var shares = false
 
@@ -194,6 +196,7 @@ final class SidebarCell: NSTableCellView {
             badge.target = self
         }
         stack.onMore = { [weak owner, node] in owner?.toggle(node) }
+        for badge in [changes, ci] { badge.onHover = { [weak self, weak badge] in self?.spell(badge, $0) } }
         changes.action = #selector(openChanges)
         pr.action = #selector(openPR)
         ci.action = #selector(openCI)

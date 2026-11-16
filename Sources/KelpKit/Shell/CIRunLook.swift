@@ -59,7 +59,7 @@ final class CIMarkSlot {
     private let app: AppModel
     private var mark: (view: NSView, show: @MainActor (CIRuns.State?, Bool) -> CGFloat)?
     var state: CIRuns.State? { didSet { if state != oldValue { refresh() } } }
-    /// Under the pointer (a sidebar row): a failure says "CI" where its dot was.
+    /// Under the pointer (on a sidebar row's CI badge): a failure says "CI" where its dot was.
     var spelled = false { didSet { if spelled != oldValue { refresh() } } }
     /// How much wider than its 12 pt the mark is now: the room a row must keep for it.
     private(set) var overhang: CGFloat = 0
