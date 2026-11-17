@@ -80,8 +80,6 @@ extension AddonFiles {
 
     /// The names of Codex's own enabled servers.
     public func codexServers() -> [String] {
-        Self.codexServers(
-            Data(contentsIfAny: codex.appendingPathComponent("config.toml")).map { String(decoding: $0, as: UTF8.self) }
-                ?? "")
+        Self.codexServers(codexConfig)
     }
 }

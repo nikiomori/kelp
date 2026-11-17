@@ -89,57 +89,23 @@ extension AddonFiles {
     public func entry(_ name: String, of agent: String, cwd: String) -> ServerEntry? {
         switch agent {
         case Session.claudeAgent:
-            let own = claude.appendingPathComponent(".claude.json")
-            let file =
-                FileManager.default.fileExists(atPath: own.path) ? own : home.appendingPathComponent(".claude.json")
-            return ServerFiles.read(file)[name]
+            return ServerFiles.read(claudeJSON)[name]
         case Session.codexAgent:
-            let text = Data(contentsIfAny: codex.appendingPathComponent("config.toml")).map {
-                String(decoding: $0, as: UTF8.self)
-            }
-            return Self.codexEntry(name, in: text ?? "")
+            return Self.codexEntry(name, in: codexConfig)
         default: return nil
         }
     }
 
     /// Reads a server's table in a Codex config, as far as Kelp hands it on: `command`, `args`, `url` and the `env`
     /// table.
-    /// Limit: one-line values only, as Codex itself writes them.
-    static func codexEntry(_ name: String, in toml: String) -> ServerEntry? {
-        var entry = ServerEntry(), table = ""
-        func string(_ raw: String) -> String {
-            let text = raw.trimmingCharacters(in: .whitespaces)
-            guard text.count >= 2, let quote = text.first, quote == "\"" || quote == "'", text.last == quote else {
-                return text
-            }
-            let inner = String(text.dropFirst().dropLast())
-            return quote == "'"
-                ? inner
-                : inner.replacingOccurrences(of: "\\\"", with: "\"")
-                    .replacingOccurrences(of: "\\\\", with: "\\")
+    static func codexEntry(_ name: String, in text: String) -> ServerEntry? {
+        let toml = MiniTOML(text), table = "mcp_servers.\(name).", env = table + "env."
+        let vars = toml.pairs.filter { $0.key.hasPrefix(env) }.compactMap { pair in
+            (pair.value as? String).map { (String(pair.key.dropFirst(env.count)), $0) }
         }
-        for raw in toml.split(separator: "\n") {
-            let line = raw.trimmingCharacters(in: .whitespaces)
-            if line.hasPrefix("[") {
-                table = line.trimmingCharacters(in: CharacterSet(charactersIn: "[] ")).replacingOccurrences(
-                    of: "\"", with: "")
-                continue
-            }
-            guard let equals = line.firstIndex(of: "="), !line.hasPrefix("#") else { continue }
-            let key = string(String(line[..<equals])), value = String(line[line.index(after: equals)...])
-            if table == "mcp_servers.\(name)" {
-                switch key {
-                case "command": entry.command = string(value)
-                case "url": entry.url = string(value)
-                case "args":
-                    let inner = value.trimmingCharacters(in: CharacterSet(charactersIn: "[] "))
-                    entry.args = inner.isEmpty ? [] : inner.split(separator: ",").map { string(String($0)) }
-                default: break
-                }
-            } else if table == "mcp_servers.\(name).env" {
-                entry.env = (entry.env ?? [:]).merging([key: string(value)]) { _, new in new }
-            }
-        }
+        let entry = ServerEntry(
+            command: toml.string(table + "command"), args: toml.strings(table + "args"),
+            env: vars.isEmpty ? nil : Dictionary(vars) { _, new in new }, url: toml.string(table + "url"))
         return entry.command == nil && entry.url == nil ? nil : entry
     }
 }

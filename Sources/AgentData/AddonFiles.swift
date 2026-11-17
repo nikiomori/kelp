@@ -69,8 +69,7 @@ public struct AddonFiles: Sendable {
     /// project's `.mcp.json`), pi's and Codex's. Only the names are read, so the commands and secrets stay unread.
     public func servers(cwd: String) -> [Server] {
         var out: [Server] = []
-        let own = claude.appendingPathComponent(".claude.json")   // a profile folder has its own .claude.json
-        let file = FileManager.default.fileExists(atPath: own.path) ? own : home.appendingPathComponent(".claude.json")
+        let file = claudeJSON
         if let root = Self.json(file) {
             let mine = (root["mcpServers"] as? [String: Any] ?? [:]).keys
             let here = ((root["projects"] as? [String: Any])?[cwd] as? [String: Any])?["mcpServers"] as? [String: Any]
@@ -101,7 +100,7 @@ public struct AddonFiles: Sendable {
             }
         }
         let config = codex.appendingPathComponent("config.toml")
-        for name in Self.codexServers(Self.text(config) ?? "") {
+        for name in Self.codexServers(codexConfig) {
             out.append(
                 Server(
                     name: name, file: tilde(config.path), agents: [Session.codexAgent], project: false,
@@ -126,6 +125,15 @@ public struct AddonFiles: Sendable {
         return out
     }
 
+    /// Claude Code's .claude.json: a profile folder's own, else the one in the home folder.
+    var claudeJSON: URL {
+        let own = claude.appendingPathComponent(".claude.json")
+        return FileManager.default.fileExists(atPath: own.path) ? own : home.appendingPathComponent(".claude.json")
+    }
+
+    /// The text of Codex's config.toml, empty when there is none.
+    var codexConfig: String { Self.text(codex.appendingPathComponent("config.toml")) ?? "" }
+
     /// Returns `path` with the home folder written as "~".
     public func tilde(_ path: String) -> String {
         Paths.inside(path, home.path) ? "~" + path.dropFirst(home.path.count) : path
@@ -134,21 +142,10 @@ public struct AddonFiles: Sendable {
     /// Returns the enabled servers in a Codex config, which are the `[mcp_servers.name]` tables without
     /// `enabled = false`.
     static func codexServers(_ toml: String) -> [String] {
-        var names: [String] = [], off = Set<String>(), current: String?
-        for raw in toml.split(separator: "\n") {
-            let line = raw.trimmingCharacters(in: .whitespaces)
-            if line.hasPrefix("[") {
-                let table = line.trimmingCharacters(in: CharacterSet(charactersIn: "[] "))
-                let parts = table.split(separator: ".").map {
-                    $0.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
-                }
-                current = parts.count == 2 && parts[0] == "mcp_servers" ? parts[1] : nil
-                if let current { names.append(current) }
-            } else if let current, line.replacingOccurrences(of: " ", with: "") == "enabled=false" {
-                off.insert(current)
-            }
+        let toml = MiniTOML(toml)
+        return toml.names(under: "mcp_servers.").filter { name in
+            !toml.pairs.contains { $0.key == "mcp_servers.\(name).enabled" && $0.value as? Bool == false }
         }
-        return names.filter { !off.contains($0) }
     }
 
     /// Returns the `key: value` lines between the first two `---` lines of a SKILL.md, with quotes taken off.
