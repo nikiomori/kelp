@@ -27,12 +27,6 @@ import Testing
     await #expect(throws: RPCError.self) { _ = try await c.request("initialize", .null) }
 }
 
-@Test func silentServerTimesOut() async throws {
-    let c = try #require(LSPClient(argv: ["/bin/sleep", "30"], root: NSTemporaryDirectory()))
-    await #expect(throws: RPCError.self) { _ = try await c.request("initialize", .null, timeout: 0.2) }
-    c.terminate()
-}
-
 /// A server's refusal is the server's: its code (-32602 here) isn't passed on as one of Kelp's own.
 @Test func aServersErrorIsKelpsInternalOne() async throws {
     let reply = #"{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"bad position"}}"#

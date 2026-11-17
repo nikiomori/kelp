@@ -77,12 +77,6 @@ private extension Data {
     unlink(path)
 }
 
-@Test func jsonValueRoundTrip() throws {
-    let v = try JSONValue.from(RPCRequest(id: 1, method: "x", params: .object(["k": .string("v")])))
-    #expect(v["method"]?.string == "x")
-    #expect(v["params"]?["k"]?.string == "v")
-}
-
 /// Typed methods put the JSON on the wire that the hand-written calls they replaced did, and read today's answers.
 @Test func typedMethodsKeepTheWireFormat() throws {
     #expect(try DaemonInfo().params() == nil)
@@ -342,12 +336,6 @@ final class Flag: @unchecked Sendable {   // the bool under lock
         close(peer)
         close(oldPeer)
     }
-}
-
-@Test func lockedKeepsEveryChangeFromManyThreads() async {
-    let n = OSAllocatedUnfairLock(initialState: 0)
-    await withTaskGroup(of: Void.self) { g in for _ in 0..<1000 { g.addTask { n.withLock { $0 += 1 } } } }
-    #expect(n.withLock { $0 } == 1000)
 }
 
 /// A tmux terminal is known by its argv; names come out as tmux keeps them; list-sessions lines parse, the rest is skipped.

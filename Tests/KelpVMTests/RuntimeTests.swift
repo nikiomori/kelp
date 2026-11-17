@@ -5,35 +5,9 @@ import Testing
 
 @testable import KelpVM
 
-/// A Linux or macOS machine's runtime as far as it goes without Virtualization starting one: its first state, a boot
-/// that fails, its shared folders, stopping, quitting and SIGTERM while it's down.
+/// A Linux or macOS machine's runtime as far as it goes without Virtualization starting one: its shared folders,
+/// stopping, quitting and SIGTERM while it's down (its answer to each request from each state is RuntimeTablesTests').
 @MainActor @Suite struct RuntimeWithoutAVM {
-    /// A machine with a saved state starts out asleep (the next start restores it), one without it off.
-    @Test func itStartsOutWhereItWasLeft() throws {
-        let folder = try machine()
-        defer { try? FileManager.default.removeItem(at: folder) }
-        #expect(try Runtime(folder: folder).state == .off)
-        FileManager.default.createFile(atPath: folder.appendingPathComponent("state.vzsave").path, contents: nil)
-        #expect(try Runtime(folder: folder).state == .sleeping)
-    }
-
-    /// A boot that fails (no disk; in a test, Virtualization refuses its configuration first) is told to who waited,
-    /// leaves no VM, and is tried again by the next start; a sleep then has nothing to save, and kelp-vm ends.
-    @Test func aBootThatFailsIsToldAndTriedAgain() async throws {
-        let folder = try machine()
-        defer { try? FileManager.default.removeItem(at: folder) }
-        let vm = try Runtime(folder: folder)
-        var ended = false
-        vm.exitProcess = { ended = true }
-        let first = await ask(vm, .init(op: .start)).error
-        #expect(first?.isEmpty == false)
-        #expect(vm.state == .error)
-        #expect(await ask(vm, .begin(show: false)).error == nil, "kelpd's wake is answered as it starts")
-        #expect(vm.state == .error, "and that boot failed too")
-        #expect(await ask(vm, .init(op: .sleep)).error == nil)
-        #expect(try await waitFor(2) { ended })
-    }
-
     /// sshd answered, then the guest stopped while its one command ran (here: there's no VM, and ssh fails at once): it
     /// isn't running with no VM, which no command could reach and no tick would pause.
     @Test func aGuestGoneDuringItsFirstCommandIsntRunning() async throws {
@@ -93,26 +67,6 @@ import Testing
             #expect(vm.state == .off)
         }
     }
-}
-
-/// What a machine can't do is refused in words, whatever it is: a Linux one's screen, an Android or iOS one's folders.
-@MainActor @Test func whatAMachineCantDoIsRefused() async throws {
-    let folder = try machine()
-    defer { try? FileManager.default.removeItem(at: folder) }
-    let linux = try Runtime(folder: folder)
-    let noScreen = try #require(Lifecycle.unsupported(.screen, linux.machine))
-    #expect(await ask(linux, .init(op: .screen)).error == noScreen)
-    let phone = VMMachine(name: "phone", os: "android", image: "i", cpus: 2, memoryMiB: 2048, diskGiB: 8, user: "u")
-    let android = AndroidRuntime(folder: folder, machine: phone)
-    let ios = IOSRuntime(folder: folder, machine: phone)
-    for op in [VMHelper.Request.Operation.share, .screen] {
-        let answers = [
-            await withCheckedContinuation { c in android.handle(.init(op: op)) { c.resume(returning: $0) } },
-            await withCheckedContinuation { c in ios.handle(.init(op: op)) { c.resume(returning: $0) } }
-        ]
-        #expect(answers.allSatisfy { $0?.isEmpty == false }, "\(op)")
-    }
-    #expect(android.state == .off && ios.state == .off, "nothing started")
 }
 
 /// A tick pauses a machine idle past `pauseAfter` and sleeps a paused one idle past `sleepAfter`; one in use stays.

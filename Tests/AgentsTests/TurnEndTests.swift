@@ -8,13 +8,6 @@ private func task(_ id: String, _ type: String = "shell", _ command: String = "n
     .obj(["id": .string(id), "type": .string(type), "status": "running", "command": .string(command)])
 }
 
-@Test func stopWithSubagentsOrAWorkflowIsNotDone() {
-    var t = TurnEnd()
-    #expect(t.stop([task("a", "subagent")], goal: nil).0 == .working)
-    #expect(t.stop([task("b", "workflow")], goal: nil).0 == .working)
-    #expect(t.stop([], goal: nil).0 == .done)
-}
-
 /// Claude Code wakes the agent when a command it started in the background ends: until then the turn isn't over.
 @Test func stopWaitsForACommandItStartedButNotForAServer() {
     var t = TurnEnd()

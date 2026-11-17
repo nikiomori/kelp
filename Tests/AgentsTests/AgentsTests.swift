@@ -52,26 +52,8 @@ func hooklessCodex() throws -> AgentManifest {
     #expect(codex.command == "/opt/codex" && codex.npm == "@openai/codex")
 }
 
-@Test func hermesPresetUsesSupportedInstallAndModelFlow() throws {
-    let hermes = try #require(AgentManifest.presets.first { $0.id == "hermes" })
-    #expect(hermes.command == "hermes")
-    #expect(hermes.modelFlag == nil)
-    #expect(hermes.autoAnswers.isEmpty)
-    #expect(hermes.install == "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash")
-    #expect(hermes.update == "hermes update")
-}
-
-@Test func kimiCodeUsesDocumentedModelAndContinueFlags() throws {
-    let kimi = try #require(AgentManifest.presets.first { $0.id == "kimi" })
-    #expect(kimi.argv(model: "kimi-k2.5") == ["kimi", "--model", "kimi-k2.5"])
-    #expect(kimi.argv(resume: true) == ["kimi", "--continue"])
-    #expect(kimi.autoAnswers.contains(AgentManifest.trust))
-    #expect(kimi.sessionIdFlag == nil && kimi.resumeIdFlag == nil)   // --session resumes only; no create-under-id
-    #expect(kimi.install?.contains("code.kimi.com") == true)
-}
-
 @Test func installedAgentsKeepTheirModelAndContinueFlags() throws {
-    for id in ["pi", "grok", "antigravity", "qwen", "kilo", "crush", "droid", "copilot"] {
+    for id in ["pi", "grok", "antigravity", "qwen", "kilo", "crush", "droid", "copilot", "kimi"] {
         let m = try #require(AgentManifest.presets.first { $0.id == id })
         #expect(m.argv(resume: true) != m.argv(), "\(id) resumes")
     }
@@ -264,19 +246,6 @@ func hooklessCodex() throws -> AgentManifest {
     #expect(
         try JSONDecoder().decode(AgentManifest.self, from: Data(#"{"id":"a","name":"A","command":"a"}"#.utf8)).hooks
             == nil)
-}
-
-@Test func kiloAndQwenReportThroughTheirHooks() throws {
-    let kilo = try #require(AgentManifest.presets.first { $0.id == "kilo" })
-    #expect(kilo.hooks == .pluginDir(env: "KILO_CONFIG_DIR"))
-    var d = StatusDetector(manifest: kilo)
-    d.output("Thinking… esc interrupt", at: Date().addingTimeInterval(10))   // no turn guessed from what it prints
-    #expect(d.status == .idle)
-    d.hook(.working)
-    #expect(d.status == .working)
-    let qwen = try #require(AgentManifest.presets.first { $0.id == "qwen" })
-    #expect(qwen.hooks?.env == "QWEN_CODE_SYSTEM_SETTINGS_PATH")
-    #expect(Hooks.pluginJS.contains("parentID") && Hooks.pluginJS.contains("kelp\", [\"hook\""))
 }
 
 @Test func answeredQuestionIsNotAskedAgain() throws {

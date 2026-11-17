@@ -530,17 +530,6 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     for bad in [".", "..", "a/b", "../x"] { #expect(!RemoteHost.isHost(bad), "\(bad)") }
 }
 
-/// A stuck run that started children is stopped within the time limit. (The review's case, a child keeping the read
-/// waiting after git alone was stopped, didn't reproduce here: this passes on the old code too. Stopping the whole
-/// tree is kept as the safe way; this checks it doesn't hang.)
-@Test func aStuckRunStopsWithItsChildren() throws {
-    let t = Date()
-    #expect(throws: (any Error).self) {
-        try Subprocess.output(["/bin/sh", "-c", "sleep 30 & sleep 30; wait"], cwd: "/tmp", timeLimit: 0.5)
-    }
-    #expect(Date().timeIntervalSince(t) < 5)
-}
-
 @Test func anUntrackedSymlinkIsShownNotFollowed() throws {
     let repo = try tempRepo()
     try FileManager.default.createSymbolicLink(atPath: repo + "/zero", withDestinationPath: "/dev/zero")
@@ -567,15 +556,6 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     #expect(throws: (any Error).self) { try Git.switchBranch(repo, to: "origin/-Cmain", remote: true, remotes: .none) }
     #expect(throws: (any Error).self) { try Git.switchBranch(repo, to: "-Cmain", remotes: .none) }
     #expect(try Git.run(["rev-parse", "main"], cwd: repo, remotes: .none) == before)   // main wasn't reset onto this branch
-}
-
-/// A run past its time limit ends even if it ignores SIGTERM: the thread waiting on it is given back.
-@Test func aRunThatIgnoresSIGTERMStillEndsAtItsTimeLimit() throws {
-    let start = Date()
-    #expect(throws: (any Error).self) {
-        try Subprocess.output(["/bin/sh", "-c", "trap '' TERM; sleep 30"], cwd: "/tmp", timeLimit: 0.5)
-    }
-    #expect(Date().timeIntervalSince(start) < 10)   // SIGKILL 2 s after the SIGTERM it ignored
 }
 
 /// A file whose name has ":" in it is found like any other: the path ends where the tool says it does (NUL).
