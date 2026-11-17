@@ -181,10 +181,12 @@ extension Git {
         return out
     }
 
-    /// Returns `data` up to and including its last `separator`, which keeps the whole entries of output cut off
-    /// mid-entry.
-    static func wholeEntries(_ data: Data, _ separator: UInt8) -> Data {
-        data.lastIndex(of: separator).map { data[...$0] } ?? Data()
+    /// Returns the output as text. Output cut off mid-entry keeps its whole entries: up to and including its last
+    /// `separator`.
+    static func wholeEntries(_ output: (data: Data, truncated: Bool), _ separator: UInt8) -> String {
+        let data = output.data
+        let whole = output.truncated ? data.lastIndex(of: separator).map { data[...$0] } ?? Data() : data
+        return String(decoding: whole, as: UTF8.self)
     }
 
     /// File names as pathspecs that mean just those files: "[id].tsx" isn't a pattern for "i.tsx" or "d.tsx".
@@ -320,9 +322,7 @@ enum RepoFilters {
         return (Array(names), files)
     }
 
-    private static func stamp(_ path: String) -> Date? {
-        try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date
-    }
+    private static func stamp(_ path: String) -> Date? { FileManager.default.modified(path) }
 
     /// The repository's own filter names, and the files its config was read from (includes followed).
     private static func read(_ cwd: String) -> (names: [String], files: [String]) {

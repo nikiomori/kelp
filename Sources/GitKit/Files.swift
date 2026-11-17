@@ -16,10 +16,8 @@ extension ProjectFiles {
         } catch  where outsideGit(error) {
             return walk(root, limit: limit)
         }
-        let lines: [Substring] = String(
-            decoding: output.truncated ? Git.wholeEntries(output.data, 0) : output.data, as: UTF8.self
-        )
-        .split(separator: "\0").filter { $0.count > 2 }
+        let lines: [Substring] = Git.wholeEntries(output, 0)
+            .split(separator: "\0").filter { $0.count > 2 }
         let gone = Set(lines.filter { $0.hasPrefix("R ") }.map { $0.dropFirst(2) })
         let remote = remotes.of(root) != nil
         let files =
@@ -46,7 +44,7 @@ extension ProjectFiles {
                 where outsideGit(error)
             { return [] }
             return Array(
-                String(decoding: output.truncated ? Git.wholeEntries(output.data, 0) : output.data, as: UTF8.self)
+                Git.wholeEntries(output, 0)
                     .split(separator: "\0").prefix(limit).map(String.init))
         }
         let dir = folder.hasSuffix("/") ? folder : folder + "/"
@@ -163,7 +161,7 @@ extension ProjectFiles {
             }
         }
         let found = parseGrep(
-            String(decoding: output.truncated ? Git.wholeEntries(output.data, 0x0A) : output.data, as: UTF8.self),
+            Git.wholeEntries(output, 0x0A),
             limit: limit)
         // Output cut off before `limit` matches means lines that long (git grep has no column limit), which are past
         // showing anyway.

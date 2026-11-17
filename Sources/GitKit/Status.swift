@@ -43,7 +43,7 @@ extension Git {
         let args = ["status", "--porcelain=v2", "-z", "-uall"] + (file.map { ["--"] + literal([$0]) } ?? [])
         let output = try runPart(args, cwd: path, limit: Subprocess.outputLimit, remotes: remotes)
         let changes = parseStatus(
-            String(decoding: output.truncated ? wholeEntries(output.data, 0) : output.data, as: UTF8.self), limit: limit
+            wholeEntries(output, 0), limit: limit
         )
         guard !output.truncated || changes.count >= limit else { throw GitError.tooMuch }
         return changes

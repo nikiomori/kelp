@@ -34,15 +34,10 @@ extension Git {
                     ["worktree", "add", "--track", "-b", rev(local), path, rev(branch)], cwd: repo, remotes: remotes)
             }
         }
-        let fm = FileManager.default
-        for file in copying ? Array(Set(copyFiles + includedIgnoredFiles(repo: repo, remotes: remotes))) : [] {
-            let src = (repo as NSString).appendingPathComponent(file),
-                dst = (path as NSString).appendingPathComponent(file)
-            guard fm.fileExists(atPath: src), !fm.fileExists(atPath: dst), staysInside(dst, path) else { continue }
-            gitLog.attempt("copying \(file) into the new worktree") {
-                try fm.createDirectory(
-                    atPath: (dst as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
-                try fm.copyItem(atPath: src, toPath: dst)
+        let files = copying ? Array(Set(copyFiles + includedIgnoredFiles(repo: repo, remotes: remotes))) : []
+        place(files, repo: repo, worktree: path) { src, dst in
+            gitLog.attempt("copying \(src) into the new worktree") {
+                try FileManager.default.copyItem(atPath: src, toPath: dst)
             }
         }
         return path
