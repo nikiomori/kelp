@@ -21,13 +21,16 @@ extension Workspaces {
                 !isMain(workspace, repo), remotes.of(repo.path) == nil,
                 FileManager.default.fileExists(atPath: workspace.path)
             else { return }
-            let here = try store.sessions().filter { $0.worktreeId == id }.map {
-                sessions.existing($0.id)?.snapshot ?? $0
+            // Who's there, and whether one of them works or asks: looked at again once git has answered, since a
+            // prompt sent or a chat started meanwhile is someone at work.
+            func look() throws -> [Session]? {
+                let here = try store.sessions().filter { $0.worktreeId == id }.map {
+                    sessions.existing($0.id)?.snapshot ?? $0
+                }
+                .filter { $0.status != .exited }
+                return here.contains { [.working, .waiting].contains($0.status) } ? nil : here
             }
-            .filter { $0.status != .exited }
-            guard !here.contains(where: { [.working, .waiting].contains($0.status) }),
-                try !Git.isDirty(workspace.path, remotes: remotes)
-            else { return }
+            guard try look() != nil, try !Git.isDirty(workspace.path, remotes: remotes) else { return }
             let branch = branchNow(of: workspace, in: repo)
             let tip = try Git.line(["rev-parse", "HEAD"], cwd: workspace.path, remotes: remotes)
             // Only a branch that did something since the group was made: one opened to look at, already merged, stays.
@@ -36,6 +39,7 @@ extension Workspaces {
                 moved && pr.map { $0.headRefName == branch && $0.headRefOid != nil && $0.headRefOid == tip } ?? false
             let landed =
                 squashed || (moved && Git.isIn(repo: repo.path, branch, base: repo.baseBranch, remotes: remotes))
+            guard let here = try look() else { return }
             if landed, !here.isEmpty {
                 try archive(workspace, repo)
             } else if landed
