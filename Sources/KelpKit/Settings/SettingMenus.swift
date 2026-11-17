@@ -39,7 +39,7 @@ extension NSMenu {
         guard let spec = app.extensions.specs[key] else { return }
         let now = app.settings[setting], preview = ChoicePreview(app.settings)
         if tryOn, delegate == nil { delegate = preview }
-        for option in SettingRow.options(spec, app) {
+        for option in SettingRow.options(spec) {
             let keep = ClosureTarget { app.settings.set(key, .string(option)) }
             let item = ChoiceItem(
                 key: key, value: .string(option), preview: preview, title: SettingRow.label(key, option, app))

@@ -169,13 +169,7 @@ final class SidebarCell: NSTableCellView {
             slot.wantsLayer = true
             glow.frame = CGRect(x: 0, y: 0, width: 16, height: 16)
             slot.layer?.insertSublayer(glow, at: 0)
-            detail.font = .ui(TextSize.row)
-            detail.textColor = .secondaryLabelColor
-            detail.lineBreakMode = .byTruncatingTail
-            detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // truncates before the name
-            detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the spare room, badges sit at right
-            layout(row: [slot, title, muted, detail, stack, changes, pr, ci, locate, button])
-            detail.isHidden = true
+            layout(row: [slot, title, muted, stack, changes, pr, ci, locate, button])
         case .workspace:
             // A group is a row like any other, with its contents a step further in, because a heading didn't show
             // where the group ended.
@@ -298,10 +292,6 @@ final class SidebarCell: NSTableCellView {
             // The agents' own rows and the line above the projects show who needs you. When the project is folded,
             // its row sums them up.
             locate.isHidden = !missing
-            if !detail.isEditable {
-                detail.stringValue = ""
-                detail.isHidden = true
-            }
             let folded = owner?.isCollapsed(node) == true
             if let was = shownFolded, was != folded { stack.crossfade(Motion.base) }   // on a fold, not a status change
             stack.show(folded ? AgentStack.chats(under: node, app) : [], app)

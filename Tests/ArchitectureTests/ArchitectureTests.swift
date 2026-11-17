@@ -161,8 +161,7 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // `read`, `value`, and the menu's Color row `addColor`).
     // +3: Open Database lists its rows in the palette (`QuickItem`, its `init`, `showList`), not in a palette of its
     // own.
-    // +5: a SwiftUI tab (`HostedTabContent`), which Servers, Routines and Machines each wrote as a class of their own;
-    // `HostedTab` under it is the shell's again.
+    // +5: a SwiftUI tab (`HostedTabContent`), which Servers, Routines and Machines each wrote as a class of their own.
     // +4: a panel the inspector hides redraws once it shows, not on every change meanwhile (`WhenShown`: Artifacts,
     // Source Control, Files, Activity).
     // +1: a workspace's git and CI are watched and read under its folder's key (`gitKey`), as the sidebar's, so

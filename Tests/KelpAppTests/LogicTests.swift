@@ -47,15 +47,13 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 /// Scored off the main thread: files by fuzzy path, the rest by title words (a command a little ahead), unmatched left out.
 @Test func quickOpenScoresAQueryOffTheMainThread() async {
     let items = [
-        QuickOpen.Match(fuzzy: nil, title: "Color Theme", command: false),
-        QuickOpen.Match(
-            fuzzy: ProjectFiles.FuzzyPath("Sources/Settings/SettingsWindow.swift"), title: "SettingsWindow.swift",
-            command: false),
-        QuickOpen.Match(fuzzy: nil, title: "Open Settings", command: true),
-        QuickOpen.Match(fuzzy: nil, title: "Settings: Font", command: false)
+        QuickOpen.Match(title: "Color Theme", command: false),
+        QuickOpen.Match(title: "Open Settings", command: true),
+        QuickOpen.Match(title: "Settings: Font", command: false)
     ]
-    let best = await Task.detached { QuickOpen.best(items, "sett") }.value
-    #expect(best == [1, 3, 2])
+    let files = [ProjectFiles.FuzzyPath("Sources/Settings/SettingsWindow.swift")]
+    let best = await Task.detached { QuickOpen.best(items, "sett", files: files) }.value
+    #expect(best == [3, 2, 1])
 }
 
 /// A peeking panel stays while the pointer crosses from the window's edge strip (4 pt) to the panel (6 pt in), and on

@@ -15,7 +15,7 @@ extension QuickOpen {
                     SettingRow.label(spec.key, whole ? String(Int(v)) : String(v), app)
                 )
             }
-        default: return SettingRow.options(spec, app).map { (.string($0), SettingRow.label(spec.key, $0, app)) }
+        default: return SettingRow.options(spec).map { (.string($0), SettingRow.label(spec.key, $0, app)) }
         }
     }
 

@@ -29,10 +29,6 @@ package final class Workbench {
     var activeWindow: NSWindow? { window?.editors.ownWindow(workspaceId) ?? window?.window }
     /// Shows an inspector panel by its id ("files", "ci"…).
     package func showPanel(_ id: String) { window?.showInspector(panel: id) }
-    /// Shows the panel for `role`, whichever built-in has it. When no built-in that has it is on, nothing happens.
-    func showPanel(_ role: PanelRole) {
-        if let panel = app.extensions.all.panels.first(where: { $0.role == role }) { showPanel(panel.id) }
-    }
     /// The panel's controller once the inspector has built it. It is nil before the panel is first shown.
     package func builtPanel(_ id: String) -> NSViewController? { window?.inspector.built(id) }
     /// The id of the inspector panel in its column beside the editors. It is nil while the inspector is hidden or only

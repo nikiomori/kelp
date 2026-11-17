@@ -346,16 +346,15 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         }
     }
 
-    struct Match: Sendable { let fuzzy: ProjectFiles.FuzzyPath?, title: String, command: Bool }
-    static func key(_ it: Item) -> Match { Match(fuzzy: nil, title: it.title, command: it.kind == "Command") }
+    struct Match: Sendable { let title: String, command: Bool }
+    static func key(_ it: Item) -> Match { Match(title: it.title, command: it.kind == "Command") }
     /// Returns the 200 best matches for `q`, best first, as indices into `items` and then `files` (counted on from
     /// `items.count`). Files match by fuzzy path. Everything else matches by the words of its title, so "them" finds
     /// Color Theme, not random letters.
     nonisolated static func best(_ items: [Match], _ q: String, files: [ProjectFiles.FuzzyPath] = []) -> [Int] {
         let fq = ProjectFiles.fuzzyQuery(q)
-        var scored = items.indices.compactMap { i -> (Int, Int)? in
-            if let fuzzy = items[i].fuzzy { return ProjectFiles.fuzzyScore(fuzzy, fq).map { (i, $0) } }
-            return wordScore(items[i].title, q).map { (i, $0 + (items[i].command ? 2 : 0)) }
+        var scored = items.indices.compactMap { i in
+            wordScore(items[i].title, q).map { (i, $0 + (items[i].command ? 2 : 0)) }
         }
         for (i, fuzzy) in files.enumerated() {
             if let score = ProjectFiles.fuzzyScore(fuzzy, fq) { scored.append((items.count + i, score)) }

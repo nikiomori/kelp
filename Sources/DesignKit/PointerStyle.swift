@@ -5,20 +5,15 @@ import SwiftUI
 /// Motion the fills change and nothing moves. With `flush`, the fill reaches past the label, and its neighbours stand
 /// where they would without it (a glyph in a line of text).
 public struct PointerButtonStyle: ButtonStyle {
-    private let radius: CGFloat
     private let flush: Bool
-    public init(radius: CGFloat = Metrics.radiusSM, flush: Bool = false) {
-        self.radius = radius
-        self.flush = flush
-    }
+    public init(flush: Bool = false) { self.flush = flush }
     public func makeBody(configuration: ButtonStyleConfiguration) -> some View {
-        Pointed(configuration: configuration, radius: radius).padding(.horizontal, flush ? -Self.padding : 0)
+        Pointed(configuration: configuration).padding(.horizontal, flush ? -Self.padding : 0)
     }
     fileprivate static let padding: CGFloat = 4
 
     private struct Pointed: View {
         let configuration: ButtonStyleConfiguration
-        let radius: CGFloat
         @State private var hovering = false
         @State private var size = CGSize.zero
         var body: some View {
@@ -26,7 +21,7 @@ public struct PointerButtonStyle: ButtonStyle {
                 .padding(.horizontal, PointerButtonStyle.padding)
                 .frame(minHeight: Metrics.iconButton)
                 .background(
-                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous)
                         .fill(Color(nsColor: configuration.isPressed ? .fillSelected : hovering ? .fillHover : .clear))
                 )
                 .contentShape(Rectangle())
@@ -83,17 +78,17 @@ extension EnvironmentValues {
 extension View {
     /// A choice tile's one edge: the accent when it's the one picked, brighter under the pointer, and a hairline
     /// otherwise.
-    public func cardEdge(selected: Bool, radius: CGFloat = Metrics.radiusMD) -> some View {
-        modifier(CardEdge(selected: selected, radius: radius))
+    public func cardEdge(selected: Bool) -> some View {
+        modifier(CardEdge(selected: selected))
     }
 }
 
 private struct CardEdge: ViewModifier {
-    let selected: Bool, radius: CGFloat
+    let selected: Bool
     @Environment(\.cardHovering) private var hovering
     func body(content: Content) -> some View {
         content.overlay(
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
+            RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
                 .strokeBorder(
                     selected ? Color.accentColor : Color.primary.opacity(hovering ? 0.35 : 0.15),
                     lineWidth: selected ? 2 : 1))

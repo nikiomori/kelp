@@ -71,8 +71,6 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         bar.style = .bar
         bar.isIndeterminate = true
         bar.isHidden = true
-        bar.minValue = 0
-        bar.maxValue = 100
         status.textColor = .secondaryLabelColor
         status.font = .ui(TextSize.caption)
         status.isHidden = true

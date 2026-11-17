@@ -149,7 +149,6 @@ extension SidebarController {
         menu.removeAllItems()
         card.close()
         guard let node = outline.item(atRow: outline.menuRow) as? Node else { return emptySpaceMenu(menu) }
-        let model = app
         let picked = outline.selectedRowIndexes
         if picked.count > 1, picked.contains(outline.menuRow) {
             bulkMenu(menu, picked.compactMap { outline.item(atRow: $0) as? Node })
@@ -157,7 +156,7 @@ extension SidebarController {
         }
         switch node.kind {
         case .project(let id):
-            guard let repo = model.repo(id) else { return }
+            guard let repo = app.repo(id) else { return }
             if NoProject.holds(repo) { return noProjectMenu(menu, repo, node) }
             if app.missingFolders.contains(repo.path) {   // as the row says; checked off the main thread
                 menu.add(String(localized: "Locate…")) { WorkspaceActions(app).relocate(repo) }
@@ -167,7 +166,7 @@ extension SidebarController {
             builtinItems(menu, node.kind)
             menu.add(String(localized: "New Chat")) { [weak self] in self?.newChat(id) }
             menu.add(String(localized: "New Group")) { app.workbench.newGroup(repo: id) }
-            app.workbench.addWindowItems(to: menu, workspace: mainWorkspace(of: repo, among: model.worktrees)?.id)
+            app.workbench.addWindowItems(to: menu, workspace: mainWorkspace(of: repo, among: app.worktrees)?.id)
             menu.addItem(.separator())
             menu.add(String(localized: "Rename Project")) { [weak self] in self?.startRename(id, project: true) }
             colorItem(menu, id)
@@ -193,18 +192,18 @@ extension SidebarController {
             AgentActions(app).addMove(to: menu, sid)
             menu.add(String(localized: "Copy Context")) { AgentActions(app).copyContext(sid) }
             menu.addItem(.separator())
-            if let session = model.session(sid),
-                NoProject.holds(model.worktree(session.worktreeId).flatMap { model.repo($0.repoId) })
+            if let session = app.session(sid),
+                NoProject.holds(app.worktree(session.worktreeId).flatMap { app.repo($0.repoId) })
             {
                 WorkspaceActions.addLocate(to: menu, path: session.cwd)   // the chat's own folder, with its results
             } else {
                 moveItems(menu, chat: sid)
             }
-            if model.session(sid)?.unread == false {
+            if app.session(sid)?.unread == false {
                 menu.add(String(localized: "Mark as Unread")) { [app] in
                     Task { await app.call(SessionMarkUnread(id: sid)) }
                 }
-            } else if model.session(sid)?.status == .done {
+            } else if app.session(sid)?.status == .done {
                 // A finished chat waits to be seen. This marks it read by hand, as looking at it would.
                 menu.add(String(localized: "Mark as Read")) { [app] in Task { await app.call(SessionMarkRead(id: sid)) }
                 }
@@ -298,15 +297,15 @@ extension SidebarController {
 
     /// The items in the menu on a group's heading.
     private func workspaceMenu(_ menu: NSMenu, _ id: String) {
-        let app = self.app, model = app
-        guard let worktree = model.worktree(id) else { return }
+        let app = self.app
+        guard let worktree = app.worktree(id) else { return }
         menu.add(String(localized: "Rename")) { [weak self] in self?.startRename(id) }
         app.workbench.addWindowItems(to: menu, workspace: id)
         menu.addItem(.separator())
         muteItem(menu, [id])
         WorkspaceActions.addLocate(to: menu, path: worktree.path)
         menu.addItem(.separator())
-        if worktree.path == model.repo(worktree.repoId)?.path {
+        if worktree.path == app.repo(worktree.repoId)?.path {
             // For a workspace, Archive pauses its agents and keeps its tabs (Window › Archived Workspaces brings it
             // back). With ⌥ the item closes it instead, which ends its agents. The project's folder is untouched
             // either way.
@@ -325,12 +324,11 @@ extension SidebarController {
     /// The menu for several selected rows, with what applies to all of them.
     func bulkMenu(_ menu: NSMenu, _ nodes: [Node]) {
         let app = self.app
-        let model = app
         let ws = nodes.compactMap { node -> Worktree? in
             if case .workspace(let id) = node.kind {
-                model.worktree(id)
+                app.worktree(id)
             } else {
-                node.workspace.flatMap(model.worktree)
+                node.workspace.flatMap(app.worktree)
             }
         }
         let picked = nodes.compactMap { node -> String? in
@@ -339,15 +337,15 @@ extension SidebarController {
             default: nil
             }
         }
-        let inside = model.sessions.filter { session in
+        let inside = app.sessions.filter { session in
             ws.contains { $0.id == session.worktreeId } && session.isChat && session.status != .exited
         }
         .map(\.id)
         let agents = Array(Set(picked + inside))
-        if agents.contains(where: { model.session($0)?.unread == true }) {
+        if agents.contains(where: { app.session($0)?.unread == true }) {
             menu.add(String(localized: "Mark as Read")) {
-                for id in agents where model.session(id)?.unread == true {
-                    Task { await model.call(SessionMarkRead(id: id)) }
+                for id in agents where app.session(id)?.unread == true {
+                    Task { await app.call(SessionMarkRead(id: id)) }
                 }
             }
         }

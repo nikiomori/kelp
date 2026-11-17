@@ -28,59 +28,59 @@ struct CardView: View {
                     + Text(changes.totalRemoved > 0 ? "−\(changes.totalRemoved)" : "").foregroundColor(.textRed))
                     .font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
             }
-            ForEach(model.agents) { agent in
+            ForEach(model.agents, id: \.id) { agent in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        StatusIcon(status: agent.session.markStatus, waitsForCommand: agent.session.waitsForCommand)
+                        StatusIcon(status: agent.markStatus, waitsForCommand: agent.waitsForCommand)
                             .font(
                                 .ui(TextSize.caption))
-                        Text(model.agentOnly ? agent.session.statusWords : model.app.catalog.displayName(agent.session))
+                        Text(model.agentOnly ? agent.statusWords : model.app.catalog.displayName(agent))
                             .font(
                                 .ui(TextSize.row)
                             ).lineLimit(1)
                         if !model.agentOnly {
-                            Text(agent.session.statusWords).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                            Text(agent.statusWords).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 8)
-                        Text(shortAgo(agent.session.statusAt ?? agent.session.createdAt)).font(
+                        Text(shortAgo(agent.statusAt ?? agent.createdAt)).font(
                             .ui(TextSize.caption).monospacedDigit()
                         )
                         .foregroundStyle(.tertiary)
                     }
-                    if !agent.session.summary.isEmpty {
-                        Text(Self.linked(agent.session.summary)).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                    if !agent.summary.isEmpty {
+                        Text(Self.linked(agent.summary)).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    if let goal = agent.session.goal {
+                    if let goal = agent.goal {
                         Text("Goal: \(goal)").font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(3)
                     }
-                    if let quietSince = agent.session.quietSince, agent.session.status == .working {
+                    if let quietSince = agent.quietSince, agent.status == .working {
                         Text("No news for \(shortSpan(Date().timeIntervalSince(quietSince)))").font(
                             .ui(TextSize.caption)
                         )
                         .foregroundStyle(
                             .secondary)
                     }
-                    if agent.session.guessed == true, [.working, .done].contains(agent.session.status) {
+                    if agent.guessed == true, [.working, .done].contains(agent.status) {
                         Text("Read off the screen: a guess, so Kelp won't call it done or notify").font(
                             .ui(TextSize.caption)
                         )
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                     }
-                    if let elsewhere = agent.session.workingElsewhere {
+                    if let elsewhere = agent.workingElsewhere {
                         Text(elsewhere).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
                             .truncationMode(.middle)
                     }
                 }
                 if model.agentOnly {
                     let close: @MainActor () -> Void = { [model] in model.closeCard() }
-                    let parts = model.app.extensions.all.agentCards.compactMap { $0(agent.session, close) }
+                    let parts = model.app.extensions.all.agentCards.compactMap { $0(agent, close) }
                     ForEach(parts.indices, id: \.self) { parts[$0] }
                 }
                 AgentWork(model: model, id: agent.id)
-                if QuickReply.fits(agent.session) {
+                if QuickReply.fits(agent) {
                     HStack(spacing: 6) {
                         ForEach(QuickReply.all) { reply in
                             Button(reply.title) { model.reply(reply.text, to: agent.id) }.controlSize(.small)

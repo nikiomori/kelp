@@ -83,12 +83,8 @@ final class HoverCard {
 @MainActor
 @Observable
 final class CardModel {
-    struct Agent: Identifiable {
-        let id: String
-        let session: Session
-    }
     let title: String, subtitle: String
-    let agents: [Agent]
+    let agents: [Session]
     let workspaceId: String
     let agentOnly: Bool
     let app: AppModel
@@ -124,7 +120,7 @@ final class CardModel {
                 placed
                 ? [app.groupName(worktree), app.projectName(worktree?.repoId)].compactMap { $0 }.joined(
                     separator: " · ") : ""
-            agents = [Agent(id: session.id, session: session)]
+            agents = [session]
             workspaceId = session.worktreeId ?? ""
             agentOnly = true
             repo = nil
@@ -151,9 +147,7 @@ final class CardModel {
             let branch = worktree.path == project?.path ? nil : String(localized: "branch \(worktree.branch)")
             subtitle = [group == nil ? nil : app.projectName(project?.id), branch].compactMap { $0 }.joined(
                 separator: " · ")
-            agents = app.liveChats(in: worktree.id).map {
-                Agent(id: $0.id, session: $0)
-            }
+            agents = app.liveChats(in: worktree.id)
             workspaceId = worktree.id
             agentOnly = false
             repo = nil
@@ -167,7 +161,7 @@ final class CardModel {
     }
 
     func load() {
-        watches = agents.filter { app.catalog.manifest($0.session.agent)?.transcript == .claude }.map { agent in
+        watches = agents.filter { app.catalog.manifest($0.agent)?.transcript == .claude }.map { agent in
             let watched = Watched(.subagents, in: app)
             watched.key = agent.id
             return watched

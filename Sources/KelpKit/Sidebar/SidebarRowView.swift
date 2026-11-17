@@ -355,13 +355,13 @@ final class ProjectCard: NSView {
         CATransaction.commit()
     }
     /// The stripes' lines across `rect`, as the pattern draws them.
-    private static func lines(in rect: CGRect, side: CGFloat = 6) -> CGPath {
+    private static func lines(in rect: CGRect) -> CGPath {
         let path = CGMutablePath()
         var start = -rect.height
         while start < rect.width {
             path.move(to: CGPoint(x: start, y: 0))
             path.addLine(to: CGPoint(x: start + rect.height, y: rect.height))
-            start += side
+            start += 6   // as `stripes`' tile
         }
         return path
     }

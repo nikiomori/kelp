@@ -3,20 +3,6 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// A tab's SwiftUI content as its view: it fills the pane from the top left, and never resizes the window to its ideal
-/// size (which a hosting view would).
-@MainActor
-final class HostedTab: NSHostingView<AnyView> {
-    convenience init(_ content: some View) {
-        self.init(rootView: AnyView(content.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)))
-    }
-    required init(rootView: AnyView) {
-        super.init(rootView: rootView)
-        sizingOptions = []
-    }
-    required init?(coder: NSCoder) { fatalError() }
-}
-
 /// A tab that is only SwiftUI content, with a fixed title and icon. What the tab names in `watching` is watched for as
 /// long as the tab is open.
 @MainActor
@@ -39,7 +25,12 @@ package final class HostedTabContent: TabContent {
             watch.key = key
             return watch
         }
-        view = HostedTab(content)
+        // It fills the pane from the top left, and never resizes the window to its ideal size (which a hosting view
+        // would).
+        let hosting = NSHostingView(
+            rootView: content.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading))
+        hosting.sizingOptions = []
+        view = hosting
     }
     package func focus() {}
 }

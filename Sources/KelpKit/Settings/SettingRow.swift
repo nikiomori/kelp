@@ -93,7 +93,7 @@ struct SettingRow: View {
                 title.alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
             }
         case .enum where spec.look == .pictures:
-            let options = Self.shown(Self.options(spec, app), string() ?? "")
+            let options = Self.shown(Self.options(spec), string() ?? "")
             let grid = PictureGrid(
                 key: spec.key, options: options,
                 selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) }),
@@ -116,7 +116,7 @@ struct SettingRow: View {
         case .enum where spec.look == .segments:
             // The segments sit beside the label, as a menu would, because a segmented picker of its own goes under a
             // two-line label.
-            let options = Self.shown(Self.options(spec, app), string() ?? "")
+            let options = Self.shown(Self.options(spec), string() ?? "")
             LabeledContent {
                 Segments(
                     labels: options.map { Self.label(spec.key, $0, app) },
@@ -128,7 +128,7 @@ struct SettingRow: View {
             }
         case .enum:
             Picker(selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
-                ForEach(Self.shown(Self.options(spec, app), string() ?? ""), id: \.self) {
+                ForEach(Self.shown(Self.options(spec), string() ?? ""), id: \.self) {
                     Text(Self.label(spec.key, $0, app)).tag($0)
                 }
             } label: {
@@ -173,7 +173,7 @@ struct SettingRow: View {
 
     /// Returns a setting's options. Choices that depend on what's installed are computed when shown
     /// (`SettingSpec.choices`).
-    static func options(_ spec: SettingSpec, _ app: AppModel) -> [String] {
+    static func options(_ spec: SettingSpec) -> [String] {
         spec.choices?.options?() ?? spec.options ?? []
     }
 
