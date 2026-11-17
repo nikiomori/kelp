@@ -45,22 +45,7 @@ final class EditorHost: NSViewController {
         // Follow the daemon's state: workspaces that are gone leave, and sessions' tabs come and show their status and
         // context ring.
         track(owner: self) {
-            app.repos
-        } changed: { [weak self] _ in
-            self?.refresh()
-        }
-        track(owner: self) {
-            app.worktrees
-        } changed: { [weak self] _ in
-            self?.refresh()
-        }
-        track(owner: self) {
-            app.sessions
-        } changed: { [weak self] _ in
-            self?.refresh()
-        }
-        track(owner: self) {
-            app.latest(ContextEvent.self).byKey
+            Values(app.repos, app.worktrees, app.sessions, app.latest(ContextEvent.self).byKey)
         } changed: { [weak self] _ in
             self?.refresh()
         }

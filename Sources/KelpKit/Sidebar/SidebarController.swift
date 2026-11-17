@@ -171,12 +171,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         } changed: { [weak self] _ in
             self?.makeSections()
         }
-        // Server headers and cards come and go with the built-in that makes them.
-        track(owner: self, now: false) { [app] in
-            app.extensions.all.servers != nil
-        } changed: { [weak self] _ in
-            self?.refresh()
-        }
         let root = NSView()
         // The Add Project button sits above the projects it adds to, where people look for it.
         let add = NSButton.titlebar(
@@ -233,37 +227,16 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     /// Sets up what the rows follow: the model's projects, sessions and settings, and the clock that moves their times
     /// forward.
     private func followModel() {
+        // What the tree is built from. Server headers and cards come and go with the built-in that makes them.
         track(owner: self) { [app] in
-            app.repos
-        } changed: { [weak self] _ in
-            self?.refresh()
-        }
-        track(owner: self) { [app] in
-            app.worktrees
-        } changed: { [weak self] _ in
-            self?.refresh()
-        }
-        track(owner: self, now: false) { [app] in
-            app.missingFolders
+            Values(
+                app.repos, app.worktrees, app.missingFolders, app.arrangement.order, app.arrangement.parked,
+                app.arrangement.parkedBack, app.extensions.all.servers != nil, app.themes.chromeText,
+                app.settings[SettingKeys.sidebarOrder])
         } changed: { [weak self] _ in
             self?.refresh()
         }
         followSessions()
-        track(owner: self) { [app] in
-            app.arrangement.order
-        } changed: { [weak self] _ in
-            self?.refresh()
-        }
-        track(owner: self) { [app] in
-            app.arrangement.parked
-        } changed: { [weak self] _ in
-            self?.refresh()
-        }
-        track(owner: self) { [app] in
-            app.arrangement.parkedBack
-        } changed: { [weak self] _ in
-            self?.refresh()
-        }
         track(owner: self) { [app] in
             app.workbench.workspaceId
         } changed: { [weak self] _ in
@@ -271,17 +244,14 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             self?.updateCard()
         }
         track(owner: self) { [app] in
-            app.workbench.page
+            Values(app.workbench.page, app.workbench.focusedTab)
         } changed: { [weak self] _ in
             self?.syncSelection()
         }
         track(owner: self) { [app] in
-            app.workbench.focusedTab
-        } changed: { [weak self] _ in
-            self?.syncSelection()
-        }
-        track(owner: self) { [app] in
-            app.gitState.stats
+            Values(
+                app.gitState.stats, app.settings[SettingKeys.gitBadges],
+                [SettingKeys.rowHeight, SettingKeys.agentDetail, SettingKeys.agentIcons].map { app.settings[$0] })
         } changed: { [weak self] _ in
             self?.updateVisibleCells()
         }
@@ -305,26 +275,6 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
         followRowLooks()
         followGroupLines()
-        track(owner: self) { [app] in
-            app.themes.chromeText
-        } changed: { [weak self] _ in
-            self?.refresh()
-        }
-        track(owner: self) { [app] in
-            [SettingKeys.rowHeight, SettingKeys.agentDetail, SettingKeys.agentIcons].map { app.settings[$0] }
-        } changed: { [weak self] _ in
-            self?.updateVisibleCells()
-        }
-        track(owner: self) { [app] in
-            app.settings[SettingKeys.gitBadges]
-        } changed: { [weak self] _ in
-            self?.updateVisibleCells()
-        }
-        track(owner: self) { [app] in
-            app.settings[SettingKeys.sidebarOrder]
-        } changed: { [weak self] _ in
-            self?.refresh()
-        }
         track(owner: self) { [app] in
             ServerLook.of(app)
         } changed: { [weak self] _ in

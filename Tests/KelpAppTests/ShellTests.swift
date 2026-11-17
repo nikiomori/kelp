@@ -194,6 +194,13 @@ import WorkbenchKit
     #expect(looks.map(\.isEdited) == [true])
 }
 
+/// Values tracked as one are the same only while each of them is.
+@Test func valuesTrackedAsOneDifferWhenAnyDoes() {
+    #expect(Values(1, "a", [true]) == Values(1, "a", [true]))
+    #expect(Values(1, "a", [true]) != Values(1, "a", [false]))
+    #expect(Values(1, "a", [true]) != Values(2, "a", [true]))
+}
+
 /// Past the newest four, editor areas go; one with unsaved files stays listed, and goes on a later switch once saved.
 @MainActor @Test func anAreaKeptForUnsavedFilesGoesOnceSaved() {
     var unsaved: Set<String> = ["e"]

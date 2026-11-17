@@ -176,39 +176,12 @@ final class WindowBar: NSView {
             for chip in [self?.folder, self?.branch, self?.pr] { chip?.font = .ui(TextSize.row) }
             self?.update()
         }
-        track(owner: self) {
-            app.workbench.page == nil ? app.worktree(app.workbench.mainWorkspaceId) : nil
-        } changed: { [weak self] _ in
-            self?.update()
-        }
-        track(owner: self) {
-            app.arrangement.projectLook
-        } changed: { [weak self] _ in
-            self?.update()
-        }
         // A branch switched anywhere (in a terminal too) moves the workspace's refs, and the daemon pushes the change.
         track(owner: self) { [weak self] in
-            self?.info
-        } changed: { [weak self] _ in
-            self?.update()
-        }
-        track(owner: self) { [weak self] in
-            self?.dirty ?? false
-        } changed: { [weak self] _ in
-            self?.update()
-        }
-        track(owner: self) { [weak self] in
-            self?.syncing
-        } changed: { [weak self] _ in
-            self?.update()
-        }
-        track(owner: self) { [weak self] in
-            self?.prMark?.tip
-        } changed: { [weak self] _ in
-            self?.update()
-        }
-        track(owner: self) { [weak self] in
-            self.map { ["\($0.ci?.state.rawValue ?? -1)", "\($0.ci?.atEnd ?? false)", $0.ciLine ?? ""] } ?? []
+            Values(
+                app.workbench.page == nil ? app.worktree(app.workbench.mainWorkspaceId) : nil,
+                app.arrangement.projectLook, self?.info, self?.dirty ?? false, self?.syncing, self?.prMark?.tip,
+                self.map { ["\($0.ci?.state.rawValue ?? -1)", "\($0.ci?.atEnd ?? false)", $0.ciLine ?? ""] } ?? [])
         } changed: { [weak self] _ in
             self?.update()
         }

@@ -11,6 +11,17 @@ public func track<T: Equatable>(
     Tracker(owner: owner, value: value, changed: changed, quiet: !now).run()
 }
 
+/// Several values `track`ed as one, for what is done the same whichever of them changed:
+/// `track { Values(app.repos, app.worktrees) } changed: { _ in refresh() }`.
+public struct Values<each T: Equatable>: Equatable {
+    let values: (repeat each T)
+    public init(_ values: repeat each T) { self.values = (repeat each values) }
+    public static func == (a: Self, b: Self) -> Bool {
+        for (l, r) in repeat (each a.values, each b.values) { guard l == r else { return false } }
+        return true
+    }
+}
+
 /// One `track`, kept alive by the observation it registers until its owner is gone.
 @MainActor
 private final class Tracker<T: Equatable> {
