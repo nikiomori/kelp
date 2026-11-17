@@ -161,13 +161,11 @@ final class StripButton: PointerControl {
     private static let height: CGFloat = 32, tile: CGFloat = 24, markInset: CGFloat = 2, wordsWidth: CGFloat = 240
 
     var onMenu: (() -> NSMenu)?
-    var onHover: ((Bool) -> Void)?
     private let icon = NSImageView(), mark = StatusMark(size: 12), label = NSTextField(labelWithString: "")
     /// The CI mark of the agent's branch, in a bite out of the tile's top right corner.
     private var ciMark: NSView?, ciShown: String?
     private let glow = EdgeGlow(radius: StripButton.height / 2, spread: 2, strength: 0.35)
     private var trailing: NSLayoutConstraint?
-    private var anyApp: NSTrackingArea?
     private let bite = CAShapeLayer()
     /// The glow the tile's state calls for, kept while a flash shows another glow for a moment.
     private var calls: (color: NSColor?, breathing: Bool) = (nil, false)
@@ -177,6 +175,7 @@ final class StripButton: PointerControl {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
+        tracksAlways = true   // the tile reacts to the pointer while Kelp is behind other apps
         layer?.cornerRadius = Self.height / 2
         clipsToBounds = false   // a closed tile is a circle, and clipping to it would cut the mark in two
         label.lineBreakMode = .byTruncatingTail
@@ -301,14 +300,6 @@ final class StripButton: PointerControl {
         }
     }
 
-    override func mouseEntered(with event: NSEvent) {
-        super.mouseEntered(with: event)
-        onHover?(true)
-    }
-    override func mouseExited(with event: NSEvent) {
-        super.mouseExited(with: event)
-        onHover?(false)
-    }
     /// A tile is most of the strip, so a drag from a tile moves the strip. A press held still and let go is a click.
     override func mouseDown(with event: NSEvent) {
         guard let panel = window as? StripPanel else { return super.mouseDown(with: event) }
@@ -326,10 +317,6 @@ final class StripButton: PointerControl {
     /// The whole tile is the button. A click over its icon or words would otherwise go to those views, which don't take
     /// a first click, so with Kelp behind the click would be lost.
     override func hitTest(_ point: NSPoint) -> NSView? { frame.contains(point) ? self : nil }
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        anyApp = retracked(anyApp, .activeAlways)
-    }
 }
 
 /// The tip for the tile under the pointer, with its workspace and the state of each of its agents. It shows above the

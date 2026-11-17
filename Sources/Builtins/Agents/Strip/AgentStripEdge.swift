@@ -220,12 +220,11 @@ final class StripLine {
 
     /// The whole line is one button, and it takes a click even while Kelp is behind other apps.
     private final class LineButton: PointerControl {
-        var onHover: ((Bool) -> Void)?
-        private var anyApp: NSTrackingArea?
         private let icon = NSImageView(), words = NSTextField(labelWithString: "")
 
         override init(frame: NSRect) {
             super.init(frame: frame)
+            tracksAlways = true   // so a line under the pointer stays out while Kelp is behind other apps
             layer?.cornerRadius = StripLine.height / 2
             icon.wantsLayer = true
             icon.layer?.cornerRadius = Metrics.radiusXS
@@ -279,19 +278,6 @@ final class StripLine {
         }
 
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-        /// Tracks the pointer even while Kelp is behind other apps, so a line under the pointer stays out.
-        override func updateTrackingAreas() {
-            super.updateTrackingAreas()
-            anyApp = retracked(anyApp, .activeAlways)
-        }
-        override func mouseEntered(with event: NSEvent) {
-            super.mouseEntered(with: event)
-            onHover?(true)
-        }
-        override func mouseExited(with event: NSEvent) {
-            super.mouseExited(with: event)
-            onHover?(false)
-        }
         override func hitTest(_ point: NSPoint) -> NSView? { frame.contains(point) ? self : nil }
     }
 }

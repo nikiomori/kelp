@@ -175,6 +175,10 @@ open class PointerControl: NSControl {
 
     /// What a click does, unless `clicked()` is overridden.
     public var onClick: (() -> Void)?
+    /// Called when the pointer comes onto the control or leaves it.
+    public var onHover: ((Bool) -> Void)?
+    /// Set for a control that answers the pointer even while Kelp is behind other apps (the Dock strip's).
+    public var tracksAlways = false
 
     /// What a click does: by default, it calls `onClick`.
     open func clicked() { onClick?() }
@@ -187,10 +191,16 @@ open class PointerControl: NSControl {
 
     override open func updateTrackingAreas() {
         super.updateTrackingAreas()
-        area = retracked(area, .activeInActiveApp)
+        area = retracked(area, tracksAlways ? .activeAlways : .activeInActiveApp)
     }
-    override open func mouseEntered(with event: NSEvent) { hovering = true }
-    override open func mouseExited(with event: NSEvent) { hovering = false }
+    override open func mouseEntered(with event: NSEvent) {
+        hovering = true
+        onHover?(true)
+    }
+    override open func mouseExited(with event: NSEvent) {
+        hovering = false
+        onHover?(false)
+    }
     override open func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         hovering = false
