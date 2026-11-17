@@ -5,6 +5,7 @@ import Testing
 
 @testable import BuiltinAgents
 @testable import BuiltinGit
+@testable import KelpApp
 @testable import KelpKit
 
 private let places: [(id: String, name: String, repo: String?)] = [
@@ -265,13 +266,12 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
 }
 
 /// A tile's menu starts with its own agent: what it says, then what can be done to it from here; the strip's own below.
-@MainActor @Test func aTilesMenuIsAboutItsAgentFirst() async throws {
-    let rig = try await AppRig()
-    let failed = session(rig.workspace.id, .error, summary: "Build failed")
-    rig.app.sessions = [failed]
-    let strip = AgentStrip(app: rig.app)
-    let item = try #require(
-        StripModel.items(rig.app.sessions, workspaces: [(rig.workspace.id, "kelp", nil)]).first)
+@MainActor @Test func aTilesMenuIsAboutItsAgentFirst() throws {
+    _ = testHome
+    let app = AppModel(builtins: Builtins.all)
+    app.sessions = [session("w", .error, summary: "Build failed")]
+    let strip = AgentStrip(app: app)
+    let item = try #require(StripModel.items(app.sessions, workspaces: [("w", "kelp", nil)]).first)
     let titles = strip.menu(for: item).items.map(\.title)
     #expect(titles.prefix(5) == ["kelp — Build failed", "Open in Kelp", "Continue", "Later", "Mute Notifications"])
     #expect(titles.contains("Hide Strip") && titles.contains("Strip Settings…"))
@@ -303,8 +303,8 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
 }
 
 /// A tile shows its branch's CI in a corner of its own and says it; with none, there's no mark.
-@MainActor @Test func aTileShowsItsBranchesCI() async throws {
-    let rig = try await AppRig()
+@MainActor @Test func aTileShowsItsBranchesCI() {
+    let app = AppModel()
     var item = StripItem(workspace: "w", name: "kelp", cell: .working, session: "s", since: Date())
     // The mark is Git's to draw (`RowMarks.tile`).
     item.ci = RowMark(
@@ -315,24 +315,24 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
             return mark.view
         }, tip: "CI: Failed · Tests", key: "failed")
     let tile = StripButton()
-    tile.update(item, open: false, app: rig.app)
+    tile.update(item, open: false, app: app)
     #expect(tile.subviews.contains { $0 is CIMark })
     #expect(tile.accessibilityLabel()?.contains("CI: Failed · Tests") == true)
     item.ci = nil
-    tile.update(item, open: false, app: rig.app)
+    tile.update(item, open: false, app: app)
     #expect(!tile.subviews.contains { $0 is CIMark })
 }
 
 /// The same tile told again changes nothing: a constraint swapped each time laid the strip out anew on every agent's news.
-@MainActor @Test func aTileToldTheSameLeavesItsLayout() async throws {
-    let rig = try await AppRig()
+@MainActor @Test func aTileToldTheSameLeavesItsLayout() {
+    let app = AppModel()
     let item = StripItem(workspace: "w", name: "kelp", cell: .asks, session: "s", words: "Allow?", since: Date())
     let tile = StripButton()
-    tile.update(item, open: true, app: rig.app)
+    tile.update(item, open: true, app: app)
     let before = tile.constraints.map(ObjectIdentifier.init)
-    tile.update(item, open: true, app: rig.app)
+    tile.update(item, open: true, app: app)
     #expect(tile.constraints.map(ObjectIdentifier.init) == before)
-    tile.update(item, open: false, app: rig.app)
+    tile.update(item, open: false, app: app)
     #expect(tile.constraints.map(ObjectIdentifier.init) != before)
 }
 

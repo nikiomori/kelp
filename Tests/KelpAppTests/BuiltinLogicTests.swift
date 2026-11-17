@@ -144,11 +144,9 @@ import os
 }
 
 /// A parked agent comes back by itself when it asks, saying why; until then its Done doesn't call.
-@Test @MainActor func aParkedAgentComesBackWhenItAsks() async throws {
-    let rig = try await AppRig(files: ["a.txt": "a\n"])
-    defer { rig.done() }
-    let m = rig.app
-    var s = Session(worktreeId: rig.workspace.id, cwd: rig.repo, command: "claude", agent: "claude", status: .working)
+@Test @MainActor func aParkedAgentComesBackWhenItAsks() {
+    let m = AppModel()
+    var s = Session(worktreeId: "w", cwd: "/", command: "claude", agent: "claude", status: .working)
     m.upsert(s)
     m.arrangement.park(s.id, until: Mutes.forever)
     #expect(m.arrangement.isParked(s.id) && m.arrangement.parkedIds == [s.id])
@@ -161,17 +159,15 @@ import os
 
 /// A parked agent comes back on its own workspace's run that just failed, as it arrives: not when a run lands for
 /// another workspace while an old failure of its own is still the last one kept.
-@Test @MainActor func aParkedAgentComesBackOnAFailedRunOfItsOwnAsItArrives() async throws {
-    let rig = try await AppRig(files: ["a.txt": "a\n"])
-    defer { rig.done() }
-    let m = rig.app, mine = rig.workspace.id
+@Test @MainActor func aParkedAgentComesBackOnAFailedRunOfItsOwnAsItArrives() {
+    let m = AppModel(), mine = "w"
     func run(_ wid: String, _ conclusion: String) -> CIEvent {
         let r = CIRuns.Run(
             id: 1, title: "", workflow: "CI", status: "completed", conclusion: conclusion, event: "push", url: "",
             createdAt: "")
         return CIEvent(worktree: wid, result: CIRunsList.Result(branch: "main", runs: [r], workflows: []))
     }
-    let s = Session(worktreeId: mine, cwd: rig.repo, command: "claude", agent: "claude", status: .working)
+    let s = Session(worktreeId: mine, cwd: "/", command: "claude", agent: "claude", status: .working)
     m.upsert(s)
     m.land(run(mine, "failure"))   // its workspace failed before it was parked
     m.arrangement.park(s.id, until: Mutes.forever)

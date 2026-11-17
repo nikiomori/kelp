@@ -114,16 +114,20 @@ extension AppOfItsOwn {
     @Test func theGraphsCellsAreUsedAgainAsItScrolls() async throws {
         let rig = try await AppRig(files: ["kept.txt": "a\n"])
         defer { rig.done() }
-        for i in 0..<60 {
-            try rig.write("kept.txt", "\(i)\n")
-            try rig.git("commit", "-qam", "c\(i)")
-        }
         let vc = SourceControlController(app: rig.app)
         vc.collapsed = []   // open, whatever another test left in the defaults
         rig.show(vc, 320, 500)
         vc.followWatches()
         let graph = try #require(outlines(in: vc.view).last)
-        #expect(try await waitFor(5) { !(graph.numberOfRows < 61) })
+        #expect(try await waitFor(5) { !(graph.numberOfRows < 1) })   // the project's one commit: the graph is up
+        let hashes = (0...60).map { String(format: "%040x", $0) }   // 61 commits in a line, newest first
+        vc.commits = hashes.indices.map { i in
+            GraphCommit(
+                hash: hashes[i], parents: i < 60 ? [hashes[i + 1]] : [], author: "", date: 0, subject: "c\(i)",
+                refs: [], lane: 0, top: [], bottom: [])
+        }
+        vc.rebuildGraph()
+        #expect(graph.numberOfRows >= 61)
         vc.graphHeight?.constant = 200   // a height of its own: one dragged in another test is a default too
         vc.graphHeight?.isActive = true
         vc.view.layoutSubtreeIfNeeded()

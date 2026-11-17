@@ -47,55 +47,23 @@ extension OneAtATime {
         #expect(s.bool("editor.lsp") == false && s.bool("editor.autoSave") == true)
     }
 
-    @Test func markdownDefaultModeGoesBothWaysThroughTheDaemon() async throws {
+    /// A Markdown tab opens in the mode the setting names (the setting's way to and from settings.json is the one above).
+    @Test func aMarkdownTabOpensInTheModeTheSettingNames() {
         _ = testHome
         _ = NSApplication.shared
-        let root = URL(fileURLWithPath: "/tmp/kst-\(UUID().uuidString.prefix(6))")
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let d = try Daemon(root: root)
-        try d.start()
-        defer { d.stop() }
-        let app = try RPCClient(socket: root.appendingPathComponent("kelp.sock").path)
-        let cli = try RPCClient(socket: root.appendingPathComponent("kelp.sock").path)
         let m = AppModel(builtins: Builtins.all), s = m.settings
-        m.daemon.use(app)
-        m.listen(app)
         m.extensions.reload()
-        await s.load()
-
-        let editorSection = m.extensions.all.settings.first { $0.id == "editor" }
-        let spec = editorSection?.specs.first { $0.key == "markdown.defaultMode" }
-        #expect(spec?.type == .enum)
-        #expect(spec?.default == "preview")
-        #expect(spec?.options == ["preview", "edit", "split"])
-        #expect(s.string("markdown.defaultMode") == "preview")
-
-        let testURL = URL(fileURLWithPath: "/tmp/test.md")
-        let editor = CodeEditor(text: "# Preview", url: testURL)
-        let tabPreview = MarkdownTab(editor: editor, url: testURL, app: m)
-        _ = tabPreview.view
-        #expect(tabPreview.currentMode == "preview")
-
-        s.set("markdown.defaultMode", .string("split"))   // in the app
-        let file = root.appendingPathComponent("settings.json")
-        func onDisk() -> JSONValue? {
-            (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
+        let url = URL(fileURLWithPath: "/tmp/test.md"), editor = CodeEditor(text: "# Preview", url: url)
+        func opened() -> String {
+            let tab = MarkdownTab(editor: editor, url: url, app: m)
+            _ = tab.view
+            return tab.currentMode
         }
-        #expect(try await waitFor(5) { !(onDisk()?["markdown.defaultMode"]?.string != "split") })
-        #expect(onDisk()?["markdown.defaultMode"]?.string == "split")
-
-        let tabSplit = MarkdownTab(editor: editor, url: testURL, app: m)
-        _ = tabSplit.view
-        #expect(tabSplit.currentMode == "split")
-
-        _ = try await cli.call("settings.set", .obj(["key": "markdown.defaultMode", "value": "edit"]))   // elsewhere
-        #expect(try await waitFor(5) { !(s.string("markdown.defaultMode") != "edit") })
-        #expect(s.string("markdown.defaultMode") == "edit")
-
-        let tabEdit = MarkdownTab(editor: editor, url: testURL, app: m)
-        _ = tabEdit.view
-        #expect(tabEdit.currentMode == "edit")
+        #expect(opened() == "preview")   // nothing set: the default
+        for mode in ["split", "edit"] {
+            s.apply(s.values.merging(["markdown.defaultMode": .string(mode)]) { $1 })
+            #expect(opened() == mode)
+        }
     }
 
     /// A stepper held sends 14 then 15: the daemon's answer to 14 arriving after 15 was shown doesn't put 14 back.

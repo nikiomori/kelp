@@ -3,6 +3,7 @@ import Core
 import Testing
 
 @testable import BuiltinAgents
+@testable import KelpApp
 @testable import KelpKit
 
 private func session(_ status: AgentStatus, unread: Bool = false, parent: String? = nil, agent: String = "claude")
@@ -31,17 +32,20 @@ private func session(_ status: AgentStatus, unread: Bool = false, parent: String
     #expect(LimitWatch.dockFace(99, warnAt: nil) == .usage(percent: 99, high: false))   // warnings are off
 }
 
-@MainActor @Test func theDockMenuAnswersAPermissionWithoutOpeningKelp() async throws {
-    let rig = try await AppRig()
+@MainActor @Test func theDockMenuAnswersAPermissionWithoutOpeningKelp() throws {
+    _ = testHome
     _ = NSApplication.shared   // reload applies the theme to NSApp
-    rig.app.extensions.reload()   // the setting the Dock Icon menu is made from
+    let app = AppModel(builtins: Builtins.all)
+    app.extensions.reload()   // the setting the Dock Icon menu is made from
+    app.repos = [Repo(id: "r", name: "kelp", path: "/tmp/kelp-dock")]
+    app.worktrees = [Worktree(id: "w", repoId: "r", branch: "main", path: "/tmp/kelp-dock")]
     var asks = session(.waiting)
-    asks.worktreeId = rig.workspace.id
+    asks.worktreeId = "w"
     asks.summary = "Allow npm test?"
     var works = session(.working)
-    works.worktreeId = rig.workspace.id
-    rig.app.sessions = [asks, works]
-    let menu = DockIcon(app: rig.app).menu()
+    works.worktreeId = "w"
+    app.sessions = [asks, works]
+    let menu = DockIcon(app: app).menu()
     let item = try #require(menu.items.first)
     #expect(item.title.contains("Allow npm test?"))
     #expect(item.submenu?.items.map(\.title) == ["Allow", "Deny", "", "Open in Kelp"])

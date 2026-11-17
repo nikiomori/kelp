@@ -5,15 +5,16 @@ import Testing
 import WorkbenchKit
 
 @testable import BuiltinFiles
+@testable import KelpApp
 @testable import KelpKit
 
 /// One at a time: applying settings sets what every editor reads (`CodeEditor.current`).
 extension OneAtATime {
     /// A language's block beats the setting for all files, Kelp's own wrapping of prose comes after that, the rest follow the setting.
-    @Test func aLanguagesBlockBeatsTheSettingForAllFiles() async throws {
-        let rig = try await AppRig(files: [:])
-        defer { rig.done() }
-        let s = rig.app.settings
+    @Test func aLanguagesBlockBeatsTheSettingForAllFiles() {
+        _ = testHome
+        let app = AppModel(builtins: Builtins.all)
+        let s = app.settings
         s.apply([
             "editor.wordWrap": .bool(false), "[go]": .object(["editor.formatOnSave": .bool(true)]),
             "[markdown]": .object(["editor.tabSize": .double(2)])
@@ -27,11 +28,11 @@ extension OneAtATime {
     }
 
     /// Settings' language picker writes the language's block even when it had nothing yet, and its reset empties it.
-    @Test func thePickersValueGoesInTheLanguagesOwnBlock() async throws {
-        let rig = try await AppRig(files: [:])
-        defer { rig.done() }
+    @Test func thePickersValueGoesInTheLanguagesOwnBlock() {
+        _ = testHome
+        let app = AppModel(builtins: Builtins.all)
         defer { CodeEditor.set(\.wrapLines, false) }
-        let s = rig.app.settings
+        let s = app.settings
         s.apply(["editor.tabSize": .int(4)])
         s.setOwn("editor.tabSize", .int(2), language: "python")
         #expect(s.number("editor.tabSize", language: "python") == 2)
@@ -43,11 +44,11 @@ extension OneAtATime {
     }
 
     /// Word Wrap in a Markdown file changes Markdown; in Swift, every file: each where it's read.
-    @Test func aChangeGoesWhereTheValueIsRead() async throws {
-        let rig = try await AppRig(files: [:])
-        defer { rig.done() }
+    @Test func aChangeGoesWhereTheValueIsRead() {
+        _ = testHome
+        let app = AppModel(builtins: Builtins.all)
         defer { CodeEditor.set(\.wrapLines, false) }
-        let s = rig.app.settings
+        let s = app.settings
         s.apply(["editor.wordWrap": .bool(false)])
         s.set("editor.wordWrap", .bool(false), language: "markdown")
         #expect(s.bool("editor.wordWrap", language: "markdown") == false)
