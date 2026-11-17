@@ -144,7 +144,7 @@ extension AgentManifest {
             about: "Open source agent, any model provider", site: "kilo.ai"),
         .init(
             id: "crush", name: "Crush", command: "crush", resumeArgs: ["--continue"],
-            // Homebrew's or npm's, whichever it came from: `brew upgrade` alone fails on an npm install.
+            // Upgrade through Homebrew or npm, whichever installed it: `brew upgrade` alone fails on an npm install.
             install: "brew install charmbracelet/tap/crush",
             update:
                 "if brew list crush >/dev/null 2>&1; then brew upgrade crush; "

@@ -160,8 +160,8 @@ public enum Artifacts {
         let title =
             input?["title"]?.string ?? input?["container"]?["create"]?["name"]?.string
             ?? unescaped.firstMatch(of: /\\?"title\\?"\s*:\s*\\?"([^"\\]+)/).map { String($0.output.1) } ?? url
-        // Which of claude.ai's types it is, the answer doesn't say: a doc is the Docs connector's, a canvas's files are
-        // under project/ (the Design type's).
+        // The answer doesn't say which of claude.ai's types the artifact is: a doc belongs to the Docs connector, and a
+        // canvas has its files under project/ (the Design type).
         let sent = sentPage(tool: tool, input: input)
         let type = tool.contains("Claude_Docs") ? "doc" : sent.canvas ? Kind.design.rawValue : "page"
         return (url, title, type, sent.page)
@@ -190,8 +190,9 @@ public enum Artifacts {
 
     // MARK: the guide an agent reads
 
-    /// What `kelp artifact guide <kind> [part]` prints. `whereTo`: "local" when Settings give Claude Code Kelp's pages too, else "agent";
-    /// `system`: whether the project has its design system (a design's guide says to make it first if not).
+    /// What `kelp artifact guide <kind> [part]` prints. `whereTo` is "local" when Settings give Claude Code Kelp's
+    /// pages too, else "agent". `system` says whether the project has its design system (a design's guide says to make
+    /// it first if not).
     public static func guide(_ kind: String, whereTo: String, part: String? = nil, system: Bool = false) -> String? {
         let canvas = Kind(rawValue: kind).flatMap { $0.isCanvas ? $0 : nil }
         if let part { return canvas != nil ? designPart(part) : nil }

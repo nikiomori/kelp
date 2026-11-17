@@ -151,8 +151,8 @@ public struct GitHubPRCreate: RPCMethod {
         self.draft = draft
     }
 }
-/// `method`: squash (default) | merge | rebase; `pr`: else the workspace's linked one; `head`: the commit that was on
-/// screen, merged only while it is still the PR's head (GitHub).
+/// `method` is squash (the default), merge or rebase. `pr` defaults to the workspace's linked PR. `head` is the commit
+/// that was on screen: GitHub merges only while it is still the PR's head.
 public struct GitHubPRMerge: RPCMethod {
     public static let name = "github.pr-merge"
     public typealias Result = Done

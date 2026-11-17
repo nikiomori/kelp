@@ -30,7 +30,7 @@ public enum Paths {
     public static var extensions: URL { extensions(in: root) }
     /// Claude Code plugins with Kelp's skills (one per skill that's turned on), loaded per session with --plugin-dir.
     public static var agentSkills: URL { agentSkills(in: root) }
-    /// The same folders in a home given (the daemon's, or a test's), not this process's own.
+    /// The same folders inside a given home (the daemon's, or a test's) rather than this process's own home.
     public static func agents(in root: URL) -> URL { root.appendingPathComponent("agents") }
     public static func extensions(in root: URL) -> URL { root.appendingPathComponent("extensions") }
     public static func agentSkills(in root: URL) -> URL { root.appendingPathComponent("agent-skills") }

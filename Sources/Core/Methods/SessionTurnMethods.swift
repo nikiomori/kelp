@@ -39,8 +39,8 @@ public struct SessionTurns: RPCMethod {
     public typealias Result = [Mark]
     public var id: String
     public init(id: String) { self.id = id }
-    /// A turn's start: `tree` is the folder then (a snapshot in the project's git, which git's cleanup may take after
-    /// two weeks), `head` its HEAD then.
+    /// A turn's start: `tree` is the folder as it was then (a snapshot in the project's git, which git's cleanup may
+    /// remove after two weeks), and `head` is its HEAD then.
     public struct Mark: Codable, Sendable, Equatable, Identifiable {
         public var id: String, session: String, tree: String, head: String?, folder: String, prompt: String, at: Date
         public init(

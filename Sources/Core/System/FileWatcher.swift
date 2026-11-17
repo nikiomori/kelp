@@ -1,11 +1,13 @@
 import CoreServices
 import Foundation
 
-/// FSEvents on a directory tree, debounced; reports changed absolute paths on `deliver` (the main thread by default; the
-/// daemon's watches take a queue of their own), or with what happened to each (`init(changesIn:)`). Build output under
-/// the root (node_modules, .build…: ignored, never in the tree) is dropped on the stream's own queue first: a build or an
-/// `npm install` writes thousands of files a second, and every watcher of the folder sorted through them on main.
-/// Limit: a fixed list of usual build folders; a tracked folder named like one updates on the next other change.
+/// FSEvents on a directory tree, debounced. It reports changed absolute paths on `deliver` (the main thread by default;
+/// the daemon's watches use a queue of their own), or with what happened to each path (`init(changesIn:)`). Build
+/// output under the root (node_modules, .build…, which are ignored and never in the tree) is dropped first, on the
+/// stream's own queue: a build or an `npm install` writes thousands of files a second, and every watcher of the folder
+/// used to sort through them on the main thread.
+/// Limit: the list of usual build folders is fixed, so a tracked folder named like one updates only on the next other
+/// change.
 public final class FileWatcher: @unchecked Sendable {   // holds an FSEventStream: started here, stopped on its own queue
     static let buildFolders: Set<Substring> = [
         "node_modules", ".build", "DerivedData", ".next", "__pycache__", ".gradle", ".swiftpm", ".venv", "target"
@@ -93,8 +95,8 @@ public final class FileWatcher: @unchecked Sendable {   // holds an FSEventStrea
     }
 
     deinit {
-        // On the stream's queue (never this one: only a Sink is seen there): once it returns no callback runs or can
-        // start, so the sink isn't read after it's gone.
+        // Runs on the stream's queue (never this one, where only a Sink is seen): once this returns, no callback runs
+        // or can start, so the sink isn't read after it is gone.
         if let stream {
             queue.sync {
                 FSEventStreamStop(stream)

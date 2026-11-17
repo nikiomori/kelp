@@ -89,8 +89,9 @@ enum Lifecycle {
             ? "\(name) is in use again: shut it down, then change its size." : nil
     }
 
-    /// What a machine of this kind doesn't do, the same answer from each runtime: nil when it does. Folders are a Linux
-    /// or macOS machine's; kelp-vm drives a macOS machine's screen, kelpd an Android or iOS one's (`vm.screen`).
+    /// What a machine of this kind can't do, answered the same way by every runtime; nil when it can. Folders are for
+    /// Linux and macOS machines only; kelp-vm drives a macOS machine's screen, and kelpd drives an Android or iOS
+    /// machine's (`vm.screen`).
     static func unsupported(_ op: VMHelper.Request.Operation, _ machine: VMMachine) -> String? {
         switch op {
         case .share where !machine.kind.sharesFolders:

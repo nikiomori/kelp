@@ -23,13 +23,15 @@ public enum IDE {
         async throws -> Delivered
     {
         let all = try await client.call(WorktreeList()), own = try await ownWorkspace(client: client)
-        // A file in no workspace opens in the caller's own: an agent's tab is held to it (none: the one on screen).
+        // A file in no workspace opens in the caller's own workspace, where an agent's tab is held (when the caller has
+        // none, the workspace on screen).
         let id = workspace(cwd: cwd, among: all, own: own)?.id ?? own
         return try await client.call(
             UIOpen(uri: uri(for: target, cwd: cwd), split: split, focus: focus ? true : nil, worktreeId: id))
     }
 
-    /// The workspace a command run in `cwd` means (`workspace(cwd:among:own:)`), from the daemon's lists.
+    /// The workspace that a command run in `cwd` refers to (`workspace(cwd:among:own:)`), found from the daemon's
+    /// lists.
     public static func workspace(
         cwd: String, session: String? = ProcessInfo.processInfo.environment["KELP_SESSION"],
         client: RPCClient

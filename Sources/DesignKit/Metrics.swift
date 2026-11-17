@@ -20,14 +20,14 @@ public enum Metrics {
     public static let insetTrailing: CGFloat = 8   // a bar's edge to its last icon
     public static let indentStep: CGFloat = 12   // one outline level: the sidebar, the file tree, a group's rows
     public static let gap: CGFloat = 6   // between a bar's controls; icon to label in a row
-    public static let gapWide: CGFloat = 8   // between independent controls in a tab's bar, a banner, a sheet's buttons
+    public static let gapWide: CGFloat = 8   // between separate controls in a tab's bar, a banner, or a sheet's buttons
     public static let lineGap: CGFloat = 2   // between a row's two lines
     public static let emptyLift: CGFloat = 40   // an empty state sits this far over the middle
     public static let sheetInset: CGFloat = 20
 
     // Radii
     public static let radiusXS: CGFloat = 4   // chips, swatches
-    public static let radiusSM: CGFloat = 6   // a row's selection, an icon button's hover
+    public static let radiusSM: CGFloat = 6   // a row's selection and an icon button's hover
     public static let radiusMD: CGFloat = 8   // small controls floating in a tab (find bar)
     public static let radiusLG: CGFloat = 10   // the editor card, a banner, overlays inside a pane
     public static let radiusXL: CGFloat = 12   // floating panels (switcher, slide-out panel)
@@ -43,7 +43,7 @@ public enum Metrics {
     // A symbol's size by where it sits; `NSImage.SymbolConfiguration.chrome` / `Font.symbol` give each the one weight.
     public static let iconTiny: CGFloat = 9   // a chevron, a tab's ✕, an arrow beside a count
     public static let iconSmall: CGFloat = 11   // beside a row's text: a tab's icon, a row's mark
-    public static let iconLarge: CGFloat = 15   // a choice's icon in a grouped card, an extension's in the library
+    public static let iconLarge: CGFloat = 15   // a choice's icon in a grouped card; an extension's in the library
     public static let iconEmpty: CGFloat = 28   // an empty state's
     public static let iconHero: CGFloat = 40   // the one big symbol of an empty window or workspace
     public static let iconGap: CGFloat = 2   // between two icon buttons side by side

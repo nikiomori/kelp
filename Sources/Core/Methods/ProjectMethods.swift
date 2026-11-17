@@ -1,6 +1,6 @@
 import Foundation
 
-// A project's .kelp.yaml commands, remote projects, settings, usage and past conversations.
+// Methods for a project's .kelp.yaml commands, remote projects, settings, usage and past conversations.
 
 /// Everything trusting the project's .kelp.yaml would allow.
 public struct ScriptsList: RPCMethod {
@@ -41,7 +41,8 @@ public struct ScriptsList: RPCMethod {
     public var worktreeId: String
     public init(worktreeId: String) { self.worktreeId = worktreeId }
 }
-/// The project's .kelp.yaml as shown (`digest` from scripts.list) may run. Only from Kelp's window.
+/// Says the project's .kelp.yaml, as it was shown (`digest` from scripts.list), may run. Only Kelp's window may call
+/// it.
 public struct ScriptsTrust: RPCMethod {
     public static let name = "scripts.trust"
     public typealias Result = Done
@@ -130,7 +131,8 @@ public struct SkillsBrowser: InternalMethod {
     public init(worktreeId: String) { self.worktreeId = worktreeId }
 }
 public struct BrowserSkill: Codable, Sendable, Equatable {
-    /// Why it's on or off when that isn't a web app found: its words are `why`'s, and the app's to translate.
+    /// Why the setting is on or off, when the reason isn't that a web app was found. The words are given by `why`, and
+    /// the app translates them.
     public enum Reason: String, Codable, CaseIterable, Sendable {
         case project = "set for this project", always = "Always, in Settings", never = "Never, in Settings"
         case used = "an agent used it here", localPage = "a local page is open here", noWebApp = "no web app found"
@@ -176,8 +178,8 @@ public struct RepoAddRemote: RPCMethod {
         self.`init` = `init`
     }
 }
-/// Why a tab shows a reason instead of a file's text: one rule for a file on this Mac and one on a remote project's host
-/// (`files.read` fails with it as its error's `data`).
+/// Why a tab shows a reason instead of a file's text: one rule for a file on this Mac and for one on a remote project's
+/// host (`files.read` fails with it as its error's `data`).
 public enum Unopenable: Codable, Sendable, Equatable {
     /// A pipe or a device (/dev/zero): reading it would block or never end.
     case special

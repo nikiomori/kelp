@@ -65,7 +65,8 @@ extension NSColor {
         (NSColor.themeAccent.usingColorSpace(.sRGB)?.saturationComponent ?? 1) < 0.1 ? .labelColor : .themeAccent
     }
 
-    /// The accent in the chrome: the theme's, else the system's. Native controls keep the system's, which nothing can change.
+    /// The accent colour in the chrome: the theme's accent, else the system's. Native controls keep the system's
+    /// accent, which nothing can change.
     public static let themeAccent = NSColor(name: nil) { _ in chosenAccent.withLock { $0 } ?? .controlAccentColor }
     public static func setThemeAccent(_ color: NSColor?) { chosenAccent.withLock { $0 = color } }
 

@@ -1,6 +1,6 @@
 import Foundation
 
-// git's output as values: what the daemon sends and the app shows. Running git is GitKit's (the daemon's).
+// git's output as values: what the daemon sends and the app shows. Running git belongs to GitKit (in the daemon).
 
 /// Thin wrapper over the system git: reading its output here, running it in GitKit.
 public enum Git {
@@ -16,12 +16,13 @@ public enum Git {
         }
     }
 
-    /// Whether one of `changes` can change a workspace's file list (`files.list`) or what it shows: outside .git, a file
-    /// or folder made, removed or moved (`reshapes`: what a save writes in a file lists the same files) or the rules of
-    /// what's ignored; in .git, only the index (`git rm --cached`, staging), HEAD (a checkout) and info/exclude. git's
-    /// own churn otherwise would list the files again several times a second, and every save once.
+    /// Whether one of `changes` can change a workspace's file list (`files.list`) or what it shows. Outside .git, that
+    /// is a file or folder made, removed or moved (`reshapes`: a save writes a file, and the list stays the same), or a
+    /// change to the rules of what is ignored; inside .git, only the index (`git rm --cached`, staging), HEAD (a
+    /// checkout) and info/exclude. Otherwise git's own churn would list the files again several times a second, and
+    /// once for every save.
     /// Limit: FSEvents adds up a path's flags for a few seconds, so a file written just after it was made, and every
-    /// atomic save (a rename), still lists them again.
+    /// atomic save (a rename), still lists the files again.
     public static func touchesFileList(_ changes: [FileWatcher.Change]) -> Bool {
         changes.contains { change in
             let path = change.path
@@ -91,7 +92,8 @@ extension Array where Element == FileChange {
 }
 
 extension FileChange {
-    /// VS Code's status letter: `inWorktree` picks which column speaks (the unstaged list shows the worktree's).
+    /// The status letter VS Code shows: `inWorktree` picks which column it comes from (the unstaged list shows the
+    /// worktree's column).
     public func letter(inWorktree: Bool, merging: Bool = false) -> String {
         if merging || conflicted { return "!" }
         if untracked { return "U" }
@@ -111,7 +113,7 @@ public struct DiffLine: Codable, Sendable, Equatable {
     public var text: String
     public var oldLine: Int?
     public var newLine: Int?
-    /// The file's last line, with no newline after it (git's "\ No newline at end of file").
+    /// The file's last line has no newline after it (git's "\ No newline at end of file").
     public var noNewline: Bool?
     public init(kind: Kind, text: String, oldLine: Int? = nil, newLine: Int? = nil, noNewline: Bool? = nil) {
         self.kind = kind
@@ -175,7 +177,7 @@ public struct FileDiff: Codable, Sendable, Equatable {
     }
 }
 
-/// A commit's message body (the subject is the graph's), its author's email, and its size against the first parent.
+/// A commit's message body (the graph shows the subject), its author's email, and its size against its first parent.
 public struct CommitDetails: Codable, Sendable, Equatable {
     public var body: String
     public var email: String

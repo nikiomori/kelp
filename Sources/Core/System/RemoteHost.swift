@@ -72,9 +72,9 @@ public struct RemoteHost: Codable, Sendable, Equatable {
             ]
     }
 
-    /// What the host's shell runs: `argv` in the project's folder, through an interactive login shell so the host's PATH
-    /// applies (interactive too: nvm and npm's global bin go in .bashrc, which `bash -lc` skips);
-    /// nil argv is an interactive login shell.
+    /// What the host's shell runs: `argv` in the project's folder, through an interactive login shell so the host's
+    /// PATH applies (interactive as well, because nvm and npm's global bin are set in .bashrc, which `bash -lc` skips).
+    /// A nil argv runs an interactive login shell.
     public func command(_ argv: [String]?, envFile: String? = nil, exports: [String: String] = [:]) -> String {
         let cd = "cd \(Self.cdArg(path)) && " + Self.prelude(envFile, exports)
         guard let argv, !argv.isEmpty else { return cd + "exec \"$SHELL\" -l" }
@@ -87,9 +87,10 @@ public struct RemoteHost: Codable, Sendable, Equatable {
     /// (written with umask 077), under a name nobody can guess.
     public static func envFile(_ name: String) -> String { #""${TMPDIR:-/tmp}/kelp-env-\#(name)""# }
 
-    /// sh that sets the program's environment: `exports` (Kelp's own, nothing secret), then what file `name`
-    /// (`envFile`) holds, which it removes: the agent's settings and secrets, never on its command line, where the
-    /// host's `ps` shows them. A key that isn't a name, or a file name that isn't one, is left out.
+    /// The sh that sets the program's environment: first `exports` (Kelp's own variables, nothing secret), then the
+    /// variables in file `name` (`envFile`), which it then removes. That file holds the agent's settings and secrets,
+    /// which never go on its command line, where the host's `ps` would show them. A key that isn't a valid name, or a
+    /// file name that isn't one, is left out.
     static func prelude(_ name: String?, _ exports: [String: String]) -> String {
         let set = exports.sorted { $0.key < $1.key }.filter { isName($0.key) }.map {
             "export \($0.key)=\(ShellQuote.word($0.value)); "
@@ -118,7 +119,8 @@ public struct RemoteHost: Codable, Sendable, Equatable {
         let pane =
             Self.prelude(envFile, exports) + "exec "
             + (argv.isEmpty ? words : "\"$SHELL\" -ilc " + ShellQuote.word(words))
-        // The title only once the program set one: until then tmux's is the host's name, which would name the tab.
+        // Use the title only once the program has set one: until then tmux's title is the host's name, which would end
+        // up as the tab's name.
         let options = [
             ["status", "off"], ["mouse", "on"], ["set-titles", "on"],
             ["set-titles-string", "#{?#{==:#{pane_title},#{host}},,#{pane_title}}"],

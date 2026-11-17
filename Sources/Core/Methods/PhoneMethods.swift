@@ -1,7 +1,7 @@
 import Foundation
 
-// phone.*: Settings › Phone. The agents on a phone's page, through a relay that passes what it can't read (the daemon's
-// PhoneBridge). Not for agents: a pairing link answers their questions.
+// phone.*: Settings › Phone. The agents on a phone's page, reached through a relay that passes on what it can't read
+// (the daemon's PhoneBridge). Not for agents, because a pairing link can answer their questions.
 
 /// A phone paired with this Mac. `push`: it takes notifications.
 public struct PairedPhone: Codable, Sendable, Equatable, Identifiable {

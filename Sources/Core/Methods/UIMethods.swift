@@ -16,7 +16,7 @@ public struct ShownUI: Codable, Sendable, Equatable {
     /// The editor area's tabs.
     public let editor: Editor?
     public let extensions: [Extension]?
-    /// The palette's commands and the inspector's panels: what `kelp ui command` and `kelp open ext:` take.
+    /// The palette's commands and the inspector's panels, as `kelp ui command` and `kelp open ext:` take them.
     public let commands: [Item]?, panels: [Item]?
     /// Kelp's window isn't seen (hidden, minimized or covered): what only it shows isn't read meanwhile.
     public let away: Bool?
@@ -115,10 +115,11 @@ public struct UICommand: InternalMethod {
         self.args = args
     }
 
-    /// The app's commands an agent may run: what shows something or moves around (panes, tabs, panels), the window's
-    /// picture (`kelp shot`) and an extensions reload (`kelp ext reload`). Each by its id: an extension names its own
-    /// commands, so a prefix would let one in. None opens a page tab (⇧⌘O's `scripts.openPage`): that tab is logged in
-    /// as the user and `kelp shot` sees it; an agent's page is `kelp browser open`'s, with cookies of its own.
+    /// The app's commands an agent may run: the ones that show something or move around (panes, tabs, panels), the
+    /// window's picture (`kelp shot`) and an extensions reload (`kelp ext reload`). Each is listed by its id, because
+    /// an extension names its own commands and a prefix would let those in. None of them opens a page tab (so ⇧⌘O's
+    /// `scripts.openPage` isn't listed), because that tab is logged in as the user and `kelp shot` can see it; an
+    /// agent's page comes from `kelp browser open`, with cookies of its own.
     public static let forAgents: Set<String> = [
         "agents.history", "agents.nextNeedingYou", "agents.sideBySide", "agents.usage",
         "editor.findReferences", "editor.fold", "editor.foldAll", "editor.goToLine", "editor.jumpToDefinition",
@@ -137,7 +138,7 @@ public struct UICommand: InternalMethod {
     ]
 }
 
-/// What `kelp browser` does on a page (`UIBrowser.action`): the CLI's words, the shell's and the page tab's alike.
+/// What `kelp browser` does on a page (`UIBrowser.action`), named in words the CLI, the shell and the page tab share.
 public enum BrowserAction: String, Codable, CaseIterable, Sendable {
     case open, snapshot, click, hover, type, press, upload, dialog, scroll, back, reload, eval, viewport, screenshot,
         wait, drag
@@ -194,7 +195,7 @@ public struct UIBrowserReply: InternalMethod {
     }
 }
 
-/// An agent's prompt in a tab of the app (`kelp edit`, the tab's `prompt:` URI).
+/// Opens an agent's prompt in a tab of the app (`kelp edit`, the tab's `prompt:` URI).
 public enum Prompts {
     /// Beside the file: written when the tab closes.
     public static let done = ".kelp-done"

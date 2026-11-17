@@ -130,7 +130,7 @@ final class SkeletonRows: NSView {
     override func layout() {
         super.layout()
         let path = CGMutablePath(), inset = Metrics.inset, room = bounds.width - 2 * inset
-        let line = Metrics.gapWide, under = Metrics.gap   // a name's height and its second line's
+        let line = Metrics.gapWide, under = Metrics.gap   // the height of a name's line, and of its second line
         let mark = Metrics.iconSmall
         var top: CGFloat = Metrics.gap
         for width in Self.widths where top + Metrics.rowTwoLine <= bounds.height {
@@ -184,7 +184,8 @@ final class SkeletonRows: NSView {
     }
 }
 
-/// The same for SwiftUI: the spinner and its line, as a form's row or, with `.frame(maxHeight: .infinity)`, a page's middle.
+/// The same view for SwiftUI: the spinner and its line, as a form's row or, with `.frame(maxHeight: .infinity)`, in the
+/// middle of a page.
 public struct LoadingLine: View {
     private let text: String
     public init(_ text: String) { self.text = text }

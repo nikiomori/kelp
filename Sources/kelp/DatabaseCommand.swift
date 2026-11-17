@@ -46,7 +46,7 @@ extension Main {
                 if !result.columns.isEmpty { print(table(result.columns, result.rows.map { $0.map { cell($0) } })) }
                 print(footer(result, sql: sql, limit: limit))
             }
-        case "copy":   // the user's: a copy for this workspace's branch (not for agents: `db.copy` isn't theirs)
+        case "copy":   // only the user may copy a database for this workspace's branch (`db.copy` isn't open to agents)
             let name = try await database(args.first ?? named, worktree.id, client)
             let copy = try await client.call(DatabaseCopy(worktreeId: worktree.id, database: name))
             print("\(copy.name): \(copy.address)")

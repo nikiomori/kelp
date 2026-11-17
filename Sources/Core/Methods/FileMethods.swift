@@ -4,8 +4,8 @@ import Foundation
 // Paths are absolute; the project's list and search (`files.list`, `files.ignored`, `files.search`) name a workspace
 // (`id`, its worktree id) and answer paths relative to it.
 
-/// A version of a file: the same stamp, the same bytes. Opaque: its size, modification time and inode here (through
-/// symlinks), the SHA-256 of its bytes on a host.
+/// A version of a file: the same stamp means the same bytes. It is opaque: here it is the file's size, modification
+/// time and inode (through symlinks); on a host it is the SHA-256 of its bytes.
 public typealias FileStamp = String
 
 /// One move: `from` → `to`.

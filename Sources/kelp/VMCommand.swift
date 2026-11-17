@@ -99,8 +99,9 @@ extension Main {
         }
     }
 
-    /// A machine's screen, read and driven by the daemon (`vm.screen`, `vm.ui`): macOS's from the Mac's side and through
-    /// Kelp Guest inside, Android's through adb, iOS's through Kelp's runner. A screenshot goes to a file, its path printed.
+    /// Reads and drives a machine's screen through the daemon (`vm.screen`, `vm.ui`): a macOS machine's from the Mac's
+    /// side and through Kelp Guest inside it, an Android one's through adb, an iOS one's through Kelp's runner. A
+    /// screenshot goes to a file, and its path is printed.
     private static func screen(_ action: String, _ client: RPCClient) async throws {
         guard let name = args.first else { fail("vm \(action) <name> …") }
         args.removeFirst()

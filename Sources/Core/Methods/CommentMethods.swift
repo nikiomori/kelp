@@ -1,7 +1,7 @@
 import Foundation
 
-// Review comments on a workspace's diff (`id` is its worktree id), the user's and reviewer agents', until they're
-// sent to an agent or resolved.
+// Review comments on a workspace's diff (`id` is its worktree id), from the user and from reviewer agents, kept until
+// they are sent to an agent or resolved.
 
 /// A review comment on lines `start`…`end` of `file` in workspace `id`.
 public struct CommentAdd: RPCMethod {

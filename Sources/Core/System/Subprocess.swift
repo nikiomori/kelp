@@ -15,7 +15,7 @@ public struct ProgramError: Error, CustomStringConvertible, Sendable {
     public var status: Int32
     public var stderr: String
     public var description: String { "\(program) failed (\(status)): \(stderr)" }
-    /// For people: its first sentence without "fatal:" ("…overwritten by checkout:" keeps its next line).
+    /// The error for people: its first sentence without "fatal:" ("…overwritten by checkout:" keeps its next line).
     public var message: String { Self.firstSentence(stderr) ?? description }
 
     public init(program: String, status: Int32, stderr: String) {
@@ -249,7 +249,8 @@ public enum Subprocess {
     /// The user it runs as; nil once there's no such process. By sysctl: proc_pidinfo refuses another account's process.
     public static func owner(_ pid: pid_t) -> uid_t? { kinfo(pid).map { $0.kp_eproc.e_ucred.cr_uid } }
 
-    /// Its arguments (argv, its program first), of a process of the same user; nil for another's, or none.
+    /// The process's arguments (its argv, program first), for a process of the same user; nil for another user's
+    /// process, or when there is none.
     public static func arguments(_ pid: pid_t) -> [String]? {
         // 16 KB holds most programs' arguments and environment; the system's most only when it doesn't (asked of every
         // program on a caller's line, it shouldn't take a megabyte each). A buffer too small isn't refused: it's filled

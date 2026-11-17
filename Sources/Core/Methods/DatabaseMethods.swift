@@ -28,16 +28,18 @@ public struct DatabaseSchemaRead: RPCMethod {
 /// The times kelpd gives a database's work, and what the calls that wait on it (`db.query`, `db.apply`, `db.check`)
 /// wait: read by both sides, so a caller is never told "timed out" of a change kelpd still commits.
 public enum DatabaseTimes {
-    /// A read's time limit, and a change's; the longest a user's read may be given (Settings › Databases).
+    /// The time limit for a read and for a change, and the longest a user's read may be given (Settings › Databases).
     public static let read: TimeInterval = 15, write: TimeInterval = 300, longestRead: TimeInterval = 300
     /// A MySQL trial, its rollback included.
     public static let trial: TimeInterval = 60
     /// Asking Postgres whether the role is a superuser (`Databases.query`, for a production database).
     public static let superuser: TimeInterval = 5
-    /// What a call takes past its statement's time before it's given up (`DatabaseWire.within`, a client's run).
+    /// How much longer than its statement's time a call may take before it is given up (`DatabaseWire.within`, a
+    /// client's run).
     public static let slack: TimeInterval = 10
-    /// Connecting: Postgres (`connect`), MySQL's handshake, and a KILL QUERY's handshake and then its answer (each
-    /// `kill`, what a MySQL call past its time adds); finding a compose service's container (`compose`).
+    /// Time limits for connecting: to Postgres (`connect`), MySQL's handshake, and a KILL QUERY's handshake and its
+    /// answer (each `kill`, which a MySQL call past its time adds); and for finding a compose service's container
+    /// (`compose`).
     public static let connect: TimeInterval = 8, handshake: TimeInterval = 10, kill: TimeInterval = 3
     public static let compose: TimeInterval = 15
     /// Reaching a server through SSH (`Databases.reach`): the shared connection opened (20 s) and checked (3 s).
@@ -50,13 +52,14 @@ public enum DatabaseTimes {
         max(connect, handshake + 2 * kill, compose) + seconds + slack
     }
 
-    /// An agent's statement: the superuser check, its try as a read, its trial (MySQL's client asks first whether
-    /// it can roll back), the user's answer, the change.
+    /// Time limits for each step of an agent's statement: the superuser check, trying it as a read, its trial (MySQL's
+    /// client asks first whether it can roll back), the user's answer, and the change.
     public static var query: TimeInterval {
         reach + call(superuser) + call(longestRead) + call(read) + call(trial) + DatabaseQuery.answerWithin
             + call(write)
     }
-    /// The table's edits in one transaction. Limit: Appwrite's are a request each, with no time for them all.
+    /// The time limit for applying the table's edits in one transaction. Limit: Appwrite's edits are one request each,
+    /// and this time doesn't stretch to cover all of them.
     public static var apply: TimeInterval { reach + call(write) }
     /// The sheet's check: the tables, the version and the databases, each a call of its own.
     public static var check: TimeInterval { reach + 3 * call(read) }
@@ -119,9 +122,10 @@ public struct DatabaseRemove: InternalMethod {
     }
 }
 
-/// A copy of a database for the workspace's branch, to change without touching the project's own: a SQLite file goes into
-/// the branch's folder (where Kelp finds it under the same name), a Postgres on this Mac becomes `<database>_<branch>`
-/// (CREATE DATABASE … TEMPLATE, which needs nobody connected to it). Not a production one, MySQL's, or a remote host's.
+/// Makes a copy of a database for the workspace's branch, to change without touching the project's own database. A
+/// SQLite file is copied into the branch's folder (where Kelp finds it under the same name); a Postgres database on
+/// this Mac becomes `<database>_<branch>` (through CREATE DATABASE … TEMPLATE, which needs nobody connected to it).
+/// Production databases, MySQL databases and databases on a remote host can't be copied.
 public struct DatabaseCopy: InternalMethod {
     public static let name = "db.copy"
     public typealias Result = DatabaseInfo
@@ -132,8 +136,8 @@ public struct DatabaseCopy: InternalMethod {
     }
 }
 
-/// Drops a branch's copy (`DatabaseInfo.copy`): its file, or its Postgres database, and Kelp's entry for it. The
-/// database it was copied from is the workspace's again.
+/// Drops a branch's copy of a database (`DatabaseInfo.copy`): its file or its Postgres database, and Kelp's entry for
+/// it. The database it was copied from becomes the workspace's again.
 public struct DatabaseCopyRemove: InternalMethod {
     public static let name = "db.copyRemove"
     public typealias Result = Done
@@ -152,7 +156,8 @@ public struct DatabaseActivity: InternalMethod {
     public init(worktreeId: String) { self.worktreeId = worktreeId }
 }
 
-/// A run's rows, kept for the tab (a change that asks: the rows it would leave); nil once it's gone from what's kept.
+/// A run's rows, kept for the tab (for a change that asks first, the rows it would leave); nil once the run is no
+/// longer kept.
 public struct DatabaseResultRead: InternalMethod {
     public static let name = "db.result"
     public typealias Result = QueryResult?

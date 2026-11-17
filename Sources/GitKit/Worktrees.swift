@@ -7,10 +7,10 @@ extension Git {
         String(branch.map { $0.isLetter || $0.isNumber || $0 == "." || $0 == "_" ? $0 : "-" })
     }
 
-    /// New branch from `base` in a fresh worktree; copies `copyFiles` present in the repo root. `existing`: a branch that is
-    /// there already, checked out as it is (a remote one, "origin/x", gets a local "x" that follows it); `base` unused.
-    /// `copying`: the project's own files a worktree gets (`copyFiles`, `.worktreeinclude`'s: `.env` and the like), which
-    /// a pull request's code shouldn't have to read.
+    /// Makes a new branch from `base` in a fresh worktree. `existing` is a branch that is already there, checked out as
+    /// it is (a remote one, "origin/x", gets a local "x" that follows it), and then `base` is unused. `copying` says
+    /// whether the worktree gets the project's own files (`copyFiles` present in the repo root, and
+    /// `.worktreeinclude`'s: `.env` and the like), which a pull request's code shouldn't get to read.
     public static func addWorktree(   // swiftlint:disable:this function_parameter_count
         repo: String, branch: String, base: String, into dir: URL, copyFiles: [String], existing: Bool = false,
         copying: Bool = true, remotes: Remotes
@@ -57,7 +57,7 @@ extension Git {
         throws -> String
     {
         do { try run(["fetch", "-q", "origin", "pull/\(number)/head"], cwd: repo, remotes: remotes) } catch let github {
-            // GitHub's error, if GitLab's way fails too: most projects are GitHub's.
+            // Keep GitHub's error if GitLab's way fails too, since most projects are on GitHub.
             do {
                 try run(["fetch", "-q", "origin", "merge-requests/\(number)/head"], cwd: repo, remotes: remotes)
             } catch { throw github }
@@ -91,10 +91,10 @@ extension Git {
         }
     }
 
-    /// Whether `rev` in `repo` holds a pull request's code that the project's branches don't (origin's and upstream's: one
-    /// merged and pushed is the project's own): a head Kelp fetched (`fetchPullRequest`), a `pr-*` branch, or a branch that follows a PR's ref
-    /// (`gh pr checkout`, `glab mr checkout`: its `branch.<name>.merge` is refs/pull/… or refs/merge-requests/…). A
-    /// fetched head found merged and pushed is dropped. Unknown (git failed): it does.
+    /// Whether `rev` in `repo` holds a pull request's code that none of the project's branches (origin's, upstream's)
+    /// hold; a PR merged and pushed is the project's own. True for a head Kelp fetched (`fetchPullRequest`), a `pr-*`
+    /// branch, or a branch following a PR's ref (`gh pr checkout`, `glab mr checkout`: its `branch.<name>.merge` is
+    /// refs/pull/… or refs/merge-requests/…). A fetched head merged and pushed since is dropped. If git fails: true.
     public static func holdsPullRequest(_ repo: String, at rev: String = "HEAD", remotes: Remotes) -> Bool {
         do {
             let merges = try run(
@@ -114,7 +114,7 @@ extension Git {
                     + following, cwd: repo, remotes: remotes)
             for line in heads.split(separator: "\n") {
                 let ref = String(line.prefix { $0 != " " }), sha = String(line.drop { $0 != " " }.dropFirst())
-                // The project's branches: origin's, and upstream's in a fork's checkout (where origin is the user's fork).
+                // The project's branches: origin's, and upstream's in a fork's checkout (origin is the user's fork).
                 let own = ["--not", "--remotes=origin", "--remotes=upstream"]
                 guard try run(["rev-list", "-n1", sha] + own, cwd: repo, remotes: remotes).isEmpty else { return true }
                 if ref.hasPrefix("refs/kelp/pr/") { try run(["update-ref", "-d", ref], cwd: repo, remotes: remotes) }

@@ -52,7 +52,8 @@ public struct CodeSignature: Codable, Sendable, Equatable {
 /// One completion: what the list shows and what goes in.
 public struct CodeCompletion: Codable, Sendable, Equatable {
     public var label: String, detail: String?, insert: String
-    /// "method", "keyword"…; its documentation; whether `insert` has tab stops; what it replaces, and what else it changes.
+    /// The completion's kind ("method", "keyword"…), its documentation, whether `insert` has tab stops, what it
+    /// replaces, and what else it changes.
     public var kind: String?, documentation: String?, snippet: Bool?, edit: CodeEdit?, more: [CodeEdit]?
     public init(
         label: String, detail: String? = nil, insert: String, kind: String? = nil, documentation: String? = nil,
@@ -164,8 +165,8 @@ public struct LSPServerState: Codable, Sendable, Equatable {
         self.failed = failed
     }
 }
-/// What's known of each of `commands`, as the languages name them: for Settings › Languages and a file's own list.
-/// `root`: the project whose servers count as running; every project's when nil.
+/// What is known about each of `commands`, named as the languages name them, for Settings › Languages and a file's own
+/// list. `root` is the project whose servers count as running; with nil, every project's servers count.
 public struct LSPServers: InternalMethod {
     public static let name = "lsp.servers"
     public typealias Result = [LSPServerState]

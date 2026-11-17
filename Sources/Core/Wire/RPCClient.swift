@@ -71,7 +71,7 @@ public final class RPCClient: Sendable {
         }
     }
 
-    /// Waits (up to `timeout`) until what's queued is written: a quitting app's last change must reach the daemon.
+    /// Waits (up to `timeout`) until everything queued is written, so a quitting app's last change reaches the daemon.
     public func flush(timeout: TimeInterval = 1) {
         let written = DispatchSemaphore(value: 0)
         writer.async { written.signal() }
@@ -209,8 +209,8 @@ public final class RPCClient: Sendable {
     public func notify<M: RPCMethod>(_ method: M) { notify(M.name, try? method.params()) }
 }
 
-/// A line from the daemon as far as the reader needs it: a reply's id and error; a notification's method, and its params
-/// as the event's own type when it's one of `rpcEvents`.
+/// A line from the daemon, read only as far as the reader needs: a reply's id and error, or a notification's method and
+/// its params, decoded as the event's own type when it is one of `rpcEvents`.
 private struct Envelope: Decodable {
     private static let events = Dictionary(rpcEvents.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
     var id: Int?, method: String?, error: RPCError?, event: (any RPCEvent)?

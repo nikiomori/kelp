@@ -1,7 +1,7 @@
 import Foundation
 
-// Add Database's sheet: an address checked as it's typed, the servers running in Docker, and "All my projects" used
-// in a project. The user's only: no agent reaches these.
+// Add Database's sheet: an address checked as it is typed, the servers running in Docker, and "All my projects"
+// databases used in a project. Only the user may call these; no agent reaches them.
 
 /// Connects with what the sheet says and tells what's there: the server's version, its tables, its other databases.
 /// Throws the server's own words when it can't. `password` nil: the one kept for `database.name`, if any.
@@ -24,7 +24,7 @@ public struct DatabaseCheckResult: Codable, Sendable, Equatable {
     /// "Postgres 16.4", "MariaDB 10.11.9", "SQLite", "DuckDB".
     public var version: String
     public var tables: Int
-    /// The server's databases, for the sheet's pop-up; empty for a file.
+    /// The databases on the server, for the sheet's pop-up menu; empty for a file database.
     public var databases: [String]
     public var ms: Int
     public init(version: String, tables: Int, databases: [String], ms: Int) {
@@ -76,8 +76,8 @@ public struct ImportSource: Codable, Sendable, Equatable, Identifiable {
     public var id: String, name: String
     public var count: Int
     public var engines: [DatabaseInfo.Engine]
-    /// Where its passwords are: "keychain" (macOS asks for each), "file" (readable without asking: Kelp asks first),
-    /// "none" (typed when first used).
+    /// Where the app keeps its passwords: "keychain" (macOS asks for each one), "file" (readable without asking, so
+    /// Kelp asks first), or "none" (typed when first used).
     public var passwords: String
     public init(id: String, name: String, count: Int, engines: [DatabaseInfo.Engine], passwords: String) {
         self.id = id
@@ -165,13 +165,13 @@ public struct DatabaseImport: InternalMethod {
 
 // MARK: The panel's dots
 
-/// Whether each of the workspace's databases answers, tried once with a short limit; never dials a remote host (an SSH
-/// host or a remote project's with no open connection says so instead).
+/// Whether each of the workspace's databases answers, tried once with a short limit. It never dials a remote host: a
+/// database behind an SSH host, or a remote project's with no open connection, says so instead.
 public struct DatabaseStatus: InternalMethod {
     public static let name = "db.status"
     public typealias Result = [DatabaseHealth]
     public static var timeout: TimeInterval? { 30 }
-    /// `library`: All My Projects' instead of the project's.
+    /// `library` uses All My Projects' databases instead of the project's.
     public var worktreeId: String, library: Bool?
     public init(worktreeId: String, library: Bool? = nil) {
         self.worktreeId = worktreeId

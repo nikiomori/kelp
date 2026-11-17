@@ -32,8 +32,8 @@ public enum TabURI {
     public static func isPage(_ uri: String) -> Bool {
         ["http", "https", "about", "preview", agentScheme].contains(scheme(uri))
     }
-    /// A pull request in Kelp's own tab (Issues'), wherever it's opened from: the Issues panel, a row's or the window
-    /// bar's PR mark, Quick Open's "#". `repo` is the project's id.
+    /// A pull request in Kelp's own tab (the Issues tab), wherever it is opened from: the Issues panel, the PR mark on
+    /// a row or in the window bar, or Quick Open's "#". `repo` is the project's id.
     public static func pullRequest(repo: String, number: Int) -> String { "pr:\(repo)/\(number)" }
     /// What a subagent of `session` did: a journal, it has no terminal.
     public static func subagent(session: String, id: String) -> String { "subagent:\(session)/\(id)" }
@@ -45,7 +45,7 @@ public enum TabURI {
     public static func prompt(_ path: String) -> String { "prompt:" + Core.Prompts.uriBody(path) }
     public static func promptPath(_ uri: String) -> String { body(uri).removingPercentEncoding ?? body(uri) }
     public static let promptDone = Core.Prompts.done
-    /// A workspace's changes: all of them, one file's, a source's ("staged", "turn"…) or a commit's.
+    /// A workspace's changes: all of them, one file's changes, one source's ("staged", "turn"…), or one commit's.
     public static func diff(
         _ worktree: String, file: String? = nil, source: GitDiff.Source? = nil, commit: String? = nil
     ) -> String {

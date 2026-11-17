@@ -38,7 +38,8 @@ public struct HostStats: Codable, Sendable, Equatable {
     /// "Ubuntu 24.04.5 LTS", else `uname -sr`.
     public var os: String?
     public var cores: Int?
-    /// Seconds since boot; the 1, 5 and 15 minute load averages. Linux only, the load also on macOS and BSD.
+    /// Seconds since boot, and the 1, 5 and 15 minute load averages. The uptime is read on Linux only; the load also on
+    /// macOS and BSD.
     public var uptime: Double?, load: [Double]?
     /// Busy share of all cores, 0–100, over a moment of the read. Linux only.
     public var cpu: Double?
@@ -98,7 +99,7 @@ public struct HostStats: Codable, Sendable, Equatable {
 
     public struct Port: Codable, Sendable, Equatable {
         public var port: Int
-        /// Reached only from the server itself (127.0.0.1, ::1): forward it to use it here.
+        /// The port can be reached only from the server itself (127.0.0.1, ::1), so forward it to use it here.
         public var local: Bool
         /// What listens: the program (`ss` tells only for the user's own), and the Docker container it's published from.
         public var process: String?, container: String?
@@ -217,9 +218,9 @@ public struct RemoteTrustHost: InternalMethod {
     }
 }
 
-/// The folders in `path` on `host` (~ is the host's home), over the host's shared SSH connection: the folder's full
-/// path there, whether it's in a git repository, and its subfolders, hidden ones left out, each marked when it's a
-/// repository. A host Kelp can't reach fails here, with ssh's reason.
+/// The folders in `path` on `host` (~ is the host's home), read over the host's shared SSH connection: the folder's
+/// full path there, whether it is in a git repository, and its subfolders (without hidden ones), each marked when it is
+/// a repository. A host Kelp can't reach fails here, with ssh's reason.
 public struct RemoteListFolders: InternalMethod {
     public static let name = "remote.listFolders"
     public struct Folder: Codable, Sendable, Equatable {

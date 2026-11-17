@@ -80,8 +80,8 @@ case .some(let path) where args.count == 1 && !path.hasPrefix("-"):
         }
     }
     runtime.listen()
-    // AppKit's run loop, not dispatchMain() (that ends the main thread, and the main queue, the VM's and MainActor's, would
-    // run elsewhere): a macOS machine's screen is a window.
+    // AppKit's run loop rather than dispatchMain(): dispatchMain() ends the main thread, and then the main queue (the
+    // VM's and MainActor's) would run elsewhere. A macOS machine's screen is a window, so it needs AppKit.
     NSApplication.shared.setActivationPolicy(.accessory)
     NSApplication.shared.run()
 default:

@@ -1,9 +1,10 @@
 import SwiftUI
 
 /// `EmptyStateView` for a SwiftUI page: the same block (a 28 pt icon at the chrome's weight, a semibold title, a line
-/// of what to do, a button or two), lifted over the middle as it is there. SwiftUI's own `ContentUnavailableView` draws
-/// a bigger icon and title, so a SwiftUI tab's empty state read as another app's beside a panel's.
-/// `lifted: false`: the block alone, for one that sits over other content instead of filling the page.
+/// saying what to do, a button or two), raised a little above the middle as it is there. SwiftUI's own
+/// `ContentUnavailableView` draws a bigger icon and title, so a SwiftUI tab's empty state looked like another app's
+/// beside a panel's.
+/// `lifted: false` gives the block alone, for an empty state that sits over other content instead of filling the page.
 public struct EmptyState<Description: View, Actions: View>: View {
     private let title: String
     private let symbol: String

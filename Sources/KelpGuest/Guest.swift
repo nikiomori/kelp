@@ -195,7 +195,7 @@ final class Server {
     }
 }
 
-/// The socket's address (a path well under sockaddr_un's 104 bytes: the temporary folder's).
+/// The socket's address: a path in the temporary folder, well under sockaddr_un's 104 bytes.
 func unixAddress(_ path: String) -> sockaddr_un {
     var address = sockaddr_un()
     address.sun_family = sa_family_t(AF_UNIX)

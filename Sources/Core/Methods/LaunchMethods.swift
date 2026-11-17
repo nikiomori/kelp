@@ -145,9 +145,9 @@ public struct SessionMoveAcross: InternalMethod {
     }
 }
 
-/// An issue or task → a branch with its number, a worktree, an agent briefed with its text → {worktree, session, setupNeedsTrust}.
-/// (`title` is the issue's: the session's is "ref title".) The brief is typed, not sent, unless `draft` is false: the issue's
-/// text is whoever filed it.
+/// Starts work on an issue or task: a branch with its number, a worktree and an agent briefed with its text. `title` is
+/// the issue's (the session's is "ref title"). The brief is typed but not sent unless `draft` is false, since whoever
+/// filed the issue wrote its text.
 public struct TaskFromIssue: RPCMethod {
     public static let name = "task.fromIssue"
     public struct Result: Codable, Sendable, Equatable {

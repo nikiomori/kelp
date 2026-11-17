@@ -225,7 +225,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         }
     }
 
-    /// The Replace field's keys; the find field's are the card's.
+    /// The Replace field's keys; the find field's keys are handled by the card.
     func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
         switch sel {
         case #selector(NSResponder.cancelOperation(_:)): card.close()

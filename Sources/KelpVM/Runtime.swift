@@ -43,7 +43,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
     var window: NSWindow?   // internal: a test gives it one
     /// How it ends once it has left: the process's exit; a test's own.
     var exitProcess: () -> Void = { exit(0) }
-    /// What time it is: the clock's; a test's, moved past the idle limits.
+    /// What time it is: the clock by default; a test sets its own, moved past the idle limits.
     var now: () -> Date = { Date() }
 
     nonisolated static let pauseAfter: TimeInterval = 120, sleepAfter: TimeInterval = 600
@@ -167,7 +167,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         }
     }
 
-    /// Internal: the tests drive it. A share, and a macOS machine's screen, are this kind's own; the rest is every kind's.
+    /// Handles a request from kelpd; internal so the tests can drive it. Shares and a macOS machine's screen are
+    /// handled by this kind of machine alone; the rest is shared by every kind.
     func handle(_ request: VMHelper.Request, _ done: @escaping (String?, Int?) -> Void) {
         switch request.op {
         case .share: share(request, done)

@@ -13,7 +13,8 @@ public enum AgentHome {
         "gemini": ("GEMINI_CLI_HOME", "", ".gemini"), "antigravity": (nil, "", ".gemini/antigravity-cli")
     ]
 
-    /// `agent`'s folder under `env` (the session's or this process's); nil for an agent Kelp doesn't know the folder of.
+    /// The folder of `agent` under `env` (the session's environment or this process's); nil for an agent whose folder
+    /// Kelp doesn't know.
     public static func dir(
         _ agent: String, env: [String: String] = ProcessInfo.processInfo.environment,
         home: String = NSHomeDirectory()

@@ -112,9 +112,10 @@ public enum CIRuns {
         case passed, running, waiting, failed
         public static func < (lhs: State, rhs: State) -> Bool { lhs.rawValue < rhs.rawValue }
     }
-    /// From the newest run of each workflow: one failed; else one waiting for someone's approval (a deploy to a protected
-    /// environment, a fork's first run); else one not finished; else one that succeeded. Nil: no runs, or only skipped or
-    /// cancelled ones (someone stopped it: nothing to fix).
+    /// The state to show, from the newest run of each workflow: failed if one failed; else waiting if one waits for
+    /// someone's approval (a deploy to a protected environment, a fork's first run); else running if one hasn't
+    /// finished; else succeeded. Nil when there are no runs, or only skipped or cancelled ones (someone stopped them,
+    /// so there is nothing to fix).
     public static func state(_ runs: [Run]) -> State? {
         let now = latest(runs)
         if now.contains(where: { $0.failed && !["cancelled", "action_required"].contains($0.conclusion) }) {

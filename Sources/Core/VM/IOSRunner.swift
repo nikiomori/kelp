@@ -1,9 +1,10 @@
 import Foundation
 
-/// Kelp's runner for iOS machines: a tiny Xcode project (a host app and a UI-testing bundle), its files in Resources/
-/// (runner-*.txt: not Kelp's own code), written into the machine's folder and built there with the user's Xcode
-/// (`xcodebuild build-for-testing`). Its one test never ends: it answers on the Mac's loopback what agents ask of the
-/// simulator's screen (`kelp vm click`, `ui`, `press`…), through XCUITest: no permission on this Mac, no pointer of the user's.
+/// Kelp's runner for iOS machines: a tiny Xcode project (a host app and a UI-testing bundle) whose files are in
+/// Resources/ (runner-*.txt, which aren't Kelp's own code). It is written into the machine's folder and built there
+/// with the user's Xcode (`xcodebuild build-for-testing`). Its one test never ends: through XCUITest it answers, on the
+/// Mac's loopback, what agents ask of the simulator's screen (`kelp vm click`, `ui`, `press`…), so it needs no
+/// permission on this Mac and never moves the user's pointer.
 public enum IOSRunner {
     /// Path in the project → contents; nil when this build lacks them.
     public static var files: [String: String]? {

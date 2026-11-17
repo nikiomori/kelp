@@ -127,7 +127,7 @@ public struct Review: Equatable, Sendable {
         return lines.filter { $0.wholeMatch(of: sentLine) == nil }.joined(separator: "\n")
     }
 
-    /// The line that goes to the agent: "My answers in <file>: 1A 2B. Note on 2: …".
+    /// The line that goes to the agent, such as "My answers in <file>: 1A 2B. Note on 2: …".
     public func answer(file: String) -> String {
         let picks = points.compactMap { p in p.pick.map { p.number + $0 } }
         let notes = points.filter { !$0.note.isEmpty }.map { "Note on \($0.number): \($0.note)" }

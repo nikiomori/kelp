@@ -2,8 +2,8 @@ import Foundation
 
 // usage.*: plan limits per account, and what the agents used, by day, model and project.
 
-/// Per account: Claude's 5-hour block, today and the week; Codex's limits (cached for a minute unless `force`); the plan
-/// limits the agents' own /usage screens show.
+/// Usage per account: Claude's 5-hour block, today and the week; Codex's limits (cached for a minute unless `force`);
+/// and the plan limits that the agents' own /usage screens show.
 public struct UsageGet: InternalMethod {
     public static let name = "usage.get"
     /// Tokens and their API price over a span (dates as seconds since 1970).
@@ -101,7 +101,7 @@ public struct UsageGet: InternalMethod {
 /// list price).
 public struct UsageAgents: InternalMethod {
     public static let name = "usage.agents"
-    /// A model's, a project's or an agent's (`name`) cost and tokens over the span.
+    /// The cost and tokens of one model, project or agent (`name`) over the span.
     public struct Group: Codable, Sendable, Equatable {
         public var name: String, cost: Double, tokens: Int
         public init(name: String, cost: Double, tokens: Int) {

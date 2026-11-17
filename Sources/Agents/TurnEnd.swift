@@ -29,8 +29,8 @@ public struct TurnEnd: Codable, Sendable {
         return gone.sorted()
     }
 
-    /// `tasks`: the Stop's `background_tasks`; `goal`: the transcript's last goal_status. Also returns the commands still
-    /// running in the background, for the row.
+    /// `tasks` are the Stop hook's `background_tasks`; `goal` is the transcript's last goal_status. Also returns the
+    /// commands still running in the background, for the row.
     public mutating func stop(_ tasks: [JSONValue], goal: GoalStatus?) -> (Verdict, [String]) {
         let shells = tasks.filter { $0["type"]?.string == "shell" && ($0["status"]?.string ?? "running") == "running" }
         let running = shells.map { $0["command"]?.string ?? $0["description"]?.string ?? "" }

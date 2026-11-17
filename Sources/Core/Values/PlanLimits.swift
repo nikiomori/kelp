@@ -86,8 +86,8 @@ extension UsageGet.Result {
         public var agent: String, limit: UsageGet.Limit, resetAt: Date?, window: TimeInterval?, readAt: Date?
     }
 
-    /// Every limit the agents report, as the sidebar's rings show them: the /usage screens', Claude's printed percentages
-    /// when its screen wasn't read, Codex's own log.
+    /// Every limit the agents report, as the sidebar's rings show them: from the /usage screens, from Claude's printed
+    /// percentages when its screen wasn't read, and from Codex's own log.
     public func readings(now: Date = Date()) -> [Reading] {
         let readAt = { (agent: String) in plansReadAt?[agent].map { Date(timeIntervalSince1970: $0) } }
         var out: [Reading] = []

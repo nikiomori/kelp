@@ -49,7 +49,8 @@ public enum VMKind: String, Sendable, CaseIterable {
 
     /// A screen of its own: shown in a window (`vm.control` show), read and driven by agents (`vm.screen`).
     public var hasScreen: Bool { self != .linux }
-    /// Its processors, memory and disk change after it's made (`vm.configure`): an Android or iOS device's are its own.
+    /// Whether the machine's processors, memory and disk can change after it is made (`vm.configure`); an Android or
+    /// iOS device has its own.
     public var resizable: Bool { self == .linux || self == .macos }
     /// Folders of the Mac shared into it: a project at its own path, the exchange folder (`VMInfo.files`). Android and
     /// iOS take files through adb and simctl.
@@ -84,7 +85,7 @@ public enum VMs {
             && name.allSatisfy { ("a"..."z").contains(String($0)) || $0.isNumber || $0 == "-" }
     }
 
-    /// A Linux account name for the Mac user's, else "kelp".
+    /// A Linux account name made from the Mac user's name, else "kelp".
     public static func user(_ mac: String) -> String {
         let ok =
             !mac.isEmpty && mac.count <= 32 && mac.first.map { $0.isLowercase || $0 == "_" } == true

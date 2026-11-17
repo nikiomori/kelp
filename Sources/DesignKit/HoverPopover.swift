@@ -1,7 +1,8 @@
 import AppKit
 
-/// The card a row shows while the pointer rests on it (a sidebar row's, a page's, a commit's): it opens after half a
-/// second, at once while one is up or has just gone, so it follows the pointer from row to row. Typing puts it away.
+/// The card a row shows while the pointer rests on it (a sidebar row, a page, a commit). It opens after half a second,
+/// or at once while another card is up or has just gone, so it follows the pointer from row to row. Typing puts it
+/// away.
 @MainActor
 public final class HoverPopover {
     public let popover = NSPopover()

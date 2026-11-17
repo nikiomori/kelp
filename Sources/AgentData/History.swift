@@ -11,7 +11,7 @@ public enum ClaudeHistory {
         Data(tail: 262_144, of: url).flatMap(lastReply(tail:))
     }
 
-    /// The same from a transcript's last bytes, wherever they were read (a remote project's, on its host).
+    /// The same, read from a transcript's last bytes wherever they were read (for a remote project, on its host).
     public static func lastReply(tail data: Data) -> String? {
         for line in data.split(separator: 0x0A).reversed() {
             guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],

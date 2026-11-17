@@ -1,6 +1,6 @@
 import Foundation
 
-/// The Android SDK an Android machine runs from: the user's own (Android Studio's), found by ANDROID_HOME,
+/// The Android SDK an Android machine runs from: the user's own SDK (Android Studio's), found through ANDROID_HOME,
 /// ANDROID_SDK_ROOT or its usual place. Kelp downloads none of it.
 public enum AndroidSDK {
     public static var root: URL? {
@@ -18,7 +18,7 @@ public enum AndroidSDK {
             .flatMap { FileManager.default.isExecutableFile(atPath: $0) ? $0 : nil }
     }
 
-    /// The newest arm64 system image installed: "system-images;android-36.1;google_apis_playstore;arm64-v8a".
+    /// The newest arm64 system image installed, such as "system-images;android-36.1;google_apis_playstore;arm64-v8a".
     public static func newestImage() -> String? {
         guard let dir = root?.appendingPathComponent("system-images") else { return nil }
         func names(_ folder: URL) -> [String] {   // one level, not the images' files

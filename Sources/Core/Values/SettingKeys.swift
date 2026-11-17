@@ -24,9 +24,9 @@ public enum SettingKeys {
     public static let skillSettings = Setting("agents.skills.settings", true)
     public static let skillTerminals = Setting("agents.skills.terminals", true)
     public static let skillAgents = Setting("agents.skills.agents", true)
-    /// Which chats get Kelp's pages (docs, reviews): "auto" (agents without artifacts of their own: Claude Code's
-    /// claude-artifacts counts), "all" (Claude Code makes them in Kelp too), "off". A switch and `artifacts.where` before
-    /// (`SettingsStore.upgraded`).
+    /// Which chats get Kelp's pages (docs, reviews): "auto" (agents without artifacts of their own; Claude Code's
+    /// claude-artifacts counts as its own), "all" (Claude Code makes them in Kelp too), or "off". It replaced a switch
+    /// and `artifacts.where` (`SettingsStore.upgraded`).
     public static let skillArtifacts = Setting("agents.skills.artifacts", "auto")
     public static let skillVM = Setting("agents.skills.vm", true)
     public static let skillDatabases = Setting("agents.skills.databases", true)
@@ -36,7 +36,7 @@ public enum SettingKeys {
     /// Rows a statement gives an agent unless it asks for more; seconds a read may take.
     public static let databaseRows = Setting<Double>("databases.agentRows", 200)
     public static let databaseTimeout = Setting<Double>("databases.timeout", 15)
-    /// The rows of a table: "compact" (20 pt, as TablePlus), "normal" (24), "comfortable" (28).
+    /// The height of a table's rows: "compact" (20 pt, as in TablePlus), "normal" (24) or "comfortable" (28).
     public static let databaseDensity = Setting("databases.density", "compact")
     /// "auto", "on" or "off"; true and false before it was a choice.
     public static let skillBrowser = Setting("agents.skills.browser", "auto")
@@ -81,8 +81,8 @@ public enum SettingKeys {
     public static let editorFontSize = Setting<Double>("editor.fontSize", 13)
     public static let wordWrap = Setting("editor.wordWrap", false)
     public static let wrappingIndent = Setting("editor.wrappingIndent", "same")
-    /// A language server's own `options` and `settings`, by its command: `{ "gopls": { "settings": { … } } }`. The
-    /// daemon names it too: the user's only (`SettingsSet.usersOnly`).
+    /// A language server's own `options` and `settings`, keyed by its command: `{ "gopls": { "settings": { … } } }`.
+    /// The daemon lists this key too, as one only the user may set (`SettingsSet.usersOnly`).
     public static let languageServers = Setting("editor.languageServers", JSONValue.object([:]))
     public static let markdownMode = Setting("markdown.defaultMode", "preview")
 

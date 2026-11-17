@@ -19,8 +19,8 @@ public enum GitError: Error, CustomStringConvertible, Sendable {
         case .tooMuch: "It printed more than \(Subprocess.outputLimit >> 20) MB, more than Kelp reads."
         }
     }
-    /// For people: git's first sentence without the command line or "fatal:" ("…overwritten by checkout:" keeps its
-    /// next line), or Kelp's own.
+    /// An error for people: git's first sentence, without the command line or "fatal:" ("…overwritten by checkout:"
+    /// keeps its next line), or Kelp's own message.
     public var message: String {
         if case .failed(_, _, let stderr) = self, let said = ProgramError.firstSentence(stderr) { return said }
         return description
@@ -117,7 +117,7 @@ extension Git {
                 [argv0] + args, cwd: cwd, env: env, stdin: stdin, ok: ok, timeLimit: timeLimit, limit: limit)
             return (result.stdout, result.truncated)
         } catch let error as ProgramError {
-            // ssh's own failure (git's are 1 or 128): the host, not git, is what's missing.
+            // ssh's own failure (git's exit codes are 1 or 128): what's missing is the host, not git.
             if let host = remote, error.status == 255 {
                 let why = error.stderr.split(whereSeparator: \.isNewline).last.map { ": " + $0 } ?? "."   // ssh's words
                 throw GitError.refused("Can't reach \(host.host)" + why)

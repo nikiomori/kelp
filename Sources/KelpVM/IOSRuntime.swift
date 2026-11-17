@@ -1,9 +1,10 @@
 import Core
 import Foundation
 
-/// An iOS machine: a simulator of the user's Xcode ("Kelp <name>", in the default device set: xcodebuild sees no other), and
-/// Kelp's runner in it (`IOSRunner`, built into the machine's folder), which agents' commands reach on the Mac's loopback.
-/// A simulator can't be paused or saved: idle 10 minutes, it shuts down; the next command boots it again (10–25 s).
+/// An iOS machine: a simulator of the user's Xcode ("Kelp <name>", in the default device set, because xcodebuild sees
+/// no other), with Kelp's runner in it (`IOSRunner`, built into the machine's folder), which agents' commands reach on
+/// the Mac's loopback. A simulator can't be paused or saved: after 10 idle minutes it shuts down, and the next command
+/// boots it again (10–25 s).
 @MainActor
 final class IOSRuntime: MachineRuntime {
     let folder: URL, machine: VMMachine
@@ -20,8 +21,8 @@ final class IOSRuntime: MachineRuntime {
     /// under way: a shutdown waits for it (shut down before it ends, the simulator would come up after the stop).
     private var boots = 0, booting: Task<Void, Error>?
     private var sources: [DispatchSourceProtocol] = []
-    /// How it ends once it has left, what time it is, and where xcrun is: the process's exit, the clock's, the
-    /// system's; a test's own.
+    /// How the process ends once the machine has left, what time it is, and where xcrun is: by default the process's
+    /// exit, the clock and the system's xcrun; a test sets its own.
     var exitProcess: () -> Void = { exit(0) }
     var now: () -> Date = { Date() }
     var xcrun = "/usr/bin/xcrun"

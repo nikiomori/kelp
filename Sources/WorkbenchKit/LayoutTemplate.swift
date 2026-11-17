@@ -8,8 +8,8 @@ public struct LayoutTemplate: Codable, Equatable {
     public var layout: WorkspaceLayout
     public var ownWindow: Bool
 
-    /// Where a template is saved from or used in: the group whose own addresses (its databases' and changes' tabs, files
-    /// in its folder) it keeps as the group's, not as that one's.
+    /// The group a template is saved from or used in: the template keeps that group's own addresses (its databases' and
+    /// changes' tabs, files in its folder) as the group's, not as that particular group's.
     public struct Place {
         public var workspace: String, folder: String
         public init(workspace: String, folder: String) {
@@ -18,10 +18,10 @@ public struct LayoutTemplate: Codable, Equatable {
         }
     }
 
-    /// `running`: what runs again for a session's tab; nil leaves the tab out. Tabs that are only a moment's (an
-    /// untitled file, a handed-over prompt, a subagent's journal), an agent's own page (its logins are its own), a CI log
-    /// and a commit's draft are left out too, and a pane left empty goes. `ports`: the port each session's tab (by its
-    /// URI) serves: a page on one is kept as that run's page, whatever port it gets next time.
+    /// `running` says what runs again for a session's tab; nil leaves the tab out. Also left out: tabs that only matter
+    /// for a moment (an untitled file, a handed-over prompt, a subagent's journal), an agent's own page (its logins are
+    /// its own), a CI log and a commit's draft; a pane left empty goes. `ports` gives the port each session's tab (by
+    /// its URI) serves, so a page on that port is kept as that run's page, whatever port the run gets next time.
     public init(
         name: String, from layout: WorkspaceLayout, in place: Place, ownWindow: Bool, ports: [String: Int] = [:],
         running: (String) -> String?
@@ -143,7 +143,7 @@ extension LayoutTemplate {
         return (port, String(uri[at.upperBound...]))
     }
 
-    /// The group's own addresses as the group's: `db:<group>/…`, `diff:<group>…`, a file in its folder.
+    /// Treats the group's own addresses as the group's: `db:<group>/…`, `diff:<group>…`, and files in its folder.
     static func abstract(_ uri: String, from place: Place) -> String {
         let folder = TabURI.file(place.folder) + "/"
         if uri.hasPrefix(folder) { return TabURI.file(folderToken) + "/" + uri.dropFirst(folder.count) }

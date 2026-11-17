@@ -54,10 +54,11 @@ public enum Hooks {
         .init(hook: "SessionStart", matcher: "compact", here: "compacted")
     ]
 
-    /// The tools whose end `kelp hook command` acts on: a command for the list (`AgentCommand`: Bash, Droid's Execute),
-    /// a file changed (`SessionHook.edited`), a page published (`Artifacts.published`), a worktree entered or left (the
-    /// hook's `cwd`). Any other tool's end (Read, Grep, WebFetch, a subagent's Task) told Kelp nothing it uses, and each
-    /// cost a shell and a `kelp`. Anchored: Claude Code takes a matcher with more than names and `|` as a regex.
+    /// The tools whose end `kelp hook command` acts on: a command, for the list (`AgentCommand`: Bash, Droid's
+    /// Execute); a changed file (`SessionHook.edited`); a published page (`Artifacts.published`); and a worktree
+    /// entered or left (the hook's `cwd`). The end of any other tool (Read, Grep, WebFetch, a subagent's Task) told
+    /// Kelp nothing it uses, and each one cost a shell and a `kelp` run. The pattern is anchored, because Claude Code
+    /// treats a matcher with more than names and `|` as a regex.
     static let endsActedOn =
         "^(Bash|Execute|Edit|Write|MultiEdit|NotebookEdit|EnterWorktree|ExitWorktree)$|^mcp__.*("
         + Artifacts.publishers.joined(separator: "|") + ")$"
@@ -229,10 +230,10 @@ public enum Hooks {
 
         """
 
-    /// OpenCode 2's: a plugin of its terminal UI, whose process is the session's (its server may be shared by every
-    /// terminal, started with the first one's environment). Only the session it shows counts: the server sends every
-    /// terminal's events. A subagent's run ends before its parent's: only the shown session's own start and end count,
-    /// a subagent's questions do.
+    /// OpenCode 2's hooks: a plugin of its terminal UI, whose process belongs to the session (its server may be shared
+    /// by every terminal, started with the first terminal's environment). Only the session the terminal shows counts,
+    /// because the server sends every terminal's events. A subagent's run ends before its parent's, so only the shown
+    /// session's own start and end count, while a subagent's questions do count.
     public static let tuiPluginJS = """
         // Kelp's status hooks, for Kelp's sessions only (written by Kelp; changes are overwritten).
         import { spawn } from "node:child_process";
@@ -278,8 +279,8 @@ public enum Hooks {
         try tuiPluginJS.write(to: tui.appendingPathComponent("tui.js"), atomically: true, encoding: .utf8)
     }
 
-    /// OpenCode 2 loads a folder's `tui.js` as a plugin of its terminal UI (no `index.js` or `server.js`: not its
-    /// server's).
+    /// OpenCode 2 loads a folder's `tui.js` as a plugin of its terminal UI (not `index.js` or `server.js`, which would
+    /// be its server's).
     public static func tuiPlugin(in dir: URL) -> URL { dir.appendingPathComponent("tui") }
 
     public static func writeSettings(to url: URL) throws {

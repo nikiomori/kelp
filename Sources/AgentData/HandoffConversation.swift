@@ -1,9 +1,9 @@
 import Core
 import Foundation
 
-/// What an agent's conversation file says, read for the agent it's handed to (session.handoff): Claude Code's transcript,
-/// Codex's rollout, pi's or oh-my-pi's session. What was said, and what was done beside it: the files it changed, the
-/// commands it ran, its last plan.
+/// What an agent's conversation file says, read for the agent it is handed to (session.handoff): Claude Code's
+/// transcript, Codex's rollout, or pi's or oh-my-pi's session. It reads what was said and what was done alongside: the
+/// files changed, the commands run, and the last plan.
 public struct Conversation: Sendable {
     public struct Turn: Equatable, Sendable {
         public var user: Bool, text: String
@@ -35,8 +35,9 @@ public struct Conversation: Sendable {
         try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 
-    /// One line: Claude Code's `{type: user|assistant, message}`, pi's `{type: message, message: {role}}`, Codex's
-    /// `{payload: {type: message, role}}`, its tool calls and what its turns did (`item_completed`).
+    /// Parses one line of a conversation file: Claude Code's `{type: user|assistant, message}`, pi's `{type: message,
+    /// message: {role}}`, or Codex's `{payload: {type: message, role}}`, including Codex's tool calls and what its
+    /// turns did (`item_completed`).
     private mutating func read(_ entry: [String: Any]) {
         let message = entry["message"] as? [String: Any], payload = entry["payload"] as? [String: Any]
         switch (entry["type"] as? String, payload?["type"] as? String) {

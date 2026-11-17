@@ -1,7 +1,7 @@
 import AppKit
 
-/// VS Code's editing commands. Their keys are the Selection menu's, on only while an editor has the focus (`focused`);
-/// a key the shell uses too (⌘D, ⌘[ ⌘]) reaches the editor's first through the file tab (EditorBox).
+/// VS Code's editing commands. Their keys are on the Selection menu and are on only while an editor has the focus
+/// (`focused`). A key the shell uses too (⌘D, ⌘[ ⌘]) reaches the editor first, through the file tab (EditorBox).
 extension CodeEditor {
     /// The editor whose text view has the focus in the key window.
     public static var focused: CodeEditor? {

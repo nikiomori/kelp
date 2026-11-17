@@ -24,7 +24,8 @@ public enum ConversationTurns {
         Data(tail: 4 << 20, of: url).map { last(inTail: $0, limit: limit) } ?? []
     }
 
-    /// The same from a conversation file's last bytes, wherever they were read (a remote project's, on its host).
+    /// The same, read from a conversation file's last bytes wherever they were read (for a remote project, on its
+    /// host).
     public static func last(inTail data: Data, limit: Int = 256 << 10) -> [Turn] {
         var reader = Reader()
         for line in JSONL.lines(data) { if let entry = JSONL.object(line) { reader.read(entry) } }

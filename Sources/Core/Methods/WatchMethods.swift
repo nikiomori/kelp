@@ -25,14 +25,14 @@ public enum WatchTopic: String, Codable, Sendable, CaseIterable {
     case subagents
     /// The file an agent's tools changed last (`EditsEvent`): told as each edit ends. Key: session id.
     case edits
-    /// A file's version (`FileEvent`): read when its folder's files change. Key: its absolute path. A file in a remote
-    /// project isn't watched (nothing is pushed).
+    /// A file's version (`FileEvent`), read when the files in its folder change. The key is its absolute path. A file
+    /// in a remote project isn't watched (nothing is pushed).
     case file
     /// A workspace's files (`FilesEvent`, `files.list` and `files.ignored`'s answers): read when its files change, a remote one's every 10 s.
     /// Key: worktree id.
     case files
-    /// How a remote host is doing (`HostEvent`): read every 10 s while watched (the sidebar's heading), never dialing: without
-    /// an open connection only that it's off. Key: the host.
+    /// How a remote host is doing (`HostEvent`), read every 10 s while watched (by the sidebar's heading). It never
+    /// dials: without an open connection it only says that the host is off. The key is the host.
     case host
     /// The same every 2 s, for the server tab on screen. Key: the host.
     case hostDetail

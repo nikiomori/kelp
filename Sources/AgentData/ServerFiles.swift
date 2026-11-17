@@ -3,9 +3,10 @@ import Foundation
 import os
 
 /// The files MCP servers are kept in, in the agents' common shape (`{"mcpServers": {name: entry}}`): Kelp's own
-/// (`mcp.json` in its home, for every project) and a project's `.mcp.json`. Written whole, other keys kept.
+/// (`mcp.json` in its home, for every project) and a project's `.mcp.json`. A file is written whole, keeping its other
+/// keys.
 /// Limit: what a server needs to sign in (`env`, `headers`) sits in the file as typed, as in the agents' own files;
-/// Kelp's is readable by the person only.
+/// Kelp's file is readable by the person only.
 public enum ServerFiles {
     public static func read(_ file: URL) -> [String: ServerEntry] {
         guard let data = Data(contentsIfAny: file),

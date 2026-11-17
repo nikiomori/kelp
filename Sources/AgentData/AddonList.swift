@@ -136,8 +136,9 @@ public enum AddonList {
         return out
     }
 
-    /// A listed skill: "plugin:name" is a plugin's (Kelp's own are plugins named kelp-…, claude.ai's sit under
-    /// anthropic-skills), a bare name is a folder's, and one in no folder came with the agent.
+    /// Where a listed skill comes from: "plugin:name" belongs to a plugin (Kelp's own skills are plugins named kelp-…,
+    /// and claude.ai's sit under anthropic-skills), a bare name comes from a folder, and a skill in no folder came with
+    /// the agent.
     static func skill(of listed: ClaudeLoaded.Skill, onDisk: [AddonFiles.Skill], files: AddonFiles) -> Addon {
         var item = Addon(
             kind: .skill, name: listed.name, source: .agent, about: listed.about, agents: [Session.claudeAgent],
@@ -166,8 +167,9 @@ public enum AddonList {
         return item
     }
 
-    /// A server by its name in tool names: "claude_ai_Gmail" is the account's connector, "plugin_<plugin>_<server>" a
-    /// plugin's, one the files name is the person's or the project's, and the rest came with the agent.
+    /// Where a server comes from, by its name in tool names: "claude_ai_Gmail" is the account's connector,
+    /// "plugin_<plugin>_<server>" belongs to a plugin, a server named in the files belongs to the person or the
+    /// project, and the rest came with the agent.
     static func server(_ name: String) -> (name: String, source: Addon.Source, origin: String?) {
         if name.hasPrefix("claude_ai_") {
             return (name.dropFirst(10).replacingOccurrences(of: "_", with: " "), .account, "claude.ai")

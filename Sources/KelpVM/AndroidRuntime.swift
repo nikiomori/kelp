@@ -1,10 +1,11 @@
 import Core
 import Foundation
 
-/// An Android machine: the SDK's emulator (Hypervisor.framework, an arm64 image at full speed) on an AVD of its own in the
-/// machine's folder (`avd/`, ANDROID_AVD_HOME), so the user's AVDs stay theirs. Without a window unless someone asks to see
-/// it (`show` starts it again with one, from its snapshot). As a Linux or macOS machine: kelpd's `start` (each command)
-/// counts as use; idle 2 minutes, its CPU stops (`adb emu avd stop`); 10, it saves its quickboot snapshot and quits.
+/// An Android machine: the SDK's emulator (Hypervisor.framework, an arm64 image at full speed) on an AVD of its own in
+/// the machine's folder (`avd/`, ANDROID_AVD_HOME), so the user's own AVDs stay untouched. It runs without a window
+/// unless someone asks to see it (`show` starts it again with one, from its snapshot). As with a Linux or macOS
+/// machine, kelpd's `start` (sent with each command) counts as use. After 2 idle minutes its CPU stops (`adb emu avd
+/// stop`); after 10, it saves its quickboot snapshot and quits.
 @MainActor
 final class AndroidRuntime: MachineRuntime {
     let folder: URL, machine: VMMachine
@@ -23,7 +24,7 @@ final class AndroidRuntime: MachineRuntime {
     private var leaving = false, whenSaved: [() -> Void] = []
     /// How it ends once it has left: the process's exit; a test's own.
     var exitProcess: () -> Void = { exit(0) }
-    /// What time it is: the clock's; a test's, moved past the idle limits.
+    /// What time it is: the clock by default; a test sets its own, moved past the idle limits.
     var now: () -> Date = { Date() }
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []

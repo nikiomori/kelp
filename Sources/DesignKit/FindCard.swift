@@ -1,9 +1,10 @@
 import AppKit
 
-/// ⌘F over a terminal, a diff or code: floats in the top corner (what's under it doesn't move, so an agent's screen
-/// doesn't reflow). Matches as you type; ↩ / ⇧↩ or ⌘G / ⇧⌘G step through them, Esc closes. The owner searches
-/// (`onSearch`) and says what it found (`total`, `selected`, or `show(count:canStep:)`); its own controls go in the slots
-/// (`leading`, `trailing` beside the field, `below` it: the editor's options and its Replace row).
+/// ⌘F over a terminal, a diff or code. It floats in the top corner, so what is under it doesn't move and an agent's
+/// screen doesn't reflow. It matches as you type; ↩ / ⇧↩ or ⌘G / ⇧⌘G step through the matches, and Esc closes it. The
+/// owner does the search (`onSearch`) and says what it found (`total`, `selected`, or `show(count:canStep:)`); the
+/// owner's own controls go in the slots (`leading` and `trailing` beside the field, `below` under it: the editor's
+/// options and its Replace row).
 @MainActor
 public final class FindCard: NSView, NSSearchFieldDelegate {
     public let field = NSSearchField()

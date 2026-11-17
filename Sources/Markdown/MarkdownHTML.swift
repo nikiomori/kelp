@@ -41,10 +41,8 @@ public enum MarkdownHTML {
         })();
         """
 
-    /// Full HTML document around `body`. `baseURL` (the document's URL) resolves relative links and images.
-    /// `dark: true` forces the dark palette; otherwise `prefers-color-scheme` decides.
-    /// Diagrams for ```mermaid blocks, drawn in the page with the bundled mermaid (no network); nil when there are none.
-    /// JavaScript, as `scrollSync`.
+    /// The JavaScript that draws the ```mermaid blocks in the page with the bundled mermaid (no network), or nil when
+    /// there are none. It runs beside the page, as `scrollSync` does; `dark` picks mermaid's dark theme.
     public static func mermaid(for md: String, dark: Bool) -> String? {
         guard md.contains("```mermaid") || md.contains("~~~mermaid"), let js = mermaidJS else { return nil }
         return js + """
@@ -94,7 +92,10 @@ public enum MarkdownHTML {
         }
     }
 
-    /// `page`: the editor theme's background and text ("#rrggbb"), so a preview beside the editor sits on the same page.
+    /// A full HTML document around `body`. `baseURL` (the document's URL) resolves relative links and images.
+    /// `dark: true` forces the dark palette; otherwise `prefers-color-scheme` decides.
+    /// `page` is the editor theme's background and text ("#rrggbb"), so a preview beside the editor sits on the same
+    /// page.
     public static func page(body: String, baseURL: URL?, dark: Bool, page: (background: String, text: String)? = nil)
         -> String
     {

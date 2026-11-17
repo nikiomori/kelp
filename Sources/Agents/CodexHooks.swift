@@ -1,12 +1,13 @@
 import Core
 import Foundation
 
-/// Kelp's hooks for Codex, on its command line: `-c hooks.<Event>=…` for each, then `-c hooks.state={…}` trusting exactly
-/// those. Codex runs a hook it wasn't told to trust only after the user trusts it in `/hooks`, and asks about it at start;
-/// it reads that trust from session flags as from ~/.codex/config.toml (codex-rs `hook_states_from_stack`), so nothing
-/// is written there. The trust is each hook's own hash, so a project's or another tool's hooks gain nothing from it.
-/// The hash is Codex's: sha256 of the hook's JSON with sorted keys (`hook_hash`, `version_for_toml`). Codex could change
-/// it, so the daemon checks once per Codex binary that Codex agrees (`hooks/list`) before passing these.
+/// Kelp's hooks for Codex, passed on its command line: `-c hooks.<Event>=…` for each hook, then `-c hooks.state={…}`
+/// trusting exactly those. Codex runs a hook it wasn't told to trust only after the user trusts it in `/hooks`, and
+/// asks about it at start. It reads that trust from session flags just as from ~/.codex/config.toml (codex-rs
+/// `hook_states_from_stack`), so nothing is written there. The trust is each hook's own hash, so a project's or another
+/// tool's hooks gain nothing from it.
+/// The hash is Codex's: the sha256 of the hook's JSON with sorted keys (`hook_hash`, `version_for_toml`). Codex could
+/// change it, so the daemon checks once per Codex binary that Codex agrees (`hooks/list`) before passing these.
 public enum CodexHooks {
     /// Event, its key label, what Kelp hears, and the tools it's for (nil: every one, or no tool's event).
     public typealias Event = (name: String, label: String, command: String, matcher: String?)

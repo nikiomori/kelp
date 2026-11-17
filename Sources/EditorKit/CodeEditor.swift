@@ -33,7 +33,7 @@ public final class CodeEditor: NSObject {
     public var onSelection: (() -> Void)?
     /// Completion items come from the app (LSP); the text view shows them in its completion list.
     public var completionProvider: ((Int, Int) async -> [Completion])?
-    /// This file's snippets, joining the server's or standing in when there's none.
+    /// This file's snippets, added to the language server's completions, or used alone when there is no server.
     public var snippetSource: (() async -> [Completion])?
 
     var lineIndex = LineIndex()
@@ -378,7 +378,7 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
         range editedRange: NSRange, changeInLength delta: Int
     ) {
         guard editedMask.contains(.editedCharacters) else { return }
-        MainActor.assumeIsolated {   // the text view's and load's edits, both on the main thread
+        MainActor.assumeIsolated {   // edits from the text view and from load both arrive on the main thread
             lineIndex.invalidate(from: editedRange.location)
             (textView.textContainer as? WrappingContainer)?.edited()
             if !described && !loading { lineCount = LineIndex.breaks(in: textView.string as NSString) + 1 }

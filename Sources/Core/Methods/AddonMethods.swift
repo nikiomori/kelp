@@ -7,10 +7,11 @@ import Foundation
 public struct Addon: Codable, Sendable, Equatable, Identifiable {
     public enum Kind: String, Codable, Sendable, CaseIterable {
         case skill, server, instructions
-        /// A plugin of the agent's, as a whole: listed only while it's off (on, its skills and servers are the rows).
+        /// A plugin of the agent's, as a whole. It is listed only while it is off; while it is on, its skills and
+        /// servers are the rows.
         case plugin
     }
-    /// Who brought it: Kelp (its own skills), the person (their folders and settings), the project (its files), a
+    /// Who brought the item: Kelp (its own skills), the person (their folders and settings), the project (its files), a
     /// plugin of the agent's, the agent's account (claude.ai's skills and connectors), or the agent itself (built in).
     public enum Source: String, Codable, Sendable, CaseIterable {
         case kelp, yours, project, plugin, account, agent
@@ -37,8 +38,9 @@ public struct Addon: Codable, Sendable, Equatable, Identifiable {
     public var tokens: Int?
     /// Other places the same one sits in (a second copy of a skill's folder).
     public var copies: [String]
-    /// What `addons.set` takes to switch it for the project: its own ("skill:tabbit", "server:claude_ai_Gmail",
-    /// "kelp:kelp-vm") or its plugin's ("plugin:sales", which switches all of that plugin's). nil: nothing switches it.
+    /// What `addons.set` takes to switch this item for the project: the item's own key ("skill:tabbit",
+    /// "server:claude_ai_Gmail", "kelp:kelp-vm") or its plugin's key ("plugin:sales", which switches everything in that
+    /// plugin). nil when nothing can switch it.
     public var key: String?
     /// Off for this project: a chat started from now on doesn't get it.
     public var off: Bool
@@ -85,8 +87,8 @@ public struct Addon: Codable, Sendable, Equatable, Identifiable {
 /// and what's past their limit they never see.
 public struct InstructionCheck: Codable, Sendable, Equatable {
     public var lines: Int, bytes: Int
-    /// Where its agents stop reading (Claude Code: MEMORY.md's first 200 lines or 25 000 bytes; Codex: 32 KiB of
-    /// AGENTS.md), or the length their makers advise (200 lines); nil: none.
+    /// Where the agents stop reading the file (Claude Code reads MEMORY.md's first 200 lines or 25 000 bytes; Codex
+    /// reads 32 KiB of AGENTS.md), or the length their makers advise (200 lines); nil when there is no such limit.
     public var maxLines: Int?, maxBytes: Int?
     /// Lines past where its agents stop reading: never seen.
     public var cut: Int
@@ -278,8 +280,8 @@ public struct AddonsRemove: InternalMethod {
     }
 }
 
-/// A server's entry as its file has it (`Addon.key`): Kelp's own, the project's, or the one in an agent's own settings.
-/// For editing it and copying it out. It may hold what the server signs in with: the user's only.
+/// A server's entry as its file has it (`Addon.key`): Kelp's own file, the project's, or the agent's own settings. Used
+/// for editing the entry and copying it out. It may hold what the server signs in with, so only the user may read it.
 public struct AddonsEntry: InternalMethod {
     public static let name = "addons.entry"
     public typealias Result = ServerEntry
@@ -315,8 +317,8 @@ public struct AddonsTidyEnd: InternalMethod {
     }
 }
 
-/// Moves one of the person's own skills (`Addon.key`, in their folders or the project's) to the Trash, with the links
-/// that point at it.
+/// Moves one of the person's own skills (`Addon.key`, in their folders or the project's) to the Trash, together with
+/// the links that point at it.
 public struct AddonsTrash: InternalMethod {
     public static let name = "addons.trash"
     public typealias Result = Done
@@ -339,9 +341,10 @@ public struct AddonsLink: InternalMethod {
     }
 }
 
-/// Adds skills: a new one named `name` (a SKILL.md to fill in), or with `source` those of a folder or a git
+/// Adds skills: a new one named `name` (a SKILL.md to fill in), or, with `source`, the skills of a folder or a git
 /// repository (every folder in it that holds a SKILL.md). They go into the shared folder (`~/.agents/skills`, or the
-/// project's `.agents/skills` with `project`) with a link in Claude Code's. Returns the SKILL.md files, new first.
+/// project's `.agents/skills` with `project`), with a link in Claude Code's folder. Returns the SKILL.md files, new
+/// ones first.
 public struct AddonsInstall: InternalMethod {
     public static let name = "addons.install"
     public typealias Result = [String]

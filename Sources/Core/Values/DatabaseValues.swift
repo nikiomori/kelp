@@ -2,10 +2,11 @@ import Foundation
 
 // A project's databases as values: what kelpd finds, runs and keeps, and the app shows (`db.*` in DatabaseMethods).
 
-/// A database's tab: `db:<workspace>/<name>`, with one run (`?run=`) or table (`?table=`) shown; the name and the table
-/// percent-encoded (an imported name may hold a "?" or "/"). The one builder of it: the tab, the agent's row,
-/// `kelp db`. And the one reader (`parts`): the daemon decides whether an agent may open a tab by the workspace and
-/// database the tab will show, so the two read an address alike.
+/// A database tab's address: `db:<workspace>/<name>`, showing one run (`?run=`) or table (`?table=`), with the name and
+/// the table percent-encoded (an imported name may hold a "?" or "/"). This is the only place that builds the address
+/// (for the tab, the agent's row and `kelp db`), and the only place that reads it (`parts`): the daemon decides whether
+/// an agent may open a tab by the workspace and database the tab will show, so both sides must read an address the same
+/// way.
 public enum DatabaseTabURI {
     /// The workspace and database `uri` names, and what follows its "?"; nil when it isn't a database tab's.
     public static func parts(_ uri: String) -> (worktree: String, name: String, query: String?)? {
@@ -28,14 +29,15 @@ public enum DatabaseTabURI {
 /// A database of a project: found in its files (compose, .env, database.yml, a SQLite file) or added by hand.
 public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public enum Engine: String, Codable, Sendable, CaseIterable {
-        /// Appwrite: a project's database over its REST API (host: the endpoint, user: the project's ID, password: an
-        /// API key), its rows read and changed by a narrow SQL Kelp translates.
+        /// Appwrite: a project's database reached over its REST API (host is the endpoint, user is the project's ID,
+        /// password is an API key). Its rows are read and changed through a narrow SQL that Kelp translates.
         case sqlite, postgres, mysql, duckdb, appwrite
 
         /// A file on disk rather than a server.
         public var isFile: Bool { self == .sqlite || self == .duckdb }
 
-        /// The port its server takes unless told another: nil for a file, and for Appwrite's endpoint (a URL's).
+        /// The port the engine's server uses unless told otherwise: nil for a file, and for Appwrite (whose endpoint is
+        /// a URL).
         public var defaultPort: Int? {
             switch self {
             case .postgres: 5432
@@ -58,8 +60,8 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
         /// What its SQL quotes a name in: "orders", `orders` in MySQL.
         public var identifierQuote: Character { self == .mysql ? "`" : "\"" }
 
-        /// The engine a container image runs, by its name (not its registry's or owner's): postgres:16,
-        /// bitnami/postgresql, timescale/timescaledb-ha, mariadb, percona-server; nil for others.
+        /// The engine a container image runs, judged by the image's name (not its registry or owner): postgres:16,
+        /// bitnami/postgresql, timescale/timescaledb-ha, mariadb, percona-server. nil for other images.
         public init?(image: String) {
             let last = image.lowercased().split(separator: "/").last ?? ""
             let name = last.split(whereSeparator: { $0 == ":" || $0 == "@" }).first ?? ""
@@ -73,8 +75,9 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
         }
     }
 
-    /// A host that is this Mac (or its Docker's): a loopback address, or this Mac's own name. Not any `.local` name
-    /// (whoever answers for it on the network) nor a name without a dot (a compose service's, a search domain's host).
+    /// Whether a host is this Mac (or its Docker): a loopback address, or this Mac's own name. A `.local` name doesn't
+    /// count (whoever answers for it on the network could be another machine), and neither does a name without a dot (a
+    /// compose service, or a host in a search domain).
     public static func isLocal(_ host: String) -> Bool {
         let host = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
         return ["localhost", "::1", "0.0.0.0", "host.docker.internal", thisMac].contains(host)
@@ -113,7 +116,8 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public var host: String?, port: Int?, database: String?, user: String?
     /// A SQLite database's file, absolute.
     public var path: String?
-    /// TLS to the server, libpq's words: "disable", "require"; nil or "prefer": when the server offers it.
+    /// TLS to the server, in libpq's words: "disable" or "require"; nil or "prefer" means TLS when the server offers
+    /// it.
     public var ssl: String?
     /// A host of ~/.ssh/config the server is reached through (a port forwarded over Kelp's shared connection).
     public var ssh: String?
@@ -269,7 +273,7 @@ public struct DatabaseRun: Codable, Sendable, Equatable, Identifiable {
         case done, asks, denied, refused, failed
     }
     public var id: String, database: String, sql: String
-    /// The agent's session; nil: the user's.
+    /// The agent's session that ran it; nil when the user ran it.
     public var session: String?
     public var at: Date
     public var state: State

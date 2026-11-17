@@ -210,7 +210,7 @@ public struct SessionRecap: InternalMethod {
     public init(id: String) { self.id = id }
 }
 
-/// The agent's last message, from its transcript.
+/// Reads the agent's last message from its transcript.
 public struct SessionLastReply: RPCMethod {
     public static let name = "session.lastReply"
     public typealias Result = String?
@@ -366,8 +366,8 @@ public struct SessionReport: RPCMethod {
     }
 }
 
-/// herdr's agent report, which fx sends to `HERDR_SOCKET_PATH` (kelpd's socket for it): `pane_id` is the session, `state`
-/// idle, working or blocked. herdr's other calls (`pane.rename`…) aren't Kelp's: refused.
+/// herdr's agent report, which fx sends to `HERDR_SOCKET_PATH` (kelpd's socket for it): `pane_id` names the session,
+/// and `state` is idle, working or blocked. herdr's other calls (`pane.rename`…) aren't Kelp's, so they are refused.
 public struct PaneReportAgent: InternalMethod {
     public static let name = "pane.report_agent"
     public typealias Result = Done

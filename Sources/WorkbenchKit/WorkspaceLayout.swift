@@ -29,7 +29,8 @@ public struct WorkspaceLayout: Codable, Equatable {
     public var focusedGroup: GroupModel? {
         focused.flatMap { groups[$0] } ?? root?.sessions.first.flatMap { groups[$0] }
     }
-    /// The tabs being looked at, not merely on screen: among several panes the focused one's, else the one pane's.
+    /// The tabs being looked at, not merely on screen: with several panes, the focused pane's tabs, else the one
+    /// pane's.
     public func attendedTabs(zoomed: String?) -> [TabRef] {
         let panes = zoomed.map { [$0] } ?? root?.sessions ?? []
         return (panes.count > 1 ? [focusedGroup?.id].compactMap { $0 } : panes).compactMap { groups[$0]?.selectedTab }

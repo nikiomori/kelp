@@ -32,9 +32,8 @@ struct Fence {
     /// Who may call it: nil for any client of the socket (the app, the CLI, agents and their scripts), else what anyone
     /// but Kelp's window is told (`Clients.requireApp`). Its params may decide (`state.set` of an `lsp.` key).
     var onlyFromKelp: String?
-    /// The session whose status the method reports (hooks, `kelp report`, herdr's report). A program running inside one
-    /// session may report only for that session; from outside every session (the app, a terminal elsewhere), it may
-    /// report for any.
+    /// The session whose status the method reports (hooks, `kelp report`, herdr's). A program inside a session reports
+    /// only for that session; from outside every session (the app, a terminal elsewhere), it may report for any.
     var reportsFor: String?
     /// The session it types into or stops. Not a gate of its own: every session a call names, in any field, is held to
     /// the agent's own and those it started (`Store.named(by:)`), so for one that exists this adds nothing. It does
@@ -180,8 +179,7 @@ protocol Handled: Answered {
         _ params: JSONValue, _ service: Service, allowed: @escaping @Sendable (any Answered) throws -> Void,
         reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
     ) -> Bool
-    /// Runs, once an in-order method's reply is queued, what must wait until that reply is on its way out
-    /// (daemon.upgrade's hand-over, daemon.shutdown's stop).
+    /// What waits until an in-order method's reply has left (daemon.upgrade's hand-over, daemon.shutdown's stop).
     static func replied(_ service: Service)
     /// A call that sends its reply itself, where a result returned can't go (`session.attach`'s, queued inside the
     /// session's lock): true when it did, false to be answered as any other. `checked`: the call, from a caller allowed

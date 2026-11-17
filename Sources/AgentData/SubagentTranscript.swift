@@ -4,8 +4,9 @@ import Foundation
 /// What Claude Code keeps of a subagent, beside its parent's conversation: `<conversation>/subagents/agent-<id>.jsonl`, and
 /// `.meta.json` with its kind and task. Thinking and what tools printed stay out: the steps and the final report say enough.
 public enum SubagentTranscript {
-    /// Its transcript, from the parent's, or a sibling's: a hook sent from inside a subagent names that one. An id comes
-    /// from a tab's URI, so nothing in it leaves the folder.
+    /// The subagent's transcript, found from the parent's transcript or from a sibling subagent's (a hook sent from
+    /// inside a subagent names that subagent). The id comes from a tab's URI, so nothing in it may lead out of the
+    /// folder.
     public static func file(parent: URL, id: String) -> URL? {
         guard !id.isEmpty, id.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) else { return nil }
         let folder = parent.deletingLastPathComponent()

@@ -138,7 +138,7 @@ public struct GitCommit: RPCMethod {
         self.amend = amend
     }
 }
-/// The workspace's branch into the project's base branch, in the main checkout.
+/// Merges the workspace's branch into the project's base branch, in the main checkout.
 public struct GitMerge: RPCMethod {
     public static let name = "git.merge"
     public struct Result: Codable, Sendable, Equatable {
@@ -192,8 +192,8 @@ public struct GitCommitFiles: RPCMethod {
         self.commit = commit
     }
 }
-/// The picture of a commit author's account on the project's GitHub or GitLab (through gh / glab), as image data.
-/// nil: no account has the email, or the project isn't on either.
+/// The picture of a commit author's account on the project's GitHub or GitLab (through gh / glab), as image data. nil
+/// when no account has the email, or when the project is on neither.
 public struct GitAuthorAvatar: InternalMethod {
     public static let name = "git.authorAvatar"
     public typealias Result = Data?
@@ -216,7 +216,8 @@ public struct GitLineOrigin: InternalMethod {
         self.line = line
     }
     public struct Origin: Codable, Sendable, Equatable {
-        /// What brought the line: a commit of the project's, or the one made for the turn's changes; nil when nothing did.
+        /// What brought the line in: one of the project's commits, or the commit made for the turn's changes; nil when
+        /// nothing did.
         public var commit: String?
         public var author: String, date: Date, summary: String
         /// The agent's turn whose changes brought it.
@@ -232,7 +233,8 @@ public struct GitLineOrigin: InternalMethod {
     /// Nil: the line or the file isn't in git's view.
     public typealias Result = Origin?
 }
-/// What a commit's card shows beyond its graph row: the message's body, the author's email, how big the change is.
+/// What a commit's card shows beyond its row in the graph: the message's body, the author's email, and how big the
+/// change is.
 public struct GitCommitDetails: RPCMethod {
     public static let name = "git.commitDetails"
     public typealias Result = CommitDetails
@@ -304,7 +306,8 @@ public struct GitWebURL: RPCMethod {
 public struct GitWebPages: RPCMethod {
     public static let name = "git.webPages"
     public typealias Result = Pages?
-    /// `forge`: "github" | "gitlab" | "bitbucket"; `ci`: Actions / Pipelines; `pulls`: pull or merge requests.
+    /// `forge` is "github", "gitlab" or "bitbucket"; `ci` is what the forge calls CI (Actions, Pipelines); `pulls` is
+    /// what it calls pull requests (pull or merge requests).
     public struct Pages: Codable, Sendable, Equatable {
         public var forge: String, repo: String, ci: String, pulls: String, issues: String
         public init(forge: String, repo: String, ci: String, pulls: String, issues: String) {
@@ -314,7 +317,7 @@ public struct GitWebPages: RPCMethod {
             self.pulls = pulls
             self.issues = issues
         }
-        /// A commit's page, each site's way.
+        /// The address of a commit's page, built the way each site builds it.
         public func commitURL(_ hash: String) -> String {
             repo + (forge == "gitlab" ? "/-/commit/" : forge == "bitbucket" ? "/commits/" : "/commit/") + hash
         }

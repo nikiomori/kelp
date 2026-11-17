@@ -20,8 +20,8 @@ public struct IntegrationError: Error, CustomStringConvertible, Sendable {
     }
 }
 
-/// Jira's and Bitbucket's REST calls: Basic auth (`login` is "user:token"), a JSON body, a 2xx answer (else
-/// "<service> <code>: <start of the reply>").
+/// Jira's and Bitbucket's REST calls: Basic auth (`login` is "user:token"), a JSON body, and a 2xx answer expected
+/// (otherwise the error is "<service> <code>: <start of the reply>").
 func basicAuthRequest(_ service: String, _ method: String, _ url: URL, login: String, body: [String: Any]?) async throws
     -> Data
 {

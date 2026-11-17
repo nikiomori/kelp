@@ -20,8 +20,9 @@ public final class ListRowView: NSTableRowView {
             self.fill = fill
         }
     }
-    /// Room a card's first row takes over its content, and its last under: the card's edge 2 pt from the row's, the
-    /// selection 4 pt inside the card (the sidebar's spacing). A list adds it to those rows' heights and cells.
+    /// The extra room a card's first row takes above its content, and its last row below: the card's edge sits 2 pt
+    /// from the row's edge, and the selection 4 pt inside the card (the sidebar's spacing). A list adds it to those
+    /// rows' heights and cells.
     public static let cardPad: CGFloat = 6
     public var card: Card? {
         didSet {
@@ -140,7 +141,7 @@ public final class ListRowView: NSTableRowView {
         NSBezierPath(roundedRect: pill, xRadius: radius, yRadius: radius).fill()
     }
 
-    /// The selection's and the pointer's shape: on a card, 4 pt inside it.
+    /// The shape of the selection and of the pointer's highlight: on a card, 4 pt inside it.
     private var pill: NSRect {
         guard let card else { return bounds.insetBy(dx: inset, dy: 1) }
         let top = card.first ? Self.cardPad : 1, bottom = card.last ? Self.cardPad : 1

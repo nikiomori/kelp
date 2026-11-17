@@ -7,7 +7,8 @@ public struct PortsList: RPCMethod {
     public static let name = "ports.list"
     public var worktreeId: String
     public init(worktreeId: String) { self.worktreeId = worktreeId }
-    /// A port a process of one of the workspace's sessions listens on; on a remote project's host, one in its folder.
+    /// A port that a process of one of the workspace's sessions listens on; on a remote project's host, a process in
+    /// the project's folder.
     public struct Port: Codable, Sendable, Equatable {
         /// `session`: "" when it can't be told. `pid` 0: none, a forwarding asked for by hand.
         public var port: Int, pid: Int32, command: String, session: String

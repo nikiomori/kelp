@@ -8,17 +8,18 @@ public struct VMInfo: Codable, Sendable, Equatable, Identifiable {
     public var detail: String?
     /// Commands and shells open in it now.
     public var connections: Int?
-    /// What it holds of the Mac's memory while it runs (its process's footprint, else its balloon's target), MiB.
+    /// How much of the Mac's memory the machine holds while it runs, in MiB (its process's footprint, else its
+    /// balloon's target).
     public var memoryMiB: Int?
     /// While it runs: the Mac's CPU it took over the last 5 s, % of one core, as Activity Monitor counts it.
     public var cpu: Double?
-    /// Its disk's size on the Mac's disk, MiB.
+    /// How much of the Mac's disk the machine's disk takes, in MiB.
     public var diskMiB: Int?
     /// The Kelp sessions working in it now: a command running there (`kelp vm run` from an agent or a terminal), or the
     /// turn of a macOS machine's screen.
     public var sessions: [String]?
-    /// While it's being made: the step it's at, and how far that step got (0…1) when that's known. `detail` names what
-    /// it's made from then ("macOS 27.2").
+    /// While the machine is being made: the step it is at, and how far that step got (0…1) when that is known. `detail`
+    /// names what it is made from at that step ("macOS 27.2").
     public var step: VMStep?, progress: Double?
     /// A Linux or macOS machine's exchange folder on the Mac, `~/Kelp` inside it (`VMs.filesSetup`).
     public var files: String?
@@ -64,7 +65,8 @@ public enum VMStep: String, Codable, Sendable, CaseIterable {
     }
 }
 
-/// What a machine's `creating` file holds while it's made: its step, how far, and what it's made from.
+/// What a machine's `creating` file holds while the machine is being made: its step, how far it got, and what it is
+/// made from.
 public struct VMMaking: Codable, Sendable, Equatable {
     public var step: VMStep, progress: Double?, detail: String?
     public init(step: VMStep, progress: Double? = nil, detail: String? = nil) {

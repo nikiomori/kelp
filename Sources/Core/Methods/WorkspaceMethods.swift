@@ -42,7 +42,7 @@ public struct RepoRelocate: RPCMethod {
         self.path = path
     }
 }
-/// The project's own name; an empty one gives back its folder's. Its path, workspaces and agents stay as they are.
+/// Renames the project; an empty name gives back its folder's name. Its path, workspaces and agents stay as they are.
 public struct RepoRename: RPCMethod {
     public static let name = "repo.rename"
     public typealias Result = Repo
@@ -67,7 +67,8 @@ public struct WorkspaceCreate: RPCMethod {
     public var repoId: String
     public init(repoId: String) { self.repoId = repoId }
 }
-/// A git worktree on a new `branch` from `base`; `tabs`/`setup` false skip .kelp.yaml's. Adds `setupNeedsTrust` or `setupSession`.
+/// Makes a git worktree on a new `branch` from `base`; `tabs` or `setup` false skips .kelp.yaml's tabs or setup. The
+/// result adds `setupNeedsTrust` or `setupSession`.
 public struct WorktreeCreate: RPCMethod {
     public static let name = "worktree.create"
     public var repoId: String, branch: String?, base: String?, note: String?, tabs: Bool?, setup: Bool?
@@ -230,9 +231,9 @@ public struct RepoRemoveWorktrees: InternalMethod {
     }
 }
 
-/// What the project takes on this Mac, biggest first: what git ignores in its folder and its other worktrees, each
-/// worktree's builds on their own, Xcode's DerivedData for it, Claude Code's chats there, and the files git tracks.
-/// A remote project's are measured on its host (no DerivedData there).
+/// What the project takes on this Mac, biggest first: what git ignores in its folder and in its other worktrees, each
+/// worktree's builds on their own, Xcode's DerivedData for it, Claude Code's chats there, and the files git tracks. A
+/// remote project's sizes are measured on its host (where there is no DerivedData).
 public struct RepoDiskUsage: InternalMethod {
     public static let name = "repo.diskUsage"
     /// What a part is, and so whether removing it costs anything.

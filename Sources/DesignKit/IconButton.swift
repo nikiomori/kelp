@@ -1,8 +1,8 @@
 import AppKit
 
 /// A button that is an icon (and maybe a count): a 13 pt medium symbol in secondary grey on a 22 pt square. Under the
-/// pointer the square greys in (it fades), pressed it darkens, and a click dips and springs it back (`PointerButton`).
-/// The one icon button of the bars: a panel's header, a tab's toolbar, the sidebar's.
+/// pointer the square fades to grey; pressed, it darkens; and a click dips it and springs it back (`PointerButton`).
+/// This is the one icon button used in bars: a panel's header, a tab's toolbar, the sidebar.
 @MainActor
 public final class IconButton: PointerButton {
     /// `image` named `tip` (its tooltip), calling `action`.

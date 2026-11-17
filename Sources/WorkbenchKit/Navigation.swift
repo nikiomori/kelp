@@ -92,7 +92,8 @@ public func mainWorkspace(of repo: Repo, among ws: [Worktree]) -> Worktree? {
     ws.filter { $0.repoId == repo.id && $0.path == repo.path && !$0.archived }.min { $0.createdAt < $1.createdAt }
 }
 
-/// Where a new chat in `r` goes: the screen you're on when it's that project's, else the project's own.
+/// Where a new chat in project `r` goes: the screen you are on when it belongs to that project, else the project's own
+/// screen.
 public func newChatScreen(in repo: Repo, current: Worktree?, rows: [Worktree]) -> Worktree? {
     if let current, current.repoId == repo.id { return current }
     return mainWorkspace(of: repo, among: rows) ?? rows.first { $0.repoId == repo.id && !$0.archived }

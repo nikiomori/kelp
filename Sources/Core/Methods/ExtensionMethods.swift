@@ -10,8 +10,8 @@ public struct ExtensionLibrary: InternalMethod {
         public var description: String?, icon: String?
         /// Commands it needs on PATH (an extension without them stays inactive).
         public var requires: [String]?
-        /// What the library files it under: tools, themes, icons, languages, agents or integrations. nil: an index
-        /// from before categories.
+        /// The category the library files the extension under: tools, themes, icons, languages, agents or integrations.
+        /// nil in an index from before categories.
         public var category: String?
         /// The reviewed folder on GitHub, at its commit: what `extension.fetch` takes.
         public var source: String

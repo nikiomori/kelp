@@ -15,7 +15,7 @@ public struct VMDetailRead: InternalMethod {
 public struct VMConnection: Codable, Sendable, Equatable {
     public var ssh: [String]
     public var prefix: String
-    /// An iOS machine's: its simulator's UDID and its runner's port (`ssh` is then xcrun simctl).
+    /// For an iOS machine: its simulator's UDID and its runner's port (`ssh` is then xcrun simctl).
     public var device: String?, port: Int?
     public init(ssh: [String], prefix: String, device: String? = nil, port: Int? = nil) {
         self.ssh = ssh
@@ -44,8 +44,8 @@ public struct VMCreate: RPCMethod {
     public var image: String?
     /// Memory in GiB, disk in GiB.
     public var cpus: Int?, memory: Int?, disk: Int?
-    /// A file of the user's to make it from instead of downloading: macOS's restore image (.ipsw), or a Linux cloud image's
-    /// raw disk (cloud-init sets its account up, as Debian's).
+    /// A file of the user's to make the machine from instead of downloading one: macOS's restore image (.ipsw), or a
+    /// Linux cloud image's raw disk (whose account cloud-init sets up, as on Debian).
     public var file: String?
     public init(
         name: String, image: String? = nil, cpus: Int? = nil, memory: Int? = nil, disk: Int? = nil, file: String? = nil
@@ -59,8 +59,9 @@ public struct VMCreate: RPCMethod {
     }
 }
 
-/// `start` boots or wakes it; `sleep` saves it to disk (its memory freed, what ran inside goes on when it wakes); `stop`
-/// shuts it down (what ran inside ends); `delete` stops it and removes it, its disk and all. Stop and delete are the user's.
+/// `start` boots or wakes the machine; `sleep` saves it to disk (its memory is freed, and what ran inside goes on when
+/// it wakes); `stop` shuts it down (what ran inside ends); `delete` stops it and removes it, disk and all. Only the
+/// user may stop or delete.
 public struct VMControl: RPCMethod {
     public static let name = "vm.control"
     public typealias Result = VMInfo
@@ -78,7 +79,8 @@ public struct VMControl: RPCMethod {
 }
 
 /// Changes a Linux or macOS machine's processors, memory (GB) and disk (GB, only larger: Linux grows into it as it
-/// boots) while it's shut down. The user's: what every chat's machine has, and the Mac's memory.
+/// boots) while it is shut down. Only the user may do this, since it sets what every chat's machine has and how much of
+/// the Mac's memory it takes.
 public struct VMConfigure: RPCMethod {
     public static let name = "vm.configure"
     public typealias Result = VMInfo
@@ -103,12 +105,13 @@ public struct VMType: RPCMethod {
     }
 }
 
-/// A machine's screen, read and driven by the daemon: `args` as `kelp vm` takes them, ["screenshot", "/abs/file.png"],
-/// ["click", "X", "Y", "--right"?, "--double"?], ["move", "X", "Y"], ["drag", "X", "Y", "X2", "Y2"],
+/// Reads and drives a machine's screen through the daemon. `args` are as `kelp vm` takes them: ["screenshot",
+/// "/abs/file.png"], ["click", "X", "Y", "--right"?, "--double"?], ["move", "X", "Y"], ["drag", "X", "Y", "X2", "Y2"],
 /// ["scroll", "DY", "X"?, "Y"?], ["type", "TEXT"], ["key", "cmd+space"], ["press", "REF|TITLE"]; an Android or iOS
-/// one's also ["install", "/abs/app"], ["launch", "ID"], ["open", "URL"]. A macOS machine's from the Mac's side (no
-/// permission inside it), points of its 1280 × 800 screen, clicks, keys and scrolls taking turns by `session`; an
-/// Android one's through adb, in its screen's pixels; an iOS one's through Kelp's runner, in points.
+/// machine also takes ["install", "/abs/app"], ["launch", "ID"], ["open", "URL"].
+/// A macOS machine is driven from the Mac's side (no permission is needed inside it), in points of its 1280 × 800
+/// screen, with clicks, keys and scrolls taking turns by `session`. An Android machine is driven through adb, in its
+/// screen's pixels; an iOS machine through Kelp's runner, in points.
 public struct VMScreen: RPCMethod {
     public static let name = "vm.screen"
     public typealias Result = Done
@@ -123,9 +126,9 @@ public struct VMScreen: RPCMethod {
     }
 }
 
-/// The controls on a machine's screen, a line each, indented, with a ref to press (`kelp vm ui`): a macOS machine's
-/// front app (or `app`'s) through Kelp Guest inside it, an Android one's through uiautomator, an iOS one's through
-/// Kelp's runner (`app`: a bundle id).
+/// The controls on a machine's screen, one per line, indented, each with a ref to press (`kelp vm ui`). On a macOS
+/// machine they come from the front app (or from `app`) through Kelp Guest inside it; on an Android machine through
+/// uiautomator; on an iOS machine through Kelp's runner (`app` is a bundle id).
 public struct VMUI: RPCMethod {
     public static let name = "vm.ui"
     public typealias Result = String
@@ -142,7 +145,8 @@ public struct VMUI: RPCMethod {
 public struct VMConnect: RPCMethod {
     public static let name = "vm.connect"
     public typealias Result = VMConnection
-    /// As long as the daemon may take: idle machines put to sleep for room (60 s each), then a cold start (Android's, iOS's: 620 s).
+    /// The longest the daemon may take: putting idle machines to sleep to make room (60 s each), then a cold start
+    /// (Android's or iOS's: 620 s).
     public static var timeout: TimeInterval? { 900 }
     public var name: String, cwd: String?
     public init(name: String, cwd: String?) {

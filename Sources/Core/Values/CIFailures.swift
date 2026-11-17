@@ -1,7 +1,8 @@
 import Foundation
 
 extension CIRuns {
-    /// One thing that broke: a test, or a compiler's error (no `test`), with where and what, read from a job's log.
+    /// One thing that broke, read from a job's log: a test, or a compiler's error (with no `test`), with where it is
+    /// and what it says.
     public struct Failure: Codable, Sendable, Equatable {
         public var test: String?, suite: String?
         /// Relative to the project where the log says enough to tell.

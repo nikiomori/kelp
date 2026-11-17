@@ -87,7 +87,7 @@ public struct AddonFiles: Sendable {
                     name: name, file: ".mcp.json", agents: [Session.claudeAgent, "copilot"], project: true,
                     path: shared.path))
         }
-        // pi's own (its folder's mcp.json, the project's .pi/mcp.json), those not turned off.
+        // pi's own servers (its folder's mcp.json and the project's .pi/mcp.json), except those turned off.
         for (file, project) in [
             (pi.appendingPathComponent("mcp.json"), false), (here.appendingPathComponent(".pi/mcp.json"), true)
         ] {

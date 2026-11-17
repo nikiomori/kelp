@@ -18,9 +18,10 @@ public enum IconSearch {
     ]
     static let imageTypes: Set = ["svg", "png", "ico", "icns", "webp"]
 
-    /// The project's own places first, then each top folder's. A bounded look. `name` is the project's (its folder's by
-    /// default), `list` gives a folder's names (nil: no such folder) and `size` a file's bytes: this Mac's, unless
-    /// they're a host's listing.
+    /// Finds the project's icon: the project's own usual places first, then those in each top-level folder, looking
+    /// only so far. `name` is the project's name (its folder's name by default). `list` gives the names in a folder
+    /// (nil when there is no such folder) and `size` gives a file's size in bytes; both read this Mac's disk unless a
+    /// host's listing is passed in.
     public static func find(
         in repo: String, name: String? = nil,
         list: (String) -> [String]? = { try? FileManager.default.contentsOfDirectory(atPath: $0) },
@@ -28,8 +29,8 @@ public enum IconSearch {
     ) -> String? {
         let words = (name ?? (repo as NSString).lastPathComponent).lowercased()
             .split { !$0.isLetter && !$0.isNumber }.map(String.init).filter { $0.count >= 3 }
-        // A folder that's a repository of its own is another project: its icon isn't this one's (a home folder holding
-        // projects took the first project's).
+        // A folder that is a repository of its own is another project, so its icon isn't this project's (a home folder
+        // holding projects used to take the first project's icon).
         let tops = (list(repo) ?? []).filter { !$0.hasPrefix(".") && $0 != "node_modules" }.sorted().prefix(40)
             .filter { list(repo + "/" + $0 + "/")?.contains(".git") != true }
         for base in [""] + tops.map({ $0 + "/" }) {

@@ -41,7 +41,7 @@ extension Data {
         self = data
     }
 
-    /// The file's last `count` bytes (all of a smaller one), nil when there's no such file.
+    /// The file's last `count` bytes (all of a smaller file), or nil when there is no such file.
     public init?(tail count: Int, of url: URL) {
         let data = probe("reading", url.path) { () throws -> Data in
             let handle = try FileHandle(forReadingFrom: url)

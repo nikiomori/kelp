@@ -1,6 +1,7 @@
 import Foundation
 
-/// A comment on lines of a diff, the user's or a reviewer agent's, until it is sent to an agent or resolved.
+/// A comment on lines of a diff, written by the user or by a reviewer agent, kept until it is sent to an agent or
+/// resolved.
 public struct DiffComment: Codable, Sendable, Equatable, Identifiable {
     public enum State: String, Codable, Sendable, CaseIterable { case open, sent, resolved }
     public var id: String

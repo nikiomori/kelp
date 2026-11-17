@@ -24,7 +24,7 @@ public struct PublishedPage: Codable, Equatable, Sendable {
 }
 
 extension Artifacts {
-    /// Kelp's copy of a page on a service, in the artifact's folder.
+    /// Kelp's copy of a page that lives on a service, kept in the artifact's folder.
     public static let pageCopy = "page.html"
 
     /// The page in a publishing tool's input, and whether it's a Design canvas (its files under `project/`).

@@ -1,8 +1,8 @@
 import Foundation
 
-/// What's pasted into Add Database, read as a database: a URL (postgres://, mysql://, jdbc:…, sqlite:, duckdb:),
+/// Reads what is pasted into Add Database as a database: a URL (postgres://, mysql://, jdbc:…, sqlite:, duckdb:),
 /// libpq's `host=… dbname=…` words, a `psql` or `mysql` command line, an .env line (`DATABASE_URL=…`), or a file's
-/// path. The password comes apart from the rest: it goes to the keychain, never into what's shown.
+/// path. The password is split off from the rest: it goes to the keychain and is never shown.
 public struct DatabaseAddress: Equatable, Sendable {
     public var database: DatabaseInfo
     public var password: String?
@@ -84,7 +84,7 @@ public struct DatabaseAddress: Equatable, Sendable {
         return DatabaseAddress(database: db, password: (parts.password ?? query["password"])?.removingPercentEncoding)
     }
 
-    /// libpq's: `host=db port=5432 dbname=app user=app password='it''s'`.
+    /// Reads libpq's key=value form: `host=db port=5432 dbname=app user=app password='it''s'`.
     static func keywords(_ text: String) throws(Problem) -> DatabaseAddress {
         var values: [String: String] = [:]
         for match in text.matches(of: #/(\w+)\s*=\s*('(?:[^'\\]|\\.)*'|\S*)/#) {

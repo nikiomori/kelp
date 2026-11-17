@@ -7,7 +7,8 @@ public struct VMFolder: Sendable, Equatable {
     public let url: URL
     public init(_ url: URL) { self.url = url }
     public var path: String { url.path }
-    /// One of its files this doesn't name: a process's own (a log, a work folder).
+    /// Any file in the machine's folder that has no name of its own here: one a process keeps for itself (a log, a work
+    /// folder).
     public func file(_ name: String) -> URL { url.appendingPathComponent(name) }
 
     /// The machine (`VMMachine`): kelpd writes it as it's made and resized, kelp-vm reads it as it starts.
@@ -16,11 +17,13 @@ public struct VMFolder: Sendable, Equatable {
     public var creating: URL { file("creating") }
     /// Why making it failed (kelpd's).
     public var failed: URL { file("failed") }
-    /// The user's own file it's made from, to make it again after kelpd restarts (kelpd's).
+    /// The user's own file the machine is made from, kept so kelpd can make it again after a restart (written by
+    /// kelpd).
     public var source: URL { file("source") }
     /// Held by its kelp-vm while that runs (`Lifecycle.hold`, `VMService.alive`), and by kelpd while it changes its size.
     public var lock: URL { file("kelp-vm.lock") }
-    /// kelp-vm's sockets: kelpd's requests (`VMHelper`); SSH for agents and people, counted as use; Kelp's own reads.
+    /// kelp-vm's sockets: one for kelpd's requests (`VMHelper`), one for SSH from agents and people (counted as use),
+    /// and one for Kelp's own reads.
     public var control: URL { file("ctl.sock") }
     public var ssh: URL { file("ssh.sock") }
     public var own: URL { file("own.sock") }
@@ -30,7 +33,8 @@ public struct VMFolder: Sendable, Equatable {
     public var disk: URL { file("disk.img") }
     /// A Linux machine's cloud-init seed: kelpd makes it, kelp-vm attaches it.
     public var seed: URL { file("seed.iso") }
-    /// A Linux or macOS machine's state while it sleeps (kelp-vm's; kelpd forgets it on Shut Down).
+    /// The saved state of a Linux or macOS machine while it sleeps (written by kelp-vm; kelpd discards it on Shut
+    /// Down).
     public var savedState: URL { file("state.vzsave") }
     /// How to reach it over SSH (`VMs.sshConfig`), with its key and the guest's host key.
     public var sshConfig: URL { file("ssh_config") }
@@ -52,7 +56,8 @@ public struct VMFolder: Sendable, Equatable {
     public var log: URL { file("helper.log") }
     /// A child kelp-vm started (an emulator, an iOS runner), noted as "<pid> <start time>" (`Lifecycle.remember`).
     public func child(_ name: String) -> URL { file(name + ".child") }
-    /// kelp-vm's own note, as a child's: kelpd ends one that holds its lock and no longer answers.
+    /// kelp-vm's note about itself, written the way a child's is, so kelpd can end a kelp-vm that holds its lock and no
+    /// longer answers.
     public static let helperNote = "kelp-vm"
 
     /// Ends the child noted as `name` if that same process (by its start time) still runs: SIGTERM to its tree, then
@@ -143,7 +148,7 @@ public enum VMHelper {
         public var slot: Int?
         /// An Android machine's adb serial while its emulator runs ("emulator-5600"); an iOS one's simulator UDID.
         public var serial: String?
-        /// An iOS machine's runner, on the Mac's loopback.
+        /// An iOS machine's runner, reached on the Mac's loopback.
         public var port: Int?
         /// A macOS machine's screen: the session whose turn it is, while it lasts.
         public var screen: String?

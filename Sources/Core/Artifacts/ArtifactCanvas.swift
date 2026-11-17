@@ -94,8 +94,8 @@ public enum DesignSystem {
     public static func dir(root: String) -> URL { URL(fileURLWithPath: root).appendingPathComponent(folder) }
 
     /// `tokens.json` as CSS custom properties for each theme. A group of colours (`color`) gives `--<name>`, any other
-    /// group `--<group>-<name>`; a value is one string for both themes or `{"light": …, "dark": …}`. Nothing that could
-    /// end the declaration (`;`, `{`, `}`, `<`) passes: the values land in a page's `<style>`.
+    /// group gives `--<group>-<name>`. A value is one string for both themes, or `{"light": …, "dark": …}`. Nothing
+    /// that could end the declaration (`;`, `{`, `}`, `<`) gets through, because the values land in a page's `<style>`.
     public static func css(tokens json: String) -> (light: String, dark: String) {
         let object: JSONValue
         do { object = try JSONDecoder().decode(JSONValue.self, from: Data(json.utf8)) } catch { return ("", "") }
@@ -119,8 +119,9 @@ public enum DesignSystem {
     private static func isValue(_ value: String) -> Bool { !value.contains(where: { ";{}<\n".contains($0) }) }
 }
 
-/// A board's levers, moved in Kelp without its agent: a line at its top, `<!-- tweak --highlight: #1f7a5a -->`
-/// (a colour) or `<!-- tweak --gap: 12px (8px, 12px, 16px) -->` (one of those). The board uses `var(--highlight)`.
+/// A board's levers, which the user can move in Kelp without the board's agent. Each is a line at the board's top:
+/// `<!-- tweak --highlight: #1f7a5a -->` (a colour) or `<!-- tweak --gap: 12px (8px, 12px, 16px) -->` (one of those
+/// values). The board uses `var(--highlight)`.
 public struct Tweak: Equatable, Sendable, Encodable {
     public var name: String, value: String
     /// Its choices; empty for a colour.

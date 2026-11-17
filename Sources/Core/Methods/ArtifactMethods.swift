@@ -26,7 +26,7 @@ public struct ArtifactAdd: RPCMethod {
     public static let name = "artifact.add"
     public typealias Result = Bool
     public var url: String, title: String
-    /// One of `Artifacts.Kind`, or "page" for any other.
+    /// One of `Artifacts.Kind`, or "page" for any other kind.
     public var type: String
     public var cwd: String, session: String?, page: PublishedPage?
     public init(url: String, title: String, type: String, cwd: String, session: String?, page: PublishedPage? = nil) {
@@ -58,7 +58,8 @@ public struct ArtifactCheck: RPCMethod {
 public struct ArtifactCost: InternalMethod {
     public static let name = "artifact.cost"
     public struct Spent: Codable, Sendable, Equatable {
-        /// Model calls; tokens written; tokens read (the prompt, its cached part included); US dollars.
+        /// Model calls; tokens written; tokens read (the prompt, including its cached part); and the cost in US
+        /// dollars.
         public var calls: Int, output: Int, read: Int, cost: Double
         public init(calls: Int, output: Int, read: Int, cost: Double) {
             self.calls = calls

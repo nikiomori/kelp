@@ -26,7 +26,8 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         return inside.flatMap { inside in AgentHome.dir(rawValue)?.appendingPathComponent(inside) }
     }
 
-    /// Its lines say what a call cost (Grok's own figure, pi's): that's the price, not the list's.
+    /// Whether this agent's lines say what a call cost (Grok's own figure, pi's). If so, that is the price used, not
+    /// the price list's.
     public var ownPrice: Bool { [.grok, .pi, .omp].contains(self) }
 
     func reads(_ file: URL) -> Bool {
@@ -113,10 +114,12 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         }
     }
 
-    /// Codex's rollouts: the folder in `session_meta`, the model in each `turn_context`, a call's tokens in `token_count`'s
-    /// `last_token_usage` (its input counts the cached part). The same snapshot is often written twice (one running total:
-    /// counted once); an estimate has nothing but a total (an imported Claude Code conversation has one), so it's left out.
-    /// Limit: a fork replays its parent's events stamped with the time it forked; those in its first 2 s are taken as its parent's.
+    /// Codex's rollouts: the folder comes from `session_meta`, the model from each `turn_context`, and a call's tokens
+    /// from `token_count`'s `last_token_usage` (whose input includes the cached part). The same snapshot is often
+    /// written twice (it is one running total, so it is counted once). An estimate has nothing but a total (an imported
+    /// Claude Code conversation has one), so it is left out.
+    /// Limit: a fork replays its parent's events stamped with the time it forked; those in its first 2 s are taken as
+    /// its parent's.
     static func codex(_ line: Data, _ context: inout [String: String]) -> UsageEntry? {
         guard let object = JSONL.object(line), let payload = object["payload"] as? [String: Any],
             let time = JSONL.date(object["timestamp"])?.timeIntervalSince1970
@@ -184,9 +187,9 @@ public enum UsageFormat: String, Sendable, CaseIterable {
             tokens: tokens)
     }
 
-    /// pi's (and oh-my-pi's) sessions: the folder on the first line (`type: session`), then an assistant message's `usage`
-    /// (input without the cache, output with the reasoning) and what pi priced it at. A fork copies its parent's lines with
-    /// their old times: the index skips those as older than the file.
+    /// pi's (and oh-my-pi's) sessions: the folder on the first line (`type: session`), then each assistant message's
+    /// `usage` (input without the cache, output including the reasoning) and the price pi gave it. A fork copies its
+    /// parent's lines with their old times, so the index skips lines older than the file.
     static func pi(_ line: Data, _ context: inout [String: String]) -> UsageEntry? {
         guard let object = JSONL.object(line) else { return nil }
         if object["type"] as? String == "session" {

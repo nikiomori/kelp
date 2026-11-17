@@ -265,9 +265,9 @@ public enum ExtensionFiles {
         return out.sorted { $0.name < $1.name }
     }
 
-    /// What an extension's manifest can run, for a look before it's installed: the shell commands (every "command" with
-    /// its "args", "terminal", "run", "test", "format" and "install" text, an "open" of a terminal: or agent: URI) and the
-    /// web pages, which can run any.
+    /// What an extension's manifest can run, to look at before it is installed: its shell commands (every "command"
+    /// with its "args", the "terminal", "run", "test", "format" and "install" text, and any "open" of a terminal: or
+    /// agent: URI) and its web pages, which can run anything.
     public static func commandsIn(_ manifest: JSONValue) -> (commands: [String], pages: [String]) {
         var commands: [String] = [], pages: [String] = []
         func walk(_ value: JSONValue) {

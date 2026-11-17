@@ -30,7 +30,7 @@ extension AddonFiles {
         return out
     }
 
-    /// The two folders skills go in: the shared one and Claude Code's, the person's or the project's.
+    /// The two folders skills go in, the shared one and Claude Code's, either the person's or the project's.
     func skillFolders(cwd: String, project: Bool) -> (shared: URL, claude: URL) {
         guard project else {
             return (home.appendingPathComponent(".agents/skills"), claude.appendingPathComponent("skills"))
