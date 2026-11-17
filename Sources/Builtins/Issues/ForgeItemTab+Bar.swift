@@ -66,7 +66,7 @@ extension ForgeItemTab {
     }
 
     private func moreButton(issueMenu: Bool) -> NSView {
-        let more = IconButton(.symbol("ellipsis"), tip: String(localized: "More")) {}
+        let more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) {}
         more.onClick = { [weak self, weak more] in
             guard let self, let more else { return }
             let menu = issueMenu ? self.issueMoreMenu() : self.prMoreMenu()

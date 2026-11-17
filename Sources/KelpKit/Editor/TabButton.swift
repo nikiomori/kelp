@@ -143,7 +143,7 @@ final class TabButton: NSControl, NSDraggingSource {
         full.stringValue = it.badge?.meter.map { "\(Int(Double($0.used) / Double(max($0.window, 1)) * 100))%" } ?? ""
         full.textColor = .textRed
         chip.isHidden = (it.badge?.background ?? 0) == 0
-        chip.show("apple.terminal", count: it.badge?.background ?? 0)
+        chip.show("terminal", count: it.badge?.background ?? 0)
         chip.toolTip = it.card == nil ? it.badge?.backgroundTip : nil   // the card lists them
         chip.setAccessibilityLabel(it.badge?.backgroundTip)
         toolTip = it.card == nil ? it.toolTip ?? it.title : nil   // not both at once

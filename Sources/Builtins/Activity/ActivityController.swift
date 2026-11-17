@@ -132,7 +132,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         cost.alignment = .right
         cost.textColor = entry.cpu > 80 ? .textOrange : .secondaryLabelColor
         let tip = String(localized: "Stop \(name.stringValue) (ends its processes)")
-        let stop = IconButton(.symbol("stop.circle"), tip: tip) { AgentActions(app).stop([session.id]) }
+        let stop = IconButton(.symbol("stop.fill"), tip: tip) { AgentActions(app).stop([session.id]) }
         for x in [name, place, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         let rowView = NSStackView(views: [icon, text, NSView(), cost, stop])
         rowView.spacing = 8

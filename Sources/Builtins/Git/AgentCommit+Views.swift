@@ -38,7 +38,7 @@ final class AgentCommitControls {
         working.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         watch = Self.link(String(localized: "Show"), controller, #selector(SourceControlController.showAgentSession))
         let stop = IconButton(
-            .symbol("stop.circle"), tip: String(localized: "Stop"), target: controller,
+            .symbol("stop.fill"), tip: String(localized: "Stop"), target: controller,
             action: #selector(SourceControlController.stopAgentCommit))
         work = NSStackView(views: [mark, working, NSView(), watch, stop])
         work.spacing = Metrics.gap

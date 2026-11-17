@@ -97,7 +97,7 @@ extension SidebarCell {
             chip.show("scope")
             chip.toolTip = String(localized: "Goal: \(goal)")
         } else {
-            chip.show(mark?.symbol ?? "apple.terminal", count: beside)
+            chip.show(mark?.symbol ?? "terminal", count: beside)
             chip.toolTip = mark?.tip ?? session.backgroundTip
         }
         chip.setAccessibilityLabel(chip.toolTip)

@@ -103,7 +103,7 @@ package struct AgentCatalog {
     /// read, so whoever shows the icon hears when the real icon arrives.
     package func icon(_ id: String?, size: CGFloat = 16) -> NSImage? {
         guard let id, Session.isAgent(id) else {
-            let name = id == Session.customAgent ? "apple.terminal" : "terminal"
+            let name = "terminal"
             if let known = app.agentIcons.made[name] { return known.image }
             let image = NSImage.symbol(name)
             app.agentIcons.made[name] = (nil, image)

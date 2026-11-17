@@ -91,7 +91,7 @@ struct DatabasePanelRows {
             icon.toolTip = String(localized: "Used in \(projectTitle)")
             views.append(icon)
         } else if library {
-            let use = IconButton(.symbol("plus.circle"), tip: String(localized: "Use in \(projectTitle)")) {
+            let use = IconButton(.symbol("plus"), tip: String(localized: "Use in \(projectTitle)")) {
                 [weak panel] in panel?.use(db)
             }
             use.isHidden = true
@@ -163,7 +163,7 @@ struct DatabasePanelRows {
     /// The project card's last row, a menu of All My Databases to use here. When the project uses none yet, the row
     /// says that agents in this project reach no database until it uses one.
     func use(empty: Bool) -> NSView {
-        let icon = NSImageView(image: .symbol("plus.circle"))
+        let icon = NSImageView(image: .symbol("plus"))
         icon.symbolConfiguration = .chrome(Metrics.iconSmall + 2)
         icon.contentTintColor = empty ? .linkColor : .secondaryLabelColor
         let slot = NSStackView(views: [icon])

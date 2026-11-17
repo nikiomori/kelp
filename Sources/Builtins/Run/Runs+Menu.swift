@@ -88,7 +88,7 @@ extension Runs {
                 let stop = menu.add(String(localized: "Stop \(row.name)")) { [weak self] in
                     Task { await self?.app.call(SessionKill(id: sid)) }
                 }
-                stop.show(Self.tinted("stop.circle.fill", .systemRed))
+                stop.show(Self.tinted("stop.fill", .systemRed))
                 // An alternate pairs with its item by key: ⌥ added to ⌘R, or ⌥ alone.
                 stop.keyEquivalent = item.keyEquivalent
                 stop.keyEquivalentModifierMask = item.keyEquivalent.isEmpty ? .option : [.command, .option]
@@ -202,7 +202,7 @@ extension Runs {
             guard let app = self?.app else { return }
             Task { await PageActions(app).stop(pid: port.pid, in: wid) }
         }
-        stop.show(.symbol("stop.circle"))
+        stop.show(.symbol("stop.fill"))
         stop.isAlternate = true
         stop.keyEquivalentModifierMask = .option
     }

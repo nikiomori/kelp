@@ -54,7 +54,7 @@ Both take the same view definitions; `editors` also appear in the editor area's 
     "actions": [
       { "title": "Open Shell", "icon": "terminal", "terminal": "docker exec -it ${ID} sh" },
       { "title": "Logs", "icon": "text.alignleft", "terminal": "docker logs -f --tail 200 ${ID}" },
-      { "title": "Stop", "icon": "stop.circle", "run": "docker stop ${ID}", "confirm": "Stop ${Names}?" },
+      { "title": "Stop", "icon": "stop.fill", "run": "docker stop ${ID}", "confirm": "Stop ${Names}?" },
       { "title": "Ask Agent Why It Failed", "icon": "sparkles", "agent": "Container ${Names} (${Image}) is ${Status}. Find out why." }
     ],
     "toolbar": [

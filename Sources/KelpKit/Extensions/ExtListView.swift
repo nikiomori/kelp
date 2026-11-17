@@ -32,9 +32,9 @@ struct ExtListView: View {
                         ExtActions(app).perform(action, item: nil, folder: folder) { reload() }
                     } label: {
                         if index == 0 {
-                            Label(action.title, systemImage: action.icon ?? "play")
+                            Label(action.title, systemImage: action.icon ?? "play.fill")
                         } else {
-                            Image(systemName: action.icon ?? "play").frame(width: 22, height: 22)
+                            Image(systemName: action.icon ?? "play.fill").frame(width: 22, height: 22)
                         }
                     }
                     .buttonStyle(PointerButtonStyle()).help(action.title)

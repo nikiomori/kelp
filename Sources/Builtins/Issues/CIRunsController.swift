@@ -78,7 +78,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         }
         workflowsButton.isHidden = true
         for (button, symbol, tip) in [
-            (workflowsButton, "play.circle", String(localized: "Run Workflow…")),
+            (workflowsButton, "play.fill", String(localized: "Run Workflow…")),
             (webButton, "arrow.up.forward.square", String(localized: "Open in Browser"))
         ] {
             button.image = .symbol(symbol, tip)

@@ -111,7 +111,7 @@ extension Runs {
             run = offer.guess ? nil : NewTabChoices.key("scripts.run", app, default: "cmd+r")
         return [
             NewTabChoices.Action(
-                title: String(localized: "Run \(offer.label)"), symbol: "play", key: run, help: offer.command
+                title: String(localized: "Run \(offer.label)"), symbol: "play.fill", key: run, help: offer.command
             ) {
                 Task { await self.start(choice: offer.choice, in: wid) }
             },
@@ -135,8 +135,8 @@ extension Runs {
             await load(wid)
             if let ports = await app.quiet(PortsList(worktreeId: wid)) { adopt(ports, wid) }
             let runMenu = menu(wid)
-        // 4 pt under the chip, as the title bar's other menus are. Without the chip (in focus mode), near the
-        // window's top.
+            // 4 pt under the chip, as the title bar's other menus are. Without the chip (in focus mode), near the
+            // window's top.
             if let below = button ?? anchor, below.window != nil {
                 runMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: below.bounds.height + 4), in: below)
             } else if let content = app.workbench.windowContent {

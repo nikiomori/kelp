@@ -39,7 +39,7 @@ final class CIJobPane: NSObject {
     private lazy var rerunButton = IconButton(.symbol("arrow.clockwise"), tip: String(localized: "Re-run Failed")) {
         [weak self] in self?.rerun()
     }
-    private lazy var stopButton = IconButton(.symbol("stop.circle"), tip: String(localized: "Cancel Run…")) {
+    private lazy var stopButton = IconButton(.symbol("stop.fill"), tip: String(localized: "Cancel Run…")) {
         [weak self] in
         if let self, let shown, let run = runOf?(shown.run) { actions?.cancel(run) }
     }

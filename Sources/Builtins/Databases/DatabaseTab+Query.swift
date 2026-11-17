@@ -72,7 +72,7 @@ extension DatabaseTab {
         grid.source = nil
         grid.show(columns: [], rows: [])
         empty.show(
-            String(localized: "Run a Statement"), symbol: "play",
+            String(localized: "Run a Statement"), symbol: "play.fill",
             text: String(localized: "⌘↩ runs the statement the cursor is in. Words from the tables come as you type."))
         status.stringValue = ""
         editor.focus()

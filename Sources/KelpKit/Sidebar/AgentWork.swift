@@ -184,7 +184,7 @@ struct AgentWorkRow: View {
     @ViewBuilder private var mark: some View {
         switch row.mark {
         case .status(let status): StatusIcon(status: status)
-        case .command: Image(systemName: "apple.terminal").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary)
+        case .command: Image(systemName: "terminal").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary)
         case .none: EmptyView()
         }
     }

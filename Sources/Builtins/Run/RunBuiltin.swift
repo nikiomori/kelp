@@ -8,7 +8,7 @@ extension Builtins {
     /// Run menu (⌘R, ⌘U, ⌘.), the Run rows in the "+" menu and the empty workspace, and running the file in front.
     package static let run = Builtin(
         "kelp.run", "Run", "The project's commands: the run chip, the Run menu and the pages they serve.",
-        icon: "play"
+        icon: "play.fill"
     ) { app in
         let runs = app.part { Runs(app: app) }
         let inWorkspace: @MainActor () -> Bool = { app.workbench.workspaceId != nil }
