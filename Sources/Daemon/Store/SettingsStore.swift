@@ -113,10 +113,7 @@ final class SettingsStore: Sendable {
     }
 
     /// The modification date of the file a symlink points at, because the link's own date never changes on an edit.
-    private func modified() -> Date? {
-        (try? FileManager.default.attributesOfItem(atPath: url.resolvingSymlinksInPath().path))?[.modificationDate]
-            as? Date
-    }
+    private func modified() -> Date? { FileManager.default.modified(url.path) }
 
     /// Writes the settings while holding `file`. The values in memory change only once they're on disk.
     private func write(_ values: [String: JSONValue]) throws {

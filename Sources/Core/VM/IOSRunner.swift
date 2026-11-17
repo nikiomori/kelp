@@ -29,18 +29,9 @@ public enum IOSRunnerClient {
         let fd = socket(AF_INET, SOCK_STREAM, 0)
         guard fd >= 0 else { return nil }
         defer { close(fd) }
-        var address = sockaddr_in()
-        address.sin_family = sa_family_t(AF_INET)
-        address.sin_port = UInt16(port).bigEndian
-        address.sin_addr.s_addr = inet_addr("127.0.0.1")
-        let result = withUnsafePointer(to: &address) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
-            }
-        }
         var line: Data
         do { line = try JSONSerialization.data(withJSONObject: request) } catch { return nil }
-        guard result == 0 else { return nil }
+        guard Unix.connect(fd, loopbackPort: port) else { return nil }
         line.append(0x0A)
         Unix.noSigPipe(fd)
         guard Unix.writeAll(fd, line) else { return nil }

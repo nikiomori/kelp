@@ -21,10 +21,7 @@ extension Main {
         let url = file.map { URL(fileURLWithPath: $0) } ?? temporary, asked = Date().timeIntervalSince1970
         _ = try await client.call(UICommand(id: "window.shot", args: .object(["path": .string(url.path)])))
         for _ in 0..<50 {
-            var st = stat()
-            let written =
-                stat(url.path, &st) == 0 ? Double(st.st_mtimespec.tv_sec) + Double(st.st_mtimespec.tv_nsec) / 1e9 : 0
-            if written >= asked {
+            if FileManager.default.modified(url.path)?.timeIntervalSince1970 ?? 0 >= asked {
                 print(url.path)
                 return
             }

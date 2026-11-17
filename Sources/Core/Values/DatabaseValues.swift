@@ -92,7 +92,7 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     private static let thisMac: String = {
         var name = [CChar](repeating: 0, count: 256)
         guard gethostname(&name, name.count) == 0 else { return "localhost" }
-        return String(decoding: name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self).lowercased()
+        return String(cBuffer: name).lowercased()
     }()
 
     /// A single key for where the database lives. It is the file for a file database. For a server it is the host (with

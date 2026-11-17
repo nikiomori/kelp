@@ -136,9 +136,7 @@ extension AgentUsage {
             return Set(
                 try Self.planProbes.map(\.agent).filter { agent in
                     let mark = dir.appendingPathComponent("\(agent).used")
-                    var at =
-                        fm.fileExists(atPath: mark.path)
-                        ? try fm.attributesOfItem(atPath: mark.path)[.modificationDate] as? Date : nil
+                    var at = fm.modified(mark.path)
                     if inStore.contains(agent), at.map({ $0 < now - 86400 }) ?? true {
                         fm.createFile(atPath: mark.path, contents: nil, attributes: [.modificationDate: now])
                         at = now

@@ -187,9 +187,7 @@ extension Git {
         guard remotes.of(path) == nil else { return nil }
         let file = try line(
             ["rev-parse", "--path-format=absolute", "--git-path", "FETCH_HEAD"], cwd: path, remotes: remotes)
-        var info = stat()
-        guard !file.isEmpty, stat(file, &info) == 0 else { return nil }
-        return Double(info.st_mtimespec.tv_sec)
+        return file.isEmpty ? nil : FileManager.default.modified(file)?.timeIntervalSince1970
     }
 
     private static func unsyncedLists(_ path: String, limit: Int, remotes: Remotes) throws -> Unsynced {

@@ -138,14 +138,12 @@ final class AgentUsage: Sendable {
 
     /// Models past 200k tokens at the end of the `count` newest transcripts.
     static func longContextModels(in roots: [URL], count: Int = 20) -> Set<String> {
-        let key = URLResourceKey.contentModificationDateKey
         let all: [URL] = roots.flatMap { root -> [URL] in
-            (FileManager.default.enumerator(at: root, includingPropertiesForKeys: [key])?.allObjects as? [URL]) ?? []
+            (FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)?.allObjects as? [URL]) ?? []
         }
-        let files: [(URL, Date)] = all.filter { $0.pathExtension == "jsonl" }
-            .map { url -> (URL, Date) in
-                (url, (try? url.resourceValues(forKeys: [key]).contentModificationDate) ?? .distantPast)
-            }
+        let files = all.filter { $0.pathExtension == "jsonl" }.map {
+            ($0, FileManager.default.modified($0.path) ?? .distantPast)
+        }
         let newest = files.sorted { $0.1 > $1.1 }.prefix(count).map(\.0)
         return Set(newest.compactMap { ClaudeContext.usage(transcript: $0) }.filter { $0.peak > 200_000 }.map(\.model))
     }

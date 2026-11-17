@@ -34,19 +34,15 @@ public enum IDE {
 
     /// Returns the workspace that a command run in `cwd` refers to (`workspace(cwd:among:own:)`), using the daemon's
     /// lists.
-    public static func workspace(
-        cwd: String, session: String? = ProcessInfo.processInfo.environment["KELP_SESSION"],
-        client: RPCClient
-    ) async throws -> Worktree? {
+    public static func workspace(cwd: String, client: RPCClient) async throws -> Worktree? {
         let all = try await client.call(WorktreeList())
-        return workspace(cwd: cwd, among: all, own: try await ownWorkspace(session: session, client: client))
+        return workspace(cwd: cwd, among: all, own: try await ownWorkspace(client: client))
     }
 
     /// Returns the workspace of the session this process runs in (the one KELP_SESSION names).
-    static func ownWorkspace(
-        session: String? = ProcessInfo.processInfo.environment["KELP_SESSION"], client: RPCClient
-    ) async throws -> String? {
-        session == nil ? nil : try await client.call(SessionList()).first { $0.id == session }?.worktreeId
+    static func ownWorkspace(client: RPCClient) async throws -> String? {
+        guard let session = ProcessInfo.processInfo.environment["KELP_SESSION"] else { return nil }
+        return try await client.call(SessionList()).first { $0.id == session }?.worktreeId
     }
 
     /// Returns the workspace that holds `cwd`. A project's workspaces share its folder, so the folder alone can't tell

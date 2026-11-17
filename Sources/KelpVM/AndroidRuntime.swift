@@ -306,10 +306,9 @@ final class AndroidRuntime: MachineRuntime {
     /// Returns whether a file of the snapshot was written since `since`, because an old snapshot left by the sleep
     /// before isn't this one.
     private func written(since: Date) -> Bool {
-        let files = FileManager.default.enumerator(
-            at: snapshot, includingPropertiesForKeys: [.contentModificationDateKey])
-        return files?.contains { file in
-            ((try? (file as? URL)?.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate)
+        let files = FileManager.default.enumerator(atPath: snapshot.path)
+        return files?.contains { name in
+            (name as? String).flatMap { FileManager.default.modified(snapshot.appendingPathComponent($0).path) }
                 .map { $0 >= since } ?? false
         } ?? false
     }

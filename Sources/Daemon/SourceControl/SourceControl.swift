@@ -124,8 +124,7 @@ struct SourceControl: Sendable {
         let old = Date().timeIntervalSince1970 - 60, discards = discards(root)
         for name in FileManager.default.enumerator(atPath: discards.path)?.allObjects as? [String] ?? [] {
             let path = discards.appendingPathComponent(name).path
-            var st = stat()
-            if stat(path, &st) == 0, Double(st.st_mtimespec.tv_sec) < old { unlink(path) }
+            if let at = FileManager.default.modified(path)?.timeIntervalSince1970, at < old { unlink(path) }
         }
     }
     struct Discarded: Codable, Sendable {

@@ -38,11 +38,4 @@ public struct GhosttyConfig: Equatable, Sendable {
         }
         return nil
     }
-
-    /// Turns "#1e1e2e" or "1e1e2e" into (r, g, b), each in 0...1.
-    public static func rgb(_ hex: String) -> (Double, Double, Double)? {
-        let digits = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
-        guard digits.count == 6, let value = UInt32(digits, radix: 16) else { return nil }
-        return (Double(value >> 16 & 0xff) / 255, Double(value >> 8 & 0xff) / 255, Double(value & 0xff) / 255)
-    }
 }

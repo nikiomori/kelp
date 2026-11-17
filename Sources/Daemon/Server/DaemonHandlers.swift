@@ -73,8 +73,7 @@ struct Upgrade {
     private static func refusal(_ root: URL) -> URL { root.appendingPathComponent("upgrade-refused") }
     /// When the file at `path` was last changed (seconds since 1970); 0 when there's none.
     static func modified(_ path: String) -> Double {
-        (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date)?.timeIntervalSince1970
-            ?? 0
+        FileManager.default.modified(path)?.timeIntervalSince1970 ?? 0
     }
 }
 

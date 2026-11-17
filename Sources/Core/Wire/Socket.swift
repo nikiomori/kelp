@@ -39,19 +39,32 @@ public enum Unix {
     public static func connect(_ path: String) throws -> Int32 {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw SocketError.socket(errno) }
-        var address = try addr(path)
-        let result = withUnsafePointer(to: &address) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                Darwin.connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
-            }
-        }
-        guard result == 0 else {
+        let address = try addr(path)
+        guard withAddress(address, { Darwin.connect(fd, $0, $1) }) == 0 else {
             let code = errno
             close(fd)
             throw SocketError.connect(code)
         }
         noSigPipe(fd)
         return fd
+    }
+
+    /// Connects `fd`, a TCP socket, to `port` on the Mac's loopback. Returns whether it connected.
+    public static func connect(_ fd: Int32, loopbackPort port: Int) -> Bool {
+        var address = sockaddr_in()
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = UInt16(port).bigEndian
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        return withAddress(address) { Darwin.connect(fd, $0, $1) } == 0
+    }
+
+    /// Calls `body` with `address` as the `sockaddr` and length that connect and bind take.
+    private static func withAddress<Address, T>(
+        _ address: Address, _ body: (UnsafePointer<sockaddr>, socklen_t) -> T
+    ) -> T {
+        withUnsafePointer(to: address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { body($0, socklen_t(MemoryLayout<Address>.size)) }
+        }
     }
 
     /// Makes writing to a peer that hung up fail with EPIPE instead of killing the process. The app and the tests don't
@@ -71,14 +84,9 @@ public enum Unix {
         unlink(path)
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw SocketError.socket(errno) }
-        var address = try addr(path)
+        let address = try addr(path)
         closeOffDirectory((path as NSString).deletingLastPathComponent)
-        let result = withUnsafePointer(to: &address) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
-            }
-        }
-        guard result == 0, Darwin.listen(fd, SOMAXCONN) == 0 else {
+        guard withAddress(address, { Darwin.bind(fd, $0, $1) }) == 0, Darwin.listen(fd, SOMAXCONN) == 0 else {
             let code = errno
             close(fd)
             throw SocketError.bind(code)

@@ -90,6 +90,14 @@ extension FileManager {
         probe("listing", folder) { try contentsOfDirectory(atPath: folder) } ?? []
     }
 
+    /// Returns when the file (or the file a link points at) was last changed, or nil when there is no such file.
+    public func modified(_ path: String) -> Date? {
+        var info = stat()
+        guard stat(path, &info) == 0 else { return nil }
+        return Date(
+            timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec) + Double(info.st_mtimespec.tv_nsec) / 1e9)
+    }
+
     /// Removes the file or folder if it is there. A failure to remove it is logged.
     public func removeIfAny(_ url: URL) {
         _ = probe("removing", url.path) { try removeItem(at: url) }
