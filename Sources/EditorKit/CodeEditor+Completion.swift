@@ -73,10 +73,10 @@ extension CodeEditor {
         let line = string.lineRange(for: NSRange(location: own.location, length: 0))
         let indent = string.substring(with: line).prefix { $0 == " " || $0 == "\t" }
         let (text, stops) =
-            completion.snippet
+            completion.snippet == true
             ? Snippet.parse(Snippet.fitted(completion.insert, indent: String(indent), unit: tv.indentUnit))
             : (completion.insert, [])
-        let edits = ([(own, text)] + completion.more.map { (range($0, in: string), $0.text) }).sorted {
+        let edits = ([(own, text)] + (completion.more ?? []).map { (range($0, in: string), $0.text) }).sorted {
             $0.0.location < $1.0.location
         }
         tv.replace(edits.map(\.0), with: edits.map(\.1))

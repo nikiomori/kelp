@@ -1,46 +1,11 @@
 import AppKit
+import Core
 
 extension CodeEditor {
-    /// A server's edit to the text, 0-based, in UTF-16 units.
-    public struct TextEdit: Equatable, Sendable {
-        public let line: Int, column: Int, endLine: Int, endColumn: Int, text: String
-        public init(line: Int, column: Int, endLine: Int, endColumn: Int, text: String) {
-            self.line = line
-            self.column = column
-            self.endLine = endLine
-            self.endColumn = endColumn
-            self.text = text
-        }
-    }
-
-    public struct Completion: Equatable, Sendable {
-        public var label: String
-        public var detail: String?
-        public var insert: String
-        /// The item's kind: "method", "keyword"…
-        public var kind: String?
-        public var documentation: String?
-        /// Whether `insert` has tab stops ($1, ${2:name}).
-        public var snippet = false
-        /// What the server says to replace with the item; else the word at the cursor is replaced.
-        public var edit: TextEdit?
-        /// More edits that go with the item, such as an import it needs.
-        public var more: [TextEdit] = []
-        public init(
-            label: String, detail: String? = nil, insert: String, kind: String? = nil, documentation: String? = nil,
-            snippet: Bool = false,
-            edit: TextEdit? = nil, more: [TextEdit] = []
-        ) {
-            self.label = label
-            self.detail = detail
-            self.insert = insert
-            self.kind = kind
-            self.documentation = documentation
-            self.snippet = snippet
-            self.edit = edit
-            self.more = more
-        }
-    }
+    /// A server's edit to the text, 0-based, in UTF-16 units: Core's, as the daemon sends it.
+    public typealias TextEdit = CodeEdit
+    /// One item of the completion list: Core's, as the daemon sends it.
+    public typealias Completion = CodeCompletion
 }
 
 enum CompletionFilter {

@@ -60,7 +60,8 @@ let package = Package(
                             .copy("Resources/katex.min.js"), .copy("Resources/katex.min.css"), .copy("Resources/katex-LICENSE.txt")]),
         // The design system's sizes, colours and building blocks (panel bar, icon button, empty state): AppKit only.
         .target(name: "DesignKit"),
-        .target(name: "EditorKit", dependencies: ["DesignKit", .product(name: "CodeEditLanguages", package: "CodeEditLanguages"),
+        .target(name: "EditorKit", dependencies: ["Core", "DesignKit",
+                                                 .product(name: "CodeEditLanguages", package: "CodeEditLanguages"),
                                                  .product(name: "SwiftTreeSitter", package: "SwiftTreeSitter")]),
         // The shell, and what an extension is given (`package` declarations): the window, the editor area, tabs, panels.
         .target(name: "KelpKit", dependencies: ["Core", "DesignKit", "Agents", "TerminalKit", "EditorKit", "WorkbenchKit",

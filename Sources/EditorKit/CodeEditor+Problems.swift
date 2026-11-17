@@ -1,21 +1,12 @@
 import AppKit
+import Core
 import DesignKit
 
 /// What a language server says is wrong: underlined in the text, told apart in the line numbers, with a tooltip on
 /// each.
 extension CodeEditor {
-    public struct Problem: Equatable, Sendable {
-        /// 0-based, in UTF-16 units, as the server counts.
-        public let line: Int, column: Int, endLine: Int, endColumn: Int, isError: Bool, message: String
-        public init(line: Int, column: Int, endLine: Int, endColumn: Int, isError: Bool, message: String) {
-            self.line = line
-            self.column = column
-            self.endLine = endLine
-            self.endColumn = endColumn
-            self.isError = isError
-            self.message = message
-        }
-    }
+    /// Core's, as the daemon sends it.
+    public typealias Problem = CodeProblem
 
     func problemsChanged() {
         let string = textView.string as NSString

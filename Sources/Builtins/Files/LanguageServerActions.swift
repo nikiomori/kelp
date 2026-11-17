@@ -131,10 +131,7 @@ struct LanguageServerActions {
                 String(localized: "\(name) changed since it was read: nothing was changed.") + back, style: .error)
         }
         if let mine = files.first(where: { real($0.path) == own }) {
-            tab.editor?.perform(
-                mine.edits.map {
-                    .init(line: $0.line, column: $0.column, endLine: $0.endLine, endColumn: $0.endColumn, text: $0.text)
-                })
+            tab.editor?.perform(mine.edits)
         }
         guard !done.isEmpty else { return }
         let app = app

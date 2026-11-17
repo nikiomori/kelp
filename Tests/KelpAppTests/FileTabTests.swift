@@ -448,7 +448,8 @@ extension AppOfItsOwn {
     #expect(all.map(\.label) == ["one", "test", "tt"])
     #expect(all[0].insert == "a a.swift")
     #expect(
-        all[1].insert.contains("\n") && all[1].snippet && all[1].documentation == "A test" && all[1].detail == "Test")
+        all[1].insert.contains("\n") && all[1].snippet == true && all[1].documentation == "A test"
+            && all[1].detail == "Test")
     #expect(throws: (any Error).self) { try Snippets.read("{", path: "/p/a.swift") }
 }
 

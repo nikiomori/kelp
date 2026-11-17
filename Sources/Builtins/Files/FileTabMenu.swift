@@ -40,11 +40,7 @@ extension FileTab {
     func showProblems() {
         guard let editor else { return }
         let found = app.latest(FileEvent.self, path)?.problems ?? []
-        editor.problems = found.map {
-            .init(
-                line: $0.line, column: $0.column, endLine: $0.endLine, endColumn: $0.endColumn, isError: $0.isError,
-                message: $0.message)
-        }
+        editor.problems = found
         let errors = found.filter(\.isError).count
         statusBar?.show(errors: errors, warnings: found.count - errors)
     }
@@ -69,12 +65,6 @@ extension FileTab {
         codeEditor.completionProvider = { [weak self] line, col in
             await self?.lspCaughtUp()
             return await LSPManager.of(app).completion(root: projectRoot, path: filePath, line: line, column: col)
-                .map {
-                    CodeEditor.Completion(
-                        label: $0.label, detail: $0.detail, insert: $0.insert, kind: $0.kind,
-                        documentation: $0.documentation,
-                        snippet: $0.snippet == true, edit: $0.edit.map(Self.edit), more: ($0.more ?? []).map(Self.edit))
-                }
         }
         codeEditor.hoverProvider = { [weak self] line, col in
             guard app.settings[SettingKeys.hover] else { return nil }
@@ -93,12 +83,6 @@ extension FileTab {
             let active = found.activeStart.flatMap { a in found.activeEnd.map { NSRange(location: a, length: $0 - a) } }
             return (found.label, active)
         }
-    }
-
-    private static func edit(_ codeEdit: CodeEdit) -> CodeEditor.TextEdit {
-        .init(
-            line: codeEdit.line, column: codeEdit.column, endLine: codeEdit.endLine, endColumn: codeEdit.endColumn,
-            text: codeEdit.text)
     }
 }
 
