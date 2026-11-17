@@ -57,7 +57,7 @@ package struct KelpFile {
 
     /// A new workspace's setup, when its .kelp.yaml has one that waits for the file's trust (asked here first): in a
     /// tab below, as Run shows a run.
-    func setup(_ wid: String, pullRequest: Int?) async {
+    package func setup(_ wid: String, pullRequest: Int?) async {
         guard let info = await app.quiet(ScriptsList(worktreeId: wid)), info.setup != nil else { return }
         if let pullRequest { guard await runsOnPullRequest(pullRequest, info) else { return } }
         guard await trusted(wid, info), let session = await run(wid, "setup"), !app.workbench.isHidden(session.id)

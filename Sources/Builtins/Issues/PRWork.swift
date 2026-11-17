@@ -21,11 +21,18 @@ struct PRWork {
         }
     }
 
-    /// Its folder, made on the PR's head when it has none (as New Group on Branch… › Pull Request makes it).
+    /// Its folder, made on the PR's head when it has none (as New Group on Branch… › Pull Request makes it), its
+    /// .kelp.yaml setup asked about there too.
     func folder() async -> Worktree? {
         if let worktree { return worktree }
         // The list marks it once the workspace comes (it follows the project's workspaces).
-        return await app.call(WorktreeCreate(repoId: repoId, branch: pr.headRefName, pr: pr.number))?.worktree
+        guard let made = await app.call(WorktreeCreate(repoId: repoId, branch: pr.headRefName, pr: pr.number)) else {
+            return nil
+        }
+        if made.setupNeedsTrust == true {
+            Task { await KelpFile(app: app).setup(made.worktree.id, pullRequest: pr.number) }
+        }
+        return made.worktree
     }
 
     func openFolder() {

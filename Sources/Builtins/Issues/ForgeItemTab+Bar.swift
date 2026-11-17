@@ -145,6 +145,7 @@ struct IssueWork {
             else { return }
             app.upsert(made.session)
             app.workbench.focus(session: made.session.id)
+            if made.setupNeedsTrust { await KelpFile(app: app).setup(made.worktree.id, pullRequest: nil) }
         }
     }
 
