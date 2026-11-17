@@ -100,10 +100,10 @@ extension BrowserTab {
         }
     }
 
-    /// Tells the tab's row of pages that `page` acted, so the row shows it. Only a tab that already has pages tells it,
-    /// so no row is made for a tab without one.
-    func pageSetActed(_ page: BrowserTab) {
-        if agent, host == nil, !pageSet.pages.isEmpty { pageSet.acted(page) }
+    /// Tells the tab's row of pages that one of its pages acted, so the row shows it. Only a tab that already has pages
+    /// tells it, so no row is made for a tab without one.
+    func pageSetActed() {
+        if agent, host == nil { pageSet.acted() }
     }
 
     func hold(_ user: Bool) {

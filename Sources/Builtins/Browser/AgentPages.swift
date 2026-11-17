@@ -21,10 +21,6 @@ final class AgentPages {
 
     struct Step: Equatable, Sendable {
         let text: String, at: Date
-        init(_ text: String, at: Date = Date()) {
-            self.text = text
-            self.at = at
-        }
     }
     /// Who has the page: the agent, the user (they took it), or the user because the agent asked (`kelp browser ask`).
     enum Holder: Equatable, Sendable {
@@ -41,14 +37,9 @@ final class AgentPages {
         /// The last few things the agent did on the page, oldest first.
         var steps: [Step] = []
         /// How many errors the page has reported since it was opened, and the last one.
-        var errors = 0, lastError: String?
+        var errors = 0
+        var lastError: String?
         var holder: Holder = .agent
-        init(session: String, subagent: String?, workspace: String, tab: String) {
-            self.session = session
-            self.subagent = subagent
-            self.workspace = workspace
-            self.tab = tab
-        }
     }
 
     /// The pages by id. There is one id for each web view an agent drives.
@@ -81,7 +72,7 @@ final class AgentPages {
     /// Records an action on page `id`. The action becomes the page's last step, and the page stays lit for `litFor`.
     func acted(_ id: String, _ step: String) {
         change(id) { page in
-            page.steps.append(Step(step))
+            page.steps.append(Step(text: step, at: Date()))
             if page.steps.count > Self.keptSteps { page.steps.removeFirst(page.steps.count - Self.keptSteps) }
         }
         lit.insert(id)

@@ -22,7 +22,7 @@ struct AgentPageCard: View {
         if let shown = pages.first(where: { $0.id == picked }) ?? Self.latest(pages) {
             VStack(alignment: .leading, spacing: 6) {
                 head(shown.page)
-                frame(shown.id, height: 150)
+                picture(shown.id, height: 150).onTapGesture { show(shown.id) }
                     .task(id: shown.page.steps.last?.at) { await take(shown.id) }
                 if pages.count > 1 { others(pages, shown: shown.id) }
                 ForEach(Array(shown.page.steps.enumerated()), id: \.offset) { _, step in
@@ -85,21 +85,20 @@ struct AgentPageCard: View {
         return host + (parsed.port.map { ":\($0)" } ?? "") + (parsed.path == "/" ? "" : parsed.path)
     }
 
-    @ViewBuilder private func frame(_ id: String, height: CGFloat) -> some View {
+    /// The page's picture, its top part, `width` wide (the card's width for nil); grey until one is taken.
+    @ViewBuilder private func picture(_ id: String, width: CGFloat? = nil, height: CGFloat) -> some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.radiusXS)
         Group {
             if let image = pictures[id] {
                 Image(nsImage: image).resizable().scaledToFill()
-                    .frame(maxWidth: .infinity, maxHeight: height, alignment: .top).clipped()
             } else {
-                Color(nsColor: .fillRest).frame(maxWidth: .infinity).frame(height: height)
+                Color(nsColor: .fillRest)
             }
         }
-        .frame(height: height)
+        .frame(minWidth: width, maxWidth: width ?? .infinity, minHeight: height, maxHeight: height, alignment: .top)
         .clipShape(shape)
         .overlay(shape.stroke(Color(nsColor: .separatorColor)))
         .contentShape(shape)
-        .onTapGesture { show(id) }
     }
 
     private func others(_ pages: [(id: String, page: AgentPages.Page)], shown: String) -> some View {
@@ -109,7 +108,7 @@ struct AgentPageCard: View {
                     Button {
                         picked = other.id
                     } label: {
-                        thumbnail(other.id)
+                        picture(other.id, width: 84, height: 52)
                     }
                     .buttonStyle(.plain)
                     .task(id: other.page.steps.last?.at) { await take(other.id) }
@@ -122,19 +121,6 @@ struct AgentPageCard: View {
                 .frame(width: 84)
             }
         }
-    }
-
-    @ViewBuilder private func thumbnail(_ id: String) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Metrics.radiusXS)
-        Group {
-            if let image = pictures[id] {
-                Image(nsImage: image).resizable().scaledToFill()
-            } else {
-                Color(nsColor: .fillRest)
-            }
-        }
-        .frame(width: 84, height: 52, alignment: .top).clipShape(shape)
-        .overlay(shape.stroke(Color(nsColor: .separatorColor)))
     }
 
     private func buttons(_ shown: (id: String, page: AgentPages.Page)) -> some View {

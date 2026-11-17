@@ -59,7 +59,7 @@ final class PageSet {
     }
 
     /// Updates the words in the row after an action on one of the set's pages.
-    func acted(_ page: BrowserTab) {
+    func acted() {
         if !pages.isEmpty { showRow() }
     }
 
