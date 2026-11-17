@@ -214,16 +214,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func followSight() {
         let center = NotificationCenter.default
         for name in [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification] {
-            _ = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.timeGlances() }   // queue: .main
-            }
+            sight.append(
+                center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.timeGlances() }   // queue: .main
+                })
         }
         // Any window's: a group's or a page's own keeps Kelp in sight while the main one is covered.
         let seen = NSWindow.didChangeOcclusionStateNotification
-        _ = center.addObserver(forName: seen, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.app.workbench.sightChanged() }   // queue: .main
-        }
+        sight.append(
+            center.addObserver(forName: seen, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.app.workbench.sightChanged() }   // queue: .main
+            })
     }
+    /// The observers above, held for as long as the delegate is (the app's whole run).
+    private var sight: [NSObjectProtocol] = []
 
     /// Finished agents read at a glance (`Glances`): timed only while one is unread, so no clock runs the rest of the time.
     private var glances = Glances()

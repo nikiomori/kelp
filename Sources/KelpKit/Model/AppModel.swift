@@ -15,12 +15,15 @@ package final class AppModel {
     @ObservationIgnored let builtins: [Builtin]
     init(builtins: [Builtin] = []) {
         self.builtins = builtins
-        NotificationCenter.default.addObserver(
+        activated = NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.lookForFolders() }   // queue: .main
         }
     }
+    /// Kelp coming forward: its projects' folders are looked for again. Ends with the app (a test's makes many).
+    @ObservationIgnored private var activated: NSObjectProtocol?
+    isolated deinit { activated.map(NotificationCenter.default.removeObserver) }
 
     private func reposChanged() {
         repoBy = nil

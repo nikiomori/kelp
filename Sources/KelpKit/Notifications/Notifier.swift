@@ -67,7 +67,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         } changed: { [weak self] _ in
             self?.lookedAt()
         }
-        NotificationCenter.default.addObserver(
+        activated = NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.lookedAt() }   // queue: .main
@@ -78,6 +78,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             self?.missedRuns()
         }
     }
+
+    /// Kelp coming forward: what's on screen counts as looked at. Ends with this notifier (a test's app makes its own).
+    private var activated: NSObjectProtocol?
+    isolated deinit { activated.map(NotificationCenter.default.removeObserver) }
 
     /// A routine that didn't run (the Mac slept or Kelp was off, and it skips those): a banner that opens its routines.
     /// The ones already there when Kelp opened aren't news.

@@ -43,27 +43,27 @@ final class EditorHost: NSViewController {
         card.identifier = Banner.anchor   // banners sit in its corner
         showWelcome()
         // Daemon state: workspaces that are gone leave; sessions' tabs come and show their status and context ring.
-        track {
+        track(owner: self) {
             app.repos
         } changed: { [weak self] _ in
             self?.refresh()
         }
-        track {
+        track(owner: self) {
             app.worktrees
         } changed: { [weak self] _ in
             self?.refresh()
         }
-        track {
+        track(owner: self) {
             app.sessions
         } changed: { [weak self] _ in
             self?.refresh()
         }
-        track {
+        track(owner: self) {
             app.latest(ContextEvent.self).byKey
         } changed: { [weak self] _ in
             self?.refresh()
         }
-        track {
+        track(owner: self) {
             app.themes.look
         } changed: { [weak self] in
             self?.card.look = $0

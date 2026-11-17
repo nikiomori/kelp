@@ -123,17 +123,17 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         created.setFrameAutosaveName("main")
         created.delegate = self
         if created.frame.origin == .zero { created.center() }
-        track {
+        track(owner: self) {
             app.worktree(app.workbench.mainWorkspaceId)
         } changed: { [weak self] _ in
             self?.updateTitle()
         }
-        track {
+        track(owner: self) {
             app.updates.ready != nil
         } changed: { [weak self] in
             self?.clearOfPill.isActive = $0
         }
-        track {
+        track(owner: self) {
             app.themes.look
         } changed: { [weak self] look in
             self?.surface.show(look)
@@ -144,7 +144,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             (right, inspectorToggle, SettingKeys.inspectorAutoHide, String(localized: "Auto-Hide Inspector"))
         ]
         for (side, toggle, setting, title) in autoHides {
-            track {
+            track(owner: self) {
                 app.settings[setting]
             } changed: { [weak self, unowned side] in
                 self?.setAutoHide(side, $0)
