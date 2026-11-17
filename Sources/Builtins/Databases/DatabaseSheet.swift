@@ -106,16 +106,9 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         file.contentTintColor = .linkColor
         file.font = .ui(TextSize.row)
         file.underlinesOnHover = true
-        let cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(cancelled))
-        cancel.keyEquivalent = "\u{1b}"
         next.title = String(localized: "Continue")
-        next.bezelStyle = .push
-        next.keyEquivalent = "\r"
-        next.target = self
-        next.action = #selector(continued)
         next.isEnabled = false
-        let buttons = NSStackView(views: [file, NSView(), cancel, next])
-        buttons.spacing = Metrics.gapWide
+        let buttons = buttons(file, next, target: self, action: #selector(continued))
         show(
             SheetForm.stack(
                 [heading, field, understood, tiles, later, foundTitle, found, buttons],
@@ -251,6 +244,20 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
 
     @objc private func cancelled() { window.sheetParent?.endSheet(window, returnCode: .cancel) }
 
+    /// A pane's bottom row: `leading` at the left, then Cancel (Escape), which ends the sheet, and `primary` (Return),
+    /// sending `action` to `target`.
+    func buttons(_ leading: NSView, _ primary: NSButton, target: AnyObject, action: Selector) -> NSStackView {
+        let cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(cancelled))
+        cancel.keyEquivalent = "\u{1b}"
+        primary.bezelStyle = .push
+        primary.keyEquivalent = "\r"
+        primary.target = target
+        primary.action = action
+        let row = NSStackView(views: [leading, NSView(), cancel, primary])
+        row.spacing = Metrics.gapWide
+        return row
+    }
+
     // MARK: Other panes
 
     func openForm(
@@ -278,18 +285,13 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         return mark
     }
 
+    /// A section's title, in capitals.
     static func section(_ title: String) -> NSTextField {
-        let label = NSTextField(labelWithString: title.uppercased())
-        label.font = .ui(TextSize.caption, weight: .semibold)
-        label.textColor = .tertiaryLabelColor
-        return label
+        .label(title.uppercased(), font: .ui(TextSize.caption, weight: .semibold), color: .tertiaryLabelColor)
     }
 
     static func small(_ text: String) -> NSTextField {
-        let label = NSTextField(labelWithString: text)
-        label.font = .ui(TextSize.caption)
-        label.textColor = .secondaryLabelColor
-        return label
+        .label(text, font: .ui(TextSize.caption), color: .secondaryLabelColor)
     }
 
     static func column(_ views: [NSView], spacing: CGFloat) -> NSStackView {
@@ -316,7 +318,6 @@ final class FoundRow: PointerControl {
         let name = NSTextField(labelWithString: title)
         name.font = .ui(TextSize.body)
         let under = DatabaseSheet.small(detail)
-        under.lineBreakMode = .byTruncatingTail
         let end: NSView
         if let trailing {
             end = DatabaseSheet.small(trailing)

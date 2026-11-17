@@ -155,15 +155,8 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         status.textColor = .secondaryLabelColor
         let back = NSButton(title: String(localized: "Back"), target: self, action: #selector(backed))
         back.isHidden = editing != nil
-        let cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(cancelled))
-        cancel.keyEquivalent = "\u{1b}"
         add.title = editing == nil ? String(localized: "Add") : String(localized: "Save")
-        add.bezelStyle = .push
-        add.keyEquivalent = "\r"
-        add.target = self
-        add.action = #selector(saved)
-        let buttons = NSStackView(views: [back, NSView(), cancel, add])
-        buttons.spacing = Metrics.gapWide
+        let buttons = sheet.buttons(back, add, target: self, action: #selector(saved))
         parts += [status, buttons]
         view = SheetForm.stack(parts, wide: wide + [separator, status, buttons], width: DatabaseSheet.width)
         changed()
@@ -362,5 +355,4 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     }
 
     @objc private func backed() { sheet.showStart() }
-    @objc private func cancelled() { sheet.window.sheetParent?.endSheet(sheet.window, returnCode: .cancel) }
 }

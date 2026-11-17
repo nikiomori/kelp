@@ -129,7 +129,6 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         // A long name truncates in its middle; the type stays whole at the right edge.
         let title = small(name)
         title.lineBreakMode = .byTruncatingMiddle
-        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let kind = small(
             [column?.type.lowercased(), column?.primary == true ? "key" : nil].compactMap { $0 }
                 .joined(separator: " · "))
@@ -163,13 +162,8 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         text.delegate = self
         text.preferredMaxLayoutWidth = Self.width - 2 * Metrics.inset
         parts.append(text)
-        let box = NSStackView(views: parts)
-        box.orientation = .vertical
-        box.alignment = .leading
-        box.spacing = Metrics.lineGap
-        box.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
         text.widthAnchor.constraint(equalToConstant: Self.width - 2 * Metrics.inset).isActive = true
-        return box
+        return box(parts)
     }
 
     /// An edit in a field goes into the grid's edits, as if it had been typed in the row's cell.
@@ -192,14 +186,8 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
             sql.font = .uiMono(TextSize.caption)
             sql.lineBreakMode = .byTruncatingTail
             sql.alignment = .left
-            let box = NSStackView(views: [small("\(shortAgo(run.at)) · \(DatabasePanelRows.outcome(run))"), sql])
-            box.orientation = .vertical
-            box.alignment = .leading
-            box.spacing = Metrics.lineGap
-            box.edgeInsets = NSEdgeInsets(
-                top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
             sql.widthAnchor.constraint(lessThanOrEqualToConstant: Self.width - 2 * Metrics.inset).isActive = true
-            add(box)
+            add(box([small("\(shortAgo(run.at)) · \(DatabasePanelRows.outcome(run))"), sql]))
         }
         if let agentName {
             let ask = ClosureButton(title: String(localized: "Ask \(agentName) About This Table")) { [weak self] in
@@ -219,7 +207,12 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         text.font = mono ? .uiMono(TextSize.caption) : .ui(TextSize.row)
         text.isSelectable = true
         text.preferredMaxLayoutWidth = Self.width - 2 * Metrics.inset
-        let box = NSStackView(views: [small(title), text])
+        return box([small(title), text])
+    }
+
+    /// Views one under another, inset from the panel's edges.
+    private func box(_ views: [NSView]) -> NSStackView {
+        let box = NSStackView(views: views)
         box.orientation = .vertical
         box.alignment = .leading
         box.spacing = Metrics.lineGap
@@ -235,18 +228,11 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     }
 
     private func note(_ s: String) -> NSView {
-        let label = NSTextField(labelWithString: s)
-        label.font = .ui(TextSize.row)
-        label.textColor = .tertiaryLabelColor
-        return padded(label)
+        padded(NSTextField.label(s, font: .ui(TextSize.row), color: .tertiaryLabelColor))
     }
 
     private func small(_ s: String) -> NSTextField {
-        let label = NSTextField(labelWithString: s)
-        label.font = .ui(TextSize.caption)
-        label.textColor = .tertiaryLabelColor
-        label.lineBreakMode = .byTruncatingTail
-        return label
+        .label(s, font: .ui(TextSize.caption), color: .tertiaryLabelColor)
     }
 
     /// Returns JSON indented, and any other value as it is.

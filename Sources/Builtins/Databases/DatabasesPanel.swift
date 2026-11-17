@@ -178,8 +178,8 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         table.reloadData()
         markOpen()
         alignSearch()
-        checkHealth(databases)
-        if libraryOpen { checkLibrary(library) }
+        check(databases, library: false)
+        if libraryOpen { check(library, library: true) }
     }
 
     /// Selects the database the focused tab shows, so the tab and its row read as one.
@@ -203,28 +203,19 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         return all.contains { $0.name == copy.of && $0.name != db.name }
     }
 
-    /// Reads the dots once for the databases there are now, not at every run that changes the panel.
-    private func checkHealth(_ databases: [DatabaseInfo]) {
+    /// Reads the dots once for the databases there are now, not at every run that changes the panel: the project's, or
+    /// with `library` All My Databases', which don't change with the workspace.
+    private func check(_ databases: [DatabaseInfo], library: Bool) {
         let now = databases.map { $0.name + $0.address }
-        guard shown, now != checkedFor, !databases.isEmpty else { return }
-        checkedFor = now
+        let checked = library ? \DatabasesPanel.libraryCheckedFor : \DatabasesPanel.checkedFor
+        guard shown, now != self[keyPath: checked], !databases.isEmpty else { return }
+        self[keyPath: checked] = now
         let wid = workspace
         Task {
-            let answer = await app.quiet(DatabaseStatus(worktreeId: wid)) ?? []
-            guard wid == workspace else { return }
-            health = Dictionary(answer.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
-            reload()
-        }
-    }
-
-    private func checkLibrary(_ library: [DatabaseInfo]) {
-        let now = library.map { $0.name + $0.address }
-        guard shown, now != libraryCheckedFor, !library.isEmpty else { return }
-        libraryCheckedFor = now
-        let wid = workspace
-        Task {
-            let answer = await app.quiet(DatabaseStatus(worktreeId: wid, library: true)) ?? []
-            libraryHealth = Dictionary(answer.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
+            let answer = await app.quiet(DatabaseStatus(worktreeId: wid, library: library ? true : nil)) ?? []
+            guard library || wid == workspace else { return }
+            self[keyPath: library ? \DatabasesPanel.libraryHealth : \DatabasesPanel.health] =
+                Dictionary(answer.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
             reload()
         }
     }

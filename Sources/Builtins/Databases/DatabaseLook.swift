@@ -96,14 +96,7 @@ enum DatabaseLook {
         chip.wantsLayer = true
         chip.layer?.cornerRadius = Metrics.radiusXS
         chip.layer?.backgroundColor = NSColor.fillTint(color(stage)).cgColor
-        label.translatesAutoresizingMaskIntoConstraints = false
-        chip.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: chip.leadingAnchor, constant: 5),
-            label.trailingAnchor.constraint(equalTo: chip.trailingAnchor, constant: -5),
-            label.topAnchor.constraint(equalTo: chip.topAnchor, constant: 1),
-            label.bottomAnchor.constraint(equalTo: chip.bottomAnchor, constant: -1)
-        ])
+        chip.pin(label, inset: NSEdgeInsets(top: 1, left: 5, bottom: 1, right: 5))
         chip.toolTip = title(stage) + ": " + meaning(stage)
         chip.setContentHuggingPriority(.required, for: .horizontal)
         chip.setContentCompressionResistancePriority(.required, for: .horizontal)

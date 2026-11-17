@@ -68,14 +68,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         status.stringValue = String(localized: "Reading…")
 
         let back = NSButton(title: String(localized: "Back"), target: self, action: #selector(backed))
-        let cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(cancelled))
-        cancel.keyEquivalent = "\u{1b}"
-        go.bezelStyle = .push
-        go.keyEquivalent = "\r"
-        go.target = self
-        go.action = #selector(imported)
-        let buttons = NSStackView(views: [back, NSView(), cancel, go])
-        buttons.spacing = Metrics.gapWide
+        let buttons = sheet.buttons(back, go, target: self, action: #selector(imported))
         view = SheetForm.stack(
             [heading, scroll, passwords, useHere, status, buttons], wide: [scroll, status, buttons],
             width: DatabaseSheet.width)
@@ -132,7 +125,6 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
             item.known
                 ? String(localized: "Kelp has it already")
                 : (parts + [item.note].compactMap { $0 }).joined(separator: " · "))
-        detail.lineBreakMode = .byTruncatingTail
         let words = DatabaseSheet.column([name, detail], spacing: Metrics.lineGap)
         words.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         var views: [NSView] = [check, NSImageView(image: DatabaseLook.badge(db.engine, size: 16)), words, NSView()]
@@ -226,5 +218,4 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
     @objc private func finished() { sheet.end() }
 
     @objc private func backed() { sheet.showStart() }
-    @objc private func cancelled() { sheet.window.sheetParent?.endSheet(sheet.window, returnCode: .cancel) }
 }

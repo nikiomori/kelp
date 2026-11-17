@@ -50,9 +50,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     /// What a change did to these rows, when they are the rows of a run that changed something. An update's cells show
     /// what they were, a delete's rows are struck out in red, and an insert's rows are green.
     var change: RowChange?
-    /// The rows (by index) that an agent's last change touched, and that agent's colour.
+    /// The rows (by index) that an agent's last change touched.
     var marked = Set<Int>()
-    var markColor = NSColor.systemOrange
     /// The order asked for: columns, each up or down, where the first counts most.
     var orders: [(column: String, ascending: Bool)] = []
     /// Called when an edit was made or undone, or the selection changed.
@@ -317,7 +316,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         if marked.contains(row) {
             text.append(
                 NSAttributedString(
-                    string: "▍", attributes: [.foregroundColor: markColor, .font: NSFont.ui(TextSize.caption)]))
+                    string: "▍",
+                    attributes: [.foregroundColor: NSColor.systemOrange, .font: NSFont.ui(TextSize.caption)]))
         }
         text.append(
             NSAttributedString(

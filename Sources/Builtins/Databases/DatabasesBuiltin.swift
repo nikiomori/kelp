@@ -114,15 +114,11 @@ extension TabURI {
 
 /// "db:<workspace>/<name>", with "?run=<id>" for one run's rows or "?table=<name>" for a table's rows.
 struct DatabaseURI: Equatable {
-    var worktree: String, name: String, run: String?, table: String?
+    var worktree: String, name: String
+    var run: String?, table: String?
+}
 
-    init(worktree: String, name: String, run: String? = nil, table: String? = nil) {
-        self.worktree = worktree
-        self.name = name
-        self.run = run
-        self.table = table
-    }
-
+extension DatabaseURI {
     /// Parses the URI with `DatabaseTabURI.parts`, the same way the daemon reads it to check what an agent may open.
     init?(_ uri: String) {
         guard let parts = DatabaseTabURI.parts(uri) else { return nil }

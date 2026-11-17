@@ -16,12 +16,14 @@ struct DatabasePanelRows {
     func heading(_ heading: DatabasesPanel.Heading, libraryOpen: Bool, activityOpen: Bool, only: String?) -> NSView {
         var views: [NSView] = []
         switch heading {
-        case .asks: views = [title(String(localized: "Asks")), NSView()]
+        case .asks: views = [DatabaseSheet.section(String(localized: "Asks")), NSView()]
         case .library(let count):
-            views = [chevron(libraryOpen), title(String(localized: "All My Databases")), NSView(), digits(count)]
+            let title = DatabaseSheet.section(String(localized: "All My Databases"))
+            views = [chevron(libraryOpen), title, NSView(), digits(count)]
         case .activity(let count):
             let who = only.flatMap { app.session($0) }.map { app.catalog.name($0.agent) } ?? String(localized: "all")
-            views = [chevron(activityOpen), title(String(localized: "Activity")), NSView(), small("\(who) · \(count)")]
+            let title = DatabaseSheet.section(String(localized: "Activity"))
+            views = [chevron(activityOpen), title, NSView(), small("\(who) · \(count)")]
         }
         return line(views, inset: Metrics.inset, trailing: Metrics.insetTrailing)
     }
@@ -314,10 +316,6 @@ struct DatabasePanelRows {
         image.contentTintColor = .tertiaryLabelColor
         image.widthAnchor.constraint(equalToConstant: 12).isActive = true
         return image
-    }
-
-    private func title(_ text: String) -> NSTextField {
-        NSTextField.label(text.uppercased(), font: .ui(TextSize.caption, weight: .semibold), color: .tertiaryLabelColor)
     }
 
     private func small(_ text: String) -> NSTextField {
