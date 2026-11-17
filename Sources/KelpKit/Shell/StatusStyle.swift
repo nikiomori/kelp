@@ -171,10 +171,11 @@ package final class StatusMark: NSView {
             bar.animate("strokeEnd", to: min(1, max(0, filling)), duration: Motion.base)
             return
         }
-        // Motion means state: spinning = working, pulsing = compacting, filled = waiting for you. With Reduce Motion a
-        // still symbol says "working" instead, because a ring that stopped spinning looks stuck.
+        // Motion means state: spinning = working, pulsing = compacting, filled = waiting for you. With Reduce Motion
+        // the same ring stands still, because a state keeps its shape whatever the setting, and three dots in a circle
+        // are the "more" button.
         let still = Motion.reduced
-        let spinning = shown == .working && !compacting && !still
+        let spinning = shown == .working && !compacting
         ring.isHidden = !spinning && !dotted
         image.isHidden = spinning || dotted
         ring.removeAllAnimations()
@@ -207,13 +208,12 @@ package final class StatusMark: NSView {
             ring.add(spin, forKey: "spin")
             return
         }
-        if shown == .working {
+        if shown == .working {   // compacting: any other work is the ring above
             image.image = .symbol(
-                compacting ? "arrow.down.right.and.arrow.up.left" : "ellipsis.circle",
-                compacting ? String(localized: "Compacting its conversation") : shown?.words ?? "")
+                "arrow.down.right.and.arrow.up.left", String(localized: "Compacting its conversation"))
             image.symbolConfiguration = .chrome(size - 2)
             image.contentTintColor = .secondaryLabelColor
-            if compacting, !still {
+            if !still {
                 image.wantsLayer = true
                 let pulse = CABasicAnimation(keyPath: "opacity")
                 pulse.fromValue = 1

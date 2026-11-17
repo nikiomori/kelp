@@ -75,3 +75,20 @@ import Testing
     #expect(capsule.layer?.cornerRadius == 13)
     #expect(capsule.layer?.sublayers?.contains { $0.superlayer === capsule.layer && $0.delegate == nil } != true)
 }
+
+/// A working agent keeps its ring when the Mac asks for less motion: the ring stands still, and no symbol takes its
+/// place (three dots in a circle are the "more" button).
+@MainActor @Test func aWorkingMarkKeepsItsRingWithoutMotion() {
+    let mark = StatusMark()
+    let window = onScreen(mark, reduced: true)
+    defer {
+        Motion.pinned = false
+        withExtendedLifetime(window) {}
+    }
+    mark.status = .working
+    let ring = mark.layer?.sublayers?.compactMap { $0 as? CAShapeLayer }.first { !$0.isHidden && $0.strokeEnd == 0.75 }
+    #expect(ring != nil)
+    #expect(ring?.animationKeys()?.isEmpty ?? true)
+    let symbols = mark.subviews.compactMap { $0 as? NSImageView }
+    #expect(symbols.allSatisfy { $0.isHidden })
+}
