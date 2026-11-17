@@ -142,7 +142,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         } changed: { [weak self] known in
             guard known, let self, !self.started else { return }
             self.started = true
-            Task { await self.loadQueries() }
+            self.loadQueries()
         }
         Task { await loadTables() }
         if case .run(let id) = mode { Task { await showRun(id) } }

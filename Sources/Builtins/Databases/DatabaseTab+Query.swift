@@ -114,7 +114,7 @@ extension DatabaseTab {
 
     @objc func runQuery() { execute(statementAtCursor()) }
 
-    // MARK: Saved queries (state.get/set: "db.queries/<project>/<database>")
+    // MARK: Saved queries (Kelp's state, `app.uiState`: "db.queries/<project>/<database>")
 
     private var queriesKey: String { key("queries") }
 
@@ -125,11 +125,11 @@ extension DatabaseTab {
         return "db.\(what)/\(project)/\(address.name)"
     }
 
-    func loadQueries() async {
-        if case .string(let text)? = await app.quiet(StateGet(key: key("draft"))), editor.text.isEmpty {
+    func loadQueries() {
+        if case .string(let text)? = app.uiState[key("draft")], editor.text.isEmpty {
             editor.setText(text)   // what was typed here last
         }
-        guard let value = await app.quiet(StateGet(key: queriesKey)), case .array(let items) = value else { return }
+        guard case .array(let items)? = app.uiState[queriesKey] else { return }
         sidebar.saved = items.compactMap { item in
             guard case .object(let fields) = item, case .string(let name)? = fields["name"],
                 case .string(let sql)? = fields["sql"]
@@ -142,14 +142,13 @@ extension DatabaseTab {
     func keepDraft() {
         draft.cancel()
         guard started else { return }
-        let key = key("draft"), text = editor.text
-        Task { [app] in _ = await app.quiet(StateSet(key: key, value: .string(text))) }
+        app.uiState[key("draft")] = .string(editor.text)
     }
 
     private func storeQueries(_ list: [DatabaseSidebar.SavedQuery]) {
         sidebar.saved = list
         let value = JSONValue.array(list.map { .object(["name": .string($0.name), "sql": .string($0.sql)]) })
-        Task { _ = await app.call(StateSet(key: queriesKey, value: value)) }
+        Task { [app, queriesKey] in await app.uiState.save(queriesKey, value) }
     }
 
     /// Save Query…: the statement under a name, in the list's Queries.

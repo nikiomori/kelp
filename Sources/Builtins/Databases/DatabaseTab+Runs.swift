@@ -17,7 +17,8 @@ extension DatabaseTab {
         sidebar.current = nil
         let record = record(id)
         sqlText.stringValue = record?.sql ?? ""
-        let result = await app.quiet(DatabaseResultRead(worktreeId: address.worktree, id: id)) ?? nil
+        let read = await app.tryCall(DatabaseResultRead(worktreeId: address.worktree, id: id)),
+            result = read.value ?? nil
         grid.editable = false
         grid.source = nil
         if let parts = result?.statements {   // several run as one: a line each, with the rows it changed
@@ -33,6 +34,8 @@ extension DatabaseTab {
             empty.showError(Self.stateTitle(record?.state ?? .failed), text: error)
         } else if result?.statements != nil {
             empty.show(nil)
+        } else if let error = read.error {   // not read: that isn't "not kept"
+            empty.showError(String(localized: "Can't read \(address.name)"), text: error)
         } else if result == nil {
             empty.show(
                 String(localized: "Not Kept"), symbol: "clock",

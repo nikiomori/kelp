@@ -172,3 +172,29 @@ import Testing
     #expect(DatabaseTab.title("shop", showing: .table("users")) == "users · shop")
     #expect(DatabaseTab.title("shop", showing: .run("r1")) == "shop")
 }
+
+/// Saved queries and the draft are Kelp's state as the app holds it (`uiState`): read from there and written there, so
+/// the app's copy never goes stale behind a write of its own.
+@MainActor @Test func aDatabasesQueriesAreTheAppsState() {
+    let app = AppModel(builtins: [])
+    app.uiState["db.queries/w1/shop"] = .array([.object(["name": .string("big"), "sql": .string("SELECT 1")])])
+    app.uiState["db.draft/w1/shop"] = .string("SELECT 2")
+    let tab = DatabaseTab(uri: "db:w1/shop?table=orders", app: app)
+    tab.loadQueries()
+    #expect(tab.sidebar.saved.map(\.name) == ["big"] && tab.editor.text == "SELECT 2")
+    tab.started = true
+    tab.editor.setText("SELECT 3")
+    tab.keepDraft()
+    #expect(app.uiState["db.draft/w1/shop"] == .string("SELECT 3"))
+}
+
+/// A run's rows that couldn't be read (no daemon here) say so: "Not Kept" is only for rows Kelp let go.
+@MainActor @Test func aRunsRowsThatCantBeReadAreNotCalledNotKept() async {
+    let tab = DatabaseTab(uri: "db:w1/shop?run=r1", app: AppModel(builtins: []))
+    await tab.showRun("r1")
+    func texts(_ v: NSView) -> [String] {
+        [(v as? NSTextField)?.stringValue].compactMap { $0 } + v.subviews.flatMap(texts)
+    }
+    let said = texts(tab.empty)
+    #expect(said.contains("Can't read shop") && !said.contains("Not Kept"), "\(said)")
+}
