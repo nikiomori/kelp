@@ -13,7 +13,7 @@ import KelpKit
 @MainActor
 final class DatabaseAskCard: NSView {
     private let app: AppModel, session: String, worktree: String
-    private let title = NSTextField(labelWithString: "")
+    private let title = NSTextField.label("", font: .ui(TextSize.body, weight: .semibold))
     private let sql = NSTextField(wrappingLabelWithString: "")
     private let detail = NSTextField(labelWithString: "")
     private let preview = ChangePreview()
@@ -27,9 +27,6 @@ final class DatabaseAskCard: NSView {
         super.init(frame: .zero)
         let mark = NSImageView(image: .symbol("cylinder.split.1x2"))
         mark.contentTintColor = .textOrange
-        title.font = .ui(TextSize.body, weight: .semibold)
-        title.lineBreakMode = .byTruncatingTail
-        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         sql.font = .uiMono(TextSize.caption)
         sql.textColor = .secondaryLabelColor
         sql.maximumNumberOfLines = 3

@@ -23,13 +23,9 @@ final class CommandOutput: NSViewController {
         title.maximumNumberOfLines = 6
         title.preferredMaxLayoutWidth = Self.width - 2 * Metrics.inset   // wraps at this width, reporting its height
         title.isSelectable = true
-        let said = NSTextField(
-            labelWithString: [agentCommand.description, Self.outcome(agentCommand)].compactMap { $0 }.joined(
-                separator: " · "))
-        said.font = .ui(TextSize.caption)
-        said.textColor = agentCommand.outcome == .failed ? .textRed : .secondaryLabelColor
-        said.lineBreakMode = .byTruncatingTail
-        said.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let said = NSTextField.label(
+            [agentCommand.description, Self.outcome(agentCommand)].compactMap { $0 }.joined(separator: " · "),
+            font: .ui(TextSize.caption), color: agentCommand.outcome == .failed ? .textRed : .secondaryLabelColor)
         let text = NSStackView(views: [title, said])
         text.orientation = .vertical
         text.alignment = .leading

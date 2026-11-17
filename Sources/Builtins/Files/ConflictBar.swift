@@ -10,9 +10,6 @@ final class ConflictBar {
     private(set) lazy var bar: Bar = {
         let icon = NSImageView(image: NSImage.symbol("arrow.triangle.merge"))
         icon.contentTintColor = .systemOrange
-        label.font = .ui(TextSize.row)
-        label.lineBreakMode = .byTruncatingTail
-        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let buttons: [NSView] = [
             IconButton(.symbol("chevron.up"), tip: String(localized: "Previous Conflict")) { [weak self] in
                 self?.step(-1)
@@ -26,7 +23,7 @@ final class ConflictBar {
         ]
         return Bar.content([icon, label], buttons, stretching: label)
     }()
-    private let label = NSTextField(labelWithString: "")
+    private let label = NSTextField.label("", font: .ui(TextSize.row))
     private weak var editor: CodeEditor?
     private var conflicts: [MergeConflict] = []
 

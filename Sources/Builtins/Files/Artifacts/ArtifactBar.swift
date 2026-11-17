@@ -22,8 +22,9 @@ final class ArtifactBar: NSObject {
     private let workspace: String?
     /// `path` without symlinks, as the daemon lists it.
     private let real: String
-    private let kind = NSTextField(labelWithString: "")
-    let status = NSTextField(labelWithString: "")
+    /// The page's kind: not a path, so it isn't quiet like one. It truncates before the buttons do.
+    private let kind = NSTextField.label("", font: .ui(TextSize.row, weight: .medium))
+    let status = NSTextField.label("", font: .ui(TextSize.row), color: .secondaryLabelColor)
     private let ring = NSProgressIndicator()
     private lazy var back = IconButton(.symbol("chevron.left"), tip: String(localized: "Older Version")) {
         [weak self] in self?.step(-1)
@@ -73,13 +74,6 @@ final class ArtifactBar: NSObject {
     var shown: Int? { shownN.flatMap { number in entries.firstIndex { $0.version?.n == number } } }
 
     private(set) lazy var view: NSView = {
-        kind.font = .ui(TextSize.row, weight: .medium)
-        kind.textColor = .labelColor   // the page's kind is not a path, so it isn't quiet like one
-        status.textColor = .secondaryLabelColor
-        for field in [kind, status] { field.lineBreakMode = .byTruncatingTail }
-        kind.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)   // truncates before the buttons do
-        status.font = .ui(TextSize.row)
-        status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         ring.style = .spinning
         ring.controlSize = .small
         count.font = .uiDigits(TextSize.row)

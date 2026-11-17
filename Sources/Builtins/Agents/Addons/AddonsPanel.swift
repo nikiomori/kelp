@@ -23,7 +23,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     private let chatTitle = NSTextField(labelWithString: "")
     let weight = NSHostingView(rootView: AddonWeight(headline: "", shares: []))
     let failureBar = NSStackView()
-    let failureLine = NSTextField(labelWithString: "")
+    let failureLine = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
     private let filter = NSSearchField()
     private lazy var filterBar = NSStackView(views: [filter])
     lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in
@@ -50,7 +50,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     private let foot = NSStackView()
     private var laidOut: CGFloat = 0
     private let resized = Debounce()
-    private let footNote = NSTextField(labelWithString: "")
+    private let footNote = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
     private(set) var shownChat: Session?
     /// The order of the list, and whether items that are off show. This view setting belongs to this Mac.
     var display: AddonView = AddonsPanel.savedView() { didSet { relist() } }
@@ -99,10 +99,6 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     }
 
     private func makeFoot() -> NSView {
-        footNote.font = .ui(TextSize.caption)
-        footNote.textColor = .secondaryLabelColor
-        footNote.lineBreakMode = .byTruncatingTail
-        footNote.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let restart = PointerButton(title: String(localized: "Restart This Chat")) { [weak self] in self?.restart() }
         foot.setViews([footNote, NSView(), restart], in: .leading)
         foot.spacing = Metrics.gap

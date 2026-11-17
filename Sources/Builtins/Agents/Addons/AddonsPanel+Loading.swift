@@ -85,10 +85,6 @@ extension AddonsPanel {
         let mark = NSImageView(image: .symbol("exclamationmark.triangle", String(localized: "Couldn’t refresh")))
         mark.symbolConfiguration = .chrome(Metrics.iconSmall)
         mark.contentTintColor = .systemOrange
-        failureLine.font = .ui(TextSize.caption)
-        failureLine.textColor = .secondaryLabelColor
-        failureLine.lineBreakMode = .byTruncatingTail
-        failureLine.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let retry = TextButton(String(localized: "Try Again")) { [weak self] in self?.reload() }
         retry.setContentCompressionResistancePriority(.required, for: .horizontal)
         failureBar.setViews([mark, failureLine, NSView(), retry], in: .leading)

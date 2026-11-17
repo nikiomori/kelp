@@ -39,11 +39,9 @@ final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
     func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
         let match = matches[row]
-        let top = NSTextField(labelWithString: "\(match.path):\(match.line)")
-        top.font = .uiDigits(TextSize.caption)
-        top.textColor = .secondaryLabelColor
-        top.lineBreakMode = .byTruncatingHead   // so the line number at the end stays
-        top.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let top = NSTextField.label(   // truncated at the head, so the line number at the end stays
+            "\(match.path):\(match.line)", font: .uiDigits(TextSize.caption), color: .secondaryLabelColor,
+            truncation: .byTruncatingHead)
         let txt = NSTextField(labelWithString: match.text)
         txt.font = .uiMono(TextSize.caption)
         txt.lineBreakMode = .byTruncatingTail

@@ -174,11 +174,7 @@ final class ReplaceSheet: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         let match = files[fileIndex].matches[matchIndex]
         box.state = files[fileIndex].chosen.contains(matchIndex) ? .on : .off
         func line(_ sign: String, _ text: String, _ color: NSColor) -> NSTextField {
-            let label = NSTextField(labelWithString: sign + text)
-            label.font = .uiMono(TextSize.caption)
-            label.textColor = color
-            label.lineBreakMode = .byTruncatingTail
-            return label
+            NSTextField.label(sign + text, font: .uiMono(TextSize.caption), color: color)
         }
         let lines = NSStackView(views: [
             line("\(match.line) − ", match.before, .textRed), line("\(match.line) + ", match.after, .textGreen)

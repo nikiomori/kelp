@@ -25,7 +25,7 @@ final class EditorStatusBar: NSView {
     /// Shows how many problems the file has. A click lists the problems of every open file.
     private let problems = PointerButton()
     /// The message of the problem under the cursor.
-    private let problem = NSTextField(labelWithString: "")
+    private let problem = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
     var onProblems: (() -> Void)? { didSet { problems.onClick = onProblems } }
     var onWrap: (() -> Void)? { didSet { wrap.onClick = onWrap } }
     /// Shows the indentation in use. A click offers another one, or converts the file.
@@ -82,9 +82,6 @@ final class EditorStatusBar: NSView {
         problems.padding = Metrics.gap
         problems.isHidden = true
         problems.toolTip = String(localized: "Show Problems")
-        problem.font = .ui(TextSize.caption)
-        problem.textColor = .secondaryLabelColor
-        problem.lineBreakMode = .byTruncatingTail
         problem.setContentCompressionResistancePriority(.init(100), for: .horizontal)
         row.setViews([kind, place, problems, problem, NSView(), restricted, servers, wrap, indentButton], in: .leading)
         row.spacing = 16
