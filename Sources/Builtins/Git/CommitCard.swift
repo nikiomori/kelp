@@ -142,11 +142,10 @@ final class CommitCardView: NSView {
 
     // The card is never key, because it would take focus from the editor. So the pointer is tracked while the app is
     // in the back too.
+    private var area: NSTrackingArea?
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
-        for a in trackingAreas { removeTrackingArea(a) }
-        addTrackingArea(
-            NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
+        area = retracked(area, .activeAlways)
     }
     override func mouseEntered(with event: NSEvent) { onInside?(true) }
     override func mouseExited(with event: NSEvent) { onInside?(false) }

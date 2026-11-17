@@ -9,11 +9,9 @@ import KelpKit
 extension DiffViewController {
     func commentRow(_ diffComment: DiffComment) -> NSView {
         let who = diffComment.author.map { "\($0): " } ?? ""
-        let text = label(
+        let text = NSTextField.label(
             "💬 \(who)\(diffComment.text)" + (diffComment.state == .open ? "" : "  [\(diffComment.state.rawValue)]"),
             font: .ui(TextSize.caption, weight: .medium))
-        text.lineBreakMode = .byTruncatingTail
-        text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         var views: [NSView] = [text]
         if diffComment.state == .open {
             let box = ClosureButton(title: "") { [weak self] in self?.flip(diffComment.id) }

@@ -102,15 +102,14 @@ extension DiffViewController {
             switch diffRow {
             case .file(let path, let added, let removed): return fileBand(path, added: added, removed: removed)
             case .binary(let path):
-                return label(
+                return NSTextField.label(
                     first ? String(localized: "Binary file \(path) not shown") : "", font: font,
-                    color: .secondaryLabelColor)
+                    color: .secondaryLabelColor, truncation: .byClipping)
             case .tooLarge(let path):
-                let said = label(
+                let said = NSTextField.label(
                     first ? String(localized: "\(path) is too large to show here") : "", font: font,
-                    color: .secondaryLabelColor)
+                    color: .secondaryLabelColor, truncation: .byClipping)
                 guard first, let uri = alone(path) else { return said }
-                said.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
                 let open = TextButton(String(localized: "Open Changes")) { app.workbench.open(uri) }
                 let stack = NSStackView(views: [said, open])
                 stack.spacing = 8

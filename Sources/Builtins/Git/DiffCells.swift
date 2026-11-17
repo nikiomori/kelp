@@ -6,16 +6,6 @@ import KelpKit
 @MainActor
 extension DiffViewController {
 
-    func label(_ string: String, font: NSFont, color: NSColor = .labelColor, align: NSTextAlignment = .left)
-        -> NSTextField
-    {
-        let field = NSTextField(labelWithString: string)
-        field.font = font
-        field.textColor = color
-        field.alignment = align
-        field.lineBreakMode = .byClipping
-        return field
-    }
     private func tint(_ kind: DiffLine.Kind) -> NSColor? {
         kind == .add ? .diffAdded : kind == .del ? .diffRemoved : nil
     }
@@ -35,7 +25,8 @@ extension DiffViewController {
     private func lineCell(
         _ string: String, font: NSFont, color: NSColor = .labelColor, align: NSTextAlignment = .left, fill: NSColor?
     ) -> NSTextField {
-        let field = table.makeView(withIdentifier: Self.lineCellId, owner: nil) as? NSTextField ?? label("", font: font)
+        let field = table.makeView(withIdentifier: Self.lineCellId, owner: nil) as? NSTextField
+            ?? .label("", font: font, truncation: .byClipping)
         field.identifier = Self.lineCellId
         field.font = font
         field.textColor = color
@@ -245,9 +236,7 @@ extension DiffViewController {
     func fileBand(_ path: String, added a: Int, removed d: Int) -> NSView {
         let icon = NSImageView(image: app.fileIcons.image((path as NSString).lastPathComponent))
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        let name = label(path, font: .ui(TextSize.row, weight: .semibold))
-        name.lineBreakMode = .byTruncatingHead
-        name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let name = NSTextField.label(path, font: .ui(TextSize.row, weight: .semibold), truncation: .byTruncatingHead)
         let stack = NSStackView(views: [
             icon, name, NSTextField(labelWithAttributedString: GitFolders.changes(added: a, removed: d))
         ])
@@ -337,9 +326,7 @@ extension DiffViewController {
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         stack.wantsLayer = true
         stack.layer?.backgroundColor = NSColor.diffHunk.cgColor
-        let where_ = label(header, font: .uiMono(TextSize.caption), color: .secondaryLabelColor)
-        where_.lineBreakMode = .byTruncatingTail
-        where_.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let where_ = NSTextField.label(header, font: .uiMono(TextSize.caption), color: .secondaryLabelColor)
         stack.addArrangedSubview(where_)
         if let staged = hunksStaged(f) {
             // Buttons with names sit at the end of the hunk, as in Xcode's and GitHub Desktop's reviews.

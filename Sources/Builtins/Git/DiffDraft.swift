@@ -168,11 +168,7 @@ final class DiffLineRowView: NSTableRowView {
     private var area: NSTrackingArea?
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
-        area.map(removeTrackingArea)
-        let trackingArea = NSTrackingArea(
-            rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self)
-        addTrackingArea(trackingArea)
-        area = trackingArea
+        area = retracked(area, .activeInActiveApp)
     }
     override func mouseEntered(with event: NSEvent) { plus.isHidden = onPlus == nil }
     override func mouseExited(with event: NSEvent) { plus.isHidden = true }
