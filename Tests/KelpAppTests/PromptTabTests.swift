@@ -49,7 +49,8 @@ extension AppOfItsOwn {
     }
 }
 
-extension AppOfItsOwn {
+/// The scroller style is the whole process's (AppleShowScrollBars): one at a time.
+extension OneAtATime {
     @Test func theFirstTaskFieldGrowsToSixLinesAndKeepsWhatsTyped() {
         UserDefaults.standard.set("Always", forKey: "AppleShowScrollBars")   // with a mouse: the scroller takes its width
         defer { UserDefaults.standard.removeObject(forKey: "AppleShowScrollBars") }

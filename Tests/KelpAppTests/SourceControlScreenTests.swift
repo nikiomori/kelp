@@ -214,8 +214,9 @@ extension AppOfItsOwn {
 
     /// A few changes take their rows' height and the graph follows right under them, not half the panel down.
     @Test func theGraphFollowsAShortListOfChanges() async throws {
-        UserDefaults.standard.removeObject(forKey: "scm.graphHeight")
-        UserDefaults.standard.removeObject(forKey: "scm.collapsed")
+        let kept = ["scm.graphHeight", "scm.collapsed"].map { ($0, UserDefaults.standard.object(forKey: $0)) }
+        defer { for (key, value) in kept { UserDefaults.standard.set(value, forKey: key) } }   // the process's: put back
+        for (key, _) in kept { UserDefaults.standard.removeObject(forKey: key) }
         let rig = try await AppRig(files: ["kept.txt": "a\n"])
         defer { rig.done() }
         try rig.write("kept.txt", "b\n")

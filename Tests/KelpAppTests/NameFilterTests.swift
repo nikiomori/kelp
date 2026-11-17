@@ -29,6 +29,8 @@ extension AppOfItsOwn {
     /// The tree narrows in place, folders keeping their shape and open; emptying the field brings it all back.
     @Test func aNameSearchNarrowsTheTreeInPlace() async throws {
         _ = NSApplication.shared
+        let byName = UserDefaults.standard.object(forKey: "files.searchByName")   // the process's: put back as found
+        defer { UserDefaults.standard.set(byName, forKey: "files.searchByName") }
         let rig = try await AppRig(files: [:])
         defer { rig.done() }
         try FileManager.default.createDirectory(atPath: rig.repo + "/src/deep", withIntermediateDirectories: true)
@@ -51,6 +53,5 @@ extension AppOfItsOwn {
         panel.narrowTree()
         #expect(panel.outline.numberOfRows == 2)
         #expect(!panel.isNarrowed)
-        UserDefaults.standard.removeObject(forKey: "files.searchByName")
     }
 }

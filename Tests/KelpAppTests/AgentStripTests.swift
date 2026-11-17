@@ -102,6 +102,7 @@ private func session(
 
 @MainActor @Test func theStripSitsAtTheFootOfTheScreenAndGoesWithTheQuestion() async throws {
     let rig = try await AppRig()
+    defer { rig.done() }
     _ = NSApplication.shared
     let strip = AgentStrip(app: rig.app)
     strip.front = { false }   // behind another app, whatever another test brings forward
@@ -222,6 +223,7 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
 /// News under the pointer doesn't move the tiles: the pill stays where it was until the pointer leaves.
 @MainActor @Test func theStripStandsStillUnderThePointer() async throws {
     let rig = try await AppRig()
+    defer { rig.done() }
     _ = NSApplication.shared
     let strip = AgentStrip(app: rig.app)
     strip.front = { false }   // behind another app, whatever another test brings forward
