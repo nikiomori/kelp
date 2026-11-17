@@ -87,3 +87,19 @@ private func kelp(_ w: World, _ args: [String], cwd: String) async throws -> (co
         try await kelp(w, ["settings", "get", "editor.fontSize"], cwd: "/").out.trimmingCharacters(
             in: .whitespacesAndNewlines) == "15")
 }
+
+/// `kelp call`: a method by its name, its params as they're typed, its result printed as JSON; params that aren't an
+/// object are refused before the daemon is asked.
+@Test func kelpCallSendsAnyMethodByItsName() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let set = try await kelp(w, ["call", "settings.set", #"{"key":"editor.fontSize","value":17}"#], cwd: "/")
+    #expect(set.code == 0, "\(set.out)")
+    #expect(try await w.c.call(SettingsGet())["editor.fontSize"] == .int(17))
+    let read = try await kelp(w, ["call", "settings.get"], cwd: "/")
+    #expect(read.code == 0 && read.out.contains(#""editor.fontSize" : 17"#), "\(read.out)")
+    let bare = try await kelp(w, ["call", "settings.set", "17"], cwd: "/")
+    #expect(bare.code == 1 && bare.out.contains("JSON object"), "\(bare.out)")
+    let unknown = try await kelp(w, ["call", "no.such.method"], cwd: "/")
+    #expect(unknown.code == 1 && unknown.out.hasPrefix("error:"), "\(unknown.out)")
+}

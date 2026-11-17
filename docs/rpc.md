@@ -29,7 +29,9 @@ print(s.makefile().readline())
 ## What's there
 
 `kelp schema` lists every method and event with its parameters and result; `kelp schema session.send` shows one;
-`kelp schema --openrpc` prints the whole OpenRPC document (`Sources/Core/Resources/rpc.json`). The ones most tools need:
+`kelp schema --openrpc` prints the whole OpenRPC document (`Sources/Core/Resources/rpc.json`).
+`kelp call session.send '{"id":"<session>","text":"hi"}'` sends one from a shell and prints its result. The ones
+most tools need:
 
 | Method | Does |
 | --- | --- |

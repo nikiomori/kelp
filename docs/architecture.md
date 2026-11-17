@@ -165,7 +165,7 @@ in the module that alone reads one), and read by that declaration: `app.settings
 
 ## AI agents and the IDE: skills
 Every agent session gets `KELP_SOCKET` and the `kelp` CLI on PATH (open files/URLs, settings, extensions,
-`ui state`). What an agent should *do* with it comes from skills the app writes as Claude Code plugins in
+`ui state`; `kelp call <method> <json>` for a method with no command of its own, held to the same rules). What an agent should *do* with it comes from skills the app writes as Claude Code plugins in
 `~/.kelp/agent-skills/` (`AgentSkills`): the shell's **kelp-extensions** (this repo's docs/extensions.md: where an
 extension goes, its format, how to reload) and **kelp-settings** (every setting key, generated from the registry, and
 how to change it), and each built-in's own about its feature (the `skills` contribution). The daemon loads that folder per Claude session with `--plugin-dir`; turning a skill off in

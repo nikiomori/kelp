@@ -74,6 +74,8 @@ let usage = """
                                            project folder at the same path inside; it pauses and sleeps when unused, and
                                            the next command wakes it
       schema [method|type] | --openrpc     the daemon's methods, events and types; all of it as an OpenRPC document
+      call <method> [json-params]          any of those methods, its result as JSON (for one with no command
+                                           above); inside an agent the same rules hold as for every command
     """
 
 // Internal: the daemon starts agents through this so the PTY becomes their controlling terminal
@@ -273,6 +275,7 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
         case "diff", "commit", "merge", "push", "comment": try await git(cmd, sub, client)
         case "github", "linear": try await forge(cmd, sub, client)
         case "settings", "ui", "run": try await settingsAndUI(cmd, sub, client)
+        case "call": try await call(sub, client)
         case "ext": try await ext(sub, client)
         case "open": try await open(sub, client)
         case "edit": try await edit(sub, client)

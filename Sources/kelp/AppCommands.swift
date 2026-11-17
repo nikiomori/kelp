@@ -54,4 +54,17 @@ extension Main {
         default: print(usage)
         }
     }
+
+    /// `call <method> [json-params]`: calls any of the daemon's methods by name, for one with no command of its own.
+    /// The daemon holds every caller to its rules, so a program an agent runs can't reach more through this than
+    /// through any other command.
+    static func call(_ method: String?, _ client: RPCClient) async throws {
+        guard let method else { fail("call <method> [json-params]   (names from `kelp schema`)") }
+        let text = args.joined(separator: " ")
+        let params = text.isEmpty ? nil : jsonOrText(text)
+        switch params {
+        case nil, .object?, .array?: show(try await client.call(method, params))
+        default: fail("call: the params are a JSON object, as `kelp schema \(method)` shows them")
+        }
+    }
 }
