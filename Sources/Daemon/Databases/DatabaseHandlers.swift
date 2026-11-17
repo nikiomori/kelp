@@ -18,7 +18,7 @@ extension DatabaseSchemaRead: AsyncHandled {
 
 extension DatabaseQuery: AsyncHandled {
     func handle(_ dbs: Databases, conn: Int) async throws -> QueryResult {
-        try await dbs.query(self, origin: Sessions.asker, asker: dbs.sessions.clients.connection(conn)?.peerPID)
+        try await dbs.query(self, origin: Sessions.asker, asker: dbs.clients.connection(conn)?.peerPID)
     }
 }
 

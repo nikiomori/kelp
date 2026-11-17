@@ -85,7 +85,7 @@ extension UIBrowser: AsyncHandled {
         guard !apps.isEmpty else { throw RPCError.internalError("The Kelp app isn't running") }
         var call = self
         // An agent drives the page as itself, whichever session it names: the page's card, pointer and Done say who.
-        if case .some(let own) = relay.sessions.store.agent(origin: Sessions.asker) {
+        if case .some(let own) = relay.asks.store.agent(origin: Sessions.asker) {
             guard case .object(var fields) = args ?? .object([:]) else {
                 throw RPCError.invalidParams("kelp browser's args are an object")
             }
@@ -94,7 +94,7 @@ extension UIBrowser: AsyncHandled {
             call.args = .object(fields)
         }
         if case .object(var fields) = call.args, let session = fields["session"]?.string,
-            let subagent = relay.sessions.existing(session)?.browsing(Self.words(action, args))
+            let subagent = relay.asks.existing(session)?.browsing(Self.words(action, args))
         {
             fields["subagent"] = .string(subagent)
             call.args = .object(fields)
@@ -118,11 +118,11 @@ extension UIBrowserAsk: AsyncHandled {
     func handle(_ relay: BrowserRelay, conn: Int) async throws -> JSONValue {
         // An agent asks on its own row, never one it names; the user's script, on the row of the session it runs in.
         let row: String? =
-            switch relay.sessions.store.agent(origin: Sessions.asker) {
+            switch relay.asks.store.agent(origin: Sessions.asker) {
             case .some(let own): own
             case .none: args?["session"]?.string
             }
-        guard let session = row, let ls = relay.sessions.existing(session) else {
+        guard let session = row, let ls = relay.asks.existing(session) else {
             throw RPCError.invalidParams("kelp browser ask runs in a session of Kelp's: its row asks the user.")
         }
         func page(_ fields: [String: JSONValue]) async throws -> JSONValue {
@@ -136,8 +136,8 @@ extension UIBrowserAsk: AsyncHandled {
         _ = try await page(["text": .string(question)])
         let asked = Self.rowQuestion(question)
         ls.askForKelp(asked)
-        let answer = await relay.sessions.permissions.waitForKelp(
-            session, question: asked, within: Self.wait, asker: relay.sessions.clients.connection(conn)?.peerPID)
+        let answer = await relay.asks.permissions.waitForKelp(
+            session, question: asked, within: Self.wait, asker: relay.asks.clients.connection(conn)?.peerPID)
         ls.kelpAsked(asked)
         let ended = answer ?? "none"
         guard case .object(var shown) = try await page(["ended": .string(ended)]) else { return .null }
@@ -148,7 +148,7 @@ extension UIBrowserAsk: AsyncHandled {
 
 /// What answers `ui.browser`: the window it goes to, and the sessions that say which subagent asks.
 struct BrowserRelay {
-    let ui: UIStore, sessions: Sessions
+    let ui: UIStore, asks: AgentAsks
 }
 
 extension UIBrowserReply: Handled {

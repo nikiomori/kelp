@@ -11,7 +11,7 @@ final class Workspaces: Sendable {
     let root: URL
     let store: Store
     let remotes: Remotes
-    let sessions: Sessions   // a workspace's agents pause, start and go with it
+    let sessions: any WorkspaceSessions   // a workspace's agents pause, start and go with it
     let clients: Clients
     /// Reading the projects' workspaces and adding the missing first one is one step: two syncs at once added two "Workspace 1".
     let workspaceLock = NSLock()   // held across git calls (a blocking run), so not the unfair lock

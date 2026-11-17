@@ -531,9 +531,11 @@ func codeOnly(_ s: String) -> String {
     let byService = Dictionary(grouping: services) { $0 }.mapValues(\.count)
     let byRoot = try handlersByRoot(byService)   // a wrapper handed all of Sessions counts as Sessions
     #expect(byRoot.values.allSatisfy { $0 <= 40 }, "a service answers more than 40 methods: \(byRoot)")
+    // 40, at the cap: Sessions' own 36 and those of what keeps all of it (Routines starts its runs' agents, ChatMoves
+    // hands a chat to a new one). The rest keep a part (`WorkspaceSessions`, `AgentAsks`, SourceControl's `send`).
     let most = byRoot.values.max() ?? 0
-    #expect(most <= 39, "the busiest service's handlers: \(byRoot)")
-    #expect(most >= 39, "fewer now: lower the ceiling")
+    #expect(most <= 40, "the busiest service's handlers: \(byRoot)")
+    #expect(most >= 40, "fewer now: lower the ceiling")
     // 3: the connections' side (Server.swift) is the daemon's own, beside its dispatch (Handlers.swift).
     #expect(extensions.count <= 3, "extensions of Daemon: \(extensions)")
     #expect(extensions.count >= 3, "fewer now: lower the ceiling")

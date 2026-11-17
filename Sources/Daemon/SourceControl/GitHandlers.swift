@@ -63,7 +63,7 @@ extension GitLineOrigin: Handled {
         let agents = try marks.map { mark in
             let agent = try scm.store.session(mark.session)?.agent
             return Log.store.attempt("an agent's name for a line's turn") {
-                try scm.sessions.setup.manifest(agent, command: nil).name
+                try scm.setup.manifest(agent, command: nil).name
             } ?? "Agent"
         }
         let steps = zip(marks, agents).map { (tree: $0.tree, author: $1, message: $0.prompt) }

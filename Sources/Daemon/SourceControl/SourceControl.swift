@@ -4,12 +4,15 @@ import GitKit
 
 /// What the git handlers are handed (GitHandlers.swift: source control, files and review comments): the workspaces'
 /// records, how to reach a remote project's host, what discards threw away, and the sessions a turn's diff reads and a
-/// review is sent to.
+/// review is sent to. Not all of `Sessions`: a git handler starts, wakes and ends none.
 struct SourceControl: Sendable {
     let root: URL
     let store: Store
     let remotes: Remotes
-    let sessions: Sessions   // a turn's diff is where its agent works now; comments go into an agent
+    let live: SessionTable   // a turn's diff is where its agent works now
+    let setup: SessionSetup   // an agent's name, for a commit's trailer and a comment's author
+    /// Types into an agent as `session.send` does (on its lane, waking it): the one thing comments do to a session.
+    let send: @Sendable (SessionSend) throws -> Void
 
     /// The folder of the workspace a client named.
     func folder(_ worktreeId: String) throws -> String { try store.worktree(named: worktreeId).path }
@@ -21,7 +24,7 @@ struct SourceControl: Sendable {
         guard let sessionId = session, let rec = try store.session(sessionId) else {
             throw RPCError.invalidParams("No such agent.")
         }
-        let ls = sessions.existing(sessionId)
+        let ls = live[sessionId]
         if let turn {
             let marks = try store.turns(session: sessionId)
             guard let index = marks.firstIndex(where: { $0.id == turn }) else {

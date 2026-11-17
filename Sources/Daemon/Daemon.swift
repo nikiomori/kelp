@@ -38,7 +38,9 @@ public final class Daemon: Sendable {
     var files: FileService { FileService(remotes: remotes) }   // files.*: read, written, moved here or on a remote project's host
     /// git.*, the files lists and review comments: the workspaces' checkouts, here or on a remote project's host.
     var sourceControl: SourceControl {
-        SourceControl(root: root, store: store, remotes: remotes, sessions: sessions)
+        SourceControl(
+            root: root, store: store, remotes: remotes, live: sessions.live, setup: sessions.setup,
+            send: { [sessions] in _ = try $0.handle(sessions) })
     }
     let remotes: Remotes   // which project folders stand for one on a host (only those in this home's remote/), and how to reach it
     /// The virtual machines agents run commands in (vm.*), each run by its own kelp-vm, the one beside kelpd.
@@ -82,7 +84,10 @@ public final class Daemon: Sendable {
         self.callers = Callers(live: sessions.live, clients: clients, store: self.store)
         self.workspaces = Workspaces(
             root: root, store: self.store, remotes: remotes, sessions: sessions, clients: clients)
-        self.settingsEvents = SettingsEvents(store: settings, clients: clients, sessions: sessions)
+        self.settingsEvents = SettingsEvents(store: settings, clients: clients) { [sessions] in
+            sessions.applyKeepAwake()
+            sessions.phone.hear(.settings)
+        }
         SourceControl.sweepDiscards(root)   // what an earlier daemon kept for an Undo, past its minute
         // Remote projects' shared SSH connections; without it, they fail.
         do { try Paths.ensure(URL(fileURLWithPath: remotes.controlDir)) } catch {

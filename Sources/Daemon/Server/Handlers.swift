@@ -97,7 +97,7 @@ extension SettingsStore: DaemonService { static func of(_ daemon: Daemon) -> Set
 extension Remotes: DaemonService { static func of(_ daemon: Daemon) -> Remotes { daemon.remotes } }
 extension Sessions: DaemonService { static func of(_ daemon: Daemon) -> Sessions { daemon.sessions } }
 extension ChatMoves: DaemonService {
-    static func of(_ daemon: Daemon) -> ChatMoves { .init(workspaces: daemon.workspaces) }
+    static func of(_ daemon: Daemon) -> ChatMoves { .init(workspaces: daemon.workspaces, sessions: daemon.sessions) }
 }
 extension AgentAddons: DaemonService {
     static func of(_ daemon: Daemon) -> AgentAddons { .init(setup: daemon.sessions.setup, live: daemon.sessions.live) }
@@ -127,7 +127,7 @@ extension Databases: DaemonService { static func of(_ daemon: Daemon) -> Databas
 extension VMService: DaemonService { static func of(_ daemon: Daemon) -> VMService { daemon.vms } }
 extension VMAsking: DaemonService {
     static func of(_ daemon: Daemon) -> VMAsking {
-        VMAsking(vms: daemon.vms, sessions: daemon.sessions, offloads: daemon.offloads)
+        VMAsking(vms: daemon.vms, asks: daemon.sessions.asks, offloads: daemon.offloads)
     }
 }
 extension PhoneBridge: DaemonService {
@@ -140,7 +140,7 @@ extension UIStore: DaemonService {
     static func of(_ daemon: Daemon) -> UIStore { UIStore(store: daemon.store, clients: daemon.clients) }
 }
 extension BrowserRelay: DaemonService {
-    static func of(_ daemon: Daemon) -> BrowserRelay { BrowserRelay(ui: .of(daemon), sessions: daemon.sessions) }
+    static func of(_ daemon: Daemon) -> BrowserRelay { BrowserRelay(ui: .of(daemon), asks: daemon.sessions.asks) }
 }
 extension ForgeWork: DaemonService {
     static func of(_ daemon: Daemon) -> ForgeWork {

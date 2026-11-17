@@ -21,13 +21,13 @@ extension CommentAdd: Handled {
         .trimmingCharacters(in: .whitespacesAndNewlines)   // empty before the first commit
         if commit != nil, full.isEmpty { throw RPCError.invalidParams("No commit \(on) here.") }
         let head = String(full.prefix(12))
-        let agent = session.flatMap { scm.sessions.existing($0)?.snapshot.agent }.flatMap {
+        let agent = session.flatMap { scm.live[$0]?.snapshot.agent }.flatMap {
             Session.isAgent($0) ? $0 : nil
         }
         // A program in a terminal (an agent typed into it, a script) is named too: only the window's own comments are the
         // user's, unframed when they're sent.
         let author =
-            try agent.map { try scm.sessions.setup.manifest($0, command: nil).name }
+            try agent.map { try scm.setup.manifest($0, command: nil).name }
             ?? session.map { _ in String(localized: "A program in a terminal") }
         let comment = DiffComment(
             worktreeId: workspace.id, file: file, startLine: start ?? 1, endLine: end ?? start ?? 1, quote: quote ?? "",
@@ -109,7 +109,7 @@ extension CommentSend: Handled {
         // Into an agent only: a shell would run each line of the message (another agent's findings, quoted code).
         // Its record, not only a running one: a paused agent is one too, and the send wakes it.
         guard
-            try (scm.sessions.existing(session)?.snapshot ?? scm.store.session(session))?.isAgent == true
+            try (scm.live[session]?.snapshot ?? scm.store.session(session))?.isAgent == true
         else {
             throw RPCError.invalidParams("Comments go to an agent, not to a terminal.")
         }
@@ -129,8 +129,7 @@ extension CommentSend: Handled {
         }
         guard !open.isEmpty else { return 0 }
         do {
-            _ = try SessionSend(id: session, text: Self.message(branch: workspace.branch, comments: open)).handle(
-                scm.sessions)
+            try scm.send(SessionSend(id: session, text: Self.message(branch: workspace.branch, comments: open)))
         } catch {
             // Open again, those still sent (not one set otherwise meanwhile, nor one gone with its workspace); the send's
             // error is what's told, whatever this does.

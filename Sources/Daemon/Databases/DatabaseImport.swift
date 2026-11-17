@@ -61,7 +61,7 @@ extension Databases {
                 db.production = old.production
                 taken.remove(old.name)
             } else {
-                db.access = DatabaseInfo.Access(rawValue: sessions.settings[SettingKeys.databaseAccess]) ?? .ask
+                db.access = DatabaseInfo.Access(rawValue: settings[SettingKeys.databaseAccess]) ?? .ask
             }
             let base = db.name.replacingOccurrences(of: "/", with: "-").trimmingCharacters(in: .whitespaces)
             var name = base.isEmpty ? "imported" : base, n = 2

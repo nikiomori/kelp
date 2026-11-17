@@ -134,13 +134,15 @@ final class SettingsStore: Sendable {
 /// the settings). Keep Mac Awake follows at once.
 final class SettingsEvents: Sendable {
     let store: SettingsStore
-    private let clients: Clients, sessions: Sessions
+    private let clients: Clients
+    /// What else follows each change, after the clients hear it (Keep Mac Awake, the phone).
+    private let followed: @Sendable () -> Void
     private let queue = DispatchQueue(label: "kelp.settings-events")
 
-    init(store: SettingsStore, clients: Clients, sessions: Sessions) {
+    init(store: SettingsStore, clients: Clients, followed: @escaping @Sendable () -> Void) {
         self.store = store
         self.clients = clients
-        self.sessions = sessions
+        self.followed = followed
     }
 
     func changed() { queue.async(execute: announce) }
@@ -152,8 +154,7 @@ final class SettingsEvents: Sendable {
     private var announce: @Sendable () -> Void {
         { [self] in
             clients.notify(SettingsEvent(settings: store.values))
-            sessions.applyKeepAwake()
-            sessions.phone.hear(.settings)
+            followed()
         }
     }
 

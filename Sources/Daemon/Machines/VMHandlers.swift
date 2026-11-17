@@ -44,8 +44,8 @@ extension VMDetailRead: Handled {
 /// row (Allow / Deny), as a database change does; the user's own (Kelp's window, their terminal) makes it at once.
 extension VMCreate: AsyncHandled {
     func handle(_ asking: VMAsking, conn: Int) async throws -> VMInfo {
-        if case .some(let session) = asking.sessions.store.agent(origin: Sessions.asker) {
-            guard let session, let ls = asking.sessions.existing(session) else {
+        if case .some(let session) = asking.asks.store.agent(origin: Sessions.asker) {
+            guard let session, let ls = asking.asks.existing(session) else {
                 throw RPCError.refused("Making a machine is the user's: tell them kelp vm create \(name) makes one.")
             }
             guard VMs.isName(name) else {   // not asked for one that can't be made
@@ -54,9 +54,9 @@ extension VMCreate: AsyncHandled {
             }
             let question = Self.question(name, image: image, file: file)
             ls.askForKelp(question)
-            let answer = await asking.sessions.permissions.waitForKelp(
+            let answer = await asking.asks.permissions.waitForKelp(
                 session, question: question, within: Self.answerWithin,
-                asker: asking.sessions.clients.connection(conn)?.peerPID)
+                asker: asking.asks.clients.connection(conn)?.peerPID)
             ls.kelpAsked(question)
             guard answer == "allow" else {
                 throw RPCError.refused(
@@ -83,7 +83,7 @@ extension VMCreate: AsyncHandled {
 
 /// What answers `vm.create`: the machines, and the sessions whose rows ask the user for an agent's.
 struct VMAsking: Sendable {
-    let vms: VMService, sessions: Sessions, offloads: Slots
+    let vms: VMService, asks: AgentAsks, offloads: Slots
 }
 
 extension VMControl: Handled {

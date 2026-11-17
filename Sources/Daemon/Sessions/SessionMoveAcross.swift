@@ -5,13 +5,13 @@ import GitKit
 
 /// What moving a chat across machines is handed: the workspaces, for the worktree it goes into, and their sessions.
 struct ChatMoves {
-    let workspaces: Workspaces
+    let workspaces: Workspaces, sessions: Sessions
 }
 
 extension SessionMoveAcross: Handled {
     func handle(_ moves: ChatMoves) throws -> Session {
         let workspaces = moves.workspaces, store = workspaces.store, remotes = workspaces.remotes,
-            sessions = workspaces.sessions
+            sessions = moves.sessions
         guard let old = try store.session(id), let wid = old.worktreeId else {
             throw RPCError.invalidParams("no session")
         }

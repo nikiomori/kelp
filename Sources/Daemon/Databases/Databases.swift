@@ -30,7 +30,11 @@ struct SavedDatabase: Codable, FetchableRecord, PersistableRecord {
 /// runs in a read-only transaction, a change that asks waits for the user's Allow on the agent's row (the same question
 /// a permission dialog asks: banner, Dock, sidebar), after a trial that was rolled back says what it would change.
 final class Databases: Sendable {
-    let store: Store, sessions: Sessions, watches: Watches, remotes: Remotes, offloads: Slots
+    let store: Store, watches: Watches, remotes: Remotes, offloads: Slots
+    /// Of the sessions only what databases need: the settings, who asks (an agent waits for the user's Allow on its
+    /// row), and a remote database's forward.
+    let settings: SettingsStore, live: SessionTable, permissions: PermissionWaits, processes: SessionProcesses
+    let clients: Clients
     /// Runs kept per workspace (newest first), and the rows of the latest of them.
     static let keptRuns = 100, keptResults = 30
     /// What's kept of a result, and sent to an agent: a cell to 16 KB, the rows to 1 MB in all; the workspaces whose
@@ -50,7 +54,11 @@ final class Databases: Sendable {
 
     init(store: Store, sessions: Sessions, watches: Watches, remotes: Remotes, offloads: Slots) {
         self.store = store
-        self.sessions = sessions
+        settings = sessions.settings
+        live = sessions.live
+        permissions = sessions.permissions
+        processes = sessions.processes
+        clients = sessions.clients
         self.watches = watches
         self.remotes = remotes
         self.offloads = offloads
@@ -89,7 +97,7 @@ final class Databases: Sendable {
                 db.environment = mine.environment
                 db.copy = mine.copy
             } else if !DatabaseFind.isRemote(db) {
-                db.access = DatabaseInfo.Access(rawValue: sessions.settings[SettingKeys.databaseAccess]) ?? .ask
+                db.access = DatabaseInfo.Access(rawValue: settings[SettingKeys.databaseAccess]) ?? .ask
             }
             let container = item.service.flatMap { service in
                 db.source.map {
@@ -153,7 +161,7 @@ final class Databases: Sendable {
         // One of All My Projects is the user's, not the remote project's host's.
         let project = borrowed.origin == .library ? nil : try store.worktree(worktreeId).flatMap { remotes.of($0.path) }
         guard let remote = through ?? project else { return borrowed }
-        let here = try sessions.processes.forwards.forward("\(host):\(port)", in: worktreeId, remote)
+        let here = try processes.forwards.forward("\(host):\(port)", in: worktreeId, remote)
         var near = borrowed
         near.database.host = "localhost"
         near.database.port = here

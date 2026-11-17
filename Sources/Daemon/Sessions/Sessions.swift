@@ -5,7 +5,7 @@ import os
 
 /// The sessions: which run now (`live`), starting, waking, pausing and deleting them, what they tell the clients, the
 /// Mac kept awake while agents work (`keepAwake`). Paused and ended ones are only in the store.
-final class Sessions: Sendable {
+final class Sessions: Sendable, WorkspaceSessions {
     let live = SessionTable()
     let reports = ChildReports()
     /// What extensions run and the phone hears when an agent asks, finishes or fails (ExtensionEvents.swift).
@@ -71,6 +71,8 @@ final class Sessions: Sendable {
 
     /// The agents on a phone, through a relay (PhoneBridge.swift).
     var phone: PhoneBridge { events.phone }
+    /// What asking the user on an agent's row takes, for a service that does only that.
+    var asks: AgentAsks { AgentAsks(store: store, live: live, permissions: permissions, clients: clients) }
 
     /// A running session, without waking a paused one.
     func existing(_ id: String) -> LiveSession? { live[id] }

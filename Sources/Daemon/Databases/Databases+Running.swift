@@ -36,7 +36,7 @@ extension Databases {
         do {
             let started = Date()
             // As Settings offers them: settings.json (or an agent's `kelp settings set`) can say anything
-            let timeout = min(DatabaseTimes.longestRead, max(1, sessions.settings[SettingKeys.databaseTimeout]))
+            let timeout = min(DatabaseTimes.longestRead, max(1, settings[SettingKeys.databaseTimeout]))
             guard SQLText.mayTryAsRead(sql, target.database.engine) else { throw DatabaseFailure.change }
             let rows = try await DatabaseEngines.read(target, sql, timeout: timeout, off: offloads)
             return finish(q, &run, rows, started: started, agent: forAgent)
@@ -124,7 +124,7 @@ extension Databases {
         note(q.worktreeId, run, result: kept ? result : nil)
         var sent = result
         let rows =
-            q.limit ?? Int(min(Double(DatabaseEngines.keep), max(0, sessions.settings[SettingKeys.databaseRows])))
+            q.limit ?? Int(min(Double(DatabaseEngines.keep), max(0, settings[SettingKeys.databaseRows])))
         sent.rows = Array(result.rows.prefix(max(0, rows)))
         sent.change = nil   // the user's to see and undo: an agent has its rows
         return sent
@@ -189,7 +189,7 @@ extension Databases {
     func whoToAsk(_ q: DatabaseQuery, _ c: DatabaseConnection, _ run: inout DatabaseRun, _ session: String?)
         -> LiveSession?
     {
-        guard let session, let ls = sessions.existing(session) else {
+        guard let session, let ls = live[session] else {
             run.state = .refused
             run.error = "Nobody to ask: a change to \(c.database.name) needs the user's Allow on an agent's row."
             note(q.worktreeId, run)
@@ -205,7 +205,7 @@ extension Databases {
         asker: (session: String?, pid: pid_t?)
     ) async -> Bool {
         ls.askForKelp(question)
-        let answer = await sessions.permissions.waitForKelp(
+        let answer = await permissions.waitForKelp(
             asker.session ?? "", question: question, within: DatabaseQuery.answerWithin, asker: asker.pid)
         ls.kelpAsked(question)
         guard answer == "allow" else {
