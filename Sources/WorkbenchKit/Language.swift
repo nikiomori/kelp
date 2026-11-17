@@ -65,18 +65,6 @@ public struct LanguageSpec: Codable, Equatable, Sendable {
     /// `run`, `test` or `format` by name.
     public subscript(command name: String) -> String? { ["run": run, "test": test, "format": format][name] ?? nil }
 
-    /// Returns the word (letters, digits, `_`) at a 1-based line and UTF-16 column. It stands for `${symbol}` when no
-    /// language server names a symbol.
-    public static func word(in text: String, line: Int, column: Int) -> String {
-        let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)   // CRLF files too
-        guard lines.indices.contains(line - 1) else { return "" }
-        let lineText = lines[line - 1],
-            at = lineText.utf16.index(lineText.startIndex, offsetBy: min(max(column - 1, 0), lineText.utf16.count))
-        let isWord = { (character: Character) in character.isLetter || character.isNumber || character == "_" }
-        return String(lineText[..<at].reversed().prefix(while: isWord).reversed())
-            + lineText[at...].prefix(while: isWord)
-    }
-
     /// The language of `path`: the last of `specs` naming its file or extension (case-insensitive). A spec whose `id`
     /// comes again later is replaced by that later one.
     public static func find(_ path: String, in specs: [LanguageSpec]) -> LanguageSpec? {

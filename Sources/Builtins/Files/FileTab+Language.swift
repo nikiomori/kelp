@@ -100,13 +100,13 @@ extension FileTab {
             Banner.show(String(localized: "\(lang.id) has no “\(name)” command."))
             return nil
         }
-        let (line, column) = editor?.cursor ?? (1, 1)
+        let line = editor?.cursor?.line ?? 1
         var symbol = ""
         if template.contains("${symbol}") {
             await lspCaughtUp()
             symbol =
                 await LSPManager.of(app).symbol(root: root, path: path, line: line)
-                ?? LanguageSpec.word(in: editor?.text ?? "", line: line, column: column)
+                ?? editor?.wordAtCursor ?? ""
         }
         let inside = Paths.relative(path, to: root), relative = inside ?? path
         // A remote project's command runs on its host, so its paths are the host's paths.

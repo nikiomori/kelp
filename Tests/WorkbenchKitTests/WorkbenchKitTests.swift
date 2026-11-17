@@ -227,16 +227,6 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     }
 }
 
-@Test func wordAtCursor() {
-    let text = "def test_parse(x):\n    assert parse(x)\n"
-    #expect(LanguageSpec.word(in: text, line: 1, column: 8) == "test_parse")
-    #expect(LanguageSpec.word(in: text, line: 1, column: 15) == "test_parse")   // just after it
-    #expect(LanguageSpec.word(in: text, line: 2, column: 1) == "")
-    #expect(LanguageSpec.word(in: text, line: 9, column: 1) == "")
-    #expect(LanguageSpec.word(in: "é_1 b", line: 1, column: 2) == "é_1")
-    #expect(LanguageSpec.word(in: "x\r\ndef test_a():\r\n", line: 2, column: 6) == "test_a")   // Windows line endings
-}
-
 @Test func reorderingInsideAGroupDropsWhereTheBarShows() throws {
     var l = WorkspaceLayout()
     let a = l.add("session:a"), b = l.add("session:b"), c = l.add("session:c")
