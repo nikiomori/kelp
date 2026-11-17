@@ -8,7 +8,7 @@ import WorkbenchKit
 /// or ↩ opens the line, and the row's menu offers what the editor offers for a line.
 @MainActor
 final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
-    let table = ResultsTable()
+    let table = KeyTable()
     let scroll = NSScrollView()
     private(set) var matches: [SearchMatch] = []
     /// The workspace folder the matches' paths are in.
@@ -27,6 +27,7 @@ final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         table.delegate = self
         table.target = self
         table.action = #selector(openClicked)
+        table.onReturn = { [weak self] in self?.openClicked() }
         scroll.isHidden = true
     }
 

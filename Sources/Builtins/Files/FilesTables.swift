@@ -15,17 +15,6 @@ final class FilesOutline: ListOutlineView {
     }
 }
 
-/// Return in the results opens the line (a click does too).
-final class ResultsTable: NSTableView {
-    override func keyDown(with event: NSEvent) {
-        if event.keyCode == 36 || event.keyCode == 76, let selector = action {
-            NSApp.sendAction(selector, to: target, from: self)
-            return
-        }
-        super.keyDown(with: event)
-    }
-}
-
 /// Styles the tree like the inspector's other lists: 24-point rows that grow with the text size, the rounded selection
 /// of DesignKit's ListRowView, and no background of its own over the panel. The results (`SearchResults`) are styled
 /// the same way.

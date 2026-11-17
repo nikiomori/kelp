@@ -24,7 +24,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     private static let filterFrom = 12
 
     let app: AppModel
-    let table = ArtifactTable()
+    let table = KeyTable()
     private let search = NSSearchField()
     private lazy var foot = NSStackView(views: [search])
     private let empty = EmptyStateView()
@@ -326,18 +326,6 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
             menu.add(String(localized: "Show in Finder")) {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.target)])
             }
-        }
-    }
-}
-
-/// The panel's table. Space shows the selected page in Quick Look.
-final class ArtifactTable: NSTableView {
-    var onSpace: () -> Void = {}
-    override func keyDown(with event: NSEvent) {
-        if event.keyCode == 49, event.modifierFlags.isDisjoint(with: [.command, .option, .control]) {
-            onSpace()
-        } else {
-            super.keyDown(with: event)
         }
     }
 }

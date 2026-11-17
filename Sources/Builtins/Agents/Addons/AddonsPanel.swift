@@ -16,7 +16,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     NSSearchFieldDelegate
 {
     let app: AppModel
-    let table = AddonTable()
+    let table = KeyTable()
     let empty = EmptyStateView()
     let loadingView = LoadingView(rows: true)
     let face = AddonFace()
@@ -346,14 +346,5 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         case .instructions(let files, let tidied):
             rows.instructions(files, tidied: tidied, working: TidyUp.working(app, workspace) != nil)
         }
-    }
-}
-
-/// The panel's table, where Return opens the selected row's file, as a double click does.
-@MainActor
-final class AddonTable: NSTableView {
-    var onReturn: () -> Void = {}
-    override func keyDown(with event: NSEvent) {
-        if event.charactersIgnoringModifiers == "\r" { onReturn() } else { super.keyDown(with: event) }
     }
 }
