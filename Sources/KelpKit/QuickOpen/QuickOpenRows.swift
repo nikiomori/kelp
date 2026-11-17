@@ -16,7 +16,7 @@ extension QuickOpen {
         var session: Session?
         /// A setting with choices: its value now, on the right; choosing it lists the choices here.
         var value: String?
-        /// One of those choices: the value it sets, whether it's in effect, and its theme's colors.
+        /// One of those choices: the value it sets, whether it is in effect, and its theme's colors.
         var choice: JSONValue?
         var checked = false
         var image: NSImage?

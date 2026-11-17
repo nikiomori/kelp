@@ -31,7 +31,7 @@ package enum NewTabChoices {
     package static func key(_ id: String, _ app: AppModel, default def: String) -> KeySpec? {
         app.extensions.key(id, fallback: def)
     }
-    /// The default agent's key: New Agent's.
+    /// The key that starts the default agent: the key of the New Agent command.
     static func defaultKey(_ app: AppModel) -> KeySpec? { key("agents.new", app, default: "opt+cmd+t") }
 
     /// The installed agents: the default first, then those in use, then the others by name.

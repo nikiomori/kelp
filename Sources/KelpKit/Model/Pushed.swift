@@ -1,8 +1,8 @@
 import Core
 
-/// What the daemon pushes for a watched topic, as the app keeps it: the latest by `key` (a workspace, a session, a path;
-/// "" for one of a kind). How the app keeps it is the app's (not the wire's, in Core): a built-in conforms its own
-/// kinds, and none is named in Watching.swift.
+/// What the daemon pushes for a watched topic, as the app keeps it: the latest value by `key` (a workspace, a session,
+/// a path; "" for a topic with one value). How the app keeps it is the app's business, not the wire's in Core: a
+/// built-in conforms its own kinds, and Watching.swift names none of them.
 package protocol Pushed: RPCEvent, Equatable {
     var key: String { get }
     /// The topic whose last watcher letting go drops it, so it isn't shown stale when watched again; nil: kept (another
@@ -34,8 +34,9 @@ extension PRsEvent: Pushed {
     package var key: String { repo }
     package static var forgottenWith: WatchTopic? { .prs }
 
-    /// A project's open pull requests as its watch read them last (the project on screen's is watched while Issues is
-    /// on), asked again when `again`; read once from gh before a reading has landed (a project not on screen).
+    /// A project's open pull requests as its watch last read them (the project on screen is watched while Issues is
+    /// on), asked for again when `again`. Before any reading has landed (for a project not on screen), they are read
+    /// once from gh.
     @MainActor package static func open(_ repo: String, in app: AppModel, again: Bool = false) async throws -> [GitHub
         .PullRequest]
     {

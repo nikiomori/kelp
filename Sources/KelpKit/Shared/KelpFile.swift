@@ -3,9 +3,10 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// A workspace's .kelp.yaml as the shell runs it: trusted first, asked of the user the first time (Run's commands, a
-/// layout template that runs them, a new workspace's setup), and a command by name through Run when Run is there, else
-/// as a plain session. With Run turned off, a template and a new workspace's setup still run what the file says.
+/// A workspace's .kelp.yaml as the shell runs it. The file is trusted first, by asking the user the first time
+/// something would run (Run's commands, a layout template that runs them, a new workspace's setup). A command is run by
+/// name through Run when Run is there, else as a plain session, so with Run turned off a template and a new workspace's
+/// setup still run what the file says.
 @MainActor
 package struct KelpFile {
     let app: AppModel

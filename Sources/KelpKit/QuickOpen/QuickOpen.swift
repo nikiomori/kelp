@@ -51,7 +51,8 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     }
     /// What `all` is scored by, made with it rather than on every key.
     private(set) var allKeys: [Match] = []
-    /// The workspace's files: their paths and fuzzy keys, made once per listing; a row's item only once it's shown.
+    /// The workspace's files: their paths and fuzzy-match keys, made once per listing; a row's item is made only once
+    /// it is shown.
     var files = Files()
     struct Files {
         var root = "", paths: [String] = [], fuzzy: [ProjectFiles.FuzzyPath] = []
@@ -59,8 +60,8 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     var commandsOnly = false
     /// The title bar's Search pill, which the palettes grow out of.
     weak var anchor: NSView?
-    /// A list of its own instead of the palette's — tmux sessions (`showTmux`), a built-in's (`showList`): its rows for
-    /// what's typed. Nil for the palette.
+    /// A list that replaces the palette's, such as tmux sessions (`showTmux`) or a built-in's list (`showList`): it
+    /// gives the rows for what is typed. Nil while the palette shows its own list.
     var own: (@MainActor (String) async -> [Item])?
     var tmuxLoad: Task<Void, Never>?
 

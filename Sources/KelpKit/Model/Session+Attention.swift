@@ -55,10 +55,10 @@ struct AttentionQueue {
 }
 
 extension Session {
-    /// A row's second line: what it asks itself, or else what a child of its asks (`children`: the agents it started
-    /// and theirs, `AppModel.children(of:)`), under the child's name.
-    /// `back`: why a parked agent came back (`Arrangement.parkedBack`), said when nothing more urgent is. `plans`: what
-    /// a plan limit that stopped one says (`Contributions.plans`).
+    /// A row's second line: what the row's own agent asks, or else what one of its children asks (`children`: the
+    /// agents it started and theirs, `AppModel.children(of:)`), under that child's name.
+    /// `back` is why a parked agent came back (`Arrangement.parkedBack`), shown when nothing more urgent is. `plans`
+    /// gives the words for a plan limit that stopped an agent (`Contributions.plans`).
     @MainActor func rowLine(
         mode: String, children: [Session], back: String? = nil, plans: PlanWords? = nil
     ) -> (prefix: (String, NSColor)?, text: String)? {
@@ -76,9 +76,9 @@ extension Session {
 
 /// What an agent's row says of its state, for the sidebar and everyone who counts like it.
 extension Session {
-    /// "Limit: resets 3:40 PM": a plan limit stopped it. "Asks: may I run npm test?", "Failed: rate limit until 14:00": what an
-    /// agent that needs you wants, in its own words (its summary); with `always` every agent says what it's on. Nil: no second
-    /// line.
+    /// The second line on an agent's row, or nil for none. "Limit: resets 3:40 PM" when a plan limit stopped it. For an
+    /// agent that needs you, what it wants in its own words (its summary): "Asks: may I run npm test?", "Failed: rate
+    /// limit until 14:00". With `always`, every agent says what it is working on.
     @MainActor func askLine(mode: String, plans: PlanWords? = nil) -> (prefix: (String, NSColor)?, text: String)? {
         let st = shownStatus, text = summary.isEmpty ? statusWords : summary
         if mode != "never", let limit = plans?.rowLine(self) { return ((limit.word, .textOrange), limit.text) }

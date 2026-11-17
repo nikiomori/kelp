@@ -4,9 +4,9 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// An empty workspace: where it is, a field for the default agent's first task with Make in its foot, then what can be
+/// An empty workspace: where it is, a field for the default agent's first task with Make at its foot, then what can be
 /// opened here, one click each, in the "+" menu's order (`NewTabChoices`): the agents as tiles with their plans, a
-/// terminal and what extensions open, what to run.
+/// terminal and what extensions open, and what to run.
 @MainActor
 final class StartView: NSView {
     var onAgent: ((String) -> Void)?

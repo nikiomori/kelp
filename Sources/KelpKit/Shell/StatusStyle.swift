@@ -69,7 +69,8 @@ package final class StatusMark: NSView {
     var limited = false { didSet { if limited != oldValue { changed() } } }
     /// Its status is read off the screen (`Session.guessed`): a whole ring of dashes, a guess that looks like one.
     var guessed = false { didSet { if guessed != oldValue { update() } } }
-    /// How far it got (0…1), when it says: a pie filling a circle, as Finder's and Safari's progress, not the spinning ring.
+    /// How far it got (0…1), when the agent says so: a pie filling a circle, as in Finder's and Safari's progress,
+    /// instead of the spinning ring.
     var progress: Double? { didSet { if progress != oldValue { update() } } }
     /// Read by VoiceOver on its own; off where its row says the state in its own label (a sidebar agent).
     var announces = true { didSet { if announces != oldValue { update() } } }

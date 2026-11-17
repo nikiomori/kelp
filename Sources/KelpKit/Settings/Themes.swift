@@ -74,7 +74,7 @@ package final class ThemeManager {
     /// outside an editor in it (a diff, a page's preview): the editors themselves follow on their own.
     private(set) package var editorRevision = 0
     private(set) var look = WindowLook()
-    /// The chrome's text, what panels rebuild for: its size and the theme's face.
+    /// The font of the chrome's text, which panels rebuild for: Text Size's size and the theme's face.
     private(set) var chromeText = " "
     private(set) package var chromeDesign = Font.Design.default
 
@@ -131,7 +131,7 @@ package final class ThemeManager {
             ? nil : themes.first { $0.id == (id == "auto" ? (isDark ? "kelp.dark" : "kelp.light") : id) }
     }
 
-    /// A font setting's family; nil: empty, the theme's or the system's.
+    /// A font setting's family, or nil when the setting is empty, which means the theme's or the system's font.
     private static func named(_ family: String) -> String? { family.isEmpty ? nil : family }
 
     var isDark: Bool { NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }
@@ -155,7 +155,7 @@ package final class ThemeManager {
 
     func apply() {
         let settings = app.settings
-        // One choice, like VS Code: a theme with its own look (Kelp Light, Dracula…) sets the whole window's;
+        // One choice, as in VS Code: a theme with its own look (Kelp Light, Dracula…) sets the whole window's look;
         // Match System and Ghostty follow macOS.
         let want: NSAppearance.Name? =
             switch themes.first(where: { $0.id == settings[SettingKeys.theme] })?.appearance {

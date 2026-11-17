@@ -33,7 +33,8 @@ struct ExtActions {
         }
         // A command gets the values as shell variables, never as text in it: $(…) or a newline in a title can't run.
         guard quote else { return ShellTemplate.substitute(template) { value($0) ?? "" } }
-        // Each of them as KELP_<name> as well, for a command that reads them so: the item's fields and the workspace's.
+        // Each value is also given as KELP_<name>, for a command that reads them that way: the item's fields and the
+        // workspace's.
         guard template.contains("KELP_") else { return ShellTemplate.fill(template, value) }
         var named = ["workspace.path", "workspace.branch", "workspace.name", "project.path", "file"].reduce(
             into: [String: String]()
@@ -42,17 +43,19 @@ struct ExtActions {
         return ShellTemplate.fill(template, named: named, value)
     }
 
-    /// An `open` action's URI: the extension's template with the item's values put in, for one that opens something. A
-    /// URI that runs something (terminal:, agent:) never comes through a value (someone else's: an issue's link field set
-    /// to terminal://…?cmd=…): nil then. The extension's own terminal: or agent: template is `runAction`'s.
+    /// The URI an `open` action opens: the extension's template with the item's values filled in, for an action that
+    /// opens something. A URI that runs something (terminal:, agent:) is never accepted when it comes from a value,
+    /// because a value is someone else's text (an issue's link field set to terminal://…?cmd=…); the answer is nil
+    /// then. The extension's own terminal: or agent: template is handled by `runAction`.
     func openURI(_ template: String, item: JSONValue?) -> String? {
         Self.openableURI(
             TabURI.normalize(expand(template, item: item, quote: false), cwd: IDEContext.of(app).workspace?.path))
     }
 
-    /// What an `open` of the extension's own terminal: or agent: URI does, with the item's values put in the way the
-    /// `terminal` and `agent` actions put them: a command's as shell variables (never text in it), a prompt typed for
-    /// the user to send (never sent). A tmux session's name comes from the template alone. nil for another URI.
+    /// What an `open` of the extension's own terminal: or agent: URI does, with the item's values filled in the same
+    /// way the `terminal` and `agent` actions fill them: a command gets them as shell variables (never as text inside
+    /// it), and a prompt is typed for the user to send (never sent). A tmux session's name comes from the template
+    /// alone. Returns nil for any other URI.
     enum RunAction: Equatable {
         case agent(String?, prompt: String?), terminal(command: String?, title: String?), tmux(String)
     }
@@ -129,7 +132,7 @@ struct ExtActions {
                     ))
             }
         }
-        // Typed, not sent: `item` is a command's output (an issue's title, a PR's body), someone else's words.
+        // Typed, not sent: `item` is a command's output (an issue's title, a PR's body), which is someone else's words.
         else if let prompt = spec.agent {
             app.workbench.starterForNewTab?.newAgent(nil, prompt: expand(prompt, item: item, quote: false), draft: true)
         } else if let script = spec.run {

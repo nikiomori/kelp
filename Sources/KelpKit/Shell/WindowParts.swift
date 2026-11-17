@@ -26,10 +26,10 @@ final class ShellSplit: NSSplitViewController {
     private final class Seamless: NSSplitView { override var dividerColor: NSColor { .clear } }
 }
 
-/// A hiding panel's place (auto-hide, focus mode): it holds the panel while it's away and, at the window's edge, brings
-/// it in over the editor area with rounded corners and a shadow, as Arc's sidebar does: `inset` clear of the window's
-/// edges, or flush with them (the sidebar's, where the traffic lights are: 6 pt in, they sat on its corner with a strip
-/// of window round them).
+/// The place that holds a hiding panel (auto-hide, focus mode). It keeps the panel while the panel is away and, when
+/// the pointer reaches the window's edge, brings it in over the editor area with rounded corners and a shadow, as Arc's
+/// sidebar does. The panel sits `inset` from the window's edges, or flush with them for the sidebar, where the traffic
+/// lights are (inset 6 pt, the lights sat on its corner with a strip of window around them).
 @MainActor
 final class Floater: NSView {
     private static let radius: CGFloat = 12

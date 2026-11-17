@@ -2,8 +2,9 @@ import Foundation
 import WorkbenchKit
 
 /// A hidden terminal costs about 25 MB (its surface and scrollback; measured with 8 tabs, 2026-11-05). The tabs on
-/// screen and the last few shown stay built; older ones hidden a while let go of it and attach again when shown, with the
-/// daemon's last megabyte of output (`LiveSession.ringLimit`): a look at other tabs keeps all of a terminal's scrollback.
+/// screen and the last few shown stay built. Older ones, hidden for a while, let go of their terminal and attach again
+/// when shown, with the daemon's last megabyte of output (`LiveSession.ringLimit`). So a quick look at other tabs keeps
+/// all of a terminal's scrollback.
 extension EditorArea {
     static let keptHidden = 2
     static let releaseAfter: TimeInterval = 300

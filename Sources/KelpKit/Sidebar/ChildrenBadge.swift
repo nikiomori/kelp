@@ -101,7 +101,7 @@ final class PipsView: NSView {
         }
     }
     private var dots: [CALayer] = []
-    /// A lit dot's colour (`Pip.browses`): the agent's.
+    /// The colour of a lit dot (`Pip.browses`): the agent's colour.
     var lit: NSColor = .systemPurple { didSet { if lit != oldValue { needsDisplay = true } } }
 
     override init(frame: NSRect) {

@@ -1,4 +1,4 @@
-// The inspector's icon row: what folds into the » menu, and the row's right-click menu.
+// The inspector's icon row: which icons fold into the » menu, and the row's right-click menu.
 import AppKit
 import Core
 import DesignKit

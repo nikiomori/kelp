@@ -1,8 +1,9 @@
 import AppKit
 import DesignKit
 
-/// The palette's field, the top of the panel as Spotlight's is (no box of its own): in ⇧⌘P it starts with a purple
-/// "Commands" capsule (`scope`), what's typed after it, so the two palettes — alike otherwise — tell apart at a glance.
+/// The palette's field, at the top of the panel as in Spotlight (with no box of its own). In ⇧⌘P it starts with a
+/// purple "Commands" capsule (`scope`) followed by what is typed, so the two palettes, which look alike otherwise, can
+/// be told apart at a glance.
 @MainActor
 final class PaletteField: NSSearchField {
     override static var cellClass: AnyClass? {
@@ -49,7 +50,7 @@ final class PaletteField: NSSearchField {
     /// Its text starts after the token.
     final class Cell: NSSearchFieldCell {
         var leading: CGFloat = 0
-        override func drawingRect(forBounds r: NSRect) -> NSRect {   // the placeholder's and the editor's frame
+        override func drawingRect(forBounds r: NSRect) -> NSRect {   // the placeholder's and the field editor's frame
             var rect = super.drawingRect(forBounds: r)
             rect.origin.x += leading
             rect.size.width -= leading

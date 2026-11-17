@@ -98,7 +98,7 @@ final class AgentTile: PointerControl {
 
 }
 
-/// A plan's share as a thin bar, in the plan's colour; a new share grows or shrinks the fill (`Motion.base`).
+/// A plan's used share as a thin bar in the plan's colour; a new share grows or shrinks the fill (`Motion.base`).
 @MainActor
 private final class PlanBar: NSView {
     private var used: Double = 0, color: NSColor = .secondaryLabelColor

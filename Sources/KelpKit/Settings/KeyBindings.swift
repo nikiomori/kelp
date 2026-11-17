@@ -14,9 +14,10 @@ extension KeySpec.Modifiers {
     var flags: NSEvent.ModifierFlags { NSEvent.ModifierFlags(Self.appKit.filter { contains($0.0) }.map(\.1)) }
 }
 
-/// Settings › Keyboard: any menu command's shortcut, set by pressing it. The menu is built with Kelp's defaults and
-/// then the overrides in settings.json are laid over it: `"keys": {"editor.saveAll": "opt+cmd+s"}` ("" = none).
-/// Kelp's commands go by their id; the menu's other items (Copy, Minimize, the agents in New Tab) by their English path.
+/// Settings › Keyboard: any menu command's shortcut, set by pressing it. The menu is built with Kelp's defaults, and
+/// then the overrides in settings.json are laid over it: `"keys": {"editor.saveAll": "opt+cmd+s"}` ("" means none).
+/// Kelp's commands are named by their id; the menu's other items (Copy, Minimize, the agents in New Tab) by their
+/// English path.
 @MainActor
 enum KeyBindings {
     struct Entry: Identifiable {
@@ -105,7 +106,7 @@ enum KeyBindings {
             }
     }
 
-    /// nil: back to Kelp's default; a key with no key text: no shortcut.
+    /// nil goes back to Kelp's default key; a key with no key text means no shortcut.
     static func set(_ id: String, _ key: KeySpec?, in settings: SettingsStore) {
         var keys = overrides(settings)
         if let key { keys[id] = key.key.isEmpty ? "" : key.description } else { keys[id] = nil }

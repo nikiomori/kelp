@@ -9,9 +9,9 @@ import WorkbenchKit
 @MainActor
 @Observable
 package final class AppModel {
-    /// What's on screen, settings.json and the extensions: this app's, handed down with it (`app.workbench`…) to the
-    /// window, the built-ins' contributions and their views.
-    /// The built-in extensions the app was made with (the app's target lists them: KelpKit names none).
+    /// What is on screen, settings.json and the extensions: this app's own, handed down with it (`app.workbench`…) to
+    /// the window, the built-ins' contributions and their views. The built-in extensions the app was made with come
+    /// from the app's target, which lists them; KelpKit names none.
     @ObservationIgnored let builtins: [Builtin]
     init(builtins: [Builtin] = []) {
         self.builtins = builtins
@@ -444,9 +444,10 @@ package final class AppModel {
         try? await client?.call(m, timeout: timeout)
     }
 
-    /// Fire-and-forget, for what streams (an editor's text, a state write): nothing comes back, so there's nothing to say.
-    /// Without a daemon it's made and dropped; a new connection reads it again. `queue`: made and written from there, in
-    /// the order sent, for what's too big to encode on the main thread; `message` nil sends nothing.
+    /// Fire-and-forget, for what streams (an editor's text, a state write): nothing comes back, so there is nothing to
+    /// report. Without a daemon the message is made and dropped; the next connection reads it again. With `queue`, the
+    /// message is made and written from that queue, in the order sent, for messages too big to encode on the main
+    /// thread; a nil `message` sends nothing.
     package func notify<M: RPCMethod>(on queue: DispatchQueue? = nil, _ message: @escaping @Sendable () -> M?) {
         let client = client
         guard let queue else {
@@ -464,7 +465,7 @@ package final class AppModel {
         if worktreeBy == nil { worktreeBy = Dictionary(all.map { ($0.id, $0) }) { first, _ in first } }
         return id.flatMap { worktreeBy?[$0] }
     }
-    /// The workspace whose folder holds `path`: the innermost, for a branch's folder inside its project's.
+    /// The workspace whose folder holds `path`: the innermost one, for a branch's folder inside its project's folder.
     package func worktree(holding path: String) -> Worktree? {
         worktrees.filter { Paths.inside(path, $0.path) }.max { $0.path.count < $1.path.count }
     }
@@ -497,9 +498,10 @@ package final class AppModel {
         }
     }
 
-    /// The project's name wherever it's shown: a remote one has its machine after it while another project has the same
-    /// name ("infra · beet"), so the two tell apart; the one on this Mac and every unique name stay as they are.
-    /// A group's name; nil for a project's own screen, which goes by its project's.
+    /// The project's name, wherever it is shown. A remote project gets its machine after its name while another project
+    /// has the same name ("infra · beet"), so the two can be told apart; a project on this Mac and every unique name
+    /// stay as they are.
+    /// A group's name, or nil for a project's own screen, which goes by its project's name.
     package func groupName(_ worktree: Worktree?) -> String? {
         guard let worktree else { return nil }
         return repo(worktree.repoId).flatMap { mainWorkspace(of: $0, among: worktrees) }?.id == worktree.id
@@ -538,7 +540,8 @@ extension AppModel {
         return commandsOf?[id] ?? []
     }
 
-    /// A live untitled chat's number among its agent's in its workspace, oldest first: nil for the first or only one.
+    /// The number of a live untitled chat among its agent's chats in its workspace, oldest first; nil for the first or
+    /// only one.
     func untitledNumber(_ id: String) -> Int? {
         let all = sessions   // read through the observed property, as `session(_:)` does
         if untitled == nil {

@@ -4,9 +4,10 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// Follow Edits: while it's on for an agent, each file its tools change opens beside its tab, the keys left where they
-/// are, one tab following along. Per agent, off until asked, forgotten when Kelp quits. Agents whose hooks name the
-/// file (Claude Code's); shown only while the agent's workspace is on screen.
+/// Follow Edits: while it is on for an agent, each file the agent's tools change opens beside its tab, leaving the
+/// keyboard where it is, in one tab that follows along. It is per agent, off until asked for, and forgotten when Kelp
+/// quits. It works for agents whose hooks name the file (Claude Code's), and shows only while the agent's workspace is
+/// on screen.
 @MainActor
 final class AgentFollow {
     private let app: AppModel

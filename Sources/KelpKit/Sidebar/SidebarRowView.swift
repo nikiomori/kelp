@@ -139,7 +139,8 @@ final class SidebarRowView: NSTableRowView {
             edge.stroke()
         }
     }
-    /// A lone row's pill has a card's corners; one in a card follows the card's, 4 pt in: radiusSM.
+    /// A row on its own gets a pill with a card's corners; a row inside a card follows the card's corners, 4 pt in
+    /// (radiusSM).
     static func pillRadius(inCard: Bool) -> CGFloat { inCard ? Metrics.radiusLG - 4 : Metrics.radiusLG }
     /// The row inset by `inset` on the left and 8 pt less on the right: past the sidebar's right edge come the divider
     /// and the editor area's own margin, so a card leaves the same gap to the window's edge and to the editor (8 pt).
@@ -147,10 +148,11 @@ final class SidebarRowView: NSTableRowView {
     static func band(_ rect: NSRect, _ inset: CGFloat) -> NSRect {
         NSRect(x: rect.minX + inset + 2, y: rect.minY, width: rect.width - 2 * inset + 4, height: rect.height)
     }
-    /// The outline sizes a row's cell once; when the row's height changes later (a project's last row gains or loses the
-    /// card's foot) the cell would only stretch with it, its text off the chevron. Put it where the outline says; a row
-    /// closing up keeps its cell where it was, cut off by the row's edge as it goes. Its width follows the row's (8 pt
-    /// short, as `frameOfCell` leaves it): kept from a wider sidebar, a long name ran past the card, cut, not truncated.
+    /// The outline sizes a row's cell once; when the row's height changes later (a project's last row gains or loses
+    /// the card's foot), the cell would only stretch with it, and its text would drift off the chevron. So the cell is
+    /// put where the outline says. A row closing up keeps its cell where it was, cut off by the row's edge as it goes.
+    /// The cell's width follows the row's (8 pt short, as `frameOfCell` leaves it): when it was kept from a wider
+    /// sidebar, a long name ran past the card and was cut instead of truncated.
     override func resizeSubviews(withOldSize old: NSSize) {
         super.resizeSubviews(withOldSize: old)
         guard bounds.height > 1, let outline = superview as? NSOutlineView, case let row = outline.row(for: self),
@@ -242,8 +244,9 @@ enum ServerLook: String {
 /// (SidebarController.placeCards). 2 pt round its first and last rows, 4 pt round their pills (SidebarRowView.pads).
 @MainActor
 final class ProjectCard: NSView {
-    /// What it shows: `color` as a fill, else the quiet grey unless it's `plain`, a project's own row with nothing under it;
-    /// `remote`, a server's card: marked as elsewhere the way Settings › Appearance › Servers says.
+    /// What the card shows: `color` as a fill; otherwise the quiet grey, unless the card is `plain` (a project's own
+    /// row with nothing under it). `remote` marks a server's card as elsewhere, the way Settings › Appearance › Servers
+    /// says.
     struct Look: Equatable {
         var color: ProjectColor?
         var plain: Bool

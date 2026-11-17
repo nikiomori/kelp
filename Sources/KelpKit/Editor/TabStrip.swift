@@ -7,8 +7,8 @@ import DesignKit
 /// inspector's panel icons.
 @MainActor
 final class TabStrip: NSView {
-    /// Room around the tabs: they don't run into the strip's edges or the pane dividers. The sidebar's and inspector's
-    /// band in the same row is as tall.
+    /// Room around the tabs, so they don't run into the strip's edges or the pane dividers. The band of the sidebar and
+    /// the inspector in the same row is as tall.
     static func height(compact: Bool) -> CGFloat { compact ? 32 : 40 }
     @MainActor static func height(_ settings: SettingsStore) -> CGFloat {
         height(compact: settings[SettingKeys.tabHeight] == "compact")

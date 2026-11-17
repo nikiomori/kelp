@@ -2,9 +2,9 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// Color themes by what they are: the ones that follow something, Kelp's own, the looks that rebuild the window, then the
-/// classics (folded: palettes people know, which differ least from one another) and what's installed. Each card is a small
-/// window in the theme: its surface, its card, its lines of text.
+/// Color themes grouped by what they are: the ones that follow something, Kelp's own, the looks that rebuild the
+/// window, then the classics (folded, since these palettes are well known and differ least from one another) and what
+/// is installed. Each card is a small window drawn in the theme: its surface, its card, and its lines of text.
 struct ThemeGallery: View {
     @Binding var selection: String
     /// Its title and what a theme covers, as every picture row has them: below the gallery it was half a screen from
@@ -48,7 +48,8 @@ struct ThemeGallery: View {
         .padding(.vertical, Metrics.lineGap)
     }
 
-    /// Captions in the system font, as every tile's: the theme's own font in them (Phosphor's mono) stood out of the row.
+    /// Captions use the system font, as on every tile: with each theme's own font (Phosphor's mono) the captions stood
+    /// out of the row.
     private func grid(_ cards: [ThemeCard]) -> some View {
         TileGrid {
             ForEach(cards) { card in
@@ -72,8 +73,8 @@ struct ThemeGallery: View {
         return [system, ghostty(base: ThemeCard(auto))]
     }
 
-    /// Your Ghostty config's colours, as the terminal will have them; what it doesn't set, the Kelp theme's. A card without
-    /// swatches looked like one that failed to load.
+    /// The colours of your Ghostty config, as the terminal will show them, with the Kelp theme's colours for what it
+    /// doesn't set. A card without swatches looked like one that failed to load.
     private func ghostty(base: ThemeCard) -> ThemeCard {
         let config = GhosttyConfig.load()
         var card = base

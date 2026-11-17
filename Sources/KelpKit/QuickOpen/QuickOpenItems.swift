@@ -77,7 +77,8 @@ extension QuickOpen {
         func walk(_ menu: NSMenu, path: String) {
             for i in menu.items {
                 if let submenu = i.submenu {
-                    // Not the system's Services ("Convert Text to Chinese"…): other apps' actions, not Kelp's commands.
+                    // Leave out the system's Services ("Convert Text to Chinese"…): they are other apps' actions, not
+                    // Kelp's commands.
                     if submenu !== NSApp.servicesMenu {
                         walk(submenu, path: submenu === appMenu ? "" : path.isEmpty ? i.title : path + " › " + i.title)
                     }
@@ -128,8 +129,8 @@ extension QuickOpen {
             split: { app.workbench.open(TabURI.file(full), split: .right) })
     }
 
-    /// A tab's icon and where it is, in words: a file's path in its workspace (from ~ outside it), a page's address, the
-    /// changes — never the tab's own `diff:` or `file:` address.
+    /// A tab's icon and where it is, in words: a file's path in its workspace (from ~ when outside it), a page's
+    /// address, or "changes"; never the tab's own `diff:` or `file:` address.
     static func place(_ uri: String, root: String?) -> (icon: String, detail: String) {
         switch TabURI.scheme(uri) {
         case "file":

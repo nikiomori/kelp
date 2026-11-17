@@ -55,7 +55,8 @@ extension QuickOpen {
         present()
     }
 
-    /// The sessions matching what's typed, that exact name first; then a new session by that name, or by the project's.
+    /// The tmux sessions matching what is typed, an exact name first; then a new session with that name, or with the
+    /// project's name.
     func tmuxItems(_ sessions: [Tmux.Session], _ q: String) -> [Item] {
         func item(_ name: String, icon: String, detail: String) -> Item {
             let app = self.app

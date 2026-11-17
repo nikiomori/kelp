@@ -41,7 +41,8 @@ final class WindowBar: NSView {
     private var badgeFolder: Worktree? { app.gitFolder(of: app.workbench.mainWorkspaceId) }
     /// The branch's CI on the chip (Settings › Appearance › CI): in place of the branch glyph, after the counts, or not at all.
     private let ciMark: CIMarkSlot
-    /// Centred on the glyph's slot (the chip's padding, then 13 pt) or on the room left at the title's end (12 pt).
+    /// Centred on the glyph's slot (the chip's padding, then 13 pt), or on the room left at the end of the title (12
+    /// pt).
     private lazy var ciAtStart = ciMark.view.centerXAnchor.constraint(
         equalTo: branch.leadingAnchor, constant: Self.chipPadding + 13 / 2)
     private lazy var ciAtEnd = ciMark.view.centerXAnchor.constraint(
@@ -255,8 +256,9 @@ final class WindowBar: NSView {
         }
         name.stringValue = app.groupName(worktree) ?? ""   // a project's own screen: the folder beside it says it
         name.isHidden = name.stringValue.isEmpty
-        // The project's folder, as Xcode and Finder name a project, on a branch too: its own folder's name is no more than
-        // the branch's first one, beside the chip with the real one. The whole path in its tooltip and its menu.
+        // The project's folder name, as Xcode and Finder name a project, also on a branch: a branch folder's own name
+        // tells no more than the branch's first word, and the chip beside it shows the real branch. The whole path is
+        // in its tooltip and its menu.
         let place =
             app.repo(worktree.repoId).map(app.projectPlace) ?? (worktree.path as NSString).abbreviatingWithTildeInPath
         let path =
@@ -382,7 +384,7 @@ extension WindowBar: NSMenuDelegate {
         app.extensions.all.ci?.menu(menu, worktree?.id)
     }
 
-    /// Back's and Forward's list: the places that way, nearest first, as a browser's arrows hold them.
+    /// The list behind Back or Forward: the places in that direction, nearest first, as a browser's arrows keep them.
     private func placeItems(_ menu: NSMenu, step: Int) {
         let app = app
         for (index, name) in app.workbench.places(step).prefix(10) { menu.add(name) { app.workbench.go(to: index) } }

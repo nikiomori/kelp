@@ -15,7 +15,8 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
     private let page: URL, folder: URL, app: AppModel
     /// The panel icon's badge `kelp.badge` sets (nil in a tab).
     private let badge: ExtBadge?
-    /// What the `ext:` link that opened it carried (`ext:my.ext/view?file=a.txt`): `kelp.props`.
+    /// What the `ext:` link that opened the page carried (`ext:my.ext/view?file=a.txt`), given to the page as
+    /// `kelp.props`.
     private let props: [String: String]
     private(set) var web: WKWebView!
     init(page: URL, folder: URL, app: AppModel, badge: ExtBadge? = nil, props: [String: String] = [:]) {
@@ -102,8 +103,8 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         if navigationAction.navigationType == .linkActivated { PreviewLinks.open(url, in: app) }
     }
 
-    /// A page in the extension's folder (served from it: `ExtPages`, which serves this web view's folder only); nothing else
-    /// is (a site, `about:blank`, a file elsewhere).
+    /// Whether the address is a page in the extension's folder (served from there by `ExtPages`, which serves this web
+    /// view's folder only). Nothing else is allowed: not a site, `about:blank`, or a file elsewhere.
     static func isOwn(_ url: URL, _ folder: URL) -> Bool {
         if url.scheme == ExtPages.scheme { return ExtPages(folder: folder).file(url) != nil }
         return url.isFileURL
@@ -163,7 +164,7 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         case "badge":
             badge?.value = PanelBadge(arg)
             reply(id, .null)
-        // A Kelp command by its id (the menus', the palette's, an extension's), as `kelp run` does.
+        // A Kelp command by its id (from the menus, the palette or an extension), run as `kelp run` runs it.
         case "run":
             let args = ExtBridge.decode(body["args"], as: [String: JSONValue].self)
             app.extensions.run(arg, args ?? [:])

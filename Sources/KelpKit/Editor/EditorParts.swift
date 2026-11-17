@@ -25,7 +25,7 @@ final class UnavailableTab: TabContent {
     func focus() {}
 }
 
-/// A double-click on a divider shares that split equally (like Terminal's and Ghostty's splits).
+/// A double-click on a divider makes that split's panes equal (as in Terminal's and Ghostty's splits).
 final class EqualizingSplitView: NSSplitView {
     override func mouseDown(with event: NSEvent) {
         guard event.clickCount == 2, arrangedSubviews.count > 1 else { return super.mouseDown(with: event) }

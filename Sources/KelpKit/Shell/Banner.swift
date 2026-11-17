@@ -2,10 +2,11 @@ import AppKit
 import Core
 import DesignKit
 
-/// A short message in the top right corner of the editor area, under its tabs and the tab's own bar — errors, confirmations
-/// and (when macOS's are off) what an agent did — that blocks nothing: not over the sidebar, the inspector, a tab's
-/// buttons or the line being typed at the bottom of a terminal. On Liquid Glass (macOS 26; the popover material before). Up to three, the newest
-/// on top; one under the pointer stays (and shows its ✕) until the pointer leaves.
+/// A short message in the top right corner of the editor area, under its tabs and the tab's own bar: errors,
+/// confirmations and (when macOS notifications are off) what an agent did. It blocks nothing: it never covers the
+/// sidebar, the inspector, a tab's buttons or the line being typed at the bottom of a terminal. It is drawn on Liquid
+/// Glass (macOS 26; the popover material before). Up to three show at once, the newest on top; one under the pointer
+/// stays (and shows its ✕) until the pointer leaves.
 @MainActor
 package enum Banner {
     package enum Style { case info, error }
@@ -91,7 +92,7 @@ package enum Banner {
     }
 }
 
-/// One banner: the icon (an agent's, or the info / warning sign), what happened, where, the text, and its buttons.
+/// One banner: the icon (an agent's, or the info or warning sign), what happened and where, the text, and its buttons.
 @MainActor
 private final class BannerCard: NSView {
     let stays: Bool

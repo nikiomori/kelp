@@ -14,7 +14,7 @@ struct ContextParts: View {
 
     struct Row: Identifiable { let id: String, label: String, tokens: Int, detail: String, color: Color? }
 
-    /// In the bar's order: the base, then the conversation's parts.
+    /// The parts in the bar's order: the base first, then the conversation's parts.
     var rows: [Row] {
         let base =
             parts.setup.map { setup in

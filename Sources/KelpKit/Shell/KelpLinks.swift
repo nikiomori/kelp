@@ -98,7 +98,7 @@ struct UIRequests {
                 app.workbench.openInBackground(uri, workspace: wid)
                 return
             }
-            // `kelp open`: the user's or their agent's own
+            // `kelp open`, run by the user or by one of their agents
             if TabURI.runs(uri) {
                 app.workbench.runURI(uri, split: split, workspace: event.worktreeId, focus: focus)
             } else if focus {

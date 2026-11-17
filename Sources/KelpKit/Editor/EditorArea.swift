@@ -5,7 +5,8 @@ import WorkbenchKit
 
 package enum SplitDirection: String { case right, down }
 
-/// One workspace's editor area: groups of tabs in a split tree. Tabs are made by the providers extensions register.
+/// One workspace's editor area: groups of tabs in a split tree. The tabs are made by the providers that extensions
+/// register.
 @MainActor
 final class EditorArea: NSViewController {
     let app: AppModel

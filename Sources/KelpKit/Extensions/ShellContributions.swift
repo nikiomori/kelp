@@ -40,7 +40,7 @@ package struct TabProvider {
     let releasable: Bool
     /// Closing a tab of its URI that was never built (in the background since launch); false keeps it.
     var closeUnbuilt: (@MainActor (_ uri: String) async -> Bool)?
-    /// Its items in the tab's context menu, added to `menu` above Close Tab: `workspace` is the editor area's, and
+    /// Items added to the tab's context menu, above Close Tab: `workspace` is the editor area's workspace, and
     /// `openBeside` opens a URI in a pane to the right.
     var menu:
         (
@@ -48,8 +48,9 @@ package struct TabProvider {
                 _ menu: NSMenu, _ uri: String, _ workspace: String, _ openBeside: @escaping @MainActor (String) -> Void
             ) -> Void
         )?
-    /// Its tabs in `workspace` that an agent drives (a page `kelp browser` acts in), by tab id: whose, and the glow
-    /// while it acts. Such a tab wears the agent's logo and card. Read under observation: it must not do work.
+    /// The built-in's tabs in `workspace` that an agent drives (a page `kelp browser` acts in), by tab id: which agent
+    /// drives each, and the glow while it acts. Such a tab wears the agent's logo and card. It is read under
+    /// observation, so it must not do work.
     var driven: (@MainActor (_ workspace: String) -> [String: (session: String, glow: NSColor?)])?
 }
 
@@ -67,9 +68,10 @@ package struct BranchActions {
     }
 }
 
-/// A folder's CI and pull request as marks, from the built-in that watches them (Git): beside the folder's sidebar row
-/// and in the ⌃Tab switcher, on the window bar's chips, what they say, where a click goes, the PR in the folder's hover
-/// card, and the branch chip's menu. Read under observation: they must not do work.
+/// A folder's CI and pull request shown as marks, from the built-in that watches them (Git): beside the folder's
+/// sidebar row, in the ⌃Tab switcher and on the window bar's chips. It says what the marks say and where a click goes,
+/// gives the PR for the folder's hover card, and fills the branch chip's menu. It is read under observation, so it must
+/// not do work.
 package struct FolderCI {
     /// Every folder's CI mark beside its row: the rows follow this, not each CI read.
     let rows: @MainActor () -> [String: CIRuns.State]
@@ -118,10 +120,10 @@ package struct FolderCI {
 /// A mark a built-in puts on a row, read under observation (it must not do work): the machine an agent runs a command
 /// in, the page it drives, its workspace's CI on its tile in the Dock strip. Each reader shows the places it has.
 package struct RowMark: Equatable {
-    /// On an agent's sidebar row: in the chip's place, when the row has no goal or command of its own to show (`chip`),
-    /// or a button of its own beside the dots, in `tint`, glowing in `glow`, a click doing `open` (`button`). On an
-    /// agent's tile in the Dock strip, of its workspace: in the tile's corner, the menu offering `open` under `tip`
-    /// (`tile`).
+    /// Where a mark shows. On an agent's sidebar row: in the chip's place, when the row has no goal or command of its
+    /// own to show (`chip`), or as a button of its own beside the dots, in `tint`, glowing in `glow`, a click doing
+    /// `open` (`button`). On the tile of an agent of its workspace in the Dock strip: in the tile's corner, with the
+    /// menu offering `open` under `tip` (`tile`).
     package enum Place: Sendable { case chip, button, tile }
     package let place: Place
     /// An SF Symbol, else `view`: a mark the built-in draws itself (Git's CI mark), made when it's shown.
@@ -263,8 +265,8 @@ package struct Contributions {
     /// Sessions it keeps running with no tab and no sidebar row (Run's runs put away in the Run menu). Read under
     /// observation: it must not do work.
     var sessionHidden: [@MainActor () -> Set<String>] = []
-    /// Items at the top of a sidebar row's menu (a project's, a server's header…), each ending with its separator: a
-    /// merged PR's "Switch to main and Pull", a server's own.
+    /// Items added at the top of a sidebar row's menu (a project's, a server's header…), each ending with its
+    /// separator: for example a merged PR's "Switch to main and Pull", or a server's own items.
     var rowMenu: [@MainActor (_ row: SidebarItem.Kind, _ menu: NSMenu) -> Void] = []
     /// The branch chip's actions: one built-in's (the first that has them); none, and the chip only shows the branch.
     var branch: BranchActions?
@@ -282,7 +284,8 @@ package struct Contributions {
     var launched: [@MainActor () -> Void] = []
     /// Items of its own in the Dock icon's menu, under New Chat.
     var dockMenu: [@MainActor (NSMenu) -> Void] = []
-    /// The Dock icon's face when it shows Plan Usage (nil: nothing to show): one built-in's; none, and the plain icon.
+    /// The Dock icon's face when it shows Plan Usage (nil when there is nothing to show). One built-in provides it;
+    /// with none, the Dock shows the plain icon.
     var dockUsage: (@MainActor () -> DockFace?)?
     /// What runs in a workspace: its chip, the Run menu, its tabs and pages: one built-in's (the first that has it).
     var runs: ProjectRuns?
@@ -293,19 +296,20 @@ package struct Contributions {
     /// Its part of an agent's hover card, under what the card says of the agent (the page it drives); `close` puts the
     /// card away. Made while the card is up.
     var agentCards: [@MainActor (_ session: Session, _ close: @escaping @MainActor () -> Void) -> AnyView?] = []
-    /// What a subagent's last command did, in its own words, for the agent's card (the page's last step for a
-    /// `kelp browser` one); nil: the command as it ran.
+    /// What a subagent's last command did, in the built-in's own words, for the agent's card (for a `kelp browser`
+    /// command, the page's last step). Nil shows the command as it ran.
     var subagentSteps: [@MainActor (_ session: String, _ subagent: String, _ command: String) -> String?] = []
     /// A daemon event the shell keeps nothing of (a page a session printed, a port another program holds, an agent's
     /// `kelp browser` command), heard as it comes: true when it took it, and the next ones aren't asked. None takes
     /// an agent's browser command, and it is told the Browser is off.
     var events: [@MainActor (any RPCEvent) -> Bool] = []
-    /// ⌘P's lists for what's typed after a character of the built-in's ("#": Issues' pull requests); the first built-in's
-    /// wins a character.
+    /// ⌘P's lists for what is typed after a character the built-in claims ("#": Issues' pull requests); when two
+    /// built-ins claim one character, the first wins.
     var quickPrefixes: [String: @MainActor (_ typed: String) async -> [QuickItem]] = [:]
 
-    /// Another extension's, after this one's (the registry merges them in load order): a list takes its items after
-    /// these, a single hook stays the first one's. A new field gets its line here, beside the fields.
+    /// Merges another extension's contributions after this one's (the registry merges them in load order): a list gets
+    /// the other's items after these, and a single hook keeps the first extension's. A new field gets its line here,
+    /// next to the fields.
     mutating func add(_ contributions: Contributions) {
         panels += contributions.panels
         editors += contributions.editors

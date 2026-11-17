@@ -1,4 +1,4 @@
-// A sidebar row's marks: the folder's changes, PR and CI badges, and an agent's icon, face, state and chip.
+// A sidebar row's marks: the folder's changes, the PR and CI badges, and an agent's icon, face, state and chip.
 import AppKit
 import Core
 import DesignKit
@@ -150,8 +150,8 @@ extension SidebarCell {
         hasBadge = (changeCounts != nil || sharedTip != nil, prBadge != nil, state != nil)
         fitBadges()
     }
-    /// A quiet dot at rest; under the pointer on it the counts, on a pill as the PR's number is (bare they read as the
-    /// name's).
+    /// A quiet dot at rest; under the pointer, the counts on a pill, as the PR's number is shown (bare, they read as
+    /// part of the name).
     func showChanges() {
         let full = spelling === changes ? counts : nil,
             title = full ?? Self.dot(shares ? .textOrange : .secondaryLabelColor)

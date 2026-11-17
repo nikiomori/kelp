@@ -2,10 +2,10 @@ import Core
 import Foundation
 import os
 
-/// Kelp's skills for agents, each a Claude Code plugin in ~/.kelp/agent-skills that the daemon loads per session
-/// (--plugin-dir): how to write and connect an extension and how to change settings (the shell's, made from what's
-/// installed), and the built-ins' own (`Contributions.skills`). Turning one off in Settings › Agents removes it, and so
-/// does turning off the built-in that gives it. Nothing is written to the agent's own config.
+/// Kelp's skills for agents. Each is a Claude Code plugin in ~/.kelp/agent-skills that the daemon loads per session
+/// (--plugin-dir): how to write and connect an extension, how to change settings (the shell's skill, made from what is
+/// installed), and the built-ins' own skills (`Contributions.skills`). Turning a skill off in Settings › Agents removes
+/// it, and so does turning off the built-in that provides it. Nothing is written to the agent's own config.
 @MainActor
 enum AgentSkills {
     /// What couldn't be written or removed: an agent would go on with an old skill, or none, unseen.

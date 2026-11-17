@@ -51,7 +51,7 @@ extension SidebarCell {
         }
     }
 
-    /// The slot: `view` at rest, the row's action over it. Tracks the pointer for both.
+    /// The slot: `view` at rest, with the row's action over it under the pointer. It tracks the pointer for both.
     func fillSlot(_ view: NSView) {
         rest = view
         slot.translatesAutoresizingMaskIntoConstraints = false
@@ -102,7 +102,8 @@ extension SidebarCell {
         shownFolded = folded
     }
 
-    /// The pointer is on the slot's action: the row's card waits, the row's fate is being decided. `point` is in the window.
+    /// Called when the pointer is on the slot's action: the row's card waits, since the user is deciding what to do
+    /// with the row. `point` is in window coordinates.
     func overAction(_ point: NSPoint) -> Bool { !action.isHidden && actionArea.contains(convert(point, from: nil)) }
     /// A little wider than what's drawn, from the pill's edge to the name, and as high as the pill.
     var actionArea: NSRect { action.convert(action.bounds, to: self).insetBy(dx: -3, dy: -4) }

@@ -19,7 +19,7 @@ extension SidebarController.Node {
 extension SidebarController {
     // MARK: actions
 
-    /// What rows draw from the app's own state: a mute's bell, a project's colour.
+    /// What the rows draw from the app's own state: a mute's bell and a project's colour.
     func followRowLooks() {
         track(owner: self) { [app] in
             app.arrangement.mutes
@@ -76,8 +76,9 @@ extension SidebarController {
             .joined(separator: "|")
     }
 
-    /// Sessions changed without moving a row: the rows showing them are updated, an agent's own, its parent's and the rows
-    /// above it (its workspace and project sum their agents up), not every row in the list.
+    /// Called when sessions changed without any row moving: only the rows showing them are updated (an agent's own row,
+    /// its parent's row, and the rows above it, since its workspace and project sum up their agents), not every row in
+    /// the list.
     func sessionsChanged(_ now: [Session]) {
         let changed = now.filter { shownBefore[$0.id] != $0 }
         shownBefore = Dictionary(now.map { ($0.id, $0) }) { _, last in last }
@@ -92,7 +93,7 @@ extension SidebarController {
         }
         updateHeaders()
     }
-    /// An agent's row, its parent's, and the rows above it.
+    /// The rows to show for these sessions: each agent's row, its parent's row, and the rows above them.
     func rows(showing sessions: [Session]) -> Set<Node> {
         var nodes: Set<Node> = []
         for s in sessions {
@@ -222,7 +223,8 @@ extension SidebarController {
         for add in app.extensions.all.rowMenu { add(row, menu) }
     }
 
-    /// No Project's row: chats, and its folder. Nothing to rename, colour or remove: it's Kelp's own.
+    /// No Project's row menu: chats and its folder. There is nothing to rename, colour or remove, since the row is
+    /// Kelp's own.
     private func noProjectMenu(_ menu: NSMenu, _ repo: Repo, _ node: Node) {
         let app = self.app
         menu.add(String(localized: "New Chat")) { [weak self] in self?.newChat(repo.id) }
@@ -252,7 +254,8 @@ extension SidebarController {
         menu.addSettingsLink(String(localized: "Sidebar Settings…"), section: "appearance", group: "Sidebar", app)
     }
 
-    /// A project's colour: a row of dots, or Color ▸ for VoiceOver and the keyboard, which reach only a menu's items.
+    /// The menu items for a project's colour: a row of dots, or Color ▸ for VoiceOver and the keyboard, which can only
+    /// reach a menu's items.
     private func colorItem(_ menu: NSMenu, _ id: String) {
         let app = self.app, now = app.arrangement.projectColors[id]
         let arrangement = app.arrangement

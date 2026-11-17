@@ -3,10 +3,11 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// Right side: a row of panel icons (from extensions) over the selected panel — a scope bar like Mail's and Finder's:
-/// plain icons, the selected one on the grey of a chosen row, in a glass capsule on macOS 26. The row is the inspector's
-/// part of the window's second row, under the panel's name, or a bar under the panel. Icons are dragged into order; a
-/// right-click on the row hides them and moves the row. Icons that don't fit go into a » menu, as a toolbar's do.
+/// The right side of the window: a row of panel icons (from extensions) above the selected panel. It is a scope bar
+/// like Mail's and Finder's: plain icons, the selected one on the grey of a chosen row, in a glass capsule on macOS 26.
+/// The row is the inspector's part of the window's second row, under the panel's name, or a bar under the panel. Icons
+/// can be dragged into order; a right-click on the row hides icons and moves the row. Icons that don't fit go into a »
+/// menu, as a toolbar's do.
 @MainActor
 final class InspectorController: NSViewController {
     let app: AppModel
@@ -239,8 +240,8 @@ final class InspectorController: NSViewController {
         showSelected()
     }
 
-    /// Nothing to show: no panels, or no project for them to show (a blank column looked broken). Activity, which
-    /// isn't a project's, waits for one too: without a project there's nothing running to show.
+    /// Whether there is nothing to show: no panels, or no project for them to show (a blank column looked broken).
+    /// Activity isn't a project's panel, but it waits for a project too, since without one nothing is running.
     private func showEmpty() {
         let none = !panels.isEmpty && app.workbench.workspaceId == nil
         host.isHidden = none
@@ -262,7 +263,8 @@ final class InspectorController: NSViewController {
         ])
     }
 
-    /// A badge past the glyph's top-right corner, clear of its strokes: over them it hid the branch's node.
+    /// A badge past the glyph's top-right corner, clear of its strokes: placed over them, it hid the branch symbol's
+    /// node.
     private func pin(_ countBadge: CountBadge, on button: NSButton) {
         countBadge.translatesAutoresizingMaskIntoConstraints = false
         button.addSubview(countBadge)
@@ -275,7 +277,7 @@ final class InspectorController: NSViewController {
         NSLayoutConstraint.activate([
             start,
             countBadge.trailingAnchor.constraint(lessThanOrEqualTo: button.trailingAnchor, constant: nextGlyph - 3),
-            // In a column it hangs past the capsule's edge, into the inset, short of the window's edge.
+            // In a column it hangs past the capsule's edge into the inset, stopping short of the window's edge.
             countBadge.trailingAnchor.constraint(
                 lessThanOrEqualTo: button.trailingAnchor, constant: Metrics.iconGap + Metrics.insetTrailing - 2),
             countBadge.centerYAnchor.constraint(equalTo: button.centerYAnchor, constant: Metrics.iconGap - half - 1)

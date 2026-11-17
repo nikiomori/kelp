@@ -3,9 +3,9 @@ import Core
 import EditorKit
 import WorkbenchKit
 
-/// What the first character of ⌘P's field asks for: ":120" a line, "/name" (or "file:name") files alone, "@name" the symbols
-/// of the file on screen, "@@name" the project's. ">" is the commands'; a built-in may have a character of its own
-/// ("#": Issues' pull requests, `Contributions.quickPrefixes`).
+/// What the first character in ⌘P's field asks for: ":120" a line, "/name" (or "file:name") files only, "@name" the
+/// symbols of the file on screen, "@@name" the project's symbols. ">" lists the commands. A built-in may add a
+/// character of its own ("#": Issues' pull requests, `Contributions.quickPrefixes`).
 extension QuickOpen {
     enum Prefix: Equatable {
         case line(Int?, column: Int? = nil), files(String), symbols(String), everywhere(String)

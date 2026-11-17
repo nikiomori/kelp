@@ -86,9 +86,10 @@ package enum ProjectIcon {
         layer.add(blur, forKey: "flare")
     }
 
-    /// The project's icon, or its initial while the icon is looked for off the main thread (dozens of folders listed, on
-    /// whatever disk the project is on, held up the sidebar); `show` puts the icon in once it's found. A remote project's
-    /// is looked for on its host by the daemon, which keeps a copy of it here: it shows again without the host.
+    /// The project's icon, or its initial while the icon is looked for off the main thread (listing dozens of folders,
+    /// on whatever disk the project is on, held up the sidebar); `show` puts the icon in once it is found. A remote
+    /// project's icon is looked for on its host by the daemon, which keeps a copy here, so it shows again without the
+    /// host.
     static func image(for repo: String, app: AppModel) -> NSImage {
         if let cached = cache[repo] { return cached }
         if searched.insert(repo).inserted { look(for: repo, app: app) }
@@ -113,8 +114,9 @@ package enum ProjectIcon {
                 file.flatMap { p in FileManager.default.contents(atPath: p).map { (p, $0) } }
             }.value
             let views = looking.removeValue(forKey: repo) ?? []
-            // The cell's image view scales it to fit; a wordmark (much wider than tall) would be a line, so it's the initial.
-            // A Mac app's icon loses its margin and fills a tile, like the agents' icons.
+            // The cell's image view scales the image to fit, so a wordmark (much wider than tall) would shrink to a
+            // line; it gets the initial instead. A Mac app's icon loses its margin and fills a tile, like the agents'
+            // icons.
             guard let (file, data) = found, let img = NSImage(data: data), img.size.width <= img.size.height * 2 else {
                 return
             }

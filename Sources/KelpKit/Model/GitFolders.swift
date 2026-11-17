@@ -2,9 +2,10 @@ import AppKit
 import Core
 import DesignKit
 
-/// The folders whose git Kelp shows and their lines not committed yet: beside the sidebar's rows, in the ⌃Tab switcher,
-/// on the window bar (their PR and CI are Git's: `FolderCI`). Workspaces share their project's folder; a workspace on its
-/// own branch (a worktree) has its own. Every such folder is watched: the daemon pushes its git when its files change.
+/// The folders whose git status Kelp shows, with their uncommitted lines: beside the sidebar's rows, in the ⌃Tab
+/// switcher and on the window bar (their PR and CI come from the Git built-in: `FolderCI`). Workspaces share their
+/// project's folder; a workspace on its own branch (a worktree) has its own. Every such folder is watched, and the
+/// daemon pushes its git status when its files change.
 @MainActor @Observable
 package final class GitFolders {
     private let app: AppModel
@@ -24,7 +25,8 @@ package final class GitFolders {
     /// Settings › Appearance › Changes and pull requests off: no git is watched for the badges.
     private func wanted() -> Set<String> { app.settings[SettingKeys.gitBadges] ? folders : [] }
 
-    /// Every folder the sidebar lists: each project's own and each workspace's on a branch of its own.
+    /// Every folder the sidebar lists: each project's own folder, and the folder of each workspace on a branch of its
+    /// own.
     var folders: Set<String> {
         Set(
             app.repos.compactMap { app.gitFolder(project: $0.id)?.id }
@@ -107,20 +109,22 @@ package final class GitFolders {
 }
 
 extension AppModel {
-    /// The folder whose git, PR and CI a workspace shows: its own worktree's, or (a workspace of a project) the project's.
-    /// Read from the lists alone: asking doesn't start the sidebar's watches (`gitState`).
+    /// The folder whose git status, PR and CI a workspace shows: its own worktree, or, for a workspace in the project's
+    /// own folder, the project's folder. It reads only the lists, so asking doesn't start the sidebar's watches
+    /// (`gitState`).
     package func gitFolder(of workspace: String?) -> Worktree? {
         worktree(workspace).flatMap { gitFolder(workspace: $0.id) ?? gitFolder(project: $0.repoId) }
     }
-    /// The key a workspace's git and CI are watched, read and asked again by (`watch(.git, …)`, `latest(GitEvent.self, …)`):
-    /// its folder's, so workspaces sharing one folder share one watch, as the sidebar's; its own when it has none.
+    /// The key under which a workspace's git status and CI are watched, read and asked for again (`watch(.git, …)`,
+    /// `latest(GitEvent.self, …)`). It is the key of the workspace's git folder, so workspaces that share a folder
+    /// share one watch, as the sidebar does; a workspace with no folder of its own uses its own key.
     package func gitKey(_ workspace: String?) -> String { gitFolder(of: workspace)?.id ?? workspace ?? "" }
-    /// The folder a project's row stands for: its own worktree's (nil: a project that isn't a git folder).
+    /// The folder a project's row stands for: its own worktree (nil for a project that isn't a git folder).
     package func gitFolder(project id: String) -> Worktree? {
         guard let repo = repo(id) else { return nil }
         return worktrees.first { $0.repoId == id && $0.path == repo.path && !$0.archived }
     }
-    /// A workspace's own folder: one on a branch of its own (nil: it shares its project's).
+    /// The workspace's own git folder, when it is on a branch of its own; nil when it shares its project's folder.
     func gitFolder(workspace id: String) -> Worktree? {
         guard let worktree = worktree(id), !worktree.archived, worktree.path != repo(worktree.repoId)?.path else {
             return nil

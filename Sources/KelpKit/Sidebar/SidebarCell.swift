@@ -21,18 +21,19 @@ final class SidebarCell: NSTableCellView {
     /// Right side: how long ago the state changed ("4m"), or on a project what needs you.
     let trailing = RowLabel(labelWithString: "")
     let mark = StatusMark(size: 12)
-    /// A chat's logo with its state in the corner, in the slot where the mark would be (Agent icons: Always): the name
-    /// starts where the project's does, as it would with the mark alone.
+    /// A chat's logo with its state in the corner, in the slot where the mark would be (with Agent icons: Always), so
+    /// the name starts where the project's name does, as it would with the mark alone.
     let face = AgentFace()
     /// The mark, kept out of sight while the face says the state.
     let markBox = NSView()
-    /// The first thing in every row, in one column: at rest it says what the row is (an agent's mark, the column people
-    /// scan for who needs them; a project's icon; a group's), under the pointer it's the row's own action (`action`), as a
-    /// tab's slot is. Kept when empty, so names line up.
+    /// The first thing in every row, all in one column. At rest it says what the row is: an agent's mark (the column
+    /// people scan to see who needs them), a project's icon, or a group's. Under the pointer it becomes the row's own
+    /// action (`action`), like the slot on a tab. It is kept even when empty, so the names line up.
     let slot = NSView()
     /// What the slot shows at rest.
     weak var rest: NSView?
-    /// A chat's ✕, a project's or a group's fold: 16 pt and round, as on a tab. Clicks reach it from a little around it.
+    /// The small button on a row: a chat's ✕, or the fold of a project or a group. It is 16 pt and round, as on a tab,
+    /// and clicks a little outside it still reach it.
     lazy var action: PointerButton = {
         let button = PointerButton(title: "") { [weak self] in self?.acted() }
         button.imagePosition = .imageOnly
@@ -47,8 +48,8 @@ final class SidebarCell: NSTableCellView {
     let reveal = Debounce()
     /// An agent's own icon after its name, grey, when it isn't the default agent (Settings › Appearance › Agent icons).
     let glyph = NSImageView()
-    /// A project's colour after its name, in the Dot style.
-    /// On the row that was muted (`Mutes`), not on what's inside it; a click unmutes it, as the hover card's Unmute does.
+    /// A project's colour after its name, in the Dot style. It goes on the row that was muted (`Mutes`), not on the
+    /// rows inside it; a click unmutes the row, as the hover card's Unmute does.
     lazy var muted: PointerButton = {
         let button = PointerButton(image: .symbol("bell.slash", String(localized: "Notifications muted"))) {
             [weak self] in
@@ -90,7 +91,8 @@ final class SidebarCell: NSTableCellView {
         badge.onClick = { [weak owner, node] in owner?.openCard(node) }
         return badge
     }()
-    /// An agent's: a built-in's button mark (the page it drives), and the mark it shows (`showMarkButton`).
+    /// On an agent's row: a built-in's button mark (for example, the page it drives), and the mark it shows
+    /// (`showMarkButton`).
     lazy var markButton = Self.markButton(self)
     var buttonMark: RowMark?
     var add: NSButton?
@@ -104,17 +106,19 @@ final class SidebarCell: NSTableCellView {
         button.isHidden = true
         return button
     }()
-    /// A project's: the name of the one workspace it stands for (grey), what its agents do while it's folded, and the fold.
-    /// A heading's: the branch its folder is on, when it has code of its own.
+    /// On a project's row: the name of the one workspace it stands for (in grey), what its agents do while it is
+    /// folded, and the fold button.
+    /// On a heading's row: the branch its folder is on, when it has code of its own.
     let detail = NSTextField(labelWithString: "")
-    /// Folded, a project's or a group's chats, by their agents' logos (AgentStack).
+    /// When folded, a project's or group's chats, shown by their agents' logos (AgentStack).
     let stack = AgentStack()
     /// What the chevron showed last: when that changes it turns rather than switches.
     var shownFolded: Bool?
     var hovering = false
     /// On the selection pill (SidebarRowView): grey text a step lighter there, where secondary label is 3.3:1.
     var selected = false { didSet { if selected != oldValue { update() } } }
-    /// Grey text on the pill: 5.3:1 on dark's white 12%; light's white pill already gives secondary label 6:1.
+    /// Grey text on the pill: on dark, the 12 % white pill gives 5.3:1; on light, the white pill already gives the
+    /// secondary label 6:1.
     static let onPill = NSColor.dynamic(light: .secondaryLabelColor, dark: NSColor.white.withAlphaComponent(0.78))
     /// Changes not committed (a quiet dot, as on the title bar's branch: the counts are in its tooltip), the PR and its CI,
     /// for rows that stand for a folder (GitFolders; the CI from FolderCI); the dot goes first when the row is short of
@@ -139,12 +143,14 @@ final class SidebarCell: NSTableCellView {
         title.lineBreakMode = .byTruncatingTail
         trailing.font = .uiDigits(TextSize.caption, weight: .regular)
         trailing.textColor = .secondaryLabelColor
-        // Not the cell's textField: the source list would restyle it, a project's as a grey group heading and a picked
-        // row's in bold, which here means "something new". Type-select reads the name from the controller instead.
+        // Not the cell's textField: the source list would restyle it, drawing a project's name as a grey group heading
+        // and a selected row's name in bold, which here means "something new". Type-select reads the name from the
+        // controller instead.
         textField = nil
         switch node.kind {
         case .project(let id):
-            // A name, not a section label: what's under it is the project's. On the right only what needs doing.
+            // The project's name, not a section label: what is under it belongs to the project. On the right, only what
+            // needs doing.
             title.font = .ui(TextSize.body, weight: .semibold)
             title.textColor = .labelColor
             let button = Self.newChatButton { [weak owner] in owner?.newChat(id) }
@@ -346,8 +352,8 @@ final class SidebarCell: NSTableCellView {
         }
     }
 
-    /// The workspace's name: its own row's title, or the grey name beside its project's; with `project` the project's own
-    /// name, without the machine its row may add.
+    /// The workspace's name: its own row's title, or the grey name shown beside its project's name. With `project`, the
+    /// project's own name, without the machine its row may add.
     func beginEditing(delegate: NSTextFieldDelegate, project: Bool = false) {
         if project, case .project(let id) = node.kind { title.stringValue = app.repo(id)?.name ?? "" }
         title.isEditable = true

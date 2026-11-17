@@ -74,9 +74,11 @@ extension WindowBar {
 
     @objc func toggleAwake() { app.extensions.command("power.keepAwake")?.run([:]) }
 
-    /// The filled symbol while the workspace puts its agents side by side; a click shows them as tabs in one pane, and
-    /// back. Only with two agents or more; a right-click hides it (Settings › Window brings it back).
-    /// On: the filled symbol in the accent (the label colour with Graphite), no fill behind it; off: its outline alone.
+    /// The side-by-side button. While the workspace shows its agents side by side, the symbol is filled; a click shows
+    /// them as tabs in one pane, and back. It appears only with two agents or more; a right-click hides it (Settings ›
+    /// Window brings it back).
+    /// On, it is the filled symbol in the accent colour (the label colour with Graphite), with no fill behind it; off,
+    /// only its outline.
     func showSideBySide(_ on: Bool) {
         let image = NSImage.symbol(
             on ? "rectangle.split.3x1.fill" : "rectangle.split.3x1", String(localized: "Agents Side by Side"))

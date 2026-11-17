@@ -23,7 +23,7 @@ enum SettingsWindow {
             created.isReleasedWhenClosed = false
             created.animationBehavior = .documentWindow   // the system's own open and close
             created.toolbarStyle = .unified
-            // The section's name is the toolbar's own big title (SettingsView), as Dia's settings.
+            // The section's name is the toolbar's own big title (SettingsView), as in Dia's settings.
             created.titleVisibility = .hidden
             // ⌘, brings it back, so no minimize or zoom (HIG › Settings)
             created.standardWindowButton(.zoomButton)?.isEnabled = false
@@ -149,8 +149,9 @@ struct SettingsView: View {
     }
 }
 
-/// A section in the list: its symbol drawn as the rest of Kelp's are (`SymbolIcon`: one size and weight, one column,
-/// Kelp's own branch). Not a Label: the sidebar list sizes a Label's icon its own way, thin and uneven.
+/// A section in the list, with its symbol drawn the way the rest of Kelp's symbols are (`SymbolIcon`: one size and
+/// weight, one column, Kelp's own branch symbol). It isn't a Label, because the sidebar list sizes a Label's icon its
+/// own way, thin and uneven.
 private struct SectionRow: View {
     let icon: String
     let title: Text
@@ -162,7 +163,8 @@ private struct SectionRow: View {
     }
 }
 
-/// The section's name in the toolbar, big as Dia's settings show it, on the toolbar's ground (no glass of its own).
+/// The section's name in the toolbar, shown big as Dia's settings show it, on the toolbar's background (with no glass
+/// of its own).
 private struct SettingsTitle: ToolbarContent {
     let text: String
     var body: some ToolbarContent {
@@ -178,9 +180,10 @@ private struct SettingsTitle: ToolbarContent {
     }
 }
 
-/// A row's symbol on a coloured tile (`SettingSpec.icon`), as Dia's and System Settings' rows show it, where a card's rows are
-/// about different things: a white glyph (filled where it has a `.fill`, named so) on a top-lit gradient. Apple's light-mode system colours in both modes, as
-/// System Settings keeps them (the dark-mode ones are neon on a tile).
+/// A row's symbol on a coloured tile (`SettingSpec.icon`), as Dia's and System Settings' rows show it where a card's
+/// rows are about different things: a white glyph (filled where the symbol has a `.fill` variant, named so) on a
+/// top-lit gradient. The tiles use Apple's light-mode system colours in both modes, as System Settings does (the
+/// dark-mode colours look neon on a tile).
 struct SettingsIcon: View {
     let symbol: String, tint: NSColor
     var body: some View {
@@ -196,7 +199,7 @@ private struct SectionForm: View {
     let section: SettingsSection
     /// A group a menu sent us to (`SettingsWindow.show`): scrolled to, then forgotten.
     @AppStorage("settings.group") private var target = ""
-    /// The Editor's rows for one language's files ("" all of them): settings.json's `"[markdown]": { … }`.
+    /// The Editor's rows for one language's files ("" for all files), stored in settings.json as `"[markdown]": { … }`.
     @State private var language = ""
     @Environment(AppModel.self) private var app
     private var store: SettingsStore { app.settings }

@@ -1,4 +1,5 @@
-// An agent's row: a built-in's button beside its dots (`RowMark`, `.button`: the page it drives).
+// A built-in's button on an agent's row, beside its dots (`RowMark`, `.button`): for example, the page the agent
+// drives.
 import AppKit
 import DesignKit
 

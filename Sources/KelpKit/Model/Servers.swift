@@ -2,8 +2,8 @@ import AppKit
 import Core
 import WorkbenchKit
 
-/// The machines remote projects are on, as Quick Open and the sidebar's headings see them, and the server's page
-/// ("host:<name>"). What a server shows (its header's meters, its hover card, its tab) is the Servers built-in's.
+/// The machines that remote projects are on, as Quick Open and the sidebar's headings see them, and each server's page
+/// ("host:<name>"). What a server shows (its header's meters, its hover card, its tab) is up to the Servers built-in.
 extension AppModel {
     /// Each host a project is on, in the projects' order.
     var remoteHosts: [String] {

@@ -3,8 +3,8 @@ import AppKit
 import Core
 import DesignKit
 
-/// One item's row: its icon or an agent's state, the title, where it is in grey, a command's shortcut, what's on the right
-/// (⌘1–⌘6, a setting's value), a built-in's view, and the tick of the choice in effect.
+/// The row for one item: its icon (or an agent's state), the title, where it is in grey, a command's shortcut, what
+/// goes on the right (⌘1–⌘6, a setting's value), a built-in's view, and a tick on the choice in effect.
 @MainActor
 final class QuickOpenCell: PaletteCell {
     static let id = NSUserInterfaceItemIdentifier("quickOpen.item")

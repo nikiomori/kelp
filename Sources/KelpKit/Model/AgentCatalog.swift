@@ -14,8 +14,8 @@ package struct AgentCatalog {
         return all.filter { ok.contains($0.id) }
     }
 
-    /// The agents a new tab in workspace `w` can start: on a remote project's host, those the host has (once it said;
-    /// asked as this is), else this Mac's. A terminal is always one.
+    /// The agents a new tab in workspace `w` can start: for a remote project, the agents its host has (once the host
+    /// has said; this asks), else this Mac's. A terminal is always among them.
     func startable(in worktree: Worktree?) -> [AgentManifest] {
         guard let worktree, let host = RemoteHost.of(worktree.path)?.host else { return installed(all) }
         app.availability.refreshHost(host, workspace: worktree.id, commands: all.map(\.command))
@@ -62,7 +62,7 @@ package struct AgentCatalog {
 
     /// Agent `id`'s own colour (`#rrggbb`), if its manifest has one.
     package func color(_ id: String?) -> String? { manifest(id)?.color }
-    /// The manifest of agent `id`, preset, file or extension's.
+    /// The manifest of agent `id`, whether it is a preset, a file or an extension's.
     func manifest(_ id: String?) -> AgentManifest? { id.flatMap { id in all.first { $0.id == id } } }
     /// What an agent is, in a few words: the empty workspace and Settings › Agents say it beside the name.
     package func about(_ id: String) -> String? { manifest(id)?.about.map(loc) }
@@ -93,9 +93,10 @@ package struct AgentCatalog {
         }
     }
 
-    /// The agent's real icon when there is one (AgentIcons), else its initial on a tile of the same shape; a terminal's symbol.
-    /// The same image each time: a tab's look is compared with its last one, on every session's every change, and a new
-    /// image never equals the last. `agentIcons` is still read, so whoever shows this hears when the real icon arrives.
+    /// The agent's real icon when there is one (AgentIcons), else its initial on a tile of the same shape; for a
+    /// terminal, a terminal symbol. It returns the same image object each time, because a tab's look is compared with
+    /// its last look on every change of every session, and a new image never equals the last one. `agentIcons` is still
+    /// read, so whoever shows the icon hears when the real icon arrives.
     package func icon(_ id: String?, size: CGFloat = 16) -> NSImage? {
         guard let id, Session.isAgent(id) else {
             let name = id == Session.customAgent ? "apple.terminal" : "terminal"
@@ -225,9 +226,10 @@ package final class AgentAvailability {
         }
     }
 
-    /// `<path> --version` exits 0 within a few seconds: then the binary (real path and modification time), else nil.
-    /// One that ran in the last day (`ran`: binary → when) and hasn't changed isn't started again: a dozen agent CLIs at
-    /// every launch cost seconds of CPU (one took 2 s). Waits without holding a thread (they're asked at once).
+    /// Runs `<path> --version`: if it exits 0 within a few seconds, returns the binary (its real path and modification
+    /// time), else nil. A binary that ran in the last day (`ran`: binary → when) and hasn't changed isn't started
+    /// again, because starting a dozen agent CLIs at every launch costs seconds of CPU (one took 2 s). Waits without
+    /// holding a thread, since they're all asked at once.
     nonisolated static func runs(_ path: String, ran: [String: Double] = [:], app: AppModel) async -> String? {
         guard let real = Paths.real(path),
             let mtime = (try? FileManager.default.attributesOfItem(atPath: real)[.modificationDate] as? Date)?

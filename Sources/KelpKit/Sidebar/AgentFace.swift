@@ -1,8 +1,8 @@
 import AppKit
 import DesignKit
 
-/// An agent's logo with its state in a corner cut out of it, as macOS marks a person's status on their picture: a folded
-/// project's chats (AgentStack) and a chat's own row (Agent icons: Always) draw it alike.
+/// An agent's logo with its state in a corner cut out of it, as macOS marks a person's status on their picture. A
+/// folded project's chats (AgentStack) and a chat's own row (Agent icons: Always) draw it the same way.
 @MainActor
 final class AgentFace: NSView {
     static let side: CGFloat = 14

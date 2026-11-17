@@ -47,14 +47,14 @@ package struct PanelSpec: Identifiable {
     let make: @MainActor () -> NSViewController
 }
 
-/// A panel icon's mark: a number for what's left to go through (changed files), a dot for something that happened
-/// (a failed run). Grey, or red for a failure. A dot goes once its panel has been shown with the same `key`.
+/// A panel icon's mark: a number for what is left to go through (changed files), or a dot for something that happened
+/// (a failed run), in grey, or red for a failure. A dot goes away once its panel has been shown with the same `key`.
 package struct PanelBadge: Equatable {
     var count = 0, alert = false
     var key = ""
 
-    /// What an extension's badge command prints (or a page's `kelp.badge`): a number, any other text for a dot (the
-    /// text is its key), "!" first for red; nothing or 0: no badge.
+    /// What an extension's badge command prints (or a page's `kelp.badge`): a number; any other text for a dot (the
+    /// text is the dot's key), with "!" first for red; nothing or 0 for no badge.
     package init?(_ text: String) {
         var trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         alert = trimmed.hasPrefix("!")
@@ -204,8 +204,9 @@ package enum SettingType: Codable, Equatable {
     }
 }
 
-/// How an `enum` row's options show: side by side (two or three short ones), or a drawing each (the shell's, or the
-/// setting's own: `SettingChoices.picture`). One a manifest names that Kelp doesn't have reads as `unknown`: a menu.
+/// How an `enum` row's options are shown: side by side (for two or three short ones), or as a drawing each (the shell's
+/// drawing, or the setting's own: `SettingChoices.picture`). A look named by a manifest that Kelp doesn't have reads as
+/// `unknown`, shown as a menu.
 package enum SettingLook: Codable, Equatable {
     case segments, pictures
     case unknown(String)
@@ -282,7 +283,7 @@ package struct SettingsSection: Identifiable {
     var keywords: [String]
     /// `custom` is the whole page, as tall as the window, not rows in a form: a list with its details beside it.
     var fillsPane: Bool
-    /// Its place in Settings' list; an extension's sections come after Kelp's.
+    /// The section's place in Settings' list; an extension's sections come after Kelp's.
     var order: Int
     /// Settings' language picker shows over it: some of its rows are read for each language's own files.
     var perLanguage: Bool { specs.contains { $0.perLanguage == true } }
@@ -312,7 +313,7 @@ package struct SkillSpec {
         self.setting = setting
         self.body = body
     }
-    /// The plugin's and the skill's name ("kelp-vm"): the daemon picks skills by it.
+    /// The name of the plugin and of its skill ("kelp-vm"); the daemon picks skills by this name.
     let name: String
     /// When an agent should use it: what Claude Code reads to choose it.
     let description: String

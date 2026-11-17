@@ -19,7 +19,7 @@ final class EditorHost: NSViewController {
     private var areas: [String: EditorArea] = [:]
     /// The main window's areas, latest first; one in a window of its own isn't counted (it stays loaded).
     private var recent: [String] = []
-    /// The area with the keyboard: the main window's, or a group's in a window of its own.
+    /// The editor area that has the keyboard: the main window's, or that of a group in a window of its own.
     private(set) var current: EditorArea?
     /// The area the main window's card shows.
     private(set) var mainArea: EditorArea? {
@@ -180,7 +180,7 @@ final class EditorHost: NSViewController {
         window.close()
     }
 
-    /// A window got the keys: its area is the one they go to (nil: the main window's).
+    /// A window got the keyboard, so its editor area is the one keys go to (nil means the main window's).
     func becameKey(_ id: String?) { current = id.flatMap { own[$0] != nil ? areas[$0] : nil } ?? mainArea }
 
     /// What `showPage` shows in place of the workspace's area, which stays loaded behind it.

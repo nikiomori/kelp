@@ -74,7 +74,7 @@ extension SidebarController {
         outline.reloadData()
         for root in roots where !collapsed.contains(root.key) { expand(root) }
         syncing = false
-        rowHeights = []   // as with the cells: a row's height was asked before what's under it opened, and it was its card's end
+        rowHeights = []   // as with the cells: a row's height was taken before its rows opened, as its card's end
         instantly { updateVisibleCells() }   // cells were made before their rows expanded; the cards go where the rows are now
         syncSelection()
         settle(from: before)
@@ -124,7 +124,7 @@ extension SidebarController {
         app.workbench.show(workspace: id)
     }
 
-    /// A server's page: its header's row.
+    /// A server's page, opened from its header's row.
     private func select(page: String) {
         guard TabURI.scheme(page) == "host", let header = node("h:" + TabURI.body(page)) else { return }
         let row = outline.row(forItem: header)

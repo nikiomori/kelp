@@ -1,8 +1,8 @@
 import Foundation
 
 extension Theme {
-    /// A popular palette: terminal + editor colors from one table. `c` = [bg, fg, cursor, selection];
-    /// `ansi` = 16 colors; `code` = [keyword, string, comment, type, number, function].
+    /// A popular palette: terminal and editor colors from one table. `c` is [bg, fg, cursor, selection]; `ansi` is the
+    /// 16 colors; `code` is [keyword, string, comment, type, number, function].
     fileprivate init(_ id: String, _ name: String, _ appearance: String, c: [String], ansi: [String], code: [String]) {
         self.init(
             id: id, name: name, appearance: appearance,

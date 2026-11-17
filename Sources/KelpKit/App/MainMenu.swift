@@ -184,8 +184,9 @@ extension AppDelegate {
         edit.add("Markdown", submenu: markdown)
     }
 
-    /// Selection: the code editor's, as VS Code's. After View: a key goes to the first menu item that has it, on or off,
-    /// and ⌘D, ⌘[ ⌘] are Split Right and the panes outside the editor (inside, the editor takes them first: EditorBox).
+    /// The Selection menu: the code editor's commands, as in VS Code. It comes after View, because a key goes to the
+    /// first menu item that has it, whether that item is enabled or not: ⌘D, ⌘[ and ⌘] are Split Right and the moves
+    /// between panes outside the editor (inside it, the editor takes them first: EditorBox).
     private func selectionMenu(_ menuBuilder: MenuBuilder) {
         menuBuilder.add(
             menuBuilder.sub("Selection"), "editor.addNextOccurrence", "editor.selectAllOccurrences",

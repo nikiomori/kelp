@@ -71,7 +71,8 @@ final class TabButton: NSControl, NSDraggingSource {
         editedDot.image = .symbol("circle.fill", String(localized: "Edited"))
         editedDot.symbolConfiguration = .chrome(Metrics.iconTiny)
         editedDot.contentTintColor = .labelColor
-        // One slot at the start: the agent's state while there's something to see, else the tab's icon; the close button on hover.
+        // One slot at the start: the agent's state while there is something to see, else the tab's icon; on hover, the
+        // close button.
         for part in [icon, mark, close, editedDot] as [NSView] {
             part.translatesAutoresizingMaskIntoConstraints = false
             slot.addSubview(part)
@@ -212,8 +213,9 @@ final class TabButton: NSControl, NSDraggingSource {
         }
     }
 
-    /// The tab glows as its pane does (GroupView's ring): orange and breathing while its agent asks, red when it failed
-    /// unseen, a faint glow in the text's colour when it finished unseen. A glow and its edge line: it reads as the pane's.
+    /// The tab glows the way its pane does (GroupView's ring): orange and breathing while its agent asks, red when it
+    /// failed unseen, and a faint glow in the text's colour when it finished unseen. A glow plus its edge line make it
+    /// read as part of the pane.
     private var glow: NSColor? {
         switch item?.badge?.status {
         case .waiting?: .systemOrange

@@ -4,12 +4,13 @@ import AppKit
 import Core
 @preconcurrency import UserNotifications   // its center and settings aren't marked Sendable
 
-/// What the built-ins ask of the shell's notifications (`Notifier`, the running app's).
+/// What the built-ins can ask of the shell's notifications (`Notifier` in the running app).
 @MainActor
 package enum Notifications {
-    /// A built-in's notification, under the shell's rules: held while you type, and a banner in Kelp (with `action` as
-    /// its button) when macOS has them turned off. `id` is its own: one added again under the same id may show silently.
-    /// `goingOn`: the sessions it is about, whose Continue (on the banner, or Kelp's) tells each to go on.
+    /// Shows a built-in's notification under the shell's rules: it is held while you type, and becomes a banner in Kelp
+    /// (with `action` as its button) when macOS notifications are turned off. `id` identifies it, so a notification
+    /// added again under the same id may show silently. `goingOn` lists the sessions it is about; its Continue (on the
+    /// banner, or Kelp's own) tells each of them to go on.
     package static func notifyUser(
         _ app: AppModel, _ id: String, _ content: UNNotificationContent,
         action: (title: String, run: @MainActor () -> Void)? = nil, goingOn ids: [String] = []

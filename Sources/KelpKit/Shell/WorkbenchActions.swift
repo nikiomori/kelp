@@ -8,9 +8,9 @@ import WorkbenchKit
 extension Workbench {
     /// Every unsaved file in the app: the main window's loaded workspaces'.
     package var editedFiles: [SavableTab] { window?.editors.editedFiles ?? [] }
-    /// The editor area with the keyboard: the workspace on screen's.
-    /// Nil while a page is on screen or a page's own window has the keys: what acts on tabs waits until a workspace is
-    /// back, rather than reach into another window.
+    /// The editor area that has the keyboard: the one of the workspace on screen. Nil while a page is on screen or a
+    /// page's own window has the keyboard; then what acts on tabs waits until a workspace is back, rather than reach
+    /// into another window.
     var editor: EditorArea? {
         keyPageWindow == nil && (page == nil || inOwnWindow(workspaceId)) ? window?.editors.current : nil
     }
@@ -94,7 +94,8 @@ extension Workbench {
         show(workspace: history.go(to: index), remember: false)
     }
 
-    /// Where Back (-1) / Forward (1) would go: nil when there's nothing that way (the title bar's arrows grey out).
+    /// Where Back (-1) or Forward (1) would go; nil when there is nothing that way (and the title bar's arrows grey
+    /// out).
     func visit(_ step: Int) -> Int? {
         history.target(step, current: workspaceId) { app.worktree($0) != nil }
     }

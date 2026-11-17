@@ -46,7 +46,8 @@ package final class Workbench {
             app.uiState["workbench.lastWorkspace"] = workspaceId.map(JSONValue.string)
         }
     }
-    /// What's on screen now goes to the front of ⌃Tab's order: the server's page over a workspace, else the workspace.
+    /// Moves what is on screen now to the front of ⌃Tab's order: the server's page if one is shown over a workspace,
+    /// else the workspace.
     func noteShown() {
         guard let id = page ?? workspaceId else { return }
         app.uiState["workbench.recentWorkspaces"] = .array(

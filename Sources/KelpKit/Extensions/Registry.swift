@@ -35,8 +35,8 @@ package final class ExtensionRegistry {
     }
     private(set) var extensions: [ExtensionInfo] = []
     private(set) package var all = Contributions()
-    /// Every setting's row by its key (the first section's, when two declare one): what reads a setting's default,
-    /// range, names or choices.
+    /// Every setting's row by its key (the first section's row, when two sections declare one). Whatever reads a
+    /// setting's default, range, names or choices reads it here.
     private(set) var specs: [String: SettingSpec] = [:]
     /// Bumped on every reload so views can refresh.
     private(set) var revision = 0
@@ -228,6 +228,6 @@ package final class ExtensionRegistry {
         if let over = KeyBindings.overrides(app.settings)[id] { return over.isEmpty ? nil : KeySpec(over) }
         return (command(id)?.key ?? fallback).flatMap(KeySpec.init)
     }
-    /// Runs the command (a menu item's, a key's); one whose extension is off does nothing.
+    /// Runs the command (from a menu item or a key). A command whose extension is off does nothing.
     package func run(_ id: String, _ args: [String: JSONValue] = [:]) { command(id)?.run(args) }
 }

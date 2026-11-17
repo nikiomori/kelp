@@ -1,7 +1,7 @@
 import AppKit
 import DesignKit
 
-/// The window's first frame: with settings.json's theme and fonts, and only then what can wait for it.
+/// The window's first frame: drawn with settings.json's theme and fonts, and only then the work that can wait.
 extension AppDelegate {
     /// How long the window waits for settings.json, so its first frame has their theme and fonts, not the defaults'.
     static let settingsWait: TimeInterval = 0.15

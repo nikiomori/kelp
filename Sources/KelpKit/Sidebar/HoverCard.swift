@@ -38,7 +38,7 @@ final class HoverCard {
     private var resignWatch: NSObjectProtocol?
     isolated deinit { resignWatch.map(NotificationCenter.default.removeObserver) }
 
-    /// The pointer is over a row (a workspace's, an agent's…), or over nothing.
+    /// Called when the pointer is over a row (a workspace's, an agent's…), or over nothing.
     func hover(_ kind: SidebarItem.Kind?, rect: NSRect, in view: NSView) {
         guard kind != shownKind || !card.isShown else { return }
         guard let kind else {
@@ -76,8 +76,8 @@ final class HoverCard {
     }
 }
 
-/// The card's contents: what the sidebar knows now, the folder's git and PR as they're pushed, then what the agent's
-/// transcript adds.
+/// The card's contents: what the sidebar knows now, the folder's git status and PR as they are pushed, and then what
+/// the agent's transcript adds.
 @MainActor
 @Observable
 final class CardModel {

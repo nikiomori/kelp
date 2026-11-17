@@ -1,8 +1,8 @@
 import AppKit
 import Core
 
-/// Groups in windows of their own (`OwnWindow`): the keys say which workspace is on screen — the main window's or
-/// the group's whose window has them — and the sidebar, the inspector and every command follow.
+/// Groups in windows of their own (`OwnWindow`). The window with the keyboard decides which workspace is on screen (the
+/// main window's, or the group's whose window has it), and the sidebar, the inspector and every command follow it.
 @MainActor
 extension Workbench {
     func inOwnWindow(_ id: String?) -> Bool { window?.editors.ownWindow(id) != nil }
@@ -17,8 +17,8 @@ extension Workbench {
         if inOwnWindow(id) { returnToMain(id) } else { moveToOwnWindow(id) }
     }
 
-    /// A group's heading's menu and its project's row's (for the project's own screen): its own window (ticked while
-    /// it's in one), and its layout kept as a template.
+    /// Adds the window items to a group heading's menu, and to a project row's menu (for the project's own screen):
+    /// "Open in Own Window" (ticked while the group is in its own window), and keeping its layout as a template.
     func addWindowItems(to menu: NSMenu, workspace id: String?) {
         guard let id else { return }
         let app = self.app
@@ -57,8 +57,8 @@ extension Workbench {
         history.visit(id)
     }
 
-    /// The main window got the keys back from a group's own window, or that group went and its window with it (removed
-    /// from elsewhere: `EditorHost.refresh`): the main window's workspace is the one on screen.
+    /// Called when the main window got the keyboard back from a group's own window, or when that group went away with
+    /// its window (removed elsewhere: `EditorHost.refresh`). The main window's workspace is then the one on screen.
     func mainWindowBecameKey() {
         guard inOwnWindow(workspaceId) || app.worktree(workspaceId) == nil else { return }
         window?.editors.becameKey(nil)
@@ -74,8 +74,9 @@ extension Workbench {
         for uri in app.uiState.strings(Self.pageWindowsKey) { openInOwnWindow(uri) }
     }
 
-    /// A server's or a machine's page (`host:`, `vm:`) in a window of its own, from its row's menu; already in one, that
-    /// window comes to the front. Kept across launches, where a server's page connects as it does when opened by hand.
+    /// Opens a server's or machine's page (`host:`, `vm:`) in a window of its own, from its row's menu; if the page is
+    /// already in one, that window comes to the front. The window is kept across launches, and a server's page
+    /// reconnects then the same way it does when opened by hand.
     package func openInOwnWindow(_ uri: String) {
         guard !raiseOwnWindow(uri), let page = app.extensions.tabProvider(for: uri)?.make(uri) else { return }
         let app = self.app
@@ -104,9 +105,10 @@ extension Workbench {
     /// The page's own window that has the keys: no editor area has the keyboard then (`editor`), and ⌘W closes it.
     var keyPageWindow: OwnWindow? { pageWindows.values.first(where: \.hasKeys) }
 
-    /// One of Kelp's windows was covered, minimized or seen again: Kelp is away (`AppModel.setAway`) only while none
-    /// that shows a workspace or a page is seen: the main one, a group's own, a server's or a machine's page's.
-    /// `seen`: a test's own (its windows are never on screen).
+    /// Called when one of Kelp's windows was covered, minimized or seen again. Kelp counts as away (`AppModel.setAway`)
+    /// only while no window that shows a workspace or a page is seen: the main window, a group's own window, or a
+    /// server's or machine's page window.
+    /// `seen` lets a test say what is seen (its windows are never on screen).
     func sightChanged(seen: (NSWindow) -> Bool = { $0.occlusionState.contains(.visible) }) {
         let groups = window?.editors.ownWindowIds.map { window?.editors.ownWindow($0) } ?? []
         let places = [window?.window] + groups + pageWindows.values.map(\.window)

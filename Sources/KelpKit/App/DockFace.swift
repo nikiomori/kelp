@@ -16,9 +16,10 @@ package enum DockFace: Equatable {
     case usage(percent: Int, high: Bool)
 }
 
-/// The Dock draws this view's image at the size of the tile: 128 by 128 here, whatever the Dock's size. Kelp's icon stays
-/// as it is and a pill lies across its foot, where macOS puts a Dock icon's progress bar. It is the icon's artwork, so its
-/// sizes are the artwork's and don't follow Text Size; they are chosen to read at 52 pt, about the smallest Dock in use.
+/// The Dock draws this view's image at the size of the tile, 128 by 128 here, whatever the Dock's size. Kelp's icon
+/// stays as it is, and a pill lies across its foot, where macOS puts a Dock icon's progress bar. This is part of the
+/// icon's artwork, so its sizes are the artwork's and don't follow Text Size; they are chosen to stay readable at 52
+/// pt, about the smallest Dock in use.
 final class DockFaceView: NSView {
     var face = DockFace.icon { didSet { needsDisplay = true } }
 

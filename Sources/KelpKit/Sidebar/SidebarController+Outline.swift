@@ -59,8 +59,8 @@ extension SidebarController {
         pad.top += serverGap(node)
         return pad
     }
-    /// The gap over a server's header, which starts that server's card, and over No Project's row at the end, which
-    /// would read as one more project (or one more of the last server's) without it.
+    /// The gap above a server's header, which starts that server's card, and above No Project's row at the end; without
+    /// the gap, No Project would read as one more project (or one more of the last server's projects).
     func serverGap(_ node: Node) -> CGFloat {
         switch node.kind {
         case .host: Self.serverGap
@@ -103,8 +103,9 @@ extension SidebarController {
         (rowView as? SidebarRowView)?.group = node.flatMap(group)
         (rowView as? SidebarRowView)?.gap = node.map(serverGap) ?? 0
     }
-    /// The cards follow rows that open, close or move; a project's last row changes height with them.
-    /// Inside an animation group they move with it; outside one, as the outline moves rows by itself (a quarter second).
+    /// The cards follow rows that open, close or move, and a project's last row changes height with them. Inside an
+    /// animation group they move with the group; outside one, they move as the outline moves rows by itself (in a
+    /// quarter second).
     func outlineView(_ outlineView: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
         guard let node = item as? Node else { return nil }
         if case .parked = node.kind { return ParkedHeader(count: node.children.count) }

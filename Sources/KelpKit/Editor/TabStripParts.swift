@@ -1,4 +1,4 @@
-// The tab strip's parts: an item it shows, the capsule's buttons, a view's snapshot.
+// The tab strip's parts: an item it shows, the capsule's buttons, and a view's snapshot.
 import AppKit
 import Core
 import DesignKit
@@ -13,9 +13,9 @@ extension TabStrip {
         var edited = false
         /// A session's marks (its state, context ring, commands beside it), as its tab says them.
         var badge: TabBadge?
-        /// A run's colour (the Run menu's): its tab glows so, steady, below any call for attention.
+        /// A run's colour (from the Run menu): its tab glows steadily in that colour, below any call for attention.
         var run: NSColor?
-        /// An agent's tab: the sidebar's card for it under the pointer, in place of the tooltip.
+        /// An agent's tab: under the pointer it shows the sidebar's card for that agent instead of a tooltip.
         var card: SidebarItem.Kind?
         /// Its title ends with what tells it from a namesake ("README.md — docs"): it gives way in the middle, so that stays.
         var keepsEnd = false

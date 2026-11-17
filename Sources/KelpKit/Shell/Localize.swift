@@ -1,8 +1,9 @@
 import AppKit
 
-/// Kelp in the user's language: English and Russian, from Resources/Localizable.xcstrings (compiled into the app's
+/// Kelp in the user's language, English or Russian, from Resources/Localizable.xcstrings (compiled into the app's
 /// Resources by scripts/strings.sh). Text written in code goes through `String(localized:)` and SwiftUI's string keys;
-/// text that's data (menu titles, settings, panel and command names) is looked up by its English text when shown.
+/// text that is data (menu titles, settings, panel and command names) is looked up by its English text when it is
+/// shown.
 package func loc(_ english: String) -> String {
     Bundle.main.localizedString(forKey: english, value: english, table: nil)
 }

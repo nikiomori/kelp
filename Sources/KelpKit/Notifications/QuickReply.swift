@@ -1,8 +1,8 @@
 import Core
 import Foundation
 
-/// What one click types into an agent back at its prompt: its row card's buttons, the Dock strip's card and its banner's
-/// Continue. Compact Now is the row card's own, once the context fills.
+/// The replies that one click types into an agent that is back at its prompt: the buttons on its row's card, the Dock
+/// strip's card, and its banner's Continue. Compact Now appears only on the row's card, once the context fills.
 package struct QuickReply: Identifiable {
     package let title: String, text: String
     package var id: String { text }

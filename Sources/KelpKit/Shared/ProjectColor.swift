@@ -21,7 +21,8 @@ package enum ProjectColor: String, CaseIterable {
         }
     }
 
-    /// As text or a mark: ≥ 4.5:1 on the sidebar's window ground in light, 3.5–4.7:1 in dark, as the tiles' letters are.
+    /// The colour as text or a mark: at least 4.5:1 against the sidebar's window background in light mode, and
+    /// 3.5–4.7:1 in dark mode, as the tiles' letters are.
     package var color: NSColor { .dynamic(light: hue.ink(false), dark: hue.ink(true)) }
 
     /// One shade for both appearances, between the two: a view's shadow keeps the colour it was set with.

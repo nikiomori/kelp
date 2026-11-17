@@ -42,7 +42,8 @@ final class SearchPill: PointerControl {
     override func layout() {
         super.layout()
         layer?.cornerRadius = bounds.height / 2
-        // Short of room, "Search" rather than "Files, a…". The room is the pill's, so the choice doesn't feed back on itself.
+        // When room is short, show "Search" rather than "Files, a…". The room measured is the pill's own, so the choice
+        // doesn't feed back on itself.
         let room = bounds.width - 19 - glass.frame.width - key.frame.width - 18
         let text =
             (full as NSString).size(withAttributes: [.font: label.font ?? .ui(TextSize.row)]).width <= room

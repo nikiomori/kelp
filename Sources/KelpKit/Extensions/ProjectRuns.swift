@@ -2,11 +2,12 @@ import AppKit
 import Core
 import WorkbenchKit
 
-/// What runs in a workspace, from the built-in that runs a project's commands (Run): the window bar's run chip and the
-/// page it serves, the Run menu's project commands, how a run's tab looks and its menu, what the "+" menu and the empty
-/// workspace offer to run. None, and nothing of it shows: no chip, no run choices (a template's and a new workspace's
-/// commands run as plain sessions, `KelpFile`). What the tabs follow (`look`, `port`, `tabsFollow`, `choices`) is read
-/// under observation: it must not do work. Runs put away in the Run menu are its `Contributions.sessionHidden`.
+/// What runs in a workspace, provided by the built-in that runs a project's commands (Run): the window bar's run chip
+/// and the page it serves, the Run menu's project commands, how a run's tab looks and its menu, and what the "+" menu
+/// and the empty workspace offer to run. Without that built-in, none of it shows: no chip and no run choices (a
+/// template's and a new workspace's commands run as plain sessions, `KelpFile`). What the tabs follow (`look`, `port`,
+/// `tabsFollow`, `choices`) is read under observation, so it must not do work. The runs put away in the Run menu are
+/// reported through `Contributions.sessionHidden`.
 package struct ProjectRuns {
     /// Right of the search in the window bar, before the cup.
     let bar: @MainActor () -> [any WindowBarItem]
@@ -20,7 +21,7 @@ package struct ProjectRuns {
     let tabsFollow: @MainActor () -> [String]
     /// A live session's tab menu, before Close Tab.
     let tabMenu: @MainActor (NSMenu, Session) -> Void
-    /// The "+" menu's and the empty workspace's Run rows for a workspace; none while it offers nothing to run.
+    /// The Run rows of the "+" menu and the empty workspace, for a workspace; none while it offers nothing to run.
     let choices: @MainActor (_ workspace: String) -> [NewTabChoices.Action]
     /// A page the hover card lists, opened beside you (one that isn't a web page has its address copied).
     let open: @MainActor (ServedPage, _ workspace: String) -> Void

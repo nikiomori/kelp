@@ -4,8 +4,9 @@ import DesignKit
 import WorkbenchKit
 import os
 
-/// A project's group templates (`LayoutTemplate`), kept with the daemon's state under the project (`templates/<repo>`):
-/// saved from a group's row, listed on a group's empty screen, which a click arranges as it says.
+/// A project's group templates (`LayoutTemplate`), kept with the daemon's state under the project (`templates/<repo>`).
+/// A template is saved from a group's row and listed on a group's empty screen, which a click arranges as the template
+/// says.
 @MainActor
 struct LayoutTemplates {
     let app: AppModel
@@ -53,8 +54,9 @@ struct LayoutTemplates {
 
     func delete(_ name: String, in repoId: String) { store(all(repoId).filter { $0.name != name }, repoId) }
 
-    /// The empty group `id` arranged as `template` says: what ran starts again, each in its tab. One of the project's
-    /// commands (a .kelp.yaml template's) asks for the file's trust first, as Run does, and runs by name.
+    /// Arranges the empty group `id` as `template` says, and starts again what ran there, each in its own tab. A
+    /// command of the project's (from a .kelp.yaml template) first asks for trust in the file, as Run does, and then
+    /// runs by name.
     func use(_ template: LayoutTemplate, in id: String) async {
         // Once: a double click, or a second click while the first one's sessions start, leaves it be.
         guard let worktree = app.worktree(id), app.workbench.layouts[id].allTabs.isEmpty, Self.using.insert(id).inserted
@@ -133,7 +135,8 @@ struct LayoutTemplates {
         }.joined(separator: " · ")
     }
 
-    /// What runs again for a session's tab: its agent anew, its command (a Run command's), or a shell where it was.
+    /// What runs again for a session's tab: its agent started anew, its command (for a Run command), or a shell where
+    /// it was.
     static func running(_ session: Session) -> String {
         if session.isAgent, let agent = session.agent { return TabURI.agent(agent) }
         if let line = session.customCommand { return TabURI.terminal(["cmd": line, "title": session.title]) }

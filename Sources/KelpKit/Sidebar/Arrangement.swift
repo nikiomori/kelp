@@ -2,7 +2,8 @@ import Core
 import Foundation
 
 /// How the user arranged the sidebar, kept in the daemon's UI state (`state.set`): the order rows were dragged into,
-/// rows told to keep quiet or parked, projects' colours. The sidebar's, beside AppModel's mirror of the daemon.
+/// the rows told to keep quiet or parked, and the projects' colours. It belongs to the sidebar, next to AppModel's
+/// mirror of the daemon.
 @MainActor
 @Observable
 final class Arrangement {

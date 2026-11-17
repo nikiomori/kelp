@@ -42,7 +42,8 @@ package final class SettingsStore {
         "markdown": [SettingKeys.wordWrap.key: .bool(true)], "plaintext": [SettingKeys.wordWrap.key: .bool(true)]
     ]
 
-    /// `language`'s own value for `key`: settings.json's `"[markdown]": { … }` block, as in VS Code, then Kelp's default for it.
+    /// `language`'s own value for `key`, from settings.json's `"[markdown]": { … }` block (as in VS Code), then Kelp's
+    /// default for that language.
     private func own(_ key: String, _ language: String) -> JSONValue? {
         if case .object(let block)? = values["[\(language)]"], let found = block[key] { return found }
         return Self.languageDefaults[language]?[key]
@@ -61,7 +62,7 @@ package final class SettingsStore {
         guard let raw = value(key, language: language)?.number else { return nil }
         return clamped(key, raw)
     }
-    /// A declared setting (`language`: for that language's files): settings.json's value, else its default.
+    /// A declared setting's value (for `language`'s files when given): settings.json's value, else its default.
     package subscript<Value>(_ setting: Setting<Value>, language language: String? = nil) -> Value {
         setting.read(stored(setting.key, language))
     }

@@ -91,8 +91,9 @@ package struct SessionStarter {
         return create
     }
 
-    /// The size the new terminal will have, so the shell's first screen isn't drawn for another width (zsh's stray "%"
-    /// line, an agent's banner wrapped twice). A split gets half; a guess on the small side only leaves room.
+    /// The size the new terminal will have, so the shell's first screen isn't drawn for another width (which leaves
+    /// zsh's stray "%" line, or an agent's banner wrapped twice). A split gets half the room; a guess on the small side
+    /// only leaves spare room.
     private func terminalSize(split: SplitDirection?) -> (Int, Int)? {
         guard
             let grid = area.focusedContent?.terminalGrid ?? area.contents.values.lazy.compactMap(\.terminalGrid).first

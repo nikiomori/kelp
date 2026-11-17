@@ -17,7 +17,7 @@ package struct PlanWords {
     let rowLine: @MainActor (Session) -> (word: String, text: String)?
     /// Its title where it's listed under the chat that started it: "Claude Code hit its 5-hour limit".
     let title: @MainActor (_ name: String, Session) -> String
-    /// Its notification's text: "5-hour · resets 3:40pm".
+    /// The text of its notification, such as "5-hour · resets 3:40pm".
     let banner: @MainActor (LimitHit) -> String
 
     package init(

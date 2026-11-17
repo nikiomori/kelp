@@ -35,7 +35,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
         /// Whose card the row shows: a project with its own screen stands for that screen.
         var cardKind: SidebarItem.Kind { workspace.map(SidebarItem.Kind.workspace) ?? kind }
-        /// What a dragged row reorders: a project's or a workspace's id.
+        /// What a dragged row reorders: a project's id or a workspace's id.
         var id: String? {
             switch kind {
             case .project(let id), .workspace(let id): id
@@ -57,9 +57,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     }
     /// Where the built-ins' blocks go (`Contributions.sidebarSections`).
     weak var sections: NSStackView?
-    /// Room at the right that is the sidebar's own: the floater's margin inside its border (8 pt); docked, 0 (the gap
-    /// before the editor card is past the column's edge). The cards, Add Project and the limits stop short of it; the
-    /// scroller's knob runs in it, off the cards.
+    /// Room on the right that belongs to the sidebar itself: the floating sidebar's margin inside its border (8 pt), or
+    /// 0 when docked (the gap before the editor card lies past the column's edge). The cards, Add Project and the
+    /// limits stop short of it, and the scroller's knob runs in it, off the cards.
     var gutter: CGFloat = 0 {
         didSet {
             guard gutter != oldValue else { return }
@@ -192,7 +192,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
         sectionsTrailing = machines.trailingAnchor.constraint(equalTo: root.trailingAnchor)
         NSLayoutConstraint.activate([
-            // Under the traffic lights, in the window's second row: level with the tab strips and the inspector's panel icons.
+            // Under the traffic lights, in the window's second row, level with the tab strips and the inspector's panel
+            // icons.
             addY,
             addTrailing,
             // In line with the projects' cards (SidebarRowView.band): 8 pt to the window's edge and to the editor area.

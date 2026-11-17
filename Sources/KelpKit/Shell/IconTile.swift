@@ -25,8 +25,8 @@ enum IconTile {
         return img
     }
 
-    /// A hairline just inside a tile's edge, so every tile has one: a black logo's on a dark row and a white one's on a
-    /// light row read as tiles of the same shape, not as a loose mark beside bright squares.
+    /// A hairline just inside each tile's edge, so every tile has one: then a black logo on a dark row and a white logo
+    /// on a light row read as tiles of the same shape, not as loose marks next to bright squares.
     static func edge(_ rect: NSRect) {
         NSColor.labelColor.withAlphaComponent(0.14).setStroke()
         let line = NSBezierPath(roundedRect: rect.insetBy(dx: 0.25, dy: 0.25), xRadius: 6.75, yRadius: 6.75)
@@ -79,7 +79,7 @@ enum IconTile {
         return out.isEmpty ? "?" : out
     }
 
-    /// A tile's hue in both appearances: its letter (≥ 4.5:1 on its tint) and the tint under it.
+    /// A tile's colours in both appearances: its letter (at least 4.5:1 against its tint) and the tint under it.
     struct Hue {
         let dark: Int, light: Int, gray: Bool
         func ink(_ dark: Bool) -> NSColor {

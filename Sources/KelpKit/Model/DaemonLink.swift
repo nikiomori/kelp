@@ -11,7 +11,7 @@ final class DaemonLink {
 
     /// The connection calls go through; nil while there's none.
     private(set) var client: RPCClient?
-    /// A connection opened elsewhere (a test's), or none, in place of this one's.
+    /// Uses a connection opened elsewhere (a test's), or none, instead of opening one here.
     func use(_ c: RPCClient?) { client = c }
 
     /// One connection at a time: launch, a dropped connection and Restart Background Service all come through here.

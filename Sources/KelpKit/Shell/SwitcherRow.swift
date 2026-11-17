@@ -2,8 +2,8 @@ import AppKit
 import Core
 import DesignKit
 
-/// A ⌃Tab row, the sidebar's in a card: status | icon | name · where, and under it one line of what's there; then when,
-/// and the number that picks it. With nothing to say under the name, one line.
+/// A ⌃Tab row, drawn like the sidebar's rows in a card: status | icon | name · where, with one line of what is there
+/// under it; then when, and the number that picks it. With nothing to say under the name, it takes one line.
 @MainActor
 struct SwitcherRow {
     var mark: StatusMark?

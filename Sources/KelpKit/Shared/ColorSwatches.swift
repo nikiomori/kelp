@@ -41,7 +41,8 @@ final class ColorSwatches: NSView {
             addSubview(swatch)
             swatches.append(swatch)
         }
-        // Events reach a menu's views while it tracks, whatever the app's state, so not `.activeInActiveApp`.
+        // A menu's views get events while the menu tracks, whatever the app's state, so `.activeInActiveApp` isn't
+        // needed.
         addTrackingArea(
             NSTrackingArea(
                 rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect], owner: self)

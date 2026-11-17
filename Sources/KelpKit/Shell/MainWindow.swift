@@ -4,10 +4,11 @@ import DesignKit
 import SwiftUI
 import TerminalKit
 
-/// The window, as Arc and Safari are: one surface — projects & agents in the sidebar (the traffic lights sit in it), the
-/// window bar (where you are, ⌘P), the inspector — wrapped round the editor area, a card with rounded corners. The
-/// panels' first rows (search, panel icons) line up with the card's tab strips. An auto-hidden panel (and focus mode's)
-/// comes in over the card instead, floating clear of the window's edges.
+/// The window, built as Arc and Safari build theirs: one surface (the projects and agents in the sidebar, where the
+/// traffic lights sit; the window bar, which shows where you are and holds ⌘P; the inspector) wrapped around the editor
+/// area, which is a card with rounded corners. The panels' first rows (search, panel icons) line up with the card's tab
+/// strips. An auto-hidden panel (and focus mode's) comes in over the card instead, floating clear of the window's
+/// edges.
 @MainActor
 final class MainWindowController: NSWindowController, NSWindowDelegate {
     /// The app this window shows: handed to its panels and editor areas.
@@ -17,7 +18,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     let sidebar: SidebarController
     private let split = ShellSplit()
     private let surface: DropRoot
-    /// The sidebar's side and the inspector's.
+    /// The sidebar's side and the inspector's side of the window.
     let left: Side, right: Side
     var sides: [Side] { [left, right] }
     private var dockWatch: NSKeyValueObservation?

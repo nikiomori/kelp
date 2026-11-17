@@ -117,10 +117,11 @@ extension SidebarController {
         return false
     }
 
-    /// A project's card from its row to the last row under it: one shape, so it grows and shrinks with the rows (each row
-    /// drew a slice of it, which couldn't follow a project opening). A project with nothing under it has none unless its
-    /// colour is drawn on one: then it's where the row's pill goes. Under them, one hatched card for each server's
-    /// header and projects ("s:<host>"), after a gap: where one machine's projects end and another's begin.
+    /// A project's card, from its row to the last row under it, drawn as one shape so it grows and shrinks with the
+    /// rows (when each row drew a slice of it, the card couldn't follow a project opening). A project with nothing
+    /// under it has no card unless its colour is drawn on one; then the card is where the row's pill goes. Below them,
+    /// after a gap, one hatched card for each server's header and its projects ("s:<host>"), marking where one
+    /// machine's projects end and another's begin.
     func placeCards() {
         var shown: Set<String> = [], made = false
         let look = app.arrangement.projectLook
@@ -194,7 +195,7 @@ extension SidebarController {
         }
     }
 
-    /// The project a row is in: its own row's key, or its group's.
+    /// The project a row is in: the key of its own row, or of its group's row.
     func project(atRow row: Int) -> String? {
         var node = outline.item(atRow: row) as? Node
         while let up = outline.parent(forItem: node) as? Node { node = up }

@@ -13,8 +13,8 @@ struct ExtensionsSettings: View {
     /// Opened on the library when asked for (`SettingsWindow.show(section: "extensions", group: "library")`).
     @State private var library = UserDefaults.standard.string(forKey: "settings.group") == "library"
     var body: some View {
-        // Over the list on the content's left edge, as the Agent Catalog's filter: in a card of its own it was a box around
-        // one control, and in the title bar it read as the window's.
+        // Placed over the list on the content's left edge, as the Agent Catalog's filter is: in a card of its own it
+        // was a box around one control, and in the title bar it read as the window's own.
         VStack(alignment: .leading, spacing: 0) {
             Segments(
                 labels: [String(localized: "Installed"), String(localized: "Library")],
@@ -89,7 +89,8 @@ struct ExtensionsSettings: View {
         }
     }
 
-    /// A row as every setting's: the name over its description, the form's own sizes and spacing; the symbol beside it.
+    /// A row laid out like every setting's row: the name over its description, in the form's own sizes and spacing,
+    /// with the symbol beside it.
     private func row(_ info: ExtensionInfo) -> some View {
         LabeledContent {
             HStack(spacing: Metrics.gap) {

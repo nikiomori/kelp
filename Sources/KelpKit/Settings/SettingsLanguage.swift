@@ -2,8 +2,10 @@ import Core
 import EditorKit
 import SwiftUI
 
-/// Settings › Editor for one language's files: settings.json's `"[markdown]": { … }` blocks, as in VS Code.
-/// Which files the Editor's rows are for: all, or one language's, those with settings of their own first.
+/// Settings › Editor for one language's files, stored in settings.json as `"[markdown]": { … }` blocks, as VS Code
+/// does.
+/// The picker that says which files the Editor's rows apply to: all files, or one language's files, with the languages
+/// that have settings of their own listed first.
 struct LanguagePicker: View {
     @Binding var language: String
     @Environment(AppModel.self) private var app

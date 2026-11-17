@@ -6,9 +6,9 @@ import WorkbenchKit
 /// A new chat, group or branch: where it goes (the project asked, else the one shown) and its agent's start.
 @MainActor
 extension Workbench {
-    /// New isolated workspace in the project on screen (or the first one).
-    /// ⌘N, and New Chat on a project's row: a new agent on the screen you're on, or on that project's own from another project.
-    /// With nothing on screen it's a chat with no project. `cwd`: in that folder (New Chat in Folder…).
+    /// A new isolated workspace in the project on screen (or the first project). ⌘N and New Chat on a project's row
+    /// start a new agent on the screen you are on, or on that project's own screen when you are in another project.
+    /// With nothing on screen, it is a chat with no project. `cwd` starts it in that folder (New Chat in Folder…).
     func newChat(repo: String? = nil, cwd: String? = nil) {
         Task {
             // Right after launch the project list may not be in yet: ⌘N must not turn into "Add Project".
@@ -58,7 +58,8 @@ extension Workbench {
             let worktree = app.worktrees.first { $0.repoId == rid }, base = app.repo(rid)?.baseBranch ?? "main"
             var branches: BranchInfo?
             if let worktree { branches = await app.quiet(GitBranches(id: worktree.id)) }
-            // The project's watch's, else read once; none (gh missing, or not read): a branch or a name still.
+            // The open PRs from the project's watch, else read once; with none (gh missing, or not read yet), a branch
+            // or a name still works.
             let prs: [GitHub.PullRequest]
             do { prs = try await PRsEvent.open(rid, in: app) } catch { prs = [] }
             let agents = app.catalog.installed(app.catalog.all).filter { $0.id != Session.shellAgent }.map {

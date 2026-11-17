@@ -3,8 +3,8 @@ import Core
 import DesignKit
 
 extension WorkspaceActions {
-    /// Run in Dev Container, a check item: from then on the project's new terminals and agents start in its dev
-    /// container (the daemon's `DevContainer`), when its folder has one. This Mac's projects only.
+    /// Run in Dev Container, a menu item with a tick: from then on the project's new terminals and agents start in its
+    /// dev container (the daemon's `DevContainer`), when its folder has one. Only for projects on this Mac.
     func addDevContainer(to menu: NSMenu, _ repo: Repo) {
         guard RemoteHost.of(repo.path) == nil else { return }
         let app = self.app, on = app.uiState.strings(Repo.devContainerKey)

@@ -99,7 +99,7 @@ final class RunGroup: NSStackView {
     }
 }
 
-/// One action: symbol, title, a detail and its shortcut on the right; highlights on hover.
+/// One action row: a symbol, a title, a detail and its shortcut on the right; it highlights on hover.
 @MainActor
 final class StartRow: PointerControl {
 
@@ -149,9 +149,10 @@ final class StartRow: PointerControl {
 
 }
 
-/// The project's group templates (`LayoutTemplates`), first on an empty screen: the ones saved here, then its
-/// .kelp.yaml's once that's read (and trusted). A click arranges this screen as the template says; gone while there are
-/// none. A saved one's menu deletes it; the file's are changed in the file.
+/// The project's group templates (`LayoutTemplates`), shown first on an empty screen: the ones saved here, then the
+/// .kelp.yaml's templates once that file is read (and trusted). A click arranges this screen as the template says; the
+/// list is hidden while there are none. A saved template's menu deletes it; a template from the file is changed in the
+/// file.
 @MainActor
 final class TemplateGroup: NSStackView {
     let head = StartView.heading(String(localized: "Templates"))

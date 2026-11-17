@@ -240,7 +240,7 @@ final class WorkspaceSwitcher {
         for (offset, row) in rows.enumerated() { row.fadeBackground(to: offset == index ? .fillSelected : nil) }
     }
 
-    /// One screen's row: a server's page or a workspace's.
+    /// The row for one screen: a server's page or a workspace.
     private func row(_ id: String, number: Int, here: Bool) -> NSView {
         let parts =
             TabURI.scheme(id) == "host"

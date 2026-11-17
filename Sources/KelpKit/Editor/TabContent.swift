@@ -9,8 +9,8 @@ package protocol TabContent: AnyObject {
     var uri: String { get }
     var title: String { get }
     var icon: NSImage? { get }
-    /// A session's (an agent's or a terminal's) marks, on its tab and around its pane. A tab with one is a terminal: it
-    /// fades a little in an unfocused split, like Ghostty's.
+    /// The marks of a session (an agent or a terminal), shown on its tab and around its pane. A tab that has them is a
+    /// terminal, so it fades a little in an unfocused split, as in Ghostty.
     var badge: TabBadge? { get }
     var toolTip: String? { get }
     /// Unsaved changes: the tab shows a dot, closing it asks first.

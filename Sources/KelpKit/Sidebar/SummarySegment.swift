@@ -14,7 +14,8 @@ final class SummarySegment: PointerControl {
     private var words = [""]
     /// The number its words start with, as shown (nil while it peeks): a new one rolls in.
     private var counted: Int?
-    /// 0: all it says; 1: without the time; 2: the number (or the clock) alone.
+    /// How much to shorten the text: 0 keeps all of it, 1 leaves out the time, and 2 keeps only the number (or the
+    /// clock).
     var level = 0 { didSet { if level != oldValue { show() } } }
     /// The chat that just got here, named for a moment: its name and what it did ("fix flaky test", "done").
     var peek: (name: String, verb: String)? {

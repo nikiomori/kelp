@@ -1,10 +1,11 @@
-// The inspector's parts: its view, the icon row's capsule, a panel's icon and count, a SwiftUI panel's host.
+// The inspector's parts: its view, the icon row's capsule, a panel's icon with its count, and the host of a SwiftUI
+// panel.
 import AppKit
 import Core
 import DesignKit
 import SwiftUI
 
-/// The inspector's view: a right-click on the icon row's band opens the row's menu.
+/// The inspector's view; a right-click on the band of the icon row opens the row's menu.
 final class InspectorView: NSView {
     var rowMenu: ((NSEvent) -> NSMenu?)?
     /// On screen: in a window and not collapsed (a collapsed split view item is hidden).
@@ -48,7 +49,7 @@ extension InspectorController {
     }
 }
 
-/// A soft capsule behind a row of icons: the inspector's panels, a pane's new-agent and "+" buttons.
+/// A soft capsule behind a row of icons: the inspector's panel icons, or a pane's new-agent and "+" buttons.
 final class CapsuleStack: NSStackView {
     /// Off inside glass, which is the capsule then.
     var filled = true { didSet { needsDisplay = true } }

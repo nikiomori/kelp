@@ -2,8 +2,8 @@ import AppKit
 import Core
 import DesignKit
 
-/// Kelp's Dock icon as a small status display, chosen in its Dock menu like Activity Monitor's: the agents, how full the
-/// plan is, or the plain icon. Drawn when what it shows changes, with no clock running.
+/// Kelp's Dock icon as a small status display, chosen in its Dock menu as in Activity Monitor: the agents, how full the
+/// plan is, or the plain icon. It is drawn when what it shows changes, with no clock running.
 @MainActor
 package final class DockIcon {
     private let app: AppModel

@@ -79,8 +79,8 @@ struct VSCodePackage: Decodable {
     }
 }
 
-/// A folder's extension.json (or a VS Code package.json) made into contributions. What it keeps between reloads, the
-/// views `ext:` tabs open and each folder's last manifest that worked, is `app`'s registry's.
+/// A folder's extension.json (or a VS Code package.json) turned into contributions. What it keeps between reloads, the
+/// views that `ext:` tabs open and each folder's last manifest that worked, is kept in `app`'s registry.
 @MainActor
 enum DeclarativeExtension {
     /// `tools`: required tools known to be there or not (`ExtensionRegistry.tools`); one not in it counts as there.

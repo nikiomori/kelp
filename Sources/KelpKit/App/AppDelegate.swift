@@ -220,7 +220,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     MainActor.assumeIsolated { self?.timeGlances() }   // queue: .main
                 })
         }
-        // Any window's: a group's or a page's own keeps Kelp in sight while the main one is covered.
+        // Watch every window: a group's own window or a page's window keeps Kelp in sight while the main window is
+        // covered.
         let seen = NSWindow.didChangeOcclusionStateNotification
         sight.append(
             center.addObserver(forName: seen, object: nil, queue: .main) { [weak self] _ in
@@ -264,7 +265,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: menu
-    /// A menu item (the menu bar's or the sidebar's Add Project menu) runs the command its identifier names.
+    /// Runs the command that a menu item's identifier names (for the menu bar, and the sidebar's Add Project menu).
     @objc func runCommand(_ sender: Any?) {
         guard let id = (sender as? NSUserInterfaceItemIdentification)?.identifier?.rawValue else { return }
         app.extensions.command(id)?.run([:])
@@ -292,8 +293,8 @@ private struct MenuSources: Equatable {
 }
 
 extension AppDelegate: NSMenuItemValidation {
-    /// Show/Hide items say what choosing them does; Focus Mode is ticked while it's on; Stop needs something running;
-    /// the file commands need a file.
+    /// Show/Hide items say what choosing them does; Focus Mode is ticked while it is on; Stop needs something running;
+    /// and the file commands need a file.
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         switch item.identifier?.rawValue {
         case "workbench.toggleSidebar":

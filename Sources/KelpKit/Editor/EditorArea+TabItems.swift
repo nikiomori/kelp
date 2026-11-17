@@ -1,12 +1,13 @@
-// What an editor area's tab strip shows of a tab: a run's look, a namesake's folder, a tab not built yet.
+// What an editor area's tab strip shows of a tab: a run's look, the folder of a tab with the same name, and a tab that
+// isn't built yet.
 import AppKit
 import Core
 import DesignKit
 import WorkbenchKit
 
 extension EditorArea {
-    /// A run's tab (the Run menu's) among the terminals: its purpose's symbol in colour and a glow of that colour. Any
-    /// session's tab says the port it serves, a label only: the title bar's capsule opens it.
+    /// A run's tab (started from the Run menu) among the terminals: its purpose's symbol in colour, with a glow of that
+    /// colour. Any session's tab shows the port it serves as a plain label; the title bar's capsule is what opens it.
     func runLook(_ item: TabStrip.Item, _ tab: TabRef) -> TabStrip.Item {
         if let driven = app.extensions.tabProvider(for: tab.uri)?.driven { return drivenLook(item, tab, driven) }
         guard TabURI.scheme(tab.uri) == "session", let session = app.session(TabURI.body(tab.uri)),

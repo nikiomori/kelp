@@ -22,7 +22,7 @@ struct PictureGrid: View {
     /// Side by side at one tile's width, beside the title, in place of a grid under it.
     var inline = false
     @Environment(AppModel.self) private var app
-    /// The theme gallery's too: Kelp's five themes are one row.
+    /// Also used by the theme gallery: Kelp's five themes fill one row.
     static let columns = 5
     /// As many as fit beside a title.
     static let inRow = 3
@@ -47,7 +47,7 @@ struct PictureGrid: View {
     }
 }
 
-/// Tiles five to a row, at one spacing: the theme gallery's and every picture setting's.
+/// Lays out tiles five to a row at one spacing, for the theme gallery and for every picture setting.
 struct TileGrid<Content: View>: View {
     @ViewBuilder let content: Content
     var body: some View {
@@ -66,7 +66,7 @@ struct PictureTile<Art: View>: View {
     @ViewBuilder let art: Art
     /// Themes and pictures alike, so a page of them is one grid.
     static var height: CGFloat { 64 }
-    /// One beside a row's title: a grid's at the window's own width.
+    /// The width of a picture beside a row's title; a grid of pictures uses the window's own width.
     static var width: CGFloat { 120 }
 
     var body: some View {
@@ -279,8 +279,8 @@ struct CursorPicture: View {
     }
 }
 
-/// Settings › Appearance › Inspector › Panels: each panel's icon with a switch, in the inspector's order. The same list as
-/// the icons' right-click menu; settings.json keeps the hidden ones (`workbench.inspector.hiddenPanels`).
+/// Settings › Appearance › Inspector › Panels: each panel's icon with a switch, in the inspector's order. It is the
+/// same list as the icons' right-click menu; settings.json keeps the hidden ones (`workbench.inspector.hiddenPanels`).
 struct InspectorPanelsRow: View {
     let title: AnyView
     @Environment(AppModel.self) private var app
