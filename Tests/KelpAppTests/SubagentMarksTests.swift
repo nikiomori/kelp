@@ -23,32 +23,27 @@ private typealias Marks = (pips: [ChildrenBadge.Pip], count: Int?)
     ChildrenBadge.marks(kids: kids, running: running, finished: finished)
 }
 
-@MainActor @Test func aDotStandsForEachSubagentOfTheTurn() {
-    #expect(marks().pips.isEmpty)
-    #expect(marks(running: [run("a"), run("b")]).pips == [.works, .works])
-    #expect(
-        marks(running: [run("a"), run("b")], finished: [run("c"), run("d")]).pips == [
-            .works, .works, .finished, .finished
-        ])
-    #expect(marks(running: [run("a"), run("b", asks: true)]).pips == [.asks, .works])
-}
-
-@MainActor @Test func finishedSubagentsLeaveWithTheLastOneAtWork() {
-    #expect(marks(finished: [run("a"), run("b")]).pips.isEmpty)
-}
-
-@MainActor @Test func aStartedAgentStaysOnceItFinished() {
-    #expect(marks(kids: [kid(.done)]).pips == [.finished])
-    #expect(marks(kids: [kid(.error), kid(.working)]).pips == [.failed, .works])
-}
-
-@MainActor @Test func pastFourADotAndHowManyAreAtWork() {
-    let four = marks(running: [run("a"), run("b"), run("c"), run("d")])
-    #expect(four.pips.count == 4 && four.count == nil)
-    let seven = marks(running: (1...6).map { run("\($0)") } + [run("x", asks: true)], finished: [run("f")])
-    #expect(seven.pips == [.asks] && seven.count == 7)
-    let done = marks(kids: (1...5).map { _ in kid(.done) })
-    #expect(done.pips == [.finished] && done.count == 5)
+/// A dot for each subagent of the turn, asking first; finished ones leave with the last one at work; a started agent
+/// stays once it finished; past four, one dot and how many are at work.
+@MainActor @Test func aRowsDotsStandForItsSubagentsAndAgents() {
+    let cases: [(marks: Marks, pips: [ChildrenBadge.Pip], count: Int?)] = [
+        (marks(), [], nil),
+        (marks(running: [run("a"), run("b")]), [.works, .works], nil),
+        (
+            marks(running: [run("a"), run("b")], finished: [run("c"), run("d")]),
+            [.works, .works, .finished, .finished], nil
+        ),
+        (marks(running: [run("a"), run("b", asks: true)]), [.asks, .works], nil),
+        (marks(finished: [run("a"), run("b")]), [], nil),
+        (marks(kids: [kid(.done)]), [.finished], nil),
+        (marks(kids: [kid(.error), kid(.working)]), [.failed, .works], nil),
+        (marks(running: [run("a"), run("b"), run("c"), run("d")]), [.works, .works, .works, .works], nil),
+        (marks(running: (1...6).map { run("\($0)") } + [run("x", asks: true)], finished: [run("f")]), [.asks], 7),
+        (marks(kids: (1...5).map { _ in kid(.done) }), [.finished], 5)
+    ]
+    for (number, c) in cases.enumerated() {
+        #expect(c.marks.pips == c.pips && c.marks.count == c.count, "case \(number)")
+    }
 }
 
 /// Three or four dots stand two to a line, so they take the width of two and leave it to the name.

@@ -324,12 +324,42 @@ extension OneAtATime {
         }
     }
 
-    /// The first run: the line over the list still names it, so Add Project beside it isn't an icon alone in a corner.
-    @Test func withNoProjectsTheLineStillNamesTheList() throws {
-        try withSidebar(repos: [], worktrees: [], sessions: []) { vc, o in
-            #expect(o.numberOfRows == 0)
-            let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
-            #expect(!line.isHidden && texts(vc.view).contains("Projects"))
+    /// The line over the list says who needs you, what works and what finished, each in words of its own with a width;
+    /// with nobody asking or working it still names the list (on the first run too, so Add Project beside it isn't an
+    /// icon alone in a corner). The capsule goes to who waits, so it counts only them; who works is said beside it.
+    @Test func theLineOverTheListSaysWhoNeedsYouWorksAndFinished() throws {
+        func agent(_ w: String, _ status: AgentStatus, title: String = "A") -> Session {
+            var s = Session(worktreeId: w, cwd: "/", command: "claude", agent: "claude", status: status, title: title)
+            s.statusAt = Date() - 60
+            s.unread = status == .done
+            return s
+        }
+        @MainActor func fields(_ v: NSView) -> [NSTextField] {
+            ((v as? NSTextField).map { [$0] } ?? []) + v.subviews.filter { !$0.isHidden }.flatMap(fields)
+        }
+        let cases: [(repos: [Repo], worktrees: [Worktree], sessions: [Session], words: [String])] = [
+            ([], [], [], ["Projects"]),
+            ([project], [own("w1")], [agent("w1", .idle, title: "Old chat")], ["Projects"]),
+            (
+                [project], [workspace("w1", "a"), workspace("w2", "b")], [agent("w1", .working), agent("w2", .done)],
+                ["1 working", "1 done"]
+            ),
+            (
+                [project], [own("w1")], [agent("w1", .waiting), agent("w1", .working), agent("w1", .working)],
+                ["1 need you", "2 working"]
+            )
+        ]
+        for c in cases {
+            try withSidebar(repos: c.repos, worktrees: c.worktrees, sessions: c.sessions) { vc, o in
+                if c.repos.isEmpty { #expect(o.numberOfRows == 0) }
+                vc.view.layoutSubtreeIfNeeded()
+                let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
+                #expect(!line.isHidden)
+                for words in c.words {
+                    let field = fields(vc.view).first { !$0.isHidden && $0.stringValue.hasPrefix(words) }
+                    #expect(field.map { $0.frame.width > 0 } == true, "\(words) in \(c.sessions.map(\.status))")
+                }
+            }
         }
     }
 
@@ -421,28 +451,6 @@ extension OneAtATime {
         }
     }
 
-    /// Nobody asking: what works and what finished stand side by side over the list, words and marks with a width of their own.
-    @Test func theLineOverTheListSaysWhatWorksAndWhatFinished() throws {
-        func agent(_ w: String, _ status: AgentStatus) -> Session {
-            var s = Session(
-                worktreeId: w, cwd: "/", command: "claude", agent: "claude", status: status, title: "Report",
-                summary: "")
-            s.unread = status == .done
-            return s
-        }
-        try withSidebar(
-            repos: [project], worktrees: [workspace("w1", "a"), workspace("w2", "b")],
-            sessions: [agent("w1", .working), agent("w2", .done)]
-        ) { vc, _ in
-            vc.view.layoutSubtreeIfNeeded()
-            let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
-            for words in ["1 working", "1 done"] {
-                let field = try #require(textFields(line).first { $0.stringValue == words })
-                #expect(!field.isHidden && field.frame.width > 0)
-            }
-        }
-    }
-
     /// Too narrow for the whole line (a large Text size): one line still, saying how many need you, never two inside the capsule.
     @Test func theCapsuleDropsWhoWorksWhenItsLineWontFit() throws {
         var ask = Session(
@@ -491,16 +499,6 @@ extension OneAtATime {
         }
     }
 
-    /// The row over the list stays, so the list never moves: with nobody asking or working it names the list.
-    @Test func nobodyAskingOrWorkingLeavesTheListsName() throws {
-        let done = Session(
-            worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .idle, title: "Old chat")
-        try withSidebar(repos: [project], worktrees: [own("w1")], sessions: [done]) { vc, _ in
-            let line = try #require(vc.view.subviews.compactMap { $0 as? AgentSummary }.first)
-            #expect(!line.isHidden && texts(vc.view).contains("Projects"))
-        }
-    }
-
     /// A row's slot says what it is, and under the pointer gives its action, a moment later: a chat's ✕, reached from a little
     /// around it. A project with nothing to fold keeps its icon.
     @Test func theSlotGivesTheRowsActionUnderThePointer() throws {
@@ -541,20 +539,6 @@ extension OneAtATime {
             let listed = rows(of: o)
             #expect(listed[1].contains("Busy") && !listed[1].contains("10m"))
             #expect(listed[2].contains("Asks") && listed[2].contains("10m"))
-        }
-    }
-
-    /// The capsule goes to who waits, so it counts only them: how many work is said beside it, in words.
-    @Test func theCapsuleCountsOnlyWhoWaits() throws {
-        func agent(_ status: AgentStatus) -> Session {
-            var s = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: status, title: "A")
-            s.statusAt = Date() - 60
-            return s
-        }
-        try withSidebar(
-            repos: [project], worktrees: [own("w1")], sessions: [agent(.waiting), agent(.working), agent(.working)]
-        ) { vc, _ in
-            #expect(texts(vc.view).contains("1 need you") && texts(vc.view).contains { $0.hasPrefix("2 working") })
         }
     }
 
