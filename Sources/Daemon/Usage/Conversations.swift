@@ -17,7 +17,8 @@ final class Conversations: Sendable {
     let homes = OSAllocatedUnfairLock(
         initialState: (claude: ClaudeHistory.defaultRoot, codex: CodexHistory.defaultRoot))
 
-    /// Claude Code's folder on a host, as a word of sh's (tests name one: their host is this Mac, and `~/.claude` the user's).
+    /// Claude Code's folder on a host, as a word for sh (tests set one: their host is this Mac, where `~/.claude` is
+    /// the user's).
     let hostClaude = OSAllocatedUnfairLock(initialState: #""${CLAUDE_CONFIG_DIR:-$HOME/.claude}""#)
 
     init(settings: SettingsStore, openProbes: OpenProbes, remotes: Remotes) {
@@ -75,8 +76,9 @@ final class Conversations: Sendable {
         .first
     }
 
-    /// The last turns of a Claude Code's or a Codex's conversation, for someone away from the terminal (the phone's
-    /// page); none for other agents and before there is one. Waits on a disk, `lsof` or a host: off the caller's thread.
+    /// The last turns of a Claude Code or Codex conversation, for someone away from the terminal (the phone's page).
+    /// None for other agents, or before the conversation exists. It waits on the disk, `lsof` or a host, so it runs off
+    /// the caller's thread.
     func turns(of session: Session, live: LiveSession?) -> [ConversationTurns.Turn] {
         guard [Session.claudeAgent, Session.codexAgent].contains(session.agent) else { return [] }
         if let remote = remotes.of(session.cwd) {
@@ -88,12 +90,13 @@ final class Conversations: Sendable {
     /// How much of a conversation's end is read from a host: enough for its last turns, quick over ssh.
     static let remoteTailBytes = 1 << 20
 
-    /// The last bytes of the conversation a Claude Code in a remote project keeps on its host, in
-    /// `~/.claude/projects/<its folder, as Claude Code names it>/`: the one its argv names (`--session-id`, `--resume`),
-    /// else, for one started before it was given an id, the newest there. Only over a connection that's already open
-    /// (`RemoteHost.connection`): a phone's poll or a notification never dials a host. Nil without one, with no file
-    /// yet, and for Codex. Limit: Codex on a host isn't read (its rollout is found by this Mac's `lsof` and
-    /// `~/.codex/sessions`); and without an id two agents in one folder read each other's.
+    /// The last bytes of the conversation that a Claude Code in a remote project keeps on its host, in
+    /// `~/.claude/projects/<its folder, as Claude Code names it>/`. It reads the file the agent's argv names
+    /// (`--session-id`, `--resume`), or, for an agent started before it was given an id, the newest file there. It only
+    /// uses a connection that is already open (`RemoteHost.connection`): a phone's poll or a notification never dials a
+    /// host. It returns nil with no open connection, when there is no file yet, and for Codex.
+    /// Limit: Codex on a host isn't read (its rollout is found through this Mac's `lsof` and `~/.codex/sessions`), and
+    /// without an id, two agents in one folder read each other's conversation.
     func remoteTail(of session: Session, on remote: RemoteHost) -> Data? {
         remoteConversation(of: session, on: remote, read: "tail -c \(Self.remoteTailBytes)")
     }

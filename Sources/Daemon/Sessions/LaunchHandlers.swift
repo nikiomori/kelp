@@ -44,8 +44,8 @@ extension SessionCreate: Handled {
         } else if command == nil, Session.isTerminal(agent),
             sessions.settings[SettingKeys.tmux]
         {
-            // a terminal in a tmux session of its own, which ends with it (Tmux.isOwn): on a host as an agent's is there,
-            // the host's login shell, and without tmux there the shell alone
+            // A terminal in a tmux session of its own, which ends with it (Tmux.isOwn): on a host it runs the host's
+            // login shell in tmux, as an agent does there, and without tmux on the host just the shell
             if sessions.remotes.of(dir) != nil {
                 launch.onHostInTmux = true
             } else if LoginPath.find("tmux") != nil {
@@ -136,8 +136,9 @@ extension SessionFork: Handled {
         return try sessions.spawn(cwd: old.cwd, manifest: manifest, worktreeId: old.worktreeId, launch)
     }
 
-    /// Its command, going on from a copy of the conversation. Claude Code's pins one id, which the copy may not take
-    /// (`following` pins the copy's once it's made); Codex's thread id ends its rollout's name.
+    /// The command that resumes the session from a copy of its conversation. Claude Code's command pins one session id,
+    /// and the copy may not reuse the old one (`following` pins the copy's id once the copy is made). Codex's thread id
+    /// is the end of its rollout file's name.
     static func argv(_ old: Session, _ manifest: AgentManifest, _ sessions: Sessions) throws -> [String] {
         switch manifest.transcript {
         case .claude?:

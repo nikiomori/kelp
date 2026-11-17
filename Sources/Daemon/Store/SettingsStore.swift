@@ -193,11 +193,13 @@ extension SettingsSet: Handled {
     static let agents = AgentAccess.acts
     /// A colour dragged or a stepper held sends these quickly: the last one sent is the one that stays.
     static var inOrder: Bool { true }
-    /// What an agent may not set (`kelp settings set`, its settings skill): where Kelp sends what agents did off this Mac
-    /// (`phone.*`), whose accounts agents run as (`accounts.*`), where extensions come from and which are on (one the user
-    /// turned off stays off), whether terminals are tmux sessions (whose panes are told apart only by who's attached),
-    /// whether agents hear from those they start, where every workspace's folder goes; and the keyboard (`keys`: a key on
-    /// a command of the user's, git.push on ⌘S, would have them run it unawares).
+    /// The settings an agent may not change (through `kelp settings set` or its settings skill):
+    /// - where Kelp sends what agents did off this Mac (`phone.*`) and which accounts agents run as (`accounts.*`);
+    /// - where extensions come from and which are on (one the user turned off stays off);
+    /// - whether terminals are tmux sessions (whose panes are told apart only by who is attached), whether agents hear
+    /// from the agents they start, and where every workspace's folder goes;
+    /// - the keyboard (`keys`): a key bound to one of the user's commands, such as git.push on ⌘S, would make the user
+    /// run it unawares.
     static let usersOnly = [
         "phone.", "accounts.", SettingKeys.extensionLibrary.key, SettingKeys.disabledExtensions.key,
         SettingKeys.tmux.key, SettingKeys.childReports.key, SettingKeys.worktreesFolder.key,

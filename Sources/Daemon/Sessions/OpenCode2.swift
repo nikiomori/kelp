@@ -3,11 +3,12 @@ import Core
 import Foundation
 import os
 
-/// OpenCode 2 (2026-11) runs its sessions in one background server every terminal shares, started with the first one's
-/// environment (its `KELP_SESSION`, `KELP_PORT`), and `OPENCODE_CONFIG_DIR` stands in for the person's own config there
-/// (version 1 read both). So a Kelp session gets a server of its own (`--standalone`), its model goes in that server's
-/// config (`OPENCODE_CONFIG_CONTENT`, over the person's own; the terminal UI has no `-m`), and Kelp's status plugin
-/// comes in through the terminal UI's config (`OPENCODE_CLI_CONFIG_CONTENT`), the person's own plugins kept.
+/// How Kelp starts OpenCode 2 (2026-11). OpenCode 2 runs its sessions in one background server that every terminal
+/// shares; the server starts with the environment of the first terminal (its `KELP_SESSION` and `KELP_PORT`), and
+/// `OPENCODE_CONFIG_DIR` replaces the person's own config there (version 1 read both). So Kelp gives each session a
+/// server of its own (`--standalone`), puts the session's model in that server's config (`OPENCODE_CONFIG_CONTENT`,
+/// layered over the person's own, since the terminal UI has no `-m`), and adds Kelp's status plugin through the
+/// terminal UI's config (`OPENCODE_CLI_CONFIG_CONTENT`), keeping the person's own plugins.
 final class OpenCode2: Sendable {
     static let standalone = "--standalone"
     static let cliConfig = "OPENCODE_CLI_CONFIG_CONTENT"
@@ -62,9 +63,9 @@ final class OpenCode2: Sendable {
         return (out, config)
     }
 
-    /// The terminal UI's config with Kelp's plugin after the person's own: a list given here replaces theirs.
-    /// `config`: their config dir. Theirs is `cli.json`, or before OpenCode 2 first ran, `tui.json(c)`, which it
-    /// migrates.
+    /// The terminal UI's config, with Kelp's plugin added after the person's own plugins (a plugin list given here
+    /// replaces theirs). `config` is their config folder. Their file is `cli.json`, or `tui.json(c)` before OpenCode 2
+    /// first ran and migrated it.
     static func cliConfig(plugin: URL, config: URL) -> String {
         func read(_ name: String) -> [String: Any]? {
             FileManager.default.contents(atPath: config.appendingPathComponent(name).path)

@@ -20,8 +20,9 @@ final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on
     private var source: DispatchSourceRead?
     private let queue = DispatchQueue(label: "kelp.pty")
 
-    /// The terminal's fd: read here from `start`, until it's handed to the next kelpd or hung up. Once it's neither
-    /// waiting nor read, nothing touches it again: the number may be another terminal's.
+    /// The terminal's file descriptor. It is read here from `start` on, until it is handed to the next kelpd or hung
+    /// up. Once it is neither waited on nor read, nothing touches it again, because the same number may by then belong
+    /// to another terminal.
     enum Terminal { case waiting, reading, handedOver, hungUp }
     /// The program: its pid is ours to signal until it's reaped (here), or handed over (reaped by the next kelpd).
     enum Program { case running, handedOver, reaped }

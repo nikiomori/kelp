@@ -109,7 +109,7 @@ extension Sessions {
     func follow(_ ls: LiveSession, transcript: String) {
         let conversation = URL(fileURLWithPath: transcript).deletingPathExtension().lastPathComponent
         let session = ls.snapshot
-        // Only a conversation's own file (a subagent's is agent-….jsonl), and the manifest read only when it changed: hooks come every turn.
+        // Only a conversation's own file counts (a subagent's is agent-….jsonl); the manifest is read when changed.
         guard UUID(uuidString: conversation) != nil,
             !session.argv.contains(where: { $0.lowercased() == conversation.lowercased() }),
             let manifest = try? setup.manifest(session.agent, command: nil, fallbackArgv: session.argv)

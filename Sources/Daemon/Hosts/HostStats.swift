@@ -2,9 +2,9 @@ import Core
 import Foundation
 import os
 
-/// What a remote project's host is doing (`host.stats`): one `sh` over its shared connection reads /proc, df, ss, tmux
-/// and ps, about 0.4 s with the connection open (0.3 of it is the CPU's two looks). Linux in full; on macOS and BSD what
-/// they share (load, disk, processes).
+/// What a remote project's host is doing (`host.stats`). One `sh` over the host's shared connection reads /proc, df,
+/// ss, tmux and ps, in about 0.4 s with the connection open (0.3 s of that is the two looks at the CPU). Linux gets
+/// everything; macOS and BSD get what they share with it (load, disk, processes).
 typealias HostErrors = OSAllocatedUnfairLock<[String: String]>
 /// Host → its readings of the last hour (`host.history`).
 typealias HostHistory = OSAllocatedUnfairLock<[String: [HostStats.Sample]]>
@@ -157,8 +157,9 @@ enum HostStatsReader {
         return stats
     }
 
-    /// This reading and any other going on (the sidebar's and the server tab's can meet), with all they started: the
-    /// shell running `script` (`me`, or its first line on a command line) and what's under it.
+    /// The processes of this reading and of any other reading going on (the sidebar's and the server tab's can
+    /// overlap), with everything they started: the shell running `script` (`me`, or found by its first line on a
+    /// command line) and what runs under it.
     static func readings(_ all: [(HostStats.Process, ppid: Int)], me: Int?) -> Set<Int> {
         var mine = Set(all.filter { $0.0.pid == me || $0.0.args.contains("s() { printf") }.map { $0.0.pid })
         var grew = true
@@ -213,8 +214,10 @@ enum HostStatsReader {
         return (String(fields[0]), String(fields[1]), Array(Set(ports)).sorted())
     }
 
-    /// ps's cgroup, "0::/system.slice/nginx.service" (v2) or "…;1:name=systemd:/system.slice/…" (v1): the innermost
-    /// systemd unit (a user's own manager rather than its init.scope), and a Docker container's id when it's in one.
+    /// Reads the systemd unit and the Docker container out of a process's cgroup line from ps, which looks like
+    /// "0::/system.slice/nginx.service" (cgroup v2) or "…;1:name=systemd:/system.slice/…" (v1). It returns the
+    /// innermost systemd unit (a user's own manager rather than its init.scope), and the id of the Docker container
+    /// when the process runs in one.
     static func unit(_ cgroup: String) -> (unit: String?, docker: String?) {
         let entries = cgroup.split(separator: ";")
         let entry =
@@ -271,8 +274,9 @@ enum HostStatsReader {
         return local.keys.sorted().map { HostStats.Port(port: $0, local: local[$0] ?? false, process: process[$0]) }
     }
 
-    /// "  761  1 root  5.6  7388  3-10:57:50 /usr/sbin/charon --foo"; with `cgroup`, "0::/system.slice/x.service" before
-    /// the command line. Also the id of the Docker container it's in.
+    /// Parses one line of ps output, such as "  761  1 root  5.6  7388  3-10:57:50 /usr/sbin/charon --foo". With
+    /// `cgroup`, the line carries the cgroup ("0::/system.slice/x.service") before the command line, and the result
+    /// also says which Docker container the process runs in.
     static func process(_ line: String, cgroup: Bool) -> (HostStats.Process, ppid: Int, docker: String?)? {
         let count = cgroup ? 8 : 7
         let fields = line.split(separator: " ", maxSplits: count - 1, omittingEmptySubsequences: true)

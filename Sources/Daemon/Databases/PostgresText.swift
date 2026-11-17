@@ -224,11 +224,11 @@ enum PostgresText {
     }
 }
 
-/// ~/.pgpass (or $PGPASSFILE), libpq's: `host:port:database:user:password` a line, `*` for any, `\:` and `\\`
-/// escaped. Read for each connection that has no password of its own, as psql does.
+/// ~/.pgpass (or $PGPASSFILE), in libpq's format: one `host:port:database:user:password` per line, with `*` for any
+/// value and `\:` and `\\` escaped. It is read for each connection that has no password of its own, as psql does.
 enum PgPass {
-    /// ~/.pgpass is the user's: for a server they added, or one on this Mac; not for a host a project's files name (a
-    /// cloned repo's .env), which its `*` lines would hand the password to.
+    /// ~/.pgpass belongs to the user, so it is used for a server they added or one on this Mac. It isn't used for a
+    /// host named in a project's files (a cloned repo's .env), because its `*` lines would hand that host the password.
     static func mayUse(for db: DatabaseInfo, host: String) -> Bool { db.source == nil || DatabaseInfo.isLocal(host) }
 
     static func password(host: String, port: Int, database: String?, user: String) -> String? {

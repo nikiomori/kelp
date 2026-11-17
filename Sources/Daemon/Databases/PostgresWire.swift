@@ -104,7 +104,7 @@ struct PostgresWire: DatabaseRunner {
         }
     }
 
-    /// The server's databases, for the sheet's pop-up.
+    /// The databases on the server, for the sheet's pop-up menu.
     func databases() async throws -> [String] {
         try await Self.with(connection) { conn in
             try await Self.rows(
@@ -139,7 +139,7 @@ struct PostgresWire: DatabaseRunner {
             host: host, port: port, username: user, password: password, database: db.database,
             tls: db.ssl == "disable" ? .disable : db.ssl == "require" ? .require(context) : .prefer(context))
         config.options.connectTimeout = .seconds(Int64(DatabaseTimes.connect))
-        // UTC: timestamptz as `PostgresText` writes it, so a row found by its values (`::text`) compares the same
+        // Use UTC, as `PostgresText` writes timestamptz, so a row found by its values (`::text`) compares the same
         config.options.additionalStartupParameters = [("application_name", "kelp"), ("TimeZone", "UTC")]
         let conn: PostgresConnection
         do {
@@ -211,7 +211,8 @@ struct PostgresWire: DatabaseRunner {
             )
         default:
             let said = psql.underlying.map { "\($0)" } ?? "\(psql.code)"
-            // NIO's "connect(descriptor:addr:size:): Connection refused (errno: 61)": the reason, as psql says it
+            // NIO says "connect(descriptor:addr:size:): Connection refused (errno: 61)"; report only the reason, as
+            // psql does
             if said.contains("Connection refused") { return DatabaseFailure.failed("Connection refused") }
             if said.contains("timed out") || said.contains("connectTimeout") {
                 return DatabaseFailure.failed(

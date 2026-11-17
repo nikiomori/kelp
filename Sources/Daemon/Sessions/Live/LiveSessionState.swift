@@ -29,7 +29,8 @@ extension LiveSession {
         /// The program turned on bracketed paste (ESC[?2004h): it tells a paste from typing.
         var pasteMode = false
         /// A draft is typed but not sent (an issue's brief, a hand-off's): the user reads it and presses Return. Until
-        /// they type anything, text sent meanwhile waits behind it — its Enter would submit the draft unread.
+        /// the user types anything, text sent meanwhile waits behind the draft, because its Enter would submit the
+        /// draft unread.
         var draftWaiting = false
         /// What the user typed and hasn't sent, as far as their keys tell (arrows and history recall aren't followed).
         var typing = ""
@@ -127,8 +128,8 @@ extension LiveSession {
         var pendingPrompts: [(text: String, draft: Bool, paste: Bool)] = []
         /// What its children said, for when it rests (`takesReport`).
         var reports: [String] = []
-        /// Someone answered the agent's first question (the user typed, or Kelp's auto-answer pressed its key): from then
-        /// on a trust dialog's words left in the scrollback no longer hold the launch prompt back.
+        /// Someone answered the agent's first question (the user typed, or Kelp's auto-answer pressed its key). From
+        /// then on, a trust dialog's words left in the scrollback no longer hold the launch prompt back.
         var dialogSettled = false
         /// Anything typed into it yet, by the user or by Kelp (a prompt): startup answers are only for what the agent asks
         /// before that. After it, a matching line is something the agent read or wrote, not its own dialog.

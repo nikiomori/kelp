@@ -89,7 +89,7 @@ extension LiveSession.State {
         return (answer.input, asked, answer.after ?? 0.4)
     }
 
-    /// The first local URL it prints (a dev server), with 0.0.0.0 and [::] as localhost.
+    /// The first local URL the session prints (a dev server's), with 0.0.0.0 and [::] read as localhost.
     mutating func localURL(_ plain: String) -> String? {
         guard !sawURL, wantsURL,
             let match = LiveSession.urlRegex.firstMatch(in: plain, range: NSRange(plain.startIndex..., in: plain)),
@@ -111,8 +111,8 @@ extension LiveSession.State {
         return range.flatMap { Int(plain[$0]) }
     }
 
-    /// Plan limits its agent printed (`limitScreen`: Claude Code's usage, or Cursor Agent's or Codex's once it ran out),
-    /// when they changed.
+    /// The plan limits the session's agent printed, when they changed (`limitScreen`: Claude Code's usage screen, or
+    /// the screen Cursor Agent or Codex prints once it ran out).
     mutating func newLimits(_ data: Data) -> [LimitScreens.Reading] {
         guard let limitScreen, data.range(of: Data("limit".utf8)) != nil else { return [] }
         let found = LimitScreens.read(limitScreen, screen(1200))

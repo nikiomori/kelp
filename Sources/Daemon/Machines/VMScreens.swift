@@ -1,10 +1,10 @@
 import Core
 import Foundation
 
-/// A machine's screen read and driven for `kelp vm screenshot`, `click`, `ui`… (`VMScreen`, `VMUI`), woken first: a
-/// macOS one's by its kelp-vm from the Mac's side (in `session`'s turn) and Kelp Guest inside, an Android one's through
-/// adb, an iOS one's through Kelp's runner in its simulator. `args` as `kelp vm` takes them, the action first; what the
-/// machine says back (`ui`'s controls) is the answer.
+/// Reads and drives a machine's screen for `kelp vm screenshot`, `click`, `ui` and the rest (`VMScreen`, `VMUI`),
+/// waking the machine first. A macOS machine is driven by its kelp-vm from the Mac's side (in `session`'s turn) and by
+/// Kelp Guest inside; an Android one through adb; an iOS one through Kelp's runner in its simulator. `args` are as
+/// `kelp vm` takes them, the action first; what the machine says back (the controls, for `ui`) is the answer.
 extension VMService {
     func screen(_ name: String, _ args: [String], session: String?) throws -> String {
         let machine = try ready(name)
@@ -34,7 +34,7 @@ extension VMService {
         case "install", "launch", "open":
             throw RPCError.invalidParams(
                 "\(words.action) is for Android and iOS machines: kelp vm run \(name) -- … does it on macOS.")
-        case "ui", "press":   // the app's controls, through Kelp Guest's Accessibility inside
+        case "ui", "press":   // the app's controls, read through Accessibility by Kelp Guest inside
             return try overSSH(name, VMs.guestProgram + " " + words.all.map(ShellQuote.word).joined(separator: " "))
         case "type" where words.rest.joined(separator: " ").contains { VMs.usKey($0) == nil }:
             // No key for it: pasted instead, its clipboard set over SSH (without LANG, read as Mac Roman).

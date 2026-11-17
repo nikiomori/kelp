@@ -108,12 +108,13 @@ struct DuckDBRun: DatabaseRunner {
         }
     }
 
-    /// The statements as a script on stdin, a marker printed after each (its `;` on a line of its own: a statement's
-    /// last line can be a `--` comment); it stops at the first error (`-bail`).
-    /// `-safe`: no dot-command that reaches past the file (`.shell`, `.open`, `.read`) and no file but this one
-    /// (ATTACH, COPY, read_csv), locked against a SET that would lift it; `-no-agent` keeps the CSV whatever AI_AGENT
-    /// says.
-    /// `changes`: each statement followed by the rows it changed ("changes: 1   total_changes: 3").
+    /// Runs the statements as one script on stdin and prints a marker after each statement. The marker's `;` goes on a
+    /// line of its own, because a statement's last line can be a `--` comment. The run stops at the first error
+    /// (`-bail`).
+    /// `-safe` forbids dot-commands that reach outside the file (`.shell`, `.open`, `.read`) and any file other than
+    /// this one (ATTACH, COPY, read_csv), and locks that against a SET that would lift it. `-no-agent` keeps the CSV
+    /// output whatever AI_AGENT says.
+    /// `changes` follows each statement with the rows it changed ("changes: 1   total_changes: 3").
     static func run(
         _ path: String, readOnly: Bool, _ statements: [String], timeout: TimeInterval, changes: Bool = false
     ) throws -> [String] {

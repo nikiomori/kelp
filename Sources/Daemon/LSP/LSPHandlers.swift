@@ -80,7 +80,8 @@ extension LSPSymbols: AsyncHandled {
 }
 
 extension LSPWorkspaceSymbols: AsyncHandled {
-    /// The project's own: a toolchain's or a dependency's names aren't what's looked for.
+    /// Symbols in the project's own files only: names from a toolchain or a dependency aren't what the user is looking
+    /// for.
     func handle(_ lsp: LSPHost) async throws -> [CodeSymbol] {
         guard let client = await lsp.client(root, path, can: "workspaceSymbolProvider") else { return [] }
         let base = URL(fileURLWithPath: root).resolvingSymlinksInPath().path + "/"
@@ -145,7 +146,7 @@ extension LSPRename: AsyncHandled {
 }
 
 extension LSPActions: AsyncHandled {
-    /// Every server's: a linter's fixes beside the language's own.
+    /// The code actions of every server for the file: a linter's fixes as well as the language server's own.
     func handle(_ lsp: LSPHost) async throws -> [CodeAction] {
         let all = await lsp.clients(root, path), able = all.filter { $0.can("codeActionProvider") }
         var found: [CodeAction] = [], failure: Error?

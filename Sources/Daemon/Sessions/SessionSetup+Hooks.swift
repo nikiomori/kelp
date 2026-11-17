@@ -101,8 +101,8 @@ extension SessionSetup {
         guard manifest.autoAnswers.contains(AgentManifest.trust) else { return manifest }
         var out = manifest
         out.autoAnswers.removeAll { $0 == AgentManifest.trust }
-        // A remote project's question is always the user's: decided before any git (over ssh, under its wake lock, for a host
-        // that may not answer).
+        // For a remote project the question is always the user's: it is decided before running any git (which would go
+        // over ssh, under the session's wake lock, to a host that may not answer).
         guard remotes.of(cwd) == nil else { return out }
         // The project only counts for its own workspace's folder: any other cwd passed with its worktreeId is just a folder.
         // (A workspace on another branch of a trusted project is trusted the way Claude trusts a folder, whatever is checked

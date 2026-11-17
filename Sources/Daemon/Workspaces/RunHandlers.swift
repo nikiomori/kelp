@@ -4,8 +4,8 @@ import Foundation
 // run.detect and run.start: what a workspace offers to run, read where its files are, and starting one.
 
 extension Workspaces {
-    /// What the workspace's files offer to run, read where they are: on a remote project's host, through its shell (its
-    /// PATH: nvm, pyenv), over the shared connection.
+    /// What the workspace's files offer to run, read where the files are: for a remote project that is on its host,
+    /// through its shell (so its PATH, with nvm or pyenv, applies), over the shared connection.
     func runOptions(_ worktree: Worktree) throws -> [RunOption] {
         let out: Data
         if let remote = remotes.of(worktree.path) {

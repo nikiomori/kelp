@@ -127,7 +127,8 @@ extension PhoneBridge {
                 _ = try await call(SessionMarkRead(id: id))
                 return Reply(status: 204)
             case "stop":
-                // Esc, as the user's own in the agent's terminal: it stops what it does and waits. Nothing ends.
+                // Esc, as if the user pressed it in the agent's terminal: the agent stops what it is doing and waits.
+                // Nothing ends.
                 _ = try await call(SessionWrite(id: id, text: "\u{1B}"))
                 return Reply(status: 204)
             case "choose":

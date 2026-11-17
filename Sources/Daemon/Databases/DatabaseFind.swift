@@ -7,7 +7,8 @@ struct FoundDatabase: Equatable {
     var password: String?
     /// The compose service it runs in, and its port there: its client can run inside that service's container.
     var service: (name: String, port: Int)?
-    /// The folder its source is in when that isn't the workspace's: the project's own, for a branch's workspace.
+    /// The folder the database's source is in when that isn't the workspace's folder: the project's own folder, for a
+    /// branch's workspace.
     var root: String?
 
     static func == (lhs: Self, rhs: Self) -> Bool {
@@ -222,8 +223,9 @@ enum DatabaseFind {
 
     // MARK: Prisma
 
-    /// The datasource's url when it's written out: `url = "postgresql://…"`, or a SQLite `file:./dev.db` (from the schema's
-    /// folder, as Prisma reads it). `env("DATABASE_URL")` is the .env's, found there.
+    /// The datasource's url when the schema writes it out: `url = "postgresql://…"`, or a SQLite `file:./dev.db`
+    /// (relative to the schema's folder, as Prisma reads it). For `env("DATABASE_URL")` the value comes from the .env
+    /// found there.
     static func prisma(_ text: String, source: String, root: String) -> [FoundDatabase] {
         var inSource = false
         for line in text.split(whereSeparator: \.isNewline).map({ $0.trimmingCharacters(in: .whitespaces) }) {

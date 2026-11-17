@@ -69,8 +69,8 @@ enum ImportReaders {
     private static func tablePlusEntry(_ entry: [String: Any], groups: [String: String]) -> ImportEntry? {
         let id = string(entry["ID"])
         guard let engine = engine(string(entry["Driver"])) else { return nil }
-        // A connection TablePlus shows by its address has no name of its own: "database@host", as it reads there.
-        // its host's first word ("pg-prod-ro"); an address in numbers whole
+        // A connection TablePlus shows by its address has no name of its own, so it gets "database@host", as it reads
+        // there: the host's first word ("pg-prod-ro"), or the whole address when it is numeric.
         let host = nonEmpty(entry["DatabaseHost"]).map { written in
             written.allSatisfy { $0.isNumber || $0 == "." || $0 == ":" }
                 ? written : String(written.split(separator: ".").first ?? Substring(written))
@@ -226,7 +226,7 @@ enum ImportReaders {
         return files.flatMap { dataSources($0.xml, group: $0.group) }
     }
 
-    /// One dataSources.xml and the .local.xml beside it (the user name, SSH).
+    /// Reads one dataSources.xml and the .local.xml beside it (which holds the user name and SSH settings).
     static func dataSources(_ url: URL, group: String?) -> [ImportEntry] {
         guard let sources = optional({ try XMLDocument(contentsOf: url).nodes(forXPath: "//data-source") }) else {
             return []
@@ -244,8 +244,9 @@ enum ImportReaders {
             db.group = element.attribute(forName: "group-name")?.stringValue ?? group
             let mine = optional { try local?.nodes(forXPath: "//data-source[@uuid='\(uuid)']") }?.first as? XMLElement
             db.user = mine?.elements(forName: "user-name").first?.stringValue ?? db.user
-            // A URL to one database (often "postgres") whose tables DataGrip shows from one other: that one
-            // ("@" is the URL's). Only the database nodes' own names: a <name> deeper down is a schema's.
+            // A URL to one database (often "postgres") from which DataGrip shows another database's tables: use that
+            // other database (the "@" belongs to the URL). Only the database nodes' own names count: a <name> deeper
+            // down belongs to a schema.
             let scope = ".//introspection-scope//node[@kind='database' and not(@negative)]"
             let shown = Set(
                 (optional { try mine?.nodes(forXPath: "\(scope)/@qname | \(scope)/name/@qname") } ?? [])

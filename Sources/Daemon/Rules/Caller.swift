@@ -4,11 +4,11 @@ import Foundation
 enum Caller: Hashable, Sendable {
     /// Outside every session: the user's own terminal, Kelp's window, the daemon itself. Not held to an agent's rules.
     case user
-    /// A program in that session's process tree, or its terminal: held to an agent's rules when an agent is on its
-    /// line, or once the session's record is gone (`forAnAgent`).
+    /// A program in that session's process tree, or in its terminal. It is held to an agent's rules when an agent is in
+    /// its process line, or once the session's record is gone (`forAnAgent`).
     case session(String)
-    /// A program run under an agent the user started by hand in that session's terminal (`claude` typed into a shell):
-    /// held to an agent's rules as that session's, whatever the session is.
+    /// A program run under an agent that the user started by hand in that session's terminal (`claude` typed into a
+    /// shell). It is held to an agent's rules as that session's agent, whatever the session is.
     case typedAgent(String)
     /// A program this daemon started (an extension's command or event, a repo's git hook, what they leave running), or
     /// one on a connection that hung up: whoever wrote it, it acts on no session and answers no question.
@@ -16,13 +16,14 @@ enum Caller: Hashable, Sendable {
     /// Gone before it could be looked at (it connected and ended at once, leaving the connection to a child): held to an
     /// agent's rules, and speaks for no session.
     case unknown
-    /// None of the above and not the user's that Kelp can tell (`Callers.session(running:)`): one that left every
-    /// terminal and app behind (a double fork with `setsid`, `script`, a tmux server nobody's attached to). Held to an
-    /// agent's rules.
+    /// None of the above, and not a caller Kelp can tell is the user's (`Callers.session(running:)`): a program that
+    /// left every terminal and app behind (a double fork with `setsid`, `script`, a tmux server nobody is attached to).
+    /// It is held to an agent's rules.
     case detached
 
-    /// What a session started under an agent typed in by hand records before the terminal's id (`typed:<id>`): its line
-    /// goes on to that terminal's session (`lineage`), and is held to an agent's rules (`forAnAgent`).
+    /// The prefix a session records before the terminal's id (`typed:<id>`) when it was started under an agent the user
+    /// typed in by hand. Its lineage then continues into that terminal's session (`lineage`), and it is held to an
+    /// agent's rules (`forAnAgent`).
     static let typed = "typed:"
 
     /// Whether `origin` (or a `madeBy`) is what an agent typed into `terminal` started.
@@ -30,7 +31,8 @@ enum Caller: Hashable, Sendable {
     /// Whether `origin` is what an agent typed into some terminal started.
     static func typedOrigin(_ origin: String?) -> Bool { origin?.hasPrefix(typed) == true }
 
-    /// The session an origin (or a `madeBy`) names: a session's id, or the terminal's of a `typed:` one; nil for a mark.
+    /// The session an origin (or a `madeBy`) names: the session's id, or for a `typed:` origin the terminal's session;
+    /// nil for a mark.
     static func session(of origin: String?) -> String? {
         guard let origin, !marks.contains(origin) else { return nil }
         return origin.hasPrefix(typed) ? String(origin.dropFirst(typed.count)) : origin

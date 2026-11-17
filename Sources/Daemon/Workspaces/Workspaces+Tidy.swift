@@ -4,15 +4,18 @@ import GitKit
 import os
 
 extension Workspaces {
-    /// A branch group done with, closed with nobody asked: one an agent made (`kelp worktree create`) once nobody is left
-    /// on it, and anyone's once the work done on it since the group was made landed in the base branch (merged or
-    /// fast-forwarded there, or its pull request merged with the branch where the forge last saw it). Never while an agent there works or asks, never with
-    /// uncommitted files, never with commits that are only there, unless the merged pull request carries them. A landed
-    /// group that still has chats is archived with them (nothing of theirs is lost), one without is removed: folder to the
-    /// Trash, branch deleted. Limit: a remote project's groups aren't looked at; a branch merged while its agent worked
-    /// goes at the next change of the project's branches, its pull request's next read or Kelp's next start.
-    /// `someoneLeft`: a session there just ended; else an agent's empty branch goes only once it's 5 minutes old (its
-    /// agent starts a moment after its branch).
+    /// Closes a branch group that is done with, without asking anyone. A group an agent made (`kelp worktree create`)
+    /// goes once nobody is left on it; anyone's group goes once the work done on it since the group was made has landed
+    /// in the base branch (merged or fast-forwarded there, or its pull request merged with the branch where the forge
+    /// last saw it).
+    /// Never while an agent there works or asks, never with uncommitted files, and never with commits that exist only
+    /// there, unless the merged pull request carries them. A landed group that still has chats is archived with them
+    /// (nothing of theirs is lost); one without chats is removed: its folder goes to the Trash and its branch is
+    /// deleted.
+    /// Limit: a remote project's groups aren't looked at, and a branch merged while its agent worked goes only at the
+    /// next change of the project's branches, the next read of its pull request, or Kelp's next start.
+    /// `someoneLeft` says a session there just ended; otherwise an agent's empty branch goes only once it is 5 minutes
+    /// old (its agent starts a moment after its branch).
     func tidyBranch(_ id: String, merged pr: GitHub.PullRequest? = nil, someoneLeft: Bool = false) {
         dispatchPrecondition(condition: .onQueue(headQueue))
         Log.store.attempt("tidying a branch group") {

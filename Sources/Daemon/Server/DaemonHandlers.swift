@@ -17,7 +17,8 @@ extension DaemonShutdown: Handled {
     static func replied(_ shutdown: Shutdown) { Thread.detachNewThread(shutdown.run) }
 }
 
-/// daemon.shutdown's: the daemon's stop, once what's queued for every client went out, and the process's end.
+/// What daemon.shutdown runs: the daemon stops once what is queued for every client has gone out, and then the process
+/// ends.
 struct Shutdown {
     let run: @Sendable () -> Void
 }

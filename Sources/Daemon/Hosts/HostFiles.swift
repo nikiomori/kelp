@@ -14,8 +14,9 @@ struct HostFiles {
         return remotes.containing(path).map { HostFiles(folder: $0.folder, remote: $0.remote) }
     }
 
-    /// Where it is on the host: `..` taken out first, and only for a path in the folder. The rest of any other names
-    /// nothing there: with the folder's length dropped unchecked, a worktree's build was the main checkout's.
+    /// Where `path` is on the host: `..` is resolved first, and only a path inside the folder is mapped. Any other path
+    /// names nothing there: when the folder's length was dropped without checking, a worktree's build ended up in the
+    /// main checkout's folder.
     func there(_ path: String) throws -> String {
         let path = URL(fileURLWithPath: path).standardizedFileURL.path
         // A stand-in's path, a string to compare (`Paths.inside` looks at this Mac's disk, where it isn't).

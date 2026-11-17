@@ -34,10 +34,13 @@ extension LiveSession.State {
         if let conv = report.conv, report.id == nil { record.argv = agent.following(record.argv, conversation: conv) }
     }
 
-    /// A hook event from the agent: its status, and what a compaction or a question says on the row. `trigger`: PreCompact's
-    /// manual / auto; `message`: what a Notification says ("Claude needs your permission to use Bash"); `asker`: whose
-    /// permission dialog it is, for `tool`; `question`: AskUserQuestion opened, `answered`: its result came; `goal`: what
-    /// the prompt set as a /goal.
+    /// Applies a hook event the agent sent: its new status, and what a compaction or a question shows on the session's
+    /// row. The parameters:
+    /// - `trigger`: PreCompact's "manual" or "auto".
+    /// - `message`: the text of a Notification ("Claude needs your permission to use Bash").
+    /// - `asker`: whose permission dialog this is, for `tool`.
+    /// - `question`: an AskUserQuestion dialog opened; `answered`: its result came back.
+    /// - `goal`: what the prompt set as a /goal.
     mutating func hook(
         _ event: HookEvent, trigger: String? = nil, message: String? = nil, asker: String? = nil,
         question: Bool = false, answered: Bool = false,
@@ -138,10 +141,10 @@ extension LiveSession.State {
         return kept.asking.isEmpty && !kept.questionOpen
     }
 
-    /// A dialog a hook counted is still open (a permission's, AskUserQuestion's), whatever the status says since: what
-    /// keeps an agent's keys out (`asksSomething`).
-    /// Limit: hooks are the session's own word, so a program in it that sends an answer's hooks (PostToolBatch, Stop)
-    /// by hand still un-says its question.
+    /// Whether a dialog that a hook reported (a permission dialog, AskUserQuestion) is still open, whatever the status
+    /// says since. While it is, an agent's keystrokes are kept out (`asksSomething`).
+    /// Limit: hooks are the session's own word, so a program in the session that sends an answer's hooks
+    /// (PostToolBatch, Stop) by hand still clears its question.
     var asked: Bool { !kept.asking.isEmpty || kept.questionOpen }
 
     /// Whatever it asked is over.

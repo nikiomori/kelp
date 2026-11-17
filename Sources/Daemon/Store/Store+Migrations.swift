@@ -74,7 +74,8 @@ extension Store {
                 table.primaryKey("key", .text)
                 table.column("value", .text).notNull()
             }
-            // A workspace's layout goes with it, however it's removed (its project's removal cascades here too).
+            // A workspace's layout is deleted with the workspace, however the workspace is removed (removing its
+            // project cascades here too).
             try db.execute(
                 sql:
                     "CREATE TRIGGER uiStateLayout AFTER DELETE ON worktree BEGIN DELETE FROM uiState WHERE key = 'layout/' || OLD.id; END"

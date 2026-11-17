@@ -55,8 +55,8 @@ final class LiveSession: Sendable {
     static let busyRegex = try! NSRegularExpression(
         pattern: #"port (\d{2,5}) is (?:already )?in use|(?:EADDRINUSE|address already in use)[^\n]*?[: ](\d{4,5})\b"#,
         options: .caseInsensitive)
-    // A page this Mac serves. Its host ends where a port, a path, a query or the end of the word begins: the page opens
-    // by itself, and `localhost@mail.example` or `localhost.evil.tld` is another host's.
+    // A page this Mac serves. The host ends where a port, a path, a query or the end of the word begins, because the
+    // page opens by itself, and `localhost@mail.example` or `localhost.evil.tld` belong to another host.
     // swiftlint:disable:next force_try
     static let urlRegex = try! NSRegularExpression(
         pattern: #"https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1?\])(:\d+)?(?=[/?#\s\x1b'"]|$)[^\s\x1b'"]*"#)

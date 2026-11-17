@@ -32,7 +32,8 @@ enum DatabaseWire {
         .failed("Kelp has no password for \(db.name): Edit… to type one, or import it again.")
     }
 
-    /// A host the network doesn't know (a VPN's, a cluster's inside name): said as such, not as NIO's error.
+    /// A host the network doesn't know (a VPN's or a cluster's internal name), reported in those words rather than as
+    /// NIO's error.
     static func unreached(_ error: any Error, _ db: DatabaseInfo) -> DatabaseFailure? {
         let said = "\(error)" + ((error as? PSQLError)?.underlying.map { " \($0)" } ?? "")
         guard said.contains("UnknownHost") || said.contains("nodename nor servname") else { return nil }

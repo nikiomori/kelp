@@ -221,8 +221,9 @@ extension AgentUsage {
         }
     }
 
-    /// Kelp's own folder, with no agent config in it: nobody watches the hidden copy, so no project's hooks or MCP servers
-    /// may come in unseen. Each agent trusts it for the run (Grok's and Kimi's env, Copilot's Enter, Cursor's --trust).
+    /// Kelp's own folder, with no agent config in it, where probes run. Nobody looks at this hidden copy, so no
+    /// project's hooks or MCP servers may come in unseen. Each agent is told to trust the folder for the run (through
+    /// Grok's and Kimi's environment, Copilot's Enter, and Cursor's --trust).
     private var probeDir: String? {
         let dir = root.appendingPathComponent("probe")
         return Log.session.attempt("making the usage probe's folder") { try Paths.ensure(dir) }.map { dir.path }

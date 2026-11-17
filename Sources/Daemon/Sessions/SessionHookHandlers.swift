@@ -130,7 +130,8 @@ extension SessionHook: Handled {
 
 extension SessionAnnotate: Handled {
     static var quick: Bool { true }
-    /// The window's own reading of a session (its notifier's summary): no agent sets another's status or summary.
+    /// The window's own reading of a session (its notifier's summary). No agent may set another session's status or
+    /// summary.
     var fence: Fence { Fence(onlyFromKelp: "Only Kelp's window annotates a session.") }
     func handle(_ sessions: Sessions) throws -> Done {
         guard let ls = sessions.existing(id), ifStatus.map({ $0 == ls.snapshot.status.rawValue }) ?? true else {

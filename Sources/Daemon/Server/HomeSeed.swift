@@ -25,7 +25,8 @@ public enum HomeSeed {
         guard !fm.fileExists(atPath: db), fm.fileExists(atPath: source) else { return }
         Log.start.attempt("copying \(stable.path) to \(home.path)") {
             try Paths.ensure(home)
-            // The daemon's lock: a second kelpd (the app's, the CLI's) waits here, then finds the home filled.
+            // The daemon's lock: a second kelpd (started by the app or the CLI) waits here, then finds the home already
+            // filled.
             let lock = open(home.appendingPathComponent("kelpd.lock").path, O_RDWR | O_CREAT | O_CLOEXEC, 0o600)
             defer { close(lock) }
             flock(lock, LOCK_EX)

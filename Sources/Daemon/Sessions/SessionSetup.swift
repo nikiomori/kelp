@@ -70,7 +70,7 @@ final class SessionSetup: Sendable {
         }
         guard let exe = run.first else { throw RPCError.invalidParams("empty command") }
         let resolved = try LoginPath.resolve(exe)
-        // Codex's hooks: here, not in the record, as the host's are, so a wake gets this kelpd's.
+        // Codex's hooks are added here, not stored in the record (as on a host), so a wake gets this kelpd's hooks.
         let hooks = tmux == nil && box == nil && codexHooksOn(manifest, argv: argv, cwd: cwd) ? CodexHooks.args : []
         return [resolved] + hooks + run.dropFirst()
     }
@@ -94,9 +94,10 @@ final class SessionSetup: Sendable {
         }
     }
 
-    /// A terminal (`shell`: the machine's login shell) or a command line (`custom`, a Run command) through `kelp vm run`
-    /// in `machine`, in `cwd` there (shared at its own path); nil for what stays here: an agent, a tmux session, a
-    /// command that's already `kelp vm run` (a machine's own terminal).
+    /// The command line that runs a terminal (`shell`: the machine's login shell) or a command (`custom`, a Run
+    /// command) in `machine` through `kelp vm run`, in `cwd` there (the folder is shared at the same path). Returns nil
+    /// for what stays on this Mac: an agent, a tmux session, or a command that already is `kelp vm run` (a machine's
+    /// own terminal).
     static func inMachine(
         _ argv: [String], _ manifest: AgentManifest, machine: String, cwd: String, kelp: String
     ) -> [String]? {
@@ -127,9 +128,9 @@ final class SessionSetup: Sendable {
         return (worktree.path, repo.path)
     }
 
-    /// What a program on a host gets of its environment here: its agent's settings and secrets (`secret`, sent apart),
-    /// and Kelp's own (the port block, colour, links). Not this Mac's paths (a profile's folder, the socket, PATH): they
-    /// mean nothing there.
+    /// The environment a program on a host gets from here: its agent's settings and secrets (`secret`, sent separately)
+    /// and Kelp's own variables (the port block, colour, links). Not this Mac's paths (a profile's folder, the socket,
+    /// PATH), which mean nothing there.
     static func hostEnv(_ manifest: AgentManifest, _ env: [String: String]) -> (
         own: [String: String], secret: [String: String]
     ) {
@@ -192,7 +193,7 @@ final class SessionSetup: Sendable {
         return env
     }
 
-    /// The first of the session's folder's ten ports (`PortBlocks`).
+    /// The first of the ten ports given to the session's folder (`PortBlocks`).
     private func portBlock(_ rec: Session) throws -> Int {
         let all = try store.worktrees()
         let folder = rec.worktreeId.flatMap { id in all.first { $0.id == id }?.path } ?? rec.cwd

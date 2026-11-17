@@ -2,13 +2,15 @@ import Agents
 import Core
 import Foundation
 
-/// A project the user runs in its dev container (its menu's Run in Dev Container, `Repo.devContainerKey`): its
-/// terminals and agents start in the container its `.devcontainer/devcontainer.json` describes, through the Dev
-/// Containers CLI and docker (or what stands in for it: OrbStack, Colima, Podman). The folder is bind-mounted at its
-/// own path, and so are the project's main folder (a worktree's `.git` names it) and what an agent's command line
-/// names of Kelp's: what they print, change and run is this Mac's folder, and git, turns and the editor read it here
-/// as ever. The first start brings the container up (`devcontainer up`, its log in that terminal); later ones find
-/// it. The agent's Environment settings and secrets go in by name (`docker exec -e NAME`): never on a command line.
+/// Runs a project in its dev container, when the user picked Run in Dev Container on the project's menu
+/// (`Repo.devContainerKey`). Its terminals and agents start in the container that `.devcontainer/devcontainer.json`
+/// describes, through the Dev Containers CLI and docker (or a stand-in: OrbStack, Colima, Podman).
+/// The project folder is bind-mounted at its own path, and so are the project's main folder (a worktree's `.git` names
+/// it) and the Kelp paths an agent's command line names. So what the container prints, changes and runs is this Mac's
+/// folder, and git, turns and the editor read it here as usual.
+/// The first start brings the container up (`devcontainer up`, with its log in that terminal); later starts find it
+/// running. The agent's Environment settings and secrets go in by name (`docker exec -e NAME`), never on a command
+/// line.
 enum DevContainer {
     /// Whether `folder` has a dev container: without one its project's terminals run here.
     static func configured(in folder: String) -> Bool {

@@ -4,15 +4,16 @@ import Foundation
 import SystemConfiguration
 import os
 
-/// The agents on a phone (Settings › Phone, off until `phone.relay` has an address): the phone opens the relay's page,
+/// The agents on a phone (Settings › Phone; off until `phone.relay` has an address). The phone opens the relay's page,
 /// and the relay passes its calls to the connection this Mac keeps open to it, so no Mac needs an address of its own.
-/// In the daemon: it works with Kelp's window closed, and its calls are answered as the daemon's own (`Asker`), which
-/// are the user's, as a phone's Allow has to be.
+/// It lives in the daemon, so it works with Kelp's window closed, and its calls are answered as the daemon's own
+/// (`Asker`), which count as the user's, as a phone's Allow has to.
 ///
-/// Unlike ntfy's channel (PhonePush.swift), whose address is its only secret and which therefore only tells, a phone
-/// here answers too: each holds a key from its pairing link, which the relay never sees, every call is sealed under
-/// it (`PhoneSeal`) and no call counts twice (`PhoneDevice.admit`). The relay reads which Mac and which phone, and
-/// nothing else. Limit: the page itself comes from the relay; one that served another page could take a key.
+/// Unlike ntfy's channel (PhonePush.swift), whose address is its only secret and which therefore only sends news, a
+/// phone here also answers. Each phone holds a key from its pairing link that the relay never sees, every call is
+/// sealed under that key (`PhoneSeal`), and no call counts twice (`PhoneDevice.admit`). The relay can read which Mac
+/// and which phone a call is for, and nothing else. Limit: the page itself comes from the relay, so a relay that served
+/// a different page could take a key.
 actor PhoneBridge {
     /// A method of the daemon's, answered as a call of its own: its name and params, the result as JSON.
     typealias Asker = @Sendable (String, JSONValue) async throws -> Data
@@ -139,8 +140,8 @@ extension PhoneBridge {
         }
     }
 
-    /// Follows Settings › Phone: the relay's connection or this Mac's own server, and nothing once it's off or the
-    /// daemon stops.
+    /// Follows Settings › Phone: the relay's connection or this Mac's own server, and nothing once the setting is off
+    /// or the daemon stops.
     private func apply() {
         let want = asker == nil ? nil : wanted()
         guard want != way else { return }

@@ -93,7 +93,8 @@ extension PTY {
         "VSCODE_"
     ]
 
-    /// A session's environment: the daemon's, without what doesn't belong to a new session, under the session's own.
+    /// A session's environment: the daemon's environment without the variables that don't belong in a new session, with
+    /// the session's own variables on top.
     static func environment(_ daemon: [String: String], _ env: [String: String]) -> [String: String] {
         // Don't leak the environment of whatever started the daemon (e.g. an agent's session markers) into new sessions.
         var merged = daemon.filter { k, _ in !scrubbed.contains { k.hasPrefix($0) } }.merging(env) { $1 }

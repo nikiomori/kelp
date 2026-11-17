@@ -55,14 +55,16 @@ public final class Daemon: Sendable {
         try self.init(root: root, store: store, lspDelays: (retry: 30, idle: 60))
     }
 
-    /// kelpd's own: a caller is the user's only when Kelp can tell (`Callers.session(running:)`); anything else, its own
-    /// programs' leftovers included, is held to an agent's rules. Not in a test's daemon, whose process is the test's.
+    /// Turns on kelpd's strict mode: a caller counts as the user only when Kelp can tell (`Callers.session(running:)`);
+    /// every other caller, leftovers of kelpd's own programs included, is held to an agent's rules. A test's daemon
+    /// doesn't call this, because its process is the test's.
     public func strict() { callers.strict.withLock { $0 = true } }
 
     /// `lspDelays`: how soon a broken language server is started again, and how long one with no open file keeps running
     /// (tests shorten them).
     init(root: URL, store: Store?, lspDelays: (retry: TimeInterval, idle: TimeInterval)) throws {
-        // a client that hangs up mid-write fails that write; it must not end the process (kelpd's, or a test's hosting one)
+        // A client that hangs up mid-write fails that write; it must not end the process (kelpd's, or a test's that
+        // hosts a daemon)
         signal(SIGPIPE, SIG_IGN)
         self.root = root
         try Paths.ensure(root)
@@ -153,8 +155,9 @@ public final class Daemon: Sendable {
             }
         } catch { Log.store.error("couldn't mark the last run's sessions paused or ended: \(error)") }
         handover?.sessions.forEach(sessions.adopt)   // before the first connection: it finds them running
-        // Machines a kelpd before this one was making (it quit or was upgraded midway): only once this one holds the home,
-        // a second kelpd (launchd's, a CLI's) going away right after must not touch them, and on a thread of its own.
+        // Machines that an earlier kelpd was making (it quit or was upgraded midway). This waits until this kelpd holds
+        // the home, because a second kelpd (launchd's, a CLI's) that goes away right after must not touch them, and
+        // runs on a thread of its own.
         if !takingBack {
             let vms = self.vms
             Thread.detachNewThread { vms.resumeMaking() }
@@ -202,7 +205,8 @@ public final class Daemon: Sendable {
             }
         }
         settingsEvents.watch()
-        // Its calls are answered as the daemon's own (`conn` -1): the user's, as a phone's Allow has to be.
+        // The phone's calls are answered as the daemon's own (`conn` -1), which counts as the user's, as a phone's
+        // Allow has to.
         sessions.phone.hear(
             .started { [weak self] method, params in
                 guard let self else { throw RPCError.internalError("The background service stopped.") }
@@ -292,7 +296,8 @@ public final class Daemon: Sendable {
         return handover
     }
 
-    /// What's queued for every client goes out first (a stop's or an update's own reply among it), 2 s at most each.
+    /// What is queued for every client goes out first (including a stop's or an update's own reply), waiting at most 2
+    /// s for each client.
     func drainReplies() {
         let everyone = clients.everyone()
         DispatchQueue.concurrentPerform(iterations: everyone.count) { everyone[$0].drain(within: 2) }
@@ -353,9 +358,9 @@ public final class Daemon: Sendable {
     /// that carry state carry all of it (a session's record, a revision), so the later one read wins either way.
     func notify(_ event: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(event, to: only) }
 
-    /// One round of the 0.5 s ticker. With no session running there's nothing to tick, pause or restart: only the Mac's
-    /// keep-awake is applied, so the last session's ending lets it go (and "always" keeps it), and the rounds slow down
-    /// until one starts. Whether the round ran.
+    /// Runs one round of the 0.5 s ticker and returns whether the round ran. With no session running there is nothing
+    /// to tick, pause or restart: only the Mac's keep-awake is applied (so it is released once the last session ends,
+    /// unless it is set to "always"), and the rounds slow down until a session starts.
     @discardableResult
     func tick() -> Bool {
         guard !sessions.live.all.isEmpty else {

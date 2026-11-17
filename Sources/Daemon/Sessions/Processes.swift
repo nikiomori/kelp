@@ -58,7 +58,7 @@ final class SessionProcesses: Sendable {
         return out.values.sorted { $0.port < $1.port }
     }
 
-    /// The workspace when it's a remote project's.
+    /// The workspace and its host, when the workspace belongs to a remote project.
     func remote(_ wid: String) -> (Worktree, RemoteHost)? {
         guard let worktree = Log.store.attempt("reading a workspace", { try store.worktree(wid) }).flatMap({ $0 }),
             let remote = remotes.of(worktree.path)

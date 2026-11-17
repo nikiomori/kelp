@@ -25,8 +25,8 @@ struct PushSubscription: Codable, Equatable, Sendable {
     }
 }
 
-/// A push this Mac sends to a phone's browser itself, through that browser's push service, which can't read it:
-/// RFC 8291's `aes128gcm`, signed as this Mac's (VAPID, RFC 8292). The relay has no part in it.
+/// A push this Mac sends straight to a phone's browser, through that browser's push service, which can't read it. It is
+/// encrypted as RFC 8291's `aes128gcm` and signed with this Mac's key (VAPID, RFC 8292). The relay plays no part in it.
 enum WebPush {
     struct BadSubscription: Error {}
 

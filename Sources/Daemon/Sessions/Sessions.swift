@@ -146,7 +146,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         var onHostInTmux = false   // a command (run.start) that outlives a dropped connection, as agents do
         var parent: String?   // the agent that started it
         var startedBy: String?   // the agent whose line shows this command
-        var origin: String?   // restart: the old one's; else the caller's (`Sessions.asker`)
+        var origin: String?   // for a restart, the old session's origin; else the caller's (`Sessions.asker`)
         var role: SessionRole?   // the job it's started for (a reviewer); a restart keeps the old one's
 
         init() {}
@@ -235,7 +235,7 @@ final class Sessions: Sendable, WorkspaceSessions {
             record: rec, manifest: setup.liveManifest(manifest, cwd: cwd, worktreeId: worktreeId, env: env, argv: argv),
             argv: try setup.launchArgv(argv, cwd: cwd, manifest: manifest, tmux: rec.tmux, env: env), env: env,
             historyDir: root.appendingPathComponent("history"), cols: launch.cols, rows: launch.rows,
-            // A dev server's URL opens in the workspace's browser (e.g. Jupyter Lab's).
+            // A dev server's URL (e.g. Jupyter Lab's) opens in the workspace's browser.
             callbacks: callbacks(
                 for: rec, limits: manifest.limitScreen, devServerIn: launch.openURLs ? worktreeId : nil))
         if launch.tmux != nil { ls.attachedToRunning() }
@@ -284,7 +284,8 @@ final class Sessions: Sendable, WorkspaceSessions {
     /// ends with it unless `keepTmux` (a restart, whose new session attaches to it).
     func discard(_ session: Session, keepTmux: Bool = false) { discard([session], keepTmux: keepTmux) }
 
-    /// Several (a project's, a workspace's) stopped together: one wait for all, not up to 10 s each.
+    /// Discards several sessions that stopped together (a project's, a workspace's) with one wait for all of them,
+    /// rather than up to 10 s each.
     func discard(_ all: [Session], keepTmux: Bool = false) {
         if !keepTmux { all.forEach(endOwnTmux) }
         wakeLocks.withLocks(all.map(\.id)) {

@@ -90,7 +90,8 @@ extension RepoRelocate: Handled {
     }
 }
 
-/// An empty name goes back to the folder's, as `repo.add` named it (a remote project's: the folder on its host).
+/// An empty name goes back to the folder's name, as `repo.add` named the project (for a remote project, the name of the
+/// folder on its host).
 extension RepoRename: Handled {
     func handle(_ workspaces: Workspaces) throws -> Repo {
         guard var repo = try workspaces.store.repo(id) else { throw RPCError.noProject(id) }

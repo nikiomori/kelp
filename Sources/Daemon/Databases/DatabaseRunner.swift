@@ -28,7 +28,7 @@ protocol DatabaseRunner: Sendable {
 
 extension DatabaseRunner {
     var holdsAllowed: Bool { true }
-    /// Limit: SQLite and the servers kelpd speaks to itself run several; a client program's or Appwrite's don't yet.
+    /// Limit: SQLite and the servers kelpd talks to itself run several; a client program and Appwrite don't yet.
     func batch(_ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool) async throws -> [Int?] {
         throw DatabaseFailure.noBatch
     }
@@ -37,8 +37,8 @@ extension DatabaseRunner {
 }
 
 extension DatabaseEngines {
-    /// The one way to reach `c`: a file's engine, its server's protocol where kelpd reaches an address, else its client
-    /// inside the compose container (no address: `host` nil).
+    /// How to reach `c`, in one place: a file database's own engine; the server's protocol where kelpd can reach an
+    /// address; otherwise the database's client inside the compose container (when there is no address, `host` is nil).
     static func runner(_ databaseConnection: DatabaseConnection, off: Slots) -> any DatabaseRunner {
         switch (databaseConnection.database.engine, databaseConnection.database.host) {
         case (.sqlite, _): SQLiteRun(connection: databaseConnection, off: off)

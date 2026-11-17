@@ -1,7 +1,8 @@
 import Core
 import Foundation
 
-/// A machine's files: one of the user's it's made from, its exchange folder; and its size, changed while it's shut down.
+/// A machine's files (the user's file it is made from, its exchange folder), and its size, which changes while it is
+/// shut down.
 extension VMService {
     /// The file a machine is made from, before anything is made: what it is, as far as its first bytes tell.
     static func check(_ file: URL, for image: VMImage) throws {
@@ -96,7 +97,8 @@ extension VMService {
             guard machine.kind == .linux else {
                 throw RPCError.invalidParams("A macOS machine's disk can't grow: its recovery partition sits after it.")
             }
-            // By the file's own size, not machine.json's: one grown before a write of that failed is never cut back.
+            // Go by the disk file's own size, not machine.json's: a disk grown before a failed write of machine.json is
+            // never cut back.
             let path = folder(machine.name).disk.path
             var st = stat()
             guard stat(path, &st) == 0 else {

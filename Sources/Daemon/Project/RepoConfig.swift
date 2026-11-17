@@ -18,7 +18,7 @@ struct RepoConfig: Sendable, Equatable {
     var recipes: [String: String] = [:]
     /// Named commands in the file's order.
     var scripts: [Script] = []
-    /// Group templates in the file's order, each as written (the app reads them: `LayoutTemplate(name:spec:…)`).
+    /// Group templates in the file's order, each as written (the app reads them with `LayoutTemplate(name:spec:…)`).
     var layouts: [Script] = []
     typealias Script = ScriptsList.Script
     /// Run before each of its commands: the variables another tool's scripts expect (`ImportedConfig`); "" for a .kelp.yaml.

@@ -69,9 +69,9 @@ extension SessionHandoff: Handled {
         }
     }
 
-    /// A session's conversation written to ~/.kelp/handoff/<id>.md for the next agent to read: the agent's own
-    /// (what was asked and answered, what it changed and ran: Claude Code, Codex, pi) when there is one; otherwise the
-    /// terminal's text. Both with what git says is uncommitted.
+    /// Writes a session's conversation to ~/.kelp/handoff/<id>.md for the next agent to read: the agent's own
+    /// conversation (what was asked and answered, what it changed and ran, for Claude Code, Codex and pi) when there is
+    /// one, otherwise the terminal's text. Either way it adds what git says is uncommitted.
     private static func brief(
         of session: Session, _ conversation: Conversation?, limit: Int, uncommitted: String, _ sessions: Sessions
     ) throws -> URL {
@@ -104,8 +104,8 @@ extension SessionHandoff: Handled {
         }
     }
 
-    /// The brief, copied into the repository's own .git/kelp-handoff on the host (git doesn't list it; a worktree's is
-    /// its project's), where the agent there reads it: its path there.
+    /// Copies the brief into the repository's own .git/kelp-handoff on the host (git doesn't list it; a worktree uses
+    /// its project's), where the agent on the host reads it, and returns its path there.
     private static func upload(_ brief: URL, to remote: RemoteHost) throws -> String {
         let name = ShellQuote.word(brief.lastPathComponent)
         let out = try remote.run(

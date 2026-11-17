@@ -114,8 +114,8 @@ final class Workspaces: Sendable {
 
     /// A new workspace in the project's folder: instant, named "Workspace N" until its first prompt names it (see autoTitle).
     func createWorkspace(in repo: Repo) throws -> Worktree {
-        // Read before the lock: a remote project's is read over ssh, and a host that doesn't answer would hold every
-        // project's sync for its timeout.
+        // Read before taking the lock: a remote project's branch is read over ssh, and a host that doesn't answer would
+        // hold up every project's sync until it timed out.
         let branch = (try? Git.currentBranch(repo.path, remotes: remotes)) ?? repo.baseBranch
         let worktree = try workspaceLock.withLock {   // its "Workspace N" counts the workspaces there now
             try syncWorkspaces()   // names the project's first workspace, so the new one doesn't take "Workspace 1"
@@ -140,7 +140,7 @@ final class Workspaces: Sendable {
         return ("Workspace \(number)", "ws-\(number)")
     }
 
-    /// `branch` isn't there, nor being made by another create: now it's this one's.
+    /// Claims `branch` for this create: true when the branch doesn't exist and no other create is making it.
     private func claimed(_ repo: Repo, _ branch: String) -> Bool {
         guard !Git.branchExists(repo.path, branch, remotes: remotes) else { return false }
         return making.withLock { $0.insert(repo.id + "/" + branch).inserted }
@@ -150,9 +150,10 @@ final class Workspaces: Sendable {
         making.withLock { claims in for branch in branches { claims.remove(repo.id + "/" + branch) } }
     }
 
-    /// A workspace on a branch of its own, in a worktree of `repo`, as `asked` says: its `branch` (else "ws-N", or named
-    /// after `note`), made from `base` (else the project's), checked out as it is (`existing`), or a pull request's head
-    /// (`pr`). What its .kelp.yaml links, clones and starts waits for the user's trust in the file.
+    /// Makes a workspace on a branch of its own, in a worktree of `repo`, as `asked` says: the branch is `branch` (else
+    /// "ws-N", or named after `note`), made from `base` (else the project's base), an existing branch checked out as it
+    /// is (`existing`), or a pull request's head (`pr`). What its .kelp.yaml links, clones and starts waits for the
+    /// user's trust in that file.
     func createBranchWorkspace(in repo: Repo, _ asked: WorktreeCreate) throws -> WorktreeCreate.Result {
         let note = asked.note, pr = asked.pr, existing = asked.existing == true
         // Opened without Git: said in words, not as git's refusal.
@@ -253,9 +254,10 @@ final class Workspaces: Sendable {
         notify(ChangedEvent.worktree)
     }
 
-    /// The workspace and its agents go. One in the project's folder leaves the folder as it is (a project keeps at least
-    /// one); a worktree's folder goes too, and its branch with it unless it has commits no other branch has (`dropCommits`)
-    /// or its folder holds changes (`force`), or it isn't the workspace's to delete (`keepBranch`: one checked out there).
+    /// Removes the workspace and its agents. A workspace in the project's own folder leaves the folder as it is (a
+    /// project keeps at least one workspace). A worktree's folder is removed too, and its branch with it, unless the
+    /// branch has commits no other branch has (`dropCommits` allows that), the folder holds changes (`force` allows
+    /// that), or the branch isn't the workspace's to delete (`keepBranch`: a branch that was checked out there).
     func removeWorkspace(
         _ workspace: Worktree, _ repo: Repo, force: Bool, dropCommits drop: Bool, keepBranch: Bool = false
     ) throws {

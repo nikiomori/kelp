@@ -3,10 +3,12 @@ import Foundation
 import GitKit
 import os
 
-/// What clients watch (`watch.start`, `watch.stop`: below; what each topic reads: WatchHandlers.swift). A topic and key is read only while someone watches it, once for all of them, and
-/// pushed to them when it changed: the first value right away, the last one to whoever joins. A git topic is read when its
-/// folder's files change (FSEvents here, not one watcher per panel in the app); the rest on their topic's clock, which
-/// each read sets (CI goes on only while a run does). A connection that goes away stops watching.
+/// What clients watch (`watch.start` and `watch.stop`, below; what each topic reads is in WatchHandlers.swift). A topic
+/// and key is read only while someone watches it, once for all watchers, and pushed to them when it changed: the first
+/// value right away, and the last one to whoever joins later.
+/// A git topic is read when its folder's files change (through FSEvents here, not one watcher per panel in the app);
+/// the other topics are read on their own clock, which each read sets (CI keeps reading only while a run goes on). A
+/// connection that goes away stops watching.
 final class Watches: Sendable {
     struct Key: Hashable, Sendable { let topic: WatchTopic, key: String }
     private struct Entry {
@@ -38,9 +40,10 @@ final class Watches: Sendable {
         var backsOffFrom = TimeInterval.infinity
         var read: @Sendable (_ fast: Bool) async -> (Data?, TimeInterval?)
     }
-    /// Each key's topic: the daemon's (`Daemon.topic`, one switch for them all; it answers the topics' methods as a
-    /// client would), set once it's made; a test's stand-in in its place (to hold one read back while a newer one
-    /// finishes). In a struct, not bare in the lock: see `Store.Listener`.
+    /// The function that gives each key its topic. The daemon sets it once it is made (`Daemon.topic`, one switch for
+    /// every topic, which answers the topics' methods the way a client would); a test can set a stand-in instead, for
+    /// example to hold one read back while a newer one finishes. It sits in a struct rather than bare in the lock: see
+    /// `Store.Listener`.
     struct Reading: Sendable { var topic: (@Sendable (Key) -> Topic)? }
     let reading = OSAllocatedUnfairLock(initialState: Reading())
     private let store: Store

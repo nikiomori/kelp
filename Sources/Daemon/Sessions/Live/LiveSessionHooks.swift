@@ -86,9 +86,10 @@ extension LiveSession {
         }
     }
 
-    /// Stop: done, or still working while it goes on by itself (TurnEnd); the record says what it works toward and
-    /// what runs in the background. `failure`: an API error ended the turn, and what it said; `passes`: one that goes on
-    /// later (`retry`). Returns the verdict and the hook's time, which `release` checks.
+    /// Handles Stop: the session is done, or still working while the agent goes on by itself (TurnEnd); the record says
+    /// what it works toward and what runs in the background. `failure` means an API error ended the turn, with what it
+    /// said; `passes` is a failure that goes on later (`retry`). Returns the verdict and the hook's time, which
+    /// `release` checks.
     func stop(
         _ tasks: [JSONValue], crons: [JSONValue] = [], goal: GoalStatus?, failure: String? = nil, passes: Bool = false,
         at: TimeInterval? = nil
@@ -175,10 +176,11 @@ extension LiveSession {
         state.withLock { st in Self.browsing(words, st.commands, st.commandAgents) }
     }
 
-    /// Of the commands still running that run `kelp browser`, the one whose words hold `words` (`click e12`), quotes
-    /// aside and an address as typed (`open localhost:3000` for `open http://localhost:3000`); else the only one
-    /// running; its subagent. None found, it's the agent's own. Limit: two subagents running the very same words at once
-    /// can't be told apart.
+    /// Finds which subagent a `kelp browser` command belongs to. Among the running commands that run `kelp browser`, it
+    /// takes the one whose text contains `words` (`click e12`), ignoring quotes and matching an address as typed (`open
+    /// localhost:3000` for `open http://localhost:3000`); failing that, the only such command running. It returns that
+    /// command's subagent; when none is found, the command is the agent's own.
+    /// Limit: two subagents running the very same words at once can't be told apart.
     static func browsing(_ words: String, _ commands: [AgentCommand], _ agents: [String: String]) -> String? {
         let running = commands.filter { $0.outcome == nil && $0.command.contains("kelp browser") }
         let bare = words.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: "")

@@ -14,7 +14,7 @@ extension SessionTurnUndo: Handled {
         guard plan.now == before else {
             throw RPCError.invalidParams("The files changed since you looked; nothing was put back.")
         }
-        // What it was before stays reachable for Redo (git gc keeps it), each undo's in the ref's log.
+        // The state before the undo stays reachable for Redo (git gc keeps it), since each undo is in the ref's log.
         try Git.setRef(Turns.undoneRef(id), to: before, reflog: "undo turn " + turn, cwd: dir, remotes: remotes)
         // And what was staged before it, so Redo is the undo taken back whole; none (conflicts) drops an older one's.
         let staged = try Git.indexTree(dir, remotes: remotes)

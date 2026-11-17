@@ -57,8 +57,8 @@ extension Artifacts {
         return folder
     }
 
-    /// The list as the panel shows it, latest change first: a review's answers counted from its file, each file's
-    /// last save, a service's page's last publish.
+    /// The artifacts as the panel lists them, latest change first. A review's change is the time its answers were last
+    /// counted from its file, a file's is its last save, and a page on a service is its last publish.
     static func items(root: String) -> [ArtifactItem] {
         list(root: root).map { slug, r in item(slug, r, root: root) }
             .sorted { ($0.modified ?? $0.created) > ($1.modified ?? $1.created) }
@@ -219,8 +219,8 @@ extension Artifacts {
         guard !line.isEmpty else { return "Turn \(number)" }
         return line.count > 80 ? String(line.prefix(79)) + "…" : line
     }
-    /// Writes the page's copy into its folder: all of it, a file's bytes (HTML only, at most 16 MB), or the edits
-    /// applied to the copy there (none there: nothing).
+    /// Writes the page's copy into its folder: the whole page, one file's bytes (HTML only, at most 16 MB), or the
+    /// edits applied to the copy already there (with no copy there, it writes nothing).
     static func keepPage(_ page: PublishedPage?, in folder: URL) throws {
         let copy = folder.appendingPathComponent(pageCopy)
         if let html = page?.html {
@@ -310,8 +310,9 @@ extension Artifacts {
         return found
     }
 
-    /// sh reading a transcript on a host: the lines `published(inTranscript:)` decodes, stamped from `since`'s next
-    /// second on (Claude Code stamps each line in UTC, "2026-11-13T10:20:30.123Z", which sorts as text).
+    /// The sh script that reads a transcript on a host: it prints the lines `published(inTranscript:)` decodes, stamped
+    /// from the second after `since` on. Claude Code stamps each line in UTC ("2026-11-13T10:20:30.123Z"), which sorts
+    /// correctly as text.
     static func hostPublishes(since: Date?) -> String {
         let grep =
             "LC_ALL=C grep -F "

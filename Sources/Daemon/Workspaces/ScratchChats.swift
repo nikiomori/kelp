@@ -2,9 +2,10 @@ import Core
 import Foundation
 import GitKit
 
-/// Chats outside any project ("No Project" in the sidebar): the scratch folder in Kelp's home, with each agent in a folder
-/// of its own named by its day, so one task's files don't land among another's and an agent's resume list is its own.
-/// Rules for all of them go in the scratch folder's own CLAUDE.md / AGENTS.md: agents read those from the folder above.
+/// Chats outside any project ("No Project" in the sidebar). They live in the scratch folder in Kelp's home, each agent
+/// in a folder of its own named by its day, so one task's files don't land among another's and each agent's resume list
+/// is its own. Rules for all of them go in the scratch folder's own CLAUDE.md / AGENTS.md, which agents read from the
+/// folder above theirs.
 struct ScratchChats {
     let folder: URL
     init(root: URL) { folder = root.appendingPathComponent("scratch") }

@@ -42,7 +42,7 @@ enum HostPorts {
 /// forwardings, and a dropped connection comes back with the same ports here, so a page's address and cookies stay.
 final class Forwards: Sendable {
     struct Record: Codable, Equatable, Sendable {
-        /// `target`: "localhost:8000", as the host reaches it. `here`: the port on this Mac.
+        /// `target` is the address as the host reaches it, such as "localhost:8000". `here` is the port on this Mac.
         var host, target: String, here: Int, worktree: String, manual: Bool
         /// Seen listening once, then gone from this many looks in a row.
         var seen = false, misses = 0

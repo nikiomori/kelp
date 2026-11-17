@@ -10,7 +10,7 @@ enum PhoneAgent {
         session.isAgent && session.status != .exited && session.startedBy == nil
     }
 
-    /// `name`: the agent's, as its manifest says. `place`: its project and workspace (`Worktree.displayName`).
+    /// `name` is the agent's name, as its manifest says. `place` is its project and workspace (`Worktree.displayName`).
     static func from(
         _ session: Session, name: String, project: String, projectId: String? = nil, workspace: String
     ) -> [String: JSONValue] {

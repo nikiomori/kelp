@@ -20,8 +20,8 @@ struct DiskUsage: Sendable {
     static let derivedData = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Developer/Xcode/DerivedData")
 
-    /// `target` is Cargo's or Maven's only beside its manifest; elsewhere it may be anything. Limit: on a host, where
-    /// the manifest isn't looked for, `target` isn't taken for a build.
+    /// A `target` folder counts as Cargo's or Maven's build only beside its manifest; elsewhere it may be anything.
+    /// Limit: on a host, where the manifest isn't looked for, `target` isn't taken for a build.
     static func isBuild(_ path: String, here: Bool = true) -> Bool {
         let url = URL(fileURLWithPath: path), name = url.lastPathComponent
         if buildNames.contains(name) { return true }
@@ -38,7 +38,7 @@ struct DiskUsage: Sendable {
         /// The builds in the other worktrees, and which worktree each is in.
         var builds: [(path: String, worktree: String)] = []
         var sizes: [String: Int] = [:]
-        /// Xcode's DerivedData and Claude Code's chats: outside every checkout.
+        /// Xcode's DerivedData and Claude Code's chats, which live outside every checkout.
         var extra: [Item] = []
     }
 
@@ -175,9 +175,10 @@ extension DiskUsage {
             remotes: workspaces.remotes)
     }
 
-    /// Worktrees as `removeWorktrees` takes them; anything else to the Trash only if it's in the project's folder or a
-    /// worktree, git ignores it and tracks nothing in it, and it neither is a worktree nor has one inside; or it's
-    /// DerivedData Xcode keeps for the project. A remote project's go aside on its host (`trash(_:of:on:)`).
+    /// Moves the given paths away. Worktrees are removed the way `removeWorktrees` removes them. Anything else goes to
+    /// the Trash only if it is in the project's folder or a worktree, git ignores it and tracks nothing in it, and it
+    /// neither is a worktree nor contains one; or if it is DerivedData that Xcode keeps for the project. A remote
+    /// project's paths are moved aside on its host (`trash(_:of:on:)`).
     func trash(_ paths: [String], of repo: Repo, derived: URL = derivedData) throws -> RepoRemoveWorktrees.Result {
         if let remote = workspaces.remotes.of(repo.path) { return try trash(paths, of: repo, on: remote) }
         let remotes = workspaces.remotes, root = Self.real(repo.path)

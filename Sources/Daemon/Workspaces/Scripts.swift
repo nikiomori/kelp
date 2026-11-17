@@ -6,7 +6,8 @@ import Foundation
 extension Workspaces {
     var trustFile: URL { root.appendingPathComponent("trusted-configs.json") }
 
-    /// The project's commands file: its .kelp.yaml, else another tool's (`ImportedConfig`), else none (`.kelp.yaml`, empty).
+    /// The project's commands file: its .kelp.yaml, else another tool's file (`ImportedConfig`), else none
+    /// (`.kelp.yaml`, empty).
     static func configFile(_ repoPath: String) -> (path: String, text: String, config: RepoConfig) {
         let own = repoPath + "/.kelp.yaml"
         if let data = FileManager.default.contents(atPath: own) {
@@ -17,8 +18,9 @@ extension Workspaces {
         return (own, "", RepoConfig())
     }
 
-    /// `configFile`; a remote project's own .kelp.yaml is read on its host, when someone asks for its commands (its
-    /// folder here holds only the marker), and another tool's isn't looked for there. Unread (the host away): none.
+    /// `configFile`. A remote project's own .kelp.yaml is read on its host when someone asks for its commands (the
+    /// project's folder here holds only the marker), and another tool's file isn't looked for there. When it can't be
+    /// read (the host is away), the project has no commands.
     func configFile(_ repoPath: String) -> (path: String, text: String, config: RepoConfig) {
         guard let remote = remotes.of(repoPath) else { return Self.configFile(repoPath) }
         let read = Log.store.attempt("reading \(remote.host)'s .kelp.yaml") {
@@ -53,8 +55,9 @@ extension Workspaces {
             && config.recipes.isEmpty && config.issueCommand == nil
     }
 
-    /// The project's .kelp.yaml if the user trusts it as it is now, else nothing of it: a cloned repository's prompts
-    /// (recipe.*, issueCommand) reach an agent as the user's own words, so they wait for trust like its commands.
+    /// The project's .kelp.yaml if the user trusts the file as it is now, else nothing from it: a cloned repository's
+    /// prompts (recipe.*, issueCommand) reach an agent as if they were the user's own words, so they wait for trust
+    /// just like its commands.
     func trustedConfig(_ repoPath: String) -> RepoConfig {
         let checked = configAndTrust(repoPath)
         return checked.trusted ? checked.config : RepoConfig()

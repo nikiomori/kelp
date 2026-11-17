@@ -3,8 +3,9 @@ import Core
 import Foundation
 import GitKit
 
-// addons.tidy*: Tidy Up's runs in Kelp's home, `tidy/<when>/`: the brief the agent follows, the files as they were
-// (`before/` and each one's own path), `run.json` (whose and which), `after/` once undone, `done` once ended.
+// addons.tidy*: each Tidy Up run lives in Kelp's home, in `tidy/<when>/`. It holds the brief the agent follows, the
+// files as they were (`before/`, each at its own path), `run.json` (who ran it and on what), `after/` once the run is
+// undone, and `done` once it ended.
 
 enum TidyRuns {
     /// What a run records: the workspace it was for and the paths it kept (a memory index: its folder).

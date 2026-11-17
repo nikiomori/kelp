@@ -45,8 +45,9 @@ extension VMDetailRead: Handled {
     func handle(_ vms: VMService) throws -> VMDetail? { vms.detail(name) }
 }
 
-/// It downloads gigabytes and takes memory from every chat's budget: the user's to decide. An agent's asks them on its
-/// row (Allow / Deny), as a database change does; the user's own (Kelp's window, their terminal) makes it at once.
+/// Making a machine downloads gigabytes and takes memory from every chat's budget, so the user decides. When an agent
+/// asks, the question appears on its row (Allow / Deny), as a database change does; when the user asks (from Kelp's
+/// window or their own terminal), the machine is made at once.
 extension VMCreate: AsyncHandled {
     // a machine an agent needs, made only once the user allows it on its row
     static let agents = AgentAccess.acts

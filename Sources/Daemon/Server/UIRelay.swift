@@ -21,8 +21,10 @@ extension UIStateGet: Handled {
 
 extension UIOpen: Handled {
     static let agents = AgentAccess.acts
-    /// A terminal or an agent the app starts is nobody's: one an agent asks for comes from `kelp session new`, which makes it its own.
-    /// Its scheme as the app reads it (`TabURI.scheme`: any case), not as it's spelled: `TERMINAL:` runs a command too.
+    /// A terminal or an agent that the app starts belongs to nobody; when an agent asks for one, it comes through `kelp
+    /// session new`, which makes it the agent's own.
+    /// The scheme is read as the app reads it (`TabURI.scheme`, in any case), not as it is spelled, since `TERMINAL:`
+    /// runs a command too.
     private var scheme: String { uri.firstIndex(of: ":").map { uri[..<$0].lowercased() } ?? "file" }
     var fence: Fence { Fence(inWorkspace: workspace, notForAgents: refusal, shows: shown) }
     private var refusal: String? {
@@ -37,17 +39,19 @@ extension UIOpen: Handled {
         }
         return nil
     }
-    /// A session's tab shows its screen, a subagent's its journal: an agent's own, or one it started (`named(by:)` sees
-    /// bare ids only).
+    /// A session's tab shows its screen and a subagent's tab its journal; an agent may open either for itself or for a
+    /// session it started. (`named(by:)` only sees bare ids, so these are checked here.)
     private var shown: String? {
         guard ["session", "subagent"].contains(scheme) else { return nil }
         return lead
     }
-    /// The workspace a tab of one names in its body (`db:<workspace>/<name>`, `diff:<workspace>?…`): the app opens it as
-    /// the user, so it's held as that field would be. Else `worktreeId`; none named is the one on screen, which needn't
-    /// be the agent's (`""`: refused, as `ui.browser`'s), but for a session's tab, which its session places. A database's
-    /// tab names its workspace as the tab itself reads it (`DatabaseTabURI.parts`, which reads past a `?` or `/` before
-    /// the id), and which database it may be is the fence's (`AgentRules.allow`).
+    /// The workspace a tab names, for the fence. A tab that names its workspace in its body (`db:<workspace>/<name>`,
+    /// `diff:<workspace>?…`) is opened by the app as the user, so that workspace is checked as if it were the call's
+    /// field. Otherwise the workspace is `worktreeId`. When none is named the tab would open in the workspace on
+    /// screen, which needn't be the agent's, so the answer is `""`, which the fence refuses (as it does for
+    /// `ui.browser`); a session's tab is the exception, since its session decides where it goes. A database tab's
+    /// workspace is read the same way the tab reads it (`DatabaseTabURI.parts`, which reads past a `?` or `/` before
+    /// the id); which database it may open is the fence's check (`AgentRules.allow`).
     private var workspace: String? {
         if let database = DatabaseTabURI.parts(uri) { return database.worktree }
         let named = shown == nil && UUID(uuidString: lead) != nil ? lead : nil
@@ -202,8 +206,9 @@ extension StateGet: Handled {
 
 extension StateSet: Handled {
     static var inOrder: Bool { true }
-    /// Which projects may run their own code in language servers and formatters, and which extensions may run commands:
-    /// the user's say, in Kelp's window (as `scripts.trust`); an agent's call or a repository's script can't record it.
+    /// Settings that record which projects may run their own code in language servers and formatters, and which
+    /// extensions may run commands. Only the user decides these, in Kelp's window (as with `scripts.trust`); neither an
+    /// agent's call nor a repository's script can record them.
     var fence: Fence { Fence(onlyFromKelp: trustedBy) }
     private var trustedBy: String? {
         switch key {

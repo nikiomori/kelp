@@ -5,7 +5,7 @@ import os
 
 /// Workspaces follow the branch each project's folder is on: its .git's HEAD, watched.
 extension Workspaces {
-    /// One local project's .git, watched for its HEAD.
+    /// The .git folder of one local project, watched for changes to its HEAD.
     struct HeadWatch: Sendable { let dir: String, watcher: FileWatcher }
 
     /// At start: workspaces catch up with branches switched while no daemon ran, and from then on follow them.
@@ -16,11 +16,14 @@ extension Workspaces {
         }
     }
 
-    /// Workspaces follow their folder's branch as it moves, also when it's switched outside Kelp: a watcher on each local
-    /// project's .git sees HEAD change, and the sync pushes the workspaces it updated (event.worktree), so listing only reads.
-    /// Runs at start and whenever a project is written or removed (the store's change hook), always on `headQueue`: two
-    /// runs side by side could each drop the other's new watcher, and a store write doesn't wait on FSEvents setup.
-    /// Limit: a project that is itself a linked worktree (its .git a file) follows at the next start or new workspace.
+    /// Workspaces follow their folder's branch as it moves, including when it is switched outside Kelp: a watcher on
+    /// each local project's .git sees HEAD change, and the sync pushes the workspaces it updated (event.worktree), so
+    /// listing only reads.
+    /// This runs at start and whenever a project is written or removed (the store's change hook), always on
+    /// `headQueue`: two runs side by side could each drop the other's new watcher, and a store write shouldn't wait on
+    /// FSEvents setup.
+    /// Limit: a project that is itself a linked worktree (its .git is a file) follows only at the next start or the
+    /// next new workspace.
     func watchHeads() {
         dispatchPrecondition(condition: .onQueue(headQueue))
         let local = (store.look("the projects") { try $0.repos() } ?? []).filter { remotes.of($0.path) == nil }
@@ -53,8 +56,9 @@ extension Workspaces {
         _ = gone   // their streams stop as they go, out of the lock
     }
 
-    /// Whether events in a project's .git moved its own HEAD, which its workspaces follow: not FETCH_HEAD, ORIG_HEAD, a
-    /// remote's HEAD, nor a linked worktree's (only the project's own folder's workspaces follow theirs).
+    /// Whether file events in a project's .git moved the project's own HEAD, which its workspaces follow. FETCH_HEAD,
+    /// ORIG_HEAD, a remote's HEAD and a linked worktree's HEAD don't count (only the workspaces of the project's own
+    /// folder follow that HEAD).
     static func movesHead(_ paths: [String]) -> Bool { paths.contains { $0.hasSuffix("/.git/HEAD") } }
 
     /// The daemon stops: the folders aren't followed any more.

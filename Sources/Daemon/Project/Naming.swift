@@ -16,8 +16,8 @@ enum Naming {
         { !stop.contains($0) }
         return parts.prefix(words).joined(separator: "-")
     }
-    /// A name that fits a tab: the prompt's first line without links or paths, cut at a word within 32 characters,
-    /// capitalised. "посмотри ресерч http://localhost:8765/p и предложи…" → "Посмотри ресерч и предложи…".
+    /// A name that fits a tab: the prompt's first line without links or paths, cut at a word within 32 characters and
+    /// capitalised, so "посмотри ресерч http://localhost:8765/p и предложи…" becomes "Посмотри ресерч и предложи…".
     /// Agents that keep a topic in the terminal's title (Claude Code) rename the session with it later.
     static func title(_ prompt: String) -> String {
         let first = prompt.split(separator: "\n").first.map(String.init) ?? prompt

@@ -49,8 +49,9 @@ extension Daemon {
     }
 
     /// A local folder's `branchFiles`, `only` and `dirty`. The first two are read again only once its branches read
-    /// otherwise than last time (`memo`): an agent writing files moves neither. `dirty` is the status just read.
-    /// Limit: another branch's tip isn't in `BranchInfo`: the base taking this branch in is seen at its next commit.
+    /// differently than last time (`memo`), since an agent writing files changes neither. `dirty` is the status just
+    /// read. Limit: another branch's tip isn't in `BranchInfo`, so the base taking this branch in is seen only at this
+    /// branch's next commit.
     private func branchWork(
         _ worktree: Worktree, _ branches: BranchInfo, _ changes: [FileChange], _ memo: BranchMemo
     ) async throws -> (files: [String]?, only: Int?, dirty: Bool?) {
@@ -77,11 +78,14 @@ extension Daemon {
         } catch { return nil }   // the counts are a decoration: none rather than a failed read
     }
 
-    /// What a watch topic is, all of it here: which folder's file events can change it and which of them do (none: it
-    /// goes by its clock; a remote project's folder here holds only its marker), how it's read now (the event as sent,
-    /// nil when there's nothing to say, a failure that stays quiet; and when to read it again with nothing else saying
-    /// so, nil: only when something does), and from which clock on its reads back off while nothing changes: what asks
-    /// the network (gh, glab, ssh). Its reads hold the daemon until the watch stops.
+    /// Describes each watch topic, all in one place:
+    /// - which folder's file events can change it, and which of those events do (none when it goes by its clock alone;
+    /// for a remote project, the folder here holds only its marker);
+    /// - how it is read now: the event as sent, nil when there is nothing to say or a failure stays quiet, and when to
+    /// read it again if nothing else asks (nil: only when something does);
+    /// - from which interval on its reads back off while nothing changes, for topics that ask the network (gh, glab,
+    /// ssh).
+    /// A topic's reads hold the daemon until the watch stops.
     func topic(_ watch: Watches.Key) -> Watches.Topic {
         let key = watch.key
         switch watch.topic {
@@ -286,9 +290,9 @@ extension Daemon {
         return (line(event), nil)
     }
 
-    /// Read when its folder's artifacts change: a remote project's folder too, where the pages its agents publish on the
-    /// host are kept (`pickUpHostArtifacts`). A design's canvas is drawn with the project's design system: a change to it
-    /// moves the canvas too.
+    /// Read when the artifacts in the folder change, including a remote project's folder, which keeps the pages its
+    /// agents publish on the host (`pickUpHostArtifacts`). A design's canvas is drawn with the project's design system,
+    /// so a change to the design system changes the canvas too.
     private func artifactsTopic(_ key: String) -> Watches.Topic {
         let root = store.look("workspace \(key)") { try $0.worktree(key) }?.path
         let matters: @Sendable ([FileWatcher.Change]) -> Bool = {

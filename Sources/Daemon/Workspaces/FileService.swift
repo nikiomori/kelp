@@ -143,7 +143,8 @@ struct FileService: Sendable {
         }
     }
 
-    /// "name copy 2.ext" (`number` 1: "name copy.ext"; `word` nil: "name 2.ext") beside `path`.
+    /// A free name beside `path` for a copy: "name copy 2.ext" (with `number` 1: "name copy.ext"; with `word` nil:
+    /// "name 2.ext").
     static func named(_ path: String, word: String?, _ number: Int) -> String {
         let url = URL(fileURLWithPath: path), ext = url.pathExtension,
             base = url.deletingPathExtension().lastPathComponent

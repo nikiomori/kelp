@@ -158,7 +158,7 @@ enum AppwriteSQL {
             guard symbol(text) else { throw DatabaseFailure.failed("Expected \(text). " + AppwriteSQL.help) }
         }
 
-        /// A table's or column's name, quoted or not; a cast after it ("::text") means nothing here.
+        /// A table's or column's name, quoted or not; a cast after it ("::text") has no meaning here and is skipped.
         mutating func name() throws -> String {
             let found: String
             switch next {

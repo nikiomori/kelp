@@ -173,8 +173,9 @@ extension SessionChoose: Handled {
         if sessions.permissions.answerKelp(id, question: question, answer) { return true }
         // A question cut short (a long or many-line command) is answered where it shows whole: in the agent's dialog.
         if let question, !Hooks.shownWhole(question) { return false }
-        // Its hook waits for the answer (`session.permissionWait`): given there, not typed into the menu. A banner's answer
-        // goes only to the question it showed: the hook waiting now may be a newer one's.
+        // The session's hook waits for the answer (`session.permissionWait`), so the answer is given there rather than
+        // typed into the menu. A banner's answer goes only to the question it showed, because the hook waiting now may
+        // belong to a newer question.
         if ls.asks(question), sessions.permissions.answerPermission(id, answer) {
             _ = ls.answeredThroughHook()
             sessions.publish(ls)
@@ -197,10 +198,11 @@ extension SessionPermissionWait: AsyncHandled {
 /// Permission questions' hooks waiting for Allow or Deny, by session (`session.permissionWait`).
 final class PermissionWaits: Sendable {
     let waits = OSAllocatedUnfairLock<[String: (UUID, CheckedContinuation<String?, Never>)]>(initialState: [:])
-    /// Questions Kelp asks itself for the agent's commands (a database change), by session, oldest first: not ended by a
-    /// status change, which the agent's own screen makes while that command runs; ended by an answer, the agent's Stop,
-    /// the command's program ending (Esc, a tool's time limit: nobody is left to run it for), or the time running out.
-    /// Two commands asking at once (parallel tool calls) each wait their turn: an answer goes to the oldest.
+    /// Questions Kelp asks on behalf of an agent's commands (such as a database change), by session, oldest first. A
+    /// status change doesn't end one, because the agent's own screen changes while that command runs. A question ends
+    /// with an answer, the agent's Stop, the end of the command's program (Esc, or a tool's time limit: nobody is left
+    /// to run it for), or when its time runs out.
+    /// Two commands asking at once (parallel tool calls) wait their turn: an answer goes to the oldest question.
     struct KelpWait: Sendable {
         let question: String, token: UUID
         let answer: CheckedContinuation<String?, Never>

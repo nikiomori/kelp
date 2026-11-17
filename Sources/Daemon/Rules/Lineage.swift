@@ -16,8 +16,9 @@ extension Store {
         return line
     }
 
-    /// Who asks, from the caller (`Sessions.asker`): nil for the user (Kelp's window, a terminal of the user's own);
-    /// else the agent's session to ask, nil inside when there's none to ask (a program of kelpd's, one that left).
+    /// Who is asking, from the caller's origin (`Sessions.asker`). The outer nil means the user (Kelp's window, or one
+    /// of the user's own terminals). Otherwise it is the agent's session to ask, or an inner nil when there is no
+    /// session to ask (a program of kelpd's, or one that left its terminal).
     func agent(origin: String?) -> String?? {
         guard let origin else { return .none }
         let session = Caller.session(of: origin)

@@ -132,8 +132,9 @@ struct PostgresRun: DatabaseRunner {
         }
     }
 
-    /// Each command's output after the first (BEGIN's), split at the markers psql echoes between them. `script`: psql's
-    /// own commands of Kelp's, run after them in the same session (stdin).
+    /// Splits psql's output into each command's output after the first (the first is BEGIN's), at the markers psql
+    /// echoes between commands. `script` holds Kelp's own psql commands, run after the statements in the same session
+    /// (on stdin).
     static func run(
         _ databaseConnection: DatabaseConnection, _ commands: [String], then script: String? = nil,
         timeout: TimeInterval
@@ -176,8 +177,8 @@ struct PostgresRun: DatabaseRunner {
         if let error = lines.first(where: { $0.hasPrefix("ERROR:") }) {
             return .failed(error.replacingOccurrences(of: "ERROR:  ", with: "").trimmingCharacters(in: .whitespaces))
         }
-        // Connecting, psql tries each address (::1, then 127.0.0.1) and says why each failed: the last is the one that
-        // got furthest ("no password supplied" after a refused ::1).
+        // When connecting, psql tries each address (::1, then 127.0.0.1) and says why each failed; the last reason is
+        // from the attempt that got furthest ("no password supplied" after a refused ::1).
         let tries = lines.filter { $0.contains(" failed: ") }
         if let last = tries.last, let reason = last.range(of: " failed: ") {
             return .failed(String(last[reason.upperBound...]).trimmingCharacters(in: .whitespaces))
@@ -188,8 +189,9 @@ struct PostgresRun: DatabaseRunner {
         return .failed(text.trimmingCharacters(in: .whitespaces))
     }
 
-    /// One command's output: rows as CSV (a header, then rows; NULL written as `null`), or the command's tag
-    /// ("UPDATE 3"), whose number is what it changed; a change with RETURNING gives both, its tag last.
+    /// Parses one command's output: rows as CSV (a header, then the rows, with NULL written as `null`), or the
+    /// command's tag ("UPDATE 3"), whose number is how many rows it changed. A change with RETURNING gives both, with
+    /// the tag last.
     static func section(_ text: String) -> DatabaseRows {
         var lines = text.split(separator: "\n", omittingEmptySubsequences: false)
         if lines.last == "" { lines.removeLast() }

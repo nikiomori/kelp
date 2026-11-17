@@ -1,7 +1,7 @@
 import Core
 import Foundation
 
-/// Connections kept in the standards' plain files (~/.pgpass, ~/.pg_service.conf, ~/.my.cnf) and in exports the user
+/// Connections kept in the standard plain files (~/.pgpass, ~/.pg_service.conf, ~/.my.cnf) and in exports the user
 /// picks (pgAdmin's servers.json, Navicat's .ncx).
 enum ImportFiles {
     /// One connection a line that names a host; the password is in the line.

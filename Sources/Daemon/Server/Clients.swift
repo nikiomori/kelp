@@ -2,14 +2,14 @@ import Core
 import Foundation
 import os
 
-/// Who is connected to the socket: each client, which of them are raw byte pipes (`kelp attach`), which is Kelp's window
-/// (and what it last said it shows). Under a lock of its own.
+/// Who is connected to the socket: each client, which of them are raw byte pipes (`kelp attach`), and which is Kelp's
+/// window (with what it last said it shows). It has a lock of its own.
 ///
-/// Lock order in the daemon, outermost first: a session's wake lock (`Sessions.wakeLocks`, several taken by id) → `Sessions.live` →
-/// `Clients` → a session's own lock →
-/// a `Connection`'s. (A session's lock is never held while another is taken: output, status and hooks call out after.)
-/// A JSON attach subscribes, then asks `isConnected`; the reader's cleanup removes the client here first, then detaches it
-/// from every session: one of the two always detaches it.
+/// The daemon's lock order, outermost first: a session's wake lock (`Sessions.wakeLocks`; several can be taken, by id)
+/// → `Sessions.live` → `Clients` → a session's own lock → a `Connection`'s lock. (A session's lock is never held while
+/// another lock is taken: output, status and hooks call out afterwards.)
+/// A JSON attach subscribes, then asks `isConnected`; the reader's cleanup removes the client here first, then detaches
+/// it from every session. Either way, one of the two detaches it.
 final class Clients: Sendable {
     private struct State {
         var all: [Int: Connection] = [:], next = 1
@@ -137,7 +137,8 @@ extension Clients {
         return me.deletingLastPathComponent().appendingPathComponent("KelpApp").resolvingSymlinksInPath().path
     }
 
-    /// A machine's kelp-vm beside this daemon (`VMService.helper`): Kelp's own code, its window's buttons the user's.
+    /// The path of a machine's kelp-vm, next to this daemon (`VMService.helper`). It is Kelp's own code, and the
+    /// buttons in its window are pressed by the user.
     static var machineExecutable: String {
         let me = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
         return URL(fileURLWithPath: VMService.helper(beside: me.path)).resolvingSymlinksInPath().path

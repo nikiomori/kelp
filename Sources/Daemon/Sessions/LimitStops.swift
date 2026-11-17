@@ -21,8 +21,9 @@ extension LiveSession {
         }
     }
 
-    /// Once it's time and nothing's in the way (a half-typed line waits for its author), inside `state.withLock`. One that
-    /// went on by itself (Claude Code can) has lost its `continueAt` by then, so it isn't told twice.
+    /// Types the continue once it is time and nothing is in the way (a half-typed line waits for its author), inside
+    /// `state.withLock`. An agent that went on by itself (Claude Code can) has lost its `continueAt` by then, so it
+    /// isn't told twice.
     func continueIfDue(_ state: inout State) {
         guard let at = state.record.continueAt, Date() >= at, !state.letGo, state.pendingPrompts.isEmpty,
             state.readyForText(submits: true)

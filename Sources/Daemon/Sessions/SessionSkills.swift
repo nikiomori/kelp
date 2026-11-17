@@ -11,7 +11,7 @@ extension SessionSetup {
     static let kelpIntro =
         "This Claude Code session runs inside Kelp, a macOS IDE; the user sees Kelp's window, not Claude Code's UI."
 
-    /// The flags for the skills on disk, and the hover card's line about the browser's (nil without it).
+    /// The flags for the skills on disk, and the hover card's line about the browser skill (nil without it).
     func skillArgs(flag: String, contextFlag: String?, worktreeId: String?, cwd: String, profile: String? = nil) -> (
         argv: [String], browser: String?
     ) {
@@ -67,9 +67,9 @@ extension SessionSetup {
         }
     }
 
-    /// Whether the account's last Claude Code chat loaded claude.ai's artifacts, as its transcript says; the newest with
-    /// a note on what it loaded decides (one just started has none yet).
-    /// Limit: a Mac's or a profile's first chat has nothing to go by, and gets Kelp's.
+    /// Whether the account's last Claude Code chat loaded claude.ai's artifacts, as its transcript says. The newest
+    /// chat whose transcript notes what it loaded decides (a chat that just started has no such note yet).
+    /// Limit: the first chat on a Mac or in a profile has nothing to go by, so it gets Kelp's pages.
     func claudePublishesPages(profile: String?) -> Bool {
         let recent =
             Log.store.attempt("the last Claude Code chats") {
@@ -105,7 +105,7 @@ extension SessionSetup {
         return text
     }
 
-    /// The argv names this home's skills (a restart's, from the record).
+    /// Whether the argv names this home's skills (a restart's argv comes from the record).
     static func hasSkills(_ argv: [String], root: URL) -> Bool {
         let dir = Paths.agentSkills(in: root).path
         return argv.contains { Paths.inside($0, dir) }

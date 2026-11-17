@@ -16,8 +16,9 @@ extension LiveSession {
 extension LiveSession.State {
     func trustQuestionOpen() -> Bool { !dialogSettled && StartupQuestion.trustAsked(screen(4000)) }
 
-    /// A numbered menu with its cursor on screen ("❯ 1. Use this and all future MCP servers"). The input box's own "❯"
-    /// is followed by text, not "1.", and once a menu is answered the newer cursor is the input box's.
+    /// Whether a numbered menu with its cursor is on screen ("❯ 1. Use this and all future MCP servers"). The input
+    /// box's own "❯" is followed by text, not "1.", and once a menu is answered the newer cursor belongs to the input
+    /// box.
     func menuOpen() -> Bool { StartupQuestion.menuOpen(menuScreen()) }
 
     /// A hook or an agent in tmux on a host says it's asking something, whether or not a menu can be read: typed text's
@@ -51,8 +52,9 @@ extension LiveSession.State {
             && !menuOpen()
     }
 
-    /// Nothing came up since a send's `text` went in. A dialog that opens in those moments would take its Enter as the answer,
-    /// usually "Yes". The text's own first line beside the input box's cursor ("❯ 1. fix the tests") is no menu.
+    /// Whether nothing came up on screen since a send's `text` went in. A dialog that opens in those moments would take
+    /// the send's Enter as its answer, usually "Yes". The text's own first line next to the input box's cursor ("❯ 1.
+    /// fix the tests") isn't a menu.
     func takesEnter(after text: String) -> Bool {
         guard steering == nil, !asks, !trustQuestionOpen() else { return false }
         guard menuOpen(), let option = AgentManifest.AutoAnswer.optionAtCursor(menuScreen()) else { return true }

@@ -57,7 +57,8 @@ struct PhoneKept: Codable, Equatable {
     var name: String, last: Int64, push: PushSubscription?
 }
 
-/// The bridge's record (`daemonState`, key "phone"): this Mac's id at the relay and its phones. Nothing secret.
+/// The bridge's record (`daemonState`, key "phone"): this Mac's id at the relay, and its phones. It holds nothing
+/// secret.
 struct PhoneRecord: Codable, Equatable {
     var mac: String
     var devices: [String: PhoneKept] = [:]

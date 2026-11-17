@@ -11,8 +11,8 @@ struct DatabaseConnection: Sendable {
     var container: ComposeService?
     /// Kelp's keychain account for its password ("db:<project>/<name>"): where one read from `passwordIn` goes.
     var account: String?
-    /// Where Kelp has it from: a project's files, added by hand to the project, or All My Projects (the user's own,
-    /// reached from this Mac whatever project it's used in).
+    /// Where Kelp got the database from: a project's files, added by hand to the project, or All My Projects (the
+    /// user's own, reached from this Mac whatever project uses it).
     var origin: Origin = .found
 
     enum Origin: Sendable { case found, project, library }
@@ -52,15 +52,16 @@ struct DatabaseRows: Equatable, Sendable {
     }
 }
 
-/// Runs statements on a database: SQLite in kelpd (GRDB), Postgres and MySQL over their own protocols
-/// (`DatabaseWire`) at an address kelpd reaches, or through their clients inside the compose container that runs them
-/// when there's no such address (`docker exec`). A read runs in a read-only transaction (a read-only file for SQLite),
-/// so the database itself refuses a change; a trial runs a change and rolls it back; a write runs it on its own. One
-/// statement each (`SQLText.single`). What blocks (GRDB, a client run) goes to `off`, never the cooperative pool.
+/// Runs statements on a database: SQLite inside kelpd (GRDB); Postgres and MySQL over their own protocols
+/// (`DatabaseWire`) at an address kelpd can reach, or, when there is no such address, through their clients inside the
+/// compose container that runs them (`docker exec`).
+/// A read runs in a read-only transaction (a read-only file for SQLite), so the database itself refuses a change. A
+/// trial runs a change and rolls it back; a write runs it for real. Each call runs one statement (`SQLText.single`).
+/// Blocking work (GRDB, a client run) goes to `off`, never the cooperative pool.
 enum DatabaseEngines {
     /// Rows kept of a result; more are counted up to `countLimit`.
     static let keep = QueryResult.kept, countLimit = QueryResult.counted
-    /// A read's time limit, and a change's.
+    /// The time limits for a read and for a change.
     static let readTimeout = DatabaseTimes.read, writeTimeout = DatabaseTimes.write
     /// What Kelp reads of a client's output: an answer past it is refused whole, never read as fewer rows.
     static let outputLimit = 32 << 20

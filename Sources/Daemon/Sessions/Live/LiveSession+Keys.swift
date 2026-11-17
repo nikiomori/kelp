@@ -5,8 +5,8 @@ import Foundation
 // The user's keys: what a press means (a stop, a menu's answer, y/n) and what typing does to the session.
 
 extension LiveSession {
-    /// Esc or ⌃C, as one byte or as the kitty keyboard protocol sends them once the agent turns it on (Claude Code does):
-    /// ESC[27u, ESC[99;5u — on a non-Latin layout the layout's own letter comes first (ESC[1089::99;5u).
+    /// Esc or ⌃C, as one byte or as the kitty keyboard protocol sends them once the agent turns the protocol on (Claude
+    /// Code does): ESC[27u and ESC[99;5u. On a non-Latin layout the layout's own letter comes first (ESC[1089::99;5u).
     static func isStopKey(_ keys: Data) -> Bool {
         keys == Data([0x1B]) || keys.contains(0x03)
             || String(decoding: keys, as: UTF8.self).wholeMatch(of: /\x1B\[(27|([0-9]*:)*99;5)u/) != nil
@@ -29,8 +29,9 @@ extension LiveSession {
     /// The one key some agents take for an answer (Codex's y, a, n).
     static func saysYesOrNo(_ keys: Data) -> Bool { keys.count == 1 && "yanYAN".utf8.contains(keys[0]) }
 
-    /// A key pressed as the kitty keyboard protocol sends it (ESC[key:shifted:base;mods:event u): its key on the Latin
-    /// layout (`base`, when a non-Latin one is on) and its modifiers (⇧ 1, ⌥ 2, ⌃ 4, lock keys left out). nil for a release.
+    /// Decodes a key press as the kitty keyboard protocol sends it (ESC[key:shifted:base;mods:event u). It returns the
+    /// key on the Latin layout (`base`, when a non-Latin layout is on) and the modifiers (⇧ 1, ⌥ 2, ⌃ 4; lock keys are
+    /// left out), or nil for a key release.
     static func kittyKey(_ sequence: String) -> (key: Int, mods: Int)? {
         guard
             let match = sequence.wholeMatch(

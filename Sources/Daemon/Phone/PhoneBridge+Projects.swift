@@ -28,7 +28,8 @@ extension PhoneBridge {
         return inSidebarOrder(repos.filter { scratch == nil || Paths.real($0.path) != scratch })
     }
 
-    /// A project's first workspace, as its rows stand in the sidebar: where a phone's agent starts.
+    /// A project's first workspace, in the order its rows stand in the sidebar: where an agent started from the phone
+    /// begins.
     func firstWorkspace(of repo: Repo) -> Worktree? {
         let all = Log.session.attempt("reading the workspaces") { try store.worktrees(repo: repo.id) } ?? []
         return inSidebarOrder(all.filter { !$0.archived }).first
@@ -74,8 +75,9 @@ extension PhoneBridge {
         ]
     }
 
-    /// Each project's icon file, where the sidebar's is found (`IconSearch`; a remote project's, the copy kept in its
-    /// folder here), looked for again after five minutes. Limit: an SVG isn't one here (nothing in kelpd draws it).
+    /// Each project's icon file, found where the sidebar finds it (`IconSearch`; for a remote project, the copy kept in
+    /// its folder here), and looked for again after five minutes. Limit: an SVG can't be used here, since nothing in
+    /// kelpd draws it.
     private func findIcons(_ projects: [Repo]) async {
         let now = Date()
         let stale = projects.map(\.path).filter { now.timeIntervalSince(iconFiles[$0]?.found ?? .distantPast) > 300 }
@@ -121,8 +123,8 @@ extension PhoneBridge {
         }
     }
 
-    /// A Claude Code's or a Codex's conversation, its last turns: nil for other agents and before there is one, when
-    /// the page shows the last reply alone.
+    /// The last turns of a Claude Code or Codex conversation; nil for other agents, or before there is a conversation,
+    /// and then the page shows only the last reply.
     func turns(of session: Session) async -> [JSONValue]? {
         guard [Session.claudeAgent, Session.codexAgent].contains(session.agent) else { return nil }
         let conversations = conversations, running = live[session.id]

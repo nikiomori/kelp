@@ -2,9 +2,10 @@ import Core
 import Foundation
 import GitKit
 
-/// A remote project's disk, on its host: git and `du` there, over the project's connection (it dials as the Files panel's
-/// first read does, since one of the views that ask is just shown). What's in the project's folder comes back as named
-/// here (its stand-in); the worktrees beside it and Claude Code's chats there as the host names them.
+/// A remote project's disk use, measured on its host: git and `du` run there, over the project's connection (which
+/// dials the way the Files panel's first read does, since one of the views that ask has just been shown). Paths in the
+/// project's folder come back under their names here (its stand-in folder); the worktrees beside it and Claude Code's
+/// chats there come back as the host names them.
 extension DiskUsage {
     func measure(_ repo: Repo, on remote: RemoteHost) throws -> [Item] {
         let remotes = workspaces.remotes, root = try real(on: remote)
@@ -57,9 +58,9 @@ extension DiskUsage {
         }
     }
 
-    /// Into the project's `.git/kelp-trash` on the host, as the Files panel's trash there (kept a week, then gone): only
-    /// what's in the project's folder or a worktree, git ignores and tracks nothing in, and neither is a worktree nor
-    /// has one inside.
+    /// Moves paths into the project's `.git/kelp-trash` on the host, which is the Files panel's trash there (kept a
+    /// week, then removed). Only paths that are in the project's folder or a worktree, that git ignores and tracks
+    /// nothing in, and that neither are a worktree nor contain one, are moved.
     func trash(_ paths: [String], of repo: Repo, on remote: RemoteHost) throws -> RepoRemoveWorktrees.Result {
         let root = try real(on: remote),
             linked = try Git.linkedWorktrees(repo.path, remotes: workspaces.remotes).map(\.path)

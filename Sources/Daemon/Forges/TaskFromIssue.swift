@@ -26,7 +26,8 @@ extension TaskFromIssue: AsyncHandled {
             try work.workspaces.createBranchWorkspace(
                 in: repo, WorktreeCreate(repoId: repo.id, branch: unique, note: "\(ref) \(title)", tabs: false))
         }
-        // The record, the repo's config and the agent's PTY: disk and a process, through `offload` like the rest.
+        // Writing the record, reading the repo's config and starting the agent's PTY touch the disk and start a
+        // process, so they go through `offload` like the rest.
         let (worktree, session) = try await work.offloads.run { () throws -> (Worktree, Session) in
             guard
                 let updated = try work.workspaces.store.update(

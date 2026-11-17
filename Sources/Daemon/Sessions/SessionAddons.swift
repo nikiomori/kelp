@@ -8,7 +8,8 @@ import Foundation
 extension SessionSetup {
     static func addonsOffKey(_ repo: String) -> String { "addons.off.\(repo)" }
 
-    /// What's off in the workspace's project, with the project's id; nothing for a folder in no project.
+    /// The add-ons turned off in the workspace's project, with the project's id; nothing for a folder that is in no
+    /// project.
     func addonsOff(worktreeId: String?) -> (repo: String?, off: Set<String>) {
         let repo = worktreeId.flatMap { id in Log.store.attempt("the workspace \(id)") { try store.worktree(id) } ?? nil
         }?.repoId
@@ -43,8 +44,8 @@ extension SessionSetup {
         return file
     }
 
-    /// `argv` with the settings file after `flag`: added to a new chat's; a restart's, which carries the one it had,
-    /// gets today's (the project's switches may have changed since).
+    /// `argv` with the settings file added after `flag`. A new chat gets it added; a restart, whose argv already
+    /// carries the old file, gets today's file instead (the project's switches may have changed since).
     func withSettings(
         _ argv: [String], flag: String, manifest: AgentManifest, worktreeId: String?, fresh: Bool
     ) throws -> [String] {
@@ -70,7 +71,8 @@ extension SessionSetup {
         return ServerFiles.read(serversFile).filter { !off.contains("server:\($0.key)") }
     }
 
-    /// A Claude Code's `argv` with Kelp's servers file, when it holds any (what's off is denied in its settings).
+    /// A Claude Code `argv` with Kelp's servers file added, when the file holds any servers (the ones that are off are
+    /// denied in its settings).
     func withServers(_ argv: [String], flag: String) -> [String] {
         var out: [String] = [], index = 0
         while index < argv.count {
@@ -89,8 +91,8 @@ extension SessionSetup {
         ServerFiles.codex(handedServers(worktreeId: worktreeId)).environment
     }
 
-    /// A Codex's `argv` with its own servers that are off here left out and Kelp's handed over, right after the program.
-    /// Limit: a `-c mcp_servers.…` the person typed themselves is taken for Kelp's at a restart.
+    /// A Codex `argv` with its own servers that are off here left out and Kelp's servers passed in, right after the
+    /// program. Limit: at a restart, a `-c mcp_servers.…` the person typed themselves is taken for one of Kelp's.
     func withCodexSwitches(_ argv: [String], worktreeId: String?) -> [String] {
         var out: [String] = [], index = 0
         while index < argv.count {

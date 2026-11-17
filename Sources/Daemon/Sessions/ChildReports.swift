@@ -134,8 +134,8 @@ extension Sessions {
         return (now.statusAt ?? .distantPast) > (session.statusAt ?? .distantPast) && now.status != .waiting
     }
 
-    /// A report for `parent`. One that's paused, or between two kelpds, gets it when it runs again: it's been marked as told,
-    /// and nothing would say it twice. One that ended has no one to read it.
+    /// Delivers a report to `parent`. A parent that is paused, or between two kelpds, gets the report when it runs
+    /// again: the report is marked as told, so nothing says it twice. A parent that ended has nobody to read it.
     private func tell(_ parent: String, _ text: String) {
         if existing(parent)?.report(text) == true { return }
         Log.session.attempt("keeping a report for \(parent)") {
@@ -165,9 +165,11 @@ extension Sessions {
         }
     }
 
-    /// The reply that ended its turn, for an agent whose Stop doesn't say it. It's on disk a moment after the status says
-    /// done, and until then the last one there is the turn's before. Off the caller's queue, so waiting here holds nobody.
-    /// Limit: without a Stop that says it, a turn that spoke before its last tool call can report those words.
+    /// The reply that ended the session's turn, for an agent whose Stop hook doesn't carry it. The reply reaches the
+    /// transcript on disk a moment after the status says done; until then the last reply in the transcript is the one
+    /// from the turn before. Runs off the caller's queue, so waiting here blocks nobody.
+    /// Limit: without a Stop hook that carries the reply, a turn that spoke before its last tool call can report those
+    /// earlier words.
     private func finalReply(_ session: Session) -> String? {
         var reply: String?
         for _ in 0..<8 {
@@ -211,8 +213,9 @@ extension Sessions {
         }
     }
 
-    /// A restart is a new session in the old one's place: its children stay its children (and what it started, its own),
-    /// and what it hadn't typed is the new one's to type. `owed`: what was taken from the old one as it stopped.
+    /// A restart is a new session in the old session's place: its children stay its children (and what the old one
+    /// started becomes the new one's), and what the old one hadn't typed yet the new one types. `owed` is what was
+    /// taken from the old session as it stopped.
     func passChildren(of old: String, to new: String, owed: [OwedInput]) throws {
         // What an agent typed into it started (`typed:`) and the workspaces it or one made, too.
         let typedOld = Caller.typedAgent(old).origin, typedNew = Caller.typedAgent(new).origin

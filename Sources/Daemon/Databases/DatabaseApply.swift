@@ -4,7 +4,8 @@ import Foundation
 // The tab's edits saved: all in one transaction.
 
 extension Databases {
-    /// The tab's edits, as the user's: each statement one (SQLText.single), all in one transaction (`apply`).
+    /// Saves the tab's edits on the user's behalf: each statement must be a single statement (SQLText.single), and all
+    /// of them run in one transaction (`apply`).
     func apply(_ databaseApply: DatabaseApply) async throws -> QueryResult {
         guard !databaseApply.statements.isEmpty else { throw RPCError.invalidParams("Nothing to save.") }
         let (wid, name) = (databaseApply.worktreeId, databaseApply.database)
@@ -36,10 +37,10 @@ extension Databases {
 }
 
 extension Databases {
-    /// With `each`, kept only if every statement changed that many rows. Limit: a database whose runner can't count
-    /// each statement in one transaction (a client program's, DuckDB, Appwrite) runs them as `apply` does: statements
-    /// that find their rows as they were checked (Undo's) still change nothing where a row changed since, but the rest
-    /// are kept.
+    /// With `each`, the changes are kept only if every statement changed exactly that many rows. Limit: a database
+    /// whose runner can't count each statement's rows in one transaction (a client program, DuckDB, Appwrite) runs them
+    /// the way `apply` does: statements that find their rows by the values they were checked against (Undo's) still
+    /// change nothing where a row changed since, but the other statements are kept.
     func applied(_ target: DatabaseConnection, _ statements: [String], each: Int?) async throws -> Int {
         guard let each else { return try await DatabaseEngines.apply(target, statements, off: offloads) }
         let counts: [Int?]

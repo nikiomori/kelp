@@ -1,13 +1,13 @@
 import Core
 import Foundation
 
-/// A project another tool set up first. Without a .kelp.yaml, Kelp reads that tool's file for the same things: the setup a
-/// new worktree gets, run / test and named commands, and the teardown, which becomes the `archive` command. So a project
-/// coming from Conductor, Codex, Cursor, an `.agents/` folder and the like works from its first worktree. It's trusted like a .kelp.yaml
-/// (`configAndTrust`), and the question names the file. The scripts expect their tool's variables (the main checkout, the
-/// worktree, its name, a port): those are set from Kelp's (`prelude`).
-/// Limits: Kelp doesn't run `archive` by itself when a workspace goes, it's a command to run by hand; a tool's personal
-/// override file (`settings.local.toml`, `config.local.json`) and Orca's orca.yaml are left out.
+/// A project that another tool set up first. Without a .kelp.yaml, Kelp reads that tool's file for the same things: the
+/// setup a new worktree gets, run / test and named commands, and the teardown, which becomes the `archive` command. So
+/// a project coming from Conductor, Codex, Cursor, an `.agents/` folder and the like works from its first worktree. The
+/// file is trusted the same way as a .kelp.yaml (`configAndTrust`), and the trust question names it. The scripts expect
+/// their tool's variables (the main checkout, the worktree, its name, a port); those are set from Kelp's (`prelude`).
+/// Limits: Kelp doesn't run `archive` by itself when a workspace goes; it is a command to run by hand. A tool's
+/// personal override file (`settings.local.toml`, `config.local.json`) and Orca's orca.yaml are left out.
 enum ImportedConfig {
     typealias Reader = @Sendable (_ text: String, _ root: String) -> RepoConfig?
 

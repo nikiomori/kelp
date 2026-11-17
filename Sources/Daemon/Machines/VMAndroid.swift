@@ -1,9 +1,9 @@
 import Core
 import Foundation
 
-/// Making an Android machine (`VMService.create` with the android image): an AVD of its own, in its folder, from the newest
-/// arm64 system image the user's SDK has (the plain one before Play Store's, which updates Google's services at every
-/// boot). Nothing is downloaded.
+/// Makes an Android machine (`VMService.create` with the android image): an AVD of its own, in its folder, from the
+/// newest arm64 system image the user's SDK has (the plain image rather than the Play Store one, which updates Google's
+/// services at every boot). Nothing is downloaded.
 extension VMService {
     func makeAndroid(_ machine: VMMachine) async {
         await making(machine) {
@@ -18,7 +18,8 @@ extension VMService {
             var env = ProcessInfo.processInfo.environment
             env["ANDROID_AVD_HOME"] = avd.path
             if let root = AndroidSDK.root { env["ANDROID_SDK_ROOT"] = root.path }
-            // avdmanager is Java: Android Studio's own runtime when none is on PATH (launchd's isn't the shell's).
+            // avdmanager is a Java program: use Android Studio's own runtime when there is no java on PATH (launchd's
+            // PATH isn't the shell's).
             let studio = "/Applications/Android Studio.app/Contents/jbr/Contents/Home"
             if env["JAVA_HOME"] == nil, FileManager.default.fileExists(atPath: studio) { env["JAVA_HOME"] = studio }
             let made = try await blocking { [env] in

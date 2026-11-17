@@ -25,8 +25,8 @@ extension CommentAdd: Handled {
         let agent = session.flatMap { scm.live[$0]?.snapshot.agent }.flatMap {
             Session.isAgent($0) ? $0 : nil
         }
-        // A program in a terminal (an agent typed into it, a script) is named too: only the window's own comments are the
-        // user's, unframed when they're sent.
+        // A program in a terminal (an agent typed into it, or a script) is named as the author too: only comments made
+        // in the window are the user's, and only those are sent without a frame.
         let author =
             try agent.map { try scm.setup.manifest($0, command: nil).name }
             ?? session.map { _ in String(localized: "A program in a terminal") }
@@ -168,7 +168,8 @@ extension CommentSend: Handled {
                 // All of it, where and what it quotes too: each is what that agent wrote.
                 entry = Untrusted.frame(head + quote + "\n   " + comment.text, what: "\(author)'s finding")
             } else {
-                // The user's remark is theirs; the lines it quotes are the file's, written by whoever changed it last.
+                // The user's remark is the user's own words; the lines it quotes are the file's, written by whoever
+                // changed them last.
                 let quoted = comment.quote.isEmpty ? "" : Untrusted.frame(quote, what: "quoted lines") + "\n"
                 entry = head + quoted + "   " + comment.text
             }

@@ -32,16 +32,17 @@ struct Fence {
     /// Who may call it: nil for any client of the socket (the app, the CLI, agents and their scripts), else what anyone
     /// but Kelp's window is told (`Clients.requireApp`). Its params may decide (`state.set` of an `lsp.` key).
     var onlyFromKelp: String?
-    /// The session whose status it reports (hooks, `kelp report`, herdr's): a program running inside one session may
-    /// report only for that one. From outside every session (the app, a terminal elsewhere), for any.
+    /// The session whose status the method reports (hooks, `kelp report`, herdr's report). A program running inside one
+    /// session may report only for that session; from outside every session (the app, a terminal elsewhere), it may
+    /// report for any.
     var reportsFor: String?
     /// The session it types into or stops. Not a gate of its own: every session a call names, in any field, is held to
     /// the agent's own and those it started (`Store.named(by:)`), so for one that exists this adds nothing. It does
     /// refuse an id that names no session, and keeps a typed agent from acting on the user's terminal it was typed into,
     /// which it may still name (`AgentRules.allow`).
     var actsOn: String?
-    /// Whether it answers an agent's question (Allow / Deny): the user's to answer, so never from a session an agent runs or
-    /// started, which would approve its own question or another agent's.
+    /// Whether the method answers an agent's question (Allow / Deny). Only the user may answer, so it is never accepted
+    /// from a session an agent runs or started, which could approve its own question or another agent's.
     var answersQuestion: Bool = false
     /// The workspace it works in (`kelp browser`'s tabs, a port's process): an agent works only in its own, whose
     /// pages may carry the user's login it was let into.
@@ -49,8 +50,8 @@ struct Fence {
     /// A folder it writes in (an artifact's `cwd`): held to the workspace that holds it, as `inWorkspace` is. One outside
     /// every workspace (a chat of no project) is anyone's.
     var writesInFolder: String?
-    /// The sessions it ends with what it removes (a workspace, a project's): an agent ends only its own and those it
-    /// started, never the user's other agents.
+    /// The sessions the method ends along with what it removes (a workspace, a project): an agent may end only its own
+    /// sessions and those it started, never the user's other agents.
     var ends: Ending?
     /// Why an agent, or a program it runs, may not call it at all (deleting a routine, the user's own): nil if it may.
     var notForAgents: String?
@@ -163,8 +164,8 @@ extension Upgrade: DaemonService {
     }
 }
 
-/// Answered on a thread of its own (`offload`): git, files, the store. `handle(_:conn:)` for the few that need the asking
-/// connection (attach, detach, ui.publish); the rest write `handle(_:)`.
+/// A method answered on a thread of its own (`offload`), for git, files and the store. The few that need the connection
+/// that asked (attach, detach, ui.publish) write `handle(_:conn:)`; the rest write `handle(_:)`.
 protocol Handled: Answered {
     associatedtype Service: DaemonService
     /// Memory or a short write to the store, never a program: answered on a thread of its own at once, not after a slot
@@ -179,8 +180,8 @@ protocol Handled: Answered {
         _ params: JSONValue, _ service: Service, allowed: @escaping @Sendable (any Answered) throws -> Void,
         reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
     ) -> Bool
-    /// Once an in-order method's reply is queued: what must wait until it's on its way out (daemon.upgrade's hand-over,
-    /// daemon.shutdown's stop).
+    /// Runs, once an in-order method's reply is queued, what must wait until that reply is on its way out
+    /// (daemon.upgrade's hand-over, daemon.shutdown's stop).
     static func replied(_ service: Service)
     /// A call that sends its reply itself, where a result returned can't go (`session.attach`'s, queued inside the
     /// session's lock): true when it did, false to be answered as any other. `checked`: the call, from a caller allowed
@@ -206,7 +207,7 @@ extension Handled {
         reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
     ) async -> Bool { false }
 
-    /// The three above with this method's service, for the daemon's dispatch (`Daemon.serve`).
+    /// The three functions above, called with this method's service, for the daemon's dispatch (`Daemon.serve`).
     static func answerLater(
         _ params: JSONValue, in daemon: Daemon, conn: Int,
         reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
@@ -372,11 +373,12 @@ extension Daemon {
     /// Requests one client may have waiting for their answer at once (the app's sidebar asks a few hundred at most).
     static let pendingLimit = 4096
 
-    /// 128 at once: wider than any fan-out Kelp makes itself (the sidebar's PR per folder, every watched folder's status),
-    /// and than the slow ones that once stalled every request (aRequestIsAnsweredWhileManySlowOnesRun holds 80): the next
-    /// request still runs while that many wait on hosts that don't answer. Past it, a runaway client queues instead of
-    /// starting a program per request: each is a thread here, two more reading its pipes (`Subprocess`) and a process,
-    /// and the user's processes are capped for the whole login (kern.maxprocperuid), terminals included.
+    /// Up to 128 requests run at once. That is wider than any fan-out Kelp makes itself (the sidebar asks for a PR per
+    /// folder, and every watched folder's status), and wider than the slow requests that once stalled every other one
+    /// (aRequestIsAnsweredWhileManySlowOnesRun holds 80): the next request still runs while that many wait on hosts
+    /// that don't answer. Past the limit, a runaway client's requests queue instead of each starting a program: every
+    /// request is a thread here, plus two threads reading its pipes (`Subprocess`) and a process, and the user's
+    /// processes are capped for the whole login (kern.maxprocperuid), terminals included.
     static let offloadLimit = 128
 }
 

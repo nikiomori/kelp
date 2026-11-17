@@ -91,7 +91,8 @@ extension Databases {
         return outcome
     }
 
-    /// Its password is in Kelp's keychain, or Kelp knows which app's to read it from.
+    /// Whether the database's password is in Kelp's keychain, or Kelp knows which app to read it from (a file database
+    /// needs none).
     func hasPassword(_ db: DatabaseInfo) -> Bool {
         db.engine.isFile || db.passwordIn != nil || Keychain.get(Self.libraryAccount(db.name)) != nil
     }

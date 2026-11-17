@@ -2,15 +2,15 @@ import Core
 import Foundation
 import GitKit
 
-/// What the git handlers are handed (GitHandlers.swift: source control, files and review comments): the workspaces'
-/// records, how to reach a remote project's host, what discards threw away, and the sessions a turn's diff reads and a
-/// review is sent to. Not all of `Sessions`: a git handler starts, wakes and ends none.
+/// What the git handlers are given (GitHandlers.swift: source control, files and review comments): the workspaces'
+/// records, how to reach a remote project's host, what discards threw away, and the sessions that a turn's diff reads
+/// and that a review is sent to. Not all of `Sessions`, since a git handler starts, wakes and ends no session.
 struct SourceControl: Sendable {
     let root: URL
     let store: Store
     let remotes: Remotes
     let live: SessionTable   // a turn's diff is where its agent works now
-    let setup: SessionSetup   // an agent's name, for a commit's trailer and a comment's author
+    let setup: SessionSetup   // names the agent for a commit's trailer and a comment's author
     /// Types into an agent as `session.send` does (on its lane, waking it): the one thing comments do to a session.
     let send: @Sendable (SessionSend) throws -> Void
 

@@ -1,10 +1,11 @@
 import Core
 import Foundation
 
-/// The tasks an editor keeps in the project, VS Code's .vscode/tasks.json and Zed's .zed/tasks.json, in the Run menu
-/// beside package.json's scripts. Only what runs as a plain command. VS Code's npm tasks are package.json's own, listed
-/// already; its other task types (gulp, typescript…) need VS Code. A task naming the open file or asking for input
-/// (`${file}`, `${input:…}`, `$ZED_FILE`) has nothing to fill those in here and is left out.
+/// The tasks an editor keeps in the project (VS Code's .vscode/tasks.json and Zed's .zed/tasks.json), listed in the Run
+/// menu beside package.json's scripts. Only tasks that run as a plain command are taken. VS Code's npm tasks are
+/// package.json's own scripts, which are listed already; its other task types (gulp, typescript…) need VS Code. A task
+/// that names the open file or asks for input (`${file}`, `${input:…}`, `$ZED_FILE`) can't be filled in here, so it is
+/// left out.
 extension Runnables {
     static func editorTasks(_ found: Found, _ base: String) -> [RunOption] {
         let vs = found.text(base, ".vscode/tasks.json").flatMap(JSONC.object)?["tasks"] as? [[String: Any]] ?? []

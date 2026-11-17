@@ -24,7 +24,8 @@ struct LibraryDatabase: Codable, FetchableRecord, PersistableRecord {
 /// "db:/<name>". And what the Add Database sheet asks of the daemon: a check of what's typed, the servers running in
 /// Docker.
 extension Databases {
-    /// Its password's keychain account: "db:/<name>", a project's with no project.
+    /// The keychain account for a library database's password: "db:/<name>", the same form as a project's database with
+    /// no project.
     static func libraryAccount(_ name: String) -> String { account("/" + name) }
 
     func library() throws -> [DatabaseInfo] {

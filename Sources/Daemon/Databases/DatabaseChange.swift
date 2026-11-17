@@ -96,22 +96,24 @@ extension Databases {
         }
     }
 
-    /// The statement an agent's change runs as after its trial (`tried`, as it was kept): saying its rows itself
-    /// (RETURNING *) where the trial did, so the rows it's answered and kept with are the ones it wrote. The trial's
-    /// aren't: a value made as it runs (a sequence's next id, now(), random()) is another the next time. As it is
-    /// where the trial gave no rows (a Postgres view RETURNING doesn't fit) or it says them already; DuckDB's write
-    /// asks for them itself, and the other engines have no RETURNING.
-    /// Limit: rows past what Kelp reads of an answer (32 MB) fail the call though the change is made, as a
-    /// statement's own RETURNING does: only rows that outgrew the trial's, which fit.
+    /// The statement an agent's change runs as after its trial run (`tried`, as it was kept). Where the trial returned
+    /// rows, the statement returns its own rows (RETURNING *), so the rows the agent is answered with and that Kelp
+    /// keeps are the ones this run wrote. The trial's rows can't be used: a value made while the statement runs (a
+    /// sequence's next id, now(), random()) differs the next time. The statement is left as it is when the trial
+    /// returned no rows (RETURNING doesn't fit a Postgres view) or when it already returns them. DuckDB's write asks
+    /// for the rows itself, and the other engines have no RETURNING.
+    /// Limit: if the rows are more than Kelp reads of an answer (32 MB), the call fails even though the change is made,
+    /// the same as a statement's own RETURNING would. Only rows that outgrew the trial's can do that, and the trial's
+    /// fit.
     static func saying(_ sql: String, _ engine: DatabaseInfo.Engine, tried: QueryResult?) -> String {
         guard [.sqlite, .postgres].contains(engine), tried?.columns.isEmpty == false else { return sql }
         return SQLText.returning(sql) ?? sql
     }
 
-    /// What the trial said the change does (`tried.change`), for the rows it then wrote: an update's rows as they
-    /// were are found again by the key, since the written rows needn't be the trial's, nor in its order (the table
-    /// can have changed since). nil unless Kelp has every written row as it is, as `rowChange` asks of a trial's;
-    /// no rows as they were unless each written row has one.
+    /// What the trial said the change does (`tried.change`), applied to the rows the change then wrote. An update's old
+    /// rows are found again by the key, since the written rows needn't be the trial's rows nor in the same order (the
+    /// table may have changed since). Returns nil unless Kelp has every written row in full, as `rowChange` requires of
+    /// a trial's rows, and has no old rows unless each written row has one.
     static func written(_ tried: QueryResult, _ rows: DatabaseRows) -> RowChange? {
         guard var change = tried.change, rows.columns == tried.columns, !rows.rows.isEmpty,
             rows.rows.count == rows.total, !rows.opaque
@@ -126,8 +128,9 @@ extension Databases {
         return change
     }
 
-    /// A change's rows as they're kept (its trial's, then the ones it wrote), with what the change does to them when
-    /// they're kept whole: a cell cut or a row left out for its size, and there's no saying what to put back.
+    /// A change's rows as they are kept (its trial's rows, then the ones it wrote), with what the change does to them,
+    /// but only when they are kept whole: if a cell was cut or a row left out for its size, there is no way to say what
+    /// to put back.
     static func kept(_ rows: DatabaseRows, id: String, change: RowChange?, ms: Int = 0) -> QueryResult {
         let whole = QueryResult(
             id: id, columns: rows.columns, rows: rows.rows, total: rows.total, changed: rows.changed, ms: ms)

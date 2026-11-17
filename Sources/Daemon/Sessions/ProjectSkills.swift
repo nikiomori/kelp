@@ -1,11 +1,11 @@
 import Core
 import Foundation
 
-/// Kelp's skills for an agent with no flag that loads them for one session (Codex, Antigravity, Grok…): copied into the
-/// folder it works in, `.agents/skills/kelp-*/SKILL.md`, the place those agents all read a project's skills from, and
-/// kept out of git by the repository's own info/exclude. Nothing goes into the agent's own config. The same skills a
-/// Claude Code chat there would get (`chosenSkills`); one of Kelp's turned off since goes from the folder, and a
-/// skill of anyone else's named `kelp-…` stays.
+/// Kelp's skills for an agent that has no flag to load them for one session (Codex, Antigravity, Grok…). They are
+/// copied into the folder the agent works in, as `.agents/skills/kelp-*/SKILL.md`, which is where those agents all read
+/// a project's skills from, and kept out of git by the repository's own info/exclude. Nothing goes into the agent's own
+/// config. They are the same skills a Claude Code chat in that folder would get (`chosenSkills`). A Kelp skill turned
+/// off since is removed from the folder; someone else's skill named `kelp-…` stays.
 extension SessionSetup {
     static let projectSkills = ".agents/skills"
 
@@ -21,8 +21,8 @@ extension SessionSetup {
         return browser?.line
     }
 
-    /// Each plugin's skill folder as `<folder>/<name>/`, written only where it differs; Kelp's others there (`kelps`:
-    /// the names of all Kelp's skills) go.
+    /// Copies each plugin's skill folder to `<folder>/<name>/`, writing only where it differs, and removes Kelp's other
+    /// skills there (`kelps` holds the names of all of Kelp's skills).
     static func copy(_ plugins: [URL], into folder: URL, kelps: Set<String>) throws {
         let fm = FileManager.default
         let names = Set(plugins.map(\.lastPathComponent))

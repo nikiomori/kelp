@@ -23,10 +23,10 @@ extension VMService {
         }
     }
 
-    /// Whether this call is the one to make `vm` again (its making failed): checked and claimed under one lock
-    /// (vms/.remaking, a moment), its `failed` gone and its `creating` written before `makeAgain`'s slow part (seconds:
-    /// its kelp-vm quit, a simulator deleted), so a second Try Again meanwhile (the user's twice, an agent's) finds it
-    /// being made.
+    /// Whether this call is the one that makes `vm` again after its making failed. The check and the claim happen under
+    /// one lock (vms/.remaking, held a moment): the `failed` mark is removed and `creating` written before the slow
+    /// part of `makeAgain` (seconds: quitting its kelp-vm, deleting a simulator), so a second Try Again meanwhile (the
+    /// user clicking twice, or an agent) finds the machine already being made.
     func claimRemake(_ vm: VMMachine) -> Bool {
         let fd = open(root.appendingPathComponent(".remaking").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         guard fd >= 0 else { return false }

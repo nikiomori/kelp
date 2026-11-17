@@ -28,7 +28,7 @@ enum SQLText {
                     [false, true].map { Reading(backslash: backslash, nested: $0) }
                 }
             case .mysql: [.none, .all].map { Reading(backslash: $0, mysql: true, dollar: false) }
-            // Appwrite's is Kelp's own narrow SQL, translated to its API one statement at a time
+            // Appwrite's statements are Kelp's own narrow SQL, translated to its API one statement at a time
             case .sqlite, .appwrite: [Reading(backslash: .none, dollar: false)]
             }
         }
@@ -190,11 +190,11 @@ enum SQLText {
         String(code(sql).prefix { $0.isLetter }).uppercased()
     }
 
-    /// The one statement a call may run: more, or a client command (psql's \…, duckdb's .…), is refused before
-    /// anything runs. One at a time keeps a read-only transaction whole (a "COMMIT; DELETE …" would leave it) and
-    /// what the user allows all that runs. It's read every way its engine might read it (`Reading`): a client that
-    /// splits a script itself (psql -c, mysql, MySQL's multi-statements) splits it as its engine does, so where the
-    /// readings disagree on where it ends, it's refused.
+    /// The one statement a call may run: more than one, or a client command (psql's \…, duckdb's .…), is refused before
+    /// anything runs. Running one at a time keeps a read-only transaction whole (a "COMMIT; DELETE …" would end it) and
+    /// makes what the user allowed everything that runs. The text is read every way its engine might read it
+    /// (`Reading`): for a client that splits a script itself (psql -c, mysql, MySQL's multi-statements) it is split the
+    /// way that engine splits it, and where the readings disagree on where the statement ends, it is refused.
     static func single(_ sql: String, _ engine: DatabaseInfo.Engine) throws -> String {
         let readings = Reading.of(engine)
         let all = statements(sql, readings[0])

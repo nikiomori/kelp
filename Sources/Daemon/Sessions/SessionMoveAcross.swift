@@ -38,7 +38,7 @@ extension SessionMoveAcross: Handled {
 
 /// What moving a chat carries from one copy of a project to another, either of them here or on a host.
 enum ChatMove {
-    /// A repository's first commits: two copies of one project share them.
+    /// A repository's first commits, which two copies of one project share.
     static func roots(_ dir: String, _ remotes: Remotes) throws -> Set<String> {
         Set(
             try Git.run(["rev-list", "--max-parents=0", "HEAD"], cwd: dir, remotes: remotes).split(separator: "\n")

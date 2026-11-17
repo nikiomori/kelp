@@ -1,7 +1,8 @@
 import Core
 import Foundation
 
-// Running a statement: who asks, the trial and the user's Allow for an agent's change, and what's kept of the run.
+// Running a statement: who is asking, the trial run and the user's Allow for an agent's change, and what is kept of the
+// run.
 
 extension Databases {
     /// Who asks (`Store.agent(origin:)`): nil for the user, else the agent's session to ask.
@@ -55,7 +56,8 @@ extension Databases {
                         + (others.isEmpty ? "." : ", or try it on \(others.joined(separator: " or ")).")
                 )
             case .ask:
-                // In this catch's body a failure isn't the outer catch's: said here (a server that refuses changes)
+                // A failure in this catch's body isn't caught by the outer catch, so it is reported here (a server that
+                // refuses changes)
                 let yes: Bool
                 do { yes = try await allowed(databaseQuery, target, sql, &run, asker: (session, pid)) } catch let
                     failure
@@ -81,8 +83,8 @@ extension Databases {
         } catch let failure as DatabaseFailure { throw failed(databaseQuery, &run, failure) }
     }
 
-    /// Whether Postgres takes the connection's role for a superuser: what a read-only transaction and Kelp's text check
-    /// leave open (a server's files, other sessions) is then the server's own.
+    /// Whether Postgres treats the connection's role as a superuser. If it does, what a read-only transaction and
+    /// Kelp's text check leave open (the server's files, other sessions) is guarded by the server alone.
     private func superuser(_ databaseConnection: DatabaseConnection) async throws -> Bool {
         do {
             let asked = "SELECT current_setting('is_superuser')"
@@ -123,8 +125,8 @@ extension Databases {
         run.ms = ms
         // The user's own reads (a page of a table, a count) keep no rows, nothing reads them again, and go whole
         let kept = agent || rows.changed != nil
-        // A change after its trial: its rows are the ones it wrote itself (`saying`), never the trial's, and with
-        // them goes what the trial said it does to them (`written`), for the tab's marks and Undo.
+        // A change after its trial: its rows are the ones the change returned itself (`saying`), never the trial's, and
+        // they come with what the trial said the change does to them (`written`), for the tab's marks and Undo.
         if kept { result = Self.kept(rows, id: run.id, change: tried.flatMap { Self.written($0, rows) }, ms: ms) }
         note(databaseQuery.worktreeId, run, result: kept ? result : nil)
         var sent = result

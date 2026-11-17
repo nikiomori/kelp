@@ -180,7 +180,8 @@ final class Store: Sendable {
         try db.read { try DiffComment.filter(Column("worktreeId") == worktree).fetchAll($0) }
     }
 
-    /// The app's UI state (`state.*`): JSON by key, e.g. `layout/<workspace>`, `sidebar.order`. Every key with this prefix.
+    /// The app's UI state (`state.*`): JSON stored by key, e.g. `layout/<workspace>` or `sidebar.order`. This returns
+    /// every key with the given prefix.
     func uiState(prefix: String) throws -> [String: JSONValue] {
         try db.read { database in
             try Row.fetchAll(

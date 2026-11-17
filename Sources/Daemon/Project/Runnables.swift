@@ -17,7 +17,7 @@ enum Runnables {
         "Package.swift",
         "build.gradle", "build.gradle.kts", "pom.xml", "mix.exs", ".vscode/tasks.json", ".zed/tasks.json"
     ]
-    /// Only whether they're there.
+    /// Files and folders that are only checked for being there; their contents aren't read.
     static let marks = [
         "node_modules", ".venv", "uv.lock", "poetry.lock", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb",
         "main.go",
@@ -84,7 +84,8 @@ enum Runnables {
         return String(path[..<range.lowerBound].dropLast(path[..<range.lowerBound].hasSuffix("/") ? 1 : 0))
     }
 
-    /// Every folder's, its own folder first; a command found twice in one folder (a Makefile's `dev: npm run dev`) once.
+    /// The commands of every folder, the workspace's own folder first; a command found twice in one folder (a
+    /// Makefile's `dev: npm run dev`) is listed once.
     static func options(_ found: Found) -> [RunOption] {
         let folders = Set(found.files.keys.map(folder(of:))).sorted {
             ($0.isEmpty ? 0 : 1, $0) < ($1.isEmpty ? 0 : 1, $1)
@@ -157,7 +158,8 @@ enum Runnables {
         return out
     }
 
-    /// package.json's packageManager, else the lock file here or in the workspace's folder (a monorepo's), else npm.
+    /// The package manager: package.json's `packageManager` field, else the one whose lock file is here or in the
+    /// workspace's folder (for a monorepo), else npm.
     static func manager(_ found: Found, _ dir: String, _ field: String?) -> String {
         if let name = field?.split(separator: "@").first.map(String.init),
             ["npm", "pnpm", "yarn", "bun"].contains(name)

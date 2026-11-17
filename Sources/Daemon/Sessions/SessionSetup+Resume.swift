@@ -5,8 +5,8 @@ import Foundation
 import os
 
 extension SessionSetup {
-    /// argv that brings back this session's own conversation. A remote one's is on its host: resumed by its id once it's
-    /// there.
+    /// The argv that brings back this session's own conversation. A remote session's conversation is on its host, and
+    /// is resumed by its id once it is there.
     func resumeArgv(_ rec: Session, _ manifest: AgentManifest) -> [String] {
         // pi and Grok, pinned: resumed by its id once it wrote its conversation; before its first message it has none
         // (resuming one would stop it at "No session found"), so it starts under the same id. On a host: pi's

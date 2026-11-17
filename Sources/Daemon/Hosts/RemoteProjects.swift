@@ -20,8 +20,8 @@ extension RemoteListFolders: Handled {
         guard RemoteHost.isHost(host) else {
             throw RPCError.invalidParams("Enter the host, as you'd type it after ssh.")
         }
-        // In sh whatever the host's login shell is: the folder's path, whether it's in a repository, then "g name" for a
-        // repository, "d name" for the rest.
+        // Written in sh, whatever the host's login shell is: it prints the folder's path, whether it is in a
+        // repository, then "g name" for each repository and "d name" for every other folder.
         let script =
             "cd \(RemoteHost.cdArg(path.isEmpty ? "~" : path)) || exit 1; pwd; "
             + "if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then echo repo; else echo none; fi; "

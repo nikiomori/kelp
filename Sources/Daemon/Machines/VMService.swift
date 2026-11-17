@@ -2,10 +2,10 @@ import Core
 import Foundation
 import os
 
-/// Kelp's virtual machines (Core/VM/VMs.swift): makes them, starts each one's `kelp-vm` and asks it how it is. Keeps nothing in
-/// memory: a machine is its folder (a `creating` file while it's being made, `failed` after that went wrong). A machine's
-/// own process outlives kelpd (started through `sh … &`, so it isn't kelpd's child): a restart or an upgrade here leaves
-/// what runs inside alone.
+/// Kelp's virtual machines (Core/VM/VMs.swift): this makes them, starts each machine's `kelp-vm` and asks it how the
+/// machine is. It keeps nothing in memory: a machine is its folder (with a `creating` file while it is being made, and
+/// `failed` after that went wrong). A machine's own process outlives kelpd (it is started through `sh … &`, so it isn't
+/// kelpd's child), so restarting or upgrading kelpd leaves what runs inside the machine alone.
 struct VMService: Sendable {
     let root: URL
     /// kelp-vm, beside kelpd.
@@ -68,7 +68,7 @@ struct VMService: Sendable {
         }
         guard out.status == 0 else { return nil }
         var parsed = VMs.parseDetail(String(decoding: out.stdout, as: UTF8.self))
-        parsed.guest?.screen = st?.screen   // whose turn the screen is: kelp-vm's to say now, not Kelp Guest's
+        parsed.guest?.screen = st?.screen   // whose turn the screen is: kelp-vm says that now, not Kelp Guest
         if let json = FileManager.default.contents(atPath: folder(name).shares.path) {
             do { parsed.folders = try JSONDecoder().decode([Int: String].self, from: json).values.sorted() } catch {
                 Log.vm.error("\(name)'s shares: \(error)")
@@ -262,8 +262,9 @@ struct VMService: Sendable {
         }
     }
 
-    /// Room in the memory budget (a quarter of the Mac's) for `machine` to wake: idle machines are put to sleep for it,
-    /// else no. One alone wakes at any size it may have (up to half the Mac's): the budget is for them together.
+    /// Makes room in the memory budget (a quarter of the Mac's memory) for `machine` to wake: idle machines are put to
+    /// sleep for it, or the answer is no. A machine running alone wakes at any size it may have (up to half the Mac's
+    /// memory), since the budget is for all of them together.
     func admit(_ machine: VMMachine) throws {
         if status(machine.name)?.state.isUp == true { return }
         let budget = Int(ProcessInfo.processInfo.physicalMemory >> 20) / 4
@@ -387,7 +388,8 @@ struct VMService: Sendable {
         return flock(fd, LOCK_SH | LOCK_NB) != 0
     }
 
-    /// A sleep's answer: an error thrown, else whether it's down now (`sleep` leaves one that's starting as it is).
+    /// Reads a sleep's answer: it throws the error, or returns whether the machine is down now (`sleep` leaves a
+    /// machine that is starting as it is).
     func asleep(_ reply: VMHelper.Reply) throws -> Bool {
         try check(reply)
         return !reply.state.isUp

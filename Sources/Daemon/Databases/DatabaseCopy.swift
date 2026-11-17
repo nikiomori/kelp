@@ -23,7 +23,7 @@ extension Databases {
         case .sqlite, .duckdb:
             return try await offloads.run { [self] in try copyFile(source, worktree, suffix: suffix) }
         case .postgres:
-            // Behind an SSH host, "localhost" is that host's: not this Mac's
+            // Behind an SSH host, "localhost" means that host, not this Mac
             guard let host = source.database.host, DatabaseInfo.isLocal(host), source.database.ssh == nil,
                 let database = source.database.database
             else {
@@ -57,7 +57,8 @@ extension Databases {
         }
     }
 
-    /// Into the branch's folder at the same place when it's the project's file, else beside it with the branch's name.
+    /// Copies a file database into the branch's folder at the same relative place when the file is inside the project;
+    /// otherwise beside the original, with the branch's name added.
     fileprivate func copyFile(_ databaseConnection: DatabaseConnection, _ worktree: Worktree, suffix: String) throws
         -> DatabaseInfo
     {

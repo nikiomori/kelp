@@ -16,8 +16,8 @@ public struct Handover: Codable, Sendable {
         var reports: [String]?
     }
     struct Prompt: Codable, Sendable { var text: String, draft: Bool, paste: Bool }
-    /// What a session's status and typing rest on beside its record: the session's `Kept` whole, its fields beside
-    /// `hooked` (the status detector's), as kelpds before it wrote them one by one.
+    /// What a session's status and typing depend on, apart from its record: the session's whole `Kept` value, with its
+    /// fields next to `hooked` (the status detector's), as earlier kelpds wrote them one by one.
     struct Status: Codable, Sendable {
         var kept: LiveSession.Kept
         var hooked: Bool?

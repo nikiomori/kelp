@@ -47,7 +47,7 @@ extension SessionSetup {
         "-p", "/context", "--no-session-persistence", "--strict-mcp-config", "--settings", #"{"disableAllHooks":true}"#
     ]
 
-    /// The session's folder is a project's, with the agent config of its base branch.
+    /// Whether the session's folder belongs to a project and has the agent config of its base branch.
     private func configSettled(_ session: Session) -> Bool {
         let project = Log.session.attempt("the project of \(session.id)") {
             try session.worktreeId.flatMap { try store.worktree($0) }.flatMap { worktree in

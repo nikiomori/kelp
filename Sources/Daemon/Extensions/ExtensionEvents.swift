@@ -11,7 +11,7 @@ final class ExtensionEvents: Sendable {
     let setup: SessionSetup   // which extensions the user allowed, and an agent's name
     let phone: PhoneBridge   // the phones that take pushes
     private let told = OSAllocatedUnfairLock(initialState: [String: AgentStatus]())
-    /// One thread however many fire. Limit: a command that hangs holds the next back for its 30 s.
+    /// Runs on one thread however many events fire. Limit: a command that hangs holds the next one back for its 30 s.
     let queue = DispatchQueue(label: "dev.kelp.extension-events", qos: .utility)
     /// A status from before this daemon was told before it.
     private let started = Date()
@@ -29,7 +29,8 @@ final class ExtensionEvents: Sendable {
         self.phone = phone
     }
 
-    /// The event a saved session is, once per stop. A child's result is its parent's to read, as it is for notifications.
+    /// The event name for a saved session, given once per stop. A child's result is for its parent to read, as with
+    /// notifications.
     func event(of session: Session) -> String? {
         told.withLock { told in
             if session.status == .working || session.status == .exited { told[session.id] = nil }

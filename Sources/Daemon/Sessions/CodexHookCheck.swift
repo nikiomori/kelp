@@ -57,7 +57,8 @@ final class CodexHookCheck: Sendable {
     }
 
     @Sendable static func hooksList(_ path: String) -> [String: Any]? {
-        // Its own folder: a project's .codex hooks are another question, Kelp's are the same everywhere.
+        // Ask from a folder of its own: a project's .codex hooks are a separate question, and Kelp's hooks are the same
+        // everywhere.
         let cwd = NSTemporaryDirectory()
         let params = #"{"cwds":["# + ShellQuote.doubleQuoted(cwd) + "]}"
         return AgentUsage.askCodex(path: path, args: CodexHooks.args, method: "hooks/list", params: params, within: 5)

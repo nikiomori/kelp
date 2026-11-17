@@ -243,9 +243,9 @@ extension RoutineList: Handled {
     func handle(_ routines: Routines) throws -> RoutinesEvent { try routines.list() }
 }
 
-/// A routine starts agents later, with nobody at the keys: the user's to decide. An agent's new one, in the project it
-/// works in, asks them on its row (Allow / Deny), as a machine does, with all of it in the question; changing or
-/// deleting one stays the user's.
+/// A routine starts agents later, with nobody at the keys, so the user decides. A new routine from an agent, in the
+/// project the agent works in, asks on its row (Allow / Deny), as a machine does, with the whole routine in the
+/// question. Changing or deleting a routine stays the user's.
 extension RoutineSet: AsyncHandled {
     // a routine the user asked an agent for: a new one in its project, added only once they allow it on its row;
     // changing, running and deleting one stay theirs

@@ -84,9 +84,9 @@ private struct FenceCheck {
         }
     }
 
-    /// What a program of an agent's (or of the daemon's, `own` = `Callers.ownProgram`) may not do.
-    /// `typed`: an agent the user typed into `own`, a terminal of theirs: what it reaches is what it started there
-    /// (`typed:` on its line), not everything the user started from that terminal.
+    /// What a program run by an agent (or by the daemon, when `own` is `Callers.ownProgram`) may not do.
+    /// `typed` is an agent the user typed into `own`, one of the user's terminals. Such an agent reaches only what it
+    /// started there (its line carries `typed:`), not everything the user started from that terminal.
     func allowAgent(_ method: any Answered, own: String, typed: Bool = false) throws {
         if method.fence.signs, method.fence.reportsFor == nil {
             throw RPCError.refused(
@@ -187,9 +187,10 @@ private struct FenceCheck {
 /// What the fence reads of a call (`AgentRules.allow`): the sessions and workspaces it names, where an agent works, what a
 /// removal ends. From the records, as `lineage` is.
 extension Store {
-    /// The sessions a call names, in any field (an `id`, a `session`, a `parent`, a list of them, a struct's or an
-    /// enum's in turn): what an agent's call may reach is decided by what it names, not by each method remembering to
-    /// say. Free-form JSON (`JSONValue`: a setting's value, a command's args) and bytes name none.
+    /// The sessions a call names, in any field: an `id`, a `session`, a `parent`, a list of them, or a field inside a
+    /// struct or an enum, in turn. What an agent's call may reach is decided by what it names, so no method has to
+    /// remember to declare it. Free-form JSON (`JSONValue`: a setting's value, a command's args) and raw bytes name no
+    /// session.
     func named(by params: Any) throws -> [String] {
         return try ids(params).filter { try session($0) != nil }
     }

@@ -160,8 +160,9 @@ extension VMService {
         guard written.status == 0 else {
             throw RPCError.internalError("Kelp Guest's login item: " + String(decoding: written.stderr, as: UTF8.self))
         }
-        // Loaded now if the guest's login session is up; a first boot's may still be on its way (launchctl: "Domain does not
-        // support specified action"), and then it starts at that login by itself: tried for two minutes, never a failure.
+        // This loads now if the guest's login session is up. On a first boot the login may still be on its way
+        // (launchctl says "Domain does not support specified action"), and then the agent starts by itself at that
+        // login; it is tried for two minutes and never counts as a failure.
         let load =
             "launchctl bootout gui/$(id -u)/dev.kelp.guest 2>/dev/null; launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.kelp.guest.plist"
         for _ in 0..<24 {

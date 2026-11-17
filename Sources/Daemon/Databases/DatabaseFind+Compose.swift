@@ -64,7 +64,7 @@ extension DatabaseFind {
         var env: [String: String] = [:]
     }
 
-    /// The `services:` block, line by line: a service at the first indent under it, its keys under that.
+    /// Reads the `services:` block line by line: a service sits at the first indent under it, and its keys under that.
     static func services(_ text: String) -> [Service] {
         var services: [Service] = [], inServices = false, serviceIndent = -1, section = ""
         for raw in text.split(whereSeparator: \.isNewline) {
@@ -98,7 +98,7 @@ extension DatabaseFind {
             let key = String(trimmed[..<colon]), value = unquoted(String(trimmed[trimmed.index(after: colon)...]))
             if indent == serviceIndent + 2 || section.isEmpty {
                 section = value.isEmpty ? key : ""
-                // A flow list on the key's own line: ports: ["5433:5432", "8080:80"]
+                // A flow list on the key's own line, such as ports: ["5433:5432", "8080:80"]
                 if key == "ports", value.hasPrefix("[") {
                     services[last].ports += value.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
                         .split(separator: ",").map { unquoted($0.trimmingCharacters(in: .whitespaces)) }

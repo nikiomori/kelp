@@ -60,7 +60,8 @@ final class SessionTable: Sendable {
         }
     }
 
-    /// `remove(_:if:)` for an idle pause: out and `lettingGo` in one step, so input never finds it in neither.
+    /// `remove(_:if:)` for an idle pause: takes the session out and marks it `lettingGo` in one step, so input never
+    /// finds it in neither place.
     func letGo(_ ls: LiveSession, if ok: (LiveSession) -> Bool) -> Bool {
         table.withLockUnchecked { state in
             let id = ls.snapshot.id

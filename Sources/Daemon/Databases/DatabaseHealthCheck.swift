@@ -2,8 +2,9 @@ import Core
 import Foundation
 import os
 
-/// The panel's dots: each database tried once (SELECT 1, a few seconds at most), side by side. A server reached over
-/// SSH, or a remote project's, is tried only through a connection that's open already: the panel never dials.
+/// The panel's dots: each database is tried once (SELECT 1, a few seconds at most), all side by side. A server reached
+/// over SSH, or a remote project's server, is tried only through a connection that is open already, so the panel never
+/// dials.
 extension Databases {
     func status(_ worktreeId: String, library: Bool = false) async throws -> [DatabaseHealth] {
         let all = try await offloads.run { [self] in
@@ -69,8 +70,8 @@ extension Databases {
             let host = databaseConnection.database.host,
             !DatabaseInfo.isLocal(host)
         {
-            // An address from the project's files (a cloned repo's .env): dialled when the user opens it, not on its
-            // own.
+            // An address from the project's files (a cloned repo's .env) is dialled when the user opens the database,
+            // never on its own.
             return DatabaseHealth(name: name, state: .unknown, reason: "Kelp connects when you open it.")
         }
         // Reading the password would make macOS ask: only on opening it.

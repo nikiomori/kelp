@@ -3,11 +3,13 @@ import Foundation
 import LSPKit
 import os
 
-/// Language servers, one per (project, server command), shared by every client: started for the first file a trusted
-/// project opens. A file may be open at several (its language's own and a linter's), each on its own: one that died starts again on the next open (its open files with it), at most once per `retryDelay`;
-/// one with no file open for `idleDelay` stops. Opens, changes and closes come in order from a connection's reader thread
-/// and stay quick: while a server starts they're queued, and given to it once it's up. A restarted server gets each open
-/// file's text as last sent (unsaved edits included), not what's on disk.
+/// Language servers, one per (project, server command), shared by every client. A server starts for the first file a
+/// trusted project opens. A file may be open in several servers (its language's own and a linter), each independently.
+/// A server that died starts again on the next open (with its open files), at most once per `retryDelay`; a server with
+/// no file open for `idleDelay` stops.
+/// Opens, changes and closes come in order from a connection's reader thread and must stay quick: while a server starts
+/// they are queued, and handed to it once it is up. A restarted server gets each open file's text as last sent (unsaved
+/// edits included), not what is on disk.
 final class LSPHost: Sendable {
     struct Key: Hashable, Sendable {
         let root: String, argv: [String]
@@ -24,8 +26,8 @@ final class LSPHost: Sendable {
         case running(LSPClient)
         case failed
     }
-    /// A file open in some tab, at one server: its language, the server's place among the file's, how many opens it
-    /// has and its text as last sent.
+    /// A file open in some tab, at one server: its language, this server's place among the file's servers, how many
+    /// times it is open, and its text as last sent.
     private struct Doc: Sendable {
         let languageId: String, order: Int
         var count: Int, text: String
@@ -51,7 +53,7 @@ final class LSPHost: Sendable {
     /// Where files are read for an answer (references' lines): never the cooperative pool.
     let offloads: Slots
 
-    /// Tests shorten the delays.
+    /// `retryDelay` and `idleDelay` set when a broken server restarts and an idle one stops; tests shorten them.
     init(store: Store, remotes: Remotes, offloads: Slots, retryDelay: TimeInterval, idleDelay: TimeInterval) {
         self.store = store
         self.remotes = remotes
@@ -109,7 +111,7 @@ final class LSPHost: Sendable {
         state.withLock { $0.problemsChanged = changed }
     }
 
-    /// Every server's, top to bottom.
+    /// The file's problems from every server, top to bottom.
     func problems(_ path: String) -> [CodeProblem] {
         state.withLock { $0.problems[path] ?? [:] }.values.joined().sorted {
             ($0.line, $0.column, $0.message) < ($1.line, $1.column, $1.message)
