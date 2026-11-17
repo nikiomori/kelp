@@ -98,7 +98,7 @@ private func write(_ r: Rig, _ name: String, _ text: String) throws {
     #expect(back.contains { $0.id == r.wt.id })
 }
 
-@Test func commentStatesChangeAndOtherNamesFallBackToOpen() async throws {
+@Test func commentStatesChangeAndOtherNamesAreRefused() async throws {
     let r = try await rig()
     defer { r.d.stop() }
     let c: DiffComment = try await r.c.call(
@@ -107,10 +107,12 @@ private func write(_ r: Rig, _ name: String, _ text: String) throws {
     #expect(
         try await r.c.call("comment.list", .obj(["id": .string(r.wt.id)]), as: [DiffComment].self).first?.state
             == .resolved)
-    _ = try await r.c.call("comment.setState", .obj(["id": .string(c.id), "state": "nonsense"]))
+    await #expect(throws: (any Error).self) {   // a state it can't have is refused, not taken for open
+        _ = try await r.c.call("comment.setState", .obj(["id": .string(c.id), "state": "nonsense"]))
+    }
     #expect(
-        try await r.c.call("comment.list", .obj(["id": .string(r.wt.id)]), as: [DiffComment].self).first?.state == .open
-    )
+        try await r.c.call("comment.list", .obj(["id": .string(r.wt.id)]), as: [DiffComment].self).first?.state
+            == .resolved)
     await #expect(throws: (any Error).self) {
         _ = try await r.c.call("comment.setState", .obj(["id": "missing", "state": "open"]))
     }

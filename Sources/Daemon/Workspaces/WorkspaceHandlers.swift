@@ -73,10 +73,12 @@ extension ScratchEnsure: Handled {
 
 extension RepoRelocate: Handled {
     func handle(_ workspaces: Workspaces) throws -> Repo {
-        guard var repo = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
-        let root = try Git.root(of: path, remotes: workspaces.remotes), old = repo.path
-        repo.path = root
-        try workspaces.store.save(repo)
+        guard let old = try workspaces.store.repo(id)?.path else { throw RPCError.invalidParams("no repo") }
+        let root = try Git.root(of: path, remotes: workspaces.remotes)
+        // Its path only, in one write: the copy read before git ran would put back a rename made meanwhile.
+        guard let repo = try workspaces.store.update(Repo.self, id, { $0.path = root }) else {
+            throw RPCError.invalidParams("That project was removed meanwhile.")
+        }
         for workspace in try workspaces.store.worktrees(repo: repo.id) where workspace.path == old {
             try workspaces.store.update(Worktree.self, workspace.id) { $0.path = root }
         }

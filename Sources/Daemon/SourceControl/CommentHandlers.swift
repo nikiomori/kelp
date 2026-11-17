@@ -88,11 +88,14 @@ enum CommentPlaces {
 }
 extension CommentSetState: Handled {
     func handle(_ scm: SourceControl) throws -> Done {
-        guard var comment = try scm.store.db.read({ try DiffComment.fetchOne($0, key: id) }) else {
-            throw RPCError.invalidParams("no comment")
+        guard let next = DiffComment.State(rawValue: state) else {
+            let states = DiffComment.State.allCases.map(\.rawValue).joined(separator: ", ")
+            throw RPCError.invalidParams("A comment is \(states), not \(state).")
         }
-        comment.state = DiffComment.State(rawValue: state) ?? .open
-        try scm.store.save(comment)
+        // Its state only, in one write: a copy read first would put back lines a move wrote meanwhile.
+        guard try scm.store.update(DiffComment.self, id, { $0.state = next }) != nil else {
+            throw RPCError.invalidParams("That comment is gone: it was deleted, or its workspace removed.")
+        }
         return Done()
     }
 }
