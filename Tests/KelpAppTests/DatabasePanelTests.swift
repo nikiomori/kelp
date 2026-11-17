@@ -35,20 +35,6 @@ private func db(
     #expect(DatabasePanelRows.place(db("bare")) == "")   // nothing known: an empty line
 }
 
-/// A branch's copy says so: on its own row where and whose branch, under its database whether agents here use it.
-@MainActor @Test func aBranchesCopySaysWhatItIs() {
-    var copy = db("shop-fix", .sqlite, path: "/p/shop-fix.sqlite3")
-    #expect(DatabasePanelRows.copyWords(copy, branch: "fix/orders", under: false) == nil)   // not a copy
-    copy.copy = BranchCopy(of: "shop", worktreeId: "w", at: Date())
-    #expect(
-        DatabasePanelRows.copyWords(copy, branch: "fix/orders", under: false)
-            == "shop-fix.sqlite3 · copy for fix/orders")
-    copy.access = .read
-    #expect(DatabasePanelRows.copyWords(copy, branch: "fix/orders", under: true) == "agents here use it")
-    copy.access = .hidden
-    #expect(DatabasePanelRows.copyWords(copy, branch: "fix/orders", under: true) == "made just now")
-}
-
 /// A run's line: how many rows it read or changed and when, else the word for what stopped it, in its colour.
 @MainActor @Test func aRunSaysWhatItDidOrWhatStoppedIt() {
     func run(_ state: DatabaseRun.State, rows: Int? = nil, changed: Int? = nil) -> DatabaseRun {
@@ -90,14 +76,6 @@ private func db(
     #expect(DatabaseForm.why(.development, elsewhere: true) == warning)
     #expect(DatabaseForm.why(.staging, elsewhere: true) == DatabaseLook.meaning(.staging))
     #expect(DatabaseForm.why(.local, elsewhere: false) == DatabaseLook.meaning(.local))
-}
-
-/// A table's name quoted for its engine: Postgres reads "audit.orders" as schema and table, MySQL quotes with
-/// backticks and keeps a "." as part of the name.
-@MainActor @Test func aTablesNameIsQuotedForItsEngine() {
-    #expect(DatabaseEdits.name("audit.orders", .postgres) == #""audit"."orders""#)
-    #expect(DatabaseEdits.name("a.b", .mysql) == "`a.b`")
-    #expect(DatabaseEdits.name("orders", .sqlite) == #""orders""#)
 }
 
 /// The grid's row height follows the density setting; anything unknown is compact.

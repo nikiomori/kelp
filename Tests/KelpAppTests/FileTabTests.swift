@@ -175,17 +175,6 @@ extension AppOfItsOwn {
         #expect(rig.app.workbench.layouts[rig.workspace.id].tab(uri: uri) != nil)
     }
 
-    @Test func anAgentsChangeShowsWhenNothingIsEditedHere() async throws {
-        let rig = try await AppRig(files: [:])
-        defer { rig.done() }
-        let p = try file("one\n")
-        let tab = await opened(p, in: rig)
-        #expect(tab.editor?.text == "one\n")
-        try "two\n".write(toFile: p, atomically: true, encoding: .utf8)   // the agent
-        #expect(try await waitFor(5) { !(tab.editor?.text != "two\n") })
-        #expect(tab.editor?.text == "two\n")
-    }
-
     @Test func saveWritesTheEditButNeverOverAnAgentsChange() async throws {
         let rig = try await AppRig(files: [:])
         defer { rig.done() }

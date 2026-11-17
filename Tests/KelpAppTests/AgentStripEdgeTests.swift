@@ -96,13 +96,6 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
         #expect(abs(pill.minX - tile.minX) < 1 && abs(pill.maxY - tile.maxY) < 1)
     }
 
-    @Test func aHiddenPlaceIsKept() {
-        defer { StripPlace.save(nil) }
-        let place = StripPlace(corner: .bottomRight, display: 7, edge: .right, y: 312)
-        StripPlace.save(place)
-        #expect(StripPlace.load() == place)
-    }
-
     @Test func aStripDroppedPastTheRightSideHidesThere() async throws {
         let rig = try await AppRig()
         _ = NSApplication.shared

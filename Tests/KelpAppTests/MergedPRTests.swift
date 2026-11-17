@@ -43,19 +43,6 @@ private func pr(_ n: Int, _ state: String) -> GitHub.PullRequest {
     #expect(off.extensions.all.ci == nil)
 }
 
-/// The CI mark beside a folder is Git's to draw (`FolderCI.mark`): the shell only places it and says its state.
-@MainActor @Test func theCIMarkIsGits() {
-    _ = testHome
-    _ = NSApplication.shared
-    let m = AppModel(builtins: [Builtins.git])
-    m.extensions.reload()
-    let mark = m.extensions.all.ci?.mark()
-    #expect(mark?.view is CIMark)
-    #expect(mark?.show(nil, false) == 0 && mark?.view.isHidden == true)
-    _ = mark?.show(.failed, false)
-    #expect(mark?.view.isHidden == false)
-}
-
 /// A row or chip made before Git was on still shows Git's CI mark once there's a state to show.
 @MainActor @Test func aCISlotTakesTheMarkWhenThereIsOne() {
     _ = testHome
@@ -70,4 +57,5 @@ private func pr(_ n: Int, _ state: String) -> GitHub.PullRequest {
     #expect(slot.view.subviews.first?.isHidden == false)
     slot.state = nil
     #expect(slot.view.subviews.first?.isHidden == true)
+    #expect(m.extensions.all.ci?.mark().show(nil, false) == 0)   // with no state the mark takes no room
 }

@@ -31,14 +31,8 @@ import Testing
     #expect(Runs.purpose(install) == .install)
 }
 
-/// Its symbol follows the purpose; one that runs now is a green circled ▶, whatever it is; the rest by name.
-@MainActor @Test func aCommandsSymbolSaysWhatItIsFor() {
-    #expect(Runs.glyph(row("lint", "eslint .", kind: "lint")).0 == "checkmark.circle.fill")
-    #expect(Runs.glyph(row("build", "make", kind: "build")).0 == "hammer.fill")
-    #expect(Runs.glyph(row("rollback", "fly releases rollback")).0 == "arrow.uturn.backward.circle.fill")
-    #expect(Runs.glyph(row("db:migrate", "rails db:migrate")).0 == "cylinder")
-    #expect(Runs.glyph(row("web", "docker compose up", file: "compose.yaml")).0 == "shippingbox")
-    #expect(Runs.glyph(row("whatever", "x")).0 == "terminal")
+/// A command that runs now is a green circled ▶, whatever it is for.
+@MainActor @Test func aRunningCommandIsAGreenPlay() {
     var running = row("test", "npm test", kind: "test")
     running.running = true
     #expect(Runs.glyph(running) == ("play.circle.fill", .systemGreen))

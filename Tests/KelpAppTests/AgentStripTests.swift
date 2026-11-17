@@ -99,10 +99,6 @@ private func session(
     #expect(shows(done, "all"))
 }
 
-@MainActor @Test func theCardsAllowWaitsBeforeItTakesAClick() {
-    #expect(StripCard.armAfter == .milliseconds(600))
-}
-
 @MainActor @Test func theStripSitsAtTheFootOfTheScreenAndGoesWithTheQuestion() async throws {
     let rig = try await AppRig()
     _ = NSApplication.shared

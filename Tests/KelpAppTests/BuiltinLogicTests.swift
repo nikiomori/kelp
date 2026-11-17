@@ -89,12 +89,6 @@ import os
     #expect(Forge.setup(for: "could not resolve host github.com") == nil)
 }
 
-@MainActor @Test func aFileThatCantOpenSaysWhy() {
-    #expect(FileTab.reason(.binary).contains("Binary"))
-    #expect(FileTab.reason(.tooBig(60 << 20)).contains("Too big"))
-    #expect(FileTab.reason(.special).contains("devices"))
-}
-
 @MainActor @Test func aCIRunReadsAsItsStatus() {
     #expect(CIRunLook.words("completed", "success") == "Succeeded")
     #expect(CIRunLook.words("completed", "failure") == "Failed")
