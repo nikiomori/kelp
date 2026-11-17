@@ -80,7 +80,7 @@ package struct AgentActions {
     /// transcript instead of the latest part.
     func handoffMenu(_ sid: String) -> NSMenu {
         let menu = NSMenu()
-        for a in app.catalog.installed(app.catalog.all) {
+        for a in app.catalog.installed {
             menu.add(a.name) { handoff(sid, to: a.id, full: false) }.image = app.catalog.icon(a.id)
             let full = menu.add(String(localized: "\(a.name) — Full Transcript")) { handoff(sid, to: a.id, full: true) }
             full.isAlternate = true

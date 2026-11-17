@@ -134,7 +134,7 @@ final class LimitStrip: NSView {
             waiting
             ? []
             : LimitStop.takers(
-                app.catalog.installed(app.catalog.all).map { ($0.id, $0.name) },
+                app.catalog.installed.map { ($0.id, $0.name) },
                 except: session.agent, used: planUse())
         let first = LimitStop.pick(takers)
         taker = first?.id

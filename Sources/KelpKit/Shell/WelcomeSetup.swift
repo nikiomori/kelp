@@ -9,7 +9,7 @@ struct WelcomeSetup: View {
 
     var body: some View {
         let agents = Self.firstAgents(
-            app.catalog.installed(app.catalog.all).map(\.id), current: app.settings[SettingKeys.defaultAgent])
+            app.catalog.installed.map(\.id), current: app.settings[SettingKeys.defaultAgent])
         VStack(alignment: .leading, spacing: Metrics.sheetInset) {
             choice("Theme") { ThemeGallery(selection: binding(SettingKeys.theme), kelpOnly: true) }
             choice("Text size") {

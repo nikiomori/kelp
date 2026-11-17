@@ -187,7 +187,7 @@ struct UsageView: View {
 
     static func rows(_ app: AppModel) -> [Row] {
         guard let usage = app.latest(LimitsEvent.self)?.usage else { return [] }
-        return app.catalog.installed(app.catalog.all).compactMap { agent -> Row? in
+        return app.catalog.installed.compactMap { agent -> Row? in
             var row = Row(id: agent.id, name: Self.short(agent.name), fullName: agent.name)
             row.readAt = usage.plansReadAt?[agent.id].map { Date(timeIntervalSince1970: $0) }
             switch agent.id {

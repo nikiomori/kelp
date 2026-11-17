@@ -12,7 +12,7 @@ extension DiffViewController {
     /// Fills the menu with the agents and their models when it opens.
     func reviewItems(_ menu: NSMenu) {
         while menu.numberOfItems > 1 { menu.removeItem(at: 1) }   // the first is the pull-down's title
-        let agents = app.catalog.installed(app.catalog.all).filter { Session.isAgent($0.id) }
+        let agents = app.catalog.installed.filter { Session.isAgent($0.id) }
         // Tidy Up's files aren't the project's code, and the agent that tidied them reports on them itself.
         guard sourcePicked != .tidy else {
             menu.addItem(withTitle: String(localized: "Only for the Project’s Code"), action: nil, keyEquivalent: "")

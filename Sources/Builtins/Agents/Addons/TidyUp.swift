@@ -52,7 +52,7 @@ struct TidyUp {
     /// The Tidy Up with menu lists the agents on this Mac, to run Tidy Up with an agent other than the default.
     func agents() -> NSMenu {
         let menu = NSMenu()
-        for agent in app.catalog.installed(app.catalog.all) where Session.isAgent(agent.id) {
+        for agent in app.catalog.installed where Session.isAgent(agent.id) {
             menu.add(agent.name) { run(agent: agent.id) }
         }
         return menu

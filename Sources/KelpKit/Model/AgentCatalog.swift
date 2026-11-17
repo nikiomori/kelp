@@ -10,7 +10,8 @@ import Observation
 @MainActor
 package struct AgentCatalog {
     let app: AppModel
-    package func installed(_ all: [AgentManifest]) -> [AgentManifest] {
+    /// The agents (and the terminal) this Mac has.
+    package var installed: [AgentManifest] {
         let ok = app.availability.ids
         return all.filter { ok.contains($0.id) }
     }
@@ -18,9 +19,9 @@ package struct AgentCatalog {
     /// Returns the agents a new tab in `worktree` can start. For a remote project these are the agents its host has
     /// (once the host has answered, and this call asks it), otherwise this Mac's. A terminal is always among them.
     func startable(in worktree: Worktree?) -> [AgentManifest] {
-        guard let worktree, let host = RemoteHost.of(worktree.path)?.host else { return installed(all) }
+        guard let worktree, let host = RemoteHost.of(worktree.path)?.host else { return installed }
         app.availability.refreshHost(host, workspace: worktree.id, commands: all.map(\.command))
-        guard let there = app.availability.onHost[host] else { return installed(all) }
+        guard let there = app.availability.onHost[host] else { return installed }
         return all.filter {
             !Session.isAgent($0.id) || there.contains(($0.command as NSString).lastPathComponent)
         }
@@ -33,7 +34,7 @@ package struct AgentCatalog {
     }
     /// The agent that "New Agent" starts: the one in the setting if it's installed, else the first installed one.
     package var defaultAgent: String {
-        let installed = installed(all)
+        let installed = self.installed
         let agentId = app.settings[SettingKeys.defaultAgent]
         if installed.contains(where: { $0.id == agentId }) { return agentId }
         return installed.first?.id ?? SettingKeys.defaultAgent.fallback
@@ -44,7 +45,7 @@ package struct AgentCatalog {
         app.availability.ids.contains("tmux") || worktree.flatMap { RemoteHost.of($0.path) } != nil
     }
     /// The default agent, nil while no agent CLI is found (nothing to start).
-    var startable: String? { installed(all).isEmpty ? nil : defaultAgent }
+    var startable: String? { installed.isEmpty ? nil : defaultAgent }
     package func name(_ id: String?) -> String {
         guard let id else { return "Terminal" }
         if id == Session.shellAgent { return String(localized: "Terminal") }

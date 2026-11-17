@@ -23,7 +23,7 @@ extension Builtins {
                     // The choices are the agents installed now, shown by name. They are worked out when the row shows,
                     // not when this spec is declared.
                     choices: SettingChoices(
-                        options: { app.catalog.installed(app.catalog.all).map(\.id) },
+                        options: { app.catalog.installed.map(\.id) },
                         name: { app.catalog.name($0) })),
                 s(
                     SettingKeys.commandsBar, "Show the commands an agent runs", .boolean,

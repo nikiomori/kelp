@@ -10,7 +10,7 @@ import SwiftUI
 enum RoutineSheet {
     /// The routine as filled in; nil when cancelled.
     static func run(_ app: AppModel, repoId: String, editing: Routine? = nil) async -> Routine? {
-        let agents = app.catalog.installed(app.catalog.all).map { (id: $0.id, name: $0.name) }
+        let agents = app.catalog.installed.map { (id: $0.id, name: $0.name) }
         let form = RoutineForm(
             editing ?? Routine(name: "", repoId: repoId, agent: app.catalog.defaultAgent, prompt: ""))
         let sheet = NSPanel(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)

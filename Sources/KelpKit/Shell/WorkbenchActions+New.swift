@@ -64,7 +64,7 @@ extension Workbench {
             // yet), a branch or a name still works.
             let prs: [GitHub.PullRequest]
             do { prs = try await PRsEvent.open(rid, in: app) } catch { prs = [] }
-            let agents = app.catalog.installed(app.catalog.all).filter { $0.id != Session.shellAgent }.map {
+            let agents = app.catalog.installed.filter { $0.id != Session.shellAgent }.map {
                 (id: $0.id, name: $0.name)
             }
             let sheet = NewChatSheet(

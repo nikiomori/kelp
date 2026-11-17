@@ -12,7 +12,7 @@ extension UsageReportView {
     /// The agents that used anything in the span, the most expensive first, then those that only report a plan.
     func agentLines(_ planned: some Collection<String>) -> [Line] {
         let used = (usage?.agents ?? []).filter { $0.tokens > 0 }
-        let rest = app.catalog.installed(app.catalog.all).map(\.id).filter { id in
+        let rest = app.catalog.installed.map(\.id).filter { id in
             planned.contains(id) && !used.contains { $0.id == id }
         }
         return used.map { Line(id: $0.id, usage: $0) } + rest.map { Line(id: $0, usage: nil) }

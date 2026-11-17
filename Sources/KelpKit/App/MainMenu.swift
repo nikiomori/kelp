@@ -119,7 +119,7 @@ extension AppDelegate {
             file, "workspace.new", "workspace.newGroup", "workspace.newBranch", "workspace.newBranchAsking",
             "agents.new", "terminal.new", "terminal.tmux")
         let with = NSMenu()
-        for a in app.catalog.installed(app.catalog.all) {
+        for a in app.catalog.installed {
             with.add(a.name) { app.extensions.run("agents.new", ["agent": .string(a.id)]) }
         }
         with.addItem(.separator())
