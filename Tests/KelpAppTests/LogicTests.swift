@@ -715,6 +715,10 @@ extension OneAtATime {
 @MainActor @Test func accountsNotReadAreNotAnEmptyList() async {
     _ = NSApplication.shared   // the banner that says so looks for a window
     #expect(await Accounts.load(AppModel()) == nil)   // no daemon to read them from
+    // Saved as every setting is: the app's copy shows it at once, not only after the daemon's echo.
+    let m = AppModel()
+    Accounts.save(m, [AccountProfile(name: "work", agent: "claude", dir: "/tmp/w")])
+    #expect(m.settings[SettingKeys.accounts].count == 1)
 }
 
 /// A workspace row's chats come from an index made once per change of the sessions, not a scan per row: it follows

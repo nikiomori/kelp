@@ -81,10 +81,6 @@ public enum SettingKeys {
     public static let editorFontSize = Setting<Double>("editor.fontSize", 13)
     public static let wordWrap = Setting("editor.wordWrap", false)
     public static let wrappingIndent = Setting("editor.wrappingIndent", "same")
-    public static let rulers = Setting("editor.rulers", "")
-    public static let renderWhitespace = Setting("editor.renderWhitespace", "selection")
-    public static let bracketColors = Setting("editor.bracketColors", false)
-    public static let indentGuides = Setting("editor.indentGuides", false)
     /// A language server's own `options` and `settings`, by its command: `{ "gopls": { "settings": { … } } }`. The
     /// daemon names it too: the user's only (`SettingsSet.usersOnly`).
     public static let languageServers = Setting("editor.languageServers", JSONValue.object([:]))

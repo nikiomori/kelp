@@ -56,7 +56,12 @@ final class FileRules {
 
     private func applyLooks() {
         guard let editor else { return }
-        let language = editor.languageId, settings = app.settings
+        Self.applyLooks(to: editor, app.settings, language: editor.languageId)
+    }
+
+    /// The rows that change how an editor looks, for `language`'s files (nil: every language's, as Settings' sample
+    /// shows them).
+    static func applyLooks(to editor: CodeEditor, _ settings: SettingsStore, language: String?) {
         editor.rulers = Self.columns(settings[SettingKeys.rulers, language: language])
         editor.whitespace =
             EditorTextView.WhitespaceMarks(rawValue: settings[SettingKeys.renderWhitespace, language: language])

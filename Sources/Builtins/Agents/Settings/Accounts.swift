@@ -21,7 +21,7 @@ struct AccountProfile: Codable, Hashable, Identifiable {
 @MainActor
 enum Accounts {
     /// nil, with a banner, when the settings can't be read: a list saved after an empty one read in its place would
-    /// write the profiles there are over.
+    /// write the profiles there are over. Read from the daemon, not the app's copy: that one may be a read that failed.
     static func load(_ app: AppModel) async -> [AccountProfile]? {
         guard let settings = await app.call(SettingsGet()) else { return nil }
         guard let saved = settings[SettingKeys.accounts.key] else { return [] }
@@ -31,8 +31,9 @@ enum Accounts {
             return nil
         }
     }
-    static func save(_ app: AppModel, _ list: [AccountProfile]) async {
-        do { await app.call(SettingsSet(key: SettingKeys.accounts.key, value: try JSONValue.from(list))) } catch {
+    /// As every setting is set (`SettingsStore.set`): shown at once, and said on a banner if settings.json refused it.
+    static func save(_ app: AppModel, _ list: [AccountProfile]) {
+        do { app.settings.set(SettingKeys.accounts, try list.map { try JSONValue.from($0) }) } catch {
             Banner.show(AppModel.message(error), style: .error)
         }
     }
@@ -73,7 +74,7 @@ struct AccountsSettings: View {
                         AccountProfile(
                             name: name, agent: newAgent, dir: AccountProfile.defaultDir(agent: newAgent, name: name)))
                     newName = ""
-                    Task { await Accounts.save(app, profiles) }
+                    Accounts.save(app, profiles)
                 }
                 .disabled(!loaded || newName.trimmingCharacters(in: .whitespaces).isEmpty)
                 Spacer()
@@ -124,7 +125,7 @@ struct AccountsSettings: View {
                 )
             else { return }
             profiles.removeAll { $0.id == profile.id }
-            await Accounts.save(app, profiles)
+            Accounts.save(app, profiles)
         }
     }
 }

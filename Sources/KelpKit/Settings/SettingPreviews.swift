@@ -1,7 +1,6 @@
 import AppKit
 import Core
 import DesignKit
-import EditorKit
 import SwiftUI
 
 /// What the settings change, drawn with them as they are and with the shell's themes, for the sections that show them
@@ -11,16 +10,6 @@ import SwiftUI
 package enum SettingSamples {
     /// A prompt and a command in the terminal's font, size, colours and cursor.
     package static func terminal() -> AnyView { AnyView(TerminalSample()) }
-    /// The real editor on a few lines of Swift.
-    package static func editor() -> AnyView {
-        AnyView(
-            EditorSample().frame(height: 132).clipShape(
-                RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).strokeBorder(
-                    Color.primary.opacity(0.12))))
-    }
     /// A cursor style, in the terminal's own colours.
     package static func cursor(_ option: String) -> AnyView { AnyView(CursorPicture(option: option)) }
 }
@@ -69,38 +58,5 @@ private struct TerminalSample: View {
         case "underline": Rectangle().frame(width: size * 0.6, height: 2).frame(height: size * 1.25, alignment: .bottom)
         default: Rectangle().frame(width: size * 0.6, height: size * 1.25)
         }
-    }
-}
-
-/// The real editor, read-only, on a few lines of Swift: font, colors, wrapping, rulers, whitespace, brackets and guides as
-/// the rows below set them for every language.
-private struct EditorSample: NSViewRepresentable {
-    @Environment(AppModel.self) private var app
-
-    private static let sample = """
-        struct Agent {
-            let name: String
-            func greet(_ people: [String]) -> String {
-                let line = people.map { "Hello, \\($0)! \\(name) has three agents waiting, and one asks to run npm test" }
-                return line.joined(separator: "\\n")  \u{20}
-            }
-        }
-        """
-
-    func makeCoordinator() -> CodeEditor {
-        CodeEditor(text: Self.sample, url: URL(fileURLWithPath: "/sample.swift"), editable: false)
-    }
-    func makeNSView(context: Context) -> NSView { context.coordinator.view }
-
-    func updateNSView(_ view: NSView, context: Context) {
-        let editor = context.coordinator, settings = app.settings
-        _ = app.themes.editorRevision   // font, colors and wrapping are the editor's own (ThemeManager sets them)
-        editor.rulers = settings[SettingKeys.rulers].split { !$0.isNumber }.compactMap { Int($0) }.filter { $0 > 0 }
-        editor.whitespace =
-            EditorTextView.WhitespaceMarks(rawValue: settings[SettingKeys.renderWhitespace]) ?? .selection
-        editor.bracketColors = settings[SettingKeys.bracketColors]
-        editor.indentGuides = settings[SettingKeys.indentGuides]
-        // A moment later: ThemeManager applies a settings change after the views that read it are told.
-        DispatchQueue.main.async { editor.refreshAppearance() }
     }
 }

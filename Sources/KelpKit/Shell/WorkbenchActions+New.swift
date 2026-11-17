@@ -58,14 +58,14 @@ extension Workbench {
             let worktree = app.worktrees.first { $0.repoId == rid }, base = app.repo(rid)?.baseBranch ?? "main"
             var branches: BranchInfo?
             if let worktree { branches = await app.quiet(GitBranches(id: worktree.id)) }
-            // The project's watch's (`PRsEvent.open`), else read once; none (gh missing): a branch or a name still.
-            var prs = app.latest(PRsEvent.self, rid)?.prs
-            if prs == nil { prs = await app.quiet(GitHubPRs(repoId: rid, filter: .open)) }
+            // The project's watch's, else read once; none (gh missing, or not read): a branch or a name still.
+            let prs: [GitHub.PullRequest]
+            do { prs = try await PRsEvent.open(rid, in: app) } catch { prs = [] }
             let agents = app.catalog.installed(app.catalog.all).filter { $0.id != Session.shellAgent }.map {
                 (id: $0.id, name: $0.name)
             }
             let sheet = NewChatSheet(
-                local: branches?.local ?? [base], remote: branches?.remote ?? [], base: base, prs: prs ?? [],
+                local: branches?.local ?? [base], remote: branches?.remote ?? [], base: base, prs: prs,
                 agents: agents,
                 picked: app.catalog.defaultAgent)
             let alert = NSAlert()

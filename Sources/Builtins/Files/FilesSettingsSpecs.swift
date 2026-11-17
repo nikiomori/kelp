@@ -83,12 +83,16 @@ extension Builtins {
                 s(
                     SettingKeys.markdownMode, "Default Markdown mode", .enum,
                     options: ["preview", "edit", "split"], look: .segments, group: "Markdown")
-            ], order: 70, previews: ["": SettingSamples.editor])
+            ], order: 70, previews: ["": EditorSample.card])
     }
 }
 
 /// Settings › Editor's rows only the editor reads (the shell's are `SettingKeys` in Core).
 extension SettingKeys {
+    static let rulers = Setting("editor.rulers", "")
+    static let renderWhitespace = Setting("editor.renderWhitespace", "selection")
+    static let bracketColors = Setting("editor.bracketColors", false)
+    static let indentGuides = Setting("editor.indentGuides", false)
     static let wordWrapColumn = Setting<Double>("editor.wordWrapColumn", 0)
     static let breadcrumbs = Setting("editor.breadcrumbs", false)
     static let stickyScroll = Setting("editor.stickyScroll", true)
