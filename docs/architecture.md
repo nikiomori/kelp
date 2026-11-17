@@ -384,8 +384,9 @@ the ones they started (any session id a call names counts), work in their own wo
 `Worktree.madeBy`; any workspace id a call that acts names in a field of its own counts, `AgentRules.reads` aside,
 and one named another way, by the window, a path or a tab's address (`db:<workspace>/…`, `diff:<workspace>`), says so
 with `inWorkspace`), open web pages only with cookies of their own (`kelp browser open`; a plain page tab is the
-user's, logged in, and `kelp shot` would see it, so neither `ui.open` nor a session started with `openURLs`, whose
-printed page opens by itself, gives an agent one), make workspaces only in the project
+user's, logged in, and `kelp shot` would see it, so neither `ui.open`, ⇧⌘O (`scripts.openPage`, not one of `UICommand.forAgents`) nor a session started with
+`openURLs`, whose printed page opens by itself, gives an agent one; a tab an agent opens names its workspace (`kelp
+open` names the agent's own), never just the one on screen), make workspaces only in the project
 they work in (`makesInProject`), add a routine there only once the user allows it on the agent's row (`RoutineSet`'s handler: a
 new one, its name, prompt, agent and times all in the question; changing, running and deleting one stay the user's),
 run only the app's commands that show something (`UICommand.forAgents`, ids no extension may take), start
