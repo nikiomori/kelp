@@ -5,7 +5,8 @@ import GitKit
 extension CIRuns {
     private static let maxFailures = 100, maxMessages = 5
 
-    /// What broke, from the text of a failed log (`readable`, the whole of it). Reads the formats of XCTest, Swift Testing
+    /// Works out what broke from the whole text of a failed log (after `readable`). Reads the formats of XCTest, Swift
+    /// Testing
     /// and compilers that say `file:line:col: error:`. Limit: other runners (pytest, jest, go test) fall to `lastLines`.
     public static func report(log text: String) -> Report {
         var found = Found(), lines: [Substring] = [], testCases = 0, runTests = 0
@@ -43,7 +44,7 @@ extension CIRuns {
         var failures: [Failure] = [], more = 0
         private var seen: [String: Int] = [:]
 
-        /// False: not a line about a failure.
+        /// Reads a line, and returns false when the line isn't about a failure.
         mutating func read(_ line: Substring) -> Bool {
             if let match = line.wholeMatch(of: /(.+?):(\d+): error: -\[(\S+) (\S+)\] : (.*)/) {
                 let suite = match.3.split(separator: ".").last.map(String.init)
@@ -100,7 +101,8 @@ extension CIRuns {
         return String(path[match.range.upperBound...])
     }
 
-    /// Swift Testing names a file without its folder: the project knows where it is, if only one is called that.
+    /// Swift Testing names a file without its folder, so this finds the file's path in the project when only one
+    /// tracked file has that name.
     static func located(_ report: Report, cwd: String) -> Report {
         var result = report, known: [String: String?] = [:]
         for index in result.failures.indices {
@@ -114,10 +116,11 @@ extension CIRuns {
         return result
     }
 
-    /// A probe: no git here (a folder that isn't a clone) means no such file.
+    /// Returns the tracked files with this name. Without git here (a folder that isn't a clone), there is no such file.
     private static func trackedFiles(named name: String, cwd: String) -> [String] {
         do {
-            // A remote project's, on its host (git here would walk up from its folder into another repository).
+            // A remote project's files are listed on its host, because git here would walk up from its folder into
+            // another repository.
             let host = HostRepo.project(cwd)
             let listed = try Git.run(
                 ["ls-files", "--", ":(glob)**/" + name], cwd: host?.folder ?? cwd, remotes: host?.remotes ?? .none)

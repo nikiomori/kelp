@@ -28,8 +28,8 @@ extension WorkspaceLayout {
         return allTabs.first { TabURI.scheme($0.uri) == "file" && real(TabURI.filePath($0.uri).path) == path }
     }
 
-    /// The open tab of a web page: that address, or for a local server's bare address any page of that server, since a
-    /// tab follows its navigation (`http://localhost:5173` finds the tab now at `/cart`).
+    /// Returns the open tab of a web page: the tab at that address, or, for a local server's bare address, any page of
+    /// that server, because a tab follows its navigation (`http://localhost:5173` finds the tab now at `/cart`).
     public func pageTab(for uri: String) -> TabRef? {
         guard ["http", "https"].contains(TabURI.scheme(uri)) else { return nil }
         if let exact = tab(uri: uri) { return exact }
@@ -44,7 +44,8 @@ extension WorkspaceLayout {
         }
     }
 
-    /// The pane on that side of `from`, the nearest by center (Ghostty's goto_split). Panes only touching the edge by
+    /// Returns the pane on that side of `from` that is nearest by center (Ghostty's goto_split). Panes only touching
+    /// the edge by
     /// 2 points or less still count as beside it. Window coordinates: y grows upward (`.maxY` is up).
     public static func nearestPane(from a: CGRect, among panes: [String: CGRect], toward edge: NSRectEdge) -> String? {
         panes.compactMap { id, b -> (String, CGFloat)? in
@@ -60,8 +61,8 @@ extension WorkspaceLayout {
     }
 }
 
-/// Workspaces in the order they were shown, for Back / Forward (⌃⌘← / ⌃⌘→), like a browser's history: at most 50, and
-/// showing one after going back drops what was ahead.
+/// Workspaces in the order they were shown, for Back / Forward (⌃⌘← / ⌃⌘→), like a browser's history. It keeps at most
+/// 50, and showing a workspace after going back drops what was ahead.
 public struct WorkspaceHistory: Equatable, Sendable {
     public private(set) var visits: [String] = []
     public private(set) var at = -1
@@ -72,42 +73,44 @@ public struct WorkspaceHistory: Equatable, Sendable {
         at = visits.count - 1
     }
 
-    /// Where Back (-1) / Forward (1) goes: past workspaces that are gone and the one on screen; nil when nothing is that way.
+    /// Returns where Back (-1) or Forward (1) goes, skipping workspaces that are gone and the one on screen. Returns
+    /// nil when nothing is that way.
     public func target(_ step: Int, current: String?, exists: (String) -> Bool) -> Int? {
         var index = at + step
         while visits.indices.contains(index), !exists(visits[index]) || visits[index] == current { index += step }
         return visits.indices.contains(index) ? index : nil
     }
 
-    /// Goes there (from `target`) and says which workspace that is.
+    /// Goes to `index` (from `target`) and returns which workspace that is.
     public mutating func go(to index: Int) -> String {
         at = index
         return visits[index]
     }
 }
 
-/// A project's own screen: its oldest workspace, the one its chats are on. It has no heading and doesn't close; every other
-/// workspace is a group.
+/// Returns a project's own screen: its oldest workspace, which its chats are on. That screen has no heading and doesn't
+/// close, and every other workspace is a group.
 public func mainWorkspace(of repo: Repo, among ws: [Worktree]) -> Worktree? {
     ws.filter { $0.repoId == repo.id && $0.path == repo.path && !$0.archived }.min { $0.createdAt < $1.createdAt }
 }
 
-/// Where a new chat in project `r` goes: the screen you are on when it belongs to that project, else the project's own
-/// screen.
+/// Returns where a new chat in project `repo` goes: the screen you are on when it belongs to that project, or else the
+/// project's own screen.
 public func newChatScreen(in repo: Repo, current: Worktree?, rows: [Worktree]) -> Worktree? {
     if let current, current.repoId == repo.id { return current }
     return mainWorkspace(of: repo, among: rows) ?? rows.first { $0.repoId == repo.id && !$0.archived }
 }
 
-/// Several workspaces closed at once (the sidebar's multi-selection): a project's own screen stays (without one, the oldest
-/// picked, when every open one was), a workspace in the project's folder is removed, a workspace on its own branch is archived.
+/// Decides what happens when several workspaces close at once (the sidebar's multi-selection). A project's own screen
+/// stays. When a project has none and every open workspace was picked, the oldest picked one stays. A workspace in the
+/// project's folder is removed, and a workspace on its own branch is archived.
 public struct WorkspaceClosing: Equatable, Sendable {
     public private(set) var remove: [String] = [], archive: [String] = []
     /// Some picked workspaces stay, so their project keeps one.
     public private(set) var keptSome = false
     public var ids: [String] { remove + archive }
 
-    /// `open`: every workspace not archived; `repos` say where each project's folder is.
+    /// `open` holds every workspace that isn't archived, and `repos` say where each project's folder is.
     public init(picked: [Worktree], open: [Worktree], repos: [Repo]) {
         var kept = Set<String>()
         for (repo, mine) in Dictionary(grouping: picked, by: \.repoId) {
@@ -129,9 +132,9 @@ public struct WorkspaceClosing: Equatable, Sendable {
         }
     }
 
-    /// `w`'s last tab closed and nothing runs there: its row goes with it, and this is the row to show instead, the one
-    /// under it or else the one over it. Nil: it stays, being the project's own screen.
-    /// `rows`: the project's open workspaces, as the sidebar lists them.
+    /// Called when the last tab of `worktree` closed and nothing runs there, so its row goes too. Returns the row to
+    /// show instead: the one under it, or else the one over it. Returns nil when the workspace stays because it is the
+    /// project's own screen. `rows` holds the project's open workspaces, as the sidebar lists them.
     public static func afterLastTab(of worktree: Worktree, rows: [Worktree], repos: [Repo]) -> Worktree? {
         guard let project = repos.first(where: { $0.id == worktree.repoId }),
             worktree.id != mainWorkspace(of: project, among: rows)?.id,
@@ -141,9 +144,10 @@ public struct WorkspaceClosing: Equatable, Sendable {
     }
 }
 
-/// ⌃Tab's list, as ⌘Tab's: the screen you're on first, then the others by when they were last on screen, then those
-/// never on screen by their agents' last stir, newest first. A workspace's id or a server's page ("host:<name>"); what
-/// isn't in `live` (closed, archived, a server no project is on anymore) is left out.
+/// The list that ⌃Tab cycles through, ordered like ⌘Tab's. The screen you're on comes first, then the others by when
+/// they were last on screen, then those never on screen by their agents' last activity, newest first. Each entry is a
+/// workspace's id or a server's page ("host:<name>"). Anything not in `live` (closed, archived, a server no project is
+/// on anymore) is left out.
 public enum RecentScreens {
     public static func order(
         current: String?, recent: [String], stirred: [(id: String, at: Date)], live: Set<String>

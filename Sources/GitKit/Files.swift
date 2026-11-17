@@ -4,9 +4,10 @@ import os
 
 /// Project files and search. Uses git so .gitignore is honoured exactly like in a terminal.
 extension ProjectFiles {
-    /// Tracked + untracked-but-not-ignored files, relative paths. A tracked file deleted from the folder is left out: git
-    /// tags it "R" (one git process instead of a stat per file, and it works on a remote host too). Outside a sparse
-    /// checkout's cone ("S", never checked by git) a file is kept only if it's there. The first `limit`.
+    /// Returns the first `limit` tracked files and untracked files that aren't ignored, as relative paths. A tracked
+    /// file deleted from the folder is left out, because git tags it "R" (one git process instead of a stat per file,
+    /// and it works on a remote host too). Outside a sparse checkout's cone ("S", never checked by git), a file is kept
+    /// only if it exists.
     public static func list(_ root: String, limit: Int = listLimit, remotes: Remotes) throws -> [String] {
         let args = ["ls-files", "-t", "--cached", "--others", "--deleted", "--exclude-standard", "-z"]
         let output: (data: Data, truncated: Bool)
@@ -31,8 +32,9 @@ extension ProjectFiles {
         return files
     }
 
-    /// What git ignores (`files.ignored`): a folder ignored whole is one entry ending with "/", not opened (.build/,
-    /// node_modules/). `folder`, one of those: what's in it, one level, read from the folder. The first `limit`.
+    /// Returns the first `limit` paths that git ignores (`files.ignored`). A folder ignored whole is one entry ending
+    /// with "/", and isn't opened (.build/, node_modules/). With `folder` set to one of those, this returns what's in
+    /// it, one level deep, read from the folder.
     /// Limit: on a host a name with a newline in it reads as two.
     public static func ignored(_ root: String, folder: String? = nil, limit: Int = listLimit, remotes: Remotes)
         throws -> [String]
@@ -67,13 +69,14 @@ extension ProjectFiles {
         return names.prefix(limit).map { dir + $0 }
     }
 
-    /// A project added without git: no repository around `root`.
+    /// Whether the error says there is no repository around the folder, as for a project added without git.
     static func outsideGit(_ error: Error) -> Bool {
         (error as? GitError)?.stderr?.contains("not a git repository") == true
     }
 
-    /// A folder without git, walked here. Limit: hidden files and folders are left out, as there's no .gitignore to say
-    /// what else to skip (.venv, .cache); a folder with more than `limit` files (node_modules) shows the first ones.
+    /// Lists a folder without git by walking it here. Limit: hidden files and folders are left out, as there's no
+    /// .gitignore to say what else to skip (.venv, .cache); a folder with more than `limit` files (node_modules) shows
+    /// the first ones.
     static func walk(_ root: String, limit: Int) -> [String] {
         guard let enumerator = FileManager.default.enumerator(atPath: root) else { return [] }
         var files: [String] = []
@@ -87,11 +90,13 @@ extension ProjectFiles {
         return files
     }
 
-    /// The search box's program running in each folder, with its start time (a pid can be another's later).
+    /// The program that the search box runs in each folder, with its start time, because a pid can later belong to
+    /// another program.
     private static let searching = OSAllocatedUnfairLock<[String: (pid: pid_t, start: UInt64?)]>(initialState: [:])
 
-    /// `run` with a `started` that stops the program the last search `in` that folder started, if it still runs, and takes
-    /// its place; nil: a search nothing stops (an agent's).
+    /// Calls `run` with a `started` callback. The callback stops the program that the last search in `folder` started,
+    /// if it still runs, and takes its place. When `folder` is nil, `started` is nil too, for a search that nothing
+    /// stops (an agent's).
     static func replacingSearch<T>(in folder: String?, _ run: (((pid_t) -> Void)?) throws -> T) rethrows -> T {
         guard let folder else { return try run(nil) }
         let mine = OSAllocatedUnfairLock<pid_t?>(initialState: nil)
@@ -116,8 +121,9 @@ extension ProjectFiles {
         }
     }
 
-    /// The first `limit` matches; what rg or git grep print past `searchOutput` bytes is read and dropped. `replacing`:
-    /// the search box's, a search per pause in the typing, which stops the one before it in the same folder (its rg).
+    /// Returns the first `limit` matches. What rg or git grep print past `searchOutput` bytes is read and dropped.
+    /// `replacing` is for the search box, which runs a search at each pause in the typing and stops the search before
+    /// it in the same folder (its rg).
     public static func search(
         _ root: String, query: String, regex: Bool = false, caseSensitive: Bool = false, wholeWord: Bool = false,
         limit: Int = searchLimit, replacing: Bool = false, remotes: Remotes
@@ -128,7 +134,7 @@ extension ProjectFiles {
             "--line-number", "--no-heading", "--null", "--color=never", "--max-columns=300", "--max-count=200"
         ]
         if !regex { rgArgs.append("--fixed-strings") }
-        // Like git grep -i below (smart-case would honour capitals).
+        // The same as git grep -i below, because smart-case would honour capitals.
         if !caseSensitive { rgArgs.append("--ignore-case") }
         if wholeWord { rgArgs.append("--word-regexp") }
         var gitArgs = ["grep", "-n", "-z", "--untracked", "-I"]
@@ -138,7 +144,7 @@ extension ProjectFiles {
         if let host = remotes.of(root) {
             output = try searchOnHost(host, rg: rgArgs + ["--", query, "."], git: gitArgs + ["-e", query])
         } else if let rg = ripgrep {
-            // 1 = no matches
+            // exit status 1 means no matches
             let found = try replacingSearch(in: replacing ? root : nil) { started in
                 try Subprocess.checked(
                     [rg] + rgArgs + ["--", query, "."], cwd: root, ok: [0, 1], limit: searchOutput, started: started)
@@ -150,7 +156,7 @@ extension ProjectFiles {
                 output = try Git.runPart(
                     args + ["-e", query], cwd: root, ok: [0, 1], limit: searchOutput, remotes: remotes)
             } catch  where outsideGit(error) {
-                // A folder without git: its files as they are.
+                // For a folder without git, search its files as they are.
                 args = args.map { $0 == "--untracked" ? "--no-index" : $0 }
                 output = try Git.runPart(
                     args + ["-e", query], cwd: root, ok: [0, 1], limit: searchOutput, remotes: remotes)
@@ -159,14 +165,16 @@ extension ProjectFiles {
         let found = parseGrep(
             String(decoding: output.truncated ? Git.wholeEntries(output.data, 0x0A) : output.data, as: UTF8.self),
             limit: limit)
-        // Cut off before `limit` matches: lines that long (git grep has no column limit) are past showing anyway.
+        // Output cut off before `limit` matches means lines that long (git grep has no column limit), which are past
+        // showing anyway.
         guard !output.truncated || found.count >= limit else {
             throw GitError.refused("Too much matched to show: search for something longer.")
         }
         return found
     }
 
-    /// A search on a remote project's host: its rg when it has one, as here, else git grep (1 = no matches either way).
+    /// Searches on a remote project's host, with its rg when it has one, as on this Mac, or else with git grep. Exit
+    /// status 1 means no matches either way.
     private static func searchOnHost(_ host: RemoteHost, rg: [String], git: [String]) throws -> (Data, Bool) {
         let quoted = { (args: [String]) in args.map(ShellQuote.word).joined(separator: " ") }
         let script =
@@ -181,7 +189,8 @@ extension ProjectFiles {
         return (out.stdout, out.truncated)
     }
 
-    /// 2000 matches of rg's 300 columns and a long path fit several times over.
+    /// The most bytes a search prints that are kept. 2000 matches of rg's 300 columns and a long path fit several times
+    /// over.
     static let searchOutput = 16 << 20
 
     /// `path NUL line : text` (rg --null) or `path NUL line NUL text` (git grep -z) lines: the path ends at the NUL, so a
@@ -207,9 +216,11 @@ extension ProjectFiles {
 }
 
 extension Git {
-    /// Which of `paths` (relative to `root`; a folder ends with "/") .gitignore and the other exclude files leave out.
+    /// Returns which of `paths` (relative to `root`, with a folder ending in "/") .gitignore and the other exclude
+    /// files leave out.
     public static func ignored(_ paths: [String], cwd root: String, remotes: Remotes) throws -> Set<String> {
-        // 10 s: it runs as files change, for a watch; one that takes longer (a held lock, a huge repo) counts every change.
+        // The limit is 10 s, because this runs for a watch as files change. When a run takes longer (a held lock, a
+        // huge repo), every change counts.
         let out = try runData(
             ["check-ignore", "-z", "--stdin"], cwd: root, stdin: Data(paths.joined(separator: "\0").utf8), ok: [0, 1],
             timeLimit: 10, remotes: remotes)

@@ -1,12 +1,13 @@
 import Core
 import Foundation
 
-/// What the agents' screens say of their plans: Claude Code prints plan usage in its UI ("You've used 80% of your weekly
-/// limit · resets Oct 20 at 5am (Europe/…)"), and there's no other local source for those percentages, so sessions read
-/// them from their own output; the other agents' /usage screens (Grok, Antigravity, Kimi, Copilot, Cursor) and the limits
-/// Cursor and Codex print when one runs out are read here too.
+/// Reads what the agents' screens say about their plans. Claude Code prints plan usage in its UI ("You've used 80% of
+/// your weekly limit · resets Oct 20 at 5am (Europe/…)"). There's no other local source for those percentages, so
+/// sessions read them from their own output. The other agents' /usage screens (Grok, Antigravity, Kimi, Copilot,
+/// Cursor), and the limits that Cursor and Codex print when one runs out, are read here too.
 public enum LimitScreens {
-    /// `kind`: "weekly", "session", "5-hour", "Opus weekly"…; `observedAt` is nil from a parse.
+    /// A reading's `kind` is "weekly", "session", "5-hour", "Opus weekly" and so on. Its `observedAt` is nil when it
+    /// comes from a parse.
     public typealias Reading = UsageGet.Limit
 
     private static let used = try? NSRegularExpression(
@@ -17,7 +18,8 @@ public enum LimitScreens {
         pattern: #"([A-Za-z0-9\- ]{1,30}?) limit reached(?:\s*[·∙•|-]\s*resets ([^\n(·]{2,40}))?"#,
         options: .caseInsensitive)
 
-    /// What a session's screen says of its plan, as its agent prints it (`AgentManifest.limitScreen`).
+    /// Reads what a session's screen says about its plan, in the form its agent prints it
+    /// (`AgentManifest.limitScreen`).
     public static func read(_ screen: AgentManifest.LimitScreen, _ text: String) -> [Reading] {
         switch screen {
         case .claude: parse(text)
@@ -90,8 +92,9 @@ public enum LimitScreens {
     }
 
     /// Antigravity's `/usage` as `agy -p /usage` prints it, a row per model group, tab-separated:
-    /// "Gemini Models  Weekly Limit Remaining  9%  2026-10-30T21:42:00Z". A limit *remaining*, returned as used like the
-    /// others ("Gemini week" 91 = 9% left), and the reset as Claude writes one ("Oct 30 at 9:42pm", local time).
+    /// "Gemini Models  Weekly Limit Remaining  9%  2026-10-30T21:42:00Z". Antigravity shows what *remains* of a limit,
+    /// and this returns it as used, like the others ("Gemini week" 91 means 9% left). The reset is written the way
+    /// Claude writes one ("Oct 30 at 9:42pm", local time).
     public static func parseAntigravityUsage(_ text: String, timeZone: TimeZone = .current) -> [Reading] {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -185,7 +188,7 @@ public enum LimitScreens {
 
     /// What a Cursor Agent session prints when the plan ran out: "You've hit your usage limit … Your usage limits will reset when
     /// your monthly cycle ends on 11/23/2026." Its `/usage` still says "Included 0% used" on the Free plan, so this is the only sign.
-    /// `resets` as `/usage` writes it ("Nov 23").
+    /// `resets` is written the way `/usage` writes it ("Nov 23").
     public static func parseCursorLimitHit(_ text: String) -> Reading? {
         guard text.contains("hit your usage limit") || text.contains("hit your free requests limit") else { return nil }
         let date = text.firstMatch(of: /cycle\s+ends\s+on\s+(\d{1,2})\/(\d{1,2})\/\d{4}/)
@@ -196,8 +199,8 @@ public enum LimitScreens {
         return Reading(kind: "month", percent: 100, resets: resets)
     }
 
-    /// What a Codex session prints when its plan ran out: "You've hit your usage limit. … Try again at Oct 30, 2026 3:40 PM."
-    /// (which of the offers sits between depends on the plan, and some have no date).
+    /// Reads what a Codex session prints when its plan ran out: "You've hit your usage limit. … Try again at Oct 30,
+    /// 2026 3:40 PM." Which offers appear in between depends on the plan, and some messages have no date.
     public static func parseCodexLimitHit(_ text: String) -> Reading? {
         guard text.contains("hit your usage limit") else { return nil }
         let at = text.firstMatch(of: /(?i:try again at)\s+([A-Za-z0-9:,\s]{3,40}?)\s*\./)

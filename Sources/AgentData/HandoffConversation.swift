@@ -1,9 +1,9 @@
 import Core
 import Foundation
 
-/// What an agent's conversation file says, read for the agent it is handed to (session.handoff): Claude Code's
-/// transcript, Codex's rollout, or pi's or oh-my-pi's session. It reads what was said and what was done alongside: the
-/// files changed, the commands run, and the last plan.
+/// An agent's conversation file, read for the agent the work is handed to (session.handoff). The file is Claude
+/// Code's transcript, Codex's rollout, or pi's or oh-my-pi's session. It holds what was said and what was done
+/// alongside: the files changed, the commands run, and the last plan.
 public struct Conversation: Sendable {
     public struct Turn: Equatable, Sendable {
         public var user: Bool, text: String
@@ -13,16 +13,16 @@ public struct Conversation: Sendable {
         }
     }
     public var turns: [Turn] = []
-    /// Files it wrote or edited, in the order first touched.
+    /// Files the agent wrote or edited, in the order they were first touched.
     public var changed: [String] = []
-    /// Commands it ran, each once, the latest run last.
+    /// Commands the agent ran, each listed once, with the most recent last.
     public var commands: [String] = []
-    /// Its last plan or to-do list, as "[x] step" lines.
+    /// The agent's last plan or to-do list, as "[x] step" lines.
     public var plan: [String] = []
 
     public init() {}
 
-    /// Nil when the file can't be read or holds nothing anyone said.
+    /// Reads a conversation file. Returns nil when the file can't be read or holds nothing anyone said.
     public init?(file url: URL) {
         guard let data = Data(contentsIfAny: url) else { return nil }
         for line in data.split(separator: 0x0A) {
@@ -36,7 +36,7 @@ public struct Conversation: Sendable {
     }
 
     /// Parses one line of a conversation file: Claude Code's `{type: user|assistant, message}`, pi's `{type: message,
-    /// message: {role}}`, or Codex's `{payload: {type: message, role}}`, including Codex's tool calls and what its
+    /// message: {role}}`, or Codex's `{payload: {type: message, role}}`, including Codex's tool calls and what Codex's
     /// turns did (`item_completed`).
     private mutating func read(_ entry: [String: Any]) {
         let message = entry["message"] as? [String: Any], payload = entry["payload"] as? [String: Any]
@@ -51,8 +51,8 @@ public struct Conversation: Sendable {
         }
     }
 
-    /// A user's or the agent's words (tool results, system notes, Codex's AGENTS.md and developer notes aren't), joined to
-    /// the turn before when the same side spoke; the tool calls among them.
+    /// Adds a user's or the agent's words, joined to the previous turn when the same side spoke. Tool results, system
+    /// notes, and Codex's AGENTS.md and developer notes aren't words. It also records the tool calls in the content.
     private mutating func say(_ role: String?, _ content: Any?) {
         guard role == "user" || role == "assistant" else { return }
         let items = content as? [[String: Any]] ?? []
@@ -70,7 +70,8 @@ public struct Conversation: Sendable {
         }
     }
 
-    /// A tool call by name: Claude Code's Edit/Write/Bash/TodoWrite, pi's edit/write/bash, Codex's shell/update_plan.
+    /// Records a tool call by its name: Claude Code's Edit/Write/Bash/TodoWrite, pi's edit/write/bash, or Codex's
+    /// shell/update_plan.
     private mutating func used(_ name: String?, _ args: [String: Any]?) {
         guard let name = name?.lowercased(), let args else { return }
         switch name {
@@ -85,7 +86,7 @@ public struct Conversation: Sendable {
         }
     }
 
-    /// What a Codex turn did, whichever tool did it (its code mode runs tools from a script).
+    /// Records what a Codex turn did, whichever tool did it, because Codex's code mode runs tools from a script.
     private mutating func did(_ item: [String: Any]) {
         switch item["type"] as? String {
         case "CommandExecution":
@@ -99,7 +100,7 @@ public struct Conversation: Sendable {
         if let path, !path.isEmpty, !changed.contains(path) { changed.append(path) }
     }
 
-    /// A command as typed: Codex's `["bash", "-lc", "…"]` is its last part.
+    /// Records a command as it was typed. For Codex's `["bash", "-lc", "…"]`, that is the last part.
     private mutating func ran(_ command: Any?) {
         guard
             let text = (command as? String ?? (command as? [String])?.last)?
@@ -113,8 +114,8 @@ public struct Conversation: Sendable {
         "[\(status as? String == "completed" ? "x" : status as? String == "in_progress" ? "~" : " ")] \(text ?? "")"
     }
 
-    /// The first turn (the task, up to a quarter of `limit`) and as many of the newest as fit in `limit` characters;
-    /// the newest one that doesn't fit whole keeps its end.
+    /// Returns the first turn (the task, cut to a quarter of `limit`) and as many of the newest turns as fit in `limit`
+    /// characters. The turn where the space runs out keeps only its end.
     public func kept(limit: Int) -> [Turn] {
         guard var first = turns.first else { return [] }
         if first.text.count > limit / 4 { first.text = String(first.text.prefix(limit / 4)) + "…" }
@@ -126,7 +127,8 @@ public struct Conversation: Sendable {
         return [first] + tail.reversed()
     }
 
-    /// The plan, the files, the last 15 commands and what git says is uncommitted: what the turns don't say.
+    /// Returns what the turns don't say: the plan, the changed files, the last 15 commands, and what git says is
+    /// uncommitted.
     public func notes(uncommitted: String) -> String {
         var parts: [String] = []
         if !plan.isEmpty { parts.append("## Its plan\n\n" + plan.joined(separator: "\n")) }
@@ -142,7 +144,7 @@ public struct Conversation: Sendable {
         return parts.joined(separator: "\n\n")
     }
 
-    /// "## You / ## Agent" turns after the notes; "…" where turns were left out.
+    /// Returns the notes, then the turns under "## You" and "## Agent" headings, with "…" where turns were left out.
     public func markdown(limit: Int, uncommitted: String = "") -> String {
         let kept = kept(limit: limit)
         var parts = kept.map { "## \($0.user ? "You" : "Agent")\n\n\($0.text)" }
@@ -151,9 +153,10 @@ public struct Conversation: Sendable {
         return ((notes.isEmpty ? [] : [notes, "# Conversation"]) + parts).joined(separator: "\n\n")
     }
 
-    /// The turns as a pi session (pi's docs/session-format.md, version 3) that `pi --session` and `omp --resume` open as
-    /// their own: one message per turn, each the child of the one before, and the notes as a message the model reads
-    /// (`custom_message`). The answers are marked as another program's (`api`), so pi sends them as plain text.
+    /// Writes the turns as a pi session (pi's docs/session-format.md, version 3) that `pi --session` and
+    /// `omp --resume` open as their own. Each turn is one message and the child of the message before it. The notes
+    /// become a message the model reads (`custom_message`). The agent's answers are marked as coming from another
+    /// program (`api`), so pi sends them as plain text.
     public func piSession(
         cwd: String, agent: String, limit: Int, uncommitted: String, now: Date = Date()
     ) throws -> String {

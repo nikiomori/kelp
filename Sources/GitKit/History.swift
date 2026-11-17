@@ -25,8 +25,8 @@ extension Git {
             for lane in lanes.indices where lanes[lane] == commit.hash { lanes[lane] = nil }
             var bottom = through.map { [$0, $0] }
             for (index, parent) in commit.parents.enumerated() {
-                // An already-waiting parent is joined, except that a first parent waiting further right comes to this lane:
-                // the trunk stays leftmost and the right lane converges into it at the parent's row.
+                // A parent that is already waiting is joined, except that a first parent waiting further right moves to
+                // this lane. That way the trunk stays leftmost, and the right lane merges into it at the parent's row.
                 if let parentLane = lanes.firstIndex(of: parent), index > 0 || parentLane < col {
                     bottom.append([col, parentLane])
                     continue
@@ -114,8 +114,9 @@ extension Git {
         return details
     }
 
-    /// Source Control reads this on every change in the folder: one for-each-ref answers what took five git processes
-    /// (each an ssh round trip for a remote project). Detached or before the first commit, HEAD is asked for itself.
+    /// Returns the branches and where HEAD is. Source Control reads this on every change in the folder, so one
+    /// for-each-ref answers what took five git processes (each an ssh round trip for a remote project). When HEAD is
+    /// detached, or before the first commit, git is asked about HEAD itself.
     public static func branches(_ path: String, remotes: Remotes) throws -> BranchInfo {
         let refs = try run(
             [
@@ -135,12 +136,12 @@ extension Git {
                 continue
             }
             let name = String(fields[1].dropFirst("refs/heads/".count))
-            guard Git.isRevision(name) else { continue }   // one that reads as an option isn't offered (nor pushed, merged…)
+            guard Git.isRevision(name) else { continue }   // an option-like name isn't offered (nor pushed, merged…)
             info.local.append(name)
             guard fields[0] == "*" else { continue }
             info.current = name
             info.head = fields[2]
-            guard !fields[3].isEmpty, fields[4] != "gone" else { continue }   // "gone": the upstream branch was deleted
+            guard !fields[3].isEmpty, fields[4] != "gone" else { continue }   // "gone" means the upstream was deleted
             info.upstream = fields[3]
             info.ahead = 0
             info.behind = 0
@@ -158,7 +159,8 @@ extension Git {
             info.current = Git.isRevision(symbolic) ? symbolic : nil
             info.head = try? line(["rev-parse", "--short", "HEAD"], cwd: path, remotes: remotes)
         }
-        // No upstream (never pushed, or its branch deleted): ahead is what's on no remote yet, as the graph marks it.
+        // Without an upstream (never pushed, or its branch deleted), ahead counts the commits on no remote yet, as the
+        // graph marks them.
         if info.upstream == nil, info.current != nil, info.head != nil, !info.remote.isEmpty,
             let count = Int(
                 (try? line(["rev-list", "--count", "HEAD", "--not", "--remotes"], cwd: path, remotes: remotes)) ?? "")
@@ -169,16 +171,18 @@ extension Git {
         return info
     }
 
-    /// The newest `limit` commits a push would send and a pull would bring. With an upstream: HEAD against it; without
-    /// one (never pushed, or its branch deleted), what is on no remote branch yet, as `branches` counts it.
+    /// Returns the newest `limit` commits that a push would send and a pull would bring. With an upstream, HEAD is
+    /// compared with it. Without one (never pushed, or its branch deleted), the outgoing commits are those on no remote
+    /// branch yet, as `branches` counts them.
     public static func unsynced(_ path: String, limit: Int = 5, remotes: Remotes) throws -> Unsynced {
         var lists = try unsyncedLists(path, limit: limit, remotes: remotes)
         lists.fetched = try lastFetch(path, remotes: remotes)
         return lists
     }
 
-    /// When FETCH_HEAD was written: git writes it on every fetch and pull, whether anything came or not. A remote
-    /// project's isn't read (one more ssh round trip for a word in a popover).
+    /// Returns when FETCH_HEAD was written, because git writes it on every fetch and pull, whether anything came or
+    /// not. A remote project's FETCH_HEAD isn't read, because that would cost one more ssh round trip for a word in a
+    /// popover.
     static func lastFetch(_ path: String, remotes: Remotes) throws -> Double? {
         guard remotes.of(path) == nil else { return nil }
         let file = try line(
@@ -201,7 +205,7 @@ extension Git {
                         date: Double(fields[2]) ?? 0) : nil
             }
         }
-        // 128: no upstream (or its branch deleted), in which case git prints nothing.
+        // Exit status 128 means no upstream (or its branch was deleted), and then git prints nothing.
         if !(try run(["rev-parse", "--abbrev-ref", "@{upstream}"], cwd: path, ok: [0, 128], remotes: remotes)).isEmpty {
             return Unsynced(outgoing: try commits(["@{upstream}..HEAD"]), incoming: try commits(["HEAD..@{upstream}"]))
         }
@@ -230,16 +234,18 @@ extension Git {
         try run(["switch", local], cwd: path, remotes: remotes)
     }
 
-    /// Undo working-tree changes: tracked files go back to the index, untracked files are deleted. Answers the patch that
-    /// puts them back (`putBack`); a change too big to keep that way is refused, nothing discarded.
+    /// Undoes working-tree changes: tracked files go back to the index, and untracked files are deleted. Returns the
+    /// patch that puts them back (`putBack`). A change too big to keep that way is refused, and nothing is discarded.
     @discardableResult
-    /// `keep` gets the patch before anything changes, and nothing does if it throws: what's thrown away is kept first.
+    /// `keep` gets the patch before anything changes, and nothing changes if it throws, so what's thrown away is kept
+    /// first.
     public static func discard(
         _ path: String, files: [String], remotes: Remotes, keep: (Data) throws -> Void = { _ in }
     ) throws -> Data {
         let untracked = Set(try status(path, remotes: remotes).filter(\.untracked).map(\.path))
         let (newFiles, tracked) = (files.filter { untracked.contains($0) }, files.filter { !untracked.contains($0) })
-        // Fixed prefixes, no colour: a user's diff.noprefix or color.diff=always would give a patch `git apply` can't take.
+        // Fixed prefixes and no colour, because a user's diff.noprefix or color.diff=always would give a patch that
+        // `git apply` can't take.
         let plain = ["--binary", "--no-color", "--src-prefix=a/", "--dst-prefix=b/"]
         let changes = { try runData(["diff"] + plain + ["--"] + literal(tracked), cwd: path, remotes: remotes) }
         var back = Data(), ofTracked = Data()
@@ -250,7 +256,7 @@ extension Git {
                 back += try runData(
                     ["diff"] + plain + ["--no-index", "--", "/dev/null", file], cwd: path, ok: [0, 1], remotes: remotes)
             }
-            // All of them, held in the daemon a minute.
+            // The patch of all the files is held in the daemon for a minute, so its size is limited.
             if back.count > Subprocess.outputLimit { throw GitError.tooMuch }
         } catch GitError.tooMuch {   // any other failure says what it was
             throw GitError.refused(
@@ -259,9 +265,10 @@ extension Git {
         }
         try keep(back)
         if !tracked.isEmpty {
-            // An edit saved since the patch was taken isn't in it and would go with no undo: the files are read again,
-            // right before they are written, and nothing is discarded if they changed. Limit: one saved between this
-            // diff and the restore, the next git run (milliseconds; a round trip on a host), still goes.
+            // An edit saved since the patch was taken isn't in the patch, and would be lost with no undo. So the
+            // files are read again right before they are written, and nothing is discarded if they changed.
+            // Limit: one saved between this diff and the restore, the next git run (milliseconds; a round trip on a
+            // host), still goes.
             guard try changes() == ofTracked else {
                 throw GitError.refused(
                     "The files changed while they were being discarded, so they were left as they are.")
@@ -272,16 +279,18 @@ extension Git {
         if remotes.of(path) == nil {
             for file in newFiles { try Trash.move(URL(fileURLWithPath: path).appendingPathComponent(file)) }
         } else if !newFiles.isEmpty {
-            // No Trash on a host: `back` holds each whole (a binary patch), the only copy once this ran, for as long as
-            // the caller keeps it. Limit: a new file saved again between its diff above and here goes as it is now.
+            // A host has no Trash, so `back` holds each new file whole (a binary patch). Once this has run, that is
+            // the only copy, for as long as the caller keeps it.
+            // Limit: a new file saved again between its diff above and here goes as it is now.
             try run(["clean", "-f", "-q", "--"] + literal(newFiles), cwd: path, remotes: remotes)
         }
         return back
     }
 
-    /// Applies what a discard threw away again: `discard`'s patch, or with `hunk` a hunk's own (`FileDiff.patch(hunk:)`).
-    /// git changes nothing in a file that has moved on since, so a newer edit is never written over. A discard that failed
-    /// partway left some files as they were: those are let be, the rest put back, each file on its own.
+    /// Applies again what a discard threw away: the patch from `discard`, or with `hunk`, a single hunk's patch
+    /// (`FileDiff.patch(hunk:)`). git changes nothing in a file that has moved on since, so a newer edit is never
+    /// written over. A discard that failed partway left some files as they were. Those are left alone, and the rest are
+    /// put back, each file on its own.
     public static func putBack(_ path: String, patch: Data, hunk: Bool, remotes: Remotes) throws {
         let apply = ["apply"] + (hunk ? ["--recount", "--unidiff-zero"] : ["--binary"]) + ["-"]
         do { try runData(apply, cwd: path, stdin: patch, remotes: remotes) } catch {
@@ -289,7 +298,8 @@ extension Git {
             guard !hunk, files.count > 1 else { throw error }
             var back = 0, gone = 0, refused: Error?
             for part in files {
-                // Already as the patch leaves it (its undo applies): let be, and not counted as one to put back.
+                // A file already as the patch leaves it (its undo applies) is left alone, and isn't counted as one to
+                // put back.
                 do {
                     try runData(["apply", "--binary", "-R", "--check", "-"], cwd: path, stdin: part, remotes: remotes)
                 } catch {
@@ -307,7 +317,8 @@ extension Git {
         }
     }
 
-    /// Some of a discard's files put back, the rest refused (changed since): a try later puts back those once they're as they were.
+    /// Thrown when some of a discard's files were put back and the rest were refused, because they changed since. A
+    /// later try puts those back once they're as they were.
     public struct PartlyPutBack: Error { public let back: Int, of: Int, why: String }
 
     /// A patch cut at each file's `diff --git` line.
@@ -328,8 +339,8 @@ extension Git {
     public static func remote(_ path: String, _ op: Remote, remotes: Remotes) throws {
         switch op {
         case .pull:
-            // Diverged branches make git refuse until it's told how to reconcile them. With neither pull.rebase nor pull.ff set
-            // (the user's own answer), a merge: the first of git's hints.
+            // Diverged branches make git refuse until it's told how to reconcile them. When neither pull.rebase nor
+            // pull.ff is set (the user's own answer), Kelp merges, which is the first of git's hints.
             let chosen = try ["pull.rebase", "pull.ff"].contains {
                 !(try run(["config", "--get", $0], cwd: path, ok: [0, 1], remotes: remotes)).isEmpty
             }

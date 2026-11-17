@@ -4,16 +4,16 @@ import Foundation
 /// A server a workspace runs, as this Mac reaches it.
 public struct ServedPage: Equatable, Sendable {
     public var url: String
-    /// On this Mac; where a host's port isn't forwarded yet, the number it would like.
+    /// The port on this Mac, or, where a host's port isn't forwarded yet, the number it would like.
     public var port: Int
     public var pid: Int32?, command: String
-    /// false: a database or a debugger, whose address is copied rather than opened.
+    /// False for a database or a debugger, whose address is copied rather than opened.
     public var isWeb: Bool
-    /// On a remote project: the host, and the port there.
+    /// For a remote project, the host and the port there.
     public var host: String?, remotePort: Int
-    /// Reachable from this Mac as it stands; always so for this Mac's own.
+    /// Whether the page is reachable from this Mac as things stand. This Mac's own pages always are.
     public var forwarded: Bool
-    /// The host can't be asked: this is its last answer.
+    /// The host can't be asked, so this is its last answer.
     public var offline: Bool
 
     public var address: String { "localhost:\(port)" }
@@ -44,8 +44,9 @@ public struct ServedPage: Equatable, Sendable {
         offline = false
     }
 
-    /// As this Mac reaches it: one on a host comes here first through `call` (the app's `PortsForward`), and a dropped
-    /// connection is opened again. nil when it can't be; `call` has said why.
+    /// Returns the page as this Mac reaches it. A page on a host is first forwarded here through `call` (the app's
+    /// `PortsForward`), and a dropped connection is opened again. Returns nil when that can't be done, and `call` has
+    /// said why.
     @MainActor public func reached(in wid: String, call: @MainActor (PortsForward) async -> PortsForward.Forwarded?)
         async -> ServedPage?
     {
@@ -56,7 +57,7 @@ public struct ServedPage: Equatable, Sendable {
         return here
     }
 
-    /// Brought to port `here` on this Mac.
+    /// Moves the page to port `here` on this Mac.
     public mutating func moved(to here: Int) {
         if var components = URLComponents(string: url) {
             components.port = here
@@ -70,15 +71,16 @@ public struct ServedPage: Equatable, Sendable {
 
 public enum ServedPages {
     static let notWebPrograms: Set = ["postgres", "mysqld", "mariadbd", "mongod", "redis-server", "memcached"]
-    /// Their usual ports, for a server inside a container or a wrapper: 9229 is Node's debugger.
+    /// The usual ports of those programs, for a server inside a container or a wrapper. 9229 is Node's debugger.
     static let notWebPorts: Set = [3306, 5432, 6379, 9229, 11211, 27017]
 
-    /// Worth showing: from 49152 up the system hands out ports to anything that asks, which is where agents' helpers
-    /// listen, and ssh only holds a remote project's forwarding.
+    /// Whether a port is worth showing. From 49152 up, the system hands out ports to anything that asks, which is where
+    /// agents' helpers listen, and an ssh port only holds a remote project's forwarding.
     public static func listed(_ port: PortsList.Port) -> Bool { port.command != "ssh" && port.port < 49152 }
 
-    /// What runs printed (their address as printed, whatever its port), then the rest of the listening ports, each port
-    /// once, with pages before the addresses that aren't: the first is what a click on the capsule opens.
+    /// Returns what runs printed (each address as printed, whatever its port), then the rest of the listening ports,
+    /// each port once. Web pages come before the other addresses, because the first entry is what a click on the
+    /// capsule opens.
     public static func list(printed: [String], ports: [PortsList.Port]) -> [ServedPage] {
         var all = printed.compactMap { url -> ServedPage? in
             guard let port = URLComponents(string: url)?.port else { return nil }

@@ -1,12 +1,12 @@
 import Core
 import Foundation
 
-/// A project's switches (`addons.set`): which rows they turn off, and how each agent is told when a chat starts.
-/// Claude Code takes all of it as settings for one run; Codex takes a server's on its command line. The rest have no
-/// way to leave something out of one chat (`Addon.fixed`).
+/// The switches a project sets with `addons.set`: which rows they turn off, and how each agent is told when a chat
+/// starts. Claude Code takes all the switches as settings for one run. Codex takes only the server switches, on its
+/// command line. The other agents have no way to leave something out of one chat (`Addon.fixed`).
 public enum AddonSwitches {
-    /// `items` with each one's switch read from `off`, and a row for every switch that names nothing listed (what's off
-    /// didn't load, so the chat's record has no line of it).
+    /// Returns `items` with each item's switch read from `off`. It also adds a row for every switch that names no
+    /// listed item, because an add-on that is off didn't load, so the chat's record doesn't mention it.
     public static func applied(_ off: Set<String>, to items: [Addon]) -> [Addon] {
         var out = items.map { item -> Addon in
             var item = item
@@ -30,14 +30,15 @@ public enum AddonSwitches {
         return out
     }
 
-    /// Whether Kelp can leave one of `kind` out of a chat of `agent`'s.
+    /// Whether Kelp can leave an add-on of `kind` out of a chat that `agent` runs.
     static func reaches(_ agent: String, _ kind: Addon.Kind) -> Bool {
         agent == Session.claudeAgent || (agent == Session.codexAgent && kind == .server)
     }
 
-    /// What's off, as Claude Code's settings for one run (verified on 2.1.322): a skill by `skillOverrides` (a
-    /// claude.ai skill answers to its bare name), a plugin by `enabledPlugins` under its installed id
-    /// (`name@marketplace`, `name@synced` for claude.ai's), a server by a deny rule on its tools. Empty: nothing is off.
+    /// Turns what is off into Claude Code's settings for one run (checked on 2.1.322). A skill is turned off in
+    /// `skillOverrides`, where a claude.ai skill answers to its bare name. A plugin is turned off in `enabledPlugins`
+    /// under its installed id (`name@marketplace`, or `name@synced` for claude.ai's plugins). A server is turned off by
+    /// a deny rule on its tools. The result is empty when nothing is off.
     public static func claudeSettings(_ off: Set<String>, plugins: [String]) -> [String: JSONValue] {
         var skills: [String: JSONValue] = [:], unplugged: [String: JSONValue] = [:], deny: [JSONValue] = []
         for key in off.sorted() {
@@ -61,14 +62,16 @@ public enum AddonSwitches {
         return out
     }
 
-    /// The same for Codex (verified on 0.166): `-c mcp_servers.<name>.enabled=false` for each of its own servers.
+    /// Turns what is off into Codex arguments (checked on 0.166): `-c mcp_servers.<name>.enabled=false` for each of
+    /// Codex's own servers that is off.
     public static func codexArgs(_ off: Set<String>, servers: [String]) -> [String] {
         servers.filter { off.contains("server:\($0)") }.sorted().flatMap { ["-c", "mcp_servers.\($0).enabled=false"] }
     }
 }
 
 extension AddonFiles {
-    /// The ids of Claude Code's installed plugins ("sales@synced" isn't among them: claude.ai's aren't installed here).
+    /// Returns the ids of Claude Code's installed plugins. "sales@synced" is never among them, because claude.ai's
+    /// plugins aren't installed on this Mac.
     public func claudePlugins() -> [String] {
         let file = claude.appendingPathComponent("plugins/installed_plugins.json")
         let root = Data(contentsIfAny: file).flatMap(JSONL.object)

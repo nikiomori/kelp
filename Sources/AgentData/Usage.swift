@@ -28,8 +28,8 @@ public struct Pricing: Sendable, Equatable {
             + Double(tokens.cacheRead) * cacheRead) / 1_000_000
     }
 
-    /// ESTIMATE: list prices as of Nov 2026, hand-copied; they drift. Cache write = 5-minute TTL rate; `hourWrites` says how
-    /// many of a call's writes are kept for an hour instead.
+    /// ESTIMATE: list prices as of Nov 2026, copied by hand, so they drift. The cache write price is the rate for a
+    /// 5-minute cache. `hourWrites` says how many of a call's writes are kept for an hour instead.
     /// Limit: OpenAI's higher rates past 272K of input aren't here; a Codex call that long reads low.
     /// First substring match wins, so specific ids precede their family fallback.
     public static let table: [(match: String, price: Pricing)] = [
@@ -57,7 +57,7 @@ public struct Pricing: Sendable, Equatable {
         ("gpt-5", .init(input: 1.25, output: 10, cacheWrite: 0, cacheRead: 0.125))
     ]
 
-    /// A model's list price; nil for one without (a router path, a free model).
+    /// Returns a model's list price, or nil for a model without one (a router path, a free model).
     public static func of(_ model: String) -> Pricing? {
         let id = model.lowercased()
         return table.first { id.contains($0.match) }?.price
@@ -83,8 +83,9 @@ public enum ClaudeUsage {
 
     public static let blockLength: TimeInterval = 5 * 3600
 
-    /// The calls in one conversation's `transcript` between `from` and `to` (seconds since 1970), each once (a call's
-    /// lines repeat its usage), with their tokens and what they cost. Reads the whole file: off the pool.
+    /// Returns the calls in one conversation's `transcript` between `from` and `to` (seconds since 1970), with their
+    /// tokens and cost. Each call counts once, because a call's lines repeat its usage. It reads the whole file, so
+    /// call it off the cooperative pool.
     public static func spent(transcript: URL, from: Double, to: Double) -> (
         calls: Int, tokens: TokenCounts, cost: Double
     ) {
@@ -105,14 +106,15 @@ public struct CodexLimits: Sendable, Equatable {
     public var primaryUsedPercent: Double?, primaryResetsAt: Date?
     public var secondaryUsedPercent: Double?, secondaryResetsAt: Date?
     public var observedAt: Date
-    /// How long each window is: 300 on paid plans' first, 10 080 on their second, 43 200 (a month) on the free plan's only one.
+    /// How long each window is, in minutes: 300 for a paid plan's first window and 10 080 for its second, and 43 200
+    /// (a month) for the free plan's only window.
     public var primaryWindowMinutes: Double?, secondaryWindowMinutes: Double?
 }
 
 public enum CodexUsage {
-    /// Newest `rate_limits` snapshot from `token_count` events in the 3 most recently modified rollouts that have one.
-    /// Rollouts without one are skipped: Codex Desktop imports Claude Code conversations as rollouts by the dozen, all
-    /// newer than the last real session and with `rate_limits: null`.
+    /// Returns the newest `rate_limits` snapshot from `token_count` events in the 3 most recently modified rollouts
+    /// that have one. Rollouts without a snapshot are skipped, because Codex Desktop imports Claude Code conversations
+    /// as rollouts by the dozen, all newer than the last real session and with `rate_limits: null`.
     public static func latest(root: URL = CodexHistory.defaultRoot) -> CodexLimits? {
         func mtime(_ url: URL) -> Date {
             (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
@@ -126,15 +128,17 @@ public enum CodexUsage {
         return found.max { $0.observedAt < $1.observedAt }
     }
 
-    /// Read again only once the rollout was written to: Usage asks every minute, and most rollouts never change again.
+    /// Returns a rollout's newest limits. A rollout is read again only after it was written to, because Usage asks
+    /// every minute and most rollouts never change again.
     static func latest(in url: URL) -> CodexLimits? { rollouts.value(url.path) { read(url) } }
-    private static let rollouts = StatMemo<CodexLimits?>(limit: 512)   // `latest` looks through up to 200
+    private static let rollouts = StatMemo<CodexLimits?>(limit: 512)   // holds the up to 200 that `latest` reads
 
-    /// The newest snapshot is near the end: the last MB first, the whole file only when that has none.
+    /// Reads the newest snapshot, which is near the end. It reads the last MB first, and the whole file only when the
+    /// last MB has none.
     private static func read(_ url: URL) -> CodexLimits? {
         guard let tail = Data(tail: 1 << 20, of: url) else { return nil }
         if let found = latest(inLines: tail) { return found }
-        guard tail.count == 1 << 20 else { return nil }   // that was all of it
+        guard tail.count == 1 << 20 else { return nil }   // the last MB was the whole file
         return Data(contentsIfAny: url, options: .mappedIfSafe).flatMap(latest(inLines:))
     }
 
@@ -152,8 +156,9 @@ public enum CodexUsage {
         return limits(rateLimits: payload["rate_limits"], at: at)
     }
 
-    /// A rollout's `rate_limits` (`primary: {used_percent, window_minutes, resets_at | resets_in_seconds}`, or the older flat
-    /// `primary_used_percent`) or app-server's `rateLimits` (`primary: {usedPercent, windowDurationMins, resetsAt}`), read at `at`.
+    /// Reads a rollout's `rate_limits` (`primary: {used_percent, window_minutes, resets_at | resets_in_seconds}`, or
+    /// the older flat `primary_used_percent`) or app-server's `rateLimits` (`primary: {usedPercent,
+    /// windowDurationMins, resetsAt}`), as seen at `at`.
     public static func limits(rateLimits: Any?, at: Date) -> CodexLimits? {
         guard let rl = rateLimits as? [String: Any] else { return nil }
         func window(_ name: String) -> (used: Double, resets: Date?, minutes: Double?)? {

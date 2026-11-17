@@ -2,9 +2,9 @@ import Core
 import Foundation
 import os
 
-/// The files MCP servers are kept in, in the agents' common shape (`{"mcpServers": {name: entry}}`): Kelp's own
-/// (`mcp.json` in its home, for every project) and a project's `.mcp.json`. A file is written whole, keeping its other
-/// keys.
+/// Reads and writes the files that hold MCP servers in the agents' common shape (`{"mcpServers": {name: entry}}`).
+/// These are Kelp's own `mcp.json` in its home, for every project, and a project's `.mcp.json`. A file is written
+/// whole, and its other keys are kept.
 /// Limit: what a server needs to sign in (`env`, `headers`) sits in the file as typed, as in the agents' own files;
 /// Kelp's file is readable by the person only.
 public enum ServerFiles {
@@ -23,7 +23,8 @@ public enum ServerFiles {
         }
     }
 
-    /// `entry` under `name` (nil takes it out). The file's other keys, and a server's fields Kelp doesn't know, stay.
+    /// Writes `entry` under `name`, or removes the server when `entry` is nil. The file's other keys and servers stay,
+    /// but the server's own entry is replaced whole, so its fields that Kelp doesn't know are dropped.
     public static func write(_ name: String, _ entry: ServerEntry?, to file: URL) throws {
         var all: [String: JSONValue] = [:]
         if let data = Data(contentsIfAny: file) {
@@ -41,9 +42,10 @@ public enum ServerFiles {
         try (encoder.encode(JSONValue.object(all)) + Data("\n".utf8)).write(to: file, options: .atomic)
     }
 
-    /// Codex's command line for `servers` (verified on 0.166: `-c mcp_servers.<name>={…}` adds one for the run). What a
-    /// server signs in with doesn't go on the command line, where any program can read it: Codex takes it from the
-    /// chat's environment by name (`env_vars`, `env_http_headers`), and `environment` is what to put there.
+    /// Builds Codex's command line for `servers` (checked on 0.166, where `-c mcp_servers.<name>={…}` adds a server for
+    /// one run). What a server signs in with doesn't go on the command line, where any program can read it. Codex takes
+    /// it from the chat's environment by name (`env_vars`, `env_http_headers`), and `environment` holds what to put
+    /// there.
     public static func codex(_ servers: [String: ServerEntry]) -> (args: [String], environment: [String: String]) {
         var args: [String] = [], environment: [String: String] = [:]
         for (name, entry) in servers.sorted(by: { $0.key < $1.key }) {
@@ -74,7 +76,7 @@ public enum ServerFiles {
         return (args, environment)
     }
 
-    /// "KELP_MCP_LINEAR_AUTHORIZATION": the variable a header's value waits in.
+    /// Returns the variable that holds a header's value for Codex, such as "KELP_MCP_LINEAR_AUTHORIZATION".
     static func variable(_ server: String, _ header: String) -> String {
         "KELP_MCP_"
             + (server + "_" + header).uppercased().map { $0.isLetter || $0.isNumber ? String($0) : "_" }.joined()
@@ -82,7 +84,8 @@ public enum ServerFiles {
 }
 
 extension AddonFiles {
-    /// The entry `agent`'s own file has for the server `name` in a chat in `cwd`: for handing it to the other agents.
+    /// Returns the entry for the server `name` in `agent`'s own file, for a chat in `cwd`, so that Kelp can hand it to
+    /// the other agents.
     public func entry(_ name: String, of agent: String, cwd: String) -> ServerEntry? {
         switch agent {
         case Session.claudeAgent:
@@ -99,7 +102,8 @@ extension AddonFiles {
         }
     }
 
-    /// A server's table in a Codex config, read as far as Kelp hands on: `command`, `args`, `url` and its `env` table.
+    /// Reads a server's table in a Codex config, as far as Kelp hands it on: `command`, `args`, `url` and the `env`
+    /// table.
     /// Limit: one-line values only, as Codex itself writes them.
     static func codexEntry(_ name: String, in toml: String) -> ServerEntry? {
         var entry = ServerEntry(), table = ""

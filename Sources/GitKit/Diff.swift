@@ -9,7 +9,7 @@ public enum DiffSource: Sendable {
     case branch(base: String)   // HEAD vs merge-base(base)
     case commit(String)
     case since(tree: String)   // the working tree now vs a snapshot taken earlier (`snapshotTree`)
-    case between(String, String)   // one snapshot (or commit) vs a later one: a turn that ended before the next began
+    case between(String, String)   // a snapshot (or commit) vs a later one, for a turn that ended before the next began
 }
 
 extension Git {
@@ -60,8 +60,9 @@ extension Git {
                 newLine = nums.dropFirst().first.flatMap { $0 } ?? 1
                 cur = Hunk(header: raw, oldStart: oldLine, newStart: newLine, lines: [])
             } else if cur != nil {
-                // By scalar: "+" and a combining mark after it are one Character, and the line would be dropped.
-                guard let marker = raw.unicodeScalars.first else { continue }   // trailing empty
+                // Split by scalar, because "+" and a combining mark after it form one Character, and the line would be
+                // dropped.
+                guard let marker = raw.unicodeScalars.first else { continue }   // the empty line at the end
                 let text = String(raw.unicodeScalars.dropFirst())
                 switch marker {
                 case "+":
@@ -83,14 +84,15 @@ extension Git {
         return files
     }
 
-    /// How much of a diff one reply carries (git's output and a little per line, `Allowance`): a file past its share
-    /// comes back with its header only (`tooLarge`), and so does every file once the whole is spent, so an agent
-    /// regenerating a lock file or writing thousands of files can't make a reply the app chokes on. In a review (every
-    /// file) one file gets an eighth, so a regenerated lock file doesn't push the rest out; asked for alone, the whole.
+    /// How much of a diff one reply carries, counted as git's output plus a little per line (`Allowance`). A file past
+    /// its share comes back with its header only (`tooLarge`), and so does every file once the whole budget is spent.
+    /// This way an agent that regenerates a lock file or writes thousands of files can't make a reply the app chokes
+    /// on. In a review (every file), one file gets an eighth of the budget, so a regenerated lock file doesn't push the
+    /// rest out. A file asked for alone gets the whole budget.
     public static let diffBudget = 8 << 20
 
-    /// What's left of `diffBudget` while a diff is read. A file costs its bytes and 40 for each line: about its size in
-    /// the reply, where each line is an object of its own (and a row on screen).
+    /// What's left of `diffBudget` while a diff is read. A file costs its bytes plus 40 for each line, which is about
+    /// its size in the reply, where each line is an object of its own (and a row on screen).
     struct Allowance {
         var left = Git.diffBudget
         let perFile: Int
@@ -107,9 +109,9 @@ extension Git {
         }
     }
 
-    /// Each file of git's diff output decoded on its own: as UTF-8, or byte for byte (Latin-1) when it isn't, so a patch
-    /// built back from it applies (a lossy decode would put U+FFFD where the file has other bytes). A file past what's
-    /// left of `budget` is read up to its first hunk only.
+    /// Decodes each file of git's diff output on its own, as UTF-8, or byte for byte (Latin-1) when it isn't UTF-8.
+    /// That way a patch built back from it applies, where a lossy decode would put U+FFFD in place of the file's other
+    /// bytes. A file past what's left of `budget` is read up to its first hunk only.
     static func parseDiff(_ data: Data, budget: inout Allowance) -> [FileDiff] {
         let mark = Data("\ndiff --git ".utf8)
         var starts = [data.startIndex], from = data.startIndex
@@ -139,7 +141,7 @@ extension Git {
         return name.hasPrefix("a/") || name.hasPrefix("b/") ? String(name.dropFirst(2)) : nil
     }
 
-    /// A name git wrote C-quoted (`"x\"y"`, `"\303\244"`) as it is.
+    /// Turns a name that git wrote C-quoted (`"x\"y"`, `"\303\244"`) back into the name itself.
     static func unquoted(_ name: String) -> String {
         guard name.count >= 2, name.hasPrefix("\""), name.hasSuffix("\"") else { return name }
         let bytes = Array(name.utf8.dropFirst().dropLast())
@@ -167,14 +169,16 @@ extension Git {
         return String(bytes: out, encoding: .utf8) ?? name
     }
 
-    /// `ignoreSpace`: changes of whitespace alone left out (`git diff -w`), and the files with nothing else changed.
-    /// `context`: unchanged lines around each change (git's -U); a large one gives a file whole, as one hunk.
+    /// Returns the diff of the repository at `path`. `ignoreSpace` leaves out changes of whitespace alone (`git diff
+    /// -w`), and the files with nothing else changed. `context` is the number of unchanged lines around each change
+    /// (git's -U), and a large value gives a file whole, as one hunk.
     public static func diff(
         _ path: String, source: DiffSource, file: String? = nil, ignoreSpace: Bool = false, context: Int = 3,
         remotes: Remotes
     ) throws -> [FileDiff] {
-        // Fixed prefixes and no external tool or textconv: a user's diff.noprefix / diff.mnemonicPrefix / diff.external don't
-        // change the output, and a repo's own config can't run a program on every diff shown (nor give a patch that won't apply).
+        // Fixed prefixes and no external tool or textconv, so a user's diff.noprefix / diff.mnemonicPrefix /
+        // diff.external don't change the output. A repo's own config also can't run a program on every diff shown, or
+        // give a patch that won't apply.
         let common =
             [
                 "--no-color", "--no-ext-diff", "--no-textconv", "-U\(max(0, context))", "--src-prefix=a/",
@@ -194,8 +198,9 @@ extension Git {
         }
         let only = file.map { ["--"] + literal([$0]) } ?? []
         var budget = Allowance(oneFile: file != nil)
-        // Read up to twice the budget: the budget is spent by then, unless whole files were past their share. git's
-        // output after that is dropped as it comes; the files it held are named by a second, short run, header only.
+        // Read up to twice the budget, because by then the budget is spent, unless whole files were past their share.
+        // git's output after that is dropped as it comes, and a second, short run names the files it held, with headers
+        // only.
         let out = try runPart(args + only, cwd: path, limit: 2 * diffBudget, remotes: remotes)
         var diffs = parseDiff(out.truncated ? wholeFiles(out.data) : out.data, budget: &budget)
         if out.truncated {
@@ -215,7 +220,7 @@ extension Git {
         return ignoreSpace ? diffs.filter { !$0.hunks.isEmpty || $0.binary || $0.tooLarge == true } : diffs
     }
 
-    /// The files of diff output cut off somewhere: up to where the last one begins.
+    /// Returns the whole files of a diff output that was cut off, up to where the last file begins.
     static func wholeFiles(_ data: Data) -> Data {
         data.range(of: Data("\ndiff --git ".utf8), options: .backwards).map { data[...$0.lowerBound] } ?? Data()
     }
@@ -227,7 +232,8 @@ extension Git {
         let files = try status(path, only: only, limit: FileChange.limit, remotes: remotes).filter {
             $0.untracked && (only == nil || $0.path == only)
         }
-        // On the host: all of them in one round trip, each at most a byte past the limit (the folder here is a marker).
+        // On the host, all the files come in one round trip, each at most a byte past the limit (the local folder is
+        // only a marker).
         let there = remote.map { r in (try? untrackedOnHost(r, files.map(\.path), budget: budget.left)) ?? [:] } ?? [:]
         return files.compactMap { file in
             let full = (path as NSString).appendingPathComponent(file.path)
@@ -239,7 +245,7 @@ extension Git {
             if remote != nil {
                 switch there[file.path] {
                 case .none: return asBinary
-                case .some(.none): return tooLarge   // the host read no more: the budget was spent
+                case .some(.none): return tooLarge   // the host read no more, because the budget was spent
                 case .some(.some(let data)):
                     guard data.count <= 1_000_000 else { return asBinary }
                     return budget.take(data) ? added(data, file.path, hdr) ?? asBinary : tooLarge
@@ -258,16 +264,17 @@ extension Git {
             guard let size = (try? FileManager.default.attributesOfItem(atPath: full))?[.size] as? Int else {
                 return nil
             }
-            guard size <= 1_000_000 else { return asBinary }   // a log, a dataset, a folder that should be ignored: not read
-            guard budget.fits(size) else { return tooLarge }   // not read
+            guard size <= 1_000_000 else { return asBinary }   // a log, a dataset or an unignored folder isn't read
+            guard budget.fits(size) else { return tooLarge }   // the file isn't read
             guard let data = FileManager.default.contents(atPath: full) else { return nil }
             return budget.take(data) ? added(data, file.path, hdr) ?? asBinary : tooLarge
         }
     }
 
-    /// Untracked files on a remote project's host, one ssh round trip per 200 (a command line has a length limit): each
-    /// its first 1 MB and a byte; one that isn't a regular file or can't be read is left out (shown as binary). Once
-    /// `budget` bytes came the host reads no more: those files are there as nil.
+    /// Reads untracked files on a remote project's host, in one ssh round trip per 200 files, because a command line
+    /// has a length limit. Each file comes as its first 1 MB and one byte more. A file that isn't a regular file or
+    /// can't be read is left out, and is shown as binary. Once `budget` bytes have come, the host reads no more, and
+    /// the remaining files are there as nil.
     static func untrackedOnHost(_ host: RemoteHost, _ paths: [String], budget: Int) throws -> [String: Data?] {
         var out: [String: Data?] = [:], left = budget
         for start in stride(from: 0, to: paths.count, by: 200) {
@@ -277,7 +284,8 @@ extension Git {
                 continue
             }
             let names = chunk.map { ShellQuote.word(host.path + "/" + $0) }.joined(separator: " ")
-            // Each file as a line with its length (-1: not read, -2: the budget is spent) and then that many bytes.
+            // Each file comes as a line with its length (-1 when not read, -2 when the budget is spent), then that many
+            // bytes.
             let script =
                 "t=$(mktemp) || exit 1; left=\(left); for f in \(names); do if [ $left -le 0 ]; then echo -2; "
                 + "elif [ -f \"$f\" ] && head -c 1000001 -- \"$f\" > \"$t\" 2>/dev/null; "

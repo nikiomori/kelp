@@ -11,7 +11,8 @@ public enum TabURI {
         guard let colon = uri.firstIndex(of: ":") else { return uri }
         return String(uri[uri.index(after: colon)...])
     }
-    /// It runs something instead of showing it: `terminal:?cmd=…`, `agent:?prompt=…`. Only `runURI` takes one.
+    /// Whether the URI runs something instead of showing it (`terminal:?cmd=…`, `agent:?prompt=…`). Only `runURI` takes
+    /// such a URI.
     public static func runs(_ uri: String) -> Bool { ["terminal", "agent"].contains(scheme(uri)) }
     public static func session(_ id: String) -> String { "session:\(id)" }
     /// A new terminal tab: a shell where it opens, or what `query` says it runs (`tmux`, `cmd`, `script`, `title`).
@@ -26,16 +27,16 @@ public enum TabURI {
     /// A page an agent drives (`kelp browser open`), with cookies and storage of its own: `agentweb:` and its address.
     public static let agentScheme = "agentweb"
     public static func agentPage(_ url: String) -> String { agentScheme + ":" + url }
-    /// The address a page's tab shows (an agent's without its prefix).
+    /// The address that a page's tab shows, with an agent page's prefix taken off.
     public static func pageURL(_ uri: String) -> String { scheme(uri) == agentScheme ? body(uri) : uri }
-    /// A tab that shows a web page: `kelp browser` can drive it.
+    /// Whether a tab shows a web page, which `kelp browser` can drive.
     public static func isPage(_ uri: String) -> Bool {
         ["http", "https", "about", "preview", agentScheme].contains(scheme(uri))
     }
     /// A pull request in Kelp's own tab (the Issues tab), wherever it is opened from: the Issues panel, the PR mark on
     /// a row or in the window bar, or Quick Open's "#". `repo` is the project's id.
     public static func pullRequest(repo: String, number: Int) -> String { "pr:\(repo)/\(number)" }
-    /// What a subagent of `session` did: a journal, it has no terminal.
+    /// A tab that shows what a subagent of `session` did as a journal, because a subagent has no terminal.
     public static func subagent(session: String, id: String) -> String { "subagent:\(session)/\(id)" }
     public static func file(_ path: String, line: Int? = nil) -> String {
         "file://" + (path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path)
@@ -65,7 +66,7 @@ public enum TabURI {
         }
         return (path.removingPercentEncoding ?? path, line)
     }
-    /// What the user typed or an agent sent: path, path:line, URL.
+    /// Turns what the user typed or an agent sent (a path, path:line, a URL) into a URI.
     public static func normalize(_ typed: String, cwd: String?) -> String {
         if typed.contains("://") || ["session:", "ext:", "diff:"].contains(where: typed.hasPrefix) { return typed }
         if typed.hasPrefix("localhost") || typed.hasPrefix("127.0.0.1") { return "http://" + typed }

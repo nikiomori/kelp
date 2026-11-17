@@ -1,9 +1,10 @@
 import Foundation
 
 extension WorkspaceLayout {
-    /// Each of `tabs` in a pane of its own and the other tabs together in one more, side by side: up to three in a row,
-    /// more in rows of about equal panes (four make a 2×2 grid). `[]` puts every tab in one pane. Panes keep their ids
-    /// where they can, so tiling what is tiled already changes nothing (dragged dividers stay). The focused tab keeps the focus.
+    /// Puts each of `tabs` in a pane of its own and the other tabs together in one more. Up to three panes go side by
+    /// side in a row, and more go in rows of about equal panes (four make a 2×2 grid). `[]` puts every tab in one pane.
+    /// Panes keep their ids where they can, so tiling what is tiled already changes nothing (dragged dividers stay).
+    /// The focused tab keeps the focus.
     public mutating func tile(_ tabs: [String]) {
         let all = allTabs, was = focusedGroup?.selectedTab?.id
         guard !all.isEmpty else { return }

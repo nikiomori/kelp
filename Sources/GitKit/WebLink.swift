@@ -1,7 +1,8 @@
 import Core
 import Foundation
 
-/// Where a repository lives, by its origin's host: whose links, pull requests, issues and CI it has.
+/// The site that hosts a repository, found from its origin's host. The site decides the repository's links, pull
+/// requests, issues and CI.
 public enum Forge: String, Sendable {
     case github, gitlab, bitbucket
 
@@ -24,8 +25,9 @@ extension Git {
         try line(["remote", "get-url", "origin"], cwd: cwd, remotes: remotes)
     }
 
-    /// `path` absolute; `lines` 1-based. Fails when origin isn't on a website Kelp knows how to link to.
-    /// A remote project's file: git runs in the project's folder (on its host), the file named from its top there.
+    /// Returns the web link to the file at `path` (absolute), with `lines` 1-based. It fails when origin isn't on a
+    /// website Kelp knows how to link to. For a remote project's file, git runs in the project's folder on its host,
+    /// and the file is named from the top of the repository there.
     public static func webURL(path: String, lines: ClosedRange<Int>?, remotes: Remotes) throws -> String {
         let onHost = remotes.containing(path)
         let dir = onHost?.folder ?? (path as NSString).deletingLastPathComponent
@@ -102,7 +104,7 @@ extension Git {
         var path = String(address[address.index(after: sep)...])
         if hasScheme, address[sep] == ":", let first = path.split(separator: "/").first, Int(first) != nil {
             path = path.split(separator: "/").dropFirst().joined(separator: "/")
-        }   // ssh port
+        }   // drops the ssh port
         if path.hasSuffix(".git") { path.removeLast(4) }
         path = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard !host.isEmpty, path.contains("/") else { return nil }

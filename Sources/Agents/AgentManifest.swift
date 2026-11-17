@@ -8,7 +8,8 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     public struct AutoAnswer: Codable, Sendable, Equatable {
         public var pattern: String
         public var input: String
-        /// For arrow-key menus: regex of the option to pick; the keys are computed from where the cursor (❯ / >) is.
+        /// For arrow-key menus, a regex for the option to pick. The arrow keys to send are worked out from where the
+        /// cursor (❯ / >) is.
         public var choose: String?
         /// Seconds the question has to stay on screen, untouched by the user, before it's answered (0.4 when not given).
         public var after: Double?
@@ -19,7 +20,8 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
             self.after = after
         }
 
-        /// Text of the option under a TUI menu's cursor. TUIs redraw only changed lines, so it's what follows the last ❯ in the stream.
+        /// Returns the text of the option under a TUI menu's cursor. TUIs redraw only the lines that changed, so the
+        /// option is whatever follows the last ❯ in the stream.
         public static func optionAtCursor(_ screen: String) -> String? {
             guard let mark = screen.range(of: "❯", options: .backwards) ?? screen.range(of: "›", options: .backwards)
             else { return nil }
@@ -34,13 +36,15 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     public var command: String
     public var args: [String] = []
     public var env: [String: String] = [:]
-    /// Regexes matched against the tail of recent output when the agent goes quiet: it is asking the user something.
+    /// Regexes matched against the tail of recent output when the agent goes quiet. A match means the agent is asking
+    /// the user something.
     public var waitingPatterns: [String] = AgentManifest.defaultWaiting
     /// Seconds without output before the heuristic decides the agent stopped.
     public var quietSeconds: Double = 3
-    /// Whether its status is read at all: a plain shell has no "done", so nothing it prints makes it working.
+    /// Whether the agent's status is read at all. A plain shell has no "done", so nothing it prints may mark it as
+    /// working.
     public var tracksStatus = true
-    /// How it reports its own status, if it can (heuristics read the screen otherwise).
+    /// How the agent reports its own status, if it can. Otherwise heuristics read the screen.
     public var hooks: HookTransport?
     /// `--model`-style flag and suggested models for the picker.
     public var modelFlag: String?
@@ -51,7 +55,8 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     public var autoAnswers: [AutoAnswer] = []
     /// Args that resume the latest conversation in this directory (restart / hibernation) when no id was pinned.
     public var resumeArgs: [String] = []
-    /// `--session-id <uuid>` pins a new conversation to the Kelp session id; `--resume <uuid>` brings back exactly that one.
+    /// `--session-id <uuid>` pins a new conversation to the Kelp session id, and `--resume <uuid>` brings back exactly
+    /// that conversation.
     /// Without them, two agents in one folder resume each other's conversations.
     public var sessionIdFlag: String?
     public var resumeIdFlag: String?
@@ -62,39 +67,47 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
     /// The agent's own install / update commands (run in a terminal you can watch), and its npm package for
     /// "is there a newer version".
     public var install: String?, update: String?, npm: String?
-    /// What it is, in a few English words: Settings and the empty workspace show it beside the name, translated.
+    /// What the agent is, in a few English words. Settings and the empty workspace show it, translated, beside the
+    /// name.
     public var about: String?
-    /// `#rrggbb`: the tile with its initial, while (or when) no icon is found.
+    /// The `#rrggbb` color of the tile with the agent's initial, shown while no icon is found, or when none is.
     public var color: String?
-    /// Where its icon comes from when Kelp ships none: its Mac app's names, then its website's own icon.
+    /// Where the agent's icon comes from when Kelp ships none: the names of its Mac app, then its website's own icon.
     public var apps: [String] = [], site: String?
-    /// Its place among the agents the empty workspace offers to install when none is on this Mac; nil: not offered there.
+    /// The agent's place in the list that the empty workspace offers to install when no agent is on this Mac. When it
+    /// is nil, the agent isn't offered there.
     public var featured: Int?
-    /// The conversation it keeps on disk in a form Kelp reads, if any.
+    /// The format of the conversation that the agent keeps on disk, if Kelp can read it.
     public var transcript: Transcript?
-    /// What it prints of its plan's limits while it runs, which its session reads (`LimitScreens.read`); nil: nothing.
+    /// What the agent prints about its plan's limits while it runs, which its session reads (`LimitScreens.read`). It
+    /// is nil when the agent prints nothing of the kind.
     public var limitScreen: LimitScreen?
-    /// Account profiles: each login in a config folder of its own, which `AgentHome`'s variable points it at.
+    /// Whether the agent has account profiles. Each login gets a config folder of its own, and the variable from
+    /// `AgentHome` points the agent at it.
     public var profiles = false
-    /// Ways to run it through another provider, as variables its docs define (Settings › Agent Catalog adds them).
+    /// Ways to run the agent through another provider, as variables its docs define (Settings › Agent Catalog adds
+    /// them).
     public var providers: [Provider] = []
 
     public enum Transcript: String, Codable, Sendable, CaseIterable {
-        /// Claude Code's `projects/<folder>/<id>.jsonl`: subagent journals, recaps, a fork with `--fork-session`, and
-        /// Codex imports it at a hand-off.
+        /// Claude Code's `projects/<folder>/<id>.jsonl`. It gives subagent journals, recaps and a fork with
+        /// `--fork-session`, and Codex imports it at a hand-off.
         case claude
-        /// Codex's rollouts: a fork goes on from its thread, and a hand-off from a Claude transcript imports into one.
+        /// Codex's rollouts. A fork goes on from the rollout's thread, and a hand-off imports a Claude transcript into
+        /// a new rollout.
         case codex
-        /// pi's session files: a hand-off writes one, which the agent opens with `resumeIdFlag`.
+        /// pi's session files. A hand-off writes one, and the agent opens it with `resumeIdFlag`.
         case pi
     }
 
     public enum LimitScreen: String, Codable, Sendable, CaseIterable {
-        /// Claude Code's: how much of each limit is used ("80% of your weekly limit"), the account's usage from then on.
+        /// Claude Code says how much of each limit is used ("80% of your weekly limit"), and that becomes the
+        /// account's usage from then on.
         case claude
-        /// Cursor Agent's: that the plan ran out, held over what its `/usage` says.
+        /// Cursor Agent says that the plan ran out, and that takes priority over what its `/usage` says.
         case cursor
-        /// Codex's: that the plan ran out, for the session to go on after the reset (its usage comes from its app-server).
+        /// Codex says that the plan ran out, so the session can go on after the reset. Codex's usage comes from its
+        /// app-server.
         case codex
     }
 
@@ -106,7 +119,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         }
     }
 
-    /// `session.fork` can copy its conversation.
+    /// Whether `session.fork` can copy the agent's conversation.
     public var forks: Bool { transcript == .claude || transcript == .codex }
 
     public init(
@@ -159,8 +172,8 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         let defaults = AgentManifest(id: "", name: "", command: "")
         let id = try container.decode(String.self, forKey: .id)
         self.id = id
-        // A file for a preset's agent (an override Settings saved, or one written by hand) keeps what Kelp knows of that
-        // agent where the file says nothing: an override written before a fact was added still has it.
+        // A file for a preset's agent (an override that Settings saved, or one written by hand) keeps the preset's
+        // facts wherever the file says nothing. So an override written before a fact was added still gets that fact.
         let preset = Self.presets.first { $0.id == id }
         name = try container.decode(String.self, forKey: .name)
         command = try container.decode(String.self, forKey: .command)
@@ -188,7 +201,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         apps = try container.decodeIfPresent([String].self, forKey: .apps) ?? preset?.apps ?? []
         site = try container.decodeIfPresent(String.self, forKey: .site) ?? preset?.site
         featured = try container.decodeIfPresent(Int.self, forKey: .featured) ?? preset?.featured
-        // A format this Kelp doesn't read is none, not a file that doesn't load.
+        // A format that this version of Kelp doesn't read becomes nil, so the file still loads.
         transcript =
             try container.decodeIfPresent(String.self, forKey: .transcript).map { Transcript(rawValue: $0) }
             ?? preset?.transcript
@@ -204,7 +217,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
             autoAnswers, resumeArgs
         case sessionIdFlag, resumeIdFlag, pluginDirFlag, contextFlag, install, update, npm
         case about, color, apps, site, featured, transcript, limitScreen, profiles, providers
-        // `hooks`, as agent files have it
+        // The keys that `hooks` is stored under in agent files.
         case hooksSettingsFlag, hooksConfigDirEnv, hooksSettingsEnv, hooksHerdr, hooksCodexConfig
     }
 
@@ -228,7 +241,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         try container.encodeIfPresent(resumeIdFlag, forKey: .resumeIdFlag)
         try container.encodeIfPresent(pluginDirFlag, forKey: .pluginDirFlag)
         try container.encodeIfPresent(contextFlag, forKey: .contextFlag)
-        // What Kelp knows of a preset's agent is written only where this one differs: an override follows the preset.
+        // A preset's facts are written only where this manifest differs, so an override keeps following the preset.
         let preset = Self.presets.first { $0.id == id }
         func fact<T: Encodable & Equatable>(_ value: T, _ base: T, _ key: CodingKeys) throws {
             if value != base { try container.encode(value, forKey: key) }
@@ -247,14 +260,14 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         try fact(providers, preset?.providers ?? [], .providers)
     }
 
-    /// What an agent file says instead of a secret's value: the value is in the login keychain (`agent.<id>.<KEY>`).
+    /// What an agent file holds in place of a secret's value. The value is in the login keychain (`agent.<id>.<KEY>`).
     public static let keychainValue = "<in Keychain>"
     public static func isSecret(_ key: String) -> Bool {
         key.range(of: #"(KEY|TOKEN|SECRET|PASSWORD|AUTH)"#, options: .regularExpression) != nil
     }
     public static func secretAccount(agent: String, key: String) -> String { "agent.\(agent).\(key)" }
 
-    /// The environment to launch with: secrets read from the keychain.
+    /// The environment to launch with, with secrets read from the keychain.
     public var resolvedEnv: [String: String] {
         env.reduce(into: [:]) { out, kv in
             out[kv.key] =
@@ -263,7 +276,7 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         }
     }
 
-    /// The package manager its install command needs, when that's not something every Mac has (npm, Homebrew).
+    /// The package manager that the install command needs, when it isn't one every Mac has (npm, Homebrew).
     public var installNeeds: String? {
         guard let first = install?.split(separator: " ").first.map(String.init), ["npm", "brew"].contains(first) else {
             return nil
@@ -293,7 +306,8 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         resumeIdFlag.map(argv.contains) == true || (!resumeArgs.isEmpty && argv.contains(where: resumeArgs.contains))
     }
 
-    /// `argv` changed to continue its conversation: the pinned id when there is one, else the agent's "latest here".
+    /// Returns `argv` changed to continue its conversation: by the pinned id when there is one, or else by the agent's
+    /// "latest here" arguments.
     public func resuming(_ argv: [String]) -> [String] {
         if let pin = sessionIdFlag, let resume = resumeIdFlag, let index = argv.firstIndex(of: pin),
             index + 1 < argv.count
@@ -305,8 +319,9 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         return resumes(argv) ? argv : argv + resumeArgs
     }
 
-    /// `argv` pinned to `conversation`, the one the agent writes now (Claude Code's /resume or /clear switched to it), so a
-    /// wake or restart brings back that one. Unchanged when it already names it, or names none.
+    /// Returns `argv` pinned to `conversation`, the one the agent is writing now (Claude Code's /resume or /clear
+    /// switched to it), so that a wake or restart brings back that conversation. `argv` stays unchanged when it already
+    /// names that conversation, or names none.
     public func following(_ argv: [String], conversation: String) -> [String] {
         guard let pin = sessionIdFlag, let resume = resumeIdFlag,
             let index = argv.lastIndex(where: { $0 == pin || $0 == resume }),
@@ -315,13 +330,14 @@ public struct AgentManifest: Codable, Sendable, Equatable, Identifiable {
         else { return argv }
         var pinned = argv
         pinned[index] = pin
-        pinned[index + 1] = conversation   // pinned: a wake resumes it once it's on disk, else starts it under this id
-        pinned.removeAll { $0 == "--fork-session" }   // the fork it asked for is made (`forking`): this is it
+        pinned[index + 1] = conversation   // a wake resumes this id once it's on disk, or else starts it
+        pinned.removeAll { $0 == "--fork-session" }   // the fork `forking` asked for exists now
         return pinned
     }
 
-    /// `argv` changed to continue a copy of its conversation (a session copied to another home, `HomeSeed`), leaving the
-    /// one it names as it is; `following` drops the flag once the copy is made. Nil when no id is pinned, or the agent can't.
+    /// Returns `argv` changed to continue a copy of its conversation (a session copied to another home, `HomeSeed`),
+    /// leaving the conversation it names as it is. `following` drops the flag once the copy is made. Returns nil when
+    /// no id is pinned, or when the agent can't fork.
     public func forking(_ argv: [String]) -> [String]? {
         guard transcript == .claude, let pin = sessionIdFlag, let resume = resumeIdFlag,
             argv.contains(pin) || argv.contains(resume)

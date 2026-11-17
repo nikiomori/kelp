@@ -3,7 +3,8 @@ import Foundation
 import os
 
 public enum ClaudeHistory {
-    /// Where Claude Code keeps conversations: in its folder (`AgentHome`), as Claude Code itself does.
+    /// The folder where Claude Code keeps conversations. It sits in Claude Code's own folder (`AgentHome`), found the
+    /// way Claude Code itself finds it.
     public static let defaultRoot = AgentHome.root(Session.claudeAgent).appendingPathComponent("projects")
 
     /// The text of the last assistant message in a Claude Code transcript (read from the file's tail).
@@ -11,7 +12,7 @@ public enum ClaudeHistory {
         Data(tail: 262_144, of: url).flatMap(lastReply(tail:))
     }
 
-    /// The same, read from a transcript's last bytes wherever they were read (for a remote project, on its host).
+    /// Does the same with the last bytes of a transcript that were read elsewhere (for a remote project, on its host).
     public static func lastReply(tail data: Data) -> String? {
         for line in data.split(separator: 0x0A).reversed() {
             guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
@@ -37,21 +38,23 @@ public enum ClaudeHistory {
             .sorted { $0.updated > $1.updated }
     }
 
-    /// Interactive conversations started in `cwd`; Claude names the folder after the real path with every
-    /// non-alphanumeric as "-". `claude -p` runs (entrypoint sdk-…) are left out: no terminal owns them.
+    /// Returns the interactive conversations started in `cwd`. Claude names the folder after the real path, with each
+    /// character that isn't a letter or digit written as "-". `claude -p` runs (entrypoint sdk-…) are left out,
+    /// because no terminal owns them.
     public static func sessions(cwd: String, root: URL = defaultRoot) -> [AgentSessionInfo] {
         FileManager.default.items(in: folder(cwd: cwd, root: root))
             .filter { $0.pathExtension == "jsonl" && !isScripted($0) }.compactMap(parse)
     }
 
-    /// One conversation of `cwd` by its id (waking a pinned session needn't parse every other one); nil if it has none.
+    /// Returns one conversation of `cwd` by its id, or nil if there is none. This way, waking a pinned session doesn't
+    /// need to parse every other conversation.
     public static func session(id: String, cwd: String, root: URL = defaultRoot) -> AgentSessionInfo? {
         let dir = folder(cwd: cwd, root: root)
         return Set([id, id.lowercased()]).lazy.map { dir.appendingPathComponent($0 + ".jsonl") }
             .first { FileManager.default.fileExists(atPath: $0.path) && !isScripted($0) }.flatMap(parse)
     }
 
-    /// A conversation's file by its id, whichever folder it was started in; nil if there's none.
+    /// Returns a conversation's file by its id, whichever folder it was started in, or nil if there's none.
     public static func transcript(id: String, root: URL = defaultRoot) -> URL? {
         let folders: [URL]
         do { folders = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) } catch {
@@ -64,7 +67,7 @@ public enum ClaudeHistory {
 
     /// The folder of `cwd`'s conversations under `root`.
     public static func folder(cwd: String, root: URL = defaultRoot) -> URL {
-        let real = Paths.real(cwd) ?? cwd   // "/private" kept, as Claude does
+        let real = Paths.real(cwd) ?? cwd   // keeps "/private", as Claude does
         return root.appendingPathComponent(String(real.map { $0.isASCII && ($0.isLetter || $0.isNumber) ? $0 : "-" }))
     }
 
@@ -110,7 +113,8 @@ public enum ClaudeHistory {
 }
 
 public enum CodexHistory {
-    /// In its folder (`AgentHome`), as Codex itself does.
+    /// The folder where Codex keeps sessions. It sits in Codex's own folder (`AgentHome`), found the way Codex itself
+    /// finds it.
     public static let defaultRoot = AgentHome.root(Session.codexAgent).appendingPathComponent("sessions")
 
     /// Sessions from `root/YYYY/MM/DD/rollout-*.jsonl`, newest first.
@@ -118,7 +122,8 @@ public enum CodexHistory {
         rollouts(root).compactMap(parse).sorted { $0.updated > $1.updated }
     }
 
-    /// What the conversation in `rollout` ended its last turn with; nil before one ended, or if it ended with nothing to say.
+    /// Returns the agent's last message at the end of the latest turn in `rollout`. Returns nil before any turn has
+    /// ended, or when the turn ended with nothing to say.
     public static func lastReply(rollout url: URL) -> String? {
         for line in JSONL.headAndTail(url)?.lines.reversed() ?? [] {
             guard let payload = JSONL.object(line)?["payload"] as? [String: Any],
@@ -130,8 +135,8 @@ public enum CodexHistory {
         return nil
     }
 
-    /// For one that isn't running any more, which no open file names: the newest conversation begun in `cwd` since `since`
-    /// with a finished turn.
+    /// Returns the last reply of a Codex chat that isn't running any more and that no open file names. It reads the
+    /// newest conversation begun in `cwd` since `since` that has a finished turn.
     /// Limit: two Codex chats begun in one folder can read each other's here, and a resumed one, begun before `since`, reads none.
     public static func lastReply(cwd: String, since: Date, now: Date = Date(), root: URL = defaultRoot) -> String? {
         rollouts(cwd: cwd, since: since, now: now, root: root).compactMap(lastReply(rollout:)).first
@@ -147,7 +152,8 @@ public enum CodexHistory {
         }
     }
 
-    /// Those begun since `since`, newest first: a file's name says when, in local time, like its folder's.
+    /// Returns the rollouts begun since `since`, newest first. A file's name says when it began, in local time, as the
+    /// name of its folder does.
     private static func rollouts(root: URL, since: Date, now: Date) -> [URL] {
         let stamp = DateFormatter()
         stamp.locale = Locale(identifier: "en_US_POSIX")
@@ -196,10 +202,12 @@ public enum CodexHistory {
     }
 }
 
-/// pi's (and oh-my-pi's) conversations: `root/--<real cwd, "/" as "-">--/<time>_<id>.jsonl`, as pi names them.
-/// oh-my-pi names a folder in the home folder by its path from there: `-projects-app` (its old `--…--` ones it moves).
+/// pi's and oh-my-pi's conversations, which pi names `root/--<real cwd, "/" as "-">--/<time>_<id>.jsonl`. For a project
+/// in the home folder, oh-my-pi names the folder by the path from home, such as `-projects-app`, and it moves its old
+/// `--…--` folders there.
 public enum PiHistory {
-    /// The conversation pi writes under `id` (`--session-id`), in whichever folder: none before its first message.
+    /// Returns the conversation file pi writes under `id` (`--session-id`), in whichever folder it is. There is no file
+    /// before the first message.
     public static func file(id: String, root: URL) -> URL? {
         let suffix = "_\(id.lowercased()).jsonl"
         return folders(root).lazy.compactMap { folder in
@@ -209,8 +217,8 @@ public enum PiHistory {
         }.first
     }
 
-    /// Grok's conversation `id` (`--session-id`): `root/<folder, percent-encoded>/<id>/`, none before its first
-    /// message.
+    /// Whether Grok's conversation `id` (`--session-id`) exists, as `root/<folder, percent-encoded>/<id>/`. The folder
+    /// doesn't exist before the first message.
     public static func grokHas(id: String, root: URL) -> Bool {
         folders(root).contains {
             FileManager.default.fileExists(atPath: $0.appendingPathComponent(id.lowercased()).path)
@@ -222,11 +230,11 @@ public enum PiHistory {
             return try FileManager.default.contentsOfDirectory(
                 at: root, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
         } catch {
-            return []   // no folder yet: no conversation either
+            return []   // no folder yet means no conversation yet
         }
     }
 
-    /// The one of `cwd` written to last, if that was since `since`.
+    /// Returns the conversation in `cwd` that was written to last, if that was since `since`.
     /// Limit: two pi chats in one folder read as the one written to last; oh-my-pi's in $TMPDIR (`-tmp-…`) aren't
     /// found.
     public static func newest(
@@ -241,7 +249,7 @@ public enum PiHistory {
             return stat(url.path, &info) == 0
                 ? Date(timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec)) : .distantPast
         }
-        // No folder: no conversation of pi's here yet.
+        // A missing folder means pi has no conversation here yet.
         let files = names.flatMap { name in
             FileManager.default.enumerator(
                 at: root.appendingPathComponent(name), includingPropertiesForKeys: nil,
@@ -253,7 +261,7 @@ public enum PiHistory {
 }
 
 public enum History {
-    /// Title / cwd substring match; an empty query returns everything.
+    /// Returns the sessions whose title or folder contains the query. An empty query returns everything.
     public static func search(_ sessions: [AgentSessionInfo], query: String) -> [AgentSessionInfo] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return sessions }
@@ -284,8 +292,8 @@ public enum History {
 enum JSONL {
     static let chunk = 64 * 1024
 
-    /// Complete lines from the first and last `chunk` bytes (or the whole file if small) and the fraction of bytes read.
-    /// nil for an empty file, or one that can't be read (logged).
+    /// Returns the complete lines from the first and last `chunk` bytes (or the whole file if small), and the fraction
+    /// of bytes read. Returns nil for an empty file or for one that can't be read, which is logged.
     static func headAndTail(_ url: URL) -> (lines: [Data], covered: Double)? {
         Logger.kelp("history").attempt("reading \(url.lastPathComponent)") { try readHeadAndTail(url) } ?? nil
     }
@@ -298,7 +306,7 @@ enum JSONL {
         try handle.seek(toOffset: 0)
         if size <= UInt64(chunk * 2) { return (lines(try handle.readToEnd() ?? Data()), 1) }
         let head = try handle.read(upToCount: chunk) ?? Data()
-        // The last lines can be huge (a tool result, an image): read further back until a few whole lines are in.
+        // The last lines can be huge (a tool result, an image), so read further back until a few whole lines are in.
         let limit = min(size - UInt64(chunk), 16 << 20)
         var back = UInt64(chunk), tail = Data()
         while true {
@@ -338,7 +346,8 @@ enum JSONL {
         return (value as? String).flatMap(CIRuns.date)
     }
 
-    /// Text a human typed: a string or the text blocks of a content array, minus injected `<tag>` and AGENTS.md blocks.
+    /// Returns the text a human typed: a string or the text blocks of a content array, skipping injected `<tag>` and
+    /// AGENTS.md blocks.
     /// A slash command with arguments counts as "/name args".
     static func promptText(_ content: Any?) -> String? {
         let texts: [String] =

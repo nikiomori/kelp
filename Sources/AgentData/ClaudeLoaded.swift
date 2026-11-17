@@ -1,13 +1,13 @@
 import Core
 import Foundation
 
-/// What a Claude Code chat loaded when it started, as its own transcript says in its first notes: the skills it
-/// listed, the tools of its MCP servers, the servers that didn't start, the instruction files it read.
+/// What a Claude Code chat loaded when it started, as the first notes in its transcript say: the skills it listed,
+/// the tools of its MCP servers, the servers that didn't start, and the instruction files it read.
 /// Limit: only the notes at the top (the first `head` bytes); a server that connects minutes later isn't seen.
 public struct ClaudeLoaded: Sendable, Equatable {
     public struct Skill: Sendable, Equatable {
         public var name: String, about: String
-        /// Its line in the listing, in characters: what every request carries of it.
+        /// The length in characters of the skill's line in the listing, which every request carries.
         public var chars: Int
     }
     public struct File: Sendable, Equatable {
@@ -17,7 +17,7 @@ public struct ClaudeLoaded: Sendable, Equatable {
     public var skills: [Skill] = []
     /// Tool names by MCP server ("claude_ai_Gmail": ["get_thread", …]), from `mcp__<server>__<tool>`.
     public var tools: [String: [String]] = [:]
-    /// Servers that didn't start, with why.
+    /// Servers that didn't start, with the reason for each.
     public var failed: [String: String] = [:]
     /// Characters of the instructions each server adds to the system prompt.
     public var notes: [String: Int] = [:]
@@ -25,7 +25,8 @@ public struct ClaudeLoaded: Sendable, Equatable {
 
     static let head = 4 << 20
 
-    /// It can publish pages of its own (claude.ai's artifacts or docs), so Kelp's skill for them would only send it there.
+    /// Whether the chat can publish pages of its own (claude.ai's artifacts or docs). Then Kelp's skill for pages
+    /// would only send the agent to those tools.
     public var publishesPages: Bool {
         tools.keys.contains(where: Artifacts.publishes) || notes.keys.contains(where: Artifacts.publishes)
     }
@@ -46,7 +47,7 @@ public struct ClaudeLoaded: Sendable, Equatable {
         let names = note["addedNames"] as? [String] ?? []
         switch note["type"] as? String {
         case "skill_listing":
-            // "- name: what it does", one a line; a later listing (after a compaction) repeats the first.
+            // Each line reads "- name: what it does". A later listing (after a compaction) repeats the first one.
             guard skills.isEmpty || note["isInitial"] as? Bool == true else { return }
             skills = (note["content"] as? String ?? "").split(separator: "\n").compactMap(Self.skill)
         case "deferred_tools_delta":
@@ -74,7 +75,8 @@ public struct ClaudeLoaded: Sendable, Equatable {
         }
     }
 
-    /// "- plugin:name: what it does" → the name up to the colon a space follows.
+    /// Reads a listing line such as "- plugin:name: what it does". The name runs up to the first colon that a space
+    /// follows.
     static func skill(_ line: Substring) -> Skill? {
         guard line.hasPrefix("- ") else { return nil }
         let text = line.dropFirst(2)
@@ -86,6 +88,6 @@ public struct ClaudeLoaded: Sendable, Equatable {
             name: String(text[..<colon.lowerBound]), about: String(text[colon.upperBound...]), chars: line.count)
     }
 
-    /// Characters as tokens, as `ClaudeContext` measured them.
+    /// Converts characters to tokens at the rate that `ClaudeContext` measured.
     public static func tokens(_ chars: Int) -> Int { Int((Double(chars) / ClaudeContext.charsPerToken).rounded()) }
 }

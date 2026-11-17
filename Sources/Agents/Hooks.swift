@@ -1,12 +1,13 @@
 import Core
 import Foundation
 
-// Hooks: the settings and plugin that make an agent report its status to Kelp, and reading what a hook sends.
+// Hooks are the settings and plugin that make an agent report its status to Kelp. This file also reads what a hook
+// sends.
 
 public enum Hooks {
-    /// One of Claude Code's hooks Kelp listens to: what `kelp hook` reports for it in a session here (`here`), and the
-    /// command it runs in tmux on a remote project's host (`host`); nil where that side doesn't listen. `wait`: how long
-    /// the agent waits for it here.
+    /// One of Claude Code's hooks that Kelp listens to. `here` is what `kelp hook` reports for it in a local session,
+    /// and `host` is the command it runs in tmux on a remote project's host. Either is nil where that side doesn't
+    /// listen. `wait` is how long the agent waits for the hook locally.
     struct Listen {
         let hook: String, matcher: String?, here: String?, host: String?, wait: Int?
         init(hook: String, matcher: String? = nil, here: String?, host: String? = nil, wait: Int? = nil) {
@@ -18,13 +19,14 @@ public enum Hooks {
         }
     }
 
-    /// Here: Stop → done, Notification → waiting (`kelp hook` drops the ones that ask nothing), AskUserQuestion, an MCP
-    /// server's question and a permission dialog → waiting until answered (Kelp's Allow or Deny, `session.permissionWait`,
-    /// up to ten minutes); each tool as it starts, the end of those Kelp acts on (`endsActedOn`), and each batch of them
-    /// (`command`: a Bash one for the list, `AgentCommand`, any for what it says of the turn, `State.tool`); each subagent
-    /// as it starts and ends; a compaction.
-    /// On a host each writes its own report (`hostSettingsJSON`). In this order: within a hook the first that matches
-    /// comes first.
+    /// The hooks Kelp listens to. In a local session, Stop means done, and Notification means waiting (`kelp hook`
+    /// drops the notifications that ask nothing). AskUserQuestion, an MCP server's question and a permission dialog
+    /// mean waiting until answered (by Kelp's Allow or Deny, `session.permissionWait`, for up to ten minutes). Kelp
+    /// also hears each tool as it starts, the end of the tools it acts on (`endsActedOn`), and each batch of tools.
+    /// These go to `command`, which uses a Bash call for the command list (`AgentCommand`) and any tool for what it
+    /// says of the turn (`State.tool`). Kelp also hears each subagent as it starts and ends, and each compaction.
+    /// On a host, each hook writes its own report (`hostSettingsJSON`). The order matters, because within one hook the
+    /// first entry that matches comes first.
     static let listens: [Listen] = [
         .init(hook: "Stop", here: "done", host: hostReport("state=done", unless: hostStopUnless, conv: true)),
         .init(hook: "Notification", here: "waiting"),
@@ -37,7 +39,8 @@ public enum Hooks {
         .init(hook: "PostToolUse", matcher: "AskUserQuestion", here: "working", host: hostReport("state=working")),
         .init(hook: "PostToolUse", matcher: endsActedOn, here: "command"),
         .init(hook: "PostToolUseFailure", matcher: commandTools, here: "command"),
-        // A tool's end isn't the end of a dialog: another of its batch may be asking still, or a subagent's tool ended.
+        // A tool's end isn't the end of a dialog, because another tool in its batch may still be asking, or the tool
+        // that ended was a subagent's.
         .init(hook: "PostToolBatch", here: "command", host: hostReport("state=working", unless: hostSubagentsOwn)),
         .init(
             hook: "PermissionRequest", here: "waiting",
@@ -54,7 +57,7 @@ public enum Hooks {
         .init(hook: "SessionStart", matcher: "compact", here: "compacted")
     ]
 
-    /// The tools whose end `kelp hook command` acts on: a command, for the list (`AgentCommand`: Bash, Droid's
+    /// The tools whose end `kelp hook command` acts on: a command, for the command list (`AgentCommand`: Bash, Droid's
     /// Execute); a changed file (`SessionHook.edited`); a published page (`Artifacts.published`); and a worktree
     /// entered or left (the hook's `cwd`). The end of any other tool (Read, Grep, WebFetch, a subagent's Task) told
     /// Kelp nothing it uses, and each one cost a shell and a `kelp` run. The pattern is anchored, because Claude Code
@@ -62,15 +65,16 @@ public enum Hooks {
     static let endsActedOn =
         "^(Bash|Execute|Edit|Write|MultiEdit|NotebookEdit|EnterWorktree|ExitWorktree)$|^mcp__.*("
         + Artifacts.publishers.joined(separator: "|") + ")$"
-    /// A failed tool's end is read only for a command's (`AgentCommand`).
+    /// The end of a failed tool is read only for a command (`AgentCommand`).
     static let commandTools = "^(Bash|Execute)$"
 
-    /// Claude-style settings file of `listens` here. `kelp` must be on PATH in the session.
+    /// Returns a Claude-style settings file with the local side of `listens`. `kelp` must be on PATH in the session.
     public static func settingsJSON() throws -> String {
         try settings(listens.compactMap { l in l.here.map { (l, "kelp hook \($0)", l.wait) } })
     }
 
-    /// `{"hooks": {<hook>: [{"matcher", "hooks": [{"type": "command", "command", "timeout"}]}]}}`, in `listens`' order.
+    /// Builds `{"hooks": {<hook>: [{"matcher", "hooks": [{"type": "command", "command", "timeout"}]}]}}`, in the order
+    /// of `listens`.
     private static func settings(_ commands: [(Listen, String, Int?)]) throws -> String {
         var hooks: [String: JSONValue] = [:]
         for (listen, command, wait) in commands {
@@ -85,11 +89,12 @@ public enum Hooks {
         return String(decoding: try encoder.encode(JSONValue.object(["hooks": .object(hooks)])), as: UTF8.self)
     }
 
-    /// A hook's command on a host (`hostSettingsJSON`, `CodexHooks.hostEvents`): the report into the tmux session's
-    /// option and, through tmux, to the agent's tty. `unless`: shell that ends it first when the report doesn't hold
-    /// (one reading the payload keeps it in `p`). `payload`: what the hook was told goes too (`hook=`, its JSON in
-    /// base64), so Kelp says what a dialog asks or why a turn failed as a hook here does; too long for one report, the
-    /// tool and its file. `conv`: the conversation it's in (`conv=`), which /clear or /resume changes.
+    /// Builds a hook's command on a host (`hostSettingsJSON`, `CodexHooks.hostEvents`). The command writes the report
+    /// into the tmux session's option and, through tmux, to the agent's tty. `unless` is shell code that exits first
+    /// when the report doesn't apply, and code that reads the payload keeps it in `p`. With `payload`, the hook's input
+    /// goes along too (`hook=`, its JSON in base64), so Kelp can say what a dialog asks or why a turn failed, as a
+    /// local hook does. When the input is too long for one report, only the tool and its file go. With `conv`, the
+    /// report names the hook's conversation (`conv=`), which /clear or /resume changes.
     public static func hostReport(_ report: String, unless: String = "", payload: Bool = false, conv: Bool = false)
         -> String
     {
@@ -107,34 +112,36 @@ public enum Hooks {
         if conv { fields += ":conv=$(f session_id)" }
         return script + "r=\"\(fields)\";tmux set-option -q \(RemoteHost.statusOption) \"$r\";" + hostSend
     }
-    /// `f key`: a string field of the payload in `p`.
+    /// Defines `f key`, which prints a string field of the payload in `p`.
     static let hostField = #"f(){ printf %s "$p"|sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p";};"#
     static let hostStart = #"[ -n "$TMUX" ]||exit 0;"#
     static let hostSend = #"printf '\033Ptmux;\033\033]7501;%s\007\033\\' "$r">/dev/$(ps -o tty= -p $PPID|tr -d ' ')"#
-    /// A Stop with work that wakes the agent still going isn't the end of the turn (`TurnEnd`); JSON escapes a reply's
-    /// own quotes, so one quoting these can't pass for it.
+    /// A Stop while work that will wake the agent is still going isn't the end of the turn (`TurnEnd`). JSON escapes
+    /// the quotes in a reply, so a reply that quotes these patterns can't pass for them.
     static let hostStopUnless =
         #"p=$(tr -d ' ');case "$p" in *'"type":"subagent"'*|*'"type":"workflow"'*|*'"type":"teammate"'*)exit;;esac;"#
-    /// What a subagent's tools do isn't its agent's: their hooks say nothing for it.
+    /// A subagent's tools don't act for the main agent, so their hooks report nothing for it.
     static let hostSubagentsOwn = #"p=$(cat);case "$p" in *'"agent_id"'*)exit;;esac;"#
 
-    /// A subagent's report goes on a line of its own: `agent_type` as its title, the one thing the hook knows of it.
+    /// Builds a subagent's report, which goes on a line of its own. Its title is `agent_type`, the one thing the hook
+    /// knows about the subagent.
     static func hostSubagent(_ report: String) -> String {
         hostStart + "p=$(cat);" + hostField + "r=\(report);" + hostSend
     }
 
-    /// Claude-style settings for an agent in tmux on a remote project's host, passed on its command line: `listens` on
-    /// the host. There's no `kelp` there, and tmux swallows the OSC 7501 an agent writes, so each hook writes the report
-    /// itself, wrapped so that tmux lets it through, to the tty of the agent that ran it (a hook has none of its own). A
-    /// report also stays in a tmux option, for whichever connection comes next (`RemoteHost.command(_:inTmux:)`). Out of
-    /// tmux they do nothing: there the agent answers the terminal's probe and reports for itself.
+    /// Claude-style settings for an agent in tmux on a remote project's host, passed on its command line. They hold the
+    /// host side of `listens`. There's no `kelp` on the host, and tmux swallows the OSC 7501 that an agent writes. So
+    /// each hook writes the report itself, wrapped so that tmux lets it through, to the tty of the agent that ran it,
+    /// because a hook has no tty of its own. A report also stays in a tmux option for whichever connection comes next
+    /// (`RemoteHost.command(_:inTmux:)`). Outside tmux the hooks do nothing, because there the agent answers the
+    /// terminal's probe and reports for itself.
     public static func hostSettingsJSON() throws -> String {
         try settings(listens.compactMap { l in l.host.map { (l, $0, nil) } })
     }
 
-    /// The host's hooks for an agent in a project's dev container (`DevContainer`): no tmux there, so each writes its
-    /// report straight to the agent's terminal, which `docker exec -t` passes through to Kelp. Its tty from /proc (a
-    /// slim image may have no ps).
+    /// The host's hooks for an agent in a project's dev container (`DevContainer`). There is no tmux there, so each
+    /// hook writes its report straight to the agent's terminal, which `docker exec -t` passes through to Kelp. The hook
+    /// finds the agent's tty in /proc, because a slim image may have no ps.
     public static func containerSettingsJSON() throws -> String {
         try settings(listens.compactMap { l in l.host.map { (l, inContainer($0), nil) } })
     }
@@ -147,11 +154,11 @@ public enum Hooks {
         #"t=$(readlink /proc/$PPID/fd/0 2>/dev/null)||t=/dev/$(ps -o tty= -p $PPID|tr -d ' ');"#
         + #"printf '\033]7501;%s\007' "$r">"$t""#
 
-    /// Notifications that ask the user nothing, by Claude Code's `notification_type`: the "waiting for your input" it repeats a
-    /// minute after a turn ends (Qwen Code too), a login that went through, a background agent that finished, a push Claude
-    /// sent, computer use starting or ending, a resume after a plan limit, a refusal fallback, a keychain that failed, a
-    /// plugin's, an MCP server's question that was answered or declined. Any other type (or none) is a permission or a
-    /// question.
+    /// Notifications that ask the user nothing, by Claude Code's `notification_type`. They are the "waiting for your
+    /// input" that it repeats a minute after a turn ends (Qwen Code too), a login that went through, a background agent
+    /// that finished, a push Claude sent, computer use starting or ending, a resume after a plan limit, a refusal
+    /// fallback, a keychain that failed, a plugin's notification, and an MCP server's question that was answered or
+    /// declined. Any other type, or none, is a permission or a question.
     static let informational: Set<String> = [
         "idle_prompt", "auth_success", "agent_completed", "push_notification", "computer_use_enter",
         "computer_use_exit",
@@ -168,13 +175,15 @@ public enum Hooks {
             || payload["message"]?.string?.hasPrefix("Claude is waiting for your input") == true
     }
 
-    /// What a StopFailure says ended the turn (an overloaded API, a login gone): the row's error, unless it's a plan limit.
+    /// Returns what a StopFailure says ended the turn (an overloaded API, a lost login). It becomes the row's error,
+    /// unless it's a plan limit.
     public static func failure(_ payload: JSONValue) -> String? {
         payload["notification_type"]?.string == "stop_failure" ? payload["message"]?.string ?? "" : nil
     }
 
-    /// A StopFailure that passes by itself: the API overloaded or failing, a dropped connection. Not a login, a bill or a
-    /// request the API refused, which a "continue" only repeats. The agent has already retried for a while by then.
+    /// Whether a StopFailure passes by itself: the API overloaded or failing, or a dropped connection. A login, a bill
+    /// or a request the API refused doesn't pass, and a "continue" only repeats it. The agent has already retried for a
+    /// while by then.
     public static func passes(_ payload: JSONValue) -> Bool {
         guard payload["notification_type"]?.string == "stop_failure" else { return false }
         switch payload["error"]?.string {
@@ -186,7 +195,8 @@ public enum Hooks {
         }
     }
 
-    /// The plan limit a StopFailure says ended the turn. Only there: the same words in a reply or a file stop nothing.
+    /// Returns the plan limit that a StopFailure says ended the turn. Only a StopFailure counts, because the same words
+    /// in a reply or a file stop nothing.
     public static func limitHit(_ payload: JSONValue) -> LimitScreens.Reading? {
         guard payload["notification_type"]?.string == "stop_failure", let text = payload["message"]?.string else {
             return nil
@@ -194,9 +204,9 @@ public enum Hooks {
         return LimitScreens.parse(text).first { $0.percent >= 100 }
     }
 
-    /// Kilo Code / OpenCode plugin (`HookTransport.pluginDir`): busy → working, a permission or question → waiting, idle → done.
-    /// A subagent's session (one with a parent) idles before the turn ends: skipped. Hooks run one after another, so they
-    /// arrive in order.
+    /// The Kilo Code and OpenCode plugin (`HookTransport.pluginDir`): busy means working, a permission or a question
+    /// means waiting, and idle means done. A subagent's session (one with a parent) goes idle before the turn ends, so
+    /// it is skipped. The `kelp hook` runs happen one after another, so they arrive in order.
     public static let pluginJS = """
         // Kelp's status hooks, for Kelp's sessions only (written by Kelp; changes are overwritten).
         import { spawn } from "node:child_process";
@@ -230,8 +240,9 @@ public enum Hooks {
 
         """
 
-    /// OpenCode 2's hooks: a plugin of its terminal UI, whose process belongs to the session (its server may be shared
-    /// by every terminal, started with the first terminal's environment). Only the session the terminal shows counts,
+    /// OpenCode 2's hooks, as a plugin of its terminal UI, because the UI's process belongs to the session. Its server
+    /// may be shared by every terminal and started with the first terminal's environment. Only the session the terminal
+    /// shows counts,
     /// because the server sends every terminal's events. A subagent's run ends before its parent's, so only the shown
     /// session's own start and end count, while a subagent's questions do count.
     public static let tuiPluginJS = """
@@ -270,7 +281,7 @@ public enum Hooks {
 
         """
 
-    /// The config dir for `HookTransport.pluginDir`, with the plugin in it, and OpenCode 2's in `tuiPlugin(in:)`.
+    /// Writes the config dir for `HookTransport.pluginDir`: the plugin, and OpenCode 2's plugin in `tuiPlugin(in:)`.
     public static func writePlugin(dir: URL) throws {
         let plugins = dir.appendingPathComponent("plugin"), tui = tuiPlugin(in: dir)
         try Paths.ensure(plugins)
@@ -288,11 +299,12 @@ public enum Hooks {
         try settingsJSON().write(to: url, atomically: true, encoding: .utf8)
     }
 
-    /// Kelp's hooks over what `base` holds (kept as it is, its own hooks run too): the file stands in for that one.
+    /// Writes Kelp's hooks on top of what `base` holds, into a file that stands in for `base`. Everything in `base` is
+    /// kept, and its own hooks run too.
     public static func writeSettings(to url: URL, over base: URL) throws {
         guard FileManager.default.fileExists(atPath: base.path) else { return try writeSettings(to: url) }
-        // There but unreadable (root's only) or not plain JSON: standing in for it would drop an admin's policy. No hooks
-        // then (the caller reads the screen).
+        // When the file exists but is unreadable (root's only) or isn't plain JSON, standing in for it would drop an
+        // admin's policy. So there are no hooks then, and the caller reads the screen.
         guard let data = FileManager.default.contents(atPath: base.path),
             case .object(var all)? = try? JSONDecoder().decode(JSONValue.self, from: data)
         else {

@@ -7,13 +7,16 @@ import Foundation
 public struct TurnEnd: Codable, Sendable {
     public enum Verdict: Equatable, Sendable { case done, working, goal(String), command(String) }
 
-    /// Work that wakes the agent when it ends. Not Claude Code's other background tasks: a memory save, a dream, a scan, an
-    /// MCP task or a cloud session ends with no hook to say so, and a Stop that met one read as working for half an hour.
+    /// Work that wakes the agent when it ends. Claude Code's other background tasks don't count, because a memory save,
+    /// a dream, a scan, an MCP task or a cloud session ends with no hook to say so, and a Stop that met one read as
+    /// working for half an hour.
     private static let wakesIt: Set = ["subagent", "workflow", "teammate"]
-    /// Background shells running at an earlier Stop: one that outlives a turn is a server, not something awaited.
+    /// Background shells that were running at an earlier Stop, because a shell that outlives a turn is a server, not
+    /// something awaited.
     private var seen: Set<String> = []
-    /// What each background shell runs, by its task id and the tool call that started it: the prompt saying one ended
-    /// names both. Optional: a kelpd handing over from a version without it.
+    /// What each background shell runs, keyed by its task id and by the tool call that started it, because the prompt
+    /// that says a shell ended names both. It is optional because a kelpd handing over from an older version doesn't
+    /// have it.
     private var shells: [String: String]?
     public init() {}
 
@@ -55,7 +58,8 @@ public struct TurnEnd: Codable, Sendable {
 }
 
 /// A /goal's state as Claude Code writes it into its transcript (a `goal_status` attachment, after each check).
-/// `met`: settled, also when Claude gave it up (`failed`): either way it no longer holds the turn open.
+/// `met` is true once the goal is settled, also when Claude gave it up (`failed`), because either way it no longer
+/// holds the turn open.
 public struct GoalStatus: Equatable, Sendable {
     public var met: Bool, condition: String, id: String
     public init(met: Bool, condition: String, id: String) {
@@ -79,7 +83,7 @@ public struct GoalStatus: Equatable, Sendable {
         return nil
     }
 
-    /// The last 256 KB of a transcript: goal checks are near its end.
+    /// Reads the last goal_status from the last 256 KB of a transcript, because goal checks are near its end.
     public static func last(inFile path: String) -> GoalStatus? {
         Data(tail: 262_144, of: URL(fileURLWithPath: path)).flatMap { last(in: String(decoding: $0, as: UTF8.self)) }
     }

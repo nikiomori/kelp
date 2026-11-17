@@ -13,7 +13,7 @@ public enum TerminalReplies {
             #"\x1B\[\??[0-9;]*\$p"#,   // DECRQM
             #"\x1B\[(?:1[1-9]|2[01])(?:;[0-9]*)*t"#,   // window size reports
             #"\x1B\][0-9]+(?:;[^\x07\x1B]*)?;\?(?:\x07|\x1B\\)"#,   // OSC color / clipboard queries
-            #"\x1B\]52;[^\x07\x1B]*(?:\x07|\x1B\\)"#,   // OSC 52 copies: replayed, they'd put old text on the clipboard
+            #"\x1B\]52;[^\x07\x1B]*(?:\x07|\x1B\\)"#,   // OSC 52 copies, as a replay puts old text on the clipboard
             #"\x1BP[+$]q[^\x1B]*\x1B\\"#,   // XTGETTCAP, DECRQSS
             #"\x1B_G[^\x1B]*a=q[^\x1B]*\x1B\\"#,   // kitty graphics "can you show images?" (Claude Code at start)
             #"\x1BZ"#
@@ -25,12 +25,13 @@ public enum TerminalReplies {
             #"\x1B\[[IO]"#,   // focus in / out
             #"\x1B\][0-9]+;[^\x07\x1B]*(?:\x07|\x1B\\)"#,   // OSC answers
             #"\x1BP[^\x1B]*\x1B\\"#,   // DCS answers (XTVERSION "ghostty 1.3…")
-            #"\x1B_G[^\x1B]*\x1B\\"#   // kitty graphics answers ("i=31;OK"): taken for a key, they let
+            #"\x1B_G[^\x1B]*\x1B\\"#   // kitty graphics answers ("i=31;OK"). Read as keys, they made
             // a launch prompt's Enter answer "trust this folder?" with No
         ].joined(separator: "|"))
 
-    /// History to replay into a new terminal, minus the agent's old questions to its terminal: answered again, the
-    /// answers would reach the agent as typing (">|ghostty 1.3.2" in its prompt). Its old clipboard copies go too.
+    /// Returns history to replay into a new terminal, without the agent's old questions to its terminal. If they were
+    /// answered again, the answers would reach the agent as typing (">|ghostty 1.3.2" in its prompt). The agent's old
+    /// clipboard copies are removed too.
     public static func withoutQueries(_ data: Data) -> Data {
         guard let pattern = queries, let text = String(data: data, encoding: .isoLatin1) else { return data }
         let out = pattern.stringByReplacingMatches(
@@ -38,7 +39,7 @@ public enum TerminalReplies {
         return out.data(using: .isoLatin1) ?? data
     }
 
-    /// Input made only of the terminal answering the agent: not the user doing anything.
+    /// Whether input is made only of the terminal answering the agent, and not of the user doing anything.
     public static func isReply(_ data: Data) -> Bool {
         guard data.first == 0x1B, let pattern = replies, let text = String(data: data, encoding: .isoLatin1) else {
             return false

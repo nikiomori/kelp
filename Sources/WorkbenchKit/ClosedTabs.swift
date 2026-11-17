@@ -4,7 +4,7 @@ import Foundation
 public struct ClosedTab: Equatable, Sendable {
     public let uri: String, title: String
     public internal(set) var workspace: String
-    /// Its pane (which may be gone by the time it comes back) and its place among the pane's tabs.
+    /// The tab's pane (which may be gone by the time the tab comes back) and its place among the pane's tabs.
     public let group: String?, index: Int?
     public let at: Date
     public init(uri: String, title: String, workspace: String, group: String?, index: Int?, at: Date = Date()) {
@@ -15,11 +15,11 @@ public struct ClosedTab: Equatable, Sendable {
         self.index = index
         self.at = at
     }
-    /// A file is one tab at whatever line.
+    /// A file counts as one tab, whatever line it was open at.
     fileprivate var key: String { TabURI.scheme(uri) == "file" ? TabURI.filePath(uri).path : uri }
 }
 
-/// The last tabs closed, latest first, while Kelp runs: after a restart Session History has the conversations.
+/// The last tabs closed while Kelp runs, latest first. After a restart, Session History has the conversations.
 public struct ClosedTabs: Equatable, Sendable {
     public static let limit = 20
     public private(set) var all: [ClosedTab] = []
@@ -31,7 +31,8 @@ public struct ClosedTabs: Equatable, Sendable {
         if all.count > Self.limit { all.removeLast(all.count - Self.limit) }
     }
     public mutating func forget(_ closedTab: ClosedTab) { all.removeAll { $0 == closedTab } }
-    /// Its row went with its last tab: what it closed comes back on the row shown instead.
+    /// Called when a workspace's row went away with its last tab. The tabs closed there come back on the row shown
+    /// instead.
     public mutating func move(from workspace: String, to other: String) {
         for i in all.indices where all[i].workspace == workspace { all[i].workspace = other }
     }

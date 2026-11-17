@@ -2,18 +2,21 @@ import Core
 import Foundation
 
 /// Kelp's hooks for Codex, passed on its command line: `-c hooks.<Event>=…` for each hook, then `-c hooks.state={…}`
-/// trusting exactly those. Codex runs a hook it wasn't told to trust only after the user trusts it in `/hooks`, and
-/// asks about it at start. It reads that trust from session flags just as from ~/.codex/config.toml (codex-rs
-/// `hook_states_from_stack`), so nothing is written there. The trust is each hook's own hash, so a project's or another
-/// tool's hooks gain nothing from it.
-/// The hash is Codex's: the sha256 of the hook's JSON with sorted keys (`hook_hash`, `version_for_toml`). Codex could
-/// change it, so the daemon checks once per Codex binary that Codex agrees (`hooks/list`) before passing these.
+/// to trust exactly those hooks. Codex runs a hook it wasn't told to trust only after the user trusts it in `/hooks`,
+/// and asks about it at start. Codex reads that trust from session flags just as it does from ~/.codex/config.toml
+/// (codex-rs `hook_states_from_stack`), so nothing is written there. The trust names each hook's own hash, so a
+/// project's or another tool's hooks gain nothing from it.
+/// The hash is computed the way Codex does it: the sha256 of the hook's JSON with sorted keys (`hook_hash`,
+/// `version_for_toml`). Codex could change that, so the daemon checks once per Codex binary that Codex agrees
+/// (`hooks/list`) before passing these flags.
 public enum CodexHooks {
-    /// Event, its key label, what Kelp hears, and the tools it's for (nil: every one, or no tool's event).
+    /// A hook: the event, its key label, the command Kelp runs, and the tools it's for (nil for every tool, or for an
+    /// event that isn't a tool's).
     public typealias Event = (name: String, label: String, command: String, matcher: String?)
 
-    /// The permission hook only tells: Codex shows its menu after the hook returns (Claude Code shows it meanwhile), so
-    /// Kelp's Allow goes to that menu, not to the hook. A tool's end only for the tools Kelp acts on (`Hooks.endsActedOn`).
+    /// The permission hook only reports. Codex shows its menu after the hook returns (Claude Code shows it while the
+    /// hook runs), so Kelp's Allow goes to that menu, not to the hook. A tool's end is reported only for the tools Kelp
+    /// acts on (`Hooks.endsActedOn`).
     public static let events: [Event] = [
         ("UserPromptSubmit", "user_prompt_submit", "kelp hook working", nil),
         ("PermissionRequest", "permission_request", "kelp hook waiting --no-answer", nil),
@@ -26,8 +29,9 @@ public enum CodexHooks {
         ("Stop", "stop", "kelp hook done", nil)
     ]
 
-    /// On a remote project's host, in tmux, where there's no `kelp`: each says its state as Claude Code's do there
-    /// (`Hooks.hostReport`), which Kelp reads as the program's own report. Fewer: a state is all a host's hook tells.
+    /// The hooks for a remote project's host, in tmux, where there's no `kelp`. Each reports its state the way Claude
+    /// Code's hooks do there (`Hooks.hostReport`), and Kelp reads that as the program's own report. There are fewer of
+    /// them, because a state is all that a host's hook can tell.
     public static let hostEvents: [Event] = [
         ("UserPromptSubmit", "user_prompt_submit", Hooks.hostReport("state=working"), nil),
         ("PostToolUse", "post_tool_use", Hooks.hostReport("state=working"), nil),
@@ -41,9 +45,10 @@ public enum CodexHooks {
     /// Codex's name for a hook given on the command line (`<session-flags>`, first group, first handler).
     public static func key(_ label: String) -> String { "/<session-flags>/config.toml:\(label):0:0" }
 
-    /// The hash Codex keeps as trusted for one of them: the handler as Codex fills it in (no async, the ten-minute timeout).
+    /// Returns the hash that Codex keeps as trusted for a hook. It hashes the handler as Codex fills it in (not async,
+    /// with the ten-minute timeout).
     public static func hash(label: String, command: String, matcher: String? = nil) -> String {
-        // Codex's JSON, keys in order, nothing escaped that serde_json leaves as is.
+        // This is Codex's JSON, with keys in order, and nothing escaped that serde_json leaves as it is.
         let json =
             #"{"event_name":"# + ShellQuote.doubleQuoted(label) + #","hooks":[{"async":false,"command":"#
             + ShellQuote.doubleQuoted(command) + #","timeout":600,"type":"command"}]"#
@@ -51,7 +56,7 @@ public enum CodexHooks {
         return "sha256:" + Data(json.utf8).sha256
     }
 
-    /// The `-c` pairs: each hook, then their trust.
+    /// The `-c` pairs: one for each hook, then one that trusts them.
     public static var args: [String] { args(events) }
     public static var hostArgs: [String] { args(hostEvents) }
 
@@ -61,7 +66,8 @@ public enum CodexHooks {
             let matcher = event.matcher.map { "matcher=\(ShellQuote.doubleQuoted($0))," } ?? ""
             return ["-c", "hooks.\(event.name)=[{\(matcher)hooks=[{type=\"command\",command=\(command)}]}]"]
         }
-        // One table: `-c` splits a dotted key at every ".", and the keys hold "config.toml".
+        // The trust goes in one table, because `-c` splits a dotted key at every "." and the keys contain
+        // "config.toml".
         let state = events.map { event in
             let trusted = ShellQuote.doubleQuoted(
                 hash(label: event.label, command: event.command, matcher: event.matcher))

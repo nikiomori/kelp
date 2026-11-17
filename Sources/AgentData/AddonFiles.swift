@@ -1,10 +1,10 @@
 import Core
 import Foundation
 
-/// The skills and MCP servers the agents' own files name, and the folders the agents share: read only. Which agent
-/// reads which folder is each agent's documented behaviour (2026-11): `~/.agents/skills` is the shared standard,
-/// Claude Code reads only its own, Cursor, opencode and Grok read Claude Code's too, and Copilot a project's
-/// `.claude/skills` and CLAUDE.md.
+/// Reads, and never writes, the skills and MCP servers that the agents' own files list, and the skill folders the
+/// agents share. Which agent reads which folder follows each agent's documentation (2026-11). `~/.agents/skills` is the
+/// shared standard. Claude Code reads only its own folder. Cursor, opencode and Grok also read Claude Code's folder,
+/// and Copilot reads a project's `.claude/skills` and CLAUDE.md.
 public struct AddonFiles: Sendable {
     public var home: URL, claude: URL, codex: URL, copilot: URL, pi: URL
 
@@ -24,12 +24,13 @@ public struct AddonFiles: Sendable {
     static let claudeReaders = [Session.claudeAgent, "cursor", "opencode", "grok"]
     static let claudeProjectReaders = claudeReaders + ["copilot"]
 
-    /// A skill folder: its SKILL.md's name and description, where it is, and where it really is (a link's target).
+    /// A skill folder: its name, the description from its SKILL.md, its path, and its real path (the target of a link).
     public struct Skill: Sendable, Equatable {
         public var name: String, about: String, path: String, real: String, agents: [String], project: Bool
     }
     public struct Server: Sendable, Equatable {
-        /// `file`: where it's named, as the person would say it ("~/.claude.json"); `path`: that file, to open.
+        /// `file` is the file that lists the server, as a person would write it ("~/.claude.json"). `path` is the full
+        /// path of that file, for opening it.
         public var name: String, file: String, agents: [String], project: Bool, path: String?
         public init(name: String, file: String, agents: [String], project: Bool, path: String? = nil) {
             self.name = name
@@ -56,7 +57,7 @@ public struct AddonFiles: Sendable {
             Self.folders(dir).compactMap { folder -> Skill? in
                 guard let text = Self.text(folder.appendingPathComponent("SKILL.md"))
                 else { return nil }
-                // By its folder's name, as the agents list it (a SKILL.md may name itself otherwise).
+                // The skill takes its folder's name, as the agents list it, because a SKILL.md may give another name.
                 return Skill(
                     name: folder.lastPathComponent, about: Self.frontmatter(text)["description"] ?? "",
                     path: folder.path, real: folder.resolvingSymlinksInPath().path, agents: agents, project: inProject)
@@ -64,11 +65,11 @@ public struct AddonFiles: Sendable {
         }
     }
 
-    /// The MCP servers the files name for a chat in `cwd`: Claude Code's (its own file and the project's `.mcp.json`)
-    /// and Codex's. Names only: what they run and their secrets stay unread.
+    /// Returns the MCP servers that the config files list for a chat in `cwd`: Claude Code's (from its own file and the
+    /// project's `.mcp.json`), pi's and Codex's. Only the names are read, so the commands and secrets stay unread.
     public func servers(cwd: String) -> [Server] {
         var out: [Server] = []
-        let own = claude.appendingPathComponent(".claude.json")   // a profile's folder holds its own
+        let own = claude.appendingPathComponent(".claude.json")   // a profile folder has its own .claude.json
         let file = FileManager.default.fileExists(atPath: own.path) ? own : home.appendingPathComponent(".claude.json")
         if let root = Self.json(file) {
             let mine = (root["mcpServers"] as? [String: Any] ?? [:]).keys
@@ -87,7 +88,7 @@ public struct AddonFiles: Sendable {
                     name: name, file: ".mcp.json", agents: [Session.claudeAgent, "copilot"], project: true,
                     path: shared.path))
         }
-        // pi's own servers (its folder's mcp.json and the project's .pi/mcp.json), except those turned off.
+        // pi's servers come from mcp.json in pi's folder and the project's .pi/mcp.json, skipping those turned off.
         for (file, project) in [
             (pi.appendingPathComponent("mcp.json"), false), (here.appendingPathComponent(".pi/mcp.json"), true)
         ] {
@@ -109,8 +110,9 @@ public struct AddonFiles: Sendable {
         return out.sorted { $0.name < $1.name }
     }
 
-    /// The instruction files in the project's folder, with who reads each: Claude Code takes CLAUDE.md and falls back
-    /// to AGENTS.md only without one; the others read AGENTS.md.
+    /// Returns the instruction files in the project's folder and the agents that read each one. Claude Code reads
+    /// CLAUDE.md, and AGENTS.md only when there is no CLAUDE.md. Copilot also reads CLAUDE.md. The others read
+    /// AGENTS.md.
     public func instructions(cwd: String) -> [(name: String, chars: Int, agents: [String])] {
         func chars(_ name: String) -> Int? {
             Self.text(URL(fileURLWithPath: cwd).appendingPathComponent(name))?.count
@@ -124,12 +126,13 @@ public struct AddonFiles: Sendable {
         return out
     }
 
-    /// `path` with the home folder as "~".
+    /// Returns `path` with the home folder written as "~".
     public func tilde(_ path: String) -> String {
         Paths.inside(path, home.path) ? "~" + path.dropFirst(home.path.count) : path
     }
 
-    /// The enabled servers of a Codex config: `[mcp_servers.name]` tables without `enabled = false`.
+    /// Returns the enabled servers in a Codex config, which are the `[mcp_servers.name]` tables without
+    /// `enabled = false`.
     static func codexServers(_ toml: String) -> [String] {
         var names: [String] = [], off = Set<String>(), current: String?
         for raw in toml.split(separator: "\n") {
@@ -148,7 +151,7 @@ public struct AddonFiles: Sendable {
         return names.filter { !off.contains($0) }
     }
 
-    /// The `key: value` lines between a SKILL.md's first two `---`, quotes taken off.
+    /// Returns the `key: value` lines between the first two `---` lines of a SKILL.md, with quotes taken off.
     static func frontmatter(_ text: String) -> [String: String] {
         var out: [String: String] = [:]
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false)

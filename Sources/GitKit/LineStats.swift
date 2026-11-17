@@ -3,22 +3,24 @@ import Foundation
 import os
 
 extension Git {
-    /// `untracked`: the new files a status just listed (`git status -uall`'s "?" entries), so they aren't listed again.
+    /// Counts the lines added and removed in the working tree. `untracked` holds the new files that a status just
+    /// listed (`git status -uall`'s "?" entries), so they aren't listed again.
     public static func lineStats(_ cwd: String, untracked: [String]? = nil, remotes: Remotes) throws -> LineStats {
         var stats = LineStats()
-        // No commit yet: there's no HEAD, the staged files are all there is.
+        // Before the first commit there's no HEAD, so the staged files are all there is.
         let tracked =
             try (try? run(["diff", "HEAD", "--numstat", "--no-renames", "-z"], cwd: cwd, remotes: remotes))
             ?? run(["diff", "--cached", "--numstat", "--no-renames", "-z"], cwd: cwd, remotes: remotes)
         for line in tracked.split(separator: "\0") {
             let fields = line.split(separator: "\t", maxSplits: 2)
-            // "-" = binary
+            // A count of "-" means a binary file.
             guard fields.count == 3, let added = Int(fields[0]), let removed = Int(fields[1]) else { continue }
             let kind = LineStats.kind(String(fields[2]))
             stats.added[kind, default: 0] += added
             stats.removed[kind, default: 0] += removed
         }
-        // New files git doesn't track yet: their lines are all additions (small text files only). A host's are counted there.
+        // The lines of new files that git doesn't track yet are all additions (small text files only). On a remote
+        // project's host, they are counted there.
         if let host = remotes.of(cwd) {
             let out = try host.run("cd \(RemoteHost.cdArg(host.path)) && " + untrackedLines, timeLimit: 60)
             for line in String(decoding: out, as: UTF8.self).split(separator: "\n") {
@@ -42,8 +44,9 @@ extension Git {
         return stats
     }
 
-    /// A text file's lines under 1 MB (nil: bigger, binary or gone), read again only when its size or date moved: an
-    /// agent writing one file doesn't have every other new file read on each change.
+    /// Returns the line count of a text file under 1 MB, or nil when the file is bigger, binary or gone. A file is read
+    /// again only when its size or date changed, so an agent writing one file doesn't make every other new file be read
+    /// again on each change.
     static func lineCount(_ url: URL) -> Int? {
         guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
             let size = values.fileSize, size < 1_000_000
@@ -65,8 +68,8 @@ extension Git {
     }
     private static let lineCounts = OSAllocatedUnfairLock<[String: (stamp: LineCount, lines: Int?)]>(initialState: [:])
 
-    /// sh, in a repository: "lines\tpath" for each of its first 500 new files that is text under 1 MB (paths with a line
-    /// break in them are skipped).
+    /// A sh script, run in a repository, that prints "lines\tpath" for each of its first 500 new files that is text
+    /// under 1 MB. Paths with a line break in them are skipped.
     static let untrackedLines =
         #"git -c core.quotePath=false ls-files --others --exclude-standard | head -n 500 | while IFS= read -r f; do "#
         + #"[ -f "$f" ] && [ "$(wc -c < "$f")" -lt 1000000 ] && grep -Iq . "$f" && printf '%s\t%s\n' "$(wc -l < "$f")" "$f"; "#

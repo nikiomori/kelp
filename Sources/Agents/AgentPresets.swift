@@ -2,7 +2,7 @@ import Core
 import Foundation
 
 extension AgentManifest {
-    /// Ways to run them through another provider, as environment variables their docs define.
+    /// Ways to run each agent through another provider, as environment variables the agent's docs define.
     static let claudeProviders: [Provider] = [
         .init("Anthropic API Key", ["ANTHROPIC_API_KEY="]),
         .init("Amazon Bedrock", ["CLAUDE_CODE_USE_BEDROCK=1", "AWS_REGION=us-east-1", "AWS_PROFILE=default"]),
@@ -27,8 +27,8 @@ extension AgentManifest {
     /// The effort levels Claude Code, Codex and Antigravity all take (2026-11).
     static let efforts = ["low", "medium", "high", "xhigh", "max"]
 
-    /// The agents Kelp knows, as their own docs give them: how each starts, resumes, reports and installs (its npm package
-    /// says what's newest).
+    /// The agents Kelp knows, as their own docs describe them: how each one starts, resumes, reports and installs. An
+    /// agent's npm package says which version is newest.
     public static let presets: [AgentManifest] = [
         .init(
             id: Session.claudeAgent, name: "Claude Code", command: "claude", hooks: .settingsFlag("--settings"),
@@ -41,9 +41,10 @@ extension AgentManifest {
             npm: "@anthropic-ai/claude-code", about: "Anthropic’s coding agent", color: "#D97857", apps: ["Claude"],
             site: "claude.ai", featured: 0, transcript: .claude, limitScreen: .claude, profiles: true,
             providers: claudeProviders),
-        // Its conversation in its own process, which ends with the tab: in Codex's shared background server (0.157 on) it
-        // would run on after the tab closed, and a Codex started with -c (not on that server) couldn't open it again.
-        // No update question: it stands before the prompt, which waits behind it, and Kelp offers updates itself.
+        // Codex runs its conversation in its own process, which ends with the tab. In Codex's shared background server
+        // (0.157 on), the conversation would run on after the tab closed, and a Codex started with -c (not on that
+        // server) couldn't open it again. The update question is off, because it shows before the prompt and the prompt
+        // waits behind it, and Kelp offers updates itself.
         .init(
             id: Session.codexAgent, name: "Codex", command: "codex",
             args: ["--no-daemon", "-c", "check_for_update_on_startup=false"], hooks: .codexConfig,
@@ -69,7 +70,7 @@ extension AgentManifest {
             about: "Google’s agent for Code Assist and API keys: Antigravity took over free and AI Pro plans",
             color: "#007AFF", site: "gemini.google.com", providers: geminiProviders),
         .init(
-            // Its permission dialogs ("Run this command?", "Write to this file?"…) end on "Skip (esc or n)".
+            // Cursor Agent's permission dialogs ("Run this command?", "Write to this file?"…) end on "Skip (esc or n)".
             id: "cursor", name: "Cursor Agent", command: "cursor-agent",
             waitingPatterns: defaultWaiting + [#"\(esc or n\)"#], modelFlag: "--model", autoAnswers: [trust],
             resumeArgs: ["resume"],
@@ -77,13 +78,13 @@ extension AgentManifest {
             about: "Cursor’s agent in the terminal", color: "#262626", apps: ["Cursor"], site: "cursor.com",
             featured: 4,
             limitScreen: .cursor),
-        // Each tab its own conversation (`--session-id`), not the folder's latest: two in one folder resumed the same
-        // one.
-        // Kelp's skills by `--skill <plugin folder>` (it finds SKILL.md below): in the project's `.agents/skills` they
-        // made Pi ask whether to trust every folder it opened.
-        // Pi and Antigravity report through OSC 7501 only if Kelp's reply to their probe beats the terminal's DA reply;
-        // their variables make them report anyway. Pi's installer runs again as the update; it fetches Node when it's
-        // missing, which npm wouldn't.
+        // Each Pi tab gets its own conversation (`--session-id`), not the folder's latest, because two tabs in one
+        // folder resumed the same conversation.
+        // Kelp's skills are passed with `--skill <plugin folder>`, and Pi finds the SKILL.md files below it. When they
+        // sat in the project's `.agents/skills`, Pi asked whether to trust every folder it opened.
+        // Pi and Antigravity report through OSC 7501 only if Kelp's reply to their probe arrives before the terminal's
+        // DA reply. Their variables make them report anyway. Pi's installer runs again as the update, because it
+        // fetches Node when Node is missing, which npm wouldn't.
         .init(
             id: "pi", name: "Pi", command: "pi", env: ["PI_PROGRAM_STATUS": "1"], modelFlag: "--model",
             resumeArgs: ["--continue"], pluginDirFlag: "--skill", sessionIdFlag: "--session-id",
@@ -95,7 +96,8 @@ extension AgentManifest {
             id: "amp", name: "Amp", command: "amp",
             install: "npm install -g @ampcode/cli", update: "npm install -g @ampcode/cli@latest",
             npm: "@ampcode/cli", about: "Sourcegraph’s agent", site: "ampcode.com"),
-        // A hand-off opens a session file (`--session` / `--resume <file>`): a wake goes on in it, not in "latest here".
+        // A hand-off opens a session file (`--session` / `--resume <file>`), so a wake goes on in that file, not in the
+        // folder's latest conversation.
         .init(
             id: "omp", name: "oh-my-pi", command: "omp", modelFlag: "--model", resumeArgs: ["--continue"],
             resumeIdFlag: "--resume",
@@ -105,7 +107,7 @@ extension AgentManifest {
             id: "fx", name: "fx", command: "fx", hooks: .herdr, modelFlag: "--model", resumeArgs: ["--continue"],
             install: "curl -fsSL https://fx.sh/setup.sh | bash", update: "fx upgrade",
             about: "Vercel’s small native agent, any model", site: "fx.sh"),
-        // Others people run; Kelp offers whichever of these actually work on this Mac (AgentAvailability).
+        // Other agents people run. Kelp offers whichever of these actually work on this Mac (AgentAvailability).
         // Grok's installer runs again as the update.
         .init(
             id: "grok", name: "Grok", command: "grok", modelFlag: "--model", resumeArgs: ["--continue"],
@@ -120,7 +122,7 @@ extension AgentManifest {
             resumeArgs: ["--continue"],
             install: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
             about: "Google’s Antigravity agent in the terminal", apps: ["Antigravity"], site: "antigravity.google",
-            featured: 2),   // updates itself while it runs
+            featured: 2),   // no update command, as it updates itself while it runs
         .init(
             id: "qwen", name: "Qwen Code", command: "qwen",
             hooks: .settingsFile(
@@ -129,13 +131,15 @@ extension AgentManifest {
             install: "npm install -g @qwen-code/qwen-code", update: "qwen update",
             npm: "@qwen-code/qwen-code", about: "Alibaba’s open source agent", site: "qwen.ai"),
         .init(
-            // OSC 7501 as Pi's (the same terminal code): reported even when the terminal's DA reply comes first.
+            // Kimi reports through OSC 7501 like Pi (the same terminal code), and the variable makes it report even
+            // when the terminal's DA reply comes first.
             id: "kimi", name: "Kimi", command: "kimi", env: ["PI_PROGRAM_STATUS": "1"], modelFlag: "--model",
             autoAnswers: [trust], resumeArgs: ["--continue"],
             install: "curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash", update: "kimi upgrade",
             about: "Moonshot AI’s coding agent", apps: ["Kimi"], site: "kimi.com"),
         .init(
-            // Not on a running `kilo daemon`: its server, and so Kelp's plugin, would run in the daemon's environment.
+            // Kilo stays off a running `kilo daemon`, because its server, and so Kelp's plugin, would run in the
+            // daemon's environment.
             id: "kilo", name: "Kilo Code", command: "kilo", env: ["KILO_NO_DAEMON": "1"],
             hooks: .pluginDir(env: "KILO_CONFIG_DIR"),
             modelFlag: "--model",
@@ -169,7 +173,7 @@ extension AgentManifest {
             id: "aider", name: "Aider", command: "aider",
             install: "curl -LsSf https://aider.chat/install.sh | sh",
             about: "Pair programming in git, any model", site: "aider.chat"),
-        // CONFIGURE=false: no provider questions in the installer's tab; goose asks on its first run.
+        // CONFIGURE=false keeps provider questions out of the installer's tab. Goose asks them on its first run.
         .init(
             id: "goose", name: "Goose", command: "goose",
             install:

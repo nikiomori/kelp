@@ -3,8 +3,9 @@ import Foundation
 import GitKit
 
 extension Forge {
-    /// The forge of the checkout's origin; GitHub when it has none.
-    /// A remote project on GitHub (its folder here is no checkout, whose git would walk up into another): GitHub.
+    /// Returns the forge of the checkout's origin, or GitHub when it has none. A remote project whose origin is on
+    /// GitHub counts as GitHub without running git here, because its folder here is no checkout, and git would walk up
+    /// into another repository.
     public static func of(cwd: String, remotes: Remotes) -> Forge {
         if HostRepo.github(cwd) != nil { return .github }
         return of(remote: (try? Git.origin(cwd, remotes: remotes)) ?? "")
@@ -63,13 +64,13 @@ extension CIRuns {
         }
     }
 
-    /// GitHub says "0001-01-01T00:00:00Z" of a time that hasn't come yet.
+    /// GitHub gives "0001-01-01T00:00:00Z" for a time that hasn't come yet, which becomes nil.
     private static func moment(_ iso: String?) -> String? { iso?.hasPrefix("0001") == true ? nil : iso }
 
-    /// The failed steps' output of a job (the whole log if nothing failed), its last ~12 KB.
+    /// Returns the last ~12 KB of the output of a job's failed steps, or of the whole log if nothing failed.
     public static func log(cwd: String, job: Int) throws -> String { GitHub.tail(try failedText(cwd: cwd, job: job)) }
 
-    /// Every step of a job.
+    /// Returns the log of every step of a job.
     public static func fullLog(cwd: String, job: Int) throws -> String {
         if Forge.of(cwd: cwd, remotes: .none) == .gitlab {
             return readable(
@@ -84,7 +85,8 @@ extension CIRuns {
         located(report(log: try failedText(cwd: cwd, job: job)), cwd: cwd)
     }
 
-    /// What broke in a run; `attempt`: a run's earlier try, which is how a failure that came back can be told from a fluke.
+    /// What broke in a run. `attempt` picks an earlier try of the run, which is how a failure that came back can be
+    /// told from a fluke.
     public static func report(cwd: String, run: Int, attempt: Int?) throws -> Report {
         let args = ["run", "view", String(run)] + (attempt.map { ["--attempt", String($0)] } ?? []) + ["--log-failed"]
         return located(report(log: readable(String(decoding: try GitHub.gh(args, cwd: cwd), as: UTF8.self))), cwd: cwd)
@@ -101,8 +103,8 @@ extension CIRuns {
         return try fullLog(cwd: cwd, job: job)
     }
 
-    /// gh writes every log line as "job⇥step⇥timestamp text": keep the text, with a "▸ step" line where each step
-    /// begins, and drop terminal color codes and the runner's ##[group] markers.
+    /// Makes gh's log readable. gh writes every log line as "job⇥step⇥timestamp text". This keeps the text, adds a "▸
+    /// step" line where each step begins, and drops terminal color codes and the runner's ##[group] markers.
     static func readable(_ log: String) -> String {
         var out: [String] = [], step: Substring?
         for line in log.split(separator: "\n", omittingEmptySubsequences: false) {
@@ -154,7 +156,8 @@ extension CIRuns {
         try GitHub.gh(["run", "cancel", String(run)], cwd: cwd)
     }
 
-    /// `workflow` is a file name from the repository: after `--`, so one named "-F….yml" is a name, not an option.
+    /// Starts a workflow by hand. `workflow` is a file name from the repository, so it goes after `--`, and a file
+    /// named "-F….yml" is a name, not an option.
     public static func dispatch(cwd: String, workflow: String, branch: String, inputs: [String: String]) throws {
         let fields = inputs.sorted { $0.key < $1.key }.flatMap { ["-f", "\($0.key)=\($0.value)"] }
         try GitHub.gh(["workflow", "run", "--ref", branch] + fields + ["--", workflow], cwd: cwd)
@@ -252,7 +255,7 @@ extension CIRuns {
         }
     }
 
-    /// GitLab's states in GitHub's two fields.
+    /// Maps a GitLab state onto GitHub's two fields, status and conclusion.
     static func gitlabState(_ status: String) -> (String, String?) {
         switch status {
         case "success": ("completed", "success")

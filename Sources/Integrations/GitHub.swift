@@ -2,8 +2,8 @@ import Core
 import Foundation
 import GitKit
 
-/// gh or glab (`tool`) failed or isn't installed, or what it answered stops Kelp: for people, `description`; the
-/// command line (`args`) is there for logs.
+/// An error from gh or glab (`tool`): it failed, isn't installed, or answered something that stops Kelp. `description`
+/// is for people, and the command line (`args`) is there for logs.
 public struct ForgeError: Error, CustomStringConvertible, Sendable {
     public var tool: String
     public var args: [String]
@@ -38,9 +38,9 @@ extension GitHub {
         + "updatedAt,reviewRequests"
     static let issueFields = "number,title,body,url,labels,assignees,state,author,updatedAt"
 
-    /// Where the user's shell finds it (MacPorts, nix, mise… too), not only in the daemon's own PATH.
-    /// `KELP_GH` names another program (tests use a stand-in that answers with canned JSON), like `KELP_SSH`.
-    /// Looked up each time (a scan of PATH's folders): installed while Kelp runs, it works on the next try.
+    /// Where the user's shell finds gh (MacPorts, nix, mise… too), not only in the daemon's own PATH. `KELP_GH` names
+    /// another program (tests use a stand-in that answers with canned JSON), like `KELP_SSH`. It is looked up each time
+    /// (a scan of PATH's folders), so a gh installed while Kelp runs works on the next try.
     static var ghPath: String? { ProcessInfo.processInfo.environment["KELP_GH"] ?? LoginPath.find("gh") }
 
     @discardableResult
@@ -48,7 +48,8 @@ extension GitHub {
         guard let exe = ghPath else {
             throw ForgeError.notInstalled("gh", args)
         }
-        // A remote project's: on the repository its origin on the host names, from a folder of no repository.
+        // For a remote project, gh works on the repository that its origin on the host names, run from a folder that is
+        // in no repository.
         var env = Git.toolEnv, dir = cwd
         if let repo = HostRepo.github(cwd) {
             env["GH_REPO"] = repo
@@ -59,7 +60,7 @@ extension GitHub {
         }
     }
 
-    /// For Settings: is gh installed, and who is signed in (nil: not signed in, or no network to ask).
+    /// For Settings: whether gh is installed, and who is signed in (nil when no one is, or with no network to ask).
     public static func account() -> (installed: Bool, user: String?) {
         guard let exe = ghPath else { return (false, nil) }
         let login =
@@ -71,9 +72,9 @@ extension GitHub {
 
     // MARK: Commands
 
-    /// The avatar of the account behind a commit author's email, 64 px. A noreply address names its account, so that
-    /// one needs no call; any other is looked up among this repo's commits (GitHub ties an email to an account only
-    /// through them). nil: no account has it.
+    /// Returns the avatar of the account behind a commit author's email, at 64 px. A noreply address names its account,
+    /// so it needs no call. Any other address is looked up among this repo's commits, because GitHub ties an email to
+    /// an account only through them. Returns nil when no account has the address.
     public static func avatarURL(email: String, cwd: String) throws -> URL? {
         if let url = noreplyAvatar(email) { return url }
         let query = "repos/{owner}/{repo}/commits?author=\(GitLab.queryValue(email))&per_page=1"
@@ -149,14 +150,15 @@ extension GitHub {
         return try parseReviews(gh(["pr", "view", String(pr), "--json", "reviews"], cwd: cwd)) + inline
     }
 
-    /// The GitHub repository a remote project (its folder here) works on; nil for one elsewhere (`HostRepo`).
+    /// Returns the GitHub repository that a remote project (its folder here) works on, or nil otherwise (`HostRepo`).
     public static func repo(onHost folder: String) -> String? { HostRepo.github(folder) }
 
     /// Returns the new PR's URL. The current branch must already be pushed.
     public static func createPR(cwd: String, title: String, body: String, base: String, draft: Bool = false) throws
         -> String
     {
-        // A remote project's branch is the one checked out on its host: gh has no checkout to read it from.
+        // A remote project's branch is the one checked out on its host, because gh has no checkout here to read it
+        // from.
         let head =
             try HostRepo.project(cwd).map { ["--head", try Git.currentBranch($0.folder, remotes: $0.remotes)] } ?? []
         let out = try gh(
@@ -165,7 +167,8 @@ extension GitHub {
         return String(decoding: out, as: UTF8.self).split(separator: "\n").last.map(String.init) ?? ""
     }
 
-    /// With `head`, only while that commit is still the PR's head: what was reviewed is what lands.
+    /// Merges a PR. With `head`, it merges only while that commit is still the PR's head, so what was reviewed is what
+    /// lands.
     public static func mergePR(cwd: String, number: Int, method: MergeMethod, head: String? = nil) throws {
         do {
             try gh(

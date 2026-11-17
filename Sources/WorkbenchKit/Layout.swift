@@ -41,7 +41,7 @@ public indirect enum LayoutNode: Codable, Equatable {
         }
     }
 
-    /// One key per split: its children's first panes (where the UI keeps divider positions).
+    /// One key per split, made from its children's first panes, under which the UI keeps divider positions.
     public var splitKeys: Set<String> {
         guard case .split(_, let children) = self else { return [] }
         return children.reduce(into: [Self.splitKey(children)]) { $0.formUnion($1.splitKeys) }

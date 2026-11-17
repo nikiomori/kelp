@@ -9,8 +9,8 @@ extension Git {
 
     /// Makes a new branch from `base` in a fresh worktree. `existing` is a branch that is already there, checked out as
     /// it is (a remote one, "origin/x", gets a local "x" that follows it), and then `base` is unused. `copying` says
-    /// whether the worktree gets the project's own files (`copyFiles` present in the repo root, and
-    /// `.worktreeinclude`'s: `.env` and the like), which a pull request's code shouldn't get to read.
+    /// whether the worktree gets the project's own files (the `copyFiles` present in the repo root, and the files that
+    /// `.worktreeinclude` names, such as `.env`), which a pull request's code shouldn't get to read.
     public static func addWorktree(   // swiftlint:disable:this function_parameter_count
         repo: String, branch: String, base: String, into dir: URL, copyFiles: [String], existing: Bool = false,
         copying: Bool = true, remotes: Remotes
@@ -26,7 +26,7 @@ extension Git {
             try run(["worktree", "add", "-b", rev(branch), path, rev(base)], cwd: repo, remotes: remotes)
         } else if branchExists(repo, branch, remotes: remotes) {
             try run(["worktree", "add", path, rev(branch)], cwd: repo, remotes: remotes)
-        } else {   // "origin/x": a local "x" following it, or the local "x" there is already
+        } else {   // for "origin/x", use the local "x" if there is one, or make one that follows it
             let local = branch.split(separator: "/", maxSplits: 1).last.map(String.init) ?? branch
             if branchExists(repo, local, remotes: remotes) {
                 try run(["worktree", "add", path, rev(local)], cwd: repo, remotes: remotes)
@@ -49,9 +49,10 @@ extension Git {
         return path
     }
 
-    /// A pull request's head (GitHub's pull/N/head, else GitLab's merge-requests/N/head, from `origin`) as a local branch,
-    /// and that branch's name: `wanted` (the PR's own branch name) only when it is free and already at the head, your own PR
-    /// up to date; else `pr-<N>`, moved to the head now. A local branch that only shares the PR's name is never taken for it.
+    /// Fetches a pull request's head (GitHub's pull/N/head, or else GitLab's merge-requests/N/head, from `origin`) as a
+    /// local branch, and returns that branch's name. The name is `wanted` (the PR's own branch name) only when that
+    /// branch is free and already at the head, as with your own PR when it is up to date. Otherwise it is `pr-<N>`,
+    /// moved to the head now. A local branch that only shares the PR's name is never taken for it.
     @discardableResult
     public static func fetchPullRequest(repo: String, number: Int, wanted: String? = nil, remotes: Remotes)
         throws -> String
@@ -64,14 +65,16 @@ extension Git {
         }
         func line(_ args: [String]) throws -> String { try Git.line(args, cwd: repo, ok: [0, 1], remotes: remotes) }
         let head = try line(["rev-parse", "FETCH_HEAD"])
-        // Kept past its branch (`holdsPullRequest`): a workspace made later on top of it is the PR's code too.
+        // The head is kept in a ref that outlives its branch (`holdsPullRequest`), because a workspace made later on
+        // top of it holds the PR's code too.
         try run(["update-ref", "refs/kelp/pr/\(number)", head], cwd: repo, remotes: remotes)
         func at(_ branch: String) throws -> String { try line(["rev-parse", "--verify", "-q", "refs/heads/" + branch]) }
         func openIn(_ branch: String) throws -> String {
             try line(["for-each-ref", "--format=%(worktreepath)", "refs/heads/" + branch])
         }
         if let wanted, Git.isRevision(wanted), try at(wanted) == head, try openIn(wanted).isEmpty { return wanted }
-        // pr-<N>, moved on from an older fetch of this PR; pr-<N>-2… when it holds commits of its own, which stay.
+        // Use pr-<N>, moved on from an older fetch of this PR. When pr-<N> holds commits of its own, they stay, and the
+        // name becomes pr-<N>-2 and so on.
         var mine = "pr-\(number)", attempt = 2
         while true {
             let now = try at(mine), open = try openIn(mine)
@@ -92,9 +95,10 @@ extension Git {
     }
 
     /// Whether `rev` in `repo` holds a pull request's code that none of the project's branches (origin's, upstream's)
-    /// hold; a PR merged and pushed is the project's own. True for a head Kelp fetched (`fetchPullRequest`), a `pr-*`
-    /// branch, or a branch following a PR's ref (`gh pr checkout`, `glab mr checkout`: its `branch.<name>.merge` is
-    /// refs/pull/… or refs/merge-requests/…). A fetched head merged and pushed since is dropped. If git fails: true.
+    /// hold. A PR that was merged and pushed counts as the project's own. This is true for a head Kelp fetched
+    /// (`fetchPullRequest`), a `pr-*` branch, or a branch following a PR's ref (`gh pr checkout`, `glab mr checkout`,
+    /// whose `branch.<name>.merge` is refs/pull/… or refs/merge-requests/…). A fetched head that was merged and pushed
+    /// since is dropped. When git fails, the answer is true.
     public static func holdsPullRequest(_ repo: String, at rev: String = "HEAD", remotes: Remotes) -> Bool {
         do {
             let merges = try run(
@@ -138,8 +142,9 @@ extension Git {
         }
     }
 
-    /// `dst` is still in `root` once symlinks are followed: a folder the branch commits as a link (`conf -> ~/x`) would
-    /// take the copy (the user's ignored `.env`), or the folders made for it, out of the worktree.
+    /// Whether `dst` is still in `root` once symlinks are followed. Otherwise a folder that the branch commits as a
+    /// link (`conf -> ~/x`) would take the copy (the user's ignored `.env`), or the folders made for it, out of the
+    /// worktree.
     static func staysInside(_ dst: String, _ root: String) -> Bool {
         Paths.inside((dst as NSString).deletingLastPathComponent, root)
     }
@@ -153,9 +158,10 @@ extension Git {
         }
     }
 
-    /// `.kelp.yaml`'s `clone:` paths copied into a new worktree as APFS clones: seconds and next to no disk, and each
-    /// branch has its own (`npm install` there changes only its copy). Off APFS (another volume) a path is left out:
-    /// a real copy of a node_modules would hold the new worktree up for minutes. Returns the paths left out, and why.
+    /// Copies the `clone:` paths from `.kelp.yaml` into a new worktree as APFS clones, which take seconds and next to
+    /// no disk, and give each branch its own copy (`npm install` there changes only that copy). Off APFS (another
+    /// volume), a path is left out, because a real copy of a node_modules would hold the new worktree up for minutes.
+    /// Returns the paths left out, and why.
     @discardableResult
     public static func cloneShared(_ dirs: [String], repo: String, worktree: String) -> [String] {
         var left: [String] = []
@@ -186,10 +192,10 @@ extension Git {
         }
     }
 
-    /// The repo's other checkouts, wherever `git worktree add` put them (an agent's `.claude/worktrees/…`, Kelp's own):
-    /// `git worktree list` without its first entry, the main checkout.
-    /// NUL-separated here (`-z`), so a path with a newline in it can't read as another worktree or a lock; a host's git
-    /// may be older than that (2.36), so a remote project's list is read by lines.
+    /// Returns the repo's other checkouts, wherever `git worktree add` put them (an agent's `.claude/worktrees/…`,
+    /// Kelp's own). That is `git worktree list` without its first entry, the main checkout. The list is NUL-separated
+    /// here (`-z`), so a path with a newline in it can't read as another worktree or a lock. A host's git may be older
+    /// than that option (2.36), so a remote project's list is read by lines.
     public static func linkedWorktrees(_ repo: String, remotes: Remotes) throws -> [(
         path: String, branch: String?, locked: Bool
     )] {
@@ -216,10 +222,12 @@ extension Git {
     }
 
     public static func isDirty(_ path: String, remotes: Remotes) throws -> Bool {
-        // Whatever `status.showUntrackedFiles` says: new files count, it decides what's asked before a folder goes.
+        // New files count, whatever `status.showUntrackedFiles` says, because this decides what's asked before a folder
+        // is removed.
         let changes = try run(["status", "--porcelain", "--untracked-files=normal"], cwd: path, remotes: remotes)
-        // A new link is no work: what it points at isn't in this folder (an agent links the project's Vendor in, and
-        // `Vendor/` in .gitignore doesn't match a link). A host's folder isn't read from here: there, it counts.
+        // A new link isn't work, because what it points at isn't in this folder (an agent links the project's Vendor
+        // in, and `Vendor/` in .gitignore doesn't match a link). A host's folder isn't read from here, so there a new
+        // link counts.
         let local = remotes.of(path) == nil
         return changes.split(separator: "\n").contains { line in
             guard local, line.hasPrefix("?? ") else { return true }
@@ -227,7 +235,8 @@ extension Git {
         }
     }
 
-    /// The same rule over a local folder's `status` already read (every new file listed): no second status.
+    /// Applies the same rule to a local folder's `status` that was already read (with every new file listed), so no
+    /// second status runs.
     public static func isDirty(_ changes: [FileChange], in path: String) -> Bool {
         changes.contains { !$0.untracked || !isLink((path as NSString).appendingPathComponent($0.path)) }
     }
@@ -237,21 +246,23 @@ extension Git {
         return lstat(file, &info) == 0 && info.st_mode & S_IFMT == S_IFLNK
     }
 
-    /// Remove worktree and its branch. Refuses dirty worktrees unless `force`, and a branch with commits that are on no
-    /// other branch or remote unless `force` or `dropCommits` (they'd be gone for good). Both checks come first: on
-    /// refusal nothing has been removed. A local folder goes to the Trash: what git doesn't see (ignored .env files, a
-    /// local database, submodules' own work) isn't checked above, and `worktree remove --force` would delete it for good.
+    /// Removes a worktree and its branch. It refuses dirty worktrees unless `force`, and a branch with commits that are
+    /// on no other branch or remote unless `dropCommits`, because those commits would be gone for good. Both checks
+    /// come first, so on refusal nothing has been removed. A local folder goes to the Trash, because what git doesn't
+    /// see (ignored .env files, a local database, submodules' own work) isn't checked above, and `worktree remove
+    /// --force` would delete it for good.
     public static func removeWorktree(
         repo: String, path: String, branch: String?, force: Bool, dropCommits: Bool = false, remotes: Remotes
     ) throws {
         try checkRemovable(
             repo: repo, path: path, branch: branch, force: force, dropCommits: dropCommits, remotes: remotes)
         let host = remotes.of(repo), local = host == nil && remotes.of(path) == nil
-        let path = host != nil ? remotes.of(path)?.path ?? path : path   // a stand-in here: its folder on the host
+        let path = host != nil ? remotes.of(path)?.path ?? path : path   // a stand-in here maps to its host folder
         if host != nil || (local && FileManager.default.fileExists(atPath: path)) {
             // Only a folder git lists as this repo's worktree goes to the Trash (or aside on a host), whatever the record says.
             let real = { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
-            // A host's path as git lists it, links followed there (git lists /private/tmp for /tmp).
+            // On a host, the path is resolved there with links followed, as git lists it (git lists /private/tmp for
+            // /tmp).
             let here =
                 try host.map { remote in
                     String(
@@ -268,15 +279,16 @@ extension Git {
             else {
                 throw GitError.refused("\(path) is not a worktree of this repository")
             }
-            // Locked (`git worktree lock`: kept on purpose): git wouldn't remove its record, so the folder stays too.
+            // A locked worktree (`git worktree lock`) is kept on purpose. git wouldn't remove its record, so the folder
+            // stays too.
             guard !entry.locked else {
                 throw GitError.refused("\(path) is locked (git worktree unlock)")
             }
         }
         if local, FileManager.default.fileExists(atPath: path) { try Trash.move(URL(fileURLWithPath: path)) }
-        // A remote project's: what git doesn't see (ignored .env files, a local database) is moved aside on the host, into
-        // ~/.kelp-trash, rather than deleted for good by `worktree remove --force`. The shell's pid keeps two removals
-        // of a same-named folder in one second apart.
+        // For a remote project, what git doesn't see (ignored .env files, a local database) is moved aside on the host
+        // into ~/.kelp-trash, rather than deleted for good by `worktree remove --force`. The shell's pid keeps two
+        // removals of folders with the same name in one second apart.
         if let host {
             let quote = ShellQuote.word,
                 aside = "\((path as NSString).lastPathComponent)-\(Int(Date().timeIntervalSince1970))"
@@ -284,7 +296,8 @@ extension Git {
                 "d=\"${KELP_TRASH:-$HOME/.kelp-trash}\"; mkdir -p \"$d\" && if [ -e \(quote(path)) ]; then mv -- \(quote(path)) \"$d\"/\(quote(aside))-$$; fi"
             )
         }
-        // Its record only: `worktree prune` would also drop worktrees whose folder is just away (an unmounted disk).
+        // Remove only this worktree's record, because `worktree prune` would also drop worktrees whose folder is just
+        // away (an unmounted disk).
         try run(["worktree", "remove", "--force", path], cwd: repo, remotes: remotes)
         if let branch { try run(["branch", "-D", rev(branch)], cwd: repo, remotes: remotes) }
     }
@@ -316,16 +329,17 @@ extension Git {
         }
     }
 
-    /// A worktree whose folder is gone (a removal that stopped after the Trash, a folder deleted by hand): git's record of
-    /// it goes, and its branch by `removeWorktree`'s rule: refused while it has commits no other branch or remote has,
-    /// unless `dropCommits`.
+    /// Forgets a worktree whose folder is gone (a removal that stopped after the Trash, a folder deleted by hand).
+    /// git's record of it is removed, and so is its branch, by the rule of `removeWorktree`: refused while it has
+    /// commits that no other branch or remote has, unless `dropCommits`.
     public static func forgetWorktree(
         repo: String, path: String, branch: String?, dropCommits: Bool = false, remotes: Remotes
     ) throws {
         let branch = branch.flatMap { branchExists(repo, $0, remotes: remotes) ? $0 : nil }
         if let branch, !dropCommits { try checkBranchDeletable(repo: repo, branch, remotes: remotes) }
-        let path = remotes.of(repo) != nil ? remotes.of(path)?.path ?? path : path   // a stand-in: the host's folder
-        // Only the folder it was in is there to follow links in to where git lists it (/tmp is /private/tmp).
+        let path = remotes.of(repo) != nil ? remotes.of(path)?.path ?? path : path   // a stand-in is the host's folder
+        // The worktree's folder is gone, so only its parent folder is left to follow links in, to match the path git
+        // lists (/tmp is /private/tmp).
         let local = remotes.of(repo) == nil
         let real = { (folder: String) in
             let url = URL(fileURLWithPath: folder)
@@ -341,8 +355,9 @@ extension Git {
         if let branch { try run(["branch", "-D", rev(branch)], cwd: repo, remotes: remotes) }
     }
 
-    /// Commits made on a detached HEAD in the worktree at `path` that no branch or remote has (on a branch, its commits
-    /// are that branch's, even none yet: 0). Refused when git can't count them: none is not a guess to remove on.
+    /// Counts the commits made on a detached HEAD in the worktree at `path` that no branch or remote has. On a branch,
+    /// the commits are that branch's, so the count is 0. It throws when git can't count them, because "none" is not a
+    /// guess to remove a folder on.
     public static func commitsOnNoBranch(_ path: String, remotes: Remotes) throws -> Int {
         if succeeds(["symbolic-ref", "-q", "HEAD"], cwd: path, remotes: remotes) { return 0 }
         do {
@@ -355,21 +370,24 @@ extension Git {
         }
     }
 
-    /// Whether `branch` was made with a group made at `since` and has moved since: its oldest reflog entry, its making, is
-    /// from then (a minute either side) and not where it is now. A branch that was there before (one opened to look at)
-    /// or that git didn't log the making of says no: what it holds isn't the group's own work.
+    /// Whether `branch` was made with a group made at `since` and has moved since then. Its oldest reflog entry, which
+    /// records its making, must be from that time (a minute either side), and the commit it was made on must differ
+    /// from where it is now. A branch that was there before (one opened to look at), or one whose making git didn't
+    /// log, says no, because what it holds isn't the group's own work.
     public static func moved(repo: String, _ branch: String, since: Date, remotes: Remotes) throws -> Bool {
         try madeOn(repo, branch, at: since, remotes).map {
             try $0 != line(["rev-parse", "refs/heads/" + branch], cwd: repo, remotes: remotes)
         } ?? false
     }
 
-    /// Whether `branch` was made at `at`, not there before (the user's, checked out with `--existing`): `madeOn`.
+    /// Whether `branch` was made at `at` (by `madeOn`), rather than existing before, like a user's branch checked out
+    /// with `--existing`.
     public static func made(repo: String, _ branch: String, at: Date, remotes: Remotes) throws -> Bool {
         try madeOn(repo, branch, at: at, remotes) != nil
     }
 
-    /// The commit `branch` was made on, if its oldest reflog entry, its making, is from `at` (a minute either side).
+    /// Returns the commit that `branch` was made on, if its oldest reflog entry, which records its making, is from `at`
+    /// (a minute either side).
     private static func madeOn(_ repo: String, _ branch: String, at: Date, _ remotes: Remotes) throws -> String? {
         let ref = "refs/heads/" + branch
         guard isRevision(branch), succeeds(["rev-parse", "--verify", "--quiet", ref], cwd: repo, remotes: remotes),
@@ -380,7 +398,7 @@ extension Git {
         return String(oldest[0])
     }
 
-    /// Whether the commit `branch` is on now is in `base` (merged or fast-forwarded there).
+    /// Whether the commit that `branch` points at now is in `base` (merged or fast-forwarded there).
     public static func isIn(repo: String, _ branch: String, base: String, remotes: Remotes) -> Bool {
         isRevision(branch) && isRevision(base) && branch != base
             && succeeds(

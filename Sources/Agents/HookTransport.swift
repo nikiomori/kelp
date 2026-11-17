@@ -2,20 +2,24 @@ import Foundation
 
 /// How an agent reports its own status to Kelp. Agent files keep the flat keys they always had (`hooksSettingsFlag`…).
 public enum HookTransport: Sendable, Equatable {
-    /// `{flag} <file>` on its command line; the file holds Claude Code-style hooks (`Hooks.settingsJSON`).
+    /// `{flag} <file>` on the agent's command line, where the file holds Claude Code-style hooks
+    /// (`Hooks.settingsJSON`).
     case settingsFlag(String)
-    /// An OpenCode-style config dir in `{env}` with Kelp's plugin in it (Kilo Code, OpenCode); its own dir is still read.
-    /// OpenCode 2 would read only that dir: its terminal UI gets the plugin in that dir's `tui` folder instead.
+    /// An OpenCode-style config dir in `{env}` with Kelp's plugin in it (Kilo Code, OpenCode). The agent still reads
+    /// its own config dir too. OpenCode 2 would read only that dir, so its terminal UI gets the plugin from the dir's
+    /// `tui` folder instead.
     case pluginDir(env: String)
-    /// The same hooks file in `{env}`, standing in for the file it names by default (`replaces`), whose settings it
-    /// carries over: Qwen Code's system settings are an admin's policy.
+    /// The same hooks file, named in `{env}`. It stands in for the file the agent reads by default (`replaces`) and
+    /// carries over that file's settings, because Qwen Code's system settings are an admin's policy.
     case settingsFile(env: String, replaces: String?)
-    /// herdr's socket (fx): `HERDR_SOCKET_PATH` is kelpd's, `HERDR_PANE_ID` the session (`pane.report_agent`).
+    /// herdr's socket (fx). `HERDR_SOCKET_PATH` points at kelpd's socket, and `HERDR_PANE_ID` names the session
+    /// (`pane.report_agent`).
     case herdr
-    /// Codex: the hooks and their trust on its command line (`-c`, `CodexHooks.args`), nothing written to ~/.codex.
+    /// Codex gets the hooks and their trust on its command line (`-c`, `CodexHooks.args`), so nothing is written to
+    /// ~/.codex.
     case codexConfig
 
-    /// The variable it's set through, if any.
+    /// The environment variable that the transport is set through, if any.
     public var env: String? {
         switch self {
         case .pluginDir(let name), .settingsFile(let name, _): name

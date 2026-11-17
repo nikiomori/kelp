@@ -7,7 +7,7 @@ let gitLog = Logger.kelp("git")
 /// What went wrong running git: git failed, Kelp didn't run it (and says why), or it printed more than Kelp reads.
 public enum GitError: Error, CustomStringConvertible, Sendable {
     case failed(args: [String], status: Int32, stderr: String)
-    /// Kelp's own sentence, for people: what's in the way (a merge under way, a name that reads as an option).
+    /// Kelp's own sentence for people, saying what's in the way (a merge under way, a name that reads as an option).
     case refused(String)
     case tooMuch
 
@@ -19,8 +19,8 @@ public enum GitError: Error, CustomStringConvertible, Sendable {
         case .tooMuch: "It printed more than \(Subprocess.outputLimit >> 20) MB, more than Kelp reads."
         }
     }
-    /// An error for people: git's first sentence, without the command line or "fatal:" ("…overwritten by checkout:"
-    /// keeps its next line), or Kelp's own message.
+    /// The error for people: git's first sentence without the command line or "fatal:", or Kelp's own message. A
+    /// sentence ending in "…overwritten by checkout:" keeps its next line.
     public var message: String {
         if case .failed(_, _, let stderr) = self, let said = ProgramError.firstSentence(stderr) { return said }
         return description
@@ -44,8 +44,8 @@ extension Git {
             as: UTF8.self)
     }
 
-    /// Whether git says yes (exits 0): a ref that may not be there (`rev-parse --verify`), an upstream that may not be
-    /// set. A git that couldn't run at all says no too, and that's logged.
+    /// Whether git says yes (exits 0), for checks such as a ref that may not exist (`rev-parse --verify`) or an
+    /// upstream that may not be set. A git that couldn't run at all says no too, and that's logged.
     public static func succeeds(_ args: [String], cwd: String, remotes: Remotes) -> Bool {
         do {
             try run(args, cwd: cwd, remotes: remotes)
@@ -58,7 +58,8 @@ extension Git {
         }
     }
 
-    /// `run`'s output without the newline it ends with (and any space around it): a hash, a name, a path, a count.
+    /// Returns the output of `run` without its final newline and any space around it, for a hash, a name, a path or a
+    /// count.
     public static func line(
         _ args: [String], cwd: String, ok: Set<Int32> = [0], env extra: [String: String] = [:],
         remotes: Remotes
@@ -66,8 +67,9 @@ extension Git {
         try run(args, cwd: cwd, ok: ok, env: extra, remotes: remotes).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// `run`, its output as the bytes git wrote (a diff of a file that isn't UTF-8 goes back to `git apply` unchanged).
-    /// More than `Subprocess.outputLimit` of it is an error: nothing here works on a part as if it were the whole.
+    /// Runs git like `run`, but returns the output as the bytes git wrote, so a diff of a file that isn't UTF-8 goes
+    /// back to `git apply` unchanged. Output longer than `Subprocess.outputLimit` is an error, so nothing here works on
+    /// a part as if it were the whole.
     @discardableResult
     public static func runData(
         _ args: [String], cwd: String, stdin: Data? = nil, ok: Set<Int32> = [0], env extra: [String: String] = [:],
@@ -80,32 +82,35 @@ extension Git {
         return output.data
     }
 
-    /// `runData` keeping the first `limit` bytes of the output: `truncated` says there was more (read and dropped), for a
-    /// caller that shows a part (a long status, a huge diff) and says so.
+    /// Runs git like `runData`, but keeps the first `limit` bytes of the output. `truncated` says there was more, which
+    /// was read and dropped. It is for a caller that shows a part (a long status, a huge diff) and says so.
     static func runPart(
         _ args: [String], cwd: String, stdin: Data? = nil, ok: Set<Int32> = [0], env extra: [String: String] = [:],
         timeLimit: TimeInterval = 300, limit: Int, remotes: Remotes
     ) throws -> (data: Data, truncated: Bool) {
-        // timeLimit: longest a git run (here or on a host) may take before it's stopped (it then fails like any other
-        // error). Five minutes: far past any real fetch or push, short of a thread lost for good.
-        // Paths as they are, not C-quoted ("\321\204…" for "ф"). No fsmonitor: a folder's own .git/config (one that
-        // came in a download, not a clone) would otherwise have every status Kelp runs start its program.
+        // `timeLimit` is the longest a git run (here or on a host) may take before it's stopped, and it then fails like
+        // any other error. The default of five minutes is far past any real fetch or push, and short of a thread lost
+        // for good.
+        // Paths are passed as they are, not C-quoted ("\321\204…" for "ф"). fsmonitor is off, because otherwise a
+        // folder's own .git/config (one that came in a download, not a clone) would start its program on every status
+        // Kelp runs.
         let hooks = args.first.map(runsHooks.contains) ?? false
         var args = ["-c", "core.quotePath=false", "-c", "core.fsmonitor=false"] + args
         var argv0 = "/usr/bin/git", cwd = cwd
         var off: [(String, String)] = []
         let remote = remotes.of(cwd)
-        // A repo's diff drivers run nothing either.
+        // A repo's diff drivers don't run anything either.
         if let sub = args.dropFirst(4).first, ["diff", "show", "log"].contains(sub) {
             args.insert(contentsOf: ["--no-ext-diff", "--no-textconv"], at: 5)
         }
-        // Reads verify no signature either: a repo's `log.showSignature` would run its own `gpg.program` on every log.
+        // Read-only commands don't verify signatures either, because a repo's `log.showSignature` would run its own
+        // `gpg.program` on every log.
         if let sub = args.dropFirst(4).first, readOnly.contains(sub) {
             args = Self.noSignatures + args
             if remote == nil { off = RepoFilters.off(cwd) }
         }
         var env = gitEnv.merging(extra) { $1 }
-        if let host = remote {   // a remote project: the same git, on its host
+        if let host = remote {   // for a remote project, the same git runs on its host
             args = host.sshArgs(tty: false) + [Self.onHost(args, env: env, path: host.path, hooks: hooks)]
             argv0 = host.ssh
             cwd = NSHomeDirectory()
@@ -117,7 +122,8 @@ extension Git {
                 [argv0] + args, cwd: cwd, env: env, stdin: stdin, ok: ok, timeLimit: timeLimit, limit: limit)
             return (result.stdout, result.truncated)
         } catch let error as ProgramError {
-            // ssh's own failure (git's exit codes are 1 or 128): what's missing is the host, not git.
+            // Exit status 255 is ssh's own failure (git's exit codes are 1 or 128), so what's missing is the host, not
+            // git.
             if let host = remote, error.status == 255 {
                 let why = error.stderr.split(whereSeparator: \.isNewline).last.map { ": " + $0 } ?? "."   // ssh's words
                 throw GitError.refused("Can't reach \(host.host)" + why)
@@ -126,9 +132,10 @@ extension Git {
         }
     }
 
-    /// `git args` on a host, as ssh hands it to the login shell there: in sh whatever that shell is, with `env` (this
-    /// side's environment stays here). A commit, a push or a switch runs the repository's hooks (husky, pre-commit): in
-    /// the login shell as a terminal there has it, whose PATH has nvm's and npm's (`RemoteHost.command`).
+    /// Builds the command that runs `git args` on a host, as ssh hands it to the login shell there. It runs in sh,
+    /// whatever that login shell is, with `env`, while this Mac's environment stays here. A commit, a push or a switch
+    /// runs the repository's hooks (husky, pre-commit), so those commands run in the login shell as a terminal there
+    /// has it, whose PATH includes nvm's and npm's (`RemoteHost.command`).
     static func onHost(_ args: [String], env: [String: String], path: String, hooks: Bool) -> String {
         let git =
             (["env"] + env.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" } + ["git"] + args)
@@ -139,18 +146,19 @@ extension Git {
     }
     static let runsHooks: Set<String> = ["commit", "merge", "pull", "push", "switch", "checkout", "rebase", "am"]
 
-    /// No password prompt nobody would see, and a status doesn't rewrite the index (which would wake the file watchers
-    /// again).
+    /// No password prompt that nobody would see, and no index rewrite by a status, which would wake the file watchers
+    /// again.
     static let gitEnv = ["GIT_TERMINAL_PROMPT": "0", "GIT_OPTIONAL_LOCKS": "0"]
 
-    /// The environment for a program that runs git itself (gh, glab): `gitEnv`, and no fsmonitor and no signature
-    /// program of a repository's own there either.
+    /// The environment for a program that runs git itself (gh, glab): `gitEnv`, with a repository's own fsmonitor and
+    /// signature program turned off there too.
     public static var toolEnv: [String: String] {
         let off = [("core.fsmonitor", "false"), ("log.showSignature", "false")]
         return gitEnv.merging(configEnv(off, after: ProcessInfo.processInfo.environment)) { $1 }
     }
 
-    /// What Kelp runs by itself (watches, panels): these read, and never run a repository's own filters (`RepoFilters`).
+    /// Config for the commands Kelp runs by itself (watches, panels), which only read. They never run a repository's
+    /// own signature programs or its filters (`RepoFilters`).
     static let noSignatures = [
         "-c", "log.showSignature=false", "-c", "gpg.program=false", "-c", "gpg.ssh.program=false", "-c",
         "gpg.x509.program=false"
@@ -159,8 +167,9 @@ extension Git {
         "status", "diff", "show", "log", "blame", "ls-files", "grep", "diff-files", "diff-index"
     ]
 
-    /// Config for one run, after what `env` holds already. Unlike `-c`, it takes any key: a filter can be called `a=b`, and
-    /// `-c` would split that at its first `=`. A submodule's git still gets it.
+    /// Config for one run, as environment variables numbered after those that `env` holds already. Unlike `-c`, this
+    /// takes any key, because a filter can be called `a=b`, and `-c` would split that at its first `=`. A submodule's
+    /// git still gets it.
     static func configEnv(_ pairs: [(String, String)], after env: [String: String]) -> [String: String] {
         guard !pairs.isEmpty else { return [:] }
         let start = Int(env["GIT_CONFIG_COUNT"] ?? "") ?? 0
@@ -172,7 +181,8 @@ extension Git {
         return out
     }
 
-    /// `data` up to its last `separator`, inclusive: the whole entries of output cut off mid-entry.
+    /// Returns `data` up to and including its last `separator`, which keeps the whole entries of output cut off
+    /// mid-entry.
     static func wholeEntries(_ data: Data, _ separator: UInt8) -> Data {
         data.lastIndex(of: separator).map { data[...$0] } ?? Data()
     }
@@ -191,8 +201,9 @@ extension Git {
     /// the daemon's `ref`.
     public static func isRevision(_ name: String) -> Bool { !name.isEmpty && !name.hasPrefix("-") }
 
-    /// `name` as a revision or branch argument, wherever it came from (a client, the database, git's own output): every
-    /// GitKit call that puts one where git reads options goes through this, so none can become an option.
+    /// Returns `name` for use as a revision or branch argument, wherever it came from (a client, the database, git's
+    /// own output). Every GitKit call that puts a name where git reads options goes through this, so no name can become
+    /// an option.
     static func rev(_ name: String) throws -> String {
         guard isRevision(name) else {
             throw GitError.refused("“\(name)” isn't a branch or commit name.")
@@ -200,7 +211,8 @@ extension Git {
         return name
     }
 
-    /// Default branch: origin/HEAD if set, else current branch of the main checkout.
+    /// Returns the default branch: origin/HEAD if set, or else main or master if one exists, or else the current branch
+    /// of the main checkout.
     public static func defaultBranch(repo: String, remotes: Remotes) -> String {
         if let ref = try? line(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd: repo, remotes: remotes) {
             let branch = String(ref.drop(while: { $0 != "/" }).dropFirst())
@@ -213,15 +225,16 @@ extension Git {
         return (try? currentBranch(repo, remotes: remotes)) ?? "main"
     }
 
-    /// Every workspace list asks this for each project: a local checkout's HEAD file answers without a git process.
-    /// Detached, a linked worktree (.git is a file), a reftable repository or a remote project: git itself.
+    /// Returns the current branch. Every workspace list asks this for each project, so a local checkout's HEAD file
+    /// answers without a git process. For a detached HEAD, a linked worktree (.git is a file), a reftable repository or
+    /// a remote project, git itself answers.
     public static func currentBranch(_ path: String, remotes: Remotes) throws -> String {
         var name = ""
         if remotes.of(path) == nil, let head = String(contentsIfAny: URL(fileURLWithPath: path + "/.git/HEAD")),
             head.hasPrefix("ref: refs/heads/")
         {
             name = String(head.dropFirst("ref: refs/heads/".count)).trimmingCharacters(in: .whitespacesAndNewlines)
-            if name == ".invalid" { name = "" }   // a reftable repository's stub HEAD: the real one is in its tables
+            if name == ".invalid" { name = "" }   // a reftable repository's stub HEAD, whose real HEAD is in its tables
         }
         if name.isEmpty {
             name = try line(["rev-parse", "--abbrev-ref", "HEAD"], cwd: path, remotes: remotes)
@@ -233,17 +246,19 @@ extension Git {
     }
 }
 
-/// Filter drivers a repository's own config defines (`filter.<name>.clean` / `process` in .git/config, an include of it, or
-/// config.worktree). A folder that came as a download, not a clone, can carry one with `.gitattributes`, and every
-/// `git status` Kelp runs as files change would start it. Reads and Kelp's snapshots turn them off; what the user does (add,
-/// commit, checkout) keeps them, so git-crypt and the like still encrypt. Filters from the user's own (global) config are left alone.
+/// The filter drivers that a repository's own config defines (`filter.<name>.clean` / `process` in .git/config, an
+/// include of it, or config.worktree). A folder that came as a download, not a clone, can carry one with
+/// `.gitattributes`, and every `git status` Kelp runs as files change would start it. Reads and Kelp's snapshots turn
+/// these filters off. What the user does (add, commit, checkout) keeps them, so git-crypt and the like still encrypt.
+/// Filters from the user's own (global) config are left alone.
 /// Limit: with its filter off, a file whose stat changed reads as modified in a git-crypt-style repo until it's added.
 enum RepoFilters {
-    /// By config file: the names, and the stamp of every file they were read from (the config and what it includes).
+    /// The filter names for each config file, with the stamp of every file they were read from (the config and what it
+    /// includes).
     private static let cache = OSAllocatedUnfairLock<[String: (stamps: [String: Date], names: [String])]>(
         initialState: [:])
 
-    /// The config that turns them off for one run in `cwd` (`Git.configEnv`).
+    /// The config that turns the repository's filters off for one run in `cwd` (`Git.configEnv`).
     static func off(_ cwd: String) -> [(String, String)] {
         names(cwd).flatMap { filter in
             [("clean", ""), ("smudge", ""), ("process", ""), ("required", "false")].map {
@@ -252,8 +267,8 @@ enum RepoFilters {
         }
     }
 
-    /// The filter a config key is about, if it's one that runs something. Split from the ends: a filter's name can hold
-    /// dots, spaces and `=`.
+    /// Returns the filter that a config key is about, if the key runs something. The key is split from both ends,
+    /// because a filter's name can hold dots, spaces and `=`.
     static func name(ofKey key: Substring) -> String? {
         guard key.hasPrefix("filter."), let dot = key.lastIndex(of: "."),
             ["clean", "smudge", "process"].contains(key[key.index(after: dot)...])
@@ -262,8 +277,9 @@ enum RepoFilters {
         return start < dot ? String(key[start..<dot]) : nil
     }
 
-    /// Read again only when the repository's config, or a file it includes, changed (their stamps); every run when it
-    /// can't be found. Limit: an included file with nothing in it yet isn't watched until the config is read again.
+    /// Returns the repository's filter names. They are read again only when the repository's config, or a file it
+    /// includes, changed (by their stamps), and on every run when the config can't be found.
+    /// Limit: an included file with nothing in it yet isn't watched until the config is read again.
     static func names(_ cwd: String) -> [String] {
         guard let file = configFile(cwd) else { return read(cwd).names }
         if let hit = cache.withLock({ $0[file] }), hit.stamps.allSatisfy({ stamp($0.key) == $0.value }) {
@@ -279,8 +295,9 @@ enum RepoFilters {
         return names
     }
 
-    /// Filters the repository's submodules define in their own config (.git/modules/…/config): `git status` runs in each
-    /// populated one too, and Kelp's `-c` reaches them (GIT_CONFIG_PARAMETERS). Their config files are stamped as well.
+    /// The filters that the repository's submodules define in their own config (.git/modules/…/config), because `git
+    /// status` runs in each populated submodule too, and Kelp's `-c` reaches them (GIT_CONFIG_PARAMETERS). Their config
+    /// files are stamped as well.
     private static func submodules(of config: String) -> (names: [String], files: [String]) {
         let modules = URL(fileURLWithPath: config).deletingLastPathComponent().appendingPathComponent("modules")
         let all =
@@ -317,7 +334,7 @@ enum RepoFilters {
                 args, cwd: cwd, env: ProcessInfo.processInfo.environment, timeLimit: 10, limit: 1 << 20)
         else { return ([], []) }
         var names = Set<String>(), files = Set<String>()
-        // Scope, origin and "key\nvalue", each ended by a NUL: nothing a name holds can pass for the next field.
+        // Scope, origin and "key\nvalue" each end with a NUL, so nothing a name holds can pass for the next field.
         let fields = String(decoding: result.stdout, as: UTF8.self).split(
             separator: "\0", omittingEmptySubsequences: false)
         for index in stride(from: 0, to: fields.count - 2, by: 3)

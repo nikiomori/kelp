@@ -1,16 +1,18 @@
 import Core
 import Foundation
 
-/// The person's own skill folders, changed at their word: one moved to the Trash, linked where the other agents read,
-/// made new, or copied in from a folder. A skill sits once, in the folder the agents share (`.agents/skills`), with a
-/// link in Claude Code's, which reads only its own: the layout `npx skills` makes.
+/// Changes the person's own skill folders when the person asks: moves a skill to the Trash, links it where the other
+/// agents read, makes a new one, or copies one in from a folder. Each skill sits once, in the folder the agents share
+/// (`.agents/skills`), with a link in Claude Code's folder, because Claude Code reads only its own. This is the layout
+/// that `npx skills` makes.
 extension AddonFiles {
     public struct Plugin: Sendable, Equatable {
-        /// "sales@synced", "ponytail@ponytail": what the agent's own `plugin uninstall` takes.
+        /// The plugin's id, such as "sales@synced" or "ponytail@ponytail", which the agent's `plugin uninstall` takes.
         public var id: String, dir: URL
     }
 
-    /// Claude Code's plugins by name: those it installed (with their folder) and claude.ai's, which sync into one.
+    /// Returns Claude Code's plugins by name: those it installed, with their folders, and claude.ai's plugins, which
+    /// sync into a folder of their own.
     public func plugins() -> [String: Plugin] {
         var out: [String: Plugin] = [:]
         let synced = claude.appendingPathComponent("plugins/synced")
@@ -39,22 +41,23 @@ extension AddonFiles {
         return (root.appendingPathComponent(".agents/skills"), root.appendingPathComponent(".claude/skills"))
     }
 
-    /// Every place a skill of this name sits in, links and real folders alike.
+    /// Returns every place that holds a skill of this name, links and real folders alike.
     private func places(_ name: String, cwd: String) -> [Skill] { skills(cwd: cwd).filter { $0.name == name } }
 
-    /// The skill's real folders go to the Trash and the links to them go away. Throws when there's no such skill.
+    /// Moves the skill's real folders to the Trash and removes the links to them. Throws when there's no such skill.
     public func trashSkill(_ name: String, cwd: String) throws {
         let found = places(name, cwd: cwd)
         guard !found.isEmpty else { throw CocoaError(.fileNoSuchFile, userInfo: [NSFilePathErrorKey: name]) }
-        // A link is what is a link itself: a real folder reached through a linked parent (~/.claude from dotfiles,
-        // /tmp for /private/tmp) resolves elsewhere too, and removing it would delete the skill for good.
+        // Only a path that is itself a link counts as a link. A real folder reached through a linked parent
+        // (~/.claude from dotfiles, /tmp for /private/tmp) also resolves elsewhere, and removing it would delete the
+        // skill for good.
         let links = Set(
             found.map(\.path).filter { (try? FileManager.default.destinationOfSymbolicLink(atPath: $0)) != nil })
-        for link in links { try FileManager.default.removeItem(atPath: link) }   // only itself
+        for link in links { try FileManager.default.removeItem(atPath: link) }   // removes the link, not its target
         for real in Set(found.map(\.path)).subtracting(links) { try Trash.move(URL(fileURLWithPath: real)) }
     }
 
-    /// A link to the skill in each of its scope's two folders that lacks it, so every agent reads it.
+    /// Adds a link to the skill in each of its scope's two folders that lacks one, so that every agent reads it.
     public func linkSkill(_ name: String, cwd: String) throws {
         let found = places(name, cwd: cwd)
         guard let home = found.first(where: { $0.real == $0.path }) ?? found.first else {
@@ -69,7 +72,7 @@ extension AddonFiles {
         }
     }
 
-    /// A new skill to fill in: its folder with a SKILL.md, and the link. Returns the SKILL.md.
+    /// Makes a new skill to fill in: its folder with a SKILL.md, and the link. Returns the SKILL.md's path.
     public func newSkill(_ name: String, cwd: String, project: Bool) throws -> String {
         let folder = try place(name, cwd: cwd, project: project)
         try Paths.ensure(folder)
@@ -90,9 +93,9 @@ extension AddonFiles {
         return file.path
     }
 
-    /// Copies in the skills of `source`: itself when it holds a SKILL.md, else every folder up to three levels down
-    /// that does (a repository's `skills/<name>`). Returns their SKILL.md files; throws when it holds none, or one of
-    /// that name is there already.
+    /// Copies in the skills in `source`: the folder itself when it holds a SKILL.md, or else every folder up to three
+    /// levels down that does (a repository's `skills/<name>`). Returns the copied SKILL.md files. Throws when `source`
+    /// holds no skill, or when a skill with the same name is already there.
     public func installSkills(from source: URL, cwd: String, project: Bool) throws -> [String] {
         let found = Self.skillFolders(in: source, depth: 3)
         guard !found.isEmpty else {
@@ -112,7 +115,8 @@ extension AddonFiles {
         }
     }
 
-    /// Where a new skill of this name goes; throws for a name the agents wouldn't take, or one already there.
+    /// Returns where a new skill of this name goes. Throws for a name the agents wouldn't accept, or for a skill that
+    /// is already there.
     private func place(_ name: String, cwd: String, project: Bool) throws -> URL {
         guard !name.isEmpty, name.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else {
             throw CocoaError(

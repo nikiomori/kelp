@@ -11,8 +11,8 @@ public struct BitbucketClient: Sendable {
     }
 
     /// "git@bitbucket.org:team/repo.git" / "https://bitbucket.org/team/repo" → ("team", "repo")
-    /// Only when the remote's host is a Bitbucket (`Forge.of`): "https://example.com/bitbucket.org/x" or a fork named
-    /// so isn't one.
+    /// Returns nil unless the remote's host is a Bitbucket (`Forge.of`), so "https://example.com/bitbucket.org/x", or a
+    /// fork with such a name, isn't one.
     public static func slug(remote: String) -> (workspace: String, repo: String)? {
         guard Forge.of(remote: remote) == .bitbucket, let (_, path) = Git.webRepo(remote) else { return nil }
         let parts = path.split(separator: "/")

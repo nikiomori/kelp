@@ -39,7 +39,8 @@ public struct JiraClient: Sendable {
         _ = try await request("POST", "/rest/api/3/issue/\(key)/transitions", body: ["transition": ["id": id]])
     }
 
-    /// Best-effort move: the first transition whose target matches the name hint, else the category.
+    /// Moves an issue as well as it can, by the first transition whose target matches the name hint, or else the
+    /// category.
     public func move(key: String, toName hint: String, category: String) async throws {
         let ts = try await transitions(key: key)
         if let target = ts.first(where: { $0.name.lowercased().contains(hint) })

@@ -9,21 +9,23 @@ private let lspLog = Logger.kelp("lsp")
 public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't Sendable; everything that changes is in `state`
     private let proc = Process()
     private let input = Pipe(), output = Pipe()
-    /// stdin writes, in order and off the caller's thread: a server that stops reading must not block the UI.
+    /// Writes to stdin, in order and off the caller's thread, because a server that stops reading must not block the
+    /// UI.
     private let writes = DispatchQueue(label: "kelp.lsp.stdin")
     private struct State {
-        var diagnostics: [String: [JSONValue]] = [:]   // as the server said them: a code action is asked with them
+        var diagnostics: [String: [JSONValue]] = [:]   // as sent, because a code action is asked with them
         var nextID = 1
         var pending: [Int: CheckedContinuation<JSONValue, Error>] = [:]
         var versions: [String: Int] = [:]
         var opened: [String: Int] = [:]   // path -> how many tabs have it open (didOpen once, didClose after the last)
         var exited = false
-        /// Requests in a row that got no answer in time: a server alive but hung (it stopped reading) is given up on.
+        /// The number of requests in a row that got no answer in time, so that a server alive but hung (it stopped
+        /// reading) is given up on.
         var timeouts = 0
-        /// The latest text of each document whose didChange waits on the write queue: one write sends the newest, so a
-        /// server that reads slowly gets one copy per document, not one per keystroke.
-        /// Each with the number of the write that sends it: a write queued before the document was closed finds a
-        /// newer number (or none) and sends nothing, so it can't carry text from after a reopen ahead of that didOpen.
+        /// The latest text of each document whose didChange waits on the write queue. One write sends the newest text,
+        /// so a server that reads slowly gets one copy per document, not one per keystroke. Each text comes with the
+        /// number of the write that sends it. A write queued before the document was closed finds a newer number (or
+        /// none) and sends nothing, so it can't carry text from after a reopen ahead of that didOpen.
         var changes: [String: (write: Int, params: JSONValue)] = [:]
         var nextWrite = 0
         var onIdle: (@Sendable () -> Void)?
@@ -32,17 +34,18 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
     public let root: String
-    /// Its `initializationOptions`, and its settings: sent once it's up and given for `workspace/configuration`.
+    /// The server's `initializationOptions`, and its settings, which are sent once the server is up and given for
+    /// `workspace/configuration`.
     private let options: JSONValue?, settings: JSONValue?
     private let onProblems: (@Sendable (String, [CodeProblem]) -> Void)?
-    /// The last open document was closed.
+    /// Called when the last open document was closed.
     public var onIdle: (@Sendable () -> Void)? {
         get { state.withLock { $0.onIdle } }
         set { state.withLock { $0.onIdle = newValue } }
     }
 
-    /// `argv[0]` is looked up on the login-shell PATH, which the server gets too (npm servers need `node`).
-    /// `onProblems`: a file's errors and warnings, each time the server says them.
+    /// Starts the server. `argv[0]` is looked up on the login-shell PATH, which the server gets too (npm servers need
+    /// `node`). `onProblems` gets a file's errors and warnings each time the server reports them.
     public init?(
         argv: [String], root: String, options: JSONValue? = nil, settings: JSONValue? = nil,
         onProblems: (@Sendable (_ path: String, [CodeProblem]) -> Void)? = nil
@@ -63,9 +66,10 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         proc.standardError = FileHandle.nullDevice
         do { try proc.run() } catch { return nil }
         _ = fcntl(input.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)   // a server that died fails the write, not the app
-        // Weak: the reader must not keep the client (and so the server) alive; deinit terminates the server, which ends the loop.
-        // read(2), not FileHandle.availableData, which raises on a read error and would take the daemon down.
-        // The reader holds the read end: let go of with the client, its number could be someone else's by the next read.
+        // The reader holds the client weakly, because it must not keep the client (and so the server) alive. deinit
+        // terminates the server, which ends the loop. It uses read(2), not FileHandle.availableData, which raises on a
+        // read error and would take the daemon down. The reader holds the read end itself, because if the read end went
+        // with the client, its file number could belong to something else by the next read.
         let reading = output.fileHandleForReading
         Thread.detachNewThread { [weak self] in
             var framer = LSPFramer(), buf = [UInt8](repeating: 0, count: 1 << 16)
@@ -88,9 +92,10 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         }
     }
 
-    /// The server and what it started (tsserver's workers…), SIGKILL for what's left after 2 s.
+    /// Stops the server and what it started (tsserver's workers…), with SIGKILL for what's left after 2 s.
     public func terminate() { if proc.isRunning { Subprocess.stopTree(proc.processIdentifier) } }
-    /// `terminate`, done before it returns (what ignores SIGTERM gets SIGKILL): for a daemon about to exit or exec.
+    /// Does what `terminate` does, but finishes before it returns (whatever ignores SIGTERM gets SIGKILL), for a daemon
+    /// about to exit or exec.
     public func terminateNow() { if proc.isRunning { Subprocess.stopTreeNow(proc.processIdentifier) } }
     /// The server's process id, while it runs.
     public var pid: pid_t? { proc.isRunning ? proc.processIdentifier : nil }
@@ -107,7 +112,7 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         all.values.forEach { $0.resume(throwing: error) }
     }
 
-    /// Decoded as plain JSON: ids may be numbers or strings.
+    /// Handles one message from the server, decoded as plain JSON because ids may be numbers or strings.
     private func handle(_ body: Data) {
         guard let message = try? JSONDecoder().decode(JSONValue.self, from: body) else { return }
         let id = message["id"].flatMap { $0 == .null ? nil : $0 }
@@ -142,9 +147,10 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         }
     }
 
-    /// Encoded on the write queue too: didChange sends the whole document, and the caller is usually the main thread.
+    /// Sends a message, encoded on the write queue too, because didChange sends the whole document and the caller is
+    /// usually the main thread.
     private func send(_ message: [String: JSONValue]) {
-        let handle = input.fileHandleForWriting   // not self: a blocked write must not keep the client alive
+        let handle = input.fileHandleForWriting   // not self, so a blocked write can't keep the client alive
         writes.async {
             lspLog.attempt("writing to a language server") {
                 try handle.write(contentsOf: LSPFramer.frame(JSONEncoder().encode(JSONValue.object(message))))
@@ -186,8 +192,8 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         send(["jsonrpc": "2.0", "method": .string(method), "params": params])
     }
 
-    /// The answer to `workspace/configuration`: for each item asked, the part of `settings` its dotted `section` names
-    /// (all of them when it names none), null where there's nothing.
+    /// Returns the answer to `workspace/configuration`. For each item asked, it gives the part of `settings` that the
+    /// item's dotted `section` names (all of them when it names none), or null where there's nothing.
     static func configuration(_ settings: JSONValue?, for params: JSONValue?) -> JSONValue {
         .array(
             (params?["items"]?.array ?? []).map { item in
@@ -195,7 +201,7 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
             })
     }
 
-    /// The server said, when it started, that it answers this (`hoverProvider`, `codeActionProvider`…).
+    /// Whether the server said, when it started, that it answers this (`hoverProvider`, `codeActionProvider`…).
     public func can(_ capability: String) -> Bool {
         let value = state.withLock { $0.capabilities[capability] }
         return value != nil && value != .null && value != .bool(false)
@@ -203,7 +209,8 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
 
     public func initialize() async throws {
         let uri = URL(fileURLWithPath: root).absoluteString
-        // Settings are asked for only by a server told it may: one given none keeps its own defaults, as before.
+        // Only a server that is told it may asks for settings, so a server given none keeps its own defaults, as
+        // before.
         var workspace: [String: JSONValue] = ["symbol": .obj([:])]
         if settings != nil { workspace["configuration"] = true }
         let started = try await request(
@@ -246,7 +253,7 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         if let settings { notify("workspace/didChangeConfiguration", .obj(["settings": settings])) }
     }
 
-    /// `publishDiagnostics`' params: errors and warnings, not the hints a server has for every other line.
+    /// Reads the params of `publishDiagnostics`: errors and warnings, not the hints a server has for every other line.
     static func problems(_ params: JSONValue) -> (path: String, found: [CodeProblem])? {
         guard let uri = params["uri"]?.string, let path = URL(string: uri)?.path else { return nil }
         let found = (params["diagnostics"]?.array ?? []).compactMap { diagnostic -> CodeProblem? in
@@ -347,7 +354,8 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         .obj(["textDocument": .obj(["uri": Self.uri(path)]), "position": Self.pos(line, col)])
     }
 
-    /// The server's actions on a line, told the problems there: most quick fixes hang off them.
+    /// Returns the server's actions on a line. The request includes the problems on that line, because most quick fixes
+    /// hang off them.
     public func actions(_ path: String, line: Int, column: Int) async throws -> [CodeAction] {
         let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
         let all: [JSONValue] = state.withLock { $0.diagnostics[real] ?? $0.diagnostics[path] ?? [] }

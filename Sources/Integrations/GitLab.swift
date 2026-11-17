@@ -10,7 +10,8 @@ public enum GitLab {
         ProcessInfo.processInfo.environment["KELP_GLAB"] ?? LoginPath.find("glab")
     }
 
-    /// For Settings: is glab installed, and who it's signed in as ("ada on gitlab.com"; nil: not signed in anywhere).
+    /// For Settings: whether glab is installed, and who it's signed in as ("ada on gitlab.com", or nil when not signed
+    /// in anywhere).
     /// `glab auth status` covers self-managed hosts too, where `glab api user` would only ask gitlab.com.
     public static func account() -> (installed: Bool, user: String?) {
         guard let exe = glabPath else { return (false, nil) }
@@ -19,7 +20,7 @@ public enum GitLab {
         return (true, out.flatMap { signedIn(String(decoding: $0.stdout + $0.stderr, as: UTF8.self)) })
     }
 
-    /// "✓ Logged in to gitlab.com as ada (…/config.yml)" → "ada on gitlab.com", each host's.
+    /// Reads "✓ Logged in to gitlab.com as ada (…/config.yml)" as "ada on gitlab.com", one for each host.
     static func signedIn(_ status: String) -> String? {
         let who = status.matches(of: /Logged in to (\S+) as (\S+)/).map { "\($0.2) on \($0.1)" }
         return who.isEmpty ? nil : who.joined(separator: ", ")
@@ -31,7 +32,7 @@ public enum GitLab {
         guard let exe = glabPath else {
             throw ForgeError.notInstalled("glab", [path])
         }
-        // raw: a title is text, never read as a number or a file
+        // --raw-field, so a title is text, never read as a number or a file
         let rawFields = fields.flatMap { ["--raw-field", "\($0.0)=\($0.1)"] }
         let args = ["api", "-X", method, path] + rawFields
         do { return try Subprocess.output([exe] + args, cwd: cwd, env: Git.toolEnv) } catch let error as ProgramError {
@@ -110,7 +111,7 @@ public enum GitLab {
         return request.web_url
     }
 
-    /// Merges it now, squashed unless asked otherwise.
+    /// Merges the merge request now, squashed unless asked otherwise.
     public static func mergeMR(cwd: String, number: Int, squash: Bool) throws {
         _ = try api(
             "projects/:id/merge_requests/\(number)/merge", cwd: cwd, method: "PUT",
@@ -123,8 +124,9 @@ public enum GitLab {
             state: String
     }
 
-    /// The avatar of the account behind a commit author's email on this repo's GitLab, 64 px. A Gravatar the instance
-    /// falls back to is left out: the email's hash would go to a third party. nil: no account has it.
+    /// Returns the avatar of the account behind a commit author's email on this repo's GitLab, at 64 px. A Gravatar
+    /// that the instance falls back to is left out, because the email's hash would go to a third party. Returns nil
+    /// when no account has the address.
     public static func avatarURL(email: String, cwd: String) throws -> URL? {
         struct Raw: Decodable { var avatar_url: String? }
         let raw = try JSONDecoder().decode(Raw.self, from: api("avatar?email=\(queryValue(email))&size=64", cwd: cwd))

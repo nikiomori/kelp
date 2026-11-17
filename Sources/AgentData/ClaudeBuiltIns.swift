@@ -1,9 +1,10 @@
 import Foundation
 import os
 
-/// The skills Claude Code brings itself, by name, learnt from what its /context prints (the Skills table's
-/// "Built-in" rows) whenever Kelp reads one: they tell a skill of Claude Code's own from one of the person's that was
-/// deleted after a chat started, which the chat's record lists alike. nil until one was read.
+/// The names of the skills built into Claude Code. Kelp learns them from the "Built-in" rows of the Skills table that
+/// /context prints, each time it reads such a print. A chat's record lists built-in skills and deleted skills alike, so
+/// these names tell a built-in skill from one of the person's that was deleted after the chat started. The names are
+/// nil until Kelp has read a print.
 public enum ClaudeBuiltIns {
     private static let known = OSAllocatedUnfairLock<Set<String>?>(initialState: nil)
 
@@ -14,7 +15,7 @@ public enum ClaudeBuiltIns {
         known.withLock { $0 = found }
     }
 
-    /// nil when the print has no Skills table.
+    /// Returns the built-in names, or nil when the print has no Skills table.
     static func read(_ printed: String) -> Set<String>? {
         var section = "", seen = false, names = Set<String>()
         for line in printed.split(separator: "\n") {

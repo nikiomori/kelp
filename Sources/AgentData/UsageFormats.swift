@@ -5,16 +5,19 @@ import Foundation
 struct UsageEntry {
     var time: TimeInterval, model: String, cwd: String, id: String?
     var tokens: TokenCounts
-    /// What the line alone can tell it cost (Grok's own figure, Claude's hour-long cache writes); nil: priced from `Pricing`.
+    /// The call's cost, when the line alone can tell it (Grok's own figure, Claude's hour-long cache writes). When it
+    /// is nil, the call is priced from `Pricing`.
     var cost: Double?
 }
 
-/// Whose logs a `UsageIndex` reads: which files, which lines, and what a line says. `context` keeps what earlier lines of
-/// the file said (Codex names the model and folder once, not with every call) from one read to the next.
+/// The agent whose logs a `UsageIndex` reads, which decides which files and lines are read and what a line means.
+/// `context` keeps what earlier lines of a file said from one read to the next, because Codex names the model and
+/// folder once, not with every call.
 public enum UsageFormat: String, Sendable, CaseIterable {
     case claude, codex, grok, kimi, pi, omp, qwen, gemini
 
-    /// Where each keeps its sessions, in its folder (`AgentHome`); Claude's and Codex's come with account profiles.
+    /// The folder where each agent keeps its sessions, inside its own folder (`AgentHome`). It is nil for Claude and
+    /// Codex, whose folders come with account profiles.
     public var defaultRoot: URL? {
         let inside: String? =
             switch self {
@@ -49,14 +52,14 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         }
     }
 
-    /// Gemini's `tmp/<project>/chats/`: a subagent's conversation is a folder further down,
-    /// `chats/<parent id>/<id>.jsonl`.
+    /// Returns the `tmp/<project>/chats/` folder that a Gemini file belongs to. A subagent's conversation sits one
+    /// folder further down, in `chats/<parent id>/<id>.jsonl`.
     static func geminiChats(_ file: URL) -> URL {
         let up = file.deletingLastPathComponent()
         return up.lastPathComponent == "chats" ? up : up.deletingLastPathComponent()
     }
 
-    /// A line with none of these isn't parsed (gigabytes of Claude transcripts).
+    /// A line that contains none of these isn't parsed, which matters for gigabytes of Claude transcripts.
     var markers: [Data] {
         switch self {
         case .claude: [UsageIndex.marker]
@@ -69,10 +72,11 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         }
     }
 
-    /// What the file's folder says, before its first line.
+    /// Returns what the file's folder says, read before the file's first line.
     func start(_ file: URL) -> [String: String] {
         switch self {
-        // sessions/<cwd, percent-encoded>/<id>/updates.jsonl. A subagent's turns are already in its parent's.
+        // Grok keeps sessions/<cwd, percent-encoded>/<id>/updates.jsonl. A subagent's turns are already in its
+        // parent's file, so the subagent's file is skipped.
         case .grok:
             let dir = file.deletingLastPathComponent()
             let summary = FileManager.default.contents(atPath: dir.appendingPathComponent("summary.json").path).flatMap(
@@ -83,13 +87,15 @@ public enum UsageFormat: String, Sendable, CaseIterable {
                 info?["cwd"] as? String ?? dir.deletingLastPathComponent().lastPathComponent.removingPercentEncoding
                 ?? ""
             return kind.hasPrefix("subagent") ? ["skip": "1"] : ["cwd": cwd]
-        // sessions/<folder>/session_<id>/agents/<agent>/wire.jsonl; the folder is in the session's state.json.
+        // Kimi keeps sessions/<folder>/session_<id>/agents/<agent>/wire.jsonl. The folder is in the session's
+        // state.json.
         case .kimi:
             let session = file.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             let state = FileManager.default.contents(atPath: session.appendingPathComponent("state.json").path).flatMap(
                 JSONL.object)
             return ["cwd": state?["cwd"] as? String ?? ""]
-        // tmp/<project>/chats/session-….jsonl; projects.json says which folder a project's name stands for.
+        // Gemini keeps tmp/<project>/chats/session-….jsonl. projects.json says which folder a project's name stands
+        // for.
         case .gemini:
             let folder = Self.geminiChats(file).deletingLastPathComponent(), project = folder.lastPathComponent
             let list = FileManager.default.contents(
@@ -114,10 +120,10 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         }
     }
 
-    /// Codex's rollouts: the folder comes from `session_meta`, the model from each `turn_context`, and a call's tokens
-    /// from `token_count`'s `last_token_usage` (whose input includes the cached part). The same snapshot is often
-    /// written twice (it is one running total, so it is counted once). An estimate has nothing but a total (an imported
-    /// Claude Code conversation has one), so it is left out.
+    /// Reads Codex's rollouts. The folder comes from `session_meta`, the model from each `turn_context`, and a call's
+    /// tokens from `last_token_usage` in `token_count` (its input includes the cached part). The same snapshot is often
+    /// written twice with the same running total, so it is counted once. An estimate has nothing but a total (an
+    /// imported Claude Code conversation has one), so it is left out.
     /// Limit: a fork replays its parent's events stamped with the time it forked; those in its first 2 s are taken as
     /// its parent's.
     static func codex(_ line: Data, _ context: inout [String: String]) -> UsageEntry? {
@@ -151,8 +157,8 @@ public enum UsageFormat: String, Sendable, CaseIterable {
         return nil
     }
 
-    /// Grok Build's `updates.jsonl`: a `turn_completed` per prompt with its tokens (input counts the cached part) and what it
-    /// cost (`costUsdTicks`, 10¹⁰ to the dollar). The model is the one that took most of it.
+    /// Reads Grok Build's `updates.jsonl`, which has a `turn_completed` per prompt with its tokens (input includes the
+    /// cached part) and its cost (`costUsdTicks`, 10¹⁰ to the dollar). The model is the one that used most tokens.
     static func grok(_ line: Data, _ context: [String: String]) -> UsageEntry? {
         guard let object = JSONL.object(line), let params = object["params"] as? [String: Any],
             let update = params["update"] as? [String: Any],
@@ -173,7 +179,8 @@ public enum UsageFormat: String, Sendable, CaseIterable {
             cost: (usage["costUsdTicks"] as? NSNumber).map { $0.doubleValue / 1e10 })
     }
 
-    /// Kimi Code's `wire.jsonl`: a `usage.record` per model call (`inputOther` leaves the cache out), its time in milliseconds.
+    /// Reads Kimi Code's `wire.jsonl`, which has a `usage.record` per model call with its time in milliseconds.
+    /// `inputOther` leaves the cache out.
     static func kimi(_ line: Data, _ context: [String: String]) -> UsageEntry? {
         guard let object = JSONL.object(line), object["type"] as? String == "usage.record",
             let usage = object["usage"] as? [String: Any],
@@ -187,17 +194,17 @@ public enum UsageFormat: String, Sendable, CaseIterable {
             tokens: tokens)
     }
 
-    /// pi's (and oh-my-pi's) sessions: the folder on the first line (`type: session`), then each assistant message's
-    /// `usage` (input without the cache, output including the reasoning) and the price pi gave it. A fork copies its
-    /// parent's lines with their old times, so the index skips lines older than the file.
+    /// Reads pi's and oh-my-pi's sessions. The folder is on the first line (`type: session`). After that, each
+    /// assistant message has a `usage` (input without the cache, output including the reasoning) and the price pi gave
+    /// it. A fork copies its parent's lines with their old times, so the index skips lines older than the file.
     static func pi(_ line: Data, _ context: inout [String: String]) -> UsageEntry? {
         guard let object = JSONL.object(line) else { return nil }
         if object["type"] as? String == "session" {
             context["cwd"] = object["cwd"] as? String
             return nil
         }
-        // A call outside the conversation is a line of its own: oh-my-pi's `model_usage` (titles, thinking), pi's
-        // `usage`.
+        // A call made outside the conversation is a line of its own: oh-my-pi's `model_usage` (titles, thinking), or
+        // pi's `usage`.
         let type = object["type"] as? String
         let assistant = (object["message"] as? [String: Any]).flatMap {
             $0["role"] as? String == "assistant" ? $0 : nil
@@ -219,8 +226,9 @@ public enum UsageFormat: String, Sendable, CaseIterable {
             cost: cost.flatMap { $0 > 0 ? $0 : nil })
     }
 
-    /// Qwen Code's chats: an assistant line's `usageMetadata`, Gemini's shape (the prompt counts the cache; what's past the
-    /// prompt in the total is output, thinking included, whichever provider answered).
+    /// Reads Qwen Code's chats from each assistant line's `usageMetadata`, which has Gemini's shape. The prompt count
+    /// includes the cache, and whatever the total holds beyond the prompt is output, thinking included, whichever
+    /// provider answered.
     static func qwen(_ line: Data) -> UsageEntry? {
         guard let object = JSONL.object(line), object["type"] as? String == "assistant",
             let usage = object["usageMetadata"] as? [String: Any],
@@ -237,8 +245,9 @@ public enum UsageFormat: String, Sendable, CaseIterable {
             tokens: tokens)
     }
 
-    /// Gemini CLI's sessions: a reply's record (`type: gemini`) with its `tokens` (input counts the cache, thoughts aren't
-    /// in output). A reply is written again once its tokens come, under the same id: one counts.
+    /// Reads Gemini CLI's sessions from each reply's record (`type: gemini`) and its `tokens`. Input includes the
+    /// cache. Output leaves out thoughts, so they are added to it. A reply is written again under the same id once its
+    /// tokens arrive, and only one copy counts.
     static func gemini(_ line: Data, _ context: [String: String]) -> UsageEntry? {
         guard let object = JSONL.object(line), object["type"] as? String == "gemini",
             let usage = object["tokens"] as? [String: Any],

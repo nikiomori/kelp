@@ -2,7 +2,8 @@ import Core
 import Foundation
 
 public enum TextEdits {
-    /// A server's edits to `text`, positions in UTF-16 units of the text as it was. Applied last first, so none moves another.
+    /// Applies a server's edits to `text`, with positions in UTF-16 units of the text as it was. The edits are applied
+    /// last first, so no edit moves another.
     public static func applied(_ edits: [CodeEdit], to text: String) -> String {
         let buffer = NSMutableString(string: text)
         var starts = [0]
@@ -19,8 +20,8 @@ public enum TextEdits {
         return buffer as String
     }
 
-    /// `text` with 1-based line `n` now `new`; nil when that line isn't `expected` any more (an agent changed the file since
-    /// it was shown). What ends the line stays.
+    /// Returns `text` with 1-based line `n` replaced by `new`, or nil when that line isn't `expected` any more (an
+    /// agent changed the file since it was shown). The line's ending stays as it was.
     public static func replacing(line n: Int, expected: String, with new: String, in text: String) -> String? {
         var lines = text.components(separatedBy: "\n")
         guard lines.indices.contains(n - 1) else { return nil }

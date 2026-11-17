@@ -1,12 +1,13 @@
 import Core
 import Foundation
 
-/// What Claude Code keeps of a subagent, beside its parent's conversation: `<conversation>/subagents/agent-<id>.jsonl`, and
-/// `.meta.json` with its kind and task. Thinking and what tools printed stay out: the steps and the final report say enough.
+/// Reads what Claude Code keeps of a subagent beside its parent's conversation:
+/// `<conversation>/subagents/agent-<id>.jsonl`, and a `.meta.json` with the subagent's kind and task. Thinking and what
+/// tools printed are left out, because the steps and the final report say enough.
 public enum SubagentTranscript {
-    /// The subagent's transcript, found from the parent's transcript or from a sibling subagent's (a hook sent from
-    /// inside a subagent names that subagent). The id comes from a tab's URI, so nothing in it may lead out of the
-    /// folder.
+    /// Returns the subagent's transcript, found from the parent's transcript or from a sibling subagent's transcript,
+    /// because a hook sent from inside a subagent names that subagent. The id comes from a tab's URI, so nothing in it
+    /// may lead out of the folder.
     public static func file(parent: URL, id: String) -> URL? {
         guard !id.isEmpty, id.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) else { return nil }
         let folder = parent.deletingLastPathComponent()
@@ -16,7 +17,7 @@ public enum SubagentTranscript {
         return subagents.appendingPathComponent("agent-\(id).jsonl")
     }
 
-    /// The last tool it called, from the end of its transcript.
+    /// Returns the last tool the subagent called, read from the end of its transcript.
     public static func lastStep(tail: Data) -> SubagentStep? {
         for line in JSONL.lines(tail).reversed() {
             if let step = assistant(line)?.steps.last { return step }
@@ -24,7 +25,8 @@ public enum SubagentTranscript {
         return nil
     }
 
-    /// All of it. Mapped, not read: a long one runs to tens of megabytes, most of it lines this skips unparsed.
+    /// Reads the whole transcript. The file is memory-mapped, not read, because a long transcript runs to tens of
+    /// megabytes, and most of its lines are skipped without being parsed.
     public static func journal(_ url: URL) throws -> SessionSubagentJournal.Journal {
         let data = try Data(contentsOf: url, options: .mappedIfSafe)
         let meta = FileManager.default.contents(
@@ -76,7 +78,7 @@ public enum SubagentTranscript {
         return reply
     }
 
-    /// The one thing that says what a call was: its path, the command's first line, what it looked for.
+    /// Returns the one detail that says what a call did: its path, the command's first line, or what it looked for.
     private static func detail(_ input: [String: Any], cwd: String?) -> String {
         let value =
             ["file_path", "path", "command", "pattern", "url", "query", "description", "prompt"].lazy.compactMap {

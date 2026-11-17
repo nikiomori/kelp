@@ -1,19 +1,22 @@
 import Core
 import Foundation
 
-/// What an instruction file says against what's on disk, without a model: its size against what its agents read of it,
-/// the paths it names that are gone, and for Claude Code's memory index, its lines against the memory files.
+/// Checks an instruction file against what is on disk, without a model. It compares the file's size with how much of
+/// it the agents read and finds the paths it names that are gone. For Claude Code's memory index, it also compares the
+/// index's lines with the memory files.
 public enum InstructionChecks {
     /// Claude Code reads the first 200 lines or 25 000 bytes of MEMORY.md, whichever comes first.
     public static let memoryLines = 200, memoryBytes = 25_000
     /// Codex stops adding AGENTS.md files once they reach 32 KiB together.
     static let codexBytes = 32_768
-    /// What Anthropic advises for a CLAUDE.md: longer, and agents follow it less.
+    /// The most lines Anthropic advises for a CLAUDE.md, because agents follow a longer file less well.
     static let advisedLines = 200
-    /// At most this many dead paths are named: the rest only count against the agent's time, not the panel's.
+    /// The check stops after naming this many dead paths. Any more still cost the agent time, but the panel doesn't
+    /// spend time finding them.
     static let mostDead = 100
 
-    /// `cwd`: the project's folder, where the paths it names are looked for. nil when the file can't be read.
+    /// Checks the file at `path`. `cwd` is the project's folder, where the paths the file names are looked for.
+    /// Returns nil when the file can't be read.
     public static func check(_ path: String, cwd: String) -> InstructionCheck? {
         guard let text = text(path) else { return nil }
         let name = (path as NSString).lastPathComponent
@@ -42,7 +45,7 @@ public enum InstructionChecks {
         return check
     }
 
-    /// How many of its lines an agent that stops at `maxLines` or `maxBytes` reads.
+    /// Returns how many of the lines an agent reads when it stops at `maxLines` or `maxBytes`.
     static func read(_ lines: [Substring], maxLines: Int?, maxBytes: Int) -> Int {
         var bytes = 0
         for (index, line) in lines.enumerated() {
@@ -53,10 +56,10 @@ public enum InstructionChecks {
         return lines.count
     }
 
-    /// The memory files a MEMORY.md indexes: the Markdown files beside it (archive/ and the index itself left out).
+    /// Returns the memory files that a MEMORY.md indexes: the Markdown files beside it, except archive/ and the index.
     static func memoryFiles(beside index: String) -> [(name: String, text: String)] {
         let folder = (index as NSString).deletingLastPathComponent
-        // Its files only, not archive/'s: subpaths names those with a "/".
+        // Only the folder's own files count, not those in archive/. `subpaths` names those with a "/".
         let names = FileManager.default.subpaths(atPath: folder) ?? []
         return names.filter { $0.hasSuffix(".md") && $0 != "MEMORY.md" && !$0.contains("/") }.sorted().compactMap {
             name in text(folder + "/" + name).map { (name, $0) }
@@ -67,13 +70,13 @@ public enum InstructionChecks {
         FileManager.default.contents(atPath: path).map { String(decoding: $0, as: UTF8.self) }
     }
 
-    /// The memory files an index's links name: `[Title](file.md)`.
+    /// Returns the memory files that the index's links name, as in `[Title](file.md)`.
     static func indexed(_ text: String) -> Set<String> {
         Set(text.matches(of: /\]\(([^)\/\s]+\.md)\)/).map { String($0.1) })
     }
 
-    /// Paths the texts name that aren't there. Only a path whose first folder is one of the project's counts: a word
-    /// like "and/or.md" or a path of some other machine isn't the project's, and isn't a lead.
+    /// Returns the paths the texts name that don't exist. A path counts only when its first folder is one of the
+    /// project's folders, because a word like "and/or.md" or a path on another machine isn't a lead.
     static func dead(in texts: [String], cwd: String) -> [String] {
         let root = URL(fileURLWithPath: cwd)
         let manager = FileManager.default
@@ -99,8 +102,9 @@ public enum InstructionChecks {
         return out
     }
 
-    /// A relative path with a folder and an extension ("Sources/Core/Paths.swift"), not part of a longer one: an
-    /// address ("claude.ai/artifact/…") or a home path ("~/.kelp/x.json") starts after a "/" or a "." and doesn't count.
+    /// Matches a relative path with a folder and an extension ("Sources/Core/Paths.swift") that isn't part of a longer
+    /// one. A match can't start right after a "/" or a ".", so the inner part of an address ("claude.ai/artifact/…") or
+    /// of a home path ("~/.kelp/x.json") doesn't count.
     static var pathPattern: Regex<(Substring, Substring)> {
         #/
             (?:^|[^\w\/~.$@-])

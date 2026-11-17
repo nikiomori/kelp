@@ -1,15 +1,16 @@
 import Foundation
 
-/// A group's arrangement kept to open others with (Save Layout as Template…): its panes and their sizes, the files and
-/// pages they show, and what ran in them as what runs again (`agent:` and `terminal:` URIs, `TabURI.runs`), each
-/// started anew in its tab when the template is used. Whether it opens in a window of its own.
+/// A group's arrangement, kept so that other groups can open with it (Save Layout as Template…). It holds the panes and
+/// their sizes, the files and pages they show, and what ran in them as what runs again (`agent:` and `terminal:` URIs,
+/// `TabURI.runs`), each started anew in its tab when the template is used. It also says whether the group opens in a
+/// window of its own.
 public struct LayoutTemplate: Codable, Equatable {
     public var name: String
     public var layout: WorkspaceLayout
     public var ownWindow: Bool
 
-    /// The group a template is saved from or used in: the template keeps that group's own addresses (its databases' and
-    /// changes' tabs, files in its folder) as the group's, not as that particular group's.
+    /// The group a template is saved from or used in. The template keeps that group's own addresses (its database and
+    /// changes tabs, files in its folder) as belonging to whichever group uses it, not to that particular group.
     public struct Place {
         public var workspace: String, folder: String
         public init(workspace: String, folder: String) {
@@ -18,10 +19,11 @@ public struct LayoutTemplate: Codable, Equatable {
         }
     }
 
-    /// `running` says what runs again for a session's tab; nil leaves the tab out. Also left out: tabs that only matter
-    /// for a moment (an untitled file, a handed-over prompt, a subagent's journal), an agent's own page (its logins are
-    /// its own), a CI log and a commit's draft; a pane left empty goes. `ports` gives the port each session's tab (by
-    /// its URI) serves, so a page on that port is kept as that run's page, whatever port the run gets next time.
+    /// Saves a template from `layout`. `running` says what runs again for a session's tab, and nil leaves the tab out.
+    /// Also left out are tabs that only matter for a moment (an untitled file, a handed-over prompt, a subagent's
+    /// journal), an agent's own page (its logins are its own), a CI log and a commit's draft. A pane left empty is
+    /// removed. `ports` gives the port that each session's tab (by its URI) serves, so a page on that port is kept as
+    /// that run's page, whatever port the run gets next time.
     public init(
         name: String, from layout: WorkspaceLayout, in place: Place, ownWindow: Bool, ports: [String: Int] = [:],
         running: (String) -> String?
@@ -32,7 +34,7 @@ public struct LayoutTemplate: Codable, Equatable {
         for tab in layout.allTabs {
             let scheme = TabURI.scheme(tab.uri)
             if scheme == "session", let run = running(tab.uri) {
-                kept.setURI(run, of: tab)   // by its tab: two Claudes are two `agent:claude` tabs
+                kept.setURI(run, of: tab)   // set by tab, because two Claudes are two `agent:claude` tabs
             } else if scheme == "session" || Self.leftOut.contains(scheme) {
                 kept.remove(tab.id)
             } else if let page = Self.localPage(tab.uri),
@@ -46,11 +48,12 @@ public struct LayoutTemplate: Codable, Equatable {
         self.layout = kept
     }
 
-    /// A project's own, from its .kelp.yaml (`layout.<name>: claude | page / run`): panes side by side with "|", one
-    /// under another with " / " (spaces round it: a path has none), tabs in a pane with commas. A tab is an agent
-    /// (`agents`), `shell`, one of the project's commands by name (`commands`; run by name, `scripts.run`, so the daemon
-    /// checks the file's trust and runs its text as it is then), `page` (the first command's page, once it serves),
-    /// `changes`, or a file in the group's folder. Kept as written: the group isn't tiled again (`manual`).
+    /// A project's own template, from its .kelp.yaml (`layout.<name>: claude | page / run`). "|" puts panes side by
+    /// side, " / " puts one under another (with spaces around it, because a path has none), and commas separate the
+    /// tabs in a pane. A tab is an agent (`agents`), `shell`, one of the project's commands by name (`commands`),
+    /// `page` (the first command's page, once it serves), `changes`, or a file in the group's folder. A command runs by
+    /// name (`scripts.run`), so the daemon checks the file's trust and runs the command's text as it is then. The
+    /// layout is kept as written, and the group isn't tiled again (`manual`).
     public init(name: String, spec: String, agents: Set<String>, commands: Set<String>) {
         self.name = name
         ownWindow = false
@@ -93,21 +96,22 @@ public struct LayoutTemplate: Codable, Equatable {
         self.layout = layout
     }
 
-    /// The tabs started anew when it's used, in order.
+    /// The tabs started anew when the template is used, in order.
     public var runs: [TabRef] { layout.allTabs.filter { TabURI.runs($0.uri) } }
 
-    /// The pages of its runs: each opens in its tab once its run (a tab's id) serves, at `path` on the port it has then.
+    /// The pages of the template's runs. Each opens in its tab once its run (a tab's id) serves, at `path` on the port
+    /// the run has then.
     public var pages: [(tab: TabRef, run: String, path: String)] {
         layout.allTabs.filter { TabURI.scheme($0.uri) == Self.runPage }.map { tab in
             let body = TabURI.body(tab.uri), cut = body.firstIndex { "/?#".contains($0) } ?? body.endIndex
             return (tab, String(body[..<cut]), String(body[cut...]))
         }
     }
-    /// What a run's page's tab shows until the run serves.
+    /// What the tab of a run's page shows until the run serves.
     public static func waiting(_ tab: TabRef) -> String { "about:blank#" + tab.id }
 
-    /// The layout for group `place` using it: `started` gives the session URI each run became; a run that didn't start
-    /// leaves its tab out.
+    /// Returns the layout for group `place` when it uses the template. `started` gives the session URI that each run
+    /// became, and a run that didn't start leaves its tab out.
     public func filled(_ started: [String: String], in place: Place) -> WorkspaceLayout {
         var out = layout
         for tab in layout.allTabs where !TabURI.runs(tab.uri) {
@@ -134,7 +138,7 @@ extension LayoutTemplate {
     static let leftOut = ["untitled", "prompt", "subagent", TabURI.agentScheme, "cilog", "commit"]
     static let groupToken = "{group}", folderToken = "{folder}", runPage = "runpage"
 
-    /// A page on this Mac: its port, and what follows it in its address.
+    /// Returns the port of a page on this Mac, and what follows the port in its address.
     static func localPage(_ uri: String) -> (port: Int, rest: String)? {
         guard let components = URLComponents(string: uri), components.scheme == "http",
             ["localhost", "127.0.0.1"].contains(components.host),
@@ -143,7 +147,8 @@ extension LayoutTemplate {
         return (port, String(uri[at.upperBound...]))
     }
 
-    /// Treats the group's own addresses as the group's: `db:<group>/…`, `diff:<group>…`, and files in its folder.
+    /// Replaces the group's own addresses with placeholders for whichever group uses the template: `db:<group>/…`,
+    /// `diff:<group>…`, and files in its folder.
     static func abstract(_ uri: String, from place: Place) -> String {
         let folder = TabURI.file(place.folder) + "/"
         if uri.hasPrefix(folder) { return TabURI.file(folderToken) + "/" + uri.dropFirst(folder.count) }

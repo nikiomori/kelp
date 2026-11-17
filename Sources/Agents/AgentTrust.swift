@@ -1,12 +1,12 @@
 import Core
 import Foundation
 
-/// Folders an agent already trusts, read from its own config (never written). Kelp answers an agent's "trust this
-/// folder?" itself only inside them; anywhere else the question is the user's, as the agent intends (a repository's own
-/// agent settings can run hooks and servers the moment it's trusted).
+/// Reads the folders an agent already trusts from the agent's own config, which is never written. Kelp answers an
+/// agent's "trust this folder?" itself only inside those folders. Anywhere else the user answers, as the agent
+/// intends, because a repository's own agent settings can run hooks and servers the moment the folder is trusted.
 public enum AgentTrust {
-    /// Whether `agent` trusts any of `folders` (or a folder above one). `env` is the session's: an account profile can point
-    /// the agent at a config of its own (`AgentHome`).
+    /// Whether `agent` trusts any of `folders`, or a folder above one. `env` is the session's environment, because an
+    /// account profile can point the agent at a config of its own (`AgentHome`).
     public static func trusts(
         agent: String, folders: [String], env: [String: String] = [:], home: String = NSHomeDirectory()
     ) -> Bool {
@@ -17,16 +17,16 @@ public enum AgentTrust {
     public static func trustedFolders(agent: String, env: [String: String], home: String) -> [String] {
         let dir = AgentHome.dir(agent, env: env, home: home)?.path ?? home
         return switch agent {
-        case Session.claudeAgent:   // in its config folder when one is set; else beside that folder, in the home folder
+        case Session.claudeAgent:   // in the config folder when one is set, or else in the home folder
             claude((AgentHome.variable(agent).flatMap { env[$0] } == nil ? home : dir) + "/.claude.json")
         case Session.codexAgent: codex(dir + "/config.toml")
         case "gemini": gemini(dir + "/trustedFolders.json")
         case "kimi": kimi(dir)
-        default: []   // no way to read its trust: Kelp doesn't answer for it
+        default: []   // its trust can't be read, so Kelp doesn't answer for it
         }
     }
 
-    /// `projects[path].hasTrustDialogAccepted`.
+    /// Returns the paths whose `projects[path].hasTrustDialogAccepted` is true.
     static func claude(_ file: String) -> [String] {
         guard let projects = json(file)?["projects"] as? [String: Any] else { return [] }
         return projects.compactMap { path, v in
@@ -34,7 +34,7 @@ public enum AgentTrust {
         }
     }
 
-    /// `[projects."<path>"]` sections with `trust_level = "trusted"`.
+    /// Returns the paths of the `[projects."<path>"]` sections with `trust_level = "trusted"`.
     static func codex(_ file: String) -> [String] {
         guard let text = String(contentsIfAny: URL(fileURLWithPath: file)) else { return [] }
         var out: [String] = [], section: String?
@@ -51,7 +51,8 @@ public enum AgentTrust {
         return out
     }
 
-    /// `{"<path>": "TRUST_FOLDER" | "TRUST_PARENT" | "DO_NOT_TRUST"}`; a trusted parent covers the folders in it.
+    /// Reads `{"<path>": "TRUST_FOLDER" | "TRUST_PARENT" | "DO_NOT_TRUST"}`. TRUST_PARENT trusts the folder above the
+    /// path, which covers the folders in it.
     static func gemini(_ file: String) -> [String] {
         guard let levels = json(file) as? [String: String] else { return [] }
         return levels.compactMap { path, level in
@@ -60,7 +61,7 @@ public enum AgentTrust {
         }
     }
 
-    /// One JSON file per workspace under `workspace-trust/`: `{"root":"/path","trustedAt":…}`.
+    /// Reads one JSON file per workspace under `workspace-trust/`: `{"root":"/path","trustedAt":…}`.
     static func kimi(_ home: String) -> [String] {
         let dir = home + "/workspace-trust"
         return (FileManager.default.enumerator(atPath: dir)?.allObjects as? [String] ?? []).compactMap {

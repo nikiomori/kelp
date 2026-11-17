@@ -1,22 +1,23 @@
 import Core
 import Foundation
 
-/// What the sidebar lists, decided without a window: projects → their chats, then their groups → the chats in those. A
-/// project's chats are the agents on its own screen (`mainWorkspace`), with no heading; every other workspace is a group
-/// someone made, a row of its own. An agent's children stand on its row, not on rows of their own. What needs you is in
-/// the line over the list (`Inbox`).
+/// What the sidebar lists, decided without a window: projects with their chats, then their groups with the chats in
+/// those. A project's chats are the agents on its own screen (`mainWorkspace`), with no heading. Every other workspace
+/// is a group someone made, with a row of its own. An agent's children show on its row, not on rows of their own. What
+/// needs you is in the line over the list (`Inbox`).
 public struct SidebarItem: Equatable, Sendable {
-    /// `host`: a server's header, its projects after it on the same card (not under it: they keep their place in the outline).
-    /// `parked`: the heading over agents put out of the way, its children.
+    /// `host` is a server's header, with its projects after it on the same card. They aren't under it, because they
+    /// keep their place in the outline. `parked` is the heading over agents put out of the way, which are its children.
     public enum Kind: Equatable, Sendable {
         case project(String), workspace(String), agent(String), host(String), parked
     }
     public var kind: Kind
     public var children: [SidebarItem] = []
-    /// On a project: its own screen, which its row stands for, with that screen's agents right under the name.
+    /// On a project, its own screen, which the project's row stands for, with that screen's agents right under the
+    /// name.
     public var workspace: String?
-    /// On a group: the chat that made it (`Worktree.madeBy`, a branch for its helpers), when it stands right under
-    /// that chat's row, a step further in, rather than among the project's groups.
+    /// On a group, the chat that made it (`Worktree.madeBy`, a branch for its helpers), when the group stands right
+    /// under that chat's row, a step further in, rather than among the project's groups.
     public var under: String?
 }
 
@@ -25,16 +26,17 @@ public struct SidebarTree {
     /// Every workspace in display order (archived ones are skipped here).
     public var workspaces: [Worktree]
     public var sessions: [Session]
-    /// Projects with live agents first, each part in the order people gave them (Settings › Project order).
+    /// Whether projects with live agents come first. Each part keeps the order people gave it (Settings › Project
+    /// order).
     public var activeFirst = false
-    /// Project id → the host it's on, for remote projects: they come after this Mac's, each host's together under its
-    /// header, where its first project stood.
+    /// The host each remote project is on, by project id. Remote projects come after this Mac's, each host's projects
+    /// together under its header, where its first project stood.
     public var hosts: [String: String] = [:]
-    /// Hosts whose projects are folded away: the header alone.
+    /// Hosts whose projects are folded away, so only the header shows.
     public var folded: Set<String> = []
     /// The project that stays last whatever the order (No Project: chats outside any project).
     public var pinnedLast: String?
-    /// Agents parked: out of their projects, under a "Parked" heading over the pinned row.
+    /// Parked agents, which leave their projects and show under a "Parked" heading over the pinned row.
     public var parked: Set<String> = []
 
     public init(projects: [Repo], workspaces: [Worktree], sessions: [Session]) {
@@ -45,8 +47,8 @@ public struct SidebarTree {
 
     public func build() -> [SidebarItem] {
         func workspace(_ worktree: Worktree) -> SidebarItem {
-            // Agents only: terminals are tabs, not something to keep an eye on. One on another screen keeps a row there:
-            // it's what that screen holds.
+            // Only agents get rows, because terminals are tabs, not something to keep an eye on. An agent on another
+            // screen keeps a row there, because it's what that screen holds.
             let agents = sessions.filter {
                 $0.worktreeId == worktree.id && $0.status != .exited && !$0.isTerminal
                     && !parked.contains($0.id)
@@ -58,8 +60,8 @@ public struct SidebarTree {
         let listed = projects.map { r -> SidebarItem in
             let own = mainWorkspace(of: r, among: live)
             let chats = own.map(workspace)?.children ?? []
-            // A group an agent made stands under its chat. Only a chat on the project's own screen: a group can't hold a
-            // group, so one made from inside a group stays among the project's groups.
+            // A group that an agent made stands under that agent's chat, but only for a chat on the project's own
+            // screen. A group can't hold a group, so a group made from inside a group stays among the project's groups.
             let makers = Set(chats.compactMap { if case .agent(let id) = $0.kind { id } else { nil } })
             func maker(_ worktree: Worktree) -> String? {
                 Self.maker(worktree).flatMap { makers.contains($0) ? $0 : nil }
@@ -111,9 +113,9 @@ public struct SidebarTree {
     }
 }
 
-/// The agents the line over the list shows, most urgent first: not the one on screen (you see it already), and only once
-/// it has needed you `settle` seconds (since its `statusAt`), so one that asks or stops and goes on by itself a moment
-/// later never shows up at all.
+/// The agents that the line over the list shows, most urgent first. The agent on screen is left out, because you see it
+/// already. An agent shows only once it has needed you for `settle` seconds (since its `statusAt`), so one that asks or
+/// stops and goes on by itself a moment later never shows up at all.
 public struct Inbox: Sendable {
     /// Sessions waiting on you, in the order to visit them (see `AttentionQueue`).
     public var queue: [Session]
@@ -123,9 +125,10 @@ public struct Inbox: Sendable {
     public init(queue: [Session]) { self.queue = queue }
 
     public var shown: [Session] { queue.filter { !viewing.contains($0.id) && since($0) + settle <= now } }
-    /// Who the count says needs you: the agent on screen too, as long as it asks (its row still says so).
+    /// The agents the count says need you. This includes the agent on screen, as long as it asks (its row still says
+    /// so).
     public var counted: [Session] { queue.filter { since($0) + settle <= now } }
-    /// When the next one held back by `settle` is due: look again then.
+    /// When the next agent held back by `settle` is due, which is when to look again.
     public var settlesAt: Date? {
         queue.filter { !viewing.contains($0.id) }.map { since($0) + settle }.filter { $0 > now }.min()
     }

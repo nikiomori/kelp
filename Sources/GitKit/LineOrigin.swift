@@ -4,20 +4,21 @@ import Foundation
 extension Git {
     /// Where a line came from, as `git blame` says.
     public struct LineBlame: Equatable, Sendable {
-        /// The commit that brought it; nil when nothing did yet (changed since HEAD, before the first step).
+        /// The commit that brought the line, or nil when nothing did yet (changed since HEAD, before the first step).
         public var commit: String?
         public var author: String, date: Date, summary: String
-        /// Which of `lineOrigin`'s steps brought it: 0 the first, `steps.count - 1` the last (it runs to now); nil for a
-        /// real commit.
+        /// Which of the steps given to `lineOrigin` brought the line: 0 is the first, and `steps.count - 1` is the
+        /// last, which runs to now. It is nil for a real commit.
         public var step: Int?
     }
 
-    /// Who last changed `line` (1-based) of `file`, as it is on disk now. `steps` are snapshots of the folder taken while
-    /// HEAD was what it is now, oldest first, each with who made the changes after it and what to call them: each
-    /// becomes a commit of its own on top of HEAD (written to git's objects, never to a ref, so `git gc` takes them),
-    /// then the folder now one more, and `git blame` runs over them. What changed after step i's snapshot and before the
-    /// next is step i's; what changed before the first, nobody's yet. Nil: the line isn't there, the file isn't in git's
-    /// view (ignored, a secret the snapshots leave out), or a snapshot is gone.
+    /// Returns who last changed `line` (1-based) of `file`, as the file is on disk now. `steps` are snapshots of the
+    /// folder taken while HEAD was what it is now, oldest first, each with who made the changes after it and what to
+    /// call them. Each snapshot becomes a commit of its own on top of HEAD (written to git's objects, never to a ref,
+    /// so `git gc` removes them). The folder as it is now becomes one more commit, and `git blame` runs over them. A
+    /// change made after step i's snapshot and before the next belongs to step i, and a change made before the first
+    /// snapshot belongs to nobody yet. Returns nil when the line isn't there, when the file isn't in git's view
+    /// (ignored, or a secret the snapshots leave out), or when a snapshot is gone.
     public static func lineOrigin(
         _ cwd: String, file: String, line: Int, steps: [(tree: String, author: String, message: String)],
         remotes: Remotes
@@ -31,12 +32,13 @@ extension Git {
             }
         }
         guard let head = try resolve("HEAD", cwd: cwd, remotes: remotes) else { return nil }
-        // Each commit holds the folder as the step after it began; the first one the folder before any step.
+        // Each commit holds the folder as it was when the next step began, and the first commit holds the folder before
+        // any step.
         let trees = steps.map(\.tree) + [try snapshotTree(cwd, remotes: remotes)]
         var commits: [String] = [], parent = head
         for (i, tree) in trees.enumerated() {
             let who = i == 0 ? "Kelp" : steps[i - 1].author, what = i == 0 ? "Before" : steps[i - 1].message
-            // The name in the environment too: one set there (GIT_AUTHOR_NAME) wins over -c.
+            // The name goes in the environment too, because a name set there (GIT_AUTHOR_NAME) wins over -c.
             let name = ["GIT_AUTHOR_NAME": who, "GIT_COMMITTER_NAME": who]
             parent = try Git.line(
                 [
@@ -56,7 +58,7 @@ extension Git {
 
     private static func isZero(_ hash: String) -> Bool { hash.allSatisfy { $0 == "0" } }
 
-    /// `git blame --porcelain`'s answer for one line; nil when git refuses (no such line, or file).
+    /// Returns what `git blame --porcelain` says about one line, or nil when git refuses (no such line or file).
     private static func blame(_ cwd: String, _ args: [String], remotes: Remotes) throws -> LineBlame? {
         let out = try run(["blame", "--porcelain"] + args, cwd: cwd, ok: [0, 128], remotes: remotes)
         let lines = out.split(separator: "\n", omittingEmptySubsequences: false)

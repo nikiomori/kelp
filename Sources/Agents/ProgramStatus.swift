@@ -16,17 +16,17 @@ public enum ProgramStatus {
     public static let states: Set<String> = ["idle", "working", "done", "blocked", "error", "clear"]
 
     public struct Report: Equatable, Sendable {
-        /// nil: the program itself; otherwise one of its children (a subagent).
+        /// nil for the program itself, or else the id of one of its children (a subagent).
         public var id: String?
         public var state: String
         public var kind: String?
         public var msg: String?
         /// What the child does, shown beside it.
         public var title: String?
-        /// 0–100, while it works.
+        /// Progress from 0 to 100, while the program works.
         public var progress: Int?
-        /// From a remote project's host (`Hooks.hostReport`): what a dialog's or a failed turn's hook was told, and the
-        /// conversation the agent is in.
+        /// Sent from a remote project's host (`Hooks.hostReport`): the input that the hook of a dialog or a failed turn
+        /// got, and the conversation the agent is in.
         public var hook: JSONValue?, conv: String?
         public init(
             id: String? = nil, state: String, kind: String? = nil, msg: String? = nil, title: String? = nil,
@@ -49,7 +49,8 @@ public enum ProgramStatus {
         oscBodies(chunk, starts: [prefix], limit: 4096, carry: &carry).compactMap(parse)
     }
 
-    /// The text between `OSC 7501;` and the terminator. nil: not a report (ignored).
+    /// Parses the text between `OSC 7501;` and the terminator. Returns nil when it isn't a report, which is then
+    /// ignored.
     public static func parse(_ body: String) -> Message? {
         guard body.utf8.count <= 4096 else { return nil }
         if body.trimmingCharacters(in: .whitespaces) == "?" { return .query }
@@ -75,7 +76,7 @@ public enum ProgramStatus {
             id: pairs["id"], state: state, kind: kind, msg: text("msg"), title: text("title"), progress: progress)
         report.conv = pairs["conv"].flatMap { UUID(uuidString: $0) == nil ? nil : $0 }
         if state == "blocked" || state == "error", let hook = text("hook") {
-            // One that doesn't read is as none: the row says what it can.
+            // A hook payload that doesn't decode counts as none, and the row says what it can.
             do { report.hook = try JSONDecoder().decode(JSONValue.self, from: Data(hook.utf8)) } catch {}
         }
         return .report(report)
@@ -83,10 +84,10 @@ public enum ProgramStatus {
 
     public static let conEmuPrefix = "\u{1B}]9;4;"
     /// ConEmu's progress bar, `OSC 9;4;<state>;<percent>`, which build tools such as cargo write: each one's percent in
-    /// order, nil where the bar went away or has none (state 0 removes it, 3 is indeterminate, 2 an error).
+    /// order, or nil where the bar went away or has none (state 0 removes it, 3 is indeterminate, 2 an error).
     public static func conEmuProgress(_ chunk: String) -> [Int?] {
         chunk.components(separatedBy: conEmuPrefix).dropFirst().compactMap { body -> Int?? in
-            // Cut off between two reads: skipped, the tool writes the next one soon.
+            // A sequence cut off between two reads is skipped, because the tool writes the next one soon.
             guard let end = body.firstIndex(where: { $0 == "\u{07}" || $0 == "\u{1B}" }) else { return nil }
             let fields = body[..<end].split(separator: ";", omittingEmptySubsequences: false)
             guard fields.first == "1" || fields.first == "4", fields.count > 1, let percent = Int(fields[1]) else {

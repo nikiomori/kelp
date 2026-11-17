@@ -1,15 +1,17 @@
 import Foundation
 
-/// A finished agent counts as read once its pane has been the one you're in, in the front window, for a second: a glance,
-/// not a click. Opening a workspace in passing doesn't clear anything, nor does a neighbouring pane. The decision without the window: which sessions to
-/// mark read now, each asked once until the record says it's read (or the ask failed).
+/// A finished agent counts as read once its pane has been the one you're in, in the front window, for a second. That is
+/// a glance, not a click. Opening a workspace in passing doesn't clear anything, and neither does a neighbouring pane.
+/// This type makes the decision without the window: which sessions to mark read now. Each session is asked for once,
+/// until the record says it's read or the request failed.
 public struct Glances: Sendable {
     private var since: [String: Date] = [:]
     private var asked: Set<String> = []
     public init() {}
 
-    /// `front`: the window is the key one, in the active app, on screen. `shown`: the sessions being looked at.
-    /// `readable`: finished and unread (not a question, not a failure). `unread`: the record still says unread.
+    /// Returns the sessions to mark read now. `front` says the window is the key one, in the active app, on screen.
+    /// `shown` holds the sessions being looked at. `readable` says a session is finished and unread (not a question,
+    /// not a failure). `unread` says the record still says unread.
     public mutating func tick(
         front: Bool, shown: [String], readable: (String) -> Bool, unread: (String) -> Bool, now: Date
     ) -> [String] {
@@ -17,7 +19,7 @@ public struct Glances: Sendable {
             since = [:]
             return []
         }
-        asked = asked.filter(unread)   // heard back: it may finish unread again later
+        asked = asked.filter(unread)   // a session marked read may finish unread again later
         let shown = Set(shown)
         since = since.filter { shown.contains($0.key) }
         var mark: [String] = []
@@ -36,6 +38,6 @@ public struct Glances: Sendable {
         return mark
     }
 
-    /// Its mark-read failed: asked again on a later glance.
+    /// Called when marking a session read failed, so it is asked for again on a later glance.
     public mutating func failed(_ id: String) { asked.remove(id) }
 }

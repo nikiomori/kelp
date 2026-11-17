@@ -1,17 +1,18 @@
 import Core
 import Foundation
 
-/// `addons.list`'s rows: what a chat's own record says it loaded, laid over what the files name. The record knows
-/// what really loaded and what it weighs; the files know whose a skill is, where it sits and which agents read it.
+/// Builds the rows of `addons.list` by laying what a chat's own record says it loaded over what the files list. The
+/// record knows what really loaded and how many tokens it takes. The files know who owns a skill, where it is and
+/// which agents read it.
 public enum AddonList {
-    /// The agents in the order rows show them: the one most chats run first.
+    /// The order in which rows list the agents, starting with the agent most chats run.
     static let order = [Session.claudeAgent, Session.codexAgent, "cursor", "pi", "copilot", "kimi", "opencode", "grok"]
 
-    /// The rows, and what the chat's record names that isn't there any more (`gone`): the record is from the chat's
-    /// start, and for what lives in files (the person's skills, the project's, their servers) the files are what's true
-    /// now. `loaded`: a Claude Code chat's record, nil without one. `kelp`: the names of Kelp's own skills on disk.
-    /// `kept`: the servers in Kelp's own file, which it hands to Claude Code and Codex. `builtIn`: the skills Claude
-    /// Code brings itself, when known (`ClaudeBuiltIns`).
+    /// Returns the rows, and the names in the chat's record that no longer exist (`gone`). The record dates from the
+    /// start of the chat. For what lives in files (the person's skills, the project's skills, and their servers), the
+    /// files say what is true now. `loaded` is a Claude Code chat's record, or nil when there is none. `kelp` holds the
+    /// names of Kelp's own skills on disk. `kept` holds the servers in Kelp's own file, which Kelp hands to Claude Code
+    /// and Codex. `builtIn` holds the skills that come with Claude Code itself, when they are known (`ClaudeBuiltIns`).
     public static func list(
         loaded: ClaudeLoaded?, files: AddonFiles, cwd: String, kelp: [String], kept: [String] = [],
         builtIn: Set<String>? = nil, kelpHome: URL? = nil
@@ -31,9 +32,9 @@ public enum AddonList {
             }
         var items: [Addon] = []
         if let loaded {
-            // A bare name in no folder is Claude Code's own or one deleted since. Unknown which are its own, the
-            // listing's order says: the person's and the project's come first, so one before the last still on disk
-            // was theirs.
+            // A bare skill name found in no folder is either built into Claude Code or was deleted after the chat
+            // started. When the built-in list is unknown, the record's order decides. The person's and the project's
+            // skills come first, so a name listed before the last one still on disk was theirs.
             let bare = loaded.skills.map(\.name).filter { !$0.contains(":") }
             let lastHere = bare.lastIndex { name in onDisk.contains { $0.name == name } } ?? -1
             for listed in loaded.skills {
@@ -49,8 +50,8 @@ public enum AddonList {
             let servers =
                 loaded.tools.sorted { $0.key < $1.key }.map { server(of: $0.key, $0.value, loaded, named) }
                 + loaded.failed.sorted { $0.key < $1.key }.map { failed($0.key, $0.value, named) }
-            // A server no file names and no plugin or account brought: Claude Code's own ("claude-in-chrome"), or one
-            // taken out of the settings since.
+            // A server that no file lists and no plugin or account brought is either Claude Code's own
+            // ("claude-in-chrome") or one removed from the settings since.
             for var item in servers {
                 if item.source == .plugin { item.plugin = item.origin.flatMap { plugins[$0]?.id } }
                 if item.source == .agent, !item.name.hasPrefix("claude"), item.name != "ide" {
@@ -74,7 +75,8 @@ public enum AddonList {
                     path: kelpSkills?.appendingPathComponent("\($0)/skills/\($0)/SKILL.md").path)
             }
         }
-        // What only the files know of: a skill or a server of another agent's, an instruction file Claude Code skips.
+        // Add what only the files know about: another agent's skills and servers, or an instruction file Claude Code
+        // skips.
         let seen = Set(items.map(\.id))
         items += merged(onDisk, files: files).filter { !seen.contains($0.id) }
         items += named.filter { !seen.contains("server:\($0.name)") }.map {
@@ -95,8 +97,8 @@ public enum AddonList {
         return (joined(items), gone)
     }
 
-    /// Claude Code's memory of the project, which a new chat there gets, when no chat's record says so: its index,
-    /// of which Claude Code reads the first 25 000 bytes.
+    /// Returns a row for Claude Code's memory of the project, used when no chat record lists it. A new chat in the
+    /// project gets this memory. The row is the memory's index file, of which Claude Code reads the first 25 000 bytes.
     static func memory(cwd: String, files: AddonFiles) -> Addon? {
         let folder = ClaudeHistory.folder(cwd: cwd, root: files.claude.appendingPathComponent("projects"))
         let index = folder.appendingPathComponent("memory/MEMORY.md")
@@ -108,8 +110,8 @@ public enum AddonList {
             tokens: ClaudeLoaded.tokens(chars), path: index.path)
     }
 
-    /// One instruction file listed under two names (CLAUDE.md a link to AGENTS.md) is one row: the file's own name,
-    /// every agent that reads it, and which name links to it.
+    /// Merges an instruction file listed under two names (CLAUDE.md as a link to AGENTS.md) into one row. The row keeps
+    /// the file's own name, lists every agent that reads it, and says which name links to it.
     static func joined(_ items: [Addon]) -> [Addon] {
         var out: [Addon] = [], at: [String: Int] = [:]
         for item in items {
@@ -124,7 +126,8 @@ public enum AddonList {
                 continue
             }
             var kept = out[index], link = item
-            // The file itself stays, under its own name (a path's folders may be links too: /tmp is /private/tmp).
+            // The row keeps the real file's name. Only the last path part is compared, because folders in a path may
+            // be links too (/tmp is /private/tmp).
             if (real as NSString).lastPathComponent == item.name { swap(&kept, &link) }
             kept.agents = (kept.agents + link.agents.filter { !kept.agents.contains($0) }).sorted {
                 (order.firstIndex(of: $0) ?? order.count) < (order.firstIndex(of: $1) ?? order.count)
@@ -136,9 +139,9 @@ public enum AddonList {
         return out
     }
 
-    /// Where a listed skill comes from: "plugin:name" belongs to a plugin (Kelp's own skills are plugins named kelp-…,
-    /// and claude.ai's sit under anthropic-skills), a bare name comes from a folder, and a skill in no folder came with
-    /// the agent.
+    /// Builds the row for a skill in the chat's record, with where the skill comes from. "plugin:name" belongs to a
+    /// plugin (Kelp's own skills are plugins named kelp-…, and claude.ai's skills sit under anthropic-skills). A bare
+    /// name comes from a folder, and a skill found in no folder came with the agent.
     static func skill(of listed: ClaudeLoaded.Skill, onDisk: [AddonFiles.Skill], files: AddonFiles) -> Addon {
         var item = Addon(
             kind: .skill, name: listed.name, source: .agent, about: listed.about, agents: [Session.claudeAgent],
@@ -151,7 +154,8 @@ public enum AddonList {
             item.source = parts[0].hasPrefix("kelp-") ? .kelp : parts[0] == "anthropic-skills" ? .account : .plugin
             if item.source == .kelp { (item.origin, item.key) = ("Kelp", "kelp:\(parts[0])") }
             if item.source == .account { item.origin = "claude.ai" }
-            // Two plugins may bring a skill of one name: the plugin stays in it. A plugin's skills go with the plugin.
+            // Two plugins may bring skills with the same name, so the name keeps the plugin. A plugin's skills share
+            // the plugin's key, so they go with the plugin.
             if item.source == .plugin { (item.name, item.key) = (listed.name, "plugin:\(parts[0])") }
             return item
         }
@@ -167,9 +171,9 @@ public enum AddonList {
         return item
     }
 
-    /// Where a server comes from, by its name in tool names: "claude_ai_Gmail" is the account's connector,
-    /// "plugin_<plugin>_<server>" belongs to a plugin, a server named in the files belongs to the person or the
-    /// project, and the rest came with the agent.
+    /// Works out where a server comes from by the name its tools carry. "claude_ai_Gmail" is the account's connector,
+    /// and "plugin_<plugin>_<server>" belongs to a plugin. Everything else counts as the agent's own here, and `base`
+    /// then gives a server listed in the files to the person or the project.
     static func server(_ name: String) -> (name: String, source: Addon.Source, origin: String?) {
         if name.hasPrefix("claude_ai_") {
             return (name.dropFirst(10).replacingOccurrences(of: "_", with: " "), .account, "claude.ai")
@@ -187,7 +191,8 @@ public enum AddonList {
         var item = base(key, named)
         item.loaded = true
         item.signIn = Set(tools).isSubset(of: ["authenticate", "complete_authentication"])
-        // Its tools wait until one is used: a request carries their names, and the server's own instructions.
+        // The server's tools load only when one is used, so until then a request carries just their names and the
+        // server's own instructions.
         let chars =
             tools.reduce(0) { $0 + key.count + $1.count + 8 } + (loaded.notes[key] ?? loaded.notes[item.name] ?? 0)
         item.tokens = ClaudeLoaded.tokens(chars)
@@ -202,7 +207,8 @@ public enum AddonList {
         return item
     }
 
-    /// `key`: the server as tool names spell it ("plugin_data_definite"; a failed one comes as "plugin:data:definite").
+    /// Builds a server's row. `key` is the server's name as tool names spell it ("plugin_data_definite"). A server
+    /// that failed comes as "plugin:data:definite".
     private static func base(_ key: String, _ named: [AddonFiles.Server]) -> Addon {
         let (name, source, origin) = server(key)
         let off = "server:" + key.replacingOccurrences(of: ":", with: "_")
@@ -215,7 +221,8 @@ public enum AddonList {
             agents: file.agents, key: off, path: file.path)
     }
 
-    /// Where a listed skill that came with a plugin, with Kelp or from the account is on disk, and its plugin's id.
+    /// Finds the SKILL.md on disk for a listed skill that came with a plugin, with Kelp or from the account. For a
+    /// plugin's skill it also sets the plugin's id.
     private static func locate(
         _ item: inout Addon, _ listed: String, plugins: [String: AddonFiles.Plugin], kelp: URL?, files: AddonFiles
     ) {
@@ -236,10 +243,9 @@ public enum AddonList {
         if let file, FileManager.default.fileExists(atPath: file.path) { item.path = file.path }
     }
 
-    /// An error as one short line: "ENOENT: no such file or directory, posix_spawn '/Applications/…'" says the program
-    /// isn't there.
-    /// "Dynamic Client Registration rejected (HTTP 403): <html…" is a sign-in refused; anything else is its first
-    /// sentence, without the address's scheme. The whole text stays in `Addon.error`.
+    /// Turns a server's error into one short line. "ENOENT: no such file or directory, posix_spawn '/Applications/…'"
+    /// means the program isn't there. "Dynamic Client Registration rejected (HTTP 403): <html…" means a sign-in was
+    /// refused. Any other error becomes its first sentence, without "https://". The whole text stays in `Addon.error`.
     static func problem(_ error: String) -> String {
         if error.contains("ENOENT") { return "Doesn’t start: its program isn’t there" }
         if error.contains("Registration"), let code = error.range(of: #"\(HTTP \d+\)"#, options: .regularExpression) {
@@ -250,8 +256,8 @@ public enum AddonList {
         return first.isEmpty ? "Doesn’t start" : String(first.prefix(70))
     }
 
-    /// The folders as skills: one a name, the agents of every folder that holds it (a link counts as its target), and
-    /// a second real folder of the same name as a copy.
+    /// Turns skill folders into rows, one per name. A row lists the agents of every folder that holds the skill (a link
+    /// counts as its target), and a second real folder with the same name counts as a copy.
     static func merged(_ skills: [AddonFiles.Skill], files: AddonFiles) -> [Addon] {
         var names: [String] = [], byName: [String: [AddonFiles.Skill]] = [:]
         for skill in skills {

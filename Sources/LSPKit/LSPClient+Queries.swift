@@ -1,7 +1,8 @@
 import Core
 import Foundation
 
-// What the editor asks a server about a place in a file: definition, completion, references, rename, hover, signature, symbols.
+// The questions the editor asks a server about a place in a file: definition, completion, references, rename, hover,
+// signature and symbols.
 
 extension LSPClient {
     public func definition(_ path: String, line: Int, column: Int) async throws -> CodeLocation? {
@@ -57,8 +58,6 @@ extension LSPClient {
             line: line)
     }
 
-    /// From either shape of a documentSymbol result: nested `DocumentSymbol`s or flat `SymbolInformation`s. The smallest
-    /// range wins; on a tie the later one (a child is visited after its parent).
     public func references(_ path: String, line: Int, column: Int) async throws -> [CodeLocation] {
         var params = at(path, line, column)
         if case .object(var object) = params {
@@ -85,7 +84,7 @@ extension LSPClient {
         return Self.fileEdits(try await request("textDocument/rename", params))
     }
 
-    /// A WorkspaceEdit, in either of its shapes.
+    /// Reads a WorkspaceEdit, in either of its shapes.
     static func fileEdits(_ edit: JSONValue) -> [CodeFileEdit] {
         func edits(_ list: JSONValue?) -> [CodeEdit] {
             (list?.array ?? []).compactMap { textEdit in
@@ -129,7 +128,7 @@ extension LSPClient {
         return joined?.isEmpty == false ? joined : nil
     }
 
-    /// A parameter's label is its text, or its offsets in the signature's.
+    /// A parameter's label is its text, or its offsets in the signature's label.
     static func signature(_ result: JSONValue) -> CodeSignature? {
         let all = result["signatures"]?.array ?? []
         guard !all.isEmpty else { return nil }
@@ -163,7 +162,8 @@ extension LSPClient {
         Self.workspaceSymbols(try await request("workspace/symbol", .obj(["query": .string(query)])))
     }
 
-    /// SymbolInformation or WorkspaceSymbol (which may leave the range out: the file's top).
+    /// Reads a SymbolInformation or a WorkspaceSymbol. A WorkspaceSymbol may leave the range out, which means the
+    /// file's top.
     static func workspaceSymbols(_ result: JSONValue) -> [CodeSymbol] {
         (result.array ?? []).compactMap { symbol in
             let path = symbol["location"]?["uri"]?.string.flatMap { URL(string: $0)?.path }
@@ -188,6 +188,9 @@ extension LSPClient {
         return out.sorted { $0.line < $1.line }
     }
 
+    /// Returns the innermost symbol around `line`, from either shape of a documentSymbol result: nested
+    /// `DocumentSymbol`s or flat `SymbolInformation`s. The smallest range wins, and on a tie the later one wins,
+    /// because a child is visited after its parent.
     static func enclosingSymbol(_ result: JSONValue, line: Int) -> String? {
         var best: (name: String, span: Int)?
         func visit(_ node: JSONValue) {

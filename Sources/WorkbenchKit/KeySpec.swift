@@ -25,7 +25,8 @@ public struct KeySpec: Equatable, LosslessStringConvertible {
         $1
     }
 
-    /// "cmd+shift+k", modifiers in any order ("command", "opt", "alt", "control" too). Nil without a key.
+    /// Reads "cmd+shift+k", with modifiers in any order ("command", "opt", "alt", "control" too). Returns nil without a
+    /// key.
     public init?(_ s: String) {
         var mods: Modifiers = [], key = ""
         for part in s.lowercased().split(separator: "+") {
@@ -41,7 +42,7 @@ public struct KeySpec: Equatable, LosslessStringConvertible {
         self.init(key: mods.contains(.shift) && key.count == 1 ? key.uppercased() : key, mods: mods)
     }
 
-    /// "shift+cmd+k": modifiers in the order menus show them.
+    /// Writes "shift+cmd+k", with modifiers in the order menus show them.
     public var description: String {
         let order: [(Modifiers, String)] = [(.control, "ctrl"), (.option, "opt"), (.shift, "shift"), (.command, "cmd")]
         return (order.filter { mods.contains($0.0) }.map(\.1) + [Self.names[key] ?? key.lowercased()]).joined(

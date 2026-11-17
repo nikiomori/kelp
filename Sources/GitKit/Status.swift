@@ -33,9 +33,10 @@ extension Git {
         return out
     }
 
-    /// `only`: one file's status (a diff of one file mustn't walk every untracked folder in the repository). `limit`: the
-    /// first that many entries (`FileChange.limit` for what's shown; git's output past them is read and dropped);
-    /// without one, all of them or an error.
+    /// Returns the repository's status. With `only`, it returns one file's status, because a diff of one file mustn't
+    /// walk every untracked folder in the repository. With `limit`, it returns the first that many entries
+    /// (`FileChange.limit` for what's shown), and git's output past them is read and dropped. Without a limit, it
+    /// returns all of them or an error.
     public static func status(_ path: String, only file: String? = nil, limit: Int = .max, remotes: Remotes)
         throws -> [FileChange]
     {

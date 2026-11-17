@@ -8,9 +8,10 @@ public struct LanguageSpec: Codable, Equatable, Sendable {
         public var args: [String]?
         /// A shell command that installs `command`, offered when it isn't on PATH.
         public var install: String?
-        /// Nothing is said when it isn't installed: a linter, or a server most people do without.
+        /// When true, nothing is said when the server isn't installed, as for a linter or a server most people do
+        /// without.
         public var optional: Bool?
-        /// Its `initializationOptions`, and its settings (what it asks for by section: `{ "gopls": { … } }`).
+        /// The server's `initializationOptions`, and its settings, which it asks for by section (`{ "gopls": { … } }`).
         public var options: JSONValue?, settings: JSONValue?
 
         public init(
@@ -25,7 +26,8 @@ public struct LanguageSpec: Codable, Equatable, Sendable {
             self.settings = settings
         }
 
-        /// With the user's own `options` and `settings` for it (settings.json's `editor.languageServers`, by command).
+        /// Returns the server with the user's own `options` and `settings` for it (from `editor.languageServers` in
+        /// settings.json, by command).
         public func with(_ own: JSONValue?) -> Server {
             var server = self
             server.options = own?["options"] ?? options
@@ -38,10 +40,10 @@ public struct LanguageSpec: Codable, Equatable, Sendable {
     /// Whole file names, e.g. "Dockerfile".
     public var fileNames: [String]?
     public var server: Server?
-    /// Servers beside `server`, each given the file too: linters (ruff, eslint). Problems and quick fixes come from
-    /// all; completion, hover and the rest from the first that has them.
+    /// Servers beside `server` that are each given the file too, such as linters (ruff, eslint). Problems and quick
+    /// fixes come from all of them, and completion, hover and the rest from the first that has them.
     public var servers: [Server]?
-    /// `server`, then `servers`.
+    /// All the servers: `server`, then `servers`.
     public var allServers: [Server] { (server.map { [$0] } ?? []) + (servers ?? []) }
     /// Shell commands for Run File, Test at Cursor and Format Document (`format` reads the text on stdin, prints it formatted).
     public var run: String?, test: String?, format: String?
@@ -63,7 +65,8 @@ public struct LanguageSpec: Codable, Equatable, Sendable {
     /// `run`, `test` or `format` by name.
     public subscript(command name: String) -> String? { ["run": run, "test": test, "format": format][name] ?? nil }
 
-    /// The word (letters, digits, `_`) at a 1-based line and UTF-16 column: `${symbol}` when no language server names one.
+    /// Returns the word (letters, digits, `_`) at a 1-based line and UTF-16 column. It stands for `${symbol}` when no
+    /// language server names a symbol.
     public static func word(in text: String, line: Int, column: Int) -> String {
         let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)   // CRLF files too
         guard lines.indices.contains(line - 1) else { return "" }

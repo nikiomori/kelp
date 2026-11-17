@@ -18,15 +18,17 @@ extension Git {
             stdin: diff.patch(hunk: hunk), remotes: remotes)
     }
 
-    /// Throw away one unstaged hunk of `diff` (the working tree's version of `git restore -p`): its reverse, applied to the files.
+    /// Throws away one unstaged hunk of `diff` by applying its reverse to the files, like `git restore -p` does for the
+    /// working tree.
     public static func discardHunk(_ path: String, diff: FileDiff, hunk: Int, remotes: Remotes) throws {
         try runData(
             ["apply", "--recount", "--unidiff-zero", "-R", "-"], cwd: path, stdin: diff.patch(hunk: hunk),
             remotes: remotes)
     }
 
-    /// `all`: every change, new files too (what "Commit N Files" counts), not just what's staged. Never with unresolved
-    /// conflicts: staging them would commit the conflict markers.
+    /// Commits and returns the new commit's short hash. With `all`, every change goes in, new files too (what "Commit N
+    /// Files" counts), not just what's staged. That is refused while conflicts are unresolved, because staging them
+    /// would commit the conflict markers.
     @discardableResult
     public static func commit(
         _ path: String, message: String, all: Bool = false, amend: Bool = false, remotes: Remotes
@@ -41,7 +43,7 @@ extension Git {
         return try line(["rev-parse", "--short", "HEAD"], cwd: path, remotes: remotes)
     }
 
-    /// A commit of exactly `files` as they are on disk (`git commit --only`): new ones are added, deletions go in,
+    /// Commits exactly `files` as they are on disk (`git commit --only`): new ones are added, deletions go in,
     /// and whatever else is staged stays staged for a later commit.
     @discardableResult
     public static func commit(_ path: String, files: [String], message: String, remotes: Remotes) throws -> String {
@@ -50,15 +52,16 @@ extension Git {
         do {
             try run(["add", "-A", "--"] + paths, cwd: path, remotes: remotes)
         } catch {
-            // A deletion already staged matches nothing, on disk or in the index, and fails the whole add: one by one.
+            // A deletion already staged matches nothing, on disk or in the index, and fails the whole add, so the files
+            // are added one by one.
             for one in paths { try run(["add", "-A", "--", one], cwd: path, ok: [0, 128], remotes: remotes) }
         }
         try run(["commit", "-q", "-m", message, "--"] + paths, cwd: path, remotes: remotes)
         return try line(["rev-parse", "--short", "HEAD"], cwd: path, remotes: remotes)
     }
 
-    /// The last `count` commits undone, their changes left staged; refused once HEAD isn't `head` any more (another
-    /// commit came since, or a branch switch), so the undo never takes someone else's commit with it.
+    /// Undoes the last `count` commits and leaves their changes staged. It is refused once HEAD isn't `head` any more
+    /// (another commit came since, or a branch switch), so the undo never takes someone else's commit with it.
     public static func undoCommits(_ path: String, head: String, count: Int, remotes: Remotes) throws {
         let now = try line(["rev-parse", "HEAD"], cwd: path, remotes: remotes)
         guard count > 0, !head.isEmpty, now.hasPrefix(head) else {
@@ -72,14 +75,15 @@ extension Git {
         public var conflicts: [String]
     }
 
-    /// A merge is under way in this checkout (MERGE_HEAD exists): its conflicts and resolutions are the user's.
+    /// Whether a merge is under way in this checkout (MERGE_HEAD exists). Its conflicts and resolutions are the user's.
     public static func isMerging(_ path: String, remotes: Remotes) -> Bool {
         succeeds(["rev-parse", "-q", "--verify", "MERGE_HEAD"], cwd: path, remotes: remotes)
     }
 
     /// Merge `branch` into the branch checked out in `target` (usually the main checkout). Aborts on conflict
     /// unless `keepConflicts`, so the caller can show them and hand them to an agent.
-    /// `onto`: the branch `target` must have checked out (the base); anything else is refused rather than merged into.
+    /// `onto` is the branch that `target` must have checked out (the base). Any other branch is refused rather than
+    /// merged into.
     public static func merge(
         branch: String, into target: String, onto: String? = nil, keepConflicts: Bool = false,
         remotes: Remotes
@@ -93,7 +97,8 @@ extension Git {
                 throw GitError.refused("\(branch) is the branch being merged into")
             }
         }
-        // Only a merge started here is ever aborted here: one the user had under way is refused, untouched.
+        // Only a merge started here is ever aborted here, so a merge the user had under way is refused and left
+        // untouched.
         guard !isMerging(target, remotes: remotes) else {
             throw GitError.refused("A merge is already in progress in \(target)")
         }

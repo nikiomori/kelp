@@ -4,9 +4,10 @@ import os
 
 private let usageLog = Logger.kelp("usage")
 
-/// What an agent used (Claude Code, or another `UsageFormat`), by local day, model and folder, kept up to date cheaply: each
-/// log is read once, then only the bytes appended since (the index remembers how far it got, on disk). Claude's lines are
-/// not parsed whole: only their small `usage` object and a few fields are, so gigabytes take seconds the first time.
+/// Totals what an agent used (Claude Code, or another `UsageFormat`) by local day, model and folder, and keeps the
+/// totals up to date cheaply. Each log is read once, and after that only the bytes appended since, because the index
+/// remembers on disk how far it got. Claude's lines are not parsed whole. Only their small `usage` object and a few
+/// fields are, so gigabytes take seconds the first time.
 public final class UsageIndex: Sendable {
     public struct Tally: Codable, Sendable, Equatable {
         public var tokens = TokenCounts()
@@ -16,9 +17,10 @@ public final class UsageIndex: Sendable {
         var offset: UInt64
         var born: Double
         var tallies: [String: Tally] = [:]   // "day|model|cwd"
-        /// The last day by UTC hour and model ("epoch|model"), for the 5-hour block. nil: indexed before it existed (read again).
+        /// The last day's totals by UTC hour and model ("epoch|model"), for the 5-hour block. It is nil for a file
+        /// indexed before this field existed, and such a file is read again.
         var hours: [String: Tally]? = [:]
-        /// The last responses' ids: one response is several lines, which can straddle two reads.
+        /// The ids of the last responses, because one response is several lines, which can straddle two reads.
         var recent: [String]? = []
         /// What earlier lines said that later ones need (`UsageFormat.entry`); nil before the first read.
         var context: [String: String]?
@@ -28,7 +30,7 @@ public final class UsageIndex: Sendable {
         public var tally: Tally
     }
 
-    /// Calls read some other way (Copilot's database) as rows, by local day, model and folder.
+    /// Turns calls read some other way (such as from Copilot's database) into rows by local day, model and folder.
     static func rows(_ entries: [UsageEntry]) -> [Row] {
         var tallies: [String: Row] = [:]
         for entry in entries {
@@ -46,9 +48,11 @@ public final class UsageIndex: Sendable {
 
     private let cacheURL: URL
     private let format: UsageFormat
-    /// Path → what's been read of it. Updates hold the lock while they read (one at a time: the first one reads gigabytes).
+    /// What has been read of each file, by path. An update holds the lock while it reads, so updates run one at a time,
+    /// because the first one reads gigabytes.
     private let files: OSAllocatedUnfairLock<[String: FileState]>
-    /// The index on disk may lag this much (it's megabytes, and some log always grew): a crash only reads those bytes again.
+    /// How far the index on disk may lag, because it is megabytes and some log has always grown. After a crash, only
+    /// those bytes are read again.
     private static let saveEvery: TimeInterval = 600
     private let saved = OSAllocatedUnfairLock(initialState: (at: Date.distantPast, pending: false))
 
@@ -68,7 +72,7 @@ public final class UsageIndex: Sendable {
         let first = Self.day(since)
         return files.withLock { update(&$0, roots: roots, since: since) }.flatMap { $0.tallies }.compactMap {
             key, tally in
-            // "yyyy-MM-dd|model|cwd" sorts by its day: one before `first` isn't split.
+            // Keys ("yyyy-MM-dd|model|cwd") sort by their day, so a key before `first` is skipped without a split.
             guard key >= first else { return nil }
             let parts = key.split(separator: "|", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
             return parts.count == 3 && parts[0] >= first
@@ -76,8 +80,9 @@ public final class UsageIndex: Sendable {
         }
     }
 
-    /// The 5-hour block `now` falls in (nil when the last one reset), from transcripts changed in the last 10 hours.
-    /// `fresh`: `rows` just read them, from at least that far back: a walk of the folder is not done twice.
+    /// Returns the 5-hour block that `now` falls in, or nil when the last block has reset, from transcripts changed in
+    /// the last 10 hours. Pass `fresh` when `rows` has just read them from at least that far back, so the folder isn't
+    /// walked twice.
     public func currentBlock(roots: [URL], now: Date = Date(), fresh: Bool = false) -> ClaudeUsage.Block? {
         let since = now.addingTimeInterval(-10 * 3600).timeIntervalSince1970
         let hours = files.withLock {
@@ -91,8 +96,8 @@ public final class UsageIndex: Sendable {
         return Self.block(hours, now: now)
     }
 
-    /// ccusage's rule over hourly sums: a block starts at the first hour used and lasts 5 h; the first hour past that
-    /// starts the next one.
+    /// Applies ccusage's rule to hourly sums. A block starts at the first hour used and lasts 5 h, and the first hour
+    /// used after that starts the next block.
     public static func block(_ hours: [Hour], now: Date) -> ClaudeUsage.Block? {
         var start: Date?, inBlock: [Hour] = []
         for hour in hours.sorted(by: { $0.start < $1.start }) where hour.start <= now {
@@ -110,7 +115,8 @@ public final class UsageIndex: Sendable {
             estimatedCostUSD: inBlock.reduce(0) { $0 + $1.tally.cost }, models: Set(inBlock.map(\.model)).sorted())
     }
 
-    /// Reads what's new in transcripts under `roots` changed since `since` into `known`; the states of the files under them.
+    /// Reads what's new in transcripts under `roots` changed since `since` into `known`, and returns the states of the
+    /// files under `roots`.
     private func update(_ known: inout [String: FileState], roots: [URL], since: Date) -> [FileState] {
         var changed = false
         let keys: Set<URLResourceKey> = [.contentModificationDateKey, .creationDateKey, .fileSizeKey]
@@ -151,15 +157,16 @@ public final class UsageIndex: Sendable {
     /// The furthest back any read asks (Usage's year of weeks, 371 days), and a day more.
     static let horizon: TimeInterval = 372 * 86400
 
-    /// Drops what's known of files gone or last written before `date`: no read goes back that far (`update` skips a file
-    /// older than its `since`), so they only grew the index on disk and every read of it. One written to again is read
-    /// from its start, its old days with it.
+    /// Drops what is known of files that are gone or were last written before `date`. No read goes back that far,
+    /// because `update` skips a file older than its `since`, so those entries only grew the index on disk and every
+    /// read of it. A dropped file that is written to again is read from its start, old days included.
     static func forget(_ known: inout [String: FileState], before date: Date) {
         let limit = Int(date.timeIntervalSince1970)
         known = known.filter { path, _ in Artifacts.fileStat(path).map { $0.mtime.tv_sec >= limit } ?? false }
     }
 
-    /// The files under `roots` alone (one account's). The enumerator may report /private/var/… for /var/… (and the other way round).
+    /// Returns the states of the files under `roots` only (one account's). The enumerator may report /private/var/…
+    /// for /var/…, and the other way round.
     private static func under(_ roots: [URL], _ known: [String: FileState]) -> [FileState] {
         func plain(_ path: String) -> String {
             path.hasPrefix("/private/") ? String(path.dropFirst("/private".count)) : path
@@ -168,7 +175,7 @@ public final class UsageIndex: Sendable {
         return known.filter { path, _ in prefixes.contains { plain(path).hasPrefix($0) } }.map(\.value)
     }
 
-    /// Days `from`…`to` (local, inclusive) as one block: what Usage's "today" and "this week" show.
+    /// Sums the days `from`…`to` (local, inclusive) into one block, which is what Usage's "today" and "this week" show.
     public static func block(_ rows: [Row], from: Date, to: Date) -> ClaudeUsage.Block {
         let first = day(from), last = day(to)
         let in_ = rows.filter { $0.day >= first && $0.day <= last }
@@ -177,8 +184,8 @@ public final class UsageIndex: Sendable {
             estimatedCostUSD: in_.reduce(0) { $0 + $1.tally.cost }, models: Set(in_.map(\.model)).sorted())
     }
 
-    /// The complete lines after `offset`, 8 MB at a time (one session can be gigabytes); a line still being written waits
-    /// for next time.
+    /// Reads the complete lines after `offset`, 8 MB at a time, because one session can be gigabytes. A line still
+    /// being written waits for the next read.
     static func read(_ url: URL, into st: inout FileState, format: UsageFormat = .claude) {
         let offset = st.offset
         guard
@@ -204,12 +211,12 @@ public final class UsageIndex: Sendable {
                 continue
             }
             for line in JSONL.lines(data[..<last]) where format.markers.contains(where: { line.range(of: $0) != nil }) {
-                // Older than the file: history a resumed (or forked) session copied in.
+                // A line older than the file is history that a resumed (or forked) session copied in.
                 guard let entry = format.entry(line, &context), entry.time >= st.born - 120 else { continue }
                 if let id = entry.id {
                     guard seen.insert(id).inserted else { continue }
                     recent.append(id)
-                }   // one response, several lines
+                }   // one response spans several lines
                 let cost = entry.cost ?? Pricing.cost(model: entry.model, tokens: entry.tokens)
                 func add(_ tally: inout Tally) {
                     tally.tokens += entry.tokens
@@ -229,7 +236,8 @@ public final class UsageIndex: Sendable {
 
     /// One assistant line's numbers, without parsing its (large) message content.
     static func entry(_ line: Data) -> UsageEntry? {
-        // `"type":"assistant"` is the line's own type; the first "type" in a line is usually the message's ("message").
+        // `"type":"assistant"` is the line's own type. The first "type" in a line usually belongs to the message
+        // ("message"), so the whole pair is searched for.
         guard line.range(of: assistant) != nil, let usage = object(line, after: "\"usage\":"),
             let counts = try? JSONSerialization.jsonObject(with: usage) as? [String: Any],
             let ts = JSONL.date(field(line, "timestamp"))?.timeIntervalSince1970

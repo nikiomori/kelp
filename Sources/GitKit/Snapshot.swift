@@ -3,8 +3,8 @@ import Foundation
 import os
 
 extension Git {
-    /// The working tree as it is now (tracked and new files, .gitignore respected) written as a tree object, so a
-    /// later diff shows exactly what changed since. A copy of the index is updated, never the real one; files whose
+    /// Writes the working tree as it is now (tracked and new files, .gitignore respected) as a tree object, so that a
+    /// later diff shows exactly what changed since. A copy of the index is updated, never the real one, and files whose
     /// stat didn't change aren't hashed again.
     public static func snapshotTree(_ cwd: String, remotes: Remotes) throws -> String {
         let add = try addAll(cwd, remotes: remotes)
@@ -15,10 +15,10 @@ extension Git {
         }
     }
 
-    /// What a turn begins with: `snapshotTree`, and what is staged (`indexTree`) written from the same copy of the index
-    /// before `add -A` changes it. nil staged: unresolved conflicts (git writes no tree of those) or a write-tree that
-    /// failed otherwise, which the turn does without. nil in a folder without git, which has no tree to write: not a
-    /// failure, as anything else git couldn't do here is.
+    /// Takes what a turn begins with: `snapshotTree`, and what is staged (`indexTree`), written from the same copy of
+    /// the index before `add -A` changes it. `staged` is nil when there are unresolved conflicts (git writes no tree of
+    /// those) or when write-tree failed for another reason, and the turn does without it. The result is nil in a folder
+    /// without git, which has no tree to write. That isn't a failure, but anything else git couldn't do here is.
     public static func turnSnapshot(_ cwd: String, remotes: Remotes) throws -> (tree: String, staged: String?)? {
         let add: [String]
         do { add = try addAll(cwd, remotes: remotes) } catch  where ProjectFiles.outsideGit(error) { return nil }
@@ -37,8 +37,8 @@ extension Git {
         }
     }
 
-    /// `add -A` from the top, new files that look like secrets (a key, .env) left out: refs/kelp/turns would pin them in
-    /// git for good, and `git push --mirror` send them.
+    /// Returns `add -A` from the top, leaving out new files that look like secrets (a key, .env). Otherwise
+    /// refs/kelp/turns would pin them in git for good, and `git push --mirror` would send them.
     private static func addAll(_ cwd: String, remotes: Remotes) throws -> [String] {
         let secrets = try run(
             ["ls-files", "-z", "-o", "--exclude-standard", "--full-name", "--", ":/"], cwd: cwd, remotes: remotes
@@ -47,20 +47,21 @@ extension Git {
         return ["add", "-A"] + (secrets.isEmpty ? [] : ["--", ":/"] + secrets.map { ":(top,exclude,literal)" + $0 })
     }
 
-    /// The object `rev` names (a ref, `HEAD`, `<tree>^{tree}`), nil when there's none: a ref never made, a snapshot
-    /// git has cleaned up, a repository with no commit yet.
+    /// Returns the object that `rev` names (a ref, `HEAD`, `<tree>^{tree}`), or nil when there's none: a ref never
+    /// made, a snapshot git has cleaned up, or a repository with no commit yet.
     public static func resolve(_ rev: String, cwd: String, remotes: Remotes) throws -> String? {
         let object = try line(["rev-parse", "--verify", "-q", rev], cwd: cwd, ok: [0, 1], remotes: remotes)
         return object.isEmpty ? nil : object
     }
 
-    /// The commit checked out; nil before the first one.
+    /// Returns the commit checked out, or nil before the first commit.
     public static func head(_ cwd: String, remotes: Remotes) throws -> String? {
         try resolve("HEAD", cwd: cwd, remotes: remotes)
     }
 
-    /// Keeps `object` under `ref` (a snapshot under refs/kelp/…, so `git gc` leaves it); nil drops the ref. `reflog`: the
-    /// line the ref's log keeps for this, so what it pointed at before stays reachable too.
+    /// Keeps `object` under `ref` (a snapshot under refs/kelp/…, so `git gc` leaves it), or drops the ref when `object`
+    /// is nil. `reflog` is the line that the ref's log keeps for this change, so what the ref pointed at before stays
+    /// reachable too.
     public static func setRef(
         _ ref: String, to object: String?, reflog: String? = nil, cwd: String, remotes: Remotes
     ) throws {
@@ -68,7 +69,8 @@ extension Git {
         try run(["update-ref"] + log + (object.map { [ref, $0] } ?? ["-d", ref]), cwd: cwd, remotes: remotes)
     }
 
-    /// Sets each of `set` (ref, object) and drops `refs` in one git run; one already gone stops none of the others.
+    /// Sets each (ref, object) pair in `set` and drops `refs`, in one git run. A ref that is already gone doesn't stop
+    /// the others.
     public static func deleteRefs(
         _ refs: [String], setting set: [(ref: String, object: String)] = [], cwd: String, remotes: Remotes
     ) throws {
@@ -76,11 +78,11 @@ extension Git {
         try run(["update-ref", "--stdin"], cwd: cwd, stdin: lines.joined(), remotes: remotes)
     }
 
-    /// What is staged now, written as a tree object: kept beside a turn's snapshot, so undoing the turn puts the index
-    /// back as well as the files. From a copy of the index too (`write-tree` on the real one rewrites it, under its
-    /// lock, which an agent's `git add` then finds taken). nil when there is none to write: unresolved conflicts (git
-    /// writes no tree of those; asked only once write-tree failed), a remote project. A file added with `git add -N`
-    /// isn't in it.
+    /// Writes what is staged now as a tree object, which is kept beside a turn's snapshot so that undoing the turn puts
+    /// the index back as well as the files. It is written from a copy of the index too, because `write-tree` on the
+    /// real index rewrites it under its lock, and an agent's `git add` then finds the lock taken. Returns nil when
+    /// unresolved conflicts leave no tree to write (git writes no tree of those, and this is checked only after
+    /// write-tree failed). A file added with `git add -N` isn't in the tree.
     public static func indexTree(_ cwd: String, remotes: Remotes) throws -> String? {
         do {
             if let host = remotes.of(cwd) { return try onHostIndexCopy(host, [["write-tree"]]).last }
@@ -95,13 +97,14 @@ extension Git {
         }
     }
 
-    /// `body` with the environment that points git at a copy of the index, never the real one, and the arguments that
-    /// keep the repository's hooks out of it.
+    /// Runs `body` with the environment that points git at a copy of the index, never the real one, and with the
+    /// arguments that keep the repository's hooks out of it.
     private static func onIndexCopy<T>(
         _ cwd: String, remotes: Remotes, _ body: (_ env: [String: String], _ quiet: [String]) throws -> T
     ) throws -> T {
-        // On a remote project git runs on the host, where neither GIT_INDEX_FILE nor this Mac's copy of the index reach:
-        // `add -A` would stage everything in the host's real index (`onHostIndexCopy` is its way).
+        // On a remote project git runs on the host, which neither GIT_INDEX_FILE nor this Mac's copy of the index
+        // reach. `add -A` would then stage everything in the host's real index, so `onHostIndexCopy` handles remote
+        // projects instead.
         if remotes.of(cwd) != nil {
             throw GitError.refused("A remote project's index is copied on its host.")
         }
@@ -109,15 +112,15 @@ extension Git {
         let copy = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-index-\(UUID().uuidString)").path
         defer { FileManager.default.removeIfAny(URL(fileURLWithPath: copy)) }
         if FileManager.default.fileExists(atPath: real) { try FileManager.default.copyItem(atPath: real, toPath: copy) }
-        // Nobody asked for these: a repository's filters and index hooks don't run for them. Both write the index, and
-        // writing it can read a racily clean file through its filter again.
+        // Nobody asked for these runs, so a repository's filters and index hooks don't run for them. Both runs write
+        // the index, and writing it can read a racily clean file through its filter again.
         var env = ["GIT_INDEX_FILE": copy]
         env.merge(configEnv(RepoFilters.off(cwd), after: ProcessInfo.processInfo.environment)) { $1 }
         return try body(env, ["-c", "core.hooksPath=/dev/null"])
     }
 
-    /// The real index's file for `cwd` (`--git-path index`: a linked worktree's is in the main repository), asked of git
-    /// once per folder, and again when the file named isn't there.
+    /// Returns the real index file for `cwd` (`--git-path index`, because a linked worktree's index is in the main
+    /// repository). git is asked once per folder, and again when the file it named isn't there.
     /// Limit: a folder that becomes another repository's worktree while its old index file stays copies that one.
     static func indexFile(_ cwd: String, remotes: Remotes) throws -> String {
         if let known = indexFiles.withLock({ $0[cwd] }), FileManager.default.fileExists(atPath: known) { return known }
@@ -128,9 +131,10 @@ extension Git {
     }
     private static let indexFiles = OSAllocatedUnfairLock<[String: String]>(initialState: [:])
 
-    /// `runs` of git on a remote project's host, one after another, on a copy of its index in the host's temporary
-    /// folder (never the real one) with the repository's hooks off: the lines they printed. One round trip.
-    /// `stagedFirst`: a `write-tree` before them, its line `-` when it fails (conflicts), which stops none of them.
+    /// Runs `runs` of git on a remote project's host, one after another, in one round trip. They work on a copy of the
+    /// index in the host's temporary folder (never the real one), with the repository's hooks off. Returns the lines
+    /// they printed. `stagedFirst` adds a `write-tree` before them, whose line is `-` when it fails (conflicts), and
+    /// that failure doesn't stop the others.
     private static func onHostIndexCopy(_ host: RemoteHost, _ runs: [[String]], stagedFirst: Bool = false) throws
         -> [String]
     {
@@ -169,17 +173,19 @@ extension Git {
 }
 
 extension Git {
-    /// The files HEAD changed since it left `base` (their merge base), committed only: `status` has the rest.
+    /// Returns the files that HEAD changed since it left `base` (their merge base), counting committed changes only.
+    /// `status` has the rest.
     public static func branchFiles(_ cwd: String, base: String, remotes: Remotes) throws -> [String] {
         try run(["diff", "--name-only", "--no-renames", "-z", "\(try rev(base))...HEAD"], cwd: cwd, remotes: remotes)
             .split(separator: "\0").map(String.init)
     }
 }
 
-/// Putting a folder back as it was at a snapshot (an agent's turn undone).
+/// Puts a folder back as it was at a snapshot, to undo an agent's turn.
 extension Git {
-    /// The files that differ now from snapshot `tree`, secrets left out (`holdsSecrets`: what the user put there stays), and the
-    /// snapshot of now, which `restore` is given back so nothing that changes meanwhile is written over.
+    /// Returns the files that differ now from snapshot `tree`, leaving out secrets (`holdsSecrets`), so what the user
+    /// put there stays. It also returns the snapshot of now, which is given back to `restore` so that nothing that
+    /// changes meanwhile is written over.
     public static func changed(since tree: String, cwd: String, remotes: Remotes) throws -> (
         files: [String], now: String
     ) {
@@ -191,9 +197,10 @@ extension Git {
         )
     }
 
-    /// `.env`, `.env.local`, `.env.production`, private keys and certificates (`id_rsa`, `*.pem`, `*.p12`), a cloud
-    /// SDK's `credentials.json`: the user's secrets, never put back nor snapshotted when new. A template committed for
-    /// others (`.env.example`), direnv's `.envrc` and a public key (`id_rsa.pub`) are code like any other.
+    /// Whether a file name is one of the user's secrets, which are never put back, nor snapshotted when new: `.env`,
+    /// `.env.local`, `.env.production`, private keys and certificates (`id_rsa`, `*.pem`, `*.p12`), and a cloud SDK's
+    /// `credentials.json`. A template committed for others (`.env.example`), direnv's `.envrc` and a public key
+    /// (`id_rsa.pub`) are code like any other.
     static func holdsSecrets(_ name: String) -> Bool {
         let ext = (name as NSString).pathExtension.lowercased()
         return name == ".env"
@@ -203,12 +210,13 @@ extension Git {
             || ["pem", "key", "p12", "pfx"].contains(ext)
     }
 
-    /// `files` (paths from the repository's top, `cwd`) as they were in `tree`, content and mode; a file the tree hasn't
-    /// goes to the Trash. In the index they go back to what `index` (an `indexTree` taken with `tree`) had staged: what
-    /// the user staged before the turn stays staged, what was staged since (the undone work) goes, so the next commit
-    /// can't take it. Without one (a turn kept before these were, or begun amid conflicts) whatever of them is staged
-    /// is unstaged, back to HEAD, which is the turn's. Refused when the folder isn't the snapshot `now` any more;
-    /// afterwards none of them may still differ.
+    /// Puts `files` (paths from the repository's top, `cwd`) back as they were in `tree`, content and mode. A file that
+    /// the tree doesn't have goes to the Trash. In the index, the files go back to what `index` (an `indexTree` taken
+    /// with `tree`) had staged. What the user staged before the turn stays staged, and what was staged since (the
+    /// undone work) is removed, so the next commit can't take it. Without `index` (a turn kept before index trees
+    /// existed, or one begun amid conflicts), whatever of the files is staged is unstaged back to HEAD, which is the
+    /// turn's. The restore is refused when the folder isn't the snapshot `now` any more, and afterwards none of the
+    /// files may still differ.
     public static func restore(
         _ files: [String], from tree: String, now: String, index: String? = nil, cwd: String, remotes: Remotes
     ) throws {
@@ -237,7 +245,8 @@ extension Git {
         }
         let new = files.filter { !had.contains($0) }
         if let host = remotes.of(cwd), !new.isEmpty {
-            // On a host: into the repository's own .git/kelp-trash (git doesn't list it), as the Files panel trashes.
+            // On a host, new files move into the repository's own .git/kelp-trash (git doesn't list it), as the Files
+            // panel trashes them.
             let quoted = new.map(ShellQuote.word).joined(separator: " ")
             try host.run(
                 "cd \(RemoteHost.cdArg(host.path)) && "

@@ -11,9 +11,10 @@ public enum TerminalTitle {
         oscBodies(chunk, starts: starts, limit: 512, carry: &carry)
     }
 
-    /// The topic in a title, without the spinner in front; nil when it only names the program (`names`: its id and
-    /// name) or the folder, or reads like a path. A spinner after the program's mark ("π ⠧ 󰊗 Fix login", omp) and
-    /// icon-font glyphs go wherever they are: each frame would rename the session and its workspace, ~12 times a second.
+    /// Returns the topic in a title, without the spinner in front. Returns nil when the title only names the program
+    /// (`names` holds its id and name) or the folder, or reads like a path. A spinner after the program's mark ("π ⠧ 󰊗
+    /// Fix login", omp) and icon-font glyphs are removed wherever they are, because each frame would otherwise rename
+    /// the session and its workspace, ~12 times a second.
     public static func topic(_ title: String, names: [String]) -> String? {
         let bare = String(
             String.UnicodeScalarView(
@@ -43,7 +44,7 @@ func oscBodies(_ chunk: String, starts: [String], limit: Int, carry: inout Strin
         out.append(String(body[..<end]))
         rest = String(body[body.index(after: end)...])
     }
-    // "…\u{1B}]" at the very end: the start of a sequence the next read completes.
+    // A "…\u{1B}]" at the very end is the start of a sequence that the next read completes.
     if let escape = rest.lastIndex(of: "\u{1B}"), starts.contains(where: { $0.hasPrefix(String(rest[escape...])) }) {
         carry = String(rest[escape...])
     }

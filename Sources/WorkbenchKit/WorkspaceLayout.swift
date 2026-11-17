@@ -20,7 +20,8 @@ public struct WorkspaceLayout: Codable, Equatable {
     public var focused: String?
     /// Divider positions the user dragged: each split's shares, keyed by its children's first group ids.
     public var sizes: [String: [Double]]?
-    /// The panes are the user's (split or dragged by hand, or agents switched to tabs): agents aren't put side by side.
+    /// Whether the panes are the user's (split or dragged by hand, or agents switched to tabs), in which case agents
+    /// aren't put side by side.
     public var manual: Bool?
 
     public init() {}
@@ -29,8 +30,8 @@ public struct WorkspaceLayout: Codable, Equatable {
     public var focusedGroup: GroupModel? {
         focused.flatMap { groups[$0] } ?? root?.sessions.first.flatMap { groups[$0] }
     }
-    /// The tabs being looked at, not merely on screen: with several panes, the focused pane's tabs, else the one
-    /// pane's.
+    /// Returns the tabs being looked at, not merely on screen: with several panes, the focused pane's selected tab, or
+    /// else the single pane's.
     public func attendedTabs(zoomed: String?) -> [TabRef] {
         let panes = zoomed.map { [$0] } ?? root?.sessions ?? []
         return (panes.count > 1 ? [focusedGroup?.id].compactMap { $0 } : panes).compactMap { groups[$0]?.selectedTab }
@@ -38,9 +39,9 @@ public struct WorkspaceLayout: Codable, Equatable {
     public func group(of tab: String) -> String? { groups.first { $0.value.tabs.contains { $0.id == tab } }?.key }
     public func tab(uri: String) -> TabRef? { allTabs.first { $0.uri == uri } }
 
-    /// `new` in the tab that showed `old`, in its place (a restarted session, a file saved under a new name); nil when
-    /// no tab shows `old`. A tab `new` already has (the daemon's event for a restarted session can come before the
-    /// restart's answer) goes: one tab per URI.
+    /// Puts `new` in the tab that showed `old`, in its place (a restarted session, a file saved under a new name).
+    /// Returns nil when no tab shows `old`. A tab that already shows `new` is removed, because there is one tab per
+    /// URI, and the daemon's event for a restarted session can come before the restart's answer.
     @discardableResult
     public mutating func replace(_ old: String, with new: String) -> TabRef? {
         guard let ref = tab(uri: old) else { return nil }
@@ -132,7 +133,8 @@ public struct WorkspaceLayout: Codable, Equatable {
         focused = target
     }
 
-    /// The tab in a new group along a whole side of the editor area (dropped at its outer edge): full height or width.
+    /// Moves the tab into a new group along a whole side of the editor area (dropped at its outer edge), at full height
+    /// or width.
     public mutating func splitRoot(_ tab: String, vertical: Bool, before: Bool) {
         guard let ref = allTabs.first(where: { $0.id == tab }), let tree = root,
             tree.sessions.count > 1 || groups[tree.sessions[0]]?.tabs.count ?? 0 > 1

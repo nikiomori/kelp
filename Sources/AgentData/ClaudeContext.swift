@@ -1,16 +1,18 @@
 import Core
 import Foundation
 
-/// What fills a Claude Code conversation's context (session.contextParts), read from its transcript since the last
-/// compaction. Parts are counted in characters, then scaled so that base + parts make what the last reply counted
-/// (`used`): their shares are estimates, the total is exact. Thinking stays in the context, so it's a line of the conversation.
+/// Works out what fills a Claude Code conversation's context (session.contextParts) from its transcript since the
+/// last compaction. Parts are counted in characters, then scaled so that the base plus the parts add up to what the
+/// last reply counted (`used`). So each part's share is an estimate, but the total is exact. Thinking stays in the
+/// context, so it is a line under the conversation part.
 public enum ClaudeContext {
     /// Measured on Opus 5.5 against what requests counted: 0.42 tokens a character, and an image is about 1,880 tokens.
     static let charsPerToken = 2.37, imageChars = 4456
     public typealias Parts = SessionContextParts.Parts
     typealias Kind = SessionContextParts.Kind
 
-    /// A reply's writes say how long the cache lasts from it: an hour for a plan's main conversation, else five minutes.
+    /// Returns when the cache that a reply wrote runs out. It lasts an hour when the reply wrote one-hour cache (a
+    /// plan's main conversation), and five minutes otherwise.
     public static func cacheUntil(_ line: [String: Any], _ usage: [String: Any]) -> Date? {
         func wrote(_ kind: String) -> Bool { ((usage["cache_creation"] as? [String: Any])?[kind] as? Int ?? 0) > 0 }
         guard wrote("ephemeral_1h_input_tokens") || wrote("ephemeral_5m_input_tokens"),
@@ -19,9 +21,11 @@ public enum ClaudeContext {
         return at.addingTimeInterval(wrote("ephemeral_1h_input_tokens") ? 3600 : 300)
     }
 
-    /// Tokens in the context of a Claude Code conversation: the last reply's input with cache, as Claude Code's own
-    /// statusline counts it (the reply's output isn't in it until it's sent back), or what a newer compaction left. `peak` is the most it held (a compaction's starting size counts), for telling the window.
-    /// Read again only once the transcript was written to (`StatMemo`): a working agent's is asked every 15 s.
+    /// Returns the tokens in a Claude Code conversation's context. That is the last reply's input including cache, as
+    /// Claude Code's own statusline counts it (the reply's output isn't in it until it's sent back), or what a newer
+    /// compaction left. `peak` is the most the context held, counting a compaction's starting size, and it is used to
+    /// tell the size of the context window. The transcript is read again only after it was written to (`StatMemo`),
+    /// because a working agent's usage is asked for every 15 s.
     public static func usage(transcript url: URL) -> Usage? { usages.value(url.path) { readUsage(url) } }
     public typealias Usage = (used: Int, peak: Int, model: String, cacheUntil: Date?)
     private static let usages = StatMemo<Usage?>()
@@ -34,7 +38,7 @@ public enum ClaudeContext {
                 entry["isSidechain"] as? Bool != true
             else { continue }
             if compacted == nil, entry["subtype"] as? String == "compact_boundary" {
-                // Without postTokens (older Claude Code) what's left is unknown until the next reply.
+                // Without postTokens (older Claude Code), the size after compaction is unknown until the next reply.
                 guard let metadata = entry["compactMetadata"] as? [String: Any],
                     let post = metadata["postTokens"] as? Int
                 else {
@@ -84,8 +88,8 @@ public enum ClaudeContext {
         return Parts(base: base, parts: parts)
     }
 
-    /// What `claude -p /context` prints, read: its categories, the tools it defers, the autocompact buffer, and the
-    /// memory files, skills and custom agents it lists. nil when there's no table of categories in it.
+    /// Reads what `claude -p /context` prints: its categories, the tools it defers, the autocompact buffer, and the
+    /// memory files, skills and custom agents it lists. Returns nil when the print has no table of categories.
     public static func setup(_ printed: String) -> SessionContextParts.Setup? {
         let lists = ["Memory Files": "Memory files", "Skills": "Skills", "Custom Agents": "Custom agents"]
         var section = "", parts: [SessionContextParts.Setup.Group] = [], deferred: [SessionContextParts.Item] = [],
@@ -119,7 +123,8 @@ public enum ClaudeContext {
         return .init(parts: parts, deferred: deferred, buffer: buffer)
     }
 
-    /// "2.5k" → 2500, "~300" → 300, "1m" → 1,000,000; nil for a header ("Tokens").
+    /// Reads a token count from a table cell: "2.5k" → 2500, "~300" → 300, "1m" → 1,000,000. Returns nil for a header
+    /// ("Tokens").
     static func tokens(_ cell: String) -> Int? {
         var number = cell.trimmingCharacters(in: CharacterSet(charactersIn: "~ ")).lowercased(), unit = 1.0
         if number.hasSuffix("k") {
@@ -132,10 +137,11 @@ public enum ClaudeContext {
         return Double(number).map { Int(($0 * unit).rounded()) }
     }
 
-    /// The setup as /context counts it, and what else the session's first request held as one more part, "Other" (hook
-    /// output, the environment, the names of the tools it defers…: /context leaves those out), so the parts make `base`,
-    /// what that request really counted. Scaled down only when /context counts more: its fresh copy of the agent may have
-    /// more skills or MCP servers than the session started with.
+    /// Fits the setup that /context counts to `base`, which is what the session's first request really counted.
+    /// Whatever else that request held becomes one more part, "Other" (hook output, the environment, the names of the
+    /// deferred tools, and so on), because /context leaves those out. The parts are scaled down only when /context
+    /// counts more than `base`, because its fresh copy of the agent may have more skills or MCP servers than the
+    /// session started with.
     public static func fit(_ setup: SessionContextParts.Setup, to base: Int) -> SessionContextParts.Setup {
         let sum = setup.parts.reduce(0) { $0 + $1.tokens }
         var out = setup
@@ -153,7 +159,7 @@ public enum ClaudeContext {
         return out
     }
 
-    /// The first request: system prompt, tools, CLAUDE.md, skills, and what you typed first (taken off again).
+    /// Returns the tokens of the first request (system prompt, tools, CLAUDE.md, skills), minus what you typed first.
     static func base(_ lines: [Data]) -> Int? {
         var typed = 0
         for line in lines {
@@ -175,14 +181,15 @@ public enum ClaudeContext {
         return nil
     }
 
-    /// Characters by part and label ("payment.ts", "npm test", "replies"), with how many times each came.
+    /// Counts characters by part and label ("payment.ts", "npm test", "replies"), and how many times each label came.
     struct Tally {
         var chars: [Kind: [String: (chars: Int, count: Int)]] = [:]
         private var tools: [String: (name: String, input: [String: Any])] = [:]
-        /// One reply is a line per block, each with the reply's whole usage.
+        /// The ids of the replies whose thinking is counted. A reply is stored as one line per block, and each line
+        /// carries the reply's whole usage, so thinking is counted once per id.
         private var thought = Set<String>()
-        /// Notes before the first reply (skills, CLAUDE.md, the tools it defers, hook output) went with the first
-        /// request, or came back with the compaction: the base, counted there.
+        /// Whether a reply has been seen. Notes before the first reply (skills, CLAUDE.md, deferred tools, hook output)
+        /// went with the first request or came back with the compaction, so they belong to the base, counted there.
         private var replied = false
 
         mutating func count(_ kind: Kind, _ label: String, _ amount: Int, times: Int = 1) {
@@ -246,7 +253,7 @@ public enum ClaudeContext {
             }
         }
 
-        /// A tool result's characters: its text, an image as `imageChars`.
+        /// Returns a tool result's size in characters: its text, with each image counted as `imageChars`.
         static func size(_ content: Any?) -> Int {
             if let string = content as? String { return string.count }
             return (content as? [[String: Any]] ?? []).reduce(0) { sum, block in
@@ -254,13 +261,13 @@ public enum ClaudeContext {
             }
         }
 
-        /// "cd app && npm test -- --watch=false" → "npm test": a command by its program and first word.
+        /// Names a command by its program and first word: "cd app && npm test -- --watch=false" → "npm test".
         static func command(_ line: String) -> String {
             AgentCommand.short(line).split(separator: " ").prefix(2).joined(separator: " ")
         }
     }
 
-    /// What a message says in text: its string, or its text blocks (tool results aren't text).
+    /// Returns the characters of text in a message: its string, or its text blocks (tool results aren't text).
     static func text(_ content: Any?) -> Int {
         if let string = content as? String { return string.count }
         return (content as? [[String: Any]] ?? []).reduce(0) {

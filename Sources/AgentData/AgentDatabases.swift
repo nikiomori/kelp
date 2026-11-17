@@ -2,15 +2,16 @@ import Core
 import Foundation
 import SQLite3
 
-/// Agents that keep their calls in SQLite: GitHub Copilot CLI, OpenCode and Kilo (one database each), Antigravity (one per
-/// conversation). Read from copies the daemon makes, never the agent's own files: the newest rows sit in the WAL, which only
-/// a connection that may write applies, and Kelp doesn't write to an agent's files.
+/// Reads usage from the agents that keep their calls in SQLite: GitHub Copilot CLI, OpenCode and Kilo (one database
+/// each) and Antigravity (one per conversation). It reads copies that the daemon makes, never the agent's own files.
+/// The newest rows sit in the WAL, which only a connection that may write applies, and Kelp doesn't write to an
+/// agent's files.
 public enum AgentDatabases {
     public static let agents = ["copilot", "opencode", "kilo", "antigravity"]
-    /// Those whose rows say what a call cost.
+    /// The agents whose rows say what each call cost.
     public static let ownPrice = ["opencode", "kilo"]
 
-    /// `agent`'s databases changed since `since` (an older one has nothing newer in it).
+    /// Returns the databases of `agent` that changed since `since`, because an older file has no newer rows.
     public static func files(_ agent: String, changedSince since: Date) -> [URL] {
         let env = ProcessInfo.processInfo.environment, fm = FileManager.default, home = fm.homeDirectoryForCurrentUser
         func dir(_ variable: String, _ fallback: String) -> URL {
@@ -25,7 +26,8 @@ public enum AgentDatabases {
                     env["OPENCODE_DB"].map { URL(fileURLWithPath: $0) }
                         ?? data.appendingPathComponent("opencode/opencode.db")
                 ]
-            // KILO_DB (a path, or a name in its folder), else kilo.db and a release channel's kilo-<channel>.db.
+            // KILO_DB is a path, or a file name in Kilo's folder. Without it, Kilo's databases are kilo.db and a
+            // kilo-<channel>.db for each release channel.
             case "kilo":
                 env["KILO_DB"].map { [URL(fileURLWithPath: $0, relativeTo: data.appendingPathComponent("kilo/"))] }
                     ?? fm.items(in: data.appendingPathComponent("kilo")).filter {
@@ -58,8 +60,9 @@ public enum AgentDatabases {
             })
     }
 
-    /// Copilot: `assistant_usage_events` (input counts the cache), the folder from its session. The same call is sometimes
-    /// stored twice under another turn (same session, time and counts): DISTINCT keeps one.
+    /// Reads Copilot's `assistant_usage_events`, where input includes the cache, and takes the folder from the session.
+    /// The same call is sometimes stored twice under another turn (same session, time and counts), so DISTINCT keeps
+    /// one.
     static func copilot(_ db: URL, since: Date) -> [UsageEntry] {
         var out: [UsageEntry] = []
         query(
@@ -70,7 +73,8 @@ public enum AgentDatabases {
             FROM assistant_usage_events e LEFT JOIN sessions s ON s.id = e.session_id
             """
         ) { st in
-            // ISO with a "Z", or SQLite's own "2026-10-25 01:17:12" (UTC) when a row took the column's default.
+            // The time is ISO with a "Z", or SQLite's own "2026-10-25 01:17:12" (UTC) when the row took the
+            // column's default.
             let at = text(st, 1)
             guard let created = JSONL.date(at) ?? JSONL.date(at.replacingOccurrences(of: " ", with: "T") + "Z"),
                 created >= since
@@ -86,9 +90,10 @@ public enum AgentDatabases {
         return out
     }
 
-    /// OpenCode and Kilo: an assistant message's JSON once it's complete: `tokens` (input without the cache, output without
-    /// the reasoning) and what it cost by its own account. OpenCode 2 keeps them in `session_message`, the older ones
-    /// copied over too: where that table is, the old one isn't read (it would count them twice).
+    /// Reads OpenCode and Kilo from the JSON of each completed assistant message. The message's `tokens` count input
+    /// without the cache and output without the reasoning, and the message carries its own cost. OpenCode 2 keeps
+    /// messages in `session_message`, with the older ones copied over too. So when that table exists, the old table
+    /// isn't read, because it would count those messages twice.
     static func openCode(_ db: URL, since: Date) -> [UsageEntry] {
         var out: [UsageEntry] = []
         let ms = Int64(since.timeIntervalSince1970 * 1000)
@@ -124,9 +129,11 @@ public enum AgentDatabases {
         return out
     }
 
-    /// Antigravity: a protobuf per model call in `gen_metadata` (1 the call: 4 its usage — 2 input without the cache,
-    /// 3 output, 4 cache writes, 5 cache reads; 19 the model; 2 its steps), the time from those steps (`steps`: 1 created,
-    /// 1 seconds), the folder from the conversation (`trajectory_metadata_blob`: 7 its workspaces). A call cut short has none.
+    /// Reads Antigravity, which stores one protobuf per model call in `gen_metadata`. Field 1 is the call. Inside the
+    /// call, field 4 is the usage (2 input without the cache, 3 output, 4 cache writes, 5 cache reads) and field 19 is
+    /// the model. Top-level field 2 lists the call's steps, and the time comes from those rows in `steps` (field 1 is
+    /// the creation time, and its field 1 the seconds). The folder comes from the conversation's
+    /// `trajectory_metadata_blob`, where field 7 holds its workspaces. A call that was cut short has no usage.
     static func antigravity(_ db: URL, since: Date) -> [UsageEntry] {
         var started: [Int: Double] = [:], cwd = ""
         query(db, "SELECT idx, metadata FROM steps") { st in
@@ -155,7 +162,7 @@ public enum AgentDatabases {
         return out
     }
 
-    /// False when the statement doesn't prepare (no such table).
+    /// Runs `sql` and hands each row to `row`. Returns false when the statement doesn't prepare (no such table).
     @discardableResult
     private static func query(_ db: URL, _ sql: String, _ arg: Int64? = nil, row: (OpaquePointer) -> Void) -> Bool {
         var handle: OpaquePointer?, st: OpaquePointer?
@@ -180,8 +187,8 @@ public enum AgentDatabases {
     }
 }
 
-/// Protocol Buffers' wire format, as much as Antigravity's numbers need: the first value of a field, a number or the bytes
-/// of a string or nested message.
+/// Reads just enough of the Protocol Buffers wire format for Antigravity's numbers: the first value of a field, as a
+/// number or as the bytes of a string or nested message.
 enum Proto {
     static func number(_ data: Data, _ field: Int) -> UInt64? {
         if case .number(let value)? = first(data, field) { value } else { nil }
@@ -193,7 +200,7 @@ enum Proto {
         message(data, field).flatMap { String(data: $0, encoding: .utf8) }
     }
 
-    /// A packed repeated number field's values.
+    /// Returns the values of a packed repeated number field.
     static func packed(_ data: Data) -> [UInt64] {
         let bytes = [UInt8](data)
         var offset = 0, out: [UInt64] = []
@@ -218,7 +225,7 @@ enum Proto {
                 offset += Int(len)
             case 1: offset += 8
             case 5: offset += 4
-            default: return nil   // groups: not in these messages
+            default: return nil   // groups don't occur in these messages
             }
         }
         return nil
