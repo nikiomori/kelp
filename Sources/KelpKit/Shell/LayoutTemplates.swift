@@ -134,10 +134,10 @@ struct LayoutTemplates {
     }
 
     /// What runs again for a session's tab: its agent anew, its command (a Run command's), or a shell where it was.
-    static func running(_ s: Session) -> String {
-        if s.isAgent, let agent = s.agent { return TabURI.agent(agent) }
-        if let line = s.customCommand { return TabURI.terminal(["cmd": line, "title": s.title]) }
-        if let tmux = Tmux.session(s.argv) { return TabURI.terminal(["tmux": tmux]) }
+    static func running(_ session: Session) -> String {
+        if session.isAgent, let agent = session.agent { return TabURI.agent(agent) }
+        if let line = session.customCommand { return TabURI.terminal(["cmd": line, "title": session.title]) }
+        if let tmux = Tmux.session(session.argv) { return TabURI.terminal(["tmux": tmux]) }
         return TabURI.terminal()
     }
 

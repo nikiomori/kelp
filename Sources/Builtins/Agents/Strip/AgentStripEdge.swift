@@ -47,13 +47,13 @@ extension StripModel {
     }
 
     /// Between a strip that's out and the edge it came from: a pointer pushed against the edge, still on it in all but name.
-    static func inGap(_ p: NSPoint, beside strip: NSRect, edge: StripEdge) -> Bool {
+    static func inGap(_ point: NSPoint, beside strip: NSRect, edge: StripEdge) -> Bool {
         let withinX =
             switch edge {
-            case .right: p.x >= strip.maxX && p.x <= strip.maxX + margin + 1
-            case .left: p.x <= strip.minX && p.x >= strip.minX - margin - 1
+            case .right: point.x >= strip.maxX && point.x <= strip.maxX + margin + 1
+            case .left: point.x <= strip.minX && point.x >= strip.minX - margin - 1
             }
-        return withinX && p.y >= strip.minY && p.y <= strip.maxY
+        return withinX && point.y >= strip.minY && point.y <= strip.maxY
     }
 
     /// What comes out of the edge as a line, or flashes its tile: what wasn't told yet, as loud as `upTo` (questions,

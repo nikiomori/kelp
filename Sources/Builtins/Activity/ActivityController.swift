@@ -19,10 +19,10 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         var memory: Int
         var processes: Int
         /// Drawn alike: the figures as the row writes them (a measure two seconds on mostly moves a digit no one sees).
-        static func == (a: Row, b: Row) -> Bool {
-            a.session == b.session && a.processes == b.processes && (a.cpu > 80) == (b.cpu > 80)
-                && ActivityController.percent(a.cpu) == ActivityController.percent(b.cpu)
-                && bytes(a.memory) == bytes(b.memory)
+        static func == (lhs: Row, rhs: Row) -> Bool {
+            lhs.session == rhs.session && lhs.processes == rhs.processes && (lhs.cpu > 80) == (rhs.cpu > 80)
+                && ActivityController.percent(lhs.cpu) == ActivityController.percent(rhs.cpu)
+                && bytes(lhs.memory) == bytes(rhs.memory)
         }
     }
     private let table = NSTableView()

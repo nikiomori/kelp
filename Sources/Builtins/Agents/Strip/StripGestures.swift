@@ -21,11 +21,11 @@ extension StripModel {
     private static let slant: CGFloat = 0.5
 
     /// The way of a move, if it went anywhere.
-    static func way(_ v: CGVector) -> StripWay? {
-        let major = max(abs(v.dx), abs(v.dy))
+    static func way(_ vector: CGVector) -> StripWay? {
+        let major = max(abs(vector.dx), abs(vector.dy))
         guard major > 0 else { return nil }
         func axis(_ d: CGFloat) -> Int { abs(d) < major * slant ? 0 : d > 0 ? 1 : -1 }
-        return StripWay(x: axis(v.dx), y: axis(v.dy))
+        return StripWay(x: axis(vector.dx), y: axis(vector.dy))
     }
 
     /// The way it was thrown, if it was.

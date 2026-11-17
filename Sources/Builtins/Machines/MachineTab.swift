@@ -379,7 +379,7 @@ struct MachineView: View {
     }
 
     /// 41 → "0:41", 4321 → "1:12:01".
-    static func elapsed(_ s: Int) -> String {
-        Duration.seconds(s).formatted(.time(pattern: s >= 3600 ? .hourMinuteSecond : .minuteSecond))
+    static func elapsed(_ seconds: Int) -> String {
+        Duration.seconds(seconds).formatted(.time(pattern: seconds >= 3600 ? .hourMinuteSecond : .minuteSecond))
     }
 }

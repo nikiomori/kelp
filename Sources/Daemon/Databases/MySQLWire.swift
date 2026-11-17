@@ -121,12 +121,13 @@ struct MySQLWire: DatabaseRunner {
     /// call past its time is stopped on the server too (`KILL QUERY` from a second connection), since MySQL's own
     /// limit stops only a SELECT: a change that ran on would commit after the caller was told it didn't answer.
     private static func with<T: Sendable>(
-        _ c: DatabaseConnection, within seconds: TimeInterval = DatabaseEngines.readTimeout + DatabaseTimes.slack,
+        _ databaseConnection: DatabaseConnection,
+        within seconds: TimeInterval = DatabaseEngines.readTimeout + DatabaseTimes.slack,
         _ body: @escaping @Sendable (MySQLConnection) async throws -> T
     ) async throws -> T {
-        let db = c.database
+        let db = databaseConnection.database
         let conn: MySQLConnection
-        do { conn = try await open(c) } catch { throw failure(error, db) }
+        do { conn = try await open(databaseConnection) } catch { throw failure(error, db) }
         // The connection's id, asked first inside the call's time: what a second connection stops when it runs out
         let id = OSAllocatedUnfairLock<String?>(initialState: nil)
         let stopped = OSAllocatedUnfairLock(initialState: false)
@@ -135,7 +136,7 @@ struct MySQLWire: DatabaseRunner {
                 seconds, db,
                 close: {
                     await DatabaseWire.close { try await conn.close().get() }
-                    let killed = await kill(id.withLock { $0 }, c)
+                    let killed = await kill(id.withLock { $0 }, databaseConnection)
                     stopped.withLock { $0 = killed }
                 }
             ) {
@@ -167,17 +168,17 @@ struct MySQLWire: DatabaseRunner {
     /// A KILL QUERY's handshake, and then its answer: what a call past its time adds to it, at most twice this.
     static let killTimeout = DatabaseTimes.kill
 
-    static func open(_ c: DatabaseConnection, handshake: TimeInterval = handshakeTimeout) async throws
+    static func open(_ databaseConnection: DatabaseConnection, handshake: TimeInterval = handshakeTimeout) async throws
         -> MySQLConnection
     {
-        let db = c.database
+        let db = databaseConnection.database
         guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
         // localhost means the Unix socket to MySQL's own client: here it's the server's port, by address
         let address = host == "localhost" ? "127.0.0.1" : host
         let port = db.port ?? db.engine.defaultPort ?? 0
         let socket = try await Slots.elsewhere { try SocketAddress.makeAddressResolvingHost(address, port: port) }
         let connecting = MySQLConnection.connect(
-            to: socket, username: db.user ?? "root", database: db.database ?? "", password: c.password,
+            to: socket, username: db.user ?? "root", database: db.database ?? "", password: databaseConnection.password,
             tlsConfiguration: db.ssl == "disable" ? nil : DatabaseWire.tls, serverHostname: nil,
             logger: DatabaseWire.logger, on: DatabaseWire.eventLoop
         )
@@ -189,22 +190,23 @@ struct MySQLWire: DatabaseRunner {
     }
 
     /// Stops what connection `id` runs, from a connection of its own: whether the server said it did.
-    private static func kill(_ id: String?, _ c: DatabaseConnection) async -> Bool {
+    private static func kill(_ id: String?, _ databaseConnection: DatabaseConnection) async -> Bool {
         guard let id, Int(id) != nil else { return false }
         do {
-            let conn = try await open(c, handshake: killTimeout)
+            let conn = try await open(databaseConnection, handshake: killTimeout)
             var said: (any Error)?
             // A server that didn't answer the call may not answer this either: it has a time of its own
             do {
                 _ = try await DatabaseWire.within(
-                    killTimeout, c.database, close: { await DatabaseWire.close { try await conn.close().get() } }
+                    killTimeout, databaseConnection.database,
+                    close: { await DatabaseWire.close { try await conn.close().get() } }
                 ) { try await run(conn, "KILL QUERY \(id)") }
             } catch { said = error }
             await DatabaseWire.close { try await conn.close().get() }
             if let said { throw said }
             return true
         } catch {
-            Log.session.info("db: KILL QUERY on \(c.database.name) failed: \(error)")
+            Log.session.info("db: KILL QUERY on \(databaseConnection.database.name) failed: \(error)")
             return false
         }
     }

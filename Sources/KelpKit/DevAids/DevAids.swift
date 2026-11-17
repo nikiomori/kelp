@@ -193,8 +193,8 @@ extension AppDelegate {
             }
             // In another language: menu items still in English (their text isn't in Localizable.xcstrings yet).
             if Bundle.main.preferredLocalizations.first != "en" {
-                func walk(_ m: NSMenu) {
-                    for i in m.items where !i.isSeparatorItem {
+                func walk(_ menu: NSMenu) {
+                    for i in menu.items where !i.isSeparatorItem {
                         if let submenu = i.submenu {
                             if submenu !== NSApp.servicesMenu { walk(submenu) }
                             continue

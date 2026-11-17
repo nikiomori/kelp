@@ -19,8 +19,8 @@ public enum ShellQuote {
     }
 
     /// A basic string, as both TOML and JSON write one (for text with no control characters).
-    public static func doubleQuoted(_ s: String) -> String {
-        "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    public static func doubleQuoted(_ text: String) -> String {
+        "\"" + text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }
 
     /// A command line split as a shell would: whitespace apart, '…' as it is, "…" with \" and \\ inside, \ before

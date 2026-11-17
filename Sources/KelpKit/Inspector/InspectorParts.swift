@@ -275,7 +275,7 @@ final class CountBadge: NSView {
         return NSSize(width: max(14, ceil(digits.attributedStringValue.size().width) + 7), height: 14)
     }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }   // clicks go to the icon
-    override func draw(_ r: NSRect) {
+    override func draw(_ dirtyRect: NSRect) {
         (badge?.alert == true ? NSColor.systemRed : NSColor.systemGray).setFill()
         guard Self.number(badge) != nil else {
             return NSBezierPath(ovalIn: NSRect(x: 0, y: 3, width: 7, height: 7)).fill()
@@ -286,9 +286,9 @@ final class CountBadge: NSView {
 
 /// SwiftUI panel in an AppKit host.
 @MainActor
-func hosting<V: View>(_ v: V) -> NSViewController {
+func hosting<V: View>(_ view: V) -> NSViewController {
     // Filling the panel from the top: content shorter than the panel would otherwise float in its middle.
-    let host = NSHostingController(rootView: v.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top))
+    let host = NSHostingController(rootView: view.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top))
     host.sizingOptions = []   // a panel fills the space it's given; it must never resize the window to its ideal size
     return host
 }

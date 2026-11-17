@@ -43,23 +43,23 @@ struct AddonRows {
 
     /// `off`: the group's own switch (a plugin's), nil for a group whose items switch one by one. A plugin's line sits
     /// in the Plugins group, one step in.
-    func group(_ g: AddonGroup, count: Int, tokens: Int?, open: Bool, off: Bool?) -> NSView {
+    func group(_ addonGroup: AddonGroup, count: Int, tokens: Int?, open: Bool, off: Bool?) -> NSView {
         let chevron = NSImageView()
         // A plugin that's off has nothing to unfold: its name still starts where the others do.
         if count > 0 { chevron.image = .symbol(open ? "chevron.down" : "chevron.right") }
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .tertiaryLabelColor
         chevron.widthAnchor.constraint(equalToConstant: Self.chevron).isActive = true
-        let title = g.agent.map { app.catalog.name($0) } ?? g.title
+        let title = addonGroup.agent.map { app.catalog.name($0) } ?? addonGroup.title
         let name = NSTextField.label(
             title, font: .ui(TextSize.row), color: off == true ? .secondaryLabelColor : .labelColor)
         var views: [NSView] = [chevron]
-        if let agent = g.agent { views += faces([agent]).map { [$0] } ?? [] }
+        if let agent = addonGroup.agent { views += faces([agent]).map { [$0] } ?? [] }
         views += [name, NSView()]
-        if let source = g.source, g.plugin == nil { views.append(scope(source)) }
+        if let source = addonGroup.source, addonGroup.plugin == nil { views.append(scope(source)) }
         if count > 0 { views.append(digits(AddonGroups.countAndTokens(count, tokens))) }
-        if let off, let key = g.key { views.append(toggle(key, on: !off, name: title)) }
-        let row = line(views, inset: Self.inset(g.plugin == nil ? 0 : 1))
+        if let off, let key = addonGroup.key { views.append(toggle(key, on: !off, name: title)) }
+        let row = line(views, inset: Self.inset(addonGroup.plugin == nil ? 0 : 1))
         row.setAccessibilityLabel(title)
         return row
     }

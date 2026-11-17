@@ -90,20 +90,22 @@ final class SectionCell: NSTableCellView, Hoverable {
         pinRow(self, [chevron, titleField, NSView(), actions, detailField, capsule], leading: Metrics.inset)   // the panel's edge, as its header's branch
         showChevron()
     }
-    convenience init(title: String, count: Int?, expanded: Bool, actions a: [RowAction]) {
+    convenience init(title: String, count: Int?, expanded: Bool, actions rowActions: [RowAction]) {
         self.init()
-        show(title: title, count: count, expanded: expanded, actions: a)
+        show(title: title, count: count, expanded: expanded, actions: rowActions)
     }
     required init?(coder: NSCoder) { fatalError() }
 
     /// All a section's row shows, set again: nothing of the section it showed before stays.
-    func show(title: String, count: Int?, expanded: Bool, actions a: [RowAction], detail: NSAttributedString? = nil) {
+    func show(
+        title: String, count: Int?, expanded: Bool, actions rowActions: [RowAction], detail: NSAttributedString? = nil
+    ) {
         titleField.stringValue = title
         capsule.text = count.map(String.init) ?? ""
         capsule.isHidden = count == nil
         detailField.attributedStringValue = detail ?? NSAttributedString()
         detailField.isHidden = detail == nil
-        actions.show(a)
+        actions.show(rowActions)
         busy = false
         hovering = false
         actions.isHidden = true
@@ -201,22 +203,23 @@ final class FileCell: NSTableCellView, Hoverable {
     /// `shared`: the branches of other folders of the project that change this file too (`AppModel.sharedFiles`).
     /// `through`: under a commit, the lanes that run on past it and the graph's width.
     func show(
-        _ f: FileChange, icon image: NSImage, letter: (String, NSColor), indent: CGFloat, actions a: [RowAction],
+        _ fileChange: FileChange, icon image: NSImage, letter: (String, NSColor), indent: CGFloat,
+        actions rowActions: [RowAction],
         shared: [String] = [], commit: Int? = nil, through: (lanes: [Int], width: CGFloat)? = nil
     ) {
         alphaValue = 1   // a discarded file's row faded out (`fadeRows`)
-        path = f.path
-        actions.show(a)
+        path = fileChange.path
+        actions.show(rowActions)
         actions.isHidden = true
         icon.image = image
-        let fileName = (f.path as NSString).lastPathComponent
+        let fileName = (fileChange.path as NSString).lastPathComponent
         if letter.0 == "D" {
             name.attributedStringValue = NSAttributedString(
                 string: fileName, attributes: [.strikethroughStyle: 1, .font: NSFont.ui(TextSize.row)])
         } else {
             name.stringValue = fileName
         }
-        dir.stringValue = (f.path as NSString).deletingLastPathComponent
+        dir.stringValue = (fileChange.path as NSString).deletingLastPathComponent
         letterField.stringValue = letter.0
         letterField.textColor = letter.1
         let tip = shared.isEmpty ? nil : String(localized: "Also changed on \(shared.joined(separator: ", "))")
@@ -228,7 +231,7 @@ final class FileCell: NSTableCellView, Hoverable {
         number.isHidden = commit == nil
         number.toolTip = commit.map { String(localized: "In commit \($0) of the plan") }
         leading?.constant = indent + Metrics.inset
-        toolTip = [f.path, tip].compactMap { $0 }.joined(separator: "\n")
+        toolTip = [fileChange.path, tip].compactMap { $0 }.joined(separator: "\n")
         showLanes(through)
     }
 

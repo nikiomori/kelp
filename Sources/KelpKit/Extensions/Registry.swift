@@ -74,7 +74,7 @@ package final class ExtensionRegistry {
         let off = disabled
         disabledLoaded = off
         views = [:]   // uninstalled ones go
-        func take(_ info: ExtensionInfo, _ c: Contributions) {
+        func take(_ info: ExtensionInfo, _ contributions: Contributions) {
             var info = info
             info.enabled = info.essential || !off.contains(info.id)
             infos.append(info)
@@ -82,7 +82,7 @@ package final class ExtensionRegistry {
                 views = views.filter { $0.value.0.id != info.id }   // an extension turned off takes its views along
                 return
             }
-            merged.add(c)
+            merged.add(contributions)
         }
         for b in app.builtins { take(b.info, b.contribute(app)) }
         for folder in (try? FileManager.default.contentsOfDirectory(at: Self.userDir, includingPropertiesForKeys: nil))
@@ -159,8 +159,8 @@ package final class ExtensionRegistry {
     }
 
     /// Allowed in Settings › Extensions, after the same look.
-    func allow(_ e: ExtensionInfo) async {
-        guard let folder = e.path, await ExtensionTrust.review(folder, app) else { return }
+    func allow(_ extensionInfo: ExtensionInfo) async {
+        guard let folder = extensionInfo.path, await ExtensionTrust.review(folder, app) else { return }
         reload()
     }
 
@@ -190,9 +190,9 @@ package final class ExtensionRegistry {
     }
 
     /// Follows symlinks: a VS Code extension can be linked in rather than copied.
-    private static func isFolder(_ u: URL) -> Bool {
+    private static func isFolder(_ url: URL) -> Bool {
         var dir: ObjCBool = false
-        return FileManager.default.fileExists(atPath: u.path, isDirectory: &dir) && dir.boolValue
+        return FileManager.default.fileExists(atPath: url.path, isDirectory: &dir) && dir.boolValue
     }
 
     func setEnabled(_ id: String, _ on: Bool) {

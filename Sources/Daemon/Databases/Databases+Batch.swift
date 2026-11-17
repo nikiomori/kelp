@@ -7,10 +7,11 @@ import Foundation
 extension Databases {
     /// `asker`: nil for the user, else the agent's session to ask; and the program its command runs in.
     func batch(
-        _ q: DatabaseQuery, _ c: DatabaseConnection, _ statements: [String], asker: (session: String??, pid: pid_t?)
+        _ databaseQuery: DatabaseQuery, _ databaseConnection: DatabaseConnection, _ statements: [String],
+        asker: (session: String??, pid: pid_t?)
     ) async throws -> QueryResult {
         let forAgent = asker.session != nil, session = asker.session ?? nil
-        let name = c.database.name, engine = c.database.engine
+        let name = databaseConnection.database.name, engine = databaseConnection.database.engine
         var run = DatabaseRun(
             id: UUID().uuidString, database: name, sql: statements.joined(separator: ";\n"), session: session,
             at: Date(), state: .done)
@@ -22,22 +23,23 @@ extension Databases {
                         + "Run it on its own.")
             }
             var asked: [Int?]?
-            switch forAgent ? c.database.agentAccess : .free {
+            switch forAgent ? databaseConnection.database.agentAccess : .free {
             case .hidden, .read:
                 run.state = .refused
                 run.error = "\(name) is read-only for agents."
-                note(q.worktreeId, run)
+                note(databaseQuery.worktreeId, run)
                 throw RPCError.refused("\(name) is read-only for agents: ask the user to run it.")
             case .ask:
-                guard let ls = whoToAsk(q, c, &run, session) else {
+                guard let ls = whoToAsk(databaseQuery, databaseConnection, &run, session) else {
                     throw RPCError.refused(run.error ?? "Nobody to ask.")
                 }
-                let tried = try await DatabaseEngines.batch(c, statements, keep: { _ in false }, off: offloads)
+                let tried = try await DatabaseEngines.batch(
+                    databaseConnection, statements, keep: { _ in false }, off: offloads)
                 run.state = .asks
                 run.changed = Self.total(tried)
-                note(q.worktreeId, run, result: Self.result(run.id, statements, tried, ms: 0))
+                note(databaseQuery.worktreeId, run, result: Self.result(run.id, statements, tried, ms: 0))
                 let question = Self.question(statements: statements.count, database: name, changed: run.changed)
-                guard await answered(q, &run, ls, question, asker: (session, asker.pid)) else {
+                guard await answered(databaseQuery, &run, ls, question, asker: (session, asker.pid)) else {
                     throw RPCError.refused(run.error ?? "The user didn't allow it.")
                 }
                 asked = tried
@@ -46,7 +48,7 @@ extension Databases {
             let started = Date(), allowed = asked
             // What the user allowed is what it may change: the tables can have changed while it was asked
             let changed = try await DatabaseEngines.batch(
-                c, statements, keep: { allowed == nil || $0 == allowed }, off: offloads)
+                databaseConnection, statements, keep: { allowed == nil || $0 == allowed }, off: offloads)
             if let allowed, changed != allowed {
                 throw DatabaseEngines.notAsAllowed(Self.total(changed), Self.total(allowed) ?? 0)
             }
@@ -55,9 +57,9 @@ extension Databases {
             run.changed = Self.total(changed)
             run.ms = ms
             let result = Self.result(run.id, statements, changed, ms: ms)
-            note(q.worktreeId, run, result: result)
+            note(databaseQuery.worktreeId, run, result: result)
             return result
-        } catch let failure as DatabaseFailure { throw failed(q, &run, failure) }
+        } catch let failure as DatabaseFailure { throw failed(databaseQuery, &run, failure) }
     }
 
     /// The rows they changed in all; nil when none of them says (reads only).

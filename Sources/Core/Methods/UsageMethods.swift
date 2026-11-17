@@ -151,10 +151,11 @@ public struct UsageAgents: InternalMethod {
             self.cacheWrite = cacheWrite
             self.cacheRead = cacheRead
         }
-        public static func + (a: Costs, b: Costs) -> Costs {
+        public static func + (lhs: Costs, rhs: Costs) -> Costs {
             Costs(
-                input: a.input + b.input, output: a.output + b.output, cacheWrite: a.cacheWrite + b.cacheWrite,
-                cacheRead: a.cacheRead + b.cacheRead)
+                input: lhs.input + rhs.input, output: lhs.output + rhs.output,
+                cacheWrite: lhs.cacheWrite + rhs.cacheWrite,
+                cacheRead: lhs.cacheRead + rhs.cacheRead)
         }
     }
     public struct Result: Codable, Sendable, Equatable {

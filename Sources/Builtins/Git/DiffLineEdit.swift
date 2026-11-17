@@ -58,7 +58,7 @@ extension DiffViewController: NSTextFieldDelegate {
         lineEdit = nil
     }
 
-    func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
         if sel == #selector(NSResponder.cancelOperation(_:)) {
             endEdit()
             return true

@@ -66,13 +66,13 @@ public enum TabURI {
         return (path.removingPercentEncoding ?? path, line)
     }
     /// What the user typed or an agent sent: path, path:line, URL.
-    public static func normalize(_ s: String, cwd: String?) -> String {
-        if s.contains("://") || ["session:", "ext:", "diff:"].contains(where: s.hasPrefix) { return s }
-        if s.hasPrefix("localhost") || s.hasPrefix("127.0.0.1") { return "http://" + s }
-        var path = s, line: Int?
-        if let match = s.range(of: #":(\d+)$"#, options: .regularExpression) {
-            line = Int(s[match].dropFirst())
-            path = String(s[..<match.lowerBound])
+    public static func normalize(_ typed: String, cwd: String?) -> String {
+        if typed.contains("://") || ["session:", "ext:", "diff:"].contains(where: typed.hasPrefix) { return typed }
+        if typed.hasPrefix("localhost") || typed.hasPrefix("127.0.0.1") { return "http://" + typed }
+        var path = typed, line: Int?
+        if let match = typed.range(of: #":(\d+)$"#, options: .regularExpression) {
+            line = Int(typed[match].dropFirst())
+            path = String(typed[..<match.lowerBound])
         }
         if !path.hasPrefix("/"), let cwd { path = (cwd as NSString).appendingPathComponent(path) }
         return file(path, line: line)

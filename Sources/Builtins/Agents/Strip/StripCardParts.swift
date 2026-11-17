@@ -38,8 +38,8 @@ private final class CardLink: PointerButton {
 extension StripCard {
     /// Its project, which agent, which of the waiting questions this is, and ✕, which only closes: a click on the tile
     /// brings it back.
-    func header(_ s: Session, position: (Int, Int)?) -> NSView {
-        let worktree = app.worktree(s.worktreeId)
+    func header(_ session: Session, position: (Int, Int)?) -> NSView {
+        let worktree = app.worktree(session.worktreeId)
         let place = app.groupName(worktree) ?? app.projectName(worktree?.repoId) ?? ""
         let icon = NSImageView()
         icon.wantsLayer = true
@@ -54,7 +54,7 @@ extension StripCard {
             attributes: [.font: NSFont.ui(TextSize.caption, weight: .medium), .foregroundColor: NSColor.labelColor])
         name.append(
             NSAttributedString(
-                string: " · " + app.catalog.displayName(s),
+                string: " · " + app.catalog.displayName(session),
                 attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.secondaryLabelColor]))
         let label = NSTextField(labelWithAttributedString: name)
         label.lineBreakMode = .byTruncatingTail
@@ -74,19 +74,19 @@ extension StripCard {
     }
 
     /// What it asks: a permission's kind over the whole of what it would do; a question with its answers; or what it said.
-    func body(_ s: Session, _ kind: StripCardKind) -> [NSView] {
+    func body(_ session: Session, _ kind: StripCardKind) -> [NSView] {
         switch kind {
         case .permission:
-            let (title, detail) = StripModel.permission(s.summary)
+            let (title, detail) = StripModel.permission(session.summary)
             return [heading(title, red: false)] + (detail.map { [code($0)] } ?? [])
         case .choices(let labels):
-            return [heading(s.summary, red: false), answers(labels)]
+            return [heading(session.summary, red: false), answers(labels)]
         case .reply, .look:
             let plain =
-                s.status == .done
+                session.status == .done
                 ? String(localized: "Done")
-                : s.status == .error ? String(localized: "Failed") : String(localized: "Needs your input")
-            let said = heading(s.summary.isEmpty ? plain : s.summary, red: s.status == .error)
+                : session.status == .error ? String(localized: "Failed") : String(localized: "Needs your input")
+            let said = heading(session.summary.isEmpty ? plain : session.summary, red: session.status == .error)
             return kind == .reply ? [said, reply] : [said]
         }
     }

@@ -39,15 +39,15 @@ extension DatabaseRunner {
 extension DatabaseEngines {
     /// The one way to reach `c`: a file's engine, its server's protocol where kelpd reaches an address, else its client
     /// inside the compose container (no address: `host` nil).
-    static func runner(_ c: DatabaseConnection, off: Slots) -> any DatabaseRunner {
-        switch (c.database.engine, c.database.host) {
-        case (.sqlite, _): SQLiteRun(c: c, off: off)
-        case (.duckdb, _): DuckDBRun(c: c, off: off)
-        case (.appwrite, _): AppwriteWire(c: c)
-        case (.postgres, .some): PostgresWire(c: c)
-        case (.mysql, .some): MySQLWire(c: c)
-        case (.postgres, nil): PostgresRun(c: c, off: off)
-        case (.mysql, nil): MySQLRun(c: c, off: off)
+    static func runner(_ databaseConnection: DatabaseConnection, off: Slots) -> any DatabaseRunner {
+        switch (databaseConnection.database.engine, databaseConnection.database.host) {
+        case (.sqlite, _): SQLiteRun(c: databaseConnection, off: off)
+        case (.duckdb, _): DuckDBRun(c: databaseConnection, off: off)
+        case (.appwrite, _): AppwriteWire(c: databaseConnection)
+        case (.postgres, .some): PostgresWire(c: databaseConnection)
+        case (.mysql, .some): MySQLWire(c: databaseConnection)
+        case (.postgres, nil): PostgresRun(c: databaseConnection, off: off)
+        case (.mysql, nil): MySQLRun(c: databaseConnection, off: off)
         }
     }
 }

@@ -39,6 +39,6 @@ public func shortTokens(_ tokens: Int) -> String {
 /// Bytes as people read memory and disk: "870 MB", "3.1 GB".
 public func bytes(_ n: Int) -> String { bytes(n, file: false) }
 /// `file`: a file's size, as Finder shows it (by 1000, not 1024).
-public func bytes(_ n: Int, file: Bool) -> String {
-    ByteCountFormatter.string(fromByteCount: Int64(n), countStyle: file ? .file : .memory)
+public func bytes(_ count: Int, file: Bool) -> String {
+    ByteCountFormatter.string(fromByteCount: Int64(count), countStyle: file ? .file : .memory)
 }

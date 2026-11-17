@@ -49,7 +49,8 @@ final class AgentUsage: Sendable {
         let probes = OpenProbes()
         self.openProbes = probes
         self.conversations = Conversations(settings: settings, openProbes: probes, remotes: remotes)
-        self.usageIndex = UsageIndex(cache: root.appendingPathComponent("usage-index-3.json"))   // new number: a parser or price change reads everything again
+        // A new number in the name: a parser or price change reads everything again.
+        self.usageIndex = UsageIndex(cache: root.appendingPathComponent("usage-index-3.json"))
         self.agentIndexes = Dictionary(
             uniqueKeysWithValues: UsageFormat.allCases.filter { $0 != .claude }.map {
                 ($0, UsageIndex(cache: root.appendingPathComponent("usage-index-\($0.rawValue)-2.json"), format: $0))

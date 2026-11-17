@@ -76,9 +76,9 @@ extension Databases {
 
     // MARK: The sheet's check
 
-    func check(_ q: DatabaseCheck) async throws -> DatabaseCheckResult {
-        let (wid, name) = (q.worktreeId, q.database.name)
-        var given = DatabaseConnection(database: q.database, password: q.password)
+    func check(_ databaseCheck: DatabaseCheck) async throws -> DatabaseCheckResult {
+        let (wid, name) = (databaseCheck.worktreeId, databaseCheck.database.name)
+        var given = DatabaseConnection(database: databaseCheck.database, password: databaseCheck.password)
         if given.password == nil {   // the one kept for it, when it's being edited
             given.password = try await offloads.run { [self] in
                 do { return try connection(wid, name, agent: false).password } catch { return nil }
@@ -88,7 +88,7 @@ extension Databases {
         let typed = given
         let near = try await offloads.run { [self] in try reach(typed, wid) }
         do {
-            let all = q.versionOnly != true
+            let all = databaseCheck.versionOnly != true
             let tables = all ? try await DatabaseEngines.schema(near, table: nil, off: offloads).tables.count : 0
             let runner = DatabaseEngines.runner(near, off: offloads)
             let version = try await runner.version() ?? near.database.engine.displayName

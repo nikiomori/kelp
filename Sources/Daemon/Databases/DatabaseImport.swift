@@ -20,27 +20,30 @@ extension Databases {
             }
     }
 
-    func importRead(_ q: DatabaseImportRead, home: URL = URL(fileURLWithPath: NSHomeDirectory())) throws
+    func importRead(_ read: DatabaseImportRead, home: URL = URL(fileURLWithPath: NSHomeDirectory())) throws
         -> [ImportedDatabase]
     {
         // Known: Kelp has it with its password (or where to read it). One kept without is offered again, to mend.
-        let mine = try library().filter(hasPassword) + connections(q.worktreeId).map(\.database)
-        return ImportReaders.read(q.source, home: home, file: q.file).map { entry in
+        let mine = try library().filter(hasPassword) + connections(read.worktreeId).map(\.database)
+        return ImportReaders.read(read.source, home: home, file: read.file).map { entry in
             var item = entry.imported
             item.known = mine.contains { Self.sameAddress($0, item.database) }
             return item
         }
     }
 
-    func importNow(_ q: DatabaseImport, home: URL = URL(fileURLWithPath: NSHomeDirectory())) throws -> ImportOutcome {
-        let wanted = Set(q.ids)
+    func importNow(_ databaseImport: DatabaseImport, home: URL = URL(fileURLWithPath: NSHomeDirectory())) throws
+        -> ImportOutcome
+    {
+        let wanted = Set(databaseImport.ids)
         let had = try library()
         var taken = Set(had.map(\.name)), denied = false
         var outcome = ImportOutcome(imported: [], withPasswords: 0, later: 0, denied: false, skipped: [])
-        for entry in ImportReaders.read(q.source, home: home, file: q.file) where wanted.contains(entry.imported.id) {
+        for entry in ImportReaders.read(databaseImport.source, home: home, file: databaseImport.file)
+        where wanted.contains(entry.imported.id) {
             var db = entry.imported.database
             var password: String?
-            if q.passwords, !denied, let secret = entry.secret {
+            if databaseImport.passwords, !denied, let secret = entry.secret {
                 do {
                     let got = try secret()
                     password = got.password
@@ -71,11 +74,14 @@ extension Databases {
             }
             db.name = name
             do {
-                outcome.imported.append(try saveInLibrary(q.worktreeId, db, password: password))   // nil keeps one kept
+                // A nil password keeps one kept.
+                outcome.imported.append(try saveInLibrary(databaseImport.worktreeId, db, password: password))
                 taken.insert(name)
                 if password != nil { outcome.withPasswords += 1 } else if db.passwordIn != nil { outcome.later += 1 }
-                if q.useHere {
-                    _ = try use(q.worktreeId, name, access: db.production || DatabaseFind.isRemote(db) ? .read : nil)
+                if databaseImport.useHere {
+                    _ = try use(
+                        databaseImport.worktreeId, name,
+                        access: db.production || DatabaseFind.isRemote(db) ? .read : nil)
                 }
             } catch let error as RPCError {
                 outcome.skipped.append("\(entry.imported.database.name): \(error.message)")
@@ -91,9 +97,10 @@ extension Databases {
     }
 
     /// The same server and database, or the same file.
-    static func sameAddress(_ a: DatabaseInfo, _ b: DatabaseInfo) -> Bool {
+    static func sameAddress(_ databaseInfo: DatabaseInfo, _ b: DatabaseInfo) -> Bool {
         // DBeaver keeps its user with the password: one without a user can be either
-        a.place == b.place && (a.engine.isFile || a.user == nil || b.user == nil || a.user == b.user)
+        databaseInfo.place == b.place
+            && (databaseInfo.engine.isFile || databaseInfo.user == nil || b.user == nil || databaseInfo.user == b.user)
     }
 }
 

@@ -41,9 +41,9 @@ extension QuickOpen {
         }
     }
     /// Up and down skip the groups' headings.
-    private func move(_ d: Int) {
-        var row = table.selectedRow + d
-        while rows.indices.contains(row), case .heading = rows[row] { row += d }
+    private func move(_ step: Int) {
+        var row = table.selectedRow + step
+        while rows.indices.contains(row), case .heading = rows[row] { row += step }
         guard rows.indices.contains(row) else { return }
         table.selectRowIndexes([row], byExtendingSelection: false)
         table.scrollRowToVisible(row)

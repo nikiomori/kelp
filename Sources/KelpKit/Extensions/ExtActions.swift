@@ -83,53 +83,56 @@ struct ExtActions {
     /// A URI that opens something (a page, a file, a diff, a tab) rather than running a command or an agent; nil else.
     static func openableURI(_ uri: String) -> String? { TabURI.runs(uri) ? nil : uri }
 
-    static func text(_ v: JSONValue) -> String {
-        switch v {
+    static func text(_ value: JSONValue) -> String {
+        switch value {
         case .string(let text): text
         case .int(let number): String(number)
         case .double(let number): String(format: number == number.rounded() ? "%.0f" : "%g", number)
         case .bool(let flag): flag ? "true" : "false"
         case .null: ""
-        default: (try? String(data: JSONEncoder().encode(v), encoding: .utf8)) ?? ""
+        default: (try? String(data: JSONEncoder().encode(value), encoding: .utf8)) ?? ""
         }
     }
 
-    func perform(_ a: ExtManifest.ActionDef, item: JSONValue?, folder: URL, after: (() -> Void)? = nil) {
-        guard let question = a.confirm else {
-            act(a, item: item, folder: folder, after: after)
+    func perform(_ spec: ExtManifest.ActionDef, item: JSONValue?, folder: URL, after: (() -> Void)? = nil) {
+        guard let question = spec.confirm else {
+            act(spec, item: item, folder: folder, after: after)
             return
         }
         let text = expand(question, item: item, quote: false)
-        Task { if await confirm(text, action: a.title) { act(a, item: item, folder: folder, after: after) } }
+        Task {
+            if await confirm(text, action: spec.title) { act(spec, item: item, folder: folder, after: after) }
+        }
     }
 
-    private func act(_ a: ExtManifest.ActionDef, item: JSONValue?, folder: URL, after: (() -> Void)?) {
-        if let command = a.terminal {
-            app.workbench.starterForNewTab?.run(command: expand(command, item: item, quote: true), title: a.title)
-        } else if let uri = a.open, let run = runAction(uri, item: item) {
+    private func act(_ spec: ExtManifest.ActionDef, item: JSONValue?, folder: URL, after: (() -> Void)?) {
+        if let command = spec.terminal {
+            app.workbench.starterForNewTab?.run(
+                command: expand(command, item: item, quote: true), title: spec.title)
+        } else if let uri = spec.open, let run = runAction(uri, item: item) {
             switch run {
             case .agent(let agent, let prompt):
                 app.workbench.starterForNewTab?.newAgent(agent, prompt: prompt, draft: true)
             case .terminal(let command, let title):
-                app.workbench.starterForNewTab?.run(command: command, title: title ?? a.title)
+                app.workbench.starterForNewTab?.run(command: command, title: title ?? spec.title)
             case .tmux(let name):
                 app.workbench.runURI(TabURI.terminal(["tmux": name]))
             }
-        } else if let uri = a.open {
+        } else if let uri = spec.open {
             if let target = openURI(uri, item: item) {
                 app.workbench.open(target)
             } else {
                 Banner.show(
                     String(
                         localized:
-                            "“\(a.title)” would run a command or an agent from its data; it opens links and files only."
+                            "“\(spec.title)” would run a command or an agent from its data; it opens links and files only."
                     ))
             }
         }
         // Typed, not sent: `item` is a command's output (an issue's title, a PR's body), someone else's words.
-        else if let prompt = a.agent {
+        else if let prompt = spec.agent {
             app.workbench.starterForNewTab?.newAgent(nil, prompt: expand(prompt, item: item, quote: false), draft: true)
-        } else if let script = a.run {
+        } else if let script = spec.run {
             let cmd = expand(script, item: item, quote: true)
             Task {
                 let res = await Shell.run(
@@ -137,7 +140,7 @@ struct ExtActions {
                     extension: folder.lastPathComponent)
                 if res.code != 0 {
                     let output = String((res.stderr.isEmpty ? res.stdout : res.stderr).suffix(400))
-                    Banner.show(String(localized: "\(a.title) failed: \(output)"), style: .error)
+                    Banner.show(String(localized: "\(spec.title) failed: \(output)"), style: .error)
                 }
                 after?()
             }

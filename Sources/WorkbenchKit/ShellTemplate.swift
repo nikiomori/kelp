@@ -69,13 +69,13 @@ struct ShellQuotes {
     var pendingDoc: (word: String, expands: Bool, code: Bool)?, inDoc: (word: String, expands: Bool, code: Bool)?
     private var line = "", last: Character = "\n", outer: [(Bool, Bool)] = []
 
-    mutating func read(_ s: Substring) {
-        var escaped = false, i = s.startIndex
-        while i < s.endIndex {
-            let character = s[i]
+    mutating func read(_ text: Substring) {
+        var escaped = false, i = text.startIndex
+        while i < text.endIndex {
+            let character = text[i]
             defer {
                 last = character
-                i = s.index(after: i)
+                i = text.index(after: i)
             }
             if character == "\n" {
                 if let doc = inDoc, line.trimmingCharacters(in: .whitespaces) == doc.word {
@@ -104,10 +104,10 @@ struct ShellQuotes {
                 continue
             }
             // $(…) starts unquoted, whatever is around it
-            if character == "$", !inSingle, s[i...].dropFirst().first == "(" {
+            if character == "$", !inSingle, text[i...].dropFirst().first == "(" {
                 outer.append((inSingle, inDouble))
                 inDouble = false
-                i = s.index(after: i)
+                i = text.index(after: i)
                 continue
             }
             if character == ")", !inSingle, !inDouble, let saved = outer.popLast() {
@@ -127,15 +127,17 @@ struct ShellQuotes {
                     remoteQuote = Self.runsRemotely(line.dropLast())
                 }
             }
-            if character == "<", !inSingle, !inDouble, s[i...].hasPrefix("<<"), !s[i...].hasPrefix("<<<") {
-                var rest = s[s.index(i, offsetBy: 2)...].drop { $0 == "-" || $0 == " " }
+            if character == "<", !inSingle, !inDouble, text[i...].hasPrefix("<<"), !text[i...].hasPrefix("<<<") {
+                var rest = text[text.index(i, offsetBy: 2)...].drop { $0 == "-" || $0 == " " }
                 let quoted = rest.first == "'" || rest.first == "\""
                 if quoted { rest = rest.dropFirst() }
                 let word = String(rest.prefix { !" \t\n'\";<>|&".contains($0) })
                 if !word.isEmpty {
-                    pendingDoc = (word, !quoted, Self.feedsShell(line + s[s.index(after: i)...].prefix { $0 != "\n" }))
+                    pendingDoc = (
+                        word, !quoted, Self.feedsShell(line + text[text.index(after: i)...].prefix { $0 != "\n" })
+                    )
                 }
-                i = s.index(after: i)   // the second <
+                i = text.index(after: i)   // the second <
             }
         }
     }
@@ -170,9 +172,9 @@ struct ShellQuotes {
 
     /// In a string ssh runs on a host: `v` quoted for the host's shell, then for the quotes it sits in here, so this
     /// shell hands that quoted word on unchanged. nil anywhere else.
-    func remoteLiteral(_ v: String) -> String? {
+    func remoteLiteral(_ value: String) -> String? {
         guard remoteQuote, inDoc == nil, !inComment else { return nil }
-        let word = ShellQuote.word(v)
+        let word = ShellQuote.word(value)
         if inSingle { return "'" + ShellQuote.word(word) + "'" }
         if inDouble {
             return word.reduce(into: "") { out, ch in
@@ -185,11 +187,11 @@ struct ShellQuotes {
 
     /// Bare on an ssh line (`ssh host git log ${branch}`): ssh joins its words into one command line for the host's shell,
     /// so the value goes as a word quoted for that shell, quoted again for this one.
-    func bareRemoteLiteral(_ v: String) -> String? {
+    func bareRemoteLiteral(_ value: String) -> String? {
         guard !inSingle, !inDouble, inDoc == nil, !inComment,
             line.range(of: #"(^|[\s;|&(/])ssh\s(\\[;|&]|[^;|&])*$"#, options: .regularExpression) != nil
         else { return nil }
-        return ShellQuote.word(ShellQuote.word(v))
+        return ShellQuote.word(ShellQuote.word(value))
     }
 
     /// A line whose here-document a shell runs: `sh <<EOF`, `bash -s <<EOF`, `cat <<EOF | sh`.

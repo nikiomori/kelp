@@ -45,27 +45,27 @@ extension DiffViewController {
     }
     // MARK: menus
 
-    func menuNeedsUpdate(_ m: NSMenu) {
-        if m === reviewPop.menu { return reviewItems(m) }
-        if m === files.menu { fileMenu(m, row: files.clickedRow) } else { lineMenu(m, row: table.clickedRow) }
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        if menu === reviewPop.menu { return reviewItems(menu) }
+        if menu === files.menu { fileMenu(menu, row: files.clickedRow) } else { lineMenu(menu, row: table.clickedRow) }
     }
 
     /// Stage or Unstage as the file stands; a commit's or a turn's diff has nothing to stage.
-    func fileMenu(_ m: NSMenu, row: Int) {
-        m.removeAllItems()
+    func fileMenu(_ menu: NSMenu, row: Int) {
+        menu.removeAllItems()
         let live = single?.commit == nil && sourcePicked.isLive
         guard live, let wid = worktreeId, diffs.indices.contains(row) else { return }
         let path = diffs[row].path
         guard let change = changes.first(where: { $0.path == path }) else { return }
         if change.unstaged || !change.staged {
-            m.add(String(localized: "Stage")) { [weak self] in self?.fileOp(GitStage(id: wid, files: [path])) }
+            menu.add(String(localized: "Stage")) { [weak self] in self?.fileOp(GitStage(id: wid, files: [path])) }
         }
         if change.staged {
-            m.add(String(localized: "Unstage")) { [weak self] in self?.fileOp(GitUnstage(id: wid, files: [path])) }
+            menu.add(String(localized: "Unstage")) { [weak self] in self?.fileOp(GitUnstage(id: wid, files: [path])) }
         }
-        m.addItem(.separator())
-        m.add(String(localized: "Open File")) { [weak self] in self?.openLine(path, nil) }
-        m.add(String(localized: "Copy Path")) {
+        menu.addItem(.separator())
+        menu.add(String(localized: "Open File")) { [weak self] in self?.openLine(path, nil) }
+        menu.add(String(localized: "Copy Path")) {
             copyText(path)
         }
     }
@@ -73,20 +73,20 @@ extension DiffViewController {
         guard let root = app.worktree(worktreeId)?.path else { return }
         app.workbench.open(TabURI.file(root + "/" + path, line: line))
     }
-    private func fileOp<M: RPCMethod>(_ m: M) {
+    private func fileOp<M: RPCMethod>(_ method: M) {
         Task {
-            await app.call(m)
+            await app.call(method)
             await load()
         }
     }
 
     /// A comment's next state; a line of the diff, what can be done with a line; the other rows have no menu.
-    func lineMenu(_ m: NSMenu, row: Int) {
-        m.removeAllItems()
+    func lineMenu(_ menu: NSMenu, row: Int) {
+        menu.removeAllItems()
         guard rows.indices.contains(row) else { return }
-        if let (path, line) = shownLine(row) { return lineItems(m, row, path, line) }
+        if let (path, line) = shownLine(row) { return lineItems(menu, row, path, line) }
         guard case .comment(let comment) = rows[row] else { return }
-        func state(_ title: String, _ s: String) { m.add(title) { [weak self] in self?.setComment(comment.id, s) } }
+        func state(_ title: String, _ s: String) { menu.add(title) { [weak self] in self?.setComment(comment.id, s) } }
         if comment.state != .resolved { state(String(localized: "Mark Resolved"), "resolved") }
         if comment.state != .open { state(String(localized: "Reopen"), "open") }
     }
@@ -106,16 +106,16 @@ extension DiffViewController {
         default: return nil
         }
     }
-    private func lineItems(_ m: NSMenu, _ row: Int, _ path: String, _ line: DiffLine) {
-        m.add(String(localized: "Add Comment…")) { [weak self] in
+    private func lineItems(_ menu: NSMenu, _ row: Int, _ path: String, _ line: DiffLine) {
+        menu.add(String(localized: "Add Comment…")) { [weak self] in
             guard let self else { return }
             if !table.selectedRowIndexes.contains(row) { table.selectRowIndexes([row], byExtendingSelection: false) }
             addComment()
         }
         if let number = line.newLine {
-            m.add(String(localized: "Open File at Line")) { [weak self] in self?.openLine(path, number) }
+            menu.add(String(localized: "Open File at Line")) { [weak self] in self?.openLine(path, number) }
         }
-        m.add(String(localized: "Copy Line")) {
+        menu.add(String(localized: "Copy Line")) {
             copyText(line.text)
         }
     }

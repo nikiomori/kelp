@@ -22,11 +22,11 @@ final class SourceControlBar {
     }
 
     /// A count changes in a fade: it reads as the number moving on, not as a jump.
-    private func show(_ count: String, _ any: Bool, on b: NSButton) {
+    private func show(_ count: String, _ any: Bool, on button: NSButton) {
         let words = any ? count : ""
-        guard b.title != words else { return }
-        if b.window != nil { b.crossfade() }
-        b.title = words
+        guard button.title != words else { return }
+        if button.window != nil { button.crossfade() }
+        button.title = words
     }
 
     /// Commits on their way: the shade runs up Push's arrow or down Pull's.

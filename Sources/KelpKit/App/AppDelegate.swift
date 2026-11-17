@@ -39,7 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return controller
     }()
 
-    func applicationDidFinishLaunching(_ n: Notification) {
+    func applicationDidFinishLaunching(_ notification: Notification) {
         let app = self.app
         NSApp.setActivationPolicy(.regular)
         Self.watchHangs()
@@ -103,12 +103,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Agents installed while Kelp was in the background show up when it comes back.
-    func applicationDidBecomeActive(_ n: Notification) {
+    func applicationDidBecomeActive(_ notification: Notification) {
         app.availability.refresh()
         notifier.checkAllowed()
     }
     /// Banners held while you typed go out once you're elsewhere.
-    func applicationDidResignActive(_ n: Notification) { notifier.releaseHeld() }
+    func applicationDidResignActive(_ notification: Notification) { notifier.releaseHeld() }
 
     /// Unsaved files ask before quitting, like any Mac app: the question is a sheet, and the app quits once it's answered
     /// and any remote file's save came back (not if one failed).
@@ -172,7 +172,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Set by quits the user chose some other way (Relaunch, Install Update): they don't ask again.
     static var quitChosen = false
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }   // the daemon keeps sessions alive
+    /// The daemon keeps the sessions alive.
+    func applicationShouldTerminateAfterLastWindowClosed(_ application: NSApplication) -> Bool { true }
     /// A new copy, then this one quits: the daemon and everything running in it carry on under the new window.
     static func relaunch() {
         let fresh = NSWorkspace.OpenConfiguration()
@@ -190,7 +191,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func applicationWillTerminate(_ n: Notification) {
+    func applicationWillTerminate(_ notification: Notification) {
         main?.leaveFocusMode()
         app.workbench.layouts.save()   // a tab moved in the last half second
         app.flush()
@@ -232,8 +233,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Finished agents read at a glance (`Glances`): timed only while one is unread, so no clock runs the rest of the time.
     private var glances = Glances()
     private var glanceClock: Timer?
-    private static func readOnSight(_ s: Session) -> Bool {
-        s.unread && (s.status == .done || (s.status == .exited && !s.endedWithError))
+    private static func readOnSight(_ session: Session) -> Bool {
+        session.unread && (session.status == .done || (session.status == .exited && !session.endedWithError))
     }
     /// Some finished agent is unread: glances are timed while Kelp is the app in front (behind, none can be).
     private var unreadToGlance = false
@@ -273,11 +274,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) lazy var recentlyClosedMenu = RecentlyClosedMenu(app: app)
 
     /// The command's menu item: its identifier is the command id (Settings › Keyboard, `validateMenuItem`).
-    func item(_ c: CommandSpec) -> NSMenuItem {
-        let menuItem = NSMenuItem(title: c.title, action: #selector(runCommand(_:)), keyEquivalent: "")
+    func item(_ commandSpec: CommandSpec) -> NSMenuItem {
+        let menuItem = NSMenuItem(title: commandSpec.title, action: #selector(runCommand(_:)), keyEquivalent: "")
         menuItem.target = self
-        menuItem.identifier = NSUserInterfaceItemIdentifier(c.id)
-        if let spec = c.key.flatMap(KeySpec.init) {
+        menuItem.identifier = NSUserInterfaceItemIdentifier(commandSpec.id)
+        if let spec = commandSpec.key.flatMap(KeySpec.init) {
             menuItem.keyEquivalent = spec.key
             menuItem.keyEquivalentModifierMask = spec.mods.flags
         }

@@ -192,8 +192,8 @@ extension Main {
     }
 
     /// An address as typed: `localhost:3000` and `127.0.0.1:8080` are http, a bare host is https.
-    static func address(_ s: String) -> String {
-        if s.contains("://") || s.hasPrefix("about:") || s.hasPrefix("preview:") { return s }
-        return (s.hasPrefix("localhost") || s.first?.isNumber == true ? "http://" : "https://") + s
+    static func address(_ typed: String) -> String {
+        if typed.contains("://") || typed.hasPrefix("about:") || typed.hasPrefix("preview:") { return typed }
+        return (typed.hasPrefix("localhost") || typed.first?.isNumber == true ? "http://" : "https://") + typed
     }
 }

@@ -38,8 +38,8 @@ struct AgentsSettings: View {
         return version.compare(latest, options: .numeric) == .orderedAscending
     }
     /// Found on this Mac: offered in New Agent.
-    private func installed(_ m: AgentManifest) -> Bool {
-        app.availability.ids.contains(m.id) || versions[m.id]?.version != nil
+    private func installed(_ manifest: AgentManifest) -> Bool {
+        app.availability.ids.contains(manifest.id) || versions[manifest.id]?.version != nil
     }
 
     var body: some View {
@@ -139,31 +139,32 @@ struct AgentsSettings: View {
         selection = agent.id
     }
 
-    private func row(_ a: AgentManifest) -> some View {
-        let have = installed(a), on = a.id == selection
+    private func row(_ manifest: AgentManifest) -> some View {
+        let have = installed(manifest), on = manifest.id == selection
         var caption = String(localized: "Not installed")
         if have {
-            caption = versions[a.id]?.version.map { "\($0) · \(a.command)" } ?? a.command
-        } else if case .running? = app.availability.phases[a.id] {
+            caption =
+                versions[manifest.id]?.version.map { "\($0) · \(manifest.command)" } ?? manifest.command
+        } else if case .running? = app.availability.phases[manifest.id] {
             caption = String(localized: "Installing…")
         }
         return Button {
-            selection = a.id
+            selection = manifest.id
         } label: {
             HStack(spacing: Metrics.gapWide) {
-                Image(nsImage: app.catalog.icon(a.id, size: Metrics.iconMenu) ?? NSImage()).resizable()
+                Image(nsImage: app.catalog.icon(manifest.id, size: Metrics.iconMenu) ?? NSImage()).resizable()
                     .frame(width: Metrics.iconMenu, height: Metrics.iconMenu).opacity(have ? 1 : 0.5)
                 VStack(alignment: .leading, spacing: Metrics.lineGap) {
                     HStack(spacing: Metrics.gap) {
-                        Text(a.name).foregroundStyle(have ? .primary : .secondary)
-                        if updates.contains(where: { $0.id == a.id }) {
+                        Text(manifest.name).foregroundStyle(have ? .primary : .secondary)
+                        if updates.contains(where: { $0.id == manifest.id }) {
                             Circle().fill(Color.textOrange).frame(width: Metrics.gap, height: Metrics.gap).help(
                                 "Update available")
                         }
                     }
                     HStack(spacing: 0) {
                         Text(caption).foregroundStyle(.secondary)
-                        if let note = UsageView.plans(app)[a.id]?.note {
+                        if let note = UsageView.plans(app)[manifest.id]?.note {
                             Text(" · " + note.text).foregroundStyle(Color(nsColor: note.color))
                         }
                     }.font(.ui(TextSize.caption))
@@ -181,46 +182,48 @@ struct AgentsSettings: View {
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
-    @ViewBuilder private func card(_ m: AgentManifest) -> some View {
+    @ViewBuilder private func card(_ manifest: AgentManifest) -> some View {
         Section {
             HStack(spacing: Metrics.inset) {
                 // As tall as the name and the line under it.
-                Image(nsImage: app.catalog.icon(m.id, size: Metrics.rowTwoLine) ?? NSImage()).resizable()
+                Image(nsImage: app.catalog.icon(manifest.id, size: Metrics.rowTwoLine) ?? NSImage()).resizable()
                     .frame(width: Metrics.rowTwoLine, height: Metrics.rowTwoLine)
                 VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                    Text(m.name).font(.ui(TextSize.heading, weight: .semibold))
-                    if let about = app.catalog.about(m.id) { Text(about).foregroundStyle(.secondary) }
+                    Text(manifest.name).font(.ui(TextSize.heading, weight: .semibold))
+                    if let about = app.catalog.about(manifest.id) { Text(about).foregroundStyle(.secondary) }
                 }
             }
-            if installed(m) {
-                if app.availability.phases[m.id] == .done { started(m) }
-                versionRow(m)
+            if installed(manifest) {
+                if app.availability.phases[manifest.id] == .done { started(manifest) }
+                versionRow(manifest)
             } else {
-                installBox(m)
+                installBox(manifest)
             }
         }
-        if installed(m) { launch(m) }
+        if installed(manifest) { launch(manifest) }
     }
 
     /// Not on this Mac: its installer, what it needs first, the installer running, or ended without the agent found.
-    @ViewBuilder private func installBox(_ m: AgentManifest) -> some View {
-        switch app.availability.phases[m.id] {
+    @ViewBuilder private func installBox(_ manifest: AgentManifest) -> some View {
+        switch app.availability.phases[manifest.id] {
         case .running(let tab)?:
             HStack {
                 ProgressView().controlSize(.small)
                 status(
                     String(localized: "Installing…"),
-                    String(localized: "In the tab “Install \(m.name)”. This page updates when it ends."))
+                    String(localized: "In the tab “Install \(manifest.name)”. This page updates when it ends."))
                 Spacer()
                 Button("Show Tab") { show(tab) }
             }
-            if let cmd = m.install { commandLine(cmd) }
+            if let cmd = manifest.install { commandLine(cmd) }
         case .notFound(let tab)?:
             Label {
                 status(
-                    String(localized: "The installer finished, but \(m.name) isn’t found yet"),
+                    String(localized: "The installer finished, but \(manifest.name) isn’t found yet"),
                     String(
-                        localized: "Kelp asked your login shell for its PATH again and still didn’t see \(m.command). ")
+                        localized:
+                            "Kelp asked your login shell for its PATH again and still didn’t see \(manifest.command). "
+                    )
                         + String(
                             localized:
                                 "If the installer printed a line to add to your shell profile, add it, then check again."
@@ -231,11 +234,13 @@ struct AgentsSettings: View {
             HStack {
                 Spacer()
                 Button("Show Tab") { show(tab) }
-                Button("Check Again") { app.availability.refresh(force: true, rereadPath: true, expecting: [m.id]) }
+                Button("Check Again") {
+                    app.availability.refresh(force: true, rereadPath: true, expecting: [manifest.id])
+                }
             }
         default:
-            if let cmd = m.install {
-                let tool = m.installNeeds.flatMap { lacking.contains($0) ? $0 : nil }
+            if let cmd = manifest.install {
+                let tool = manifest.installNeeds.flatMap { lacking.contains($0) ? $0 : nil }
                 HStack {
                     if let tool {
                         status(String(localized: "Needs \(tool)"), String(localized: "\(tool) isn’t on this Mac."))
@@ -245,7 +250,7 @@ struct AgentsSettings: View {
                             String(localized: "Runs its own installer in a terminal tab you can watch."))
                     }
                     Spacer()
-                    Button("Install") { install(m) }.disabled(tool != nil).help(cmd)
+                    Button("Install") { install(manifest) }.disabled(tool != nil).help(cmd)
                 }
                 if tool == "npm" {
                     Text("Install Node.js first, from nodejs.org or with Homebrew:").foregroundStyle(.secondary)
@@ -256,7 +261,7 @@ struct AgentsSettings: View {
                 commandLine(cmd)
             } else {
                 Text(
-                    "Kelp has no installer for \(m.name). Install it as its docs say; it shows up here once \(m.command) is on your PATH."
+                    "Kelp has no installer for \(manifest.name). Install it as its docs say; it shows up here once \(manifest.command) is on your PATH."
                 )
                 .foregroundStyle(.secondary)
             }

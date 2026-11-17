@@ -57,23 +57,27 @@ extension Databases {
         }
     }
 
-    private func health(_ c: DatabaseConnection, _ worktreeId: String, remote: RemoteHost?) async -> DatabaseHealth {
-        let name = c.database.name
-        if c.database.engine.isFile {
-            let there = c.database.path.map { FileManager.default.fileExists(atPath: $0) } ?? false
+    private func health(_ databaseConnection: DatabaseConnection, _ worktreeId: String, remote: RemoteHost?) async
+        -> DatabaseHealth
+    {
+        let name = databaseConnection.database.name
+        if databaseConnection.database.engine.isFile {
+            let there = databaseConnection.database.path.map { FileManager.default.fileExists(atPath: $0) } ?? false
             return DatabaseHealth(name: name, state: there ? .ok : .down, reason: there ? nil : "The file isn't there.")
         }
-        if c.database.source != nil, remote == nil, c.database.ssh == nil, let host = c.database.host,
+        if databaseConnection.database.source != nil, remote == nil, databaseConnection.database.ssh == nil,
+            let host = databaseConnection.database.host,
             !DatabaseInfo.isLocal(host)
         {
             // An address from the project's files (a cloned repo's .env): dialled when the user opens it, not on its
             // own.
             return DatabaseHealth(name: name, state: .unknown, reason: "Kelp connects when you open it.")
         }
-        if c.password == nil, c.database.passwordIn != nil {   // reading it would make macOS ask: only on opening it
+        // Reading the password would make macOS ask: only on opening it.
+        if databaseConnection.password == nil, databaseConnection.database.passwordIn != nil {
             return DatabaseHealth(name: name, state: .unknown, reason: "Its password is read when you open it.")
         }
-        let through = c.database.ssh.map { remotes.host($0, path: "/") } ?? remote
+        let through = databaseConnection.database.ssh.map { remotes.host($0, path: "/") } ?? remote
         if let through {
             // `ssh -O check`, up to 3 s: off the pool
             let connected: Bool
@@ -84,7 +88,7 @@ extension Databases {
         }
         let said: String
         do {
-            let near = try await offloads.run { [self] in try reach(c, worktreeId) }
+            let near = try await offloads.run { [self] in try reach(databaseConnection, worktreeId) }
             _ = try await DatabaseEngines.read(near, "SELECT 1", timeout: 3, off: offloads)
             return DatabaseHealth(name: name, state: .ok)
         } catch let failure as DatabaseFailure {
@@ -94,7 +98,7 @@ extension Databases {
         }
         // It didn't answer: is it that compose isn't running it? (One that answers runs, whoever started it.)
         let stopped: Bool
-        if let service = c.container {
+        if let service = databaseConnection.container {
             do {
                 stopped = try await offloads.run {
                     Self.docker().flatMap { Self.container(service, docker: $0) } == nil
@@ -103,7 +107,7 @@ extension Databases {
         } else {
             stopped = false
         }
-        if stopped, let service = c.container {
+        if stopped, let service = databaseConnection.container {
             return DatabaseHealth(
                 name: name, state: .stopped, reason: "Its compose service \(service.name) isn't running.")
         }

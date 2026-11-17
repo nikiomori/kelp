@@ -104,9 +104,10 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
 
     /// A page in the extension's folder (served from it: `ExtPages`, which serves this web view's folder only); nothing else
     /// is (a site, `about:blank`, a file elsewhere).
-    static func isOwn(_ u: URL, _ folder: URL) -> Bool {
-        if u.scheme == ExtPages.scheme { return ExtPages(folder: folder).file(u) != nil }
-        return u.isFileURL && u.resolvingSymlinksInPath().path.hasPrefix(folder.resolvingSymlinksInPath().path + "/")
+    static func isOwn(_ url: URL, _ folder: URL) -> Bool {
+        if url.scheme == ExtPages.scheme { return ExtPages(folder: folder).file(url) != nil }
+        return url.isFileURL
+            && url.resolvingSymlinksInPath().path.hasPrefix(folder.resolvingSymlinksInPath().path + "/")
     }
 
     private func push() {

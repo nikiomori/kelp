@@ -6,14 +6,14 @@ import KelpKit
 
 extension DiffViewController {
     /// The table's rows and changed words, built off the main thread: a big diff is a lot of rows.
-    func buildRows(_ d: [FileDiff], _ cm: [DiffComment], sideBySide: Bool) async -> (
+    func buildRows(_ fileDiffs: [FileDiff], _ cm: [DiffComment], sideBySide: Bool) async -> (
         [ReviewRow], [String: NSRange]
     ) {
         let one = single != nil, open = opened
         return await Task.detached {
             (
-                DiffRows.reviewRows(d, comments: cm, sideBySide: sideBySide, hideFileRows: one, opened: open),
-                DiffRows.changedWords(d)
+                DiffRows.reviewRows(fileDiffs, comments: cm, sideBySide: sideBySide, hideFileRows: one, opened: open),
+                DiffRows.changedWords(fileDiffs)
             )
         }.value
     }
@@ -46,7 +46,7 @@ extension DiffViewController {
     /// Whether the hunks shown are the staged diff's (Unstage) or the unstaged one's (Stage); nil where they're neither
     /// and git can't take them as they are. The uncommitted diff (against HEAD) is the unstaged one's for a file with
     /// nothing staged, and the staged one's for a file with nothing left unstaged.
-    func hunksStaged(_ f: Int) -> Bool? {
+    func hunksStaged(_ file: Int) -> Bool? {
         if hidesSpace { return nil }
         if let single {
             return single.commit == nil && (single.source == .unstaged || single.source == .staged)
@@ -56,8 +56,10 @@ extension DiffViewController {
         case .unstaged: return false
         case .staged: return true
         case .uncommitted:
-            guard diffs.indices.contains(f) else { return nil }
-            guard let change = changes.first(where: { $0.path == diffs[f].path }), change.staged else { return false }
+            guard diffs.indices.contains(file) else { return nil }
+            guard let change = changes.first(where: { $0.path == diffs[file].path }), change.staged else {
+                return false
+            }
             return change.unstaged ? nil : true
         default: return nil
         }
@@ -76,19 +78,19 @@ extension DiffViewController {
 
 extension DiffViewController {
     // MARK: table
-    func numberOfRows(in t: NSTableView) -> Int { t === files ? diffs.count : rows.count }
+    func numberOfRows(in table: NSTableView) -> Int { table === files ? diffs.count : rows.count }
 
     /// The file list's rows light up under the pointer as every inspector list's do; the diff's own rows don't.
-    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
-        if t === files { return ListRowView() }
+    func tableView(_ table: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        if table === files { return ListRowView() }
         let rowView = DiffLineRowView()   // a line shows a "+" under the pointer, for a comment on it
         rowView.onPlus = shownLine(row) != nil && worktreeId != nil ? { [weak self] in self?.openDraft(at: row) } : nil
         return rowView
     }
 
-    func tableView(_ t: NSTableView, viewFor col: NSTableColumn?, row: Int) -> NSView? {
+    func tableView(_ table: NSTableView, viewFor col: NSTableColumn?, row: Int) -> NSView? {
         let app = self.app
-        if t === files { return fileRow(row) }
+        if table === files { return fileRow(row) }
         let id = col?.identifier.rawValue ?? ""
         let first = id == "t" || id == "l" || col == nil   // nil: a hunk header, one view across the row
         switch rows[row] {

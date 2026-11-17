@@ -80,9 +80,9 @@ public struct WorkspaceHistory: Equatable, Sendable {
     }
 
     /// Goes there (from `target`) and says which workspace that is.
-    public mutating func go(to i: Int) -> String {
-        at = i
-        return visits[i]
+    public mutating func go(to index: Int) -> String {
+        at = index
+        return visits[index]
     }
 }
 

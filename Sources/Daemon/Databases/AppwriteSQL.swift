@@ -146,16 +146,16 @@ enum AppwriteSQL {
             at += 1
             return true
         }
-        mutating func symbol(_ s: String) -> Bool {
-            guard next == .symbol(s) else { return false }
+        mutating func symbol(_ text: String) -> Bool {
+            guard next == .symbol(text) else { return false }
             at += 1
             return true
         }
-        mutating func expect(_ k: String) throws {
-            guard keyword(k) else { throw DatabaseFailure.failed("Expected \(k). " + AppwriteSQL.help) }
+        mutating func expect(_ word: String) throws {
+            guard keyword(word) else { throw DatabaseFailure.failed("Expected \(word). " + AppwriteSQL.help) }
         }
-        mutating func expectSymbol(_ s: String) throws {
-            guard symbol(s) else { throw DatabaseFailure.failed("Expected \(s). " + AppwriteSQL.help) }
+        mutating func expectSymbol(_ text: String) throws {
+            guard symbol(text) else { throw DatabaseFailure.failed("Expected \(text). " + AppwriteSQL.help) }
         }
 
         /// A table's or column's name, quoted or not; a cast after it ("::text") means nothing here.

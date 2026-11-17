@@ -24,21 +24,22 @@ extension Databases {
     /// What `sql` does to the rows its trial returned, when Kelp has every one of them as it is: not past what a
     /// result keeps, no value shown as something else (a blob as its size). An update's rows as they were are read
     /// by the table's key: the trial is rolled back, so they're still so.
-    func rowChange(_ c: DatabaseConnection, _ sql: String, _ tried: DatabaseRows) async -> RowChange? {
-        guard let kind = Self.kind(sql, c.database.engine), let table = Self.table(sql, asWritten: true),
+    func rowChange(_ databaseConnection: DatabaseConnection, _ sql: String, _ tried: DatabaseRows) async -> RowChange? {
+        guard let kind = Self.kind(sql, databaseConnection.database.engine),
+            let table = Self.table(sql, asWritten: true),
             !tried.rows.isEmpty, tried.rows.count == tried.total, !tried.opaque
         else { return nil }
         var change = RowChange(kind: kind, table: table)
-        let key = await key(c, table)
+        let key = await key(databaseConnection, table)
         guard !key.isEmpty, key.allSatisfy(tried.columns.contains) else { return change }
         change.key = key
-        if kind == .update { change.before = await before(c, table, key, tried) }
+        if kind == .update { change.before = await before(databaseConnection, table, key, tried) }
         return change
     }
 
     /// The table's primary key, by its columns' names; none when it has none or the engine doesn't say.
-    private func key(_ c: DatabaseConnection, _ table: String) async -> [String] {
-        let engine = c.database.engine
+    private func key(_ databaseConnection: DatabaseConnection, _ table: String) async -> [String] {
+        let engine = databaseConnection.database.engine
         let plain = table.filter { !"\"`".contains($0) }
         let asked: String
         switch engine {
@@ -54,19 +55,23 @@ extension Databases {
         case .mysql, .appwrite: return []
         }
         do {
-            return try await DatabaseEngines.read(c, asked, off: offloads).rows.compactMap { $0.first ?? nil }
+            return try await DatabaseEngines.read(databaseConnection, asked, off: offloads).rows.compactMap {
+                $0.first ?? nil
+            }
         } catch {
-            Log.session.info("db key of \(table) in \(c.database.name) wasn't read: \(error)")
+            Log.session.info("db key of \(table) in \(databaseConnection.database.name) wasn't read: \(error)")
             return []
         }
     }
 
     /// The rows of `tried` as they are now, found by `key`, in its order; nil unless every one is found once: a
     /// change that moves a row's key leaves none to find, and none to put back.
-    private func before(_ c: DatabaseConnection, _ table: String, _ key: [String], _ tried: DatabaseRows) async
+    private func before(
+        _ databaseConnection: DatabaseConnection, _ table: String, _ key: [String], _ tried: DatabaseRows
+    ) async
         -> [[String?]]?
     {
-        let engine = c.database.engine
+        let engine = databaseConnection.database.engine
         let at = key.compactMap(tried.columns.firstIndex(of:))
         let keys = tried.rows.map { row in at.map { row.indices.contains($0) ? row[$0] : nil } }
         guard at.count == key.count, keys.allSatisfy({ !$0.contains(nil) }), Set(keys).count == keys.count else {
@@ -79,13 +84,14 @@ extension Databases {
         let columns = tried.columns.map(engine.quoted).joined(separator: ", ")
         let asked = "SELECT \(columns) FROM \(table) WHERE " + found.joined(separator: " OR ")
         do {
-            let now = try await DatabaseEngines.read(c, asked, off: offloads)
+            let now = try await DatabaseEngines.read(databaseConnection, asked, off: offloads)
             guard now.rows.count == keys.count, !now.opaque else { return nil }
             let byKey = Dictionary(now.rows.map { row in (at.map { row[$0] }, row) }, uniquingKeysWith: { a, _ in a })
             let rows = keys.compactMap { byKey[$0] }
             return rows.count == keys.count ? rows : nil
         } catch {
-            Log.session.info("db rows of \(table) in \(c.database.name) before a change weren't read: \(error)")
+            Log.session.info(
+                "db rows of \(table) in \(databaseConnection.database.name) before a change weren't read: \(error)")
             return nil
         }
     }

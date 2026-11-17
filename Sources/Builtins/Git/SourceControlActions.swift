@@ -97,9 +97,9 @@ extension SourceControlController {
         }
     }
 
-    func sectionActions(_ s: Section, _ n: Node) -> [RowAction] {
-        let files = n.files
-        switch s {
+    func sectionActions(_ section: Section, _ node: Node) -> [RowAction] {
+        let files = node.files
+        switch section {
         case .merge: return [RowAction("plus", "Stage All (Mark Resolved)") { [weak self] in self?.stage(files, true) }]
         case .staged: return [RowAction("minus", "Unstage All") { [weak self] in self?.stage(files, false) }]
         case .changes:

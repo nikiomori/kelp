@@ -16,8 +16,8 @@ enum DiffColors {
     static let limit = 200_000
 
     /// A line's key: a removed line by its old number, the others by their new one.
-    static func key(_ file: Int, _ l: DiffLine) -> String? {
-        l.kind == .del ? l.oldLine.map { "\(file):o:\($0)" } : l.newLine.map { "\(file):n:\($0)" }
+    static func key(_ file: Int, _ diffLine: DiffLine) -> String? {
+        diffLine.kind == .del ? diffLine.oldLine.map { "\(file):o:\($0)" } : diffLine.newLine.map { "\(file):n:\($0)" }
     }
 
     /// The grammar of each file that has one, on the main thread (the queries are made there).
@@ -56,7 +56,7 @@ enum DiffColors {
             at += line.text.utf16.count + 1
         }
         guard at <= limit, !lines.isEmpty else { return [:] }
-        func kept(_ l: DiffLine) -> Bool { l.kind == side || (side == .add && l.kind == .context) }
+        func kept(_ diffLine: DiffLine) -> Bool { diffLine.kind == side || (side == .add && diffLine.kind == .context) }
         var out: [String: [Span]] = [:]
         for (range, name) in grammar.highlights(lines.map(\.text).joined(separator: "\n")) {
             // The last line starting at or before the capture, then each line it runs into.

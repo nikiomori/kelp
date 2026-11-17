@@ -124,8 +124,8 @@ extension ImportReaders {
     static func int(_ value: Any?) -> Int? { Int(string(value)) }
 
     /// Two notes in one line: what SSH needs, then why it's Production.
-    static func both(_ a: String?, _ b: String?) -> String? {
-        let parts = [a, b].compactMap { $0 }
+    static func both(_ first: String?, _ second: String?) -> String? {
+        let parts = [first, second].compactMap { $0 }
         return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 

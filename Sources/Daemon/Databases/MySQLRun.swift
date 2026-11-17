@@ -128,16 +128,18 @@ struct MySQLRun: DatabaseRunner {
 
     /// The statements as one script on stdin, in binary mode (no client commands such as `system`), a marker between
     /// them.
-    static func run(_ c: DatabaseConnection, _ statements: [String], timeout: TimeInterval) throws -> [String] {
-        let db = c.database
-        let (client, host, port) = try DatabaseEngines.invocation(c, "mysql", secret: "MYSQL_PWD")
+    static func run(_ databaseConnection: DatabaseConnection, _ statements: [String], timeout: TimeInterval) throws
+        -> [String]
+    {
+        let db = databaseConnection.database
+        let (client, host, port) = try DatabaseEngines.invocation(databaseConnection, "mysql", secret: "MYSQL_PWD")
         // localhost would mean its Unix socket to mysql: the server's port is asked for by address.
         var argv =
             client + ["--batch", "--binary-mode", "-h", host == "localhost" ? "127.0.0.1" : host, "-P", String(port)]
         if let user = db.user { argv += ["-u", user] }
         if let name = db.database { argv.append(name) }
         let script = statements.map { $0 + ";\nSELECT '\(marker)' AS \(marker);\n" }.joined()
-        let env = DatabaseEngines.environment(["MYSQL_PWD": c.password])
+        let env = DatabaseEngines.environment(["MYSQL_PWD": databaseConnection.password])
         let out = try Subprocess.run(
             argv, cwd: NSHomeDirectory(), env: env, stdin: Data(script.utf8), timeLimit: timeout,
             limit: DatabaseEngines.outputLimit)

@@ -258,11 +258,13 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         ])
     }
 
-    private func pickRecent(_ n: Int) -> Bool {
-        guard showingRecents, recents.indices.contains(n - 1), recents[n - 1].kind != "Group" else { return false }
+    private func pickRecent(_ number: Int) -> Bool {
+        guard showingRecents, recents.indices.contains(number - 1), recents[number - 1].kind != "Group" else {
+            return false
+        }
         hide()
         NSApp.mainWindow?.makeKeyAndOrderFront(nil)
-        recents[n - 1].action()
+        recents[number - 1].action()
         return true
     }
 

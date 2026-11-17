@@ -121,14 +121,15 @@ struct PostgresWire: DatabaseRunner {
 
     /// `seconds`: the call's whole time (`DatabaseWire.within`).
     private static func with<T: Sendable>(
-        _ c: DatabaseConnection, within seconds: TimeInterval = DatabaseEngines.readTimeout + DatabaseTimes.slack,
+        _ databaseConnection: DatabaseConnection,
+        within seconds: TimeInterval = DatabaseEngines.readTimeout + DatabaseTimes.slack,
         _ body: @escaping @Sendable (PostgresConnection) async throws -> T
     ) async throws -> T {
-        let db = c.database
+        let db = databaseConnection.database
         guard let host = db.host else { throw DatabaseFailure.failed("\(db.name) has no address to reach it at.") }
         let user = db.user ?? NSUserName(), port = db.port ?? db.engine.defaultPort ?? 0
         let password =
-            c.password
+            databaseConnection.password
             ?? (PgPass.mayUse(for: db, host: host)
                 ? PgPass.password(host: host, port: port, database: db.database, user: user) : nil)
         let context = try NIOSSLContext(configuration: DatabaseWire.tls)

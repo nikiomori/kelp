@@ -97,17 +97,17 @@ final class PaneView: NSView {
 
     private lazy var preview = PathPreview(app: app)
 
-    private static func terminal(_ s: Session) -> GhosttyTerminalView {
+    private static func terminal(_ session: Session) -> GhosttyTerminalView {
         let kelp = Bundle.main.bundleURL.appendingPathComponent(
             Bundle.main.bundleIdentifier == nil ? "kelp" : "Contents/MacOS/kelp"
         ).path
         return GhosttyTerminalView(
-            command: ShellQuote.word(kelp) + " attach \(s.id)", cwd: s.cwd,
+            command: ShellQuote.word(kelp) + " attach \(session.id)", cwd: session.cwd,
             env: ["KELP_SOCKET": Paths.socket.path, "KELP_HOME": Paths.root.path])
     }
 
-    private func buildTerminal(_ s: Session) {
-        let id = s.id, terminal = Self.terminal(s)
+    private func buildTerminal(_ session: Session) {
+        let id = session.id, terminal = Self.terminal(session)
         ghostty = terminal
         terminal.translatesAutoresizingMaskIntoConstraints = false
         addSubview(terminal, positioned: .below, relativeTo: nil)
@@ -123,7 +123,7 @@ final class PaneView: NSView {
         }
         terminal.onSearch = { [weak self] in self?.searchEvent($0) }
         // Paths the agent prints are its folder's: its own worktree once it went into one.
-        let cwd = { [app] in app.session(id)?.currentDir ?? s.cwd }, wid = s.worktreeId
+        let cwd = { [app] in app.session(id)?.currentDir ?? session.cwd }, wid = session.worktreeId
         let projects = { [app] in app.repos.map(\.path) }, app = app
         terminal.onOpenURL = { Self.openLink($0, cwd: cwd(), elsewhere: projects(), workspace: wid, in: app) }
         terminal.onPasteRefused = {
@@ -223,7 +223,7 @@ final class PaneView: NSView {
             paused ? String(localized: "Resume") : lost ? String(localized: "Reconnect") : String(localized: "Restart")
     }
 
-    private func reattach(_ s: Session) {
+    private func reattach(_ session: Session) {
         let focused = ghostty.map { window?.firstResponder === $0 } ?? false
         findBar?.removeFromSuperview()
         findBar = nil   // it searched the old terminal
@@ -231,7 +231,7 @@ final class PaneView: NSView {
         attached = true
         released = false
         attachedTo = app.connections
-        buildTerminal(s)
+        buildTerminal(session)
         if focused { focus() }
     }
 

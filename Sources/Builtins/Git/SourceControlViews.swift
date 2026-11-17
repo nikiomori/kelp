@@ -73,8 +73,8 @@ final class GraphBar: NSView {
     private func showFill() {
         fill.fadeBackground(to: pressed ? .fillSelected : hovering ? .fillHover : nil, held: pressed)
     }
-    override func mouseEntered(with e: NSEvent) { setHovering(true) }
-    override func mouseExited(with e: NSEvent) { setHovering(false) }
+    override func mouseEntered(with event: NSEvent) { setHovering(true) }
+    override func mouseExited(with event: NSEvent) { setHovering(false) }
     private func setHovering(_ on: Bool) {
         cell?.setHover(on)
         hovering = on
@@ -92,15 +92,15 @@ final class GraphBar: NSView {
     override func accessibilityValue() -> Any? { expanded }
 
     private var start: CGFloat = 0, last: CGFloat = 0, dragged = false
-    override func mouseDown(with e: NSEvent) {
-        start = e.locationInWindow.y
+    override func mouseDown(with event: NSEvent) {
+        start = event.locationInWindow.y
         last = start
         dragged = false
         pressed = true
         showFill()
     }
-    override func mouseDragged(with e: NSEvent) {
-        let pointerY = e.locationInWindow.y
+    override func mouseDragged(with event: NSEvent) {
+        let pointerY = event.locationInWindow.y
         dragged = dragged || (expanded && abs(pointerY - start) > 3)
         guard dragged else { return }
         if pressed {
@@ -110,7 +110,7 @@ final class GraphBar: NSView {
         onResize?(pointerY - last)
         last = pointerY
     }
-    override func mouseUp(with e: NSEvent) {
+    override func mouseUp(with event: NSEvent) {
         pressed = false
         showFill()
         guard !dragged else { return }
@@ -138,19 +138,19 @@ final class CommitTextView: NSTextView {
         container.exclusionPaths = corner > 0 ? [NSBezierPath(rect: rect)] : []
     }
     var onChange: (() -> Void)?
-    private func isCommitKey(_ e: NSEvent) -> Bool {
-        (e.keyCode == 36 || e.keyCode == 76) && e.modifierFlags.contains(.command)
+    private func isCommitKey(_ event: NSEvent) -> Bool {
+        (event.keyCode == 36 || event.keyCode == 76) && event.modifierFlags.contains(.command)
     }
-    override func performKeyEquivalent(with e: NSEvent) -> Bool {
-        if window?.firstResponder === self, isCommitKey(e) {
-            if e.modifierFlags.contains(.option), let onAgent { onAgent() } else { onCommit?() }
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if window?.firstResponder === self, isCommitKey(event) {
+            if event.modifierFlags.contains(.option), let onAgent { onAgent() } else { onCommit?() }
             return true
         }
-        return super.performKeyEquivalent(with: e)
+        return super.performKeyEquivalent(with: event)
     }
-    override func keyDown(with e: NSEvent) {
-        guard isCommitKey(e) else { return super.keyDown(with: e) }
-        if e.modifierFlags.contains(.option), let onAgent { onAgent() } else { onCommit?() }
+    override func keyDown(with event: NSEvent) {
+        guard isCommitKey(event) else { return super.keyDown(with: event) }
+        if event.modifierFlags.contains(.option), let onAgent { onAgent() } else { onCommit?() }
     }
     override func didChangeText() {
         super.didChangeText()

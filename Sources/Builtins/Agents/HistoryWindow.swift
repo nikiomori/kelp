@@ -102,9 +102,11 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         .init("search"), .init("fullText"), .flexibleSpace,
         .init("status"), .init("copy"), .init("resume")
     ]
-    func toolbarDefaultItemIdentifiers(_ t: NSToolbar) -> [NSToolbarItem.Identifier] { Self.items }
-    func toolbarAllowedItemIdentifiers(_ t: NSToolbar) -> [NSToolbarItem.Identifier] { Self.items }
-    func toolbar(_ t: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier, willBeInsertedIntoToolbar: Bool)
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { Self.items }
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { Self.items }
+    func toolbar(
+        _ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier, willBeInsertedIntoToolbar: Bool
+    )
         -> NSToolbarItem?
     {
         if id == searchItem.itemIdentifier { return searchItem }
@@ -163,11 +165,11 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     }
 
     private func selectionChanged() { for b in [resumeB, copyB] { b.isEnabled = table.selectedRow >= 0 } }
-    func tableViewSelectionDidChange(_ n: Notification) { selectionChanged() }
+    func tableViewSelectionDidChange(_ notification: Notification) { selectionChanged() }
 
-    func numberOfRows(in t: NSTableView) -> Int { rows.count }
-    func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
-        let conversation = rows[row], id = c?.identifier.rawValue
+    func numberOfRows(in table: NSTableView) -> Int { rows.count }
+    func tableView(_ table: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        let conversation = rows[row], id = tableColumn?.identifier.rawValue
         let text: String
         switch id {
         case "agent": return agentCell(conversation.agent.rawValue)
@@ -188,7 +190,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         return cell
     }
     /// Drag a conversation onto a terminal pane: drops its resume command there.
-    func tableView(_ t: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
+    func tableView(_ table: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
         command(rows[row]) as NSString
     }
 

@@ -24,9 +24,9 @@ extension HTMLWriter {
     private static let urls: Set<String> = ["href", "src", "srcset"]
 
     /// A whole tag at `c[i]` whose name is on the list, written back with only the attributes on the list.
-    func htmlTag(_ c: [Character], _ i: Int) -> (String, Int)? {
-        guard let gt = c[i...].prefix(1000).firstIndex(of: ">") else { return nil }
-        let raw = String(c[i...gt])
+    func htmlTag(_ chars: [Character], _ start: Int) -> (String, Int)? {
+        guard let gt = chars[start...].prefix(1000).firstIndex(of: ">") else { return nil }
+        let raw = String(chars[start...gt])
         guard
             let match = raw.wholeMatch(
                 of: /<(\/?)([A-Za-z][A-Za-z0-9]*)((?:\s+[^\s=>\/"']+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+))?)*)\s*\/?>/

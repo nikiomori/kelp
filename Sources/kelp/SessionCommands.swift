@@ -136,10 +136,10 @@ extension Main {
     }
 
     /// "90", "30s", "10m", "1h" → seconds.
-    static func duration(_ s: String) -> TimeInterval {
-        let unit = ["s": 1.0, "m": 60, "h": 3600][String(s.suffix(1))]
-        guard let amount = Double(unit == nil ? s : String(s.dropLast())) else {
-            fail("bad duration \(s): use 30s, 10m or 1h")
+    static func duration(_ text: String) -> TimeInterval {
+        let unit = ["s": 1.0, "m": 60, "h": 3600][String(text.suffix(1))]
+        guard let amount = Double(unit == nil ? text : String(text.dropLast())) else {
+            fail("bad duration \(text): use 30s, 10m or 1h")
         }
         return amount * (unit ?? 1)
     }

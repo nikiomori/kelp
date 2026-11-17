@@ -61,10 +61,10 @@ enum ServerReading {
         return "\(bytes(used)) / \(bytes(total))"
     }
     /// Bytes in the unit `total` is said in, so the two read together: "0.99 GB" of "1.93 GB", not "1,014.3 MB".
-    static func amount(_ n: Int, like total: Int) -> String {
+    static func amount(_ count: Int, like total: Int) -> String {
         let units: [(String, Int, Int)] = [("TB", 40, 2), ("GB", 30, 2), ("MB", 20, 1), ("KB", 10, 0)]
-        guard let (name, shift, digits) = units.first(where: { total >= 1 << $0.1 }) else { return bytes(n) }
-        let value = Double(n) / Double(1 << shift)
+        guard let (name, shift, digits) = units.first(where: { total >= 1 << $0.1 }) else { return bytes(count) }
+        let value = Double(count) / Double(1 << shift)
         return value.formatted(.number.precision(.fractionLength(digits))) + " " + name
     }
     /// Bytes a second, "14 KB/s".

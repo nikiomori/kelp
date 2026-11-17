@@ -60,10 +60,10 @@ enum PostgresText {
         ].contains(type)
     }
 
-    static func float(_ d: Double) -> String {
-        if d.isNaN { return "NaN" }
-        if d.isInfinite { return d < 0 ? "-Infinity" : "Infinity" }
-        return d == d.rounded() && abs(d) < 1e15 ? String(Int64(d)) : String(d)
+    static func float(_ value: Double) -> String {
+        if value.isNaN { return "NaN" }
+        if value.isInfinite { return value < 0 ? "-Infinity" : "Infinity" }
+        return value == value.rounded() && abs(value) < 1e15 ? String(Int64(value)) : String(value)
     }
 
     private static func money(_ cents: Int64) -> String {

@@ -98,8 +98,8 @@ struct ExtListView: View {
     private struct EmptyState: NSViewRepresentable {
         let title: String, symbol: String?, output: String?
         func makeNSView(context: Context) -> EmptyStateView { EmptyStateView() }
-        func updateNSView(_ v: EmptyStateView, context: Context) {
-            if let output { v.showError(title, text: nil, fix: output) } else { v.show(title, symbol: symbol) }
+        func updateNSView(_ view: EmptyStateView, context: Context) {
+            if let output { view.showError(title, text: nil, fix: output) } else { view.show(title, symbol: symbol) }
         }
     }
 
@@ -186,8 +186,8 @@ struct ExtListView: View {
     }
 
     /// A JSON array, or one JSON object per line.
-    static func parse(_ s: String) -> [JSONValue] {
-        let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+    static func parse(_ text: String) -> [JSONValue] {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.hasPrefix("["), let data = trimmed.data(using: .utf8),
             case .array(let array)? = try? JSONDecoder().decode(JSONValue.self, from: data)
         {

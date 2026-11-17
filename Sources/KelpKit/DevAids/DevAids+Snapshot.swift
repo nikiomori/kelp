@@ -24,16 +24,18 @@ extension AppDelegate {
     /// content included, which the layer render draws white or not at all. An app may read its own windows without
     /// screen-recording permission. The call is unavailable to Swift since macOS 15, hence dlsym; the layer render
     /// stays as the fallback.
-    static func snap(_ w: NSWindow, to path: String) {
-        guard !composited(w, to: path), let view = w.contentView?.superview ?? w.contentView else { return }
-        render(view, scale: w.backingScaleFactor, to: path)
+    static func snap(_ window: NSWindow, to path: String) {
+        guard !composited(window, to: path), let view = window.contentView?.superview ?? window.contentView else {
+            return
+        }
+        render(view, scale: window.backingScaleFactor, to: path)
     }
-    private static func composited(_ w: NSWindow, to path: String) -> Bool {
+    private static func composited(_ window: NSWindow, to path: String) -> Bool {
         typealias Capture = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
         // A sleeping (or locked) display: the window server hands back white, so the layers are drawn instead.
         guard CGDisplayIsAsleep(CGMainDisplayID()) == 0,
             let sym = dlsym(dlopen(nil, RTLD_NOW), "CGWindowListCreateImage"),
-            let img = unsafeBitCast(sym, to: Capture.self)(.null, 1 << 3, UInt32(w.windowNumber), 1)?
+            let img = unsafeBitCast(sym, to: Capture.self)(.null, 1 << 3, UInt32(window.windowNumber), 1)?
                 .takeRetainedValue(),
             let png = NSBitmapImageRep(cgImage: img).representation(using: .png, properties: [:])
         else { return false }
@@ -41,11 +43,11 @@ extension AppDelegate {
     }
 
     /// Render the layer tree (what the compositor shows); cacheDisplay misses layer-only content.
-    static func render(_ v: NSView, scale: CGFloat, to path: String) {
-        v.layoutSubtreeIfNeeded()
-        v.displayIfNeeded()
-        let size = v.bounds.size
-        guard let layer = v.layer,
+    static func render(_ view: NSView, scale: CGFloat, to path: String) {
+        view.layoutSubtreeIfNeeded()
+        view.displayIfNeeded()
+        let size = view.bounds.size
+        guard let layer = view.layer,
             let ctx = CGContext(
                 data: nil, width: Int(size.width * scale), height: Int(size.height * scale),
                 bitsPerComponent: 8, bytesPerRow: 0,
@@ -57,7 +59,7 @@ extension AppDelegate {
         NSApp.effectiveAppearance.performAsCurrentDrawingAppearance { bg = NSColor.windowBackgroundColor.cgColor }
         ctx.setFillColor(bg)
         ctx.fill(CGRect(origin: .zero, size: size))   // the window frame paints this on screen
-        if v.isFlipped {
+        if view.isFlipped {
             ctx.translateBy(x: 0, y: size.height)
             ctx.scaleBy(x: 1, y: -1)
         }
@@ -152,7 +154,7 @@ extension AppDelegate {
 }
 
 extension NSView {
-    func allSubviews<T: NSView>(of t: T.Type) -> [T] {
-        subviews.flatMap { ($0 as? T).map { [$0] } ?? [] + $0.allSubviews(of: t) }
+    func allSubviews<T: NSView>(of type: T.Type) -> [T] {
+        subviews.flatMap { ($0 as? T).map { [$0] } ?? [] + $0.allSubviews(of: type) }
     }
 }

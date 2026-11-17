@@ -58,8 +58,12 @@ extension Databases {
     }
 
     /// Into the branch's folder at the same place when it's the project's file, else beside it with the branch's name.
-    fileprivate func copyFile(_ c: DatabaseConnection, _ worktree: Worktree, suffix: String) throws -> DatabaseInfo {
-        guard let path = c.database.path else { throw RPCError.invalidParams("\(c.database.name) has no file.") }
+    fileprivate func copyFile(_ databaseConnection: DatabaseConnection, _ worktree: Worktree, suffix: String) throws
+        -> DatabaseInfo
+    {
+        guard let path = databaseConnection.database.path else {
+            throw RPCError.invalidParams("\(databaseConnection.database.name) has no file.")
+        }
         let project = try store.repo(worktree.repoId)?.path ?? worktree.path
         let target: String
         // Compared and cut as they really are: a project reached through a link has the same file at another path
@@ -77,7 +81,7 @@ extension Databases {
             atPath: (target as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
         var made = false
         do {
-            if c.database.engine == .duckdb {
+            if databaseConnection.database.engine == .duckdb {
                 // DuckDB keeps one file, no -wal; one there already is another's copy, any other failure half of ours
                 do { try FileManager.default.copyItem(atPath: path, toPath: target) } catch CocoaError
                     .fileWriteFileExists
@@ -105,16 +109,18 @@ extension Databases {
         // Where Kelp looks (the top, db/, …) it's found as it is, and what says it's a copy is kept beside what the
         // project says of its database of that name; anywhere else it's kept as one added by hand.
         if let found = try connections(worktree.id).first(where: { $0.database.path == target }) {
-            var db = Self.asCopy(found.database, of: c.database.name, for: worktree.id)
-            if c.database.access == .hidden { db.access = .hidden }
+            var db = Self.asCopy(found.database, of: databaseConnection.database.name, for: worktree.id)
+            if databaseConnection.database.access == .hidden { db.access = .hidden }
             let entry = try SavedDatabase(repoId: worktree.repoId, database: db, byHand: false, copyIn: worktree.id)
             try store.db.write { try entry.save($0) }
             touch(worktree.id)
             return db
         }
-        var db = DatabaseInfo(name: c.database.name + "_" + suffix, engine: c.database.engine, path: target)
-        db = Self.asCopy(db, of: c.database.name, for: worktree.id)
-        db.access = c.database.access == .hidden ? .hidden : .free
+        var db = DatabaseInfo(
+            name: databaseConnection.database.name + "_" + suffix, engine: databaseConnection.database.engine,
+            path: target)
+        db = Self.asCopy(db, of: databaseConnection.database.name, for: worktree.id)
+        db.access = databaseConnection.database.access == .hidden ? .hidden : .free
         return try save(worktree.id, db, password: nil)
     }
 
@@ -146,12 +152,13 @@ extension Databases {
     }
 
     /// DROP DATABASE, from the server's own `postgres` database: nobody may be connected to the one that goes.
-    private func dropDatabase(_ c: DatabaseConnection) async throws {
-        guard c.database.engine == .postgres, let database = c.database.database else {
+    private func dropDatabase(_ databaseConnection: DatabaseConnection) async throws {
+        guard databaseConnection.database.engine == .postgres, let database = databaseConnection.database.database
+        else {
             throw DatabaseFailure.failed(
-                "Kelp drops a copy that is a file or a Postgres database, not \(c.database.name).")
+                "Kelp drops a copy that is a file or a Postgres database, not \(databaseConnection.database.name).")
         }
-        var maintenance = c
+        var maintenance = databaseConnection
         maintenance.database.database = "postgres"
         _ = try await DatabaseEngines.write(
             maintenance, "DROP DATABASE IF EXISTS \(DatabaseInfo.Engine.postgres.quoted(database))", off: offloads)

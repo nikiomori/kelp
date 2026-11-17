@@ -47,20 +47,20 @@ final class CommitCard {
         return loaded
     }
 
-    private func show(_ c: GraphCommit, details d: CommitDetails?, pushed: Bool?, over row: NSView) {
-        let email = d?.email.lowercased() ?? ""
-        let view = CommitCardView(c, details: d, pushed: pushed, picture: pictures[email])
+    private func show(_ commit: GraphCommit, details commitDetails: CommitDetails?, pushed: Bool?, over row: NSView) {
+        let email = commitDetails?.email.lowercased() ?? ""
+        let view = CommitCardView(commit, details: commitDetails, pushed: pushed, picture: pictures[email])
         view.onInside = { [weak self] inside in if inside { self?.card.cancel() } else { self?.card.closeSoon() } }
         let vc = NSViewController()
         vc.view = view
         vc.preferredContentSize = view.fittingSize
-        shown = c.hash
+        shown = commit.hash
         card.show(vc, relativeTo: row.bounds, of: row, edge: .minX)
         guard !email.isEmpty, pictures[email] == nil else { return }
         Task { [weak self, weak view] in
             guard let img = await self?.picture?(email) else { return }
             self?.pictures[email] = img
-            if self?.shown == c.hash { view?.avatar.image = img }
+            if self?.shown == commit.hash { view?.avatar.image = img }
         }
     }
 }
@@ -72,10 +72,10 @@ final class CommitCardView: NSView {
     /// The author's picture, or their initial until it comes (or when the forge has none).
     let avatar = NSImageView()
 
-    init(_ c: GraphCommit, details d: CommitDetails?, pushed: Bool?, picture: NSImage?) {
+    init(_ commit: GraphCommit, details commitDetails: CommitDetails?, pushed: Bool?, picture: NSImage?) {
         super.init(frame: .zero)
         let size = TextSize.of(18)
-        avatar.image = picture ?? Self.initial(c.author, size: size)
+        avatar.image = picture ?? Self.initial(commit.author, size: size)
         avatar.imageScaling = .scaleProportionallyUpOrDown
         avatar.wantsLayer = true
         avatar.layer?.cornerRadius = size / 2
@@ -84,9 +84,11 @@ final class CommitCardView: NSView {
         NSLayoutConstraint.activate([
             avatar.widthAnchor.constraint(equalToConstant: size), avatar.heightAnchor.constraint(equalToConstant: size)
         ])
-        let subject = CommitSubject(c.subject)
+        let subject = CommitSubject(commit.subject)
         var rows: [NSView] = []
-        if let head = Self.header(subject, merge: c.parents.count > 1, unpushed: pushed == false) { rows.append(head) }
+        if let head = Self.header(subject, merge: commit.parents.count > 1, unpushed: pushed == false) {
+            rows.append(head)
+        }
         let title = Self.text(subject.text, font: .ui(TextSize.body, weight: .semibold), color: .labelColor, lines: 4)
         if subject.breaking {   // a breaking change: a red "!" before the words, as in the row
             let breakingTitle = NSMutableAttributedString(
@@ -102,22 +104,22 @@ final class CommitCardView: NSView {
             title.setAccessibilityLabel(String(localized: "Breaking change") + ": " + subject.text)
         }
         rows.append(title)
-        if let body = d?.body, !body.isEmpty {
+        if let body = commitDetails?.body, !body.isEmpty {
             rows.append(
                 Self.text(CommitSubject.reflow(body), font: .ui(TextSize.row), color: .secondaryLabelColor, lines: 12))
         }
         let line = NSBox()
         line.boxType = .separator
         rows.append(line)
-        let refs = CommitCell.labels(c.refs)
+        let refs = CommitCell.labels(commit.refs)
         if !refs.isEmpty {
             let badges = NSStackView(
                 views: refs.prefix(4).map { Badge(text: $0.0, color: $0.1, strong: $0.2) } + [NSView()])
             badges.spacing = 4
             rows.append(badges)
         }
-        rows.append(Self.meta(c, avatar: avatar))
-        rows.append(Self.footer(c, details: d))
+        rows.append(Self.meta(commit, avatar: avatar))
+        rows.append(Self.footer(commit, details: commitDetails))
         let stack = NSStackView(views: rows)
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -143,8 +145,8 @@ final class CommitCardView: NSView {
         addTrackingArea(
             NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
     }
-    override func mouseEntered(with e: NSEvent) { onInside?(true) }
-    override func mouseExited(with e: NSEvent) { onInside?(false) }
+    override func mouseEntered(with event: NSEvent) { onInside?(true) }
+    override func mouseExited(with event: NSEvent) { onInside?(false) }
 
     /// The type's mark, "fix · daemon" and "↑ Not pushed yet"; nothing for a plain subject that's on the remote.
     private static func header(_ subject: CommitSubject, merge: Bool, unpushed: Bool) -> NSView? {
@@ -189,15 +191,15 @@ final class CommitCardView: NSView {
     }
 
     /// The author's picture, "Nikolay · 3h ago · Oct 22, 8:17 PM".
-    private static func meta(_ c: GraphCommit, avatar: NSView) -> NSView {
-        let date = Date(timeIntervalSince1970: c.date), age = Date().timeIntervalSince(date)
+    private static func meta(_ commit: GraphCommit, avatar: NSView) -> NSView {
+        let date = Date(timeIntervalSince1970: commit.date), age = Date().timeIntervalSince(date)
         let ago = age < 60 ? String(localized: "now") : String(localized: "\(shortSpan(age)) ago")
         let sameYear = Calendar.current.isDate(date, equalTo: Date(), toGranularity: .year)
         let when = date.formatted(
             sameYear
                 ? .dateTime.month(.abbreviated).day().hour().minute()
                 : .dateTime.month(.abbreviated).day().year().hour().minute())
-        let author = label(c.author, font: .ui(TextSize.caption, weight: .medium))
+        let author = label(commit.author, font: .ui(TextSize.caption, weight: .medium))
         author.textColor = .secondaryLabelColor
         author.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         let row = NSStackView(views: [
@@ -209,7 +211,7 @@ final class CommitCardView: NSView {
     }
 
     /// "4 files +31 −11" and the short hash, which copies the whole one.
-    private static func footer(_ c: GraphCommit, details: CommitDetails?) -> NSView {
+    private static func footer(_ commit: GraphCommit, details: CommitDetails?) -> NSView {
         var views: [NSView] = []
         if let details, details.files > 0 {
             views.append(label(String(localized: "\(details.files) files"), font: .uiDigits(TextSize.caption)))
@@ -221,8 +223,8 @@ final class CommitCardView: NSView {
         }
         let copyTitle = String(localized: "Copy Commit Hash")
         weak var button: NSButton?
-        let copy = ClosureButton(title: String(c.hash.prefix(7))) {
-            copyText(c.hash)
+        let copy = ClosureButton(title: String(commit.hash.prefix(7))) {
+            copyText(commit.hash)
             button?.crossfade()
             button?.image = .symbol("checkmark", String(localized: "Copied"))
             DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) {

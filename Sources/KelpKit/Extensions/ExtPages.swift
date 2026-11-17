@@ -24,13 +24,13 @@ final class ExtPages: NSObject, WKURLSchemeHandler {
     }
 
     /// The folder's file an address names; nil for one outside it (`..`, a link out).
-    func file(_ u: URL) -> URL? {
-        guard u.scheme == Self.scheme else { return nil }
-        let resolved = folder.appendingPathComponent(u.path).resolvingSymlinksInPath()
+    func file(_ url: URL) -> URL? {
+        guard url.scheme == Self.scheme else { return nil }
+        let resolved = folder.appendingPathComponent(url.path).resolvingSymlinksInPath()
         return resolved.path.hasPrefix(folder.resolvingSymlinksInPath().path + "/") ? resolved : nil
     }
 
-    func webView(_ w: WKWebView, start task: any WKURLSchemeTask) {
+    func webView(_ webView: WKWebView, start task: any WKURLSchemeTask) {
         guard let url = task.request.url, let found = file(url) else {
             return task.didFailWithError(URLError(.fileDoesNotExist))
         }
@@ -49,5 +49,5 @@ final class ExtPages: NSObject, WKURLSchemeHandler {
         task.didFinish()
     }
 
-    func webView(_ w: WKWebView, stop task: any WKURLSchemeTask) {}
+    func webView(_ webView: WKWebView, stop task: any WKURLSchemeTask) {}
 }

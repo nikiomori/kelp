@@ -130,12 +130,12 @@ extension AgentStrip {
     }
 
     /// Where it was put, or else the screen the pointer is on when it comes up: the one being looked at, as the Dock's can't be told.
-    private func screen(appearing: Bool, of p: NSPanel) -> NSScreen? {
+    private func screen(appearing: Bool, of panel: NSPanel) -> NSScreen? {
         if let display = place?.display, let put = NSScreen.screens.first(where: { Self.number(of: $0) == display }) {
             return put
         }
         let mouse = NSEvent.mouseLocation
-        return (appearing ? NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } : p.screen)
+        return (appearing ? NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } : panel.screen)
             ?? NSScreen.main
     }
 

@@ -248,8 +248,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         }
     }
 
-    @objc private func stepped(_ s: NSSegmentedControl) {
-        if s.selectedSegment == 0 { prevChange() } else { nextChange() }
+    @objc private func stepped(_ segmentedControl: NSSegmentedControl) {
+        if segmentedControl.selectedSegment == 0 { prevChange() } else { nextChange() }
     }
 
     private func setColumns() {
@@ -309,8 +309,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         }
     }
     /// Its workspace's git as pushed: the diff is read again only when what it's read from changed (`GitDiff.basis`).
-    func gitChanged(_ e: GitEvent?) {
-        guard diffRequest().basis(e) != loads.basis else { return }
+    func gitChanged(_ gitEvent: GitEvent?) {
+        guard diffRequest().basis(gitEvent) != loads.basis else { return }
         if view.window == nil { stale = true } else { reload() }
     }
     func showLastTurn() { sourcePicked = .turn }

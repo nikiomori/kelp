@@ -40,11 +40,11 @@ extension SourceControlController {
     private var commitAgents: [AgentManifest] {
         app.catalog.installed(app.catalog.all).filter { Session.isAgent($0.id) }
     }
-    private func model(for a: AgentManifest) -> String? {
-        if let picked = UserDefaults.standard.string(forKey: "scm.commitModel.\(a.id)") {
+    private func model(for manifest: AgentManifest) -> String? {
+        if let picked = UserDefaults.standard.string(forKey: "scm.commitModel.\(manifest.id)") {
             return picked.isEmpty ? nil : picked
         }
-        return a.models.first { Self.quickModels.contains($0) }
+        return manifest.models.first { Self.quickModels.contains($0) }
     }
 
     @objc func askLastAgent() {
@@ -81,17 +81,18 @@ extension SourceControlController {
     }
 
     /// `a` reads what a commit would take now (the staged files, else every change) and proposes its commits.
-    func ask(_ a: AgentManifest, model: String?) {
+    func ask(_ manifest: AgentManifest, model: String?) {
         guard let wid = worktreeId, agentCommits[wid] == nil, !busy, !changes.isEmpty else { return NSSound.beep() }
         guard !changes.contains(where: \.conflicted) else {
             return Banner.show(String(localized: "Resolve the merge conflicts before asking for commits."))
         }
-        UserDefaults.standard.set(a.id, forKey: "scm.commitAgent")
-        UserDefaults.standard.set(model ?? "", forKey: "scm.commitModel.\(a.id)")
+        UserDefaults.standard.set(manifest.id, forKey: "scm.commitAgent")
+        UserDefaults.standard.set(model ?? "", forKey: "scm.commitModel.\(manifest.id)")
         let all = GitCommit.takesEverything(changes)
         let hint = message.string.trimmingCharacters(in: .whitespacesAndNewlines)
         agentCommits[wid] = AgentCommit(
-            agentId: a.id, agent: a.name, hint: hint, files: all ? changes.count : changes.filter(\.staged).count)
+            agentId: manifest.id, agent: manifest.name, hint: hint,
+            files: all ? changes.count : changes.filter(\.staged).count)
         plans[wid] = nil
         notes[wid] = nil
         showAgentCommit()
@@ -114,9 +115,10 @@ extension SourceControlController {
                 let session = await app.call(
                     app.workbench.sized(
                         SessionCreate(
-                            cwd: remote == nil ? nil : NSHomeDirectory(), worktreeId: wid, agent: a.id, model: model,
+                            cwd: remote == nil ? nil : NSHomeDirectory(), worktreeId: wid, agent: manifest.id,
+                            model: model,
                             prompt: prompt,
-                            title: String(localized: "Commit: \(a.name)"))))
+                            title: String(localized: "Commit: \(manifest.name)"))))
             else {
                 agentCommits[wid] = nil
                 return showAgentCommit(in: wid)

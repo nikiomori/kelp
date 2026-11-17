@@ -113,10 +113,10 @@ public enum DesignSystem {
         return (light.joined(separator: " "), dark.joined(separator: " "))
     }
 
-    static func isName(_ s: String) -> Bool {
-        !s.isEmpty && s.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }
+    static func isName(_ name: String) -> Bool {
+        !name.isEmpty && name.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }
     }
-    private static func isValue(_ s: String) -> Bool { !s.contains(where: { ";{}<\n".contains($0) }) }
+    private static func isValue(_ value: String) -> Bool { !value.contains(where: { ";{}<\n".contains($0) }) }
 }
 
 /// A board's levers, moved in Kelp without its agent: a line at its top, `<!-- tweak --highlight: #1f7a5a -->`

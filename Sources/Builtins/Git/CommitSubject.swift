@@ -36,10 +36,10 @@ struct CommitSubject: Equatable, Sendable {
 
     /// "open the file" → "Open the file", as a sentence reads once the prefix is gone. A first word that isn't plain
     /// lowercase ("SIGKILL", "kelp.json", "iOS") is a name and stays as it is.
-    static func capitalized(_ s: String) -> String {
-        let word = s.prefix { !$0.isWhitespace }.trimmingCharacters(in: CharacterSet(charactersIn: ",;:"))
+    static func capitalized(_ subject: String) -> String {
+        let word = subject.prefix { !$0.isWhitespace }.trimmingCharacters(in: CharacterSet(charactersIn: ",;:"))
         guard let first = word.first, word.allSatisfy({ ($0.isLetter && $0.isLowercase) || $0 == "'" || $0 == "’" })
-        else { return s }
-        return first.uppercased() + s.dropFirst()
+        else { return subject }
+        return first.uppercased() + subject.dropFirst()
     }
 }

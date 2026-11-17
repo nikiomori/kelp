@@ -59,10 +59,11 @@ final class SessionTab: TabContent {
 
     /// Its items in the tab's context menu.
     static func menu(
-        _ app: AppModel, _ m: NSMenu, uri: String, workspace: String, openBeside: @escaping @MainActor (String) -> Void
+        _ app: AppModel, _ menu: NSMenu, uri: String, workspace: String,
+        openBeside: @escaping @MainActor (String) -> Void
     ) {
         let sid = TabURI.body(uri)
-        AgentActions(app).addSessionItems(to: m, sid) {
+        AgentActions(app).addSessionItems(to: menu, sid) {
             app.workbench.lastSession = sid
             openBeside(TabURI.diff(workspace, source: .turn))
         }

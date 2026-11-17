@@ -33,11 +33,11 @@ extension DiffViewController {
         return box
     }
 
-    @objc private func toggleViewed(_ b: NSButton) {
-        guard let wid = worktreeId, diffs.indices.contains(b.tag) else { return }
-        let entries = ViewedFiles.marking(diffs[b.tag], b.state == .on, in: viewed.marks, diffs: diffs)
+    @objc private func toggleViewed(_ button: NSButton) {
+        guard let wid = worktreeId, diffs.indices.contains(button.tag) else { return }
+        let entries = ViewedFiles.marking(diffs[button.tag], button.state == .on, in: viewed.marks, diffs: diffs)
         viewed.marks = ViewedFiles.read(entries)
-        files.reloadData(forRowIndexes: [b.tag], columnIndexes: [0])   // dimmed or not
+        files.reloadData(forRowIndexes: [button.tag], columnIndexes: [0])   // dimmed or not
         status.stringValue = statusText()
         viewed.write = Task { [app, before = viewed.write] in
             await before?.value

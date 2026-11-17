@@ -100,15 +100,17 @@ enum AddonGroups {
     }
 
     /// The heaviest first, those of unknown weight last, then by name.
-    static func byWeight(_ a: Addon, _ b: Addon) -> Bool {
-        switch (a.tokens, b.tokens) {
+    static func byWeight(_ addon: Addon, _ b: Addon) -> Bool {
+        switch (addon.tokens, b.tokens) {
         case (let x?, let y?) where x != y: x > y
         case (.some, nil): true
         case (nil, .some): false
-        default: byName(a, b)
+        default: byName(addon, b)
         }
     }
-    static func byName(_ a: Addon, _ b: Addon) -> Bool { a.name.localizedStandardCompare(b.name) == .orderedAscending }
+    static func byName(_ addon: Addon, _ b: Addon) -> Bool {
+        addon.name.localizedStandardCompare(b.name) == .orderedAscending
+    }
 
     /// What a list weighs together; nil when none of it is known.
     static func sum(_ items: [Addon]) -> Int? {
@@ -117,8 +119,8 @@ enum AddonGroups {
     }
 
     /// Whether a group's switch is off: its plugin is named off, or what loaded of it is.
-    static func isOff(_ g: AddonGroup, _ items: [Addon]) -> Bool {
-        guard let key = g.key else { return false }
+    static func isOff(_ addonGroup: AddonGroup, _ items: [Addon]) -> Bool {
+        guard let key = addonGroup.key else { return false }
         return items.contains { $0.key == key && $0.off }
     }
 
@@ -218,15 +220,17 @@ private struct Lister {
             }
     }
 
-    private func group(_ g: AddonGroup, _ list: [Addon], depth: Int = 1) -> [AddonLine] {
+    private func group(_ addonGroup: AddonGroup, _ list: [Addon], depth: Int = 1) -> [AddonLine] {
         guard !list.isEmpty else { return [] }
-        let open = isOpen(g)
-        return [.group(g, count: list.count, tokens: AddonGroups.sum(list), open: open)]
+        let open = isOpen(addonGroup)
+        return [.group(addonGroup, count: list.count, tokens: AddonGroups.sum(list), open: open)]
             + (open ? sorted(list).map { .item($0, depth: depth) } : [])
     }
 
     /// While filtering every group with a match is open, and a click folds it; else as it starts, or as clicked.
-    private func isOpen(_ g: AddonGroup) -> Bool { (filtering || g.openAtFirst) != toggled.contains(g) }
+    private func isOpen(_ addonGroup: AddonGroup) -> Bool {
+        (filtering || addonGroup.openAtFirst) != toggled.contains(addonGroup)
+    }
 
     private func sorted(_ list: [Addon]) -> [Addon] {
         list.sorted(by: view.byName ? AddonGroups.byName : AddonGroups.byWeight)

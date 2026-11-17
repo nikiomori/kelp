@@ -5,12 +5,14 @@ import Foundation
 
 extension Databases {
     /// The tab's edits, as the user's: each statement one (SQLText.single), all in one transaction (`apply`).
-    func apply(_ q: DatabaseApply) async throws -> QueryResult {
-        guard !q.statements.isEmpty else { throw RPCError.invalidParams("Nothing to save.") }
-        let (wid, name) = (q.worktreeId, q.database)
+    func apply(_ databaseApply: DatabaseApply) async throws -> QueryResult {
+        guard !databaseApply.statements.isEmpty else { throw RPCError.invalidParams("Nothing to save.") }
+        let (wid, name) = (databaseApply.worktreeId, databaseApply.database)
         let target = try await offloads.run { [self] in try reach(connection(wid, name, agent: false), wid) }
         let statements: [String]
-        do { statements = try q.statements.map { try SQLText.single($0, target.database.engine) } } catch let failure
+        do {
+            statements = try databaseApply.statements.map { try SQLText.single($0, target.database.engine) }
+        } catch let failure
             as DatabaseFailure
         {
             throw RPCError.invalidParams(failure.message)
@@ -18,7 +20,7 @@ extension Databases {
         let started = Date(), sql = statements.joined(separator: ";\n")
         var run = DatabaseRun(id: UUID().uuidString, database: name, sql: sql, session: nil, at: started, state: .done)
         do {
-            let changed = try await applied(target, statements, each: q.each)
+            let changed = try await applied(target, statements, each: databaseApply.each)
             let ms = Int(Date().timeIntervalSince(started) * 1000)
             run.changed = changed
             run.ms = ms

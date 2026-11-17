@@ -83,11 +83,11 @@ final class CommandOutput: NSViewController {
     }
 
     /// "Exit code 1", "Stopped", "Running in the background"…
-    static func outcome(_ c: AgentCommand) -> String {
-        switch c.outcome {
-        case nil: String(localized: "Running for \(CommandRow.time(c, now: Date()))")
-        case .ok?: String(localized: "Done in \(CommandRow.time(c, now: Date()))")
-        case .failed?: c.exitCode.map { String(localized: "Exit code \($0)") } ?? String(localized: "Failed")
+    static func outcome(_ agentCommand: AgentCommand) -> String {
+        switch agentCommand.outcome {
+        case nil: String(localized: "Running for \(CommandRow.time(agentCommand, now: Date()))")
+        case .ok?: String(localized: "Done in \(CommandRow.time(agentCommand, now: Date()))")
+        case .failed?: agentCommand.exitCode.map { String(localized: "Exit code \($0)") } ?? String(localized: "Failed")
         case .stopped?: String(localized: "Stopped")
         case .background?: String(localized: "Running in the background")
         }

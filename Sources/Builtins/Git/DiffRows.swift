@@ -145,12 +145,12 @@ extension DiffRows {
         for (fi, f) in diffs.enumerated() {
             for h in f.hunks { for l in h.lines { if let newLine = l.newLine { newLines.insert("\(fi):\(newLine)") } } }
         }
-        func under(_ fi: Int, _ l: DiffLine) -> [ReviewRow] {
+        func under(_ fi: Int, _ diffLine: DiffLine) -> [ReviewRow] {
             let here = comments.filter { $0.file == diffs[fi].path && $0.state != .resolved }
-            if let newLine = l.newLine {
+            if let newLine = diffLine.newLine {
                 return here.filter { $0.side != "old" && $0.endLine == newLine }.map { .comment($0) }
             }
-            guard let oldLine = l.oldLine else { return [] }
+            guard let oldLine = diffLine.oldLine else { return [] }
             let unsided = !newLines.contains("\(fi):\(oldLine)")
             return here.filter { $0.endLine == oldLine && ($0.side == "old" || ($0.side == nil && unsided)) }.map {
                 .comment($0)

@@ -249,20 +249,20 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     }
 
     /// A list in the panel: one column, no header, rows drawn by the cells.
-    private func list(_ o: NSOutlineView) -> NSScrollView {
-        let scrollView = o.plainList("scm")
+    private func list(_ outline: NSOutlineView) -> NSScrollView {
+        let scrollView = outline.plainList("scm")
         scrollView.autohidesScrollers = true
-        o.intercellSpacing = .zero
-        o.indentationPerLevel = 0
-        o.rowSizeStyle = .custom
-        o.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
-        o.dataSource = self
-        o.delegate = self
-        o.target = self
-        o.action = #selector(clicked(_:))
+        outline.intercellSpacing = .zero
+        outline.indentationPerLevel = 0
+        outline.rowSizeStyle = .custom
+        outline.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+        outline.dataSource = self
+        outline.delegate = self
+        outline.target = self
+        outline.action = #selector(clicked(_:))
         let menu = NSMenu()
         menu.delegate = self
-        o.menu = menu
+        outline.menu = menu
         return scrollView
     }
 

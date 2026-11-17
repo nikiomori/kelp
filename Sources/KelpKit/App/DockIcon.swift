@@ -41,7 +41,7 @@ package final class DockIcon {
         return menu
     }
 
-    private func add(_ s: Session, to m: NSMenu) {
+    private func add(_ s: Session, to menu: NSMenu) {
         let worktree = app.worktree(s.worktreeId),
             place = app.groupName(worktree) ?? app.projectName(worktree?.repoId) ?? ""
         let name = app.catalog.displayName(s), icon = app.catalog.icon(s.agent, size: 16)
@@ -54,7 +54,7 @@ package final class DockIcon {
                 s.status == .waiting
                 ? String(localized: "needs you")
                 : s.status == .error ? String(localized: "failed") : String(localized: "finished")
-            m.add("\(name) — \(state) · \(place)", show).show(icon)
+            menu.add("\(name) — \(state) · \(place)", show).show(icon)
             return
         }
         let answers = NSMenu()
@@ -63,7 +63,7 @@ package final class DockIcon {
         }
         answers.addItem(.separator())
         answers.add(String(localized: "Open in Kelp"), show)
-        m.add("\(name) — \(s.summary) · \(place)", submenu: answers).show(icon)
+        menu.add("\(name) — \(s.summary) · \(place)", submenu: answers).show(icon)
     }
 
     /// With nothing to show the plain icon stands in: no agents, or no plan's numbers (the built-in that reads plan
@@ -86,13 +86,13 @@ package final class DockIcon {
     /// The agents in the order to deal with them.
     static func cells(_ sessions: [Session]) -> [DockFace.Cell] { sessions.compactMap(cell).sorted() }
 
-    package static func cell(_ s: Session) -> DockFace.Cell? {
-        guard s.isChat else { return nil }
-        switch s.shownStatus {
+    package static func cell(_ session: Session) -> DockFace.Cell? {
+        guard session.isChat else { return nil }
+        switch session.shownStatus {
         case .waiting: return .asks
         case .error: return .failed
         case .working: return .working
-        case .done: return s.unread && s.parent == nil ? .done : nil   // a child's result goes to its parent, not you
+        case .done: return session.unread && session.parent == nil ? .done : nil   // a child's goes to its parent
         default: return nil
         }
     }

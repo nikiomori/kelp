@@ -62,13 +62,13 @@ extension QuickOpen {
         setRows([item], grouped: false)
     }
 
-    private func listSymbols(_ q: String) {
+    private func listSymbols(_ query: String) {
         guard let url = app.workbench.editor?.focusedContent?.fileURL else {
             setRows([], grouped: false, heading: String(localized: "No file on screen"))
             return
         }
         if let known = symbols, known.path == url.path {
-            showSymbols(known.items, q)
+            showSymbols(known.items, query)
             return
         }
         let app = self.app, path = url.path

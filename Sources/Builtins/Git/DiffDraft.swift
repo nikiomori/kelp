@@ -171,8 +171,8 @@ final class DiffLineRowView: NSTableRowView {
         addTrackingArea(trackingArea)
         area = trackingArea
     }
-    override func mouseEntered(with e: NSEvent) { plus.isHidden = onPlus == nil }
-    override func mouseExited(with e: NSEvent) { plus.isHidden = true }
+    override func mouseEntered(with event: NSEvent) { plus.isHidden = onPlus == nil }
+    override func mouseExited(with event: NSEvent) { plus.isHidden = true }
     override func layout() {
         super.layout()
         let size = Metrics.iconButton

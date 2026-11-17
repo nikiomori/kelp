@@ -7,23 +7,23 @@ import KelpKit
 /// it goes to the agent with Send to Agent (Space flips it on the selected comment), "Fix This One" sends it alone, and
 /// "Dismiss" resolves it.
 extension DiffViewController {
-    func commentRow(_ c: DiffComment) -> NSView {
-        let who = c.author.map { "\($0): " } ?? ""
+    func commentRow(_ diffComment: DiffComment) -> NSView {
+        let who = diffComment.author.map { "\($0): " } ?? ""
         let text = label(
-            "💬 \(who)\(c.text)" + (c.state == .open ? "" : "  [\(c.state.rawValue)]"),
+            "💬 \(who)\(diffComment.text)" + (diffComment.state == .open ? "" : "  [\(diffComment.state.rawValue)]"),
             font: .ui(TextSize.caption, weight: .medium))
         text.lineBreakMode = .byTruncatingTail
         text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         var views: [NSView] = [text]
-        if c.state == .open {
-            let box = ClosureButton(title: "") { [weak self] in self?.flip(c.id) }
+        if diffComment.state == .open {
+            let box = ClosureButton(title: "") { [weak self] in self?.flip(diffComment.id) }
             box.setButtonType(.switch)
-            box.state = notes.skipped.contains(c.id) ? .off : .on
+            box.state = notes.skipped.contains(diffComment.id) ? .off : .on
             box.toolTip = String(localized: "Send to Agent with the others")
             views.insert(box, at: 0)
             let actions: [(String, @MainActor () -> Void)] = [
-                (String(localized: "Fix This One"), { [weak self] in self?.send([c.id]) }),
-                (String(localized: "Dismiss"), { [weak self] in self?.dismiss(c.id) })
+                (String(localized: "Fix This One"), { [weak self] in self?.send([diffComment.id]) }),
+                (String(localized: "Dismiss"), { [weak self] in self?.dismiss(diffComment.id) })
             ]
             for (title, run) in actions {
                 let button = ClosureButton(title: title, action: run)

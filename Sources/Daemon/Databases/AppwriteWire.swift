@@ -240,19 +240,19 @@ struct AppwriteWire: DatabaseRunner {
             }
         }
 
-        static func coerce(_ s: String, _ kind: (type: String, array: Bool)?) -> Any {
+        static func coerce(_ text: String, _ kind: (type: String, array: Bool)?) -> Any {
             let structured = kind?.array == true || ["point", "line", "polygon", "relationship"].contains(kind?.type)
-            if structured, s.first == "[" || s.first == "{" {
-                do { return try JSONSerialization.jsonObject(with: Data(s.utf8)) } catch {}   // not JSON: as text
+            if structured, text.first == "[" || text.first == "{" {
+                do { return try JSONSerialization.jsonObject(with: Data(text.utf8)) } catch {}   // not JSON: as text
             }
             switch kind?.type {
-            case "integer": return Int(s) ?? s
-            case "double": return Double(s) ?? s
+            case "integer": return Int(text) ?? text
+            case "double": return Double(text) ?? text
             case "boolean":
-                if ["true", "t", "1", "yes"].contains(s.lowercased()) { return true }
-                if ["false", "f", "0", "no"].contains(s.lowercased()) { return false }
-                return s
-            default: return s
+                if ["true", "t", "1", "yes"].contains(text.lowercased()) { return true }
+                if ["false", "f", "0", "no"].contains(text.lowercased()) { return false }
+                return text
+            default: return text
             }
         }
 
@@ -322,8 +322,9 @@ struct AppwriteWire: DatabaseRunner {
         "/tablesdb/\(path(endpoint.database))/tables/\(path(table))/rows"
     }
 
-    private static func path(_ s: String) -> String {
-        s.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? s
+    private static func path(_ text: String) -> String {
+        text.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~")))
+            ?? text
     }
 
     static func call(

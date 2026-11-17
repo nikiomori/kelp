@@ -136,39 +136,43 @@ enum DeclarativeExtension {
         }
     }
 
-    private static func contributions(_ m: ExtManifest, _ folder: URL, _ app: AppModel) -> Contributions {
+    private static func contributions(_ extManifest: ExtManifest, _ folder: URL, _ app: AppModel) -> Contributions {
         var result = Contributions()
-        let contributes = m.contributes
+        let contributes = extManifest.contributes
         for v in contributes?.panels ?? [] {
-            app.extensions.views["\(m.id)/\(v.id)"] = (m, v, folder)
+            app.extensions.views["\(extManifest.id)/\(v.id)"] = (extManifest, v, folder)
             let badge = ExtBadge()
             var poll: (@MainActor () async -> Void)?
             if let def = v.badge { poll = { await badge.poll(def, folder: folder, app: app) } }
             result.panels.append(
                 PanelSpec(
-                    id: "\(m.id).\(v.id)", title: v.title, icon: v.icon ?? m.icon ?? "puzzlepiece.extension",
-                    extensionId: m.id,
+                    id: "\(extManifest.id).\(v.id)", title: v.title,
+                    icon: v.icon ?? extManifest.icon ?? "puzzlepiece.extension",
+                    extensionId: extManifest.id,
                     badge: { badge.value }, poll: poll
                 ) {
-                    viewController(m, v, folder, app, badge: badge)
+                    viewController(extManifest, v, folder, app, badge: badge)
                 })
         }
         for v in contributes?.editors ?? [] {
-            app.extensions.views["\(m.id)/\(v.id)"] = (m, v, folder)
+            app.extensions.views["\(extManifest.id)/\(v.id)"] = (extManifest, v, folder)
             result.editors.append(
                 EditorSpec(
-                    id: "\(m.id).\(v.id)", title: v.title, icon: v.icon ?? m.icon ?? "puzzlepiece.extension",
-                    uri: { _ in "ext:\(m.id)/\(v.id)" }))
+                    id: "\(extManifest.id).\(v.id)", title: v.title,
+                    icon: v.icon ?? extManifest.icon ?? "puzzlepiece.extension",
+                    uri: { _ in "ext:\(extManifest.id)/\(v.id)" }))
         }
         for a in contributes?.commands ?? [] {
             result.commands.append(
-                CommandSpec(id: a.id ?? "\(m.id).\(a.title)", title: a.title, key: a.key, menu: a.menu) { _ in
+                CommandSpec(id: a.id ?? "\(extManifest.id).\(a.title)", title: a.title, key: a.key, menu: a.menu) { _ in
                     ExtActions(app).perform(a, item: nil, folder: folder)
                 })
         }
         if let specs = contributes?.settings, !specs.isEmpty {
             result.settings.append(
-                SettingsSection(id: m.id, title: m.name, icon: m.icon ?? "puzzlepiece.extension", specs: specs))
+                SettingsSection(
+                    id: extManifest.id, title: extManifest.name, icon: extManifest.icon ?? "puzzlepiece.extension",
+                    specs: specs))
         }
         result.themes = contributes?.themes ?? []
         result.iconThemes = (contributes?.iconThemes ?? []).map {
@@ -192,17 +196,18 @@ enum DeclarativeExtension {
     }
 
     private static func viewController(
-        _ m: ExtManifest, _ v: ExtManifest.ViewDef, _ folder: URL, _ app: AppModel, badge: ExtBadge? = nil,
+        _ extManifest: ExtManifest, _ viewDef: ExtManifest.ViewDef, _ folder: URL, _ app: AppModel,
+        badge: ExtBadge? = nil,
         props: [String: String] = [:]
     ) -> NSViewController {
-        if let list = v.list { return hosting(ExtListView(def: list, folder: folder, app: app)) }
-        if let web = v.web {
+        if let list = viewDef.list { return hosting(ExtListView(def: list, folder: folder, app: app)) }
+        if let web = viewDef.web {
             // A missing page would load nothing and leave the panel blank, with no word of why.
             guard FileManager.default.fileExists(atPath: folder.appendingPathComponent(web).path) else {
                 let empty = EmptyStateView(), vc = NSViewController()
                 empty.show(
                     String(localized: "No page to show"), symbol: "exclamationmark.triangle",
-                    text: String(localized: "\(m.name) has no file “\(web)” in its folder."),
+                    text: String(localized: "\(extManifest.name) has no file “\(web)” in its folder."),
                     fix: "kelp ext check \(ShellQuote.word(folder.path))")
                 vc.view = empty
                 return vc
@@ -211,22 +216,23 @@ enum DeclarativeExtension {
                 page: folder.appendingPathComponent(web), folder: folder, app: app, badge: badge, props: props)
         }
         let vc = NSViewController()
-        vc.view = NSTextField(labelWithString: String(localized: "\(m.name): view “\(v.id)” has neither list nor web."))
+        vc.view = NSTextField(
+            labelWithString: String(localized: "\(extManifest.name): view “\(viewDef.id)” has neither list nor web."))
         return vc
     }
 
-    private static func describe(_ e: DecodingError) -> String {
-        switch e {
+    private static func describe(_ decodingError: DecodingError) -> String {
+        switch decodingError {
         case .keyNotFound(let key, let context): "Missing “\(key.stringValue)” at \(path(context))"
         case .typeMismatch(_, let context), .valueNotFound(_, let context):
             "Wrong type at \(path(context)): \(context.debugDescription)"
         case .dataCorrupted(let context):
             "Invalid JSON: \(context.underlyingError?.localizedDescription ?? context.debugDescription)"
-        @unknown default: "\(e)"
+        @unknown default: "\(decodingError)"
         }
     }
-    private static func path(_ c: DecodingError.Context) -> String {
-        c.codingPath.map { $0.intValue.map(String.init) ?? $0.stringValue }.joined(separator: ".")
+    private static func path(_ context: DecodingError.Context) -> String {
+        context.codingPath.map { $0.intValue.map(String.init) ?? $0.stringValue }.joined(separator: ".")
     }
 }
 

@@ -23,10 +23,10 @@ final class AgentCommitControls {
     /// The plan the cards were made from: a message typed into one updates it without making the cards again.
     var shown: CommitPlan?
 
-    init(_ c: SourceControlController) {
-        logo = IconButton(nil, tip: "", target: c, action: #selector(SourceControlController.askLastAgent))
+    init(_ controller: SourceControlController) {
+        logo = IconButton(nil, tip: "", target: controller, action: #selector(SourceControlController.askLastAgent))
         chevron = IconButton(
-            .symbol("chevron.down"), tip: String(localized: "Choose an Agent"), target: c,
+            .symbol("chevron.down"), tip: String(localized: "Choose an Agent"), target: controller,
             action: #selector(SourceControlController.agentMenu))
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         corner = NSStackView(views: [logo, chevron])
@@ -35,9 +35,9 @@ final class AgentCommitControls {
         working.textColor = .secondaryLabelColor
         working.lineBreakMode = .byTruncatingTail
         working.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        watch = Self.link(String(localized: "Show"), c, #selector(SourceControlController.showAgentSession))
+        watch = Self.link(String(localized: "Show"), controller, #selector(SourceControlController.showAgentSession))
         let stop = IconButton(
-            .symbol("stop.circle"), tip: String(localized: "Stop"), target: c,
+            .symbol("stop.circle"), tip: String(localized: "Stop"), target: controller,
             action: #selector(SourceControlController.stopAgentCommit))
         work = NSStackView(views: [mark, working, NSView(), watch, stop])
         work.spacing = Metrics.gap
@@ -48,18 +48,21 @@ final class AgentCommitControls {
         noteText.textColor = .secondaryLabelColor
         noteText.lineBreakMode = .byTruncatingTail
         noteText.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        again = Self.link(String(localized: "Ask Again"), c, #selector(SourceControlController.askAgainForCommits))
+        again = Self.link(
+            String(localized: "Ask Again"), controller, #selector(SourceControlController.askAgainForCommits))
         note = NSStackView(views: [noteLogo, noteText, again])
         note.spacing = Metrics.gap
-        plan.onEdit = { [weak c] i, text in
-            guard let c, let wid = c.worktreeId, c.plans[wid]?.commits.indices.contains(i) == true else { return }
-            c.plans[wid]?.commits[i].message = text
-            c.agentUI.shown = c.plans[wid]
+        plan.onEdit = { [weak controller] i, text in
+            guard let controller, let wid = controller.worktreeId,
+                controller.plans[wid]?.commits.indices.contains(i) == true
+            else { return }
+            controller.plans[wid]?.commits[i].message = text
+            controller.agentUI.shown = controller.plans[wid]
         }
-        plan.onRemove = { [weak c] i in c?.editPlan { $0.commits.remove(at: i) } }
-        plan.onAskAgain = { [weak c] in c?.askAgainForCommits() }
-        plan.onDiscard = { [weak c] in c?.discardPlan() }
-        plan.onCommit = { [weak c] in c?.makeCommits(push: false) }
+        plan.onRemove = { [weak controller] i in controller?.editPlan { $0.commits.remove(at: i) } }
+        plan.onAskAgain = { [weak controller] in controller?.askAgainForCommits() }
+        plan.onDiscard = { [weak controller] in controller?.discardPlan() }
+        plan.onCommit = { [weak controller] in controller?.makeCommits(push: false) }
     }
 
     /// A word that acts, in the link colour, underlined under the pointer.

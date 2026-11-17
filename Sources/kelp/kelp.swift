@@ -87,8 +87,8 @@ func ctty() -> Never {
     exit(127)
 }
 
-func fail(_ m: String) -> Never {
-    FileHandle.standardError.write(Data((m + "\n").utf8))
+func fail(_ message: String) -> Never {
+    FileHandle.standardError.write(Data((message + "\n").utf8))
     exit(1)
 }
 
@@ -131,12 +131,12 @@ func connect() throws -> RPCClient {
     throw RPCError.internalError("cannot reach the Kelp daemon at \(Paths.socket.path)")
 }
 
-func show(_ v: JSONValue) {
+func show(_ value: JSONValue) {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-    if case .string(let text) = v {
+    if case .string(let text) = value {
         print(text)
-    } else if v != .null, let data = try? encoder.encode(v), let text = String(bytes: data, encoding: .utf8) {
+    } else if value != .null, let data = try? encoder.encode(value), let text = String(bytes: data, encoding: .utf8) {
         print(text)
     }
 }
@@ -144,8 +144,8 @@ func show(_ v: JSONValue) {
 func show<T: Encodable>(_ v: T) { show((try? JSONValue.from(v)) ?? .null) }
 
 /// A CLI value: JSON when it parses (3, true, [1], "x"), else the text itself.
-func jsonOrText(_ s: String) -> JSONValue {
-    (try? JSONDecoder().decode(JSONValue.self, from: Data(s.utf8))) ?? .string(s)
+func jsonOrText(_ text: String) -> JSONValue {
+    (try? JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))) ?? .string(text)
 }
 
 /// The workspace the current directory is in; an agent's own one (KELP_SESSION) when several share the folder.

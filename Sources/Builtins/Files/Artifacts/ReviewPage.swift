@@ -169,8 +169,8 @@ enum ReviewPage {
         """
 
     /// A line of Markdown inline (code, emphasis, links), without the paragraph around it.
-    private static func inline(_ s: String) -> String {
-        let html = MarkdownHTML.render(s).trimmingCharacters(in: .whitespacesAndNewlines)
+    private static func inline(_ text: String) -> String {
+        let html = MarkdownHTML.render(text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard html.hasPrefix("<p>"), html.hasSuffix("</p>") else { return html }
         return String(html.dropFirst(3).dropLast(4))
     }

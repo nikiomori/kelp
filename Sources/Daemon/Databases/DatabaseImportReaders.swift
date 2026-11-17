@@ -66,33 +66,35 @@ enum ImportReaders {
         return list.compactMap { tablePlusEntry($0, groups: groups) }
     }
 
-    private static func tablePlusEntry(_ c: [String: Any], groups: [String: String]) -> ImportEntry? {
-        let id = string(c["ID"])
-        guard let engine = engine(string(c["Driver"])) else { return nil }
+    private static func tablePlusEntry(_ entry: [String: Any], groups: [String: String]) -> ImportEntry? {
+        let id = string(entry["ID"])
+        guard let engine = engine(string(entry["Driver"])) else { return nil }
         // A connection TablePlus shows by its address has no name of its own: "database@host", as it reads there.
         // its host's first word ("pg-prod-ro"); an address in numbers whole
-        let host = nonEmpty(c["DatabaseHost"]).map { written in
+        let host = nonEmpty(entry["DatabaseHost"]).map { written in
             written.allSatisfy { $0.isNumber || $0 == "." || $0 == ":" }
                 ? written : String(written.split(separator: ".").first ?? Substring(written))
         }
-        let address = [nonEmpty(c["DatabaseName"]), host].compactMap { $0 }.joined(separator: "@")
+        let address = [nonEmpty(entry["DatabaseName"]), host].compactMap { $0 }.joined(separator: "@")
         let name =
-            nonEmpty(c["ConnectionName"]) ?? (address.isEmpty ? nil : address)
-            ?? nonEmpty(c["DatabasePath"]).map { ($0 as NSString).lastPathComponent } ?? "tableplus"
+            nonEmpty(entry["ConnectionName"]) ?? (address.isEmpty ? nil : address)
+            ?? nonEmpty(entry["DatabasePath"]).map { ($0 as NSString).lastPathComponent } ?? "tableplus"
         var db = DatabaseInfo(
-            name: name, engine: engine, host: nonEmpty(c["DatabaseHost"]),
-            port: int(c["DatabasePort"]), database: nonEmpty(c["DatabaseName"]), user: nonEmpty(c["DatabaseUser"]),
-            path: nonEmpty(c["DatabasePath"]))
-        db.group = groups[string(c["GroupID"])]
+            name: name, engine: engine, host: nonEmpty(entry["DatabaseHost"]),
+            port: int(entry["DatabasePort"]), database: nonEmpty(entry["DatabaseName"]),
+            user: nonEmpty(entry["DatabaseUser"]),
+            path: nonEmpty(entry["DatabasePath"]))
+        db.group = groups[string(entry["GroupID"])]
         var note: String?
-        if c["isOverSSH"] as? Bool == true {
+        if entry["isOverSSH"] as? Bool == true {
             (db.ssh, note) = ssh(
-                host: string(c["ServerAddress"]), user: nonEmpty(c["ServerUser"]), port: int(c["ServerPort"]),
-                key: c["isUsePrivateKey"] as? Bool == true)
+                host: string(entry["ServerAddress"]), user: nonEmpty(entry["ServerUser"]),
+                port: int(entry["ServerPort"]),
+                key: entry["isUsePrivateKey"] as? Bool == true)
         }
-        note = ImportReaders.both(note, production(&db, tag: nonEmpty(c["Enviroment"]), app: "TablePlus"))
+        note = ImportReaders.both(note, production(&db, tag: nonEmpty(entry["Enviroment"]), app: "TablePlus"))
         let secret: (@Sendable () throws -> ImportSecret)? =
-            (c["DatabasePasswordMode"] as? Int ?? 0) == 0
+            (entry["DatabasePasswordMode"] as? Int ?? 0) == 0
             ? { @Sendable in
                 ImportSecret(password: try otherKeychain(service: "com.tableplus.TablePlus", account: id + "_database"))
             }

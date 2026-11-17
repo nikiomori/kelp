@@ -24,17 +24,17 @@ extension SourceControlController {
         let before = Self.flat(roots)   // the nodes kept are filled again below
         var rows = Rows(changeNodes)
         var out: [Node] = []
-        func section(_ s: Section, _ files: [FileChange]) {
+        func section(_ section: Section, _ files: [FileChange]) {
             guard !files.isEmpty else { return }
-            let node = rows.node("s \(s.rawValue)", .section(s))
+            let node = rows.node("s \(section.rawValue)", .section(section))
             node.files = files
             node.children =
-                collapsed.contains(s.rawValue)
+                collapsed.contains(section.rawValue)
                 ? []
                 : files.map { file in
-                    let plan = s == .merge ? nil : worktreeId.flatMap { plans[$0]?.number(of: file.path) }
+                    let plan = section == .merge ? nil : worktreeId.flatMap { plans[$0]?.number(of: file.path) }
                     return rows.node(
-                        "\(s.rawValue) \(file.path)", .file(file, s),
+                        "\(section.rawValue) \(file.path)", .file(file, section),
                         look: .file(file, shared: shared[file.path] ?? [], commit: plan))
                 }
             out.append(node)
@@ -84,14 +84,14 @@ extension SourceControlController {
     /// The outline after a rebuild. The same rows in the same order: only those whose look changed are drawn again (and
     /// the sections and notes, which say little); else it loads again, the cells set aside coming back for new rows.
     /// Whether any row was drawn again.
-    private func show(_ o: NSOutlineView, was before: [Node], _ redrawn: [Node]) -> Bool {
-        guard before.elementsEqual(Self.flat(roots(of: o)), by: ===) else {
-            o.reloadData()
-            o.expandItem(nil, expandChildren: true)
+    private func show(_ outline: NSOutlineView, was before: [Node], _ redrawn: [Node]) -> Bool {
+        guard before.elementsEqual(Self.flat(roots(of: outline)), by: ===) else {
+            outline.reloadData()
+            outline.expandItem(nil, expandChildren: true)
             return true
         }
-        let rows = IndexSet(redrawn.map { o.row(forItem: $0) }.filter { $0 >= 0 })
-        if !rows.isEmpty { o.reloadData(forRowIndexes: rows, columnIndexes: [0]) }
+        let rows = IndexSet(redrawn.map { outline.row(forItem: $0) }.filter { $0 >= 0 })
+        if !rows.isEmpty { outline.reloadData(forRowIndexes: rows, columnIndexes: [0]) }
         return !rows.isEmpty
     }
 
@@ -143,42 +143,46 @@ extension SourceControlController {
         UserDefaults.standard.set(gh.constant, forKey: "scm.graphHeight")
     }
 
-    func toggle(_ s: Section) {
-        if collapsed.contains(s.rawValue) { collapsed.remove(s.rawValue) } else { collapsed.insert(s.rawValue) }
+    func toggle(_ section: Section) {
+        if collapsed.contains(section.rawValue) {
+            collapsed.remove(section.rawValue)
+        } else {
+            collapsed.insert(section.rawValue)
+        }
         UserDefaults.standard.set(Array(collapsed), forKey: "scm.collapsed")
-        turning = s
+        turning = section
         // What folds isn't moved row by row: it fades into what's there next, as a panel does, not at once.
-        if view.window != nil { (s == .graph ? view : outline).crossfade(Motion.base) }
-        if s == .graph { layoutGraph() } else { rebuildChanges() }
+        if view.window != nil { (section == .graph ? view : outline).crossfade(Motion.base) }
+        if section == .graph { layoutGraph() } else { rebuildChanges() }
         DispatchQueue.main.async { [weak self] in self?.turning = nil }   // the outline asks for the cell when it lays out
     }
 
-    private func roots(of o: NSOutlineView) -> [Node] { o === graphOutline ? graphRoots : roots }
-    func outlineView(_ o: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
-        (item as? Node)?.children.count ?? roots(of: o).count
+    private func roots(of outline: NSOutlineView) -> [Node] { outline === graphOutline ? graphRoots : roots }
+    func outlineView(_ outline: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
+        (item as? Node)?.children.count ?? roots(of: outline).count
     }
-    func outlineView(_ o: NSOutlineView, child i: Int, ofItem item: Any?) -> Any {
-        (item as? Node)?.children[i] ?? roots(of: o)[i]
+    func outlineView(_ outline: NSOutlineView, child i: Int, ofItem item: Any?) -> Any {
+        (item as? Node)?.children[i] ?? roots(of: outline)[i]
     }
-    func outlineView(_ o: NSOutlineView, isItemExpandable item: Any) -> Bool {
+    func outlineView(_ outline: NSOutlineView, isItemExpandable item: Any) -> Bool {
         !((item as? Node)?.children.isEmpty ?? true)
     }
-    func outlineView(_ o: NSOutlineView, shouldShowOutlineCellForItem item: Any) -> Bool { false }
-    func outlineView(_ o: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
+    func outlineView(_ outline: NSOutlineView, shouldShowOutlineCellForItem item: Any) -> Bool { false }
+    func outlineView(_ outline: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         switch (item as? Node)?.kind {
         case .section?, .note?: TextSize.of(Metrics.rowSection)
         case .commit?: CommitCell.lineHeight
         default: TextSize.of(Metrics.row)
         }
     }
-    func outlineView(_ o: NSOutlineView, shouldSelectItem item: Any) -> Bool {
+    func outlineView(_ outline: NSOutlineView, shouldSelectItem item: Any) -> Bool {
         if case .note? = (item as? Node)?.kind { return false }
         return true
     }
-    func outlineView(_ o: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { o.listRowView() }
+    func outlineView(_ outline: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { outline.listRowView() }
     /// A changed file drags out as itself: into a terminal (an agent's prompt), Finder, another app. A deleted one
     /// has nothing to drag.
-    func outlineView(_ o: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
+    func outlineView(_ outline: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
         guard case .file(let file, _)? = (item as? Node)?.kind, let root = app.worktree(worktreeId)?.path else {
             return nil
         }
@@ -186,12 +190,12 @@ extension SourceControlController {
         return gone ? nil : URL(fileURLWithPath: root).appendingPathComponent(file.path) as NSURL
     }
 
-    func outlineView(_ o: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
+    func outlineView(_ outline: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
         guard let node = item as? Node else { return nil }
         // Each kind's cell: one the outline set aside when its row went, else a new one; `show` sets all it shows.
         switch node.kind {
         case .section(let section):
-            let cell = o.makeView(withIdentifier: SectionCell.id, owner: nil) as? SectionCell ?? SectionCell()
+            let cell = outline.makeView(withIdentifier: SectionCell.id, owner: nil) as? SectionCell ?? SectionCell()
             // The first section carries what isn't committed yet ("+120 −30"), the header's room being the quick actions'.
             let first = node === roots.first && !stats.isHidden
             cell.show(
@@ -201,7 +205,7 @@ extension SourceControlController {
             cell.turnsIn = turning == section
             return cell
         case .file(let file, let section):
-            let cell = o.makeView(withIdentifier: FileCell.id, owner: nil) as? FileCell ?? FileCell()
+            let cell = outline.makeView(withIdentifier: FileCell.id, owner: nil) as? FileCell ?? FileCell()
             cell.show(
                 file, icon: app.fileIcons.image((file.path as NSString).lastPathComponent),
                 letter: Self.letter(file, section),
@@ -210,25 +214,25 @@ extension SourceControlController {
             return cell
         case .commit(let index):
             if more, !loadingMore, index >= commits.count - 30 { loadMore() }
-            return commitCell(o, commits[index])
+            return commitCell(outline, commits[index])
         case .commitFile(let hash, let fileChange):
             let commit = commits.first { $0.hash == hash }
             let width = commit.map(Self.graphWidth) ?? GraphView.width(lanes: 1)
-            let cell = o.makeView(withIdentifier: FileCell.id, owner: nil) as? FileCell ?? FileCell()
+            let cell = outline.makeView(withIdentifier: FileCell.id, owner: nil) as? FileCell ?? FileCell()
             cell.show(
                 fileChange, icon: app.fileIcons.image((fileChange.path as NSString).lastPathComponent),
                 letter: Self.letter(fileChange, .graph), indent: width + Metrics.gapWide, actions: [],
                 through: (Array(Set(commit?.bottom.compactMap(\.last) ?? [])), width))
             return cell
         case .note(let text):
-            let cell = o.makeView(withIdentifier: NoteCell.id, owner: nil) as? NoteCell ?? NoteCell()
+            let cell = outline.makeView(withIdentifier: NoteCell.id, owner: nil) as? NoteCell ?? NoteCell()
             cell.show(text)
             return cell
         }
     }
 
-    private func commitCell(_ o: NSOutlineView, _ commit: GraphCommit) -> CommitCell {
-        let cell = o.makeView(withIdentifier: CommitCell.id, owner: nil) as? CommitCell ?? CommitCell()
+    private func commitCell(_ outline: NSOutlineView, _ commit: GraphCommit) -> CommitCell {
+        let cell = outline.makeView(withIdentifier: CommitCell.id, owner: nil) as? CommitCell ?? CommitCell()
         let pushed: Bool? = info?.remote.isEmpty ?? true ? nil : !unpushed.contains(commit.hash)
         cell.show(
             commit, graphWidth: Self.graphWidth(commit), isHead: commit.hash.hasPrefix(info?.head ?? "\u{0}"),
@@ -242,8 +246,8 @@ extension SourceControlController {
 
     /// As wide as the lanes this commit's row draws, not the widest point of the whole graph: one crossing far down made
     /// every row start its subject two lanes out from its line.
-    static func graphWidth(_ c: GraphCommit) -> CGFloat {
-        let lanes = ([c.lane] + c.top.flatMap { $0 } + c.bottom.flatMap { $0 }).max() ?? 0
+    static func graphWidth(_ commit: GraphCommit) -> CGFloat {
+        let lanes = ([commit.lane] + commit.top.flatMap { $0 } + commit.bottom.flatMap { $0 }).max() ?? 0
         return GraphView.width(lanes: min(lanes + 1, GraphView.maxLanes))
     }
 
@@ -255,9 +259,9 @@ extension SourceControlController {
 
     // MARK: clicks
 
-    @objc func clicked(_ o: NSOutlineView) {
+    @objc func clicked(_ outline: NSOutlineView) {
         card.close()
-        guard let node = o.item(atRow: o.clickedRow) as? Node else { return }
+        guard let node = outline.item(atRow: outline.clickedRow) as? Node else { return }
         switch node.kind {
         case .section(let section): toggle(section)
         case .file(let file, let section): open(file, section)

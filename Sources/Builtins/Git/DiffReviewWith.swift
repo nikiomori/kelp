@@ -10,32 +10,32 @@ import WorkbenchKit
 /// is the `reviewWith` recipe, which a project's `.kelp.yaml` can change.
 extension DiffViewController {
     /// The menu's agents and their models, made when it opens.
-    func reviewItems(_ m: NSMenu) {
-        while m.numberOfItems > 1 { m.removeItem(at: 1) }   // the first is the pull-down's title
+    func reviewItems(_ menu: NSMenu) {
+        while menu.numberOfItems > 1 { menu.removeItem(at: 1) }   // the first is the pull-down's title
         let agents = app.catalog.installed(app.catalog.all).filter { Session.isAgent($0.id) }
         // Tidy Up's files aren't the project's code: the agent that tidied them reports on them itself.
         guard sourcePicked != .tidy else {
-            m.addItem(withTitle: String(localized: "Only for the Project’s Code"), action: nil, keyEquivalent: "")
+            menu.addItem(withTitle: String(localized: "Only for the Project’s Code"), action: nil, keyEquivalent: "")
             return
         }
         guard !agents.isEmpty else {
-            m.addItem(withTitle: String(localized: "No Agent Installed"), action: nil, keyEquivalent: "")
+            menu.addItem(withTitle: String(localized: "No Agent Installed"), action: nil, keyEquivalent: "")
             return
         }
         for a in agents {
             guard !a.models.isEmpty else {
-                m.add(a.name) { [weak self] in self?.review(with: a, model: nil) }
+                menu.add(a.name) { [weak self] in self?.review(with: a, model: nil) }
                 continue
             }
             let sub = NSMenu()
             sub.add(String(localized: "Default Model")) { [weak self] in self?.review(with: a, model: nil) }
             sub.addItem(.separator())
             for model in a.models { sub.add(model) { [weak self] in self?.review(with: a, model: model) } }
-            m.addItem(withTitle: a.name, action: nil, keyEquivalent: "").submenu = sub
+            menu.addItem(withTitle: a.name, action: nil, keyEquivalent: "").submenu = sub
         }
     }
 
-    private func review(with a: AgentManifest, model: String?) {
+    private func review(with manifest: AgentManifest, model: String?) {
         guard let wid = worktreeId else { return }
         let (scope, command) = reviewScope(wid)
         Task {
@@ -45,14 +45,15 @@ extension DiffViewController {
                 let session = await app.call(
                     app.workbench.sized(
                         SessionCreate(
-                            worktreeId: wid, agent: a.id, model: model, prompt: prompt,
-                            title: Self.reviewTitle(a.name)
+                            worktreeId: wid, agent: manifest.id, model: model, prompt: prompt,
+                            title: Self.reviewTitle(manifest.name)
                         ).started(as: .reviewer), split: .right))
             else { return }
             app.upsert(session)
             reviewer = session.id
             app.workbench.open(TabURI.session(session.id), split: .right, focus: false)
-            status.stringValue = String(localized: "\(a.name) is reviewing; its findings show here as it leaves them")
+            status.stringValue = String(
+                localized: "\(manifest.name) is reviewing; its findings show here as it leaves them")
         }
     }
 

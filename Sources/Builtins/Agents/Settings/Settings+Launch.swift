@@ -8,20 +8,21 @@ import SwiftUI
 
 extension AgentsSettings {
     /// Found after its installer ended: offered in New Agent from now on.
-    func started(_ m: AgentManifest) -> some View {
+    func started(_ agentManifest: AgentManifest) -> some View {
         HStack {
             Label {
-                status(String(localized: "\(m.name) is installed"), String(localized: "Offered in New Agent."))
+                status(
+                    String(localized: "\(agentManifest.name) is installed"), String(localized: "Offered in New Agent."))
             } icon: {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
             }
             Spacer()
-            Button("Start \(m.name)") {
+            Button("Start \(agentManifest.name)") {
                 guard let starter = app.workbench.starter else {
-                    Banner.show(String(localized: "Open a chat to start \(m.name) there."))
+                    Banner.show(String(localized: "Open a chat to start \(agentManifest.name) there."))
                     return
                 }
-                starter.newAgent(m.id)
+                starter.newAgent(agentManifest.id)
                 app.workbench.bringToFront()
             }
         }
@@ -51,8 +52,8 @@ extension AgentsSettings {
         .background(Color(nsColor: .fillRest), in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
     }
 
-    @ViewBuilder func versionRow(_ m: AgentManifest) -> some View {
-        let versionInfo = versions[m.id]
+    @ViewBuilder func versionRow(_ agentManifest: AgentManifest) -> some View {
+        let versionInfo = versions[agentManifest.id]
         HStack {
             if let installed = versionInfo?.version {
                 Text("Version \(installed)")
@@ -63,20 +64,22 @@ extension AgentsSettings {
                 Text("Checking…").foregroundStyle(.secondary)
             }
             Spacer()
-            if let cmd = m.update {
+            if let cmd = agentManifest.update {
                 Button(newer(versionInfo) ? String(localized: "Update") : String(localized: "Check for Update")) {
-                    run(cmd, String(localized: "Update \(m.name)"))
+                    run(cmd, String(localized: "Update \(agentManifest.name)"))
                 }.help(cmd).disabled(versions.isEmpty)   // "Checking…" beside it
             }
         }
         // The agents of SSH projects run on their hosts: the same command there, one terminal per host.
-        if let cmd = m.update, !hosts.isEmpty {
+        if let cmd = agentManifest.update, !hosts.isEmpty {
             HStack {
                 let names = hosts.map(\.host).joined(separator: ", ")
                 Text("SSH hosts: \(names)").foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail).help(names)
                 Spacer()
                 Button("Update on Hosts") {
-                    for h in hosts { run(cmd, String(localized: "Update \(m.name) on \(h.host)"), in: h.folder) }
+                    for h in hosts {
+                        run(cmd, String(localized: "Update \(agentManifest.name) on \(h.host)"), in: h.folder)
+                    }
                 }.help(cmd)
             }
         }
@@ -84,19 +87,19 @@ extension AgentsSettings {
 
     /// How Kelp starts it: binary, arguments, environment (and a provider's variables).
     /// Bordered fields as wide as the card, as the text settings are bordered: an agent's environment lines are long.
-    func launch(_ m: AgentManifest) -> some View {
+    func launch(_ agentManifest: AgentManifest) -> some View {
         Section {
             input("Command", $command, .command)
             input("Arguments", $args, .args, prompt: "space separated")
             input("Environment", $env, .env, prompt: "KEY=value, one per line", lines: 3...6)
             HStack {
-                if !m.providers.isEmpty {
+                if !agentManifest.providers.isEmpty {
                     Menu("Provider Presets") {
-                        ForEach(m.providers, id: \.name) { p in Button(p.name) { addLines(p.env) } }
+                        ForEach(agentManifest.providers, id: \.name) { p in Button(p.name) { addLines(p.env) } }
                     }.fixedSize()
                 }
                 Spacer()
-                Button("Reset to Default…") { reset(m) }
+                Button("Reset to Default…") { reset(agentManifest) }
             }
         } header: {
             Text("Launch")
@@ -130,12 +133,12 @@ extension AgentsSettings {
         }
     }
 
-    func install(_ m: AgentManifest) {
+    func install(_ agentManifest: AgentManifest) {
         guard let starter = app.workbench.starter else {
-            run(m.install ?? "", String(localized: "Install \(m.name)"))
+            run(agentManifest.install ?? "", String(localized: "Install \(agentManifest.name)"))
             return
         }   // says what to do
-        app.catalog.install(m, in: starter)
+        app.catalog.install(agentManifest, in: starter)
         app.workbench.bringToFront()
     }
 
@@ -178,8 +181,8 @@ extension AgentsSettings {
     }
 
     var current: AgentManifest? { agents.first { $0.id == selection } }
-    private static func envText(_ m: AgentManifest) -> String {
-        m.env.map { "\($0)=\($1)" }.sorted().joined(separator: "\n")
+    private static func envText(_ agentManifest: AgentManifest) -> String {
+        agentManifest.env.map { "\($0)=\($1)" }.sorted().joined(separator: "\n")
     }
     func load() {
         guard let agent = current else { return }
@@ -193,15 +196,15 @@ extension AgentsSettings {
         load()
     }
 
-    private func reset(_ m: AgentManifest) {
+    private func reset(_ agentManifest: AgentManifest) {
         Task {
             guard
                 await confirm(
-                    String(localized: "Reset how \(m.name) starts?"),
+                    String(localized: "Reset how \(agentManifest.name) starts?"),
                     detail: String(localized: "Its command, arguments and environment go back to Kelp's."),
                     action: String(localized: "Reset"))
             else { return }
-            guard await app.call(AgentSave(agent: m.id)) != nil else { return }
+            guard await app.call(AgentSave(agent: agentManifest.id)) != nil else { return }
             reload()
         }
     }

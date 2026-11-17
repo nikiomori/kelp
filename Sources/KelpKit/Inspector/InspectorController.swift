@@ -197,8 +197,8 @@ final class InspectorController: NSViewController {
     private func rebuild() {
         // In the order the row was dragged into; panels it doesn't name yet follow in the registry's order.
         let order = app.settings[SettingKeys.panelOrder], hidden = Set(app.settings[SettingKeys.hiddenPanels] ?? [])
-        func rank(_ e: (offset: Int, element: PanelSpec)) -> (Int, Int) {
-            (order.firstIndex(of: e.element.id) ?? .max, e.offset)
+        func rank(_ entry: (offset: Int, element: PanelSpec)) -> (Int, Int) {
+            (order.firstIndex(of: entry.element.id) ?? .max, entry.offset)
         }
         panels = app.extensions.all.panels.enumerated().sorted { rank($0) < rank($1) }.map(\.element)
         let ids = Set(panels.map(\.id))

@@ -53,18 +53,18 @@ enum StripModel {
     static let recent: TimeInterval = 600
 
     /// What an agent says on the strip: as on the Dock's icon, but finished work stays a while once read.
-    static func cell(_ s: Session, now: Date) -> DockFace.Cell? {
-        if let dockCell = DockIcon.cell(s) { return dockCell }
-        let finished = s.isChat && s.parent == nil && s.shownStatus == .done
-        return finished && now.timeIntervalSince(s.statusAt ?? .distantPast) < recent ? .done : nil
+    static func cell(_ session: Session, now: Date) -> DockFace.Cell? {
+        if let dockCell = DockIcon.cell(session) { return dockCell }
+        let finished = session.isChat && session.parent == nil && session.shownStatus == .done
+        return finished && now.timeIntervalSince(session.statusAt ?? .distantPast) < recent ? .done : nil
     }
 
     /// In a workspace, work going on comes before work finished: a project is done once nothing in it works, as an agent waits
     /// for the ones it started. Across workspaces finished work opens first (`opened`): it's news, work isn't.
     private nonisolated static let inWorkspace: [DockFace.Cell] = [.asks, .failed, .working, .done]
 
-    static func status(_ c: DockFace.Cell) -> AgentStatus {
-        switch c {
+    static func status(_ cell: DockFace.Cell) -> AgentStatus {
+        switch cell {
         case .asks: .waiting
         case .failed: .error
         case .working: .working
@@ -77,8 +77,8 @@ enum StripModel {
     ) -> [StripItem] {
         let byWorkspace = Dictionary(grouping: sessions) { $0.worktreeId }   // once, not a scan per workspace
         return workspaces.compactMap { workspace in
-            func rank(_ a: (Session, DockFace.Cell)) -> (Int, Date) {
-                (inWorkspace.firstIndex(of: a.1) ?? 0, a.0.statusAt ?? a.0.createdAt)
+            func rank(_ entry: (Session, DockFace.Cell)) -> (Int, Date) {
+                (inWorkspace.firstIndex(of: entry.1) ?? 0, entry.0.statusAt ?? entry.0.createdAt)
             }
             let own = (byWorkspace[workspace.id] ?? []).compactMap { session in
                 cell(session, now: now).map { (session, $0) }
@@ -153,15 +153,15 @@ enum StripModel {
 
     /// The corner a strip let go here goes to.
     static func corner(nearest frame: NSRect, in area: NSRect) -> StripCorner {
-        func gap(_ c: StripCorner) -> CGFloat {
-            let at = Self.frame(frame.size, in: area, at: c)
+        func gap(_ stripCorner: StripCorner) -> CGFloat {
+            let at = Self.frame(frame.size, in: area, at: stripCorner)
             return hypot(at.midX - frame.midX, at.midY - frame.midY)
         }
         return StripCorner.allCases.min { gap($0) < gap($1) } ?? .bottom
     }
 
     /// A question put off: it comes back as a new one when the agent's state changes.
-    static func key(_ s: Session) -> String { "\(s.id)|\(s.statusAt?.timeIntervalSince1970 ?? 0)" }
+    static func key(_ session: Session) -> String { "\(session.id)|\(session.statusAt?.timeIntervalSince1970 ?? 0)" }
 }
 
 /// What a card over the strip answers, by what the agent waits on.
@@ -175,10 +175,10 @@ enum StripCardKind: Equatable {
     /// Nothing to answer from here (a question in words, a menu of several questions): it opens in Kelp.
     case look
 
-    @MainActor static func of(_ s: Session) -> StripCardKind {
-        if s.asksPermission { return .permission }
-        if s.status == .waiting, let choices = s.choices, !choices.isEmpty { return .choices(choices) }
-        return QuickReply.fits(s) ? .reply : .look
+    @MainActor static func of(_ session: Session) -> StripCardKind {
+        if session.asksPermission { return .permission }
+        if session.status == .waiting, let choices = session.choices, !choices.isEmpty { return .choices(choices) }
+        return QuickReply.fits(session) ? .reply : .look
     }
 }
 

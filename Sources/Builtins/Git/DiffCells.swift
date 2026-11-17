@@ -16,7 +16,9 @@ extension DiffViewController {
         field.lineBreakMode = .byClipping
         return field
     }
-    private func tint(_ k: DiffLine.Kind) -> NSColor? { k == .add ? .diffAdded : k == .del ? .diffRemoved : nil }
+    private func tint(_ kind: DiffLine.Kind) -> NSColor? {
+        kind == .add ? .diffAdded : kind == .del ? .diffRemoved : nil
+    }
     func number(_ value: Int?, kind: DiffLine.Kind) -> NSTextField {
         lineCell(value.map(String.init) ?? "", font: font, color: .secondaryLabelColor, align: .right, fill: tint(kind))
     }
@@ -46,8 +48,8 @@ extension DiffViewController {
         field.drawsBackground = color != nil
         field.backgroundColor = color ?? .clear
     }
-    private func prefix(_ l: DiffLine, marker: Bool) -> String {
-        marker ? (l.kind == .add ? "+ " : l.kind == .del ? "- " : "  ") : " "
+    private func prefix(_ diffLine: DiffLine, marker: Bool) -> String {
+        marker ? (diffLine.kind == .add ? "+ " : diffLine.kind == .del ? "- " : "  ") : " "
     }
     /// Lines wrap at words and go on under their own code's indent, not under the "+" (at most half the column). Tabs
     /// stop every four columns, as `height(of:)` counts them. Limit: past 4000 characters (a minified file) at any
@@ -78,11 +80,11 @@ extension DiffViewController {
     }
     /// What a row shows of a line: a text field takes seconds over a megabyte, and nobody reads that far along one line.
     static func shown(_ line: String) -> String { line.utf16.count > 20_000 ? String(line.prefix(20_000)) + "…" : line }
-    func codeCell(_ l: DiffLine, file f: Int, marker: Bool) -> NSTextField {
-        let prefix = prefix(l, marker: marker)
-        let text = Self.shown(l.text)
+    func codeCell(_ diffLine: DiffLine, file f: Int, marker: Bool) -> NSTextField {
+        let prefix = prefix(diffLine, marker: marker)
+        let text = Self.shown(diffLine.text)
         let colored =
-            DiffColors.key(f, l).flatMap { syntax[$0] }.map {
+            DiffColors.key(f, diffLine).flatMap { syntax[$0] }.map {
                 Highlighter.attributed(
                     prefix + text, spans: $0, from: prefix.utf16.count, font: font, colors: syntaxColors)
             }
@@ -90,12 +92,14 @@ extension DiffViewController {
                 string: prefix + text, attributes: [.font: font, .foregroundColor: NSColor.labelColor])
         let styled = NSMutableAttributedString(attributedString: colored)
         let key =
-            l.kind == .add ? l.newLine.map { "\(f):a:\($0)" } : l.kind == .del ? l.oldLine.map { "\(f):d:\($0)" } : nil
+            diffLine.kind == .add
+            ? diffLine.newLine.map { "\(f):a:\($0)" }
+            : diffLine.kind == .del ? diffLine.oldLine.map { "\(f):d:\($0)" } : nil
         if let key, let wordRange = words[key], wordRange.length > 0,
             wordRange.location + wordRange.length <= (text as NSString).length
         {
             styled.addAttribute(
-                .backgroundColor, value: l.kind == .add ? NSColor.diffAddedWord : .diffRemovedWord,
+                .backgroundColor, value: diffLine.kind == .add ? NSColor.diffAddedWord : .diffRemovedWord,
                 range: NSRange(location: wordRange.location + (prefix as NSString).length, length: wordRange.length))
         }
         markFound(styled, from: (prefix as NSString).length)
@@ -109,12 +113,12 @@ extension DiffViewController {
         field.identifier = Self.codeCellId
         field.maximumNumberOfLines = 0
         field.attributedStringValue = styled
-        Self.fill(field, tint(l.kind))
+        Self.fill(field, tint(diffLine.kind))
         return field
     }
 
-    func tableViewSelectionDidChange(_ n: Notification) {
-        guard (n.object as? NSTableView) === files, files.selectedRow >= 0 else { return }
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        guard (notification.object as? NSTableView) === files, files.selectedRow >= 0 else { return }
         scroll(toFile: diffs[files.selectedRow].path)
     }
     /// A file's band to the top, its changes under it; false for a file this diff doesn't show.
@@ -140,13 +144,13 @@ extension DiffViewController {
     }
 
     // MARK: keyboard: ⌥↓/⌥↑ changes, ⌥⇧↓/⌥⇧↑ comments, ⌥→/⌥← files
-    func key(_ e: NSEvent) -> Bool {
-        if e.keyCode == 49, e.modifierFlags.isDisjoint(with: .deviceIndependentFlagsMask) {
+    func key(_ event: NSEvent) -> Bool {
+        if event.keyCode == 49, event.modifierFlags.isDisjoint(with: .deviceIndependentFlagsMask) {
             return flipSelectedComment()
         }
-        guard e.modifierFlags.contains(.option) else { return false }
-        let comments = e.modifierFlags.contains(.shift)
-        switch e.keyCode {
+        guard event.modifierFlags.contains(.option) else { return false }
+        let comments = event.modifierFlags.contains(.shift)
+        switch event.keyCode {
         case 125:
             jump(1, comments: comments)
             return true
@@ -313,7 +317,7 @@ extension DiffViewController {
 
     /// The pane got wider or narrower: lines wrap at the new width. While it's dragged, once the drag ends
     /// (`DiffTable.onResized`), not on every frame of it.
-    @objc func columnsResized(_ n: Notification) {
+    @objc func columnsResized(_ notification: Notification) {
         guard !table.inLiveResize else {
             table.resizedLive = true
             return
@@ -335,8 +339,8 @@ extension DiffViewController {
         stack.addArrangedSubview(where_)
         if let staged = hunksStaged(f) {
             // Named buttons at the hunk's end, as in Xcode's and GitHub Desktop's reviews.
-            func button(_ title: String, _ a: Selector) -> NSButton {
-                let hunkButton = TextButton(title, target: self, action: a)
+            func button(_ title: String, _ selector: Selector) -> NSButton {
+                let hunkButton = TextButton(title, target: self, action: selector)
                 hunkButton.tag = f * 10000 + h
                 return hunkButton
             }

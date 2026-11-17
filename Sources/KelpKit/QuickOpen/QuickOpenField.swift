@@ -93,7 +93,7 @@ final class PaletteField: NSSearchField {
                 attributes: [.font: NSFont.ui(TextSize.body, weight: .medium), .foregroundColor: NSColor.textPurple])
         }
         override var intrinsicContentSize: NSSize { NSSize(width: ceil(words.size().width) + 20, height: 24) }
-        override func draw(_ r: NSRect) {
+        override func draw(_ dirtyRect: NSRect) {
             NSColor.fillTint(.systemPurple).setFill()
             NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2).fill()
             let size = words.size()

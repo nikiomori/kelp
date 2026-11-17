@@ -104,14 +104,14 @@ final class SplitPushButton: NSButton {
         tint()
     }
     /// The accent fill goes grey while another window is in front: the arrow follows.
-    override func viewWillMove(toWindow w: NSWindow?) {
-        super.viewWillMove(toWindow: w)
+    override func viewWillMove(toWindow window: NSWindow?) {
+        super.viewWillMove(toWindow: window)
         keyWatch.forEach(NotificationCenter.default.removeObserver)
         keyWatch =
-            w == nil
+            window == nil
             ? []
             : [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification].map { name in
-                NotificationCenter.default.addObserver(forName: name, object: w, queue: .main) { [weak self] _ in
+                NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
                     MainActor.assumeIsolated { self?.tint() }   // queue: .main
                 }
             }

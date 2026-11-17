@@ -82,12 +82,12 @@ final class CommitCell: NSTableCellView, Hoverable {
     /// `pushed` is nil without a remote; a commit not pushed yet has an arrow before its time.
     /// A commit that just reached the remote (`landsAfter`) starts as it was and lands after that many seconds.
     func show(
-        _ c: GraphCommit, graphWidth width: CGFloat, isHead: Bool, pushed: Bool?, landsAfter delay: Double? = nil,
+        _ commit: GraphCommit, graphWidth width: CGFloat, isHead: Bool, pushed: Bool?, landsAfter delay: Double? = nil,
         arrivesAfter arrival: Double? = nil
     ) {
         shown += 1
-        let ticket = shown, parsedSubject = CommitSubject(c.subject), unpushed = pushed == false
-        commitHash = c.hash
+        let ticket = shown, parsedSubject = CommitSubject(commit.subject), unpushed = pushed == false
+        commitHash = commit.hash
         settle()
         if let arrival, !Motion.reduced {
             alphaValue = 0
@@ -95,30 +95,30 @@ final class CommitCell: NSTableCellView, Hoverable {
                 if self?.shown == ticket { self?.arrive() }
             }
         }
-        graph.commit = c
+        graph.commit = commit
         graph.isHead = isHead
         graph.needsDisplay = true
         graphWidth?.constant = width
         subject.stringValue = parsedSubject.text
         subject.font = .ui(TextSize.row, weight: isHead ? .semibold : .regular)
         bang.isHidden = !parsedSubject.breaking
-        let typeMark = Self.mark(parsedSubject, merge: c.parents.count > 1)
+        let typeMark = Self.mark(parsedSubject, merge: commit.parents.count > 1)
         mark.image = typeMark.map { .symbol($0.symbol, parsedSubject.type ?? String(localized: "Merge commit")) }
         mark.isHidden = typeMark == nil
         scope.stringValue = parsedSubject.scope ?? ""
-        date.stringValue = Self.relative(c.date)
+        date.stringValue = Self.relative(commit.date)
         up.isHidden = !unpushed && delay == nil
         if let delay {
             DispatchQueue.main.asyncAfter(deadline: .now() + Motion.settle + delay) { [weak self] in
                 if self?.shown == ticket { self?.land() }
             }
         }
-        showBadges(c.refs)
+        showBadges(commit.refs)
         // The card (CommitCard) shows all this to the pointer; VoiceOver reads it here.
-        let when = Date(timeIntervalSince1970: c.date).formatted(date: .abbreviated, time: .shortened)
+        let when = Date(timeIntervalSince1970: commit.date).formatted(date: .abbreviated, time: .shortened)
         setAccessibilityHelp(
-            "\(c.subject)\n\n\(c.author) · \(when)\n\(c.hash.prefix(10))"
-                + (c.refs.isEmpty ? "" : "\n" + c.refs.joined(separator: ", "))
+            "\(commit.subject)\n\n\(commit.author) · \(when)\n\(commit.hash.prefix(10))"
+                + (commit.refs.isEmpty ? "" : "\n" + commit.refs.joined(separator: ", "))
                 + (unpushed ? "\n" + String(localized: "Not pushed yet") : ""))
     }
 
@@ -179,8 +179,8 @@ final class CommitCell: NSTableCellView, Hoverable {
 
     /// The commit's type as an SF Symbol; the colour repeats the shape, it never stands alone. A merge without a type
     /// gets git's merge mark; any other subject none.
-    static func mark(_ s: CommitSubject, merge: Bool) -> (symbol: String, color: NSColor)? {
-        switch s.type {
+    static func mark(_ commitSubject: CommitSubject, merge: Bool) -> (symbol: String, color: NSColor)? {
+        switch commitSubject.type {
         case "feat": ("sparkle", .systemGreen)
         case "fix": ("ladybug", .systemOrange)
         case "refactor": ("arrow.triangle.2.circlepath", .systemPurple)
@@ -239,12 +239,12 @@ final class CommitCell: NSTableCellView, Hoverable {
         return out
     }
 
-    static func relative(_ t: Double) -> String {
-        let age = Date().timeIntervalSince1970 - t
+    static func relative(_ seconds: Double) -> String {
+        let age = Date().timeIntervalSince1970 - seconds
         switch age {
-        case ..<(86400 * 7): return shortAgo(Date(timeIntervalSince1970: t))   // "now", "4m", "2h", "3d" in the user's language
+        case ..<(86400 * 7): return shortAgo(Date(timeIntervalSince1970: seconds))   // "now", "4m", "2h", "3d" in the user's language
         default:
-            let date = Date(timeIntervalSince1970: t)
+            let date = Date(timeIntervalSince1970: seconds)
             let sameYear = Calendar.current.isDate(date, equalTo: Date(), toGranularity: .year)
             return sameYear
                 ? date.formatted(.dateTime.month(.abbreviated).day())
@@ -271,7 +271,7 @@ final class Badge: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
     override var intrinsicContentSize: NSSize { NSSize(width: min(ceil(text.size().width) + 10, 110), height: 16) }
-    override func draw(_ r: NSRect) {
+    override func draw(_ dirtyRect: NSRect) {
         NSColor.fillTint(color).setFill()
         NSBezierPath(roundedRect: bounds, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS).fill()
         let width = bounds.width - 10
@@ -300,7 +300,7 @@ final class GraphView: NSView {
     var through: [Int]?
     override var isFlipped: Bool { true }
 
-    override func draw(_ r: NSRect) {
+    override func draw(_ dirtyRect: NSRect) {
         if let through {
             for lane in through {
                 let path = NSBezierPath()
@@ -314,9 +314,9 @@ final class GraphView: NSView {
         }
         guard let commit else { return }
         let mid = bounds.height / 2
-        func segment(_ l: [Int], from y0: CGFloat, to y1: CGFloat, color: NSColor) {
-            guard l.count == 2 else { return }
-            let x0 = Self.x(l[0]), x1 = Self.x(l[1]), path = NSBezierPath()
+        func segment(_ lanes: [Int], from y0: CGFloat, to y1: CGFloat, color: NSColor) {
+            guard lanes.count == 2 else { return }
+            let x0 = Self.x(lanes[0]), x1 = Self.x(lanes[1]), path = NSBezierPath()
             path.move(to: NSPoint(x: x0, y: y0))
             if x0 == x1 {
                 path.line(to: NSPoint(x: x1, y: y1))

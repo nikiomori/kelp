@@ -133,10 +133,11 @@ struct PostgresRun: DatabaseRunner {
     /// Each command's output after the first (BEGIN's), split at the markers psql echoes between them. `script`: psql's
     /// own commands of Kelp's, run after them in the same session (stdin).
     static func run(
-        _ c: DatabaseConnection, _ commands: [String], then script: String? = nil, timeout: TimeInterval
+        _ databaseConnection: DatabaseConnection, _ commands: [String], then script: String? = nil,
+        timeout: TimeInterval
     ) throws -> [String] {
-        let db = c.database
-        let (client, host, port) = try DatabaseEngines.invocation(c, "psql", secret: "PGPASSWORD")
+        let db = databaseConnection.database
+        let (client, host, port) = try DatabaseEngines.invocation(databaseConnection, "psql", secret: "PGPASSWORD")
         var argv =
             client + [
                 "-X", "-w", "--csv", "-P", "null=" + null, "-v", "ON_ERROR_STOP=1", "-h", host, "-p", String(port),
@@ -151,7 +152,7 @@ struct PostgresRun: DatabaseRunner {
         if script != nil { argv += ["-f", "-"] }
         let env = DatabaseEngines.environment([
             // UTC as over the wire (`PostgresText`): a row found by its values compares the same text
-            "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": "kelp", "PGPASSWORD": c.password, "PGTZ": "UTC"
+            "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": "kelp", "PGPASSWORD": databaseConnection.password, "PGTZ": "UTC"
         ])
         let out = try Subprocess.run(
             argv, cwd: NSHomeDirectory(), env: env, stdin: script.map { Data($0.utf8) }, timeLimit: timeout,

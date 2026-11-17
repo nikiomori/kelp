@@ -98,15 +98,15 @@ extension DiffViewController {
     }
 
     /// Every match of the find's text in a shown line, past its first `from` characters (the +/- marker).
-    func markFound(_ s: NSMutableAttributedString, from: Int) {
+    func markFound(_ string: NSMutableAttributedString, from: Int) {
         guard !find.needle.isEmpty else { return }
-        let text = s.string as NSString
+        let text = string.string as NSString
         var rest = NSRange(location: from, length: text.length - from)
         while case let match = text.range(of: find.needle, options: .caseInsensitive, range: rest),
             match.location != NSNotFound
         {
             // Dark text on the find colour, as Xcode marks a match: grey comment text on yellow can't be read.
-            s.addAttributes(
+            string.addAttributes(
                 [.backgroundColor: NSColor.findHighlightColor, .foregroundColor: NSColor.black], range: match)
             rest = NSRange(location: NSMaxRange(match), length: text.length - NSMaxRange(match))
         }

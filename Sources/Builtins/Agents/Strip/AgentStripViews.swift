@@ -44,7 +44,7 @@ final class StripPanel: NSPanel {
     }
 
     /// From the event itself, in the screen's own coordinates: `locationInWindow` shifts as the window follows the pointer.
-    private static func onScreen(_ e: NSEvent) -> CGPoint { e.cgEvent?.location ?? .zero }
+    private static func onScreen(_ event: NSEvent) -> CGPoint { event.cgEvent?.location ?? .zero }
 
     static func floating(_ content: NSView, radius: CGFloat, fullScreen: Bool) -> StripPanel {
         let panel = StripPanel(
