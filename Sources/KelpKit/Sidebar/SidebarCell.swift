@@ -157,8 +157,9 @@ final class SidebarCell: NSTableCellView {
         switch node.kind {
         case .project(let id):
             // Styled as the project's name, not as a section label, because what is under it belongs to the project.
-            // The right side shows only what needs doing.
-            title.font = .ui(TextSize.body, weight: .semibold)
+            // The right side shows only what needs doing. Regular weight, as every name in this column: semibold
+            // here means news.
+            title.font = .ui(TextSize.body)
             title.textColor = .labelColor
             let button = Self.newChatButton { [weak owner] in owner?.newChat(id) }
             add = button   // shown on hover, like Finder's sidebar
@@ -173,7 +174,7 @@ final class SidebarCell: NSTableCellView {
         case .workspace:
             // A group is a row like any other, with its contents a step further in, because a heading didn't show
             // where the group ended.
-            title.font = .ui(TextSize.body, weight: .medium)
+            title.font = .ui(TextSize.body)
             styleBranch()
             fillSlot(icon)
             layout(row: [slot, title, detail, muted, stack, changes, pr, ci, remove, trailing])
@@ -277,11 +278,10 @@ final class SidebarCell: NSTableCellView {
             if !title.isEditable {
                 title.stringValue = owner?.projectHosts[id] == nil ? app.projectName(id) ?? "" : repo?.name ?? ""
             }
-            // The name is stronger when the project has agents, so a project with none is a quieter name the eye
-            // passes over. Bold is kept for news.
+            // A project with no agents is a quieter, grey name the eye passes over. Its weight doesn't change:
+            // semibold is kept for news.
             let busy =
                 !missing && node.children.contains { if case .agent = $0.kind { true } else { !$0.children.isEmpty } }
-            title.font = .ui(TextSize.body, weight: busy ? .medium : .regular)
             // Above workspace headings the project is their parent, so its name stays primary, never greyer than the
             // rows under it.
             title.textColor = busy || selected || !node.children.isEmpty ? .labelColor : .secondaryLabelColor
