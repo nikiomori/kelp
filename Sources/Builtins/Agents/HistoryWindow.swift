@@ -174,7 +174,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         switch id {
         case "agent": return agentCell(conversation.agent.rawValue)
         case "title": text = conversation.title.isEmpty ? String(localized: "Untitled") : conversation.title
-        case "cwd": text = conversation.cwd.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+        case "cwd": text = (conversation.cwd as NSString).abbreviatingWithTildeInPath
         default: text = shortAgo(conversation.updated)   // "4m", "2h", "3d", as everywhere else in Kelp
         }
         let field = NSTextField.label(

@@ -104,7 +104,7 @@ struct SubagentJournalView: View {
 
     private func facts(_ journal: SessionSubagentJournal.Journal) -> String {
         var parts = [journal.model, String(localized: "\(journal.steps.count) steps")].compactMap { $0 }
-        if let context = journal.context { parts.append(String(localized: "\(context / 1000)k context")) }
+        if let context = journal.context { parts.append(String(localized: "\(shortTokens(context)) context")) }
         return parts.joined(separator: " · ")
     }
 

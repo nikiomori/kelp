@@ -4356,12 +4356,12 @@
     "%lld%%": {
       "shouldTranslate": false
     },
-    "%lldk context": {
+    "%@ context": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lldk контекста"
+            "value": "%@ контекста"
           }
         }
       }
