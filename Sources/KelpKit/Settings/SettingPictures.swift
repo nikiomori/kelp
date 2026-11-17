@@ -4,11 +4,6 @@ import SwiftUI
 
 /// Choices about how something looks, shown as what they look like: a small drawing per option, picked like a theme,
 /// instead of its name in a menu (`SettingSpec.look`). The value written is the option, as from the menu.
-enum SettingPictures {
-    /// The shell's own settings it draws; a built-in draws its own (`SettingChoices.picture`).
-    static var keys: Set<String> { Set(PictureArt.drawings.keys) }
-}
-
 /// A setting's options as tiles: its drawing, its name under it, the chosen one ringed in the accent colour. Five to a
 /// row whatever their number, so tiles are one size across the page (the agents in the welcome too); two or three sit
 /// beside the row's title (`inline`), as Dia's Tab layout does.
@@ -87,7 +82,7 @@ struct PictureTile<Art: View>: View {
 
 /// One option drawn: a sidebar row, the Dock, a cursor. Schematic on purpose: lines stand for text, so the picture says the
 /// same in every language.
-private struct PictureArt: View {
+struct PictureArt: View {
     let key: String, option: String
     @Environment(AppModel.self) private var app
 

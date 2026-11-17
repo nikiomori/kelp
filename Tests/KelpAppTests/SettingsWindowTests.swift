@@ -62,7 +62,7 @@ import Testing
     // would leave the shell's drawing nothing.
     let pictured = sections.flatMap(\.specs).filter { $0.look == .pictures }
     #expect(pictured.allSatisfy { $0.type == .enum })
-    #expect(Set(pictured.filter { $0.choices?.picture == nil }.map(\.key)) == SettingPictures.keys)
+    #expect(Set(pictured.filter { $0.choices?.picture == nil }.map(\.key)) == Set(PictureArt.drawings.keys))
     // What an option is called comes from where its setting is declared, the window naming no built-in's key.
     #expect(SettingRow.label(SettingKeys.dockStrip.key, "needed", m) == "When Needed")
     #expect(SettingRow.label(SettingKeys.ciBranchChip.key, "icon", m) == "In Place of the Branch Icon")
