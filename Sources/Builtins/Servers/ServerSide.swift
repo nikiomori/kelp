@@ -215,11 +215,7 @@ private struct PortRow: View {
             }
         }
         .padding(.horizontal, 6).frame(height: Metrics.row)
-        .background(
-            RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(hovering ? Color(nsColor: .fillHover) : .clear)
-        )
-        .contentShape(Rectangle())
-        .onHover { hovering = $0 }
+        .hoverRow($hovering)
         .help(
             port.local ? String(localized: "Only this server reaches it") : String(localized: "Open on all addresses"))
     }

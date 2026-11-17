@@ -1,4 +1,5 @@
 import AppKit
+import Charts
 import Core
 import DesignKit
 import KelpKit
@@ -154,36 +155,25 @@ private struct Trend: View {
     let strained: Bool
 
     var body: some View {
-        GeometryReader { geometry in
-            let size = geometry.size, end = points.last?.at ?? 0
-            let place = { (p: Point) in
-                CGPoint(
-                    x: size.width * CGFloat(1 - min(1, (end - p.at) / 3600)),
-                    y: size.height * (1 - CGFloat(min(1, max(0, p.value)))))
-            }
-            let runs = runs(points)
-            let color = strained ? ServerReading.strainedColor : Color.secondary
-            ZStack {
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: size.height / 2))
-                    path.addLine(to: CGPoint(x: size.width, y: size.height / 2))
+        let end = points.last?.at ?? 0, color = strained ? ServerReading.strainedColor : Color.secondary
+        // A point older than the hour is placed at its start.
+        let x = { (p: Point) in PlottableValue.value("At", max(p.at, end - 3600)) }
+        let y = { (p: Point) in PlottableValue.value("Value", min(1, max(0, p.value))) }
+        Chart {
+            RuleMark(y: .value("Half", 0.5)).foregroundStyle(Color(nsColor: .separatorColor))
+                .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 3]))
+            ForEach(Array(runs(points).enumerated()), id: \.offset) { run, part in
+                ForEach(part, id: \.at) { p in
+                    AreaMark(x: x(p), y: y(p), series: .value("Run", run))
+                        .foregroundStyle(Color.primary.opacity(0.06))
+                    LineMark(x: x(p), y: y(p), series: .value("Run", run))
+                        .foregroundStyle(color).lineStyle(StrokeStyle(lineWidth: 1.3))
                 }
-                .stroke(Color(nsColor: .separatorColor), style: StrokeStyle(lineWidth: 1, dash: [2, 3]))
-                Path { path in
-                    for run in runs {
-                        let pts = run.map(place)
-                        guard let first = pts.first, let last = pts.last else { continue }
-                        path.move(to: CGPoint(x: first.x, y: size.height))
-                        for point in pts { path.addLine(to: point) }
-                        path.addLine(to: CGPoint(x: last.x, y: size.height))
-                        path.closeSubpath()
-                    }
-                }
-                .fill(Color.primary.opacity(0.06))
-                Path { path in for run in runs { path.addLines(run.map(place)) } }.stroke(color, lineWidth: 1.3)
-                if let last = points.last { Circle().fill(color).frame(width: 4, height: 4).position(place(last)) }
             }
+            if let last = points.last { PointMark(x: x(last), y: y(last)).foregroundStyle(color).symbolSize(16) }
         }
+        .chartXScale(domain: (end - 3600)...end).chartYScale(domain: 0...1)
+        .chartXAxis(.hidden).chartYAxis(.hidden).chartLegend(.hidden)
     }
 
     private func runs(_ points: [Point]) -> [[Point]] {

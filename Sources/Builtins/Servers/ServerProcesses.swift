@@ -149,11 +149,7 @@ struct ProcessRow: View {
         .font(.ui(TextSize.row).monospacedDigit())
         .padding(.horizontal, 8)
         .frame(height: Metrics.row)
-        .background(
-            RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(hovering ? Color(nsColor: .fillHover) : .clear)
-        )
-        .contentShape(Rectangle())
-        .onHover { hovering = $0 }
+        .hoverRow($hovering)
         .help(process.args)
         .onTapGesture(count: 2) { if let sid = process.session { app.workbench.focus(session: sid) } }
         .contextMenu {
@@ -194,15 +190,21 @@ private struct FoldedRow: View {
         .font(.ui(TextSize.row).monospacedDigit())
         .padding(.horizontal, 8)
         .frame(height: Metrics.row)
-        .background(
-            RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(hovering ? Color(nsColor: .fillHover) : .clear)
-        )
-        .contentShape(Rectangle())
-        .onHover { hovering = $0 }
+        .hoverRow($hovering)
         .onTapGesture { withAnimation(Motion.reduced ? nil : .easeInOut(duration: Motion.fast)) { open.toggle() } }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(open ? String(localized: "Collapse") : String(localized: "Expand"))
+    }
+}
+
+extension View {
+    /// A list row's hover: a rounded fill while the pointer is over it, the whole row answering it.
+    func hoverRow(_ hovering: Binding<Bool>) -> some View {
+        let fill = hovering.wrappedValue ? Color(nsColor: .fillHover) : .clear
+        return background(RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(fill))
+        .contentShape(Rectangle())
+        .onHover { hovering.wrappedValue = $0 }
     }
 }
 
