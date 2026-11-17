@@ -5,14 +5,8 @@ extension Main {
     /// Runs `routine add|list|run|rm`.
     static func routines(_ sub: String?, _ client: RPCClient) async throws {
         func id() async throws -> String {
-            let prefix = args.first ?? "",
-                found = try await client.call(RoutineList()).routines.map(\.id).filter {
-                    !prefix.isEmpty && $0.hasPrefix(prefix)
-                }
-            guard found.count == 1 else {
-                fail(found.isEmpty ? "no routine \(prefix) (see `kelp routine list`)" : "ambiguous: \(prefix)")
-            }
-            return found[0]
+            guard let prefix = args.first, !prefix.isEmpty else { fail("id required (see `kelp routine list`)") }
+            return unique(prefix, among: try await client.call(RoutineList()).routines.map(\.id))
         }
         switch sub {
         case "add":

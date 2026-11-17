@@ -23,19 +23,9 @@ enum Attach {
         Unix.writeAll(fd, req)
 
         // Raw mode sends every key to the agent as typed, and the agent's terminal handles echo and line editing.
-        var saved = termios()
-        let isTTY = isatty(0) == 1
-        if isTTY {
-            tcgetattr(0, &saved)
-            var raw = saved
-            cfmakeraw(&raw)
-            tcsetattr(0, TCSANOW, &raw)
-        }
+        let saved = isatty(0) == 1 ? Main.rawTerminal() : nil
         func restore() {
-            if isTTY {
-                var attributes = saved
-                tcsetattr(0, TCSANOW, &attributes)
-            }
+            if var attributes = saved { tcsetattr(0, TCSANOW, &attributes) }
         }
 
         // Size changes go over a separate control connection.
@@ -63,7 +53,6 @@ enum Attach {
         }
         winch.resume()
 
-        let original = saved
         Thread.detachNewThread {   // Keyboard → session.
             var buf = [UInt8](repeating: 0, count: 16384)
             while true {
@@ -71,8 +60,7 @@ enum Attach {
                 if bytesRead <= 0 { break }
                 let keys = Data(buf[0..<bytesRead])
                 if detachKey, keys.contains(0x1C) || keys.range(of: Data("\u{1B}[92;5".utf8)) != nil {
-                    var attributes = original
-                    if isTTY { tcsetattr(0, TCSANOW, &attributes) }
+                    restore()
                     exit(0)
                 }
                 if !Unix.writeAll(fd, keys) { break }

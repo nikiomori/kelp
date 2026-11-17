@@ -32,11 +32,7 @@ extension Main {
             if let warning { print(warning) }
             return
         }
-        var saved = termios()
-        tcgetattr(0, &saved)
-        var raw = saved
-        cfmakeraw(&raw)
-        tcsetattr(0, TCSANOW, &raw)
+        var saved = rawTerminal()
         defer {
             put(leave)
             tcsetattr(0, TCSANOW, &saved)
@@ -132,4 +128,16 @@ extension Main {
     }
 
     private static func put(_ s: String) { _ = s.withCString { Darwin.write(1, $0, strlen($0)) } }
+}
+
+extension Main {
+    /// Puts the terminal on stdin in raw mode, which sends every key as typed, and returns its settings before.
+    static func rawTerminal() -> termios {
+        var saved = termios()
+        tcgetattr(0, &saved)
+        var raw = saved
+        cfmakeraw(&raw)
+        tcsetattr(0, TCSANOW, &raw)
+        return saved
+    }
 }

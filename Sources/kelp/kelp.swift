@@ -308,7 +308,7 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
         return unique(prefix, among: try await client.call(WorktreeList()).map(\.id))
     }
 
-    private static func unique(_ prefix: String, among ids: [String]) -> String {
+    static func unique(_ prefix: String, among ids: [String]) -> String {
         let found = ids.filter { $0.hasPrefix(prefix) }
         guard found.count == 1 else { fail(found.isEmpty ? "no match for \(prefix)" : "ambiguous: \(prefix)") }
         return found[0]
