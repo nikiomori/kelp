@@ -8,12 +8,24 @@ extension LSPClient {
     public func definition(_ path: String, line: Int, column: Int) async throws -> CodeLocation? {
         let result = try await request("textDocument/definition", at(path, line, column))
         guard let location = result.array?.first ?? (result == .null ? nil : result) else { return nil }
-        let uri = location["uri"]?.string ?? location["targetUri"]?.string
-        let range = location["range"] ?? location["targetSelectionRange"]
-        guard let uri, let target = URL(string: uri)?.path else { return nil }
+        return Self.location(
+            location["uri"]?.string ?? location["targetUri"]?.string,
+            (location["range"] ?? location["targetSelectionRange"])?["start"])
+    }
+
+    /// A place from a uri and a 0-based start, with its line and column 1-based. nil without a file.
+    static func location(_ uri: String?, _ start: JSONValue?) -> CodeLocation? {
+        guard let path = uri.flatMap({ URL(string: $0)?.path }) else { return nil }
         return CodeLocation(
-            path: target, line: (range?["start"]?["line"]?.int ?? 0) + 1,
-            column: (range?["start"]?["character"]?.int ?? 0) + 1)
+            path: path, line: (start?["line"]?.int ?? 0) + 1, column: (start?["character"]?.int ?? 0) + 1)
+    }
+
+    /// A TextEdit, or an InsertReplaceEdit by its `replace` range.
+    static func edit(_ textEdit: JSONValue) -> CodeEdit? {
+        guard let span = span(textEdit["range"] ?? textEdit["replace"]), let text = textEdit["newText"]?.string
+        else { return nil }
+        return CodeEdit(
+            line: span.line, column: span.column, endLine: span.endLine, endColumn: span.endColumn, text: text)
     }
 
     public func completion(_ path: String, line: Int, column: Int) async throws -> [CodeCompletion] {
@@ -27,18 +39,11 @@ extension LSPClient {
     ]
 
     static func completions(_ result: JSONValue) -> [CodeCompletion] {
-        func edit(_ textEdit: JSONValue, text: String? = nil) -> CodeEdit? {
-            guard let span = span(textEdit["range"] ?? textEdit["replace"]),
-                let newText = text ?? textEdit["newText"]?.string
-            else { return nil }
-            return CodeEdit(
-                line: span.line, column: span.column, endLine: span.endLine, endColumn: span.endColumn, text: newText)
-        }
         let items = (result.array ?? result["items"]?.array ?? []).sorted {
             ($0["sortText"]?.string ?? "") < ($1["sortText"]?.string ?? "")
         }
         return items.prefix(200).map { item in
-            let more = (item["additionalTextEdits"]?.array ?? []).compactMap { edit($0) }
+            let more = (item["additionalTextEdits"]?.array ?? []).compactMap(edit)
             let doc = item["documentation"]
             return CodeCompletion(
                 label: item["label"]?.string ?? "", detail: item["detail"]?.string,
@@ -46,7 +51,7 @@ extension LSPClient {
                     ?? item["label"]?.string ?? "",
                 kind: completionKinds[item["kind"]?.int ?? 0], documentation: doc?.string ?? doc?["value"]?.string,
                 snippet: item["insertTextFormat"]?.int == 2 ? true : nil,
-                edit: item["textEdit"].flatMap { edit($0) },
+                edit: item["textEdit"].flatMap(edit),
                 more: more.isEmpty ? nil : more)
         }
     }
@@ -59,40 +64,20 @@ extension LSPClient {
     }
 
     public func references(_ path: String, line: Int, column: Int) async throws -> [CodeLocation] {
-        var params = at(path, line, column)
-        if case .object(var object) = params {
-            object["context"] = .obj(["includeDeclaration": true])
-            params = .object(object)
-        }
+        let params = at(path, line, column, adding: ["context": .obj(["includeDeclaration": true])])
         return (try await request("textDocument/references", params).array ?? []).compactMap { location in
-            guard let file = location["uri"]?.string.flatMap({ URL(string: $0)?.path }),
-                let start = location["range"]?["start"]
-            else {
-                return nil
-            }
-            return CodeLocation(
-                path: file, line: (start["line"]?.int ?? 0) + 1, column: (start["character"]?.int ?? 0) + 1)
+            location["range"]?["start"].flatMap { Self.location(location["uri"]?.string, $0) }
         }
     }
 
     public func rename(_ path: String, line: Int, column: Int, to name: String) async throws -> [CodeFileEdit] {
-        var params = at(path, line, column)
-        if case .object(var object) = params {
-            object["newName"] = .string(name)
-            params = .object(object)
-        }
-        return Self.fileEdits(try await request("textDocument/rename", params))
+        Self.fileEdits(
+            try await request("textDocument/rename", at(path, line, column, adding: ["newName": .string(name)])))
     }
 
     /// Reads a WorkspaceEdit, in either of its shapes.
     static func fileEdits(_ edit: JSONValue) -> [CodeFileEdit] {
-        func edits(_ list: JSONValue?) -> [CodeEdit] {
-            (list?.array ?? []).compactMap { textEdit in
-                guard let span = span(textEdit["range"]), let text = textEdit["newText"]?.string else { return nil }
-                return CodeEdit(
-                    line: span.line, column: span.column, endLine: span.endLine, endColumn: span.endColumn, text: text)
-            }
-        }
+        func edits(_ list: JSONValue?) -> [CodeEdit] { (list?.array ?? []).compactMap(Self.edit) }
         var out: [CodeFileEdit] = []
         for change in edit["documentChanges"]?.array ?? [] {
             if let path = change["textDocument"]?["uri"]?.string.flatMap({ URL(string: $0)?.path }) {

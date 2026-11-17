@@ -350,8 +350,9 @@ public final class LSPClient: @unchecked Sendable {   // Process and Pipe aren't
         idle?()
     }
 
-    func at(_ path: String, _ line: Int, _ col: Int) -> JSONValue {
-        .obj(["textDocument": .obj(["uri": Self.uri(path)]), "position": Self.pos(line, col)])
+    /// A place in a file, as a request's params, with `more` fields beside it.
+    func at(_ path: String, _ line: Int, _ col: Int, adding more: [String: JSONValue] = [:]) -> JSONValue {
+        .object(["textDocument": .obj(["uri": Self.uri(path)]), "position": Self.pos(line, col)].merging(more) { $1 })
     }
 
     /// Returns the server's actions on a line. The request includes the problems on that line, because most quick fixes
