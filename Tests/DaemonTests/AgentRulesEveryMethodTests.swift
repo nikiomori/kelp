@@ -131,6 +131,10 @@ private func rows() async throws -> Rows {
             ),
             (agent, UICommand(id: "editor.goToLine"), true, "a command that shows something"),
             (agent, UICommand(id: "git.commit"), false, "not one of the user's"),
+            (
+                agent, UICommand(id: "scripts.openPage"), false,
+                "nor ⇧⌘O, whose page tab is logged in as the user (its page can go on to any site)"
+            ),
             (agent, ExtensionFetch(source: "https://example.com/x"), true, "an extension's files, to read"),
             (agent, VMConnect(name: "m", cwd: r.wt.path), true, "a machine to run in"),
             (agent, VMScreen(name: "m", args: ["screenshot"]), true, "its screen"),

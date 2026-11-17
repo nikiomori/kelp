@@ -22,9 +22,11 @@ public enum IDE {
     public static func open(_ target: String, split: String?, cwd: String, focus: Bool = false, client: RPCClient)
         async throws -> Delivered
     {
-        let found = try await workspace(cwd: cwd, client: client)
+        let all = try await client.call(WorktreeList()), own = try await ownWorkspace(client: client)
+        // A file in no workspace opens in the caller's own: an agent's tab is held to it (none: the one on screen).
+        let id = workspace(cwd: cwd, among: all, own: own)?.id ?? own
         return try await client.call(
-            UIOpen(uri: uri(for: target, cwd: cwd), split: split, focus: focus ? true : nil, worktreeId: found?.id))
+            UIOpen(uri: uri(for: target, cwd: cwd), split: split, focus: focus ? true : nil, worktreeId: id))
     }
 
     /// The workspace a command run in `cwd` means (`workspace(cwd:among:own:)`), from the daemon's lists.
@@ -33,8 +35,14 @@ public enum IDE {
         client: RPCClient
     ) async throws -> Worktree? {
         let all = try await client.call(WorktreeList())
-        let own = session == nil ? nil : try await client.call(SessionList()).first { $0.id == session }?.worktreeId
-        return workspace(cwd: cwd, among: all, own: own)
+        return workspace(cwd: cwd, among: all, own: try await ownWorkspace(session: session, client: client))
+    }
+
+    /// The workspace of the session this runs in (KELP_SESSION's).
+    static func ownWorkspace(
+        session: String? = ProcessInfo.processInfo.environment["KELP_SESSION"], client: RPCClient
+    ) async throws -> String? {
+        session == nil ? nil : try await client.call(SessionList()).first { $0.id == session }?.worktreeId
     }
 
     /// Workspaces of a project share its folder, so the folder alone can't tell them apart: the agent's own (`own`, its

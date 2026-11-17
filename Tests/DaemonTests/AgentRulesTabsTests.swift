@@ -61,7 +61,14 @@ import Testing
                 "nor one whose address spells the id percent-encoded, as the tab decodes it"
             ),
             (own, UIOpen(uri: DatabaseTabURI.uri(worktree: wt.id, name: "db")), true, "its own workspace's it opens"),
-            (own, UIOpen(uri: "file:///tmp/a.txt"), true, "and a file"),
+            (own, DatabaseSchemaRead(worktreeId: wt.id, database: "db"), true, "and reads its tables"),
+            (own, DatabaseSchemaRead(worktreeId: elsewhere.id, database: "db"), false, "not another workspace's"),
+            (own, UIOpen(uri: "file:///tmp/a.txt", worktreeId: wt.id), true, "and a file"),
+            (
+                own, UIOpen(uri: "file:///tmp/a.txt"), false,
+                "not in the workspace on screen, which needn't be its own (`kelp open` names the agent's)"
+            ),
+            (own, UIOpen(uri: "file:///tmp/a.txt", worktreeId: elsewhere.id), false, "nor in another's"),
             (own, UIOpen(uri: "https://mail.example/inbox"), false, "not a page logged in as the user"),
             (own, UIOpen(uri: "HTTP://mail.example/inbox"), false, "however its scheme is spelled"),
             (own, UIOpen(uri: "preview:/tmp/a.html"), false, "nor a local page, which can go on to any site"),
