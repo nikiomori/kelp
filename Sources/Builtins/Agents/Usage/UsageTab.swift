@@ -44,7 +44,7 @@ struct UsageReportView: View {
     ]
 
     var body: some View {
-        let lines = agentLines(UsageView.plans(app).keys)
+        let lines = agentLines(UsageView.rows(app).map(\.id))
         // The page is as wide as the pane, up to 1400, and at least as wide as the table. A narrower pane scrolls
         // sideways, starting from the left.
         GeometryReader { pane in

@@ -20,7 +20,7 @@ extension UsageReportView {
 
     /// The agents used in the span that report no plan limits, by name.
     var unplanned: [String] {
-        let planned = UsageView.plans(app).keys
+        let planned = UsageView.rows(app).map(\.id)
         return (usage?.agents ?? []).filter { $0.tokens > 0 && !planned.contains($0.id) }.map {
             app.catalog.name($0.id)
         }

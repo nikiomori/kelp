@@ -265,24 +265,6 @@ struct UsageView: View {
 }
 
 extension UsageView {
-    /// Each agent's plan limits as the sidebar reads them, the fullest first, and when they were read. The Usage tab's
-    /// Plan column uses them, and `watchingPlans` keeps them coming.
-    static func plans(_ app: AppModel) -> [String: (
-        limits: [(label: String, used: Double, resets: String?)], readAt: Date?,
-        note: (text: String, color: NSColor)?
-    )] {
-        let notes = Self.notes(app)
-        return Dictionary(
-            rows(app).map { row in
-                let limits = row.lines.sorted { $0.used > $1.used }.map {
-                    (label: $0.label, used: $0.used, resets: $0.resets)
-                }
-                return (row.id, (limits, row.readAt, notes[row.id].map { ($0.text, $0.color) }))
-            }, uniquingKeysWith: { a, _ in a })
-    }
-}
-
-extension UsageView {
     /// The note shown beside each agent where agents are chosen (`Contributions.plans`). There are none once plan
     /// limits are turned off.
     static func notes(_ app: AppModel) -> [String: PlanNote] {
