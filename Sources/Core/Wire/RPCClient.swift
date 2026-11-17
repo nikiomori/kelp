@@ -5,6 +5,8 @@ import os
 /// the reader thread), or to `onNotification` as JSON, for a client that reads them by name (tests).
 public final class RPCClient: Sendable {
     private let fd: Int32
+    /// How long a write waits for a daemon that stopped reading before it gives up and closes the connection.
+    private let sendTimeout: TimeInterval
     private struct State {
         var nextID = 1
         var pending: [Int: CheckedContinuation<Data, Error>] = [:]   // id → its reply line, decoded by the caller as its type
@@ -41,11 +43,14 @@ public final class RPCClient: Sendable {
     }
 
     /// `patience`: how long a full queue is tried again (`Unix.connect`): for a caller that runs while a daemon may be
-    /// taking over (an agent's hook, a terminal's attach). The rest fail at once when nothing answers.
-    public init(socket: String, patience: TimeInterval = 0) throws {
+    /// taking over (an agent's hook, a terminal's attach). The rest fail at once when nothing answers. `sendTimeout`: how
+    /// long a write waits for a daemon that stopped reading (a test's is short).
+    public init(socket: String, patience: TimeInterval = 0, sendTimeout: TimeInterval = 10) throws {
         fd = try Unix.connect(socket, patience: patience)
+        self.sendTimeout = sendTimeout
         // A daemon alive but no longer reading (hung, stopped): a write gives up instead of holding the writer for good.
-        var timeout = timeval(tv_sec: 10, tv_usec: 0)
+        let seconds = sendTimeout.rounded(.down)
+        var timeout = timeval(tv_sec: Int(seconds), tv_usec: Int32((sendTimeout - seconds) * 1_000_000))
         _ = setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
         Thread.detachNewThread { [self] in readLoop() }
     }
@@ -143,7 +148,9 @@ public final class RPCClient: Sendable {
     /// after it, and the number may be someone else's by then.
     /// A write that gives up part way closes the connection: the next line would be glued to half of this one.
     private func write(_ line: Data) {
-        writer.async { [self] in if !state.withLock({ $0.readerDone }), !Unix.writeAll(fd, line) { close() } }
+        writer.async { [self] in
+            if !state.withLock({ $0.readerDone }), !Unix.writeAll(fd, line, wait: min(5, sendTimeout)) { close() }
+        }
     }
 
     /// `timeout`: throw if no reply came by then — for polls, where one reply that never arrives would stop the loop for good.

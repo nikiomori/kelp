@@ -122,9 +122,9 @@ public enum Unix {
         return URL(fileURLWithPath: String(cBuffer: buf)).resolvingSymlinksInPath().path
     }
 
-    /// Write all bytes, retrying on partial writes. Returns false if the peer is gone.
+    /// Write all bytes, retrying on partial writes. Returns false if the peer is gone: it took nothing for `wait` seconds.
     @discardableResult
-    public static func writeAll(_ fd: Int32, _ data: Data) -> Bool {
+    public static func writeAll(_ fd: Int32, _ data: Data, wait: TimeInterval = 5) -> Bool {
         data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
             guard let base = bytes.baseAddress else { return true }   // nothing to write
             var off = 0
@@ -133,7 +133,7 @@ public enum Unix {
                 if written < 0, errno == EINTR { continue }
                 if written < 0, errno == EAGAIN {   // full: wait until it can take more, rather than spin
                     var pfd = pollfd(fd: fd, events: Int16(POLLOUT), revents: 0)
-                    if poll(&pfd, 1, 5000) <= 0 { return false }   // nobody reading for 5 s: gone
+                    if poll(&pfd, 1, Int32(wait * 1000)) <= 0 { return false }   // nobody reading for so long: gone
                     continue
                 }
                 if written < 0 { return false }

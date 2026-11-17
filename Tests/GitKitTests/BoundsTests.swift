@@ -19,16 +19,14 @@ import Testing
     #expect(d.dropFirst().allSatisfy { $0.tooLarge == true })   // z.txt came after the cut: never read
 }
 
-/// A status lists the first `FileChange.limit` changes (a folder that should be ignored can hold far more), and so does
-/// the file list its own limit; without a limit, git's whole answer.
+/// A status lists the first `limit` changes (`FileChange.limit` for what's shown: a folder that should be ignored can hold
+/// far more), and so does the file list its own limit; without a limit, git's whole answer.
 @Test func aStatusPastItsLimitListsTheFirst() throws {
     let repo = try tempRepo()
-    let made = try Subprocess.run(
-        ["/bin/sh", "-c", "mkdir n && cd n && seq 10005 | xargs touch"], cwd: repo,
-        env: ProcessInfo.processInfo.environment, timeLimit: 60)
-    #expect(made.status == 0)
-    #expect(try Git.status(repo, limit: FileChange.limit, remotes: .none).count == FileChange.limit)
-    #expect(try Git.status(repo, remotes: .none).count == 10_006)   // .env too
-    #expect(try ProjectFiles.list(repo, limit: 10_000, remotes: .none).count == 10_000)
-    #expect(try ProjectFiles.list(repo, remotes: .none).count == 10_007)   // f.txt and .env too
+    try FileManager.default.createDirectory(atPath: repo + "/n", withIntermediateDirectories: true)
+    for i in 1...5 { FileManager.default.createFile(atPath: repo + "/n/\(i)", contents: nil) }
+    #expect(try Git.status(repo, limit: 3, remotes: .none).count == 3)
+    #expect(try Git.status(repo, remotes: .none).count == 6)   // .env too
+    #expect(try ProjectFiles.list(repo, limit: 3, remotes: .none).count == 3)
+    #expect(try ProjectFiles.list(repo, remotes: .none).count == 7)   // f.txt and .env too
 }

@@ -42,14 +42,14 @@ import Testing
         close(server)
         unlink(path)
     }
-    let client = try RPCClient(socket: path)
+    let client = try RPCClient(socket: path, sendTimeout: 0.2)
     let peer = accept(server, nil, nil)   // and never reads
     defer { close(peer) }
     let closed = Flag()
     client.onClose = { closed.set() }
     client.notify("big", .string(String(repeating: "x", count: 8 << 20)))
-    // A partial write after the 10 s send timeout, another 10 s, then the 5 s poll: about 25 s.
-    #expect(try await waitFor(40) { closed.value })
+    // A partial write after the 0.2 s send timeout, another 0.2 s, then as long a poll: under a second.
+    #expect(try await waitFor(10) { closed.value })
     #expect(closed.value)
 }
 
