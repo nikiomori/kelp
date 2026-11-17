@@ -28,13 +28,15 @@ import Testing
 
     _ = try await w.c.call(SessionHook(id: s.id, event: "waiting", hookName: "PermissionRequest"))
     #expect(try await waitFor { ls.snapshot.status == .waiting })
-    // (a) it says it works, by a hook and by a report: both its own to send.
+    // (a) it says it works, by a hook and by a report, and its hook waits for the answer: all its own to send.
     try expectRows(
         w.d,
         [
             (own, SessionHook(id: s.id, event: "working"), true, "a session reports for itself"),
             (own, SessionReport(id: s.id, state: "working"), true, "by `kelp report` too"),
             (.session(other.id), SessionHook(id: s.id, event: "working"), false, "not for another"),
+            (own, SessionPermissionWait(id: s.id), true, "its hook waits for the Allow or Deny of its own question"),
+            (.session(other.id), SessionPermissionWait(id: s.id), false, "not for another's"),
             (own, enter, false, "it doesn't type into its own question")
         ])
     _ = try await w.c.call(SessionHook(id: s.id, event: "working"))
