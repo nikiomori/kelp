@@ -291,9 +291,9 @@ package struct WorkspaceActions {
                 }
             }
             if app.workbench.workspaceId == id { app.workbench.show(workspace: next.id) }
-            await app.workbench.keepClosedTabs(of: group, on: next)
-            // The agent that just ended may have left something after all: then it stays, as above.
-            if await app.call(WorktreeRemove(id: id)) == nil { app.workbench.show(workspace: id) }
+            // A closed chat that couldn't move, or something the agent that just ended left after all: then it stays.
+            guard await app.workbench.keepClosedTabs(of: group, on: next), await app.call(WorktreeRemove(id: id)) != nil
+            else { return app.workbench.show(workspace: id) }
         }
     }
 

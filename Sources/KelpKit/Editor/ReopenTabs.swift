@@ -87,17 +87,24 @@ extension Workbench {
     }
 
     /// `worktree` is going with its last tab, and its sessions' records with it: those closed by hand move to `next`, with the same
-    /// folder, where ⇧⌘T finds them. A folder of its own goes too, and nothing could resume there.
-    func keepClosedTabs(of worktree: Worktree, on next: Worktree) async {
+    /// folder, where ⇧⌘T finds them. A folder of its own goes too, and nothing could resume there. False (said on a
+    /// banner) when a session there couldn't move: then `worktree` must stay, or that session's record goes with it.
+    func keepClosedTabs(of worktree: Worktree, on next: Worktree) async -> Bool {
         if worktree.path == next.path {
             for closedTab in closedTabs.all
             where closedTab.workspace == worktree.id && TabURI.scheme(closedTab.uri) == "session" {
                 let sid = TabURI.body(closedTab.uri)
                 if workspaceId == next.id { editor?.closed.insert(sid) }   // it may still be ending: no tab for it there
-                await app.quiet(SessionMove(id: sid, worktreeId: next.id))
+                let moved = await app.tryCall(SessionMove(id: sid, worktreeId: next.id))
+                // A record already gone has nothing left to keep.
+                if moved.value == nil, app.session(sid) != nil {
+                    if let error = moved.error { Banner.show(error, style: .error) }
+                    return false
+                }
             }
         }
         closedTabs.move(from: worktree.id, to: next.id)
+        return true
     }
 }
 

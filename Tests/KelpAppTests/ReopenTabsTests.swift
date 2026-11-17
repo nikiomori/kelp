@@ -78,9 +78,34 @@ extension OneAtATime {
         let bench = rig.app.workbench
         bench.closedTabs.remember(
             ClosedTab(uri: TabURI.session(s.id), title: "Claude", workspace: chat.id, group: nil, index: nil))
-        await bench.keepClosedTabs(of: chat, on: rig.workspace)
+        #expect(await bench.keepClosedTabs(of: chat, on: rig.workspace))
         _ = try await rig.client.call(WorktreeRemove(id: chat.id))
         #expect(bench.closedTabs.all.first?.workspace == rig.workspace.id)
         #expect(try await rig.client.call(SessionList()).first { $0.id == s.id }?.worktreeId == rig.workspace.id)
+    }
+
+    /// A session there that can't move (the row it would go to is archived): the chat must stay, or its record goes
+    /// with it. One whose record is already gone has nothing to keep, and doesn't hold the chat.
+    @Test func aClosedTabThatCantMoveKeepsItsChat() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let chat = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        let gone = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        _ = try await rig.client.call(WorktreeArchive(id: gone.id))
+        let s = try await rig.client.call(SessionCreate(worktreeId: chat.id, agent: "shell"))
+        _ = try await rig.client.call(SessionKill(id: s.id))
+        rig.app.upsert(s)
+        let bench = rig.app.workbench
+        bench.closedTabs.remember(
+            ClosedTab(uri: TabURI.session(s.id), title: "Claude", workspace: chat.id, group: nil, index: nil))
+        #expect(await bench.keepClosedTabs(of: chat, on: gone) == false)
+        #expect(bench.closedTabs.all.first?.workspace == chat.id)
+        #expect(try await rig.client.call(SessionList()).first { $0.id == s.id }?.worktreeId == chat.id)
+
+        let other = try await rig.client.call(WorkspaceCreate(repoId: rig.project.id))
+        bench.closedTabs.remember(
+            ClosedTab(uri: TabURI.session("no-such-session"), title: "Old", workspace: other.id, group: nil, index: nil)
+        )
+        #expect(await bench.keepClosedTabs(of: other, on: rig.workspace))
     }
 }
