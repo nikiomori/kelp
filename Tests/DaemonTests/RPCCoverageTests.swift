@@ -441,7 +441,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let r = try await rig()
     defer { r.d.stop() }
     let pr = try await r.c.call(RecipeRender(id: r.wt.id, name: "pr"))
-    #expect(pr.contains("for branch feat/x with"), "\(pr)")
+    #expect(pr.contains("\nfeat/x\n") && !pr.contains("{branch}"), "\(pr)")   // the branch, framed as data
     let merge = try await r.c.call(RecipeRender(id: r.wt.id, name: "resolveConflicts"))
     #expect(merge.hasPrefix("Merge main into this branch"), "\(merge)")
 }
