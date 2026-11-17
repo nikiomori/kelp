@@ -28,10 +28,7 @@ extension FilesPanel {
     func replaceAll() {
         let template = replaceField.stringValue, query = search.stringValue.trimmingCharacters(in: .whitespaces)
         let names = Array(Set(results.matches.map(\.path))).sorted(), root = root, app = app
-        var options = FindOptions()
-        options.matchCase = searchOptions.matchCase
-        options.wholeWord = searchOptions.wholeWord
-        options.regex = searchOptions.regex
+        let options = searchOptions
         // Paths are compared with symlinks resolved, because a tab may name its file through a link (/tmp,
         // /private/tmp).
         func real(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }

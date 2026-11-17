@@ -1,16 +1,18 @@
 import AppKit
 import Core
 import DesignKit
+import EditorKit
 import KelpKit
 
-/// How Find in Project matches: VS Code's three toggles, remembered per workspace.
+/// How Find in Project matches: VS Code's three toggles (the editor's find options), remembered per workspace.
+typealias SearchOptions = FindOptions
+
 @MainActor
-struct SearchOptions: Equatable {
-    var matchCase = false, wholeWord = false, regex = false
+extension FindOptions {
     private static func key(_ workspace: String) -> String { "files.search.\(workspace)" }
 
-    init() {}
     init(_ app: AppModel, workspace: String) {
+        self.init()
         let on = app.uiState.strings(Self.key(workspace))
         matchCase = on.contains("case")
         wholeWord = on.contains("word")

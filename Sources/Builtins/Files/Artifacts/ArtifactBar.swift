@@ -171,16 +171,20 @@ final class ArtifactBar: NSObject {
 
     /// The tab's icon for a kind of page.
     static func icon(_ kind: Artifacts.Kind) -> NSImage? {
-        let (symbol, name) =
-            switch kind {
-            case .doc: ("doc.text", String(localized: "Doc"))
-            case .review: ("checklist", String(localized: "Review"))
-            case .slides: ("play.rectangle", String(localized: "Slides"))
-            case .design: ("square.grid.2x2", String(localized: "Design"))
-            case .dashboard: ("chart.bar", String(localized: "Dashboard"))
-            case .proof: ("checkmark.seal", String(localized: "Proof"))
-            }
+        let (symbol, name) = look(kind)
         return .symbol(symbol, name)
+    }
+
+    /// A kind of page's symbol and name, as its tab and its bar show them.
+    private static func look(_ kind: Artifacts.Kind) -> (symbol: String, name: String) {
+        switch kind {
+        case .doc: ("doc.text", String(localized: "Doc"))
+        case .review: ("checklist", String(localized: "Review"))
+        case .slides: ("play.rectangle", String(localized: "Slides"))
+        case .design: ("square.grid.2x2", String(localized: "Design"))
+        case .dashboard: ("chart.bar", String(localized: "Dashboard"))
+        case .proof: ("checkmark.seal", String(localized: "Proof"))
+        }
     }
 
     /// Returns a page's title and kind from the workspace's artifacts list. A tab that isn't built yet takes its name
@@ -212,7 +216,7 @@ final class ArtifactBar: NSObject {
         }
         let session = item?.session.flatMap(app.session)
         let type = item?.type ?? recorded?.type ?? Self.kind(ofFile: path)?.rawValue ?? ""
-        kind.stringValue = Self.kindNames[type] ?? String(localized: "Doc")
+        kind.stringValue = Artifacts.Kind(rawValue: type).map { Self.look($0).name } ?? String(localized: "Doc")
         pageKind = Artifacts.Kind(rawValue: type)
         if pageKind == .dashboard { showDashboard() }
         if let time = item?.modified, time != spentAt, item?.url == nil { countSpent(at: time) }
@@ -268,12 +272,6 @@ final class ArtifactBar: NSObject {
             author.isEnabled = session.status != .exited
         }
     }
-
-    private static let kindNames = [
-        "doc": String(localized: "Doc"), "review": String(localized: "Review"), "slides": String(localized: "Slides"),
-        "design": String(localized: "Design"), "dashboard": String(localized: "Dashboard"),
-        "proof": String(localized: "Proof")
-    ]
 
     /// Sets the bar up for a dashboard: View and Mark only (there is nothing to change by hand), no Present, and the
     /// time its figures were drawn.

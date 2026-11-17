@@ -46,8 +46,10 @@ final class EditorStatusBar: NSView {
 
     init(url: URL, text: String) {
         super.init(frame: .zero)
-        indentButton.font = .ui(TextSize.caption)
-        indentButton.padding = Metrics.gap
+        for button in [indentButton, wrap, restricted, servers, problems] {
+            button.font = .ui(TextSize.caption)
+            button.padding = Metrics.gap
+        }
         indentButton.onClick = { [weak self] in
             guard let self, let button = Optional(indentButton), let menu = indentMenu?() else { return }
             menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
@@ -62,24 +64,16 @@ final class EditorStatusBar: NSView {
         }
         kind.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         wrap.title = String(localized: "Wrap")
-        wrap.font = .ui(TextSize.caption)
-        wrap.padding = Metrics.gap
         wrap.isHidden = true
         wrap.toolTip = String(localized: "Long lines wrap (⌥Z)")
         restricted.title = String(localized: "Restricted")
-        restricted.font = .ui(TextSize.caption)
-        restricted.padding = Metrics.gap
         restricted.contentTintColor = .textOrange
         restricted.isHidden = true
         restricted.toolTip = String(
             localized: "Language servers and formatters don't run in this project until you trust it")
         restricted.onClick = { [weak self] in self?.offerTrust() }
-        servers.font = .ui(TextSize.caption)
-        servers.padding = Metrics.gap
         servers.isHidden = true
         servers.onClick = { [weak self] in self.map { $0.onServers?($0.servers) } }
-        problems.font = .ui(TextSize.caption)
-        problems.padding = Metrics.gap
         problems.isHidden = true
         problems.toolTip = String(localized: "Show Problems")
         problem.setContentCompressionResistancePriority(.init(100), for: .horizontal)
