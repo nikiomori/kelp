@@ -187,21 +187,12 @@ extension SessionSetup {
     private func localPageOpen(repo: String) -> Bool {
         let worktrees = Log.store.attempt("the workspaces of \(repo)") { try store.worktrees(repo: repo) } ?? []
         return worktrees.contains { worktree in
-            state("layout/\(worktree.id)").map { Self.strings($0).contains(where: Self.isLocalPage) } ?? false
+            state("layout/\(worktree.id)").map { Artifacts.strings(in: $0).contains(where: Self.isLocalPage) } ?? false
         }
     }
 
     static func isLocalPage(_ url: String) -> Bool {
         url.wholeMatch(of: /https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|[^\/:]+\.local)([:\/].*)?/) != nil
-    }
-
-    static func strings(_ value: JSONValue) -> [String] {
-        switch value {
-        case .string(let text): [text]
-        case .array(let items): items.flatMap(strings)
-        case .object(let fields): fields.values.flatMap(strings)
-        default: []
-        }
     }
 }
 

@@ -39,30 +39,28 @@ do {
         daemon.stop()
         exit(0)
     }
+    /// Quits on the source's event, kept for as long as kelpd runs.
+    func keep(_ source: DispatchSourceProtocol) {
+        source.setEventHandler(handler: quit)
+        source.resume()
+        sources.append(source)
+    }
     for signalNumber in [SIGTERM, SIGINT, SIGHUP] {
         signal(signalNumber, SIG_IGN)
-        let src = DispatchSource.makeSignalSource(signal: signalNumber, queue: .main)
-        src.setEventHandler(handler: quit)
-        src.resume()
-        sources.append(src)
+        keep(DispatchSource.makeSignalSource(signal: signalNumber, queue: .main))
     }
     // kelpd quits when its home folder is deleted or moved away (a temp folder for a test or a snapshot). Nobody can
     // reach its socket then, and an idle daemon has no other reason to end, so it used to stay for good (once 90 of
     // them, 600 MB).
     let home = open(Paths.root.path, O_EVTONLY)
     if home >= 0 {
-        let gone = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: home, eventMask: [.delete, .rename], queue: .main)
-        gone.setEventHandler(handler: quit)
-        gone.resume()
-        sources.append(gone)
+        keep(
+            DispatchSource.makeFileSystemObjectSource(fileDescriptor: home, eventMask: [.delete, .rename], queue: .main)
+        )
     }
     // When a test process started kelpd (KELP_TEST_PID, set by the tests' isolation), kelpd ends when that test does.
     if let pid = ProcessInfo.processInfo.environment["KELP_TEST_PID"].flatMap(Int32.init) {
-        let ended = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: .main)
-        ended.setEventHandler(handler: quit)
-        ended.resume()
-        sources.append(ended)
+        keep(DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: .main))
         if kill(pid, 0) != 0, errno == ESRCH { quit() }   // the test process ended before the watch began
     }
     dispatchMain()
