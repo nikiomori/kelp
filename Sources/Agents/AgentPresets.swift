@@ -1,3 +1,4 @@
+import Core
 import Foundation
 
 extension AgentManifest {
@@ -30,7 +31,7 @@ extension AgentManifest {
     /// says what's newest).
     public static let presets: [AgentManifest] = [
         .init(
-            id: "claude", name: "Claude Code", command: "claude", hooks: .settingsFlag("--settings"),
+            id: Session.claudeAgent, name: "Claude Code", command: "claude", hooks: .settingsFlag("--settings"),
             modelFlag: "--model", models: ["opus", "sonnet", "haiku", "fable"],
             effortArgs: Dictionary(uniqueKeysWithValues: efforts.map { ($0, ["--effort", $0]) }),
             autoAnswers: [trust], resumeArgs: ["--continue"], pluginDirFlag: "--plugin-dir",
@@ -44,7 +45,7 @@ extension AgentManifest {
         // would run on after the tab closed, and a Codex started with -c (not on that server) couldn't open it again.
         // No update question: it stands before the prompt, which waits behind it, and Kelp offers updates itself.
         .init(
-            id: "codex", name: "Codex", command: "codex",
+            id: Session.codexAgent, name: "Codex", command: "codex",
             args: ["--no-daemon", "-c", "check_for_update_on_startup=false"], hooks: .codexConfig,
             modelFlag: "-m", models: ["gpt-6-luna", "gpt-5.6-terra", "gpt-5.6-luna"],
             effortArgs: Dictionary(

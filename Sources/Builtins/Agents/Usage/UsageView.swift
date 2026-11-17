@@ -183,7 +183,7 @@ struct UsageView: View {
             var row = Row(id: agent.id, name: Self.short(agent.name), fullName: agent.name)
             row.readAt = usage.plansReadAt?[agent.id].map { Date(timeIntervalSince1970: $0) }
             switch agent.id {
-            case "claude":
+            case Session.claudeAgent:
                 row.lines = Self.claude(usage)
                 if row.readAt == nil {
                     row.readAt = usage.claudeLimits?.compactMap(\.observedAt).max().map {
@@ -191,7 +191,7 @@ struct UsageView: View {
                     }
                 }
             // Codex logs its limits only when it's used: an old reading says how old it is.
-            case "codex":
+            case Session.codexAgent:
                 row.lines = Self.codex(usage)
                 row.readAt = usage.codex.first.map { Date(timeIntervalSince1970: $0.observedAt) }
             default: row.lines = Self.lines(usage.plans?[agent.id] ?? [])
@@ -231,7 +231,7 @@ struct UsageView: View {
 
     /// Claude Code's /usage, or the percentages a session printed.
     private static func claude(_ usage: UsageGet.Result) -> [Line] {
-        lines(usage.plans?["claude"] ?? usage.claudeLimits ?? [])
+        lines(usage.plans?[Session.claudeAgent] ?? usage.claudeLimits ?? [])
     }
 
     private static func codex(_ usage: UsageGet.Result) -> [Line] {

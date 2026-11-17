@@ -5,7 +5,7 @@ import Foundation
 /// what really loaded and what it weighs; the files know whose a skill is, where it sits and which agents read it.
 public enum AddonList {
     /// The agents in the order rows show them: the one most chats run first.
-    static let order = ["claude", "codex", "cursor", "pi", "copilot", "kimi", "opencode", "grok"]
+    static let order = [Session.claudeAgent, Session.codexAgent, "cursor", "pi", "copilot", "kimi", "opencode", "grok"]
 
     /// The rows, and what the chat's record names that isn't there any more (`gone`): the record is from the chat's
     /// start, and for what lives in files (the person's skills, the project's, their servers) the files are what's true
@@ -26,7 +26,8 @@ public enum AddonList {
             own
             + kept.map {
                 AddonFiles.Server(
-                    name: $0, file: Addon.kept, agents: ["claude", "codex"], project: false, path: keptFile)
+                    name: $0, file: Addon.kept, agents: [Session.claudeAgent, Session.codexAgent], project: false,
+                    path: keptFile)
             }
         var items: [Addon] = []
         if let loaded {
@@ -62,12 +63,14 @@ public enum AddonList {
                 Addon(
                     kind: .instructions, name: (file.path as NSString).lastPathComponent,
                     source: Paths.inside(file.path, cwd) ? .project : .yours, origin: files.tilde(file.path),
-                    agents: ["claude"], loaded: true, tokens: ClaudeLoaded.tokens(file.chars), path: file.path)
+                    agents: [Session.claudeAgent], loaded: true, tokens: ClaudeLoaded.tokens(file.chars),
+                    path: file.path)
             }
         } else {
             items += kelp.map {
                 Addon(
-                    kind: .skill, name: $0, source: .kelp, origin: "Kelp", agents: ["claude"], key: "kelp:\($0)",
+                    kind: .skill, name: $0, source: .kelp, origin: "Kelp", agents: [Session.claudeAgent],
+                    key: "kelp:\($0)",
                     path: kelpSkills?.appendingPathComponent("\($0)/skills/\($0)/SKILL.md").path)
             }
         }
@@ -101,7 +104,7 @@ public enum AddonList {
         let chars = String(decoding: data.prefix(InstructionChecks.memoryBytes), as: UTF8.self).count
         return Addon(
             kind: .instructions, name: "MEMORY.md", source: .yours,
-            origin: files.tilde(index.deletingLastPathComponent().path), agents: ["claude"],
+            origin: files.tilde(index.deletingLastPathComponent().path), agents: [Session.claudeAgent],
             tokens: ClaudeLoaded.tokens(chars), path: index.path)
     }
 
@@ -137,7 +140,8 @@ public enum AddonList {
     /// anthropic-skills), a bare name is a folder's, and one in no folder came with the agent.
     static func skill(of listed: ClaudeLoaded.Skill, onDisk: [AddonFiles.Skill], files: AddonFiles) -> Addon {
         var item = Addon(
-            kind: .skill, name: listed.name, source: .agent, about: listed.about, agents: ["claude"], loaded: true,
+            kind: .skill, name: listed.name, source: .agent, about: listed.about, agents: [Session.claudeAgent],
+            loaded: true,
             tokens: ClaudeLoaded.tokens(listed.chars), key: "skill:\(listed.name)")
         let parts = listed.name.split(separator: ":", maxSplits: 1).map(String.init)
         if parts.count == 2 {
@@ -158,7 +162,7 @@ public enum AddonList {
         item.path = found.path
         item.origin = found.origin
         item.copies = found.copies
-        item.agents = found.agents.contains("claude") ? found.agents : ["claude"] + found.agents
+        item.agents = found.agents.contains(Session.claudeAgent) ? found.agents : [Session.claudeAgent] + found.agents
         return item
     }
 
@@ -201,7 +205,8 @@ public enum AddonList {
         let (name, source, origin) = server(key)
         let off = "server:" + key.replacingOccurrences(of: ":", with: "_")
         guard source == .agent, let file = named.first(where: { $0.name == key }) else {
-            return Addon(kind: .server, name: name, source: source, origin: origin, agents: ["claude"], key: off)
+            return Addon(
+                kind: .server, name: name, source: source, origin: origin, agents: [Session.claudeAgent], key: off)
         }
         return Addon(
             kind: .server, name: name, source: file.project ? .project : .yours, origin: file.file,

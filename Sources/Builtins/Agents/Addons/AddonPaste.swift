@@ -30,6 +30,8 @@ enum AddonPaste: Equatable {
 
     /// The agents Kelp can hand it to: a server goes on two agents' command lines; a skill sits where all of these read.
     var agents: [String] {
-        isServer ? ["claude", "codex"] : ["claude", "codex", "cursor", "pi", "copilot", "kimi", "opencode"]
+        isServer
+            ? [Session.claudeAgent, Session.codexAgent]
+            : [Session.claudeAgent, Session.codexAgent, "cursor", "pi", "copilot", "kimi", "opencode"]
     }
 }

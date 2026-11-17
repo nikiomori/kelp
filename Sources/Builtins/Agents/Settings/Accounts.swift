@@ -47,7 +47,7 @@ struct AccountsSettings: View {
     @State private var loaded = false
     @State private var selection: AccountProfile.ID?
     @State private var newName = ""
-    @State private var newAgent = "claude"
+    @State private var newAgent = Session.claudeAgent
 
     var body: some View {
         Section("Accounts") {

@@ -30,7 +30,7 @@ struct ArtifactCells {
         let name = NSTextField.label(
             panel.title(item, project), font: .ui(TextSize.row, weight: panel.isNew(item) ? .semibold : .regular))
         var title: [NSView] = [name]
-        if item.url != nil, let logo = panel.app.catalog.icon("claude", size: Metrics.iconSmall) {
+        if item.url != nil, let logo = panel.app.catalog.icon(Session.claudeAgent, size: Metrics.iconSmall) {
             // A page on claude.ai, not a file here: the mark of where it lives, beside the name.
             let mark = NSImageView(image: logo)
             mark.toolTip = String(localized: "On claude.ai: opens in your browser")

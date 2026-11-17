@@ -9,8 +9,9 @@ public struct AddonFiles: Sendable {
     public var home: URL, claude: URL, codex: URL, copilot: URL, pi: URL
 
     public init(
-        home: URL = URL(fileURLWithPath: NSHomeDirectory()), claude: URL = AgentHome.root("claude"),
-        codex: URL = AgentHome.root("codex"), copilot: URL = AgentHome.root("copilot"), pi: URL = AgentHome.root("pi")
+        home: URL = URL(fileURLWithPath: NSHomeDirectory()), claude: URL = AgentHome.root(Session.claudeAgent),
+        codex: URL = AgentHome.root(Session.codexAgent), copilot: URL = AgentHome.root("copilot"),
+        pi: URL = AgentHome.root("pi")
     ) {
         self.home = home
         self.claude = claude
@@ -19,8 +20,8 @@ public struct AddonFiles: Sendable {
         self.pi = pi
     }
 
-    static let sharedReaders = ["codex", "cursor", "pi", "copilot", "kimi", "opencode", "grok"]
-    static let claudeReaders = ["claude", "cursor", "opencode", "grok"]
+    static let sharedReaders = [Session.codexAgent, "cursor", "pi", "copilot", "kimi", "opencode", "grok"]
+    static let claudeReaders = [Session.claudeAgent, "cursor", "opencode", "grok"]
     static let claudeProjectReaders = claudeReaders + ["copilot"]
 
     /// A skill folder: its SKILL.md's name and description, where it is, and where it really is (a link's target).
@@ -47,7 +48,7 @@ public struct AddonFiles: Sendable {
             (claude.appendingPathComponent("skills"), Self.claudeReaders, false),
             (project.appendingPathComponent(".agents/skills"), Self.sharedReaders, true),
             (project.appendingPathComponent(".claude/skills"), Self.claudeProjectReaders, true),
-            (codex.appendingPathComponent("skills"), ["codex"], false),
+            (codex.appendingPathComponent("skills"), [Session.codexAgent], false),
             (copilot.appendingPathComponent("skills"), ["copilot"], false),
             (project.appendingPathComponent(".github/skills"), ["copilot"], true)
         ]
@@ -74,13 +75,17 @@ public struct AddonFiles: Sendable {
             let here = ((root["projects"] as? [String: Any])?[cwd] as? [String: Any])?["mcpServers"] as? [String: Any]
             for name in Set(mine).union((here ?? [:]).keys) {
                 out.append(
-                    Server(name: name, file: tilde(file.path), agents: ["claude"], project: false, path: file.path))
+                    Server(
+                        name: name, file: tilde(file.path), agents: [Session.claudeAgent], project: false,
+                        path: file.path))
             }
         }
         let here = URL(fileURLWithPath: cwd), shared = here.appendingPathComponent(".mcp.json")
         for name in (Self.json(shared)?["mcpServers"] as? [String: Any] ?? [:]).keys {
             out.append(
-                Server(name: name, file: ".mcp.json", agents: ["claude", "copilot"], project: true, path: shared.path))
+                Server(
+                    name: name, file: ".mcp.json", agents: [Session.claudeAgent, "copilot"], project: true,
+                    path: shared.path))
         }
         // pi's own (its folder's mcp.json, the project's .pi/mcp.json), those not turned off.
         for (file, project) in [
@@ -97,7 +102,9 @@ public struct AddonFiles: Sendable {
         let config = codex.appendingPathComponent("config.toml")
         for name in Self.codexServers(Self.text(config) ?? "") {
             out.append(
-                Server(name: name, file: tilde(config.path), agents: ["codex"], project: false, path: config.path))
+                Server(
+                    name: name, file: tilde(config.path), agents: [Session.codexAgent], project: false,
+                    path: config.path))
         }
         return out.sorted { $0.name < $1.name }
     }
@@ -110,9 +117,9 @@ public struct AddonFiles: Sendable {
         }
         let claudeFile = chars("CLAUDE.md")
         var out: [(String, Int, [String])] = []
-        if let claudeFile { out.append(("CLAUDE.md", claudeFile, ["claude", "copilot"])) }
+        if let claudeFile { out.append(("CLAUDE.md", claudeFile, [Session.claudeAgent, "copilot"])) }
         if let agents = chars("AGENTS.md") {
-            out.append(("AGENTS.md", agents, (claudeFile == nil ? ["claude"] : []) + Self.sharedReaders))
+            out.append(("AGENTS.md", agents, (claudeFile == nil ? [Session.claudeAgent] : []) + Self.sharedReaders))
         }
         return out
     }

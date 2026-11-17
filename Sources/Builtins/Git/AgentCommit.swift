@@ -35,7 +35,7 @@ extension SourceControlController {
     var lastAgent: AgentManifest? {
         let agents = commitAgents
         let id = UserDefaults.standard.string(forKey: "scm.commitAgent")
-        return agents.first { $0.id == id } ?? agents.first { $0.id == "claude" } ?? agents.first
+        return agents.first { $0.id == id } ?? agents.first { $0.id == Session.claudeAgent } ?? agents.first
     }
     private var commitAgents: [AgentManifest] {
         app.catalog.installed(app.catalog.all).filter { Session.isAgent($0.id) }

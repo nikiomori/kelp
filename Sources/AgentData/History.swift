@@ -4,7 +4,7 @@ import os
 
 public enum ClaudeHistory {
     /// Where Claude Code keeps conversations: in its folder (`AgentHome`), as Claude Code itself does.
-    public static let defaultRoot = AgentHome.root("claude").appendingPathComponent("projects")
+    public static let defaultRoot = AgentHome.root(Session.claudeAgent).appendingPathComponent("projects")
 
     /// The text of the last assistant message in a Claude Code transcript (read from the file's tail).
     public static func lastReply(transcript url: URL) -> String? {
@@ -111,7 +111,7 @@ public enum ClaudeHistory {
 
 public enum CodexHistory {
     /// In its folder (`AgentHome`), as Codex itself does.
-    public static let defaultRoot = AgentHome.root("codex").appendingPathComponent("sessions")
+    public static let defaultRoot = AgentHome.root(Session.codexAgent).appendingPathComponent("sessions")
 
     /// Sessions from `root/YYYY/MM/DD/rollout-*.jsonl`, newest first.
     public static func sessions(root: URL = defaultRoot) -> [AgentSessionInfo] {

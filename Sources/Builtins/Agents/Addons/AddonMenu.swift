@@ -53,7 +53,7 @@ struct AddonMenu {
     /// A skill of the person's or the project's that some agents don't read: Give to All Agents hands it to them.
     static func notEveryAgentHas(_ addon: Addon) -> Bool {
         [.yours, .project].contains(addon.source) && addon.key != nil
-            && !(addon.agents.contains("claude") && addon.agents.contains("codex"))
+            && !(addon.agents.contains(Session.claudeAgent) && addon.agents.contains(Session.codexAgent))
     }
 
     /// A skill in a folder: the person's or the project's can be handed to every agent and trashed.

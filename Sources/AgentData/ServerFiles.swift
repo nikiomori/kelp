@@ -84,12 +84,12 @@ extension AddonFiles {
     /// The entry `agent`'s own file has for the server `name` in a chat in `cwd`: for handing it to the other agents.
     public func entry(_ name: String, of agent: String, cwd: String) -> ServerEntry? {
         switch agent {
-        case "claude":
+        case Session.claudeAgent:
             let own = claude.appendingPathComponent(".claude.json")
             let file =
                 FileManager.default.fileExists(atPath: own.path) ? own : home.appendingPathComponent(".claude.json")
             return ServerFiles.read(file)[name]
-        case "codex":
+        case Session.codexAgent:
             let text = Data(contentsIfAny: codex.appendingPathComponent("config.toml")).map {
                 String(decoding: $0, as: UTF8.self)
             }

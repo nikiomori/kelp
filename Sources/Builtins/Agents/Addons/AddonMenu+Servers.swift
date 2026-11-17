@@ -9,7 +9,8 @@ extension AddonMenu {
     /// The agent whose own file holds this server alone, for "Give to All Agents".
     static func only(_ addon: Addon) -> String? {
         guard addon.kind == .server, addon.source == .yours, addon.origin != Addon.kept,
-            addon.agents.count == 1, let agent = addon.agents.first, ["claude", "codex"].contains(agent)
+            addon.agents.count == 1, let agent = addon.agents.first,
+            [Session.claudeAgent, Session.codexAgent].contains(agent)
         else { return nil }
         return agent
     }
@@ -61,7 +62,7 @@ extension AddonMenu {
         onOff(menu, addon)
         separate(menu)
         let (who, command) =
-            agent == "codex"
+            agent == Session.codexAgent
             ? (String(localized: "Codex"), "codex mcp remove ")
             : (String(localized: "Claude Code"), "claude mcp remove ")
         menu.add(String(localized: "Remove with \(who)…")) {

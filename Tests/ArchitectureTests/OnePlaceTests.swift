@@ -36,3 +36,15 @@ func count(_ pattern: String, in dirs: [String]) throws -> Int {
     }.map(\.path)
     #expect(spelled == [], "through Paths: \(spelled)")
 }
+
+/// Claude Code and Codex are named by `Session.claudeAgent` / `codexAgent` where an agent's id is meant: spelled out,
+/// a branch for one of them hides from a search for its uses. Left: the two declarations and the programs' own names
+/// (`claude`, `codex` on the PATH), a model's name and a plugin's prefix. Comments don't count.
+@Test func claudeAndCodexAreNamedByTheirIds() {
+    let spelled = sources(["Sources"]).map { file in
+        file.text.split(separator: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .map { $0.matches(of: #/"(claude|codex)"/#).count }.reduce(0, +)
+    }.reduce(0, +)
+    #expect(spelled <= 12, "\"claude\" / \"codex\" spelled \(spelled) times: name an agent by Session.claudeAgent")
+    #expect(spelled >= 12, "fewer now (\(spelled)): lower the count")
+}

@@ -18,7 +18,7 @@ struct AgentsSettings: View {
         (files + app.catalog.all.filter { a in !files.contains { $0.id == a.id } })
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
-    @State var selection: String? = "claude"
+    @State var selection: String? = Session.claudeAgent
     @State private var show = Show.all
     private enum Show: Int { case all, installed, available }
     @State var command = ""

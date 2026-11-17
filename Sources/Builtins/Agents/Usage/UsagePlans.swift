@@ -148,7 +148,7 @@ private struct PlanCard: View {
             ForEach(Array(zip(row.lines, outlooks).enumerated()), id: \.offset) { _, pair in
                 limit(pair.0, pair.1)
             }
-            if row.id == "claude", let spent = Self.claudeSpent(app) {
+            if row.id == Session.claudeAgent, let spent = Self.claudeSpent(app) {
                 Divider()
                 Text(spent).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

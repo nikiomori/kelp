@@ -40,7 +40,7 @@ struct WelcomeSetup: View {
 
     /// One row at most, the chosen one first: not a wall of every agent installed (Settings has them all).
     static func firstAgents(_ installed: [String], current: String?) -> [String] {
-        let known = ["claude", "codex", "gemini", "cursor", "copilot", "opencode"]
+        let known = [Session.claudeAgent, Session.codexAgent, "gemini", "cursor", "copilot", "opencode"]
         var picked = known.filter(installed.contains) + installed.filter { !known.contains($0) }
         if let current, installed.contains(current) {
             picked.removeAll { $0 == current }

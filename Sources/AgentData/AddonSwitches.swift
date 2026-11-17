@@ -22,7 +22,8 @@ public enum AddonSwitches {
             let kind: Addon.Kind? = ["skill": .skill, "kelp": .skill, "server": .server, "plugin": .plugin][parts[0]]
             guard let kind else { continue }
             let source: Addon.Source = parts[0] == "kelp" ? .kelp : parts[0] == "plugin" ? .plugin : .yours
-            var item = Addon(kind: kind, name: parts[1], source: source, agents: ["claude"], key: key, off: true)
+            var item = Addon(
+                kind: kind, name: parts[1], source: source, agents: [Session.claudeAgent], key: key, off: true)
             if kind == .server { (item.name, item.source, item.origin) = AddonList.server(parts[1]) }
             out.append(item)
         }
@@ -31,7 +32,7 @@ public enum AddonSwitches {
 
     /// Whether Kelp can leave one of `kind` out of a chat of `agent`'s.
     static func reaches(_ agent: String, _ kind: Addon.Kind) -> Bool {
-        agent == "claude" || (agent == "codex" && kind == .server)
+        agent == Session.claudeAgent || (agent == Session.codexAgent && kind == .server)
     }
 
     /// What's off, as Claude Code's settings for one run (verified on 2.1.322): a skill by `skillOverrides` (a
