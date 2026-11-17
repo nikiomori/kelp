@@ -159,14 +159,18 @@ final class PreviewModel {
         folder = Paths.relative(dir, to: root) ?? (dir == root ? "" : (dir as NSString).abbreviatingWithTildeInPath)
     }
 
+    /// The file is read off the main thread: a hover over a path on a slow volume mustn't stall the window.
     func load(worktree: String?) {
-        if TerminalPaths.images.contains((path as NSString).pathExtension.lowercased()) {
-            image = NSImage(contentsOfFile: path)
-            return
-        }
-        lines = excerpt()
-        guard let worktree else { return }
+        let path = path, line = line
         Task {
+            if TerminalPaths.images.contains((path as NSString).pathExtension.lowercased()) {
+                image = await Task.detached { FileManager.default.contents(atPath: path) }.value.flatMap {
+                    NSImage(data: $0)
+                }
+                return
+            }
+            lines = await Task.detached { Self.excerpt(path, around: line) }.value
+            guard let worktree else { return }
             // Uncommitted changes in it: show those (the hunk with the line asked about, else the first).
             let diff = await app.quiet(GitDiff(id: worktree, source: .all, file: path))
             guard let hunks = diff?.first?.hunks, !hunks.isEmpty else { return }
@@ -182,7 +186,7 @@ final class PreviewModel {
     }
 
     /// Up to 14 lines around the line named (or the file's first), read from at most 256 KB of it.
-    private func excerpt() -> [Line] {
+    nonisolated static func excerpt(_ path: String, around line: Int?) -> [Line] {
         guard let handle = FileHandle(forReadingAtPath: path) else { return [] }
         defer { try? handle.close() }
         let data = (try? handle.read(upToCount: 262_144)) ?? Data()

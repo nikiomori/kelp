@@ -21,19 +21,20 @@ enum Preview {
         return pdf.contains(pathExtension) || quickLook.contains(pathExtension)
     }
 
-    static func view(for url: URL, app: AppModel) -> NSView {
-        if pdf.contains(url.pathExtension.lowercased()), let doc = PDFDocument(url: url) {
+    /// The PDF's or image's bytes are read off the main thread: a file on a slow volume mustn't stall the window.
+    static func view(for url: URL, app: AppModel) async -> NSView {
+        let isPDF = pdf.contains(url.pathExtension.lowercased()),
+            isImage = UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true
+        let bytes =
+            isPDF || isImage ? await Task.detached { FileManager.default.contents(atPath: url.path) }.value : nil
+        if isPDF, let bytes, let doc = PDFDocument(data: bytes) {
             let pdfView = LinkedPDFView(app: app)
             pdfView.document = doc
             pdfView.autoScales = true
             pdfView.displayMode = .singlePageContinuous
             return pdfView
         }
-        if UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true,
-            let image = NSImage(contentsOf: url)
-        {
-            return ImagePreview(image: image, url: url)
-        }
+        if isImage, let bytes, let image = NSImage(data: bytes) { return ImagePreview(image: image, url: url) }
         let quickLookView = QLPreviewView(frame: .zero, style: .normal) ?? QLPreviewView()
         quickLookView.previewItem = url as NSURL
         quickLookView.shouldCloseWithWindow = false
@@ -52,16 +53,20 @@ final class FollowedPreview {
     private let version: Watched
 
     init(url: URL, app: AppModel) {
-        shown = Preview.view(for: url, app: app)
+        shown = NSView()   // until the file is read
         view.pin(shown)
         version = Watched(.file, in: app)
         version.key = url.path
+        Task { [weak self] in
+            let first = await Preview.view(for: url, app: app)
+            self?.show(first)
+        }
         track(owner: self) {
             app.latest(FileEvent.self, url.path)?.stamp
         } changed: { [weak self] now in
             guard let self, let now, now != stamp else { return }
             defer { stamp = now }
-            if stamp != nil { show(Preview.view(for: url, app: app)) }
+            if stamp != nil { Task { [weak self] in self?.show(await Preview.view(for: url, app: app)) } }
         }
     }
 

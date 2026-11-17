@@ -416,7 +416,7 @@ extension AppOfItsOwn {
         try png(10)
         let tab = FileTab(uri: TabURI.file(p), app: rig.app)
         func side() -> CGFloat? { (tab.view.subviews.first as? ImagePreview)?.image?.size.width }
-        #expect(side() == 10)
+        #expect(try await waitFor(5) { side() == 10 })
         #expect(try await waitFor(5) { rig.app.latest(FileEvent.self, p)?.stamp != nil })
         try png(20)
         #expect(try await waitFor(5) { side() == 20 })

@@ -126,13 +126,13 @@ import Testing
 
 /// A PDF's links go by the same rules: its view has Kelp's delegate (without one, PDFKit opens any link with its app).
 @MainActor
-@Test func aPDFsLinksGoThroughKelp() throws {
+@Test func aPDFsLinksGoThroughKelp() async throws {
     let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("doc-\(UUID().uuidString).pdf")
     defer { try? FileManager.default.removeItem(at: url) }
     let doc = PDFDocument()
     doc.insert(PDFPage(), at: 0)
     #expect(doc.write(to: url))
-    let view = try #require(Preview.view(for: url, app: AppModel(builtins: Builtins.all)) as? LinkedPDFView)
+    let view = try #require(await Preview.view(for: url, app: AppModel(builtins: Builtins.all)) as? LinkedPDFView)
     #expect(view.delegate === view.links)
 }
 

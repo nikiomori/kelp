@@ -126,7 +126,7 @@ final class FileTab: SavableTab {
                     let copy = URL(fileURLWithPath: try await app.get(FilesFetch(path: filePath)))
                     guard let self else { return }
                     wait?.removeFromSuperview()
-                    let previewView = Preview.view(for: copy, app: app)
+                    let previewView = await Preview.view(for: copy, app: app)
                     preview = previewView
                     box.pin(previewView)
                     if focusWhenLoaded { focus() }

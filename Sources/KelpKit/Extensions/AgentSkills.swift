@@ -9,7 +9,7 @@ import os
 @MainActor
 enum AgentSkills {
     /// What couldn't be written or removed: an agent would go on with an old skill, or none, unseen.
-    private static let log = Logger.kelp("skills")
+    private nonisolated static let log = Logger.kelp("skills")
 
     static func write(_ app: AppModel) {
         // Nothing before the extensions are loaded: most skills are theirs, and the settings guide lists their rows.
@@ -32,22 +32,26 @@ enum AgentSkills {
                         + "terminal, agents. Done with the kelp CLI (kelp settings set …), not Claude Code's own settings.",
                     setting: SettingKeys.skillSettings, body: settingsGuide(app))
             ] + app.extensions.all.skills
-        for skill in skills {
-            put(
-                skill.name, on: skill.setting.map { settings[$0] } ?? true, description: skill.description,
-                body: skill.body)
+        let wanted = skills.map {
+            (name: $0.name, on: $0.setting.map { settings[$0] } ?? true, description: $0.description, body: $0.body)
         }
-        // One no extension gives now (its built-in turned off, the app's old name's `krill-`): its folder goes.
-        let given = Set(skills.map(\.name))
-        let folders = FileManager.default.enumerator(atPath: Paths.agentSkills.path)
-        while let old = folders?.nextObject() as? String {
-            folders?.skipDescendants()   // the plugins' own folders only
-            guard old.hasPrefix("kelp-") || old.hasPrefix("krill-"), !given.contains(old) else { continue }
-            put(old, on: false, description: "", body: "")
+        let guideDir = ExtensionRegistry.userDir
+        // Off the main thread, one write after another in the order asked.
+        files.async {
+            for skill in wanted { put(skill.name, on: skill.on, description: skill.description, body: skill.body) }
+            // One no extension gives now (its built-in turned off, the app's old name's `krill-`): its folder goes.
+            let given = Set(wanted.map(\.name))
+            let folders = FileManager.default.enumerator(atPath: Paths.agentSkills.path)
+            while let old = folders?.nextObject() as? String {
+                folders?.skipDescendants()   // the plugins' own folders only
+                guard old.hasPrefix("kelp-") || old.hasPrefix("krill-"), !given.contains(old) else { continue }
+                put(old, on: false, description: "", body: "")
+            }
+            // The guide also sits next to the user's extensions, for people.
+            log.attempt("writing the extension guide") { try ExtensionFiles.writeGuide(in: guideDir) }
         }
-        // The guide also sits next to the user's extensions, for people.
-        log.attempt("writing the extension guide") { try ExtensionFiles.writeGuide(in: ExtensionRegistry.userDir) }
     }
+    private nonisolated static let files = DispatchQueue(label: "kelp.agent-skills")
 
     /// The exact folder this Kelp loads extensions from (the guide below says ~/.kelp, which a custom KELP_HOME changes).
     private static func extensionsSteps(_ folder: String) -> String {
@@ -72,7 +76,7 @@ enum AgentSkills {
         """
     }
 
-    private static func put(_ name: String, on: Bool, description: String, body: String) {
+    private nonisolated static func put(_ name: String, on: Bool, description: String, body: String) {
         let plugin = Paths.agentSkills.appendingPathComponent(name)
         guard on else {
             guard FileManager.default.fileExists(atPath: plugin.path) else { return }
@@ -91,7 +95,7 @@ enum AgentSkills {
         writeIfChanged(plugin.appendingPathComponent("skills/\(name)/SKILL.md"), front + body)
     }
 
-    private static func writeIfChanged(_ url: URL, _ text: String) {
+    private nonisolated static func writeIfChanged(_ url: URL, _ text: String) {
         guard (try? String(contentsOf: url, encoding: .utf8)) != text else { return }
         log.attempt("writing \(url.path.replacingOccurrences(of: Paths.agentSkills.path, with: "agent-skills"))") {
             try FileManager.default.createDirectory(
