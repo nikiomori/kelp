@@ -24,7 +24,11 @@ extension AppOfItsOwn {
         let issue = GitHub.Issue(
             number: 7, title: "Fix it", body: "", url: "", labels: [], assignees: [], state: "OPEN")
         IssueWork(app: rig.app, repoId: rig.project.id).startOnBranch(issue)
-        #expect(try await waitFor(10) { window.attachedSheet != nil })
-        if let asked = window.attachedSheet { window.endSheet(asked, returnCode: .alertSecondButtonReturn) }
+        // The question goes on the front window, which needn't be this one while other tests' windows are open.
+        let asking = { NSApp.windows.first { $0.attachedSheet != nil } }
+        #expect(try await waitFor(10) { asking() != nil })
+        if let parent = asking(), let asked = parent.attachedSheet {
+            parent.endSheet(asked, returnCode: .alertSecondButtonReturn)
+        }
     }
 }

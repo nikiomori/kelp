@@ -566,9 +566,12 @@ extension OneAtATime {
     }
 
     /// Focus mode's panels wait in floaters over the editor area (they don't squeeze it when they come in) and go back to
-    /// their columns after.
+    /// their columns after. Under Reduce Motion, so the panels are there at once, whichever columns this Mac's tests
+    /// left open, and whatever motion another test pinned.
     @Test func focusModesPanelsFloatOverTheEditorAreaAndComeBack() throws {
         _ = testHome
+        Motion.pinned = true
+        defer { Motion.pinned = nil }
         let app = AppModel(builtins: Builtins.all), main = MainWindowController(app: app)
         #expect(app.workbench.window === main)   // what acts on the window (open, show, focus) reaches it through the workbench
         // The split's view: over the theme's backdrop, under the bar and the floaters.
