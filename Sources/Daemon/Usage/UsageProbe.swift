@@ -26,6 +26,22 @@ extension AgentUsage {
         /// Limits a session saw run out that `/usage` doesn't show (Cursor's Free plan reads 0% after its last request): held
         /// over the probe's readings until the probe's reset date for that limit moves on.
         var hits: [LimitScreens.Reading] = []
+        /// When a session of the agent last began or ended a turn, and whether the last one heard of began one.
+        var usedAt: Date?, working = false
+
+        /// Whether the probe is due: `every` after the last try. While nobody uses the agent (no turn since the reading,
+        /// none going on) and none of its limits has reset since, only every `idleEvery`: what moves the plan then is
+        /// use elsewhere (claude.ai), and a probe costs a whole run of the agent.
+        func due(every: TimeInterval, now: Date = Date()) -> Bool {
+            let since = now.timeIntervalSince(at ?? .distantPast)
+            guard let readAt, !working, (usedAt ?? .distantPast) < readAt,
+                !readings.contains(where: { reading in
+                    reading.resets.flatMap { ResetTime.parse($0, now: readAt) }.map { $0 > readAt && $0 <= now }
+                        ?? false
+                })
+            else { return since > every }
+            return since > max(every, AgentUsage.idleEvery)
+        }
 
         /// The probe's `readings`, with each hit still in its cycle over the reading of its kind.
         mutating func read(_ fresh: [LimitScreens.Reading]) {
@@ -135,9 +151,7 @@ extension AgentUsage {
         for probe in Self.planProbes where used.contains(probe.agent) {
             let start: Bool = plans.withLock { plans in
                 let plan = plans[probe.agent] ?? PlanState()
-                guard !plan.running, Date().timeIntervalSince(plan.at ?? .distantPast) > probe.every else {
-                    return false
-                }
+                guard !plan.running, plan.due(every: probe.every) else { return false }
                 plans[probe.agent, default: PlanState()].running = true
                 return true
             }
@@ -182,6 +196,16 @@ extension AgentUsage {
 
     /// A probe costs what starting the agent costs (Claude: 7.5 s of CPU and 400 MB), so turns ending close together share one.
     static let planGap: TimeInterval = 300
+    /// How often an agent nobody uses is read: under the half hour after which the sidebar dims a reading.
+    static let idleEvery: TimeInterval = 1500
+
+    /// A session of `agent` began (`working`) or ended a turn: its plan is in use.
+    func planSeen(_ agent: String, working: Bool) {
+        plans.withLock {
+            $0[agent, default: PlanState()].usedAt = Date()
+            $0[agent, default: PlanState()].working = working
+        }
+    }
 
     /// A turn just ended, so the agent's usage moved: read its plan half a minute from now instead of at the next round
     /// (up to 10 minutes late for Claude), and not within `planGap` of the last reading. The UI's next `usage.get` starts the read.

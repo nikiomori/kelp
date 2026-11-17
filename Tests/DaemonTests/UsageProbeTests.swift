@@ -116,3 +116,21 @@ import Testing
     #expect(u.usedLately(now: now + 60).isEmpty)
     #expect(u.usedLately(now: now + 3601) == ["grok"])
 }
+
+/// An agent nobody uses is read every 25 minutes, not every 10: a turn since the reading, one going on, or a limit
+/// that reset since bring it back to its own clock.
+@Test func anAgentNobodyUsesIsProbedLessOften() throws {
+    let now = Date(), read = now.addingTimeInterval(-700)
+    var idle = AgentUsage.PlanState(at: read, readAt: read)
+    #expect(!idle.due(every: 600, now: now))
+    #expect(idle.due(every: 600, now: now.addingTimeInterval(AgentUsage.idleEvery)))
+    var used = idle
+    used.usedAt = now.addingTimeInterval(-60)
+    #expect(used.due(every: 600, now: now))
+    var working = idle
+    working.usedAt = read.addingTimeInterval(-60)
+    working.working = true
+    #expect(working.due(every: 600, now: now))
+    idle.readings = [.init(kind: "session", percent: 90, resets: "in 5m")]   // reset 5 minutes after the reading
+    #expect(idle.due(every: 600, now: now))
+}

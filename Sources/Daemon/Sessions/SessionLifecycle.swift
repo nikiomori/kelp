@@ -191,8 +191,9 @@ extension Sessions {
         // a turn ended or began: how full now
         watches.touched(.init(topic: .context, key: session.id), tag: session.status.rawValue)
         if let ls = existing(session.id) { touchCommands(ls) }   // one ended with its turn or its program
-        if session.status == .done || session.status == .waiting, let agent = session.agent {
-            agentUsage.planUsed(agent)
+        if let agent = session.agent, [.working, .done, .waiting].contains(session.status) {
+            agentUsage.planSeen(agent, working: session.status == .working)
+            if session.status != .working { agentUsage.planUsed(agent) }
         }
         familyHeard(session)
         events.heard(session)
