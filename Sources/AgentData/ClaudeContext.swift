@@ -33,9 +33,8 @@ public enum ClaudeContext {
     private static func readUsage(_ url: URL) -> Usage? {
         guard let data = Data(tail: 1 << 20, of: url) else { return nil }   // a turn's tool results can be hundreds of KB
         var compacted: (pre: Int, post: Int)?
-        for line in data.split(separator: 0x0A).reversed() {
-            guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
-                entry["isSidechain"] as? Bool != true
+        for line in JSONL.lines(data).reversed() {
+            guard let entry = JSONL.object(line), entry["isSidechain"] as? Bool != true
             else { continue }
             if compacted == nil, entry["subtype"] as? String == "compact_boundary" {
                 // Without postTokens (older Claude Code), the size after compaction is unknown until the next reply.

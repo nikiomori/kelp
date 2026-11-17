@@ -77,7 +77,7 @@ public enum ConversationTurns {
             guard role == "user" || role == "assistant" else { return }
             let items = content as? [[String: Any]] ?? []
             let texts = (content as? String).map { [$0] } ?? items.compactMap { $0["text"] as? String }
-            let text = texts.compactMap(role == "user" ? Self.asked : Self.said).joined(separator: "\n\n")
+            let text = texts.compactMap(role == "user" ? JSONL.typed : Self.said).joined(separator: "\n\n")
             if !text.isEmpty {
                 endRun()
                 let turn = Turn(role: role == "user" ? .user : .agent, text: text, at: role == "user" ? at : nil)
@@ -101,22 +101,6 @@ public enum ConversationTurns {
         private static func said(_ raw: String) -> String? {
             let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             return text.isEmpty ? nil : text
-        }
-
-        /// Returns what a person typed, or nil for what a program put under the person's name (`<system-reminder>`,
-        /// a command's output, Codex's AGENTS.md and environment). A slash command with arguments reads "/name args".
-        private static func asked(_ raw: String) -> String? {
-            let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            if text.hasPrefix("<command-"), let name = text.firstMatch(of: /<command-name>(.*?)<\/command-name>/)?.1,
-                let args = text.firstMatch(of: /<command-args>([\s\S]*?)<\/command-args>/)?.1,
-                !args.allSatisfy(\.isWhitespace)
-            {
-                return "\(name) \(args)"
-            }
-            let notTyped =
-                text.isEmpty || text.hasPrefix("<") || text.hasPrefix("# AGENTS.md")
-                || text.hasPrefix("[Request interrupted")
-            return notTyped ? nil : text
         }
     }
 

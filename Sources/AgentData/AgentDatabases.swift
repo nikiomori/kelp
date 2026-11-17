@@ -34,17 +34,12 @@ public enum AgentDatabases {
                         $0.lastPathComponent.hasPrefix("kilo") && $0.pathExtension == "db"
                     }
             case "antigravity":
-                (AgentHome.dir(agent).flatMap {
-                    fm.enumerator(
-                        at: $0.appendingPathComponent("conversations"), includingPropertiesForKeys: nil,
-                        options: .skipsSubdirectoryDescendants)
-                }?.allObjects as? [URL] ?? []).filter { $0.pathExtension == "db" }
+                (AgentHome.dir(agent).map { fm.items(in: $0.appendingPathComponent("conversations")) } ?? []).filter {
+                    $0.pathExtension == "db"
+                }
             default: []
             }
-        func changed(_ path: String) -> TimeInterval {
-            var info = stat()
-            return stat(path, &info) == 0 ? TimeInterval(info.st_mtimespec.tv_sec) : 0
-        }
+        func changed(_ path: String) -> TimeInterval { fm.modified(path)?.timeIntervalSince1970 ?? 0 }
         return all.filter { max(changed($0.path), changed($0.path + "-wal")) >= since.timeIntervalSince1970 }
     }
 

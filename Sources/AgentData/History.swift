@@ -14,9 +14,8 @@ public enum ClaudeHistory {
 
     /// Does the same with the last bytes of a transcript that were read elsewhere (for a remote project, on its host).
     public static func lastReply(tail data: Data) -> String? {
-        for line in data.split(separator: 0x0A).reversed() {
-            guard let entry = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
-                entry["type"] as? String == "assistant",
+        for line in JSONL.lines(data).reversed() {
+            guard let entry = JSONL.object(line), entry["type"] as? String == "assistant",
                 let content = (entry["message"] as? [String: Any])?["content"] as? [[String: Any]]
             else { continue }
             let text = content.compactMap { $0["type"] as? String == "text" ? $0["text"] as? String : nil }.joined(
@@ -56,13 +55,11 @@ public enum ClaudeHistory {
 
     /// Returns a conversation's file by its id, whichever folder it was started in, or nil if there's none.
     public static func transcript(id: String, root: URL = defaultRoot) -> URL? {
-        let folders: [URL]
-        do { folders = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) } catch {
-            return nil
-        }
         let names = Set([id, id.lowercased()]).map { $0 + ".jsonl" }
-        return folders.lazy.flatMap { folder in names.map { folder.appendingPathComponent($0) } }
-            .first { FileManager.default.fileExists(atPath: $0.path) }
+        return FileManager.default.items(in: root).lazy.flatMap { folder in
+            names.map { folder.appendingPathComponent($0) }
+        }
+        .first { FileManager.default.fileExists(atPath: $0.path) }
     }
 
     /// The folder of `cwd`'s conversations under `root`.
@@ -211,9 +208,7 @@ public enum PiHistory {
     public static func file(id: String, root: URL) -> URL? {
         let suffix = "_\(id.lowercased()).jsonl"
         return folders(root).lazy.compactMap { folder in
-            (FileManager.default.enumerator(
-                at: folder, includingPropertiesForKeys: nil, options: .skipsSubdirectoryDescendants)?
-                .allObjects as? [URL])?.first { $0.lastPathComponent.lowercased().hasSuffix(suffix) }
+            FileManager.default.items(in: folder).first { $0.lastPathComponent.lowercased().hasSuffix(suffix) }
         }.first
     }
 
@@ -225,13 +220,9 @@ public enum PiHistory {
         }
     }
 
+    /// No folder yet means no conversation yet.
     private static func folders(_ root: URL) -> [URL] {
-        do {
-            return try FileManager.default.contentsOfDirectory(
-                at: root, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
-        } catch {
-            return []   // no folder yet means no conversation yet
-        }
+        FileManager.default.items(in: root).filter { !$0.lastPathComponent.hasPrefix(".") }
     }
 
     /// Returns the conversation in `cwd` that was written to last, if that was since `since`.
@@ -244,18 +235,9 @@ public enum PiHistory {
         func dashed(_ path: Substring) -> String { String(path).replacing(/[\/:]/, with: "-") }
         var names = ["--" + dashed(real.dropFirst(real.hasPrefix("/") ? 1 : 0)) + "--"]
         if real.hasPrefix(ownHome) { names.append("-" + dashed(real.dropFirst(ownHome.count))) }
-        func modified(_ url: URL) -> Date {
-            var info = stat()
-            return stat(url.path, &info) == 0
-                ? Date(timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec)) : .distantPast
-        }
+        func modified(_ url: URL) -> Date { FileManager.default.modified(url.path) ?? .distantPast }
         // A missing folder means pi has no conversation here yet.
-        let files = names.flatMap { name in
-            FileManager.default.enumerator(
-                at: root.appendingPathComponent(name), includingPropertiesForKeys: nil,
-                options: .skipsSubdirectoryDescendants)?
-                .allObjects as? [URL] ?? []
-        }
+        let files = names.flatMap { FileManager.default.items(in: root.appendingPathComponent($0)) }
         return files.filter { $0.pathExtension == "jsonl" && modified($0) >= since }.max { modified($0) < modified($1) }
     }
 }
@@ -354,16 +336,24 @@ enum JSONL {
             if let string = content as? String { [string] } else {
                 (content as? [[String: Any]] ?? []).compactMap { $0["text"] as? String }
             }
-        return texts.lazy.compactMap { raw -> String? in
-            let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            if text.hasPrefix("<command-"), let name = text.firstMatch(of: /<command-name>(.*?)<\/command-name>/)?.1,
-                let args = text.firstMatch(of: /<command-args>([\s\S]*?)<\/command-args>/)?.1,
-                !args.allSatisfy(\.isWhitespace)
-            {
-                return "\(name) \(args)"
-            }
-            return text.isEmpty || text.hasPrefix("<") || text.hasPrefix("# AGENTS.md") ? nil : text
-        }.first
+        return texts.lazy.compactMap(typed).first
+    }
+
+    /// Returns what a person typed, or nil for what a program put under the person's name (`<system-reminder>`, a
+    /// command's output, Codex's AGENTS.md and environment, an interruption). A slash command with arguments reads
+    /// "/name args".
+    static func typed(_ raw: String) -> String? {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.hasPrefix("<command-"), let name = text.firstMatch(of: /<command-name>(.*?)<\/command-name>/)?.1,
+            let args = text.firstMatch(of: /<command-args>([\s\S]*?)<\/command-args>/)?.1,
+            !args.allSatisfy(\.isWhitespace)
+        {
+            return "\(name) \(args)"
+        }
+        let notTyped =
+            text.isEmpty || text.hasPrefix("<") || text.hasPrefix("# AGENTS.md")
+            || text.hasPrefix("[Request interrupted")
+        return notTyped ? nil : text
     }
 
     static func clip(_ text: String, _ length: Int = 80) -> String {
@@ -379,9 +369,7 @@ enum JSONL {
             last = max(last ?? date, date)
         }
         func orFileDate(_ url: URL) -> (Date, Date) {
-            let modified =
-                (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
-                ?? Date(timeIntervalSince1970: 0)
+            let modified = FileManager.default.modified(url.path) ?? Date(timeIntervalSince1970: 0)
             return (first ?? modified, last ?? modified)
         }
     }

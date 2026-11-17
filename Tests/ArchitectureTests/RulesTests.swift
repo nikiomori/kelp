@@ -221,7 +221,7 @@ import Testing
 /// Each module's count is a ceiling that holds both ways.
 @Test func emptyCatchesAreCounted() throws {
     let ceilings = [
-        "Daemon": 18, "Core": 10, "Builtins": 7, "kelp": 1, "KelpVM": 1, "Agents": 1, "LSPKit": 1, "AgentData": 1
+        "Daemon": 18, "Core": 10, "Builtins": 7, "kelp": 1, "KelpVM": 1, "Agents": 1, "LSPKit": 1
     ]
     let modules = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Sources").path)
         .filter { !$0.hasPrefix(".") }

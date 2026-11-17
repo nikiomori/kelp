@@ -117,9 +117,7 @@ public enum CodexUsage {
     /// that have one. Rollouts without a snapshot are skipped, because Codex Desktop imports Claude Code conversations
     /// as rollouts by the dozen, all newer than the last real session and with `rate_limits: null`.
     public static func latest(root: URL = CodexHistory.defaultRoot) -> CodexLimits? {
-        func mtime(_ url: URL) -> Date {
-            (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-        }
+        func mtime(_ url: URL) -> Date { FileManager.default.modified(url.path) ?? .distantPast }
         var found: [CodexLimits] = []
         // Limit: reads up to 200 rollouts when none has limits (API-key sign-in); remember that if it gets slow.
         for (rollout, _) in CodexHistory.rollouts(root).map({ ($0, mtime($0)) }).sorted(by: { $0.1 > $1.1 }).prefix(200)

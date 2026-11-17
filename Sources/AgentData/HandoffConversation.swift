@@ -25,14 +25,10 @@ public struct Conversation: Sendable {
     /// Reads a conversation file. Returns nil when the file can't be read or holds nothing anyone said.
     public init?(file url: URL) {
         guard let data = Data(contentsIfAny: url) else { return nil }
-        for line in data.split(separator: 0x0A) {
-            if let entry = Self.json(Data(line)) { read(entry) }
+        for line in JSONL.lines(data) {
+            if let entry = JSONL.object(line) { read(entry) }
         }
         guard !turns.isEmpty else { return nil }
-    }
-
-    private static func json(_ data: Data) -> [String: Any]? {
-        try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 
     /// Parses one line of a conversation file: Claude Code's `{type: user|assistant, message}`, pi's `{type: message,
@@ -45,7 +41,7 @@ public struct Conversation: Sendable {
         case ("message", _): say(message?["role"] as? String, message?["content"])
         case ("response_item", "message"?): say(payload?["role"] as? String, payload?["content"])
         case ("response_item", "function_call"?):
-            used(payload?["name"] as? String, Self.json(Data(((payload?["arguments"] as? String) ?? "").utf8)))
+            used(payload?["name"] as? String, JSONL.object(Data(((payload?["arguments"] as? String) ?? "").utf8)))
         case ("event_msg", "item_completed"?): did(payload?["item"] as? [String: Any] ?? [:])
         default: break
         }
