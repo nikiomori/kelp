@@ -90,15 +90,7 @@ package final class SettingsStore {
     /// or 0). The rule can also be "key=value" or "key!=value".
     func meets(_ rule: String?) -> Bool {
         guard let rule else { return true }
-        func text(_ key: String) -> String {
-            switch value(key) {
-            case .bool(let bool)?: return bool ? "true" : "false"
-            case .int(let int)?: return String(int)
-            case .double(let double)?: return String(double)
-            case .string(let string)?: return string
-            default: return ""
-            }
-        }
+        func text(_ key: String) -> String { value(key).map(ExtActions.text) ?? "" }
         if let range = rule.range(of: "!=") {
             return text(String(rule[..<range.lowerBound])) != rule[range.upperBound...]
         }

@@ -119,11 +119,8 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
             "name": .string(ctx.workspace?.displayName ?? ""), "path": .string(ctx.workspace?.path ?? ""),
             "branch": .string(ctx.workspace?.branch ?? ""), "project": .string(ctx.project?.name ?? "")
         ])
-        let settings = JSONValue.object(app.settings.values)
-        guard let workspaceJSON = try? String(data: JSONEncoder().encode(ws), encoding: .utf8),
-            let settingsJSON = try? String(data: JSONEncoder().encode(settings), encoding: .utf8)
-        else { return }
-        web.evaluateJavaScript("window.kelp && window.kelp.__update(\(workspaceJSON), \(settingsJSON))")
+        let settings = ExtBridge.json(.object(app.settings.values))
+        web.evaluateJavaScript("window.kelp && window.kelp.__update(\(ExtBridge.json(ws)), \(settings))")
     }
 
     func userContentController(_ controller: WKUserContentController, didReceive scriptMessage: WKScriptMessage) {
@@ -191,10 +188,8 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
     }
 
     private func reply(_ id: Int, _ v: JSONValue) {
-        guard let url = web.url, Self.isOwn(url, folder),
-            let json = try? String(data: JSONEncoder().encode(v), encoding: .utf8)
-        else { return }
-        web.evaluateJavaScript("window.kelp.__resolve(\(id), \(json))")
+        guard let url = web.url, Self.isOwn(url, folder) else { return }
+        web.evaluateJavaScript("window.kelp.__resolve(\(id), \(ExtBridge.json(v)))")
     }
 
 }

@@ -147,11 +147,7 @@ final class InspectorController: NSViewController {
         } changed: { [weak self] _ in
             guard let self else { return }
             panelTitle.font = .ui(TextSize.body, weight: .semibold)
-            for (_, vc) in made {
-                vc.view.removeFromSuperview()
-                vc.removeFromParent()
-            }
-            made = [:]
+            made.keys.forEach(unmake)
             showSelected()
         }
         track(owner: self) { [app] in
@@ -209,11 +205,7 @@ final class InspectorController: NSViewController {
         }
         panels = app.extensions.all.panels.enumerated().sorted { rank($0) < rank($1) }.map(\.element)
         let ids = Set(panels.map(\.id))
-        for k in made.keys where !ids.contains(k) {
-            made[k]?.view.removeFromSuperview()
-            made[k]?.removeFromParent()
-            made[k] = nil
-        }
+        made.keys.filter { !ids.contains($0) }.forEach(unmake)
         buttons.forEach { $0.removeFromSuperview() }
         more.removeFromSuperview()
         counts = []
@@ -295,11 +287,14 @@ final class InspectorController: NSViewController {
     /// show (an agent edits one, then runs `kelp ext reload`). Built-in panels stay as they are.
     private func forgetFolderPanels() {
         let builtin = Set(app.extensions.extensions.filter(\.builtin).map(\.id))
-        for p in panels where !builtin.contains(p.extensionId) {
-            made[p.id]?.view.removeFromSuperview()
-            made[p.id]?.removeFromParent()
-            made[p.id] = nil
-        }
+        for p in panels where !builtin.contains(p.extensionId) { unmake(p.id) }
+    }
+
+    /// Takes a built panel out, so it is made again the next time it shows.
+    private func unmake(_ id: String) {
+        made[id]?.view.removeFromSuperview()
+        made[id]?.removeFromParent()
+        made[id] = nil
     }
 
     func showCounts() {

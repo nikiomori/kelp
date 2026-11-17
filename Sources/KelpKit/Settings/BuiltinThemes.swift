@@ -1,15 +1,22 @@
 import Foundation
 
 extension Theme {
-    /// A popular palette: terminal and editor colors from one table. `c` is [bg, fg, cursor, selection]; `ansi` is the
-    /// 16 colors; `code` is [keyword, string, comment, type, number, function].
-    fileprivate init(_ id: String, _ name: String, _ appearance: String, c: [String], ansi: [String], code: [String]) {
+    /// A palette: terminal and editor colors from one table, and for a `looks` theme the window it comes with. `c` is
+    /// [bg, fg, cursor (empty for the default), selection]; `ansi` is the 16 colors; `code` is [keyword, string,
+    /// comment, type, number, function].
+    init(
+        _ id: String, _ name: String, _ appearance: String, c: [String], ansi: [String], code: [String],
+        terminalOpacity: Double? = nil, editorOpacity: Double? = nil, shader: String? = nil, window: Window? = nil
+    ) {
         self.init(
             id: id, name: name, appearance: appearance,
-            terminal: .init(background: c[0], foreground: c[1], cursor: c[2], selection: c[3], palette: ansi),
+            terminal: .init(
+                background: c[0], foreground: c[1], cursor: c[2].isEmpty ? nil : c[2], selection: c[3], palette: ansi,
+                opacity: terminalOpacity, shader: shader),
             editor: .init(
-                background: c[0], text: c[1], keyword: code[0], string: code[1], comment: code[2],
-                type: code[3], number: code[4], function: code[5]))
+                background: c[0], text: c[1], keyword: code[0], string: code[1], comment: code[2], type: code[3],
+                number: code[4], function: code[5], opacity: editorOpacity),
+            window: window)
     }
 
     static let popular: [Theme] = [

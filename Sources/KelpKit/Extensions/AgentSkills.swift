@@ -137,11 +137,7 @@ enum AgentSkills {
             for spec in section.specs {
                 var type = spec.type.name
                 if let options = spec.options, !options.isEmpty { type += ": " + options.joined(separator: " / ") }
-                let def =
-                    spec.default.map { v -> String in
-                        if case .string(let text) = v { return text.isEmpty ? "—" : text }
-                        return (try? JSONEncoder().encode(v)).flatMap { String(bytes: $0, encoding: .utf8) } ?? "—"
-                    } ?? "—"
+                let def = spec.default.map(ExtActions.text).flatMap { $0.isEmpty ? nil : $0 } ?? "—"
                 let what = [spec.title, spec.description].compactMap { $0 }.joined(separator: ". ")
                     .replacingOccurrences(of: "|", with: "/")
                 out += "| `\(spec.key)` | \(type) | \(def) | \(what) |\n"

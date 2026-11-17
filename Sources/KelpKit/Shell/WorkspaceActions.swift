@@ -83,11 +83,7 @@ package struct WorkspaceActions {
 
     private func discard(_ worktree: Worktree, _ work: Work) async {
         guard await UnsavedChanges.confirm(closing: [worktree.id], in: app) else { return }
-        if app.workbench.workspaceId == worktree.id,
-            let main = app.worktrees.first(where: { $0.repoId == worktree.repoId && $0.id != worktree.id })
-        {
-            app.workbench.show(workspace: main.id)
-        }
+        stepAway(from: worktree)
         await app.call(WorktreeRemove(id: worktree.id, force: work.dirty, dropCommits: work.commits > 0))
     }
 
@@ -185,11 +181,7 @@ package struct WorkspaceActions {
                 else { return }
             }
             guard await UnsavedChanges.confirm(closing: [worktree.id], in: app) else { return }
-            if app.workbench.workspaceId == worktree.id,
-                let other = app.worktrees.first(where: { $0.repoId == worktree.repoId && $0.id != worktree.id })
-            {
-                app.workbench.show(workspace: other.id)
-            }
+            stepAway(from: worktree)
             // If the removal is refused (an agent wrote something at the last moment), go back to what's still there.
             if await app.call(WorktreeRemove(id: worktree.id)) == nil { app.workbench.show(workspace: worktree.id) }
         }
@@ -352,18 +344,22 @@ package struct WorkspaceActions {
     func archive(_ worktree: Worktree) {
         Task {
             guard await UnsavedChanges.confirm(closing: [worktree.id], in: app) else { return }
-            if app.workbench.workspaceId == worktree.id,
-                let other = app.worktrees.first(where: {
-                    $0.repoId == worktree.repoId && $0.id != worktree.id && !$0.archived
-                })
-            {
-                app.workbench.show(workspace: other.id)
-            }
+            stepAway(from: worktree)
             if await app.call(WorktreeArchive(id: worktree.id)) != nil {
                 Banner.show(
                     String(localized: "“\(worktree.displayName)” archived. Window › Archived Groups brings it back."))
             }
         }
+    }
+
+    /// Shows another of the project's workspaces first when `worktree`, which is about to go, is the one on screen.
+    private func stepAway(from worktree: Worktree) {
+        guard app.workbench.workspaceId == worktree.id,
+            let other = app.worktrees.first(where: {
+                $0.repoId == worktree.repoId && $0.id != worktree.id && !$0.archived
+            })
+        else { return }
+        app.workbench.show(workspace: other.id)
     }
 
     func unarchive(_ id: String) {

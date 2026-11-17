@@ -4,25 +4,21 @@ import Core
 import DesignKit
 
 extension WorkspaceActions {
-    private static let editors = [
-        ("VS Code", "com.microsoft.VSCode"), ("Cursor", "com.todesktop.230313mzl4w4u92"),
-        ("Windsurf", "com.exafunction.windsurf"),
-        ("Zed", "dev.zed.Zed"), ("Sublime Text", "com.sublimetext.4"), ("Xcode", "com.apple.dt.Xcode"),
-        ("Fork", "com.DanPristupov.Fork"), ("Tower", "com.fournova.Tower3"),
-        ("GitHub Desktop", "com.github.GitHubClient"),
-        ("Terminal", "com.apple.Terminal"), ("iTerm", "com.googlecode.iterm2"), ("Warp", "dev.warp.Warp-Stable")
+    /// The editors Kelp offers, by bundle id. Terminals and git clients get a folder (`folderOnly`), because Terminal
+    /// would run a file as a script. `ssh` is the link scheme of an editor that opens a folder on another machine over
+    /// SSH itself.
+    private static let editors: [(name: String, bundle: String, folderOnly: Bool, ssh: String?)] = [
+        ("VS Code", "com.microsoft.VSCode", false, "vscode"),
+        ("Cursor", "com.todesktop.230313mzl4w4u92", false, "cursor"),
+        ("Windsurf", "com.exafunction.windsurf", false, "windsurf"), ("Zed", "dev.zed.Zed", false, nil),
+        ("Sublime Text", "com.sublimetext.4", false, nil), ("Xcode", "com.apple.dt.Xcode", false, nil),
+        ("Fork", "com.DanPristupov.Fork", true, nil), ("Tower", "com.fournova.Tower3", true, nil),
+        ("GitHub Desktop", "com.github.GitHubClient", true, nil), ("Terminal", "com.apple.Terminal", true, nil),
+        ("iTerm", "com.googlecode.iterm2", true, nil), ("Warp", "dev.warp.Warp-Stable", true, nil)
     ]
-    /// Terminals and git clients get a folder, because Terminal would run a file as a script.
-    private static let folderOnly: Set = [
-        "com.apple.Terminal", "com.googlecode.iterm2", "dev.warp.Warp-Stable", "com.DanPristupov.Fork",
-        "com.fournova.Tower3", "com.github.GitHubClient"
-    ]
-
-    /// Editors that open a folder on another machine over SSH themselves, by the link scheme each answers to.
-    private static let overSSH = [
-        "com.microsoft.VSCode": "vscode", "com.todesktop.230313mzl4w4u92": "cursor",
-        "com.exafunction.windsurf": "windsurf"
-    ]
+    private static func editor(_ bundle: String) -> (name: String, bundle: String, folderOnly: Bool, ssh: String?)? {
+        editors.first { $0.bundle == bundle }
+    }
 
     /// The host and the path there of a remote project's file or folder. It is nil for a path on this Mac.
     static func onHost(_ path: String) -> (host: String, path: String)? {
@@ -35,12 +31,14 @@ extension WorkspaceActions {
     /// SSH.
     static func editors(for path: String?) -> [(name: String, bundle: String, app: URL)] {
         guard let path, onHost(path) != nil else { return installedEditors }
-        return installedEditors.filter { overSSH[$0.bundle] != nil }
+        return installedEditors.filter { editor($0.bundle)?.ssh != nil }
     }
 
     static var installedEditors: [(name: String, bundle: String, app: URL)] {
-        editors.compactMap { name, bundle in
-            NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle).map { (name, bundle, $0) }
+        editors.compactMap { editor in
+            NSWorkspace.shared.urlForApplication(withBundleIdentifier: editor.bundle).map {
+                (editor.name, editor.bundle, $0)
+            }
         }
     }
 
@@ -49,10 +47,10 @@ extension WorkspaceActions {
             NSSound.beep()
             return
         }
-        // On a host, the editor opens its own remote window over SSH (`overSSH`).
+        // On a host, the editor opens its own remote window over SSH (`ssh`).
         if let (host, there) = onHost(path) {
             var link = URLComponents()
-            link.scheme = overSSH[bundle]
+            link.scheme = editor(bundle)?.ssh
             link.host = "vscode-remote"
             link.path = "/ssh-remote+" + host + there
             guard link.scheme != nil, let url = link.url else { return NSSound.beep() }
@@ -61,7 +59,7 @@ extension WorkspaceActions {
             return
         }
         var target = path, dir: ObjCBool = false
-        if folderOnly.contains(bundle), FileManager.default.fileExists(atPath: target, isDirectory: &dir),
+        if editor(bundle)?.folderOnly == true, FileManager.default.fileExists(atPath: target, isDirectory: &dir),
             !dir.boolValue
         {
             target = (target as NSString).deletingLastPathComponent

@@ -34,20 +34,17 @@ final class DaemonLink {
         // kelpd is launched again on each try. A daemon that's stopping (for a restart or an update) closes its socket
         // first and holds its home's lock until its agents are gone (up to 3 s), so a kelpd started meanwhile finds
         // the lock taken and exits. A kelpd that's already running takes no harm, because a second one exits at once.
-        for _ in 0..<3 {
-            if let opened = try? RPCClient(socket: Paths.socket.path) {
-                client = opened
-                break
-            }
+        func dial() -> Bool {
+            client = try? RPCClient(socket: Paths.socket.path)
+            return client != nil
+        }
+        tries: for _ in 0..<3 {
+            if dial() { break }
             launchDaemon()
             for _ in 0..<30 {
                 try? await Task.sleep(for: .milliseconds(100))
-                if let opened = try? RPCClient(socket: Paths.socket.path) {
-                    client = opened
-                    break
-                }
+                if dial() { break tries }
             }
-            if client != nil { break }
         }
         guard let connection = client else {
             // It keeps trying, less and less often, and every action meanwhile says why it does nothing.

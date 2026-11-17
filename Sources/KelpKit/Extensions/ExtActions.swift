@@ -89,6 +89,7 @@ struct ExtActions {
     /// or nil otherwise.
     static func openableURI(_ uri: String) -> String? { TabURI.runs(uri) ? nil : uri }
 
+    /// A value as text: a string as it is, a whole number without ".0", null as nothing, anything else as JSON.
     static func text(_ value: JSONValue) -> String {
         switch value {
         case .string(let text): text

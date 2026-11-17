@@ -93,14 +93,19 @@ package struct AgentActions {
     /// Hands the session's work to `agent`. With `send`, the brief is sent straight away because nobody needs to read
     /// it first (an agent out of plan handing its work over).
     package func handoff(_ sid: String, to agent: String, full: Bool, send: Bool = false) {
-        Task {
-            let request = SessionHandoff(
+        open(
+            SessionHandoff(
                 id: sid, agent: agent, full: full,
                 prompt: "Continue the task where the previous agent left off: check what's done, then finish it.",
-                draft: !send)
-            guard let session = await app.call(request) else { return }
+                draft: !send), split: .right)
+    }
+
+    /// Starts the chat `method` makes and opens its tab in its workspace.
+    private func open<M: RPCMethod>(_ method: M, split: SplitDirection? = nil) where M.Result == Session {
+        Task {
+            guard let session = await app.call(method) else { return }
             app.upsert(session)
-            app.workbench.open(TabURI.session(session.id), split: .right, workspace: session.worktreeId)
+            app.workbench.open(TabURI.session(session.id), split: split, workspace: session.worktreeId)
         }
     }
 
@@ -130,20 +135,10 @@ package struct AgentActions {
 
     func move(_ sid: String, to repoId: String, place: String) {
         Banner.show(String(localized: "Moving the chat to \(place)…"))
-        Task {
-            guard let session = await app.call(SessionMoveAcross(id: sid, repoId: repoId)) else { return }
-            app.upsert(session)
-            app.workbench.open(TabURI.session(session.id), workspace: session.worktreeId)
-        }
+        open(SessionMoveAcross(id: sid, repoId: repoId))
     }
 
-    func fork(_ sid: String) {
-        Task {
-            guard let session = await app.call(SessionFork(id: sid)) else { return }
-            app.upsert(session)
-            app.workbench.open(TabURI.session(session.id), split: .right, workspace: session.worktreeId)
-        }
-    }
+    func fork(_ sid: String) { open(SessionFork(id: sid), split: .right) }
 
     func copyContext(_ sid: String) {
         Task {
