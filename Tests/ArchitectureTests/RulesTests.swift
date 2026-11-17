@@ -116,7 +116,6 @@ import Testing
         "Sources/Core/System/RemoteHost.swift": "a host's path, which this Mac can't resolve",
         "Sources/Core/Extensions/ExtensionFiles.swift": "both sides resolved first (`Paths.real`)",
         "Sources/Core/VM/VMs.swift": "a standardized path against the home folder, then the part below it",
-        "Sources/Agents/PermissionAsk.swift": "shown with ~ for the home folder",
         "Sources/Builtins/Agents/Addons/AddonTexts.swift": "an item's path against folders built from the same root",
         "Sources/Builtins/Browser/BrowserHistory.swift": "addresses, not paths",
         "Sources/Builtins/Files/FilesPanel+Outline.swift": "the file tree's keys, all spelled from its root",

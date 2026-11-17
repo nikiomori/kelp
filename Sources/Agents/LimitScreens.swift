@@ -115,8 +115,7 @@ public enum LimitScreens {
 
     /// Kimi Code's `/usage`: under "Plan usage", rows like "5h limit  ███░…  20% used  resets in 1h" (and Weekly / Monthly).
     public static func parseKimiUsage(_ text: String) -> [Reading] {
-        let lines = text.components(separatedBy: CharacterSet(charactersIn: "\n│┃║"))
-            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        let lines = Self.lines(text).filter { !$0.isEmpty }
         guard let start = lines.lastIndex(where: { $0 == "Plan usage" }) else { return [] }
         var out: [Reading] = []
         for line in lines[(start + 1)...] {
@@ -145,9 +144,7 @@ public enum LimitScreens {
     /// GitHub Copilot's `/usage`: a row like "Plan ■■■■■■ 2% used 5 / 200 AIC" (AI credits), maybe with "resets in …".
     public static func parseCopilotUsage(_ text: String) -> [Reading] {
         var found: [String: Reading] = [:], order: [String] = []
-        let lines = text.components(separatedBy: CharacterSet(charactersIn: "\n│┃║"))
-        for raw in lines {
-            let line = raw.trimmingCharacters(in: .whitespaces)
+        for line in lines(text) {
             guard let pct = line.range(of: #"\d{1,3}(?:\.\d+)?% used"#, options: .regularExpression),
                 let percent = Double(line[pct].dropLast("% used".count))
             else { continue }
@@ -169,9 +166,7 @@ public enum LimitScreens {
     /// Cursor Agent's `/usage`: "Usage • Free  Resets Nov 23", then "Included 0% used ░░░", "Auto 0% used", "API 0% used" (the
     /// plan's monthly pools); "On-Demand" has no percentage.
     public static func parseCursorUsage(_ text: String) -> [Reading] {
-        let lines = text.components(separatedBy: CharacterSet(charactersIn: "\n│┃║")).map {
-            $0.trimmingCharacters(in: .whitespaces)
-        }
+        let lines = Self.lines(text)
         guard let head = lines.lastIndex(where: { $0.hasPrefix("Usage") && $0.contains("Resets") }) else { return [] }
         let resets = lines[head].firstMatch(of: /Resets\s+(.+?)\s*$/).map { String($0.1) }
         var found: [String: Reading] = [:], order: [String] = []
@@ -207,6 +202,13 @@ public enum LimitScreens {
         return Reading(
             kind: "usage", percent: 100,
             resets: at.map { $0.1.split(whereSeparator: \.isWhitespace).joined(separator: " ") })
+    }
+
+    /// A TUI's text as trimmed lines, split again at dialog borders (│).
+    static func lines(_ text: String) -> [String] {
+        text.components(separatedBy: CharacterSet(charactersIn: "\n│┃║")).map {
+            $0.trimmingCharacters(in: .whitespaces)
+        }
     }
 
     /// A TUI's text in pieces: lines, split again at dialog borders (│) and wide gaps between columns.

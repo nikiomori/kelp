@@ -25,7 +25,13 @@ extension Hooks {
             return question.count > 126 ? String(question.prefix(125)) + "…" : question
         }
         func field(_ key: String) -> String? { input[key]?.string.map(oneLine).flatMap { $0.isEmpty ? nil : $0 } }
-        func file(_ key: String) -> String? { field(key).map { shortPath($0, cwd: notification["cwd"]?.string) } }
+        // A path reads relative to the session's folder when inside it, or from "~" when elsewhere in the home folder.
+        func file(_ key: String) -> String? {
+            field(key).map { path in
+                notification["cwd"]?.string.flatMap { Paths.relative(path, to: $0) }
+                    ?? (path as NSString).abbreviatingWithTildeInPath
+            }
+        }
         // A command with more lines than are shown ends in "…", because what's asked isn't all on screen
         // (`Hooks.shownWhole`).
         let lines =
@@ -66,15 +72,6 @@ extension Hooks {
 
     private static func oneLine(_ text: String) -> String {
         text.split(whereSeparator: \.isNewline).first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
-    }
-
-    /// Shortens a path: relative to the session's folder when inside it, or from "~" when elsewhere in the home folder.
-    private static func shortPath(_ path: String, cwd: String?) -> String {
-        if let cwd, path.hasPrefix(cwd.hasSuffix("/") ? cwd : cwd + "/") {
-            return String(path.dropFirst(cwd.count).drop { $0 == "/" })
-        }
-        let home = NSHomeDirectory()
-        return path.hasPrefix(home + "/") ? "~" + path.dropFirst(home.count) : path
     }
 }
 
