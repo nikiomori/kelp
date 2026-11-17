@@ -40,13 +40,11 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         return agent ? TabURI.agentPage(shown) : shown
     }
     let start: String
-    /// Whether this is an agent's page (`kelp browser open`). Such a page has cookies and storage of its own, which go
-    /// when the tab closes.
+    /// Whether this is an agent's page (`kelp browser open`), whose own cookies and storage go when the tab closes.
     let agent: Bool
     /// Why the last load failed, until the next one commits (`kelp browser` says it).
     var loadError: String?
-    /// The address that failed, while its error page shows. The bar, the tab and Reload keep to this address, not to
-    /// about:blank.
+    /// The address that failed, while its error page shows; the bar, the tab and Reload keep to it, not to about:blank.
     var failed: URL?
     @ObservationIgnored private var watches: [NSKeyValueObservation] = []
     /// The find card for ⌘F (BrowserFind.swift), made the first time it is needed.
@@ -71,12 +69,10 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// What `kelp browser` keeps on this tab once an agent drives the page (`watch()`). It is nil on a page only the
     /// user browses.
     @ObservationIgnored var drive: AgentDrive?
-    /// The downloads under way (BrowserDownloads.swift), with where each goes, where it comes from, and the page it
-    /// came from.
+    /// The downloads under way (BrowserDownloads.swift), with each download's destination, source and page.
     @ObservationIgnored var downloading: [ObjectIdentifier: (to: URL, source: URL?, page: URL?)] = [:]
-    /// When WebKit last decided a navigation is a download that has no destination yet. An action's answer waits for it
-    /// (5 s at most, in case it never starts), since on a busy Mac the download can begin after the answer's first
-    /// look.
+    /// When WebKit last decided a navigation is a download with no destination yet. An action's answer waits for the
+    /// download (5 s at most, in case it never starts), since on a busy Mac it can begin after the answer's first look.
     @ObservationIgnored var downloadDecided: Date?
     var downloadComing: Bool { downloadDecided.map { Date().timeIntervalSince($0) < 5 } ?? false }
     /// The bar under the toolbar once an agent drives the page. It says that an agent drives the page, with Take Over
@@ -88,8 +84,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// The recording of the page in progress (BrowserRecording.swift), and the file the last recording went to.
     @ObservationIgnored var recording: PageRecording?
     @ObservationIgnored var lastRecording: URL?
-    /// The button in the bar while the user or an agent records the page. It shows that the page is being recorded,
-    /// and stops the recording.
+    /// The bar's button that shows the page is being recorded (by the user or an agent) and stops the recording.
     let recordButton = IconButton(
         .symbol("record.circle"), tip: String(localized: "Stop Recording"), target: nil, action: nil)
     @ObservationIgnored private var webFill: [NSLayoutConstraint] = []
@@ -342,8 +337,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         if web.isLoading { web.stopLoading() } else { reloadPage() }
     }
 
-    /// Reloads the page. On the error page, it tries the address that failed again (a dev server may have started
-    /// since).
+    /// Reloads the page, or on the error page tries the failed address again (a dev server may have started since).
     func reloadPage(fromOrigin: Bool = false) {
         if let failed {
             web.load(URLRequest(url: failed))

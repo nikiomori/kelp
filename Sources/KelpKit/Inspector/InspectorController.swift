@@ -23,8 +23,7 @@ final class InspectorController: NSViewController {
     private var counts: [CountBadge] = []   // one per button
     let more = PanelIcon("chevron.right.2", String(localized: "More Panels"))
     private let moreBadge = CountBadge()
-    /// The panels whose icons went into the » menu because they didn't fit (panels hidden through the row's menu aren't
-    /// in this list).
+    /// The panels whose icons went into the » menu for lack of room (not those hidden through the row's menu).
     var folded: [Int] = []
     /// For each panel, the key of the dot it had when the user saw the panel. The dot stays off until that key changes.
     private var seen: [String: String] = [:]
@@ -47,8 +46,7 @@ final class InspectorController: NSViewController {
     override func loadView() {
         let root = InspectorView()
         root.rowMenu = { [weak self] in self?.rowMenu($0) }
-        // The row is a segmented capsule, like the system's scope bars on macOS 26, with the shown panel's icon on a
-        // soft fill.
+        // The row is a segmented capsule like macOS 26's scope bars, with the shown panel's icon on a soft fill.
         let pad = Metrics.iconGap
         selector.spacing = pad
         selector.edgeInsets = NSEdgeInsets(top: pad, left: pad, bottom: pad, right: pad)
@@ -373,8 +371,7 @@ final class InspectorController: NSViewController {
         panelTitle.stringValue = loc(panel.title)
         fold()
         showCounts()   // marks the shown panel's dot seen (fold put its icon in the row)
-        // A collapsed inspector builds nothing. The panel is made when it shows, so a hidden Source Control runs no
-        // git.
+        // A collapsed inspector builds nothing: a panel is made when it shows, so a hidden Source Control runs no git.
         guard view.window != nil, !view.isHiddenOrHasHiddenAncestor else { return }
         let vc = made[panel.id] ?? panel.make()
         if made[panel.id] == nil {

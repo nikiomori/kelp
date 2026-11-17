@@ -7,22 +7,19 @@ import AppKit
 public final class CodeEditor: NSObject {
     public static let readOnlyLimit = 5 * 1024 * 1024
     /// More characters than this around the screen aren't colored. Only a file of very long lines has that many, and
-    /// each token is a temporary attribute on the main thread (2.6 MB of JSON stopped the window 2.5 s, after every
-    /// keystroke).
+    /// each token is a temporary attribute on the main thread (2.6 MB of JSON stopped the window 2.5 s per keystroke).
     static let colorSpan = 200_000
-    /// A line longer than this makes each keystroke lay all of it out again, in TextKit itself (200 KB: 230 ms; 2 MB: over a
-    /// second, for every key): such a file is shown, not edited.
+    /// A line longer than this makes each keystroke lay all of it out again in TextKit (200 KB: 230 ms; 2 MB: over a
+    /// second per key), so such a file is shown, not edited.
     static let longestEditableLine = 100_000
 
     let textView = EditorTextView(usingTextLayoutManager: false)
     let scroll: NSScrollView = EditorScrollView()
     /// The font, colour and tab stops the text storage carries, so the same look again touches none of its 5 MB.
     var styled: NSDictionary?
-    /// True when a look was given while off screen (a hidden tab), so it is applied when the editor shows
-    /// (`apply(look:)`).
+    /// True when a look came while off screen (a hidden tab), so `apply(look:)` applies it when the editor shows.
     var lookPending = false
-    /// Where the edits since the last coloring pass begin. An edit below the top line leaves the sticky scopes as they
-    /// are.
+    /// Where the edits since the last coloring pass begin. An edit below the top line leaves the sticky scopes alone.
     private var editedFrom: Int?
     /// The top line the sticky scopes were found for (`refreshSticky`).
     var stickyTop: Int?
@@ -95,8 +92,7 @@ public final class CodeEditor: NSObject {
     }
     /// This file's own say over `wrapLines`, from its language's settings.
     public var wrapsHere: Bool?
-    /// Every `languageId` there is, named as settings.json names a language ("markdown", "swift", "plaintext"), for a
-    /// setting's "[language]" block.
+    /// Every `languageId`, named as in a settings.json "[language]" block ("markdown", "swift", "plaintext").
     public static var languageIds: [String] {
         (["plaintext"] + CodeLanguage.allLanguages.map(\.tsName)).filter { !$0.isEmpty }
     }
@@ -144,8 +140,7 @@ public final class CodeEditor: NSObject {
     public init(text: String, url: URL, editable: Bool = true) {
         self.url = url
         language = CodeLanguage.detectLanguageFrom(url: url, prefixBuffer: String(text.prefix(200)))
-        // Past this size a file is only read, because tree-sitter's tree takes more than 50 times the text (54 MB of
-        // JSON: 3 GB).
+        // Past this size a file is only read, as tree-sitter's tree takes over 50 times the text (54 MB of JSON: 3 GB).
         highlighter = text.utf8.count <= Self.readOnlyLimit ? SyntaxHighlighter(language) : nil
         super.init()
         Self.all.add(self)
@@ -242,8 +237,7 @@ public final class CodeEditor: NSObject {
         // Not `==`, because that compares character by character.
         guard now.length != contents.utf16.count || !now.isEqual(to: contents) else { return }
         let cursors = textView.cursors
-        // Only what changed goes in, so an agent writing a file several times a second keeps the tree, the folds and
-        // the view.
+        // Only what changed goes in, so an agent writing a file several times a second keeps the tree, folds and view.
         guard textView.isEditable else {   // read only, so `shouldChangeText` says no
             load(contents)
             return textView.setCursors(cursors.map { NSRange(location: min($0.location, textView.length), length: 0) })

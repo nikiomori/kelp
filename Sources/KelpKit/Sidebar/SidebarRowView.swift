@@ -2,24 +2,20 @@ import AppKit
 import Core
 import DesignKit
 
-/// The sidebar's outline. A project comes first, then its chats and groups in the same two columns: the slot lines up
-/// under the project's icon and the name under the project's name, because the card shows what belongs to it. A
-/// group's chats sit 12 pt further in.
+/// The sidebar's outline: a project, then its chats and groups in the same two columns (the slot under the project's
+/// icon, the name under its name), since the card shows what the project holds. A group's chats sit 12 pt further in.
 final class SidebarOutline: NSOutlineView {
     static let lead: CGFloat = 14, step: CGFloat = 12
-    /// Extra indent steps for a row beyond what its level gives it. A group under the chat that made it gets them, and
-    /// so do that group's chats.
+    /// Extra indent steps beyond a row's level, for a group under the chat that made it and for that group's chats.
     var steps: (Int) -> Int = { _ in 0 }
     /// Room above and below a row's content, where the project's card opens and closes (SidebarRowView.group).
     var pads: (Int) -> (top: CGFloat, bottom: CGFloat) = { _ in (0, 0) }
-    /// No disclosure triangles. Projects and groups fold from the chevron their slot shows under the pointer
-    /// (SidebarCell).
+    /// No disclosure triangles: projects and groups fold from the chevron their slot shows on hover (SidebarCell).
     override func frameOfOutlineCell(atRow row: Int) -> NSRect { .zero }
     override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
         var cellFrame = padded(super.frameOfCell(atColumn: column, row: row), row)
-        // The content ends as far inside the card on the right as a project's icon starts on the left
-        // (SidebarRowView.band). Rows under a heading sit a step further in than the rows beside the heading, so the
-        // group ends where the indent does.
+        // Content ends as far inside the card's right as a project's icon starts from its left (SidebarRowView.band).
+        // Rows under a heading sit a step further in than those beside it, so the group ends at the indent.
         let left = Self.lead + Self.step * CGFloat((level(forRow: row) >= 2 ? 1 : 0) + steps(row))
         cellFrame.origin.x = left
         cellFrame.size.width = bounds.width - 8 - left
@@ -62,12 +58,10 @@ final class SidebarRowView: NSTableRowView {
     /// Room above the row where a server's card starts (`SidebarController.serverGap`). The pill doesn't cover it.
     var gap: CGFloat = 0 { didSet { if gap != oldValue { needsDisplay = true } } }
     private var keyWatch: [NSObjectProtocol] = []
-    /// True while the pointer is over the row. The row then shows the pill's shape in the hover grey, faded in and out,
-    /// so the row answers before it's clicked.
+    /// True while the pointer is over the row, which then fades in the pill's shape in hover grey before any click.
     private var hovering = false { didSet { if hovering != oldValue { showHover() } } }
     private var area: NSTrackingArea?
-    /// The hover pill. It sits over the card the row draws and under the cell, and is a layer so it fades instead of
-    /// switching.
+    /// The hover pill sits over the card the row draws and under the cell, as a layer so it fades instead of switching.
     private let hoverLayer = CAShapeLayer()
 
     override init(frame: NSRect) {
@@ -79,11 +73,9 @@ final class SidebarRowView: NSTableRowView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// True while the row's right-click menu is open. The row keeps the hover pill to show what the menu is about,
-    /// instead of the table's own outline around it, which matched neither the pill nor the card.
+    /// True while the row's right-click menu is open, so the hover pill shows what the menu is about (`menu(for:)`).
     var menuTarget = false { didSet { if menuTarget != oldValue { showHover() } } }
-    /// True when the summary above the list points at this row (its count is under the pointer). The row then shows
-    /// the hover pill, as if the pointer were here.
+    /// True when the summary above the list points at this row (its count is hovered), so the row shows the hover pill.
     var lit = false { didSet { if lit != oldValue { showHover() } } }
 
     private func showHover() {
@@ -103,8 +95,7 @@ final class SidebarRowView: NSTableRowView {
         hoverLayer.add(fade, forKey: "fade")
     }
 
-    /// The room a project's card takes: 6 pt above its first row and below its last. 2 pt of that is inside the card,
-    /// so cards are 8 pt apart.
+    /// A card takes 6 pt above a project's first row and below its last, 2 pt of it inside, so cards sit 8 pt apart.
     static func pads(_ group: (first: Bool, last: Bool)) -> (top: CGFloat, bottom: CGFloat) {
         (group.first ? 6 : 0, group.last ? 6 : 0)
     }
@@ -147,8 +138,7 @@ final class SidebarRowView: NSTableRowView {
             edge.stroke()
         }
     }
-    /// Returns the pill's corner radius. A row on its own gets a card's corners. A row inside a card follows the
-    /// card's corners 4 pt in (radiusSM).
+    /// Returns the pill's corner radius: a card's for a row on its own, or 4 pt less (radiusSM) for a row in a card.
     static func pillRadius(inCard: Bool) -> CGFloat { inCard ? Metrics.radiusLG - 4 : Metrics.radiusLG }
     /// The row inset by `inset` on the left and 8 pt less on the right. Past the sidebar's right edge come the divider
     /// and the editor area's own margin, so a card leaves the same 8 pt gap to the window's edge and to the editor.
@@ -156,11 +146,10 @@ final class SidebarRowView: NSTableRowView {
     static func band(_ rect: NSRect, _ inset: CGFloat) -> NSRect {
         NSRect(x: rect.minX + inset + 2, y: rect.minY, width: rect.width - 2 * inset + 4, height: rect.height)
     }
-    /// The outline sizes a row's cell once. When the row's height changes later (a project's last row gains or loses
-    /// the card's foot), the cell would only stretch with it, and its text would drift off the chevron. So this puts
-    /// the cell where the outline says. A row that is closing up keeps its cell where it was, cut off by the row's
-    /// edge as it goes. The cell's width follows the row's, 8 pt short as `frameOfCell` leaves it, because a width
-    /// kept from a wider sidebar let a long name run past the card and get cut instead of truncated.
+    /// The outline sizes a row's cell once, so when the row's height changes (a project's last row gains or loses the
+    /// card foot), the cell would only stretch and its text drift off the chevron. This puts the cell where the outline
+    /// says, except in a closing row, whose cell stays put, cut off by its edge. The cell's width is the row's
+    /// less 8 pt (`frameOfCell`), as a wider sidebar's old width let a long name run past the card, cut, not truncated.
     override func resizeSubviews(withOldSize old: NSSize) {
         super.resizeSubviews(withOldSize: old)
         guard bounds.height > 1, let outline = superview as? NSOutlineView, case let row = outline.row(for: self),
@@ -196,8 +185,7 @@ final class SidebarRowView: NSTableRowView {
         hovering = false
         menuTarget = false
     }
-    /// When rows scroll under a still pointer, the row the pointer leaves often gets no "exited" event, and several
-    /// stayed lit. So each scroll checks the pointer again.
+    /// Rows scrolled under a still pointer often missed "exited" events and stayed lit, so each scroll rechecks it.
     private var scrollWatch: NSObjectProtocol?
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -241,9 +229,8 @@ final class SidebarRowView: NSTableRowView {
     override var interiorBackgroundStyle: NSView.BackgroundStyle { .normal }
 }
 
-/// How a server's card shows that its projects run on another machine (Settings › Appearance › Servers). The choices
-/// are stripes under the whole card, sparser stripes in an outline, stripes by the server's icon that fade before the
-/// text, or only a striped plate under the icon.
+/// How a server's card marks its projects as on another machine (Settings › Appearance › Servers): stripes under the
+/// card, sparser ones in an outline, stripes by the icon fading before the text, or a striped plate under the icon.
 enum ServerLook: String {
     case stripes, sparse, fade, icon
     @MainActor static func of(_ app: AppModel) -> ServerLook {
@@ -251,14 +238,12 @@ enum ServerLook: String {
     }
 }
 
-/// A project's card: one shape under all of the project's rows, so it grows and shrinks with them as the project opens
-/// or folds (SidebarController.placeCards). It reaches 2 pt past the first and last rows, and 4 pt past their pills
-/// (SidebarRowView.pads).
+/// A project's card: one shape under all its rows, growing and shrinking with them as the project opens or folds
+/// (SidebarController.placeCards). It reaches 2 pt past the first and last rows and 4 pt past their pills (`pads`).
 @MainActor
 final class ProjectCard: NSView {
-    /// What the card shows. It fills with `color` when there is one, and otherwise with the quiet grey, unless the
-    /// card is `plain` (a project's own row with nothing under it). `remote` marks a server's card as being on another
-    /// machine, in the way Settings › Appearance › Servers picks.
+    /// What the card shows: `color` fills it, or else the quiet grey unless `plain` (a project's own row with nothing
+    /// under it). `remote` marks a server's card as on another machine, as Settings › Appearance › Servers picks.
     struct Look: Equatable {
         var color: ProjectColor?
         var plain: Bool
@@ -281,8 +266,7 @@ final class ProjectCard: NSView {
         switch look.remote {
         case .stripes?: return Self.stripes(over: base)
         case .sparse?: return Self.stripes(over: base, side: 9)
-        // These looks draw their own stripes that fade (`fading`) or sit only under the server's icon, so a quiet card
-        // holds the rest together.
+        // These looks draw their own stripes (fading, or only under the icon), so a quiet card holds the rest together.
         case .fade?, .icon?: return .fillRest
         case nil: return base
         }
@@ -347,8 +331,7 @@ final class ProjectCard: NSView {
             mask.startPoint = CGPoint(x: 0, y: 0.5)
             mask.endPoint = CGPoint(x: 1, y: 0.5)
             mask.colors = [NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
-            // The stripes show fully over the icon's column and are gone by the middle, where the names end and the
-            // meters start.
+            // Stripes show fully over the icon's column and are gone by the middle, where names end and meters start.
             mask.locations = [0, 0.12, 0.5]
             stripeLayer.mask = mask
         }

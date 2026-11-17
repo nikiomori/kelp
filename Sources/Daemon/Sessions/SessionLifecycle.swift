@@ -8,16 +8,14 @@ import GitKit
 /// Pausing and waking a session, saving and announcing its record, its titles, and what its output tells the daemon
 /// (`callbacks`). What it starts with (its manifest, environment, hooks and account) is up to `SessionSetup`.
 extension Sessions {
-    /// Whether a session is paused rather than ended when its program stops with the daemon or sits idle, and comes
-    /// back where it was when woken. That holds for an agent that resumes its conversation, and for a tmux terminal
-    /// (tmux keeps the session, and the wake attaches again).
+    /// Whether a session is paused, not ended, when its program stops with the daemon or sits idle, and wakes where it
+    /// was. That holds for an agent that resumes its conversation, and for a tmux terminal, which a wake reattaches.
     static func resumable(_ session: Session, _ manifests: [AgentManifest]) -> Bool {
         tmuxName(session) != nil || manifests.first { $0.id == session.agent }?.resumeArgs.isEmpty == false
     }
 
     /// Runs the ticker's round (every 0.5 s): the live sessions with something to do, then what spans them all (sleep,
-    /// pauses and updates, which concern sessions at rest too and only read flags). Returns how many sessions were
-    /// ticked.
+    /// pauses and updates, which touch sessions at rest too and only read flags). Returns the count of sessions ticked.
     @discardableResult
     func tick(now: Date = Date()) -> Int {
         let ticked = live.all.count { $0.tick() }
@@ -27,14 +25,12 @@ extension Sessions {
         return ticked
     }
 
-    /// Pauses agents that have sat idle for `hibernateMinutes` with nobody watching. An agent that asks something isn't
-    /// paused, because the pause would end the question unanswered, and its row, Needs You until then, would say
-    /// Paused. `now` is the ticker's clock; a test moves it instead of waiting.
+    /// Pauses agents idle for `hibernateMinutes` with nobody watching, never an agent asking something, because a pause
+    /// would end the question unanswered and its Needs You row would say Paused. Tests move `now`, the ticker's clock.
     func hibernateIdle(now: Date = Date()) {
         let minutes = settings[SettingKeys.hibernateMinutes]
         guard minutes > 0 else { return }
-        // Only a session a pause can bring back (`LiveSession.resumable`, known since its start, so nothing is read on
-        // the tick).
+        // Only sessions a pause can bring back (`LiveSession.resumable`, known from the start, so the tick reads none).
         let all = live.all.map { ($0, $0.snapshot) }   // each record copied once, under its lock
         let parents = Set(all.compactMap(\.1.parent))   // what their children report next would reach nobody
         let candidates = all.filter { ls, session in
@@ -56,10 +52,9 @@ extension Sessions {
         }
     }
 
-    /// Pauses an idle session under its wake lock, as a wake does, so a wake that comes meanwhile waits until this
-    /// program is gone and two never write one log. The session is taken out of `live` only if nobody attached and no
-    /// input came since the check (`seen`), so input never goes to a program that's about to be stopped. Input that
-    /// comes once it's out waits for the pause and wakes it (`lettingGo`).
+    /// Pauses an idle session under its wake lock, as a wake does, so a wake meanwhile waits until this program is gone
+    /// and two never write one log. The session leaves `live` only if nobody attached and no input came since the check
+    /// (`seen`), so no input reaches a stopping program. Later input waits for the pause and wakes it (`lettingGo`).
     func pauseIdle(_ ls: LiveSession, inputs seen: Int) {
         let id = ls.snapshot.id
         wakeLocks.withLock(id) {
@@ -79,9 +74,8 @@ extension Sessions {
         return false
     }
 
-    /// Brings a paused session back under the same id (layout and links stay), resuming its conversation. It also
-    /// brings back a session whose connection to its host dropped (`connectionLost`), attached again to its tmux
-    /// session there, with its turns kept.
+    /// Brings a paused session back under the same id (layout and links stay), resuming its conversation, or one whose
+    /// host connection dropped (`connectionLost`), attached again to its tmux session there with its turns kept.
     func wake(_ id: String, cols: UInt16 = 120, rows: UInt16 = 32) throws -> LiveSession {
         wakeTries.withLock { $0 += 1 }
         guard var rec = try store.session(id) else { throw RPCError.noSession(id) }
@@ -111,8 +105,7 @@ extension Sessions {
     }
 
     /// Makes the conversation the hooks name the one the session continues. After /resume or /clear in Claude Code, a
-    /// wake must bring back that conversation, not the id Kelp started it with (an old conversation under the new one's
-    /// title).
+    /// wake must bring back that conversation, not the id Kelp started with (an old conversation under the new title).
     func follow(_ ls: LiveSession, transcript: String) {
         let conversation = URL(fileURLWithPath: transcript).deletingPathExtension().lastPathComponent
         let session = ls.snapshot
@@ -128,9 +121,8 @@ extension Sessions {
     }
 
     /// Saves a running session's record as it is when written, in order with its status changes (see LiveSession.emit).
-    /// A copy taken on a request's thread could otherwise land after a newer status and put an old one back.
-    /// The closure holds the session until it ran, so a session that just ended and left `live` still gets its last
-    /// record saved.
+    /// A copy taken on a request's thread could otherwise land after a newer status and put an old one back. The
+    /// closure holds the session until it ran, so a session that just ended and left `live` still has its record saved.
     func publish(_ ls: LiveSession) {
         ls.inOrder { [weak self] in
             guard let self, !ls.isFinal else { return }
@@ -155,10 +147,9 @@ extension Sessions {
     }
 
     /// Changes a session's record wherever it lives: a running session's in its LiveSession, published from there, and
-    /// any other's in the store, then announced. Together with `publish(ls)` for a running session's own changes, these
-    /// are the only ways a session's record is written and sent. It runs under the session's wake lock (`held` means
-    /// the caller has it already), so a paused record read here and saved back can't land over a wake that started
-    /// meanwhile, whose live record is the one that counts.
+    /// any other's in the store, then announced. With `publish(ls)` for a running session's own changes, these are the
+    /// only ways a record is written and sent. It runs under the session's wake lock (`held`: the caller has it), so a
+    /// paused record read and saved back here can't land over a wake started meanwhile, whose live record counts.
     func edit(_ id: String, held: Bool = false, _ body: @escaping @Sendable (inout Session) -> Void) throws {
         func apply() throws {
             if let ls = existing(id) {
@@ -174,10 +165,9 @@ extension Sessions {
     /// (its record only).
     func setUnread(_ id: String, _ on: Bool) throws { try edit(id) { $0.unread = on } }
 
-    /// Call it only on the session's status queue (`publish(ls)`, `publishLast`), where the snapshot is the latest.
-    /// The saved revision goes back into the running record before anyone hears of it. `session.list` gives that
-    /// record, and a record older than the app's copy is dropped, so otherwise a list read after a reconnect couldn't
-    /// bring back a change it missed.
+    /// Call it only on the session's status queue (`publish(ls)`, `publishLast`), where the snapshot is the latest. The
+    /// saved revision goes back into the running record before anyone hears of it. `session.list` gives that record,
+    /// and the app drops a record older than its copy, so otherwise a list read after a reconnect would miss a change.
     private func save(_ ls: LiveSession) {
         let saved: Session
         do { saved = try store.update(ls.snapshot) } catch {
@@ -244,9 +234,8 @@ extension Sessions {
     /// Settings › Git: what goes before the branches Kelp names.
     var branchPrefix: String { settings[SettingKeys.branchPrefix] }
 
-    /// A placeholder branch (task-123, wip, new-worktree…) gets a real name from what the agent was asked to do. Either
-    /// way the folder and the record agree afterwards, because a record that couldn't be saved puts the branch's old
-    /// name back.
+    /// A placeholder branch (task-123, wip, new-worktree…) gets a real name from what the agent was asked to do. The
+    /// folder and the record agree afterwards either way, because a failed save puts the old branch name back.
     private func nameBranch(_ wid: String, prompt: String, title: String) throws {
         guard let worktree = try store.worktree(wid),
             worktree.branch.range(
@@ -299,9 +288,8 @@ extension Sessions {
         if renamed?.note == topic { notify(ChangedEvent.worktree) }
     }
 
-    /// Pauses a workspace going out of sight, with nothing lost: agents that can resume their conversation pause (they
-    /// come back with it), and the rest stop; its tabs stay. Returns once their programs are gone, so nothing writes
-    /// into the folder after this.
+    /// Pauses a workspace going out of sight, with nothing lost: agents that can resume their conversation pause, the
+    /// rest stop, and its tabs stay. Returns once their programs are gone, so nothing writes into the folder after.
     func pauseSessions(of wid: String) throws {
         let manifests = AgentManifest.load(dir: Paths.agents(in: root))
         var pids: [pid_t] = []
@@ -314,8 +302,7 @@ extension Sessions {
         }
     }
 
-    /// Pauses one session, the way a workspace's sessions are paused. It comes back with its conversation when shown (a
-    /// chat moved away).
+    /// Pauses one session as a workspace pauses, to come back with its conversation when shown (a chat moved away).
     func pauseOne(_ id: String) {
         let manifests = AgentManifest.load(dir: Paths.agents(in: root))
         wakeLocks.withLocks([id]) {
@@ -323,9 +310,8 @@ extension Sessions {
         }
     }
 
-    /// Pauses a session already out of `live`. It is recorded as paused (a resumable agent) or ended, saved and
-    /// announced now, since nothing records its exit any more, and then stopped with all it started. Returns its pids,
-    /// for `waitGone`.
+    /// Pauses a session already out of `live`: recorded as paused (a resumable agent) or ended, saved and announced now
+    /// since nothing records its exit any more, then stopped with all it started. Returns its pids for `waitGone`.
     func pause(_ ls: LiveSession, _ manifests: [AgentManifest]) -> [pid_t] {
         hangUpStreams(ls)
         let comesBack = Self.resumable(ls.snapshot, manifests)
@@ -343,9 +329,8 @@ extension Sessions {
         ls.giveBack(Log.session.attempt("reading what \(id) hadn't typed") { try store.takeOwed(id) } ?? [])
     }
 
-    /// Waits until these processes have exited and are reaped. A process that ignores the hangup gets SIGKILL 2 s after
-    /// it, from a timer a busy machine runs late, so the wait gives up only after 10 s, for a process that doesn't end
-    /// even then (stuck in the kernel).
+    /// Waits until these processes have exited and are reaped. A process ignoring the hangup gets SIGKILL 2 s later,
+    /// from a timer a busy machine runs late, so the wait gives up only after 10 s (a process stuck in the kernel).
     static func waitGone(_ pids: [pid_t]) {
         let end = Date().addingTimeInterval(10)
         while Date() < end, pids.contains(where: { kill($0, 0) == 0 }) { usleep(20_000) }
@@ -366,9 +351,8 @@ extension Sessions {
             // The turn bookkeeping gets each change, in order.
             publishHere(ls)
             ls.noteTurn(snapshot.status, remotes: remotes)
-            // A question answered in the terminal lets its hook go with no answer. This reads the status now, not the
-            // queued one, because a change queued before a new question's hook registered its wait mustn't end that
-            // wait.
+            // A question answered in the terminal lets its hook go with no answer. The status read is the current one,
+            // because a change queued before a new question's hook registered its wait mustn't end that wait.
             if ls.snapshot.status != .waiting { permissions.answerPermission(sid, nil) }
             if snapshot.status == .exited { _ = live.remove(ls) }
         }

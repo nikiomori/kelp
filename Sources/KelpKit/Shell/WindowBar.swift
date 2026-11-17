@@ -25,8 +25,7 @@ final class WindowBar: NSView {
     let forward = NSButton.titlebar("chevron.right", String(localized: "Forward"), tip: "")
     let awake = NSButton.titlebar("cup.and.saucer", String(localized: "Keep Mac Awake"), tip: "")
     let sideBySide = NSButton.titlebar("rectangle.split.3x1", String(localized: "Agents Side by Side"), tip: "")
-    /// The branch chip's data: the git state of the workspace on screen, as the daemon pushes it (ChangedFiles watches
-    /// it).
+    /// The branch chip's data: the on-screen workspace's git state, as the daemon pushes it (ChangedFiles watches it).
     private var info: BranchInfo? { app.latest(GitEvent.self, app.gitKey(app.workbench.mainWorkspaceId))?.branches }
 
     /// Whether the workspace on screen has uncommitted changes (a dot on the chip). `syncing` is what a sync running
@@ -43,8 +42,7 @@ final class WindowBar: NSView {
     var worktree: Worktree? { app.workbench.page == nil ? app.worktree(app.workbench.mainWorkspaceId) : nil }
     /// The folder the sidebar keeps the pull request and CI for. A workspace shares its project's folder.
     private var badgeFolder: Worktree? { app.gitFolder(of: app.workbench.mainWorkspaceId) }
-    /// The branch's CI on the chip (Settings › Appearance › CI). It goes in place of the branch glyph, after the
-    /// counts, or nowhere.
+    /// The branch's CI (Settings › Appearance › CI) goes in place of the chip's glyph, after the counts, or nowhere.
     private let ciMark: CIMarkSlot
     /// The CI mark is centred on the glyph's slot (the chip's padding, then 13 pt), or on the room left at the end of
     /// the title (12 pt).
@@ -53,11 +51,9 @@ final class WindowBar: NSView {
     private lazy var ciAtEnd = ciMark.view.centerXAnchor.constraint(
         equalTo: branch.trailingAnchor, constant: -(Self.chipPadding + 12 / 2))
     private static let chipPadding: CGFloat = 6
-    /// The CI mark and its place, from the built-in that has CI (`FolderCI`). Without that built-in the chip shows no
-    /// CI.
+    /// The CI mark and its place, from the CI built-in (`FolderCI`). Without that built-in the chip shows no CI.
     private var ci: (state: CIRuns.State, atEnd: Bool)? { badgeFolder.flatMap { app.extensions.all.ci?.chip($0.id) } }
-    /// The branch's pull request, from the built-in that has them (`FolderCI`). Without that built-in there is no PR
-    /// chip.
+    /// The branch's pull request, from the CI built-in (`FolderCI`). Without that built-in there is no PR chip.
     var prMark: (title: NSAttributedString, tip: String, uri: String)? {
         badgeFolder.flatMap { app.extensions.all.ci?.pr($0.id) }
     }

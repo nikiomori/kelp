@@ -30,8 +30,7 @@ extension Daemon {
         return pr.flatMap { line(PREvent(worktree: key, pr: $0)) }
     }
 
-    /// A project's open pull requests, for the Issues panel and its count. Only other people's changes on the forge
-    /// change it, so it has no folder to watch.
+    /// A project's open pull requests (Issues panel and count). Only the forge changes them, so no folder is watched.
     private func prsRead(_ repo: String) async -> Data? {
         do { return line(PRsEvent(repo: repo, prs: try await ask(GitHubPRs(repoId: repo, filter: .open)))) } catch {
             return line(PRsEvent(repo: repo, error: error.rpcMessage))
@@ -67,8 +66,7 @@ extension Daemon {
         return (work.files, work.only, dirty)
     }
 
-    /// Counts lines added and removed. A local folder's new files are the ones its status just listed, unless it listed
-    /// only its first `FileChange.limit`.
+    /// Counts lines added and removed. New files are those the status listed, unless it listed only `FileChange.limit`.
     private func lineStats(_ key: String, local worktree: Worktree?, _ changes: [FileChange]) async -> LineStats? {
         guard !changes.isEmpty else { return LineStats() }
         let remotes = remotes
@@ -84,8 +82,7 @@ extension Daemon {
     /// for a remote project, the folder here holds only its marker);
     /// - how it is read now: the event as sent, nil when there is nothing to say or a failure stays quiet, and when to
     /// read it again if nothing else asks (nil: only when something does);
-    /// - from which interval on its reads back off while nothing changes, for topics that ask the network (gh, glab,
-    /// ssh).
+    /// - the interval from which its reads back off while nothing changes, for network topics (gh, glab, ssh).
     /// A topic's reads hold the daemon until the watch stops.
     func topic(_ watch: Watches.Key) -> Watches.Topic {
         let key = watch.key
@@ -128,8 +125,7 @@ extension Daemon {
         case .prs:
             return Watches.Topic(backsOffFrom: 120) { [self] _ in (await prsRead(key), 120) }
         case .context:
-            // Reads a 1 MB transcript tail, so it polls only while the agent works, and reads again when its status
-            // changes (`touched`).
+            // Reading a 1 MB tail, the topic polls only while the agent works, and on a status change (`touched`).
             return Watches.Topic { [self] _ in
                 let usage = await logged(.context, key) { try await ask(SessionContextWindow(id: key)) }
                 let working = sessions.existing(key)?.snapshot.status == .working
@@ -137,17 +133,15 @@ extension Daemon {
             }
         case .commands, .edits: return agentTools(watch)
         case .subagents:
-            // Reads the tail of each subagent at work, only while a card or a journal is open. It polls, because a
-            // transcript sends no events of its own.
+            // Polls each working subagent's tail while a card or journal is open, as a transcript sends no events.
             return Watches.Topic { [self] _ in
                 let steps = await logged(.subagents, key) { try await ask(SessionSubagentSteps(id: key)) }
                 return (steps.flatMap { line(SubagentsEvent(session: key, steps: $0)) }, 3)
             }
         case .phone: return Watches.Topic { [self] _ in await phoneRead() }
         case .limits:
-            // Read from memory (the probes read the plans on their own clock), so it's cheap. The token totals are read
-            // again only while Kelp's window is seen. The limits are read even when it isn't, for their notifications
-            // and the Dock.
+            // Read from memory (the probes read the plans on their own clock), so cheap. Token totals are read again
+            // only while Kelp's window is seen; the limits always are, for their notifications and the Dock.
             return Watches.Topic { [self] _ in
                 let away = clients.uiState.away == true ? true : nil
                 let usage = await logged(.limits, key) { try await ask(UsageGet(cachedTokens: away)) }
@@ -207,8 +201,7 @@ extension Daemon {
         }
     }
 
-    /// A local workspace's folder, and which of its file events matter (made from its path). Returns nil for a remote
-    /// workspace.
+    /// A local workspace's folder and which of its file events matter (made from its path), or nil when remote.
     private func workspaceFolder(
         _ id: String, _ matters: (String) -> @Sendable ([FileWatcher.Change]) -> Bool
     ) -> (String, @Sendable ([FileWatcher.Change]) -> Bool)? {
@@ -217,8 +210,7 @@ extension Daemon {
         return (worktree.path, matters(worktree.path))
     }
 
-    /// A local workspace's folder, as above, with the file events that `touches` counts, leaving out the folders git
-    /// ignores.
+    /// A local workspace's folder, as above, with the file events `touches` counts, minus the folders git ignores.
     private func workspaceFolder(
         _ id: String, ignoring touches: @escaping @Sendable ([FileWatcher.Change]) -> Bool
     ) -> (String, @Sendable ([FileWatcher.Change]) -> Bool)? {
@@ -386,8 +378,7 @@ extension Daemon {
         }
     }
 
-    /// Returns what `read` gives, or nil when it fails. Then the watch says nothing new, and the log says why
-    /// (`Watches.failed`).
+    /// Returns what `read` gives, or nil on a failure, which the log explains (`Watches.failed`).
     private func logged<T>(_ topic: WatchTopic, _ key: String, _ read: () async throws -> T) async -> T? {
         do { return try await read() } catch {
             watches.failed(.init(topic: topic, key: key), error.rpcMessage)

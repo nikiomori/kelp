@@ -19,8 +19,7 @@ extension SessionList: Handled {
 extension SessionAttach: Handled {
     static let agents = AgentAccess.acts
     func handle(_ sessions: Sessions, conn: Int) throws -> Result {
-        // An ended session returns what it last printed, from its log. A session whose host dropped is attached to
-        // again instead (`wake`).
+        // An ended session returns its log's last output; a session whose host dropped is attached to again (`wake`).
         if sessions.existing(id) == nil, let rec = try sessions.store.session(id), rec.status == .exited,
             !rec.connectionLost
         {
@@ -46,8 +45,7 @@ extension SessionAttach: Handled {
                 || sessions.store.look("session \(method.id)", { try $0.session(method.id) }).map(wakes) == true
         else { return false }
         let sid = method.id
-        // A wake that fails says why, once, because falling through would wake the session a second time, in the slow
-        // lane.
+        // A failed wake says why, once, because falling through would wake the session again, in the slow lane.
         let ls: LiveSession
         do { ls = try await sessions.offloads.runNow({ try sessions.liveSession(sid) }) } catch {
             reply(.failure(error))
@@ -72,8 +70,7 @@ extension SessionAttach: Handled {
     }
 }
 
-/// Answered by the connection itself (`Daemon.serve`), which it turns into a terminal's byte pipe. It never gets a
-/// call's reply.
+/// Answered by the connection itself (`Daemon.serve`), which becomes a terminal's byte pipe and never gets a reply.
 extension SessionStream: Handled {
     static let agents = AgentAccess.acts
     var fence: Fence { Fence(actsOn: id, typesInto: id) }   // what comes after is typing: held to session.write's rules
@@ -176,9 +173,8 @@ extension SessionChoose: Handled {
         if sessions.permissions.answerKelp(id, question: question, answer) { return true }
         // A question cut short (a long or many-line command) is answered where it shows whole: in the agent's dialog.
         if let question, !Hooks.shownWhole(question) { return false }
-        // The session's hook waits for the answer (`session.permissionWait`), so the answer is given there rather than
-        // typed into the menu. A banner's answer goes only to the question it showed, because the hook waiting now may
-        // belong to a newer question.
+        // The session's hook waits for the answer (`session.permissionWait`), so the answer goes there, not into the
+        // menu. A banner's answer goes only to the question it showed, since the hook waiting now may be a newer one's.
         if ls.asks(question), sessions.permissions.answerPermission(id, answer) {
             _ = ls.answeredThroughHook()
             sessions.publish(ls)
@@ -202,10 +198,9 @@ extension SessionPermissionWait: AsyncHandled {
 final class PermissionWaits: Sendable {
     let waits = OSAllocatedUnfairLock<[String: (UUID, CheckedContinuation<String?, Never>)]>(initialState: [:])
     /// Questions Kelp asks on behalf of an agent's commands (such as a database change), by session, oldest first. A
-    /// status change doesn't end one, because the agent's own screen changes while that command runs. A question ends
+    /// status change doesn't end a question, since the agent's screen changes while the command runs. A question ends
     /// with an answer, the agent's Stop, the end of the command's program (Esc, or a tool's time limit: nobody is left
-    /// to run it for), or when its time runs out.
-    /// Two commands asking at once (parallel tool calls) wait their turn: an answer goes to the oldest question.
+    /// to run it for), or its timeout. Two commands asking at once (parallel tool calls) wait their turn, oldest first.
     struct KelpWait: Sendable {
         let question: String, token: UUID
         let answer: CheckedContinuation<String?, Never>
@@ -264,8 +259,7 @@ final class PermissionWaits: Sendable {
         return waiting != nil
     }
 
-    /// Ends every question Kelp asks for `id`'s commands with no answer, because the turn is over, and every command of
-    /// it.
+    /// Ends every question Kelp asks for `id`'s commands with no answer, because the turn and its commands are over.
     func endKelpQuestions(_ id: String) {
         let all = kelpWaits.withLock { $0.removeValue(forKey: id) } ?? []
         for wait in all {
@@ -274,8 +268,7 @@ final class PermissionWaits: Sendable {
         }
     }
 
-    /// Waits for Allow or Deny for the hook of `id`'s permission question. A newer wait lets the older one go with no
-    /// answer.
+    /// Waits for Allow or Deny for the hook of `id`'s permission question; a newer wait lets the older go unanswered.
     func waitForPermission(_ id: String, within seconds: TimeInterval) async -> String? {
         let token = UUID()
         return await withCheckedContinuation { continuation in
@@ -363,8 +356,7 @@ extension SessionContext: Handled {
 /// Never re-inserts a deleted session (publish and edit only update).
 extension SessionMarkRead: Handled {
     static let agents = AgentAccess.acts
-    // Not `quick`, because these wait for a wake of the same session (`Sessions.setUnread`), which can take as long as
-    // a locked keychain does.
+    // Not `quick`: these wait for a wake of the same session (`Sessions.setUnread`), as slow as a locked keychain.
     func handle(_ sessions: Sessions) throws -> Done {
         try sessions.setUnread(id, false)
         return Done()

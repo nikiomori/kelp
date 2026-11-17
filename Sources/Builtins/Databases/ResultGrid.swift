@@ -57,8 +57,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     var orders: [(column: String, ascending: Bool)] = []
     /// Called when an edit was made or undone, or the selection changed.
     var onChange: () -> Void = {}
-    /// Called when a header was clicked, with `orders` set to the order to read the rows in next (empty: as they
-    /// come).
+    /// Called when a header was clicked, with `orders` set to the order to read the rows in next (empty: as they come).
     var onSort: () -> Void = {}
     /// Called when a foreign key's arrow is clicked, with the column and its value to follow.
     var onFollow: (_ column: String, _ value: String) -> Void = { _, _ in }
@@ -170,8 +169,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         }
     }
 
-    /// A header click sorts up, then down, then as the rows come. ⌥-click adds the column to the order instead of
-    /// starting over.
+    /// A header click sorts up, then down, then as the rows come, and ⌥-click adds the column to the order kept so far.
     func tableView(_ tableView: NSTableView, didClick tableColumn: NSTableColumn) {
         guard let columnIndex = Int(tableColumn.identifier.rawValue), columns.indices.contains(columnIndex) else {
             return
@@ -282,8 +280,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         return cell
     }
 
-    /// Shows a value, NULL or DEFAULT in its field, struck through on a row marked to be deleted and yellow where it
-    /// was edited.
+    /// Shows a value, NULL or DEFAULT in its field, struck through on a row marked to be deleted and yellow if edited.
     private func show(_ value: String?, in field: NSTextField, row: Int, column: Int) {
         let new = row >= rows.count
         if let value {

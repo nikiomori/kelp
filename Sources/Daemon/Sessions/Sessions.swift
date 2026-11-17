@@ -69,13 +69,11 @@ final class Sessions: Sendable, WorkspaceSessions {
 
     func notify(_ event: some RPCEvent, to only: Set<Int>? = nil) { clients.notify(event, to: only) }
 
-    /// The agents on a phone, through a relay (PhoneBridge.swift).
-    var phone: PhoneBridge { events.phone }
+    var phone: PhoneBridge { events.phone }   // the agents on a phone, through a relay (PhoneBridge.swift)
     /// What asking the user on an agent's row takes, for a service that does only that.
     var asks: AgentAsks { AgentAsks(store: store, live: live, permissions: permissions, clients: clients) }
 
-    /// A running session, without waking a paused one.
-    func existing(_ id: String) -> LiveSession? { live[id] }
+    func existing(_ id: String) -> LiveSession? { live[id] }   // a running session, without waking a paused one
 
     static let pausedAsAttached = RPCError.invalidParams("The session was paused as it was opened. Open it again.")
 
@@ -120,8 +118,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         return data
     }
 
-    /// The last `bytes` a session printed as text. Lossy on purpose: a byte window can cut a UTF-8 sequence, and the rest
-    /// of the text still matters.
+    /// The last `bytes` a session printed, as text, lossy on purpose because a byte window can cut a UTF-8 sequence.
     func printed(_ id: String, bytes: Int) throws -> String {
         // swiftlint:disable:next optional_data_string_conversion
         StatusDetector.stripANSI(String(decoding: try liveSessionOrLog(id, bytes: bytes), as: UTF8.self))
@@ -169,9 +166,8 @@ final class Sessions: Sendable, WorkspaceSessions {
         }
     }
 
-    /// The session whose program the call being answered came from (`caller`, as `Caller.origin`). It is bound around
-    /// each handler and carried into `offload`, so whatever the call starts belongs to that session (`Session.origin`),
-    /// on every path that starts one.
+    /// The session whose program the call being answered came from (`caller`, as `Caller.origin`), bound around each
+    /// handler and carried into `offload`, so whatever the call starts, on any path, belongs to it (`Session.origin`).
     @TaskLocal static var asker: String?
 
     @discardableResult
@@ -203,8 +199,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         }
         if local, manifest.id == Session.claudeAgent { argv = setup.withServers(argv, flag: "--mcp-config") }
         // Kelp's skills (written by the app into this home) are for this session only; nothing goes into ~/.claude. A
-        // restart's argv carries the skills it had, and they're chosen again, as for a new chat (the browser skill may
-        // differ by now).
+        // restart's argv carries the old skills, chosen again as for a new chat (the browser skill may differ by now).
         if local, let flag = manifest.pluginDirFlag, launch.argv == nil || SessionSetup.hasSkills(argv, root: root) {
             argv = SessionSetup.withoutSkills(argv, root: root, flag: flag, contextFlag: manifest.contextFlag)
             let skills = setup.skillArgs(
@@ -229,8 +224,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         rec.startedBy = launch.startedBy
         rec.origin = launch.origin ?? Self.asker
         rec.role = launch.role
-        // A remote agent runs in a tmux session of its own on the host, so a dropped connection or a daemon restart
-        // leaves it working.
+        // A remote agent runs in its own tmux on the host, so a dropped connection or a daemon restart doesn't stop it.
         if !local, launch.onHostInTmux || Session.isAgent(manifest.id) {
             rec.tmux = launch.tmux ?? Tmux.own()
         }
@@ -288,8 +282,7 @@ final class Sessions: Sendable, WorkspaceSessions {
     /// terminal's own tmux session ends with it unless `keepTmux` (a restart, whose new session attaches to it).
     func discard(_ session: Session, keepTmux: Bool = false) { discard([session], keepTmux: keepTmux) }
 
-    /// Discards several sessions that stopped together (a project's, a workspace's) with one wait for all of them,
-    /// rather than up to 10 s each.
+    /// Discards sessions that stopped together (a project's, a workspace's) with one wait for all, not up to 10 s each.
     func discard(_ all: [Session], keepTmux: Bool = false) {
         if !keepTmux { all.forEach(endOwnTmux) }
         wakeLocks.withLocks(all.map(\.id)) {
@@ -318,9 +311,8 @@ final class Sessions: Sendable, WorkspaceSessions {
         familyLeft(all)
     }
 
-    /// Stops every running session as the daemon stops. Each is paused (a resumable agent comes back paused, not as a
-    /// second copy) or ended, with its whole process tree gone before this returns. No session starts or wakes from now
-    /// on.
+    /// Stops every running session as the daemon stops: each is paused (a resumable agent comes back paused, not as a
+    /// second copy) or ended, its whole process tree gone before this returns. No session starts or wakes after this.
     func pauseAll() {
         let manifests = AgentManifest.load(dir: Paths.agents(in: root))
         Self.waitGone(live.close().flatMap { ls in live.remove(ls.snapshot.id).map { pause($0, manifests) } ?? [] })
@@ -333,8 +325,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         keepAwake.release()   // the next kelpd takes its own
         let all = live.close()
         reports.settle(within: 5)   // a child's report on its way: typed into its parent below, or owed
-        // Input that was sent and isn't written yet goes in first (a send's Enter comes 0.3 s behind its text), so the
-        // program has it before the next kelpd takes over, which couldn't send it.
+        // Input not yet written goes in first (a send's Enter trails its text by 0.3 s): the next kelpd can't send it.
         DispatchQueue.concurrentPerform(iterations: all.count) { all[$0].drainInput(within: 2) }
         return all.compactMap { ls in
             guard live.remove(ls.snapshot.id) != nil, let fd = ls.pty.handOver() else { return nil }
@@ -372,8 +363,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         }
     }
 
-    /// The idle pause counts in minutes, so idle agents are looked for every 15 s (sooner for a short setting), not on
-    /// each 0.5 s tick.
+    /// The idle pause counts in minutes, so idle agents are looked for every 15 s, not on each 0.5 s tick.
     static let idleCheckEvery: TimeInterval = 15
 
     /// Whether the ticker should look for idle agents now. It looks at least every 15 s, and more often when a quarter
@@ -384,8 +374,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         return minutes > 0 && idleCheckDue(now, every: min(Self.idleCheckEvery, minutes * 15))
     }
 
-    /// Whether a look for idle agents is due, because `every` seconds have passed since the last one (a short setting
-    /// is looked for more often). A clock that went back also makes it due.
+    /// Whether a look for idle agents is due: `every` seconds have passed since the last look, or the clock went back.
     func idleCheckDue(_ now: Date, every: TimeInterval = idleCheckEvery) -> Bool {
         pausingIdle.withLock { idle in
             guard now.timeIntervalSince(idle.lookedAt) >= every || now < idle.lookedAt else {

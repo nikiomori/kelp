@@ -11,8 +11,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     var allowed = true
     let center: UNUserNotificationCenter? = Bundle.main.bundleIdentifier != nil ? .current() : nil   // needs an app bundle
     let app: AppModel
-    /// The category of a notification about several sessions, whose Continue tells each of them to go on (the
-    /// `goingOn` of `Notifications.notifyUser`).
+    /// The banner category for several sessions: Continue tells each session to go on (`notifyUser`'s `goingOn`).
     static let goOnCategory = "continueAll"
     init(app: AppModel) {
         self.app = app
@@ -56,8 +55,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         // but the limit warnings must not stop, and neither must the usage face on the Dock icon. The built-in that
         // posts the warnings hears each reading through `Contributions.pushed`.
         app.watch(.limits)
-        // Typing means a key pressed in one of Kelp's windows while that window is key (a bare modifier isn't a
-        // keyDown).
+        // Typing is a key pressed in a Kelp window while that window is key (a bare modifier isn't a keyDown).
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             if e.window?.isKeyWindow == true { self?.lastKey = Date() }
             return e
@@ -141,16 +139,14 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    /// Posts what was held, with the agents in one banner. It runs after 20 s without a key, when Kelp goes to the
-    /// back, or when another workspace comes up.
+    /// Posts what was held, the agents in one banner, after 20 s with no key, when Kelp goes back or a workspace opens.
     func releaseHeld() {
         quietWait?.cancel()
         quietWait = nil
         let alerts = heldAlerts
         heldAlerts = []
         alerts.forEach { $0() }
-        // Check each held agent as it is now. One the user looked at, or one that moved on (answered, working again),
-        // needs no banner.
+        // A held agent the user looked at, or one that moved on (answered, working again), needs no banner.
         let ready = held.filter { session in
             app.session(session.id)?.status == session.status
                 && !(NSApp.isActive && app.workbench.isViewing(session: session.id))
@@ -183,16 +179,14 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         NSApp.requestUserAttention(.informationalRequest)
     }
 
-    /// Posts a built-in's notification (`Notifications.notifyUser`) now, or once typing stops. When macOS notifications
-    /// are off, it shows as a banner inside Kelp.
+    /// Posts a built-in's notification (`Notifications.notifyUser`) now, or once typing stops.
     func postAlert(
         _ id: String, _ content: UNNotificationContent, action: (title: String, run: @MainActor () -> Void)?
     ) {
         alert { [self] in deliver(id, content, action: action) }
     }
 
-    /// Sends the notification to Notification Center. When Kelp's notifications are off there and Kelp is in front, it
-    /// also shows a banner inside Kelp.
+    /// Posts to Notification Center, and as a banner inside Kelp when Kelp is in front with its notifications off.
     private func deliver(
         _ id: String, _ content: UNNotificationContent, action: (title: String, run: @MainActor () -> Void)? = nil,
         icon: NSImage? = nil
@@ -204,8 +198,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func updateBadge() {
-        // Count the agents that wait for an answer, as the Needs You marks do. Finished work the user hasn't opened
-        // isn't a question, so it doesn't count.
+        // Count agents that wait for an answer, as the Needs You marks do; unopened finished work isn't a question.
         let count = app.sessions.filter { $0.wantsYou && $0.shownStatus != .done }.count
         let label = count > 0 ? "\(count)" : nil
         if NSApp.dockTile.badgeLabel != label { NSApp.dockTile.badgeLabel = label }
@@ -238,8 +231,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         post(current, holding: false, again: true)
     }
 
-    /// Cancels the reminder of each question the user is looking at with Kelp in front. That question needs no
-    /// reminder, because it stays marked on its row.
+    /// Cancels reminders of questions the user looks at with Kelp in front; each question stays marked on its row.
     private func lookedAt() {
         guard NSApp.isActive else { return }
         for sid in reminders.keys where app.workbench.isViewing(session: sid) {
@@ -247,8 +239,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    /// Banners already answered (the user looked at the agent, or it moved on) are removed from Notification Center, as
-    /// Messages does.
+    /// Removes answered banners (the agent was seen or moved on) from Notification Center, as Messages does.
     private var posted: [String: String] = [:]   // session → request id
     private func clearSeen() {
         let stale = posted.filter { sid, rid in
@@ -260,8 +251,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         stale.keys.forEach { posted[$0] = nil }
     }
 
-    /// Called for each `event.session` as it arrives, so a status that changes back within a moment still gets its
-    /// banner.
+    /// Called per `event.session` as it arrives, so a status that changes back within a moment still gets a banner.
     func statusChanged(_ session: Session, _ old: Session?) {
         guard old?.status != session.status, [.done, .waiting, .error].contains(session.status), session.isChat else {
             return
@@ -300,24 +290,21 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         if tells(session, turn: turn) { post(session) }
     }
 
-    /// Whether this change gets a banner: the rule allows it for the status and the turn's length, and the row isn't
-    /// muted.
+    /// Whether the change gets a banner: the rule allows its status and turn length, and the row isn't muted.
     private func tells(_ session: Session, turn: TimeInterval?) -> Bool {
         // A limit stops the turn with a question (what next?), so it is told as a question, however short the turn.
         rule.level(session.limitHit == nil ? session.status : .waiting, turn: turn) != .off
             && !Mutes.isMuted(session, in: app)
     }
 
-    /// The sound goes on the notification itself, not through NSSound, so Focus and Kelp's "Play sound" switch in
-    /// System Settings silence it.
+    /// The sound is on the notification, not NSSound, so Focus and Kelp's "Play sound" in System Settings mute it.
     private func sound(_ status: AgentStatus) -> UNNotificationSound? {
         guard rule.level(status, turn: nil) == .sound else { return nil }
         return UNNotificationSound(
             named: UNNotificationSoundName(status == .waiting ? "Ping" : status == .error ? "Basso" : "Glass"))
     }
 
-    /// Makes a one-line summary for the banner and sidebar from the agent's own last reply, then posts the
-    /// notification.
+    /// Makes a one-line summary for the banner and sidebar from the agent's last reply, then posts the notification.
     private func summarizeThenNotify(_ session: Session, turn: TimeInterval?) async {
         var session = session
         // For Claude Code, use its own last reply, because the terminal text around it (spinners, mode lines) reads as
@@ -364,8 +351,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         return sentence.count > 90 ? String(sentence.prefix(89)) + "…" : sentence
     }
 
-    /// Posts the banner for a session's new status. With `again`, it posts the one reminder of a question in place of
-    /// the first banner.
+    /// Posts the banner for a session's new status, or with `again` the one reminder of a question.
     private func post(_ s: Session, holding: Bool = true, again: Bool = false) {
         let app = self.app
         // No banner if the user is already looking at that pane (what it asks stays marked until it's answered).
@@ -398,8 +384,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         content.sound = sound(s.limitHit == nil ? s.status : .waiting)
         content.userInfo = ["session": s.id, "question": s.summary]
         if let cat = Self.category(s) { content.categoryIdentifier = cat }
-        // Each banner gets an id of its own, because macOS may show a notification added again under the same id
-        // silently.
+        // Each banner gets its own id, because macOS may silently show a notification added again under the same id.
         let rid = again ? "\(s.id)-again-\(s.status.rawValue)" : "\(s.id)-\(s.status.rawValue)"
         if again, let first = posted[s.id] { center?.removeDeliveredNotifications(withIdentifiers: [first]) }
         deliver(

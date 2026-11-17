@@ -9,17 +9,14 @@ import os
 /// A method declared in Core (`RPCMethod`) that the daemon answers, sync (`Handled`) or async (`AsyncHandled`), listed
 /// once in `Daemon.methods`. Its result is encoded straight into the reply (`answer`), never through a JSONValue.
 protocol Answered: RPCMethod {
-    /// True for a method applied on the connection's reader thread, after every call or notification sent before it.
-    /// Only a quick method that is right only in the order sent is applied this way (`Handled` only). Every other
-    /// method runs on a task of its own and replies whenever it's ready.
+    /// True for a quick method that is right only in the order sent (`Handled` only), applied on the reader thread
+    /// after everything sent before it. Every other method runs on a task of its own and replies whenever it's ready.
     static var inOrder: Bool { get }
     /// The result as the reply's JSON.
     static func answer(_ params: JSONValue, _ daemon: Daemon, conn: Int) async throws -> Data
-    /// Who may call the method, and on what (`Fence`). It is checked before the method runs, for every caller
-    /// (`Daemon.allow`).
+    /// Who may call the method, and on what (`Fence`), checked for every caller before it runs (`Daemon.allow`).
     var fence: Fence { get }
-    /// Whether an agent's program may call the method at all, and whether to read or to act (`AgentRules.methods`). It
-    /// is `.none` by default.
+    /// Whether an agent's program may call the method, to read or to act (`AgentRules.methods`), `.none` by default.
     static var agents: AgentAccess { get }
     /// For a method that runs gh in the project's folder, what it answers for a remote project with no GitHub origin
     /// (`Daemon.refuseRemoteForge`). It is nil for a method that runs nothing there.
@@ -32,17 +29,15 @@ enum Ending { case workspace(String), project(String) }
 /// `AgentRules.allow` check it before the method runs. Each gate is a label of the init and is off by default, so a
 /// misspelled gate doesn't compile and no gate is left to a protocol's default.
 struct Fence {
-    /// Who may call the method. nil lets any client of the socket call it (the app, the CLI, agents and their scripts).
-    /// Otherwise it is the refusal that anyone but Kelp's window is told (`Clients.requireApp`). The params may decide
-    /// (`state.set` of an `lsp.` key).
+    /// nil lets any socket client call the method (the app, the CLI, agents and scripts). Otherwise it is the refusal
+    /// anyone but Kelp's window is told (`Clients.requireApp`). The params may decide (`state.set` of an `lsp.` key).
     var onlyFromKelp: String?
     /// The session whose status the method reports (hooks, `kelp report`, herdr's). A program inside a session reports
     /// only for that session; from outside every session (the app, a terminal elsewhere), it may report for any.
     var reportsFor: String?
-    /// The session the method types into or stops. It isn't a gate of its own, because every session a call names, in
-    /// any field, is held to the agent's own and those it started (`Store.named(by:)`). So for a session that exists it
-    /// adds nothing. It does refuse an id that names no session, and it keeps a typed agent from acting on the user's
-    /// terminal it was typed into, which the agent may still name (`AgentRules.allow`).
+    /// The session the method types into or stops. Every session a call names, in any field, is already held to the
+    /// agent's own and those it started (`Store.named(by:)`). This gate refuses an id naming no session, and keeps a
+    /// typed agent from acting on the user's terminal it was typed into, which the agent may still name (`AgentRules`).
     var actsOn: String?
     /// Whether the method answers an agent's question (Allow / Deny). Only the user may answer, so it is never accepted
     /// from a session an agent runs or started, which could approve its own question or another agent's.
@@ -50,26 +45,23 @@ struct Fence {
     /// The workspace the method works in (`kelp browser`'s tabs, a port's process). An agent works only in its own
     /// workspace, whose pages may carry the user's logins that the agent was let into.
     var inWorkspace: String?
-    /// A folder the method writes in (an artifact's `cwd`). It is held to the workspace that holds the folder, as
-    /// `inWorkspace` is. A folder outside every workspace (a chat with no project) is open to anyone.
+    /// A folder the method writes in (an artifact's `cwd`), held like `inWorkspace` to the workspace that holds it. A
+    /// folder outside every workspace (a chat with no project) is open to anyone.
     var writesInFolder: String?
     /// The sessions the method ends along with what it removes (a workspace, a project): an agent may end only its own
     /// sessions and those it started, never the user's other agents.
     var ends: Ending?
-    /// Why an agent, or a program it runs, may not call the method at all (deleting a routine, which is the user's
-    /// own). It is nil if it may.
+    /// Why agents and their programs may not call the method (deleting a routine, the user's own); nil if they may.
     var notForAgents: String?
     /// The session the method types raw keys into. It is never an agent's session while that agent asks a question,
     /// because a key would answer it.
     var typesInto: String?
-    /// A session the method shows (a tab of it). It is checked like any session a call names, a typed agent's own
-    /// terminal included.
+    /// A session the method shows (a tab), checked like any named session, a typed agent's own terminal included.
     var shows: String?
     /// Whether the method leaves words for another to read (a review comment), signed by the `reportsFor` session. An
     /// agent must name its session, or the words would read as the user's.
     var signs: Bool = false
-    /// The project the method makes something in (a workspace). It must be a project the agent works in, not any of the
-    /// user's.
+    /// The project the method makes something in (a workspace): a project the agent works in, not any of the user's.
     var makesInProject: String?
 }
 
@@ -176,21 +168,18 @@ extension Upgrade: DaemonService {
 protocol Handled: Answered {
     associatedtype Service: DaemonService
     /// True for a method that only reads memory or makes a short write to the store, and never runs a program. It is
-    /// answered on a thread of its own at once, not after a slot in `offload` behind slow git, gh or ssh (an agent's
-    /// `kelp hook` waits for its reply). `Subprocess.quickOnly` enforces that, so a quick method that starts a program
-    /// fails instead of quietly becoming slow.
+    /// answered at once on a thread of its own, not behind slow git, gh or ssh in `offload` (an agent's `kelp hook`
+    /// waits for it). `Subprocess.quickOnly` makes a quick method that starts a program fail instead of turning slow.
     static var quick: Bool { get }
     func handle(_ service: Service) throws -> Result
     func handle(_ service: Service, conn: Int) throws -> Result
-    /// For an in-order method that answers later, off the reader thread (`SessionInput`, from its session's lane).
-    /// Returns true when it took the call, and then `reply` gets the result. `allowed` is `Daemon.allow` for the caller
-    /// the call came from.
+    /// For an in-order method answered later, off the reader thread (`SessionInput`, from its session's lane). Returns
+    /// true when it took the call, and `reply` then gets the result. `allowed` is `Daemon.allow` for the call's caller.
     static func answerLater(
         _ params: JSONValue, _ service: Service, allowed: @escaping @Sendable (any Answered) throws -> Void,
         reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
     ) -> Bool
-    /// Runs what has to wait until an in-order method's reply has left (the hand-over of daemon.upgrade, the stop of
-    /// daemon.shutdown).
+    /// Runs what waits for an in-order method's reply to leave (daemon.upgrade's hand-over, daemon.shutdown's stop).
     static func replied(_ service: Service)
     /// For a call that sends its reply itself, where a returned result can't go (`session.attach`, whose reply is
     /// queued inside the session's lock). Returns true when it replied, or false to be answered like any other call.
@@ -273,14 +262,12 @@ extension RPCMethod {
     }
 }
 
-/// The methods the daemon answers: each handler file ends with the list of those it answers, and `Daemon.methods` is
-/// the one table of them.
+/// The methods the daemon answers: each handler file ends with its list, and `Daemon.methods` is the one table of them.
 enum Methods {}
 
 extension Daemon {
-    /// Throws unless the client on `conn` may make this call. This is the one place every path asks (`checked`, a
-    /// session's input). It checks calls that only Kelp's window makes (`onlyFromKelp`) first, then what the caller may
-    /// reach (`AgentRules.allow`).
+    /// Throws unless the client on `conn` may make this call. Every path asks here (`checked`, a session's input). It
+    /// checks calls only Kelp's window makes (`onlyFromKelp`) first, then what the caller reaches (`AgentRules.allow`).
     /// `caller` is who sent the call, when that was found earlier (input queued for a session that wakes).
     func allow(_ method: any Answered, conn: Int, caller known: Caller? = nil) throws {
         if let refusal = method.fence.onlyFromKelp { try clients.requireApp(conn, refusal) }
@@ -323,10 +310,9 @@ extension Daemon {
         do { return try await methodType.answer(params, self, conn: conn) } catch { throw Self.rpc(error) }
     }
 
-    /// Answers an in-order method here on the connection's reader thread, where everything sent after it waits. It may
-    /// start no program (`Subprocess.quickOnly` refuses one, so the call fails at once instead of holding up the
-    /// connection), and a method that still took long says so in the log. No in-order method runs gh (`onRemote`,
-    /// `refuseRemoteForge`).
+    /// Answers an in-order method on the connection's reader thread, where everything sent after it waits. It may start
+    /// no program (`Subprocess.quickOnly` refuses one, so the call fails instead of holding up the connection), and a
+    /// method that still took long says so in the log. No in-order method runs gh (`onRemote`, `refuseRemoteForge`).
     func answerNow(_ methodType: any Handled.Type, _ params: JSONValue, conn: Int) throws -> Data {
         let start = DispatchTime.now()
         defer {
@@ -358,10 +344,9 @@ extension Daemon {
     /// gh / glab run in the project's folder here. A remote project's folder is only a marker under ~/.kelp, and their
     /// git would walk up to whatever repository holds it (a dotfiles home). For a remote project on GitHub, gh runs on
     /// the repository its origin names (`HostRepo`). On GitLab or elsewhere, a method that runs gh (`onRemote`) is
-    /// refused, or answers null when the sidebar asked.
-    /// That origin is read on the host over ssh, through `offload` like any git run, and only for a remote project's
-    /// call. When it was read on the request's own task, a host that didn't answer held a pool thread for each of the
-    /// sidebar's reads.
+    /// refused, or answers null when the sidebar asked. That origin is read on the host over ssh, through `offload`
+    /// like any git run, and only for a remote project's call. Read on the request's own task, a host that didn't
+    /// answer held a pool thread for each of the sidebar's reads.
     private func refuseRemoteForge(_ methodType: any Answered.Type, _ params: JSONValue) async throws -> Data? {
         guard let onRemote = methodType.onRemote, let path = (try? store.repoPath(params)).map({ $0.1 }),
             remotes.of(path) != nil, try await offloads.run({ GitHub.repo(onHost: path) }) == nil
@@ -375,8 +360,8 @@ extension Daemon {
     /// other request, a terminal's attach included. It doesn't use GCD's pool either: that pool stops at 64 threads
     /// (concurrent queues Kelp makes draw from it too), Swift's tasks run on it as well, and once slow hosts hold them
     /// all no request is answered. git, gh and ssh all have time limits, so a thread is held only while its program
-    /// runs. At most `offloadLimit` run at once, and the rest wait their turn in the order they came, holding no thread
-    /// meanwhile. `quick` work (`Handled.quick`) takes no slot and starts no program.
+    /// runs. At most `offloadLimit` run at once, and the rest wait in the order they came, holding no thread. `quick`
+    /// work (`Handled.quick`) takes no slot and starts no program.
     func offload<T: Sendable>(quick: Bool = false, _ work: @escaping @Sendable () throws -> T) async throws -> T {
         try await offloads.run(quick: quick, work)
     }
@@ -386,12 +371,11 @@ extension Daemon {
     /// Requests one client may have waiting for their answer at once (the app's sidebar asks a few hundred at most).
     static let pendingLimit = 4096
 
-    /// Up to 128 requests run at once. That is wider than any fan-out Kelp makes itself (the sidebar asks for a PR per
-    /// folder, and every watched folder's status), and wider than the slow requests that once stalled every other one
-    /// (the test aRequestIsAnsweredWhileManySlowOnesRun holds 80), so the next request still runs while that many wait
-    /// on hosts that don't answer. Past the limit, a runaway client's requests queue instead of each starting a
-    /// program, because every request is a thread here, plus two threads reading its pipes (`Subprocess`) and a
-    /// process. The user's processes are capped for the whole login (kern.maxprocperuid), terminals included.
+    /// Up to 128 requests run at once, wider than any fan-out Kelp makes itself (the sidebar asks for a PR per folder,
+    /// and every watched folder's status) and than the slow requests that once stalled every other one (the test
+    /// aRequestIsAnsweredWhileManySlowOnesRun holds 80), so the next request runs while that many wait on dead hosts.
+    /// Past the limit, a runaway client's requests queue instead of each taking a thread here, two more reading its
+    /// pipes (`Subprocess`) and a process. The login's processes, terminals included, are capped (kern.maxprocperuid).
     static let offloadLimit = 128
 }
 

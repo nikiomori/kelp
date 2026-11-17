@@ -133,8 +133,7 @@ public struct GitHubIssueView: RPCMethod {
         self.issue = issue
     }
 }
-/// Pushes, takes the title and body from the commits if they aren't given, opens the PR (a draft with `draft`), and
-/// links it. Returns {url, title}.
+/// Pushes, opens the PR (a draft with `draft`) and links it. The title and body come from the commits unless given.
 public struct GitHubPRCreate: RPCMethod {
     public static let name = "github.pr-create"
     public struct Result: Codable, Sendable, Equatable {
@@ -276,8 +275,7 @@ public struct CIDispatch: RPCMethod {
     }
 }
 
-/// Saves a Linear key. An empty `key` disconnects and returns null. Otherwise the key is checked before it is saved,
-/// and the key's user is returned.
+/// Saves a Linear key after checking it and returns the key's user. An empty `key` disconnects and returns null.
 public struct LinearSetKey: RPCMethod {
     public static let name = "linear.setKey"
     public typealias Result = LinearUser?
@@ -327,8 +325,7 @@ public struct LinearSetState: RPCMethod {
     }
 }
 
-/// Saves Jira credentials. An empty `token` disconnects and returns null. Otherwise the credentials are checked before
-/// they are saved, and the account's name is returned.
+/// Saves Jira credentials once checked and returns the account's name. An empty `token` disconnects and returns null.
 public struct JiraSetCredentials: RPCMethod {
     public static let name = "jira.setCredentials"
     public struct Account: Codable, Sendable, Equatable {
