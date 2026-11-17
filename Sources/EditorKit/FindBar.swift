@@ -281,13 +281,8 @@ extension EditorTextView {
     /// Draws every match in what's drawn, with the one the bar is on standing out.
     func drawFindMarks(in rect: NSRect) {
         guard !findMarks.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
-        let shown = lm.characterRange(
-            forGlyphRange: lm.glyphRange(forBoundingRect: rect.insetBy(dx: 0, dy: -20), in: tc), actualGlyphRange: nil)
-        var lo = 0, hi = findMarks.count
-        while lo < hi {
-            let mid = (lo + hi) / 2
-            if NSMaxRange(findMarks[mid]) <= shown.location { lo = mid + 1 } else { hi = mid }
-        }
+        let shown = characters(in: rect.insetBy(dx: 0, dy: -20))
+        let lo = findMarks.partitionPoint { NSMaxRange($0) <= shown.location }
         let origin = textContainerOrigin
         for mark in findMarks[lo...] {
             if mark.location > NSMaxRange(shown) { break }

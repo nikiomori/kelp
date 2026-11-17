@@ -73,14 +73,7 @@ struct LineIndex {
     }
 
     /// The first index whose line start is past `offset`.
-    private func upperBound(_ offset: Int) -> Int {
-        var lo = 0, hi = starts.count
-        while lo < hi {
-            let mid = (lo + hi) / 2
-            if starts[mid] <= offset { lo = mid + 1 } else { hi = mid }
-        }
-        return lo
-    }
+    private func upperBound(_ offset: Int) -> Int { starts.partitionPoint { $0 <= offset } }
 }
 
 /// The line numbers beside the text, in the editor's colors, with the current line's brighter. A chevron shows where a
@@ -133,8 +126,7 @@ final class LineNumbers: NSRulerView {
         rect.fill()
         guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else { return }
         let tv = editor.textView, string = tv.string as NSString
-        let visible = lm.characterRange(
-            forGlyphRange: lm.glyphRange(forBoundingRect: tv.visibleRect, in: tc), actualGlyphRange: nil)
+        let visible = tv.characters(in: tv.visibleRect)
         let caretLine = editor.lineIndex.line(at: tv.selectedRange().location, in: string)
         var number = editor.lineIndex.line(at: visible.location, in: string)
         let y0 = convert(NSPoint.zero, from: tv).y + tv.textContainerOrigin.y

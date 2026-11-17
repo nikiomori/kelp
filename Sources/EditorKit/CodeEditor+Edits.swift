@@ -166,7 +166,7 @@ extension CodeEditor {
     }
 
     /// Where `needle` is, matching case. With `wholeWords`, not where it's part of a longer word (`id` in `width`).
-    static func occurrences(of needle: String, in string: NSString, wholeWords: Bool = false) -> [NSRange] {
+    static func occurrences(of needle: String, in string: NSString, wholeWords: Bool) -> [NSRange] {
         var out: [NSRange] = [], from = 0
         while from < string.length {
             let found = string.range(

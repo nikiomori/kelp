@@ -62,8 +62,7 @@ extension CodeEditor {
         let tv = textView
         tv.removeAllToolTips()
         guard !tv.problemMarks.isEmpty, let lm = tv.layoutManager, let tc = tv.textContainer else { return }
-        let shown = lm.characterRange(
-            forGlyphRange: lm.glyphRange(forBoundingRect: tv.visibleRect, in: tc), actualGlyphRange: nil)
+        let shown = tv.characters(in: tv.visibleRect)
         for (index, mark) in tv.problemMarks.enumerated() where NSIntersectionRange(mark.range, shown).length > 0 {
             lm.enumerateEnclosingRects(
                 forGlyphRange: lm.glyphRange(forCharacterRange: mark.range, actualCharacterRange: nil),
@@ -91,8 +90,7 @@ extension EditorTextView: NSViewToolTipOwner {
     /// Draws a wavy line under each mark in what's drawn, because a font's underline has no such style.
     func drawProblems(in rect: NSRect) {
         guard !problemMarks.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
-        let shown = lm.characterRange(
-            forGlyphRange: lm.glyphRange(forBoundingRect: rect.insetBy(dx: 0, dy: -20), in: tc), actualGlyphRange: nil)
+        let shown = characters(in: rect.insetBy(dx: 0, dy: -20))
         let origin = textContainerOrigin
         for mark in problemMarks
         where NSIntersectionRange(mark.range, shown).length > 0 && !folds.intersects(mark.range) {

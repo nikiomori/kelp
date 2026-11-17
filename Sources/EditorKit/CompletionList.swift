@@ -81,6 +81,10 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
     private func select(_ row: Int) {
         table.selectRowIndexes([row], byExtendingSelection: false)
         table.scrollRowToVisible(row)
+        showDoc()   // a row that stays selected over a reload posts no change
+    }
+
+    private func showDoc() {
         let text = selected?.documentation ?? ""
         doc.stringValue = text
         docCard.isHidden = text.isEmpty
@@ -90,11 +94,7 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
 
     func numberOfRows(in tableView: NSTableView) -> Int { items.count }
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
-    func tableViewSelectionDidChange(_ notification: Notification) {
-        let text = selected?.documentation ?? ""
-        doc.stringValue = text
-        docCard.isHidden = text.isEmpty
-    }
+    func tableViewSelectionDidChange(_ notification: Notification) { showDoc() }
 
     func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
         let item = items[row]

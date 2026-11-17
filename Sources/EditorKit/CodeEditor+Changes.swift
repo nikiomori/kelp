@@ -21,11 +21,7 @@ extension CodeEditor {
 
     /// The mark on 0-based line `line`, by binary search, because the gutter asks for every line it draws.
     func changeMark(onLine line: Int) -> ChangeMark? {
-        var lo = 0, hi = changeMarks.count
-        while lo < hi {
-            let mid = (lo + hi) / 2
-            if changeMarks[mid].line <= line { lo = mid + 1 } else { hi = mid }
-        }
+        let lo = changeMarks.partitionPoint { $0.line <= line }
         return lo > 0 && changeMarks[lo - 1].lines.contains(line) ? changeMarks[lo - 1] : nil
     }
 

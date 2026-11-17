@@ -515,3 +515,10 @@ extension OneAtATime {
         if #available(macOS 15.0, *) { #expect(tv.writingToolsBehavior == .none) }
     }
 }
+
+@Test func partitionPointIsTheFirstThatIsNotBefore() {
+    for count in 0...5 {
+        let sorted = Array(0..<count)
+        for value in -1...(count + 1) { #expect(sorted.partitionPoint { $0 < value } == min(max(value, 0), count)) }
+    }
+}

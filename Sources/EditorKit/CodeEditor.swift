@@ -324,12 +324,9 @@ public final class CodeEditor: NSObject {
     func colorVisible() {
         guard let highlighter, let lm = textView.layoutManager, let tc = textView.textContainer else { return }
         let screen = textView.visibleRect
-        func characters(in rect: NSRect) -> NSRange {
-            lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: rect, in: tc), actualGlyphRange: nil)
-        }
-        let shown = characters(in: screen)
+        let shown = textView.characters(in: screen)
         if let colored, NSIntersectionRange(colored, shown).length == shown.length { return }
-        let around = characters(in: screen.insetBy(dx: 0, dy: -screen.height))
+        let around = textView.characters(in: screen.insetBy(dx: 0, dy: -screen.height))
         guard around.length <= Self.colorSpan else { return }
         highlighter.color(around, in: textView)
         colored = around

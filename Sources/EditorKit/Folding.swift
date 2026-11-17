@@ -11,11 +11,7 @@ final class Folds: @unchecked Sendable {   // used on the main thread only, wher
 
     /// The fold hiding `location`.
     func fold(at location: Int) -> NSRange? {
-        var lo = 0, hi = hidden.count
-        while lo < hi {
-            let mid = (lo + hi) / 2
-            if NSMaxRange(hidden[mid]) <= location { lo = mid + 1 } else { hi = mid }
-        }
+        let lo = hidden.partitionPoint { NSMaxRange($0) <= location }
         return lo < hidden.count && hidden[lo].location <= location ? hidden[lo] : nil
     }
 

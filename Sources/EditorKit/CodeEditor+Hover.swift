@@ -38,12 +38,17 @@ extension CodeEditor {
 
     private func open(_ card: NSViewController, at location: Int) {
         hover.card?.close()
+        hover.card = popover(card, .transient, at: location)
+    }
+
+    /// Shows `card` under the caret at `location`.
+    private func popover(_ card: NSViewController, _ behavior: NSPopover.Behavior, at location: Int) -> NSPopover {
         let popover = NSPopover()
-        popover.behavior = .transient
+        popover.behavior = behavior
         popover.animates = false
         popover.contentViewController = card
         popover.show(relativeTo: textView.caretRect(at: location), of: textView, preferredEdge: .minY)
-        hover.card = popover
+        return popover
     }
 
     /// Called when a key went in. `(` and `,` ask for the call's signature, and `)` ends it. The card goes, because its
@@ -105,12 +110,7 @@ extension CodeEditor {
             open.contentSize = card.preferredContentSize
             return
         }
-        let popover = NSPopover()
-        popover.behavior = .semitransient   // the keys stay in the text
-        popover.animates = false
-        popover.contentViewController = card
-        popover.show(relativeTo: textView.caretRect(at: location), of: textView, preferredEdge: .minY)
-        hover.signatureCard = popover
+        hover.signatureCard = popover(card, .semitransient, at: location)   // the keys stay in the text
     }
 }
 

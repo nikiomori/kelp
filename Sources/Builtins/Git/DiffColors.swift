@@ -61,12 +61,7 @@ enum DiffColors {
         var out: [String: [Span]] = [:]
         for (range, name) in grammar.highlights(lines.map(\.text).joined(separator: "\n")) {
             // Finds the last line starting at or before the capture, then each line the capture runs into.
-            var lo = 0, hi = starts.count
-            while lo < hi {
-                let mid = (lo + hi) / 2
-                if starts[mid] <= range.location { lo = mid + 1 } else { hi = mid }
-            }
-            var lineIndex = max(0, lo - 1)
+            var lineIndex = max(0, starts.partitionPoint { $0 <= range.location } - 1)
             while lineIndex < lines.count, starts[lineIndex] < NSMaxRange(range) {
                 let line = lines[lineIndex], length = line.text.utf16.count
                 let cut = NSIntersectionRange(range, NSRange(location: starts[lineIndex], length: length))

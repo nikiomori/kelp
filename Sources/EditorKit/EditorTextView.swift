@@ -239,6 +239,12 @@ public final class EditorTextView: NSTextView {
         replace(gone, with: gone.map { _ in "" })
     }
 
+    /// Returns the characters laid out in `rect`, in the view's coordinates.
+    func characters(in rect: NSRect) -> NSRange {
+        guard let lm = layoutManager, let tc = textContainer else { return NSRange(location: 0, length: 0) }
+        return lm.characterRange(forGlyphRange: lm.glyphRange(forBoundingRect: rect, in: tc), actualGlyphRange: nil)
+    }
+
     // MARK: Completion
 
     /// The identifier left of the cursor. NSTextView's own word would take `obj.na` whole, and no label starts with
@@ -358,9 +364,7 @@ public final class EditorTextView: NSTextView {
         drawWhitespace(in: dirtyRect)
         guard !extraCarets.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
         // Only the carets in what's drawn are drawn, because ⇧⌘L on a common word in a big file makes thousands.
-        let shown = lm.characterRange(
-            forGlyphRange: lm.glyphRange(forBoundingRect: dirtyRect.insetBy(dx: 0, dy: -20), in: tc),
-            actualGlyphRange: nil)
+        let shown = characters(in: dirtyRect.insetBy(dx: 0, dy: -20))
         insertionPointColor.setFill()
         for caret in extraCarets where caret >= shown.location && caret <= NSMaxRange(shown) {
             caretRect(at: caret).intersection(dirtyRect).fill()

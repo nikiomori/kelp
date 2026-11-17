@@ -68,8 +68,7 @@ extension EditorTextView {
         let here = text.lineRange(for: NSRange(location: selectedRange().location, length: 0))
         let level = guideLevels(here, in: text)
         guard level > 0 else { return nil }
-        let shown = lm.characterRange(
-            forGlyphRange: lm.glyphRange(forBoundingRect: visibleRect, in: tc), actualGlyphRange: nil)
+        let shown = characters(in: visibleRect)
         var from = here, to = here
         while from.location > shown.location {
             let line = text.lineRange(for: NSRange(location: from.location - 1, length: 0))
@@ -89,8 +88,7 @@ extension EditorTextView {
     func drawWhitespace(in rect: NSRect) {
         guard let lm = layoutManager, let tc = textContainer else { return }
         let text = string as NSString, origin = textContainerOrigin
-        let shown = lm.characterRange(
-            forGlyphRange: lm.glyphRange(forBoundingRect: rect, in: tc), actualGlyphRange: nil)
+        let shown = characters(in: rect)
         guard shown.length > 0 else { return }
         var chars = [unichar](repeating: 0, count: shown.length)
         text.getCharacters(&chars, range: shown)
