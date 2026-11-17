@@ -1,11 +1,11 @@
 import Core
 import Foundation
 
-// The tab's edits saved: all in one transaction.
+// Saving the edits made in a table tab, all of them in one transaction.
 
 extension Databases {
-    /// Saves the tab's edits on the user's behalf: each statement must be a single statement (SQLText.single), and all
-    /// of them run in one transaction (`apply`).
+    /// Saves the edits made in a tab on the user's behalf. Each entry must be a single statement (`SQLText.single`),
+    /// and all of them run in one transaction (`apply`).
     func apply(_ databaseApply: DatabaseApply) async throws -> QueryResult {
         guard !databaseApply.statements.isEmpty else { throw RPCError.invalidParams("Nothing to save.") }
         let (wid, name) = (databaseApply.worktreeId, databaseApply.database)
@@ -37,10 +37,11 @@ extension Databases {
 }
 
 extension Databases {
-    /// With `each`, the changes are kept only if every statement changed exactly that many rows. Limit: a database
-    /// whose runner can't count each statement's rows in one transaction (a client program, DuckDB, Appwrite) runs them
-    /// the way `apply` does: statements that find their rows by the values they were checked against (Undo's) still
-    /// change nothing where a row changed since, but the other statements are kept.
+    /// Runs the statements in one transaction and returns how many rows they changed. With `each`, the changes are
+    /// kept only if every statement changed exactly that many rows. Limit: when the runner can't count each
+    /// statement's rows in one transaction (a client program, DuckDB, Appwrite), the statements run the way `apply`
+    /// runs them. A statement that finds its rows by the values Kelp read (as Undo's statements do) then still changes
+    /// nothing where a row changed since, but the other statements are kept.
     func applied(_ target: DatabaseConnection, _ statements: [String], each: Int?) async throws -> Int {
         guard let each else { return try await DatabaseEngines.apply(target, statements, off: offloads) }
         let counts: [Int?]

@@ -38,7 +38,7 @@ extension TaskFromIssue: AsyncHandled {
                         $0.linearIssueId = linearId ?? ""
                     })
             else { throw RPCError.internalError("worktree vanished") }
-            // its issueCommand / recipes only once the user trusts the file
+            // The config's issueCommand and recipes are used only once the user trusts the file.
             let cfg = work.workspaces.trustedConfig(repo.path)
             let vars = ["title": title, "body": body, "url": url, "ref": ref, "branch": unique]
             var text =
@@ -46,7 +46,8 @@ extension TaskFromIssue: AsyncHandled {
                 ?? Recipes.render("issue", config: cfg, vars: vars)
             if let extra = prompt, !extra.isEmpty { text += "\n\n" + extra }
             var launch = Sessions.Launch()
-            // Typed, not sent, unless asked: the issue's text is whoever filed it, not the user (it could tell the agent anything).
+            // The prompt is typed, not sent, unless asked, because the issue's text is from whoever filed it, not the
+            // user, and it could tell the agent anything.
             launch.model = model
             launch.effort = effort
             launch.profile = profile
@@ -66,7 +67,8 @@ extension TaskFromIssue: AsyncHandled {
         await work.forges.moveLinear(worktree, to: .inProgress)
         await work.forges.moveJira(worktree, toName: "progress", category: "indeterminate")
         work.workspaces.notify(ChangedEvent.worktree)
-        // An untrusted .kelp.yaml's setup didn't run: said, as worktree.create says it, so the caller can ask.
+        // When an untrusted .kelp.yaml's setup didn't run, the result says so, as worktree.create does, so the caller
+        // can ask.
         return Result(worktree: worktree, session: session, setupNeedsTrust: created.setupNeedsTrust == true)
     }
 }

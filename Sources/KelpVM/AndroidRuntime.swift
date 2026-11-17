@@ -1,34 +1,38 @@
 import Core
 import Foundation
 
-/// An Android machine: the SDK's emulator (Hypervisor.framework, an arm64 image at full speed) on an AVD of its own in
-/// the machine's folder (`avd/`, ANDROID_AVD_HOME), so the user's own AVDs stay untouched. It runs without a window
-/// unless someone asks to see it (`show` starts it again with one, from its snapshot). As with a Linux or macOS
-/// machine, kelpd's `start` (sent with each command) counts as use. After 2 idle minutes its CPU stops (`adb emu avd
-/// stop`); after 10, it saves its quickboot snapshot and quits.
+/// Runs an Android machine. The machine is the SDK's emulator (Hypervisor.framework, running an arm64 image at full
+/// speed) on an AVD of its own in the machine's folder (`avd/`, ANDROID_AVD_HOME), so the user's own AVDs stay
+/// untouched. It runs without a window unless someone asks to see it, and then `show` starts it again with one, from
+/// its snapshot. As with a Linux or macOS machine, kelpd's `start` (sent with each command) counts as use. After 2
+/// idle minutes its CPU stops (`adb emu avd stop`), and after 10 it saves its quickboot snapshot and quits.
 @MainActor
 final class AndroidRuntime: MachineRuntime {
     let folder: URL, machine: VMMachine
     private(set) var state: VMState
     private var emulator: Process?
-    /// The window, two facts: whether the emulator running now has one (it was booted with it), and whether the next
-    /// boot gets one (Show asked; whatever ends the emulator before, its own sleep included, leaves that asked).
+    /// Two facts about the window. `shown` says whether the emulator running now has one (it was booted with it).
+    /// `nextBootShown` says whether the next boot gets one, because Show asked. Whatever ends the emulator before that
+    /// boot, its own sleep included, leaves that request in place.
     private var shown = false, nextBootShown = false
-    /// The user has the emulator's window: in use, never paused for idling.
-    private var hasWindow: Bool { emulator != nil && shown && state != .error }   // not one that failed and is ending
+    /// Whether the user has the emulator's window. The machine is then in use and is never paused for idling.
+    private var hasWindow: Bool { emulator != nil && shown && state != .error }   // not a failed one that's ending
     private var port = 0
-    /// Its port's claim (`Lifecycle.claimPort`), held while it may be in use: let go as the next boot claims one.
+    /// The claim on the emulator's port (`Lifecycle.claimPort`). It is held while the port may be in use, and let go
+    /// when the next boot claims a port.
     private var portClaim: Int32 = -1
     private var pausing = false, bootWhenGone = false
-    /// SIGTERM came: what's under way ends, nothing new starts (a start meanwhile would leave an emulator nobody ends).
+    /// Set when SIGTERM came. What's under way ends and nothing new starts, because a start meanwhile would leave an
+    /// emulator that nobody ends.
     private var leaving = false, whenSaved: [() -> Void] = []
-    /// How it ends once it has left: the process's exit; a test's own.
+    /// How kelp-vm ends once the machine has left. By default the process exits, and a test sets its own.
     var exitProcess: () -> Void = { exit(0) }
-    /// What time it is: the clock by default; a test sets its own, moved past the idle limits.
+    /// What time it is. It is the clock by default, and a test sets its own, moved past the idle limits.
     var now: () -> Date = { Date() }
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []
-    /// A sleep under way, and what wakes it once it has (a wake meanwhile would start a second emulator).
+    /// `saving` is a sleep under way, and `afterSave` holds the wakes to run once it's done, because a wake meanwhile
+    /// would start a second emulator.
     private var saving = false, afterSave: [(String?) -> Void] = []
     private var sources: [DispatchSourceProtocol] = []
 
@@ -43,18 +47,20 @@ final class AndroidRuntime: MachineRuntime {
     }
 
     func listen() {
-        // Its lock is held already (main.swift).
+        // main.swift already holds the machine's lock.
         sources.append(
             Control.listen(VMFolder(folder).control.path) { [weak self] fd in
                 guard let self else { return }
                 Control.serve(fd, handle: handle, reply: reply)
             })
-        sources += Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.leave() })   // SIGTERM
+        // `leave` runs on SIGTERM or SIGINT.
+        sources += Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.leave() })
         log("ready: \(machine.name) (Android), \(state.rawValue)")
     }
 
-    /// In use: commands through adb, a window the user has, and a start kelpd answered in the last `startWindow` (its
-    /// command's adb comes right after): kelpd's memory budget sleeps only an idle machine.
+    /// Counts what uses the machine: commands through adb, a window the user has, and a start kelpd answered in the
+    /// last `startWindow`, because that start's command runs adb right after. kelpd's memory budget sleeps only an idle
+    /// machine.
     private var using: Int {
         guard state == .running else { return 0 }
         let started = now().timeIntervalSince(lastStart) < Self.startWindow ? 1 : 0
@@ -81,34 +87,37 @@ final class AndroidRuntime: MachineRuntime {
 
     func used(_ request: VMHelper.Request) {
         lastUse = now()
-        if request.op == .start, !request.begins { lastStart = lastUse }   // its command's adb comes next (`using`)
-        // kelpd's wake with the window: for a boot to come, not one up already
+        if request.op == .start, !request.begins { lastStart = lastUse }   // its command runs adb next (`using`)
+        // kelpd's wake that asks for the window applies to a boot still to come, not to an emulator already up
         if request.beginsShown, emulator == nil || saving { nextBootShown = true }
     }
 
     func sleep(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) { sleep(done) }
 
     func show(_ done: @escaping (String?) -> Void) {
-        // Has its window: up, or coming up (no boot to ask it of). Not one being slept: it boots again once saved.
+        // The emulator already has its window, up or coming up, so there is no boot to ask for it. That doesn't hold
+        // for one being slept, because it boots again once it's saved.
         if hasWindow, !saving { return wake(done) }
-        nextBootShown = true   // a boot is to come (off, headless, or being slept): it has the window
-        if emulator == nil { return wake(done) }   // down: it boots with its window
-        // From its snapshot, now with a window; one that couldn't be slept is still up without one, and Show is told.
+        nextBootShown = true   // a boot is to come (off, headless, or being slept), and it gets the window
+        if emulator == nil { return wake(done) }   // the emulator is down, so it boots with its window
+        // The emulator boots again from its snapshot, now with a window. One that couldn't be slept is still up
+        // without a window, and Show is told why.
         let again = {
             self.sleep { error in
                 guard let error, [.running, .paused].contains(self.state) else { return self.wake(done) }
                 done(error)
             }
         }
-        // Started headless (an agent's run): once it's up, slept and woken again with its window.
+        // An emulator started headless (for an agent's run) is slept once it's up, and woken again with its window.
         if state == .starting { return ready.append { _ in again() } }
         again()
     }
 
     func quit() { stop { self.exitProcess() } }
 
-    /// SIGTERM (a logout, an install): asleep, then gone; never with an emulator left booting or saving, which would hold
-    /// its AVD with nobody to end it. One booting is slept once it's up; one being saved, once it's saved.
+    /// Handles SIGTERM (a logout, an install) by putting the machine to sleep and then ending kelp-vm. It never leaves
+    /// an emulator booting or saving, because that would hold its AVD with nobody to end it. A booting emulator is
+    /// slept once it's up, and one being saved once it's saved.
     func leave() {   // internal: the tests drive it
         leaving = true
         if state == .starting { return ready.append { [weak self] _ in self?.leave() } }
@@ -116,9 +125,11 @@ final class AndroidRuntime: MachineRuntime {
         sleep { [weak self] error in
             guard let self else { return }
             guard let process = emulator, process.isRunning else { return exitProcess() }
-            // One that couldn't be slept is still up: quit as a stop does, not left with nobody to end it.
+            // An emulator that couldn't be slept is still up. It is quit as a stop does, so it isn't left with nobody
+            // to end it.
             if error != nil { return stop { self.exitProcess() } }
-            // One that failed (`started` is ending it, or it boots again once gone): its tree ended before kelp-vm goes.
+            // An emulator that failed is still running (`started` is ending it, or it boots again once gone). Its
+            // process tree is ended before kelp-vm goes.
             Task {
                 await self.end(process)
                 self.exitProcess()
@@ -139,25 +150,28 @@ final class AndroidRuntime: MachineRuntime {
                 do { _ = try await adb(["emu", "avd", "start"]) } catch {
                     return done("It didn't go on after its pause: \(error.localizedDescription)")
                 }
-                // Slept meanwhile (kelpd's budget, `kelp vm sleep`): woken from where that left it, not taken for running.
+                // When the machine was slept meanwhile (kelpd's budget, `kelp vm sleep`), it is woken from where that
+                // left it, not taken for running.
                 guard state == .paused, !saving else { return wake(done) }
                 Lifecycle.move(&state, to: .running)
                 done(nil)
             }
         case .off, .sleeping, .error, .creating:
             ready.append(done)
-            // One that failed may still be ending (`started` terminated it): a second on its AVD would fail on the lock.
+            // An emulator that failed may still be ending (`started` terminated it), and a second emulator on its AVD
+            // would fail on the lock.
             if emulator != nil { bootWhenGone = true } else { boot() }
         }
     }
 
     private func boot() {
         guard let exe = AndroidSDK.emulator else {
-            nextBootShown = false   // no boot to have it: a later one isn't asked of by a Show that was told this failed
+            nextBootShown = false   // so a Show that hears of this failure doesn't ask a later boot for a window
             return started(VMError("No Android SDK: install Android Studio, or set ANDROID_HOME."))
         }
         Lifecycle.move(&state, to: .starting)
-        // A kelp-vm that was killed took no leave: its emulator holds the AVD, and a second one on it would quit.
+        // A kelp-vm that was killed didn't clean up, so its emulator may still hold the AVD, and a second emulator on
+        // it would quit.
         Lifecycle.endLeftover(in: folder, "emulator")
         close(portClaim)
         (port, portClaim) = Lifecycle.claimPort(from: 5600, in: folder.deletingLastPathComponent())
@@ -181,13 +195,15 @@ final class AndroidRuntime: MachineRuntime {
         } catch { log("no emulator.log: \(error.localizedDescription)") }
         process.terminationHandler = { [weak self] ended in
             DispatchQueue.main.async {
-                MainActor.assumeIsolated {   // the main queue
+                MainActor.assumeIsolated {   // DispatchQueue.main runs this on the main thread
                     guard let self, self.emulator === ended else { return }
-                    self.emulator = nil   // its window went with it (closed, slept, quit): the next boot has one only if Show asks
+                    // The window went with the emulator (closed, slept, quit), so the next boot has one only if Show
+                    // asks.
+                    self.emulator = nil
                     if self.bootWhenGone {
                         self.bootWhenGone = false
                         Lifecycle.move(&self.state, to: .off)
-                        if !self.leaving { return self.boot() }   // leaving: its waiters hang up as kelp-vm goes
+                        if !self.leaving { return self.boot() }   // when leaving, waiters hang up as kelp-vm goes
                     }
                     if self.state == .starting {
                         self.started(VMError("The emulator quit: see emulator.log in its folder."))
@@ -207,7 +223,7 @@ final class AndroidRuntime: MachineRuntime {
         Task { await awaitBoot(since: now()) }
     }
 
-    /// Ready once Android says it finished booting.
+    /// Marks the machine ready once Android says it finished booting.
     private func awaitBoot(since: Date) async {
         let first = !FileManager.default.fileExists(atPath: VMFolder(folder).booted.path)
         while state == .starting, emulator != nil {
@@ -227,8 +243,9 @@ final class AndroidRuntime: MachineRuntime {
     private func started(_ error: Error?) {
         if let error {
             log("start failed: \(error.localizedDescription)")
-            // Its whole tree (the emulator runs qemu under it); one wedged (why it didn't finish booting) may not heed
-            // SIGTERM: killed after a while, so a retry can boot.
+            // The emulator's whole process tree is ended, because the emulator runs qemu under it. A wedged emulator
+            // (the reason it didn't finish booting) may not heed SIGTERM, so it is killed after a while and a retry
+            // can boot.
             if let process = emulator { Task { await end(process, grace: 10) } }
         }
         Lifecycle.move(&state, to: error == nil ? .running : .error)
@@ -236,8 +253,9 @@ final class AndroidRuntime: MachineRuntime {
         ready.flush(error)
     }
 
-    /// Its quickboot snapshot saved as it quits: the next start is back in seconds, where it was. Not saved, it says
-    /// why, and is left where the next request finds it: still up, or off.
+    /// Saves the emulator's quickboot snapshot as it quits, so the next start is back in seconds, where it was. When
+    /// the snapshot isn't saved, `done` gets the reason, and the machine is left as the next request finds it, still
+    /// up or off.
     private func sleep(_ done: @escaping (String?) -> Void) {
         guard !saving, let process = emulator, [.running, .paused].contains(state) else { return done(nil) }
         saving = true
@@ -245,13 +263,14 @@ final class AndroidRuntime: MachineRuntime {
             if state == .paused, await tell(["emu", "avd", "start"]) { Lifecycle.move(&state, to: .running) }
             let error = await save(process)
             saving = false
-            // Still up without its window: no later boot is asked of it by the Show that waited for this one.
+            // The emulator is still up without its window, so the Show that waited for this sleep no longer asks a
+            // later boot for one.
             // Limit: a Show that came while it saved is woken below and answered as for a start, with no window.
             if error != nil, emulator != nil { nextBootShown = false }
             log(error ?? "asleep")
             let wanted = afterSave
             afterSave = []
-            // told it's stopping, when it's leaving
+            // when kelp-vm is leaving, these wakes are told it's stopping
             if !wanted.isEmpty { wake { error in wanted.forEach { $0(error) } } }
             let saved = whenSaved
             whenSaved = []
@@ -260,14 +279,15 @@ final class AndroidRuntime: MachineRuntime {
         }
     }
 
-    /// The emulator told to quit with its snapshot, and the state that leaves, set here alone: asleep once it's gone
-    /// and its snapshot is there (a wake before would have started a second one on the same AVD); else why not.
-    /// Saved is read from its snapshot's files, written since it was told (the emulator says nothing of it itself).
+    /// Tells the emulator to quit with its snapshot, and sets the resulting state, here alone. The machine is asleep
+    /// once the emulator is gone and its snapshot is there (a wake before that would have started a second emulator
+    /// on the same AVD). Otherwise this returns why not. Whether it saved is read from the snapshot's files written
+    /// since it was told, because the emulator itself says nothing about it.
     private func save(_ process: Process) async -> String? {
-        let since = Date().addingTimeInterval(-1)   // the files' clock, not the idle one; a second for their resolution
+        let since = Date().addingTimeInterval(-1)   // file clock, not the idle one, less a second for its resolution
         let told = await tell(["emu", "kill"])
         guard told || !process.isRunning else {
-            lastUse = now()   // still up: a tick tries again once it has idled anew, not every 5 s
+            lastUse = now()   // the emulator stays up, so ticks retry after it idles again, not every 5 s
             return "\(machine.name) couldn't be told to sleep (adb didn't reach its emulator): it's still up."
         }
         guard await gone(process) else {
@@ -283,7 +303,8 @@ final class AndroidRuntime: MachineRuntime {
         return nil
     }
 
-    /// Whether a file of its snapshot was written since `since`: an old snapshot left from the sleep before isn't this one.
+    /// Returns whether a file of the snapshot was written since `since`, because an old snapshot left by the sleep
+    /// before isn't this one.
     private func written(since: Date) -> Bool {
         let files = FileManager.default.enumerator(
             at: snapshot, includingPropertiesForKeys: [.contentModificationDateKey])
@@ -300,14 +321,14 @@ final class AndroidRuntime: MachineRuntime {
         return !process.isRunning
     }
 
-    /// One that didn't quit when told: SIGTERM, then SIGKILL, waited for (kelp-vm may end right after, and a SIGKILL
-    /// left for later would never come).
+    /// Ends an emulator that didn't quit when told, with SIGTERM and then SIGKILL, and waits for it. kelp-vm may end
+    /// right after, and a SIGKILL left for later would never come.
     private func end(_ process: Process, grace: TimeInterval = 2) async {
         let pid = process.processIdentifier
         await Task.detached { Subprocess.stopTreeNow(pid, grace: grace) }.value
     }
 
-    /// Quits it and forgets its snapshot: the next start boots afresh.
+    /// Quits the emulator and forgets its snapshot, so the next start boots afresh.
     func stop(_ done: @escaping () -> Void) {
         let forget = { [self] in
             FileManager.default.removeIfAny(snapshot)
@@ -316,7 +337,7 @@ final class AndroidRuntime: MachineRuntime {
         }
         guard let process = emulator else { return forget() }
         Task {
-            // Not told (adb didn't reach it), it isn't waited for.
+            // When adb didn't reach the emulator, it isn't waited for but ended at once.
             let quit = await tell(["emu", "kill"])
             if !quit { await end(process) } else if await !gone(process) { await end(process) }
             forget()
@@ -331,14 +352,17 @@ final class AndroidRuntime: MachineRuntime {
             Task {
                 defer { pausing = false }
                 guard await tell(["emu", "avd", "stop"]) else { return }   // not stopped: the next tick tries again
-                // A start while it stopped is answered running: it goes on, not paused under that caller's command.
+                // A start that came while the CPU stopped was answered as running, so the machine goes on rather than
+                // pausing under that caller's command.
                 if state == .running, Lifecycle.staysPaused(idle: now().timeIntervalSince(lastUse), inUse: hasWindow) {
                     Lifecycle.move(&state, to: .paused)
                     log("paused")
                 } else {
                     do { _ = try await adb(["emu", "avd", "start"]) } catch {
                         log("couldn't go on after a start: \(error)")
-                        if state == .running { Lifecycle.move(&state, to: .paused) }   // stopped it is: the next wake tries again (not a later state)
+                        // The CPU did stop, so a running machine is marked paused and the next wake tries again. A
+                        // later state is left alone.
+                        if state == .running { Lifecycle.move(&state, to: .paused) }
                     }
                 }
             }
@@ -347,7 +371,8 @@ final class AndroidRuntime: MachineRuntime {
         }
     }
 
-    /// `adb` for what it's told to do (quit, stop, resume): whether it was; its failure logged.
+    /// Runs `adb` to tell the emulator to do something (quit, stop, resume). Returns whether that worked, and logs a
+    /// failure.
     @discardableResult private func tell(_ args: [String]) async -> Bool {
         do {
             _ = try await adb(args)

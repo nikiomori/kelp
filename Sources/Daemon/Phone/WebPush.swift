@@ -9,10 +9,11 @@ struct PushSubscription: Codable, Equatable, Sendable {
     }
     var endpoint: String, keys: Keys
 
-    /// The browsers' own push services: a phone can't aim this Mac's posts anywhere else.
+    /// The browsers' own push services. A phone can't aim this Mac's posts anywhere else.
     static let hosts = ["push.apple.com", "fcm.googleapis.com", "push.services.mozilla.com", "notify.windows.com"]
 
-    /// nil unless it's https on one of `hosts` with a P-256 point and a 16-byte secret.
+    /// Reads the subscription a phone sent. It is nil unless the endpoint is https on one of `hosts`, with a P-256
+    /// point and a 16-byte secret.
     init?(_ sent: JSONValue?) {
         guard let endpoint = sent?["endpoint"]?.string, let url = URLComponents(string: endpoint),
             url.scheme == "https", let host = url.host?.lowercased(),
@@ -30,8 +31,9 @@ struct PushSubscription: Codable, Equatable, Sendable {
 enum WebPush {
     struct BadSubscription: Error {}
 
-    /// The body: salt, record size, this message's public key, then the payload sealed for the phone's key.
-    /// `mine` and `salt` are new for each message (given only by the test that checks RFC 8291's example).
+    /// Returns the push's body: the salt, the record size, this message's public key, then the payload sealed for the
+    /// phone's key. `mine` and `salt` are new for each message. Only the test that checks RFC 8291's example passes
+    /// them in.
     static func body(
         _ payload: Data, to: PushSubscription, mine: P256.KeyAgreement.PrivateKey = .init(),
         salt: Data = PhoneSeal.random(16)
@@ -48,13 +50,14 @@ enum WebPush {
             HKDF<SHA256>.deriveKey(inputKeyMaterial: input, salt: salt, info: Data(info.utf8), outputByteCount: count)
         }
         let nonce = try derived("Content-Encoding: nonce\0", 12).withUnsafeBytes { try AES.GCM.Nonce(data: Data($0)) }
-        // 2 ends the last (here the only) record.
+        // The byte 2 marks the last record, which here is the only one.
         let sealed = try AES.GCM.seal(
             payload + [2], using: derived("Content-Encoding: aes128gcm\0", 16), nonce: nonce)
         return salt + Data([0, 0, 0x10, 0, UInt8(ours.count)]) + ours + sealed.ciphertext + sealed.tag
     }
 
-    /// "vapid t=<a token this Mac signed for the push service>, k=<its public key>".
+    /// Returns the Authorization header, "vapid t=<a token this Mac signed for the push service>, k=<this Mac's public
+    /// key>".
     static func authorization(for endpoint: URL, key: P256.Signing.PrivateKey, now: Date = Date()) throws -> String {
         func part(_ fields: [String: JSONValue]) throws -> String {
             let encoder = JSONEncoder()

@@ -4,12 +4,13 @@ import Foundation
 import GRDB
 import Security
 
-/// A connection read from another app, and how to get its user and password, called only when the user asked for
-/// passwords: it may make macOS ask (keychain), or decrypt the app's file.
+/// A connection read from another app, and how to get its user and password. `secret` is called only when the user
+/// asked for passwords, because it may make macOS ask (keychain) or decrypt the app's file.
 struct ImportEntry: Sendable {
     var imported: ImportedDatabase
     var secret: (@Sendable () throws -> ImportSecret)?
-    /// Its password's keychain item, when that's where it is: read on first use instead of at import.
+    /// The keychain item that holds the password, when the password is there. It is read on first use instead of at
+    /// import.
     var keychain: String?
 }
 
@@ -17,11 +18,11 @@ struct ImportSecret: Sendable {
     var user: String?, password: String?
 }
 
-/// The user said no to macOS's question for another app's keychain item: Kelp asks no more this import.
+/// The user said no when macOS asked about another app's keychain item, so Kelp asks no more during this import.
 struct KeychainDenied: Error {}
 
-/// Other apps' saved connections, each read from where that app keeps them (their formats were read from their own
-/// source, and TablePro's importers). `home` is the user's home folder; tests hand one of their own.
+/// Readers for other apps' saved connections, each read from where that app keeps them (the formats come from each
+/// app's own source, and from TablePro's importers). `home` is the user's home folder, and tests pass one of their own.
 enum ImportReaders {
     static let apps: [(id: String, name: String, passwords: String)] = [
         ("tableplus", "TablePlus", "keychain"), ("dbeaver", "DBeaver", "file"), ("datagrip", "DataGrip", "keychain"),
@@ -29,7 +30,7 @@ enum ImportReaders {
         ("dbgate", "DbGate", "none"),
         ("pgpass", "~/.pgpass", "file"), ("pgservice", "~/.pg_service.conf", "file"), ("mycnf", "~/.my.cnf", "file")
     ]
-    /// Read from an export the user picks.
+    /// The sources read from an export file that the user picks.
     static let files: [(id: String, name: String, passwords: String)] = [
         ("pgadmin", "pgAdmin servers.json", "none"), ("navicat", "Navicat .ncx", "file")
     ]
@@ -69,8 +70,9 @@ enum ImportReaders {
     private static func tablePlusEntry(_ entry: [String: Any], groups: [String: String]) -> ImportEntry? {
         let id = string(entry["ID"])
         guard let engine = engine(string(entry["Driver"])) else { return nil }
-        // A connection TablePlus shows by its address has no name of its own, so it gets "database@host", as it reads
-        // there: the host's first word ("pg-prod-ro"), or the whole address when it is numeric.
+        // A connection that TablePlus shows by its address has no name of its own, so it gets "database@host", as
+        // TablePlus shows it. The host part is the host's first word ("pg-prod-ro"), or the whole address when it is
+        // numeric.
         let host = nonEmpty(entry["DatabaseHost"]).map { written in
             written.allSatisfy { $0.isNumber || $0 == "." || $0 == ":" }
                 ? written : String(written.split(separator: ".").first ?? Substring(written))
@@ -164,7 +166,7 @@ enum ImportReaders {
         return ImportEntry(imported: ImportedDatabase(id: id, database: db, note: note), secret: secret)
     }
 
-    /// A file's path, a host's address, or the JDBC URL it was given as.
+    /// Reads a DBeaver connection's address: a file's path, a host's address, or the JDBC URL it was given as.
     private static func dbeaverAddress(_ c: [String: Any], _ cfg: [String: Any], _ engine: DatabaseInfo.Engine)
         -> DatabaseInfo?
     {
@@ -189,7 +191,8 @@ enum ImportReaders {
         } catch { return nil }
     }
 
-    /// DBeaver's credentials-config.json: AES-128-CBC under a key every DBeaver install shares, the IV first.
+    /// Reads DBeaver's credentials-config.json, which is encrypted with AES-128-CBC under a key that every DBeaver
+    /// install shares, with the IV first.
     static func dbeaverCredentials(_ url: URL) throws -> [String: Any] {
         guard let data = FileManager.default.contents(atPath: url.path), data.count > 16 else { return [:] }
         let key = Data(hex: "babb4a9f774ab853c96c2d653dfe544a")
@@ -244,9 +247,9 @@ enum ImportReaders {
             db.group = element.attribute(forName: "group-name")?.stringValue ?? group
             let mine = optional { try local?.nodes(forXPath: "//data-source[@uuid='\(uuid)']") }?.first as? XMLElement
             db.user = mine?.elements(forName: "user-name").first?.stringValue ?? db.user
-            // A URL to one database (often "postgres") from which DataGrip shows another database's tables: use that
-            // other database (the "@" belongs to the URL). Only the database nodes' own names count: a <name> deeper
-            // down belongs to a schema.
+            // The URL may name one database (often "postgres") while DataGrip shows another database's tables. Then
+            // that other database is used (a scope named "@" means the URL's own). Only the database nodes' own names
+            // count, because a <name> deeper down belongs to a schema.
             let scope = ".//introspection-scope//node[@kind='database' and not(@negative)]"
             let shown = Set(
                 (optional { try mine?.nodes(forXPath: "\(scope)/@qname | \(scope)/name/@qname") } ?? [])

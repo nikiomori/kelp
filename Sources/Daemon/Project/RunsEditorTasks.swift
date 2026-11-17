@@ -14,7 +14,7 @@ extension Runnables {
     }
 
     static func vscode(_ found: Found, _ base: String, _ task: [String: Any]) -> RunOption? {
-        let spec = task.merging(task["osx"] as? [String: Any] ?? [:]) { $1 }   // its macOS variant
+        let spec = task.merging(task["osx"] as? [String: Any] ?? [:]) { $1 }   // the task's macOS variant wins
         guard [nil, "shell", "process"].contains(spec["type"] as? String), let program = spec["command"] as? String
         else {
             return nil
@@ -47,8 +47,8 @@ extension Runnables {
         return opt(found, base, ".zed/tasks.json", task["label"] as? String ?? program, command)
     }
 
-    /// The project's folder written as the editor names it, here the folder the command runs in; nil if a variable is
-    /// left that only the editor can fill.
+    /// Replaces the editor's names for the project's folder with ".", which here is the folder the command runs in.
+    /// Returns nil if a variable is left that only the editor can fill.
     static func filled(_ text: String, _ folder: [String]) -> String? {
         let out = folder.reduce(text) { $0.replacingOccurrences(of: $1, with: ".") }
         return out.contains("${") ? nil : out

@@ -1,15 +1,17 @@
 import AppKit
 import Core
 
-// kelp-vm <machine folder>: runs one of Kelp's virtual machines for kelpd (Core/VM/VMs.swift). The only program that holds
-// the virtualization entitlement; it keeps running while its machine sleeps, so the next SSH connection wakes it.
+// kelp-vm <machine folder> runs one of Kelp's virtual machines for kelpd (Core/VM/VMs.swift). It is the only program
+// that holds the virtualization entitlement. It keeps running while its machine sleeps, so the next SSH connection
+// wakes the machine.
 //   kelp-vm --latest                    Apple's latest macOS restore image for this Mac, as JSON {url, build, version}
-//   kelp-vm --install <folder> <ipsw>   installs macOS into a machine's folder; how far in its `creating` file
+//   kelp-vm --install <folder> <ipsw>   installs macOS into a machine's folder, writing its progress to `creating`
 setvbuf(stdout, nil, _IOLBF, 0)
 signal(SIGPIPE, SIG_IGN)
 let args = Array(CommandLine.arguments.dropFirst())
 
-/// Runs `work` on the main actor with AppKit's run loop going (the installer and the restore image catalog answer on it).
+/// Runs `work` on the main actor with AppKit's run loop going, because the installer and the restore image catalog
+/// answer on that run loop.
 func oneShot(_ work: @escaping @MainActor () async throws -> Void) -> Never {
     Task { @MainActor in
         do {
@@ -50,9 +52,10 @@ case "--install" where args.count == 3:
     }
 case .some(let path) where args.count == 1 && !path.hasPrefix("-"):
     let folder = URL(fileURLWithPath: path)
-    // One kelp-vm per machine, holding this while it runs (kelpd tells a running one by it, `VMService.alive`), taken
-    // before the machine is read: a new size is written under it (`configure`), and is what this one starts with. Tried
-    // for half a second: a size being written, or kelpd's look at it, holds it a moment.
+    // Only one kelp-vm runs per machine, and it holds this lock while it runs. kelpd tells a running kelp-vm by the
+    // lock (`VMService.alive`). The lock is taken before the machine is read, because `configure` writes a new size
+    // under it, so this kelp-vm starts with that size. Taking it is tried for half a second, because a size being
+    // written, or kelpd checking the lock, holds it for a moment.
     guard Lifecycle.hold(folder) != nil else {
         log("another kelp-vm runs \(folder.lastPathComponent)")
         exit(0)
@@ -66,8 +69,8 @@ case .some(let path) where args.count == 1 && !path.hasPrefix("-"):
         log("can't read the machine: \(error)")
         exit(1)
     }
-    // An Android machine is the SDK's emulator, an iOS one a simulator, not Virtualization's: runtimes of their own, one
-    // protocol (`MachineRuntime`).
+    // An Android machine runs in the SDK's emulator and an iOS machine in a simulator, not in Virtualization. Each has
+    // a runtime of its own, and all the runtimes share one protocol (`MachineRuntime`).
     let runtime: any MachineRuntime
     switch machine.kind {
     case .android: runtime = AndroidRuntime(folder: folder, machine: machine)
@@ -80,8 +83,9 @@ case .some(let path) where args.count == 1 && !path.hasPrefix("-"):
         }
     }
     runtime.listen()
-    // AppKit's run loop rather than dispatchMain(): dispatchMain() ends the main thread, and then the main queue (the
-    // VM's and MainActor's) would run elsewhere. A macOS machine's screen is a window, so it needs AppKit.
+    // This runs AppKit's run loop rather than dispatchMain(), because dispatchMain() ends the main thread and the main
+    // queue (which the VM and MainActor use) would then run elsewhere. A macOS machine's screen is a window, so it
+    // needs AppKit too.
     NSApplication.shared.setActivationPolicy(.accessory)
     NSApplication.shared.run()
 default:

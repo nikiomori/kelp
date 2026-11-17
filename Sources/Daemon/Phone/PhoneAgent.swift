@@ -2,15 +2,17 @@ import Agents
 import Core
 import Foundation
 
-/// A session as the phone's page shows an agent (phone/js/api.js `agentFrom`): the fields the page reads, null where
-/// there's nothing, dates as ISO 8601.
+/// Turns a session into the agent record that the phone's page shows (phone/js/api.js `agentFrom`). The record holds
+/// the fields the page reads, with null where a value is missing and dates in ISO 8601.
 enum PhoneAgent {
-    /// The rows Kelp's sidebar has for agents: still there, and not a terminal or a command that runs under one.
+    /// Whether the session has an agent row in Kelp's sidebar. It must be an agent that has not exited, and not a
+    /// terminal or a command that an agent started.
     static func shown(_ session: Session) -> Bool {
         session.isAgent && session.status != .exited && session.startedBy == nil
     }
 
-    /// `name` is the agent's name, as its manifest says. `place` is its project and workspace (`Worktree.displayName`).
+    /// Returns the page's record for the session. `name` is the agent's name from its manifest, `project` is the
+    /// project's name, and `workspace` is the workspace's `Worktree.displayName`.
     static func from(
         _ session: Session, name: String, project: String, projectId: String? = nil, workspace: String
     ) -> [String: JSONValue] {
@@ -22,7 +24,8 @@ enum PhoneAgent {
             "workspace": .string(workspace),
             "status": .string(session.status.rawValue), "statusAt": iso(session.statusAt),
             "unread": .bool(session.unread), "summary": .string(session.summary),
-            // Allow / Deny only for a question shown whole, as Kelp's own banner tells; anything else is answered by text.
+            // The page offers Allow / Deny only for a permission question whose text is shown whole, as Kelp's own
+            // banner does. The user answers any other question with text.
             "ask": waiting
                 ? .object([
                     "kind": .string(session.asksPermission ? "permission" : "question"),

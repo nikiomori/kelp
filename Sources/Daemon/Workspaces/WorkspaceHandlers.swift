@@ -6,7 +6,7 @@ import GitKit
 
 extension RepoAdd: Handled {
     func handle(_ workspaces: Workspaces) throws -> Repo {
-        // A remote project's own folder: it is the project (git there would answer with the host's path).
+        // A remote project's own folder is the project itself, because git there would answer with the host's path.
         if let repo = try workspaces.store.repos().first(where: {
             $0.path == path && workspaces.remotes.of($0.path) != nil
         }) {
@@ -24,7 +24,7 @@ extension RepoAdd: Handled {
             case true?:
                 try Git.run(["init", "-q"], cwd: path, remotes: workspaces.remotes)
                 root = try Git.root(of: path, remotes: workspaces.remotes)
-            case false?: root = Paths.real(path) ?? path   // like git's top: symlinks resolved
+            case false?: root = Paths.real(path) ?? path   // symlinks resolved, like git's top folder
             case nil: throw RepoAdd.notARepository
             }
         }
@@ -35,7 +35,8 @@ extension RepoAdd: Handled {
         do {
             try workspaces.store.save(repo)
         } catch {
-            // Added meanwhile (two adds of one folder at once): that project, as when it was there before.
+            // When the project was added meanwhile (two adds of one folder at once), this returns that project, as
+            // when it was there before.
             if let added = try workspaces.store.repos().first(where: { $0.path == root }) { return added }
             throw error
         }
@@ -78,7 +79,8 @@ extension RepoRelocate: Handled {
     func handle(_ workspaces: Workspaces) throws -> Repo {
         guard let old = try workspaces.store.repo(id)?.path else { throw RPCError.noProject(id) }
         let root = try Git.root(of: path, remotes: workspaces.remotes)
-        // Its path only, in one write: the copy read before git ran would put back a rename made meanwhile.
+        // Only the path changes, in one write, because saving the copy read before git ran would undo a rename made
+        // meanwhile.
         guard let repo = try workspaces.store.update(Repo.self, id, { $0.path = root }) else {
             throw RPCError.invalidParams("That project was removed meanwhile.")
         }
@@ -90,8 +92,8 @@ extension RepoRelocate: Handled {
     }
 }
 
-/// An empty name goes back to the folder's name, as `repo.add` named the project (for a remote project, the name of the
-/// folder on its host).
+/// Renames a project. An empty name goes back to the folder's name, as `repo.add` named the project. For a remote
+/// project that is the name of the folder on its host.
 extension RepoRename: Handled {
     func handle(_ workspaces: Workspaces) throws -> Repo {
         guard var repo = try workspaces.store.repo(id) else { throw RPCError.noProject(id) }
@@ -107,7 +109,7 @@ extension RepoRename: Handled {
     }
 }
 
-/// Its workspaces go with it, and so do their agents: none keeps working out of sight.
+/// Removes a project. Its workspaces go with it, and so do their agents, so none keeps working out of sight.
 extension RepoRemove: Handled {
     var fence: Fence { Fence(ends: .project(id), notForAgents: "Only the user removes a project from Kelp.") }
     func handle(_ workspaces: Workspaces) throws -> Done {
@@ -146,7 +148,8 @@ extension WorktreeCreate: Handled {
     }
 }
 
-/// Only reads: workspaces follow their folders' branches as they change (`watchHeads`), not when someone lists them.
+/// Only reads the store. Workspaces follow the branches of their folders as they change (`watchHeads`), not when
+/// someone lists them.
 extension WorktreeList: Handled {
     static let agents = AgentAccess.reads
     func handle(_ workspaces: Workspaces) throws -> [Worktree] {
@@ -181,7 +184,7 @@ extension WorktreeRemove: Handled {
             throw RPCError.noWorkspace(id)
         }
         try workspaces.removeWorkspace(workspace, repo, force: force == true, dropCommits: dropCommits == true)
-        workspaces.databases.dropCopies(of: workspace)   // its own copies of the project's databases go with it
+        workspaces.databases.dropCopies(of: workspace)   // the workspace's own copies of the project's databases go too
         return Done()
     }
 }
@@ -232,14 +235,15 @@ extension RepoWorktreeSizes: Handled {
         return try Self.sizes(of: repo, workspaces)
     }
 
-    /// One sweep of a project at a time, its answer given again for a moment (`WorktreeSweeps`): every hover card of
-    /// the project asks. `again`: swept now (a Disk Usage measure, which Measure Again and a removal ask for).
+    /// Returns the sizes of a project's worktrees. Only one sweep of a project runs at a time, and its answer is given
+    /// again for a moment (`WorktreeSweeps`), because every hover card of the project asks. With `again`, the project
+    /// is swept now, for a Disk Usage measure, which Measure Again and a removal ask for.
     static func sizes(of repo: Repo, _ workspaces: Workspaces, again: Bool = false) throws -> [Item] {
-        guard workspaces.remotes.of(repo.path) == nil else { return [] }   // their disk is on the host
+        guard workspaces.remotes.of(repo.path) == nil else { return [] }   // a remote project's disk is on its host
         return try workspaces.sweeps.sizes(of: repo.id, again: again) { try sweep(repo, workspaces) }
     }
 
-    /// A `du` and two git for each worktree, one after another.
+    /// Runs a `du` and two git commands for each worktree, one worktree after another.
     private static func sweep(_ repo: Repo, _ workspaces: Workspaces) throws -> [Item] {
         let ours = try Self.ours(workspaces.store, repo)
         return try Git.linkedWorktrees(repo.path, remotes: workspaces.remotes).filter {
@@ -253,15 +257,17 @@ extension RepoWorktreeSizes: Handled {
         }.sorted { $0.bytes > $1.bytes }
     }
 
-    /// Kelp's own worktree workspaces (from older versions): git prints real paths, the store keeps them as created.
+    /// Returns the real paths of Kelp's own worktree workspaces (made by older versions). git prints real paths, while
+    /// the store keeps them as they were created.
     static func ours(_ store: Store, _ repo: Repo) throws -> Set<String> {
         Set(try store.worktrees(repo: repo.id).map { real($0.path) })
     }
     static func real(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
 
-    /// Blocks on disk as `du` counts them (16 GB of build products: about a second); unreadable files leave out only
-    /// themselves. A `du` that failed throws (`DiskUsage.du`): it isn't 0 bytes. The one line's number, whatever the
-    /// path is spelled with (a newline in it would split the line).
+    /// Returns the bytes on disk as `du` counts them, which takes about a second for 16 GB of build products.
+    /// Unreadable files leave out only themselves. A `du` that failed throws (`DiskUsage.du`), because a failure isn't
+    /// 0 bytes. The number is taken from the one result whatever characters the path holds, because a newline in the
+    /// path would split the line.
     static func du(_ path: String) throws -> Int { try DiskUsage.du([path]).values.first ?? 0 }
 }
 

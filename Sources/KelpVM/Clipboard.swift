@@ -1,11 +1,13 @@
 import AppKit
 
-/// Copy and paste between the Mac and a macOS machine as its window comes and goes: what the Mac copied goes in as the
-/// user clicks into the window, what the machine copied comes out as they leave it (a sign-in link for the Mac's
-/// browser, its code back). Text only, over `<name>-own`: Virtualization shares no clipboard with a macOS guest.
+/// Copy and paste between the Mac and a macOS machine, as the machine's window becomes key and stops being key. What
+/// the Mac copied goes into the machine when the user clicks into the window. What the machine copied comes out to the
+/// Mac when the user leaves the window (for example a sign-in link for the Mac's browser, and the code sent back).
+/// Only text is carried, over `<name>-own`, because Virtualization shares no clipboard with a macOS guest.
 @MainActor
 enum Clipboard {
-    /// The Mac's pasteboard as last handed over (its changeCount), and the machine's text as last seen.
+    /// `mac` is the changeCount of the Mac's pasteboard when it was last handed over. `guest` is the machine's
+    /// clipboard text as last seen.
     static var mac = -1
     static var guest: String?
 }
@@ -23,7 +25,8 @@ extension Runtime {
         guard machine.kind == .macos, state == .running else { return }
         let board = NSPasteboard.general
         guard board.changeCount != Clipboard.mac, let text = board.string(forType: .string) else {
-            // Nothing new from the Mac: what the machine holds now is old news, not something to bring out.
+            // The Mac has copied nothing new. When nothing is remembered yet, whatever the machine's clipboard holds
+            // now is remembered as already seen, so leaving the window doesn't bring that old text out to the Mac.
             if Clipboard.guest == nil { Task { Clipboard.guest = await guestText() } }
             return
         }
@@ -50,7 +53,7 @@ extension Runtime {
         }
     }
 
-    /// What the machine copied last, or nil when it couldn't be read (logged).
+    /// Returns the text the machine copied last, or nil when it couldn't be read (the failure is logged).
     private func guestText() async -> String? {
         do { return try await own(Self.utf8 + "pbpaste") } catch {
             log("clipboard out: \(error.localizedDescription)")
@@ -58,6 +61,6 @@ extension Runtime {
         }
     }
 
-    /// pbcopy and pbpaste read and write UTF-8 only under a UTF-8 locale (an ssh command gets none).
+    /// pbcopy and pbpaste read and write UTF-8 only under a UTF-8 locale, and a command run over ssh gets no locale.
     private static let utf8 = "LANG=en_US.UTF-8 "
 }

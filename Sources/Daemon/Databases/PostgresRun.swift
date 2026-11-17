@@ -1,13 +1,13 @@
 import Core
 import Foundation
 
-// Postgres inside a compose container: psql's reads, writes and schema.
+// Reads, writes and schema for Postgres inside a compose container, through psql.
 
 struct PostgresRun: DatabaseRunner {
     let connection: DatabaseConnection, off: Slots
-    /// Between a command's output and the next: what psql prints for `\echo`.
+    /// The line that psql prints for `\echo` between one command's output and the next.
     static let marker = "--kelp-7f3e9c--"
-    /// What psql writes for NULL: its CSV writes an empty string and NULL alike, as an empty field.
+    /// What psql is told to write for NULL, because its CSV writes an empty string and NULL alike, as an empty field.
     static let null = "\u{1}NULL\u{1}"
 
     func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
@@ -30,20 +30,20 @@ struct PostgresRun: DatabaseRunner {
                     ],
                     timeout: DatabaseEngines.readTimeout + 10)
                 var rows = Self.section(out.count >= 2 ? out[out.count - 2] : "")
-                if rows.changed == nil { rows.changed = rows.total }   // RETURNING: the rows are what it changed
+                if rows.changed == nil { rows.changed = rows.total }   // with RETURNING, the rows are what it changed
                 return rows
             }
             if let returning = SQLText.returning(sql) {
-                // RETURNING may not fit it (a MERGE, a view): tried plain
+                // RETURNING may not fit the statement (a MERGE, a view), and then it is tried plain
                 do { return try attempt(returning) } catch {}
             }
             return try attempt(sql)
         }
     }
 
-    /// `allowed`: as over the wire (`PostgresWire.write`), in psql's one session: the ROW_COUNT psql keeps of the
-    /// statement picks COMMIT or ROLLBACK. That choice is a script of Kelp's own on stdin; the statement still goes as
-    /// `-c`, which psql sends as it is, never reading its own commands in it.
+    /// Handles `allowed` as the wire runner does (`PostgresWire.write`), within psql's one session. The ROW_COUNT that
+    /// psql keeps for the statement picks COMMIT or ROLLBACK. That choice is a script of Kelp's own on stdin. The
+    /// statement itself still goes as `-c`, which psql sends as it is, without reading psql commands in it.
     func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
         return try await off.run {
             let limit = "statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'"
@@ -71,7 +71,7 @@ struct PostgresRun: DatabaseRunner {
         }
     }
 
-    /// BEGIN, the statements, COMMIT: ON_ERROR_STOP ends psql at the first failure, its session rolling back.
+    /// Runs BEGIN, the statements and COMMIT. ON_ERROR_STOP ends psql at the first failure, and its session rolls back.
     func apply(_ statements: [String]) async throws -> Int {
         return try await off.run {
             let out = try Self.run(
@@ -107,7 +107,7 @@ struct PostgresRun: DatabaseRunner {
         LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid
         WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.nspname \(other)
         """
-    /// The database's own functions: not an extension's (PostGIS alone puts hundreds in public).
+    /// Lists the database's own functions and leaves out those of extensions (PostGIS alone puts hundreds in public).
     static let schemaFunctions = """
         SELECT DISTINCT CASE WHEN n.nspname = 'public' THEN p.proname ELSE n.nspname || '.' || p.proname END
         FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -154,7 +154,7 @@ struct PostgresRun: DatabaseRunner {
         }
         if script != nil { argv += ["-f", "-"] }
         let env = DatabaseEngines.environment([
-            // UTC as over the wire (`PostgresText`): a row found by its values compares the same text
+            // UTC, as the wire runner uses (`PostgresText`), so a row found by its values compares the same text
             "PGCONNECT_TIMEOUT": "5", "PGAPPNAME": "kelp", "PGPASSWORD": databaseConnection.password, "PGTZ": "UTC"
         ])
         let out = try Subprocess.run(
@@ -170,7 +170,7 @@ struct PostgresRun: DatabaseRunner {
         }
     }
 
-    /// psql's error: a change refused in a read-only transaction, or the server's own words.
+    /// Turns psql's error output into a failure: a change refused in a read-only transaction, or the server's words.
     static func failure(_ stderr: String) -> DatabaseFailure {
         if stderr.contains("read-only transaction") { return .change }
         let lines = stderr.split(whereSeparator: \.isNewline).map(String.init)

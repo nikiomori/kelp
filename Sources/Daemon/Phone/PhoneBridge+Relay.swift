@@ -7,19 +7,21 @@ import os
 // MARK: - The relay's client
 
 extension PhoneBridge {
-    /// What JSON or a seal made, nil with the reason in the log when it couldn't: nothing a phone can be told.
+    /// Returns what the JSON coder or a seal made, or nil with the reason in the log when it failed. A phone can't be
+    /// told about such a failure.
     static func sealed<Value>(_ make: () throws -> Value) -> Value? {
         Log.session.attempt("sealing for a phone", make)
     }
 
-    /// One line from the relay: a phone's sealed call, or its leaving a stream it held.
+    /// One line from the relay. It carries a phone's sealed call, or says that the phone left a stream it held
+    /// (`cancel`).
     struct Sent: Decodable {
         var id: String
         var device: String?
         var box: String?
         var cancel: Bool?
     }
-    /// 0: it closed the connection.
+    /// The relay refused with `status`. Status 0 means the relay closed the connection.
     private struct Refused: LocalizedError {
         var status: Int
         var errorDescription: String? {
@@ -31,12 +33,13 @@ extension PhoneBridge {
         }
     }
 
-    /// Keeps the connection the relay passes calls down, coming back by itself: sooner after one that worked.
+    /// Keeps open the connection that the relay passes calls down, and reconnects by itself. The wait before the next
+    /// try doubles after each failure, up to a minute, and drops back to 3 s after a connection that worked.
     func follow(_ relay: Relay) async {
         var pause = 3.0
         while !Task.isCancelled {
             do {
-                // The relay sends an empty line every 25 s: silence past that is a dead connection.
+                // The relay sends an empty line every 25 s, so 70 s of silence means the connection is dead.
                 let (lines, response) = try await http.bytes(for: relay.request("requests", timeout: 70))
                 guard let status = (response as? HTTPURLResponse)?.statusCode, status == 200 else {
                     throw Refused(status: (response as? HTTPURLResponse)?.statusCode ?? -1)
@@ -57,7 +60,7 @@ extension PhoneBridge {
         }
     }
 
-    /// A proxy on the way cuts a silent connection.
+    /// Writes a newline to every stream every 15 s, because a proxy on the way cuts a silent connection.
     private func keepStreamsOpen() async {
         while true {
             do { try await Task.sleep(for: .seconds(15)) } catch { return }
@@ -65,8 +68,8 @@ extension PhoneBridge {
         }
     }
 
-    /// Up to a call's answer everything happens here, in the order the lines came: a stream is open before the line
-    /// that closes it is read.
+    /// Handles one line from the relay. Everything up to a call's answer happens here, in the order the lines came, so
+    /// a stream is open before the line that closes it is read.
     private func serve(_ line: String, _ relay: Relay) {
         guard let sent = Self.sealed({ try JSONDecoder().decode(Sent.self, from: Data(line.utf8)) }) else { return }
         if sent.cancel == true { return cut([sent.id], telling: false) }
@@ -114,7 +117,8 @@ extension PhoneBridge {
         Task { for await line in lines { await send(line, relay) } }
     }
 
-    /// `telling`: the relay still holds them open (a phone that left closed its own).
+    /// Ends the given streams. Pass `telling` when the relay still holds them open, so the phone is told. A phone that
+    /// left has already closed its own stream.
     func cut(_ ids: some Sequence<String>, telling: Bool = true) {
         for id in Array(ids) {
             guard let stream = streams.removeValue(forKey: id) else { continue }
@@ -122,7 +126,8 @@ extension PhoneBridge {
         }
     }
 
-    /// An event to every phone listening: the i-th of its stream, sealed as that.
+    /// Sends an event to every phone that listens. Each event is sealed with its stream's number and its place in that
+    /// stream.
     func say(_ event: String, _ data: JSONValue) {
         for id in Array(streams.keys) {
             guard var stream = streams[id],

@@ -1,31 +1,32 @@
 import CryptoKit
 import Foundation
 
-/// A paired phone: the key it took from its pairing link, and which of its requests' numbers were seen. A number is
-/// the phone's clock in 1/4096 ms (phone/js/api.js `stamp`) and never repeats, so a request can't be sent twice.
+/// A paired phone. It holds the key this Mac shares with the phone (first the pairing link's, then one the phone sent
+/// when it paired), and the request numbers already seen from it. A request number is the phone's clock in 1/4096 ms
+/// (phone/js/api.js `stamp`) and never repeats, so a request can't be sent twice.
 struct PhoneDevice {
     var key: SymmetricKey
     var name: String
     var push: PushSubscription?
-    /// The newest number seen, and the one written down (`PhoneKept.last`).
+    /// `last` is the newest request number seen, and `saved` is the newest one written down (`PhoneKept.last`).
     private(set) var last: Int64 = 0, saved: Int64 = 0
-    /// Nothing at or under it passes: after a restart the seen ones are forgotten, so nothing that could have been
-    /// seen does, which is the newest written down and a second over it.
+    /// No request number at or under the floor passes. After a restart the seen numbers are forgotten, so the floor
+    /// shuts out every number that could have been seen, which is up to the newest written down plus a second.
     private(set) var floor: Int64 = 0
     private var seen: Set<Int64> = []
 
     /// How far behind the newest a late request may be: five minutes.
     static let window: Int64 = 5 * 60_000 * 4096
-    /// How far the newest may run ahead of the one written down.
+    /// How far the newest request number may run ahead of the one written down: one second.
     static let second: Int64 = 1000 * 4096
 
-    /// A phone that pairs now.
+    /// Makes a phone that pairs now.
     init(key: SymmetricKey, name: String) {
         self.key = key
         self.name = name
     }
 
-    /// One kept from before this daemon.
+    /// Restores a phone that was kept from before this daemon started.
     init(key: SymmetricKey, kept: PhoneKept) {
         self.init(key: key, name: kept.name)
         push = kept.push
@@ -34,8 +35,8 @@ struct PhoneDevice {
         floor = kept.last + Self.second
     }
 
-    /// Whether request `number` is new: counted as seen if so. Not a whole number, one seen, one under the floor or
-    /// more than `window` behind the newest: refused.
+    /// Returns whether request `number` is new, and counts it as seen if so. It refuses a number that is not whole,
+    /// was seen before, is at or under the floor, or is `window` or more behind the newest.
     mutating func admit(_ number: Double) -> Bool {
         guard number == number.rounded(), number > 0, number < 9_007_199_254_740_992 else { return false }
         let value = Int64(number)
@@ -46,19 +47,19 @@ struct PhoneDevice {
         return true
     }
 
-    /// The newest ran a second ahead of what's written down: time to write.
+    /// Whether the newest number has run more than a second ahead of the one written down, so it is time to save.
     var needsSaving: Bool { last - saved > Self.second }
     mutating func wasSaved() { saved = last }
     var kept: PhoneKept { PhoneKept(name: name, last: last, push: push) }
 }
 
-/// What's kept of a phone where the daemon keeps its state. Its key is in the keychain.
+/// What the daemon keeps of a phone in its state. The phone's key is in the keychain instead.
 struct PhoneKept: Codable, Equatable {
     var name: String, last: Int64, push: PushSubscription?
 }
 
-/// The bridge's record (`daemonState`, key "phone"): this Mac's id at the relay, and its phones. It holds nothing
-/// secret.
+/// The bridge's record in `daemonState`, under the key "phone". It holds this Mac's id at the relay and its paired
+/// phones, and nothing secret.
 struct PhoneRecord: Codable, Equatable {
     var mac: String
     var devices: [String: PhoneKept] = [:]

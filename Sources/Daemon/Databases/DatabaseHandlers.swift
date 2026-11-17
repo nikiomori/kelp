@@ -1,11 +1,12 @@
 import Core
 import Foundation
 
-// db.*: the RPCs, each answered by Databases.
+// The db.* RPCs, each answered by Databases.
 
 extension DatabaseList: Handled {
-    // its own workspaces' databases (these three): which, their tables, and a statement (read-only, or a change
-    // as the database's `agentAccess` says, `Databases.query`); another project's aren't its to look at
+    // An agent may use these three methods on the databases of its own workspaces: list them, read their tables, and
+    // run a statement (read-only, or a change when the database's `agentAccess` allows it, see `Databases.query`).
+    // It may not look at another project's databases.
     static let agents = AgentAccess.acts
     func handle(_ dbs: Databases) throws -> [DatabaseInfo] {
         let agent = dbs.agent(origin: Sessions.asker) != nil

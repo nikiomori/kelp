@@ -2,12 +2,12 @@ import Core
 import Foundation
 import GitKit
 
-/// Files' text and the Files panel's operations, for a file here or in a remote project (on its host, by ssh), with the
-/// rules a tab keeps: only regular files up to `Unopenable.openLimit`, only UTF-8 text, and a save never writes over a
-/// version it wasn't given the stamp of.
-/// Any absolute path: the app opens files outside projects too (`kelp open`, the help, Save As…), and whoever can reach
-/// the socket (0600, this user's) can already run programs here (`process.run`), so a list of allowed folders would
-/// guard nothing.
+/// Reads and writes files' text and runs the Files panel's operations, for a file on this Mac or in a remote project
+/// (on its host, over ssh). It keeps the rules a tab keeps. It opens only regular files up to `Unopenable.openLimit`
+/// and only UTF-8 text, and a save never writes over a version whose stamp it wasn't given.
+/// It takes any absolute path, because the app opens files outside projects too (`kelp open`, the help, Save As…).
+/// Whoever can reach the socket (mode 0600, owned by this user) can already run programs here (`process.run`), so a
+/// list of allowed folders would guard nothing.
 struct FileService: Sendable {
     let remotes: Remotes
 
@@ -21,8 +21,8 @@ struct FileService: Sendable {
         return .init(text: text, stamp: stamp)
     }
 
-    /// A remote project's file copied here, in the temporary folder (the system empties it), named as the file is so a
-    /// viewer knows its type; a file here is its own copy.
+    /// Copies a remote project's file into the temporary folder on this Mac, which the system empties, and returns the
+    /// copy's path. The copy keeps the file's name so a viewer knows its type. A file on this Mac is its own copy.
     func fetch(_ path: String) throws -> String {
         let path = try absolute(path)
         guard let located = remotes.containing(path) else { return path }
@@ -37,9 +37,10 @@ struct FileService: Sendable {
         return copy.path
     }
 
-    /// A remote project's icon, kept in its folder here (`.kelp-icon/`, beside its marker): a kept one at once, looked for
-    /// again in the background; none kept, looked for now. Only over a connection already open: drawing the sidebar
-    /// never dials a host (nil, or the kept one, until something connects).
+    /// Returns a remote project's icon, kept in the project's folder on this Mac (`.kelp-icon/`, beside its marker). A
+    /// kept icon is returned at once and looked for again in the background. With none kept, it is looked for now. The
+    /// host is asked only over a connection that is already open, so drawing the sidebar never dials a host. Until
+    /// something connects, the result is the kept icon or nil.
     func icon(_ repo: String) throws -> String? {
         let repo = try absolute(repo)
         guard let remote = remotes.of(repo) else { throw RPCError.invalidParams("Not a remote project.") }
@@ -58,18 +59,21 @@ struct FileService: Sendable {
         if let located = remotes.containing(path) {
             return try writeRemote(located.remote, located.remotePath, data, base: base)
         }
-        // Limit: checked, then written: an agent's write in that window is lost (agents take no lock to wait on).
+        // Limit: the file is checked and then written, so an agent's write between the two is lost, because agents
+        // take no lock to wait on.
         if let base {
             guard let now = Self.stamp(path) else { return .init(missing: true) }
             if now != base {
-                // Unreadable as text (grown past the limit, a pipe now, another encoding): no text, and still not written.
+                // When the file can't be read as text now (grown past the limit, now a pipe, or another encoding),
+                // the conflict carries no text, and the file is still not written.
                 let current = try? contents(path)
                 return .init(
                     conflict: .init(
                         stamp: current?.stamp ?? now, text: current.flatMap { String(data: $0.data, encoding: .utf8) }))
             }
         }
-        // Through a symlink to the file it points at: an atomic write to the link would replace it with a plain file.
+        // Writes through a symlink to the file it points at, because an atomic write to the link would replace the
+        // link with a plain file.
         try data.write(to: URL(fileURLWithPath: path).resolvingSymlinksInPath(), options: .atomic)
         guard let stamp = Self.stamp(path) else {
             throw RPCError.internalError("\(path) was written but isn't there now.")
@@ -109,7 +113,8 @@ struct FileService: Sendable {
         return .init(made: made, error: error)
     }
 
-    /// `step` on each in turn, up to the first that fails: what was done, and why that one failed.
+    /// Runs `step` on each item in turn, stopping at the first that fails. Returns what was done, and the message that
+    /// says why that item failed.
     private func each<Item, Done>(_ items: [Item], _ step: (Item) throws -> Done) -> ([Done], String?) {
         var done: [Done] = []
         for item in items {
@@ -122,7 +127,8 @@ struct FileService: Sendable {
         if let host = try onHost(path) { return try host.create(path, folder: folder, text: text, unique: unique) }
         let named = try here(path), path = unique ? Self.free(named, word: nil) : named, fm = FileManager.default
         try fm.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
-        // A taken name fails: never an existing file written over, or a folder taken for a new one.
+        // A name that is taken fails, so an existing file is never written over and an existing folder is never taken
+        // for a new one.
         if folder {
             try fm.createDirectory(atPath: path, withIntermediateDirectories: false)
         } else {
@@ -131,7 +137,8 @@ struct FileService: Sendable {
         return path
     }
 
-    /// `path`, or the first of "name copy.ext", "name copy 2.ext"… (`word: nil`: "name 2.ext") that doesn't exist.
+    /// Returns `path` when nothing is there, or else the first of "name copy.ext", "name copy 2.ext" and so on that
+    /// doesn't exist. With `word` nil, the names tried are "name 2.ext" and so on.
     static func free(_ path: String, word: String? = "copy") -> String {
         let fm = FileManager.default
         guard fm.fileExists(atPath: path) else { return path }
@@ -143,8 +150,8 @@ struct FileService: Sendable {
         }
     }
 
-    /// A free name beside `path` for a copy: "name copy 2.ext" (with `number` 1: "name copy.ext"; with `word` nil:
-    /// "name 2.ext").
+    /// Returns a name beside `path` for a copy, such as "name copy 2.ext", without checking whether it is free. With
+    /// `number` 1 it is "name copy.ext", and with `word` nil it is "name 2.ext".
     static func named(_ path: String, word: String?, _ number: Int) -> String {
         let url = URL(fileURLWithPath: path), ext = url.pathExtension,
             base = url.deletingPathExtension().lastPathComponent
@@ -152,12 +159,13 @@ struct FileService: Sendable {
         return url.deletingLastPathComponent().appendingPathComponent(ext.isEmpty ? stem : stem + "." + ext).path
     }
 
-    /// A version on a host: its bytes' SHA-256.
+    /// The stamp of a file's version on a host, which is the SHA-256 of its bytes.
     static func digest(_ data: Data) -> FileStamp { "sha256:" + data.sha256 }
 
     // MARK: here
 
-    /// Its size, modification time and inode, through symlinks: the same stamp, the same bytes. Nil when it's gone.
+    /// Returns the file's stamp, made of its size, modification time and inode, following symlinks. The same stamp
+    /// means the same bytes. Returns nil when the file is gone.
     static func stamp(_ path: String) -> FileStamp? {
         var st = stat()
         return stat(path, &st) == 0 ? Self.stamp(st) : nil
@@ -166,8 +174,9 @@ struct FileService: Sendable {
         "\(st.st_size)-\(st.st_mtimespec.tv_sec).\(st.st_mtimespec.tv_nsec)-\(st.st_ino)"
     }
 
-    /// Its stamp and bytes, refused as a tab would (a pipe, past the limit); nil when it's gone. The stamp is taken before
-    /// the read: a write in between makes the next check read it again, never miss it.
+    /// Returns the file's stamp and bytes, or nil when the file is gone. It refuses what a tab would refuse (a pipe, or
+    /// a file past the limit). The stamp is taken before the read, so a write in between makes the next check read the
+    /// file again rather than miss the write.
     private func contents(_ path: String) throws -> (stamp: FileStamp, data: Data)? {
         var st = stat()
         guard stat(path, &st) == 0 else { return nil }
@@ -175,7 +184,7 @@ struct FileService: Sendable {
         guard st.st_size <= Unopenable.openLimit else { throw Unopenable.tooBig(Int(st.st_size)).error }
         let handle = try FileHandle(forReadingFrom: URL(fileURLWithPath: path))
         defer { handle.closeQuietly() }
-        // grown since the stat: still capped
+        // A file that grew since the stat is still read only up to the limit.
         let data = try handle.read(upToCount: Unopenable.openLimit + 1) ?? Data()
         guard data.count <= Unopenable.openLimit else { throw Unopenable.tooBig(data.count).error }
         return (Self.stamp(st), data)
@@ -186,7 +195,8 @@ struct FileService: Sendable {
         return URL(fileURLWithPath: path).standardizedFileURL.path
     }
 
-    /// A path on this Mac, for moving, copying and making files here (a remote project's go to `HostFiles`).
+    /// Returns the absolute path for moving, copying or making a file on this Mac. A remote project's files go to
+    /// `HostFiles` instead, so a path in one is refused here.
     private func here(_ path: String) throws -> String {
         let path = try absolute(path)
         if let located = remotes.containing(path) {
@@ -197,8 +207,8 @@ struct FileService: Sendable {
         return path
     }
 
-    /// The remote project all of `paths` are in (`HostFiles`); nil when they're all on this Mac. Between a host and this
-    /// Mac, or two projects there, is refused (`here`).
+    /// Returns the remote project (`HostFiles`) that all of `paths` are in, or nil when they aren't all in one. Then an
+    /// operation between a host and this Mac, or between two projects there, reaches `here`, which refuses it.
     private func onHost(_ paths: String...) throws -> HostFiles? {
         let found = try paths.map { HostFiles.of(try absolute($0), remotes) }
         guard let first = found.first ?? nil else { return nil }
@@ -215,7 +225,8 @@ struct FileService: Sendable {
         return .init(text: text, stamp: Self.digest(body))
     }
 
-    /// One round trip: what it is (gone, not a regular file, its size), then its bytes only when a tab would open it.
+    /// Reads a file on a host in one round trip. The host first says what the file is (gone, not a regular file, or
+    /// its size), then sends its bytes only when a tab would open it.
     private func remoteBytes(_ remote: RemoteHost, _ path: String) throws -> Data {
         let limit = Unopenable.openLimit
         let script =
@@ -233,8 +244,9 @@ struct FileService: Sendable {
         return Data(body)
     }
 
-    /// `IconSearch` on the host, from one listing of the folders it looks in ("folder<TAB>name", and an AppIcon set's PNGs
-    /// with their size), then the icon's bytes: kept in `keep` (emptied when there's none) → the kept copy.
+    /// Runs `IconSearch` for the host on one listing of the folders it looks in ("folder<TAB>name" lines, plus each PNG
+    /// in an AppIcon set with its size). Then it fetches the icon's bytes and keeps them in `keep`, which is emptied
+    /// when there is no icon. Returns the path of the kept copy.
     private func findIcon(_ remote: RemoteHost, keep: String) throws -> String? {
         let places = IconSearch.places.map(ShellQuote.word).joined(separator: " ")
         let script =
@@ -266,15 +278,17 @@ struct FileService: Sendable {
         -> FilesWrite.Result
     {
         let file = ShellQuote.word(path)
-        // Sent to a file beside it, kept once all of it came (a dropped connection ends the upload as if it were done: its
-        // size tells). Then a copy of the file (its mode with it) takes the text and is moved over it, so a connection
-        // dropped meanwhile leaves the file whole. A link, a file with other names (hard links) or another user's is
-        // written in place instead, so it stays what it is: there a disk that fills up during the copy leaves it short,
-        // so the upload beside it stays then, and the error says where.
-        // Changed there since it was read: its digest compared in that same run, right before the copy, so an edit on
-        // the host between a look and the write isn't written over (exit 3: the caller decides; 4: gone). One that
-        // can't be read (permissions) fails the save. Limit: a host without sha256sum, shasum or openssl writes it
-        // unchecked.
+        // The text is first sent to a temporary file beside the file, and used only once all of it has arrived. A
+        // dropped connection ends the upload as if it were done, so the temporary file's size tells. Then a copy of
+        // the file, made with its mode, takes the text and is moved over the file, so a connection dropped meanwhile
+        // leaves the file whole. A symlink, a file with other names (hard links) or another user's file is written in
+        // place instead, so it stays what it is. In that case a disk that fills up during the write leaves the file
+        // short, so the uploaded text beside it is kept, and the error says where it is.
+        // A change on the host since the file was read is caught by comparing its digest in that same run, right
+        // before the copy, so an edit on the host between a look and the write isn't written over. Exit code 3 means
+        // it changed and the caller decides, and 4 means the file is gone. A file that can't be read (permissions)
+        // fails the save.
+        // Limit: a host without sha256sum, shasum or openssl writes the file without this check.
         let tmp = ShellQuote.word(path + ".kelp-XXXXXX"), drop = "{ rm -f \"$t\"; exit"
         let check =
             base.map { base in
@@ -295,7 +309,8 @@ struct FileService: Sendable {
             + "else n=$(mktemp \(tmp)) && cp -p \(file) \"$n\" && cat \"$t\" > \"$n\" && mv -f \"$n\" \(file) "
             + "|| { rm -f \"$n\"; echo \"not written; your text is in $t\" >&2; exit 1; }; fi; rm -f \"$t\""
         do { _ = try remote.run(script, stdin: data) } catch let error as ProgramError where error.status == 3 {
-            // The conflict stands whatever comes next: a file that can't be read again now shows no text, not an error.
+            // The conflict stands whatever happens next, so a file that can't be read again shows the conflict with no
+            // text rather than an error.
             let now = Log.store.attempt("reading \(path) again after a conflict") { try remote.run("cat -- \(file)") }
             return .init(
                 conflict: .init(

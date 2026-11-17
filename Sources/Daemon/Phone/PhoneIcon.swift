@@ -2,9 +2,9 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-/// A project's icon for the phone's page: the largest picture in the file (an .icns or .ico holds several), drawn
-/// into `side` pixels as a PNG. Nil for what isn't a picture ImageIO reads, and for a wordmark (much wider than tall),
-/// which the sidebar doesn't show either.
+/// Makes a project's icon for the phone's page. It takes the largest picture in the file (an .icns or .ico holds
+/// several) and draws it into `side` pixels as a PNG. It returns nil for a file that ImageIO can't read as a picture,
+/// and for a wordmark (more than twice as wide as tall), which the sidebar doesn't show either.
 enum PhoneIcon {
     static func png(from data: Data, side: Int = 128) -> Data? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }

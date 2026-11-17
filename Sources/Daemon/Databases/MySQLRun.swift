@@ -1,24 +1,24 @@
 import Core
 import Foundation
 
-// MySQL inside a compose container: its batch client's reads, writes and schema.
+// Reads, writes and schema for MySQL inside a compose container, through the mysql batch client.
 
-/// mysql inside a compose container (`docker exec`): its batch output.
+/// Runs statements through the mysql client inside a compose container (`docker exec`) and parses its batch output.
 struct MySQLRun: DatabaseRunner {
     let connection: DatabaseConnection, off: Slots
     static let marker = "kelp_7f3e9c"
 
     func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
         return try await off.run {
-            // The server stops it too: a client killed in a container (`docker exec`) leaves its query running there
+            // The server enforces the limit too, because a client killed in a container leaves its query running there
             let out = try Self.run(
                 connection, Self.limit(timeout) + ["START TRANSACTION READ ONLY", sql], timeout: timeout + 5)
             return Self.section(out.last ?? "")
         }
     }
 
-    /// The session's time limit for a read: MySQL names it max_execution_time (ms), MariaDB max_statement_time (s),
-    /// and each refuses the other's name, so the one this server has is picked by the server.
+    /// Statements that set the session's time limit for a read. MySQL calls it max_execution_time (in ms) and MariaDB
+    /// max_statement_time (in s), and each refuses the other's name, so the server itself picks the one it has.
     static func limit(_ timeout: TimeInterval) -> [String] {
         let seconds = Int(timeout)
         return [
@@ -28,8 +28,8 @@ struct MySQLRun: DatabaseRunner {
         ]
     }
 
-    /// Tables a ROLLBACK can't undo (MyISAM, MEMORY, Aria, CSV…): with any, a change isn't tried, since the trial
-    /// would make it.
+    /// Counts the tables a ROLLBACK can't undo (MyISAM, MEMORY, Aria, CSV…). When there are any, a change isn't
+    /// tried, because the trial would really make it.
     static let unrollable = """
         SELECT COUNT(*) FROM information_schema.tables WHERE table_type = 'BASE TABLE'
           AND table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
@@ -47,8 +47,9 @@ struct MySQLRun: DatabaseRunner {
         }
     }
 
-    /// `allowed`: as over the wire (`MySQLWire.write`), in the client's one session: the server itself commits or rolls
-    /// back by the count it kept of the statement (a prepared COMMIT or ROLLBACK, as the mysql client has no `if`).
+    /// Handles `allowed` as the wire runner does (`MySQLWire.write`), within the client's one session. The server
+    /// itself commits or rolls back by the row count it kept for the statement. It does so with a prepared COMMIT or
+    /// ROLLBACK, because the mysql client has no `if`.
     func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
         return try await off.run {
             guard let allowed else {
@@ -72,7 +73,8 @@ struct MySQLRun: DatabaseRunner {
         }
     }
 
-    /// One script: mysql stops at the first error (no --force), so COMMIT never comes and its session rolls back.
+    /// Runs the edits as one script. mysql stops at the first error (no --force), so COMMIT never runs and the
+    /// session rolls back.
     func apply(_ statements: [String]) async throws -> Int {
         return try await off.run {
             let out = try Self.run(
@@ -82,12 +84,14 @@ struct MySQLRun: DatabaseRunner {
         }
     }
 
-    /// The statement and, right after it (anything between would reset it), the rows it changed.
+    /// The column that holds the rows a statement changed. The count is read right after the statement, because any
+    /// statement in between would reset it.
     static let changedColumn = "kelp_changed"
-    /// Its `;` on a line of its own: a statement's last line can be a `--` comment.
+    /// Follows the statement with a read of the rows it changed. The statement's `;` goes on a line of its own,
+    /// because its last line can be a `--` comment.
     static func counted(_ sql: String) -> String { sql + "\n;\nSELECT ROW_COUNT() AS " + changedColumn }
 
-    /// What `counted` printed: the statement's rows, if any, then a table of one count.
+    /// Parses what `counted` printed: the statement's rows, if any, then a table that holds one count.
     static func withCount(_ text: String) -> DatabaseRows {
         guard let count = text.range(of: changedColumn + "\n", options: .backwards) else { return section(text) }
         var rows = section(String(text[..<count.lowerBound]))
@@ -128,14 +132,14 @@ struct MySQLRun: DatabaseRunner {
         }
     }
 
-    /// The statements as one script on stdin, in binary mode (no client commands such as `system`), a marker between
-    /// them.
+    /// Runs the statements as one script on stdin, with a marker after each one. Binary mode turns off client
+    /// commands such as `system`.
     static func run(_ databaseConnection: DatabaseConnection, _ statements: [String], timeout: TimeInterval) throws
         -> [String]
     {
         let db = databaseConnection.database
         let (client, host, port) = try DatabaseEngines.invocation(databaseConnection, "mysql", secret: "MYSQL_PWD")
-        // localhost would mean its Unix socket to mysql: the server's port is asked for by address.
+        // To mysql, localhost means the Unix socket, so the server's port is reached by its address.
         var argv =
             client + ["--batch", "--binary-mode", "-h", host == "localhost" ? "127.0.0.1" : host, "-P", String(port)]
         if let user = db.user { argv += ["-u", user] }
@@ -157,7 +161,8 @@ struct MySQLRun: DatabaseRunner {
             .components(separatedBy: "\(marker)\n\(marker)\n").dropLast().map { $0 }
     }
 
-    /// Tab-separated, a header first; \t \n \\ escaped, NULL written as NULL.
+    /// Parses tab-separated output with a header first. Tabs, newlines and backslashes arrive escaped (\t \n \\), and
+    /// NULL arrives as NULL.
     static func section(_ text: String) -> DatabaseRows {
         var lines = text.split(separator: "\n").map(String.init)
         guard !lines.isEmpty else { return DatabaseRows() }

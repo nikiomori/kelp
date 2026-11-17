@@ -3,33 +3,37 @@ import Core
 import CoreImage
 import Virtualization
 
-/// A macOS machine's screen from the Mac's side: what its VZVirtualMachineView shows, read from the IOSurface it draws
-/// into, and mouse and key events handed to that view, which sends them to the machine's trackpad and keyboard. Nothing
-/// inside the machine is asked, so no permission there; the view needs no window on screen. Points of its 1280 × 800
-/// screen, top left first, whatever size the user made its window.
+/// A macOS machine's screen, seen from the Mac's side. Reading it takes what the machine's VZVirtualMachineView shows
+/// from the IOSurface the view draws into. Driving it hands mouse and key events to that view, which sends them to the
+/// machine's trackpad and keyboard. Nothing inside the machine is asked, so it needs no permission there, and the view
+/// needs no window on screen. Positions are points of the machine's 1280 × 800 screen, from the top left, whatever size
+/// the user made the window.
 @MainActor
 enum Screen {
-    /// The session whose turn the screen is, and when that ends (20 s after its last action).
+    /// The session whose turn it is to use the screen, and when that turn ends (20 s after the session's last action).
     static var holder: (session: String, until: Date)?
 
-    /// Whose turn it is now, if anyone's.
+    /// The session whose turn it is now, or nil when it is nobody's turn.
     static var turn: String? { holder.flatMap { $0.until > Date() ? $0.session : nil } }
 
-    /// `args` as `kelp vm` takes them; `done` with an error or nil once the screen had a moment to follow.
+    /// Runs one screen command, with `args` as `kelp vm` takes them. `done` gets an error, or nil once the screen has
+    /// had a moment to follow.
     static func run(_ args: [String], session: String, view: VZVirtualMachineView, done: @escaping (String?) -> Void) {
         let op = args.first ?? ""
         func num(_ index: Int) -> Double? { args.count > index ? Double(args[index]) : nil }
         if op == "screenshot" {
             guard args.count > 1 else { return done("screenshot: a file to write") }
-            // A machine just woken or a view just made has no frame for a moment: looked for every 0.2 s, up to 5 s.
+            // A machine that just woke, or a view just made, has no frame for a moment, so the frame is looked
+            // for every 0.2 s for up to 5 s.
             func shoot(_ tries: Int) {
                 let error = screenshot(view, to: args[1])
                 guard error != nil, tries > 0 else { return done(error) }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { MainActor.assumeIsolated { shoot(tries - 1) } }   // the main queue
+                // asyncAfter on the main queue runs this on the main thread.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { MainActor.assumeIsolated { shoot(tries - 1) } }
             }
             return shoot(25)
         }
-        if session != "-" {   // "-": the user's (Type Password, a terminal outside Kelp): no turn
+        if session != "-" {   // "-" is the user (Type Password, a terminal outside Kelp), who takes no turn
             if let current = holder, current.session != session, current.until > Date() {
                 return done(
                     "The screen is \(current.session)'s now (until 20 s after its last action); try again in a moment.")
@@ -85,7 +89,8 @@ enum Screen {
         play(events, on: view) { done(nil) }
     }
 
-    /// Its screen as a PNG of 1280 × 800 points (what clicks take): nil, or what went wrong.
+    /// Writes the machine's screen as a PNG of 1280 × 800 points, the same points that clicks take. Returns nil, or
+    /// what went wrong.
     static func screenshot(_ view: VZVirtualMachineView, to path: String) -> String? {
         func surface(_ layer: CALayer) -> IOSurface? {
             if let contents = layer.contents, CFGetTypeID(contents as CFTypeRef) == IOSurfaceGetTypeID() {
@@ -122,7 +127,8 @@ enum Screen {
             pressure: down ? 1 : 0) ?? NSEvent()
     }
 
-    /// Modifiers as their keys (code) and a real left one's flags: the device bit is what the machine's keyboard reads.
+    /// Each modifier's key code, and the flags that a real left-hand modifier key sets. The machine's keyboard reads
+    /// the device bit in those flags.
     private static let modifiers: [String: (code: UInt16, flags: UInt)] = [
         "shift": (56, 0x20002), "cmd": (55, 0x100008), "command": (55, 0x100008), "alt": (58, 0x80020),
         "option": (58, 0x80020),
@@ -138,7 +144,7 @@ enum Screen {
             characters: chars, charactersIgnoringModifiers: chars, isARepeat: false, keyCode: code)
     }
 
-    /// Modifier keys down, the key, modifiers up: as a hand presses them.
+    /// Returns the events of a key press in the order a hand makes them: modifier keys down, the key, modifiers up.
     private static func press(
         _ code: UInt16, _ mods: [(code: UInt16, flags: UInt)], _ chars: String, _ view: VZVirtualMachineView
     ) -> [NSEvent] {
@@ -158,7 +164,7 @@ enum Screen {
 
     private static func typed(_ character: Character, _ view: VZVirtualMachineView) -> [NSEvent] {
         guard let usKey = VMs.usKey(character), let shift = modifiers["shift"] else { return [] }
-        // a real Return says \r
+        // a real Return key sends \r, not \n
         return press(usKey.code, usKey.shift ? [shift] : [], character == "\n" ? "\r" : String(character), view)
     }
 
@@ -171,12 +177,14 @@ enum Screen {
         return press(code, mods, chars, view)
     }
 
-    /// One event every 15 ms, to the view itself (a window sends keys only while it's key, and this one may not even be on
-    /// screen); after the last, 150 ms for the screen to follow before anyone looks.
+    /// Sends one event every 15 ms straight to the view, because a window sends keys only while it's key, and this
+    /// window may not even be on screen. After the last event it waits 150 ms, so the screen catches up before anyone
+    /// looks.
     private static func play(_ events: [NSEvent], on view: VZVirtualMachineView, _ done: @escaping () -> Void) {
         func next(_ index: Int) {
             guard index < events.count else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { MainActor.assumeIsolated { done() } }   // the main queue
+                // asyncAfter on the main queue runs this on the main thread.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { MainActor.assumeIsolated { done() } }
                 return
             }
             let event = events[index]
@@ -196,7 +204,7 @@ enum Screen {
             case .scrollWheel: view.scrollWheel(with: event)
             default: break
             }
-            // the main queue
+            // asyncAfter on the main queue runs this on the main thread
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.015) { MainActor.assumeIsolated { next(index + 1) } }
         }
         next(0)

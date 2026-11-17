@@ -1,8 +1,9 @@
 extension Recipes {
-    /// Tidy Up (Skills & MCP › Needs a Look): `{instructionFiles}` the files to tidy, `{before}` the copies Kelp
-    /// made of them (`addons.tidy`). The agent changes the files at once and the person reviews afterwards. The test
-    /// every line has to pass is Anthropic's: could an agent find it in the repo, and would it look? Tried on Kelp's
-    /// own memory and AGENTS.md: a brief that asked first and kept anything with a reason left AGENTS.md at 95 %.
+    /// The prompt for Tidy Up (Skills & MCP › Needs a Look). `{instructionFiles}` is the files to tidy, and `{before}`
+    /// is the copies Kelp made of them (`addons.tidy`). The agent changes the files at once and the person reviews
+    /// afterwards. The test every line has to pass is Anthropic's: could an agent find it in the repo, and would it
+    /// look? This was tried on Kelp's own memory and AGENTS.md, where a brief that asked first and kept anything with a
+    /// reason left AGENTS.md at 95 %.
     static let tidyInstructions = #"""
         Tidy up the files agents read before every chat in this project: {instructionFiles}.
         Every line in them is read on every request and takes attention from the lines that matter. Make them as short

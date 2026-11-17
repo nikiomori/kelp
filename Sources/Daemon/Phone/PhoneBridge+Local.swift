@@ -1,8 +1,8 @@
 import Core
 import Foundation
 
-// A phone that reaches this Mac itself: kelpd serves the page and answers its calls on a port of localhost
-// (`PhoneServer`), and Tailscale, or a tunnel of the user's own, brings the phone to that port.
+// This file handles a phone that reaches this Mac directly. kelpd serves the page and answers the phone's calls on a
+// localhost port (`PhoneServer`), and Tailscale, or a tunnel the user set up, brings the phone to that port.
 
 extension PhoneBridge {
     /// Starts this Mac's own server on `port`.
@@ -28,7 +28,8 @@ extension PhoneBridge {
         failure = "Kelp can't serve the phone's page on port \(port): \(why)"
     }
 
-    /// One call that came to this Mac's own server: refused, answered sealed, or an event stream now open.
+    /// Handles one call that came to this Mac's own server. It refuses the call, answers it sealed, or keeps it open as
+    /// an event stream.
     func called(_ id: String, device: String, box: String, _ events: PhoneServer.Events) async -> PhoneServer.Answer {
         guard way != nil else { return .refused(503) }
         switch admit(Sent(id: id, device: device, box: box)) {
@@ -46,8 +47,8 @@ extension PhoneBridge {
         }
     }
 
-    /// Keeps Tailscale serving the page at this Mac's name in its tailnet, and the streams open meanwhile. Asked
-    /// again every minute: Tailscale may have been signed out, or installed since.
+    /// Keeps Tailscale serving the page at this Mac's name in its tailnet, and keeps the phones' streams open
+    /// meanwhile. It asks Tailscale again every minute, because Tailscale may have been signed out, or installed since.
     func followTailscale(_ port: Int) async {
         while !Task.isCancelled {
             let served = await PhoneTailscale.serve(port: port, offloads)
@@ -59,15 +60,15 @@ extension PhoneBridge {
             tailscaleSteps = served.steps
             for _ in 0..<4 {
                 do { try await Task.sleep(for: .seconds(15)) } catch { return }
-                for stream in streams.values { stream.write("\n") }   // a proxy on the way cuts a silent connection
+                for stream in streams.values { stream.write("\n") }   // A proxy on the way cuts a silent connection.
             }
         }
     }
 }
 
-/// Tailscale's own command line, which serves a port of this Mac inside the user's tailnet over HTTPS with a real
-/// certificate: the phone, on the same tailnet, reaches the Mac directly. On a port of its own (8443), so a site the
-/// user already serves at the name's root stays theirs.
+/// Drives Tailscale's own command line, which serves a port of this Mac inside the user's tailnet over HTTPS with a
+/// real certificate. A phone on the same tailnet then reaches the Mac directly. The page gets a port of its own (8443),
+/// so a site that the user already serves at the root of the Mac's name stays theirs.
 enum PhoneTailscale {
     struct Failed: Error, Equatable {
         var message: String
@@ -75,13 +76,14 @@ enum PhoneTailscale {
     }
     static let httpsPort = 8443
 
-    /// Its program: on the login shell's PATH (Homebrew), else inside the app.
+    /// The path to the `tailscale` program, found on the login shell's PATH (Homebrew) or else inside Tailscale.app.
     static var program: String? {
         let app = "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
         return LoginPath.find("tailscale") ?? (FileManager.default.isExecutableFile(atPath: app) ? app : nil)
     }
 
-    /// This Mac's address in its tailnet from `tailscale status --json`: nil while it isn't connected.
+    /// Reads this Mac's address in its tailnet from `tailscale status --json`. Returns nil while Tailscale isn't
+    /// connected.
     static func address(status: Data) -> String? {
         struct Status: Decodable {
             struct Node: Decodable { var DNSName: String? }
@@ -98,7 +100,8 @@ enum PhoneTailscale {
         return "https://\(name):\(httpsPort)"
     }
 
-    /// Has Tailscale serve `port` and says at what address; why not, in words for Settings.
+    /// Has Tailscale serve `port` and returns the address it serves at. On failure it returns the reason, in words for
+    /// Settings.
     static func serve(port: Int, _ offloads: Slots) async -> Result<String, Failed> {
         do { return try await offloads.run { served(port) } } catch {
             return .failure(Failed(message: "Kelp is stopping."))
@@ -124,7 +127,7 @@ enum PhoneTailscale {
         guard let served = run(program, ["serve", "--bg", "--https=\(httpsPort)", target]), served.status == 0,
             !served.timedOut
         else {
-            // Without HTTPS certificates in the tailnet it prints where to turn them on, and waits.
+            // When the tailnet has no HTTPS certificates, `tailscale serve` prints where to turn them on and waits.
             return .failure(Failed(message: certificates, steps: TailscaleSteps(installed: true, signedIn: true)))
         }
         return .success(address)
@@ -146,7 +149,7 @@ enum PhoneTailscale {
 }
 
 extension Result where Success == String, Failure == PhoneTailscale.Failed {
-    /// Every step done when it serves; else as far as it got.
+    /// Returns every step as done when Tailscale serves the page, or else the steps as far as Tailscale got.
     var steps: TailscaleSteps {
         switch self {
         case .success: TailscaleSteps(installed: true, signedIn: true, serving: true)

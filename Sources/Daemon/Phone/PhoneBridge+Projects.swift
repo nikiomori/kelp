@@ -3,33 +3,36 @@ import Agents
 import Core
 import Foundation
 
-// What a phone sees beside the agents and may start: the Mac's projects in the sidebar's order, their icons, the
-// agents that run here, an agent's conversation. A phone could already tell a running agent anything; starting one
-// is kept to the projects and agents listed here, and asked as the user's own call, like Allow.
+// This file holds what a phone sees beside the agents, and what it may start. That is the Mac's projects in the
+// sidebar's order, their icons, the agents that run on this Mac, and an agent's conversation. A phone could already
+// tell a running agent anything. Starting an agent is kept to the projects and agents listed here, and it is called
+// as the user's own call, like Allow.
 
 extension PhoneBridge {
-    /// An agent a phone may start: one whose program is on this Mac.
+    /// An agent that a phone may start, because its program is on this Mac.
     struct Kind: Equatable, Sendable {
         var id: String, name: String
-        /// The one new chats start with (`agents.default`): what the page's sheet opens on.
+        /// Whether new chats start with this agent (`agents.default`). The page's sheet opens with it chosen.
         var isDefault = false
     }
 
-    /// What reads a disk or asks the login shell, off the bridge's own thread; nil once the daemon stops taking work.
+    /// Runs work that reads a disk or asks the login shell off the bridge's own thread. Returns nil once the daemon
+    /// stops taking work.
     private func offloaded<Value: Sendable>(_ work: @escaping @Sendable () -> Value) async -> Value? {
         do { return try await offloads.run(work) } catch { return nil }
     }
 
-    /// The projects as the sidebar lists them: by name, unless dragged into another order (`sidebar.order`).
-    /// Without the chats that have no project: each of those gets a folder of its own, made in Kelp's window.
+    /// Returns the projects as the sidebar lists them, by name unless the user dragged them into another order
+    /// (`sidebar.order`). It leaves out the chats that have no project, because each of those gets a folder of its
+    /// own, made in Kelp's window.
     func projects() -> [Repo] {
         let repos = Log.session.attempt("reading the projects") { try store.repos() } ?? []
         let scratch = Paths.real(root.appendingPathComponent("scratch").path)
         return inSidebarOrder(repos.filter { scratch == nil || Paths.real($0.path) != scratch })
     }
 
-    /// A project's first workspace, in the order its rows stand in the sidebar: where an agent started from the phone
-    /// begins.
+    /// Returns a project's first workspace that is not archived, in the sidebar's order. An agent started from the
+    /// phone begins there.
     func firstWorkspace(of repo: Repo) -> Worktree? {
         let all = Log.session.attempt("reading the workspaces") { try store.worktrees(repo: repo.id) } ?? []
         return inSidebarOrder(all.filter { !$0.archived }).first
@@ -42,8 +45,10 @@ extension PhoneBridge {
         return rows.enumerated().sorted { (rank[$0.1.id] ?? .max, $0.0) < (rank[$1.1.id] ?? .max, $1.0) }.map(\.1)
     }
 
-    /// None while Settings › Phone keeps starting agents off: the page then offers no "+", and a start is refused.
-    /// Limit: found on the login shell's PATH, not asked whether it runs (a shim whose program is gone counts).
+    /// Returns the agents a phone may start. The list is empty while Settings › Phone keeps starting agents off, so
+    /// the page offers no "+" and a start is refused.
+    /// Limit: an agent counts when its command is on the login shell's PATH, with no check that it runs, so a shim
+    /// whose program is gone counts.
     func kinds() async -> [Kind] {
         guard settings[SettingKeys.phoneStartAgents] else { return [] }
         let agents = Paths.agents(in: root), usual = settings[SettingKeys.defaultAgent]
@@ -54,7 +59,7 @@ extension PhoneBridge {
         return found ?? []
     }
 
-    /// `projects` and `kinds` of the agents' list.
+    /// Returns the `projects` and `kinds` fields of the agents list.
     func projectsAndKinds() async -> [String: JSONValue] {
         let projects = projects(), kinds = await kinds()
         await findIcons(projects)
@@ -75,9 +80,9 @@ extension PhoneBridge {
         ]
     }
 
-    /// Each project's icon file, found where the sidebar finds it (`IconSearch`; for a remote project, the copy kept in
-    /// its folder here), and looked for again after five minutes. Limit: an SVG can't be used here, since nothing in
-    /// kelpd draws it.
+    /// Finds each project's icon file where the sidebar finds it (`IconSearch`, or for a remote project the copy kept
+    /// in its folder on this Mac). It looks again after five minutes. Limit: an SVG can't be used here, since nothing
+    /// in kelpd draws it.
     private func findIcons(_ projects: [Repo]) async {
         let now = Date()
         let stale = projects.map(\.path).filter { now.timeIntervalSince(iconFiles[$0]?.found ?? .distantPast) > 300 }
@@ -92,7 +97,7 @@ extension PhoneBridge {
         for (path, file) in found ?? [] { iconFiles[path] = (file, now) }
     }
 
-    /// `projects/<id>/icon` and `projects/<id>/agents`.
+    /// Answers the paths `projects/<id>/icon` and `projects/<id>/agents`.
     func answer(_ method: String, project id: String, _ what: String, _ sent: JSONValue?) async -> Reply {
         guard let repo = projects().first(where: { $0.id == id }) else { return .failed(404, "No such project.") }
         switch (method, what) {
@@ -123,8 +128,8 @@ extension PhoneBridge {
         }
     }
 
-    /// The last turns of a Claude Code or Codex conversation; nil for other agents, or before there is a conversation,
-    /// and then the page shows only the last reply.
+    /// Returns the last turns of a Claude Code or Codex conversation. It returns nil for other agents, or before there
+    /// is a conversation, and the page then shows only the last reply.
     func turns(of session: Session) async -> [JSONValue]? {
         guard [Session.claudeAgent, Session.codexAgent].contains(session.agent) else { return nil }
         let conversations = conversations, running = live[session.id]

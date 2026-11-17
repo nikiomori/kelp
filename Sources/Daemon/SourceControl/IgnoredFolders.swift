@@ -3,9 +3,11 @@ import Foundation
 import GitKit
 import os
 
-/// The folders of a workspace git ignores (dist/, build/, coverage/…): what changes in them changes neither git status nor
-/// the file list, and a build writes there all the time. Each folder is asked once, all again after a .gitignore changes.
-/// Limit: folders only (a `*.o` written beside the sources still counts), and a tracked file in an ignored folder isn't seen.
+/// Tracks the folders of a workspace that git ignores (dist/, build/, coverage/…). A change in them changes neither git
+/// status nor the file list, and a build writes there all the time. Git is asked about each folder once, and about all
+/// of them again after a .gitignore changes.
+/// Limit: only folders count (a `*.o` written beside the sources still counts), and a tracked file in an ignored
+/// folder isn't seen.
 final class IgnoredFolders: Sendable {
     private let root: String
     private let prefixes: [String]   // the root as FSEvents may name it (/tmp is /private/tmp)
@@ -19,7 +21,7 @@ final class IgnoredFolders: Sendable {
         prefixes = Array(Set([root, Paths.real(root) ?? root].map { $0.hasSuffix("/") ? $0 : $0 + "/" }))
     }
 
-    /// `changes` less those in a folder git ignores.
+    /// Returns `changes` without those in a folder that git ignores.
     func drop(_ changes: [FileWatcher.Change]) -> [FileWatcher.Change] {
         let rel = changes.map(\.path).map { p in
             prefixes.first(where: p.hasPrefix).map { String(p.dropFirst($0.count)) }
@@ -41,7 +43,8 @@ final class IgnoredFolders: Sendable {
         return zip(changes, folders).filter { _, fs in !fs.contains { answers[$0] == true } }.map(\.0)
     }
 
-    /// The folders `rel` is in, outermost first: "a/b/c.txt" is in "a/" and "a/b/". git's own folder is left to `Git.touches…`.
+    /// Returns the folders that `rel` is in, outermost first, so "a/b/c.txt" is in "a/" and "a/b/". Changes in git's
+    /// own folder are left to `Git.touches…`.
     static func folders(_ rel: String) -> [String] {
         guard !rel.hasPrefix(".git/") else { return [] }
         let parts = rel.split(separator: "/").dropLast()

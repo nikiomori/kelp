@@ -1,11 +1,13 @@
 import Core
 import Foundation
 
-// Several statements in one call (`kelp db query "a; b"`): one change. Tried together and rolled back, asked about once
-// where the database asks, then run in one transaction: all of them or none.
+// Several statements sent in one call (`kelp db query "a; b"`) run as one change. They are tried together and rolled
+// back, the user is asked once when the database asks before changes, and then they run in one transaction, so all of
+// them are kept or none.
 
 extension Databases {
-    /// `asker`: nil for the user, else the agent's session to ask; and the program its command runs in.
+    /// Runs the statements as one change. `asker.session` is nil when the user runs them and otherwise holds the
+    /// agent's session to ask. `asker.pid` is the program the agent's command runs in.
     func batch(
         _ databaseQuery: DatabaseQuery, _ databaseConnection: DatabaseConnection, _ statements: [String],
         asker: (session: String??, pid: pid_t?)
@@ -16,7 +18,7 @@ extension Databases {
             id: UUID().uuidString, database: name, sql: statements.joined(separator: ";\n"), session: session,
             at: Date(), state: .done)
         do {
-            // MySQL commits its DDL as it runs, and with it whatever came before
+            // MySQL commits a DDL statement as it runs it, and every statement before it too
             if engine == .mysql, let alone = statements.first(where: { !SQLText.mayTry($0, engine) }) {
                 throw DatabaseFailure.failed(
                     "MySQL commits \(SQLText.verb(alone)) as it runs: it can't be one of several in a transaction. "
@@ -46,7 +48,7 @@ extension Databases {
             case .free: break
             }
             let started = Date(), allowed = asked
-            // What the user allowed is what it may change: the tables can have changed while it was asked
+            // The batch may change only the counts the user allowed, because the tables can change while asking
             let changed = try await DatabaseEngines.batch(
                 databaseConnection, statements, keep: { allowed == nil || $0 == allowed }, off: offloads)
             if let allowed, changed != allowed {
@@ -62,7 +64,7 @@ extension Databases {
         } catch let failure as DatabaseFailure { throw failed(databaseQuery, &run, failure) }
     }
 
-    /// The rows they changed in all; nil when none of them says (reads only).
+    /// The total number of rows the statements changed, or nil when no statement reports a count (reads only).
     static func total(_ changed: [Int?]) -> Int? {
         let said = changed.compactMap { $0 }
         return said.isEmpty ? nil : said.reduce(0, +)
@@ -74,7 +76,7 @@ extension Databases {
         return result
     }
 
-    /// "Allow 3 statements changing 40 rows in app_dev?": one question for them all.
+    /// The one question asked for all the statements, such as "Allow 3 statements changing 40 rows in app_dev?".
     static func question(statements: Int, database: String, changed: Int?) -> String {
         guard let changed else { return "Allow \(statements) statements in \(database)?" }
         return "Allow \(statements) statements changing \(changed) \(changed == 1 ? "row" : "rows") in \(database)?"

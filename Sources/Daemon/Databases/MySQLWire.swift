@@ -4,9 +4,9 @@ import MySQLNIO
 import NIOCore
 import os
 
-// MySQL and MariaDB spoken by kelpd itself (MySQLNIO): reads, writes, schema, and a query's own time.
+// Reads, writes and schema for MySQL and MariaDB, spoken by kelpd itself (MySQLNIO), with a time limit on each query.
 
-/// MySQL and MariaDB over their text protocol: values come as the server writes them.
+/// Talks to MySQL and MariaDB over their text protocol, so values come as the server writes them.
 struct MySQLWire: DatabaseRunner {
     let connection: DatabaseConnection
     /// How long a read may run past the server's own limit before its connection is closed.
@@ -32,7 +32,8 @@ struct MySQLWire: DatabaseRunner {
         }
     }
 
-    /// `allowed`: as Postgres' (a row change only: MySQL's DDL isn't tried, so it has no count to hold it to).
+    /// Handles `allowed` as the Postgres runner does. That holds for a row change only, because MySQL's DDL isn't
+    /// tried and so has no count to hold it to.
     func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
         try await Self.with(connection, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
             if allowed != nil { _ = try await Self.run(conn, "START TRANSACTION") }
@@ -40,7 +41,7 @@ struct MySQLWire: DatabaseRunner {
             result.changed = try await Self.changed(conn)
             guard let allowed else { return result }
             guard result.changed == allowed else {
-                // A ROLLBACK that fails (the connection gone) rolls back all the same: the count is what's said
+                // A ROLLBACK that fails (the connection is gone) rolls back all the same, so the error gives the count
                 await DatabaseWire.close { _ = try await Self.run(conn, "ROLLBACK") }
                 throw DatabaseEngines.notAsAllowed(result.changed, allowed)
             }
@@ -62,7 +63,8 @@ struct MySQLWire: DatabaseRunner {
         }
     }
 
-    /// Not where some table can't roll back (`MySQLRun.unrollable`): all of them or none couldn't be kept.
+    /// Refuses when some table can't roll back (`MySQLRun.unrollable`), because then Kelp couldn't keep all of the
+    /// statements or none.
     func batch(_ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool) async throws -> [Int?] {
         try await Self.with(connection, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
             let tables = try await Self.run(conn, MySQLRun.unrollable).rows.first?.first ?? nil
@@ -105,23 +107,23 @@ struct MySQLWire: DatabaseRunner {
         }
     }
 
-    /// The server stops a read at `timeout`: MySQL calls it max_execution_time (ms), MariaDB max_statement_time (s),
-    /// and each refuses the other's name.
+    /// Tells the server to stop a read at `timeout`. MySQL calls the setting max_execution_time (in ms) and MariaDB
+    /// max_statement_time (in s), and each refuses the other's name.
     private static func limit(_ conn: MySQLConnection, _ timeout: TimeInterval) async throws {
         do { _ = try await run(conn, "SET SESSION max_execution_time = \(Int(timeout * 1000))") } catch {
             _ = try await run(conn, "SET SESSION max_statement_time = \(Int(timeout))")
         }
     }
 
-    /// ROW_COUNT() right after the statement: anything between would reset it.
+    /// Reads ROW_COUNT(), which must come right after the statement because anything in between would reset it.
     private static func changed(_ conn: MySQLConnection) async throws -> Int? {
         (try await run(conn, "SELECT ROW_COUNT()").rows.first?.first ?? nil).flatMap(Int.init).map { max(0, $0) }
     }
 
-    /// `seconds`: the call's whole time (`DatabaseWire.within`).
-    /// The call on a connection of its own. The handshake has its own time (NIO's 10 s is the TCP connect's only); a
-    /// call past its time is stopped on the server too (`KILL QUERY` from a second connection), since MySQL's own
-    /// limit stops only a SELECT: a change that ran on would commit after the caller was told it didn't answer.
+    /// Runs the call on a connection of its own. `seconds` limits the call's whole time (`DatabaseWire.within`).
+    /// The handshake has its own time limit, because NIO's 10 s covers only the TCP connect. A call past its time is
+    /// stopped on the server too (`KILL QUERY` from a second connection), because MySQL's own limit stops only a
+    /// SELECT. Otherwise a change that ran on would commit after the caller was told it didn't answer.
     private static func with<T: Sendable>(
         _ databaseConnection: DatabaseConnection,
         within seconds: TimeInterval = DatabaseEngines.readTimeout + DatabaseTimes.slack,
@@ -130,7 +132,8 @@ struct MySQLWire: DatabaseRunner {
         let db = databaseConnection.database
         let conn: MySQLConnection
         do { conn = try await open(databaseConnection) } catch { throw failure(error, db) }
-        // The connection's id, asked first inside the call's time: what a second connection stops when it runs out
+        // The connection's id is asked first, inside the call's time, so a second connection can stop this one when
+        // the time runs out
         let id = OSAllocatedUnfairLock<String?>(initialState: nil)
         let stopped = OSAllocatedUnfairLock(initialState: false)
         do {
@@ -157,8 +160,9 @@ struct MySQLWire: DatabaseRunner {
         }
     }
 
-    /// A call past its time, said so that nobody reruns a change that may have run: KILL QUERY stops what still runs,
-    /// but one that had just finished (and committed, outside a transaction) stays done.
+    /// Returns the message for a call past its time, worded so that nobody reruns a change that may have run. KILL
+    /// QUERY stops a statement that still runs, but one that had just finished (and committed, outside a transaction)
+    /// stays done.
     static func late(_ said: String, stopped: Bool) -> String {
         said
             + (stopped
@@ -167,7 +171,8 @@ struct MySQLWire: DatabaseRunner {
     }
 
     static let handshakeTimeout = DatabaseTimes.handshake
-    /// A KILL QUERY's handshake, and then its answer: what a call past its time adds to it, at most twice this.
+    /// The time limit for a KILL QUERY's handshake, and then for its answer. So a call past its time takes at most
+    /// twice this longer.
     static let killTimeout = DatabaseTimes.kill
 
     static func open(_ databaseConnection: DatabaseConnection, handshake: TimeInterval = handshakeTimeout) async throws
@@ -184,20 +189,20 @@ struct MySQLWire: DatabaseRunner {
             tlsConfiguration: db.ssl == "disable" ? nil : DatabaseWire.tls, serverHostname: nil,
             logger: DatabaseWire.logger, on: DatabaseWire.eventLoop
         )
-        // Limit: MySQLNIO doesn't hand out the channel before the handshake ends, so one that never does keeps its
-        // socket until the far end closes it; one that ends late is closed then.
+        // Limit: MySQLNIO doesn't hand out the channel before the handshake ends, so a handshake that never ends keeps
+        // its socket until the far end closes it. A connection whose handshake ends late is closed then.
         return try await DatabaseWire.first(connecting, within: handshake, db) {
             connecting.whenSuccess { late in _ = late.close() }
         }
     }
 
-    /// Stops what connection `id` runs, from a connection of its own: whether the server said it did.
+    /// Stops what connection `id` runs, from a connection of its own. Returns whether the server said it did.
     private static func kill(_ id: String?, _ databaseConnection: DatabaseConnection) async -> Bool {
         guard let id, Int(id) != nil else { return false }
         do {
             let conn = try await open(databaseConnection, handshake: killTimeout)
             var said: (any Error)?
-            // A server that didn't answer the call may not answer this either: it has a time of its own
+            // A server that didn't answer the call may not answer this either, so the KILL has a time limit too
             do {
                 _ = try await DatabaseWire.within(
                     killTimeout, databaseConnection.database,
@@ -213,8 +218,9 @@ struct MySQLWire: DatabaseRunner {
         }
     }
 
-    /// One statement over the text protocol: its columns (when it gave rows) and rows, NULL as nil.
-    /// Rows as they come: `keep` of them kept, the rest only counted (a SELECT * of millions doesn't fill kelpd).
+    /// Runs one statement over the text protocol and returns its columns (when it gave rows) and rows, with NULL as
+    /// nil. Up to `keep` rows are kept as they come and the rest only counted, so a SELECT * of millions doesn't fill
+    /// kelpd.
     static func run(_ conn: MySQLConnection, _ sql: String) async throws -> DatabaseRows {
         let kept = OSAllocatedUnfairLock(initialState: DatabaseRows())
         try await conn.simpleQuery(sql) { row in

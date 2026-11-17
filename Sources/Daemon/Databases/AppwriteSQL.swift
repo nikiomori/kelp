@@ -1,7 +1,8 @@
 import Foundation
 
-/// The narrow SQL Kelp speaks to Appwrite (`AppwriteWire`): what the tab writes for a page, a filter, a count and an
-/// edit, and what an agent writes the same way. Anything else is said to be out of it, with what is in it.
+/// The narrow SQL that Kelp speaks to Appwrite (`AppwriteWire`). It covers what the tab writes for a page, a filter, a
+/// count and an edit, and the same statements from an agent. Anything else fails with a message that lists what is
+/// covered.
 enum AppwriteSQL {
     enum Value: Equatable {
         case text(String), number(String), bool(Bool), null
@@ -158,7 +159,7 @@ enum AppwriteSQL {
             guard symbol(text) else { throw DatabaseFailure.failed("Expected \(text). " + AppwriteSQL.help) }
         }
 
-        /// A table's or column's name, quoted or not; a cast after it ("::text") has no meaning here and is skipped.
+        /// Reads a table or column name, quoted or not. A cast after it ("::text") has no meaning here and is skipped.
         mutating func name() throws -> String {
             let found: String
             switch next {
@@ -241,7 +242,7 @@ enum AppwriteSQL {
             return Insert(table: table, columns: columns, rows: rows)
         }
 
-        /// A change's WHERE: never the whole table by accident.
+        /// Reads the WHERE that a change must have, so a change never hits the whole table by accident.
         mutating func required() throws -> Condition {
             guard keyword("WHERE") else {
                 throw DatabaseFailure.failed("Kelp changes Appwrite's rows by a WHERE: add one (WHERE \"$id\" = '…').")
@@ -305,7 +306,7 @@ enum AppwriteSQL {
             return .test(method, column, [operand])
         }
 
-        /// '%a%' contains, 'a%' starts with, '%a' ends with, 'a' equals.
+        /// Maps a LIKE pattern to Appwrite's method: '%a%' is contains, 'a%' starts with, '%a' ends with, 'a' equals.
         static func like(_ column: String, _ pattern: String, not: Bool) -> Condition {
             let starts = pattern.hasPrefix("%"), ends = pattern.hasSuffix("%") && pattern.count > 1
             let core = String(pattern.dropFirst(starts ? 1 : 0).dropLast(ends ? 1 : 0))

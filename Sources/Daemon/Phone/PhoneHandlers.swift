@@ -1,8 +1,8 @@
 import Core
 import Foundation
 
-// phone.*: Settings › Phone asks the bridge. Closed to agents (not in `AgentRules.methods`): a pairing link would let
-// one answer its own questions.
+// The phone.* methods are how Settings › Phone asks the bridge. They are closed to agents (not in
+// `AgentRules.methods`), because a pairing link would let an agent answer its own questions.
 
 extension PhoneStatus: AsyncHandled {
     func handle(_ phone: PhoneBridge) async throws -> PhoneState { await phone.state() }

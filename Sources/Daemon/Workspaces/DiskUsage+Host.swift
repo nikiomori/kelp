@@ -2,17 +2,17 @@ import Core
 import Foundation
 import GitKit
 
-/// A remote project's disk use, measured on its host: git and `du` run there, over the project's connection (which
-/// dials the way the Files panel's first read does, since one of the views that ask has just been shown). Paths in the
-/// project's folder come back under their names here (its stand-in folder); the worktrees beside it and Claude Code's
-/// chats there come back as the host names them.
+/// Measures a remote project's disk use on its host, where git and `du` run over the project's connection. The
+/// connection dials the way the Files panel's first read does, because a view that asks for the measure has just been
+/// shown. Paths in the project's folder come back under their names on this Mac, in its stand-in folder. The worktrees
+/// beside that folder and Claude Code's chats on the host come back as the host names them.
 extension DiskUsage {
     func measure(_ repo: Repo, on remote: RemoteHost) throws -> [Item] {
         let remotes = workspaces.remotes, root = try real(on: remote)
         var gathered = Gathered(root: root, here: false)
         let listed = try ProjectFiles.ignored(repo.path, remotes: remotes).map(Self.trimmed)
         gathered.ignored = Self.kept(listed, really: try Git.ignored(listed, cwd: repo.path, remotes: remotes))
-        // Limit: a worktree on a host is shown, not removed from here (its branch's menu does that).
+        // Limit: a worktree on a host is shown but not removed from here, because the menu on its branch does that.
         let linked = try Git.linkedWorktrees(repo.path, remotes: remotes).map(\.path)
         for worktree in linked {
             let out = try remote.run(
@@ -31,9 +31,9 @@ extension DiskUsage {
             gathered.ignored.map { root + "/" + $0.rel } + gathered.builds.map(\.path), on: remote)
         gathered.total = try Self.du([root], on: remote)[root] ?? 0
         gathered.extra = try chats(of: [root] + linked, on: remote)
-        // The project's own as its stand-in here names it; the rest as the host does.
+        // Paths in the project's folder get their names in the stand-in folder here, and the rest keep the host's.
         let here = { (path: String) in
-            // A host's path, a string to compare (`Paths.inside` looks at this Mac's disk).
+            // The host's path is compared as a string, because `Paths.inside` looks at this Mac's disk.
             (path + "/").hasPrefix(root + "/") ? repo.path + path.dropFirst(root.count) : path
         }
         return Self.parts(gathered).map { item in
@@ -44,11 +44,11 @@ extension DiskUsage {
         }
     }
 
-    /// Claude Code's conversations on the host for those folders (in its config folder there).
+    /// Returns the sizes of Claude Code's conversations on the host for those folders, kept in its config folder there.
     private func chats(of folders: [String], on remote: RemoteHost) throws -> [Item] {
         let names = folders.map { "\"$d\"/" + ShellQuote.word(Self.claudeName($0)) }.joined(separator: " ")
-        // 1: a folder with no conversations isn't there (most aren't). A `du` that failed fails the measure
-        // (`duEnded`).
+        // `du` exits with 1 when a folder isn't there, as for most folders, because they have no conversations. A `du`
+        // that failed in any other way fails the measure (`duEnded`).
         let out = try remote.run(
             #"d="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"; du -sk -- "# + names + " 2>/dev/null; " + Self.duEnded,
             timeLimit: 60)
@@ -64,14 +64,14 @@ extension DiskUsage {
     func trash(_ paths: [String], of repo: Repo, on remote: RemoteHost) throws -> RepoRemoveWorktrees.Result {
         let root = try real(on: remote),
             linked = try Git.linkedWorktrees(repo.path, remotes: workspaces.remotes).map(\.path)
-        // Paths as the host names them, the trash in the project's own .git there.
+        // This connection names paths as the host does, and its trash is in the project's own .git there.
         var at = remote
         at.path = root
         let roots = [root] + linked, aside = HostFiles(folder: root, remote: at)
         var out = RepoRemoveWorktrees.Result(removed: [], kept: [:])
         for path in paths {
-            // As the host names it, `..` taken out: it can't leave the project.
-            // (URL's standardizing keeps `/private`, NSString's drops it.)
+            // The path as the host names it, with `..` taken out so it can't leave the project. URL's standardizing
+            // is used because it keeps `/private`, while NSString's drops it.
             let there = URL(
                 fileURLWithPath: path.hasPrefix(repo.path + "/") ? root + path.dropFirst(repo.path.count) : path
             )
@@ -80,8 +80,8 @@ extension DiskUsage {
                 out.kept[path] = "Not part of the project."
                 continue
             }
-            // A worktree's own folder too: in an ignored one (`.claude/worktrees/x`) git ignores it and tracks nothing
-            // in it, and it would go whole, uncommitted work and all.
+            // A worktree's own folder is refused too. In an ignored folder such as `.claude/worktrees/x`, git ignores
+            // the worktree and tracks nothing in it, so it would be moved whole, uncommitted work and all.
             if roots.contains(where: { ($0 + "/").hasPrefix(there + "/") }) {
                 out.kept[path] = roots.contains(there) ? "It is a worktree." : "A worktree is inside it."
                 continue
@@ -94,8 +94,8 @@ extension DiskUsage {
                         + "&& echo ok || echo tracked", timeLimit: 60)
                 switch String(decoding: said, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) {
                 case "ok":
-                    // The path that was checked, as the host names it: one in a worktree beside the project's folder
-                    // isn't under `root`, and has no name here to turn back into one there.
+                    // This trashes the checked path as the host names it. A path in a worktree beside the project's
+                    // folder isn't under `root`, so it has no name here to turn back into a host path.
                     _ = try aside.trash(there: there)
                     out.removed.append(path)
                 case "missing": out.kept[path] = "Not part of the project."

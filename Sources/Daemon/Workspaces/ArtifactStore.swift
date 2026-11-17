@@ -1,12 +1,13 @@
 import Core
 import Foundation
 
-/// The daemon is the only writer of `.kelp/artifacts`: new pages (`artifact.new`), links to pages on a service and
-/// Kelp's copy of what was sent of them (`artifact.add`), the versions a turn leaves, the copies recovered from a chat's
-/// transcript, and the list the panel watches. Core keeps what everyone reads: the records, the paths, the guide.
+/// The daemon is the only process that writes `.kelp/artifacts`. It makes new pages (`artifact.new`), and it keeps
+/// links to pages published on a service together with Kelp's copy of what was sent (`artifact.add`). It also keeps
+/// the versions each chat turn leaves, recovers page copies from a chat's transcript, and builds the list the panel
+/// watches. Core holds what every process reads: the records, the paths and the guide.
 extension Artifacts {
-    /// A folder name from the title, in Latin letters ("План" → "plan"): lowercase words joined by "-", at most 48
-    /// characters; "artifact" for none.
+    /// Returns a folder name made from the title in Latin letters ("План" → "plan"). The name is lowercase words joined
+    /// by "-", at most 48 characters, or "artifact" when the title has no letters or digits.
     static func slug(_ title: String) -> String {
         let latin =
             title.applyingTransform(.toLatin, reverse: false)?.applyingTransform(.stripDiacritics, reverse: false)
@@ -17,13 +18,14 @@ extension Artifacts {
         return joined.isEmpty ? "artifact" : joined
     }
 
-    /// A new page of `kind` in `root`'s artifacts: its folder, its first lines and its record. Returns the page's file.
+    /// Creates a new page of `kind` among the artifacts in `root`, with its own folder, its first lines and its record.
+    /// Returns the URL of the page's file.
     static func create(_ kind: Kind, title: String, root: String, session: String?, now: Date = Date()) throws
         -> URL
     {
         let folder = try newFolder(title, root: root)
         let page = folder.appendingPathComponent(kind.file)
-        if kind.isCanvas {   // its boards go in boards/, each a file of its own
+        if kind.isCanvas {   // a canvas keeps each board as its own file in boards/
             try FileManager.default.createDirectory(
                 at: folder.appendingPathComponent("boards"), withIntermediateDirectories: true)
         }
@@ -35,8 +37,9 @@ extension Artifacts {
         return page
     }
 
-    /// Keeps the link to a page the agent published on its own service, and what it sent of the page (its preview);
-    /// nil when it's known already: a later version, which moves its time and, given one, its title and kind.
+    /// Keeps the link to a page the agent published on its own service, and the copy of the page it sent (shown as the
+    /// preview). Returns the new folder, or nil when the link is known already. A known link is a later version, so it
+    /// updates the record's time and, when the call gives them, its title and kind.
     static func addNative(
         url: String, title: String, type: String, root: String, session: String?, page: PublishedPage? = nil,
         now: Date = Date()
@@ -57,8 +60,9 @@ extension Artifacts {
         return folder
     }
 
-    /// The artifacts as the panel lists them, latest change first. A review's change is the time its answers were last
-    /// counted from its file, a file's is its last save, and a page on a service is its last publish.
+    /// Returns the artifacts as the panel lists them, with the latest change first. For a file, including a review
+    /// whose answers are counted from its file, the change is the file's last save. For a page on a service it is the
+    /// last publish.
     static func items(root: String) -> [ArtifactItem] {
         list(root: root).map { slug, r in item(slug, r, root: root) }
             .sorted { ($0.modified ?? $0.created) > ($1.modified ?? $1.created) }
@@ -82,7 +86,8 @@ extension Artifacts {
             artifactRecord.file == Kind.design.file
             ? canvasTime(target, root: root) : page.map { Double($0.mtime.tv_sec) }
         item.versions = artifactRecord.versions
-        // Every event under the folder lists them all again: a page is read only when its size and time can't tell.
+        // Every file event under the folder lists all the artifacts again, so a page is read only when its size and
+        // time can't tell whether it changed since its last version.
         let last = artifactRecord.versions?.last.map { versionPath(target: target, $0.n) }.flatMap(fileStat)
         if artifactRecord.type != Kind.review.rawValue, let page, let last,
             page.size != last.size || !page.newer(than: last)
@@ -100,8 +105,9 @@ extension Artifacts {
         return item
     }
 
-    /// A canvas changes with its boards and with the project's design system: its time is the latest of all of theirs,
-    /// to the nanosecond (an agent saves boards within one second), so the tab draws it again.
+    /// Returns when a canvas last changed. A canvas changes when its boards or the project's design system change, so
+    /// its time is the latest file time among all of them. The time keeps nanoseconds because an agent saves several
+    /// boards within one second, and each save must make the tab draw the canvas again.
     static func canvasTime(_ target: String, root: String) -> Double? {
         let boards = (target as NSString).deletingLastPathComponent + "/boards"
         let paths =
@@ -121,8 +127,9 @@ extension Artifacts {
         try encoder.encode(record).write(to: folder.appendingPathComponent("artifact.json"), options: .atomic)   // the panel reads it meanwhile
     }
 
-    /// `<slug>`, or `<slug>-2`… when taken; the first one also keeps the folder out of git. Each is claimed by making it,
-    /// which fails when it's there: two pages made at once never share one.
+    /// Makes a new folder named `<slug>`, or `<slug>-2` and so on when that name is taken. Making the project's first
+    /// artifact folder also keeps the artifacts folder out of git. Each name is claimed by creating the folder, which
+    /// fails when it exists already, so two pages made at once never share a folder.
     private static func newFolder(_ title: String, root: String) throws -> URL {
         let base = dir(root: root), fm = FileManager.default
         if !fm.fileExists(atPath: base.path) {
@@ -142,7 +149,8 @@ extension Artifacts {
         }
     }
 
-    /// A line in the repository's own `info/exclude` (never a tracked file): git status stays clean. Removing it shares them.
+    /// Adds `entry` as a line in the repository's own `info/exclude`, never in a tracked file, so git status stays
+    /// clean. Removing that line lets git see the artifacts, so they can be committed and shared.
     static func excludeFromGit(root: String, entry: String = "/\(folder)/") throws {
         let fm = FileManager.default, dotGit = URL(fileURLWithPath: root).appendingPathComponent(".git")
         var isDir: ObjCBool = false
@@ -163,15 +171,15 @@ extension Artifacts {
             to: exclude, atomically: true, encoding: .utf8)
     }
 
-    /// A turn of chat `session` ended: each page it made whose file changed since its last version gets a new one, named
-    /// `label` (the turn's prompt, on one line). Returns how many were kept.
+    /// Called when a turn of chat `session` ends. Each page the chat made whose file changed since its last version
+    /// gets a new version, labelled from `label` (the turn's prompt, cut to one line). Returns how many were kept.
     @discardableResult
     static func keepVersions(root: String, session: String, label: String, now: Date = Date()) throws -> Int {
         var kept = 0, failed: (any Error)?
         for (slug, record) in list(root: root) where record.session == session && record.file != nil {
             do { kept += try keepVersion(slug, record, root: root, label: label, now: now) ? 1 : 0 } catch {
                 failed = failed ?? error
-            }   // the others still
+            }   // one page failing doesn't stop the others; the first error is thrown at the end
         }
         if let failed { throw failed }
         return kept
@@ -183,7 +191,8 @@ extension Artifacts {
     {
         let target = target(slug, record, root: root)
         let folder = URL(fileURLWithPath: target).deletingLastPathComponent()
-        // A design's version is its canvas with every board's text: one file, so an older one shows whole.
+        // A design's version is one file that holds the canvas together with the text of every board, so an older
+        // version shows whole.
         let page =
             record.file == Kind.design.file
             ? small(target).flatMap {
@@ -198,7 +207,7 @@ extension Artifacts {
         try live.write(to: URL(fileURLWithPath: versionPath(target: target, number)))
         versions.append(
             ArtifactVersion(n: number, at: now.timeIntervalSince1970, label: oneLine(label, number: number)))
-        for old in versions.dropLast(keptVersions) {   // one gone already (by hand) is no reason to stop keeping
+        for old in versions.dropLast(keptVersions) {   // a file deleted by hand is skipped, not an error
             let path = versionPath(target: target, old.n)
             if FileManager.default.fileExists(atPath: path) { try FileManager.default.removeItem(atPath: path) }
         }
@@ -212,15 +221,16 @@ extension Artifacts {
         small(versionPath(target: target, number)).map { String(decoding: $0, as: UTF8.self) }
     }
 
-    /// The prompt's first line, at most 80 characters; "Turn n" for none.
+    /// Returns the prompt's first line, at most 80 characters, or "Turn n" when the prompt is empty.
     private static func oneLine(_ prompt: String, number: Int) -> String {
         let line =
             prompt.split(whereSeparator: \.isNewline).first.map(String.init)?.trimmingCharacters(in: .whitespaces) ?? ""
         guard !line.isEmpty else { return "Turn \(number)" }
         return line.count > 80 ? String(line.prefix(79)) + "…" : line
     }
-    /// Writes the page's copy into its folder: the whole page, one file's bytes (HTML only, at most 16 MB), or the
-    /// edits applied to the copy already there (with no copy there, it writes nothing).
+    /// Writes Kelp's copy of a published page into its folder. The copy is the whole page when it was sent whole, the
+    /// bytes of the file that was sent (HTML only, at most 16 MB), or the copy already there with the sent edits
+    /// applied. When there is no copy yet, edits write nothing.
     static func keepPage(_ page: PublishedPage?, in folder: URL) throws {
         let copy = folder.appendingPathComponent(pageCopy)
         if let html = page?.html {
@@ -238,10 +248,11 @@ extension Artifacts {
         }
     }
 
-    /// Pages on a service published before Kelp kept copies: what the chat that made each sent, replayed in order
-    /// from its transcript (`transcript`: the file of a session's conversation), once per page. Each is marked first,
-    /// so a run that starts meanwhile (the marks are writes the folder's watch hears) leaves it alone; each transcript
-    /// is read once, for all of its chat's pages. Returns how many got a copy.
+    /// Recovers copies of pages on a service that were published before Kelp kept copies. For each page it replays, in
+    /// order, what the chat that made the page sent, read from that chat's transcript (`transcript` returns the file of
+    /// a session's conversation). Each page is tried once and is marked as recovered first. The marks are writes that
+    /// the folder's watch hears, so a run they start meanwhile leaves the marked pages alone. Each transcript is read
+    /// once for all of its chat's pages. Returns how many pages got a copy.
     @discardableResult
     static func recoverPages(root: String, transcript: (String) -> URL?) -> Int {
         var bySession: [String: [(folder: URL, record: ArtifactRecord)]] = [:]
@@ -252,7 +263,7 @@ extension Artifacts {
             }
             var marked = record
             marked.recovered = true
-            do { try save(marked, in: folder) } catch { continue }   // unwritable: tried again at the next list
+            do { try save(marked, in: folder) } catch { continue }   // unwritable, so it's tried at the next list
             bySession[session, default: []].append((folder, marked))
         }
         var got = 0
@@ -274,9 +285,9 @@ extension Artifacts {
         return got
     }
 
-    /// The pages a transcript's publishing calls made or changed, in order, each as its hook would have told it
-    /// (`published(hook:)`), with when its answer came. Lines are picked by their bytes; only a publishing call or an
-    /// answer naming a page is decoded.
+    /// Returns the pages that the publishing calls in a transcript made or changed, in order. Each is read the way the
+    /// call's hook would have reported it (`published(hook:)`), with the time its answer came. Lines are first picked
+    /// by their raw bytes, so only a line with a publishing call or an answer naming a page is decoded.
     static func published(inTranscript data: Data) -> [Published] {
         let marks = (publishers + ["claude.ai/artifact/"]).map { Data($0.utf8) }
         var calls: [String: (tool: String, input: JSONValue?)] = [:]
@@ -310,9 +321,9 @@ extension Artifacts {
         return found
     }
 
-    /// The sh script that reads a transcript on a host: it prints the lines `published(inTranscript:)` decodes, stamped
-    /// from the second after `since` on. Claude Code stamps each line in UTC ("2026-11-13T10:20:30.123Z"), which sorts
-    /// correctly as text.
+    /// Returns the sh script that reads a transcript on a host. The script prints the lines that
+    /// `published(inTranscript:)` decodes, keeping only those stamped from the second after `since` onward. Claude Code
+    /// stamps each line in UTC ("2026-11-13T10:20:30.123Z"), so the stamps sort correctly as text.
     static func hostPublishes(since: Date?) -> String {
         let grep =
             "LC_ALL=C grep -F "
@@ -320,7 +331,7 @@ extension Artifacts {
             .joined(separator: " ")
         guard let since else { return grep }
         let next = Date(timeIntervalSince1970: since.timeIntervalSince1970.rounded(.down) + 1)
-        let from = String(ISO8601DateFormatter().string(from: next).dropLast())   // without its "Z"
+        let from = String(ISO8601DateFormatter().string(from: next).dropLast())   // without the trailing "Z"
         return grep + " | awk -v t=\(from) "
             + ShellQuote.word(#"match($0, /"timestamp":"[^"]*"/) && substr($0, RSTART + 13, RLENGTH - 14) >= t"#)
     }

@@ -3,8 +3,8 @@ import Foundation
 import GRDB
 import os
 
-/// A project's settings for a database (`database` table): one added by hand, or what was changed of a found one (what
-/// agents may do, production). Keyed by project and name.
+/// A project's settings for one database (the `database` table). It holds a database added by hand, or what the user
+/// changed on a found one (what agents may do, production). Keyed by project and name.
 struct SavedDatabase: Codable, FetchableRecord, PersistableRecord {
     static let databaseTableName = "database"
     var id: String, repoId: String, byHand: Bool, json: String
@@ -15,8 +15,8 @@ struct SavedDatabase: Codable, FetchableRecord, PersistableRecord {
         }
     }
 
-    /// `copyIn` is the workspace in whose files a branch's copy was found; the copy then keeps its settings apart from
-    /// the project's database of the same name ("<project>/<name>@<workspace>").
+    /// `copyIn` is the workspace in whose files a branch's copy was found. The copy then keeps its settings apart from
+    /// the project's database of the same name, under the key "<project>/<name>@<workspace>".
     init(repoId: String, database: DatabaseInfo, byHand: Bool, copyIn worktreeId: String? = nil) throws {
         id = repoId + "/" + database.name + (worktreeId.map { "@" + $0 } ?? "")
         self.repoId = repoId
@@ -25,21 +25,21 @@ struct SavedDatabase: Codable, FetchableRecord, PersistableRecord {
     }
 }
 
-/// db.*: a project's databases, found in its files or added by hand, and what was run on them lately, and by whom.
-/// Every statement runs here, so no password reaches an agent. What agents may do is set per database (`agentAccess`):
-/// a read runs in a read-only transaction; a change that has to ask waits for the user's Allow on the agent's row (the
-/// same question a permission dialog raises, in the banner, the Dock and the sidebar), after a trial that was rolled
-/// back has said what it would change.
+/// Answers db.*: a project's databases, found in its files or added by hand, and what was run on them lately, and by
+/// whom. Every statement runs here, so no password reaches an agent. What agents may do is set per database
+/// (`agentAccess`). A read runs in a read-only transaction. A change that has to ask first runs as a trial that is
+/// rolled back, to say what it would change. Then it waits for the user's Allow on the agent's row (the same question
+/// a permission dialog raises, in the banner, the Dock and the sidebar).
 final class Databases: Sendable {
     let store: Store, watches: Watches, remotes: Remotes, offloads: Slots
-    /// Of the sessions only what databases need: the settings, who asks (an agent waits for the user's Allow on its
-    /// row), and a remote database's forward.
+    /// The parts of Sessions that databases need: the settings, who asks (an agent waits for the user's Allow on its
+    /// row), and the port forward for a remote database.
     let settings: SettingsStore, live: SessionTable, permissions: PermissionWaits, processes: SessionProcesses
     let clients: Clients
-    /// Runs kept per workspace (newest first), and the rows of the latest of them.
+    /// How many runs are kept per workspace (newest first), and how many of the latest runs keep their rows.
     static let keptRuns = 100, keptResults = 30
-    /// What's kept of a result, and sent to an agent: a cell to 16 KB, the rows to 1 MB in all; the workspaces whose
-    /// runs are kept, the latest.
+    /// How much of a result is kept and sent to an agent: a cell up to 16 KB, and the rows up to 1 MB in all.
+    /// `keptWorkspaces` is how many workspaces keep their runs, the most recent ones.
     static let keptCell = 16 << 10, keptBytes = 1 << 20, keptWorkspaces = 20
 
     private struct Kept {
@@ -47,10 +47,11 @@ final class Databases: Sendable {
         var results: [String: QueryResult] = [:]
     }
     private let kept = OSAllocatedUnfairLock(initialState: [String: Kept]())
-    /// The addresses from projects' files (`fromTheFiles`) the user has opened since kelpd started: agents reach only
-    /// those.
+    /// The addresses from projects' files (`fromTheFiles`) that the user has opened since kelpd started. Agents reach
+    /// only those.
     private let opened = OSAllocatedUnfairLock(initialState: Set<String>())
-    /// A remote project's databases as its host's files said them, and when: read again after a minute.
+    /// A remote project's databases as its host's files listed them, and when they were read. They are read again
+    /// after a minute.
     private let onHosts = OSAllocatedUnfairLock(initialState: [String: (at: Date, found: [FoundDatabase])]())
 
     init(store: Store, sessions: Sessions, watches: Watches, remotes: Remotes, offloads: Slots) {
@@ -67,7 +68,8 @@ final class Databases: Sendable {
 
     // MARK: Which
 
-    /// The workspace's databases with their passwords: found in its folder, changed or added by hand in its project.
+    /// Returns the workspace's databases with their passwords: those found in its folder, and those changed or added
+    /// by hand in its project.
     func connections(_ worktreeId: String) throws -> [DatabaseConnection] {
         guard let worktree = try store.worktree(worktreeId) else {
             throw RPCError.noWorkspace(worktreeId)
@@ -89,8 +91,8 @@ final class Databases: Sendable {
         }
         var all = found.map { item -> DatabaseConnection in
             var db = item.database
-            // What the user said of it holds while it's the same place: a pulled .env that aims `app` at another host
-            // is a new database, read only for agents again if it isn't this Mac.
+            // What the user set for the database holds while it stays at the same place. A pulled .env that aims `app`
+            // at another host makes a new database, which is read-only for agents again if it isn't on this Mac.
             let said = saved.lazy.filter { !$0.byHand }.compactMap(\.database)
             if let mine = said.first(where: { $0.name == db.name && $0.place == db.place }) {
                 db.access = mine.access
@@ -123,15 +125,17 @@ final class Databases: Sendable {
 
     static func account(_ id: String) -> String { "db:" + id }
 
-    /// The keychain items of a project's saved databases: forgotten with the project (its rows go by cascade).
+    /// Returns the keychain items of a project's saved databases, which are forgotten with the project (its rows go
+    /// by cascade).
     func accounts(ofRepo repoId: String) throws -> [String] {
         try store.db.read { try SavedDatabase.filter(Column("repoId") == repoId).fetchAll($0) }.map {
             Self.account($0.id)
         }
     }
 
-    /// A remote project's databases, from its files read on the host in one go over the shared connection. Never dials:
-    /// with no connection open, what was read last (or nothing). SQLite files there aren't looked for.
+    /// Returns a remote project's databases, from its files read on the host in one go over the shared connection. It
+    /// never dials, so with no connection open it returns what was read last (or nothing). SQLite files there aren't
+    /// looked for.
     private func onHost(_ remote: RemoteHost, _ worktreeId: String) -> [FoundDatabase] {
         let last = onHosts.withLock { $0[worktreeId] }
         if let last, Date().timeIntervalSince(last.at) < 60 { return last.found }
@@ -149,9 +153,9 @@ final class Databases: Sendable {
         return found
     }
 
-    /// Where this Mac reaches the database: for a server behind an SSH host (`ssh`), or a remote project's server,
-    /// through a port forwarded over the shared connection (as a page's port is, `Forwards`), which dials when there is
-    /// no connection yet. Anything else is reached as it is.
+    /// Returns where this Mac reaches the database. A server behind an SSH host (`ssh`), or a remote project's server,
+    /// is reached through a port forwarded over the shared connection (as a page's port is, `Forwards`), which dials
+    /// when there is no connection yet. Anything else is reached as it is.
     func reach(_ databaseConnection: DatabaseConnection, _ worktreeId: String) throws -> DatabaseConnection {
         let borrowed = try borrowPassword(databaseConnection)
         guard !borrowed.database.engine.isFile, let host = borrowed.database.host, let port = borrowed.database.port
@@ -170,8 +174,8 @@ final class Databases: Sendable {
         return near
     }
 
-    /// A password still kept in another app's keychain (`passwordIn`), read now that it is needed (macOS asks, once)
-    /// and kept in Kelp's own keychain, so the next connection doesn't ask.
+    /// Reads a password still kept in another app's keychain (`passwordIn`), now that it is needed (macOS asks once),
+    /// and keeps it in Kelp's own keychain so the next connection doesn't ask.
     func borrowPassword(_ databaseConnection: DatabaseConnection) throws -> DatabaseConnection {
         guard databaseConnection.password == nil, let item = databaseConnection.database.passwordIn else {
             return databaseConnection
@@ -190,7 +194,8 @@ final class Databases: Sendable {
         return near
     }
 
-    /// The one named `name`, as `caller` may see it: an agent isn't told of a hidden one, nor of "All my projects".
+    /// Returns the database named `name`, as the caller may see it. With `agent`, a hidden database and those in "All
+    /// my projects" aren't found.
     func connection(_ worktreeId: String, _ name: String, agent: Bool) throws -> DatabaseConnection {
         let all = try connections(worktreeId).filter { !agent || $0.database.agentAccess != .hidden }
         if let one = all.first(where: { $0.database.name == name }) {
@@ -212,8 +217,8 @@ final class Databases: Sendable {
             all.isEmpty ? "This project has no databases Kelp knows of." : "No database \(name). There are: \(names).")
     }
 
-    /// Whether the database's address comes from a project's files and isn't this Mac, a server behind the user's SSH
-    /// host, or the remote project's own host: an address the user hasn't been asked about.
+    /// Whether the database's address comes from a project's files and is none of these: this Mac, a server behind the
+    /// user's SSH host, or the remote project's own host. Such an address is one the user hasn't been asked about.
     private func fromTheFiles(_ db: DatabaseInfo, _ worktreeId: String) throws -> Bool {
         guard db.source != nil, db.ssh == nil, !db.engine.isFile, let host = db.host, !DatabaseInfo.isLocal(host)
         else { return false }
@@ -234,17 +239,18 @@ final class Databases: Sendable {
         var db = database
         db.name = name
         let found = try connections(worktreeId).first { $0.database.name == name && $0.database.source != nil }
-        if found != nil, database.source == nil {   // one added by hand can't take a found one's name
+        if found != nil, database.source == nil {   // a database added by hand can't take a found database's name
             throw RPCError.invalidParams("Kelp found a database named \(name) already: give this one another name.")
         }
-        if let found {   // a found one keeps where it is; only what agents may do changes
+        if let found {   // a found database keeps its place; only access, production and environment change
             let access = db.access, production = db.production, environment = db.environment
             db = found.database
             db.access = access
             db.production = production
             db.environment = environment
         }
-        // A branch's copy found among its files keeps its own settings: the project's of that name aren't written over
+        // A branch's copy found among its files keeps its own settings, so the project's settings for that name aren't
+        // written over
         let entry = try SavedDatabase(
             repoId: worktree.repoId, database: db, byHand: found == nil,
             copyIn: found?.database.copy.map(\.worktreeId))
@@ -296,14 +302,14 @@ final class Databases: Sendable {
             }
             if let result {
                 mine.results[run.id] = result
-                // The latest results, and a trial's results while its question is open (its rows are the change's), are
-                // not pushed out
+                // The latest results are not pushed out, nor a trial's results while its question is open (the trial's
+                // rows are the change's)
                 let latest = mine.runs.filter { mine.results[$0.id] != nil }.prefix(Self.keptResults).map(\.id)
                 let keep = Set(latest + mine.runs.filter { $0.state == .asks }.map(\.id))
                 mine.results = mine.results.filter { keep.contains($0.key) }
             }
             all[worktreeId] = mine
-            if all.count > Self.keptWorkspaces {   // the one whose latest run is oldest goes
+            if all.count > Self.keptWorkspaces {   // drop the workspace whose latest run is oldest
                 let oldest = all.min {
                     ($0.value.runs.first?.at ?? .distantPast) < ($1.value.runs.first?.at ?? .distantPast)
                 }

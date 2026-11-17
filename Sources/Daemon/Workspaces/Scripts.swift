@@ -1,13 +1,14 @@
 import Core
 import Foundation
 
-/// A project's commands from `.kelp.yaml` (setup, run, test…) run only after the user trusts that file: a clone
-/// mustn't run anything just by being opened. Trust is for the file's exact contents; editing it asks again.
+/// A project's commands from `.kelp.yaml` (setup, run, test…) run only after the user trusts that file, because a
+/// cloned repository mustn't run anything just by being opened. Trust covers the file's exact contents, so editing the
+/// file asks again.
 extension Workspaces {
     var trustFile: URL { root.appendingPathComponent("trusted-configs.json") }
 
-    /// The project's commands file: its .kelp.yaml, else another tool's file (`ImportedConfig`), else none
-    /// (`.kelp.yaml`, empty).
+    /// Returns the project's commands file. That is its .kelp.yaml, or else another tool's file (`ImportedConfig`), or
+    /// else none, given as an empty `.kelp.yaml`.
     static func configFile(_ repoPath: String) -> (path: String, text: String, config: RepoConfig) {
         let own = repoPath + "/.kelp.yaml"
         if let data = FileManager.default.contents(atPath: own) {
@@ -18,9 +19,10 @@ extension Workspaces {
         return (own, "", RepoConfig())
     }
 
-    /// `configFile`. A remote project's own .kelp.yaml is read on its host when someone asks for its commands (the
-    /// project's folder here holds only the marker), and another tool's file isn't looked for there. When it can't be
-    /// read (the host is away), the project has no commands.
+    /// Returns the project's commands file, like the static `configFile`. A remote project's own .kelp.yaml is read on
+    /// its host when someone asks for its commands, because the project's folder here holds only the marker. Another
+    /// tool's file isn't looked for on the host. When the file can't be read (the host is away), the project has no
+    /// commands.
     func configFile(_ repoPath: String) -> (path: String, text: String, config: RepoConfig) {
         guard let remote = remotes.of(repoPath) else { return Self.configFile(repoPath) }
         let read = Log.store.attempt("reading \(remote.host)'s .kelp.yaml") {
@@ -31,15 +33,16 @@ extension Workspaces {
     }
     static func digest(_ text: String) -> String { Data(text.utf8).sha256 }
 
-    /// The file read once, its parsed config and whether the user trusts exactly that text: checking one read and using
-    /// another would let a write in between (an agent, a pull) slip in unseen.
+    /// Reads the file once and returns its text, its parsed config and whether the user trusts exactly that text.
+    /// Checking one read and using another would let a write in between (by an agent, or a pull) slip in unseen.
     func configAndTrust(_ repoPath: String) -> (text: String, config: RepoConfig, trusted: Bool, path: String) {
         let (path, text, cfg) = configFile(repoPath)
         guard !Self.asksNothing(cfg) else { return (text, cfg, true, path) }
         return (text, cfg, trustLock.withLock { knownDigests() }[repoPath] == Self.digest(text), path)
     }
 
-    /// trusted-configs.json is read and written under one lock: two projects trusted at once both stay trusted.
+    /// Returns the trusted digests by project path. Callers read and write trusted-configs.json under one lock
+    /// (`trustLock`), so two projects trusted at once both stay trusted.
     func knownDigests() -> [String: String] {
         Data(contentsIfAny: trustFile).flatMap { data in
             Log.store.attempt("reading \(trustFile.lastPathComponent)") {
@@ -48,22 +51,23 @@ extension Workspaces {
         } ?? [:]
     }
 
-    /// Nothing in it runs, links, or speaks to an agent for the user: a file like that needs no trust.
+    /// Returns true when nothing in the config runs, links, or speaks to an agent on the user's behalf. A file like
+    /// that needs no trust.
     static func asksNothing(_ config: RepoConfig) -> Bool {
         config.setup == nil && config.scripts.isEmpty && config.tabs.isEmpty && config.shared.isEmpty
             && config.clone.isEmpty && config.layouts.isEmpty   // a layout starts agents and commands
             && config.recipes.isEmpty && config.issueCommand == nil
     }
 
-    /// The project's .kelp.yaml if the user trusts the file as it is now, else nothing from it: a cloned repository's
-    /// prompts (recipe.*, issueCommand) reach an agent as if they were the user's own words, so they wait for trust
-    /// just like its commands.
+    /// Returns the config from the project's .kelp.yaml if the user trusts the file as it is now, or else an empty
+    /// config. A cloned repository's prompts (recipe.*, issueCommand) reach an agent as if they were the user's own
+    /// words, so they wait for trust just like its commands.
     func trustedConfig(_ repoPath: String) -> RepoConfig {
         let checked = configAndTrust(repoPath)
         return checked.trusted ? checked.config : RepoConfig()
     }
 
-    /// The project folder whose .kelp.yaml a workspace uses.
+    /// Returns the workspace and the project folder whose .kelp.yaml the workspace uses.
     func configRepo(_ worktreeId: String) throws -> (Worktree, String) {
         let worktree = try store.worktree(named: worktreeId)
         return (worktree, try store.repo(worktree.repoId)?.path ?? worktree.path)
@@ -75,7 +79,8 @@ extension ScriptsList: Handled {
     func handle(_ workspaces: Workspaces) throws -> Result {
         let (_, repo) = try workspaces.configRepo(worktreeId)
         let read = workspaces.configAndTrust(repo), cfg = read.config
-        // Everything trusting it would allow, and the digest of exactly this text (one read): trust is given to what was shown.
+        // Returns everything that trusting the file would allow, with the digest of exactly this text from the same
+        // read, so trust is given to what was shown.
         return Result(
             scripts: cfg.scripts, setup: cfg.setup, tabs: cfg.tabs, shared: cfg.shared, recipes: cfg.recipes,
             issueCommand: cfg.issueCommand, layouts: cfg.layouts.isEmpty ? nil : cfg.layouts,
@@ -84,20 +89,23 @@ extension ScriptsList: Handled {
 }
 
 extension ScriptsTrust: Handled {
-    /// Only from Kelp's window: the program on the other end of the socket must be the KelpApp next to this daemon.
-    /// Agents and scripts reach this socket too (KELP_SOCKET) and could read the digest; a call of theirs is refused, as
-    /// the program is read once, when the daemon accepts the connection (`Connection.peer`).
-    /// Limit: a process of this user that stops kelpd (SIGSTOP), connects, then execs KelpApp with the socket handed to a
-    /// child reads as the window: what it is at accept is what counts, and the audit token is read then too. What this
-    /// guards against is a cloned repository's .kelp.yaml running unseen, not a hostile agent: a process of this user
-    /// can also drive the app (synthetic key events) or write trusted-configs.json itself.
+    /// Only Kelp's window may call this, so the program on the other end of the socket must be the KelpApp next to
+    /// this daemon. Agents and scripts reach this socket too (KELP_SOCKET) and could read the digest. A call from one
+    /// of them is refused, because the program is identified once, when the daemon accepts the connection
+    /// (`Connection.peer`).
+    /// Limit: a process of this user could stop kelpd (SIGSTOP), connect, and then exec KelpApp with the socket handed
+    /// to a child, and it would read as the window. What the process is at accept is what counts, and the audit token
+    /// is read at that moment too. This guards against a cloned repository's .kelp.yaml running unseen, not against a
+    /// hostile agent, because a process of this user can also drive the app (synthetic key events) or write
+    /// trusted-configs.json itself.
     var fence: Fence {
         Fence(onlyFromKelp: "Only Kelp's window can trust a project's commands: open the project there and run one.")
     }
     func handle(_ workspaces: Workspaces) throws -> Done {
         let (_, repo) = try workspaces.configRepo(worktreeId)
         let now = Workspaces.digest(workspaces.configFile(repo).text)
-        // The digest from scripts.list: a file changed since it was shown (an agent, a pull) isn't what was trusted.
+        // The caller sends the digest it got from scripts.list, because a file that changed since it was shown (by an
+        // agent, or a pull) isn't what the user trusted.
         guard let digest else {
             throw RPCError.invalidParams("scripts.trust needs the digest of the .kelp.yaml that was shown.")
         }

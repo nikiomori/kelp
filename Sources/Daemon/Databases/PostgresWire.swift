@@ -4,7 +4,7 @@ import NIOSSL
 import PostgresNIO
 import os
 
-// Postgres spoken by kelpd itself (PostgresNIO): reads, writes, schema, over one connection a call.
+// Reads, writes and schema for Postgres, spoken by kelpd itself (PostgresNIO) over a new connection for each call.
 
 struct PostgresWire: DatabaseRunner {
     let connection: DatabaseConnection
@@ -19,8 +19,8 @@ struct PostgresWire: DatabaseRunner {
         }
     }
 
-    /// The change made and rolled back; with RETURNING its rows are what it changed. How many it changed is the
-    /// command tag's, never the rows counted (they stop at `countLimit`).
+    /// Makes the change and rolls it back. With RETURNING, the rows it returns are the rows it changed. The number it
+    /// changed comes from the command tag, never from counting rows, because counting stops at `countLimit`.
     func trial(_ sql: String) async throws -> DatabaseRows {
         try await Self.with(connection, within: 2 * DatabaseEngines.readTimeout + DatabaseTimes.slack) { conn in
             func attempt(_ statement: String) async throws -> DatabaseRows {
@@ -31,10 +31,11 @@ struct PostgresWire: DatabaseRunner {
                 return result
             }
             if let returning = SQLText.returning(sql) {
-                // RETURNING may not fit it (a view, a rule): tried plain then, its transaction ended first
+                // RETURNING may not fit the statement (a view, a rule). Then its transaction is ended and the
+                // statement is tried plain
                 do { return try await attempt(returning) } catch let first {
                     do { try await Self.run(conn, "ROLLBACK") } catch {
-                        throw first   // the connection is gone: the server's word on the first, not the ROLLBACK's
+                        throw first   // the connection is gone, so report the first try's error, not the ROLLBACK's
                     }
                 }
             }
@@ -42,7 +43,8 @@ struct PostgresWire: DatabaseRunner {
         }
     }
 
-    /// `allowed`: the rows the user allowed it to change; it's committed only if it changes as many.
+    /// Makes a change. `allowed` is the number of rows the user allowed it to change, and the change is committed
+    /// only if it changes that many.
     func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
         try await Self.with(connection, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
             guard let allowed else {
@@ -53,7 +55,7 @@ struct PostgresWire: DatabaseRunner {
             try await Self.run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
             let result = try await Self.command(conn, sql)
             guard result.changed == allowed else {
-                // A ROLLBACK that fails (the connection gone) rolls back all the same: the count is what's said
+                // A ROLLBACK that fails (the connection is gone) rolls back all the same, so the error gives the count
                 await DatabaseWire.close { try await Self.run(conn, "ROLLBACK") }
                 throw DatabaseEngines.notAsAllowed(result.changed, allowed)
             }
@@ -62,7 +64,8 @@ struct PostgresWire: DatabaseRunner {
         }
     }
 
-    /// Statements in one transaction: a failure leaves nothing done (the connection closes without COMMIT).
+    /// Runs the statements in one transaction. A failure leaves nothing done, because the connection closes without
+    /// COMMIT.
     func apply(_ statements: [String]) async throws -> Int {
         try await Self.with(connection, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
             try await Self.run(conn, "BEGIN")
@@ -113,7 +116,7 @@ struct PostgresWire: DatabaseRunner {
         }
     }
 
-    /// "PostgreSQL 16.4" and the like, for the sheet's check.
+    /// Returns "PostgreSQL 16.4" or the like, for the check in the Add Database sheet.
     func version() async throws -> String? {
         try await Self.with(connection) { conn in
             let full = try await Self.rows(conn, "SELECT version()").rows.first?.first ?? nil
@@ -121,7 +124,8 @@ struct PostgresWire: DatabaseRunner {
         }
     }
 
-    /// `seconds`: the call's whole time (`DatabaseWire.within`).
+    /// Opens a connection, runs `body` on it and closes it. `seconds` limits the call's whole time
+    /// (`DatabaseWire.within`).
     private static func with<T: Sendable>(
         _ databaseConnection: DatabaseConnection,
         within seconds: TimeInterval = DatabaseEngines.readTimeout + DatabaseTimes.slack,
@@ -154,7 +158,7 @@ struct PostgresWire: DatabaseRunner {
             await DatabaseWire.close { try await conn.close() }
             return result
         } catch {
-            await DatabaseWire.close { try await conn.close() }   // a transaction left open ends with it
+            await DatabaseWire.close { try await conn.close() }   // a transaction left open ends with the connection
             throw failure(error, db)
         }
     }
@@ -163,7 +167,8 @@ struct PostgresWire: DatabaseRunner {
         _ = try await conn.query(PostgresQuery(unsafeSQL: sql), logger: DatabaseWire.logger).collect()
     }
 
-    /// Rows as text, the columns even when there are none; up to `keep` kept, counted up to `countLimit`.
+    /// Returns the rows as text, with the columns even when there are no rows. Up to `keep` rows are kept, and rows
+    /// are counted up to `countLimit`.
     static func rows(_ conn: PostgresConnection, _ sql: String) async throws -> DatabaseRows {
         let sequence = try await conn.query(PostgresQuery(unsafeSQL: sql), logger: DatabaseWire.logger)
         var result = DatabaseRows(columns: sequence.columns.map(\.name))
@@ -174,8 +179,8 @@ struct PostgresWire: DatabaseRunner {
         return result
     }
 
-    /// A statement whose command tag says how many rows it changed ("UPDATE 3"), with whatever rows it gave: `keep`
-    /// kept as they come, the rest only counted.
+    /// Runs a statement whose command tag says how many rows it changed ("UPDATE 3"), with whatever rows it returned.
+    /// Up to `keep` rows are kept as they come, and the rest are only counted.
     static func command(_ conn: PostgresConnection, _ sql: String) async throws -> DatabaseRows {
         let kept = OSAllocatedUnfairLock(initialState: DatabaseRows())
         let metadata = try await conn.query(PostgresQuery(unsafeSQL: sql), logger: DatabaseWire.logger) { row in
@@ -187,7 +192,8 @@ struct PostgresWire: DatabaseRunner {
         return result
     }
 
-    /// The server's own words; a change refused by a read-only transaction is `.change`.
+    /// Turns an error into a failure in the server's own words. A change refused by a read-only transaction becomes
+    /// `.change`.
     static func failure(_ error: any Error, _ db: DatabaseInfo) -> any Error {
         if error is DatabaseFailure { return error }
         if let unreached = DatabaseWire.unreached(error, db) { return unreached }
@@ -195,7 +201,7 @@ struct PostgresWire: DatabaseRunner {
         if let info = psql.serverInfo {
             if info[.sqlState] == "25006" { return DatabaseFailure.change }
             let message = info[.message] ?? "the server refused it"
-            // The server's word for a login with no password (Kelp sends none when it has none)
+            // This is the server's message for a login with no password (Kelp sends none when it has none)
             if message.contains("empty password") { return DatabaseWire.noPassword(db) }
             return DatabaseFailure.failed(message + (info[.hint].map { " (\($0))" } ?? ""))
         }
@@ -204,7 +210,7 @@ struct PostgresWire: DatabaseRunner {
         case .sslUnsupported: return DatabaseFailure.failed("\(db.name) doesn't offer SSL, and it's required.")
         case .queryCancelled: return DatabaseFailure.failed("\(db.name) cancelled it.")
         case .serverClosedConnection where psql.underlying == nil, .connectionError where psql.underlying == nil:
-            // PostgresNIO's word for a connection that never got an answer (its connect timed out)
+            // PostgresNIO reports this for a connection that never got an answer (its connect timed out)
             return DatabaseFailure.failed(
                 "\(db.name) didn't answer at \(db.host ?? "?"):\(db.port ?? db.engine.defaultPort ?? 0): it's off, "
                     + "or a VPN or SSH is needed."

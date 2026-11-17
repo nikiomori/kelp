@@ -4,22 +4,24 @@ import Foundation
 import Network
 import os
 
-/// The phone's page and its calls, served by this Mac itself on a port of localhost: nobody else's server hands the
-/// page out, so what a phone runs is what Kelp shipped. Only this Mac reaches the port; what brings a phone to it is
-/// the user's own (Tailscale, a tunnel), and whatever does sees only sealed calls (`PhoneSeal`).
-/// One request a connection, which is all a page's fetches need: the answer ends with the connection closing.
+/// Serves the phone's page and answers its calls from this Mac itself, on a localhost port. No other server hands the
+/// page out, so what a phone runs is what Kelp shipped. Only this Mac reaches the port. The user's own tool (Tailscale,
+/// a tunnel) brings a phone to it, and that tool sees only sealed calls (`PhoneSeal`).
+/// Each connection carries one request, which is all a page's fetches need, and it closes after the answer.
 final class PhoneServer: Sendable {
-    /// A phone's call: `{device, box}` as it sealed it. `events`: where an event stream's lines go, and what ends it.
+    /// Answers a phone's call, `{device, box}` as the phone sealed it. `events` says where an event stream's lines go
+    /// and how the stream ends.
     typealias Call = @Sendable (_ id: String, _ device: String, _ box: String, _ events: Events) async -> Answer
     struct Events: Sendable {
         var write: @Sendable (String) -> Void
         var end: @Sendable () -> Void
     }
     enum Answer: Sendable {
-        /// Unsealed, as the relay answers: 401 a phone not paired, 409 a call seen before.
+        /// The call is refused unopened, as the relay answers it, with 401 for a phone that is not paired and 409 for
+        /// a call seen before.
         case refused(Int)
         case box(String)
-        /// The call opened an event stream: its lines come through `Events.write` until the phone leaves.
+        /// The call opened an event stream. Its lines go out through `Events.write` until the phone leaves.
         case stream
     }
 
@@ -27,7 +29,7 @@ final class PhoneServer: Sendable {
     private let queue = DispatchQueue(label: "dev.kelp.phone-server")
     private let page: URL?, call: Call, left: @Sendable (String) -> Void
 
-    /// `page`: the folder with the page's files. `left`: a connection that held stream `id` closed.
+    /// `page` is the folder with the page's files. `left` is called when a connection that held stream `id` closes.
     init(port: UInt16, page: URL?, call: @escaping Call, left: @escaping @Sendable (String) -> Void) throws {
         guard let port = NWEndpoint.Port(rawValue: port) else { throw RPCError.invalidParams("Not a port.") }
         let parameters = NWParameters.tcp
@@ -39,7 +41,7 @@ final class PhoneServer: Sendable {
         self.left = left
     }
 
-    /// `failed`: the port couldn't be had (another program holds it), in the system's words.
+    /// Starts listening. `failed` gets the system's words when the port can't be had, as when another program holds it.
     func start(failed: @escaping @Sendable (String) -> Void) {
         listener.stateUpdateHandler = { state in
             if case .failed(let error) = state { failed(error.localizedDescription) }
@@ -54,7 +56,7 @@ final class PhoneServer: Sendable {
 
     private func serve(_ connection: NWConnection) {
         connection.start(queue: queue)
-        // A request that doesn't come whole in time holds nothing.
+        // A connection whose request doesn't come whole within 30 s is closed, so it holds nothing open.
         let asked = OSAllocatedUnfairLock(initialState: false)
         queue.asyncAfter(deadline: .now() + 30) { if !asked.withLock({ $0 }) { connection.cancel() } }
         read(connection, Data(), asked)
@@ -96,7 +98,7 @@ final class PhoneServer: Sendable {
             case .box(let box): self.send(connection, PhoneHTTP.response(200, json: ["box": box]))
             case .stream:
                 connection.send(content: PhoneHTTP.streamHead, completion: .contentProcessed { _ in })
-                // The phone left (or the connection broke): its stream on this side ends with it.
+                // When the phone leaves (or the connection breaks), the stream on this side ends too.
                 self.untilClosed(connection) { left(id) }
             }
         }
@@ -117,7 +119,8 @@ final class PhoneServer: Sendable {
         connection.send(content: response, completion: .contentProcessed { _ in connection.cancel() })
     }
 
-    /// One of the page's own files: nothing outside its folder, and only the kinds a page is made of.
+    /// Returns one of the page's own files. It serves nothing outside the page's folder, and only the file types that
+    /// a page is made of.
     private func file(_ request: PhoneHTTP.Request) -> Data {
         let path = request.path == "/" ? "/index.html" : request.path
         guard request.method == "GET", let page, !path.contains(".."), !path.contains("//"),
@@ -129,7 +132,7 @@ final class PhoneServer: Sendable {
     }
 }
 
-/// As much HTTP/1.1 as the phone's page speaks: a request line, headers, a body by its Content-Length.
+/// As much HTTP/1.1 as the phone's page speaks: a request line, headers, and a body sized by its Content-Length.
 enum PhoneHTTP {
     struct Request: Equatable {
         var method: String, path: String, body: Data
@@ -139,7 +142,7 @@ enum PhoneHTTP {
         case more
         case bad
     }
-    /// A phone's call is at most 128 KB (the relay's limit too); headers, 16 KB.
+    /// A phone's call body is at most 128 KB, which is the relay's limit too, and its headers at most 16 KB.
     static let bodyLimit = 1 << 17, headLimit = 16 << 10
 
     static let types = [
@@ -166,7 +169,7 @@ enum PhoneHTTP {
         }
         let body = data[end.upperBound...]
         guard body.count >= length else { return .more }
-        // The path alone: a query says nothing here, and a fragment never leaves a browser.
+        // Only the path is kept, because a query means nothing here and a fragment never leaves a browser.
         let path = first[1].split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init)
         return .request(Request(method: String(first[0]), path: path ?? "/", body: Data(body.prefix(length))))
     }
@@ -175,7 +178,8 @@ enum PhoneHTTP {
         200: "OK", 400: "Bad Request", 401: "Unauthorized", 404: "Not Found", 409: "Conflict", 500: "Server Error"
     ]
 
-    /// `page`: one of the page's files, which may load only its own (as the relay serves them).
+    /// Pass `page` for one of the page's own files, which may then load only files of its own origin (as the relay
+    /// serves them).
     static func response(_ status: Int, type: String, body: Data, page: Bool = false) -> Data {
         var head = [
             "HTTP/1.1 \(status) \(reasons[status] ?? "Error")", "Content-Type: \(type)",
@@ -191,7 +195,8 @@ enum PhoneHTTP {
         return response(status, type: "application/json; charset=utf-8", body: body)
     }
 
-    /// An event stream's start: lines follow until the connection closes; the first, empty, says it's open.
+    /// The start of an event stream. Lines follow until the connection closes, and the first line, an empty one, says
+    /// the stream is open.
     static var streamHead: Data {
         let head = [
             "HTTP/1.1 200 OK", "Content-Type: application/x-ndjson", "Cache-Control: no-store",
@@ -200,7 +205,8 @@ enum PhoneHTTP {
         return Data((head.joined(separator: "\r\n") + "\r\n\r\n\n").utf8)
     }
 
-    /// The page's files, shipped beside kelpd (`Kelp_Daemon.bundle`). Found by hand, as `Paths.resource` finds Core's.
+    /// The folder of the page's files, shipped beside kelpd in `Kelp_Daemon.bundle`. It is found by hand, the way
+    /// `Paths.resource` finds Core's resources.
     static var page: URL? {
         let exe = Bundle.main.executableURL?.resolvingSymlinksInPath().deletingLastPathComponent()
         let dirs = [
@@ -213,8 +219,8 @@ enum PhoneHTTP {
     }
     private final class Token {}
 
-    /// The page as served: it names its version (`pageVersion`), which the page compares with the one the agents' list
-    /// carries, to reload after Kelp updated while it stayed open.
+    /// Returns the page as served, with its version (`pageVersion`) in a meta tag. The page compares that version with
+    /// the one in the agents list, and reloads when Kelp updated while the page stayed open.
     static func stamped(_ page: Data) -> Data {
         guard let version = pageVersion, let text = String(data: page, encoding: .utf8) else { return page }
         let meta = "<head>\n<meta name=\"kelp-page\" content=\"\(version)\">"
@@ -222,7 +228,8 @@ enum PhoneHTTP {
             text.replacingOccurrences(of: "<head>", with: meta, options: [], range: text.range(of: "<head>")).utf8)
     }
 
-    /// The page's files as one digest: what a phone compares with the page it runs. Read once: they ship with Kelp.
+    /// One digest of all the page's files, which a phone compares with the page it runs. It is read once, because the
+    /// files ship with Kelp.
     static let pageVersion: String? = page.flatMap { folder in
         let files = (FileManager.default.enumerator(atPath: folder.path)?.allObjects as? [String] ?? []).sorted()
         var hash = SHA256()

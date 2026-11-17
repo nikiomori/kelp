@@ -1,28 +1,31 @@
 import Core
 import Foundation
 
-/// An iOS machine: a simulator of the user's Xcode ("Kelp <name>", in the default device set, because xcodebuild sees
-/// no other), with Kelp's runner in it (`IOSRunner`, built into the machine's folder), which agents' commands reach on
-/// the Mac's loopback. A simulator can't be paused or saved: after 10 idle minutes it shuts down, and the next command
-/// boots it again (10–25 s).
+/// Runs an iOS machine. The machine is a simulator of the user's Xcode, named "Kelp <name>" and kept in the default
+/// device set, because xcodebuild sees no other. Kelp's runner (`IOSRunner`, built into the machine's folder) runs in
+/// the simulator, and agents' commands reach the runner on the Mac's loopback. A simulator can't be paused or saved,
+/// so after 10 idle minutes it shuts down, and the next command boots it again (10–25 s).
 @MainActor
 final class IOSRuntime: MachineRuntime {
     let folder: URL, machine: VMMachine
     private(set) var state: VMState = .off
     private var runner: Process?
     private var port = 0
-    /// Its port's claim (`Lifecycle.claimPort`), held while it may be in use: let go as the next boot claims one.
+    /// The claim on the runner's port (`Lifecycle.claimPort`). It is held while the port may be in use, and let go
+    /// when the next boot claims a port.
     private var portClaim: Int32 = -1
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = []
-    /// The last shutdown asked of the simulator: a boot waits for it (booted under it, it would be shut down again).
+    /// The last shutdown asked of the simulator. A boot waits for it, because a simulator booted while that shutdown
+    /// runs would be shut down again.
     private var shutdown: Task<Void, Never>?
-    /// Each boot's number: a stop while one runs moves it on, and that boot gives up at its next step. Its simctl boot
-    /// under way: a shutdown waits for it (shut down before it ends, the simulator would come up after the stop).
+    /// `boots` numbers each boot. A stop during a boot moves the number on, and that boot gives up at its next step.
+    /// `booting` is the simctl boot under way. A shutdown waits for it, because a simulator shut down before the boot
+    /// ends would come up after the stop.
     private var boots = 0, booting: Task<Void, Error>?
     private var sources: [DispatchSourceProtocol] = []
-    /// How the process ends once the machine has left, what time it is, and where xcrun is: by default the process's
-    /// exit, the clock and the system's xcrun; a test sets its own.
+    /// How the process ends once the machine has left, what time it is, and where xcrun is. By default these are the
+    /// process's exit, the clock and the system's xcrun, and a test sets its own.
     var exitProcess: () -> Void = { exit(0) }
     var now: () -> Date = { Date() }
     var xcrun = "/usr/bin/xcrun"
@@ -38,7 +41,7 @@ final class IOSRuntime: MachineRuntime {
     }
 
     func listen() {
-        // Its lock is held already (main.swift).
+        // main.swift already holds the machine's lock.
         sources.append(
             Control.listen(VMFolder(folder).control.path) { [weak self] fd in
                 guard let self else { return }
@@ -49,9 +52,10 @@ final class IOSRuntime: MachineRuntime {
         log("ready: \(machine.name) (iOS \(udid)), off")
     }
 
-    /// In use: what drives the simulator from outside, and kelpd's calls to its runner (kelpd's memory budget sleeps an
-    /// idle machine only). Those go straight to the runner's port, unseen here: each comes right after a start
-    /// (`connect`), so one asked in the last `callWindow` counts as a call under way.
+    /// Counts what uses the machine: programs that drive the simulator from outside, and kelpd's calls to the runner
+    /// (kelpd's memory budget sleeps only an idle machine). kelpd's calls go straight to the runner's port, so kelp-vm
+    /// doesn't see them. Each call comes right after a start (`connect`), so a start asked in the last `callWindow`
+    /// counts as a call under way.
     private var using: Int {
         guard state == .running else { return 0 }
         return clients + (now().timeIntervalSince(lastStart) < Self.callWindow ? 1 : 0)
@@ -62,7 +66,7 @@ final class IOSRuntime: MachineRuntime {
     private var lastStart = Date.distantPast
 
     private func reply(_ fd: Int32, _ error: String?) {
-        let up = state.isUp   // never paused: a simulator can't be
+        let up = state.isUp   // never paused, because a simulator can't be
         var answer = VMHelper.Reply(
             state: state, connections: using, memoryMiB: up ? machine.memoryMiB : nil, error: error,
             serial: state == .running ? udid : nil)
@@ -83,8 +87,9 @@ final class IOSRuntime: MachineRuntime {
         if request.op == .start, !request.begins { lastStart = lastUse }   // a runner call comes right after (`using`)
     }
 
-    /// The budget's, of one still booting: left to boot (its start waits on it), answered as it is, up, so the budget
-    /// counts it as held. Else down: a simulator keeps no running state to save; the next start is a new kelp-vm.
+    /// Handles a request to sleep the machine. When the budget asks while the machine is still booting, the boot goes
+    /// on (its start waits on it), and the answer reports the machine as up, so the budget counts it as held. Otherwise
+    /// the simulator shuts down, because it keeps no running state to save, and the next start is a new kelp-vm.
     func sleep(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {
         if request.ifIdle, state == .starting { return done(nil) }
         stop {
@@ -120,12 +125,14 @@ final class IOSRuntime: MachineRuntime {
         }
     }
 
-    /// The simulator booted (a no-op when it already is), then the runner started in it and answering. Stopped
-    /// meanwhile (`boots` moved on), it goes no further: who waited was told by the stop.
+    /// Boots the simulator (a no-op when it is already booted), then starts the runner in it and waits until the runner
+    /// answers. When a stop comes meanwhile (`boots` moved on), the boot goes no further, because the stop already told
+    /// whoever was waiting.
     private func boot(_ number: Int) async {
         await shutdown?.value
         guard boots == number else { return }
-        Lifecycle.endLeftover(in: folder, "runner")   // a kelp-vm that was killed left its runner; the simulator is taken as it is
+        // A kelp-vm that was killed may have left its runner, which is ended here. The simulator is taken as it is.
+        Lifecycle.endLeftover(in: folder, "runner")
         do {
             let udid = udid
             let step = Task {
@@ -136,7 +143,8 @@ final class IOSRuntime: MachineRuntime {
             defer { if booting == step { booting = nil } }
             try await step.value
             guard boots == number else { return }
-            // No build folder at all (a making cut short) is told as a runner not built, not as a missing folder.
+            // With no build folder at all (making was cut short), the error says the runner isn't built, not that a
+            // folder is missing.
             let products = VMFolder(folder).runnerBuild.appendingPathComponent("Build/Products")
             let built =
                 FileManager.default.fileExists(atPath: products.path)
@@ -163,11 +171,12 @@ final class IOSRuntime: MachineRuntime {
             } catch { log("no runner.log: \(error.localizedDescription)") }
             process.terminationHandler = { [weak self] ended in
                 DispatchQueue.main.async {
-                    MainActor.assumeIsolated {   // the main queue
+                    MainActor.assumeIsolated {   // DispatchQueue.main runs this on the main thread
                         guard let self, self.runner === ended else { return }
                         self.runner = nil
                         if self.state == .running {
-                            // the simulator with it: booted and off, it would hold its memory with no tick to see it
+                            // The simulator shuts down with the runner. Left booted with the machine off, it would
+                            // hold its memory, and no tick would see it.
                             _ = self.shutDown()
                             Lifecycle.move(&self.state, to: .off)
                             log("the runner ended: see runner.log")
@@ -181,7 +190,7 @@ final class IOSRuntime: MachineRuntime {
             let since = Date()
             while Date().timeIntervalSince(since) < 180 {
                 let answered = await ping()
-                guard boots == number else { return }   // its runner ended by the stop
+                guard boots == number else { return }   // a stop ended this boot's runner
                 if answered { return started(nil) }
                 guard runner != nil else {
                     throw VMError("Kelp's runner quit: see runner.log in \(machine.name)'s folder.")
@@ -195,15 +204,16 @@ final class IOSRuntime: MachineRuntime {
     private func started(_ error: Error?) {
         if let error {
             log("start failed: \(error.localizedDescription)")
-            _ = shutDown()   // half started, its simulator would stay booted: no tick looks at one that isn't running
+            _ = shutDown()   // a half-started simulator would stay booted, as ticks skip a machine that isn't running
         }
         Lifecycle.move(&state, to: error == nil ? .running : .error)
         lastUse = now()
         ready.flush(error)
     }
 
-    /// The runner gone and the simulator shut down: nothing of it runs. Off from the moment it's asked: a start that
-    /// comes meanwhile boots it again once it's down (`boot` waits), and no tick asks for another shutdown.
+    /// Ends the runner and shuts the simulator down, so nothing of the machine runs. The state is off from the moment
+    /// the stop is asked. So a start that comes meanwhile boots the simulator again once it's down (`boot` waits), and
+    /// no tick asks for another shutdown.
     func stop(_ done: @escaping () -> Void) {
         if state == .starting {   // that boot gives up at its next step
             boots += 1
@@ -218,19 +228,19 @@ final class IOSRuntime: MachineRuntime {
         }
     }
 
-    /// Ends the runner (SIGTERM, then SIGKILL, waited for: kelp-vm may end right after) and shuts the simulator down,
-    /// after a shutdown already under way.
+    /// Ends the runner (SIGTERM, then SIGKILL) and waits for it, because kelp-vm may end right after. Then it shuts the
+    /// simulator down. It first waits for any shutdown or boot already under way.
     private func shutDown() -> Task<Void, Never> {
         let ended = runner, before = shutdown, boot = booting
         runner = nil
         let task = Task {
             await before?.value
-            _ = await boot?.result   // its outcome is the boot's to tell
+            _ = await boot?.result   // the boot reports its own outcome
             if let ended, ended.isRunning {
                 let pid = ended.processIdentifier
                 await Task.detached { Subprocess.stopTreeNow(pid) }.value
             }
-            // One shut down already says so, which is no failure.
+            // simctl fails on a simulator that is already shut down, and that is no failure here.
             do { _ = try await simctl(["shutdown", udid]) } catch  where !"\(error)".contains("current state: Shutdown")
             {
                 log("shutting the simulator down: \(error.localizedDescription)")
@@ -245,7 +255,8 @@ final class IOSRuntime: MachineRuntime {
         if state == .running, now().timeIntervalSince(lastUse) > Runtime.sleepAfter { stop {} }
     }
 
-    /// What drives a simulator from outside kelp-vm, naming its device: `simctl` (installs, launches), an XCUITest run.
+    /// The programs that drive a simulator from outside kelp-vm and name its device: `simctl` (installs, launches) and
+    /// an XCUITest run.
     private static let clients: Set<String> = ["simctl", "xcodebuild", "xctest"]
 
     private func ping() async -> Bool {

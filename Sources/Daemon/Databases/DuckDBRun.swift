@@ -1,9 +1,10 @@
 import Core
 import Foundation
 
-/// A DuckDB file through the `duckdb` program (Homebrew's), as CSV: NULL written as `PostgresRun.null`, so an empty
-/// string stays one. A read opens the file read-only, so DuckDB refuses a change; a change counts its rows through
-/// RETURNING (DuckDB prints no count of its own), tried in a transaction it rolls back.
+/// Runs statements on a DuckDB file through the `duckdb` program (Homebrew's), which prints CSV. NULL is written as
+/// `PostgresRun.null`, so an empty string stays an empty string. A read opens the file read-only, so DuckDB refuses a
+/// change. A change counts its rows through RETURNING, because DuckDB prints no count of its own, and a trial runs in
+/// a transaction that is rolled back.
 struct DuckDBRun: DatabaseRunner {
     let connection: DatabaseConnection, off: Slots
     static let marker = "--kelp-7f3e9c--"
@@ -27,8 +28,9 @@ struct DuckDBRun: DatabaseRunner {
         }
     }
 
-    /// `allowed`: as SQLite's (`SQLiteRun.write`), in one script: the changed rows kept in a temporary table, a check
-    /// that fails (`error()`, and -bail stops before COMMIT) when they aren't as many, then the rows and COMMIT.
+    /// Handles `allowed` the way SQLite's write does (`SQLiteRun.write`), in one script. The script keeps the changed
+    /// rows in a temporary table and runs a check that fails (`error()`) when their count isn't `allowed`, so -bail
+    /// stops before COMMIT. Otherwise the script prints the rows and commits.
     func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
         let path = try DatabaseEngines.path(connection)
         return try await off.run {
@@ -61,11 +63,11 @@ struct DuckDBRun: DatabaseRunner {
         }
     }
 
-    /// The check's word when a change isn't the rows allowed, the count after it.
+    /// The words the check fails with when a change doesn't touch the allowed number of rows. The count follows them.
     private static let notAllowed = "kelp: changed "
 
-    /// The user's edits in one transaction (-bail stops before COMMIT): the rows each changed, as `.changes` prints
-    /// them.
+    /// Runs the user's edits in one transaction, and -bail stops it before COMMIT on an error. Returns the sum of the
+    /// rows each statement changed, as `.changes` prints them.
     func apply(_ statements: [String]) async throws -> Int {
         let path = try DatabaseEngines.path(connection)
         return try await off.run {
@@ -112,9 +114,9 @@ struct DuckDBRun: DatabaseRunner {
     /// line of its own, because a statement's last line can be a `--` comment. The run stops at the first error
     /// (`-bail`).
     /// `-safe` forbids dot-commands that reach outside the file (`.shell`, `.open`, `.read`) and any file other than
-    /// this one (ATTACH, COPY, read_csv), and locks that against a SET that would lift it. `-no-agent` keeps the CSV
+    /// this one (ATTACH, COPY, read_csv), and locks that setting so a SET can't lift it. `-no-agent` keeps the CSV
     /// output whatever AI_AGENT says.
-    /// `changes` follows each statement with the rows it changed ("changes: 1   total_changes: 3").
+    /// With `changes`, each statement is followed by the number of rows it changed ("changes: 1   total_changes: 3").
     static func run(
         _ path: String, readOnly: Bool, _ statements: [String], timeout: TimeInterval, changes: Bool = false
     ) throws -> [String] {
@@ -139,7 +141,8 @@ struct DuckDBRun: DatabaseRunner {
         }
     }
 
-    /// CSV with a header; NULL is the marker (quoted), an empty field an empty string.
+    /// Parses CSV with a header row. A NULL arrives as `PostgresRun.null` (quoted), and an empty field is an empty
+    /// string.
     static func section(_ text: String) -> DatabaseRows {
         var records = CSV.parse(text)
         guard !records.isEmpty else { return DatabaseRows() }

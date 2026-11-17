@@ -3,8 +3,9 @@ import Foundation
 
 /// Reads and drives a machine's screen for `kelp vm screenshot`, `click`, `ui` and the rest (`VMScreen`, `VMUI`),
 /// waking the machine first. A macOS machine is driven by its kelp-vm from the Mac's side (in `session`'s turn) and by
-/// Kelp Guest inside; an Android one through adb; an iOS one through Kelp's runner in its simulator. `args` are as
-/// `kelp vm` takes them, the action first; what the machine says back (the controls, for `ui`) is the answer.
+/// Kelp Guest inside. An Android machine is driven through adb, and an iOS machine through Kelp's runner in its
+/// simulator. `args` are as `kelp vm` takes them, with the action first. The answer is what the machine says back,
+/// such as the controls for `ui`.
 extension VMService {
     func screen(_ name: String, _ args: [String], session: String?) throws -> String {
         let machine = try ready(name)
@@ -19,13 +20,14 @@ extension VMService {
         }
     }
 
-    /// Types into a macOS machine's screen; nil: its password, from the Keychain.
+    /// Types `given` into a macOS machine's screen. When `given` is nil, it types the machine's password from the
+    /// Keychain.
     func type(_ name: String, _ given: String?, session: String? = nil) throws {
         let text: String
         do { text = try given ?? Keychain.read("vm." + name) } catch {
             throw RPCError.internalError("\(name)'s password in the Keychain: \(error.localizedDescription)")
         }
-        _ = try screen(name, ["type", text], session: session)   // nil: the user's (Type Password), no turn to wait for
+        _ = try screen(name, ["type", text], session: session)   // nil is the user (Type Password), who takes no turn
     }
 
     private func macScreen(_ machine: VMMachine, _ words: ScreenWords, session: String?) throws -> String {
@@ -37,7 +39,8 @@ extension VMService {
         case "ui", "press":   // the app's controls, read through Accessibility by Kelp Guest inside
             return try overSSH(name, VMs.guestProgram + " " + words.all.map(ShellQuote.word).joined(separator: " "))
         case "type" where words.rest.joined(separator: " ").contains { VMs.usKey($0) == nil }:
-            // No key for it: pasted instead, its clipboard set over SSH (without LANG, read as Mac Roman).
+            // Text with no key on a US keyboard is pasted instead, after the machine's clipboard is set over SSH.
+            // LANG is set because pbcopy reads the text as Mac Roman without it.
             _ = try overSSH(name, "LANG=en_US.UTF-8 pbcopy", stdin: Data(words.rest.joined(separator: " ").utf8))
             return try macScreen(machine, ScreenWords(["key", "cmd+v"]), session: session)
         default:
@@ -47,7 +50,7 @@ extension VMService {
         }
     }
 
-    /// A command in the machine over its SSH (counted as use), in its home folder: what it printed.
+    /// Runs a command over SSH in the machine's home folder, which counts as use, and returns what the command printed.
     private func overSSH(_ name: String, _ command: String, stdin: Data? = nil) throws -> String {
         let to = try connect(name, cwd: nil)
         let out = try Subprocess.run(
@@ -57,9 +60,9 @@ extension VMService {
         return Self.said(out.stdout) ?? ""
     }
 
-    /// An Android machine's screen through adb: pixels of its screen for screenshots and taps alike.
+    /// Drives an Android machine's screen through adb. Screenshots and taps both use the screen's pixels.
     private func androidScreen(_ name: String, _ words: inout ScreenWords) throws -> String {
-        let adb = try connect(name, cwd: nil).ssh   // adb -s <its emulator>, booted or woken first
+        let adb = try connect(name, cwd: nil).ssh   // `adb -s <emulator>`, after connect boots or wakes the emulator
         @discardableResult func run(_ a: [String]) throws -> Data {
             let out = try Subprocess.run(adb + a, cwd: "/", env: ProcessInfo.processInfo.environment, timeLimit: 120)
             guard out.status == 0 else {
@@ -77,7 +80,8 @@ extension VMService {
         case "screenshot": try run(["exec-out", "screencap", "-p"]).write(to: URL(fileURLWithPath: try words.text(0)))
         case "click":
             let x = try words.number(0), y = try words.number(1)
-            try run(right ? ["shell", "input", "swipe", x, y, x, y, "800"] : ["shell", "input", "tap", x, y])   // a long press
+            // A right click is a long press: a swipe that stays in place for 800 ms.
+            try run(right ? ["shell", "input", "swipe", x, y, x, y, "800"] : ["shell", "input", "tap", x, y])
             if double { try run(["shell", "input", "tap", x, y]) }
         case "drag":
             try run(
@@ -102,7 +106,7 @@ extension VMService {
         case "ui": return try ui().text
         case "press":
             let target = words.rest.joined(separator: " "), screen = try ui()
-            // By its text: the first such line's ref.
+            // A target given by its text takes the ref of the first line that shows that text.
             let named = screen.text.split(separator: "\n").first { $0.contains("\"\(target)\"") }
             let ref =
                 screen.centers[target] != nil
@@ -124,8 +128,8 @@ extension VMService {
         return ""
     }
 
-    /// An iOS machine: simctl for apps and links, Kelp's runner in the simulator for its screen (in points: 393 × 852 on
-    /// an iPhone 16, screenshots and taps alike).
+    /// Drives an iOS machine. simctl handles apps and links, and Kelp's runner in the simulator handles the screen.
+    /// Screenshots and taps both use points (393 × 852 on an iPhone 16).
     private func iosScreen(_ name: String, _ words: inout ScreenWords) throws -> String {
         let to = try connect(name, cwd: nil)
         guard let udid = to.device, let port = to.port else {
@@ -148,7 +152,7 @@ extension VMService {
         case "launch":
             let id = try words.text(0)
             _ = try run(simctl + ["launch", udid, id])
-            _ = IOSRunnerClient.ask(port: port, ["op": "app", "app": id])   // ui, type and press act on it from now on
+            _ = IOSRunnerClient.ask(port: port, ["op": "app", "app": id])   // ui, type and press then act on this app
             return ""
         case "open": return try run(simctl + ["openurl", udid, try words.text(0)])
         case "screenshot":
@@ -176,18 +180,18 @@ extension VMService {
         }
     }
 
-    /// What a program printed, trimmed; nil for nothing.
+    /// Returns what a program printed, trimmed, or nil when it printed nothing.
     static func said(_ data: Data) -> String? {
         let text = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         return text.isEmpty ? nil : text
     }
 }
 
-/// `kelp vm`'s words for a screen: its action, then the rest, from which flags are taken as they're read.
+/// The words of a `kelp vm` screen command: the action, then the rest. Flags are taken out of the rest as they're read.
 struct ScreenWords {
     let action: String
     private(set) var rest: [String]
-    /// As they came, the action first: what kelp-vm and Kelp Guest read for themselves.
+    /// All the words as they came, with the action first. kelp-vm and Kelp Guest read these for themselves.
     var all: [String] { [action] + rest }
 
     init(_ args: [String]) {

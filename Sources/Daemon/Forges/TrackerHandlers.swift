@@ -2,10 +2,11 @@ import Core
 import Foundation
 import Integrations
 
-// Linear and Jira: their keys, issues, teams, states and transitions.
+// The methods for Linear and Jira: their keys, issues, teams, states and transitions.
 
 extension Forges {
-    /// What `read` answers, nil when the service turned the credentials down; any other failure is thrown, its reason said.
+    /// Returns what `read` answers, or nil when the service turned the credentials down. Any other failure is thrown,
+    /// with its reason.
     static func unlessRefused<T>(_ read: () async throws -> T) async throws -> T? {
         do { return try await read() } catch let error as IntegrationError where error.refused { return nil }
     }
@@ -23,12 +24,13 @@ extension LinearSetKey: AsyncHandled {
     }
 }
 extension LinearStatus: AsyncHandled {
-    // whether Linear is connected, not what's in it: its issues and teams are read with the user's key, which
-    // an agent's own shell can't read
+    // An agent may ask whether Linear is connected, but not what's in it, because Linear's issues and teams are read
+    // with the user's key, which an agent's own shell can't read.
     static let agents = AgentAccess.reads
     func handle(_ forges: Forges) async throws -> Result {
         guard let linear = try await forges.linearClient() else { return Result(connected: false) }
-        // A key Linear turns down is no connection; Linear not answering (offline, a 5xx) is said, not read as one.
+        // A key that Linear turns down means no connection. When Linear doesn't answer (offline, a 5xx), the error is
+        // passed on instead of being read as no connection.
         guard let me = try await Forges.unlessRefused({ try await linear.viewer() }) else {
             return Result(connected: false)
         }
@@ -80,8 +82,8 @@ extension JiraSetCredentials: AsyncHandled {
     }
 }
 extension JiraStatus: AsyncHandled {
-    // whether Jira is connected, not what's in it: its issues and transitions are read with the user's key,
-    // which an agent's own shell can't read, and a query (`jql`) reaches the whole site
+    // An agent may ask whether Jira is connected, but not what's in it, because Jira's issues and transitions are
+    // read with the user's key, which an agent's own shell can't read, and a query (`jql`) reaches the whole site.
     static let agents = AgentAccess.reads
     func handle(_ forges: Forges) async throws -> Result {
         guard let jira = try await forges.jiraClient() else { return Result(connected: false) }

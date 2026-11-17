@@ -4,19 +4,19 @@ import GitKit
 import Integrations
 
 extension Forges {
-    /// The branch checked out in the folder now (a workspace's record can be stale after a switch).
+    /// Returns the branch checked out in the folder now (a workspace's record can be stale after a switch).
     func checkedOut(_ workspace: Worktree) -> String {
         (try? Git.currentBranch(workspace.path, remotes: remotes)) ?? workspace.branch
     }
 
-    /// The forge the folder's origin is on: what its PRs, issues and CI go through.
+    /// Returns the forge that the folder's origin is on, which the folder's PRs, issues and CI go through.
     func forge(_ path: String) -> Forge { Forge.of(cwd: path, remotes: remotes) }
 
     static let bitbucketNeedsCredentials = RPCError.invalidParams(
         "This repo is on Bitbucket — add credentials in Settings › Integrations")
 
-    /// Pushes the workspace's branch and opens its pull (or merge) request against its base, titled and described from
-    /// its commits unless given; the workspace keeps the link, and its Linear and Jira issues move to review.
+    /// Pushes the workspace's branch and opens its pull (or merge) request against its base. The title and description
+    /// come from its commits unless given. The workspace keeps the link, and its Linear and Jira issues move to review.
     func createPR(_ workspace: Worktree, in repo: Repo, title: String?, body: String?, draft: Bool) async throws
         -> (url: String, title: String)
     {
@@ -69,11 +69,11 @@ extension Forges {
     }
 }
 
-/// For a method that brings work in from a forge into a project: a clone added as one, an issue made a workspace with
-/// its agent.
+/// The services for a method that brings work in from a forge, such as a clone added as a project, or an issue made
+/// into a workspace with its agent.
 struct ForgeWork {
     let forges: Forges, workspaces: Workspaces
-    let offloads: Slots   // the daemon's, for the git these run (`Daemon.offload`)
+    let offloads: Slots   // the daemon's slots, for the git these methods run (`Daemon.offload`)
 }
 
 // MARK: gh / glab / git only
@@ -85,14 +85,15 @@ extension GitHubBranchPR: Handled {
         let workspace = try forges.store.worktree(named: worktreeId), branch = forges.checkedOut(workspace),
             key = workspace.path + "@" + branch
         if let hit = forges.prCache.withLock({ $0[key] }), Date().timeIntervalSince(hit.at) < 120 { return hit.value }
-        // nil: no PR. gh that couldn't tell (offline, signed out) throws and isn't kept: the next read asks again.
+        // nil means no PR. When gh can't tell (offline, signed out), it throws and nothing is kept, so the next read
+        // asks again.
         let request: GitHub.PullRequest? =
             switch forges.forge(workspace.path) {
             case .gitlab: try GitLab.mergeRequest(cwd: workspace.path, branch: branch)
             case .github, .bitbucket: try GitHub.pullRequest(cwd: workspace.path, branch: branch)
             }
         forges.prCache.withLock { cache in
-            // what's past its 2 min goes, not kept for the daemon's life
+            // Entries past their 2 minutes go, so they aren't kept for the daemon's life.
             if cache.count >= 500 { cache = cache.filter { Date().timeIntervalSince($0.value.at) < 120 } }
             cache[key] = (Date(), request)
         }
@@ -275,9 +276,11 @@ extension GitAuthorAvatar: AsyncHandled {
             return hit.value
         }
         let path = try forges.store.worktree(named: id).path, email = email
-        // The forge the project's origin is on; elsewhere only a GitHub noreply address tells its account.
+        // Asks the forge that the project's origin is on. Anywhere else, only a GitHub noreply address tells the
+        // author's account.
         let url = try? await forges.offloads.run { () throws -> URL? in
-            // A remote project's gh would run in its folder here, which isn't its repository (`refuseRemoteForge`).
+            // For a remote project, gh would run in its folder on this Mac, which isn't its repository
+            // (`refuseRemoteForge`).
             if forges.remotes.of(path) != nil { return GitHub.noreplyAvatar(email) }
             let origin = (try? Git.origin(path, remotes: forges.remotes)) ?? ""
             switch Forge.of(remote: origin) {
@@ -342,7 +345,8 @@ extension GitHubPRMerge: AsyncHandled {
         let how = method ?? "squash"
         switch try await forges.offloads.run({ forges.forge(workspace.path) }) {
         case .bitbucket:
-            // Bitbucket's API or nothing: gh would look for the number on whatever GitHub repository it found.
+            // Only Bitbucket's API is used here, because gh would look for the number on whatever GitHub repository
+            // it found.
             guard let slug = try await forges.offloads.run({ BitbucketClient.slug(cwd: workspace.path) }),
                 let bb = try await forges.bitbucketClient()
             else { throw Forges.bitbucketNeedsCredentials }

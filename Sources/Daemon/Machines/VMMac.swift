@@ -2,12 +2,13 @@ import Core
 import Foundation
 import os
 
-/// Making a macOS machine (`VMService.create` with the macos image).
+/// Makes a macOS machine, which is what `VMService.create` does with the macos image.
 extension VMService {
-    /// Apple's latest macOS for this Mac, downloaded (and dropped once installed: it's 20 GB and more), installed, and set up
-    /// by itself on its first boot: an account with a random password (in the Keychain, "vm.<name>"), signed in, Remote
-    /// Login on. Then, over SSH with that password once: Kelp's key, sudo without a password, and a screen that never sleeps.
-    /// `given`: the user's own restore image, installed as it is and left where it is.
+    /// Downloads Apple's latest macOS for this Mac and installs it, then deletes the download (it's 20 GB and more). On
+    /// its first boot macOS sets itself up: an account with a random password (kept in the Keychain as "vm.<name>"),
+    /// signed in, with Remote Login on. Then Kelp connects over SSH with that password once, to add Kelp's key, sudo
+    /// without a password and a screen that never sleeps. With `given`, the user's own restore image is installed as it
+    /// is and left where it is.
     func makeMac(_ machine: VMMachine, ipsw given: URL? = nil) async {
         await making(machine) {
             var ipsw = given ?? images, version = given?.deletingPathExtension().lastPathComponent ?? ""
@@ -30,7 +31,7 @@ extension VMService {
             try await blocking {
                 _ = try run([helper, "--install", folder(machine.name).path, image.path], limit: 3600)
             }
-            if given == nil { remove(ipsw) }   // ours, and over 20 GB: the user's own stays
+            if given == nil { remove(ipsw) }   // Kelp's download (over 20 GB) goes; the user's own stays
             try next(machine, .firstBoot)
             try await blocking {
                 try startHelper(machine)
@@ -64,8 +65,9 @@ extension VMService {
             to: folder(machine.name).sshConfig, atomically: true, encoding: .utf8)
     }
 
-    /// Over SSH with the password once (ssh's SSH_ASKPASS reads the file): Kelp's key, then sudo without a password, a
-    /// display and a Mac that never sleep (an agent's screenshot of a black screen says nothing). The file goes then.
+    /// Connects over SSH with the password once (ssh's SSH_ASKPASS reads it from the password file) to add Kelp's
+    /// key. Then it sets up sudo without a password, and a display and a Mac that never sleep, because an agent's
+    /// screenshot of a black screen says nothing. The password file is deleted at the end.
     private func letKelpIn(_ machine: VMMachine) throws {
         let askpass = folder(machine.name).file("askpass")
         try "#!/bin/sh\ncat \(ShellQuote.word(folder(machine.name).password.path))\n".write(
@@ -90,7 +92,8 @@ extension VMService {
         let rule = "\(machine.user) ALL=(ALL) NOPASSWD: ALL"
         let root =
             "echo \(ShellQuote.word(rule)) > /etc/sudoers.d/kelp && chmod 440 /etc/sudoers.d/kelp && pmset -a sleep 0 displaysleep 0 disksleep 0 && sync"
-            + " && systemsetup -settimezone \(ShellQuote.word(TimeZone.current.identifier)) >/dev/null"   // the Mac's: times read the same
+            // The machine gets the Mac's time zone, so times read the same on both.
+            + " && systemsetup -settimezone \(ShellQuote.word(TimeZone.current.identifier)) >/dev/null"
         let sudo = try Subprocess.run(
             [
                 "/usr/bin/ssh", "-F", folder(machine.name).sshConfig.path, "-T", machine.name,
@@ -100,11 +103,13 @@ extension VMService {
         guard sudo.status == 0 else {
             throw RPCError.internalError("sudo: " + String(decoding: sudo.stderr, as: UTF8.self))
         }
-        // A screen that never locks: macOS locks it 5 minutes after the display sleeps, and then asks for this password. A
-        // user's setting, so as the user (sysadminctl wants the password); then all of it written to the machine's disk.
+        // The screen must never lock, because macOS locks it 5 minutes after the display sleeps and then asks for this
+        // password. That is a user's setting, so this runs as the user (sysadminctl wants the password). Then all of it
+        // is synced to the machine's disk.
         let unlock =
             "read -r pw; sysadminctl -screenLock off -password \"$pw\" && defaults -currentHost write com.apple.screensaver idleTime 0"
-            + " && { \(VMs.filesSetup(os: .macos)); } && sync"   // ~/Kelp: its first boot had no key for kelp-vm to make it
+            // This makes ~/Kelp, because on the machine's first boot kelp-vm had no key yet to make it.
+            + " && { \(VMs.filesSetup(os: .macos)); } && sync"
         let unlocked = try Subprocess.run(
             ["/usr/bin/ssh", "-F", folder(machine.name).sshConfig.path, "-T", machine.name, unlock],
             cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data((password + "\n").utf8), timeLimit: 60)
@@ -114,8 +119,9 @@ extension VMService {
         remove(folder(machine.name).password)
     }
 
-    /// Kelp Guest, as an app in the machine's ~/Applications, started at login (a LaunchAgent in its GUI session): its
-    /// apps' controls by name (`kelp vm ui`), with Accessibility, asked for the first time that runs. The screen needs it not.
+    /// Installs Kelp Guest as an app in the machine's ~/Applications, started at login by a LaunchAgent in the GUI
+    /// session. Kelp Guest finds the controls of the machine's apps by name (`kelp vm ui`) through Accessibility, which
+    /// macOS asks for the first time that runs. The screen itself doesn't need Kelp Guest.
     private func installGuest(_ machine: VMMachine) throws {
         let bin = URL(fileURLWithPath: helper).deletingLastPathComponent().appendingPathComponent("KelpGuest")
         let work = folder(machine.name).file(".guest"), app = work.appendingPathComponent("KelpGuest.app/Contents")
@@ -162,7 +168,7 @@ extension VMService {
         }
         // This loads now if the guest's login session is up. On a first boot the login may still be on its way
         // (launchctl says "Domain does not support specified action"), and then the agent starts by itself at that
-        // login; it is tried for two minutes and never counts as a failure.
+        // login. Loading is tried for two minutes and never counts as a failure.
         let load =
             "launchctl bootout gui/$(id -u)/dev.kelp.guest 2>/dev/null; launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.kelp.guest.plist"
         for _ in 0..<24 {
@@ -176,8 +182,9 @@ extension VMService {
 }
 
 extension VMService {
-    /// kelp-vm: in Kelp.app, an app of its own in Contents/Helpers (a machine's screen is its window, with its own name in
-    /// the Dock and ⌘Tab); in a build folder, beside kelpd. KelpGuest is beside it either way.
+    /// Returns the path of kelp-vm. In Kelp.app it is an app of its own in Contents/Helpers, because a machine's screen
+    /// is a kelp-vm window, with its own name in the Dock and ⌘Tab. In a build folder kelp-vm sits beside kelpd.
+    /// KelpGuest sits beside kelp-vm either way.
     static func helper(beside kelpd: String) -> String {
         let dir = URL(fileURLWithPath: kelpd).deletingLastPathComponent()
         let app = dir.deletingLastPathComponent().appendingPathComponent(

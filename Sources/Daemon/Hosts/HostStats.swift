@@ -6,14 +6,15 @@ import os
 /// ss, tmux and ps, in about 0.4 s with the connection open (0.3 s of that is the two looks at the CPU). Linux gets
 /// everything; macOS and BSD get what they share with it (load, disk, processes).
 typealias HostErrors = OSAllocatedUnfairLock<[String: String]>
-/// Host → its readings of the last hour (`host.history`).
+/// For each host, its readings of the last hour (`host.history`).
 typealias HostHistory = OSAllocatedUnfairLock<[String: [HostStats.Sample]]>
 
 enum HostStatsReader {
-    /// A section a line `\036name`, so a greeting the shell prints can't pass for one.
+    /// The script that reads the host. Each section starts with a line `\036name`, so a greeting that the shell prints
+    /// can't pass for a section.
     static let script = [
         #"s() { printf '\036%s\n' "$1"; }"#,
-        // The default route's interface as /proc/net/dev counts it, after the seconds since boot.
+        // `n` prints the seconds since boot, then the /proc/net/dev line of the default route's interface.
         #"n() { [ -n "$ni" ] && echo "$(cut -d' ' -f1 /proc/uptime) $(grep "^ *$ni:" /proc/net/dev)"; }"#,
         #"s os; (. /etc/os-release && [ -n "$PRETTY_NAME" ] && echo "$PRETTY_NAME") 2>/dev/null || uname -sr"#,
         "s cores; getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null",
@@ -29,15 +30,17 @@ enum HostStatsReader {
         #"s docker; command -v docker >/dev/null 2>&1 && timeout 2 docker ps --no-trunc --format '{{.ID}}\t{{.Names}}\t{{.Ports}}' 2>/dev/null"#,
         "s failed; timeout 2 systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}'",
         "s reboot; [ -f /run/reboot-required ] && echo yes",
-        // This shell, so that it and the ps it runs aren't listed. Where ps knows cgroups (Linux), the unit and container
-        // of each process, and user names whole (ps cuts them at 8 letters).
+        // `self` is this shell's pid, so that the shell and the ps it runs aren't listed. Where ps knows cgroups
+        // (Linux), ps also prints each process's cgroup, which gives its unit and container, and whole user names
+        // (ps otherwise cuts them at 8 letters).
         "s self; echo $$",
         "if ps -o cgroup= -p $$ >/dev/null 2>&1; then s psc; ps -axo pid=,ppid=,user:32=,pcpu=,rss=,etime=,cgroup:512=,args= 2>/dev/null",
         "else s ps; ps -axo pid=,ppid=,user=,pcpu=,rss=,etime=,args= 2>/dev/null; fi",
         "exit 0"
     ].joined(separator: "\n")
 
-    /// `errors`: host → why its last connection failed, in ssh's words, until one works.
+    /// Reads the host's stats. `errors` holds, for each host, why its last connection failed, in ssh's words, until a
+    /// connection works.
     static func read(
         _ remote: RemoteHost, connect: Bool, sessions: [Session], errors: HostErrors, history: HostHistory
     ) -> HostStats {
@@ -80,7 +83,7 @@ enum HostStatsReader {
         }
     }
 
-    /// Closes the shared connection; what runs in tmux there goes on.
+    /// Closes the shared connection. What runs in tmux on the host goes on.
     static func disconnect(_ remote: RemoteHost, errors: HostErrors) {
         _ = Subprocess.printed(
             [remote.ssh, "-o", "ControlPath=\(remote.controlDir)/%C", "-O", "exit", "--", remote.host],
@@ -90,7 +93,7 @@ enum HostStatsReader {
 
     // MARK: reading the answer
 
-    /// `owner`: tmux session name → the Kelp session in it.
+    /// Parses the script's output. `owner` maps a tmux session's name to the Kelp session in it.
     static func parse(_ text: String, host: String, owner: [String: String]) -> HostStats {
         var sections: [String: [String]] = [:]
         for chunk in text.components(separatedBy: "\u{1E}").dropFirst() {
@@ -157,9 +160,9 @@ enum HostStatsReader {
         return stats
     }
 
-    /// The processes of this reading and of any other reading going on (the sidebar's and the server tab's can
-    /// overlap), with everything they started: the shell running `script` (`me`, or found by its first line on a
-    /// command line) and what runs under it.
+    /// Returns the pids of this reading's processes and of any other reading going on, because the sidebar's and the
+    /// server tab's readings can overlap. A reading is the shell that runs `script` (`me`, or found by the script's
+    /// first line in its command line), and everything that runs under that shell.
     static func readings(_ all: [(HostStats.Process, ppid: Int)], me: Int?) -> Set<Int> {
         var mine = Set(all.filter { $0.0.pid == me || $0.0.args.contains("s() { printf") }.map { $0.0.pid })
         var grew = true
@@ -171,8 +174,9 @@ enum HostStatsReader {
         return mine
     }
 
-    /// Two `cpu` lines of /proc/stat a moment apart: the shares, 0–100, not idle (idle and iowait), waiting on the disk,
-    /// and stolen in between. Columns: user nice system idle iowait irq softirq steal.
+    /// Reads two `cpu` lines of /proc/stat taken a moment apart. It returns the shares of time in between, 0–100, that
+    /// were busy (neither idle nor iowait), waiting on the disk, and stolen. The columns are user nice system idle
+    /// iowait irq softirq steal.
     static func cpu(_ lines: [String]) -> (busy: Double, iowait: Double, steal: Double?)? {
         let ticks = lines.prefix(2).map { $0.split(separator: " ").dropFirst().prefix(8).compactMap { Double($0) } }
         guard ticks.count == 2, ticks.allSatisfy({ $0.count >= 5 }) else { return nil }
@@ -184,8 +188,8 @@ enum HostStatsReader {
         return (max(0, min(100, (total - idle) / total * 100)), share(4), steal)
     }
 
-    /// The interface, then two "<seconds since boot> <its /proc/net/dev line>" a moment apart: bytes a second in and out
-    /// (the line's 1st and 9th numbers after the colon).
+    /// Reads the interface's name, then two "<seconds since boot> <its /proc/net/dev line>" lines a moment apart. It
+    /// returns the bytes a second in and out, from the 1st and 9th numbers after the colon.
     static func network(_ lines: [String]) -> HostStats.Network? {
         guard lines.count == 3 else { return nil }
         let reads = lines.dropFirst().compactMap { line -> (at: Double, rx: Double, tx: Double)? in
@@ -203,7 +207,8 @@ enum HostStatsReader {
             sent: max(0, reads[1].tx - reads[0].tx) / span)
     }
 
-    /// "<id>\t<name>\t0.0.0.0:80->80/tcp, [::]:80->80/tcp, 5432/tcp" (`docker ps`): the host's ports, each once.
+    /// Parses a `docker ps` line such as "<id>\t<name>\t0.0.0.0:80->80/tcp, [::]:80->80/tcp, 5432/tcp". It returns the
+    /// container's id and name, and the host ports it publishes, each once.
     static func container(_ line: String) -> (id: String, name: String, ports: [Int])? {
         let fields = line.split(separator: "\t", omittingEmptySubsequences: false)
         guard fields.count >= 2, !fields[0].isEmpty else { return nil }
@@ -253,8 +258,9 @@ enum HostStatsReader {
         }
     }
 
-    /// "0.0.0.0:22", "[::1]:5432", "127.0.0.53%lo:53", "*:80" (ss); "127.0.0.1.5432", "*.22" (netstat). A port open on any
-    /// address isn't local. After it, ss's `users:(("sshd",pid=1981,fd=3))` when the process is the user's own.
+    /// Parses listening addresses such as "0.0.0.0:22", "[::1]:5432", "127.0.0.53%lo:53" and "*:80" (ss), or
+    /// "127.0.0.1.5432" and "*.22" (netstat). A port that is open on any address other than loopback isn't local. When
+    /// the process is the user's own, ss adds `users:(("sshd",pid=1981,fd=3))` after the address.
     static func ports(_ lines: [String]) -> [HostStats.Port] {
         var local: [Int: Bool] = [:], process: [Int: String] = [:]
         for line in lines {
@@ -296,7 +302,7 @@ enum HostStatsReader {
         return (parsed, ppid, place.docker)
     }
 
-    /// ps's elapsed time, "[[dd-]hh:]mm:ss".
+    /// Parses ps's elapsed time, "[[dd-]hh:]mm:ss", into seconds.
     static func seconds(_ etime: String) -> Int {
         let dayCut = etime.split(separator: "-", maxSplits: 1)
         let days = dayCut.count == 2 ? Int(dayCut[0]) ?? 0 : 0
@@ -304,7 +310,8 @@ enum HostStatsReader {
         return days * 86400 + clock.reduce(0) { $0 * 60 + $1 }
     }
 
-    /// Every process of a Kelp session (under its tmux pane) and the 30 busiest others, busiest first.
+    /// Returns every process of a Kelp session (under the session's tmux pane) and the 30 busiest others, busiest
+    /// first.
     static func busiest(_ all: [(HostStats.Process, ppid: Int)], panes: [(String, Int)], owner: [String: String])
         -> [HostStats.Process]
     {

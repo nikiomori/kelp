@@ -3,20 +3,22 @@ import Foundation
 import Integrations
 import os
 
-/// What the daemon keeps for the forges and trackers: GitHub's pull requests by branch (asked by every sidebar row), the
-/// clones running, and Linear, Jira and Bitbucket, whose credentials are in the keychain (read off the cooperative pool:
-/// a locked login keychain can keep a caller waiting).
+/// What the daemon keeps for the forges and trackers. It holds GitHub's pull requests by branch (which every sidebar
+/// row asks for), the clones that are running, and the clients for Linear, Jira and Bitbucket. Their credentials are in
+/// the keychain, read off the cooperative pool, because a locked login keychain can keep a caller waiting.
 final class Forges: Sendable {
     let offloads: Slots
     let prCache = OSAllocatedUnfairLock<[String: (at: Date, value: GitHub.PullRequest?)]>(initialState: [:])   // "path@branch" → its PR (github.branchPR)
-    /// Commit authors' avatars by email (git.authorAvatar): one ask per author, a miss asked again after ten minutes.
+    /// Commit authors' avatars by email (git.authorAvatar). Each author is asked for once, and a miss is asked again
+    /// after ten minutes.
     let avatars = OSAllocatedUnfairLock<[String: (at: Date, value: Data?)]>(initialState: [:])
     /// Running clones by the id the app gave them, for `repo.cloneCancel`.
     let clones = Clones()
     final class Clones: Sendable {
         private let running = OSAllocatedUnfairLock<[String: Process]>(initialState: [:])
         func set(_ id: String, _ process: Process?) { running.withLock { $0[id] = process } }
-        /// Not one still starting: `interrupt` raises before `run`, and that would take the daemon down.
+        /// Cancels a running clone, but not one still starting, because `interrupt` raises before `run` and that would
+        /// take the daemon down.
         func cancel(_ id: String) { running.withLock { $0[id] }.map(Self.interrupt) }
         func cancelAll() { running.withLock { Array($0.values) }.forEach(Self.interrupt) }
         private static func interrupt(_ process: Process) { if process.isRunning { process.interrupt() } }
@@ -35,7 +37,8 @@ final class Forges: Sendable {
 
     static let linearKeyAccount = "linear-api-key"
 
-    /// Nil without an account; a keychain that can't be read now (locked) throws, its reason said.
+    /// The Linear client, or nil without an account. A keychain that can't be read now (because it is locked) throws,
+    /// with the reason.
     var linear: LinearClient? {
         get throws { try Keychain.find(Self.linearKeyAccount).map(LinearClient.init(apiKey:)) }
     }
@@ -64,26 +67,28 @@ final class Forges: Sendable {
             return BitbucketClient(user: user, token: token)
         }
     }
-    /// The keychain can keep a caller waiting (a locked login keychain): these read it off the cooperative pool. Nil:
-    /// no account; one that can't be read throws, so it isn't taken for "add credentials".
+    /// These read the keychain off the cooperative pool, because a locked login keychain can keep a caller waiting.
+    /// Each returns nil when there is no account. A keychain that can't be read throws, so the failure isn't taken for
+    /// "add credentials".
     func linearClient() async throws -> LinearClient? { try await offloads.run { [self] in try linear } }
     func jiraClient() async throws -> JiraClient? { try await offloads.run { [self] in try jira } }
     func bitbucketClient() async throws -> BitbucketClient? { try await offloads.run { [self] in try bitbucket } }
-    /// For what runs on its own (an issue moved along with its PR): the keychain's failure logged, then nothing.
+    /// Reads a client for work that runs on its own (an issue moved along with its PR). A keychain failure is logged,
+    /// and the result is nil.
     private func client<C>(_ name: String, _ read: () async throws -> C?) async -> C? {
         do { return try await read() } catch {
             Log.rpc.error("reading \(name, privacy: .public)'s keychain item: \(error)")
             return nil
         }
     }
-    /// Saved there, off the pool as well; an empty one removes the account.
+    /// Saves a secret in the keychain, off the pool as well. An empty value removes the account.
     func keepSecret(_ value: String, account: String) async throws {
         try await offloads.run {
             if value.isEmpty { Keychain.delete(account) } else { try Keychain.set(value, account: account) }
         }
     }
 
-    /// Jira issues linked to a worktree ("ENG-12") move along with the PR, like Linear.
+    /// Moves the Jira issue linked to a worktree ("ENG-12") along with the PR, like Linear.
     func moveJira(_ worktree: Worktree, toName hint: String, category: String) async {
         guard let client = await client("Jira", jiraClient),
             worktree.issue.range(of: #"^[A-Z][A-Z0-9]+-\d+$"#, options: .regularExpression) != nil,
@@ -95,11 +100,12 @@ final class Forges: Sendable {
         }
     }
 
-    /// Move a linked Linear issue to a workflow state kind; quiet no-op without a key or link.
+    /// Moves the linked Linear issue to a kind of workflow state. It quietly does nothing without a key or a link.
     func moveLinear(_ worktree: Worktree, to kind: LinearClient.StateKind) async {
         guard !worktree.linearIssueId.isEmpty, let client = await client("Linear", linearClient) else { return }
         do {
-            // Limit: finds the team via my issues; query the issue by id if tasks assigned to others need moving
+            // Limit: the team is found through the user's own issues. Query the issue by id if tasks assigned to
+            // others need moving.
             guard let issue = try await client.myIssues().first(where: { $0.id == worktree.linearIssueId }),
                 let st = LinearClient.stateFor(kind: kind, in: try await client.workflowStates(teamId: issue.team.id))
             else { return }

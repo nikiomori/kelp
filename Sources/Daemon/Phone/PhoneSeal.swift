@@ -1,10 +1,11 @@
 import CryptoKit
 import Foundation
 
-/// What passes between a phone and this Mac, sealed so the relay on the way reads none of it: base64url of
-/// AES-256-GCM's nonce (12 bytes), ciphertext and tag (16), JSON inside. `about` goes in as additional data and says
-/// which way a box goes ("q" a request, "r<n>" its answer, "e<n>.<i>" the i-th event of the stream request n opened),
-/// so one can't be passed off as another. The key came in the pairing link's fragment, which the relay never sees.
+/// Seals what passes between a phone and this Mac, so the relay on the way reads none of it. A box is base64url of
+/// the AES-256-GCM nonce (12 bytes), ciphertext and tag (16 bytes), with JSON inside. `about` goes in as additional
+/// data and says what the box is: "q" for a request, "r<n>" for the answer to request n, and "e<n>.<i>" for the i-th
+/// event of the stream that request n opened. So one box can't be passed off as another. The first key came in the
+/// pairing link's fragment, which the relay never sees.
 enum PhoneSeal {
     struct NotABox: Error {}
 

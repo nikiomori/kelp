@@ -2,7 +2,7 @@ import Core
 import Foundation
 import GRDB
 
-/// One of "All my projects" (`databaseLibrary` table), keyed by name.
+/// A database kept in "All my projects" (the `databaseLibrary` table), keyed by its name.
 struct LibraryDatabase: Codable, FetchableRecord, PersistableRecord {
     static let databaseTableName = "databaseLibrary"
     var id: String, json: String
@@ -19,13 +19,13 @@ struct LibraryDatabase: Codable, FetchableRecord, PersistableRecord {
     }
 }
 
-/// "All my projects": databases the user keeps apart from any project (added so, or imported from another app). No
-/// agent sees one until it's used in a project (`use`), which copies it there. Their passwords are kept as
-/// "db:/<name>". And what the Add Database sheet asks of the daemon: a check of what's typed, the servers running in
-/// Docker.
+/// "All my projects" holds the databases the user keeps apart from any project (added there, or imported from another
+/// app). No agent sees such a database until the user uses it in a project (`use`), which copies it there. Their
+/// passwords are kept as "db:/<name>". This file also answers what the Add Database sheet asks of the daemon: a check
+/// of what the user typed, and the servers running in Docker.
 extension Databases {
-    /// The keychain account for a library database's password: "db:/<name>", the same form as a project's database with
-    /// no project.
+    /// The keychain account for the password of a library database. It is "db:/<name>", the same form that a
+    /// project's database would have with no project.
     static func libraryAccount(_ name: String) -> String { account("/" + name) }
 
     func library() throws -> [DatabaseInfo] {
@@ -33,7 +33,8 @@ extension Databases {
             .sorted { ($0.group ?? "", $0.name) < ($1.group ?? "", $1.name) }
     }
 
-    /// Whether `name` is taken where a new one would be saved: the project's (found or by hand), or All My Databases.
+    /// Whether `name` is already taken where a new database would be saved: among the project's databases (found or
+    /// added by hand), or in All my projects.
     func named(_ name: String, in worktreeId: String, library: Bool) throws -> Bool {
         let name = name.trimmingCharacters(in: .whitespaces)
         if library { return try store.db.read { try LibraryDatabase.fetchOne($0, key: name) } != nil }
@@ -64,7 +65,8 @@ extension Databases {
         return db
     }
 
-    /// Copied into the workspace's project with its password: from now on its agents see it.
+    /// Copies a library database, with its password, into the workspace's project, so from now on the project's
+    /// agents see it.
     func use(_ worktreeId: String, _ name: String, access: DatabaseInfo.Access?) throws -> DatabaseInfo {
         guard let mine = try libraryConnection(name) else {
             throw RPCError.invalidParams("No \(name) in All my projects.")
@@ -80,7 +82,7 @@ extension Databases {
     func check(_ databaseCheck: DatabaseCheck) async throws -> DatabaseCheckResult {
         let (wid, name) = (databaseCheck.worktreeId, databaseCheck.database.name)
         var given = DatabaseConnection(database: databaseCheck.database, password: databaseCheck.password)
-        if given.password == nil {   // the one kept for it, when it's being edited
+        if given.password == nil {   // the password already kept, when an existing database is edited
             given.password = try await offloads.run { [self] in
                 do { return try connection(wid, name, agent: false).password } catch { return nil }
             }

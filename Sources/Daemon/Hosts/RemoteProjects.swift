@@ -2,11 +2,12 @@ import Core
 import Foundation
 import GitKit
 
-/// Remote projects (SSH): added by host and folder, their files read from the host. See `RemoteHost`.
+/// Remote projects (SSH) are added by host and folder, and their files are read from the host. See `RemoteHost`.
 extension Workspaces {
 
-    /// The local folder's name for a path on a host: its last component, or "project" when that isn't a usable name
-    /// ("/", "~", "..", "."), so the folder always lands inside the host's folder.
+    /// Returns the local folder's name for a path on a host. It is the path's last component, or "project" when that
+    /// isn't a usable name ("/", "~", "..", ".", or a name that starts with a dot), so the folder always lands inside
+    /// the host's folder.
     static func remoteFolderName(_ path: String) -> String {
         let last = (path.trimmingCharacters(in: CharacterSet(charactersIn: "/")) as NSString).lastPathComponent
         return ["", ".", "..", "~"].contains(last) || last.hasPrefix(".") || last.contains("/") ? "project" : last
@@ -48,7 +49,8 @@ extension RemoteListFolders: Handled {
     }
 }
 
-/// {host, path, init?} → the project (its local folder stands for the one on the host).
+/// Adds a remote project from {host, path, init?} and returns it. The project's local folder stands for the folder on
+/// the host.
 extension RepoAddRemote: Handled {
     func handle(_ workspaces: Workspaces) throws -> Repo {
         let host = host.trimmingCharacters(in: .whitespaces), path = path.trimmingCharacters(in: .whitespaces)
@@ -58,9 +60,10 @@ extension RepoAddRemote: Handled {
         guard path.hasPrefix("/") || path.hasPrefix("~") else {
             throw RPCError.invalidParams("Enter the folder's full path on \(host).")
         }
-        // Already added (the folder's marker names this host and path): that project, whatever its folder is called.
-        // The marker keeps git's answer for the top folder (symlinks resolved, ~ expanded): match the path as typed, the
-        // same path resolved where that's possible here (the "host" can be this Mac), and ~/… by its tail.
+        // When the project is already added (its folder's marker names this host and path), return that project,
+        // whatever its folder is called. The marker keeps git's answer for the top folder, with symlinks resolved and
+        // ~ expanded. So the path matches as typed, as resolved on this Mac where that's possible (the "host" can be
+        // this Mac), or, for ~/…, by its tail.
         let real = Paths.real(path)
         func same(_ marker: RemoteHost) -> Bool {
             marker.host == host
@@ -76,8 +79,8 @@ extension RepoAddRemote: Handled {
         let hostDir = workspaces.root.appendingPathComponent("remote").appendingPathComponent(
             host.replacingOccurrences(of: "/", with: "_"))
         try FileManager.default.createDirectory(at: hostDir, withIntermediateDirectories: true)
-        // A folder of its own, made here: /a/app and /b/app on one host don't share one, and a failure below removes
-        // only this folder, never another project's.
+        // The project gets a folder of its own on this Mac, so /a/app and /b/app on one host don't share one, and a
+        // failure below removes only this folder, never another project's.
         var folder = hostDir.appendingPathComponent(name), number = 2
         while !Workspaces.claim(folder.path) {
             guard number < 100 else { throw RPCError.internalError("No free folder for \(name) in \(hostDir.path)") }
@@ -87,9 +90,10 @@ extension RepoAddRemote: Handled {
         func mark(_ remote: RemoteHost) throws {
             try JSONEncoder().encode(remote).write(to: folder.appendingPathComponent(RemoteHost.marker))
         }
-        // ~ as the host's shell spells it: ask git there where the repository's top is.
+        // The marker first keeps the path as typed, with ~ as the host's shell spells it. Git on the host then says
+        // where the repository's top is.
         try mark(RemoteHost(host: host, path: path))
-        // init: a folder that isn't a repository yet becomes one (the sheet's Initialize Git and Open).
+        // With `init`, a folder that isn't a repository yet becomes one (the sheet's Initialize Git and Open).
         if `init` == true {
             do { _ = try Git.run(["init", "-q"], cwd: folder.path, remotes: workspaces.remotes) } catch let error
                 as GitError
@@ -121,8 +125,8 @@ extension RepoAddRemote: Handled {
     }
 }
 
-/// A host's keys as ssh-keyscan reads them where ~/.ssh/config sends `host` (`ssh -G`): its known_hosts lines, and
-/// the file ssh keeps them in.
+/// Scans a host's keys with ssh-keyscan, at the address where ~/.ssh/config sends `host` (`ssh -G`). Returns the keys
+/// as known_hosts lines, and the file that ssh keeps them in.
 private func scanKeys(_ remotes: Remotes, _ host: String) -> (lines: [String], knownHosts: String)? {
     func run(_ argv: [String], stdin: Data? = nil) -> String? {
         Log.session.attempt("asking \(host)'s key") {
@@ -145,7 +149,7 @@ private func scanKeys(_ remotes: Remotes, _ host: String) -> (lines: [String], k
     return lines.isEmpty ? nil : (lines, (known as NSString).expandingTildeInPath)
 }
 
-/// "SHA256:…" and the kind of the first of `lines`' keys, as ssh-keygen shows one.
+/// Returns the fingerprint ("SHA256:…") and the kind of the first key in `lines`, as ssh-keygen shows them.
 func keyFingerprint(_ lines: [String]) -> RemoteHostKey.Key? {
     let out = Log.session.attempt("reading a host key's fingerprint") {
         String(
@@ -168,7 +172,8 @@ extension HostCommands: Handled {
         else { throw RPCError.invalidParams("Not a remote project's workspace.") }
         let names = Set(commands.map { ($0 as NSString).lastPathComponent }.filter { !$0.isEmpty })
         guard !names.isEmpty else { return [] }
-        // In its login shell, as an agent's command line is there (`RemoteHost.command`): nvm's PATH is in .bashrc.
+        // Look in the host's login shell, where an agent's command line runs too (`RemoteHost.command`), because
+        // nvm's PATH is set in .bashrc.
         let look =
             "for c in " + names.sorted().map(ShellQuote.word).joined(separator: " ")
             + #"; do command -v "$c" >/dev/null 2>&1 && echo "found:$c"; done; exit 0"#

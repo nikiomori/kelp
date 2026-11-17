@@ -1,11 +1,11 @@
 import Core
 import Foundation
 
-// The Docker side of databases: running containers of database images, their passwords, docker itself.
+// The Docker side of databases: finding running database containers, reading their passwords, and finding docker.
 
 extension Databases {
-    /// Running containers of Postgres, MySQL or MariaDB images that publish their port, as this Mac reaches them.
-    /// Docker not running: none.
+    /// Returns the running containers of Postgres, MySQL or MariaDB images that publish their port, each with the
+    /// address this Mac reaches it at. Returns none when Docker isn't running.
     func containers() async throws -> [RunningDatabase] {
         try await offloads.run {
             guard let docker = Self.docker(),
@@ -32,7 +32,8 @@ extension Databases {
         }
     }
 
-    /// The password a container's environment gives its user: what `db.save` keeps for one picked from `containers`.
+    /// Returns the password that a container's environment sets for its user. `db.save` keeps it when the user picks
+    /// a container from `containers`.
     func containerPassword(_ container: String, _ engine: DatabaseInfo.Engine) throws -> String? {
         guard let docker = Self.docker() else { throw RPCError.invalidParams("Docker isn't installed.") }
         let env = Self.environment(docker, container)
@@ -52,7 +53,7 @@ extension Databases {
         do { return try DatabaseEngines.client("docker", also: dockerFolders) } catch { return nil }
     }
 
-    /// The container compose runs the service in now (`docker compose ps -q`); nil when none runs it.
+    /// Returns the container that compose runs the service in now (`docker compose ps -q`), or nil when none does.
     static func container(_ service: ComposeService, docker: String) -> String? {
         let id = Subprocess.printed(
             [docker, "compose", "-f", service.file, "ps", "-q", service.name], path: "/usr/local/bin:/usr/bin:/bin",
@@ -60,7 +61,8 @@ extension Databases {
         return id.flatMap { $0.isEmpty ? nil : $0 }
     }
 
-    /// "0.0.0.0:55432->5432/tcp, [::]:55432->5432/tcp": the port on this Mac for `inside`.
+    /// Returns the port on this Mac that the container's port `inside` is published at. `ports` is Docker's list,
+    /// such as "0.0.0.0:55432->5432/tcp, [::]:55432->5432/tcp".
     static func published(_ ports: String, _ inside: Int) -> Int? {
         for part in ports.split(separator: ",") where part.hasSuffix("->\(inside)/tcp") {
             let host = part.split(separator: "-").first?.split(separator: ":").last

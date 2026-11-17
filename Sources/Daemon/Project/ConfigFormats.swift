@@ -1,8 +1,9 @@
 import Foundation
 
-/// Just enough TOML for other tools' project files (`ImportedConfig`): `[tables]`, `[[arrays of tables]]` (numbered
-/// `name.0.`, `name.1.`), and `key = value` where a value is a string ("…", '…', """…""", '''…'''), an array of strings or
-/// a boolean. Anything else (numbers, dates, inline tables) is left out. Pairs keep the file's order.
+/// Parses just enough TOML for other tools' project files (`ImportedConfig`). It reads `[tables]`, `[[arrays of
+/// tables]]` (numbered `name.0.`, `name.1.`), and `key = value` where the value is a string ("…", '…', """…""",
+/// '''…'''), an array of strings or a boolean. Anything else (numbers, dates, inline tables) is left out. Pairs keep
+/// the file's order.
 struct MiniTOML {
     private(set) var pairs: [(key: String, value: Any)] = []
 
@@ -31,7 +32,7 @@ struct MiniTOML {
                 while !body.contains(quote), let next = lines.popFirst() { body += "\n" + next }
                 guard let close = body.range(of: quote) else { continue }
                 var content = String(body[..<close.lowerBound])
-                // A newline right after the quotes isn't part of it.
+                // A newline right after the opening quotes isn't part of the string.
                 if content.hasPrefix("\n") { content.removeFirst() }
                 pairs.append((key, quote == "'''" ? content : Self.unescape(content)))
             } else if value.hasPrefix("[") {
@@ -58,7 +59,8 @@ struct MiniTOML {
         return out
     }
 
-    /// `a . "b c"` → `a.b c`. Limit: a quoted part holding a dot splits there.
+    /// Returns a dotted key without spaces or quotes around its parts, so `a . "b c"` becomes `a.b c`.
+    /// Limit: a quoted part holding a dot is split at the dot.
     static func key(_ path: Substring) -> String {
         path.split(separator: ".").map {
             $0.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
@@ -66,7 +68,7 @@ struct MiniTOML {
         .joined(separator: ".")
     }
 
-    /// Whether an array value is whole: its "[" closed, brackets inside strings left out.
+    /// Returns whether an array value is whole, meaning its "[" is closed, not counting brackets inside strings.
     static func closes(_ value: String) -> Bool {
         var depth = 0, quote: Character?, escaped = false, comment = false
         for ch in value {
@@ -96,7 +98,7 @@ struct MiniTOML {
         return false
     }
 
-    /// The one-line strings in `text`, in order; a comment outside them runs to the end of its line.
+    /// Returns the one-line strings in `text`, in order. A comment outside the strings runs to the end of its line.
     static func strings(_ text: Substring) -> [String] {
         var out: [String] = [], cur = "", quote: Character?, escaped = false, comment = false
         for ch in text {
@@ -106,7 +108,7 @@ struct MiniTOML {
             }
             if let opening = quote {
                 if escaped {
-                    cur += "\\" + String(ch)   // unescaped with the rest
+                    cur += "\\" + String(ch)   // the escape is kept and unescaped with the whole string
                     escaped = false
                 } else if ch == "\\" && opening == "\"" {
                     escaped = true
@@ -145,7 +147,8 @@ struct MiniTOML {
     }
 }
 
-/// JSON as editors and some tools write it, comments and trailing commas too (JSON5, as package.json is read).
+/// Reads JSON as editors and some tools write it, with comments and trailing commas (JSON5, the way package.json is
+/// read).
 enum JSONC {
     static func object(_ text: String) -> [String: Any]? { value(text) as? [String: Any] }
 

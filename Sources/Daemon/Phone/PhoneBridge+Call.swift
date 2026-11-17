@@ -7,7 +7,7 @@ import os
 // MARK: - A call
 
 extension PhoneBridge {
-    /// What a phone sealed: request `n` of its own, never the same twice.
+    /// The request that a phone sealed. `n` numbers the phone's own requests, and no number is used twice.
     struct Ask: Codable {
         var n: Double, method: String?, path: String?, body: JSONValue?
     }
@@ -19,14 +19,16 @@ extension PhoneBridge {
         }
     }
     enum Admitted {
-        /// Unsealed: 401 a phone not paired or a box that doesn't open, 409 a number seen before.
+        /// The call is refused unopened, with 401 for a phone that is not paired or a box that doesn't open, and 409
+        /// for a request number seen before.
         case refused(Int)
         case answer(String)
         case events(Stream)
         case ask(Ask, device: String, key: SymmetricKey)
     }
 
-    /// The envelope: whose call it is, that it opens, that it's new; then pairing and what needs no agent.
+    /// Checks a call's envelope: which phone sent it, that its box opens, and that it is new. It then handles pairing,
+    /// unpairing and event streams, which need no agent, and passes any other call on as an `ask`.
     func admit(_ sent: Sent) -> Admitted {
         guard let id = sent.device, let box = sent.box else { return .refused(401) }
         var device: PhoneDevice, ask: Ask, fresh = false
@@ -48,7 +50,7 @@ extension PhoneBridge {
         guard device.admit(ask.n) else { return .refused(409) }
         devices[id] = device
         if fresh {
-            pairing = nil   // one phone a link
+            pairing = nil   // a link pairs one phone only
             let key = device.key.withUnsafeBytes { Data($0).base64URL }
             guard
                 Log.session.attempt("keeping a phone's key", { try Keychain.set(key, account: "phone.device.\(id)") })
@@ -63,8 +65,8 @@ extension PhoneBridge {
         let done = Self.sealed { try PhoneSeal.seal(Reply(status: 204), about: "r\(number)", key: key) }
         switch ask.path {
         case "pair":
-            // The phone names the key it keeps (the link may stay in an address, or on a clipboard): the link's
-            // sealed this one answer and opens nothing after it.
+            // The phone sends a key of its own to keep, because the link may stay in an address bar or on a
+            // clipboard. The link's key seals this one answer and opens nothing after it.
             guard fresh, let mine = ask.body?["key"]?.string.flatMap(Data.init(base64URL:)), mine.count == 32,
                 let rekeyed = Self.sealed({
                     try PhoneSeal.seal(
@@ -85,7 +87,8 @@ extension PhoneBridge {
         }
     }
 
-    /// A call's inside: which of the daemon's methods answers which path, asked as the user (`Asker`).
+    /// Answers what is inside a call. Each path maps to one of the daemon's methods, which is called as the user
+    /// (`Asker`).
     func answer(_ ask: Ask, from device: String) async -> Reply {
         let method = ask.method ?? "GET", path = ask.path ?? "", sent = ask.body
         switch (method, path) {
@@ -94,9 +97,10 @@ extension PhoneBridge {
             let agents = shown.values.sorted { ($0["statusAt"]?.string ?? "") > ($1["statusAt"]?.string ?? "") }
             var body: [String: JSONValue] = [
                 "mac": .string(Self.macName), "agents": .array(agents.map(JSONValue.object)),
-                "stops": .bool(true)   // `agents/<id>/stop` is answered: the page shows its Stop
+                "stops": .bool(true)   // This Mac answers `agents/<id>/stop`, so the page shows Stop.
             ]
-            // The page Kelp serves now: a phone that runs an older one (Kelp updated while it stayed open) reloads.
+            // The version of the page that Kelp serves now. A phone that runs an older page (because Kelp updated
+            // while the page stayed open) reloads.
             if server != nil, let page = PhoneHTTP.pageVersion { body["page"] = .string(page) }
             body.merge(await projectsAndKinds()) { _, new in new }
             return Reply(status: 200, body: .object(body))
@@ -127,8 +131,8 @@ extension PhoneBridge {
                 _ = try await call(SessionMarkRead(id: id))
                 return Reply(status: 204)
             case "stop":
-                // Esc, as if the user pressed it in the agent's terminal: the agent stops what it is doing and waits.
-                // Nothing ends.
+                // Sends Esc, as if the user pressed it in the agent's terminal. The agent stops what it is doing and
+                // waits, and the session doesn't end.
                 _ = try await call(SessionWrite(id: id, text: "\u{1B}"))
                 return Reply(status: 204)
             case "choose":
@@ -143,14 +147,15 @@ extension PhoneBridge {
                 return Reply(status: 204)
             default:
                 var agent = agent(session)
-                // Limit: the end of a reply longer than this; the relay passes a megabyte at most.
+                // Limit: only the last 200,000 characters of a longer reply go out, because the relay passes a
+                // megabyte at most.
                 let reply = try await call(SessionLastReply(id: id)).map { String($0.suffix(200_000)) }
                 agent["lastReply"] = reply.map(JSONValue.string) ?? .null
                 if let turns = await turns(of: session) { agent["turns"] = .array(turns) }
                 return Reply(status: 200, body: .object(agent))
             }
         } catch {
-            return .failed(403, error.rpcMessage)   // the Mac said no: the phone shows its words
+            return .failed(403, error.rpcMessage)   // The Mac refused, and the phone shows the Mac's message.
         }
     }
 }

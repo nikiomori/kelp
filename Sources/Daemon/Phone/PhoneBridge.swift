@@ -4,10 +4,11 @@ import Foundation
 import SystemConfiguration
 import os
 
-/// The agents on a phone (Settings › Phone; off until `phone.relay` has an address). The phone opens the relay's page,
-/// and the relay passes its calls to the connection this Mac keeps open to it, so no Mac needs an address of its own.
-/// It lives in the daemon, so it works with Kelp's window closed, and its calls are answered as the daemon's own
-/// (`Asker`), which count as the user's, as a phone's Allow has to.
+/// Shows this Mac's agents on a phone (Settings › Phone). It is off until Settings › Phone gives it a way (`Way`).
+/// Through a relay, the phone opens the relay's page, and the relay passes the phone's calls down a connection that
+/// this Mac keeps open to it, so the Mac needs no address of its own. The bridge lives in the daemon, so it works with
+/// Kelp's window closed. It answers calls as the daemon's own (`Asker`), and those count as the user's, as a phone's
+/// Allow has to.
 ///
 /// Unlike ntfy's channel (PhonePush.swift), whose address is its only secret and which therefore only sends news, a
 /// phone here also answers. Each phone holds a key from its pairing link that the relay never sees, every call is
@@ -15,22 +16,24 @@ import os
 /// and which phone a call is for, and nothing else. Limit: the page itself comes from the relay, so a relay that served
 /// a different page could take a key.
 actor PhoneBridge {
-    /// A method of the daemon's, answered as a call of its own: its name and params, the result as JSON.
+    /// Calls a daemon method as if the daemon made the call itself. It takes the method's name and params and returns
+    /// the result as JSON.
     typealias Asker = @Sendable (String, JSONValue) async throws -> Data
-    /// What the daemon tells it, in the order it happened (`hear`).
+    /// The news that the daemon sends the bridge through `hear`, taken in the order it happened.
     enum News: Sendable {
         case started(Asker), settings, session(Session), removed(String), stop
         case push(title: String, body: String, agent: String)
     }
 
     let store: Store, settings: SettingsStore, setup: SessionSetup, live: SessionTable
-    /// Where the agents keep their conversations, what waits on a disk or a program, and Kelp's home.
+    /// `conversations` is where the agents keep their conversations, `offloads` holds the slots for work that waits on
+    /// a disk or a program, and `root` is Kelp's home.
     let conversations: Conversations, offloads: Slots, root: URL
     private let news: AsyncStream<News>.Continuation
-    /// Whether any phone takes pushes, for `ExtensionEvents`, which asks from its own queue.
+    /// Whether any phone takes pushes. It sits behind a lock because `ExtensionEvents` asks from its own queue.
     private let pushes = OSAllocatedUnfairLock(initialState: false)
     let http = URLSession(configuration: .ephemeral)
-    var asker: Asker?   // while the daemon serves
+    var asker: Asker?   // Set while the daemon serves.
 
     struct Relay: Equatable {
         var base: URL, mac: String, secret: String
@@ -41,15 +44,16 @@ actor PhoneBridge {
             return request
         }
     }
-    /// An event stream a phone holds open: its lines go out one at a time, in order, to the relay or down the phone's
-    /// own connection to this Mac. `end`: the phone is told it's over (`telling`), and nothing more is written.
+    /// An event stream that a phone holds open. Its lines go out one at a time and in order, either to the relay or
+    /// down the phone's own connection to this Mac. `end` closes the stream: with `telling` set, the phone is told the
+    /// stream is over. Nothing more is written after that.
     struct Stream {
         var device: String, key: SymmetricKey, number: Int64, sent = 0
         var write: @Sendable (String) -> Void = { _ in }
         var end: @Sendable (_ telling: Bool) -> Void = { _ in }
     }
-    /// How a phone reaches this Mac (`phone.via`): through a relay, or straight to the page kelpd serves itself, over
-    /// Tailscale or at an address of the user's own.
+    /// How a phone reaches this Mac (`phone.via`). It goes through a relay, or straight to the page that kelpd serves
+    /// itself, either over Tailscale or at an address the user gives.
     enum Way: Equatable {
         case relay(URL)
         case tailscale(port: Int)
@@ -62,22 +66,23 @@ actor PhoneBridge {
             }
         }
     }
-    var way: Way?   // nil: off
+    var way: Way?   // nil while Phone is off
     private var relay: Relay?
     private var following: Task<Void, Never>?
     var server: PhoneServer?
     /// This Mac's name in its tailnet once Tailscale serves the page ("https://mac.tail1234.ts.net:8443").
     var tailnet: String?
-    /// Tailscale's steps as last looked, while it's the way.
+    /// The Tailscale setup steps as last checked, while Tailscale is the way.
     var tailscaleSteps: TailscaleSteps?
     var connected = false, failure: String?
     private var record: PhoneRecord?
     var devices: [String: PhoneDevice] = [:]
     var pairing: (key: SymmetricKey, link: String, until: Date)?
     var streams: [String: Stream] = [:]
-    /// The agents as the phones were last told.
+    /// Each agent as the phones were last told of it, by session id.
     var shown: [String: [String: JSONValue]] = [:]
-    /// Each project's icon file by its folder, nil for none, and when it was looked for (PhoneBridge+Projects.swift).
+    /// The icon file of each project, keyed by the project's folder, with nil when it has none, and when the file was
+    /// looked for (PhoneBridge+Projects.swift).
     var iconFiles: [String: (file: String?, found: Date)] = [:]
 
     init(
@@ -101,7 +106,7 @@ actor PhoneBridge {
         }
     }
 
-    /// From any thread; taken in the order told.
+    /// Passes news to the bridge from any thread. The bridge takes the news in the order it was told.
     nonisolated func hear(_ one: News) {
         news.yield(one)
         if case .stop = one { news.finish() }
@@ -127,7 +132,8 @@ actor PhoneBridge {
 // MARK: - On and off, what's kept
 
 extension PhoneBridge {
-    /// The way Settings › Phone names. Nothing chosen but a relay's address there: a relay, as Kelp 0.14 kept it.
+    /// Returns the way that Settings › Phone names. When no way is chosen but a relay's address is set, the way is that
+    /// relay, as Kelp 0.14 stored it.
     private func wanted() -> Way? {
         let port = Int(settings[SettingKeys.phonePort])
         let relay = PhonePush.url(settings[SettingKeys.phoneRelay])
@@ -140,8 +146,8 @@ extension PhoneBridge {
         }
     }
 
-    /// Follows Settings › Phone: the relay's connection or this Mac's own server, and nothing once the setting is off
-    /// or the daemon stops.
+    /// Brings the bridge in line with Settings › Phone. It runs the relay's connection or this Mac's own server, and
+    /// neither once the setting is off or the daemon stops.
     private func apply() {
         let want = asker == nil ? nil : wanted()
         guard want != way else { return }
@@ -168,8 +174,9 @@ extension PhoneBridge {
         }
     }
 
-    /// This Mac's id and secret at the relay and the phones paired before; made on the first turn-on. A Mac whose
-    /// secret is gone (another keychain) is a new one to the relay, which knows an id by the secret it first came with.
+    /// Loads this Mac's id and secret at the relay, and the phones paired before. The first turn-on makes the id and
+    /// secret. A Mac whose secret is gone (on another keychain, say) is a new Mac to the relay, because the relay knows
+    /// an id by the secret that first came with it.
     private func load() -> (mac: String, secret: String)? {
         let kept = Log.session.attempt("reading the phones") {
             try store.daemonState(PhoneRecord.key, as: PhoneRecord.self)
@@ -228,7 +235,8 @@ extension PhoneBridge {
                 .sorted { ($0.name, $0.id) < ($1.name, $1.id) })
     }
 
-    /// The link carries a key, for one phone and ten minutes. The phone that seals "pair" with it keeps it.
+    /// Makes a pairing link that carries a key for one phone, good for ten minutes. The phone that seals its "pair"
+    /// call with that key keeps the key.
     func pair() throws -> PhoneState {
         guard way != nil, let mac = record?.mac else { throw RPCError.invalidParams("Turn Phone on first.") }
         guard let address else {
@@ -262,7 +270,7 @@ extension PhoneBridge {
 // MARK: - Agents
 
 extension PhoneBridge {
-    /// A method of the daemon's, asked as the user.
+    /// Calls a daemon method as the user and decodes its result.
     func call<Method: RPCMethod>(_ method: Method) async throws -> Method.Result {
         guard let asker else { throw RPCError.internalError("The Mac is not answering.") }
         let result = try await asker(Method.name, try method.params() ?? .null)
@@ -294,7 +302,7 @@ extension PhoneBridge {
             workspace: worktree?.displayName ?? "")
     }
 
-    /// A session's saved change: the phones hear of an agent that looks different now, or went.
+    /// Handles a saved change to a session. The phones hear of an agent that looks different now, or that is gone.
     private func tell(_ session: Session) {
         guard way != nil else { return }
         guard PhoneAgent.shown(session) else {
@@ -311,7 +319,7 @@ extension PhoneBridge {
 // MARK: - Push
 
 extension PhoneBridge {
-    /// This Mac's signing key for pushes, made when the first phone asks for it.
+    /// Returns this Mac's signing key for pushes. The key is made when the first phone asks for it.
     func vapid() -> P256.Signing.PrivateKey? {
         if let kept = Keychain.get("phone.vapid").flatMap(Data.init(base64URL:)),
             let key = Self.sealed({ try P256.Signing.PrivateKey(rawRepresentation: kept) })
@@ -325,7 +333,8 @@ extension PhoneBridge {
         return kept == nil ? nil : key
     }
 
-    /// To every phone that takes pushes; when to tell and what the words may say is `ExtensionEvents`' (PhonePush).
+    /// Sends a push to every phone that takes pushes. `ExtensionEvents` (PhonePush) decides when to send one and what
+    /// its words may say.
     private func push(title: String, body: String, agent: String) {
         let to = devices.compactMapValues(\.push)
         guard way != nil, !to.isEmpty, let key = vapid() else { return }
@@ -338,7 +347,7 @@ extension PhoneBridge {
                 do {
                     let request = try WebPush.request(try JSONEncoder().encode(payload), to: subscription, vapid: key)
                     let status = (try await http.data(for: request).1 as? HTTPURLResponse)?.statusCode ?? 0
-                    // Gone: the phone took the subscription away.
+                    // A 404 or 410 means the phone took the subscription away.
                     if status == 404 || status == 410 { unsubscribed(device, from: subscription) }
                     if status >= 400 { Log.session.error("phone push: its service answered \(status)") }
                 } catch { Log.session.error("phone push: \(error.localizedDescription, privacy: .public)") }

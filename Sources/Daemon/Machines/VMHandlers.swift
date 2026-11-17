@@ -1,18 +1,19 @@
 import Core
 import Foundation
 
-// vm.*: the RPCs, each answered by VMService.
+// The vm.* RPCs. VMService answers each of them.
 
 extension VMList: Handled {
     static let agents = AgentAccess.reads
     func handle(_ vms: VMService) throws -> [VMInfo] { vms.list(sessions: true) }
 }
 
-// Whose turn the screen is: the caller's session as its process says (`Sessions.asker`), what was sent only from outside
-// every session (the user's own terminal or window).
+// The screen's turn goes to the caller's session, as the caller's process tells it (`Sessions.asker`). That is nil
+// only for a request sent from outside every session (the user's own terminal or window).
 extension VMType: Handled {
     static let agents = AgentAccess.acts
-    /// No text types the machine's password (Type Password): into whatever has its focus, which the user looks at first.
+    /// With no text, the request types the machine's password (Type Password) into whatever has the focus in the
+    /// machine. Only the user may send it, because the user looks at what has the focus first.
     var fence: Fence {
         Fence(
             notForAgents: text == nil
@@ -46,17 +47,17 @@ extension VMDetailRead: Handled {
 }
 
 /// Making a machine downloads gigabytes and takes memory from every chat's budget, so the user decides. When an agent
-/// asks, the question appears on its row (Allow / Deny), as a database change does; when the user asks (from Kelp's
-/// window or their own terminal), the machine is made at once.
+/// asks, the question appears on the agent's row (Allow / Deny), as it does for a database change. When the user asks
+/// (from Kelp's window or their own terminal), the machine is made at once.
 extension VMCreate: AsyncHandled {
-    // a machine an agent needs, made only once the user allows it on its row
+    // An agent may ask for a machine it needs, which is made only once the user allows it on the agent's row.
     static let agents = AgentAccess.acts
     func handle(_ asking: VMAsking, conn: Int) async throws -> VMInfo {
         if case .some(let session) = asking.asks.store.agent(origin: Sessions.asker) {
             guard let session, let ls = asking.asks.existing(session) else {
                 throw RPCError.refused("Making a machine is the user's: tell them kelp vm create \(name) makes one.")
             }
-            guard VMs.isName(name) else {   // not asked for one that can't be made
+            guard VMs.isName(name) else {   // the user isn't asked about a name that can't be made
                 throw RPCError.invalidParams(
                     "A machine's name: up to 20 lowercase letters, digits and dashes, starting with a letter.")
             }
@@ -75,7 +76,8 @@ extension VMCreate: AsyncHandled {
         return try await asking.offloads.run { [self] in try asking.vms.create(self) }
     }
 
-    /// What the agent's row asks: "Allow making a machine, deb (Debian 13: about 0.2 GB to download)?".
+    /// Returns the question the agent's row asks, such as "Allow making a machine, deb (Debian 13: about 0.2 GB to
+    /// download)?".
     static func question(_ name: String, image: String?, file: String?) -> String {
         let what =
             switch file.map({ _ in "file" }) ?? image ?? "debian-13" {
@@ -89,14 +91,15 @@ extension VMCreate: AsyncHandled {
     }
 }
 
-/// What answers `vm.create`: the machines, and the sessions whose rows ask the user for an agent's.
+/// What `vm.create` is answered with: the machines, and the sessions whose rows ask the user on an agent's behalf.
 struct VMAsking: Sendable {
     let vms: VMService, asks: AgentAsks, offloads: Slots
 }
 
 extension VMControl: Handled {
     static let agents = AgentAccess.acts
-    /// Other chats run commands in it: shutting it down or deleting it is the user's (sleeping is fine: the next command wakes it).
+    /// Only the user may shut a machine down or delete it, because other chats run commands in it. An agent may put
+    /// it to sleep, because the next command wakes it.
     var fence: Fence {
         Fence(
             notForAgents: [.stop, .delete].contains(action)
@@ -107,7 +110,7 @@ extension VMControl: Handled {
 
 extension VMConnect: Handled {
     static let agents = AgentAccess.acts
-    // the folder a command runs in on the machine, the project's own on the Mac
+    // `cwd` is the folder a command runs in on the machine, which is the project's own folder on the Mac.
     var fence: Fence { Fence(writesInFolder: cwd) }
     func handle(_ vms: VMService) throws -> VMConnection { try vms.connect(name, cwd: cwd) }
 }

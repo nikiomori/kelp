@@ -1,8 +1,9 @@
 import Core
 import Foundation
 
-/// Import Connections: what the apps on this Mac keep (`ImportReaders`), read into All my projects as a copy. Passwords
-/// only when the user asked, each keychain item asked of macOS; one "Don't Allow" and the rest come without theirs.
+/// Import Connections copies the connections that the apps on this Mac keep (`ImportReaders`) into All my projects.
+/// Passwords come only when the user asked for them, and Kelp asks macOS for each keychain item. After one "Don't
+/// Allow", the remaining databases come without their passwords.
 extension Databases {
     func importSources(home: URL = URL(fileURLWithPath: NSHomeDirectory())) -> [ImportSource] {
         let found = ImportReaders.apps.compactMap { app -> ImportSource? in
@@ -23,7 +24,8 @@ extension Databases {
     func importRead(_ read: DatabaseImportRead, home: URL = URL(fileURLWithPath: NSHomeDirectory())) throws
         -> [ImportedDatabase]
     {
-        // Known: Kelp has it with its password (or where to read it). One kept without is offered again, to mend.
+        // An entry is known when Kelp has the database with its password (or knows where to read the password). A
+        // library database kept without a password is offered again, so the import can mend it.
         let mine = try library().filter(hasPassword) + connections(read.worktreeId).map(\.database)
         return ImportReaders.read(read.source, home: home, file: read.file).map { entry in
             var item = entry.imported
@@ -54,9 +56,11 @@ extension Databases {
                     Log.store.info("db import: \(db.name)'s password: \(error)")
                 }
             }
-            // Not taken now from another app's keychain: read the first time it's opened, macOS asking then.
+            // A password not taken now from another app's keychain is read when the database is first opened, and
+            // macOS asks the user then.
             if password == nil, let item = entry.keychain { db.passwordIn = item }
-            // One imported before (an older Kelp kept it without its password): mended in place, under its name.
+            // A database imported before (an older Kelp kept it without its password) is mended in place, under its
+            // old name.
             if let old = had.first(where: { Self.sameAddress($0, db) }) {
                 db.name = old.name
                 db.access = old.access
@@ -74,7 +78,7 @@ extension Databases {
             }
             db.name = name
             do {
-                // A nil password keeps one kept.
+                // A nil password leaves the password already in the keychain as it is.
                 outcome.imported.append(try saveInLibrary(databaseImport.worktreeId, db, password: password))
                 taken.insert(name)
                 if password != nil { outcome.withPasswords += 1 } else if db.passwordIn != nil { outcome.later += 1 }
@@ -97,9 +101,9 @@ extension Databases {
         db.engine.isFile || db.passwordIn != nil || Keychain.get(Self.libraryAccount(db.name)) != nil
     }
 
-    /// The same server and database, or the same file.
+    /// Whether two entries name the same server and database, or the same file.
     static func sameAddress(_ databaseInfo: DatabaseInfo, _ b: DatabaseInfo) -> Bool {
-        // DBeaver keeps its user with the password: one without a user can be either
+        // DBeaver keeps the user with the password, so an entry without a user matches any user
         databaseInfo.place == b.place
             && (databaseInfo.engine.isFile || databaseInfo.user == nil || b.user == nil || databaseInfo.user == b.user)
     }

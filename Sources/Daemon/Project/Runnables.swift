@@ -2,13 +2,14 @@ import Core
 import Foundation
 import GitKit
 
-/// What a project's own files offer to run (`run.detect`, `run.start`): package.json scripts, Makefile and justfile
-/// targets, compose services, Python apps, Procfile processes, cargo / go / swift / gradle / maven / mix, VS Code and Zed
-/// tasks. One shell script prints the files that name commands and the programs on PATH; it runs in the workspace's
-/// folder, here or on a remote project's host (one ssh call), so both are read the same way. Only these names, in the
-/// folder, its subfolders and apps/* packages/* services/*: no walk over the tree.
+/// Finds what a project's own files offer to run (`run.detect`, `run.start`). That covers package.json scripts,
+/// Makefile and justfile targets, compose services, Python apps, Procfile processes, cargo / go / swift / gradle /
+/// maven / mix, and VS Code and Zed tasks. One shell script prints the files that name commands and the programs on
+/// PATH. It runs in the workspace's folder, here or on a remote project's host (one ssh call), so both are read the
+/// same way. It looks only for these names, in the folder, its subfolders and apps/* packages/* services/*, and never
+/// walks the whole tree.
 enum Runnables {
-    /// Read, up to 64 KB each.
+    /// Files whose contents are read, up to 64 KB each.
     static let files = [
         "package.json", "deno.json", "deno.jsonc", "Makefile", "makefile", "GNUmakefile", "justfile", "Justfile",
         "compose.yaml", "compose.yml", "docker-compose.yml", "docker-compose.yaml", "Dockerfile", "pyproject.toml",
@@ -28,13 +29,14 @@ enum Runnables {
         "swift",
         "gradle", "mvn", "mix", "php"
     ]
-    /// The likeliest dev server first: what ⌘R guesses when nothing was run in the project yet.
+    /// Names of dev servers, likeliest first, which is what ⌘R guesses from when nothing was run in the project yet.
     static let runNames = [
         "dev", "start", "serve", "runserver", "uvicorn", "flask", "phx.server", "bin/dev", "web", "server", "bootRun",
         "run", "up", "main.py", "app.py"
     ]
 
-    /// Files as \036path\037text (a mark has no text), Go's cmd/* folders as marks, then \035 and the programs found.
+    /// The script prints each file as \036path\037text (a mark has no text) and Go's cmd/* folders as marks. Then it
+    /// prints \035 and the programs found on PATH.
     static var script: String {
         let quoted = { (names: [String]) in names.map(ShellQuote.word).joined(separator: " ") }
         return #"for d in . * apps/* packages/* services/*; do [ -d "$d" ] || continue; "#
@@ -46,9 +48,9 @@ enum Runnables {
     }
 
     struct Found {
-        /// Path in the workspace → its text ("" for a mark).
+        /// Each path in the workspace, mapped to its text ("" for a mark).
         var files: [String: String] = [:]
-        /// nil: the list didn't come (the script was cut short), so nothing is said to be missing.
+        /// nil when the list of programs didn't come (the script was cut short), so no program is said to be missing.
         var tools: Set<String>?
         func text(_ folder: String, _ name: String) -> String? { files[join(folder, name)] }
         func has(_ folder: String, _ name: String) -> Bool { files[join(folder, name)] != nil }
@@ -56,8 +58,8 @@ enum Runnables {
 
     static func join(_ folder: String, _ name: String) -> String { folder.isEmpty ? name : folder + "/" + name }
 
-    /// What the script printed. Anything before the first file is the host shell's greeting.
-    /// Limit: a file holding \036 or \037 itself is cut there.
+    /// Parses what the script printed. Anything before the first file is the host shell's greeting.
+    /// Limit: a file that itself holds \036 or \037 is cut off at that byte.
     static func parse(_ out: String) -> Found {
         var found = Found()
         let halves = out.split(separator: "\u{1D}", maxSplits: 1, omittingEmptySubsequences: false)
@@ -74,7 +76,8 @@ enum Runnables {
         return found
     }
 
-    /// The folder a listed path is in: names with a "/" of their own (app/main.py, bin/dev) are matched first.
+    /// Returns the folder a listed path is in. Longer names are matched first, so names with a "/" of their own
+    /// (app/main.py, bin/dev) win.
     static func folder(of path: String) -> String {
         for name in (files + marks).sorted(by: { $0.count > $1.count }) where path == name || path.hasSuffix("/" + name)
         {
@@ -84,7 +87,7 @@ enum Runnables {
         return String(path[..<range.lowerBound].dropLast(path[..<range.lowerBound].hasSuffix("/") ? 1 : 0))
     }
 
-    /// The commands of every folder, the workspace's own folder first; a command found twice in one folder (a
+    /// Returns the commands of every folder, the workspace's own folder first. A command found twice in one folder (a
     /// Makefile's `dev: npm run dev`) is listed once.
     static func options(_ found: Found) -> [RunOption] {
         let folders = Set(found.files.keys.map(folder(of:))).sorted {
@@ -96,7 +99,8 @@ enum Runnables {
         return Array(all.filter { seen.insert($0.folder + "\u{0}" + $0.command).inserted }.prefix(60))
     }
 
-    /// The dev server ⌘R would pick: the best-ranked runnable one, its own folder before subfolders.
+    /// Returns the id of the dev server ⌘R would pick. That is the best-ranked run command whose program is there,
+    /// with the workspace's own folder before subfolders.
     static func guess(_ options: [RunOption]) -> String? {
         let order = { (entry: (offset: Int, element: RunOption)) in
             (rank(entry.element.name), entry.element.folder.isEmpty ? 0 : 1, entry.offset)
@@ -133,8 +137,8 @@ enum Runnables {
 
     // MARK: the files
 
-    /// package.json's scripts (its pre/post hooks left out) through its package manager, and deno.json's tasks. No
-    /// node_modules here or above: installing them is an entry of its own.
+    /// Returns package.json's scripts (without its pre/post hooks), run through its package manager, and deno.json's
+    /// tasks. When there is no node_modules here or in the workspace's folder, installing it is an entry of its own.
     static func node(_ found: Found, _ dir: String) -> [RunOption] {
         var out: [RunOption] = []
         if let json = found.text(dir, "package.json").flatMap(JSONC.object) {
@@ -158,8 +162,8 @@ enum Runnables {
         return out
     }
 
-    /// The package manager: package.json's `packageManager` field, else the one whose lock file is here or in the
-    /// workspace's folder (for a monorepo), else npm.
+    /// Returns the package manager. That is package.json's `packageManager` field, or else the one whose lock file is
+    /// here or in the workspace's folder (for a monorepo), or else npm.
     static func manager(_ found: Found, _ dir: String, _ field: String?) -> String {
         if let name = field?.split(separator: "@").first.map(String.init),
             ["npm", "pnpm", "yarn", "bun"].contains(name)
@@ -176,7 +180,7 @@ enum Runnables {
     // swiftlint:disable:next force_try
     static let justRecipe = try! NSRegularExpression(pattern: #"^@?([A-Za-z0-9][A-Za-z0-9_-]*)(?:\s+[^:=\n]*)?:(?!=)"#)
 
-    /// A Makefile's targets ("## text" after one is its description) and a justfile's recipes.
+    /// Returns a Makefile's targets and a justfile's recipes. A "## text" after a target is its description.
     static func make(_ found: Found, _ dir: String) -> [RunOption] {
         var out: [RunOption] = []
         if let file = ["Makefile", "makefile", "GNUmakefile"].first(where: { found.has(dir, $0) }),
@@ -198,7 +202,7 @@ enum Runnables {
         return out.prefix(30).sorted { byRank($0.name, $1.name) }
     }
 
-    /// Each line's first group and, when it matched, its second.
+    /// Returns the first group of each matching line and, when it matched, the second group too.
     static func matches(_ re: NSRegularExpression, _ text: String) -> [(String, String?)] {
         text.split(whereSeparator: \.isNewline).compactMap { line in
             let lineText = String(line)
@@ -214,7 +218,8 @@ enum Runnables {
         }
     }
 
-    /// The whole compose file, then each service (its first published port beside it); a lone Dockerfile built and run.
+    /// Returns the whole compose file, then each service with its first published port beside it. Without a compose
+    /// file, a lone Dockerfile is built and run.
     static func compose(_ found: Found, _ dir: String) -> [RunOption] {
         guard
             let file = ["compose.yaml", "compose.yml", "docker-compose.yml", "docker-compose.yaml"].first(where: {
@@ -238,7 +243,7 @@ enum Runnables {
     // swiftlint:disable:next force_try
     static let portLine = try! NSRegularExpression(pattern: #"^\s*-\s*["']?(?:[\d.]+:)?(\d+)(?:-\d+)?:\d+"#)
 
-    /// The keys under `services:` (at the first indent found there) and the first host port each publishes.
+    /// Returns the keys under `services:` (at the first indent found there), with the first host port each publishes.
     static func services(_ text: String) -> [(name: String, port: String?)] {
         var out: [(name: String, port: String?)] = [], inside = false, indent: Int?
         for line in text.split(whereSeparator: \.isNewline).map(String.init)

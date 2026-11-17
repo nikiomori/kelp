@@ -2,12 +2,14 @@ import Core
 import Foundation
 import os
 
-/// What listens on a remote project's host, read in one call over its shared connection: the folder a process runs in says
-/// whose it is, so an agent's server and a terminal's count, and a tmux or nohup doesn't hide them. Own processes only.
+/// Finds what listens on a remote project's host, in one call over the host's shared connection. The folder a process
+/// runs in says which project it belongs to, so an agent's server and a terminal's both count, and tmux or nohup
+/// doesn't hide them. Only the user's own processes count.
 enum HostPorts {
     struct Listener: Equatable { var port: Int, pid: Int32, command: String }
 
-    /// `\036port pid program` a line, so a shell's greeting can't pass for one. ss on Linux, lsof where there's none.
+    /// Returns the script, which prints one `\036port pid program` line per listener. The \036 keeps a shell's greeting
+    /// from passing for a line. It uses ss on Linux, and lsof where there is no ss.
     static func script(_ path: String) -> String {
         let ss =
             #"ss -ltnpH 2>/dev/null | sed -n 's/.*[]:]\([0-9][0-9]*\)  *[^ ]*  *users:(("\([^"]*\)",pid=\([0-9]*\),.*/\1 \3 \2/p'"#
@@ -37,29 +39,32 @@ enum HostPorts {
     }
 }
 
-/// Ports of remote projects' hosts brought to this Mac, one list for runs, clicks and the ones asked for by hand. It's
-/// kept in the store (`daemonState`, which only this writes): a daemon restart leaves the connection and its
-/// forwardings, and a dropped connection comes back with the same ports here, so a page's address and cookies stay.
+/// The ports of remote projects' hosts that are brought to this Mac. It is one list for runs, for clicks and for the
+/// ports asked for by hand. The list is kept in the store (`daemonState`, which only this class writes). A daemon
+/// restart leaves the connection and its forwardings in place, and a dropped connection comes back with the same ports
+/// here, so a page's address and cookies stay.
 final class Forwards: Sendable {
     struct Record: Codable, Equatable, Sendable {
         /// `target` is the address as the host reaches it, such as "localhost:8000". `here` is the port on this Mac.
         var host, target: String, here: Int, worktree: String, manual: Bool
-        /// Seen listening once, then gone from this many looks in a row.
+        /// `seen` is set once the port was seen listening. `misses` counts the looks in a row since then that didn't
+        /// find it.
         var seen = false, misses = 0
         var port: Int { target.split(separator: ":").last.flatMap { Int($0) } ?? 0 }
     }
     private struct State: Sendable {
         var records: [Record]
-        /// Host → the connection the forwardings were last made on.
+        /// For each host, the connection that the forwardings were last made on.
         var connections: [String: String] = [:]
-        /// Workspace → its last answer, for when the host can't be asked.
+        /// For each workspace, the last list of its ports, for when the host can't be asked.
         var seen: [String: [PortsList.Port]] = [:]
     }
     private static let key = "ports.forwards"
     private let store: Store
     private let state: OSAllocatedUnfairLock<State>
-    /// Each change and its save, one at a time: saved apart from its edit, an older copy could land after a newer one
-    /// and stay. Taken before `state`, never inside it (that lock is held for no save).
+    /// Makes each change and its save happen one at a time. If a save ran apart from its edit, an older copy could land
+    /// after a newer one and stay. This lock is taken before `state`, never inside it, because `state` is never held
+    /// during a save.
     private let saving = NSLock()
 
     init(store: Store) {
@@ -81,7 +86,7 @@ final class Forwards: Sendable {
         }
     }
 
-    /// "8000", "localhost:8000" or "db.internal:5432".
+    /// Reads a target typed as "8000", "localhost:8000" or "db.internal:5432", and returns it as host:port.
     static func target(_ text: String) throws -> String {
         let trimmed = text.trimmingCharacters(in: .whitespaces),
             full = Int(trimmed) != nil ? "localhost:" + trimmed : trimmed
@@ -91,15 +96,16 @@ final class Forwards: Sendable {
         return full
     }
 
-    /// The port on this Mac: the one it had, or the same number when it's free, else the next free one of ten. Connects
-    /// when the connection is gone: this is someone asking for the page.
+    /// Forwards `target` and returns its port on this Mac. That is the port it had before, or else the same number when
+    /// it is free, or else the next free one of ten. It connects when the connection is gone, because this call means
+    /// someone is asking for the page.
     func forward(_ target: String, in worktree: String, _ remote: RemoteHost, manual: Bool = false) throws -> Int {
         if remote.connection == nil { try remote.connect() }
         let old = state.withLock { s in s.records.first { $0.host == remote.host && $0.target == target } }
         let asked = target.split(separator: ":").last.flatMap { Int($0) } ?? 0
-        let first = old?.here ?? (asked < 1024 ? asked + 10000 : asked)   // this Mac binds those only for root: :80 → :10080
+        let first = old?.here ?? (asked < 1024 ? asked + 10000 : asked)   // only root binds those here, so :80 → :10080
         for here in first..<first + 10 {
-            do { try remote.control("forward", Self.spec(here, target)) } catch { continue }   // taken here: the next one
+            do { try remote.control("forward", Self.spec(here, target)) } catch { continue }   // in use here, try next
             var updated =
                 old ?? Record(host: remote.host, target: target, here: here, worktree: worktree, manual: manual)
             updated.here = here
@@ -114,7 +120,7 @@ final class Forwards: Sendable {
         throw RPCError.invalidParams("No free port on this Mac near \(first).")
     }
 
-    /// A printed address as this Mac reaches it; as it was when it can't be brought here.
+    /// Returns a printed address as this Mac reaches it, or the address unchanged when its port can't be brought here.
     func forward(url: String, in worktree: String, _ remote: RemoteHost) -> String {
         guard var components = URLComponents(string: url), let port = components.port else { return url }
         let target = (components.host == "127.0.0.1" ? "127.0.0.1" : "localhost") + ":\(port)"
@@ -131,14 +137,16 @@ final class Forwards: Sendable {
         change { records in records.removeAll { gone.contains($0) } }
     }
 
-    /// `port`'s record in the workspace: a port asked for by hand may be on another machine than the host.
+    /// Returns the target that `port` forwards to in the workspace, because a port asked for by hand may be on another
+    /// machine than the host.
     func target(port: Int, in worktree: String) -> String {
         state.withLock { s in s.records.first { $0.worktree == worktree && $0.port == port }?.target }
             ?? "localhost:\(port)"
     }
 
-    /// What the workspace's folder serves on the host, and where each is here. Never opens a connection (Kelp must not
-    /// redial a host someone closed the lid on): without one, the last answer, marked offline.
+    /// Returns what the workspace's folder serves on the host, and the port each one has on this Mac. It never opens a
+    /// connection, because Kelp must not redial a host that someone closed the lid on. Without a connection it returns
+    /// the last answer, marked offline.
     func ports(_ worktree: Worktree, _ remote: RemoteHost, sessions: [String]) -> [PortsList.Port] {
         let args =
             [remote.ssh] + remote.sshArgs(tty: false) + ["sh -c " + ShellQuote.word(HostPorts.script(remote.path))]
@@ -155,7 +163,8 @@ final class Forwards: Sendable {
         prune(worktree, found, remote)
         let records = state.withLock { s in s.records.filter { $0.worktree == worktree.id } }
         func here(_ port: Int) -> Int? { records.first { $0.port == port }?.here }
-        // Which session started it isn't known on the host: alone in the workspace, it's that one.
+        // The host doesn't tell which session started a server. When the workspace has only one session, the server
+        // counts as that session's.
         var ports = found.map {
             let session = sessions.count == 1 ? sessions[0] : ""
             return PortsList.Port(
@@ -173,8 +182,9 @@ final class Forwards: Sendable {
         return answer
     }
 
-    /// A new connection has none of the forwardings the last one had. One never seen listening can't be told from a
-    /// server long gone, so it stops here.
+    /// Makes the forwardings again on a new connection, which has none of the ones the last connection had. A
+    /// forwarding never seen listening can't be told from a server long gone, so it is dropped here unless it was asked
+    /// for by hand.
     private func restore(on connection: String, _ remote: RemoteHost) {
         let again = state.withLock { current -> [Record] in
             defer { current.connections[remote.host] = connection }
@@ -190,7 +200,8 @@ final class Forwards: Sendable {
         change { $0.removeAll { r in again.contains(r) && r.host == host && !r.seen && !r.manual } }
     }
 
-    /// A server that stopped takes its forwarding with it, two looks later: one look can fall in a restart.
+    /// Drops the forwarding of a server that stopped, two looks later, because a single look can fall during a restart.
+    /// A forwarding asked for by hand stays.
     private func prune(_ worktree: Worktree, _ found: [HostPorts.Listener], _ remote: RemoteHost) {
         let id = worktree.id
         let open = found.map(\.port)
@@ -212,19 +223,20 @@ final class Forwards: Sendable {
         }
     }
 
-    /// This Mac only, whatever ~/.ssh/config says of GatewayPorts.
+    /// Returns the forwarding's spec, bound to this Mac only, whatever ~/.ssh/config says of GatewayPorts.
     static func spec(_ here: Int, _ target: String) -> String { "127.0.0.1:\(here):\(target)" }
 }
 
 extension RemoteHost {
-    /// The shared connection as it names itself (its process), nil with none. Changes when the connection does.
+    /// The name the shared connection gives itself (its process), or nil when there is none. The name changes when the
+    /// connection does.
     var connection: String? {
         Subprocess.printed(
             [ssh, "-o", "ControlPath=\(controlDir)/%C", "-O", "check", "--", host], path: "/usr/bin:/bin", timeout: 3)
     }
 
-    /// Opens the shared connection and leaves it there; ssh's own reason when it can't (a key it can't use, a host it
-    /// doesn't know, one that wants a password).
+    /// Opens the shared connection and leaves it open. When it can't, it throws ssh's own reason, such as a key ssh
+    /// can't use, a host it doesn't know, or a host that wants a password.
     func connect() throws {
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = "/usr/bin:/bin"
@@ -239,7 +251,7 @@ extension RemoteHost {
         }
     }
 
-    /// `ssh -O`: asks the shared connection's master, which adds or drops a forwarding without a new login.
+    /// Runs `ssh -O`, which asks the master of the shared connection to add or drop a forwarding without a new login.
     func control(_ op: String, _ spec: String) throws {
         try Subprocess.output(
             [ssh, "-o", "ControlPath=\(controlDir)/%C", "-O", op, "-L", spec, "--", host], cwd: NSHomeDirectory())

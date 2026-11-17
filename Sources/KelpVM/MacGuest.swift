@@ -2,15 +2,18 @@ import Core
 import Foundation
 import Virtualization
 
-/// What a macOS machine needs that a Linux one doesn't: Apple's boot loader and platform (its hardware model, identity and
-/// auxiliary storage, made when it's installed), a Mac display, keyboard and trackpad; its installation from a restore
-/// image; and reaching its sshd, which listens on TCP only, at its address on the NAT network.
+/// What a macOS machine needs that a Linux one doesn't. That is Apple's boot loader and platform (the hardware model,
+/// identity and auxiliary storage, made when the machine is installed), and a Mac display, keyboard and trackpad. It
+/// also covers installing macOS from a restore image, and reaching the machine's sshd, which listens on TCP only, at
+/// the machine's address on the NAT network.
 @MainActor
 enum MacGuest {
-    /// 1280 × 800 points at 2×: sharp on a Retina screen, small enough for an agent's screenshots.
+    /// The display is 1280 × 800 points at 2×, which is sharp on a Retina screen and small enough for an agent's
+    /// screenshots.
     static let display = (width: 2560, height: 1600, ppi: 220)
 
-    /// Virtualization runs macOS only on Apple silicon: an Intel Mac (a universal build's other half) says so.
+    /// Virtualization runs macOS only on Apple silicon, so on an Intel Mac (the other half of a universal build) this
+    /// error says so.
     static let needsAppleSilicon = VMError("macOS machines need a Mac with Apple silicon.")
 
     static func configure(_ config: VZVirtualMachineConfiguration, folder: URL) throws {
@@ -42,8 +45,8 @@ enum MacGuest {
         #endif
     }
 
-    /// The restore image's hardware model, a new identity and auxiliary storage, a sparse disk: then macOS installed on it,
-    /// `progress` 0…1 as it goes.
+    /// Installs macOS into the machine's folder. It first writes the restore image's hardware model, a new identity,
+    /// new auxiliary storage and a sparse disk, and then installs macOS on that disk. `progress` gets 0…1 as it goes.
     static func install(
         _ machine: VMMachine, folder: URL, ipsw: URL, progress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws {
@@ -83,7 +86,7 @@ enum MacGuest {
         #endif
     }
 
-    /// Apple's latest restore image this Mac can run: its address and build.
+    /// Returns the address, build and version of Apple's latest restore image that this Mac can run.
     static func latest() async throws -> (url: URL, build: String, version: String) {
         #if arch(arm64)
             let image = try await VZMacOSRestoreImage.latestSupported
@@ -99,7 +102,8 @@ enum MacGuest {
     }
 
     #if arch(arm64)
-        /// The first boot sets the account up by itself, signs in and turns Remote Login on (macOS 27 hosts and guests).
+        /// Returns start options with which the first boot sets the account up by itself, signs in and turns Remote
+        /// Login on. Only macOS 27 hosts and guests can do this.
         static func firstStart(_ machine: VMMachine, password: String) throws -> VZMacOSVirtualMachineStartOptions {
             let options = VZMacOSVirtualMachineStartOptions()
             if #available(macOS 27.0, *) {
@@ -115,7 +119,8 @@ enum MacGuest {
         }
     #endif
 
-    /// Its address on the NAT network: the newest lease bootpd gave its MAC (`1,<mac>`, each byte without its leading zero).
+    /// Returns the machine's address on the NAT network. That is the newest lease bootpd gave the machine's MAC, which
+    /// the leases file writes as `1,<mac>` with each byte missing its leading zero.
     static func address(mac: String) -> String? {
         let want =
             "1,"
@@ -136,9 +141,10 @@ enum MacGuest {
         return best?.ip
     }
 
-    /// The guest's sshd joined to `client` by /usr/bin/nc, which holds the client's socket as its stdin and stdout: macOS's
-    /// Local Network privacy refuses programs of ours an address on the machines' NAT network ("No route to host"), and
-    /// lets the system's own through. `ended` comes on the main queue when it's over.
+    /// Joins `client` to the guest's sshd through /usr/bin/nc, which holds the client's socket as its stdin and stdout.
+    /// nc does it because macOS's Local Network privacy refuses Kelp's own programs an address on the machines' NAT
+    /// network ("No route to host") but lets the system's programs through. `ended` is called on the main queue when
+    /// the connection is over.
     static func bridge(_ client: Int32, to ip: String, ended: @escaping @MainActor @Sendable () -> Void) -> Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/nc")
@@ -155,7 +161,7 @@ enum MacGuest {
         return true
     }
 
-    /// Whether the guest's sshd answers with its banner (through /usr/bin/nc, as `bridge`).
+    /// Returns whether the guest's sshd answers with its banner. It asks through /usr/bin/nc, as `bridge` does.
     nonisolated static func banner(_ ip: String) -> Bool {
         let process = Process(), out = Pipe()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/nc")

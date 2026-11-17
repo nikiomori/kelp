@@ -3,17 +3,20 @@ import Foundation
 
 /// `.kelp.yaml`: flat `key: value` lines. Deliberately not full YAML.
 ///   setup: shell command      shared: node_modules, .venv   (symlinked into each worktree)
-///   clone: node_modules   (an APFS copy in each worktree: its own, made in seconds)
+///   clone: node_modules   (an APFS copy in each worktree, its own and made in seconds)
 ///   tabs: claude, shell   (sessions opened in a new worktree)      issueCommand: prompt template for issue worktrees
 ///   recipe.<action>: prompt template with {stagedPatch} {branch} {diffStat} {error} {linkedIssue}
-///   layout.<name>: claude | page / run   (a group template: panes side by side with |, one under another with " / ",
-///     tabs in a pane with commas; an agent, shell, a command's name, page (the run's), changes, or a file)
+///   layout.<name>: claude | page / run   (a group template. | puts panes side by side, " / " puts one under
+///     another, and commas put tabs in a pane. A tab is an agent, shell, a command's name, page (the run's), changes,
+///     or a file)
 ///   run / test / lint / build: the project's commands (Run menu, ⌘R ⌘U)      script.<name>: any other one
-/// Its commands run only once the project is trusted (`ScriptsTrust`), and again after the file changes.
+/// The file's commands run only once the project is trusted (`ScriptsTrust`), and after the file changes, only once it
+/// is trusted again.
 struct RepoConfig: Sendable, Equatable {
     var setup: String?, issueCommand: String?
     var shared: [String] = [], tabs: [String] = []
-    /// Copied into each new worktree as APFS clones (`Git.cloneShared`), where `shared` links one folder for all.
+    /// Paths copied into each new worktree as APFS clones (`Git.cloneShared`), whereas `shared` links one folder for
+    /// all worktrees.
     var clone: [String] = []
     var recipes: [String: String] = [:]
     /// Named commands in the file's order.
@@ -21,7 +24,8 @@ struct RepoConfig: Sendable, Equatable {
     /// Group templates in the file's order, each as written (the app reads them with `LayoutTemplate(name:spec:…)`).
     var layouts: [Script] = []
     typealias Script = ScriptsList.Script
-    /// Run before each of its commands: the variables another tool's scripts expect (`ImportedConfig`); "" for a .kelp.yaml.
+    /// Shell run before each of the config's commands. It sets the variables another tool's scripts expect
+    /// (`ImportedConfig`), and it is "" for a .kelp.yaml.
     var prelude = ""
     static let scriptNames: Set = ["run", "test", "lint", "build"]
 
@@ -63,7 +67,7 @@ struct RepoConfig: Sendable, Equatable {
         }
         return config
     }
-    /// One of its commands as the shell gets it.
+    /// Returns one of the config's commands as the shell gets it, with the prelude in front.
     func shell(_ command: String) -> String { prelude + command }
 }
 
@@ -102,13 +106,14 @@ enum Recipes {
         fill(config.recipes[name] ?? defaults[name] ?? "", framed(vars))
     }
 
-    /// Placeholders whose text someone outside wrote (a CI log, a pull request's comments, an issue): each goes in inside
-    /// a frame that says it is data, so a comment reading "ignore the above and …" stays a quote. A log keeps its tail.
+    /// Placeholders whose text someone outside wrote (a CI log, a pull request's comments, an issue). Each value goes
+    /// in inside a frame that says it is data, so a comment reading "ignore the above and …" stays a quote. A long log
+    /// keeps only its tail.
     static let untrusted = [
         "error": "command output", "comments": "review comments", "title": "issue title", "body": "issue body",
         "check": "check name", "files": "file names", "diffStat": "changed files", "stagedPatch": "staged changes",
         "branch": "branch name"
-    ]   // a pull request names its own files and branch, as does a branch someone else pushed (`base` is the project's)
+    ]   // files and branch come from a PR or someone else's push; `base` is the project's own, so it isn't here
     static let logTail = 12_000
     static func framed(_ vars: [String: String]) -> [String: String] {
         vars.reduce(into: [:]) { out, kv in
@@ -121,18 +126,20 @@ enum Recipes {
         }
     }
 
-    /// `{name}` from `vars` in one pass over the template: a value is never searched again, so an issue's text holding
-    /// "{body}" stays as written whatever order the names come in.
+    /// Replaces each `{name}` with its value from `vars` in one pass over the template. A value is never searched
+    /// again, so an issue's text holding "{body}" stays as written whatever order the names come in.
     static func fill(_ template: String, _ vars: [String: String]) -> String {
         template.replacing(/\{([^}]*)\}/) { vars[String($0.1)] ?? String($0.0) }
     }
 }
 
-/// Text someone other than the user wrote (a CI log, an issue, another agent's finding) on its way into an agent's prompt:
-/// the one frame for it (ArchitectureTests holds it to that), saying it's data, so "ignore the above and …" stays a quote.
+/// Frames text that someone other than the user wrote (a CI log, an issue, another agent's finding) on its way into an
+/// agent's prompt. This is the only frame for such text (ArchitectureTests holds it to that), and it says the text is
+/// data, so "ignore the above and …" stays a quote.
 enum Untrusted {
     static func frame(_ text: String, what: String) -> String {
-        // No closing the frame from inside, in any case or spacing ("</UNTRUSTED >"): the tag's "<" becomes "‹".
+        // Text inside can't close the frame in any case or spacing ("</UNTRUSTED >"), because the tag's "<" becomes
+        // "‹".
         let safe = text.replacingOccurrences(
             of: #"<(\s*/?\s*untrusted)"#, with: "‹$1", options: [.regularExpression, .caseInsensitive])
         return

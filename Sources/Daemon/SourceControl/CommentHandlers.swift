@@ -3,13 +3,14 @@ import Foundation
 import GRDB
 import GitKit
 
-// comment.*: review comments on a diff, kept, marked and sent to the agent as one message.
+// The comment.* methods keep review comments on a diff, mark them, and send them to the agent as one message.
 
 extension CommentAdd: Handled {
     static let agents = AgentAccess.acts
-    var fence: Fence { Fence(reportsFor: session, signs: true) }   // it names its own session's agent as author
+    var fence: Fence { Fence(reportsFor: session, signs: true) }   // names its own session's agent as the author
     func handle(_ scm: SourceControl) throws -> DiffComment {
-        // A path is one line: one with a break in it would be drawn under no file, and sent as lines of its own.
+        // A path must be one line. A path with a break in it would be drawn under no file, and sent as lines of its
+        // own.
         guard !file.contains(where: { $0.isNewline || $0.asciiValue.map { $0 < 0x20 } == true }) else {
             throw RPCError.invalidParams("A file's path has no line breaks or control characters.")
         }
@@ -25,8 +26,8 @@ extension CommentAdd: Handled {
         let agent = session.flatMap { scm.live[$0]?.snapshot.agent }.flatMap {
             Session.isAgent($0) ? $0 : nil
         }
-        // A program in a terminal (an agent typed into it, or a script) is named as the author too: only comments made
-        // in the window are the user's, and only those are sent without a frame.
+        // A program in a terminal (an agent that typed into it, or a script) is named as the author too, because only
+        // comments made in the window are the user's, and only those are sent without a frame.
         let author =
             try agent.map { try scm.setup.manifest($0, command: nil).name }
             ?? session.map { _ in String(localized: "A program in a terminal") }
@@ -47,9 +48,10 @@ extension CommentList: Handled {
     }
 }
 
-/// A comment on the folder's changes stays on the lines it quotes: an agent's edit above them moves them down, and the
-/// comment goes with them (to their nearest place where they're there more than once), the move kept. Lines no longer
-/// there leave it where it was. Limit: a project here only; a remote one's files would be read over ssh on every look.
+/// Keeps a comment on the folder's changes on the lines it quotes. When an agent's edit above those lines moves them
+/// down, the comment moves with them, and the move is saved. When the lines appear more than once, the comment goes to
+/// the nearest copy. When the lines are gone, the comment stays where it was.
+/// Limit: only for a project on this Mac, because a remote project's files would be read over ssh on every look.
 enum CommentPlaces {
     static func follow(_ comments: [DiffComment], in folder: String, _ scm: SourceControl) throws -> [DiffComment] {
         guard scm.remotes.of(folder) == nil else { return comments }
@@ -68,7 +70,8 @@ enum CommentPlaces {
             guard let start = place(of: quote, near: comment.startLine, in: files[comment.file] ?? []),
                 start != comment.startLine
             else { continue }
-            // the lines only: a copy read before would put back a state changed meanwhile (sent, resolved)
+            // Only the lines are written, because writing a copy read before would put back a state changed
+            // meanwhile (sent, resolved).
             let end = start + quote.count - 1
             comment =
                 try scm.store.update(DiffComment.self, comment.id) {
@@ -79,8 +82,8 @@ enum CommentPlaces {
         return out
     }
 
-    /// Where `quote`'s lines start in `lines` (1-based): at `near` if they're there, else the nearest place; nil:
-    /// nowhere.
+    /// Returns where the lines of `quote` start in `lines` (1-based). That is `near` when they are there, or else the
+    /// nearest place they are. Returns nil when they are nowhere.
     static func place(of quote: [String], near: Int, in lines: [String]) -> Int? {
         guard !quote.isEmpty, lines.count >= quote.count else { return nil }
         let at = { (start: Int) in Array(lines[(start - 1)..<(start - 1 + quote.count)]) == quote }
@@ -94,33 +97,36 @@ extension CommentSetState: Handled {
             let states = DiffComment.State.allCases.map(\.rawValue).joined(separator: ", ")
             throw RPCError.invalidParams("A comment is \(states), not \(state).")
         }
-        // Its state only, in one write: a copy read first would put back lines a move wrote meanwhile.
+        // Only the state is written, in one write, because a copy read first would put back lines that a move wrote
+        // meanwhile.
         guard try scm.store.update(DiffComment.self, id, { $0.state = next }) != nil else {
             throw RPCError.invalidParams("That comment is gone: it was deleted, or its workspace removed.")
         }
         return Done()
     }
 }
-/// All open comments → one message into the agent's terminal.
+/// Sends the open comments (all of them, or those in `only`) as one message into the agent's terminal.
 extension CommentSend: Handled {
     static let agents = AgentAccess.acts
-    /// It types, with Enter: an agent sends only to itself and the sessions it started; a send (`SessionSend`, whose
-    /// handler it calls past `allow`), so not into a question.
+    /// The send types the message and Enter, so an agent may send only to itself and the sessions it started. It is a
+    /// send (`SessionSend`, whose handler it calls past `allow`), so it is refused while the session asks a question.
     var fence: Fence { Fence(actsOn: session, typesInto: session) }
     func handle(_ scm: SourceControl) throws -> Int {
         let workspace = try scm.store.worktree(named: id)
-        // Into an agent only: a shell would run each line of the message (another agent's findings, quoted code).
-        // Its record, not only a running one: a paused agent is one too, and the send wakes it.
+        // Comments go into an agent only, because a shell would run each line of the message (another agent's
+        // findings, quoted code). The check reads the session's record, not only a running session, because a paused
+        // agent is an agent too, and the send wakes it.
         guard
             try (scm.live[session]?.snapshot ?? scm.store.session(session))?.isAgent == true
         else {
             throw RPCError.invalidParams("Comments go to an agent, not to a terminal.")
         }
-        // Sent with the lines' numbers now.
+        // Moves the comments to where their lines are now, so they are sent with the current line numbers.
         _ = try CommentPlaces.follow(try scm.store.comments(worktree: workspace.id), in: workspace.path, scm)
         let wanted = only.map(Set.init)
-        // Taken as it's marked sent, in one write: a second send at once (a double click, the CLI beside the window) finds
-        // none of these open and types them in no second time. Put back if the send fails.
+        // The comments are read and marked sent in one write. So a second send at the same moment (a double click, or
+        // the CLI beside the window) finds none of them open and doesn't type them in again. They are put back if the
+        // send fails.
         let open = try scm.store.db.write { db -> [DiffComment] in
             let open = try DiffComment.filter(Column("worktreeId") == workspace.id).fetchAll(db)
                 .filter { $0.state == .open && wanted?.contains($0.id) != false }
@@ -134,8 +140,8 @@ extension CommentSend: Handled {
         do {
             try scm.send(SessionSend(id: session, text: Self.message(branch: workspace.branch, comments: open)))
         } catch {
-            // Open again, those still sent (not one set otherwise meanwhile, nor one gone with its workspace); the send's
-            // error is what's told, whatever this does.
+            // Marks the comments open again, but only those still marked sent: not one whose state changed meanwhile,
+            // nor one gone with its workspace. The caller is told the send's error, whatever this does.
             let ids = open.map(\.id)
             Log.store.attempt("putting back comments that weren't sent") {
                 _ = try scm.store.db.write { db in
@@ -150,7 +156,7 @@ extension CommentSend: Handled {
         return open.count
     }
 
-    /// File, lines, code quote, remark for each.
+    /// Writes the message, with the file, lines, quoted code and remark for each comment.
     private static func message(branch: String, comments: [DiffComment]) -> String {
         var body = "Review comments on branch \(branch). Please address each one:\n"
         for (index, comment) in comments.enumerated() {
@@ -164,8 +170,8 @@ extension CommentSend: Handled {
                 .joined(separator: "\n")
             let entry: String
             if let author = comment.author {
-                // Another agent's finding is data to weigh, not the user's word: it may quote what a pull request said.
-                // All of it, where and what it quotes too: each is what that agent wrote.
+                // Another agent's finding is data to weigh, not the user's word, because it may quote what a pull
+                // request said. The whole entry is framed, its place and quote too, because that agent wrote all of it.
                 entry = Untrusted.frame(head + quote + "\n   " + comment.text, what: "\(author)'s finding")
             } else {
                 // The user's remark is the user's own words; the lines it quotes are the file's, written by whoever

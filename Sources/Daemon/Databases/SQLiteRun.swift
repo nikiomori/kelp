@@ -2,11 +2,11 @@ import Core
 import Foundation
 import GRDB
 
-/// A SQLite file in kelpd itself (GRDB).
+/// Runs statements on a SQLite file inside kelpd itself, through GRDB.
 struct SQLiteRun: DatabaseRunner {
     let connection: DatabaseConnection, off: Slots
-    /// How long the schema's row counts may take in all: past it a table's count is left out (nil), so a file of
-    /// many GB still shows its tables.
+    /// How long counting the rows of all tables may take for the schema. Past that time a table's count is left out
+    /// (nil), so a file of many GB still shows its tables.
     var counting: TimeInterval = 3
 
     static func open(_ path: String, readOnly: Bool) throws -> DatabaseQueue {
@@ -17,8 +17,8 @@ struct SQLiteRun: DatabaseRunner {
         return try DatabaseQueue(path: path, configuration: config)
     }
 
-    /// Each stopped at its time (`interrupt`, from another thread): a runaway join or UPDATE doesn't keep its slot, nor
-    /// outlast the call that waits for it. SQLite undoes a statement it stops.
+    /// Each call is stopped when its time runs out (`interrupt`, from another thread), so a runaway join or UPDATE
+    /// doesn't keep its slot or outlast the call that waits for it. SQLite undoes a statement it stops.
     func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
         let path = try DatabaseEngines.path(connection)
         return try await off.run {
@@ -56,7 +56,8 @@ struct SQLiteRun: DatabaseRunner {
         }
     }
 
-    /// `allowed`: as Postgres' (`PostgresWire.write`).
+    /// Handles `allowed` as the Postgres runner does (`PostgresWire.write`), so it commits only if that many rows
+    /// changed.
     func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
         let path = try DatabaseEngines.path(connection)
         return try await off.run {
@@ -103,7 +104,8 @@ struct SQLiteRun: DatabaseRunner {
         }
     }
 
-    /// A statement that changes nothing (a read) says no count; the rest, the rows they and their triggers changed.
+    /// Runs the statements in one transaction. A read reports no count (nil), and every other statement reports the
+    /// rows it and its triggers changed.
     func batch(_ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool) async throws -> [Int?] {
         let path = try DatabaseEngines.path(connection)
         return try await off.run {
@@ -139,7 +141,7 @@ struct SQLiteRun: DatabaseRunner {
         }
     }
 
-    /// A consistent copy of the file, written or not while it's read (SQLite's own backup).
+    /// Makes a consistent copy of the file with SQLite's own backup, even while something writes to the file.
     static func copy(_ path: String, to target: String) throws {
         try run {
             let source = try open(path, readOnly: true)
@@ -180,8 +182,8 @@ struct SQLiteRun: DatabaseRunner {
                             let view = views.contains(name)   // a view has no keys or indexes of its own
                             let keys = view ? [] : try db.foreignKeys(on: name)
                             let all = try db.columns(in: name)
-                            // INTEGER PRIMARY KEY is the rowid: never NULL, NOT NULL said or not (another key type
-                            // can be)
+                            // An INTEGER PRIMARY KEY is the rowid, so it is never NULL, with or without NOT NULL (a
+                            // key of another type can be NULL)
                             let rowid = all.filter { $0.primaryKeyIndex > 0 }.count == 1
                             let columns = all.map { column in
                                 DatabaseSchema.Column(
@@ -208,7 +210,7 @@ struct SQLiteRun: DatabaseRunner {
         }
     }
 
-    /// A table's rows, or nil once `until` has passed (then, or while it counts).
+    /// Counts a table's rows, or returns nil once `until` has passed (before counting starts, or while it counts).
     private static func counted(_ queue: DatabaseQueue, _ db: Database, _ table: String, until: Date) throws -> Int? {
         let left = until.timeIntervalSinceNow
         guard left > 0 else { return nil }
@@ -216,10 +218,10 @@ struct SQLiteRun: DatabaseRunner {
             return try stopped(queue, after: left) {
                 try Int.fetchOne(db, sql: "SELECT count(*) FROM \(table.quotedDatabaseIdentifier)")
             }
-        } catch DatabaseFailure.failed { return nil }   // stopped at `until`
+        } catch DatabaseFailure.failed { return nil }   // the count was stopped at `until`
     }
 
-    /// GRDB's error as the database said it.
+    /// Runs `body` and turns a GRDB error into a failure in the database's own words.
     private static func run<T>(_ body: () throws -> T) throws -> T {
         do { return try body() } catch let error as DatabaseError {
             if error.resultCode == .SQLITE_READONLY { throw DatabaseFailure.change }

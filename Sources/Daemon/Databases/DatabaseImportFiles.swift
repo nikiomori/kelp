@@ -1,10 +1,10 @@
 import Core
 import Foundation
 
-/// Connections kept in the standard plain files (~/.pgpass, ~/.pg_service.conf, ~/.my.cnf) and in exports the user
-/// picks (pgAdmin's servers.json, Navicat's .ncx).
+/// Readers for connections kept in the standard plain files (~/.pgpass, ~/.pg_service.conf, ~/.my.cnf) and in exports
+/// the user picks (pgAdmin's servers.json, Navicat's .ncx).
 enum ImportFiles {
-    /// One connection a line that names a host; the password is in the line.
+    /// Reads ~/.pgpass, one connection for each line that names a host. The password is in the line.
     static func pgpass(_ home: URL) -> [ImportEntry] {
         guard let text = ImportReaders.text(home.appendingPathComponent(".pgpass")) else { return [] }
         return text.split(whereSeparator: \.isNewline).enumerated().compactMap { index, line in
@@ -25,7 +25,7 @@ enum ImportFiles {
         }
     }
 
-    /// `[name]` then libpq's words, a line each.
+    /// Reads the pg_service file: a `[name]` heading for each service, then libpq's keywords, one on each line.
     static func pgService(_ home: URL) -> [ImportEntry] {
         let path =
             ProcessInfo.processInfo.environment["PGSERVICEFILE"] ?? home.appendingPathComponent(".pg_service.conf").path
@@ -45,7 +45,8 @@ enum ImportFiles {
         }
     }
 
-    /// MySQL's client settings: `[client]` (or `[mysql]`) is one connection.
+    /// Reads MySQL's client settings in ~/.my.cnf. The `[client]` and `[mysql]` sections together make one connection,
+    /// and `[mysql]` wins where both set a key.
     static func myCnf(_ home: URL) -> [ImportEntry] {
         guard let text = ImportReaders.text(home.appendingPathComponent(".my.cnf")) else { return [] }
         let sections = Dictionary(ini(text), uniquingKeysWith: { a, _ in a })
@@ -65,7 +66,7 @@ enum ImportFiles {
         ]
     }
 
-    /// pgAdmin's File › Export Servers: no passwords in it.
+    /// Reads the file that pgAdmin's File › Export Servers writes, which holds no passwords.
     static func pgAdmin(_ url: URL) -> [ImportEntry] {
         guard let servers = ImportReaders.jsonObject(url)?["Servers"] as? [String: [String: Any]] else { return [] }
         return servers.sorted { $0.key < $1.key }.compactMap { id, s in
@@ -89,7 +90,8 @@ enum ImportFiles {
         }
     }
 
-    /// Navicat's File › Export Connections: XML; a saved password is AES-128-CBC under Navicat's own key and IV.
+    /// Reads the XML file that Navicat's File › Export Connections writes. A saved password in it is encrypted with
+    /// AES-128-CBC under Navicat's own key and IV.
     static func navicat(_ url: URL) -> [ImportEntry] {
         let nodes: [XMLNode]
         do { nodes = try XMLDocument(contentsOf: url).nodes(forXPath: "//Connection") } catch { return [] }
@@ -124,7 +126,8 @@ enum ImportFiles {
         }
     }
 
-    /// `[section]` then `key = value` lines; `#` and `;` start comments.
+    /// Reads an INI file, where each `[section]` heading is followed by `key = value` lines. A line starting with `#`
+    /// or `;` is a comment.
     static func ini(_ text: String) -> [(String, [String: String])] {
         var out: [(String, [String: String])] = [], name: String?, values: [String: String] = [:]
         for raw in text.split(whereSeparator: \.isNewline) {

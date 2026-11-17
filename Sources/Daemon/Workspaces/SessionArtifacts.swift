@@ -3,9 +3,10 @@ import Core
 import Foundation
 
 extension Sessions {
-    /// A turn of `session` ended: the pages it made in its workspace keep how the turn left them, named by its prompt.
-    /// In a remote project, whose folder here holds only its marker, its list is read again where it shows, which asks
-    /// the host for the pages the turn published (`pickUpHostArtifacts`).
+    /// Called when a turn of `session` ends. Each page the session made in its workspace keeps a version of how the
+    /// turn left it, named by the turn's prompt. A remote project's folder here holds only its marker, so its artifacts
+    /// list is read again wherever it shows instead. That read asks the host for the pages the turn published
+    /// (`pickUpHostArtifacts`).
     func keepArtifactVersions(session: String, worktree: String?, prompt: String) {
         Log.store.attempt("keeping the versions of \(session)'s artifacts") {
             guard let workspace = try store.worktree(worktree ?? "") else { return }
@@ -18,10 +19,11 @@ extension Sessions {
         }
     }
 
-    /// The pages a remote project's Claude Code published (no hook of Kelp's runs on the host): what its conversation
-    /// there says, read over the connection already open, from the second after the last one kept of it on. They're kept
-    /// in the project's folder here, which the panel lists. Only from the list's own read, one at a time (`Watches`): two
-    /// at once would both find a new page new.
+    /// Picks up the pages a remote project's Claude Code published, since no hook of Kelp's runs on the host. It reads
+    /// what the session's conversation on the host says, over the connection already open, from the second after the
+    /// session's last kept page onward. The pages are kept in the project's folder here, which the panel lists. Only
+    /// the list's own read calls this, one at a time (`Watches`), because two runs at once would both find a new page
+    /// new.
     func pickUpHostArtifacts(of session: Session, in root: String) throws {
         guard let remote = remotes.of(root) else { return }
         let since = Artifacts.list(root: root).filter { $0.record.session == session.id }
@@ -31,7 +33,7 @@ extension Sessions {
                 of: session, on: remote, read: Artifacts.hostPublishes(since: since))
         else { return }
         for page in Artifacts.published(inTranscript: data) {
-            let sent = page.page?.file == nil ? page.page : nil   // a file it sent is on the host
+            let sent = page.page?.file == nil ? page.page : nil   // a sent file is on the host, so no copy is kept
             _ = try Artifacts.addNative(
                 url: page.url, title: page.title, type: page.type, root: root, session: session.id, page: sent,
                 now: page.at ?? Date())
@@ -42,7 +44,7 @@ extension Sessions {
 extension ArtifactNew: Handled {
     static let agents = AgentAccess.acts
     static var quick: Bool { true }
-    var fence: Fence { Fence(writesInFolder: cwd) }   // the workspace whose panel it lands in
+    var fence: Fence { Fence(writesInFolder: cwd) }   // the folder of the workspace whose panel shows the page
     func handle(_ store: Store) throws -> String {
         let root = try artifactsRoot(store, cwd: cwd, session: session)
         return try Artifacts.create(kind, title: title, root: root, session: session).path
@@ -51,7 +53,7 @@ extension ArtifactNew: Handled {
 
 extension ArtifactAdd: Handled {
     static let agents = AgentAccess.acts
-    /// An agent's hook waits for it.
+    /// An agent's hook waits for this call to answer.
     static var quick: Bool { true }
     var fence: Fence { Fence(writesInFolder: cwd) }
     func handle(_ store: Store) throws -> Bool {
@@ -62,8 +64,8 @@ extension ArtifactAdd: Handled {
     }
 }
 
-/// The folder whose artifacts a command run in `cwd` means: the workspace that holds it (`session`'s own first, as
-/// `IDE.workspace` picks), else `cwd` itself: a chat outside any project.
+/// Returns the folder whose artifacts a command run in `cwd` means. That is the workspace that holds `cwd`, preferring
+/// `session`'s own workspace as `IDE.workspace` picks. Otherwise it is `cwd` itself, as for a chat outside any project.
 private func artifactsRoot(_ store: Store, cwd: String, session: String?) throws -> String {
     var isFolder: ObjCBool = false
     guard cwd.hasPrefix("/"), FileManager.default.fileExists(atPath: cwd, isDirectory: &isFolder), isFolder.boolValue
@@ -72,7 +74,8 @@ private func artifactsRoot(_ store: Store, cwd: String, session: String?) throws
     return IDE.workspace(cwd: cwd, among: try store.worktrees().filter { !$0.archived }, own: own)?.path ?? cwd
 }
 
-/// To the window, which draws the canvas again and answers with `ui.browser.reply`; this waits for that answer.
+/// Sends the check to the window, which draws the canvas again and answers with `ui.browser.reply`. This handler waits
+/// for that answer.
 extension ArtifactCheck: AsyncHandled {
     static let agents = AgentAccess.reads
     func handle(_ ui: UIStore) async throws -> [String] {
@@ -90,7 +93,8 @@ extension ArtifactCheck: AsyncHandled {
 }
 
 extension ArtifactCost: Handled {
-    /// From a little before the page was made (the turn read its guide first) to its last change.
+    /// Returns what was spent on the page, from a little before it was made (because the turn read its guide first) to
+    /// its last change.
     func handle(_: NoService) throws -> Spent? {
         guard let marker = path.range(of: "/\(Artifacts.folder)/") else { return nil }
         let folder = URL(fileURLWithPath: path).deletingLastPathComponent(), root = String(path[..<marker.lowerBound])

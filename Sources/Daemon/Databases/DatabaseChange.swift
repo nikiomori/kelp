@@ -1,13 +1,15 @@
 import Core
 import Foundation
 
-// What an agent's change does to its rows (`RowChange`), read from the rows its trial returned: the card that asks
-// shows it. Once it has run, History keeps it with the rows the change itself wrote, and Undo puts those back.
+// Works out what an agent's change does to the rows it touches (`RowChange`), from the rows its trial returned. The
+// card that asks the user shows this. Once the change has run, History keeps the RowChange with the rows the change
+// itself wrote, and Undo uses it to put the rows back.
 
 extension Databases {
-    /// UPDATE, DELETE or INSERT of one table where the engine says the rows it changed (RETURNING); nil for anything
-    /// else. An INSERT that may write over a row (ON CONFLICT, OR REPLACE) is no insert to undo: nil too.
-    /// Nor is one with a RETURNING of its own: its rows may leave columns out, and what's left out can't be put back.
+    /// Returns the kind of an UPDATE, DELETE or INSERT on an engine that can report the rows it changed (RETURNING),
+    /// and nil for anything else. An INSERT that may write over a row (ON CONFLICT, OR REPLACE) is not a plain insert
+    /// that Undo can remove, so it gets nil too. So does a statement with a RETURNING of its own, because its rows may
+    /// leave columns out, and a column left out can't be put back.
     static func kind(_ sql: String, _ engine: DatabaseInfo.Engine) -> RowChange.Kind? {
         guard [.sqlite, .postgres, .duckdb].contains(engine), SQLText.returning(sql) != nil else { return nil }
         switch SQLText.verb(sql) {
@@ -21,9 +23,10 @@ extension Databases {
         }
     }
 
-    /// What `sql` does to the rows its trial returned, when Kelp has every one of them as it is: not past what a
-    /// result keeps, no value shown as something else (a blob as its size). An update's rows as they were are read
-    /// by the table's key: the trial is rolled back, so they're still so.
+    /// Returns what `sql` does to the rows its trial returned, when Kelp has every one of those rows as it is. That
+    /// means no row past what a result keeps, and no value shown as something else (a blob as its size). For an
+    /// update, the rows as they were are read by the table's key, because the trial was rolled back and the table
+    /// still holds them.
     func rowChange(_ databaseConnection: DatabaseConnection, _ sql: String, _ tried: DatabaseRows) async -> RowChange? {
         guard let kind = Self.kind(sql, databaseConnection.database.engine),
             let table = Self.table(sql, asWritten: true),
@@ -37,7 +40,7 @@ extension Databases {
         return change
     }
 
-    /// The table's primary key, by its columns' names; none when it has none or the engine doesn't say.
+    /// Returns the column names of the table's primary key, or none when the table has none or the engine doesn't say.
     private func key(_ databaseConnection: DatabaseConnection, _ table: String) async -> [String] {
         let engine = databaseConnection.database.engine
         let plain = table.filter { !"\"`".contains($0) }
@@ -64,8 +67,8 @@ extension Databases {
         }
     }
 
-    /// The rows of `tried` as they are now, found by `key`, in its order; nil unless every one is found once: a
-    /// change that moves a row's key leaves none to find, and none to put back.
+    /// Reads the rows of `tried` as they are now, found by `key`, in the order of `tried`. Returns nil unless every
+    /// row is found exactly once, because a change that moves a row's key leaves no row to find and none to put back.
     private func before(
         _ databaseConnection: DatabaseConnection, _ table: String, _ key: [String], _ tried: DatabaseRows
     ) async
@@ -96,24 +99,24 @@ extension Databases {
         }
     }
 
-    /// The statement an agent's change runs as after its trial run (`tried`, as it was kept). Where the trial returned
-    /// rows, the statement returns its own rows (RETURNING *), so the rows the agent is answered with and that Kelp
-    /// keeps are the ones this run wrote. The trial's rows can't be used: a value made while the statement runs (a
-    /// sequence's next id, now(), random()) differs the next time. The statement is left as it is when the trial
-    /// returned no rows (RETURNING doesn't fit a Postgres view) or when it already returns them. DuckDB's write asks
-    /// for the rows itself, and the other engines have no RETURNING.
+    /// Returns the statement that an agent's change runs after its trial (`tried`, as the trial was kept). When the
+    /// trial returned rows, the statement returns its own rows (RETURNING *), so the rows the agent gets back and Kelp
+    /// keeps are the ones this run wrote. The trial's rows can't be used, because a value made while the statement
+    /// runs (a sequence's next id, now(), random()) differs the next time. The statement is left as it is when the
+    /// trial returned no rows (RETURNING doesn't fit a Postgres view) or when it already returns rows. DuckDB's write
+    /// asks for the rows itself, and the other engines have no RETURNING.
     /// Limit: if the rows are more than Kelp reads of an answer (32 MB), the call fails even though the change is made,
-    /// the same as a statement's own RETURNING would. Only rows that outgrew the trial's can do that, and the trial's
-    /// fit.
+    /// the same as a statement's own RETURNING would. Only rows that outgrew the trial's rows can do that, because the
+    /// trial's rows fit.
     static func saying(_ sql: String, _ engine: DatabaseInfo.Engine, tried: QueryResult?) -> String {
         guard [.sqlite, .postgres].contains(engine), tried?.columns.isEmpty == false else { return sql }
         return SQLText.returning(sql) ?? sql
     }
 
-    /// What the trial said the change does (`tried.change`), applied to the rows the change then wrote. An update's old
-    /// rows are found again by the key, since the written rows needn't be the trial's rows nor in the same order (the
+    /// Applies what the trial said the change does (`tried.change`) to the rows the change then wrote. An update's old
+    /// rows are found again by the key, because the written rows need not be the trial's rows or in the same order (the
     /// table may have changed since). Returns nil unless Kelp has every written row in full, as `rowChange` requires of
-    /// a trial's rows, and has no old rows unless each written row has one.
+    /// a trial's rows. The result keeps old rows only when every written row has one.
     static func written(_ tried: QueryResult, _ rows: DatabaseRows) -> RowChange? {
         guard var change = tried.change, rows.columns == tried.columns, !rows.rows.isEmpty,
             rows.rows.count == rows.total, !rows.opaque
@@ -128,9 +131,9 @@ extension Databases {
         return change
     }
 
-    /// A change's rows as they are kept (its trial's rows, then the ones it wrote), with what the change does to them,
-    /// but only when they are kept whole: if a cell was cut or a row left out for its size, there is no way to say what
-    /// to put back.
+    /// Returns a change's rows as Kelp keeps them (first the trial's rows, later the rows the change wrote). It adds
+    /// what the change does to them only when the rows are kept whole, because if a cell was cut or a row left out for
+    /// its size, Kelp can't say what to put back.
     static func kept(_ rows: DatabaseRows, id: String, change: RowChange?, ms: Int = 0) -> QueryResult {
         let whole = QueryResult(
             id: id, columns: rows.columns, rows: rows.rows, total: rows.total, changed: rows.changed, ms: ms)

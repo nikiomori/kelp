@@ -2,16 +2,16 @@ import Core
 import Foundation
 import os
 
-/// The panel's dots: each database is tried once (SELECT 1, a few seconds at most), all side by side. A server reached
-/// over SSH, or a remote project's server, is tried only through a connection that is open already, so the panel never
-/// dials.
+/// The status dots in the Databases panel. Each database is tried once (SELECT 1, a few seconds at most), all of them
+/// at the same time. A server reached over SSH, or a remote project's server, is tried only through a connection that
+/// is already open, so the panel never dials.
 extension Databases {
     func status(_ worktreeId: String, library: Bool = false) async throws -> [DatabaseHealth] {
         let all = try await offloads.run { [self] in
             library ? try self.library().compactMap { try libraryConnection($0.name) } : try connections(worktreeId)
         }
         let path = try store.worktree(worktreeId)?.path ?? ""
-        let remote = library ? nil : remotes.of(path)   // All My Projects' aren't on the project's host
+        let remote = library ? nil : remotes.of(path)   // databases in All my projects aren't on the project's host
         return await withTaskGroup(of: (Int, DatabaseHealth).self) { group in
             for (index, c) in all.enumerated() {
                 group.addTask { [self] in
@@ -32,11 +32,12 @@ extension Databases {
         }
     }
 
-    /// One database's whole check (an SSH check, a connect, SELECT 1, compose's word): one that takes longer is
-    /// said as such, so the others' dots come back within `DatabaseStatus`' time.
+    /// The longest that one database's whole check may take (an SSH check, a connect, SELECT 1, asking compose). A
+    /// database that takes longer is reported as not answering, so the other dots come back within the time
+    /// `DatabaseStatus` has.
     static let healthTime: TimeInterval = 20
 
-    /// What `work` answers, or `late` once `seconds` have passed (the work goes on, its answer dropped).
+    /// Returns what `work` answers, or `late` once `seconds` have passed. The work goes on, but its answer is dropped.
     static func answer<T: Sendable>(
         within seconds: TimeInterval, or late: T, _ work: @escaping @Sendable () async -> T
     ) async -> T {
@@ -74,13 +75,13 @@ extension Databases {
             // never on its own.
             return DatabaseHealth(name: name, state: .unknown, reason: "Kelp connects when you open it.")
         }
-        // Reading the password would make macOS ask: only on opening it.
+        // Reading the password would make macOS ask the user, so it waits until the user opens the database.
         if databaseConnection.password == nil, databaseConnection.database.passwordIn != nil {
             return DatabaseHealth(name: name, state: .unknown, reason: "Its password is read when you open it.")
         }
         let through = databaseConnection.database.ssh.map { remotes.host($0, path: "/") } ?? remote
         if let through {
-            // `ssh -O check`, up to 3 s: off the pool
+            // The connection check runs `ssh -O check` for up to 3 s, so it runs off the pool
             let connected: Bool
             do { connected = try await offloads.run { through.connection != nil } } catch { connected = false }
             if !connected {
@@ -97,7 +98,8 @@ extension Databases {
         } catch {
             said = "\(error)"
         }
-        // It didn't answer: is it that compose isn't running it? (One that answers runs, whoever started it.)
+        // The database didn't answer, so check whether compose isn't running it. (A database that answers is
+        // running, whoever started it.)
         let stopped: Bool
         if let service = databaseConnection.container {
             do {

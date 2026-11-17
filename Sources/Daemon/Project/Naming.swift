@@ -6,8 +6,9 @@ enum Naming {
         "a", "an", "the", "to", "and", "of", "for", "in", "on", "with", "please", "can", "you", "it",
         "this", "that", "is", "be", "we"
     ]
-    /// "Add a dark-mode toggle to Settings!" -> "add-dark-mode-toggle-settings"; "исправь вход" -> "isprav-vhod": any script
-    /// comes out in Latin letters, as branch names travel best, and what has none is left out.
+    /// Returns a branch-name slug of the prompt's first few words, without filler words. "Add a dark-mode toggle to
+    /// Settings!" becomes "add-dark-mode-toggle-settings", and "исправь вход" becomes "isprav-vhod". Any script comes
+    /// out in Latin letters, because branch names travel best that way, and what has no Latin form is left out.
     static func slug(_ prompt: String, words: Int = 5) -> String {
         let latin =
             prompt.applyingTransform(.toLatin, reverse: false)?.applyingTransform(.stripDiacritics, reverse: false)
@@ -16,9 +17,10 @@ enum Naming {
         { !stop.contains($0) }
         return parts.prefix(words).joined(separator: "-")
     }
-    /// A name that fits a tab: the prompt's first line without links or paths, cut at a word within 32 characters and
-    /// capitalised, so "посмотри ресерч http://localhost:8765/p и предложи…" becomes "Посмотри ресерч и предложи…".
-    /// Agents that keep a topic in the terminal's title (Claude Code) rename the session with it later.
+    /// Returns a name that fits a tab. It is the prompt's first line without links or paths, cut at a word within 32
+    /// characters and capitalised. So "посмотри ресерч http://localhost:8765/p и предложи…" becomes
+    /// "Посмотри ресерч и предложи…". Agents that keep a topic in the terminal's title (Claude Code) rename the session
+    /// with that topic later.
     static func title(_ prompt: String) -> String {
         let first = prompt.split(separator: "\n").first.map(String.init) ?? prompt
         let words = first.split(separator: " ").filter {

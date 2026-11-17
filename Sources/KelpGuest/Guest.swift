@@ -1,7 +1,7 @@
 import AppKit
 import ApplicationServices
 
-/// The CLI side: one request line to the running app, its answer out.
+/// The CLI side. It sends one request line to the running app and prints the app's answer.
 enum Client {
     static func ask(_ args: [String], socket path: String) -> Int32 {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
@@ -36,7 +36,7 @@ enum Client {
     }
 }
 
-/// The app side: answers on a Unix socket, one request per connection, on the main thread.
+/// The app side. It answers requests on a Unix socket, one request per connection, on the main thread.
 @MainActor
 final class Server {
     private let path: String
@@ -102,7 +102,8 @@ final class Server {
         }
     }
 
-    /// Asks for Accessibility (its dialog on the machine's screen, the first time) unless it has it.
+    /// Asks for Accessibility unless Kelp Guest already has it, and throws when it doesn't. The first time, macOS shows
+    /// its dialog on the machine's screen.
     private func trusted() throws {
         guard !AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary) else { return }
         throw Failure(
@@ -114,7 +115,8 @@ final class Server {
 
     // MARK: Accessibility
 
-    /// The front app's window controls, a line each, indented by depth, with a ref to press: "- button "Save" [ref=e12]".
+    /// Returns the front app's window controls, a line each, indented by depth, with a ref to press:
+    /// "- button "Save" [ref=e12]".
     private func ui(app name: String?) throws -> String {
         try trusted()
         let running =
@@ -181,7 +183,7 @@ final class Server {
         return text
     }
 
-    /// " (x,y w×h)" in screen points: where to click it.
+    /// Returns the element's frame as " (x,y w×h)" in screen points, which tells where to click it.
     private func frame(_ element: AXUIElement) -> String {
         var pv: CFTypeRef?, sv: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &pv) == .success,
@@ -189,13 +191,14 @@ final class Server {
             let pos = pv, let size = sv, CFGetTypeID(pos) == AXValueGetTypeID(), CFGetTypeID(size) == AXValueGetTypeID()
         else { return "" }
         var origin = CGPoint.zero, extent = CGSize.zero
-        AXValueGetValue(unsafeDowncast(pos, to: AXValue.self), .cgPoint, &origin)   // its type checked above
+        AXValueGetValue(unsafeDowncast(pos, to: AXValue.self), .cgPoint, &origin)   // the value's type is checked above
         AXValueGetValue(unsafeDowncast(size, to: AXValue.self), .cgSize, &extent)
         return " (\(Int(origin.x)),\(Int(origin.y)) \(Int(extent.width))×\(Int(extent.height)))"
     }
 }
 
-/// The socket's address: a path in the temporary folder, well under sockaddr_un's 104 bytes.
+/// Returns the socket's address. The path is in the temporary folder, so it stays well under the 104 bytes that
+/// sockaddr_un holds.
 func unixAddress(_ path: String) -> sockaddr_un {
     var address = sockaddr_un()
     address.sun_family = sa_family_t(AF_UNIX)

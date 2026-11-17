@@ -2,13 +2,14 @@ import Core
 import Foundation
 import os
 
-/// Kelp's virtual machines (Core/VM/VMs.swift): this makes them, starts each machine's `kelp-vm` and asks it how the
-/// machine is. It keeps nothing in memory: a machine is its folder (with a `creating` file while it is being made, and
-/// `failed` after that went wrong). A machine's own process outlives kelpd (it is started through `sh … &`, so it isn't
-/// kelpd's child), so restarting or upgrading kelpd leaves what runs inside the machine alone.
+/// Kelp's virtual machines (Core/VM/VMs.swift). This service makes them, starts each machine's `kelp-vm` and asks it
+/// how the machine is. It keeps nothing in memory, because a machine is its folder (with a `creating` file while it is
+/// being made, and `failed` after that went wrong). A machine's own process outlives kelpd, because it is started
+/// through `sh … &` and so isn't kelpd's child. So restarting or upgrading kelpd leaves what runs inside the machine
+/// alone.
 struct VMService: Sendable {
     let root: URL
-    /// kelp-vm, beside kelpd.
+    /// The path of kelp-vm, which sits beside kelpd.
     let helper: String
 
     init(home: URL, helper: String) {
@@ -27,8 +28,9 @@ struct VMService: Sendable {
         return try JSONDecoder().decode(VMMachine.self, from: data)
     }
 
-    /// `sessions`: who works in each running one: what runs inside, read from inside (an SSH run each), and the session
-    /// whose turn a macOS machine's screen is (an agent driving it runs nothing there).
+    /// Lists the machines. With `sessions`, each running machine also lists the sessions working in it. Those are the
+    /// sessions of what runs inside, read from inside (one SSH run per machine), and the session whose turn it is on a
+    /// macOS machine's screen, because an agent driving the screen runs nothing inside.
     func list(sessions: Bool = false) -> [VMInfo] {
         let names: [String]
         do {
@@ -36,7 +38,7 @@ struct VMService: Sendable {
         } catch { return [] }
         return names.sorted().compactMap { name in
             var entry: VMInfo
-            let st = status(name)   // asked once per machine and poll: a busy kelp-vm takes up to 2 s to each
+            let st = status(name)   // asked once per machine per poll, as a busy kelp-vm takes up to 2 s each time
             do { entry = info(try machine(name), status: st) } catch { return nil }
             if sessions, entry.state == .running {
                 let runs =
@@ -48,10 +50,11 @@ struct VMService: Sendable {
         }
     }
 
-    /// What runs in it, read over its own connection, which neither wakes it nor counts as use; nil unless it runs.
+    /// Returns what runs in the machine, read over the machine's own connection, which neither wakes it nor counts as
+    /// use. Returns nil unless the machine runs.
     func detail(_ name: String, status known: VMHelper.Reply?? = nil) -> VMDetail? {
         let st = known ?? status(name)
-        // Android and iOS: none (no SSH inside them).
+        // Android and iOS machines have no detail, because there is no SSH inside them.
         let device = [folder(name).avd, folder(name).udid].contains { FileManager.default.fileExists(atPath: $0.path) }
         guard st?.state == .running, !device else { return nil }
         let out: Subprocess.Output
@@ -68,7 +71,7 @@ struct VMService: Sendable {
         }
         guard out.status == 0 else { return nil }
         var parsed = VMs.parseDetail(String(decoding: out.stdout, as: UTF8.self))
-        parsed.guest?.screen = st?.screen   // whose turn the screen is: kelp-vm says that now, not Kelp Guest
+        parsed.guest?.screen = st?.screen   // kelp-vm, not Kelp Guest, now says whose turn the screen is
         if let json = FileManager.default.contents(atPath: folder(name).shares.path) {
             do { parsed.folders = try JSONDecoder().decode([Int: String].self, from: json).values.sorted() } catch {
                 Log.vm.error("\(name)'s shares: \(error)")
@@ -116,22 +119,25 @@ struct VMService: Sendable {
         FileManager.default.contents(atPath: file.path).map { String(decoding: $0, as: UTF8.self) }
     }
 
-    /// Why it wasn't made: what failed, or that making it stopped midway (kelpd ended: its `creating` went stale).
+    /// Returns why the machine wasn't made: what failed, or that making it stopped midway because kelpd ended and the
+    /// `creating` file went stale.
     func failure(_ name: String) -> String? {
         if let failed = text(folder(name).failed) { return failed }
         guard text(folder(name).creating) != nil, making(name) == nil else { return nil }
         return String(localized: "Making it stopped midway (Kelp restarted). Delete it and make it again.")
     }
 
-    /// What making it is at, unless that stopped (nothing updated it for 45 minutes, longer than a macOS first boot, its
-    /// longest quiet step; a kelpd that started meanwhile goes on with it: `resumeMaking`).
+    /// Returns how far making the machine got, unless making stopped. It counts as stopped when nothing updated it for
+    /// 45 minutes, which is longer than a macOS first boot, the longest quiet step. A kelpd that started meanwhile goes
+    /// on with the making (`resumeMaking`).
     func making(_ name: String) -> VMMaking? {
         var st = stat()
         guard let data = FileManager.default.contents(atPath: folder(name).creating.path),
             stat(folder(name).creating.path, &st) == 0,
             Date().timeIntervalSince1970 - Double(st.st_mtimespec.tv_sec) < 2700
         else { return nil }
-        do { return try JSONDecoder().decode(VMMaking.self, from: data) } catch {   // a kelpd before 2026-11-06 wrote words
+        // A kelpd from before 2026-11-06 wrote plain words here, not JSON.
+        do { return try JSONDecoder().decode(VMMaking.self, from: data) } catch {
             return VMMaking(step: .starting, detail: String(decoding: data, as: UTF8.self))
         }
     }
@@ -142,8 +148,8 @@ struct VMService: Sendable {
         let machine = [.stop, .delete].contains(action) ? try self.machine(name) : try ready(name)
         switch action {
         case .delete:
-            // Stopped while it's made: what makes it ended first (its download stops at its next step). Only a made
-            // one's disk is the user's work, for the Trash.
+            // A machine deleted while it's being made first has what makes it ended (its download stops at its next
+            // step). Only a made machine's disk is the user's work, so only that goes to the Trash.
             let made = making(name) == nil && failure(name) == nil
             if !made { endLeftovers(name) }
             try discard(name, trash: made)
@@ -157,9 +163,9 @@ struct VMService: Sendable {
             guard machine.kind.hasScreen else {
                 throw RPCError.invalidParams("\(name) has no screen: it's Linux. kelp vm run \(name) opens its shell.")
             }
-            try wake(machine, show: true)   // begun with its window (Android's emulator starts headless otherwise)
+            try wake(machine, show: true)   // begun with its window, since Android's emulator starts headless otherwise
             try check(ask(name, .init(op: .show), wait: VMControl.showWait))
-        // Running by its lock, not by a status within 2 s, which a busy one may not give.
+        // Whether kelp-vm runs is told by its lock, not by a status within 2 s, which a busy kelp-vm may not give.
         case .sleep:
             if alive(name), try !asleep(ask(name, .init(op: .sleep), wait: 60)) {
                 throw RPCError.invalidParams("\(name) is starting or being saved: put it to sleep in a moment.")
@@ -168,18 +174,19 @@ struct VMService: Sendable {
             if alive(name) {
                 try check(ask(name, .init(op: .stop), wait: 60))
             } else {
-                endChildren(name)   // what a killed kelp-vm left runs on, holding its memory
-                if let kept = folder(name).sleepState(machine) { remove(kept) }   // an Android one's snapshot too
+                endChildren(name)   // what a killed kelp-vm left runs on and holds memory
+                if let kept = folder(name).sleepState(machine) { remove(kept) }   // and an Android snapshot
             }
         }
         return info(machine)
     }
 
-    /// The machine's ssh, with `cwd`'s project folder shared at its own path (the git repository's top, else `cwd`);
-    /// no `cwd`: its home folder, nothing shared.
+    /// Returns how to reach the machine: ssh, with the project folder of `cwd` shared at its own path (the git
+    /// repository's top, else `cwd`). With no `cwd`, commands run in the machine's home folder and nothing is shared.
+    /// An iOS machine is reached through simctl and an Android machine through adb.
     func connect(_ name: String, cwd: String?) throws -> VMConnection {
         let machine = try ready(name)
-        if machine.kind == .ios {   // simctl for its simulator, and its runner's port: booted first
+        if machine.kind == .ios {   // simctl for its simulator and the runner's port, booted first
             try wake(machine)
             let reply = try ask(name, .init(op: .start), wait: 620)
             try check(reply)
@@ -234,9 +241,9 @@ struct VMService: Sendable {
         return cwd
     }
 
-    /// Room made for `machine` (`admit`), then its kelp-vm started, one machine at a time (vms/.waking): two woken at
-    /// once would both find room that's there for one, the other's kelp-vm not up yet to count.
-    /// `show`: begun with its window, as `show` then asks.
+    /// Makes room for `machine` (`admit`), then starts its kelp-vm, one machine at a time (vms/.waking). Two machines
+    /// woken at once would both find room that's there for one, because the other's kelp-vm isn't up yet to be
+    /// counted. With `show`, the machine begins with its window, as `show` then asks.
     func wake(_ machine: VMMachine, show: Bool = false) throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let fd = open(root.appendingPathComponent(".waking").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
@@ -244,9 +251,10 @@ struct VMService: Sendable {
             throw RPCError.internalError("Can't take the machines' wake lock: \(String(cString: strerror(errno)))")
         }
         defer { close(fd) }
-        // up already: nothing to make room for, nor to wait behind
+        // A machine that is up already has nothing to make room for or wait behind.
         if status(machine.name)?.state.isUp == true { return }
-        // Waited for 90 s at most (one wake puts others to sleep, a minute each at worst), on this offload thread.
+        // The lock is waited for 90 s at most, on this offload thread, because one wake puts others to sleep, a
+        // minute each at worst.
         let end = Date().addingTimeInterval(90)
         while flock(fd, LOCK_EX | LOCK_NB) != 0 {
             guard Date() < end else {
@@ -256,25 +264,28 @@ struct VMService: Sendable {
         }
         try admit(machine)
         try startHelper(machine)
-        // Starting before the lock is let go (answered at once, `begin`): the next wake counts it, as it's `.starting` now.
+        // The machine begins starting before the lock is let go (`begin` is answered at once). So the next wake
+        // counts it, as it's `.starting` now.
         do { try check(ask(machine.name, .begin(show: show), wait: 10)) } catch {
             Log.vm.error("\(machine.name) didn't begin starting: \(error)")
         }
     }
 
-    /// Makes room in the memory budget (a quarter of the Mac's memory) for `machine` to wake: idle machines are put to
+    /// Makes room in the memory budget (a quarter of the Mac's memory) for `machine` to wake. Idle machines are put to
     /// sleep for it, or the answer is no. A machine running alone wakes at any size it may have (up to half the Mac's
     /// memory), since the budget is for all of them together.
     func admit(_ machine: VMMachine) throws {
         if status(machine.name)?.state.isUp == true { return }
         let budget = Int(ProcessInfo.processInfo.physicalMemory >> 20) / 4
         var awake = list().filter { $0.machine.name != machine.name && $0.state.isUp }
-        // By the size each is given, not what it holds now (`memoryMiB`, its footprint): a guest just booted grows to it.
+        // This counts the size each machine is given, not what it holds now (`memoryMiB`, its footprint), because a
+        // guest that just booted grows to its size.
         func used() -> Int { awake.reduce(machine.memoryMiB) { $0 + $1.machine.memoryMiB } }
         let idle = awake.filter { $0.connections == 0 }.sorted { $0.machine.memoryMiB > $1.machine.memoryMiB }
         for other in idle where used() > budget {
-            // Freed only once it says it's asleep: one still starting, a failed save or an Intel Mac keeps its memory, and
-            // so does one in use since it was listed (`sleepIfIdle`: the machine itself refuses).
+            // A machine's memory counts as freed only once it says it's asleep. One still starting, one whose save
+            // failed, or one on an Intel Mac keeps its memory. So does one in use since it was listed, because the
+            // machine itself refuses `sleepIfIdle`.
             do { guard try asleep(ask(other.machine.name, .sleepIfIdle, wait: 60)) else { continue } } catch {
                 Log.vm.info("\(other.machine.name) wasn't put to sleep for \(machine.name): \(error)")
                 continue
@@ -291,7 +302,8 @@ struct VMService: Sendable {
 
     /// Starts the machine's `kelp-vm` unless it runs.
     func startHelper(_ machine: VMMachine) throws {
-        // not "it answered": a busy one may not within 2 s, and a second would only end
+        // Running is told by the lock, not by an answer, because a busy kelp-vm may not answer within 2 s, and a
+        // second kelp-vm would only end.
         if alive(machine.name) { return }
         let log = folder(machine.name).log.path
         guard FileManager.default.isExecutableFile(atPath: helper) else {
@@ -311,14 +323,15 @@ struct VMService: Sendable {
             VMHelper.Reply(state: .error, connections: 0, error: "\(machine.name)'s kelp-vm didn't start: \(tail)"))
     }
 
-    /// How it is, from its kelp-vm; nil when that isn't running.
+    /// Returns the machine's status from its kelp-vm, or nil when kelp-vm isn't running.
     func status(_ name: String) -> VMHelper.Reply? {
         do { return try ask(name, .init(op: .status), wait: 2) } catch { return nil }
     }
 
-    /// One request to the machine's kelp-vm; `wait` seconds for its answer.
+    /// Sends one request to the machine's kelp-vm and waits `wait` seconds for its answer.
     func ask(_ name: String, _ request: VMHelper.Request, wait: TimeInterval) throws -> VMHelper.Reply {
-        // One that just took its lock may not listen yet: tried again for a second while it holds it.
+        // A kelp-vm that just took its lock may not listen yet, so connecting is tried again for a second while it
+        // holds the lock.
         var fd: Int32 = -1
         for tries in 0... {
             do {
@@ -347,22 +360,23 @@ struct VMService: Sendable {
         return try JSONDecoder().decode(VMHelper.Reply.self, from: line)
     }
 
-    /// Its kelp-vm gone, the machine off at once: before its folder is (deleted, or made again). One still there after
-    /// `patience` (stuck in Virtualization) is killed, by the pid it noted as it took its lock.
+    /// Quits the machine's kelp-vm, which turns the machine off at once, before the machine's folder goes (deleted, or
+    /// made again). A kelp-vm still there after `patience` (stuck in Virtualization) is killed by the pid it noted as
+    /// it took its lock.
     func quit(_ name: String, patience: TimeInterval = 10) {
         guard alive(name) else { return }
-        // it hangs up as it goes
+        // kelp-vm may hang up as it quits, which is only logged.
         do { _ = try ask(name, .init(op: .quit), wait: patience) } catch { Log.vm.info("\(name) quit: \(error)") }
         let end = Date().addingTimeInterval(patience)
         while alive(name), Date() < end { usleep(100_000) }
         guard alive(name), let pid = folder(name).endChild(VMFolder.helperNote) else { return }
         Log.vm.error("\(name)'s kelp-vm \(pid) didn't quit: killed")
-        for _ in 0..<20 where alive(name) { usleep(100_000) }   // its lock goes with it
+        for _ in 0..<20 where alive(name) { usleep(100_000) }   // the lock goes when the process does
     }
 
-    /// The machine gone: its kelp-vm, what a killed one left (an emulator, a runner), an iOS one's simulator (it lives in
-    /// Xcode's device set), its folder, its password.
-    /// `trash`: a machine the user deletes goes to the Trash (its disk is their work); a failed try's remains don't.
+    /// Removes the machine: its kelp-vm, what a killed kelp-vm left (an emulator, a runner), an iOS machine's simulator
+    /// (which lives in Xcode's device set), its folder and its password. With `trash`, a machine the user deletes goes
+    /// to the Trash, because its disk is their work. What a failed try left doesn't.
     func discard(_ name: String, trash: Bool = false) throws {
         quit(name)
         guard !alive(name) else {
@@ -378,13 +392,15 @@ struct VMService: Sendable {
         Keychain.delete("vm." + name)
     }
 
-    /// Whether the machine's kelp-vm runs: it holds `kelp-vm.lock` while it does. Not "it answered", which a busy one
-    /// (its control socket is served on its main queue) may not do within a status's 2 s.
+    /// Returns whether the machine's kelp-vm runs, which it does while it holds `kelp-vm.lock`. It doesn't wait for an
+    /// answer, because a busy kelp-vm (its control socket is served on its main queue) may not answer within a
+    /// status's 2 s.
     func alive(_ name: String) -> Bool {
         let fd = open(folder(name).lock.path, O_RDWR | O_CLOEXEC)
         guard fd >= 0 else { return false }
         defer { close(fd) }
-        // Shared: two of kelpd's looks at once (a poll, a delete) don't take each other for a kelp-vm, which holds it whole.
+        // The check takes a shared lock, so two of kelpd's checks at once (a poll, a delete) don't take each other for
+        // a kelp-vm, which holds the lock exclusively.
         return flock(fd, LOCK_SH | LOCK_NB) != 0
     }
 
@@ -398,7 +414,8 @@ struct VMService: Sendable {
     func check(_ reply: VMHelper.Reply) throws {
         guard let message = reply.error else { return }
         guard message.contains("entitlement") else { throw RPCError.internalError(message) }
-        // A debug build: `swift build` links kelp-vm anew, without the entitlement scripts/bundle.sh signs it with.
+        // This happens in a debug build, because `swift build` links kelp-vm anew, without the entitlement that
+        // scripts/bundle.sh signs it with.
         throw RPCError.internalError(
             "kelp-vm isn't signed for virtualization: "
                 + "codesign --force --sign - --entitlements Resources/KelpVM.entitlements \(helper)")

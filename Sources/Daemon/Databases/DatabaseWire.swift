@@ -7,10 +7,10 @@ import NIOSSL
 import PostgresNIO
 import os
 
-/// Postgres and MySQL spoken by kelpd itself, at an address it reaches (the database's own, or a forwarded port): no
-/// psql or mysql on the Mac. One connection a call, closed after it. Reads run in a read-only transaction, so the
-/// server refuses a change (`DatabaseFailure.change`); TLS is used when the server offers it, its certificate not
-/// checked (as psql's default `sslmode=prefer` does).
+/// Shared parts for speaking Postgres and MySQL from kelpd itself, at an address kelpd reaches (the database's own
+/// address or a forwarded port), so the Mac needs no psql or mysql. Each call opens one connection and closes it after.
+/// Reads run in a read-only transaction, so the server refuses a change (`DatabaseFailure.change`). TLS is used when
+/// the server offers it, without checking the server's certificate, as psql's default `sslmode=prefer` does.
 enum DatabaseWire {
     static let logger: Logger = {
         var logger = Logger(label: "kelp.db")
@@ -18,7 +18,7 @@ enum DatabaseWire {
         return logger
     }()
 
-    /// TLS that takes what the server shows: the connection is to a server the user named.
+    /// TLS settings that accept whatever certificate the server shows, because the server is one the user named.
     static let tls: TLSConfiguration = {
         var config = TLSConfiguration.makeClientConfiguration()
         config.certificateVerification = .none
@@ -27,21 +27,22 @@ enum DatabaseWire {
 
     static var eventLoop: any EventLoop { MultiThreadedEventLoopGroup.singleton.any() }
 
-    /// A login refused for want of a password: where to give one.
+    /// The failure for a login refused because Kelp has no password. Its message says where to give one.
     static func noPassword(_ db: DatabaseInfo) -> DatabaseFailure {
         .failed("Kelp has no password for \(db.name): Edit… to type one, or import it again.")
     }
 
-    /// A host the network doesn't know (a VPN's or a cluster's internal name), reported in those words rather than as
-    /// NIO's error.
+    /// Reports a host the network doesn't know (a VPN's or a cluster's internal name) in those words, rather than as
+    /// NIO's error. Returns nil for any other error.
     static func unreached(_ error: any Error, _ db: DatabaseInfo) -> DatabaseFailure? {
         let said = "\(error)" + ((error as? PSQLError)?.underlying.map { " \($0)" } ?? "")
         guard said.contains("UnknownHost") || said.contains("nodename nor servname") else { return nil }
         return .failed("Can't find \(db.host ?? db.name) on the network: is a VPN or SSH needed to reach it?")
     }
 
-    /// The call's whole time, past what the server's own limit stops: a network gone mid-read (a VPN dropped, the Mac
-    /// asleep) answers nothing, so past it the connection is closed, which ends what waits on it.
+    /// Runs `body` with a limit on the call's whole time, beyond the server's own time limit. A network lost mid-read
+    /// (a VPN dropped, the Mac asleep) never answers, so once `seconds` pass the connection is closed, which ends
+    /// whatever waits on it.
     static func within<T: Sendable>(
         _ seconds: TimeInterval, _ db: DatabaseInfo, close: @escaping @Sendable () async -> Void,
         _ body: @escaping @Sendable () async throws -> T
@@ -59,14 +60,14 @@ enum DatabaseWire {
         }
     }
 
-    /// What `future` gives, or a failure once `seconds` have passed (then `late`): for a step whose future can't be
-    /// cancelled or closed (a handshake), which `within` would wait out.
+    /// Returns what `future` gives, or fails once `seconds` have passed and then calls `late`. This is for a step
+    /// whose future can't be cancelled or closed (a handshake), which `within` would wait out.
     static func first<T: Sendable>(
         _ future: EventLoopFuture<T>, within seconds: TimeInterval, _ db: DatabaseInfo,
         late: @escaping @Sendable () -> Void
     ) async throws -> T {
         let waiting = OSAllocatedUnfairLock<CheckedContinuation<T, any Error>?>(initialState: nil)
-        /// Whether it was the first to answer.
+        /// Resumes the caller with `result`, and returns whether this answer (the timer's or the future's) came first.
         @Sendable func give(_ result: Result<T, any Error>) -> Bool {
             let continuation = waiting.withLock { held in
                 defer { held = nil }
@@ -88,13 +89,14 @@ enum DatabaseWire {
         }
     }
 
-    /// A connection closed after its call: one the server dropped already has nothing more to say.
+    /// Closes a connection after its call and only logs a failure, because a connection the server already dropped
+    /// has nothing more to say.
     static func close(_ body: () async throws -> Void) async {
         do { try await body() } catch { logger.debug("db close: \(error)") }
     }
 }
 
-/// The call's answer, or its time ran out first (`DatabaseWire.within`).
+/// Either the call's answer, or `late` when the call's time ran out first (`DatabaseWire.within`).
 private enum WireOutcome<T: Sendable>: Sendable {
     case done(T)
     case late

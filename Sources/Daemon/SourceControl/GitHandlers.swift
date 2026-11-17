@@ -3,7 +3,7 @@ import Foundation
 import GRDB
 import GitKit
 
-// Source control, files and review comments: everything runs here, off the UI.
+// The handlers for source control and the project's files. All of them run in the daemon, off the UI.
 
 extension GitStatus: Handled {
     static let agents = AgentAccess.reads
@@ -23,7 +23,8 @@ extension GitLineStats: Handled {
         try Git.lineStats(scm.folder(id), remotes: scm.remotes)
     }
 }
-/// `git.remote`'s push under its older name (the CLI's `kelp git push`, scripts): the same rules, the same code.
+/// The push of `git.remote` under its older name, for the CLI's `kelp git push` and for scripts. It follows the same
+/// rules and runs the same code.
 extension GitPush: Handled {
     private var op: GitRemoteOp { GitRemoteOp(id: id, op: .push) }
     var fence: Fence { op.fence }
@@ -38,7 +39,8 @@ extension GitDiff: Handled {
         let src: DiffSource
         switch source ?? .all {
         case .tidy:
-            // Tidy Up's copies against the files now: not the workspace's git, the instruction files Kelp kept.
+            // Compares Tidy Up's copies with the files now. This diff uses the instruction files Kelp kept, not the
+            // workspace's git.
             guard let (run, info) = TidyRuns.open(id, root: scm.root) else { return [] }
             return try TidyRuns.diff(run, info, remotes: scm.remotes).filter { file == nil || $0.path == file }
         case .turn: (dir, src) = try scm.turnDiff(session: session, turn: turn)
@@ -62,7 +64,8 @@ extension GitLineOrigin: Handled {
     func handle(_ scm: SourceControl) throws -> Result {
         let folder = try scm.store.worktree(named: worktreeId).path
         let head = try Git.head(folder, remotes: scm.remotes)
-        // Only turns begun on this HEAD: older ones' changes are in commits now, which say who made them.
+        // Only turns begun on this HEAD count, because older turns' changes are in commits now, and those commits say
+        // who made them.
         let marks = try scm.store.turns(folder: folder).filter { head != nil && $0.head == head }
         let agents = try marks.map { mark in
             let agent = try scm.store.session(mark.session)?.agent
@@ -112,7 +115,7 @@ extension GitUnstage: Handled {
 }
 
 extension GitHunk: Handled {
-    // staging or unstaging a hunk writes the index: in the agent's own workspaces only
+    // Staging or unstaging a hunk writes the index, so an agent may do it only in its own workspaces.
     static let agents = AgentAccess.acts
     func handle(_ scm: SourceControl) throws -> Done {
         let workspace = try scm.store.worktree(named: id), rev = reverse == true
@@ -132,8 +135,9 @@ extension GitHunk: Handled {
 }
 
 extension FileDiff {
-    /// The hunk a caller means, staging or discarding it: with its fingerprint, the hunk as shown line for line; with
-    /// its header, that one; else by number. nil when it isn't there any more (the file changed since it was shown).
+    /// Returns the index of the hunk that a caller means to stage or discard. With a fingerprint, it is the hunk as
+    /// shown, line for line. With a header, it is the hunk with that header. Otherwise it is found by number. Returns
+    /// nil when the hunk isn't there any more, because the file changed since it was shown.
     func shown(fingerprint: String?, header: String?, number: Int?) -> Int? {
         if let fingerprint { return hunks.firstIndex { $0.fingerprint == fingerprint } }
         if let header { return hunks.firstIndex { $0.header == header } }
@@ -196,13 +200,14 @@ extension GitDiscard: Handled {
 extension GitDiscardHunk: Handled {
     func handle(_ scm: SourceControl) throws -> Done {
         let worktree = try scm.store.worktree(named: id)
-        // Found as `git.hunk` finds it, wherever it is in the file now; `header` always comes, so never by number.
+        // The hunk is found as `git.hunk` finds it, wherever it is in the file now. `header` always comes, so the
+        // hunk is never found by number.
         guard let diff = try Git.diff(worktree.path, source: .unstaged, file: file, remotes: scm.remotes).first,
             let hunk = diff.shown(fingerprint: fingerprint, header: header, number: nil)
         else {
             throw RPCError.invalidParams("The file changed since it was shown; nothing was discarded.")
         }
-        // First: see Git.discard.
+        // The patch is kept before anything changes, as Git.discard does, so nothing is thrown away unkept.
         try scm.keepDiscard(.init(patch: diff.patch(hunk: hunk), hunk: true), folder: worktree.path, name: undo)
         try Git.discardHunk(worktree.path, diff: diff, hunk: hunk, remotes: scm.remotes)
         return Done()
@@ -233,8 +238,8 @@ extension GitUndoDiscard: Handled {
 
 extension GitRemoteOp: Handled {
     static let agents = AgentAccess.reads
-    /// A fetch, in an agent's own workspace. A pull merges into a tree and a push publishes a branch: the user's, as
-    /// commits are (`AgentRules`).
+    /// An agent may fetch, in its own workspace. A pull merges into a tree and a push publishes a branch, so both are
+    /// the user's, as commits are (`AgentRules`).
     var fence: Fence {
         Fence(
             inWorkspace: id,
@@ -268,7 +273,7 @@ extension GitWebPages: Handled {
     static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Pages? {
         let path = try scm.store.repoPath(worktreeId: worktreeId, repoId: repoId).1
-        // no origin: nothing to link to
+        // With no origin there is nothing to link to.
         guard let origin = try? Git.origin(path, remotes: scm.remotes) else { return nil }
         return Git.webPages(remote: origin)
     }

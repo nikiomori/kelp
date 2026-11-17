@@ -1,11 +1,12 @@
 import Core
 import Foundation
 
-// Python apps, the compiled languages' tools (cargo, go, swift, gradle, maven, mix) and Procfile processes.
+// Finds Python apps, the tools of compiled languages (cargo, go, swift, gradle, maven, mix) and Procfile processes.
 
 extension Runnables {
-    /// Django's runserver, a FastAPI or Flask app, pyproject's scripts and pytest — through uv or poetry when the project
-    /// uses them, else its .venv, else the PATH's python3. requirements.txt with no .venv: making one is an entry of its own.
+    /// Returns Django's runserver, a FastAPI or Flask app, pyproject's scripts and pytest. They run through uv or
+    /// poetry when the project uses them, or else its .venv, or else the python3 on PATH. With a requirements.txt and
+    /// no .venv, making the .venv is an entry of its own.
     static func python(_ found: Found, _ dir: String) -> [RunOption] {
         let py = found.text(dir, "pyproject.toml")
         guard
@@ -71,7 +72,8 @@ extension Runnables {
     // swiftlint:disable:next force_try
     static let flask = try! NSRegularExpression(pattern: #"(\w+)\s*=\s*Flask\("#)
 
-    /// cargo, go (each cmd/* program), swift, gradle / maven (Spring Boot's bootRun), mix (Phoenix), artisan, bin/dev.
+    /// Returns the commands for cargo, go (each cmd/* program), swift, gradle / maven (Spring Boot's bootRun), mix
+    /// (Phoenix), artisan and bin/dev.
     static func compiled(_ found: Found, _ dir: String) -> [RunOption] {
         var out: [RunOption] = []
         if found.has(dir, "Cargo.toml") {
@@ -123,7 +125,7 @@ extension Runnables {
         return out
     }
 
-    /// Each process of a Procfile (Procfile.dev first: it's the one for running locally).
+    /// Returns each process of a Procfile. Procfile.dev comes first, because it's the one for running locally.
     static func procfile(_ found: Found, _ dir: String) -> [RunOption] {
         ["Procfile.dev", "Procfile"].flatMap { file in
             (found.text(dir, file) ?? "").split(whereSeparator: \.isNewline).compactMap { line -> RunOption? in

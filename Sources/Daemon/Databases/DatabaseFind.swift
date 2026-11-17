@@ -5,10 +5,11 @@ import Foundation
 struct FoundDatabase: Equatable {
     var database: DatabaseInfo
     var password: String?
-    /// The compose service it runs in, and its port there: its client can run inside that service's container.
+    /// The compose service the database runs in, and its port inside the service, so its client can run inside that
+    /// service's container.
     var service: (name: String, port: Int)?
-    /// The folder the database's source is in when that isn't the workspace's folder: the project's own folder, for a
-    /// branch's workspace.
+    /// The folder that holds the database's source, when that isn't the workspace's folder. For a branch's workspace,
+    /// it is the project's own folder.
     var root: String?
 
     static func == (lhs: Self, rhs: Self) -> Bool {
@@ -17,8 +18,9 @@ struct FoundDatabase: Equatable {
     }
 }
 
-/// Where a project says its databases are: `.env` files (`DATABASE_URL` and the like), compose services of postgres or
-/// mysql images, Rails' config/database.yml, and SQLite files near the top. Only reads files; never connects.
+/// Finds where a project says its databases are: `.env` files (`DATABASE_URL` and the like), compose services of
+/// postgres or mysql images, Rails' config/database.yml, and SQLite files near the top. It only reads files and never
+/// connects.
 /// Limit: YAML is read line by line (the shapes these files take), not parsed; values from ERB or anchors aren't
 /// followed.
 enum DatabaseFind {
@@ -27,10 +29,10 @@ enum DatabaseFind {
     /// Folders SQLite files are looked for in, beside the project's own top.
     static let sqliteFolders = ["db", "data", "prisma", "instance", "storage", "var"]
 
-    /// Every database the files at `root` name, each name once.
+    /// Returns every database the files at `root` name, each name once.
     static func find(in root: String) -> [FoundDatabase] {
         let envs = names(in: root).filter { $0 == ".env" || $0.hasPrefix(".env.") }.sorted()
-        // A monorepo's parts (api/, backend/): their compose files and .env, one level down.
+        // The parts of a monorepo (api/, backend/) have their own compose files and .env, one level down.
         let parts = names(in: root).filter { !$0.hasPrefix(".") && !skipped.contains($0) }.sorted().flatMap { dir in
             (composeFiles + [".env"]).map { dir + "/" + $0 }
         }
@@ -40,8 +42,9 @@ enum DatabaseFind {
         return unique(parse(files, root: root) + ideConnections(in: root) + sqliteFiles(in: root))
     }
 
-    /// What an IDE keeps in the project: JetBrains' .idea/dataSources.xml (the user from the .local.xml beside it),
-    /// VS Code's SQLTools in .vscode/settings.json. JetBrains keeps no password there: ~/.pgpass or the user gives one.
+    /// Reads the connections an IDE keeps in the project: JetBrains' .idea/dataSources.xml (with the user from the
+    /// .local.xml beside it) and VS Code's SQLTools in .vscode/settings.json. JetBrains keeps no password there, so
+    /// ~/.pgpass or the user gives one.
     static func ideConnections(in root: String) -> [FoundDatabase] {
         let top = URL(fileURLWithPath: root)
         let idea = ImportReaders.dataSources(top.appendingPathComponent(".idea/dataSources.xml"), group: nil).map {
@@ -53,7 +56,7 @@ enum DatabaseFind {
         return idea + sqlTools(read(root, ".vscode/settings.json") ?? "")
     }
 
-    /// `sqltools.connections` of a VS Code settings file (JSON with comments and trailing commas).
+    /// Reads `sqltools.connections` from a VS Code settings file (JSON with comments and trailing commas).
     static func sqlTools(_ text: String) -> [FoundDatabase] {
         guard text.contains("sqltools.connections") else { return [] }
         let plain = text.split(separator: "\n", omittingEmptySubsequences: false)
@@ -78,9 +81,10 @@ enum DatabaseFind {
         }
     }
 
-    /// What files of the project say, by their path in it: compose files, .env files, config/database.yml.
+    /// Reads the databases that the project's files name, given each file's path in the project: compose files, .env
+    /// files, config/database.yml and prisma/schema.prisma.
     static func parse(_ files: [(name: String, text: String)], root: String) -> [FoundDatabase] {
-        // What compose fills ${VAR} in from: the .env beside the compose file.
+        // Compose fills in ${VAR} from the .env beside the compose file.
         var envs: [String: [String: String]] = [:]
         for (name, text) in files where (name as NSString).lastPathComponent == ".env" {
             envs[(name as NSString).deletingLastPathComponent] = variables(text)
@@ -98,9 +102,10 @@ enum DatabaseFind {
         }
     }
 
-    /// The shell line that prints those files on a remote project's host, each after a record separator and its name:
-    /// what `parse(remote:)` reads back. SQLite files there aren't looked for (they can't be opened from here).
-    /// In `sh`, whatever the host's login shell: zsh would stop at the first pattern that matches nothing.
+    /// The shell line that prints those files on a remote project's host, each after a record separator and its name,
+    /// for `parse(remote:)` to read back. SQLite files there aren't looked for, because they can't be opened from here.
+    /// It runs in `sh` whatever the host's login shell is, because zsh would stop at the first pattern that matches
+    /// nothing.
     static func remoteScript(_ path: String) -> String {
         let names =
             (composeFiles + [".env", ".env.*", "config/database.yml", "prisma/schema.prisma"]
@@ -136,7 +141,8 @@ enum DatabaseFind {
 
     // MARK: URLs
 
-    /// postgres://user:pass@host:5432/db, mysql://…, sqlite:///path or file:./dev.db; nil for anything else.
+    /// Reads a database URL such as postgres://user:pass@host:5432/db, mysql://…, sqlite:///path or file:./dev.db.
+    /// Returns nil for anything else.
     static func url(_ text: String, name: String? = nil, source: String, root: String) -> FoundDatabase? {
         let text = text.trimmingCharacters(in: .whitespaces)
         if text.hasPrefix("file:") || text.hasPrefix("sqlite:") {
@@ -152,7 +158,7 @@ enum DatabaseFind {
                     name: name ?? base, engine: .sqlite, source: source,
                     path: URL(fileURLWithPath: full).standardized.path))
         }
-        // A server's URL is read as one pasted into Add Database is: the same schemes, ssl and all.
+        // A server's URL is read the way Add Database reads a pasted one, with the same schemes, ssl and all.
         guard text.contains("://") else { return nil }
         let found: DatabaseAddress
         do { found = try DatabaseAddress.parse(text) } catch { return nil }
@@ -165,7 +171,8 @@ enum DatabaseFind {
 
     // MARK: .env
 
-    /// `DATABASE_URL=…`, `export PG_URL="…"`: a key ending URL that names a database, its value a database URL.
+    /// Reads lines such as `DATABASE_URL=…` or `export PG_URL="…"`, where the key ends in URL and names a database,
+    /// and the value is a database URL.
     static func env(_ text: String, source: String, root: String) -> [FoundDatabase] {
         pairs(text).compactMap { key, value in
             let key = key.uppercased()
@@ -189,7 +196,7 @@ enum DatabaseFind {
 
     // MARK: Rails
 
-    /// config/database.yml's development and test blocks.
+    /// Reads the development and test blocks of config/database.yml.
     static func rails(_ text: String, source: String, root: String) -> [FoundDatabase] {
         var blocks: [String: [String: String]] = [:], current: String?
         for raw in text.split(whereSeparator: \.isNewline) {
@@ -223,9 +230,9 @@ enum DatabaseFind {
 
     // MARK: Prisma
 
-    /// The datasource's url when the schema writes it out: `url = "postgresql://…"`, or a SQLite `file:./dev.db`
-    /// (relative to the schema's folder, as Prisma reads it). For `env("DATABASE_URL")` the value comes from the .env
-    /// found there.
+    /// Reads the datasource's url when the schema writes it out, as `url = "postgresql://…"` or a SQLite
+    /// `file:./dev.db` (relative to the schema's folder, as Prisma reads it). For `env("DATABASE_URL")` the value
+    /// comes from the .env found there.
     static func prisma(_ text: String, source: String, root: String) -> [FoundDatabase] {
         var inSource = false
         for line in text.split(whereSeparator: \.isNewline).map({ $0.trimmingCharacters(in: .whitespaces) }) {
@@ -248,7 +255,8 @@ enum DatabaseFind {
         "DerivedData"
     ]
 
-    /// SQLite files at the top and in the usual folders: by their first bytes, not their name.
+    /// Finds SQLite and DuckDB files at the top and in the usual folders. A file with a database extension counts only
+    /// when its first bytes say so, because the name alone isn't enough.
     static func sqliteFiles(in root: String) -> [FoundDatabase] {
         var found: [FoundDatabase] = []
         for folder in [""] + sqliteFolders {
@@ -268,12 +276,12 @@ enum DatabaseFind {
         return found
     }
 
-    /// What a folder holds; nothing for one that isn't there (most of `sqliteFolders` aren't).
+    /// Lists what a folder holds, or nothing for a folder that isn't there (most of `sqliteFolders` aren't).
     static func names(in dir: String) -> [String] {
         do { return try FileManager.default.contentsOfDirectory(atPath: dir) } catch { return [] }
     }
 
-    /// SQLite's header, or DuckDB's ("DUCK" at byte 8): what a file is by its first bytes.
+    /// Tells what a file is by its first bytes: SQLite's header, or DuckDB's ("DUCK" at byte 8).
     static func fileEngine(_ path: String) -> DatabaseInfo.Engine? {
         guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
         defer { handle.closeFile() }
@@ -286,15 +294,16 @@ enum DatabaseFind {
 
     // MARK: Names
 
-    /// A server that isn't this Mac: agents only read it until the user says otherwise. Production is only ever the
-    /// user's word (Environment), never guessed from a host, a name or an `.env.production`.
+    /// Whether the database is a server other than this Mac. Agents only read such a server until the user says
+    /// otherwise. Production is only ever the user's word (Environment), never guessed from a host, a name or an
+    /// `.env.production`.
     static func isRemote(_ db: DatabaseInfo) -> Bool {
         guard !db.engine.isFile else { return false }
         return db.ssh != nil || db.host.map { !DatabaseInfo.isLocal($0) } ?? false
     }
 
-    /// One entry per place: the same server, port and database found twice (compose and .env) is kept once, the first;
-    /// two places under one name get "-2", "-3".
+    /// Keeps one entry per place. The same server, port and database found twice (compose and .env) is kept once, as
+    /// first found. Two places under one name get "-2", "-3".
     static func unique(_ found: [FoundDatabase]) -> [FoundDatabase] {
         var kept: [FoundDatabase] = [], names: Set<String> = []
         for var item in found {

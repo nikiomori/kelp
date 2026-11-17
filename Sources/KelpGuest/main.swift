@@ -1,12 +1,13 @@
 import AppKit
 import ApplicationServices
 
-// Kelp Guest: inside a Kelp macOS machine, its apps' controls by name. The screen itself (screenshots, clicks, keys) is
-// read and driven from the Mac's side by kelp-vm and needs nothing in here; this needs Accessibility, asked for the
-// first time `ui` runs. Started at login (a LaunchAgent); run over SSH with arguments, the same program asks it:
+// Kelp Guest runs inside a Kelp macOS machine and finds the controls of the machine's apps by name. kelp-vm reads and
+// drives the screen itself (screenshots, clicks, keys) from the Mac's side, so none of that lives here. This program
+// needs Accessibility, which macOS asks for the first time `ui` runs. A LaunchAgent starts it at login as a server.
+// Run over SSH with arguments, the same program sends the request to that server:
 //   KelpGuest ui [--app NAME]             the front app's controls, a line each, with refs: "- button "Save" [ref=e12]"
-//   KelpGuest press REF|TITLE             presses a control through Accessibility: no pointer
-//   KelpGuest status                      whether it has Accessibility
+//   KelpGuest press REF|TITLE             presses a control through Accessibility, without moving the pointer
+//   KelpGuest status                      says whether the server has Accessibility
 
 setvbuf(stdout, nil, _IOLBF, 0)
 let socketPath = NSTemporaryDirectory() + "kelp-guest.sock"

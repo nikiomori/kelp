@@ -2,17 +2,18 @@ import Core
 import Foundation
 import GRDB
 
-/// A database and the password that opens it, as kelpd holds them: never sent to a client.
+/// A database and the password that opens it, as kelpd holds them. It is never sent to a client.
 struct DatabaseConnection: Sendable {
     var database: DatabaseInfo
     var password: String?
-    /// The compose service it runs in (its file, absolute): where its client runs when this Mac has none, or the
-    /// service publishes no port.
+    /// The compose service the database runs in, with the compose file's absolute path. The database's client runs
+    /// there when this Mac has no client, or when the service publishes no port.
     var container: ComposeService?
-    /// Kelp's keychain account for its password ("db:<project>/<name>"): where one read from `passwordIn` goes.
+    /// Kelp's keychain account for the database's password ("db:<project>/<name>"). A password read from
+    /// `passwordIn` is saved there.
     var account: String?
-    /// Where Kelp got the database from: a project's files, added by hand to the project, or All My Projects (the
-    /// user's own, reached from this Mac whatever project uses it).
+    /// Where Kelp got the database from: a project's files, the project's databases added by hand, or All my projects
+    /// (the user's own databases, reached from this Mac whichever project uses them).
     var origin: Origin = .found
 
     enum Origin: Sendable { case found, project, library }
@@ -22,19 +23,22 @@ struct ComposeService: Sendable, Equatable {
     var file: String, name: String, port: Int
 }
 
-/// What a statement gave: its columns and rows (nil for NULL), `total` counted past what's kept up to `countLimit`.
+/// What a statement returned: its columns and rows (nil for NULL). `total` keeps counting rows past the ones kept, up
+/// to `countLimit`.
 struct DatabaseRows: Equatable, Sendable {
     var columns: [String] = []
     var rows: [[String?]] = []
     var total = 0
     var changed: Int?
-    /// What the kept rows' cells weigh; past `DatabaseEngines.outputLimit` no more are kept and the answer is refused
-    /// (`DatabaseEngines.whole`), never sent as fewer rows. Not part of what it says (==).
+    /// The size in bytes of the kept rows' cells. Past `DatabaseEngines.outputLimit` no more rows are kept and the
+    /// answer is refused (`DatabaseEngines.whole`), never sent as fewer rows. `==` ignores this field.
     var bytes = 0
-    /// A value isn't its own text (a SQLite blob, shown as its size): the rows can't be written back as they are.
+    /// Whether some value isn't its own text (a SQLite blob, shown as its size). Then the rows can't be written back
+    /// as they are.
     var opaque = false
 
-    /// One more row as it comes: kept up to `DatabaseEngines.keep` and `outputLimit`, counted always.
+    /// Adds one more row as it comes. The row is kept up to `DatabaseEngines.keep` rows and `outputLimit` bytes, and
+    /// it is always counted.
     mutating func add(columns: [String], _ row: [String?]) {
         if total == 0 { self.columns = columns }
         add(row)
@@ -52,18 +56,18 @@ struct DatabaseRows: Equatable, Sendable {
     }
 }
 
-/// Runs statements on a database: SQLite inside kelpd (GRDB); Postgres and MySQL over their own protocols
-/// (`DatabaseWire`) at an address kelpd can reach, or, when there is no such address, through their clients inside the
-/// compose container that runs them (`docker exec`).
+/// Runs statements on a database. SQLite runs inside kelpd (GRDB). Postgres and MySQL are spoken to over their own
+/// protocols (`DatabaseWire`) at an address kelpd can reach, or, when there is no such address, through their clients
+/// inside the compose container that runs them (`docker exec`).
 /// A read runs in a read-only transaction (a read-only file for SQLite), so the database itself refuses a change. A
-/// trial runs a change and rolls it back; a write runs it for real. Each call runs one statement (`SQLText.single`).
-/// Blocking work (GRDB, a client run) goes to `off`, never the cooperative pool.
+/// trial runs a change and rolls it back, and a write runs it for real. Each of these runs one statement
+/// (`SQLText.single`). Blocking work (GRDB, a client run) goes to the `off` slots, never to the cooperative pool.
 enum DatabaseEngines {
-    /// Rows kept of a result; more are counted up to `countLimit`.
+    /// The number of rows kept of a result. Rows past that are counted, up to `countLimit`.
     static let keep = QueryResult.kept, countLimit = QueryResult.counted
     /// The time limits for a read and for a change.
     static let readTimeout = DatabaseTimes.read, writeTimeout = DatabaseTimes.write
-    /// What Kelp reads of a client's output: an answer past it is refused whole, never read as fewer rows.
+    /// The most bytes Kelp reads of a client's output. An answer past it is refused whole, never read as fewer rows.
     static let outputLimit = 32 << 20
 
     static func whole(_ out: Subprocess.Output, _ name: String) throws {
@@ -71,7 +75,8 @@ enum DatabaseEngines {
         throw tooBig(name)
     }
 
-    /// A change that would change more or fewer rows than the user allowed (the table changed while it was asked).
+    /// The failure for a change that would change more or fewer rows than the user allowed, because the table changed
+    /// while the user was asked.
     static func notAsAllowed(_ changed: Int?, _ allowed: Int) -> DatabaseFailure {
         let rows = { (count: Int) in "\(count) \(count == 1 ? "row" : "rows")" }
         let now = changed.map(rows) ?? "an unknown number of rows"
@@ -80,7 +85,7 @@ enum DatabaseEngines {
                 + "Run it again to ask again.")
     }
 
-    /// Rows read in kelpd (SQLite, over the wire): refused whole past `outputLimit`, as a client's output is.
+    /// Refuses rows read in kelpd (SQLite, over the wire) whole when they pass `outputLimit`, as a client's output is.
     static func whole(_ rows: DatabaseRows, _ name: String) throws -> DatabaseRows {
         guard rows.bytes > outputLimit else { return rows }
         throw tooBig(name)
@@ -91,7 +96,7 @@ enum DatabaseEngines {
             "\(name)'s answer is over \(outputLimit >> 20) MB, more than Kelp reads: ask for fewer rows or columns.")
     }
 
-    /// `timeout`: seconds the server may take (Postgres stops it there).
+    /// Runs a read. `timeout` is the number of seconds the server may take (Postgres stops the read there).
     static func read(
         _ databaseConnection: DatabaseConnection, _ sql: String, timeout: TimeInterval = readTimeout, off: Slots
     )
@@ -103,7 +108,7 @@ enum DatabaseEngines {
             }, databaseConnection.database.name)
     }
 
-    /// A server that isn't up, said with how to start it when a compose file runs it.
+    /// Reports a server that isn't up, with how to start it when a compose file runs it.
     static func explained<T>(_ databaseConnection: DatabaseConnection, _ body: () async throws -> T) async throws -> T {
         do { return try await body() } catch DatabaseFailure.failed(let text)
             where text.contains("Connection refused") || text.contains("Can't connect")
@@ -122,7 +127,8 @@ enum DatabaseEngines {
         }
     }
 
-    /// The change made and rolled back: what it touched, and the rows it would leave when it can say (RETURNING).
+    /// Makes the change and rolls it back. Returns how many rows it touched, and the rows it would leave when the
+    /// engine can say so (RETURNING).
     static func trial(_ databaseConnection: DatabaseConnection, _ sql: String, off: Slots) async throws -> DatabaseRows
     {
         guard SQLText.mayTry(sql, databaseConnection.database.engine) else {
@@ -131,9 +137,9 @@ enum DatabaseEngines {
         return try whole(try await runner(databaseConnection, off: off).trial(sql), databaseConnection.database.name)
     }
 
-    /// `allowed`: the rows the user allowed it to change (its trial's), committed only if it changes as many where the
-    /// runner `holdsAllowed`; elsewhere (Appwrite) it runs as asked, so a table changed while it was asked can change a
-    /// different number.
+    /// Makes a change. `allowed` is the number of rows the user allowed it to change (the trial's count). Where the
+    /// runner `holdsAllowed`, the change is committed only if it changes that many. Elsewhere (Appwrite) it runs as
+    /// asked, so a table that changed while the user was asked can have a different number of rows changed.
     static func write(_ databaseConnection: DatabaseConnection, _ sql: String, allowed: Int? = nil, off: Slots)
         async throws
         -> DatabaseRows
@@ -143,14 +149,16 @@ enum DatabaseEngines {
             databaseConnection.database.name)
     }
 
-    /// The user's edits, all or none, in one transaction: the rows they changed. Through a container's client too: a
-    /// failure stops it before COMMIT, and the session it ends rolls back.
+    /// Runs the user's edits in one transaction, so all of them are kept or none, and returns how many rows they
+    /// changed. That holds through a container's client too, because a failure stops the client before COMMIT and
+    /// the session it ends rolls back.
     static func apply(_ databaseConnection: DatabaseConnection, _ statements: [String], off: Slots) async throws -> Int
     {
         try await runner(databaseConnection, off: off).apply(statements)
     }
 
-    /// Several statements in one transaction, kept when `keep` says so of the rows each changed (`DatabaseRunner.batch`).
+    /// Runs several statements in one transaction, kept when `keep` approves the rows each changed
+    /// (`DatabaseRunner.batch`).
     static func batch(
         _ databaseConnection: DatabaseConnection, _ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool,
         off: Slots
@@ -182,9 +190,9 @@ enum DatabaseEngines {
         return path
     }
 
-    /// How to run the client inside the container compose runs the database in (`docker exec`, its port there), with
-    /// `secret` (the password's variable) passed from the environment, never on the command line. A database with an
-    /// address is spoken to directly (`DatabaseWire`).
+    /// Returns how to run the client inside the container that compose runs the database in (`docker exec`, and the
+    /// port inside the container). `secret` names the password's variable, which is passed from the environment, never
+    /// on the command line. A database with an address is spoken to directly (`DatabaseWire`).
     static func invocation(_ databaseConnection: DatabaseConnection, _ name: String, secret: String) throws -> (
         argv: [String], host: String, port: Int
     ) {
@@ -206,9 +214,9 @@ enum DatabaseEngines {
         return env
     }
 
-    /// The client program, from the login PATH or where it's usually kept (libpq is keg-only in Homebrew).
+    /// Finds the client program on the login PATH or where it's usually kept (libpq is keg-only in Homebrew).
     static func client(_ name: String, also: [String]) throws -> String {
-        do { return try LoginPath.resolve(name) } catch {}   // not on the PATH: where it's usually kept
+        do { return try LoginPath.resolve(name) } catch {}   // not on the PATH, so look where it's usually kept
         if let found = also.map({ $0 + "/" + name }).first(where: FileManager.default.isExecutableFile(atPath:)) {
             return found
         }
@@ -216,7 +224,7 @@ enum DatabaseEngines {
         throw DatabaseFailure.failed("\(name) isn't installed, and Kelp reaches this database through it\(hint).")
     }
 
-    /// A value as text: numbers as SQLite gives them, a blob as its size.
+    /// Returns a SQLite value as text: numbers as SQLite gives them, and a blob as its size.
     static func text(_ value: DatabaseValue) -> String? {
         switch value.storage {
         case .null: nil
@@ -228,7 +236,8 @@ enum DatabaseEngines {
     }
 }
 
-/// RFC 4180: an unquoted empty field is nil, a quoted one an empty string (psql writes both unquoted: `PostgresRun.null`).
+/// Parses RFC 4180 CSV. An unquoted empty field is nil and a quoted one is an empty string (psql writes both unquoted,
+/// which is why `PostgresRun.null` exists).
 enum CSV {
     static func parse(_ text: String) -> [[String?]] {
         var records: [[String?]] = [], record: [String?] = [], field = "", quoted = false, inQuotes = false
@@ -274,8 +283,8 @@ enum CSV {
     }
 }
 
-/// Tables out of three reads, the same for Postgres and MySQL: columns (table, column, type, nullable YES/NO, primary
-/// t/1, references), row counts (table, count) and indexes (table, "name (columns)").
+/// Builds the tables from three reads that have the same shape for Postgres, MySQL and DuckDB: columns (table, column,
+/// type, nullable YES/NO, primary t/1, references), row counts (table, count) and indexes (table, "name (columns)").
 enum DatabaseSchemaBuilder {
     static func build(columns: [[String?]], counts: [[String?]], indexes: [[String?]]) -> DatabaseSchema {
         var names: [String] = [], byTable: [String: DatabaseSchema.Table] = [:]
@@ -294,7 +303,7 @@ enum DatabaseSchemaBuilder {
         for row in counts where row.count >= 2 {
             guard let table = row[0] else { continue }
             if let count = row[1].flatMap(Int.init), count >= 0 { byTable[table]?.rows = count }
-            if row.count >= 5 {   // kind, size and comment where the engine's query gives them
+            if row.count >= 5 {   // some engines' queries also give the kind, size and comment
                 byTable[table]?.kind = row[2] ?? nil
                 byTable[table]?.bytes = row[3].flatMap { Int($0) }
                 byTable[table]?.comment = row[4] ?? nil

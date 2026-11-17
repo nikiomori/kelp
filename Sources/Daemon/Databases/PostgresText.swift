@@ -3,9 +3,9 @@ import Foundation
 import NIOCore
 import PostgresNIO
 
-/// A Postgres value as psql prints it, from the binary form PostgresNIO receives every result in: numbers with their
-/// scale, timestamps in UTC, arrays in braces, bytea as hex. A type it doesn't know shows its text when that's what
-/// its bytes are (enums, citext, domains over text), else its size.
+/// Writes a Postgres value as psql prints it, from the binary form that PostgresNIO receives every result in: numbers
+/// with their scale, timestamps in UTC, arrays in braces, bytea as hex. An unknown type shows as text when its bytes
+/// are text (enums, citext, domains over text), and otherwise as its size.
 enum PostgresText {
     static func text(_ cell: PostgresCell) -> String? {
         guard var bytes = cell.bytes else { return nil }
@@ -44,7 +44,7 @@ enum PostgresText {
         }
     }
 
-    /// Text-like types (text, varchar, name, json, xml) and user ones whose binary form is their text.
+    /// Reads text-like types (text, varchar, name, json, xml) and user-defined types whose binary form is their text.
     private static func textual(_ byteBuffer: inout ByteBuffer) -> String {
         let count = byteBuffer.readableBytes
         guard let bytes = byteBuffer.readBytes(length: count), let text = String(bytes: bytes, encoding: .utf8),
@@ -71,7 +71,8 @@ enum PostgresText {
         return "\(sign)$\(v / 100).\(String(format: "%02d", Int(v % 100)))"
     }
 
-    /// Base-10000 digits, the first `weight` + 1 before the point, `dscale` digits after it.
+    /// Reads a numeric, which comes as base-10000 digit groups. The first `weight` + 1 groups go before the point,
+    /// and `dscale` digits follow it.
     static func numeric(_ byteBuffer: inout ByteBuffer) -> String {
         guard let count = byteBuffer.readInteger(as: Int16.self), let weight = byteBuffer.readInteger(as: Int16.self),
             let sign = byteBuffer.readInteger(as: UInt16.self), let scale = byteBuffer.readInteger(as: Int16.self)
@@ -139,7 +140,8 @@ enum PostgresText {
             + fractionText(micros % 1_000_000)
     }
 
-    /// ".5" for 500000 µs, nothing for none: trailing zeros cut, as psql does.
+    /// Writes the fraction of a second, such as ".5" for 500000 µs, or nothing for zero. Trailing zeros are cut, as
+    /// psql does.
     private static func fractionText(_ micros: Int64) -> String {
         guard micros > 0 else { return "" }
         var text = String(format: "%06d", micros)
@@ -181,7 +183,8 @@ enum PostgresText {
         return cidr == 1 || Int(bits) != full ? "\(text)/\(bits)" : text
     }
 
-    /// `{1,2,NULL}`, nested for more dimensions; elements quoted when psql would.
+    /// Writes an array as psql does, such as `{1,2,NULL}`, nested for more dimensions. Elements are quoted where psql
+    /// would quote them.
     private static func array(_ byteBuffer: inout ByteBuffer) -> String? {
         guard let dims = byteBuffer.readInteger(as: Int32.self), byteBuffer.readInteger(as: Int32.self) != nil,
             let element = byteBuffer.readInteger(as: UInt32.self)
@@ -237,7 +240,7 @@ enum PgPass {
             ?? (NSHomeDirectory() as NSString)
             .appendingPathComponent(".pgpass")
         let text: String
-        do { text = try String(contentsOfFile: path, encoding: .utf8) } catch { return nil }   // none: fine
+        do { text = try String(contentsOfFile: path, encoding: .utf8) } catch { return nil }   // no file is fine
         return match(text, host: host, port: port, database: database ?? user, user: user)
     }
 

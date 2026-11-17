@@ -2,11 +2,11 @@ import Core
 import Foundation
 import LSPKit
 
-// lsp.*: the RPCs, each answered by LSPHost, and which projects the user trusted for language servers.
+// The lsp.* methods, each answered by LSPHost, and the check of which projects the user trusted for language servers.
 
 extension LSPHost {
-    /// The user trusted `root` for language servers and formatters in Kelp's window (`state.set` of `lsp.trusted`, which
-    /// only the window may write).
+    /// Returns whether the user trusted `root` for language servers and formatters in Kelp's window (`state.set` of
+    /// `lsp.trusted`, which only the window may write).
     func trusted(_ root: String) -> Bool {
         let state = store.look("what's trusted") { try $0.daemonState(LSPOpen.trustKey, as: [JSONValue].self) }
         return (state ?? []).contains(.string(root))
@@ -14,17 +14,19 @@ extension LSPHost {
 }
 
 extension LSPOpen: Handled {
-    /// Before the changes typed after it. Quick: a server starts on a task of its own.
+    /// Handled in order, before the changes typed after it. It stays quick, because a server starts on a task of its
+    /// own.
     static var inOrder: Bool { true }
     func handle(_ lsp: LSPHost, conn: Int) throws -> Done {
         guard lsp.remotes.of(root) == nil else {
             throw RPCError.invalidParams(
                 "No language servers for a project on another machine yet: clone it to this Mac to have them.")
         }
-        // A project's language servers run its own code: the daemon checks, whoever asks.
+        // A project's language servers run the project's own code, so the daemon checks trust, whoever asks.
         guard lsp.trusted(root) else { throw LSPRefusal.untrusted.error }
-        // Not waiting for the login shell's PATH on this thread (seconds, right after the daemon starts): until it's read,
-        // a server that isn't installed fails when it starts, off this thread, and the tab just gets no server.
+        // This doesn't wait on this thread for the login shell's PATH, which takes seconds right after the daemon
+        // starts. Until the PATH is read, a server that isn't installed fails when it starts, off this thread, and the
+        // tab just gets no server.
         do { _ = try LoginPath.resolveNow(command) } catch { throw LSPRefusal.notInstalled(command).error }
         lsp.open(conn: conn, self)
         return Done()
@@ -32,7 +34,7 @@ extension LSPOpen: Handled {
 }
 
 extension LSPChange: Handled {
-    static var inOrder: Bool { true }   // keystrokes' text, in the order typed
+    static var inOrder: Bool { true }   // the text after each keystroke, in the order typed
     func handle(_ lsp: LSPHost) throws -> Done {
         lsp.change(root, path, text: text)
         return Done()
@@ -80,8 +82,8 @@ extension LSPSymbols: AsyncHandled {
 }
 
 extension LSPWorkspaceSymbols: AsyncHandled {
-    /// Symbols in the project's own files only: names from a toolchain or a dependency aren't what the user is looking
-    /// for.
+    /// Returns symbols in the project's own files only, because names from a toolchain or a dependency aren't what the
+    /// user is looking for.
     func handle(_ lsp: LSPHost) async throws -> [CodeSymbol] {
         guard let client = await lsp.client(root, path, can: "workspaceSymbolProvider") else { return [] }
         let base = URL(fileURLWithPath: root).resolvingSymlinksInPath().path + "/"
@@ -117,13 +119,13 @@ extension LSPReferences: AsyncHandled {
         return try await lsp.offloads.run { Self.lines(of: found, in: root) }
     }
 
-    /// Each place with its line's text, read from disk, for the project's files.
+    /// Returns each place in the project's files with the text of its line, read from disk.
     private static func lines(of found: [CodeLocation], in root: String) -> [SearchMatch] {
         let base = URL(fileURLWithPath: root).resolvingSymlinksInPath().path + "/"
         var texts: [String: [Substring]] = [:]
         return found.compactMap { location in
             let real = URL(fileURLWithPath: location.path).resolvingSymlinksInPath().path
-            guard real.hasPrefix(base) else { return nil }   // the toolchain's own files: the panel lists the project's
+            guard real.hasPrefix(base) else { return nil }   // the panel lists the project's files, not the toolchain's
             if texts[real] == nil {
                 let text = Log.session.attempt("reading \(real)") { try String(contentsOfFile: real, encoding: .utf8) }
                 texts[real] = text?.split(separator: "\n", omittingEmptySubsequences: false) ?? []
@@ -146,7 +148,8 @@ extension LSPRename: AsyncHandled {
 }
 
 extension LSPActions: AsyncHandled {
-    /// The code actions of every server for the file: a linter's fixes as well as the language server's own.
+    /// Returns the code actions of every server for the file, so a linter's fixes come as well as the language
+    /// server's own.
     func handle(_ lsp: LSPHost) async throws -> [CodeAction] {
         let all = await lsp.clients(root, path), able = all.filter { $0.can("codeActionProvider") }
         var found: [CodeAction] = [], failure: Error?
@@ -159,7 +162,7 @@ extension LSPActions: AsyncHandled {
 }
 
 extension LSPServers: AsyncHandled {
-    /// The login shell's PATH is waited for off the pool: the first ask after the daemon starts takes seconds.
+    /// Waits for the login shell's PATH off the pool, because the first ask after the daemon starts takes seconds.
     func handle(_ lsp: LSPHost) async throws -> [LSPServerState] {
         let commands = commands, known = lsp.states(root, commands)
         let found = try await lsp.offloads.run { commands.map { LoginPath.find($0) != nil } }

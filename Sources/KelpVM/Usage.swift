@@ -2,20 +2,22 @@ import Core
 import Darwin
 import Foundation
 
-/// What a Linux or macOS machine costs the Mac. Its guest runs in Virtualization's own processes, not in kelp-vm: the
-/// machine itself and its graphics' GPU tasks (~1 GB for macOS), which launchd starts and this kelp-vm is responsible
-/// for. All of them and kelp-vm: CPU as Activity Monitor counts it (100 % = one core), and memory footprints (what the
-/// guest touched, less what its balloon gave back).
+/// Measures what a Linux or macOS machine costs the Mac. The guest runs in Virtualization's own processes, not in
+/// kelp-vm: one for the machine itself and others for the GPU work of its graphics (about 1 GB for macOS). launchd
+/// starts them, and this kelp-vm is the process responsible for them. A sample adds up those processes and kelp-vm.
+/// CPU is counted as Activity Monitor counts it (100 % is one core). Memory is the footprint, which is what the guest
+/// touched, less what its memory balloon gave back.
 @MainActor
 enum Usage {
     private typealias Responsible = @convention(c) (pid_t) -> pid_t
-    /// libSystem's, not in its headers: the process a launchd-started service runs for (as Activity Monitor groups them).
+    /// A libSystem function missing from its headers. It returns the process that a launchd-started service runs for,
+    /// which is how Activity Monitor groups processes.
     private static let responsible = dlsym(dlopen(nil, RTLD_NOW), "responsibility_get_pid_responsible_for_pid")
         .map { unsafeBitCast($0, to: Responsible.self) }
-    /// Each process's CPU time at the last call, and when that was (mach ticks both).
+    /// The CPU time of each process at the last call, and the time of that call, both in mach ticks.
     private static var last: (cpu: [pid_t: UInt64], at: UInt64)?
 
-    /// CPU % since the last call (nil on the first), and the footprint now, MiB.
+    /// Returns the CPU percentage since the last call (nil on the first call) and the memory footprint now, in MiB.
     static func sample() -> (cpu: Double?, memoryMiB: Int)? {
         guard let responsible else { return nil }
         let me = getpid()
@@ -37,14 +39,15 @@ enum Usage {
         let percent = last.flatMap { previous -> Double? in
             guard now.at > previous.at else { return nil }
             let used = cpu.reduce(UInt64(0)) { sum, e in sum + (e.value - min(e.value, previous.cpu[e.key] ?? e.value))
-            }   // a new one: from now
+            }   // a process that is new since the last call counts from now
             return Double(used) / Double(now.at - previous.at) * 100
         }
         return (percent, Int(bytes >> 20))
     }
 
-    /// The processes of `programs` that name `id` (`adb -s emulator-5600 shell …`, `xcrun simctl … <udid>`), other than
-    /// kelp-vm's own: a machine's commands kelpd and agents run without kelp-vm. By name first: few are read whole.
+    /// Counts the processes of `programs` whose arguments name `id` (`adb -s emulator-5600 shell …`,
+    /// `xcrun simctl … <udid>`), leaving out kelp-vm and its children. These are the commands that kelpd and agents run
+    /// on the machine without kelp-vm. Processes are matched by name first, so few have their arguments read.
     static func clients(of id: String, programs: Set<String>) -> Int {
         let me = getpid()
         var name = [CChar](repeating: 0, count: 256)
@@ -58,7 +61,7 @@ enum Usage {
         }.count
     }
 
-    /// Every process's id now.
+    /// Returns the ids of all processes running now.
     private static func pids() -> ArraySlice<pid_t> {
         var pids = [pid_t](repeating: 0, count: Int(proc_listallpids(nil, 0)) + 64)
         let count = Int(proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size)))

@@ -3,8 +3,8 @@ import Foundation
 import GitKit
 import os
 
-/// The commits agents proposed (`kelp commit add`), by workspace, until the window takes them: in memory, as a message
-/// being written is.
+/// The commits that agents proposed (`kelp commit add`), by workspace, until the window takes them. They are kept in
+/// memory only, as a commit message being written is.
 final class CommitPlans: Sendable {
     let store: Store
     let plans = OSAllocatedUnfairLock(initialState: [String: [PlannedCommit]]())
@@ -12,7 +12,7 @@ final class CommitPlans: Sendable {
 }
 
 extension CommitPlanAdd: Handled {
-    // the commits an agent proposes (`kelp commit add`): the user edits them and Kelp makes them, never the agent
+    // An agent proposes commits (`kelp commit add`). The user edits them and Kelp makes them, never the agent.
     static let agents = AgentAccess.acts
     static var quick: Bool { true }
     var fence: Fence { Fence(reportsFor: session) }   // a plan names its own session's agent, not another's
@@ -22,7 +22,7 @@ extension CommitPlanAdd: Handled {
         guard !paths.isEmpty, !text.isEmpty else {
             throw RPCError.invalidParams("A commit needs at least one file and a message: kelp commit add <file>… -m …")
         }
-        // A path is one line: one with a break in it names no file the panel shows.
+        // A path must be one line, because a path with a break in it names no file the panel shows.
         guard !paths.contains(where: { $0.contains(where: \.isNewline) }) else {
             throw RPCError.invalidParams("A file's path has no line breaks.")
         }

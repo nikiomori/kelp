@@ -1,15 +1,17 @@
 import Core
 import Foundation
 
-/// Appwrite (1.8, TablesDB) over its REST API: a project's database, its tables and rows. The endpoint is the
-/// database's host ("https://appwrite.example.com", /v1 or not), the project's ID its user, an API key its password.
-/// Appwrite has no SQL: the statements Kelp's tab and agents write are read in a narrow form and said as its queries —
+/// Talks to Appwrite (1.8, TablesDB) over its REST API: a project's database, its tables and rows. The database's host
+/// is the endpoint ("https://appwrite.example.com", with or without /v1), its user is the project's ID, and its
+/// password is an API key. Appwrite has no SQL, so the statements that Kelp's tab and agents write are read in a narrow
+/// form and sent as Appwrite queries —
 /// SELECT * | count(*) | columns FROM t [WHERE …] [ORDER BY …] [LIMIT n] [OFFSET n]; INSERT INTO t (…) VALUES (…), …;
 /// UPDATE t SET … WHERE …; DELETE FROM t WHERE …. A WHERE has =, <>, <, <=, >, >=, [NOT] LIKE ('%a%', 'a%', '%a'),
 /// IS [NOT] NULL, [NOT] IN (…), [NOT] BETWEEN, AND, OR and brackets. The user's edits go in one Appwrite transaction.
 struct AppwriteWire: DatabaseRunner {
     let connection: DatabaseConnection
-    /// Its change can't be tried and taken back, so its count is only what the rows matched when asked.
+    /// An Appwrite change can't be tried and taken back, so its count is only how many rows matched when the user was
+    /// asked.
     var holdsAllowed: Bool { false }
 
     struct Endpoint {
@@ -42,13 +44,13 @@ struct AppwriteWire: DatabaseRunner {
 
     // MARK: What the server says
 
-    /// "Appwrite 1.8.1": asked without the key.
+    /// Returns "Appwrite 1.8.1" or the like, asked without the key.
     func version() async throws -> String? {
         let answer = try await Self.call(try Self.endpoint(connection), "GET", "/health/version", signed: false)
         return "Appwrite " + (answer["version"] as? String ?? "")
     }
 
-    /// The project's databases, by ID.
+    /// Returns the project's databases, by ID.
     func databases() async throws -> [String] {
         let answer = try await Self.call(
             try Self.endpoint(connection), "GET", "/tablesdb", queries: [["method": "limit", "values": [100]]])
@@ -69,7 +71,8 @@ struct AppwriteWire: DatabaseRunner {
         return DatabaseSchema(tables: tables)
     }
 
-    /// One table as Kelp shows it: $id first (its key), its columns, then when it was made and changed.
+    /// Turns one table into what Kelp shows: $id first (the key), then the table's columns, then when each row was
+    /// made and changed.
     static func table(_ t: [String: Any]) -> DatabaseSchema.Table {
         let id = t["$id"] as? String ?? "", name = t["name"] as? String
         let columns = (t["columns"] as? [[String: Any]] ?? []).compactMap { connection -> DatabaseSchema.Column? in
@@ -78,7 +81,7 @@ struct AppwriteWire: DatabaseRunner {
             return .init(name: key, type: type, nullable: connection["required"] as? Bool != true, primary: false)
         }
         let indexes = (t["indexes"] as? [[String: Any]] ?? []).map { index in
-            let columns = (index["columns"] ?? index["attributes"]) as? [String] ?? []   // TablesDB says columns
+            let columns = (index["columns"] ?? index["attributes"]) as? [String] ?? []   // TablesDB calls them columns
             return "\(index["key"] as? String ?? "") (\(columns.joined(separator: ", ")))"
         }
         return .init(
@@ -92,7 +95,7 @@ struct AppwriteWire: DatabaseRunner {
     // MARK: Statements
 
     func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
-        if sql == "SELECT 1" {   // the panel's "is it there?": the key and the project answer
+        if sql == "SELECT 1" {   // the panel's "is it there?" check, which the key and the project answer
             _ = try await Self.call(
                 try Self.endpoint(connection), "GET", "/tablesdb", queries: [["method": "limit", "values": [1]]])
             return DatabaseRows(columns: ["?column?"], rows: [["1"]], total: 1)
@@ -122,7 +125,7 @@ struct AppwriteWire: DatabaseRunner {
             total: max(total, found.count))
     }
 
-    /// Not run: what it would touch (Appwrite can't run a change and take it back to show it).
+    /// Doesn't run the change but counts what it would touch, because Appwrite can't run a change and take it back.
     func trial(_ sql: String) async throws -> DatabaseRows {
         let statement = try AppwriteSQL.parse(sql)
         let server = try await Self.withDatabase(try Self.endpoint(connection))
@@ -140,7 +143,7 @@ struct AppwriteWire: DatabaseRunner {
         return DatabaseRows(changed: changed)
     }
 
-    /// All of them in one Appwrite transaction: committed together, or rolled back.
+    /// Runs all the statements in one Appwrite transaction, so they are committed together or rolled back.
     func apply(_ statements: [String]) async throws -> Int {
         let parsed = try statements.map(AppwriteSQL.parse)
         let server = try await Self.withDatabase(try Self.endpoint(connection))
@@ -154,7 +157,8 @@ struct AppwriteWire: DatabaseRunner {
             _ = try await Self.call(server, "PATCH", "/tablesdb/transactions/\(Self.path(tx))", body: ["commit": true])
             return changed
         } catch {
-            // Not rolled back now: it lapses at its ttl, uncommitted. The error said is the statement's.
+            // Roll the transaction back. If that fails too, it lapses uncommitted at its ttl. The error reported is the
+            // statement's.
             do {
                 _ = try await Self.call(
                     server, "PATCH", "/tablesdb/transactions/\(Self.path(tx))", body: ["rollback": true])
@@ -204,7 +208,8 @@ struct AppwriteWire: DatabaseRunner {
         }
     }
 
-    /// The rows a WHERE names: "$id" = '…' as it is (the tab's edits), else asked for (5 000 at most).
+    /// Returns the IDs of the rows a WHERE names. A plain "$id" = '…' (the tab's edits) is used as it is, and any
+    /// other WHERE is asked of Appwrite (5 000 rows at most).
     private static func ids(_ endpoint: Endpoint, _ table: String, _ condition: AppwriteSQL.Condition, _ kinds: Kinds)
         async throws -> [String]
     {
@@ -226,7 +231,8 @@ struct AppwriteWire: DatabaseRunner {
 
     // MARK: Columns and values
 
-    /// A table's columns in order, with each one's type: values are sent as Appwrite wants them (2025, not '2025').
+    /// A table's columns in order, with each column's type, so values are sent as Appwrite wants them (2025, not
+    /// '2025').
     struct Kinds {
         var columns: [String]
         var types: [String: (type: String, array: Bool)]
@@ -243,7 +249,7 @@ struct AppwriteWire: DatabaseRunner {
         static func coerce(_ text: String, _ kind: (type: String, array: Bool)?) -> Any {
             let structured = kind?.array == true || ["point", "line", "polygon", "relationship"].contains(kind?.type)
             if structured, text.first == "[" || text.first == "{" {
-                do { return try JSONSerialization.jsonObject(with: Data(text.utf8)) } catch {}   // not JSON: as text
+                do { return try JSONSerialization.jsonObject(with: Data(text.utf8)) } catch {}   // else it goes as text
             }
             switch kind?.type {
             case "integer": return Int(text) ?? text
@@ -256,7 +262,7 @@ struct AppwriteWire: DatabaseRunner {
             }
         }
 
-        /// Top-level ANDs as separate queries, as Appwrite ANDs them.
+        /// Sends top-level ANDs as separate queries, because Appwrite ANDs separate queries together.
         func queries(_ condition: AppwriteSQL.Condition) -> [[String: Any]] {
             if case .all(let parts) = condition { return parts.map(query) }
             return [query(condition)]
@@ -285,7 +291,7 @@ struct AppwriteWire: DatabaseRunner {
         return Kinds(columns: found.columns.map(\.name), types: types)
     }
 
-    /// A value as text: numbers as written, true/false, a list or an object as JSON.
+    /// Returns a value as text: numbers as written, true/false, and a list or an object as JSON.
     static func text(_ value: Any?) -> String? {
         switch value {
         case nil, is NSNull: return nil
@@ -304,7 +310,7 @@ struct AppwriteWire: DatabaseRunner {
 
     // MARK: HTTP
 
-    /// A database ID left out: the project's only one.
+    /// Fills in a database ID that was left out with the project's only database.
     private static func withDatabase(_ endpoint: Endpoint) async throws -> Endpoint {
         guard endpoint.database.isEmpty else { return endpoint }
         let answer = try await call(endpoint, "GET", "/tablesdb", queries: [["method": "limit", "values": [2]]])
@@ -345,7 +351,7 @@ struct AppwriteWire: DatabaseRunner {
         guard let url = parts?.url else { throw DatabaseFailure.failed("Not an address: \(endpoint.base + path)") }
         var request = URLRequest(url: url, timeoutInterval: DatabaseEngines.readTimeout)
         request.httpMethod = method
-        if signed {   // a wrong project fails even what needs none
+        if signed {   // a wrong project fails even a call that needs no key
             request.setValue(endpoint.project, forHTTPHeaderField: "X-Appwrite-Project")
             request.setValue(endpoint.key, forHTTPHeaderField: "X-Appwrite-Key")
         }
@@ -358,7 +364,7 @@ struct AppwriteWire: DatabaseRunner {
             throw failure(error, endpoint)
         }
         var object: [String: Any] = [:]
-        if !data.isEmpty {   // a proxy's HTML page instead of JSON: said by its status below
+        if !data.isEmpty {   // a proxy's HTML page instead of JSON is reported by its status below
             do { object = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:] } catch {}
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0

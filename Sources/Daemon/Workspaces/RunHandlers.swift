@@ -1,11 +1,11 @@
 import Core
 import Foundation
 
-// run.detect and run.start: what a workspace offers to run, read where its files are, and starting one.
+// run.detect lists what a workspace offers to run, read where its files are, and run.start starts one of those.
 
 extension Workspaces {
-    /// What the workspace's files offer to run, read where the files are: for a remote project that is on its host,
-    /// through its shell (so its PATH, with nvm or pyenv, applies), over the shared connection.
+    /// Returns what the workspace's files offer to run, read where the files are. For a remote project that means on
+    /// its host, through the host's shell over the shared connection, so the host's PATH applies (with nvm or pyenv).
     func runOptions(_ worktree: Worktree) throws -> [RunOption] {
         let out: Data
         if let remote = remotes.of(worktree.path) {
@@ -29,7 +29,8 @@ extension RunDetect: Handled {
 }
 
 extension RunStart: Handled {
-    /// The option as the files say now, not a command the caller sends: what runs is what the list showed. A remote
+    /// Starts the option as the files describe it now, not a command the caller sends, so what runs is what the list
+    /// showed. A remote
     /// project's run goes in tmux on the host, so a dropped connection leaves the server running.
     func handle(_ workspaces: Workspaces) throws -> Session {
         let worktree = try workspaces.store.worktree(named: worktreeId)

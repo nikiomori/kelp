@@ -1,17 +1,19 @@
 import Core
 import Foundation
 
-/// A project that another tool set up first. Without a .kelp.yaml, Kelp reads that tool's file for the same things: the
-/// setup a new worktree gets, run / test and named commands, and the teardown, which becomes the `archive` command. So
-/// a project coming from Conductor, Codex, Cursor, an `.agents/` folder and the like works from its first worktree. The
-/// file is trusted the same way as a .kelp.yaml (`configAndTrust`), and the trust question names it. The scripts expect
-/// their tool's variables (the main checkout, the worktree, its name, a port); those are set from Kelp's (`prelude`).
+/// Reads the file of another tool that set a project up first. Without a .kelp.yaml, Kelp reads that tool's file for
+/// the same things. Those are the setup a new worktree gets, run / test and named commands, and the teardown, which
+/// becomes the `archive` command. So a project coming from Conductor, Codex, Cursor, an `.agents/` folder and the like
+/// works from its first worktree. The file is trusted the same way as a .kelp.yaml (`configAndTrust`), and the trust
+/// question names it. The scripts expect their tool's variables (the main checkout, the worktree, its name, a port),
+/// so those are set from Kelp's own (`prelude`).
 /// Limits: Kelp doesn't run `archive` by itself when a workspace goes; it is a command to run by hand. A tool's
 /// personal override file (`settings.local.toml`, `config.local.json`) and Orca's orca.yaml are left out.
 enum ImportedConfig {
     typealias Reader = @Sendable (_ text: String, _ root: String) -> RepoConfig?
 
-    /// In this order when a project has several; a tool's current file before its older one.
+    /// The files Kelp looks for, in this order when a project has several, with a tool's current file before its older
+    /// one.
     static let sources: [(file: String, read: Reader)] = [
         (".conductor/settings.toml", conductorTOML), ("conductor.json", conductorJSON),
         (".codex/environments/environment.toml", codex),
@@ -21,7 +23,8 @@ enum ImportedConfig {
         (".cmux/cmux.json", cmux), ("cmux.json", cmux)
     ]
 
-    /// The first of them the project has that names anything: its path in the project, its text, what Kelp makes of it.
+    /// Returns the first of these files the project has that names anything, with its path in the project, its text
+    /// and what Kelp makes of it.
     static func find(_ root: String) -> (file: String, text: String, config: RepoConfig)? {
         for source in sources {
             for file in source.file.hasPrefix(".codex/") ? codexFiles(root) : [source.file] {
@@ -35,9 +38,10 @@ enum ImportedConfig {
         return agentsFolder(root)
     }
 
-    /// The `.agents/` convention, `.delta/` overriding a file of it: `prepare`, a shell script run in each new checkout,
-    /// is the setup; `linked`, one ignored path a line, is linked from the main checkout (`shared`). Its `setup` prepares
-    /// a cloud machine, so it's left out. Last: a tool's own file says more.
+    /// Reads the `.agents/` convention, where a file in `.delta/` overrides the same file in `.agents/`. `prepare`, a
+    /// shell script run in each new checkout, is the setup. `linked`, one ignored path per line, lists what is linked
+    /// from the main checkout (`shared`). The convention's `setup` prepares a cloud machine, so it's left out. This is
+    /// looked at last, because a tool's own file says more.
     static func agentsFolder(_ root: String) -> (file: String, text: String, config: RepoConfig)? {
         func read(_ name: String) -> (file: String, text: String)? {
             for file in [".delta/" + name, ".agents/" + name] {
@@ -56,7 +60,7 @@ enum ImportedConfig {
             $0.trimmingCharacters(in: .whitespaces)
         }.filter { !$0.isEmpty && !$0.hasPrefix("#") }.map { $0.hasPrefix("/") ? String($0.dropFirst()) : $0 }
         guard let file = (prepare ?? linked)?.file, !Workspaces.asksNothing(config) else { return nil }
-        // Both files in the text: trust is asked again when either changes.
+        // The text holds both files, so trust is asked again when either changes.
         return (file, [prepare?.text, linked?.text].compactMap { $0 }.joined(separator: "\n"), config)
     }
 
@@ -108,7 +112,8 @@ enum ImportedConfig {
         ]
     }
 
-    /// Codex's local environment: setup (its macOS one first), cleanup, and actions (`icon = "run"` / `"test"` are those).
+    /// Reads Codex's local environment: the setup (its macOS one first), the cleanup, and the actions. An action with
+    /// `icon = "run"` or `"test"` becomes that command.
     static func codex(_ text: String, _ root: String) -> RepoConfig? {
         let toml = MiniTOML(text)
         var config = RepoConfig()
@@ -128,7 +133,7 @@ enum ImportedConfig {
         return finish(config, [("CODEX_SOURCE_TREE_PATH", ShellQuote.word(root)), ("CODEX_WORKTREE_PATH", here)])
     }
 
-    /// Cursor: a list of commands, or a script's path (from .cursor/), its Unix one first.
+    /// Reads Cursor's setup, which is a list of commands or a script's path in .cursor/, with its Unix setup first.
     static func cursor(_ text: String, _ root: String) -> RepoConfig? {
         guard let json = JSONC.object(text) else { return nil }
         var config = RepoConfig()
@@ -139,7 +144,7 @@ enum ImportedConfig {
         return finish(config, [("ROOT_WORKTREE_PATH", ShellQuote.word(root))])
     }
 
-    /// Superset (now Paradev): lists of commands.
+    /// Reads Superset (now Paradev), whose steps are lists of commands.
     static func superset(_ text: String, _ root: String) -> RepoConfig? {
         guard let json = JSONC.object(text) else { return nil }
         var config = RepoConfig()
@@ -163,7 +168,7 @@ enum ImportedConfig {
         return finish(config, [("EMDASH_TASK_PATH", here), ("EMDASH_TASK_NAME", name), ("EMDASH_PORT", port)])
     }
 
-    /// JetBrains Air: each step's macOS commands.
+    /// Reads JetBrains Air, taking the macOS commands of each step.
     static func air(_ text: String, _ root: String) -> RepoConfig? {
         guard let json = JSONC.object(text) else { return nil }
         let mac = { (value: Any?) in (value as? [String: Any])?["macos"] ?? value }
@@ -173,7 +178,7 @@ enum ImportedConfig {
         return finish(config, [])
     }
 
-    /// Supacode: its scripts by kind (run, test, lint are Kelp's own names).
+    /// Reads Supacode's scripts and names them by kind, because run, test and lint are Kelp's own names too.
     static func supacode(_ text: String, _ root: String) -> RepoConfig? {
         guard let json = JSONC.object(text) else { return nil }
         var config = RepoConfig()
@@ -189,7 +194,7 @@ enum ImportedConfig {
         return finish(config, [("SUPACODE_ROOT_PATH", ShellQuote.word(root)), ("SUPACODE_WORKTREE_PATH", here)])
     }
 
-    /// cmux: its command palette's commands; one named "setup" is the setup.
+    /// Reads the commands in cmux's command palette. The first one named "setup" is the setup.
     static func cmux(_ text: String, _ root: String) -> RepoConfig? {
         guard let list = JSONC.object(text)?["commands"] as? [[String: Any]] else { return nil }
         var config = RepoConfig()
@@ -208,7 +213,8 @@ enum ImportedConfig {
 
     static let here = "\"$PWD\"", name = "\"${PWD##*/}\"", port = "\"$KELP_PORT\""
 
-    /// A command, or a list of them run in turn that stops at the first to fail (as those tools run them). Empty: none.
+    /// Returns one command, or a list of commands run in turn that stops at the first to fail (as those tools run
+    /// them). An empty list gives nil.
     static func steps(_ value: Any?) -> String? {
         let list = (value as? [String] ?? (value as? String).map { [$0] } ?? []).map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -1,8 +1,9 @@
 import Core
 import Foundation
 
-/// Making an iOS machine (`VMService.create` with the ios image): a simulator of the newest iPhone on the newest iOS the
-/// user's Xcode has, named "Kelp <name>", and Kelp's runner (`IOSRunner`) built for it in the machine's folder.
+/// Makes an iOS machine, which is what `VMService.create` does with the ios image. The machine is a simulator of the
+/// newest iPhone on the newest iOS in the user's Xcode, named "Kelp <name>". Kelp's runner (`IOSRunner`) is built for
+/// it in the machine's folder.
 extension VMService {
     func makeIOS(_ machine: VMMachine) async {
         await making(machine) {
@@ -44,7 +45,8 @@ extension VMService {
         }
     }
 
-    /// The newest available iOS runtime and the newest plain iPhone it runs ("iPhone 17" before its Pro and Plus).
+    /// Returns the newest available iOS runtime and the newest plain iPhone that the runtime supports. A plain model
+    /// such as "iPhone 17" is picked over its Pro and Plus.
     static func newestIPhone(_ json: String) throws -> (runtime: String, device: String) {
         struct List: Decodable {
             struct Runtime: Decodable {
@@ -62,7 +64,7 @@ extension VMService {
                 "Xcode has no iOS simulator runtime: Xcode › Settings › Components installs one.")
         }
         let phones = (rt.supportedDeviceTypes ?? []).filter { $0.productFamily == "iPhone" }
-        // The highest number: the list isn't in age order.
+        // The newest iPhone is the one with the highest number, because the list isn't in age order.
         func number(_ name: String) -> Int { Int(name.split(separator: " ").dropFirst().first ?? "") ?? 0 }
         let plain = phones.filter { $0.name.range(of: #"^iPhone \d+$"#, options: .regularExpression) != nil }.max {
             number($0.name) < number($1.name)

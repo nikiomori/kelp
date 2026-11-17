@@ -1,18 +1,20 @@
 import Core
 import Foundation
 
-// Running a statement: who is asking, the trial run and the user's Allow for an agent's change, and what is kept of the
-// run.
+// Running a statement: who is asking, the trial run and the user's Allow for an agent's change, and what Kelp keeps of
+// the run.
 
 extension Databases {
-    /// Who asks (`Store.agent(origin:)`): nil for the user, else the agent's session to ask.
+    /// Returns who is asking (`Store.agent(origin:)`): nil for the user, and otherwise the agent's session to ask.
     func agent(origin: String?) -> String?? { store.agent(origin: origin) }
 
-    /// `asker`: the program the call came from (the agent's `kelp db query`): a question it waits on ends with it.
+    /// Runs a statement for the user or an agent. `asker` is the program the call came from (the agent's
+    /// `kelp db query`), and a question that program waits on ends when the program ends.
     func query(_ databaseQuery: DatabaseQuery, origin: String?, asker pid: pid_t? = nil) async throws -> QueryResult {
         let asker = agent(origin: origin), forAgent = asker != nil
         let (wid, name) = (databaseQuery.worktreeId, databaseQuery.database)
-        // Off the pool: a remote project's are read on its host, and reached through a forwarded port.
+        // This runs off the pool, because a remote project's databases are read on its host and reached through a
+        // forwarded port.
         let target = try await offloads.run { [self] in try reach(connection(wid, name, agent: forAgent), wid) }
         let all: [String]
         do { all = try SQLText.several(databaseQuery.sql, target.database.engine) } catch let failure as DatabaseFailure
@@ -29,7 +31,7 @@ extension Databases {
                     + "then agents can't use it."
             )
         }
-        // Several statements are one change: tried, asked about and run together (`batch`)
+        // Several statements make one change, so they are tried, asked about and run together (`batch`)
         guard all.count == 1 else { return try await batch(databaseQuery, target, all, asker: (asker, pid)) }
         let id = UUID().uuidString, session = asker ?? nil, sql = all[0]
         var run = DatabaseRun(
@@ -37,7 +39,8 @@ extension Databases {
         let access = forAgent ? target.database.agentAccess : .free
         do {
             let started = Date()
-            // As Settings offers them: settings.json (or an agent's `kelp settings set`) can say anything
+            // Keep to the range Settings offers, because settings.json (or an agent's `kelp settings set`) can hold
+            // any value
             let timeout = min(DatabaseTimes.longestRead, max(1, settings[SettingKeys.databaseTimeout]))
             guard SQLText.mayTryAsRead(sql, target.database.engine) else { throw DatabaseFailure.change }
             let rows = try await DatabaseEngines.read(target, sql, timeout: timeout, off: offloads)
@@ -68,10 +71,12 @@ extension Databases {
                 guard yes else { throw RPCError.refused(run.error ?? "The user didn't allow it.") }
                 fallthrough
             case .free:
-                // An agent's change that asks nobody is tried first too: what it does to its rows is kept with it
+                // An agent's change on a database that asks nobody is tried first too, so what it does to its rows is
+                // kept with it
                 let tried = access == .ask ? result(wid, id) : forAgent ? await triedFirst(target, sql, id) : nil
                 let started = Date()
-                // What the user allowed is what it may change: the table can have changed while it was asked
+                // The change may touch only the number of rows the user allowed, because the table can change while
+                // the user is asked
                 let asked = access == .ask ? run.changed : nil
                 do {
                     let saying = Self.saying(sql, target.database.engine, tried: tried)
@@ -95,8 +100,9 @@ extension Databases {
         } catch let failure as DatabaseFailure { throw RPCError.invalidParams(failure.message) }
     }
 
-    /// A row change by an agent on a database that asks nobody, tried and rolled back before it runs: its rows with
-    /// what it does to them (`rowChange`); nil when it can't be tried or isn't one table's rows.
+    /// Tries an agent's row change on a database that asks nobody, and rolls it back, before the change really runs.
+    /// Returns its rows with what it does to them (`rowChange`), or nil when it can't be tried or doesn't change one
+    /// table's rows.
     /// Limit: the change runs twice (once rolled back), for the rows as they were.
     private func triedFirst(_ databaseConnection: DatabaseConnection, _ sql: String, _ id: String) async -> QueryResult?
     {
@@ -106,11 +112,11 @@ extension Databases {
             guard let change = await rowChange(databaseConnection, sql, tried) else { return nil }
             return Self.kept(tried, id: id, change: change)
         } catch {
-            return nil   // the change itself says what's wrong with it
+            return nil   // the real run of the change reports what's wrong with it
         }
     }
 
-    /// `tried`: the change's trial, as it was kept.
+    /// Records the finished run and returns what the caller is sent. `tried` is the change's trial, as it was kept.
     private func finish(
         _ databaseQuery: DatabaseQuery, _ run: inout DatabaseRun, _ rows: DatabaseRows, started: Date, agent: Bool,
         tried: QueryResult? = nil
@@ -123,10 +129,12 @@ extension Databases {
         run.rows = rows.total
         run.changed = rows.changed
         run.ms = ms
-        // The user's own reads (a page of a table, a count) keep no rows, nothing reads them again, and go whole
+        // The user's own reads (a page of a table, a count) keep no rows, because nothing reads them again, and they
+        // are sent whole
         let kept = agent || rows.changed != nil
-        // A change after its trial: its rows are the ones the change returned itself (`saying`), never the trial's, and
-        // they come with what the trial said the change does to them (`written`), for the tab's marks and Undo.
+        // For a change after its trial, the kept rows are the ones the change itself returned (`saying`), never the
+        // trial's. They come with what the trial said the change does to them (`written`), for the marks in the tab
+        // and for Undo.
         if kept { result = Self.kept(rows, id: run.id, change: tried.flatMap { Self.written($0, rows) }, ms: ms) }
         note(databaseQuery.worktreeId, run, result: kept ? result : nil)
         var sent = result
@@ -134,11 +142,12 @@ extension Databases {
             databaseQuery.limit
             ?? Int(min(Double(DatabaseEngines.keep), max(0, settings[SettingKeys.databaseRows])))
         sent.rows = Array(result.rows.prefix(max(0, rows)))
-        sent.change = nil   // the user's to see and undo: an agent has its rows
+        sent.change = nil   // the change is for the user to see and undo; an agent gets only the rows
         return sent
     }
 
-    /// A result as it's kept: long cells cut (…), rows past `keptBytes` left out (`total` still counts them).
+    /// Returns a result as Kelp keeps it. Long cells are cut (…), and rows past `keptBytes` are left out (`total`
+    /// still counts them).
     static func trimmed(_ result: QueryResult) -> QueryResult {
         var out = result, bytes = 0
         out.rows = []
@@ -165,8 +174,8 @@ extension Databases {
         return RPCError.invalidParams(failure.message)
     }
 
-    /// The change tried and rolled back, then asked on the agent's row: whether the user allowed it. `asker`: the agent's
-    /// session, and the program its command runs in.
+    /// Tries the change and rolls it back, then asks the user on the agent's row. Returns whether the user allowed it.
+    /// `asker` is the agent's session and the program its command runs in.
     private func allowed(
         _ databaseQuery: DatabaseQuery, _ databaseConnection: DatabaseConnection, _ sql: String,
         _ run: inout DatabaseRun,
@@ -179,7 +188,8 @@ extension Databases {
         } catch DatabaseFailure.failed(
             let why)
         {
-            // It can't be tried in a transaction (CREATE INDEX CONCURRENTLY, MySQL's DDL): asked all the same.
+            // Some changes can't be tried in a transaction (CREATE INDEX CONCURRENTLY, MySQL's DDL). The user is
+            // asked all the same.
             Log.session.info("db trial of \(databaseConnection.database.name) didn't run: \(why)")
         } catch DatabaseFailure.change {
             throw DatabaseFailure.failed(
@@ -198,7 +208,8 @@ extension Databases {
         return await answered(databaseQuery, &run, ls, question, asker: asker)
     }
 
-    /// The agent's session a change is asked on; nil (and the run refused) when there's none to ask.
+    /// Returns the agent's session to ask about a change. Returns nil, and marks the run refused, when there's no
+    /// session to ask.
     func whoToAsk(
         _ databaseQuery: DatabaseQuery, _ databaseConnection: DatabaseConnection, _ run: inout DatabaseRun,
         _ session: String?
@@ -216,8 +227,8 @@ extension Databases {
         return ls
     }
 
-    /// `question` asked on the agent's row and waited for: whether the user allowed it, and agents may still change
-    /// the database. `asker`: the agent's session, and the program its command runs in.
+    /// Asks `question` on the agent's row and waits for the answer. Returns true when the user allowed it and agents
+    /// may still change the database. `asker` is the agent's session and the program its command runs in.
     func answered(
         _ databaseQuery: DatabaseQuery, _ run: inout DatabaseRun, _ ls: LiveSession, _ question: String,
         asker: (session: String?, pid: pid_t?)
@@ -237,7 +248,7 @@ extension Databases {
             note(databaseQuery.worktreeId, run)
             return false
         }
-        // What agents may do there can have changed while it was asked (read-only, hidden, another address)
+        // What agents may do on the database can change while the user is asked (read-only, hidden, another address)
         var now: DatabaseInfo.Access?
         do {
             now = try await offloads.run { [self] in
@@ -255,11 +266,11 @@ extension Databases {
         return true
     }
 
-    /// What the agent's row asks: "Allow changing 1204 rows of orders in app_dev?", the table named so that two asked
-    /// one after another read apart. "allow" makes the banner, the Dock and the strip offer Allow / Deny
-    /// (`Session.asksPermission`).
-    /// `held`: whether the change is held to that many rows (`DatabaseRunner.holdsAllowed`); else the number is only
-    /// what its trial changed.
+    /// The question the agent's row asks, such as "Allow changing 1204 rows of orders in app_dev?". It names the table
+    /// so that two questions asked one after another read apart. The word "allow" makes the banner, the Dock and the
+    /// strip offer Allow / Deny (`Session.asksPermission`).
+    /// `held` says whether the change is held to that many rows (`DatabaseRunner.holdsAllowed`). When it isn't, the
+    /// question says the number is only what the trial changed.
     static func question(_ sql: String, database: String, changed: Int?, held: Bool = true) -> String {
         if let changed, ["UPDATE", "DELETE", "INSERT", "MERGE", "REPLACE"].contains(SQLText.verb(sql)) {
             let rows = "\(changed) \(changed == 1 ? "row" : "rows")"
@@ -267,7 +278,7 @@ extension Databases {
             guard held else { return "Allow changing rows\(of) in \(database)? Tried just now, it changed \(rows)." }
             return "Allow changing \(rows)\(of) in \(database)?"
         }
-        // The whole statement on one line; one too long to read there says it's cut, and where the rest is
+        // Show the whole statement on one line. A statement too long to read there says it's cut, and where the rest is
         let code = SQLText.code(sql)
         let whole = code.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         guard whole.count > 160 else { return "Allow \(whole) in \(database)?" }
@@ -276,8 +287,8 @@ extension Databases {
         return "Allow \(whole.prefix(140))… (\(rest), whole in Databases) in \(database)?"
     }
 
-    /// The table a change names: UPDATE orders, DELETE FROM "orders", INSERT OR REPLACE INTO public.orders.
-    /// `asWritten`: with its quotes, to go into SQL as the statement has it.
+    /// Returns the table a change names, as in UPDATE orders, DELETE FROM "orders" or INSERT OR REPLACE INTO
+    /// public.orders. With `asWritten`, the name keeps its quotes, so it can go into SQL as the statement has it.
     static func table(_ sql: String, asWritten: Bool = false) -> String? {
         let changing =
             #/

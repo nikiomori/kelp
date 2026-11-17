@@ -1,10 +1,11 @@
 import Core
 import Foundation
 
-/// A machine's files (the user's file it is made from, its exchange folder), and its size, which changes while it is
-/// shut down.
+/// Handles a machine's files (the user's file it is made from, and its exchange folder) and its size, which changes
+/// only while the machine is shut down.
 extension VMService {
-    /// The file a machine is made from, before anything is made: what it is, as far as its first bytes tell.
+    /// Checks the file a machine is made from, before anything is made. It tells what the file is as far as the file's
+    /// first bytes show.
     static func check(_ file: URL, for image: VMImage) throws {
         guard FileManager.default.fileExists(atPath: file.path) else {
             throw RPCError.invalidParams("No file \(file.path).")
@@ -35,8 +36,8 @@ extension VMService {
         }
     }
 
-    /// A Linux or macOS machine's exchange folder here (`~/Kelp` inside).
-    /// Made here if it isn't yet (kelp-vm makes it too, as it starts the machine).
+    /// Returns the path on the Mac of a Linux or macOS machine's exchange folder, which is `~/Kelp` inside the machine.
+    /// It makes the folder if it doesn't exist yet (kelp-vm makes it too, as it starts the machine).
     func filesFolder(_ machine: VMMachine) -> String? {
         guard machine.kind.sharesFolders else { return nil }
         let files = folder(machine.name).files
@@ -48,8 +49,9 @@ extension VMService {
         return files.path
     }
 
-    /// New processors, memory and disk for a machine that's shut down; a disk only grows (Linux's root grows into it as
-    /// it boots: cloud-init's growpart). A sleeping one's saved state wouldn't fit them: shut it down first.
+    /// Sets new processors, memory and disk size for a machine that's shut down. A disk only grows, and Linux's root
+    /// partition grows into the new space as it boots (cloud-init's growpart). A sleeping machine's saved state
+    /// wouldn't fit the new size, so the machine has to be shut down first.
     func configure(_ request: VMConfigure) throws -> VMInfo {
         var machine = try self.machine(request.name)
         guard machine.kind.resizable else {
@@ -71,20 +73,22 @@ extension VMService {
                     + "(a disk only grows)."
             )
         }
-        // First: a kelp-vm left running with it off read the old size. Only if it's still down: a command could have woken
-        // it since, and a quit then would cut its power.
+        // First, a kelp-vm still running while the machine is off has read the old size, so it is asked to quit. It
+        // quits only if the machine is still down, because a command could have woken the machine since, and quitting
+        // then would cut its power.
         if alive(machine.name) {
             let answer: VMHelper.Reply?
-            // it hangs up as it goes
+            // kelp-vm may hang up as it quits, so no answer counts as no error.
             do { answer = try ask(machine.name, .quitIfDown, wait: 10) } catch { answer = nil }
             if let answer { try check(answer) }
             for _ in 0..<100 where alive(machine.name) { usleep(100_000) }
         }
-        // Held while the size changes: a kelp-vm a command starts meanwhile waits for it, then gives up, rather than boot
-        // with the old size on a disk that grows under it.
+        // This lock is held while the size changes. A kelp-vm that a command starts meanwhile waits for the lock and
+        // then gives up, rather than boot with the old size on a disk that grows under it.
         let lock = open(folder(machine.name).lock.path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         defer { if lock >= 0 { close(lock) } }
-        // Tried for half a second: kelpd's own look at it (`alive`, shared) holds it a moment.
+        // Taking the lock is tried for half a second, because kelpd's own check (`alive`, a shared lock) holds it
+        // for a moment.
         var held = lock >= 0 && flock(lock, LOCK_EX | LOCK_NB) == 0
         for _ in 0..<10 where lock >= 0 && !held {
             usleep(50_000)
@@ -97,8 +101,8 @@ extension VMService {
             guard machine.kind == .linux else {
                 throw RPCError.invalidParams("A macOS machine's disk can't grow: its recovery partition sits after it.")
             }
-            // Go by the disk file's own size, not machine.json's: a disk grown before a failed write of machine.json is
-            // never cut back.
+            // This goes by the disk file's own size, not the size in machine.json, so a disk that grew before a failed
+            // write of machine.json is never cut back.
             let path = folder(machine.name).disk.path
             var st = stat()
             guard stat(path, &st) == 0 else {

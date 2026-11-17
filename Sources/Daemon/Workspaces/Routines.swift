@@ -3,15 +3,16 @@ import Foundation
 import GRDB
 import os
 
-/// Routines (routine.*): agents on a schedule. A 10-second clock runs each due time once — a changed clock, a sleep or a
-/// daemon that wasn't running all come down to "the due times since `checked`": the last of them runs, or is recorded as
-/// missed when it's long gone and the routine skips those. A run is a session in the routine's own workspace; its outcome
-/// follows the session's status. Everything here happens on one queue: a tick and a Run Now can't both start a run.
+/// Routines (routine.*) start agents on a schedule. A clock ticks every 10 seconds and runs each due time once. A
+/// changed clock, a sleep or a daemon that wasn't running all come down to the due times that passed since `checked`.
+/// The last of those times runs, or it is recorded as missed when it is long past and the routine skips such runs. A
+/// run is a session in the routine's own workspace, and the run's outcome follows the session's status. Everything
+/// here happens on one queue, so a tick and a Run Now can't both start a run.
 final class Routines: Sendable {
     let store: Store
     let sessions: Sessions
     let clients: Clients
-    /// A routine's last runs keep their tabs; older ones close when a new one starts.
+    /// How many of a routine's latest runs keep their tabs. Older runs close when a new one starts.
     static let keepRuns = 5
     private let queue = DispatchQueue(label: "kelp.routines")
     private let clock = OSAllocatedUnfairLock<DispatchSourceTimer?>(initialState: nil)
@@ -22,7 +23,7 @@ final class Routines: Sendable {
         self.clients = clients
     }
 
-    /// The clock; `workspaces` makes a routine's workspace at its first run.
+    /// Starts the clock. `workspaces` makes a routine's workspace at its first run.
     func start(workspaces: Workspaces) {
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now() + 2, repeating: 10)
@@ -58,7 +59,7 @@ final class Routines: Sendable {
         clients.notify(event)
     }
 
-    /// A tick of the clock now (tests).
+    /// Runs one tick of the clock now, for tests.
     func tick(workspaces: Workspaces, now: Date = Date()) { queue.sync { step(now, workspaces: workspaces) } }
 
     private func step(_ now: Date, workspaces: Workspaces) {
@@ -71,8 +72,9 @@ final class Routines: Sendable {
                 if now.timeIntervalSince(last) > Routine.lateAfter && !routine.onWake {
                     try store.save(
                         Routine.Run(routineId: routine.id, due: last, started: now, ended: now, outcome: .missed))
-                } else if try open(routine.id) == nil {   // still at the last one: this one is skipped
-                    // One that can't start leaves a run that says why: its time has passed, and the others are still due.
+                } else if try open(routine.id) == nil {   // with the last run still open, this one is skipped
+                    // A routine that can't start leaves a failed run that says why. Its due time has passed anyway,
+                    // and the other routines are still due.
                     do { try begin(routine, due: last, now: now, workspaces: workspaces) } catch {
                         try store.save(
                             Routine.Run(
@@ -88,7 +90,7 @@ final class Routines: Sendable {
         if told { changed() }
     }
 
-    /// What one must have to be saved, or asked about.
+    /// Checks what a routine must have before it is saved or the user is asked about it.
     func check(_ new: Routine) throws {
         guard try store.repo(new.repoId) != nil else { throw RPCError.invalidParams("no project \(new.repoId)") }
         guard !new.name.trimmingCharacters(in: .whitespaces).isEmpty,
@@ -100,7 +102,8 @@ final class Routines: Sendable {
         }
     }
 
-    /// Adds or changes one. A new one, one switched on and one with a new schedule count from now.
+    /// Adds or changes a routine. A new routine, one just switched on and one with a new schedule count their due times
+    /// from now.
     func set(_ new: Routine) throws -> Routine {
         try check(new)
         return try queue.sync {
@@ -149,12 +152,13 @@ final class Routines: Sendable {
         try store.db.read { try Routine.Run.filter(Column("routineId") == routine && Self.isOpen).fetchOne($0) }
     }
 
-    /// The agent, with the prompt, in the routine's workspace: "Morning triage · Oct 29".
+    /// Starts the routine's agent with its prompt in the routine's workspace, titled like "Morning triage · Oct 29".
     @discardableResult
     private func begin(_ routine: Routine, due: Date, now: Date, workspaces: Workspaces) throws -> Routine.Run {
         let worktree = try workspace(routine, workspaces: workspaces)
-        // A remote project's agent starts over ssh in a tab nobody watches: a host that wants a password would hold it
-        // at the prompt. Connected first without one (a key's login), or the run says why it didn't start.
+        // A remote project's agent starts over ssh in a tab nobody watches, where a host that wants a password would
+        // hold the agent at the prompt. So the host is connected first without a password (a key login), or else the
+        // run says why it didn't start.
         if let remote = workspaces.remotes.of(worktree.path), remote.connection == nil { try remote.connect() }
         let session = try SessionCreate(
             worktreeId: worktree.id, agent: routine.agent, model: routine.model, prompt: routine.prompt,
@@ -165,7 +169,8 @@ final class Routines: Sendable {
         return run
     }
 
-    /// Its own workspace in the project's folder, named after it: made at its first run, again if it was removed.
+    /// Returns the routine's own workspace in the project's folder, named after the routine. The workspace is made at
+    /// the first run, and made again if it was removed.
     private func workspace(_ routine: Routine, workspaces: Workspaces) throws -> Worktree {
         if let id = routine.worktreeId, let worktree = try store.worktree(id), !worktree.archived { return worktree }
         guard let repo = try store.repo(routine.repoId) else {
@@ -180,14 +185,16 @@ final class Routines: Sendable {
     static let neverStartedAfter: TimeInterval = 1800
     private static func why(_ error: Error) -> String { (error as? RPCError)?.message ?? error.localizedDescription }
 
-    /// The runs past the last few close their tabs, unless their agent works or waits for an answer still, or its tab is open.
+    /// Closes the tabs of the runs older than the latest few, unless the run's agent is still working or waiting for an
+    /// answer, or its tab is open.
     private func closeOld(_ routine: String) {
         Log.store.attempt("closing a routine's old runs") {
             let runs = try store.db.read {
                 try Routine.Run.filter(Column("routineId") == routine).order(Column("started").desc).fetchAll($0)
             }
             let old = try runs.dropFirst(Self.keepRuns).compactMap { try $0.sessionId.flatMap(store.session) }
-                // Not one in an open tab: a hidden tab lets go of its terminal, so the layout says, not the attachment.
+                // A session in an open tab is kept. A hidden tab lets go of its terminal, so the layout tells whether
+                // the tab is open, not the attachment.
                 .filter { session in
                     try ![.working, .waiting].contains(session.status)
                         && sessions.existing(session.id)?.isAttached != true
@@ -197,13 +204,14 @@ final class Routines: Sendable {
         }
     }
 
-    /// The run as its session is now; true when that changed it.
+    /// Updates the run to match its session's current status. Returns true when that changed the run.
     private func follow(_ run: Routine.Run) throws -> Bool {
         var updated = run
-        // The live one when it runs: its status is saved a moment later.
+        // The live session is read while it runs, because its status is saved to the store a moment later.
         let session = try run.sessionId.flatMap { id in try sessions.existing(id)?.snapshot ?? store.session(id) }
         switch session?.status {
-        // Its prompt behind a dialog nobody answers: left running, every later run would be skipped, and nothing would say so.
+        // The prompt is stuck behind a dialog nobody answers. If the run were left running, every later run would be
+        // skipped, and nothing would say so.
         case .idle? where Date().timeIntervalSince(run.started) > Self.neverStartedAfter:
             (updated.outcome, updated.ended, updated.summary) = (
                 .failed, Date(), String(localized: "The agent didn't start on it")
@@ -228,7 +236,7 @@ final class Routines: Sendable {
         return true
     }
 
-    /// The first line of the agent's last reply, else what its row says.
+    /// Returns the first line of the agent's last reply, or else the summary its row shows.
     private func reply(_ session: Session) -> String {
         let text = sessions.existing(session.id).flatMap(sessions.agentUsage.conversations.lastReply(of:))
         let line = text?.split(whereSeparator: \.isNewline).first.map {
@@ -243,17 +251,19 @@ extension RoutineList: Handled {
     func handle(_ routines: Routines) throws -> RoutinesEvent { try routines.list() }
 }
 
-/// A routine starts agents later, with nobody at the keys, so the user decides. A new routine from an agent, in the
-/// project the agent works in, asks on its row (Allow / Deny), as a machine does, with the whole routine in the
-/// question. Changing or deleting a routine stays the user's.
+/// A routine starts agents later with nobody at the keys, so the user decides. When an agent adds a routine in the
+/// project it works in, the agent's row asks the user (Allow / Deny), the way adding a machine does, with the whole
+/// routine in the question. Changing or deleting a routine stays the user's job.
 extension RoutineSet: AsyncHandled {
-    // a routine the user asked an agent for: a new one in its project, added only once they allow it on its row;
-    // changing, running and deleting one stay theirs
+    // An agent may add a routine the user asked for, as a new one in the agent's project, and it is added only once
+    // the user allows it on the agent's row. Changing, running and deleting routines stay the user's.
     static let agents = AgentAccess.acts
     static let theUsers =
         "A routine is the user's to change or delete: in Kelp's window (Routines), or `kelp routine` in a terminal of theirs."
-    /// How long an agent's name and prompt may be: what the card beside Allow shows whole (`StripModel.permission`).
-    /// Limit: a prompt of wide letters (Chinese, Japanese) near its length is cut there, and read whole on the row.
+    /// The longest name and prompt an agent's routine may have, which is what the card beside Allow shows whole
+    /// (`StripModel.permission`).
+    /// Limit: a prompt in wide letters (Chinese, Japanese) near this length is cut off on the card, and the user reads
+    /// it whole on the row.
     static let asked = (name: 40, prompt: 200)
 
     var fence: Fence {
@@ -266,7 +276,7 @@ extension RoutineSet: AsyncHandled {
             guard let session, let ls = sessions.existing(session) else {
                 throw RPCError.refused("A routine is the user's to add: tell them `kelp routine add` makes one.")
             }
-            try routines.check(routine)   // not asked for one that can't be
+            try routines.check(routine)   // the user isn't asked about a routine that can't be saved
             guard routine.name.count <= Self.asked.name, routine.prompt.count <= Self.asked.prompt else {
                 throw RPCError.invalidParams(
                     "The user reads all of an agent's routine before allowing it: a name of up to \(Self.asked.name) "
@@ -290,7 +300,7 @@ extension RoutineSet: AsyncHandled {
         return try await sessions.offloads.run { [self] in try routines.set(routine) }
     }
 
-    /// What the agent's row asks, all of the routine in it:
+    /// Returns the question the agent's row asks, with all of the routine in it, for example
     /// "Allow a routine, Morning triage: “Label the new issues.” (Claude Code, weekdays at 9:00)?".
     static func question(_ routine: Routine, agent: String) -> String {
         func oneLine(_ text: String) -> String { text.split(whereSeparator: \.isWhitespace).joined(separator: " ") }

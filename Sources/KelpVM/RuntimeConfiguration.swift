@@ -3,8 +3,9 @@ import Foundation
 import Virtualization
 
 extension Runtime {
-    /// The machine as Virtualization runs it: a Linux one's EFI boot, cloud-init seed, console, balloon and Rosetta; a macOS
-    /// one's (`MacGuest.configure`); and for both the disk, the NAT network, vsock and the share slots.
+    /// Returns the machine's configuration as Virtualization runs it. A Linux machine gets EFI boot, a cloud-init seed,
+    /// a console, a memory balloon and Rosetta. A macOS machine gets what `MacGuest.configure` sets. Both get the disk,
+    /// the NAT network, vsock and the share slots.
     static func configuration(_ machine: VMMachine, folder: URL, shares: [Int: String]) throws
         -> VZVirtualMachineConfiguration
     {
@@ -63,7 +64,8 @@ extension Runtime {
                 }
             return fs
         }
-        // The exchange folder, beside the machine on the Mac: one device after the slots, so their numbers stay.
+        // The exchange folder sits beside the machine on the Mac. It is one more device after the share slots, so the
+        // slots keep their numbers.
         let files = VMFolder(folder).files
         try FileManager.default.createDirectory(at: files, withIntermediateDirectories: true)
         let shared = VZSharedDirectory(url: files, readOnly: false)
@@ -73,7 +75,7 @@ extension Runtime {
             machine.kind == .macos
             ? VZMultipleDirectoryShare(directories: ["Kelp": shared]) : VZSingleDirectoryShare(directory: shared)
         config.directorySharingDevices.append(exchange)
-        #if arch(arm64)   // Rosetta for Linux is Apple silicon's: an Intel Mac runs x86 guests as they are
+        #if arch(arm64)   // Rosetta for Linux exists only on Apple silicon; an Intel Mac runs x86 guests as they are
             if machine.kind == .linux, machine.rosetta, VZLinuxRosettaDirectoryShare.availability == .installed {
                 let rosetta = VZVirtioFileSystemDeviceConfiguration(tag: "rosetta")
                 rosetta.share = try VZLinuxRosettaDirectoryShare()

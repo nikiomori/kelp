@@ -3,10 +3,10 @@ import Core
 import Foundation
 import Security
 
-// What every app's reader uses: engines and SSH as Kelp says them, the keychain, the decryption, reading plists and JSON.
+// Helpers every app's reader uses: engines and SSH in Kelp's terms, the keychain, decryption, reading plists and JSON.
 
 extension ImportReaders {
-    /// An app's driver name as Kelp's engine; nil for one Kelp doesn't speak.
+    /// Maps an app's driver name to Kelp's engine, or returns nil for a driver Kelp doesn't speak.
     static func engine(_ driver: String) -> DatabaseInfo.Engine? {
         let name = driver.lowercased()
         if ["postgres", "cockroach", "redshift", "greenplum", "timescale", "supabase", "neon"].contains(
@@ -22,7 +22,8 @@ extension ImportReaders {
         return nil
     }
 
-    /// An SSH tunnel as Kelp keeps one: `user@host`, ssh's own config doing the rest; what it can't say, said.
+    /// Turns an SSH tunnel into the form Kelp keeps, `user@host`, and leaves the rest to ssh's own config. The second
+    /// value is a note on what that form can't hold (another port, a key of its own).
     static func ssh(host: String, user: String?, port: Int?, key: Bool) -> (String?, String?) {
         guard !host.isEmpty else { return (nil, nil) }
         let alias = user.map { $0 + "@" + host } ?? host
@@ -32,8 +33,9 @@ extension ImportReaders {
         return (alias, key ? "An SSH key of its own: give \(host) an IdentityFile in ~/.ssh/config." : nil)
     }
 
-    /// The environment the user gave it in that app, and only that: Production is never guessed from where it is.
-    /// TablePlus' "local" and DBeaver's "dev" are what a new connection gets there: they say nothing.
+    /// Sets the stage the user gave the database in that app, and only that, because Production is never guessed from
+    /// where the database is. TablePlus' "local" and DBeaver's "dev" are what every new connection gets in those apps,
+    /// so they say nothing. Returns a note when the database is Production.
     @discardableResult
     static func production(_ db: inout DatabaseInfo, tag: String?, app: String) -> String? {
         let tag = tag?.lowercased() ?? ""
@@ -49,18 +51,20 @@ extension ImportReaders {
         return nil
     }
 
-    /// A keychain item as `DatabaseInfo.passwordIn` keeps it.
+    /// Returns a keychain item in the form that `DatabaseInfo.passwordIn` keeps it.
     static func keychainItem(_ service: String, _ account: String?) -> String {
         service + "\u{1F}" + (account ?? "")
     }
 
-    /// `passwordIn`'s item, read: macOS asks the user. Nil when it isn't there.
+    /// Reads the keychain item that `passwordIn` names, which makes macOS ask the user. Returns nil when the item isn't
+    /// there.
     static func borrowed(_ item: String) throws -> String? {
         let parts = item.split(separator: "\u{1F}", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
         return try otherKeychain(service: parts[0], account: parts.count > 1 && !parts[1].isEmpty ? parts[1] : nil)
     }
 
-    /// Another app's keychain item: macOS asks the user whether Kelp may read it. Nil when there's none.
+    /// Reads another app's keychain item, and macOS asks the user whether Kelp may read it. Returns nil when there's
+    /// no such item.
     static func otherKeychain(service: String, account: String?) throws -> String? {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
@@ -123,13 +127,14 @@ extension ImportReaders {
 
     static func int(_ value: Any?) -> Int? { Int(string(value)) }
 
-    /// Two notes in one line: what SSH needs, then why it's Production.
+    /// Joins two notes into one line: what SSH needs, then why the database is Production.
     static func both(_ first: String?, _ second: String?) -> String? {
         let parts = [first, second].compactMap { $0 }
         return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 
-    /// Another app's file that may be missing, cut short, or of a version Kelp doesn't know: nothing to bring in.
+    /// Runs a read of another app's file and returns nil when it fails. The file may be missing, cut short, or of a
+    /// version Kelp doesn't know, and then there is nothing to bring in.
     static func optional<T>(_ body: () throws -> T?) -> T? {
         do { return try body() } catch { return nil }
     }

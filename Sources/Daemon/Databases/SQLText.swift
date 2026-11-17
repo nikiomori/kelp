@@ -1,26 +1,28 @@
 import Core
 import Foundation
 
-/// SQL as text: its statements, and what kind the first one is. Quotes ('…', "…", `…`, $tag$…$tag$) and comments
-/// (-- …, /* … */) are skipped, so a ";" inside them doesn't split.
+/// Reads SQL as text: how it splits into statements, and what kind the first one is. Quotes ('…', "…", `…`,
+/// $tag$…$tag$) and comments (-- …, /* … */) are skipped, so a ";" inside them doesn't split a statement.
 /// Limit: this is Kelp's own reading of each engine's grammar, and what it decides (one statement or several, which
-/// kind) guards an agent's writes beyond the READ ONLY transaction the engine enforces. A form it misreads is a fix of
-/// its own: the category is open-ended, not closed by the cases here.
+/// kind) guards an agent's writes beyond the READ ONLY transaction the engine enforces. A form it misreads needs a fix
+/// of its own, because the category is open-ended and the cases here don't close it.
 enum SQLText {
-    /// How an engine reads quotes and comments, where engines differ: MySQL takes \\' as an escaped quote (unless
-    /// NO_BACKSLASH_ESCAPES), `#` as a comment and `--` as one only before a space, and has no $tag$; Postgres (and
-    /// DuckDB, its parser) nests /* */ and decides the \\ escape literal by literal: E'…' has it, a plain '…' doesn't
-    /// (unless standard_conforming_strings is off, when every string has it).
+    /// One way an engine may read quotes and comments, where engines differ. MySQL takes \\' as an escaped quote
+    /// (unless NO_BACKSLASH_ESCAPES), takes `#` as a comment and `--` as one only before a space, and has no $tag$.
+    /// Postgres (and DuckDB, which uses its parser) nests /* */ and decides the \\ escape literal by literal. An E'…'
+    /// has it and a plain '…' doesn't, unless standard_conforming_strings is off, when every string has it.
     struct Reading {
-        /// Which strings take \\' as an escaped quote. `afterE`: only E'…' (Postgres and DuckDB as they come);
-        /// `afterEAndOn`: and the '…' that goes on with one after a line break, which Postgres reads as more of the
-        /// E'…' and DuckDB as a plain string. The other prefixes need nothing: U&'…', B'…', X'…' and N'…' end at the
-        /// first quote that isn't doubled, as a plain string does (a \\ in U&'…' spells a character, never a quote).
+        /// Which strings take \\' as an escaped quote. `afterE` means only E'…' (Postgres and DuckDB as they come).
+        /// `afterEAndOn` also covers a '…' that continues an E'…' after a line break, which Postgres reads as more of
+        /// the E'…' and DuckDB as a plain string. The other prefixes need nothing, because U&'…', B'…', X'…' and N'…'
+        /// end at the first quote that isn't doubled, as a plain string does (a \\ in U&'…' spells a character, never
+        /// a quote).
         enum Backslash: CaseIterable { case none, all, afterE, afterEAndOn }
 
         var backslash = Backslash.all, mysql = false, nested = false, dollar = true
 
-        /// Each way `engine` may read a statement: it's one only if every one of them says so (`single`).
+        /// Returns each way `engine` may read a statement. Text counts as one statement only if every reading says so
+        /// (`single`).
         static func of(_ engine: DatabaseInfo.Engine) -> [Reading] {
             switch engine {
             case .postgres, .duckdb:
@@ -34,7 +36,7 @@ enum SQLText {
         }
     }
 
-    /// The statements, each trimmed, empty ones (a trailing ";", only a comment) dropped.
+    /// Splits SQL into statements, each trimmed, and drops empty ones (after a trailing ";", or only a comment).
     static func statements(_ sql: String, _ reading: Reading = Reading()) -> [String] {
         let chars = Array(sql)
         var parts: [String] = [], start = 0
@@ -46,8 +48,8 @@ enum SQLText {
         return parts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !code($0).isEmpty }
     }
 
-    /// The statement with each comment a space, as its engine reads it (`reading`): what a text check reads, since
-    /// the engine takes `INTO/**/OUTFILE` as `INTO OUTFILE`.
+    /// Returns the statement with each comment turned into a space, as its engine reads it (`reading`). Text checks
+    /// read this form, because the engine takes `INTO/**/OUTFILE` as `INTO OUTFILE`.
     static func uncommented(_ sql: String, _ reading: Reading) -> String {
         let chars = Array(sql)
         var out = "", from = 0
@@ -61,7 +63,8 @@ enum SQLText {
         return out + String(chars[from...])
     }
 
-    /// Reads `chars` as `reading` says, skipping quotes: each comment's range, and each ";" that ends a statement.
+    /// Reads `chars` as `reading` says and skips quotes. It reports each comment's range and each ";" that ends a
+    /// statement.
     private static func walk(
         _ chars: [Character], _ reading: Reading, comment: (Range<Int>) -> Void, ends: (Int) -> Void
     ) {
@@ -94,18 +97,18 @@ enum SQLText {
             }
             return chars.count
         }
-        /// Whether what's before `index` is a name it goes on with (`nameE'…'`, `a1$$`), as Postgres' lexer reads:
-        /// digits and `$` belong to a name only after a letter or `_` (`1E'…'` is a number, then an E'…').
+        /// Whether `index` continues a name that comes before it (`nameE'…'`, `a1$$`), as Postgres' lexer reads it.
+        /// Digits and `$` belong to a name only after a letter or `_`, so `1E'…'` is a number followed by an E'…'.
         func inName(_ index: Int) -> Bool {
             var j = index - 1
             while j >= 0, ("0"..."9").contains(chars[j]) || chars[j] == "$" { j -= 1 }
             return j >= 0 && (chars[j].isLetter || chars[j] == "_" || !chars[j].isASCII)
         }
-        /// Whether the ' at `index` opens an E'…': an E or e of its own right before it.
+        /// Whether the ' at `index` opens an E'…', which needs an E or e right before it that isn't part of a name.
         func afterE(_ index: Int) -> Bool {
             index > 0 && (chars[index - 1] == "E" || chars[index - 1] == "e") && !inName(index - 1)
         }
-        // An E'…' just closed, with only spaces and comments since: a ' here goes on with it (`afterEAndOn`)
+        // True when an E'…' just closed with only spaces and comments since, so a ' here continues it (`afterEAndOn`)
         var goesOn = false
         while i < chars.count {
             let char = chars[i], next = at(i + 1)
@@ -150,7 +153,8 @@ enum SQLText {
                 comment(from..<i)
                 goesOn = continues
             case "$" where reading.dollar && !inName(i):
-                // $$ or $tag$: a Postgres dollar-quoted string, to the same tag (a tag doesn't start with a digit).
+                // $$ or $tag$ opens a Postgres dollar-quoted string, which runs to the same tag (a tag doesn't start
+                // with a digit).
                 var end = i + 1
                 while end < chars.count,
                     chars[end].isLetter || chars[end] == "_" || (end > i + 1 && chars[end].isNumber)
@@ -170,7 +174,7 @@ enum SQLText {
         }
     }
 
-    /// The statement without its comments, for telling what it is.
+    /// Returns the statement without its leading comments, for telling what kind of statement it is.
     static func code(_ sql: String) -> String {
         var text = sql
         while true {
@@ -185,16 +189,17 @@ enum SQLText {
         }
     }
 
-    /// Its first word, upper-cased: SELECT, UPDATE, WITH…
+    /// Returns the statement's first word, upper-cased: SELECT, UPDATE, WITH…
     static func verb(_ sql: String) -> String {
         String(code(sql).prefix { $0.isLetter }).uppercased()
     }
 
-    /// The one statement a call may run: more than one, or a client command (psql's \…, duckdb's .…), is refused before
-    /// anything runs. Running one at a time keeps a read-only transaction whole (a "COMMIT; DELETE …" would end it) and
-    /// makes what the user allowed everything that runs. The text is read every way its engine might read it
-    /// (`Reading`): for a client that splits a script itself (psql -c, mysql, MySQL's multi-statements) it is split the
-    /// way that engine splits it, and where the readings disagree on where the statement ends, it is refused.
+    /// Returns the one statement a call may run. More than one statement, or a client command (psql's \…, duckdb's
+    /// .…), is refused before anything runs. Running one at a time keeps a read-only transaction whole (a "COMMIT;
+    /// DELETE …" would end it), and makes what the user allowed everything that runs. The text is read every way its
+    /// engine might read it (`Reading`), because a client that splits a script itself (psql -c, mysql, MySQL's
+    /// multi-statements) splits it the way that engine does. When the readings disagree on where the statement ends,
+    /// it is refused.
     static func single(_ sql: String, _ engine: DatabaseInfo.Engine) throws -> String {
         let readings = Reading.of(engine)
         let all = statements(sql, readings[0])
@@ -219,14 +224,15 @@ enum SQLText {
         return only
     }
 
-    /// What starts, ends or hands over a transaction (PREPARE TRANSACTION, XA): not one of several statements.
+    /// The verbs that start, end or hand over a transaction (PREPARE TRANSACTION, XA). None of them may be one of
+    /// several statements.
     private static let endsATransaction: Set<String> = [
         "BEGIN", "START", "COMMIT", "END", "ROLLBACK", "ABORT", "SAVEPOINT", "RELEASE", "PREPARE", "XA"
     ]
 
-    /// The statements a call may run: one (`single`), or several to run in one transaction, each checked as one is.
-    /// Refused where the engine's readings don't agree on where they end, and where one of them starts or ends a
-    /// transaction: they run in Kelp's own.
+    /// Returns the statements a call may run: one (`single`), or several to run in one transaction, each checked as a
+    /// single one is. They are refused when the engine's readings don't agree on where they end, or when one of them
+    /// starts or ends a transaction, because they run in Kelp's own transaction.
     static func several(_ sql: String, _ engine: DatabaseInfo.Engine) throws -> [String] {
         let readings = Reading.of(engine)
         let all = statements(sql, readings[0])
@@ -247,15 +253,16 @@ enum SQLText {
         return all
     }
 
-    /// What reaches past a Postgres database to the server it runs on, and a read-only transaction lets through: COPY
-    /// (to a file or a program), a DO block (whose EXECUTE builds a statement no text check sees), the functions that
-    /// read or write the server's files or end others' sessions, and the built-in ones that run a query given as text
-    /// (`query_to_xml('pg_read' || '_file(…)', …)`, `ts_stat`), which no text check reads, and a name spelled in
-    /// Unicode escapes (`U&"…"`), which the check couldn't read either. Refused to agents with why;
-    /// nil: none of it. A text check, so a function of the database's own can still do these: the role it connects as
-    /// bounds that (a production database refuses agents a superuser, `Databases.query`).
+    /// Returns why a statement is refused to agents when it reaches past the database to the server it runs on, in a
+    /// way a read-only transaction lets through, and nil when it doesn't. For Postgres that is COPY (to a file or a
+    /// program), a DO block (whose EXECUTE builds a statement no text check sees), the functions that read or write
+    /// the server's files or end others' sessions, and the built-in ones that run a query given as text
+    /// (`query_to_xml('pg_read' || '_file(…)', …)`, `ts_stat`), which no text check reads. It is also a name spelled
+    /// in Unicode escapes (`U&"…"`), which the check couldn't read either. MySQL has `pastTheMySQLDatabase`.
+    /// This is a text check, so a function of the database's own can still do these things. The role Kelp connects
+    /// as bounds that (a production database refuses agents a superuser, `Databases.query`).
     static func pastTheDatabase(_ sql: String, _ engine: DatabaseInfo.Engine) -> String? {
-        // Read as the engine reads it, each comment a space: every way it may (`Reading.of`)
+        // Check the text as the engine reads it, each comment as a space, in every way it may read it (`Reading.of`)
         for reading in Reading.of(engine) {
             if let why = pastTheDatabase(read: uncommented(sql, reading), engine) { return why }
         }
@@ -263,7 +270,7 @@ enum SQLText {
     }
 
     private static func pastTheDatabase(read sql: String, _ engine: DatabaseInfo.Engine) -> String? {
-        // DuckDB's -safe holds it to its file
+        // DuckDB needs no check here, because -safe holds it to its file
         if engine == .mysql { return pastTheMySQLDatabase(sql) }
         guard engine == .postgres else { return nil }
         switch verb(sql) {
@@ -271,7 +278,7 @@ enum SQLText {
         case "DO": return "A DO block runs statements Kelp can't read first: run each as a statement of its own."
         default: break
         }
-        // U&"pg_read_fil\0065": a name spelled in escapes, which no word check reads
+        // U&"pg_read_fil\0065" spells a name in escapes, which no word check reads
         if sql.range(of: #"\bU&\s*["']"#, options: [.regularExpression, .caseInsensitive]) != nil {
             return "Kelp doesn't run U&'…' or U&\"…\" for agents: write the name or text as it is."
         }
@@ -283,34 +290,35 @@ enum SQLText {
         return "\(sql[found].lowercased()) can reach past the database to its server: Kelp doesn't run it for agents."
     }
 
-    /// MySQL's own way past the database to the server's files, which a read-only transaction lets through with the
-    /// FILE privilege: SELECT … INTO OUTFILE / DUMPFILE, LOAD_FILE(), LOAD DATA … INFILE.
+    /// Checks for MySQL's own ways past the database to the server's files, which a read-only transaction lets through
+    /// with the FILE privilege: SELECT … INTO OUTFILE / DUMPFILE, LOAD_FILE(), LOAD DATA … INFILE.
     private static func pastTheMySQLDatabase(_ sql: String) -> String? {
         let pattern = #"\b(INTO\s+(OUTFILE|DUMPFILE)|LOAD_FILE\s*\(|LOAD\s+(DATA|XML)\b)"#
         guard sql.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil else { return nil }
         return "It reads or writes the server's files: Kelp doesn't run it for agents."
     }
 
-    /// Whether it may run as a read, the database refusing a change in its read-only transaction. Not MySQL's DDL nor
-    /// anything else but a read: MySQL commits the transaction before a DROP or ALTER and runs it outside.
+    /// Whether a statement may run as a read, with the database refusing a change in its read-only transaction. On
+    /// MySQL only reads may, not DDL or anything else, because MySQL commits the transaction before a DROP or ALTER and
+    /// runs it outside.
     static func mayTryAsRead(_ sql: String, _ engine: DatabaseInfo.Engine) -> Bool {
         engine != .mysql
             || ["SELECT", "SHOW", "DESC", "DESCRIBE", "EXPLAIN", "WITH", "TABLE", "VALUES"].contains(verb(sql))
     }
 
-    /// Whether a change can be tried and rolled back: MySQL rolls back only rows (INSERT, UPDATE, DELETE, REPLACE);
-    /// its DDL commits as it runs, so it's asked untried.
+    /// Whether a change can be tried and rolled back. MySQL rolls back only row changes (INSERT, UPDATE, DELETE,
+    /// REPLACE). Its DDL commits as it runs, so the user is asked about it untried.
     static func mayTry(_ sql: String, _ engine: DatabaseInfo.Engine) -> Bool {
         engine != .mysql || ["INSERT", "UPDATE", "DELETE", "REPLACE"].contains(verb(sql))
     }
 
-    /// A change that can say what it changed (`RETURNING *`) when it doesn't already: an UPDATE, DELETE or INSERT, for
-    /// a trial's preview. nil: leave it as it is.
+    /// Adds `RETURNING *` to an UPDATE, DELETE or INSERT that doesn't already return rows, so a trial's preview can
+    /// show what it changed. Returns nil when the statement should be left as it is.
     static func returning(_ statement: String) -> String? {
         guard ["UPDATE", "DELETE", "INSERT"].contains(verb(statement)),
             code(statement).range(of: #"\breturning\b"#, options: [.regularExpression, .caseInsensitive]) == nil
         else { return nil }
-        return statement + "\nRETURNING *"   // a line of its own: the statement can end in a -- comment
+        return statement + "\nRETURNING *"   // on a line of its own, because the statement can end in a -- comment
     }
 }
 

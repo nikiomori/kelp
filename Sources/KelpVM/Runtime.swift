@@ -2,11 +2,11 @@ import AppKit
 import Core
 import Virtualization
 
-/// One line to stdout, which kelpd sends to the machine's helper.log.
+/// Writes one line to stdout, which kelpd sends to the machine's helper.log.
 func log(_ message: String) { print("\(Date().formatted(.iso8601)) \(message)") }
 
-/// The machine and its connections. Everything here runs on the main queue: the VM's (VZVirtualMachine's default) and
-/// the sockets' handlers alike.
+/// Runs a Linux or macOS machine and its connections. Everything here runs on the main queue, which the VM (by
+/// VZVirtualMachine's default) and the socket handlers both use.
 @MainActor
 final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, MachineRuntime {
     let folder: URL, machine: VMMachine
@@ -15,40 +15,45 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
     /// The folder in each share slot (`VMs.shareSlots`, also in shares.json), and when each was last asked for.
     private var shares: [Int: String]
     private var shareUse: [Int: Date] = [:]
-    /// Agents' and people's SSH connections open now; none for a while, and it pauses, then sleeps.
+    /// The SSH connections that agents and people have open now. With none for a while, the machine pauses and then
+    /// sleeps.
     private var connections = 0
     /// `screen` calls under way (an agent reading or driving a macOS machine's screen).
     private var screening = 0
-    /// In use: a connection, its window on screen (the user works in it), its screen read or driven. kelpd's memory
-    /// budget sleeps an idle machine only, and no tick pauses one that isn't.
+    /// Counts what uses the machine: a connection, its window on screen (the user works in it), or its screen being
+    /// read or driven. kelpd's memory budget sleeps only an idle machine, and no tick pauses a machine in use.
     private var using: Int {
         connections + (window?.isVisible == true ? 1 : 0) + (screening > 0 || Screen.turn != nil ? 1 : 0)
     }
     private var lastUse = Date()
     private var ready: [(String?) -> Void] = [], stopped: [() -> Void] = []
-    /// A save under way (`sleep`): who waits for it to end (another sleep), and what wakes it right after (a command came).
+    /// `saving` is a save under way (`sleep`). `saveDone` holds who waits for it to end (another sleep), and
+    /// `afterSave` the wakes to run right after it (a command came).
     private var saving = false, saveDone: [(String?) -> Void] = [], afterSave: [(String?) -> Void] = []
-    /// When a save last failed: not tried again by itself for 10 minutes (a full disk would take gigabytes each 5 s).
+    /// When a save last failed. A tick doesn't try again for 10 minutes, because on a full disk each try would write
+    /// gigabytes every 5 s.
     private var saveFailed: Date?
     private var targetMiB: Int
     private var sockets: [Int: VZVirtioSocketConnection] = [:]
     private var nextSocket = 0
     private var ticks = 0
-    /// What it cost the Mac at the last tick, while it runs (`Usage`).
+    /// What the machine cost the Mac at the last tick, while it runs (`Usage`).
     private var usage: (cpu: Double?, memoryMiB: Int)?
-    /// Starts tried in a row: a macOS machine's storage can stay locked a moment after its installer (or a stop) ends.
+    /// The number of starts tried in a row, because a macOS machine's storage can stay locked for a moment after its
+    /// installer (or a stop) ends.
     private var tries = 0
     private var listeners: [DispatchSourceRead] = [], signals: [DispatchSourceSignal] = []
-    /// Its screen, when someone asked to see it (`show`): while it's open the machine counts as in use.
+    /// The window that holds the machine's screen, made the first time the screen is needed (`screen()`). While it's
+    /// visible, after someone asked to see it (`show`), the machine counts as in use.
     var window: NSWindow?   // internal: a test gives it one
-    /// How it ends once it has left: the process's exit; a test's own.
+    /// How kelp-vm ends once the machine has left. By default the process exits, and a test sets its own.
     var exitProcess: () -> Void = { exit(0) }
-    /// What time it is: the clock by default; a test sets its own, moved past the idle limits.
+    /// What time it is. It is the clock by default, and a test sets its own, moved past the idle limits.
     var now: () -> Date = { Date() }
 
     nonisolated static let pauseAfter: TimeInterval = 120, sleepAfter: TimeInterval = 600
     private var saved: URL { paths.savedState }
-    /// Its files kelpd reads and writes too.
+    /// The machine's files, which kelpd reads and writes too.
     private var paths: VMFolder { VMFolder(folder) }
     private func file(_ name: String) -> URL { folder.appendingPathComponent(name) }
 
@@ -67,17 +72,19 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
     // MARK: sockets
 
     func listen() {
-        // Its lock is held already (main.swift): two starts at once would both launch one, and the second would take the sockets over.
+        // main.swift already holds the machine's lock, because two starts at once would both launch the machine, and
+        // the second would take the sockets over.
         listeners.append(Control.listen(paths.ssh.path) { [weak self] fd in self?.connect(fd, counted: true) })
         listeners.append(Control.listen(paths.own.path) { [weak self] fd in self?.connect(fd, counted: false) })
         listeners.append(Control.listen(paths.control.path) { [weak self] fd in self?.control(fd) })
-        // A signal: saved (what runs inside goes on at the next wake), then gone.
+        // On a signal the machine is saved (what runs inside goes on at the next wake), and then kelp-vm ends.
         signals = Control.run(tick: { [weak self] in self?.tick() }, leave: { [weak self] in self?.leave() })
         log("ready: \(machine.name), \(state.rawValue)")
     }
 
-    /// An SSH connection: wakes the machine, then joins the client to the guest's sshd (vsock port 22 on Linux; on macOS,
-    /// whose sshd listens on TCP only, /usr/bin/nc to its NAT address: `MacGuest.bridge`).
+    /// Handles an SSH connection. It wakes the machine, then joins the client to the guest's sshd. On Linux that is
+    /// vsock port 22. On macOS, whose sshd listens on TCP only, it is /usr/bin/nc to the machine's NAT address
+    /// (`MacGuest.bridge`).
     private func connect(_ client: Int32, counted: Bool) {
         if counted {
             connections += 1
@@ -101,11 +108,13 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
                 self.pump(client, fd, id, counted)
             }
         }
-        // Kelp's own reads come while it starts (the clock, before it counts as ready): they don't wait for it, nor wake it.
+        // Kelp's own reads come while the machine starts, such as setting the clock before it counts as ready. They
+        // neither wait for the machine nor wake it.
         if counted { wake(join) } else { join(vm == nil ? "asleep" : nil) }
     }
 
-    /// A Linux guest's sshd, on vsock port 22: the connection kept under `id` until it's let go (`release`).
+    /// Connects to a Linux guest's sshd on vsock port 22. The connection is kept under `id` until it's let go
+    /// (`release`).
     private func sshd(_ done: @escaping @MainActor @Sendable (Int32?, Int?) -> Void) {
         guard let dev = vm?.socketDevices.first as? VZVirtioSocketDevice else { return done(nil, nil) }
         dev.connect(toPort: 22) { result in
@@ -122,7 +131,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         if let id { sockets.removeValue(forKey: id)?.close() } else { close(fd) }
     }
 
-    /// A macOS guest's address, from the leases of the Mac's NAT network.
+    /// Returns a macOS guest's address, read from the leases of the Mac's NAT network.
     private func guestAddress() -> String? {
         guard let mac = String(contentsIfAny: file("mac")) else { return nil }
         return MacGuest.address(mac: mac.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -144,7 +153,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
             }
         }
         both.notify(queue: .main) {
-            MainActor.assumeIsolated {   // notify on the main queue
+            MainActor.assumeIsolated {   // the group notifies on the main queue
                 self.release(guest, id)
                 self.finish(client, counted)
             }
@@ -159,7 +168,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         }
     }
 
-    /// kelpd's requests: one JSON line in, one out.
+    /// Serves a request from kelpd: one JSON line in, one out.
     private func control(_ fd: Int32) {
         Control.read(fd) { request in
             guard let request else { return self.reply(fd, "can't read the request") }
@@ -168,7 +177,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
     }
 
     /// Handles a request from kelpd; internal so the tests can drive it. Shares and a macOS machine's screen are
-    /// handled by this kind of machine alone; the rest is shared by every kind.
+    /// handled by this kind of machine alone, and the rest is shared by every kind.
     func handle(_ request: VMHelper.Request, _ done: @escaping (String?, Int?) -> Void) {
         switch request.op {
         case .share: share(request, done)
@@ -181,11 +190,12 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
     var inUse: Bool { using > 0 }
     func used(_ request: VMHelper.Request) { lastUse = now() }
 
-    // Asleep or off, nothing is kept here (the state is on disk): it ends, and the next start is the kelp-vm Kelp has
-    // then, an update's included. Its answer is written before (`reply` writes and closes).
-    // Ends only once its machine is down: one still starting isn't put to sleep (`sleep` answers at once), and ending
-    // then would cut its power.
-    // Starting covers a boot tried again in a second (`awaitSSH`), with no VM meanwhile.
+    // Once the machine is asleep or off, this process keeps nothing (the state is on disk). So kelp-vm ends, and the
+    // next start runs the kelp-vm Kelp has then, an update's included. The answer is written first (`reply` writes
+    // and closes).
+    // kelp-vm ends only once its machine is down. A machine still starting isn't put to sleep (`sleep` answers at
+    // once), and ending then would cut its power.
+    // Starting also covers a boot tried again a second later (`awaitSSH`), which has no VM meanwhile.
     func sleep(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {
         sleep { error in
             done(error)
@@ -200,7 +210,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         }
     }
 
-    /// Its screen read or driven (`Screen`), the machine woken for it.
+    /// Reads or drives the machine's screen (`Screen`), waking the machine for it.
     private func screen(_ request: VMHelper.Request, _ done: @escaping (String?) -> Void) {
         lastUse = now()
         wake { error in
@@ -215,18 +225,19 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         }
     }
 
-    // `ifDown` (a new size): not while it runs, which a command may have woken it to since it was asked. Starting with
-    // no VM for a moment is a boot tried again (`awaitSSH`): in use too (`Lifecycle.refusesQuit`).
+    // A quit asked `ifDown` (for a new size) is refused while the machine runs, because a command may have woken it
+    // since the quit was asked. Starting with no VM for a moment is a boot tried again (`awaitSSH`), and it counts as
+    // in use too (`Lifecycle.refusesQuit`).
     func quit() {
         guard let vm else { return end() }
         vm.stop { _ in self.end() }
     }
 
-    /// A folder shared into a slot, the answer's `slot`.
+    /// Shares a folder into a slot, and answers with that `slot`.
     private func share(_ request: VMHelper.Request, _ done: @escaping (String?, Int?) -> Void) {
         guard let path = request.path else { return done("share: a path", nil) }
         let free = shares.first { $0.value == path }?.key ?? (0..<VMs.shareSlots).first { shares[$0] == nil }
-        // A folder taken from its slot goes stale under whatever runs in it: only an idle machine gives one up.
+        // A folder taken from its slot goes stale under whatever runs in it, so only an idle machine gives a slot up.
         guard free != nil || connections == 0 else {
             return done(
                 "\(VMs.shareSlots) folders are shared with \(machine.name) and commands run in it: try again when they end.",
@@ -249,17 +260,17 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         done(nil, slot)
     }
 
-    /// Ends once what this turn of the main queue answers is written: a stop or a sleep that waited for a save is told
-    /// in the same turn as the sleep it waited for, after that one's reply.
+    /// Ends kelp-vm once the answers given in this turn of the main queue are written. A stop or a sleep that waited
+    /// for a save is told in the same turn as the sleep it waited for, after that sleep's reply.
     func end() {
-        DispatchQueue.main.async { MainActor.assumeIsolated { self.exitProcess() } }   // the main queue
+        DispatchQueue.main.async { MainActor.assumeIsolated { self.exitProcess() } }   // this runs on the main thread
     }
 
     private func reply(_ fd: Int32, _ error: String?, slot: Int? = nil) {
         Control.write(fd, answer(error, slot: slot))
     }
 
-    /// Internal: the tests read it.
+    /// Returns the reply to kelpd. It's internal so the tests can read it.
     func answer(_ error: String?, slot: Int? = nil) -> VMHelper.Reply {
         var answer = VMHelper.Reply(
             state: state, connections: using, memoryMiB: vm == nil ? nil : usage?.memoryMiB ?? targetMiB,
@@ -272,14 +283,16 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
     // MARK: the machine
 
     func wake(_ done: @escaping (String?) -> Void) {
-        if saving { return afterSave.append(done) }   // resumed under a save, it would run on as the save ends it
+        // A machine resumed during a save would run on as the save ends it, so the wake waits for the save.
+        if saving { return afterSave.append(done) }
         switch state {
         case .running: done(nil)
         case .starting: ready.append(done)
         case .paused:
             ready.append(done)
             Lifecycle.move(&state, to: .starting)
-            vm?.resume { r in MainActor.assumeIsolated { self.started(r.failure) } }   // the VM's queue
+            // Virtualization answers on the VM's queue, which is the main one.
+            vm?.resume { r in MainActor.assumeIsolated { self.started(r.failure) } }
         case .off, .sleeping, .error, .creating:
             ready.append(done)
             boot()
@@ -288,7 +301,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
 
     private func boot() {
         Lifecycle.move(&state, to: .starting)
-        targetMiB = machine.memoryMiB   // a new machine, restored or booted, has all of it: `adjustMemory` sets its balloon again
+        // A new VM, restored or booted, has all of its memory, and `adjustMemory` sets its balloon again.
+        targetMiB = machine.memoryMiB
         let vm: VZVirtualMachine
         do { vm = VZVirtualMachine(configuration: try configuration()) } catch { return started(error) }
         vm.delegate = self
@@ -297,7 +311,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         guard FileManager.default.fileExists(atPath: saved.path) else {
             #if arch(arm64)   // a macOS machine's configuration doesn't build on Intel (`MacGuest.needsAppleSilicon`)
                 if machine.kind == .macos, !FileManager.default.fileExists(atPath: paths.booted.path) {
-                    // The first boot: macOS sets the account up, signs in and turns Remote Login on by itself.
+                    // On the first boot, macOS sets the account up, signs in and turns Remote Login on by itself.
                     do {
                         let password = try String(contentsOf: paths.password, encoding: .utf8).trimmingCharacters(
                             in: .whitespacesAndNewlines)
@@ -316,14 +330,14 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
             vm.restoreMachineStateFrom(url: saved) { error in
                 MainActor.assumeIsolated {
                     FileManager.default.removeIfAny(self.saved)   // a saved state restores once
-                    if let error {   // from an older macOS, or damaged: boot instead
+                    if let error {   // a state from an older macOS, or a damaged one, boots instead
                         log("restore failed, booting: \(error.localizedDescription)")
                         return vm.start { result in
                             MainActor.assumeIsolated { self.awaitSSH(restored: false, error: result.failure) }
                         }
                     }
-                    // The guest's balloon comes back inflated while the Mac maps all of its memory again: let it go, so that
-                    // inflating it anew (`adjustMemory`) hands those pages back.
+                    // The guest's balloon comes back inflated while the Mac maps all of the guest's memory again. The
+                    // balloon is let go, so that inflating it anew (`adjustMemory`) hands those pages back.
                     let balloon = vm.memoryBalloonDevices.first as? VZVirtioTraditionalMemoryBalloonDevice
                     balloon?.targetVirtualMachineMemorySize = UInt64(self.machine.memoryMiB) << 20
                     vm.resume { r in MainActor.assumeIsolated { self.awaitSSH(restored: true, error: r.failure) } }
@@ -336,8 +350,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         #endif
     }
 
-    /// Ready once sshd answers with its banner (on Linux systemd's sshd-vsock socket listens before sshd can answer; a
-    /// macOS guest's first boot sets itself up for minutes before Remote Login is on).
+    /// Marks the machine ready once sshd answers with its banner. On Linux, systemd's sshd-vsock socket listens before
+    /// sshd can answer, and a macOS guest's first boot sets itself up for minutes before Remote Login is on.
     private func awaitSSH(restored: Bool, error: Error?, since: Date = Date()) {
         if let error, error.localizedDescription.contains("lock"), tries < 20 {
             tries += 1
@@ -373,26 +387,29 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         }
     }
 
-    /// Not a failure: whoever waited is told, and its state is the one the stop left.
+    /// Tells whoever waited that the machine was shut down while it started. That isn't a failure, so the state stays
+    /// the one the stop left.
     private func shutDownWhileStarting() {
         let waiting = ready
         ready = []
         waiting.forEach { $0("\(machine.name) was shut down while it started.") }
     }
 
-    /// sshd answered (or not yet): ready once its one command ran (a clock make and friends compare times by, ~/Kelp).
-    /// Internal: a test drives it, and waits for the command's task.
+    /// Handles sshd's answer, or its lack of one yet. The machine is ready once one command has run in it, which either
+    /// sets the clock that make and similar tools compare times by, or makes ~/Kelp. It's internal so a test can drive
+    /// it and wait for the command's task.
     @discardableResult func answered(_ ok: Bool, _ restored: Bool, _ since: Date) -> Task<Void, Never>? {
         guard ok else {
             retry(restored, since)
             return nil
         }
         FileManager.default.createFile(atPath: paths.booted.path, contents: nil)
-        // Restored: its clock set to now. Booted: its exchange folder made ~/Kelp (a restore keeps that).
+        // A restored guest gets its clock set to now. A booted guest gets its exchange folder made into ~/Kelp, which a
+        // restore keeps.
         let command = restored ? setClock() : VMs.filesSetup(os: machine.kind)
         return Task {
             do { _ = try await own(command) } catch { log("\(command): \(error.localizedDescription)") }
-            // The guest may have stopped during that command (up to 20 s): not running with no VM.
+            // The guest may have stopped during that command (up to 20 s), and a machine with no VM isn't running.
             guard vm != nil else { return shutDownWhileStarting() }
             started(nil)
         }
@@ -407,7 +424,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
     private func started(_ error: Error?) {
         if let error {
             log("start failed: \(error.localizedDescription)")
-            vm?.stop { _ in }   // half started holds its memory and disk for nothing
+            vm?.stop { _ in }   // a half-started VM holds its memory and disk for nothing
             vm = nil
         }
         Lifecycle.move(&state, to: error == nil ? .running : .error)
@@ -428,7 +445,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         MainActor.assumeIsolated {
             log("the guest shut down")
             down()
-        }   // the VM's queue, the main one
+        }   // Virtualization calls this on the VM's queue, which is the main queue
     }
     nonisolated func virtualMachine(_ virtualMachine: VZVirtualMachine, didStopWithError error: Error) {
         MainActor.assumeIsolated {
@@ -438,8 +455,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         }
     }
 
-    /// Every 5 s: no connection for `pauseAfter`, and it pauses; for `sleepAfter`, it goes to disk. While it runs, its
-    /// memory follows what the guest uses every 15 s.
+    /// Runs every 5 s. With no use for `pauseAfter` the machine pauses, and after `sleepAfter` it goes to disk. While
+    /// it runs, its memory follows what the guest uses, every 15 s.
     private func tick() {
         ticks += 1
         usage = vm == nil ? nil : Usage.sample()
@@ -450,12 +467,13 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
             vm?.pause { result in
                 MainActor.assumeIsolated {
                     guard result.failure == nil, self.state == .running else { return }
-                    // A connection while it paused was answered running: it goes on, not paused under that command.
+                    // A connection that came while it paused was answered as running, so the machine goes on rather
+                    // than pausing under that command.
                     let idle = self.now().timeIntervalSince(self.lastUse)
                     guard Lifecycle.staysPaused(idle: idle, inUse: self.using > 0) else {
                         self.vm?.resume { r in
-                            MainActor.assumeIsolated {   // the VM's queue, the main one
-                                // paused it is: the next wake tries again
+                            MainActor.assumeIsolated {   // resume calls back on the VM's queue, the main one
+                                // it stays paused, and the next wake tries again
                                 if r.failure != nil, self.state == .running { Lifecycle.move(&self.state, to: .paused) }
                             }
                         }
@@ -468,16 +486,16 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         case .sleep where now().timeIntervalSince(saveFailed ?? .distantPast) > 600:
             sleep { error in
                 if Lifecycle.endsAfterSleep(error: error, hasVM: self.vm != nil, state: self.state) { self.end() }
-            }   // as `.sleep` does
-        case .sleep: break   // its save failed a moment ago
+            }   // kelp-vm ends after the sleep, as it does for a `.sleep` request
+        case .sleep: break   // the machine's last save failed under 10 minutes ago
         case nil: if state == .running, ticks % 3 == 0 { adjustMemory() }
         }
     }
 
     // MARK: inside
 
-    /// The balloon gives the Mac back what the guest doesn't use (`VMs.memoryTarget`). A restore maps all of `memoryMiB`;
-    /// this takes it back.
+    /// Sets the balloon so it gives the Mac back what the guest doesn't use (`VMs.memoryTarget`). A restore maps all of
+    /// `memoryMiB`, and this takes it back.
     private func adjustMemory() {
         guard machine.kind == .linux else { return }   // a macOS guest has no /proc/meminfo, and keeps all it was given
         Task {
@@ -498,7 +516,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         }
     }
 
-    /// A command run over `<name>-own`: not counted as use.
+    /// Runs a command over `<name>-own`, which doesn't count as use.
     func own(_ command: String, stdin: Data? = nil) async throws -> String {
         let out = try await Subprocess.run(
             [
@@ -518,7 +536,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
 
     // MARK: its screen
 
-    /// The machine's screen as a view in its window, not shown: what reads and drives it from the Mac's side (`Screen`).
+    /// Returns the machine's screen as a view in its window, which isn't shown. `Screen` reads and drives the machine
+    /// through this view from the Mac's side.
     private func screen() -> VZVirtualMachineView? {
         if window == nil {
             let view = VZVirtualMachineView()
@@ -541,7 +560,8 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         return view
     }
 
-    /// Its screen in a window of its own: full speed, the pointer and keys go to it. Closing it only hides it.
+    /// Shows the machine's screen in a window of its own, at full speed, with the pointer and keys going to it.
+    /// Closing the window only hides it.
     private func show() {
         _ = screen()
         // In the Dock and ⌘Tab while it's shown, like any window one works in; out of them again once it's closed.
@@ -564,11 +584,11 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
 // MARK: sleeping and stopping
 
 extension Runtime {
-    /// SIGTERM (an install, a logout): saved, then gone. One still booting is let finish first: ending now would cut its
-    /// power (a macOS first boot writes its account then).
+    /// Handles SIGTERM (an install, a logout) by saving the machine and then ending kelp-vm. A machine still booting is
+    /// let finish first, because ending now would cut its power (a macOS first boot writes its account then).
     func leave() {   // internal: the tests drive it
         guard state != .starting else { return ready.append { [weak self] _ in self?.leave() } }
-        sleep { [weak self] e in   // not saved: shut down as the guest would, not a power cut
+        sleep { [weak self] e in   // if not saved, it shuts down as the guest would, not by a power cut
             guard let self else { exit(0) }
             guard e != nil else { return exitProcess() }
             stop { self.exitProcess() }
@@ -582,7 +602,8 @@ extension Runtime {
             return done("Sleep needs a Mac with Apple silicon: an Intel Mac can't save a machine's state.")
         #else
             saving = true
-            // Whatever came meanwhile is woken first (so a kelp-vm about to end for the sleep stays), then told.
+            // Wakes that came meanwhile run first, so a kelp-vm about to end for the sleep stays, and then the waiters
+            // are told.
             let end = { (error: String?) in
                 self.saving = false
                 if error != nil { self.saveFailed = self.now() }
@@ -627,9 +648,10 @@ extension Runtime {
         #endif
     }
 
-    /// Shuts the guest down (30 s, then off), and forgets a saved state: the next start boots.
+    /// Shuts the guest down (it gets 30 s, then the power goes off) and forgets a saved state, so the next start boots.
     func stop(_ done: @escaping () -> Void) {
-        if saving { return saveDone.append { [weak self] _ in self?.stop(done) } }   // resumed under the save, it would fail it
+        // A machine resumed during a save would make the save fail, so the stop waits for the save to end.
+        if saving { return saveDone.append { [weak self] _ in self?.stop(done) } }
         FileManager.default.removeIfAny(saved)
         guard let vm else {
             Lifecycle.move(&state, to: .off)

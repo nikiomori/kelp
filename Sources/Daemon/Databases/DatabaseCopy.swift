@@ -2,11 +2,12 @@ import Core
 import Foundation
 import GRDB
 
-/// A database of the project's copied for a branch's workspace: a SQLite or DuckDB file into its folder, a Postgres
-/// database on this Mac as a new one. The copy says whose it is (`DatabaseInfo.copy`): it's listed in that workspace
-/// only, agents change it without asking (it can be made again), and it's dropped with the workspace or by hand.
+/// Copies of a project's database made for a branch's workspace. A SQLite or DuckDB file is copied into the
+/// workspace's folder, and a Postgres database on this Mac becomes a new database. The copy records which workspace
+/// owns it (`DatabaseInfo.copy`). It is listed in that workspace only, agents change it without asking (because it can
+/// be made again), and it is dropped with the workspace or by hand.
 extension Databases {
-    /// A copy for the workspace's branch (`DatabaseCopy`): the copy as it's listed now.
+    /// Makes a copy for the workspace's branch (`DatabaseCopy`) and returns the copy as it is listed now.
     func copy(_ worktreeId: String, _ name: String) async throws -> DatabaseInfo {
         guard let worktree = try store.worktree(worktreeId) else {
             throw RPCError.noWorkspace(worktreeId)
@@ -30,10 +31,10 @@ extension Databases {
                 throw RPCError.invalidParams(
                     "Kelp copies a Postgres on this Mac that publishes its port; \(name) doesn't.")
             }
-            // Its password as a query would have it: one still in another app's keychain is read now
+            // Reach the source as a query would, so a password still in another app's keychain is read now
             let near = try await offloads.run { [self] in try reach(source, worktreeId) }
             let copied = database + "_" + suffix, pg = DatabaseInfo.Engine.postgres
-            var maintenance = near   // a template can't have anyone connected, this connection included
+            var maintenance = near   // nobody may be connected to a template, this connection included
             maintenance.database.database = "postgres"
             do {
                 _ = try await DatabaseEngines.write(
@@ -45,7 +46,7 @@ extension Databases {
             db.source = nil
             let password = near.password, kept = db
             do { return try await offloads.run { [self] in try save(worktreeId, kept, password: password) } } catch {
-                // Not kept, so not left behind: the next copy would find it "already exists"
+                // The copy wasn't saved, so it is dropped, or the next copy would fail with "already exists"
                 do {
                     _ = try await DatabaseEngines.write(
                         maintenance, "DROP DATABASE \(pg.quoted(copied))", off: offloads)
@@ -67,7 +68,7 @@ extension Databases {
         }
         let project = try store.repo(worktree.repoId)?.path ?? worktree.path
         let target: String
-        // Compared and cut as they really are: a project reached through a link has the same file at another path
+        // Compare and cut the real paths, because a project reached through a link has the same file at another path
         let (real, realProject) = (Paths.realNearest(path), Paths.realNearest(project))
         if Paths.inside(path, project), !Paths.inside(path, worktree.path), real.hasPrefix(realProject + "/") {
             target = worktree.path + real.dropFirst(realProject.count)
@@ -83,7 +84,8 @@ extension Databases {
         var made = false
         do {
             if databaseConnection.database.engine == .duckdb {
-                // DuckDB keeps one file, no -wal; one there already is another's copy, any other failure half of ours
+                // DuckDB keeps one file, with no -wal. A file already there is another copy, and any other failure
+                // leaves half of ours
                 do { try FileManager.default.copyItem(atPath: path, toPath: target) } catch CocoaError
                     .fileWriteFileExists
                 {
@@ -93,8 +95,8 @@ extension Databases {
                     throw error
                 }
             } else {
-                // Made here or refused: two copies asked at once don't back up into one file (the check above can't
-                // tell); copyItem refuses one that's there itself.
+                // Create the file here or refuse, so two copies asked for at once don't back up into one file (the
+                // check above can't tell). In the DuckDB branch, copyItem itself refuses a file that is already there.
                 let created = open(target, O_CREAT | O_EXCL | O_WRONLY, 0o644)
                 guard created >= 0 else { throw RPCError.invalidParams("There's a copy already: \(target).") }
                 close(created)
@@ -107,8 +109,9 @@ extension Databases {
             if let failure = error as? DatabaseFailure { throw RPCError.invalidParams(failure.message) }
             throw error
         }
-        // Where Kelp looks (the top, db/, …) it's found as it is, and what says it's a copy is kept beside what the
-        // project says of its database of that name; anywhere else it's kept as one added by hand.
+        // In a place where Kelp looks (the top, db/, …), the copy is found like any file there, and the note that it
+        // is a copy is kept beside the project's settings for the database of that name. Anywhere else, the copy is
+        // kept as a database added by hand.
         if let found = try connections(worktree.id).first(where: { $0.database.path == target }) {
             var db = Self.asCopy(found.database, of: databaseConnection.database.name, for: worktree.id)
             if databaseConnection.database.access == .hidden { db.access = .hidden }
@@ -125,7 +128,8 @@ extension Databases {
         return try save(worktree.id, db, password: nil)
     }
 
-    /// `db` as a workspace's copy of `name`: agents change it without asking, unless they don't see the one it's of.
+    /// Marks `db` as a workspace's copy of `name`. Agents change the copy without asking, unless the original is
+    /// hidden from them.
     static func asCopy(_ db: DatabaseInfo, of name: String, for worktreeId: String) -> DatabaseInfo {
         var copy = db
         copy.copy = BranchCopy(of: name, worktreeId: worktreeId, at: Date())
@@ -152,7 +156,8 @@ extension Databases {
         touch(worktreeId)
     }
 
-    /// DROP DATABASE, from the server's own `postgres` database: nobody may be connected to the one that goes.
+    /// Runs DROP DATABASE from the server's own `postgres` database, because nobody may be connected to the database
+    /// being dropped.
     private func dropDatabase(_ databaseConnection: DatabaseConnection) async throws {
         guard databaseConnection.database.engine == .postgres, let database = databaseConnection.database.database
         else {
@@ -165,16 +170,16 @@ extension Databases {
             maintenance, "DROP DATABASE IF EXISTS \(DatabaseInfo.Engine.postgres.quoted(database))", off: offloads)
     }
 
-    /// What Kelp keeps of a copy: its own entry and password when it was added by hand, else what says the found file
-    /// is one (the project's settings for a database of that name stay).
+    /// Forgets what Kelp keeps of a copy. For a copy added by hand, that is its own entry and password. Otherwise it is
+    /// the entry that marks the found file as a copy, and the project's settings for the database of that name stay.
     private func forget(copy db: DatabaseInfo, byHand: Bool, repo: String) throws {
         let id = repo + "/" + db.name + (byHand ? "" : "@" + (db.copy?.worktreeId ?? ""))
         _ = try store.db.write { try SavedDatabase.deleteOne($0, key: id) }
         if byHand { Keychain.delete(Self.account(id)) }
     }
 
-    /// A workspace is gone: its copies go too. A file went with its folder; a Postgres database is dropped now (it's
-    /// on this Mac: no host to reach), and what can't be is said in the log, not to anyone waiting.
+    /// Drops the copies of a workspace that is gone. A file went with its folder. A Postgres database is dropped now
+    /// (it is on this Mac, so there's no host to reach), and a failure goes to the log, because nobody is waiting.
     func dropCopies(of worktree: Worktree) {
         let saved: [SavedDatabase]
         do {
@@ -195,7 +200,7 @@ extension Databases {
         }
     }
 
-    /// A half-made copy and what SQLite made beside it.
+    /// Removes a half-made copy and the files SQLite made beside it.
     static func removeCopy(_ target: String) {
         for file in [target, target + "-wal", target + "-shm", target + "-journal"]
         where FileManager.default.fileExists(atPath: file) {
@@ -205,7 +210,7 @@ extension Databases {
         }
     }
 
-    /// A branch as a name's tail: "fix/orders" → "fix_orders".
+    /// Turns a branch into the tail of a name, such as "fix/orders" → "fix_orders".
     static func slug(_ branch: String) -> String {
         let words = branch.lowercased().split { !($0.isLetter || $0.isNumber) }
         let slug = String(words.joined(separator: "_").prefix(30))

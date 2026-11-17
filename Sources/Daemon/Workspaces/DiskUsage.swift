@@ -3,24 +3,25 @@ import Core
 import Foundation
 import GitKit
 
-/// What a project takes on its disk (`repo.diskUsage`), and moving its parts aside (`repo.diskTrash`): on this Mac, or
-/// on the host of a remote project, where git and `du` run over its connection (`DiskUsage+Host`). Handed the
-/// workspaces, whose worktrees it measures and removes.
+/// Measures how much disk a project takes (`repo.diskUsage`) and moves its parts aside (`repo.diskTrash`). It works on
+/// this Mac, or on the host of a remote project, where git and `du` run over the project's connection
+/// (`DiskUsage+Host`). It is given the workspaces because it measures and removes their worktrees.
 struct DiskUsage: Sendable {
     typealias Item = RepoDiskUsage.Item
     let workspaces: Workspaces
 
-    /// Folders a build or a package manager makes again: what's in them costs only time.
+    /// Folders that a build or a package manager makes again, so removing what's in them costs only time.
     static let buildNames: Set<String> = [
         ".build", "node_modules", "DerivedData", ".next", ".nuxt", ".svelte-kit", ".turbo", ".parcel-cache", ".angular",
         "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".gradle", ".dart_tool", "Pods"
     ]
-    /// Parts smaller than this aren't listed (a stray .DS_Store); they still count in the files.
+    /// Parts smaller than this, such as a stray .DS_Store, aren't listed. Their bytes still count in the files.
     static let smallest = 1 << 20
     static let derivedData = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Developer/Xcode/DerivedData")
 
-    /// A `target` folder counts as Cargo's or Maven's build only beside its manifest; elsewhere it may be anything.
+    /// Returns whether the path is a build folder. A `target` folder counts as a Cargo or Maven build only when it sits
+    /// beside a Cargo.toml or pom.xml, because elsewhere it may hold anything.
     /// Limit: on a host, where the manifest isn't looked for, `target` isn't taken for a build.
     static func isBuild(_ path: String, here: Bool = true) -> Bool {
         let url = URL(fileURLWithPath: path), name = url.lastPathComponent
@@ -29,21 +30,22 @@ struct DiskUsage: Sendable {
         return here && name == "target" && ["Cargo.toml", "pom.xml"].contains { exists(dir + "/" + $0) }
     }
 
-    /// The project as measured, here or on its host.
+    /// The measurements of one project, taken on this Mac or on its host.
     struct Gathered {
         var root = "", total = 0, here = true
         var worktrees: [RepoWorktreeSizes.Item] = []
-        /// What git ignores in the project's folder, outermost, and whether git ignores it itself.
+        /// The outermost paths git ignores in the project's folder. `really` is true when git ignores the path itself,
+        /// not only what is inside it.
         var ignored: [(rel: String, really: Bool)] = []
-        /// The builds in the other worktrees, and which worktree each is in.
+        /// The build folders in the other worktrees, each with the worktree it is in.
         var builds: [(path: String, worktree: String)] = []
         var sizes: [String: Int] = [:]
         /// Xcode's DerivedData and Claude Code's chats, which live outside every checkout.
         var extra: [Item] = []
     }
 
-    /// The parts, biggest first: each ignored entry less the worktrees in it, each worktree less its builds, and the
-    /// rest of the folder as its files.
+    /// Returns the parts of the project, biggest first. Each ignored entry is counted without the worktrees inside it,
+    /// each worktree without its builds, and the rest of the project's folder is listed as its files.
     static func parts(_ gathered: Gathered) -> [Item] {
         let inside = { (dir: String) in gathered.worktrees.filter { $0.path.hasPrefix(dir + "/") } }
         var items: [Item] = [], outside = gathered.total - inside(gathered.root).reduce(0) { $0 + $1.bytes }
@@ -71,8 +73,8 @@ struct DiskUsage: Sendable {
         }
     }
 
-    /// On this Mac. `root` is the project's folder as git prints it (links resolved); `worktrees` its other worktrees
-    /// with their sizes (`repo.worktreeSizes`).
+    /// Measures a project on this Mac. `root` is the project's folder as git prints it, with links resolved, and
+    /// `worktrees` lists its other worktrees with their sizes (`repo.worktreeSizes`).
     static func measure(
         root: String, worktrees: [RepoWorktreeSizes.Item], remotes: Remotes, chats: URL = ClaudeHistory.defaultRoot,
         derived: URL = derivedData
@@ -95,8 +97,9 @@ struct DiskUsage: Sendable {
         return parts(gathered)
     }
 
-    /// Of what git lists, those it ignores itself or whose contents it doesn't list too (it lists `.kelp/` along with
-    /// `.kelp/artifacts/` when it ignores everything in it); then the outermost, so nothing counts twice.
+    /// Keeps the listed paths that git ignores itself, or whose contents git doesn't also list. For example, git lists
+    /// `.kelp/` along with `.kelp/artifacts/` when it ignores everything in `.kelp/`. Only the outermost of the kept
+    /// paths are returned, so nothing counts twice.
     static func kept(_ listed: [String], really: Set<String>) -> [(rel: String, really: Bool)] {
         outermost(listed.filter { rel in really.contains(rel) || !listed.contains { $0.hasPrefix(rel + "/") } })
             .map { ($0, really.contains($0)) }
@@ -115,21 +118,24 @@ struct DiskUsage: Sendable {
         }.map(\.path)
     }
 
-    /// The folder Claude Code keeps a folder's conversations in: its path with every other character than a letter or a
-    /// digit as "-". Limit: the default config folder and CLAUDE_CONFIG_DIR's, not account profiles' own.
+    /// Returns the name of the folder Claude Code keeps a folder's conversations in. The name is the folder's path with
+    /// every character other than an ASCII letter or digit turned into "-".
+    /// Limit: this finds chats in the default config folder and in CLAUDE_CONFIG_DIR, not in account profiles' own
+    /// folders.
     static func claudeName(_ path: String) -> String {
         String(path.unicodeScalars.map { CharacterSet.alphanumerics.contains($0) && $0.isASCII ? Character($0) : "-" })
     }
 
-    /// Blocks on disk as `du` counts them, for each path that's there; one program for many paths, here or on `host`.
-    /// A `du` that failed (took too long, was killed, isn't there) fails the measure and is logged with what it was
-    /// measuring: read as 0 bytes, a worktree dropped off the list and its bytes went to the project's files.
+    /// Returns the bytes on disk as `du` counts them, for each path that exists. One `du` measures many paths, here or
+    /// on `host`. A `du` that failed (it took too long, was killed or isn't installed) fails the whole measure and is
+    /// logged with what it was measuring. It isn't read as 0 bytes, because then a worktree would drop off the list and
+    /// its bytes would go to the project's files.
     static func du(_ paths: [String], on host: RemoteHost? = nil) throws -> [String: Int] {
         var out: [String: Int] = [:]
         for chunk in stride(from: 0, to: paths.count, by: 256).map({ Array(paths[$0..<min($0 + 256, paths.count)]) }) {
             let data: Data
             do {
-                // 1: something in it couldn't be read; the rest is counted.
+                // Exit code 1 means something couldn't be read, and the rest is still counted.
                 data =
                     try host.map {
                         try $0.run("du -sk -- \(chunk.map(ShellQuote.word).joined(separator: " ")); \(Self.duEnded)")
@@ -148,11 +154,12 @@ struct DiskUsage: Sendable {
         return out
     }
 
-    /// sh after a host's `du`: 0 and 1 (something unreadable or not there) are an answer; anything else ends the
-    /// script with it, where `|| true` took a `du` that was killed or isn't installed for folders with nothing in them.
+    /// The sh that runs after a `du` on a host. Exit codes 0 and 1 (something was unreadable or missing) count as an
+    /// answer, and any other code ends the script with that code. `|| true` would have taken a `du` that was killed or
+    /// isn't installed for folders with nothing in them.
     static let duEnded = "s=$?; [ $s -le 1 ] || exit $s"
 
-    /// Without those inside another of them.
+    /// Returns the paths that aren't inside another of the given paths.
     static func outermost(_ rels: [String]) -> [String] {
         var kept: [String] = []
         for rel in rels.sorted() where !kept.contains(where: { rel.hasPrefix($0 + "/") }) { kept.append(rel) }
@@ -168,8 +175,9 @@ struct DiskUsage: Sendable {
 extension DiskUsage {
     func measure(_ repo: Repo) throws -> [Item] {
         if let remote = workspaces.remotes.of(repo.path) { return try measure(repo, on: remote) }
-        // Swept now, not as a hover card found them a moment ago: Measure Again asks this, and so does the tab once
-        // it moved something. Limit: so does its first measure; the method doesn't say which it is.
+        // The worktrees are swept now, rather than taken as a hover card found them a moment ago, because Measure
+        // Again calls this, and so does the tab after it moved something.
+        // Limit: the tab's first measure sweeps again too, because the method doesn't say which kind of measure it is.
         return try Self.measure(
             root: Self.real(repo.path), worktrees: RepoWorktreeSizes.sizes(of: repo, workspaces, again: true),
             remotes: workspaces.remotes)
@@ -186,7 +194,7 @@ extension DiskUsage {
         let roots = [root] + linked, xcode = Set(Self.builtFor(roots, in: derived))
         var out = try workspaces.removeWorktrees(paths.filter(linked.contains), of: repo)
         for path in paths where !linked.contains(path) {
-            // As it really is: `..` or a link can't take it out of the project.
+            // The path with links and `..` resolved, so neither can take it out of the project.
             let real = Self.real(path)
             do {
                 if let why = xcode.contains(real) ? nil : try refusal(real, roots: roots) {
@@ -209,8 +217,9 @@ extension DiskUsage {
         guard try Git.ignored([rel], cwd: base, remotes: remotes).contains(rel),
             try Git.run(["ls-files", "-z", "--", rel], cwd: base, remotes: remotes).isEmpty
         else { return "Git tracks it." }
-        // A worktree's own folder too, spelled other than git prints it (a link, `..`): it goes as `removeWorktrees`
-        // takes it, with its checks, or not at all. In an ignored folder it's ignored with nothing tracked in it.
+        // This also catches a worktree's own folder spelled differently from how git prints it (through a link or
+        // `..`). A worktree goes only through `removeWorktrees` and its checks, or not at all. The check is needed
+        // because a worktree in an ignored folder looks ignored, with nothing tracked in it.
         guard let held = roots.first(where: { Paths.inside($0, path) }) else { return nil }
         return Paths.inside(path, held) ? "It is a worktree." : "A worktree is inside it."
     }

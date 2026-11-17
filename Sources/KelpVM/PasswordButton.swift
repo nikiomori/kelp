@@ -1,14 +1,16 @@
 import AppKit
 import Core
 
-/// Type Password in a macOS machine's title bar, where the dialog that asks for it is (an installer, Privacy &
-/// Security): the user never saw the password, and an agent may not type it (`VMType.notForAgents`). kelpd types it
-/// from the Keychain, as the button in the machine's tab does; this process isn't a session's: it asks as the user.
+/// The Type Password button in the title bar of a macOS machine's window, which is where dialogs that ask for the
+/// password show up (an installer, Privacy & Security). The user never saw the password, and an agent may not type it
+/// (`VMType.notForAgents`). kelpd types it from the Keychain, as the button in the machine's tab does. This process
+/// doesn't belong to an agent's session, so kelpd treats its request as the user's.
 final class PasswordButton: NSButton {
     private var machine = "", socket = ""
 
     @MainActor static func add(to window: NSWindow, machine: String, folder: URL) {
-        // Kelp's own words: this app sits in Kelp.app/Contents/Helpers, its strings in Kelp.app.
+        // The button's words come from Kelp's own strings, because this app sits in Kelp.app/Contents/Helpers and the
+        // translations live in Kelp.app.
         let kelp = Bundle(url: Bundle.main.bundleURL.appendingPathComponent("../../..").standardizedFileURL) ?? .main
         let button = PasswordButton(title: String(localized: "Type Password", bundle: kelp), target: nil, action: nil)
         button.machine = machine
@@ -18,7 +20,7 @@ final class PasswordButton: NSButton {
         button.action = #selector(type)
         button.bezelStyle = .push
         button.controlSize = .small
-        button.refusesFirstResponder = true   // keys stay with the machine's screen
+        button.refusesFirstResponder = true   // typed keys stay with the machine's screen
         button.toolTip = String(
             localized: "Types this machine's password into the field that asks for it, in its window.", bundle: kelp)
         let box = NSView(frame: NSRect(x: 0, y: 0, width: button.fittingSize.width + 12, height: 28))
