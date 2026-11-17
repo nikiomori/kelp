@@ -68,6 +68,20 @@ extension AndroidRuntimeOnAStandIn {
         #expect(await askAndroid(vm, .init(op: .sleep)) == nil)
         #expect(vm.state == .sleeping)
     }
+
+    /// A start kelpd answered is use until its command's adb comes: the budget's sleep in between is refused. Past
+    /// `startWindow`, idle again.
+    @Test(.timeLimit(.minutes(1))) func aStartIsUseUntilItsCommandsAdbComes() async throws {
+        let (vm, _, putAway) = try androidStandIn()
+        defer { putAway() }
+        var later: TimeInterval = 0
+        vm.now = { Date() + later }
+        #expect(await askAndroid(vm, .init(op: .start)) == nil)
+        #expect(await askAndroid(vm, .sleepIfIdle)?.contains("in use") == true)
+        later = AndroidRuntime.startWindow + 1
+        #expect(await askAndroid(vm, .sleepIfIdle) == nil)
+        #expect(vm.state == .sleeping)
+    }
 }
 
 /// A stand-in Android machine (`standIn`), and how to put it away: its emulator ended, its SDK removed, ANDROID_HOME

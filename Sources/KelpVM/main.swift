@@ -57,6 +57,7 @@ case .some(let path) where args.count == 1 && !path.hasPrefix("-"):
         log("another kelp-vm runs \(folder.lastPathComponent)")
         exit(0)
     }
+    Lifecycle.remember(getpid(), in: folder, as: VMFolder.helperNote)
     let machine: VMMachine
     do {
         machine = try JSONDecoder().decode(

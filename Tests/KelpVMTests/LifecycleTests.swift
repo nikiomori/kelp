@@ -17,6 +17,26 @@ import Testing
     #expect(!refuses(.init(op: .quit), true, .running))   // a plain quit (a delete) goes on
 }
 
+/// A state moves only where `Lifecycle.moves` lets it (and to off or error from anywhere); any other move is refused
+/// and leaves it as it was. The moves no runtime may make are named: up without starting, paused while down, asleep
+/// from a failure or while starting, back to being made.
+@Test func aStateMovesOnlyWhereItsTableLetsIt() {
+    for from in VMState.allCases {
+        for to in VMState.allCases {
+            var state = from
+            Lifecycle.move(&state, to: to)
+            #expect(state == (Lifecycle.allowed(from, to) ? to : from), "\(from) → \(to)")
+        }
+    }
+    let never: [(VMState, VMState)] = [
+        (.off, .running), (.sleeping, .running), (.error, .running), (.off, .paused), (.error, .sleeping),
+        (.starting, .paused), (.starting, .sleeping), (.running, .starting), (.running, .creating),
+        (.creating, .running)
+    ]
+    for (from, to) in never { #expect(!Lifecycle.allowed(from, to), "\(from) → \(to)") }
+    #expect(VMState.allCases.allSatisfy { Lifecycle.allowed($0, .off) && Lifecycle.allowed($0, .error) })
+}
+
 /// What a kind doesn't do is said the same by each runtime.
 @Test func whatAKindDoesntDoIsSaidOnce() {
     func machine(_ os: String) -> VMMachine {

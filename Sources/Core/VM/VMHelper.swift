@@ -52,6 +52,8 @@ public struct VMFolder: Sendable, Equatable {
     public var log: URL { file("helper.log") }
     /// A child kelp-vm started (an emulator, an iOS runner), noted as "<pid> <start time>" (`Lifecycle.remember`).
     public func child(_ name: String) -> URL { file(name + ".child") }
+    /// kelp-vm's own note, as a child's: kelpd ends one that holds its lock and no longer answers.
+    public static let helperNote = "kelp-vm"
 
     /// Ends the child noted as `name` if that same process (by its start time) still runs: SIGTERM to its tree, then
     /// SIGKILL, before this returns; the note goes either way. Its pid, when one was ended. For what a kelp-vm that was

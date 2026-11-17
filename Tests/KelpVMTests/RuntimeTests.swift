@@ -34,6 +34,16 @@ import Testing
         #expect(try await waitFor(2) { ended })
     }
 
+    /// sshd answered, then the guest stopped while its one command ran (here: there's no VM, and ssh fails at once): it
+    /// isn't running with no VM, which no command could reach and no tick would pause.
+    @Test func aGuestGoneDuringItsFirstCommandIsntRunning() async throws {
+        let folder = try machine()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let vm = try Runtime(folder: folder)
+        await vm.answered(true, false, Date())?.value
+        #expect(vm.state == .off)
+    }
+
     /// Each folder shared gets a slot of its own, the same one when it's asked again; all taken, an idle machine gives
     /// the least recently asked one up. The slots are kept in shares.json for the next kelp-vm.
     @Test func sharedFoldersTakeSlotsTheOldestGivenUp() async throws {

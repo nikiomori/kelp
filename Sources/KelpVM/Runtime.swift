@@ -345,11 +345,7 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         }
         tries = 0
         if let error { return started(error) }
-        guard vm != nil else {   // shut down while it started: not a failure
-            let waiting = ready
-            ready = []
-            return waiting.forEach { $0("\(machine.name) was shut down while it started.") }
-        }
+        guard vm != nil else { return shutDownWhileStarting() }
         let firstBoot = !FileManager.default.fileExists(atPath: paths.booted.path)
         guard Date().timeIntervalSince(since) < (firstBoot ? 1800 : 180) else {
             return started(VMError("sshd didn't answer"))
@@ -376,14 +372,27 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         }
     }
 
+    /// Not a failure: whoever waited is told, and its state is the one the stop left.
+    private func shutDownWhileStarting() {
+        let waiting = ready
+        ready = []
+        waiting.forEach { $0("\(machine.name) was shut down while it started.") }
+    }
+
     /// sshd answered (or not yet): ready once its one command ran (a clock make and friends compare times by, ~/Kelp).
-    private func answered(_ ok: Bool, _ restored: Bool, _ since: Date) {
-        guard ok else { return retry(restored, since) }
+    /// Internal: a test drives it, and waits for the command's task.
+    @discardableResult func answered(_ ok: Bool, _ restored: Bool, _ since: Date) -> Task<Void, Never>? {
+        guard ok else {
+            retry(restored, since)
+            return nil
+        }
         FileManager.default.createFile(atPath: paths.booted.path, contents: nil)
         // Restored: its clock set to now. Booted: its exchange folder made ~/Kelp (a restore keeps that).
         let command = restored ? setClock() : VMs.filesSetup(os: machine.kind)
-        Task {
+        return Task {
             do { _ = try await own(command) } catch { log("\(command): \(error.localizedDescription)") }
+            // The guest may have stopped during that command (up to 20 s): not running with no VM.
+            guard vm != nil else { return shutDownWhileStarting() }
             started(nil)
         }
     }
@@ -439,10 +448,20 @@ final class Runtime: NSObject, VZVirtualMachineDelegate, NSWindowDelegate, Machi
         case .pause:
             vm?.pause { result in
                 MainActor.assumeIsolated {
-                    if result.failure == nil, self.state == .running {
-                        Lifecycle.move(&self.state, to: .paused)
-                        log("paused")
+                    guard result.failure == nil, self.state == .running else { return }
+                    // A connection while it paused was answered running: it goes on, not paused under that command.
+                    let idle = self.now().timeIntervalSince(self.lastUse)
+                    guard Lifecycle.staysPaused(idle: idle, inUse: self.using > 0) else {
+                        self.vm?.resume { r in
+                            MainActor.assumeIsolated {   // the VM's queue, the main one
+                                // paused it is: the next wake tries again
+                                if r.failure != nil, self.state == .running { Lifecycle.move(&self.state, to: .paused) }
+                            }
+                        }
+                        return
                     }
+                    Lifecycle.move(&self.state, to: .paused)
+                    log("paused")
                 }
             }
         case .sleep where now().timeIntervalSince(saveFailed ?? .distantPast) > 600:

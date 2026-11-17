@@ -52,11 +52,15 @@ final class AndroidRuntime: MachineRuntime {
         log("ready: \(machine.name) (Android), \(state.rawValue)")
     }
 
-    /// In use: commands through adb, and a window the user has (kelpd's memory budget sleeps only an idle machine).
-    /// Limit: a command kelpd just answered a start for isn't seen until its adb runs, a few milliseconds on.
+    /// In use: commands through adb, a window the user has, and a start kelpd answered in the last `startWindow` (its
+    /// command's adb comes right after): kelpd's memory budget sleeps only an idle machine.
     private var using: Int {
-        state == .running ? Usage.clients(of: serial, programs: ["adb"]) + (hasWindow ? 1 : 0) : 0
+        guard state == .running else { return 0 }
+        let started = now().timeIntervalSince(lastStart) < Self.startWindow ? 1 : 0
+        return Usage.clients(of: serial, programs: ["adb"]) + (hasWindow ? 1 : 0) + started
     }
+    static let startWindow: TimeInterval = 10
+    private var lastStart = Date.distantPast
 
     private func reply(_ fd: Int32, _ error: String?) {
         let up = state.isUp
@@ -76,6 +80,7 @@ final class AndroidRuntime: MachineRuntime {
 
     func used(_ request: VMHelper.Request) {
         lastUse = now()
+        if request.op == .start, !request.begins { lastStart = lastUse }   // its command's adb comes next (`using`)
         // kelpd's wake with the window: for a boot to come, not one up already
         if request.beginsShown, emulator == nil || saving { nextBootShown = true }
     }
@@ -326,7 +331,7 @@ final class AndroidRuntime: MachineRuntime {
                 defer { pausing = false }
                 guard await tell(["emu", "avd", "stop"]) else { return }   // not stopped: the next tick tries again
                 // A start while it stopped is answered running: it goes on, not paused under that caller's command.
-                if state == .running, now().timeIntervalSince(lastUse) > Runtime.pauseAfter {
+                if state == .running, Lifecycle.staysPaused(idle: now().timeIntervalSince(lastUse), inUse: hasWindow) {
                     Lifecycle.move(&state, to: .paused)
                     log("paused")
                 } else {

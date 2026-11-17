@@ -63,9 +63,24 @@ enum Lifecycle {
         }
     }
 
-    /// Every move of a runtime's state, here alone (ArchitectureTests counts the writes): the one place to log or check a
-    /// move. Its first state, read off its folder, is set as it's made.
-    static func move(_ state: inout VMState, to next: VMState) { state = next }
+    /// Every move of a runtime's state, here alone (ArchitectureTests counts the writes): one `moves` doesn't allow is
+    /// logged and refused, the state left as it was. Its first state, read off its folder, is set as it's made.
+    static func move(_ state: inout VMState, to next: VMState) {
+        guard allowed(state, next) else { return log("refused a move from \(state.rawValue) to \(next.rawValue)") }
+        state = next
+    }
+
+    /// Where each state may go besides off and error, which any may (a stop, its process gone, a failure told): up
+    /// only through starting, paused only from up, asleep from up or off (an Android emulator told to sleep quits, so
+    /// it's off, before its snapshot is found saved).
+    static let moves: [VMState: Set<VMState>] = [
+        .creating: [.starting], .off: [.starting, .sleeping], .sleeping: [.starting], .error: [.starting],
+        .starting: [.running], .running: [.paused, .sleeping], .paused: [.starting, .running, .sleeping]
+    ]
+
+    static func allowed(_ from: VMState, _ to: VMState) -> Bool {
+        from == to || to == .off || to == .error || moves[from]?.contains(to) == true
+    }
 
     /// A quit asked `ifDown` (a new size is to be written) refused, and why: the machine runs, or a boot is under way
     /// (one tried again has no VM for a second, and is still starting). Every kind's runtime asks it.
@@ -100,7 +115,12 @@ enum Lifecycle {
     /// A child (an emulator, an iOS runner) noted in the machine's folder, its pid and when it started: a kelp-vm
     /// that's killed takes no leave, and the next one for the machine ends what that left (`endLeftover`).
     static func remember(_ process: Process, in folder: URL, as name: String) {
-        let pid = process.processIdentifier
+        remember(process.processIdentifier, in: folder, as: name)
+    }
+
+    /// A process noted as `remember` notes a child: kelp-vm itself, for kelpd to end one that no longer answers
+    /// (`VMService.quit`).
+    static func remember(_ pid: pid_t, in folder: URL, as name: String) {
         let note = "\(pid) \(Subprocess.started(pid) ?? 0)"
         do {
             try note.write(to: VMFolder(folder).child(name), atomically: true, encoding: .utf8)
@@ -153,6 +173,12 @@ enum Lifecycle {
         if state == .running, idle > Runtime.pauseAfter { return .pause }
         if state == .paused, idle > Runtime.sleepAfter { return .sleep }
         return nil
+    }
+
+    /// A pause asked by a tick, done: whether it stands, or the machine goes on. A command that came while it paused
+    /// was answered running (and made it in use, or newly used), and isn't paused under.
+    static func staysPaused(idle: TimeInterval, inUse: Bool) -> Bool {
+        idleStep(.running, idle: idle, inUse: inUse) == .pause
     }
 
     /// The machine's folder held for this kelp-vm (`kelp-vm.lock`, `VMService.alive`): tried for half a second, as a size

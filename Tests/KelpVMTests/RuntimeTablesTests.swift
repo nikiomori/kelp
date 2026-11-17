@@ -55,7 +55,7 @@ extension AndroidRuntimeOnAStandIn {
             (.off, .quitIfDown, .done, .off, true),
             (.running, .status, .done, .running, false), (.running, .start, .done, .running, false),
             (.running, .begin, .done, .running, false), (.running, .sleep, .done, .sleeping, false),
-            (.running, .sleepIfIdle, .done, .sleeping, false), (.running, .stop, .done, .off, true),
+            (.running, .sleepIfIdle, .says("is in use."), .running, false), (.running, .stop, .done, .off, true),
             (.running, .share, .says(noFolders), .running, false),
             (.running, .screen, .says(notMine), .running, false), (.running, .show, .done, .running, false),
             (.running, .quit, .done, .off, true), (.running, .quitIfDown, .says(inUse), .running, false),
@@ -105,7 +105,7 @@ extension AndroidRuntimeOnAStandIn {
 extension IOSRuntimeOnAStandIn {
     /// Show is left out: it opens the Mac's own Simulator app.
     @Test(.timeLimit(.minutes(3))) func iOSAnswersEveryRequestFromEachState() async throws {
-        enum From { case off, running }
+        enum From { case off, starting, running }
         let rows: [(From, Asked, Answer, VMState, exits: Bool)] = [
             (.off, .status, .done, .off, false), (.off, .start, .done, .running, false),
             (.off, .begin, .done, .running, false), (.off, .sleep, .done, .off, true),
@@ -119,17 +119,32 @@ extension IOSRuntimeOnAStandIn {
             (.running, .sleepIfIdle, .says("is in use."), .running, false), (.running, .stop, .done, .off, true),
             (.running, .share, .says("shares no folders"), .running, false),
             (.running, .screen, .says("kelpd's to drive"), .running, false), (.running, .quit, .done, .off, true),
-            (.running, .quitIfDown, .says("in use again"), .running, false)
+            (.running, .quitIfDown, .says("in use again"), .running, false),
+            // its simulator still booting (a slow bootstatus): what doesn't stop it waits, or is answered at once
+            (.starting, .status, .done, .running, false), (.starting, .start, .done, .running, false),
+            (.starting, .begin, .done, .running, false), (.starting, .sleep, .done, .off, true),
+            (.starting, .sleepIfIdle, .done, .running, false), (.starting, .stop, .done, .off, true),
+            (.starting, .share, .says("shares no folders"), .running, false),
+            (.starting, .screen, .says("kelpd's to drive"), .running, false), (.starting, .quit, .done, .off, true),
+            (.starting, .quitIfDown, .says("in use again"), .running, false)
         ]
         for (from, asked, answer, state, exits) in rows {
-            let (vm, folder) = try iOS()
+            let (vm, folder) = try iOS(simctl: from == .starting ? #"[ "$2" = bootstatus ] && sleep 1"# : "")
             defer { putAway(folder) }
             var ended = false
             vm.exitProcess = { ended = true }
             func ask(_ request: VMHelper.Request) async -> String? {
                 await withCheckedContinuation { c in vm.handle(request) { c.resume(returning: $0) } }
             }
-            if from == .running { _ = await ask(.init(op: .start)) }
+            var booting: Task<String?, Never>?
+            switch from {
+            case .off: break
+            case .running: _ = await ask(.init(op: .start))
+            case .starting:
+                booting = Task { await ask(.init(op: .start)) }
+                let log = folder.appendingPathComponent("xcrun.log")
+                try #require(try await waitFor(5) { String(contentsIfAny: log)?.contains("bootstatus") == true })
+            }
             let row = "\(from), \(asked)"
             #expect(vm.state == "\(from)".vmState, "\(row): set up")
             let said = await ask(asked.request)
@@ -138,6 +153,7 @@ extension IOSRuntimeOnAStandIn {
             if exits { #expect(try await waitFor(5) { ended }, "\(row): kelp-vm ends") }
             await aTurnLater()
             #expect(ended == exits, "\(row): ended \(ended)")
+            _ = await booting?.value   // answered: up, or told it was shut down
             if !exits {
                 vm.exitProcess = {}
                 _ = await ask(.init(op: .stop))

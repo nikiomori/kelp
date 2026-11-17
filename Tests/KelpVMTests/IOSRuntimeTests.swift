@@ -27,6 +27,24 @@ import Testing
         #expect(try await waitFor(5) { kill(runner, 0) != 0 }, "no runner left")
     }
 
+    /// A stop (or SIGTERM) while the simulator boots: the start is told, the shutdown comes after the boot's simctl
+    /// (shut down before it ends, the simulator would come up after the stop), and no runner starts.
+    @Test(.timeLimit(.minutes(1))) func aStopWhileItBootsShutsDownAfterTheBootAndStartsNoRunner() async throws {
+        let (vm, folder) = try iOS(simctl: #"[ "$2" = bootstatus ] && sleep 1"#)
+        defer { putAway(folder) }
+        let start = Task { await ask(vm, .start) }
+        #expect(try await waitFor(5) { (try? asked(folder))?.contains("bootstatus") == true })
+        var ended = false
+        vm.exitProcess = { ended = true }
+        vm.quit()   // as SIGTERM does
+        #expect(await start.value?.contains("shut down while it started") == true)
+        #expect(try await waitFor(5) { ended })
+        let calls = try asked(folder).split(separator: "\n")
+        #expect(calls.last?.hasPrefix("simctl shutdown") == true, "\(calls)")
+        #expect(!calls.contains { $0.hasPrefix("xcodebuild") }, "\(calls)")
+        #expect(vm.state == .off)
+    }
+
     /// A quit before a new size leaves a simulator that's up alone.
     @Test(.timeLimit(.minutes(1))) func aQuitForANewSizeLeavesOneThatsUp() async throws {
         let (vm, folder) = try iOS()

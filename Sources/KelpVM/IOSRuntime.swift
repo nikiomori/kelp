@@ -16,6 +16,9 @@ final class IOSRuntime: MachineRuntime {
     private var ready: [(String?) -> Void] = []
     /// The last shutdown asked of the simulator: a boot waits for it (booted under it, it would be shut down again).
     private var shutdown: Task<Void, Never>?
+    /// Each boot's number: a stop while one runs moves it on, and that boot gives up at its next step. Its simctl boot
+    /// under way: a shutdown waits for it (shut down before it ends, the simulator would come up after the stop).
+    private var boots = 0, booting: Task<Void, Error>?
     private var sources: [DispatchSourceProtocol] = []
     /// How it ends once it has left, what time it is, and where xcrun is: the process's exit, the clock's, the
     /// system's; a test's own.
@@ -110,17 +113,28 @@ final class IOSRuntime: MachineRuntime {
         default:
             ready.append(done)
             Lifecycle.move(&state, to: .starting)
-            Task { await boot() }
+            boots += 1
+            let boot = boots
+            Task { await self.boot(boot) }
         }
     }
 
-    /// The simulator booted (a no-op when it already is), then the runner started in it and answering.
-    private func boot() async {
+    /// The simulator booted (a no-op when it already is), then the runner started in it and answering. Stopped
+    /// meanwhile (`boots` moved on), it goes no further: who waited was told by the stop.
+    private func boot(_ number: Int) async {
         await shutdown?.value
+        guard boots == number else { return }
         Lifecycle.endLeftover(in: folder, "runner")   // a kelp-vm that was killed left its runner; the simulator is taken as it is
         do {
-            _ = try await simctl(["boot", udid], allowFailure: true)
-            _ = try await simctl(["bootstatus", udid, "-b"])
+            let udid = udid
+            let step = Task {
+                _ = try await simctl(["boot", udid], allowFailure: true)
+                _ = try await simctl(["bootstatus", udid, "-b"])
+            }
+            booting = step
+            defer { if booting == step { booting = nil } }
+            try await step.value
+            guard boots == number else { return }
             // No build folder at all (a making cut short) is told as a runner not built, not as a missing folder.
             let products = VMFolder(folder).runnerBuild.appendingPathComponent("Build/Products")
             let built =
@@ -165,14 +179,16 @@ final class IOSRuntime: MachineRuntime {
             Lifecycle.remember(process, in: folder, as: "runner")
             let since = Date()
             while Date().timeIntervalSince(since) < 180 {
-                if await ping() { return started(nil) }
+                let answered = await ping()
+                guard boots == number else { return }   // its runner ended by the stop
+                if answered { return started(nil) }
                 guard runner != nil else {
                     throw VMError("Kelp's runner quit: see runner.log in \(machine.name)'s folder.")
                 }
                 try await Task.sleep(nanoseconds: 500_000_000)
             }
             throw VMError("Kelp's runner didn't answer in 3 minutes.")
-        } catch { started(error) }
+        } catch { if boots == number { started(error) } }
     }
 
     private func started(_ error: Error?) {
@@ -188,6 +204,10 @@ final class IOSRuntime: MachineRuntime {
     /// The runner gone and the simulator shut down: nothing of it runs. Off from the moment it's asked: a start that
     /// comes meanwhile boots it again once it's down (`boot` waits), and no tick asks for another shutdown.
     func stop(_ done: @escaping () -> Void) {
+        if state == .starting {   // that boot gives up at its next step
+            boots += 1
+            ready.flush(VMError("\(machine.name) was shut down while it started."))
+        }
         Lifecycle.move(&state, to: .off)
         let down = shutDown()
         Task {
@@ -200,10 +220,11 @@ final class IOSRuntime: MachineRuntime {
     /// Ends the runner (SIGTERM, then SIGKILL, waited for: kelp-vm may end right after) and shuts the simulator down,
     /// after a shutdown already under way.
     private func shutDown() -> Task<Void, Never> {
-        let ended = runner, before = shutdown
+        let ended = runner, before = shutdown, boot = booting
         runner = nil
         let task = Task {
             await before?.value
+            _ = await boot?.result   // its outcome is the boot's to tell
             if let ended, ended.isRunning {
                 let pid = ended.processIdentifier
                 await Task.detached { Subprocess.stopTreeNow(pid) }.value
