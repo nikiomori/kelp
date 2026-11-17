@@ -47,9 +47,22 @@ extension NSFont {
         }
         return NSFont(descriptor: descriptor, size: 0) ?? font
     }
+    /// Digits of one width, so a count or a time that changes doesn't push what's beside it: in a look's own typeface
+    /// too.
     public static func uiDigits(_ size: CGFloat, weight: Weight = .regular) -> NSFont {
-        TextSize.design == .default
-            ? .monospacedDigitSystemFont(ofSize: TextSize.of(size), weight: weight) : .ui(size, weight: weight)
+        guard TextSize.design != .default else {
+            return .monospacedDigitSystemFont(ofSize: TextSize.of(size), weight: weight)
+        }
+        let font = NSFont.ui(size, weight: weight)
+        let tabular = font.fontDescriptor.addingAttributes([
+            .featureSettings: [
+                [
+                    NSFontDescriptor.FeatureKey.typeIdentifier: kNumberSpacingType,
+                    NSFontDescriptor.FeatureKey.selectorIdentifier: kMonospacedNumbersSelector
+                ]
+            ]
+        ])
+        return NSFont(descriptor: tabular, size: 0) ?? font
     }
     /// Monospaced, for short machine text in the chrome (a command to run, a hash): `code-xs`.
     public static func uiMono(_ size: CGFloat, weight: Weight = .regular) -> NSFont {

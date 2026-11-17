@@ -75,7 +75,7 @@ struct DiskUsageView: View {
             Text(repo?.name ?? "").font(.ui(TextSize.row, weight: .medium))
             if let measured {
                 Text("measured \(measured.at.formatted(.relative(presentation: .named)))")
-                    .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                    .font(.ui(TextSize.caption)).monospacedDigit().foregroundStyle(.secondary)
             }
             Spacer()
             if sizes.measuring.contains(repoId) {

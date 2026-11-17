@@ -257,7 +257,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         status.alignment = .center
         status.lineBreakMode = .byTruncatingTail
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        changes.font = .ui(TextSize.caption, weight: .medium)
+        changes.font = .uiDigits(TextSize.caption, weight: .medium)
         changes.textColor = .textOrange
         busy.style = .spinning
         busy.controlSize = .small

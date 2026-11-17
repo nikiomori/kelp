@@ -237,7 +237,7 @@ final class CommitCardView: NSView {
             }
         }
         button = copy
-        copy.font = .monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular)
+        copy.font = .uiMono(TextSize.caption)
         copy.image = .symbol("doc.on.doc", copyTitle)
         copy.imagePosition = .imageTrailing
         copy.bezelStyle = .push

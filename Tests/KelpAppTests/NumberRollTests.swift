@@ -32,3 +32,14 @@ private func digits(in view: NSView) -> [NSTextField] {
     chip.show("terminal", count: 3)
     #expect(count?.layer?.animation(forKey: "roll") != nil)
 }
+
+/// A count keeps its width when its digits change, in a look's own typeface too (a serif "1" is narrower than its "0").
+@MainActor @Test func digitsAreOneWidthInALooksTypeface() {
+    defer { TextSize.apply(design: nil) }
+    for design in ["serif", "rounded", "mono", nil] {
+        TextSize.apply(design: design)
+        let font = NSFont.uiDigits(TextSize.caption)
+        func width(_ text: String) -> CGFloat { (text as NSString).size(withAttributes: [.font: font]).width }
+        #expect(width("111") == width("000"), "\(design ?? "system")")
+    }
+}

@@ -219,7 +219,7 @@ struct UsageReportView: View {
         let total = records.reduce(0) { $0 + value($1) }
         return VStack(alignment: .leading, spacing: 3) {
             Text("\(day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())) · \(amount(total))")
-                .fontWeight(.semibold)
+                .fontWeight(.semibold).monospacedDigit()
             ForEach(records.sorted { value($0) > value($1) }, id: \.self) { record in
                 HStack(spacing: 6) {
                     Circle().fill(color(record.agent)).frame(width: 6, height: 6)

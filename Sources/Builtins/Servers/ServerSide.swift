@@ -39,7 +39,8 @@ struct ServerSide: View {
             if let containers = stats.containers, !containers.isEmpty {
                 HStack(spacing: Metrics.gap) {
                     Text("Containers").sectionTitle()
-                    Text(verbatim: "\(containers.count)").font(.ui(TextSize.caption)).foregroundStyle(.tertiary)
+                    Text(verbatim: "\(containers.count)").font(.ui(TextSize.caption)).monospacedDigit().foregroundStyle(
+                        .tertiary)
                 }
                 .frame(height: Metrics.rowSection, alignment: .bottom).padding(.top, Metrics.gapWide)
                 ForEach(containers, id: \.name) { c in containerRow(c) }

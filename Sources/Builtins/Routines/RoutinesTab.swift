@@ -59,6 +59,7 @@ struct RoutinesView: View {
             let span = week.days.first.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
             let last = week.days.last.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
             Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.ui(TextSize.row))
+                .monospacedDigit()
                 .foregroundStyle(
                     .secondary)
             Spacer()

@@ -238,6 +238,7 @@ extension UsageReportView {
             Text(agentUsage.map { count($0.tokens) } ?? "—").monospacedDigit()
             if let agentUsage, agentUsage.cacheRead > 0 {
                 Text("\(percent(agentUsage.cacheRead, of: agentUsage.tokens)) from cache").font(.ui(TextSize.caption))
+                    .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
         }
