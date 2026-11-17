@@ -61,14 +61,32 @@ private func rig() async throws -> World {
     return try await world()
 }
 
-@Test func theDaemonListsPullRequestsFromGh() async throws {
+/// What one call to gh gives, read by the daemon: a repository's pull requests, a PR's checks (none is an empty list, not
+/// an error), a failed run's log, its review comments merged with the inline ones, who is signed in (gh's and glab's),
+/// and a plain repository's forge. One daemon for all: each is one call against the stand-in.
+@Test func eachReadComesFromOneGhCall() async throws {
+    _ = fakeGlab
     let r = try await rig()
     defer { r.d.stop() }
-    let prs = try await r.c.call("github.prs", .obj(["repoId": .string(r.repo.id)])).array ?? []
+    let repo: JSONValue = .string(r.repo.id)
+    let prs = try await r.c.call("github.prs", .obj(["repoId": repo])).array ?? []
     #expect(
         prs.count == 1 && prs[0]["number"]?.int == 7 && prs[0]["author"]?.string == "ada"
             && prs[0]["reviewDecision"]?.string == "APPROVED")
     #expect(calls().contains { $0.hasPrefix("pr list") && $0.contains("--json") })
+    let checks = try await r.c.call("github.checks", .obj(["repoId": repo, "pr": 7])).array ?? []
+    #expect(checks.first?["runId"]?.int == 99 && checks.first?["bucket"]?.string == "fail")
+    #expect(try await r.c.call("github.checks", .obj(["repoId": repo, "pr": 404])).array?.isEmpty == true)
+    let log = try await r.c.call("github.failedLog", .obj(["repoId": repo, "runId": 99])).string ?? ""
+    #expect(log.contains("step 2 failed") && calls().contains("run view 99 --log-failed"))
+    let comments = try await r.c.call("github.reviewComments", .obj(["repoId": repo, "pr": 7])).array ?? []
+    #expect(comments.compactMap { $0["author"]?.string }.sorted() == ["amy", "bob"])
+    #expect(comments.first { $0["author"]?.string == "amy" }?["path"]?.string == "a.swift")
+    let gh = try await r.c.call("github.status")
+    #expect(gh["installed"]?.bool == true && gh["user"]?.string == "ada")
+    let glab = try await r.c.call(GitLabStatus())
+    #expect(glab.installed && glab.user == "ada on gitlab.example.com")
+    #expect(try await r.c.call("github.forge", .obj(["repoId": repo])).string == "github")
 }
 
 /// A PR's and an issue's own tab: what they say, what the PR changes, and the conversation.
@@ -102,38 +120,6 @@ private func rig() async throws -> World {
     #expect(calls().filter { $0.hasPrefix("issue list") }.last?.contains("--assignee @me") == true)
 }
 
-@Test func checksComeBackAndNoChecksIsAnEmptyListNotAnError() async throws {
-    let r = try await rig()
-    defer { r.d.stop() }
-    let checks = try await r.c.call("github.checks", .obj(["repoId": .string(r.repo.id), "pr": 7])).array ?? []
-    #expect(checks.first?["runId"]?.int == 99 && checks.first?["bucket"]?.string == "fail")
-    #expect(
-        try await r.c.call("github.checks", .obj(["repoId": .string(r.repo.id), "pr": 404])).array?.isEmpty == true)
-}
-
-@Test func aFailedRunsLogIsTextFromGh() async throws {
-    let r = try await rig()
-    defer { r.d.stop() }
-    let log = try await r.c.call("github.failedLog", .obj(["repoId": .string(r.repo.id), "runId": 99])).string ?? ""
-    #expect(log.contains("step 2 failed"))
-    #expect(calls().contains("run view 99 --log-failed"))
-}
-
-@Test func githubStatusSaysWhoIsSignedIn() async throws {
-    let r = try await rig()
-    defer { r.d.stop() }
-    let s = try await r.c.call("github.status")
-    #expect(s["installed"]?.bool == true && s["user"]?.string == "ada")
-}
-
-@Test func gitlabStatusSaysWhoIsSignedIn() async throws {
-    _ = fakeGlab
-    let r = try await rig()
-    defer { r.d.stop() }
-    let s = try await r.c.call(GitLabStatus())
-    #expect(s.installed && s.user == "ada on gitlab.example.com")
-}
-
 @Test func theBranchsPullRequestIsCachedForTwoMinutes() async throws {
     let r = try await rig()
     defer { r.d.stop() }
@@ -151,12 +137,6 @@ private func rig() async throws -> World {
         }
     }
     #expect(calls().filter { $0.contains("--head gh/down") }.count == 2)
-}
-
-@Test func theForgeIsGithubForAPlainRepo() async throws {
-    let r = try await rig()
-    defer { r.d.stop() }
-    #expect(try await r.c.call("github.forge", .obj(["repoId": .string(r.repo.id)])).string == "github")
 }
 
 @Test func ciRunsJobsLogsAndRerunsGoThroughGh() async throws {
@@ -193,14 +173,6 @@ private func rig() async throws -> World {
     _ = try await r.c.call(
         "ci.dispatch", .obj(["worktreeId": .string(wt.id), "workflow": "-Fx=@/etc/passwd.yml", "branch": "feat/x"]))
     #expect(calls().contains("workflow run --ref feat/x -- -Fx=@/etc/passwd.yml"))
-}
-
-@Test func reviewCommentsMergeReviewsAndInlineComments() async throws {
-    let r = try await rig()
-    defer { r.d.stop() }
-    let c = try await r.c.call("github.reviewComments", .obj(["repoId": .string(r.repo.id), "pr": 7])).array ?? []
-    #expect(c.compactMap { $0["author"]?.string }.sorted() == ["amy", "bob"])
-    #expect(c.first { $0["author"]?.string == "amy" }?["path"]?.string == "a.swift")
 }
 
 @Test func projectBoardsAndTheirItemsComeFromGh() async throws {
