@@ -5,11 +5,11 @@ import KelpKit
 import WebKit
 import WorkbenchKit
 
-/// What the page's loads tell the tab (a commit or a finish shows the page, a failure shows why in its place, an agent
-/// driving the page hears its address and status), and the address bar completing what's typed.
+/// Handles what the page's loads tell the tab, and the address bar's completion of what's typed. A commit or a finish
+/// shows the page, a failure shows why in the page's place, and an agent driving the page hears its address and status.
 extension BrowserTab {
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        if webView.url?.absoluteString != "about:blank" {   // the error page (about:blank) keeps them
+        if webView.url?.absoluteString != "about:blank" {   // the error page (about:blank) keeps the failure
             loadError = nil
             failed = nil
             serving.key = nil
@@ -34,21 +34,22 @@ extension BrowserTab {
         showPage()
         if !agent, let url = webView.url { BrowserHistory.visited(url) }
         if designOn { webView.evaluateJavaScript(Self.designJS(accent: .themeAccent)) }
-        if drive != nil { webView.evaluateJavaScript(Self.watchJS) }   // a load begun before watch(): from now
+        if drive != nil { webView.evaluateJavaScript(Self.watchJS) }   // a load begun before watch(): watch it from now
     }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { showError(error) }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         showError(error)
     }
-    /// WebKit's page process quit (a crash, memory pressure): the pane stays white until something loads again.
+    /// Reloads the page when WebKit's page process quits (a crash, memory pressure), because the pane stays white until
+    /// something loads again.
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         if drive != nil { noteLog("[page] the page's process ended; loaded again") }
         reloadPage()
     }
     func showError(_ error: Error) {
         let ns = error as NSError
-        // Not failures: a navigation cancelled by the next one (a click or Back while loading), a download handed off.
-        // Showing the error page for those cancelled the navigation the user had just started.
+        // A navigation cancelled by the next one (a click or Back while loading) and a download handed off aren't
+        // failures. Showing the error page for them cancelled the navigation the user had just started.
         if ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled
             || ns.domain == "WebKitErrorDomain" && ns.code == 102
         {
@@ -69,7 +70,8 @@ extension BrowserTab {
         web.loadHTMLString(EmptyStateView.html(String(localized: "Can't open this page"), text: text), baseURL: nil)
     }
 
-    /// Completes the address as it's typed from the pages visited (`BrowserHistory`), the rest selected, as Safari does.
+    /// Completes the address as it's typed from the pages visited (`BrowserHistory`), with the completed part selected,
+    /// as Safari does.
     func controlTextDidChange(_ notification: Notification) {
         guard let editor = address.currentEditor() as? NSTextView, !deleting else { return }
         let typed = address.stringValue, end = (typed as NSString).length

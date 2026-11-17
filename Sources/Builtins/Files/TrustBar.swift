@@ -2,9 +2,10 @@ import AppKit
 import DesignKit
 import KelpKit
 
-/// Over a code file of a project not trusted to run its language server or formatter: the question, with Not Now and
-/// Trust. A bar in the tab, not a card over it: it moves the text down instead of covering its lines. Not Now hides it
-/// for the project until Kelp starts again; the status bar's "Restricted" stays and asks too.
+/// The bar over a code file in a project that isn't trusted to run its language server or formatter. It asks the
+/// question, with Not Now and Trust. It is a bar in the tab rather than a card over it, so it moves the text down
+/// instead of covering lines. Not Now hides it for the project until Kelp starts again, and the status bar's
+/// "Restricted" stays and can ask too.
 @MainActor
 enum TrustBar {
     static func make(project name: String, notNow: @escaping () -> Void, trust: @escaping () -> Void) -> Bar {

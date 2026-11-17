@@ -4,15 +4,16 @@ import DesignKit
 import WebKit
 import WorkbenchKit
 
-/// `kelp browser`: what an agent does on the page. Kelp's scripts run in a world of their own (`world`): the page can't see
-/// or change them, but they see its DOM. Clicks and typing are DOM events (`isTrusted` false), so they work while the tab
-/// isn't on screen. Limit: a page that only listens to trusted events ignores them; send AppKit events when one matters.
+/// Carries out `kelp browser`, the commands an agent runs on the page. Kelp's scripts run in a content world of their
+/// own (`world`), so the page can't see or change them, but they see its DOM. Clicks and typing are DOM events
+/// (`isTrusted` is false), so they work while the tab isn't on screen.
+/// Limit: a page that only listens to trusted events ignores them; send AppKit events when one matters.
 extension BrowserTab {
     static let world = WKContentWorld.world(name: "kelp.browser")
 
     func browse(_ action: BrowserAction, _ args: JSONValue) async throws -> JSONValue {
         let name = action.rawValue
-        // A subagent's own page, in this tab (BrowserPages.swift).
+        // A subagent's command goes to the subagent's own page in this tab (BrowserPages.swift).
         if agent, host == nil, let page = pageSet.route(action, args) { return try await page.browse(action, args) }
         defer { (host ?? self).pageSetActed(self) }
         func need(_ key: String) throws -> String {
@@ -21,8 +22,8 @@ extension BrowserTab {
             }
             return value
         }
-        // The user's logged-in tab belongs to the agent on the one site the user allowed. Once it was taken elsewhere
-        // (by the user, after the agent left it), it belongs to the user again.
+        // The user's logged-in tab belongs to the agent on the one site the user allowed. Once the tab has gone to
+        // another site (the user took it there after the agent left it), it belongs to the user again.
         if !agent, let now = web.url, now.scheme != "about", PageOrigin.of(now) != PageOrigin.of(URL(string: start)) {
             throw RPCError.invalidParams(
                 "This tab is on another site than the one the user let you use: kelp browser open <url> --shared asks again."
@@ -31,10 +32,10 @@ extension BrowserTab {
         let drive = watch()
         sized()
         drive.drivenAt = Date()
-        // Taken over, the user may be signing in: what the page holds now (fields, pixels, requests) is theirs. The command
-        // waits for them to hand it back, as long as the daemon waits for its answer. One that acts doesn't act then:
-        // what it needs after (the page settling) could outlast the daemon's wait, and the agent, told it didn't
-        // answer, would do it twice.
+        // While the user has the page taken over, they may be signing in, so what the page holds now (fields, pixels,
+        // requests) is theirs. The command waits for the user to hand the page back, for as long as the daemon waits
+        // for its answer. A command that acts on the page still doesn't act then, because the page settling afterwards
+        // could outlast the daemon's wait, and the agent, told the command didn't answer, would run it twice.
         if drive.takenOver, !Self.whileTakenOver.contains(action) {
             guard await drive.handedBack(within: Self.handBackWait) else {
                 throw RPCError.internalError(
@@ -58,8 +59,9 @@ extension BrowserTab {
         case .console, .network: return .string(listed(action == .console, clear: args["clear"]?.bool == true))
         case .info: return try await settled()
         case .open:
-            // The page it shows already: an agent opens it again after changing the code, so nothing comes from the cache
-            // (a dev server that doesn't ask for revalidation would hand back the old script).
+            // When the tab already shows this page, the agent is opening it again after changing the code, so the page
+            // reloads with nothing from the cache. A dev server that doesn't ask for revalidation would hand back the
+            // old script.
             let url = try need("url")
             if let now = web.url?.absoluteString, Self.same(now, url) { web.reloadFromOrigin() } else { load(url) }
             return try await settled()
@@ -90,8 +92,9 @@ extension BrowserTab {
             web.goBack()
             return try await settled()
         case .eval:
-            // The page's own world: the agent asks about the page's state (its globals, its framework).
-            // A promise that never settles ends here, before the daemon stops waiting: nothing is left awaiting it.
+            // This runs in the page's own world, because the agent asks about the page's state (its globals, its
+            // framework). A promise that never settles is cut off here, before the daemon stops waiting, so nothing is
+            // left awaiting it.
             let limit = Int(UIBrowser.wait - 10) * 1000
             let body =
                 "const v = await Promise.race([(\n\(try need("js"))\n), new Promise((_, no) => setTimeout(() => "
@@ -99,10 +102,10 @@ extension BrowserTab {
                 + "return v === undefined ? 'null' : (JSON.stringify(v) ?? 'null');"
             let text = try await run(body, page: true) as? String ?? "null"
             let value = (try? JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))) ?? .string(text)
-            // The CLI prints nothing for null: the agent couldn't tell it ran.
+            // The CLI prints nothing for null, so the agent couldn't tell the script ran.
             return value == .null ? .string("null") : value
         case .screenshot:
-            _ = try await run(Self.calmJS)   // what an action started has played out and been drawn
+            _ = try await run(Self.calmJS)   // waits until what an earlier action started has played out and been drawn
             let image: NSImage
             do { image = try await web.takeSnapshot(configuration: nil) } catch {
                 throw RPCError.internalError(
@@ -124,18 +127,20 @@ extension BrowserTab {
                 }
                 try await Task.sleep(for: .milliseconds(250))
             }
-            // What's left of the daemon's wait: an answer after it would find nobody waiting.
+            // Settling gets only what's left of the daemon's wait, because an answer after it would find nobody
+            // waiting.
             return try await settled(within: min(30, max(1, UIBrowser.wait - 5 - seconds + end.timeIntervalSinceNow)))
         }
     }
 
-    /// An action on the element of `ref`: its answer says what it did (`settled(after:)`).
+    /// Does an action on the element `ref`. The answer says what the action did (`settled(after:)`).
     private func onElement(_ action: BrowserAction, _ ref: String, _ args: JSONValue) async throws -> JSONValue {
         let reach = Self.findJS + Self.reachJS + Self.flashJS, before = await probe()
         let look = pointerLook(action, ref: ref, args)
         switch action {
         case .upload:
-            // The CLI read them: the agent's files, as it sees them (the app touches no project file itself).
+            // The CLI read these files, so they are the agent's files as the agent sees them. The app touches no
+            // project file itself.
             let files = (args["files"]?.array ?? []).compactMap { file -> [String: String]? in
                 if case .object(let fields) = file { return fields.compactMapValues(\.string) } else { return nil }
             }
@@ -153,7 +158,8 @@ extension BrowserTab {
             let text = args["text"]?.string ?? "", submit = args["submit"]?.bool == true
             let shows = try await run(
                 reach + Self.typeJS, shown(["ref": ref, "text": text, "submit": submit, "editable": true], look))
-            // What the page made of it (a mask, a length limit, the option picked), when that isn't what was typed.
+            // `shows` is what the page made of the text (a mask, a length limit, the option picked), when that isn't
+            // what was typed.
             let field: [String: JSONValue] = (shows as? String).map { $0 == text ? [:] : ["shows": .string($0)] } ?? [:]
             return try await settled(field, after: before, typing: true)
         default:
@@ -163,8 +169,9 @@ extension BrowserTab {
         return try await settled(after: before)
     }
 
-    /// A page no pane shows (a tab behind another, a workspace not on screen) has no size, and one with none lays nothing
-    /// out: no text to read, nothing to click. It gets the agent's viewport, else a laptop window's size, until a pane shows it.
+    /// A page that no pane shows (a tab behind another, a workspace not on screen) has no size, and a page without a
+    /// size lays nothing out, so there is no text to read and nothing to click. Such a page gets the agent's viewport,
+    /// or else a laptop window's size, until a pane shows it.
     private func sized() {
         guard web.window == nil else { return }
         if let viewport = viewport {
@@ -175,8 +182,8 @@ extension BrowserTab {
         web.frame = CGRect(x: 0, y: 0, width: 1280, height: 800)
     }
 
-    /// `viewport 390x844` shows the page at that size (`reset` goes back to the pane's size), and answers with the size
-    /// the page now reports.
+    /// Handles `viewport 390x844`, which shows the page at that size (`reset` goes back to the pane's size). It answers
+    /// with the size the page now reports.
     private func resize(_ size: String) async throws -> JSONValue {
         if size == "reset" {
             viewport = nil
@@ -190,8 +197,8 @@ extension BrowserTab {
         }
         placeWeb()
         if web.window == nil { sized() } else { view.layoutSubtreeIfNeeded() }   // off screen, layout would size it to nothing
-        // The page takes its new size a moment later, longer on a busy Mac: wait until it says so (2 s at most). A timer,
-        // not a frame: a page off screen draws none.
+        // The page takes its new size a moment later, or longer on a busy Mac, so wait until the page reports it (2 s
+        // at most). The wait uses a timer, not an animation frame, because a page off screen draws no frames.
         let size = web.window == nil ? web.frame.size : web.bounds.size
         let now = try await run(
             """
@@ -205,14 +212,15 @@ extension BrowserTab {
     /// How long a command waits for the user to hand the page back: as long as the daemon waits for its answer.
     static var handBackWait = UIBrowser.wait - 10
 
-    /// What only reads the page: run once it's handed back, as it changes nothing.
+    /// The actions that only read the page. They still run once the page is handed back, because they change nothing.
     static let looks: Set<BrowserAction> = [.snapshot, .screenshot, .console, .network, .info, .wait]
 
-    /// What an agent may still do on a page the user took over: look.
+    /// The actions an agent may still run on a page the user took over. None of them acts on the page.
     static let whileTakenOver: Set<BrowserAction> = [.wait, .info, .record, .ask]   // a recording pauses meanwhile
 
-    /// The snapshot's lines that mention `text` (in any case), each shown under the lines that contain it, so a ref
-    /// keeps its place, and over what is inside it (a heading's list, a form's fields), up to 20 lines each.
+    /// Returns the snapshot lines that mention `text`, in any case. Each match is shown under the lines that contain
+    /// it, so its ref keeps its place, and over up to 20 lines of what is inside it (a heading's list, a form's
+    /// fields).
     nonisolated static func found(_ text: String, in snapshot: String) -> String {
         let lines = snapshot.components(separatedBy: "\n")
         guard let head = lines.first else { return "" }
@@ -227,7 +235,8 @@ extension BrowserTab {
             : ([head] + keep.map { lines[$0] }).joined(separator: "\n")
     }
 
-    /// The lines (past the page's own) `matching`, and the lines each sits in.
+    /// Returns the indexes of the lines that match, skipping the first line (the page's own), and of the lines that
+    /// contain each match.
     nonisolated static func kept(_ lines: [String], matching: (String) -> Bool) -> IndexSet {
         var keep = IndexSet()
         for (index, line) in lines.enumerated().dropFirst() where matching(line) {
@@ -244,20 +253,21 @@ extension BrowserTab {
         return keep
     }
 
-    /// Two spellings of one address: `http://localhost:3000` and `http://localhost:3000/`.
+    /// Whether two strings spell one address, such as `http://localhost:3000` and `http://localhost:3000/`.
     static func same(_ first: String, _ second: String) -> Bool {
         func bare(_ address: String) -> String { address.hasSuffix("/") ? String(address.dropLast()) : address }
         return bare(first) == bare(second)
     }
 
-    /// Where the page is once what an action started has loaded (a click that navigates); a load that fails says why.
-    /// After an action (`before`: the page as it was), once the page is quiet, `change` says what the action did: `new
-    /// page`, `page changed` or `nothing changed`. Typing changes the field: for it only a change the page made counts.
+    /// Answers with where the page is once what an action started has loaded (a click that navigates), and with the
+    /// reason when a load fails. After an action, `before` is the page as it was, and once the page is quiet, `change`
+    /// says what the action did: `new page`, `page changed` or `nothing changed`. Typing always changes the field, so
+    /// after typing only a change the page made counts.
     func settled(
         _ extra: [String: JSONValue] = [:], within: TimeInterval = 30, after before: Probe? = nil, typing: Bool = false
     ) async throws -> JSONValue {
         let acted = Date()
-        try await Task.sleep(for: .milliseconds(150))   // a navigation the action started has begun
+        try await Task.sleep(for: .milliseconds(150))   // so a navigation the action started has begun
         let end = Date().addingTimeInterval(within)
         // A download the action started is waited for too, so its answer says where the file is.
         while web.isLoading || !downloading.isEmpty || downloadComing, Date() < end {
@@ -282,8 +292,9 @@ extension BrowserTab {
         return .object(answer)
     }
 
-    /// The page at a moment: which document, how many changes it has had, how long since the last (ms), and whether it's
-    /// still parsing. Nil while it can't say (between two documents).
+    /// The state of the page at one moment: which document it is, how many changes it has had, how long since the last
+    /// change (ms), and whether it's still parsing. `probe()` returns nil while the page can't say, between two
+    /// documents.
     struct Probe: Equatable {
         var doc: Double, url: String, changes: Int, idle: Double, loading: Bool
     }
@@ -298,13 +309,14 @@ extension BrowserTab {
                 idle: probe["idle"] as? Double ?? 0,
                 loading: probe["ready"] as? String == "loading")
         } catch {
-            return nil   // a navigation going on: the next document answers
+            return nil   // a navigation is going on, and the next document answers
         }
     }
 
-    /// The page once it's quiet after an action (`acted`): parsed, no change to its DOM for 80 ms, and no request it
-    /// started in the last 1.5 s still out (older ones are long polls and analytics). At most 0.8 s, 3 s while a
-    /// document loads: a page that never stops (a clock, a ticker) answers then.
+    /// Waits until the page is quiet after an action (`acted`) and returns its state. Quiet means parsed, no change to
+    /// its DOM for 80 ms, and no request started in the last 1.5 s still out (older ones are long polls and analytics).
+    /// The wait lasts at most 0.8 s, or 3 s while a document loads, so a page that never stops (a clock, a ticker)
+    /// answers.
     private func quiet(since acted: Date) async throws -> Probe? {
         let start = Date()
         var limit: TimeInterval = 0.8
@@ -325,9 +337,9 @@ extension BrowserTab {
         return after.changes == before.changes ? "nothing changed" : "page changed"
     }
 
-    /// The arguments of an action the user sees done: the element's glow and the pointer in `look` (the agent's colour
-    /// and label, `pointerLook`), in Kelp's motion (ms). The wait before the action, the typing pace and how long the
-    /// pointer stays aren't motion: Reduce Motion keeps them.
+    /// Returns the arguments of an action the user watches being done. `look` sets the element's glow and the pointer
+    /// (the agent's colour and label, from `pointerLook`), and `motion` gives Kelp's timings in ms. The wait before the
+    /// action, the typing pace and how long the pointer stays aren't motion, so Reduce Motion keeps them.
     private func shown(_ args: [String: Any], _ look: [String: Any]) -> [String: Any] {
         let ms = { (seconds: TimeInterval) in Int(seconds * 1000) }
         let motion = [
@@ -338,7 +350,8 @@ extension BrowserTab {
         return args.merging(look) { $1 }.merging(["motion": motion]) { $1 }
     }
 
-    /// An async function body with `args` as its variables; a script's exception comes back as its message.
+    /// Runs an async function body with `args` as its variables. When the script throws, the error carries the
+    /// exception's message.
     func run(_ body: String, _ args: [String: Any] = [:], page: Bool = false) async throws -> Any? {
         do {
             return try await web.callAsyncJavaScript(

@@ -5,8 +5,9 @@ import EditorKit
 import KelpKit
 import WorkbenchKit
 
-/// Over the editor, if asked for (`editor.breadcrumbs`): the file's folders, each a menu of what's beside it, and the scopes
-/// around the cursor, each a way back to its line. Scopes come from the code, so they need no language server.
+/// The breadcrumb bar over the editor, shown when `editor.breadcrumbs` is on. It lists the file's folders, each a menu
+/// of what sits beside it, and the scopes around the cursor, each a way back to that scope's line. Scopes come from the
+/// code, so they need no language server.
 @MainActor
 final class Breadcrumbs: NSView {
     private let app: AppModel, path: String, root: String
@@ -50,8 +51,8 @@ final class Breadcrumbs: NSView {
             guard let self else { return }
             if on { isHidden = false }
             rebuild()
-            // The file under it moves into its room or out of it (focus mode, the setting), not by a bar's height
-            // at once.
+            // When focus mode or the setting shows or hides the bar, the file below slides into or out of the bar's
+            // room, so it doesn't jump by the bar's height at once.
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = self.window == nil ? 0 : Motion.duration(Motion.base)
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
@@ -59,7 +60,7 @@ final class Breadcrumbs: NSView {
                 self.height?.animator().constant = on ? TextSize.of(Metrics.statusBar) : 0
                 self.superview?.layoutSubtreeIfNeeded()
             } completionHandler: { [weak self] in
-                // AppKit runs it on the main thread
+                // AppKit runs the completion handler on the main thread.
                 MainActor.assumeIsolated { if let self, self.height?.constant == 0 { self.isHidden = true } }
             }
         }
@@ -72,7 +73,7 @@ final class Breadcrumbs: NSView {
         return inRoot.split(separator: "/").map(String.init)
     }
 
-    /// What's directly in `folder` ("" the top): folders first, each once.
+    /// The folders and files directly in `folder` ("" is the project's top): folders first, each listed once.
     static func children(of folder: String, in paths: [String]) -> [(name: String, isFolder: Bool)] {
         let prefix = folder.isEmpty ? "" : folder + "/"
         var files = Set<String>(), folders = Set<String>()
@@ -118,7 +119,7 @@ final class Breadcrumbs: NSView {
         return label
     }
 
-    /// A scope's line without what opens it.
+    /// The scope's line of code without the `{` that opens the scope.
     private static func name(_ text: String) -> String {
         var trimmed = text.trimmingCharacters(in: .whitespaces)
         if trimmed.hasSuffix("{") { trimmed = String(trimmed.dropLast()).trimmingCharacters(in: .whitespaces) }
@@ -136,7 +137,7 @@ final class Breadcrumbs: NSView {
         Task { await showSiblings(in: folder, under: button) }
     }
 
-    /// The scopes beside it, from the code; the one the cursor is in ticked.
+    /// Shows a menu of the scopes beside the one at `line`, read from the code, with the cursor's scope ticked.
     private func showSiblings(of line: Int, under button: NSButton) {
         guard let editor else { return }
         let menu = NSMenu()
@@ -154,13 +155,13 @@ final class Breadcrumbs: NSView {
         let menu = NSMenu(), filler = FolderMenu(folder, paths, root: root, app: app)
         menu.delegate = filler
         filler.menuNeedsUpdate(menu)
-        withExtendedLifetime(filler) {   // a menu's delegate is weak
+        withExtendedLifetime(filler) {   // NSMenu holds its delegate weakly
             _ = menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
         }
     }
 }
 
-/// A folder's menu, filled when it opens: a project can hold more files than a menu should be built for up front.
+/// Fills a folder's menu when it opens, because a project can hold more files than a menu should build up front.
 @MainActor
 private final class FolderMenu: NSObject, NSMenuDelegate {
     private let folder: String, paths: [String], root: String, app: AppModel

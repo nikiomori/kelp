@@ -4,7 +4,7 @@ import DesignKit
 import EditorKit
 import KelpKit
 
-/// One file of a replacement: its text as read, the version that was, and which of its matches go through.
+/// One file in a replacement: its text as read, the version that was read, and which of its matches are replaced.
 struct ReplaceFile {
     let path: String, name: String, text: String, stamp: FileStamp, matches: [ReplaceMatch]
     var chosen: Set<Int>
@@ -12,7 +12,8 @@ struct ReplaceFile {
         ReplaceInText.applying(matches.enumerated().filter { chosen.contains($0.offset) }.map(\.element), to: text)
     }
 
-    /// What Replace All says when there's nothing to show: files it couldn't read aren't files with nothing to change.
+    /// What Replace All says when there's nothing to show. Files it couldn't read are named, because they aren't the
+    /// same as files with nothing to change.
     static func nothingWords(unread: [String], failure: String?) -> String {
         guard let first = unread.first else { return String(localized: "Nothing to replace.") }
         let which = unread.count == 1 ? first : String(localized: "\(first) and \(unread.count - 1) more")
@@ -22,8 +23,8 @@ struct ReplaceFile {
 
 @MainActor
 extension FilesPanel {
-    /// Replace All: read what the search found, show what would change, write what's chosen. A file with unsaved edits is
-    /// left out, as what's on disk isn't what's in its tab.
+    /// Replace All: reads the files the search found, shows what would change, and writes what the user chooses. A file
+    /// with unsaved edits is left out, because what's on disk isn't what's in its tab.
     func replaceAll() {
         let template = replaceField.stringValue, query = search.stringValue.trimmingCharacters(in: .whitespaces)
         let names = Array(Set(results.matches.map(\.path))).sorted(), root = root, app = app
@@ -31,7 +32,8 @@ extension FilesPanel {
         options.matchCase = searchOptions.matchCase
         options.wholeWord = searchOptions.wholeWord
         options.regex = searchOptions.regex
-        // By real path: a tab may name its file through a link (/tmp, /private/tmp).
+        // Paths are compared with symlinks resolved, because a tab may name its file through a link (/tmp,
+        // /private/tmp).
         func real(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
         let edited = Set(app.workbench.editedFiles.compactMap { $0.fileURL.map { real($0.path) } })
         Task { @MainActor in
@@ -44,7 +46,7 @@ extension FilesPanel {
                     continue
                 }
                 do {
-                    let text = contents.text   // the regex over a big file is off the main thread
+                    let text = contents.text   // the regex runs off the main thread, since a file can be big
                     let plan = try await Task.detached { [options] in
                         try ReplaceInText.plan(text, query: query, options: options, template: template)
                     }.value
@@ -65,11 +67,12 @@ extension FilesPanel {
             let sheet = ReplaceSheet(files, leftOut: names.count - files.count)
             guard let window = sheet.window, await runSheet(window) == .OK else { return }
             await Self.write(sheet.files, app: app)
-            self.runSearch()   // what it found has changed
+            self.runSearch()   // the files changed, so the search runs again
         }
     }
 
-    /// Over the versions read. One Undo puts every file back, over the versions written.
+    /// Writes the chosen files, each only over the version that was read. One Undo puts every file back, again only
+    /// over the version written.
     static func write(_ files: [ReplaceFile], app: AppModel) async {
         var undo: [FileBatch.Done] = [], refused: [String] = []
         for file in files where !file.chosen.isEmpty {
@@ -94,16 +97,16 @@ extension FilesPanel {
     }
 }
 
-/// What a replacement would change, file by file, each file and each match with a box.
+/// The sheet showing what a replacement would change, file by file, with a checkbox on each file and each match.
 @MainActor
 final class ReplaceSheet: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     private(set) var files: [ReplaceFile]
     let window: NSWindow?
     private let table = NSTableView()
     private let go = NSButton(title: "", target: nil, action: nil)
-    /// The rows: a file, or a match of one.
+    /// The table's rows. Each row is a file, or one match in a file.
     private let rows: [(file: Int, match: Int?)]
-    private static let width: CGFloat = 640   // wider than a form: the lines of code it lists
+    private static let width: CGFloat = 640   // wider than a form, to fit the lines of code it lists
 
     init(_ files: [ReplaceFile], leftOut: Int) {
         self.files = files

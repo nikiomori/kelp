@@ -12,8 +12,9 @@ enum BrowserHistory {
         UserDefaults.standard.set(Array(([text] + urls.filter { $0 != text }).prefix(500)), forKey: key)
     }
 
-    /// What completes `typed`: the rest of the newest address that starts with it, as the bar shows it (no scheme or
-    /// www. unless typed). While no "/" is typed, only up to the site: "git" → "hub.com", as Safari does.
+    /// Returns what completes `typed`: the rest of the newest address that starts with it, as the bar shows it (no
+    /// scheme or www. unless typed). While no "/" is typed, it completes only up to the end of the site, as Safari
+    /// does, so "git" gives "hub.com".
     static func completion(_ typed: String, in urls: [String]) -> String? {
         let want = typed.lowercased()
         guard want.count >= 2, !want.contains(" ") else { return nil }
@@ -30,8 +31,8 @@ enum BrowserHistory {
     }
     @MainActor static func completion(_ typed: String) -> String? { completion(typed, in: urls) }
 
-    /// `text` with the scheme it was visited with, when it's an address completed from the history without one (a site
-    /// served over http stays http); otherwise `text` as typed.
+    /// Returns `text` with the scheme (and www.) it was visited with, when `text` is an address completed from the
+    /// history without one, so a site served over http stays http. Otherwise it returns `text` as typed.
     static func address(for text: String, in urls: [String]) -> String {
         guard !text.contains("://"),
             let url = urls.first(where: { bare($0) == text || bare($0).hasPrefix(text + "/") }),

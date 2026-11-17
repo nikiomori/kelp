@@ -2,9 +2,10 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The context ring on an agent's tab: watched for the agents of the workspace on screen (the tabs there are) that
-/// haven't ended, let go as another workspace is shown or the agent ends. A ring read before stays for the next time its
-/// workspace shows, so it's there at once, until its agent ends. The app's one, as a part, from Kelp's start.
+/// Watches the context rings on agents' tabs. It watches each agent that hasn't ended in the workspace on screen,
+/// since only those agents have tabs there, and stops when another workspace is shown or the agent ends. A ring that
+/// was read before is kept for the next time its workspace shows, so it appears at once, until its agent ends. The app
+/// has one of these, made as a part when Kelp starts.
 @MainActor
 final class ContextRings {
     static func start(_ app: AppModel) { _ = app.part { ContextRings(app: app) } }

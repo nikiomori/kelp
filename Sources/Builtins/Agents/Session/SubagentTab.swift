@@ -5,8 +5,9 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// "subagent:<session>/<id>": what a subagent did, step by step, and what it reported. It has no terminal, and Claude Code
-/// keeps all of this beside its parent's conversation, so the tab only reads, again when a step comes (`WatchTopic.subagents`).
+/// The model of a "subagent:<session>/<id>" tab, which shows what a subagent did, step by step, and what it reported.
+/// A subagent has no terminal, and Claude Code keeps all of this beside its parent's conversation. So the tab only
+/// reads it, and reads it again when a new step comes (`WatchTopic.subagents`).
 @MainActor
 @Observable
 final class SubagentJournal {
@@ -46,7 +47,7 @@ struct SubagentJournalView: View {
     let model: SubagentJournal, app: AppModel
     let watched: Watched
 
-    /// What brings a new read: another step, or its end, whose report comes last.
+    /// What triggers a new read: another step, or the subagent's end, because its report comes last.
     private struct Change: Equatable { var touched: Date?, working: Bool }
 
     private var run: Subagent? { app.session(model.session)?.subagentRuns?.first { $0.id == model.id } }
@@ -147,7 +148,7 @@ struct SubagentJournalView: View {
         Duration.seconds(Int(max(0, seconds))).formatted(.time(pattern: .minuteSecond))
     }
 
-    /// What it reported. Limit: Markdown's inline marks and headings; a table or a list stands as written.
+    /// The subagent's report. Limit: Markdown's inline marks and headings; a table or a list stands as written.
     private struct Report: View {
         let text: String
         var body: some View {

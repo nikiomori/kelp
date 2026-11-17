@@ -1,8 +1,8 @@
 import WorkbenchKit
 
-/// Kelp's own languages: the files of each, its language servers and its run, test and format commands. Data only: a
-/// server is started for the first file opened, when it's installed; an extension's language with the same `id`
-/// replaces one.
+/// Kelp's built-in languages: the files of each language, its language servers, and its run, test and format commands.
+/// This is data only. A server starts when the first file of its language opens, if the server is installed. An
+/// extension's language with the same `id` replaces the built-in one.
 enum Languages {
     private typealias Server = LanguageSpec.Server
 
@@ -21,18 +21,19 @@ enum Languages {
         LanguageSpec(id: "typescriptreact", extensions: ["tsx"], server: typescript),
         LanguageSpec(id: "javascript", extensions: ["js"], server: typescript, run: "node ${file}"),
         LanguageSpec(id: "javascriptreact", extensions: ["jsx"], server: typescript),
-        // ruff beside pyright: its warnings and fixes, when it's installed.
+        // ruff runs beside pyright and adds its warnings and fixes, when ruff is installed.
         LanguageSpec(
             id: "python", extensions: ["py"],
             server: .init(command: "pyright-langserver", args: ["--stdio"], install: "npm i -g pyright"),
             servers: [.init(command: "ruff", args: ["server"], install: "brew install ruff", optional: true)],
             run: "python3 ${file}", test: "python3 -m pytest ${file} -k ${symbol}", format: "ruff format -"),
-        // The file's package, so a main split over several files runs too.
+        // Run and test the file's whole package, so a main split over several files runs too.
         LanguageSpec(
             id: "go", extensions: ["go"],
             server: .init(command: "gopls", install: "go install golang.org/x/tools/gopls@latest"),
             run: "cd ${dir} && go run .", test: "cd ${dir} && go test -run ${symbol} .", format: "gofmt"),
-        // From stdin rustfmt can't read Cargo.toml's edition, and 2015's parser rejects async fn.
+        // The edition is given because rustfmt reading stdin can't see the edition in Cargo.toml, and the parser for
+        // edition 2015 rejects async fn.
         LanguageSpec(
             id: "rust", extensions: ["rs"],
             server: .init(command: "rust-analyzer", install: "rustup component add rust-analyzer"),
@@ -92,7 +93,7 @@ enum Languages {
             format: "terraform fmt -")
     ]
 
-    // Files every project has: their servers are optional, so one that isn't installed is nobody's banner.
+    // Data files that every project has. Their servers are optional, so a server that isn't installed shows no banner.
     private static let web = "npm i -g vscode-langservers-extracted"
     private static let json = Server(
         command: "vscode-json-language-server", args: ["--stdio"], install: web, optional: true)

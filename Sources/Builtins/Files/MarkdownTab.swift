@@ -6,8 +6,9 @@ import KelpKit
 import Markdown
 import WebKit
 
-/// A Markdown file: editor, live preview, or both, with a formatting bar for specs and plans you write for agents. Also an
-/// agent's page of HTML (a design, a dashboard), shown as it is, and its slides, cut into 16:9 slides.
+/// The tab for a Markdown file: the editor, a live preview, or both, with a formatting bar for the specs and plans you
+/// write for agents. It also shows an agent's HTML page (a design, a dashboard) as it is, and an agent's slides, cut
+/// into 16:9 slides.
 @MainActor
 final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     let editor: CodeEditor
@@ -15,18 +16,19 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     let app: AppModel
     let web = WKWebView()
     let links: PreviewLinks
-    /// Where Kelp's scripts for the preview run (the page's own don't: `PreviewLinks`), and the only world `kelpSync` hears.
+    /// The script world where Kelp's scripts for the preview run, and the only world `kelpSync` listens to. The page's
+    /// own scripts don't run (`PreviewLinks`).
     static let world = WKContentWorld.world(name: "kelp")
     private let mode = NSSegmentedControl(
         labels: [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")],
         trackingMode: .selectOne, target: nil, action: nil)
     private let split = NSSplitView()
     var renderTask: Task<Void, Never>?
-    /// What the page loaded last was made of, when its body can be replaced in place (`Swap`).
+    /// The parts the last loaded page was built from, kept when its body can be replaced in place (`Swap`).
     var swappable: Swap?
-    /// Edited while the preview was hidden (Edit mode): rendered when it shows.
+    /// Set when the text was edited while the preview was hidden (Edit mode), so the preview renders when it shows.
     var dirty = false
-    /// Documents to read (Kelp's help) open as the preview.
+    /// Whether the tab opens in Preview, as documents meant to be read (Kelp's help) do.
     var startInPreview = false {
         didSet {
             if isViewLoaded {
@@ -37,50 +39,55 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     }
     private var narrow = false
     var narrowPane: Bool { narrow }
-    /// Until then the source is following the preview, and doesn't lead it back.
+    /// Until this time the source is following the preview's scroll, so it doesn't scroll the preview back.
     private var followingPreview = Date.distantPast
-    /// Told whether the source can be edited on screen: the status bar's cursor means nothing in the preview.
+    /// Called with whether the source is on screen to edit, because the status bar's cursor means nothing in the
+    /// preview.
     var onEditing: ((Bool) -> Void)?
-    /// Writes the file: a review's picks are answers the agent reads from disk.
+    /// Writes the file to disk, because a review's picks are answers the agent reads from there.
     var saveFile: (() async -> Bool)?
     let page: Page
-    /// A canvas: the `kelp artifact check` waiting for its next drawing, and what the last one found.
+    /// On a canvas, the `kelp artifact check` that waits for the next drawing, and what the last check found.
     var pendingCheck: String?
     var checkIssues: [String]?
-    /// A canvas: whether a click on a board puts a mark on it (Mark in the bar), whether it's being presented, and who
-    /// hears that the presenting ended (Esc on the page).
+    /// On a canvas, whether a click on a board puts a mark on it (Mark in the bar), and whether the boards are being
+    /// presented. `onPresentEnded` hears when presenting ends (Esc on the page).
     var marking = false, presentingBoards = false
-    /// A canvas: whether a click chooses an element to change by hand (Edit in the bar), and the one chosen (its board
-    /// and data-id), chosen again once the canvas is drawn again.
+    /// On a canvas, whether a click chooses an element to change by hand (Edit in the bar), and the chosen element (its
+    /// board and data-id). That element is chosen again after the canvas is redrawn.
     var editing = false
     var chosen: (board: String, id: String)?
-    /// A canvas: its size set by hand (nil: fitted), and the agent writing it now (its board gets the ring).
+    /// On a canvas, the zoom set by hand (nil when it's fitted to the pane), and the agent writing it now (the board
+    /// being written gets the ring).
     var canvasZoom: Double?
     var canvasWriter: String? {
         didSet { if canvasWriter != oldValue, page == .canvas { rerender() } }
     }
     var onPresentEnded: (() -> Void)?
-    /// A canvas that is a dashboard: drawn as a page of data (`CanvasPage.View.dashboard`).
+    /// Whether the canvas is a dashboard, which is drawn as a page of data (`CanvasPage.View.dashboard`).
     var isDashboard = false {
         didSet { if isDashboard != oldValue { rerender() } }
     }
-    /// A doc: the page as its agent's last turn found it, to mark what the turn changed; and how many blocks it did.
+    /// On a doc, the page as it was when the agent's last turn started, so the preview can mark what the turn changed.
+    /// `onChanges` hears how many blocks it changed.
     var baseline: String? {
         didSet { if baseline != oldValue { rerender() } }
     }
     var onChanges: ((Int) -> Void)?
-    /// Told when the page turns Mark on itself (its Mark button under a selection).
+    /// Called when the page turns Mark on by itself (with the Mark button under a selection).
     var onPageMode: ((CanvasMode) -> Void)?
-    /// An older version of the page, shown in the preview instead of the file and not answered or edited (`ArtifactBar`).
+    /// An older version of the page (`ArtifactBar`). It shows in the preview instead of the file, and it can't be
+    /// answered or edited.
     private(set) var shownVersion: String?
 
     var artifactBar: ArtifactBar?
-    /// A page an agent made: its title and kind, for the tab.
+    /// Gets the title and kind of a page an agent made, for the tab.
     var onPageTitle: ((String?, Artifacts.Kind?) -> Void)?
-    /// A canvas: what its check found each time it's drawn (the bar shows it).
+    /// Gets what the canvas's check found each time the canvas is drawn, for the bar to show.
     var onCheck: (([String]) -> Void)?
 
-    /// What goes over the tab: a page an agent made has its bar (what it is, its versions, its chat) where the path would be.
+    /// Returns the view over the tab. A page an agent made gets its own bar (its kind, versions and chat) where the
+    /// path would be. Any other file gets `crumbs`.
     func header(else crumbs: NSView) -> NSView {
         guard ArtifactBar.isPage(url.path) else { return crumbs }
         let bar = ArtifactBar(app: app, path: url.path, markdown: self)
@@ -101,14 +108,14 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         rerender()
     }
 
-    /// The file becomes `text` and is saved: an older version restored.
+    /// Restores an older version: the file's text becomes `text`, and the file is saved.
     func restore(_ text: String) {
         if page == .canvas, let snapshot = CanvasSnapshot.read(text) { return restoreCanvas(snapshot) }
         editor.apply(text: text, selection: NSRange(location: 0, length: 0))
         Task { _ = await saveFile?() }
     }
 
-    /// The page as the preview shows it, through the system's print panel (which saves a PDF too).
+    /// Prints the page as the preview shows it, through the system's print panel (which can also save a PDF).
     func printPage() {
         guard let window = view.window else { return }
         if web.isHidden { selectMode(2) }
@@ -162,8 +169,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         mode.target = self
         mode.action = #selector(modeChanged)
         mode.controlSize = .small
-        // Headings: a menu from one button (its first item is the button's face).
-        let heading = PointerPopUpButton(frame: .zero, pullsDown: true)   // greys in under the pointer, as the bar's icons
+        // The heading styles are a menu on one button (the menu's first item is the button's face).
+        let heading = PointerPopUpButton(frame: .zero, pullsDown: true)   // greys under the pointer, like the icons
         heading.addItems(withTitles: [
             "", String(localized: "Text"), String(localized: "Heading 1"), String(localized: "Heading 2"),
             String(localized: "Heading 3")
@@ -195,8 +202,9 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         split.addArrangedSubview(editor.view)
         split.addArrangedSubview(web)
         editor.view.clipsToBounds = true
-        // An agent's page has its own bar, whose ⋯ holds the modes (and ⇧⌘V cycles them): one bar over it, not two.
-        // Elsewhere the formatting bar goes in the preview (nothing to format there), and the modes sit in the status bar.
+        // An agent's page has its own bar, whose ⋯ menu holds the modes (⇧⌘V cycles them), so the page gets one bar,
+        // not two. Any other file gets the formatting bar on top, which hides in Preview because there is nothing to
+        // format there, and the modes sit in the status bar.
         if artifactBar == nil {
             let column = NSStackView(views: [bar, split])
             column.orientation = .vertical
@@ -210,7 +218,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             view = stacked(split)
         }
         view.addSubview(selectionBar)   // over the text, placed by frame
-        let before = editor.onSelection   // the breadcrumbs and the conflicts' bar follow it too
+        let before = editor.onSelection   // the breadcrumbs and the conflict bar follow the selection too
         editor.onSelection = { [weak self] in
             before?()
             self?.placeSelectionBar()
@@ -227,8 +235,9 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
 
     private let formatting = NSStackView()
     private var formattingBar: Bar?
-    /// The file's status bar: told whether the source is on screen, and given Edit, Split, Preview (an agent's page has
-    /// them in its own bar's ⋯). After `header`, which says whether it's such a page.
+    /// Connects the file's status bar. The status bar is told whether the source is on screen, and it gets the Edit /
+    /// Split / Preview control, unless this is an agent's page, which has them in the ⋯ menu of its own bar. Call it
+    /// after `header`, which decides whether this is an agent's page.
     func attach(_ bar: EditorStatusBar) {
         onEditing = { [weak bar] in bar?.editing = $0 }
         bar.editing = mode.selectedSegment != 2
@@ -243,7 +252,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             ("link", String(localized: "Link (⌘K)"), #selector(link))
         ])
 
-    /// Over the selection once it's made (not while the mouse is still dragging it); gone without one.
+    /// Shows the selection bar over the selection once it's made (not while the mouse is still dragging), and hides it
+    /// when there's no selection.
     private func placeSelectionBar() {
         guard NSEvent.pressedMouseButtons == 0, page != .html, page != .canvas, !editor.view.isHidden,
             let selection = editor.selectionRect
@@ -253,13 +263,14 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         selectionBar.show(over: view.convert(selection, from: editor.view), in: view)
     }
 
-    /// The preview shown, and keys going to it (a canvas being presented steps with ← →).
+    /// Shows the preview and sends keys to it, so a canvas being presented steps with ← →.
     func focusPreview() {
         if modeSegment != 2 { modeSegment = 2 }
         view.window?.makeFirstResponder(web)
     }
 
-    /// Script for the page whose answer nobody waits for (the async evaluateJavaScript traps on an undefined result).
+    /// Runs a script on the page without waiting for its result, because the async evaluateJavaScript traps on an
+    /// undefined result.
     func runJS(_ js: String) { web.evaluateJavaScript(js, in: nil, in: Self.world, completionHandler: nil) }
 
     @objc private func scrolled() {
@@ -268,8 +279,9 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         runJS("kelpToLine(\(editor.topLine))")
     }
 
-    /// Messages from Kelp's scripts beside the preview's page (`world`; the page's own scripts don't run): the page
-    /// scrolled to a line (the source follows), or a line was double-clicked (the cursor goes there).
+    /// Handles messages from Kelp's scripts beside the preview's page (in `world`, since the page's own scripts don't
+    /// run). Canvas and review messages go to their own handlers. Otherwise the page scrolled to a line (the source
+    /// follows), or a line was double-clicked (the cursor goes there).
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL != false else { return }
         let agents = page == .canvas || (artifactBar != nil && (page == .markdown || page == .slides))
@@ -281,7 +293,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         if page == .review, let body = message.body as? [String: Any], let kind = body["kind"] as? String,
             ["pick", "note", "send", "recommended", "unsend"].contains(kind)
         {
-            guard shownVersion == nil else { return NSSound.beep() }   // an older version is read, not answered
+            guard shownVersion == nil else { return NSSound.beep() }   // an older version is read-only
             return answer(
                 kind, point: body["point"] as? String ?? "",
                 value: body[kind == "pick" ? "key" : "text"] as? String ?? "")
@@ -321,7 +333,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     }
 
     func textChanged() { rerender(after: .milliseconds(250)) }
-    /// The theme changed: the preview takes its page colours again.
+    /// Called when the theme changes, so the preview picks up the new page colours.
     func themeChanged() { rerender() }
 
     @objc private func modeChanged() { applyMode() }
@@ -360,7 +372,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     @objc func tasks() { edit(MarkdownFormat.toggleTask) }
     @objc private func table() { edit { MarkdownFormat.insertTable($0, $1, columns: 3, rows: 2) } }
     @objc private func headingPicked(_ popUp: NSPopUpButton) {
-        let level = popUp.indexOfSelectedItem - 1   // past the button's face: Text, Heading 1…3
+        let level = popUp.indexOfSelectedItem - 1   // skips the button's face: 0 is Text, then Heading 1…3
         guard level >= 0 else { return }
         edit { MarkdownFormat.heading($0, $1, level: level) }
     }

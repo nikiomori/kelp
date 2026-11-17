@@ -4,22 +4,23 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// The pages agents made in the workspace on screen (`.kelp/artifacts`, read by the daemon while the panel shows), by
-/// their last change under Today / Yesterday / Previous 7 Days / Earlier: one line each, what kind it is, a second line
-/// only when there's news (its agent is writing it, a review waits for answers). One not opened yet is in bold; pages
-/// of one title are one row. The pointer resting on a row shows the page in a card. A file opens in a tab; a page on an
-/// agent's own service in the user's browser, which is signed in to it (Kelp's tabs aren't).
+/// The panel that lists the pages agents made in the workspace on screen (`.kelp/artifacts`, which the daemon reads
+/// while the panel shows). Pages are grouped by their last change under Today / Yesterday / Previous 7 Days / Earlier.
+/// Each page gets one line with its kind, and a second line only when there's news (the agent is writing it, or a
+/// review waits for answers). A page not opened yet is in bold, and pages with the same title share one row. When the
+/// pointer rests on a row, a card shows the page. A file opens in a tab. A page on an agent's own service opens in the
+/// user's browser, because that browser is signed in to the service and Kelp's tabs aren't.
 @MainActor
 final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate,
     NSSearchFieldDelegate
 {
     enum Row {
         case heading(String)
-        /// The latest of its title, and the earlier ones under it.
+        /// The latest page with a title, and the earlier pages with the same title.
         case item(ArtifactItem, earlier: [ArtifactItem])
     }
     private static let seenKey = "artifacts.seen"
-    /// The filter shows from this many pages on.
+    /// The filter field shows once the panel has more than this many pages.
     private static let filterFrom = 12
 
     let app: AppModel
@@ -33,7 +34,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     private lazy var card = ArtifactCard(app: app)
     private var shown = false
     private lazy var whenShown = WhenShown(view)
-    /// What Quick Look shows (`quickLook`).
+    /// The path Quick Look shows (`quickLook`).
     var looked: String?
 
     init(app: AppModel) {
@@ -57,7 +58,8 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         search.delegate = self
         foot.edgeInsets = NSEdgeInsets(
             top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
-        // No bar on top: the inspector's title names it. The filter is at the foot, as in Xcode's navigators.
+        // There's no bar on top, because the inspector's title names the panel. The filter is at the foot, as in
+        // Xcode's navigators.
         let column = NSStackView(views: [scroll, foot])
         column.orientation = .vertical
         column.spacing = 0
@@ -69,7 +71,8 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // The workspace on screen, its pages, and its chats: who made each page, and whether it's still writing.
+        // Follows the workspace on screen, its pages, and its chats (which tell who made each page, and whether that
+        // chat is still writing it).
         track(owner: self) { [app] in
             app.workbench.workspaceId
         } changed: { [weak self] _ in
@@ -110,7 +113,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
 
     // MARK: Rows
 
-    /// Rebuilt while on screen; hidden, once when it shows again.
+    /// Rebuilds the rows now while the panel is on screen. While it's hidden, it rebuilds once when it shows again.
     private func reload() { whenShown.run { [weak self] in self?.rebuild() } }
 
     private func rebuild() {
@@ -130,7 +133,8 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         markOpen()
     }
 
-    /// Headings by when each page last changed; pages of one title folded into the latest (the list is latest first).
+    /// Returns the rows: headings by when each page last changed, and one row per title, holding the latest page with
+    /// that title and the earlier ones (the list comes latest first).
     nonisolated static func rows(_ items: [ArtifactItem], title: (ArtifactItem) -> String, now: Date) -> [Row] {
         var order: [String] = [], groups: [String: [ArtifactItem]] = [:]
         for item in items {
@@ -163,8 +167,8 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         return String(localized: "Earlier")
     }
 
-    /// The title without the project's name in front ("Kelp — review 232f2997" in Kelp becomes "Review 232f2997"): the
-    /// panel already shows one project's pages, and the name took a third of the row.
+    /// Returns the title without the project's name in front ("Kelp — review 232f2997" in Kelp becomes "Review
+    /// 232f2997"), because the panel shows only one project's pages and the name took a third of the row.
     nonisolated static func shortTitle(_ title: String, project: String?) -> String {
         guard let project, !project.isEmpty, title.lowercased().hasPrefix(project.lowercased()) else { return title }
         let rest = title.dropFirst(project.count).drop { $0 == " " }
@@ -179,7 +183,8 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         return (item, earlier)
     }
 
-    /// Make's choices, as on the start page and in "+": the default agent starts with the line, for the user to finish.
+    /// The Make… button. Its menu has the same choices as the start page and "+". A choice starts the default agent
+    /// with the line typed in, for the user to finish.
     private lazy var makeButton = NSButton(title: String(localized: "Make…"), target: self, action: #selector(showMake))
     @objc private func showMake() {
         makeMenu(app).popUp(positioning: nil, at: NSPoint(x: 0, y: makeButton.bounds.height + 4), in: makeButton)
@@ -187,7 +192,8 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
 
     // MARK: Opened
 
-    /// Pages opened from here or shown in a tab; the first time the panel lists any, those count as seen already.
+    /// The pages that were opened from here or shown in a tab. The first time the panel lists pages, all of them count
+    /// as seen already.
     private var seen: Set<String> { Set(app.uiState.strings(Self.seenKey)) }
     private func seedSeen(_ items: [ArtifactItem]) {
         guard app.uiState[Self.seenKey] == nil, !items.isEmpty else { return }
@@ -207,8 +213,8 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         }
     }
 
-    /// The page the focused tab shows is the row picked: the tab and its row read as one. A page that opened in the
-    /// browser leaves nothing picked.
+    /// Selects the row of the page the focused tab shows, so the tab and its row read as one. When the page opened in
+    /// the browser, no row is selected.
     private func markOpen() {
         let uri = app.workbench.focusedTab ?? ""
         let path = uri.hasPrefix("file://") ? TabURI.filePath(uri).path : nil
@@ -241,13 +247,14 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         }
     }
 
-    /// Saved in the last two minutes while its chat works: the agent is writing it.
+    /// Whether the agent is writing the page: it was saved in the last two minutes and its chat is working.
     func writing(_ item: ArtifactItem) -> Bool {
         guard let modified = item.modified, app.session(item.session ?? "")?.status == .working else { return false }
         return Date().timeIntervalSince1970 - modified < 120
     }
 
-    /// The second line, only when it says something: its agent is writing it, or how far a review is answered.
+    /// The row's second line, only when there's something to say: the agent is writing the page, or how much of a
+    /// review is answered.
     func note(_ item: ArtifactItem) -> (text: String, waits: Bool)? {
         if writing(item), let session = item.session.flatMap(app.session) {
             return (String(localized: "\(app.catalog.name(session.agent)) is writing"), false)
@@ -257,7 +264,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         return (String(localized: "\(answered) of \(points) answered"), answered < points)
     }
 
-    /// The pointer rests on a row (or left it): its card after a moment.
+    /// Called when the pointer rests on a row (or leaves it). The page's card shows after a moment.
     func hover(_ item: ArtifactItem?, over cell: NSView) {
         guard let item else {
             card.hover(nil, rect: .zero, in: table)
@@ -278,7 +285,8 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     func openItem(_ item: ArtifactItem) {
         card.close()
         markSeen([item.target])
-        // Only a web page: the record may be a cloned repository's (`Artifacts.record` refuses any other scheme too).
+        // Only https opens, because the record may come from a cloned repository (`Artifacts.record` refuses any
+        // other scheme too).
         if item.url != nil {
             if let url = URL(string: item.target), url.scheme == "https" { PreviewLinks.openOutside(url) }
             markOpen()
@@ -322,7 +330,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     }
 }
 
-/// The list: Space shows the picked page in Quick Look.
+/// The panel's table. Space shows the selected page in Quick Look.
 final class ArtifactTable: NSTableView {
     var onSpace: () -> Void = {}
     override func keyDown(with event: NSEvent) {

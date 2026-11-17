@@ -5,14 +5,15 @@ import KelpKit
 import TerminalKit
 import WorkbenchKit
 
-/// Under an agent's terminal: what it ran. Its commands in a tab of their own making (`Session.startedBy`, `kelp session
-/// new --cmd`), and what its shell tool ran (`AgentCommand`, from its hooks, with Settings › Agents on). Folded, one line
-/// says the command running, else the last one; a click unfolds the list, and a command's own terminal or what a shell
-/// command printed. There from its first command on and never goes: a terminal that grew and shrank with each would redraw
-/// the agent every time.
+/// The bar under an agent's terminal that lists what the agent ran. It lists the commands the agent started in
+/// terminals of their own (`Session.startedBy`, `kelp session new --cmd`), and the commands its shell tool ran
+/// (`AgentCommand`, reported by the agent's hooks when the setting in Settings › Agents is on). Folded, the bar is one
+/// line that names the running command, or else the last one. A click unfolds the list with the current command's own
+/// terminal, and a click on a shell command's row shows what it printed. The bar appears with the first command and
+/// then stays, because a terminal that grew and shrank with each command would redraw the agent every time.
 @MainActor
 final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
-    /// One row: a command with a terminal, or one the shell tool ran.
+    /// One row in the list: a command that has its own terminal, or a command the agent's shell tool ran.
     enum Item {
         case run(Session), command(AgentCommand)
         var started: Date {
@@ -40,20 +41,20 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     private var finalTails: Set<String> = []
     private var reading = false
     private var unfolded = false
-    /// The run shown unfolded, in a terminal of its own, and how much of the pane it takes.
+    /// The run shown in its own terminal while the bar is unfolded, and the share of the pane's height it takes.
     private var console: PaneView?
     private var share: CGFloat = 0.4
     private var escape: Any?
-    /// The console closed from the keyboard: the keys go back to the agent.
+    /// Called when the user closes the console from the keyboard, so the keys go back to the agent.
     var onClosed: (() -> Void)?
-    /// Ticks while one runs, for its time; ended with the bar.
+    /// Ticks every second while a command runs, to update its time. It stops when the bar leaves the window.
     private(set) var clock: Timer?
     let popover = NSPopover()
-    /// Rows the list shows before it scrolls, alone and over a console.
+    /// How many rows the list shows before it scrolls, on its own and when a console is open under it.
     private static let shownRows = 8, rowsOverConsole = 4
     private static var rowHeight: CGFloat { TextSize.of(Metrics.row) }
 
-    /// `watch`: an agent, whose hooks and commands fill it; a terminal's bar stays empty.
+    /// `watch` is true for an agent, whose hooks and commands fill the bar. A plain terminal's bar stays empty.
     init(session: String, app: AppModel, watch: Bool) {
         self.app = app
         self.session = session
@@ -106,7 +107,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         ])
         isHidden = true
         guard watch else { return }
-        // Off by default (Settings › Agents): off, it neither shows nor watches the hooks' commands.
+        // The setting is off by default (Settings › Agents). When it is off, the bar neither shows nor watches the
+        // commands the hooks report.
         let on = { [app] in app.settings[SettingKeys.commandsBar] }
         track(owner: self) {
             on()
@@ -126,7 +128,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// `nil`: switched off.
+    /// Shows the shell tool's commands. `list` is nil when the setting is switched off.
     private func show(_ list: [AgentCommand]?) {
         guard let list else {
             commands = []
@@ -134,7 +136,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
             reload(keeping: false)
             return
         }
-        guard !list.isEmpty || !items.isEmpty else { return }   // a new background service starts its list over: the bar stays
+        guard !list.isEmpty || !items.isEmpty else { return }   // a restarted daemon sends an empty list: keep the bar
         commands = list
         reload(keeping: true)
     }
@@ -151,7 +153,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         reload(keeping: true)
     }
 
-    /// `keeping`: an empty list leaves the bar where it is, so the terminal over it doesn't move.
+    /// Rebuilds the rows. With `keeping`, an empty list leaves the bar shown, so the terminal above it doesn't move.
     private func reload(keeping: Bool) {
         let atEnd = table.rows(in: table.visibleRect).upperBound >= items.count
         items = (runs.map(Item.run) + commands.map(Item.command)).sorted { $0.started < $1.started }
@@ -162,17 +164,18 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         tick()
     }
 
-    /// The run the folded line speaks of: the newest still running, else the last thing it ran if that's a run.
+    /// The run the folded line shows: the newest run still going, or else the last item if that item is a run.
     var current: Session? {
         runs.last { $0.status != .exited } ?? { if case .run(let run)? = items.last { run } else { nil } }()
     }
 
-    /// Unfolds or folds the list and the console; the terminal over it keeps its size until they stop, or it would redraw
-    /// the agent at every step.
+    /// Unfolds or folds the list and the console. The terminal above keeps its size until the animation ends, because
+    /// otherwise it would redraw the agent at every step.
     private func fold(_ fold: Bool) {
         unfolded = !fold
         if fold { popover.close() } else if let run = current { open(run) }
-        // The console goes once the bar has closed over it: taken out first, an empty box shrank.
+        // The console is removed only after the bar has closed over it, because removing it first made an empty box
+        // shrink.
         layOut(animated: true) { [weak self] in
             guard let self, fold, !unfolded else { return }
             closeConsole()
@@ -181,7 +184,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         if unfolded, !items.isEmpty { table.scrollRowToVisible(items.count - 1) }
     }
 
-    /// `s` in the console. The keys stay where they are; a click in it takes them, Esc gives them back.
+    /// Shows session `s` in the console. The keyboard focus stays where it is. A click in the console takes the focus,
+    /// and Esc gives it back.
     func open(_ s: Session) {
         guard console?.sessionId != s.id else { return }
         console?.removeFromSuperview()
@@ -216,7 +220,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         if items.isEmpty { reload(keeping: false) }
     }
 
-    /// The pane changed height: the console keeps its share of it.
+    /// Called when the pane changes height, so the console keeps its share of it.
     func paneResized() { if console != nil { layOut() } }
 
     private func drag(by dy: CGFloat) {
@@ -258,7 +262,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         showHeader(Date())
     }
 
-    /// Folded, the run going on or the last thing it ran; unfolded, a run's name or how many there are.
+    /// Updates the header line. It shows the current run when there is one. Otherwise it shows the last shell command
+    /// when folded, and how many commands there are when unfolded.
     private func showHeader(_ now: Date) {
         let count = String(localized: "\(items.count) commands")
         let run = current
@@ -278,7 +283,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         header.setAccessibilityLabel(header.toolTip)
     }
 
-    /// Times move on while a command runs, and a run's last line with them.
+    /// Updates the times while a command runs, and the last line of each run along with them.
     private func tick() {
         let running = commands.contains { $0.outcome == nil } || runs.contains { $0.status != .exited }
         if running, clock == nil, window != nil {
@@ -289,7 +294,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
             clock?.invalidate()
             clock = nil
         }
-        // Out of sight (another window over it, Kelp hidden): no tails asked, nothing redrawn; the clock goes on for when it's back.
+        // When the bar is out of sight (another window covers it, or Kelp is hidden), it doesn't read the commands'
+        // last lines and redraws nothing. The clock keeps ticking for when the bar is back in view.
         guard window?.occlusionState.contains(.visible) == true else { return }
         readTails()
         let now = Date()
@@ -306,14 +312,15 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         }
     }
 
-    /// The page a run serves: the port on this Mac.
+    /// Returns the port on this Mac of the page a run serves, if it serves one.
     private func port(of run: Session) -> Int? {
         run.worktreeId.flatMap { app.latest(PortsEvent.self, $0)?.ports }?.first {
             $0.session == run.id && ServedPages.listed($0)
         }.map { $0.here ?? $0.port }
     }
 
-    /// The last line of what's running, on screen only; of what ended, once more for the last word.
+    /// Reads the last line of each run while the bar is in a window. A run that has ended is read once more, to get
+    /// its final line.
     private func readTails() {
         let want = runs.filter { !finalTails.contains($0.id) }
         guard !reading, !want.isEmpty, window != nil else { return }
@@ -329,7 +336,8 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         }
     }
 
-    /// What a program last printed: the line it's on now, past any carriage return (a progress line rewrites itself).
+    /// Returns the last non-empty line a program printed, cut to 200 characters. A carriage return also ends a line,
+    /// because a progress line rewrites itself after one.
     static func lastLine(_ text: String) -> String? {
         text.split(whereSeparator: \.isNewline).lazy.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .last { !$0.isEmpty }.map { String($0.prefix(200)) }

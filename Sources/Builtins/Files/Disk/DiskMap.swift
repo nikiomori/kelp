@@ -2,8 +2,8 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// A part's ground by its group: hatched grey for what rebuilds, a darker grey for what to check, the faintest for what
-/// stays. Greys only: colour in Kelp says state, and none of this is.
+/// The background of a part, by its group: hatched grey for what rebuilds, a darker grey for what to check, and the
+/// faintest grey for what stays. It uses greys only, because colour in Kelp means state, and none of this is state.
 struct DiskFill: View {
     let group: DiskGroup
     var body: some View {
@@ -24,7 +24,8 @@ struct DiskFill: View {
     }
 }
 
-/// The groups side by side, each as wide as its share of the disk: the picture of the project, with its legend.
+/// The groups side by side, each as wide as its share of the space, so the bar pictures the project. The group
+/// headings in the list serve as its legend.
 struct DiskBar: View {
     let items: [RepoDiskUsage.Item]
     var body: some View {
@@ -44,8 +45,8 @@ struct DiskBar: View {
     }
 }
 
-/// Every part as a tile its size, biggest first (`Treemap`); one that can go is chosen and unchosen by a click, as its
-/// row's box is, and shows it with the accent's ring.
+/// A map of every part as a tile sized by its bytes, biggest first (`Treemap`). A click on a part that can go chooses
+/// or unchooses it, as its checkbox in the list does, and a chosen tile shows an accent ring.
 struct DiskMap: View {
     let items: [RepoDiskUsage.Item], root: String
     @Binding var chosen: Set<String>

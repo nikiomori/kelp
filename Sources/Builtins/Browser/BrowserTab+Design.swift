@@ -1,4 +1,5 @@
-// A browser tab's Design Mode: clicks on the page sent to an agent with a picture and the element's source.
+// A browser tab's Design Mode, which sends the element the user clicks on the page to an agent, with a picture and the
+// element's source.
 import AppKit
 import Core
 import DesignKit
@@ -8,7 +9,8 @@ import WebKit
 
 extension BrowserTab {
     // MARK: Design Mode
-    /// The click watch goes with the tab (a closed tab in Design Mode would leave it on every click); a recording is saved.
+    /// Closes the tab. The click watch goes with it, because a tab closed in Design Mode would otherwise leave it on
+    /// every click, and a recording under way is saved.
     func close() async -> Bool {
         if let monitor = clickWatch {
             NSEvent.removeMonitor(monitor)
@@ -25,7 +27,8 @@ extension BrowserTab {
         designButton.state = designOn ? .on : .off
         designButton.restFill = designOn ? .fillSelected : nil   // on, it stays pressed in, as a toggle in a bar does
         designButton.contentTintColor = designOn ? .themeAccent : .secondaryLabelColor
-        // The user's own clicks on the page, as AppKit sees them: a page can post without one, it can't make one.
+        // Watch the user's own clicks on the page as AppKit sees them, because a page can post a message without a
+        // click but can't make a real click.
         if designOn, clickWatch == nil {
             clickWatch = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
                 if let self, event.window === web.window,
@@ -48,7 +51,8 @@ extension BrowserTab {
             note(message)
             return
         }
-        // Any site can post to this handler: only one message per click the user made while Design Mode is on counts.
+        // Any site can post to this handler, so only one message counts for each click the user made while Design Mode
+        // is on.
         guard designOn, message.frameInfo.isMainFrame, clicks.take(), let element = message.body as? [String: Any]
         else { return }
         let frame = element["rect"] as? [String: Double] ?? [:]
@@ -60,11 +64,12 @@ extension BrowserTab {
         cfg.rect = rect.intersection(web.bounds)
         web.takeSnapshot(with: cfg) { [weak self] img, _ in
             MainActor.assumeIsolated { self?.sendDesign(element, image: img) }
-        }   // on main
+        }   // takeSnapshot calls back on the main thread
     }
 
-    /// The image as a PNG at `path` (a temporary file named after `kind` when nil); nil when it couldn't be written.
-    /// Encoded and written off the main thread (`write`, in a detached task): a Retina page's PNG takes a while.
+    /// Writes the image as a PNG at `path`, or to a temporary file named after `kind` when `path` is nil. Returns the
+    /// path, or nil when the file couldn't be written. `write` encodes and writes it in a detached task, off the main
+    /// thread, because a Retina page's PNG takes a while.
     static func savePNG(
         _ image: NSImage?, kind: String, to path: String? = nil,
         write: @escaping @Sendable (CGImage, URL) -> Bool = writePNG
@@ -84,12 +89,13 @@ extension BrowserTab {
         return CGImageDestinationFinalize(file)
     }
 
-    /// A field the page wrote, for the draft: one line, short, with nothing that ends Kelp's framing (a fence, a backtick).
+    /// Cleans a field the page wrote for the draft: one short line, with nothing that ends Kelp's framing (a fence, a
+    /// backtick).
     nonisolated static func pageText(_ value: Any?, most: Int = 200) -> String {
         String((value as? String ?? "").filter { !$0.isNewline && $0 != "`" }.prefix(most))
     }
 
-    /// The element's markup as the page gave it, in a fence it can't close.
+    /// Returns the element's markup as the page gave it, changed so that it can't close its fence.
     nonisolated static func pageMarkup(_ value: Any?) -> String {
         String((value as? String ?? "").prefix(4000)).replacingOccurrences(of: "```", with: "`\u{200B}``")
     }
@@ -106,7 +112,7 @@ extension BrowserTab {
             "  \(Self.pageText($0.key, most: 60)): \(Self.pageText($0.value));"
         }.joined(separator: "\n")
         let source = relativeSource(Self.pageText(element["source"])), component = Self.pageText(element["component"])
-        // The address is Kelp's own reading, not the page's word.
+        // The address comes from Kelp's own reading of the page, not from what the page posted.
         let msg = """
             Design change for the element `\(Self.pageText(element["selector"]))` on \(web.url?.absoluteString ?? ""):
             \(source.isEmpty ? "" : "Source: \(source)\(component.isEmpty ? "" : " (component \(component))")\n")
@@ -134,13 +140,14 @@ extension BrowserTab {
                 String(localized: "No agent on this screen — the element details were copied to the clipboard."))
             return
         }
-        // The page wrote most of it (html, styles, selector): a draft the user reads and sends, never Enter, and the
-        // daemon types it as plain text (`typeable`: no escapes or control keys).
+        // The page wrote most of this message (html, styles, selector), so it goes in as a draft the user reads and
+        // sends, never with Enter. The daemon types it as plain text (`typeable`, with no escapes or control keys).
         Task { await app.call(SessionSend(id: sid, text: msg, enter: false)) }
         app.workbench.focus(session: sid)
     }
 
-    /// A dev server's absolute path as the workspace sees it (`src/App.tsx:12`); others stay as they are.
+    /// Turns a dev server's absolute path into the path the workspace sees (`src/App.tsx:12`). Other paths stay as
+    /// they are.
     private func relativeSource(_ source: String) -> String {
         var path = source.replacingOccurrences(of: "file://", with: "")
         if let root = app.worktree(app.workbench.workspaceId)?.path {
@@ -186,7 +193,7 @@ extension BrowserTab {
         };
         """
 
-    /// The overlay in the system's accent colour (the page has no other way to know it).
+    /// Returns the overlay script in the system's accent colour, because the page has no other way to know it.
     static func designJS(accent: NSColor) -> String {
         designScript.replacingOccurrences(of: "ACCENT", with: accent.hexString)
     }
@@ -222,7 +229,8 @@ extension BrowserTab {
             """
 }
 
-/// The user's clicks on the page in Design Mode: each one lets one element's message through, within a second of it.
+/// Tracks the user's clicks on the page in Design Mode. Each click lets one element's message through, within a second
+/// of the click.
 struct DesignClicks {
     private var at: Date?
     mutating func note(_ now: Date = Date()) { at = now }

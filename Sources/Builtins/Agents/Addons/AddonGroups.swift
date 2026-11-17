@@ -1,18 +1,20 @@
 import Core
 import Foundation
 
-/// A folded group of the Skills & MCP panel: one kind's items from one source, the servers that wait for a sign-in,
-/// all the plugins, one plugin's skills, or what only another agent gets.
+/// A group of rows in the Skills & MCP panel that folds. It holds the items of one kind from one source, the servers
+/// that wait for a sign-in, all the plugins, the skills of one plugin, or the items that only another agent gets.
 struct AddonGroup: Hashable {
     var kind: Addon.Kind
-    /// nil: the servers waiting for a sign-in, whatever brought them.
+    /// nil for the group of servers that wait for a sign-in, whatever source brought them.
     var source: Addon.Source?
-    /// One plugin's skills: a plugin goes on and off whole, so its line has the switch. It sits in the Plugins group.
+    /// The plugin whose skills this group holds. A plugin goes on and off as a whole, so the switch is on the plugin's
+    /// line, which sits in the Plugins group.
     var plugin: String?
-    /// What only this other agent gets (its id): it never reaches the chat on screen. Its line names it by its catalog.
+    /// The id of the other agent that alone gets this group's items, so they never reach the chat on screen. The
+    /// group's line shows that agent's name from the catalog.
     var agent: String?
 
-    /// What `addons.set` takes for the whole group; nil when its items switch one by one.
+    /// The key `addons.set` takes to switch the whole group; nil when the group's items switch one by one.
     var key: String? { plugin.map { "plugin:\($0)" } }
 
     var title: String {
@@ -29,11 +31,12 @@ struct AddonGroup: Hashable {
         case .agent: String(localized: "Built in")
         }
     }
-    /// The person's own skills and the project's show; the many others wait for a click.
+    /// The groups of the person's own skills and of the project's skills start open. The other groups hold many
+    /// items, so they start folded until clicked.
     var openAtFirst: Bool { kind == .skill && plugin == nil && (source == .yours || source == .project) }
 }
 
-/// How the list is shown: the order inside groups, whether what's off shows, and the filter's text.
+/// How the list is shown: the order inside groups, whether items that are off show, and the filter text.
 struct AddonView: Equatable {
     var byName = false
     var showOff = true
@@ -44,28 +47,29 @@ struct AddonView: Equatable {
 enum AddonLine: Equatable {
     enum Section: Equatable { case needsLook, servers, skills, instructions, others }
     case section(Section, count: Int)
-    /// `tokens`: what its items weigh together; nil when none of theirs is known.
+    /// `tokens` is the total weight of the group's items; nil when no item's weight is known.
     case group(AddonGroup, count: Int, tokens: Int?, open: Bool)
     /// `depth` is 0 for an item on its own, 1 under a group's line, and 2 under a plugin's line.
     case item(Addon, depth: Int)
-    /// In Needs a Look: its name over what's wrong.
+    /// A row in Needs a Look that shows the item's name above what is wrong with it.
     case problem(Addon)
-    /// In Needs a Look: the servers that wait for a sign-in and are on, as one line.
+    /// One row in Needs a Look for all the servers that are on and wait for a sign-in.
     case unsigned([Addon])
-    /// In Needs a Look: the project's instruction files that need a look, as one line with Tidy Up; or what the last
-    /// Tidy Up did, to review or undo.
+    /// One row in Needs a Look for the project's instruction files that need a look, with a Tidy Up button. After a
+    /// Tidy Up, the row shows what it did instead, to review or undo.
     case instructions([Addon], Tidied?)
 }
 
-/// What the panel lists, in order, without AppKit: what needs a look, the servers (the person's and the project's one
-/// by one, the rest folded), the skills by who brought them, the instruction files, and, folded at the end, what only
-/// other agents get.
+/// Builds the panel's list in order, without AppKit. First comes what needs a look, then the servers (the person's
+/// and the project's one by one, the rest folded), the skills grouped by who brought them, the instruction files, and,
+/// folded at the end, what only other agents get.
 enum AddonGroups {
     static let skillSources: [Addon.Source] = [.project, .yours, .kelp, .plugin, .account, .agent]
     static let folded: [Addon.Source] = [.account, .plugin, .agent]
 
-    /// `toggled`: the groups the person folded or unfolded, against `openAtFirst` (against open while filtering).
-    /// `agent`: the chat's on screen; what it never gets leaves the other sections for Other Agents.
+    /// Returns the panel's lines. `toggled` holds the groups the person folded or unfolded, compared with
+    /// `openAtFirst` (or with open, while filtering). `agent` is the agent of the chat on screen. Items that agent
+    /// never gets move out of the other sections into Other Agents.
     static func lines(
         _ items: [Addon], toggled: Set<AddonGroup>, view: AddonView = .init(), tidied: Tidied? = nil,
         agent: String? = nil
@@ -77,7 +81,7 @@ enum AddonGroups {
         return lister.needsLook() + lister.servers() + lister.skills() + lister.instructions() + lister.others()
     }
 
-    /// Only other agents get it: `agent`'s chats never do.
+    /// True when only other agents get the item, so chats with `agent` never do.
     static func elsewhere(_ addon: Addon, _ agent: String) -> Bool {
         !addon.agents.isEmpty && !addon.agents.contains(agent)
     }
@@ -91,7 +95,8 @@ enum AddonGroups {
         return nil
     }
 
-    /// What the view lets through: what's off only when it shows, and only names the filter matches.
+    /// Returns the items the view lets through. Items that are off pass only when the view shows them, and only names
+    /// that match the filter pass.
     static func shown(_ items: [Addon], _ view: AddonView) -> [Addon] {
         let filter = view.filter.trimmingCharacters(in: .whitespaces)
         return items.filter { addon in
@@ -99,7 +104,7 @@ enum AddonGroups {
         }
     }
 
-    /// The heaviest first, those of unknown weight last, then by name.
+    /// Sorts the heaviest item first and items of unknown weight last. Items of equal weight sort by name.
     static func byWeight(_ addon: Addon, _ b: Addon) -> Bool {
         switch (addon.tokens, b.tokens) {
         case (let x?, let y?) where x != y: x > y
@@ -112,40 +117,43 @@ enum AddonGroups {
         addon.name.localizedStandardCompare(b.name) == .orderedAscending
     }
 
-    /// What a list weighs together; nil when none of it is known.
+    /// Returns the total weight of the items; nil when no item's weight is known.
     static func sum(_ items: [Addon]) -> Int? {
         let known = items.compactMap(\.tokens)
         return known.isEmpty ? nil : known.reduce(0, +)
     }
 
-    /// Whether a group's switch is off: its plugin is named off, or what loaded of it is.
+    /// True when the group's switch is off, which is when an item with the group's key is off: the plugin's own entry,
+    /// or one of its skills that loaded.
     static func isOff(_ addonGroup: AddonGroup, _ items: [Addon]) -> Bool {
         guard let key = addonGroup.key else { return false }
         return items.contains { $0.key == key && $0.off }
     }
 
-    /// A change that waits for a restart: off but loaded in this chat, or on again and not loaded.
+    /// True when a switch change waits for a restart. The item is off but still loaded in this chat, or it is on again
+    /// but not loaded yet.
     static func waits(_ addon: Addon) -> Bool {
         guard addon.key != nil, let loaded = addon.loaded, addon.problem == nil else { return false }
         return addon.off == loaded
     }
 
-    /// The servers that wait for a sign-in and are on: they offer nothing and still cost their tokens.
+    /// Returns the servers that are on and wait for a sign-in. They offer nothing yet still cost their tokens.
     static func unsigned(_ items: [Addon]) -> [Addon] {
         items.filter { $0.kind == .server && $0.signIn && !$0.off && $0.problem == nil && $0.key != nil }
     }
 }
 
-/// The lines of one listing: the items the view lets through, the groups folded by hand, the view's order.
+/// Builds the lines of one listing from the items the view lets through, the groups the person folded by hand, and
+/// the order the view asks for.
 private struct Lister {
-    /// `items`: what the chat's agent gets; `all`: with what only other agents get.
+    /// `items` is what the chat's agent gets. `all` also holds what only other agents get.
     let items: [Addon], all: [Addon], agent: String?, toggled: Set<AddonGroup>, view: AddonView
     var tidied: Tidied?
     private var filtering: Bool { !view.filter.trimmingCharacters(in: .whitespaces).isEmpty }
 
     func needsLook() -> [AddonLine] {
-        // What is off for the project has been dealt with: it stays in its own section, in grey, and leaves this one.
-        // Another agent's trouble is still the project's trouble, so it shows here too.
+        // An item that is off for the project has been dealt with, so it stays grey in its own section and leaves
+        // Needs a Look. A problem with another agent's item is still the project's problem, so it shows here too.
         let items = all
         let problems = items.filter { $0.problem != nil && !$0.off }, unsigned = AddonGroups.unsigned(items)
         let tidy = AddonGroups.tidied(items).filter { $0.check?.needsLook == true }
@@ -185,7 +193,8 @@ private struct Lister {
         return [.section(.instructions, count: files.count)] + sorted(files).map { .item($0, depth: 0) }
     }
 
-    /// What only other agents get, a folded group for each (by the first that gets it).
+    /// Lists what only other agents get, in one folded group per agent. An item goes under the first agent that gets
+    /// it.
     func others() -> [AddonLine] {
         guard let agent else { return [] }
         let list = all.filter { AddonGroups.elsewhere($0, agent) }
@@ -198,8 +207,8 @@ private struct Lister {
             }
     }
 
-    /// One Plugins group; in it a line per plugin with its switch, each unfolding to its skills. One that's off
-    /// (nothing of it loaded) is a line with nothing to unfold.
+    /// Builds the one Plugins group. It holds a line per plugin with the plugin's switch, and each line unfolds to the
+    /// plugin's skills. A plugin that is off has no skills loaded, so its line has nothing to unfold.
     private func plugins() -> [AddonLine] {
         let skills = items.filter { $0.kind == .skill && $0.source == .plugin }
         let names = Set(skills.compactMap(\.origin)).union(items.filter { $0.kind == .plugin }.map(\.name))
@@ -227,7 +236,8 @@ private struct Lister {
             + (open ? sorted(list).map { .item($0, depth: depth) } : [])
     }
 
-    /// While filtering every group with a match is open, and a click folds it; else as it starts, or as clicked.
+    /// While filtering, every group with a match is open and a click folds it. Otherwise a group is as it starts, or
+    /// the other way when the person clicked it.
     private func isOpen(_ addonGroup: AddonGroup) -> Bool {
         (filtering || addonGroup.openAtFirst) != toggled.contains(addonGroup)
     }

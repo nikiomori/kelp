@@ -3,29 +3,30 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A side of a screen the strip hides behind, as a picture-in-picture video does in Dia. Not the foot (the Dock) nor the head
-/// (the menu bar).
+/// A side of a screen that the strip can hide behind, as a picture-in-picture video does in Dia. The strip never hides
+/// behind the bottom (the Dock) or the top (the menu bar).
 enum StripEdge: String, Codable { case left, right }
 
-/// The strip behind an edge, without a window.
+/// The geometry of a strip behind an edge, worked out without a window.
 @MainActor
 extension StripModel {
-    /// What stays out: its handle, with the one sign on it.
+    /// How much of a hidden strip stays out: its handle, with the glint on it.
     static let sliver: CGFloat = 18
-    /// The handle's room in the strip, on the side away from the edge.
+    /// The room the handle takes in the strip, on the side away from the edge.
     static let handle: CGFloat = 20
     /// How long a question's line stays out beside the sliver; a failure's line stays out for less time, since it waits
     /// for nothing.
     static let questionStays: TimeInterval = 6, failureStays: TimeInterval = 4, doneStays: TimeInterval = 3
 
-    /// Let go more than a third past a side: it hides there.
+    /// Returns the side to hide behind when the strip is let go more than a third past it.
     static func edge(dropped frame: NSRect, in area: NSRect) -> StripEdge? {
         if frame.maxX - area.maxX > frame.width / 3 { return .right }
         if area.minX - frame.minX > frame.width / 3 { return .left }
         return nil
     }
 
-    /// A side with another screen past it isn't an edge: what hides would show there.
+    /// Whether a side of the screen is an outer edge. A side with another screen past it isn't, because a strip hidden
+    /// there would show on that screen.
     static func outer(_ edge: StripEdge, of screen: NSRect, among others: [NSRect]) -> Bool {
         !others.contains { other in
             let beside =
@@ -36,7 +37,8 @@ extension StripModel {
         }
     }
 
-    /// Behind `edge` with its sliver out, or all of it out (`out`: the pointer on it); `y` up from the area's foot.
+    /// Returns the frame of a strip behind `edge` with only its sliver out, or all of it out when `out` is set (the
+    /// pointer is on it). `y` is measured up from the bottom of the area.
     static func tucked(_ size: NSSize, in area: NSRect, edge: StripEdge, y: CGFloat, out: Bool) -> NSRect {
         let originX =
             switch edge {
@@ -47,7 +49,8 @@ extension StripModel {
         return NSRect(x: originX, y: top, width: size.width, height: size.height)
     }
 
-    /// Between a strip that's out and the edge it came from: a pointer pushed against the edge, still on it in all but name.
+    /// Whether the point is in the gap between a strip that's out and the edge it came from. A pointer pushed against
+    /// the edge there is still on the strip in all but name.
     static func inGap(_ point: NSPoint, beside strip: NSRect, edge: StripEdge) -> Bool {
         let withinX =
             switch edge {
@@ -57,15 +60,17 @@ extension StripModel {
         return withinX && point.y >= strip.minY && point.y <= strip.maxY
     }
 
-    /// What comes out of the edge as a line, or flashes its tile: what wasn't told yet, as loud as `upTo` (questions,
-    /// failures, finished work: what brings the strip up, `loudest`), the oldest question first. Work going on says nothing.
+    /// Returns the news that comes out of the edge as a line or flashes its tile. That is each item not told yet that
+    /// is as loud as `upTo` (questions, failures or finished work, whatever brings the strip up, see `loudest`), with
+    /// the oldest question first. Work going on is never news.
     static func news(_ items: [StripItem], told: Set<String>, upTo: DockFace.Cell = .failed) -> [StripItem] {
         items.filter { $0.cell != .working && $0.cell <= upTo && !told.contains(newsKey($0)) }.sorted {
             ($0.cell, $0.since) < ($1.cell, $1.since)
         }
     }
 
-    /// How long a line stays out: a question longest, a failure less, finished work a moment, as it waits for nothing.
+    /// Returns how long a line stays out. A question stays longest, a failure less, and finished work only a moment,
+    /// because it waits for nothing.
     static func stays(_ cell: DockFace.Cell) -> TimeInterval {
         cell == .asks ? questionStays : cell == .failed ? failureStays : doneStays
     }
@@ -73,14 +78,15 @@ extension StripModel {
     static func newsKey(_ item: StripItem) -> String { "\(item.session)|\(item.since.timeIntervalSince1970)" }
 }
 
-/// The sliver's one sign: a short bar in the state's colour that glows for a question (and breathes) or a failure, a dot
-/// when something finished, a still grey bar while they work.
+/// The one mark on the sliver of a hidden strip. It is a short bar in the state's colour that glows for a question or a
+/// failure (and breathes for a question), a dot when something finished, and a still grey bar while the agents work.
 final class StripGlint: NSView {
     static let size = NSSize(width: 6, height: 14)
     private let mark = CALayer(), second = CALayer()
 
     var cell: DockFace.Cell? { didSet { if cell != oldValue { needsDisplay = true } } }
-    /// More than one workspace asks: two bars, so a second question doesn't hide behind the first.
+    /// Set when more than one workspace asks, so the glint shows two bars and a second question doesn't hide behind the
+    /// first.
     var twice = false { didSet { if twice != oldValue { needsDisplay = true } } }
 
     override init(frame: NSRect) {
@@ -129,7 +135,8 @@ final class StripGlint: NSView {
             layer.removeAllAnimations()
         }
         CATransaction.commit()
-        // What breathes is what waits for you, as a tab's glow does; work going on is the quiet state and stands still.
+        // Only a question breathes, because it waits for the user, as a tab's glow does. Work going on is the quiet
+        // state and stands still.
         guard cell == .asks, !Motion.reduced else { return }
         let breathe = CABasicAnimation(keyPath: "opacity")
         breathe.fromValue = 1
@@ -151,7 +158,8 @@ final class StripGlint: NSView {
     }   // animations stop when a view leaves a window
 }
 
-/// Beside a hidden strip, one line out of the edge: the project and what it wants. A click brings the strip out.
+/// One line that comes out of the edge beside a hidden strip, with the project and what its agent wants. A click opens
+/// the agent's card, or brings the strip out when the agent is still at work.
 @MainActor
 final class StripLine {
     private static let height: CGFloat = 30, icon: CGFloat = 20
@@ -159,7 +167,7 @@ final class StripLine {
     private lazy var panel: StripPanel = StripPanel.floating(button, radius: Self.height / 2, fullScreen: true)
     private var ends: Timer?
     private var stays: TimeInterval = 0
-    /// Went by itself, its time up: the next news can come out.
+    /// Called when the line went away by itself because its time was up, so the next news can come out.
     var onGone: (() -> Void)?
 
     var onClick: (() -> Void)? {
@@ -169,8 +177,8 @@ final class StripLine {
 
     var frame: NSRect { panel.frame }
 
-    /// Out of `edge` beside the sliver of a strip at `strip`, for as long as its news stays (`StripModel.stays`) or the
-    /// pointer is on it. `more`: how much news waits behind it.
+    /// Shows the line out of `edge`, beside the sliver of the strip whose frame is `strip`. It stays as long as its
+    /// news lasts (`StripModel.stays`) or while the pointer is on it. `more` is how much news waits behind it.
     func show(_ item: StripItem, more: Int, app: AppModel, by strip: NSRect, edge: StripEdge) {
         button.show(item, more: more, app: app)
         button.onHover = { [weak self] on in self?.hold(on) }
@@ -178,7 +186,7 @@ final class StripLine {
         let content = panel.contentView
         content?.layoutSubtreeIfNeeded()
         let size = NSSize(width: content?.fittingSize.width ?? 0, height: Self.height)
-        // Beside the sliver, which is the strip's inner end: the rest of it is past the edge.
+        // Next to the sliver, which is the strip's inner end, because the rest of the strip is past the edge.
         let originX = edge == .right ? strip.minX - Metrics.gapWide - size.width : strip.maxX + Metrics.gapWide
         let frame = NSRect(x: originX, y: strip.midY - size.height / 2, width: size.width, height: size.height)
         let from = Motion.reduced ? 0 : (edge == .right ? 1 : -1) * StripModel.handle
@@ -186,7 +194,8 @@ final class StripLine {
         hold(false)
     }
 
-    /// Under the pointer it stays; off it, it goes after its time, or a moment if that's up.
+    /// Keeps the line out while the pointer is on it. Once the pointer leaves, the line goes after its time, or after a
+    /// moment if its time is already up.
     private func hold(_ on: Bool) {
         ends?.invalidate()
         guard !on else { return }
@@ -209,7 +218,7 @@ final class StripLine {
         shown.fadeOut { shown.alphaValue != 0 }
     }
 
-    /// The whole line is the button, and takes the click that reaches it with Kelp behind.
+    /// The whole line is one button, and it takes a click even while Kelp is behind other apps.
     private final class LineButton: PointerControl {
         var onHover: ((Bool) -> Void)?
         private var anyApp: NSTrackingArea?
@@ -270,7 +279,7 @@ final class StripLine {
         }
 
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-        /// With Kelp behind too: a line under the pointer stays out.
+        /// Tracks the pointer even while Kelp is behind other apps, so a line under the pointer stays out.
         override func updateTrackingAreas() {
             super.updateTrackingAreas()
             anyApp = retracked(anyApp, .activeAlways)

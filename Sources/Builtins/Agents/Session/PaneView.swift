@@ -5,37 +5,41 @@ import KelpKit
 import TerminalKit
 import WorkbenchKit
 
-/// One terminal bound to one daemon session, rendered by libghostty (attached via `kelp attach`, so the daemon keeps
-/// the process).
+/// One terminal bound to one daemon session, rendered by libghostty. The terminal runs `kelp attach`, so the daemon
+/// keeps the process.
 @MainActor
 final class PaneView: NSView {
     let sessionId: String
     let app: AppModel
-    /// None once it let go of its attach (`letGo`), until it's shown again.
+    /// The terminal view. It is nil after the pane lets go of its attach (`letGo`), until the pane is shown again.
     var ghostty: GhosttyTerminalView?
     private let endedLabel = NSTextField(labelWithString: String(localized: "Session ended"))
     private let restartButton = NSButton()
-    /// Under the output, which it must not cover: that the session stopped, and what to do about it. No height while it runs.
+    /// The bar that says the session stopped and offers what to do about it. It sits under the output, so it covers
+    /// none of it, and it has no height while the session runs.
     private lazy var endedBar = Bar.foot([endedLabel], [restartButton, closeButton])
     private lazy var closeButton = NSButton(
         title: String(localized: "Close"), target: self, action: #selector(closeTapped))
     private let endedSlot = NSView()
     private(set) lazy var endedHeight = endedSlot.heightAnchor.constraint(equalToConstant: 0)
     private var endedLeaving = false
-    /// Under the terminal: what an agent's shell tool ran.
+    /// The bar under the terminal that lists the commands an agent ran.
     private let commands: CommandsBar
-    /// Over the terminal's foot, made the first time a plan limit stops this agent.
+    /// The strip over the bottom of the terminal, made the first time a plan limit stops this agent.
     private var limitStrip: NSView?
-    /// Over it too, made the first time this agent asks to change a database (`DatabaseAskCard`).
+    /// The card that also sits over the bottom of the terminal, made the first time this agent asks to change a
+    /// database (`DatabaseAskCard`).
     private var askCard: DatabaseAskCard?
-    /// `kelp attach` still streams, and from which daemon (`AppModel.connections` when it started).
+    /// Whether `kelp attach` still streams, and which daemon it streams from (the value of `AppModel.connections` when
+    /// it started).
     private var attached = true
     private var attachedTo: Int
-    /// The status last seen: a session that goes from running to paused had its terminals hung up (the daemon ends
-    /// `kelp attach` then), this one's included.
+    /// The status seen last. When a session goes from running to paused, the daemon ends `kelp attach` for all of its
+    /// terminals, this one included.
     /// Limit: a pause and a wake handled in one run-loop turn look like no change; a per-session pause count would see it.
     private var lastStatus: AgentStatus?
-    /// In the line under an agent's terminal, which says itself how the command ended: no bar for that, no splits.
+    /// True when the pane is the console in the commands bar under an agent's terminal. That bar says itself how the
+    /// command ended, so the pane shows no ended bar and offers no splits.
     private let embedded: Bool
 
     var onClose: ((PaneView) -> Void)?
@@ -66,7 +70,7 @@ final class PaneView: NSView {
         } changed: { [weak self] _ in
             self?.settle()
         }
-        if let wid = session.worktreeId {   // an agent typed into a terminal asks there too
+        if let wid = session.worktreeId {   // an agent started by typing in a terminal asks there too
             let sid = session.id
             track(owner: self) { [app] in
                 app.session(sid)?.asksPermission == true
@@ -83,7 +87,7 @@ final class PaneView: NSView {
         overlay(card)
     }
 
-    /// A card over the foot of the terminal, inset from its edges, above the ended bar.
+    /// Places a card over the bottom of the terminal, inset from its edges, above the ended bar.
     private func overlay(_ card: NSView) {
         card.translatesAutoresizingMaskIntoConstraints = false
         addSubview(card)
@@ -122,7 +126,7 @@ final class PaneView: NSView {
             self?.settle()
         }
         terminal.onSearch = { [weak self] in self?.searchEvent($0) }
-        // Paths the agent prints are its folder's: its own worktree once it went into one.
+        // Paths the agent prints are relative to its folder, which is its own worktree once it has moved into one.
         let cwd = { [app] in app.session(id)?.currentDir ?? session.cwd }, wid = session.worktreeId
         let projects = { [app] in app.repos.map(\.path) }, app = app
         terminal.onOpenURL = { Self.openLink($0, cwd: cwd(), elsewhere: projects(), workspace: wid, in: app) }
@@ -165,28 +169,32 @@ final class PaneView: NSView {
         ])
     }
 
-    /// A new connection may be a new daemon (an update, Restart Background Service, a crash), whose session this stream
-    /// no longer reaches — libghostty reports the attach's exit only after a key press, so the connection is the sign.
-    /// So is a pause: the daemon hangs up the terminals of a session it pauses (its workspace archived or closed).
-    /// The session living on, attach again: only on screen, a hidden tab attaches when shown (a restart mustn't wake
-    /// every paused agent). A paused one attaches again when it's shown next (which wakes it, as opening any paused tab
-    /// does) or on Resume, never on screen right after its pause. Against the same daemon that's one history replay,
-    /// nothing lost. Ended: "Session ended".
+    /// Brings the pane in line with its session and connection. A new connection may mean a new daemon (after an
+    /// update, Restart Background Service or a crash), and this stream no longer reaches the session there. libghostty
+    /// reports that `kelp attach` exited only after a key press, so the new connection is the sign to act on. A pause
+    /// is a sign too, because the daemon hangs up the terminals of a session it pauses (when its workspace is archived
+    /// or closed). If the session lives on, the pane attaches again, but only on screen. A hidden tab attaches when it
+    /// is shown, so a restart doesn't wake every paused agent. A paused session attaches again when it is next shown
+    /// (which wakes it, as opening any paused tab does) or on Resume, and never on screen right after its pause.
+    /// Against the same daemon, attaching again is one history replay and loses nothing. When the session has ended,
+    /// the pane says "Session ended".
     private func settle(shown: Bool = false) {
         let session = app.session(sessionId), model = app
         if session?.status == .paused, let was = lastStatus, was != .paused { attached = false }
         lastStatus = session?.status
-        // One whose connection to its host dropped (a sleep, a network change) attaches again when it's shown, as a
-        // paused one does: to its agent still in tmux there, under the same session.
+        // A session whose connection to its host dropped (after a sleep or a network change) attaches again when it
+        // is shown, as a paused one does. It attaches to its agent, which still runs in tmux on the host under the
+        // same session.
         if let session, session.status != .exited || session.connectionLost && shown, model.connected, window != nil,
             model.connections != attachedTo || shown && !attached
         {
             reattach(session)
         }
         let paused = !attached && session?.status == .paused
-        // Let go of while hidden is no stop: the ended bar would greet the tab shown again, then fade.
+        // A pane let go of while hidden has not stopped. Otherwise the ended bar would greet the tab when it is shown
+        // again, and then fade.
         let stopped = !embedded && (!attached && !released || session?.status == .exited)
-        if stopped, endedLeaving {   // back while it was going
+        if stopped, endedLeaving {   // stopped again while the bar was fading out
             endedLeaving = false
             endedBar.animator().alphaValue = 1
         }
@@ -197,7 +205,8 @@ final class PaneView: NSView {
             } else if window == nil || Motion.reduced {
                 endedHeight.constant = 0
             } else {
-                // It fades as it came, and the terminal takes its room once it's gone: not cut off in a frame.
+                // The bar fades out the way it came in, and the terminal takes its room only once it's gone, so the
+                // bar isn't cut off in a single frame.
                 endedLeaving = true
                 NSAnimationContext.runAnimationGroup { ctx in
                     ctx.duration = Motion.slow
@@ -213,7 +222,8 @@ final class PaneView: NSView {
                 }
             }
         }
-        // Its agent still runs in tmux on the host (Session.connectionLost): Reconnect attaches to it again.
+        // When the connection is lost (Session.connectionLost), the agent still runs in tmux on the host, and
+        // Reconnect attaches to it again.
         let lost = session?.connectionLost == true
         endedLabel.stringValue =
             paused
@@ -226,7 +236,7 @@ final class PaneView: NSView {
     private func reattach(_ session: Session) {
         let focused = ghostty.map { window?.firstResponder === $0 } ?? false
         findBar?.removeFromSuperview()
-        findBar = nil   // it searched the old terminal
+        findBar = nil   // the find bar searched the old terminal
         ghostty?.removeFromSuperview()
         attached = true
         released = false
@@ -250,20 +260,24 @@ final class PaneView: NSView {
 
     private(set) var offScreen: Task<Void, Never>?
 
-    /// How long a terminal out of sight keeps its surface (~50 MB of GPU memory each: a few hidden tabs add up).
+    /// How long a terminal out of sight keeps its surface. Each surface takes about 50 MB of GPU memory, so a few
+    /// hidden tabs add up.
     static let releaseAfter: TimeInterval = 5 * 60
-    /// `releaseAfter`, or sooner when idle agents pause sooner: the daemon pauses only one nobody is attached to.
+    /// Returns how long a hidden terminal waits before it lets go: `releaseAfter`, or less when idle agents pause
+    /// sooner. It must not wait longer, because the daemon pauses only an agent that nobody is attached to.
     static func offScreenWait(hibernateMinutes: Double) -> TimeInterval {
         hibernateMinutes > 0 ? min(releaseAfter, hibernateMinutes * 60) : releaseAfter
     }
 
-    /// Let go of while out of sight (`letGo`): not stopped, only not drawn. Shown again, it attaches anew.
+    /// True after the pane let go of its terminal while out of sight (`letGo`). The session hasn't stopped, it is only
+    /// not drawn, and the pane attaches anew when it is shown again.
     private(set) var released = false
 
-    /// Out of sight a while (`offScreenWait`): its terminal goes, and `kelp attach` with it, while the session runs on in
-    /// the daemon. The release pauses nothing; with nobody attached an idle agent may pause (Pause idle agents, the
-    /// daemon's). A tab in any window (a group's own window too, minimised or not) is never let go of. Shown again, it
-    /// attaches anew (`settle`): one history replay, or a wake if its agent was paused meanwhile.
+    /// Called once the pane has been out of sight for a while (`offScreenWait`). It removes the terminal, and `kelp
+    /// attach` with it, while the session runs on in the daemon. Letting go pauses nothing, but with nobody attached,
+    /// the daemon's Pause idle agents setting may pause an idle agent. A tab in any window (a group's own window too,
+    /// minimised or not) is never let go of. When the pane is shown again, it attaches anew (`settle`), which is one
+    /// history replay, or a wake if its agent was paused meanwhile.
     func letGo() {
         guard window == nil, attached else { return }
         findBar?.removeFromSuperview()
@@ -290,7 +304,8 @@ final class PaneView: NSView {
         if changed { commands.paneResized() }
     }
 
-    /// Columns × rows now; the last one seen anywhere (`app.workbench.terminalGrid`) sizes the next terminal before it's on screen.
+    /// The terminal's columns × rows right now. Each read also stores the grid in `app.workbench.terminalGrid`, because
+    /// the last grid seen anywhere sizes the next terminal before it is on screen.
     var gridSize: (cols: Int, rows: Int)? {
         if let grid = ghostty?.gridSize {
             app.workbench.terminalGrid = grid
@@ -299,10 +314,10 @@ final class PaneView: NSView {
         return nil
     }
 
-    /// Text dropped or dictated into the prompt.
+    /// Inserts text dropped or dictated into the prompt.
     func insert(_ text: String) { ghostty?.insert(text) }
 
-    /// Right-click where the program in the terminal doesn't take the mouse itself, like Terminal's menu.
+    /// The right-click menu, like Terminal's, shown where the program in the terminal doesn't take the mouse itself.
     override func menu(for event: NSEvent) -> NSMenu? {
         guard let terminal = ghostty else { return nil }
         let menu = NSMenu()
@@ -320,7 +335,7 @@ final class PaneView: NSView {
         ).target = terminal
         menu.addItem(.separator())
         let shell = app.session(sessionId)?.isTerminal == true
-        if shell, let text = terminal.selection, !text.isEmpty {   // a build's error, handed over without copying it
+        if shell, let text = terminal.selection, !text.isEmpty {   // hands a build's error to the agent without a copy
             menu.add(String(localized: "Send Selection to Agent")) { [app] in FileActions(app).sendToAgent(text: text) }
         }
         menu.add(String(localized: "Find…")) { [weak self] in self?.showFind(nil) }
@@ -339,8 +354,8 @@ final class PaneView: NSView {
     }
 
     @objc private func closeTapped() { onClose?(self) }
-    /// Resume on a paused pane, and Reconnect on one whose host dropped, attach again (and so wake the agent); otherwise
-    /// the session starts over.
+    /// On a paused pane the button is Resume, and on a pane whose host dropped it is Reconnect. Both attach again,
+    /// which wakes the agent. Otherwise the button is Restart, and the session starts over.
     @objc private func restartTapped() {
         if !attached, let session = app.session(sessionId), session.status == .paused || session.connectionLost {
             reattach(session)

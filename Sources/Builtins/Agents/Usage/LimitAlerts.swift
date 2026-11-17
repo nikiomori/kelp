@@ -1,18 +1,19 @@
 import Core
 import Foundation
 
-/// Plan limits crossing a level (Settings › usage.alertAt, 80 % by default) or 95 %: one alert per level, until the limit
-/// falls back 10 points under the lowest (its window reset).
+/// Raises alerts when a plan limit crosses a level: the one set in Settings (usage.alertAt, 80 % by default), or 95 %.
+/// Each level alerts once, until the limit falls 10 points below the lowest level, which means its window reset.
 struct LimitAlerts {
     struct Alert: Equatable { var agent: String, kind: String, percent: Double, level: Int, resets: String? }
-    /// `first` and 95; none when `first` is nil (off).
+    /// Returns the levels to alert at, `first` and 95. Returns none when `first` is nil, because alerts are off.
     static func levels(first: Int?) -> [Int] { first.map { $0 < 95 ? [$0, 95] : [$0] } ?? [] }
 
     private var told: [String: Int] = [:]   // "agent|kind" → highest level already announced
     private var seeded = false
 
-    /// The first reading only sets the baseline: what was already full when Kelp opened isn't news. Fresh ones only:
-    /// a reading from over half an hour ago says nothing about now.
+    /// Returns the new alerts for `result`. The first reading only sets the baseline, because a limit already full
+    /// when Kelp opened isn't news. Only fresh readings count, because a reading from over half an hour ago says
+    /// nothing about now.
     mutating func update(_ result: UsageGet.Result, first: Int? = 80) -> [Alert] {
         let levels = Self.levels(first: first)
         var alerts: [Alert] = []

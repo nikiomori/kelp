@@ -6,13 +6,15 @@ import Quartz
 import SwiftUI
 import WorkbenchKit
 
-/// The workspace's files: tree with git status (click opens a tab), file operations, and project search.
+/// The Files panel: the workspace's files as a tree with git status (a click opens a tab), file operations, and
+/// project search.
 @MainActor
 final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSSearchFieldDelegate,
     NSMenuDelegate
 {
     let app: AppModel
-    /// What the project takes on disk, for the foot (the Files built-in's, which the Disk Usage tab reads too).
+    /// The project's size on disk, shown in the panel's foot. The Files built-in owns it, and the Disk Usage tab reads
+    /// it too.
     let disk: DiskSizes
     init(app: AppModel, disk: DiskSizes = DiskSizes()) {
         self.app = app
@@ -20,8 +22,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
-    /// Brings the Files panel up and hands it to `then` once built: the inspector makes it on the next turn, when it
-    /// follows the panel just chosen.
+    /// Brings the Files panel up and hands it to `then` once it's built. The inspector builds the panel on the next
+    /// run-loop turn, when the inspector follows the panel just chosen.
     static func shown(_ app: AppModel, _ then: @escaping @MainActor (FilesPanel) -> Void) {
         app.workbench.showPanel("files")
         DispatchQueue.main.async { (app.workbench.builtPanel("files") as? FilesPanel).map(then) }
@@ -38,26 +40,30 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     var status: [String: FileChange] = [:]
     /// Folders with a changed file somewhere under them (a grey dot).
     var changedFolders = Set<String>()
-    /// The latest listing (listed, ignored), which the name filter narrows.
+    /// The latest listing, as (listed paths, ignored paths), which the name filter narrows.
     var shownPaths: ([String], [String]?)?
-    /// The listing the whole tree on show was built from, what the next one is compared with: nil while it's narrowed
-    /// or not built, and the next is built anew.
+    /// The listing that the whole tree on show was built from, which the next listing is compared with. It's nil while
+    /// the tree is narrowed or not built, and then the next listing builds a new tree.
     var treeBase: (paths: [String], ignored: [String])?
-    /// Which listing is the latest: one worked out meanwhile off the main actor gives way to it.
+    /// Counts listings, so a listing still being worked out off the main actor gives way to a newer one.
     var listing = 0
-    /// Those paths in lower case, for the name filter: made once per listing, not for every path on every key.
+    /// The listed paths in lower case, for the name filter. They're made once per listing, not for every path on every
+    /// key.
     var lowered: (of: [String], paths: [String]) = ([], [])
-    /// The content search on its way, and the name filter's narrowing: the next key's takes over.
+    /// The content search in progress, and the narrowing by the name filter in progress. The next key's search or
+    /// narrowing replaces them.
     var searching: Task<Void, Never>?
     var narrowing: Task<Void, Never>?
-    /// What the open ignored folders hold, by folder: kept when the tree is built again, read again after an operation.
+    /// The files in each open ignored folder, by folder. They're kept when the tree is built again, and read again
+    /// after an operation.
     var opened: [String: [String]] = [:]
-    /// Its files and their git status, pushed by the daemon while the panel is on screen (`WatchTopic.files`, `.git`):
-    /// a hidden one costs no listing on every change, and the list comes again when it shows.
+    /// The workspace's files and their git status, which the daemon pushes while the panel is on screen
+    /// (`WatchTopic.files`, `.git`). A hidden panel costs no listing on every change, and the list comes again when the
+    /// panel shows.
     private lazy var filesWatch = Watched(.files, in: app)
     private lazy var gitWatch = Watched(.git, in: app)
     private var shown = false
-    /// Badges redrawn while hidden wait for it to show.
+    /// Badges that change while the panel is hidden are redrawn when it shows.
     private lazy var whenShown = WhenShown(view)
     var worktree: Worktree?
     var root: String { worktree?.path ?? "/" }
@@ -79,7 +85,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         outline.menu = NSMenu()
         outline.menu?.delegate = self
         search.delegate = self
-        // One field, like Finder's: empty shows the tree, a search (↩) shows matches in their place, clearing it goes back.
+        // One field, like Finder's. When empty, it shows the tree. A search (↩) shows matches in the tree's place, and
+        // clearing the field goes back to the tree.
         setUpSearchMode()
         search.target = self
         search.action = #selector(runSearch)
@@ -143,8 +150,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
 
     func menuNeedsUpdate(_ menu: NSMenu) { fill(menu, row: outline.clickedRow) }
 
-    /// The tree's right-click menu, for what's under the pointer. Over empty space `clickedRow` is -1 and `selectedNode`
-    /// answers with the selected row, so nothing here goes through it: Move to Trash would reach a file nobody clicked.
+    /// Fills the tree's right-click menu for the row under the pointer. Over empty space `clickedRow` is -1, and
+    /// `selectedNode` would answer with the selected row instead. So nothing here uses `selectedNode`, or Move to Trash
+    /// could reach a file nobody clicked.
     func fill(_ menu: NSMenu, row: Int) {
         menu.removeAllItems()
         guard worktree != nil else { return }
@@ -152,7 +160,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         if node.children == nil { fileItems(menu, node.path) } else { folderItems(menu, node.path) }
     }
 
-    /// What goes into a folder, the project's own over empty space.
+    /// The items for a folder. Over empty space, they're for the project's top folder.
     private func folderItems(_ menu: NSMenu, _ dir: String) {
         menu.add(String(localized: "New File")) { [weak self] in self?.addFile(in: dir) }
         menu.add(String(localized: "New Folder…")) { [weak self] in self?.addFolder(in: dir) }
@@ -200,7 +208,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     private func bind(_ wid: String?) {
         guard wid != worktree?.id else { return }
         let next = app.worktree(wid)
-        // Another folder: drop the old tree now, or a click before the reload would act on its paths under the new root.
+        // For another folder, drop the old tree now, or a click before the reload would act on the old paths under the
+        // new root.
         if next?.path != worktree?.path {
             nodes = []
             status = [:]
@@ -237,8 +246,8 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         gitWatch.key = shown ? worktree.map { app.gitKey($0.id) } : nil
     }
 
-    /// The files listed now, then `done`: after an operation of its own, which selects or renames what it made (the
-    /// daemon's push follows a moment later). Otherwise the tree follows what's pushed.
+    /// Lists the files now, then calls `done`. The panel's own operations use this to select or rename what they made,
+    /// because the daemon's push only follows a moment later. Otherwise the tree follows what's pushed.
     func reloadTree(then done: (() -> Void)? = nil) {
         guard let current = worktree else {
             nodes = []
@@ -247,13 +256,14 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         }
         Task {
             let result = await app.tryCall(FilesList(id: current.id))
-            // What it made or moved may be in an open ignored folder, which the list doesn't say: those are read again.
+            // What the operation made or moved may be in an open ignored folder, which the listing doesn't cover, so
+            // those folders are read again.
             for folder in opened.keys {
                 let entries = await app.quiet(FilesIgnored(id: current.id, folder: folder + "/"))
                 guard worktree?.id == current.id else { return }
-                opened[folder] = entries   // gone: nil drops it
+                opened[folder] = entries   // a folder that's gone returns nil, which removes it from `opened`
             }
-            treeBase = nil   // the open ignored folders were read again: the tree is built with them
+            treeBase = nil   // the ignored folders were just read, so build a whole tree with them
             let event = FilesEvent(
                 worktree: current.id, paths: result.value, ignored: await app.quiet(FilesIgnored(id: current.id)),
                 error: result.error)
@@ -262,11 +272,13 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         }
     }
 
-    /// The workspace's files as listed (pushed, or read after an operation): the tree, or why there's none. How it
-    /// changed is worked out off the main actor; a few files in or out go where they belong, more build it again.
+    /// Shows the workspace's files as listed, whether pushed or read after an operation: the tree, or why there's none.
+    /// How the tree changed is worked out off the main actor. A few files added or removed go where they belong, and
+    /// more changes build the tree again.
     @discardableResult
     func listed(_ event: FilesEvent?) -> Task<Void, Never>? {
-        // Another workspace's (switched meanwhile), or a rename in place, which a reload would end (it reads after).
+        // Skips a listing for another workspace (the user switched meanwhile). It also skips while a name is being
+        // edited in place, because a reload would end the rename, which reads the files after.
         guard let event, event.worktree == worktree?.id, renaming == nil else { return nil }
         showLoadError(event.error)
         guard let paths = event.paths else { return nil }
@@ -291,7 +303,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
                 let places = outline.rowPlaces(rowKey)
                 showFadedRows()
                 guard patchTree(added: added, removed: removed) else {
-                    treeBase = nil   // a file became a folder: built anew
+                    treeBase = nil   // a file became a folder, so build a new tree
                     return await listed(event)?.value ?? ()
                 }
                 treeBase = (paths, ignored)
@@ -300,7 +312,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         }
     }
 
-    /// A tree built anew: the folders that were open open again, the selection stays on its file.
+    /// Shows a newly built tree. The folders that were open open again, and the selection stays on its file.
     func showTree(_ tree: [FileNode], base: (paths: [String], ignored: [String])?) {
         let expanded = Set(
             (0..<outline.numberOfRows).compactMap {
@@ -311,7 +323,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         showFadedRows()
         nodes = tree
         treeBase = base
-        if base == nil { FileNode.open(opened, in: nodes) }   // a whole tree had them read off the main actor
+        if base == nil { FileNode.open(opened, in: nodes) }   // `update` already filled a whole tree's open folders
         outline.reloadData()
         @MainActor func expand(_ ns: [FileNode]) {
             for node in ns where node.children != nil && expanded.contains(node.path) {
@@ -327,7 +339,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         settled(places)
     }
 
-    /// After the tree changed: the rows that stayed travel from `places`, and Quick Look follows.
+    /// Runs after the tree changed. The rows that stayed slide from their old `places`, and Quick Look reloads.
     private func settled(_ places: [String: NSPoint]) {
         outline.settleRows(from: places, rowKey)
         if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
@@ -335,9 +347,9 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         }
     }
 
-    /// Git's letters on the rows (only the letters: Source Control says what failed), and folders holding a change.
-    /// The status is kept at once (menus and the name filter read it); only the rows whose badge or dot changed are
-    /// drawn again, and a hidden panel's all of them once it shows.
+    /// Shows git's letters on the rows, and a dot on folders holding a change. Only the letters show, because Source
+    /// Control says what failed. The status is stored at once, because menus and the name filter read it. Only the
+    /// rows whose badge or dot changed are drawn again, and a hidden panel redraws all its rows once it shows.
     private func badges(_ changes: [FileChange]?) {
         let was = (status, changedFolders)
         status = Dictionary((changes ?? []).map { ($0.path, $0) }, uniquingKeysWith: { a, _ in a })
@@ -354,13 +366,14 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     func openFile(_ rel: String, line: Int? = nil, focus: Bool = true) {
         app.workbench.open(TabURI.file(root + "/" + rel, line: line), focus: focus)
     }
-    /// The files couldn't be listed (a folder moved away, git refusing it): say why where the tree would be, not an empty tree.
+    /// Says why the files couldn't be listed (a folder moved away, git refusing it), where the tree would be, instead
+    /// of showing an empty tree.
     let loadError = EmptyStateView()
-    /// A search that found nothing says so (and the tree is one click away), rather than an empty list.
+    /// Says that a search found nothing (and the tree is one click away), instead of showing an empty list.
     let noResults = EmptyStateView()
     let typing = Debounce()
     var searchOptions = SearchOptions()
-    /// What the field looks through: names narrow the tree in place, contents list matches instead of it.
+    /// What the field searches. Names narrow the tree in place, and contents list matches in place of the tree.
     var byName = UserDefaults.standard.bool(forKey: "files.searchByName")
     private(set) lazy var resultsTop = results.scroll.topAnchor.constraint(equalTo: leftScroll.topAnchor)
     private(set) lazy var caseToggle = TextToggle("Aa", tip: String(localized: "Match Case")) { [weak self] in
@@ -372,12 +385,12 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     private(set) lazy var regexToggle = TextToggle(".*", tip: String(localized: "Regular Expression")) { [weak self] in
         self?.toggle(\.regex)
     }
-    /// Under the search, while it has found something.
+    /// The replace field, shown under the search while the search has found something.
     let replaceField = NSSearchField()
     private(set) lazy var replaceButton = ClosureButton(title: String(localized: "Replace All…")) { [weak self] in
         self?.replaceAll()
     }
     lazy var replaceRow = NSStackView(views: [replaceField, replaceButton])
-    /// Under the field: a pattern that isn't valid, while the last results stay.
+    /// Says, under the field, that a pattern isn't valid, while the last results stay.
     let patternError = NSTextField(labelWithString: "")
 }

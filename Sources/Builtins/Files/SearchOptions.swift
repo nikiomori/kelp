@@ -33,7 +33,8 @@ extension FilesPanel {
         runSearch()
     }
 
-    /// They come with a search: an empty field keeps its room for the name of what you're after, unless one is on.
+    /// Shows the toggles only while there's a search. An empty field keeps its room for what you type, unless a toggle
+    /// is on.
     func showSearchOptions() {
         let keys: [(TextToggle, Bool)] = [
             (caseToggle, searchOptions.matchCase), (wordToggle, searchOptions.wholeWord),
@@ -47,7 +48,8 @@ extension FilesPanel {
     }
 }
 
-/// A toggle as a command (the palette, Settings › Keyboard): it brings the panel up first, as ⇧⌘F does.
+/// Makes a search toggle a command, for the palette and Settings › Keyboard. The command brings up the panel first, as
+/// ⇧⌘F does.
 @MainActor
 func searchOption(
     _ app: AppModel, _ id: String, _ title: String, _ key: String, _ option: WritableKeyPath<SearchOptions, Bool>

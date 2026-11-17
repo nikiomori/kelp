@@ -5,8 +5,8 @@ import KelpKit
 import WebKit
 import WorkbenchKit
 
-/// ⋯ on a browser tab's bar: the page in the Mac's own browser, its size, a screenshot or a recording, and its site's
-/// cookies cleared.
+/// The ⋯ menu on a browser tab's bar. It opens the page in the Mac's own browser, sets the page's size, takes a
+/// screenshot or a recording, and clears the site's cookies.
 @MainActor
 extension BrowserTab {
     @objc func openExternal() { if let url = web.url { PreviewLinks.openOutside(url) } }
@@ -15,7 +15,8 @@ extension BrowserTab {
         browser.map { String(localized: "Open in \($0.name)") } ?? String(localized: "Open in Browser")
     }
 
-    /// The browser that opens web links on this Mac, by name and with its icon: the button says where the page goes.
+    /// Returns the name and icon of the browser that opens web links on this Mac, so the button says where the page
+    /// goes.
     static func defaultBrowser() -> (name: String, icon: NSImage)? {
         guard let probe = URL(string: "https://example.com"),
             let app = NSWorkspace.shared.urlForApplication(toOpen: probe)
@@ -32,7 +33,7 @@ extension BrowserTab {
         menu.addItem(.separator())
         menu.add(String(localized: "Reload Ignoring Cache")) { [weak self] in self?.reloadPage(fromOrigin: true) }
         menu.add(String(localized: "Copy Screenshot")) { [weak self] in
-            self?.web.takeSnapshot(with: nil) { img, _ in   // WebKit answers on main
+            self?.web.takeSnapshot(with: nil) { img, _ in   // WebKit calls back on the main thread
                 MainActor.assumeIsolated {
                     guard let img else { return }
                     NSPasteboard.general.clearContents()
@@ -91,7 +92,7 @@ extension BrowserTab {
         store.fetchDataRecords(ofTypes: types) { [weak self] records in
             guard self != nil else { return }
             let mine = records.filter { host == $0.displayName || host.hasSuffix("." + $0.displayName) }
-            store.removeData(ofTypes: types, for: mine) { [weak self] in   // WebKit answers on main
+            store.removeData(ofTypes: types, for: mine) { [weak self] in   // WebKit calls back on the main thread
                 MainActor.assumeIsolated {
                     Banner.show(String(localized: "Cleared \(host)'s cookies and data"))
                     self?.web.reload()

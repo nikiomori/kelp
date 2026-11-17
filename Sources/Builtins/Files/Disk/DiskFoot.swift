@@ -3,9 +3,9 @@ import DesignKit
 import KelpKit
 import SwiftUI
 
-/// The foot of Files: what the workspace's project takes on its disk and how much of it rebuilds, a click from the Disk
-/// Usage tab. Measured when it shows and the last measure is old: a remote project's on its host, which the files
-/// above it are read from; nothing for no project at all.
+/// The footer of the Files panel. It shows how much disk the workspace's project takes and how much of that rebuilds,
+/// and a click opens the Disk Usage tab. It measures when it shows and the last measure is old. A remote project is
+/// measured on its host, where the files above it are read from. Without a project, the footer shows nothing.
 struct DiskFoot: View {
     let app: AppModel, sizes: DiskSizes
     @State private var hovering = false
@@ -14,7 +14,7 @@ struct DiskFoot: View {
         let repoId = app.worktree(app.workbench.workspaceId)?.repoId
         let host = repoId.flatMap { app.repo($0) }.flatMap { RemoteHost.of($0.path)?.host }
         let measured = repoId.flatMap { sizes.byRepo[$0] }
-        // Shown once there's something to say: measuring, or a measure with something in it.
+        // The footer shows once there's something to say, which is while measuring or when a measure found something.
         let shows = repoId.map { measured.map { !$0.items.isEmpty } ?? sizes.measuring.contains($0) } ?? false
         VStack(spacing: 0) {
             if let repoId, shows {

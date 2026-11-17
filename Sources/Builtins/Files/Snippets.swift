@@ -3,10 +3,12 @@ import Core
 import EditorKit
 import KelpKit
 
-/// Snippets in VS Code's format, so existing ones copy over: `~/.kelp/snippets/<language>.json`, and a project's own in
-/// `.kelp/snippets/`. Read each time they're asked for: a file just edited counts at once.
+/// Snippets in VS Code's format, so existing ones can be copied over. The user's are in
+/// `~/.kelp/snippets/<language>.json`, and a project's own are in `.kelp/snippets/`. They are read each time they're
+/// asked for, so a file just edited counts at once.
 enum Snippets {
-    /// `{"Name": {"prefix": "x" or […], "body": "…" or […], "description": "…"}}`, comments allowed.
+    /// Reads a snippets file: `{"Name": {"prefix": "x" or […], "body": "…" or […], "description": "…"}}`, with
+    /// comments allowed.
     static func read(_ text: String, path: String) throws -> [CodeEditor.Completion] {
         let json = try JSONSerialization.jsonObject(with: Data(text.utf8), options: [.json5Allowed])
         guard let all = json as? [String: Any] else { return [] }
@@ -23,7 +25,8 @@ enum Snippets {
 
     private static func lines(_ value: Any?) -> [String]? { (value as? String).map { [$0] } ?? value as? [String] }
 
-    /// The variables copied snippets use most; the longest name first, as one starts with another.
+    /// Fills in the variables that copied snippets use most. Longer names are replaced first, because one name can
+    /// start with another.
     static func fill(_ body: String, path: String, now: Date = Date()) -> String {
         let name = (path as NSString).lastPathComponent,
             date = Calendar.current.dateComponents([.year, .month, .day], from: now)
@@ -40,7 +43,8 @@ enum Snippets {
         }
     }
 
-    /// The project's snippets, then the user's. Having no file is the usual case; a file that can't be read says so.
+    /// Loads the project's snippets, then the user's. Having no file is the usual case, but a file that can't be read
+    /// shows a banner.
     @MainActor static func load(app: AppModel, language: String, root: String, path: String) async -> [CodeEditor
         .Completion]
     {

@@ -26,7 +26,7 @@ extension FilesPanel {
             badge: badge, dimmed: badge == nil && node.ignored)
         return cell
     }
-    /// An ignored folder's files are read when it opens (node_modules can hold 100k).
+    /// Reads an ignored folder's files only when the folder opens, because node_modules can hold 100k.
     func outlineViewItemWillExpand(_ note: Notification) {
         guard let node = note.userInfo?["NSObject"] as? FileNode, node.unread, let current = worktree else { return }
         node.unread = false
@@ -38,11 +38,11 @@ extension FilesPanel {
             outline.reloadItem(node, reloadChildren: true)
         }
     }
-    // themes may draw open folders differently
+    // Reloads the row, because themes may draw open folders differently.
     func outlineViewItemDidExpand(_ note: Notification) { reloadRow(of: note) }
     func outlineViewItemDidCollapse(_ note: Notification) {
         if let node = note.userInfo?["NSObject"] as? FileNode, node.ignored, node.children != nil {
-            node.unread = true   // read again when it opens: nothing pushes what changed in it
+            node.unread = true   // nothing pushes changes in it, so read it again when it opens
             opened = opened.filter { $0.key != node.path && !$0.key.hasPrefix(node.path + "/") }
         }
         reloadRow(of: note)
@@ -51,12 +51,13 @@ extension FilesPanel {
         let row = outline.row(forItem: note.userInfo?["NSObject"])
         if row >= 0 { outline.reloadData(forRowIndexes: [row], columnIndexes: [0]) }
     }
-    /// A listing with a few files in or out: they go in where they belong and out where they were, and only those rows
-    /// move (the rest keep their cells, the folders opened, the selection and the scroll). False: the tree is to be built
-    /// again (a file became a folder).
+    /// Applies a listing with a few files added or removed. They go in where they belong and out where they were, and
+    /// only those rows move, so the rest keep their cells, open folders, selection and scroll. Returns false when the
+    /// tree must be built again (a file became a folder).
     func patchTree(added: [String], removed: [String]) -> Bool {
         guard let edits = FileNode.patch(&nodes, added: added, removed: removed) else { return false }
-        // Rows into a folder on show; a closed one (or one inside one) is asked again when it opens.
+        // Only rows in a folder on show are inserted or removed. A closed folder, or one inside a closed folder, is
+        // reloaded instead, and asks for its rows again when it opens.
         let live = edits.map { edit in
             edit.parent.map { outline.row(forItem: $0) >= 0 && outline.isItemExpanded($0) } ?? true
         }
@@ -73,7 +74,8 @@ extension FilesPanel {
         return true
     }
 
-    // drag files out (to terminals = into the agent prompt, to Finder) and within the tree (move)
+    // Dragging files out of the tree (to Finder, or to a terminal, which puts them in the agent's prompt), and within
+    // the tree, which moves them.
     func outlineView(_ tree: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
         (item as? FileNode).map { URL(fileURLWithPath: root).appendingPathComponent($0.path) as NSURL }
     }
@@ -100,7 +102,7 @@ extension FilesPanel {
 }
 
 /// The row for a file or folder: its icon, its name and git's status letter (a dot on a folder that holds a change). It
-/// is made once, and `show` sets everything it shows, because the outline hands back the rows it set aside.
+/// is made once, and `show` sets everything it shows, because the outline reuses rows it set aside.
 final class FileRowCell: NSTableCellView {
     static let id = NSUserInterfaceItemIdentifier("files.row")
     private let name = NSTextField(labelWithString: ""), icon = NSImageView(), badge = NSTextField(labelWithString: "")
@@ -131,10 +133,10 @@ final class FileRowCell: NSTableCellView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// `dimmed`: what git ignores, drawn as VS Code does.
+    /// Shows a row. `dimmed` is for what git ignores, which is drawn dimmed as VS Code does.
     func show(_ text: String, icon image: NSImage, badge mark: (String, NSColor)?, dimmed: Bool) {
         name.stringValue = text
-        name.isEditable = false   // a row renamed in place before
+        name.isEditable = false   // the row may have been renamed in place before
         name.textColor = dimmed ? .secondaryLabelColor : .labelColor
         icon.image = image
         icon.alphaValue = dimmed ? 0.5 : 1

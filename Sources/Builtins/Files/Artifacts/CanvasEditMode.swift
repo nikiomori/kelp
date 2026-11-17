@@ -1,14 +1,15 @@
 import Foundation
 
-/// Edit on a canvas, by hand, without the agent (`kelpEdit(true)` from the bar), on top of `CanvasEdit`'s sheet: a
-/// click chooses an element, outlined, and the column shows its style by section (Text, Layout, Fill), each row the
-/// design system's tokens as chips or swatches (so a hand edit stays in the system), with the way back to its parent;
-/// a double click on an element of text alone types over it (Enter keeps, Esc drops). To `kelpSync`: `selected` (to
-/// choose it again once the canvas is drawn again), `style` and `text`, which the tab writes into the board's file by
-/// the element's data-id (`BoardEdit`).
+/// The script for Edit on a canvas, where the user changes a board by hand without the agent (`kelpEdit(true)` from
+/// the bar). It works on top of the sheet from `CanvasEdit`. A click chooses an element and outlines it. The column
+/// then shows the element's style by section (Text, Layout, Fill), with a way up to its parent. Each row offers the
+/// design system's tokens as chips or swatches, so a hand edit stays in the system. A double click on an element that
+/// holds only text lets the user type over it (Enter keeps, Esc drops). It sends `selected` to `kelpSync` (to choose
+/// the element again once the canvas is drawn again), plus `style` and `text`, which the tab writes into the board's
+/// file by the element's data-id (`BoardEdit`).
 enum CanvasEditMode {
-    /// The column's words, by key: title, parent, asDrawn, noID, typeHint, choose, text, layout, fill, size, weight,
-    /// colour, padding, gap, background, radius.
+    /// The words the column shows, by key: title, parent, asDrawn, noID, typeHint, choose, text, layout, fill, size,
+    /// weight, colour, padding, gap, background, radius.
     typealias Labels = [String: String]
 
     static func source(tokens: [String: [String]], labels: Labels) -> String {
@@ -151,7 +152,8 @@ enum CanvasEditMode {
           }
         """
 
-    /// The chosen element's outline and name, the column's rows of choices, and the field typed over an element.
+    /// The CSS for the chosen element's outline and name tag, the rows of choices in the column, and the field the
+    /// user types over an element.
     static let style = """
         .kelp-chosen { position: absolute; display: none; border: 2px solid var(--k-accent); border-radius: 3px; }
         .kelp-tag { position: absolute; display: none; height: 16px; padding: 0 5px; border-radius: 4px;

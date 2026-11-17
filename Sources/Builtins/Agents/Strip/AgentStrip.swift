@@ -3,64 +3,73 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A strip of workspaces over the Dock, for when Kelp is behind another app: their agents at a glance, the one that asks opened
-/// into a pill, and a click answers from a card with Kelp left where it is. It starts at the foot of the visible screen and under the Dock's level:
-/// a Dock that stays reserves its room, and a hidden one slides over the strip and away. Dragged, it goes to the nearest corner.
+/// A strip of workspaces shown over the Dock while Kelp is behind another app. It shows each workspace's agents at a
+/// glance and opens the workspace whose agent asks into a pill, and a click answers from a card without bringing Kelp
+/// forward. It starts at the bottom of the visible screen, one level below the Dock, so a Dock that always shows keeps
+/// its own room and an auto-hiding Dock slides over the strip and away. When dragged, the strip goes to the nearest
+/// corner.
 @MainActor
 final class AgentStrip {
     struct State: Equatable { var items: [StripItem], mode: String?, comesFor: String?, fullScreen: Bool }
-    /// After Kelp goes behind: a quick trip to another app and back doesn't flash the strip.
+    /// How long the strip waits after Kelp goes behind another app, so a quick trip there and back doesn't flash it.
     private static let settle: TimeInterval = 0.6
 
     let app: AppModel
     var state = State(items: [], mode: nil, comesFor: nil, fullScreen: true)
-    /// Put off with Later, until the agent's state changes.
+    /// The sessions the user put off with Later. Each stays off the strip until its agent's state changes.
     private var putOff: Set<String> = []
-    /// Hidden for a while (a call, a talk); it isn't kept: a restart brings it back.
+    /// When the strip, hidden for a while (say, for a call or a talk), comes back. This isn't saved, so a restart
+    /// brings the strip back.
     private(set) var hiddenUntil: Date?
     private var hideEnds: Timer?
     private var settling: Timer?
-    /// Just answered: the next question follows in the card.
+    /// Set when the user just answered a question, so the next question opens in a card right away.
     private var goesOn = false
     var place = StripPlace.load()
-    /// Where it stood before a call took it behind the edge (`call(_:)`); nil outside a call. Its own nil: above the Dock.
+    /// Where the strip stood before a call moved it behind the screen edge (`call(_:)`), or nil outside a call. An
+    /// inner nil means the strip stood above the Dock.
     var beforeCall: StripPlace??
     let calls = CallWatch()
-    /// Put somewhere by hand during this call: it stays there.
+    /// Set when the user moves the strip by hand during the current call, so it stays where they put it.
     var placedInCall = false
     var corner: StripCorner { place?.corner ?? .bottom }
     var tip: StripTip?
-    /// When finished work read in Kelp leaves the strip.
+    /// Fires when finished work that the user already read in Kelp is due to leave the strip.
     private var expiry: Timer?
     private var tipTimer: Timer?
-    /// Hidden behind an edge, it's all out while the pointer is on it.
+    /// Whether a strip hidden behind a screen edge is all the way out, because the pointer is on it.
     var peeking = false
     private var peekTimer: Timer?
     let line = StripLine()
-    /// The news told already, by a line or a tile's flash, so each is told once.
+    /// The news already told, by a line out of the edge or by a flash of a tile, so each piece is told once.
     private var told: Set<String> = []
-    /// News waiting for the line out of the edge, one after another.
+    /// News waiting its turn to come out of the edge as a line, one after another.
     private var pending: [StripItem] = []
     private let glint = StripGlint()
     private var glintSide: [NSLayoutConstraint] = []
     var panel: StripPanel?
-    /// Counts each move the strip is sent on, so a spring's way back can tell whether it is still the last one.
+    /// Counts each move the strip is sent on, so the spring back at the end of a move can tell whether a newer move
+    /// has started since.
     var moves = 0
-    /// Moved to a new place: the next `put` swings a little past it and settles back, as a thrown thing does.
+    /// Set when the strip moved to a new place, so the next `put` swings a little past it and settles back, as a thrown
+    /// thing does.
     var springs = false
     let row = StripRow()
     private var buttons: [String: StripButton] = [:]
     private var card: StripCard?
     private var observers: [NSObjectProtocol] = []
-    /// What the strip was last laid out with: under the pointer it stays so (`frozen`).
+    /// The opened workspace and peek state of the last layout. While the pointer is on the strip, the layout stays as
+    /// it was (`frozen`).
     private(set) var laidOut: (opened: String?, peeking: Bool)?
-    /// Something changed while it stood still under the pointer: laid out once the pointer leaves.
+    /// Set when something changed while the strip stood still under the pointer, so it is laid out again once the
+    /// pointer leaves.
     private(set) var deferred = false
     private var relayout: Timer?
-    /// The row's last width, and what it was measured for (`width(of:)`); how many times it was measured, for tests.
+    /// The row's last measured width and the key it was measured for (`width(of:)`). `measures` counts how many times
+    /// the row was measured, for tests.
     var measured: (key: Measured, width: CGFloat)?
     var measures = 0
-    /// What the strip showed and where, at its last layout: the same again lays out nothing.
+    /// What the strip showed and where, at its last layout. A refresh that finds the same look lays out nothing.
     private var lastLook: Look?
     private struct Look: Equatable {
         let state: State, place: StripPlace?, peeking: Bool, pointerOn: Bool, screens: [NSRect]
@@ -68,10 +77,10 @@ final class AgentStrip {
 
     init(app: AppModel) { self.app = app }
 
-    /// The app's one.
+    /// Returns the app's single strip.
     static func of(_ app: AppModel) -> AgentStrip { app.part { AgentStrip(app: app) } }
 
-    /// The Dock icon's menu: hide it for a while, or bring it back.
+    /// Adds the strip's items to the Dock icon's menu, to hide the strip for an hour or bring it back.
     func dockItems(_ menu: NSMenu) {
         guard !isOff else { return }
         if hiddenUntil != nil {
@@ -111,7 +120,8 @@ final class AgentStrip {
         }
     }
 
-    /// A row muted is quiet here as on a banner, and so is what was put off.
+    /// Builds the strip's state. Sessions on a muted row stay off the strip, as they stay off banners, and so do the
+    /// sessions put off with Later.
     private static func state(_ app: AppModel, putOff: Set<String>) -> State {
         let shown = app.worktrees.filter { !$0.archived }.map { worktree in
             (
@@ -128,7 +138,8 @@ final class AgentStrip {
             fullScreen: app.settings[SettingKeys.dockStripFullScreen])
     }
 
-    /// The item with its workspace's CI, the mark a built-in puts on its tile (under observation: no work).
+    /// Returns the item with its workspace's CI mark, the one a built-in puts on the tile. It runs inside `track`, so
+    /// it only reads marks and starts no work.
     private static func ci(_ item: StripItem, _ app: AppModel) -> StripItem {
         var with = item
         with.ci = app.extensions.rowMarks(.workspace(item.workspace)).first { $0.place == .tile }
@@ -137,16 +148,16 @@ final class AgentStrip {
 
     var isShowing: Bool { panel?.isVisible == true }
     var frame: NSRect? { panel?.frame }
-    /// Whether Kelp is the app in front, where the strip steps aside. A test's own: another test running beside it
-    /// may bring the test process to the front.
+    /// Whether Kelp is the front app, in which case the strip steps aside. Tests replace it, because another test
+    /// running at the same time may bring the test process to the front.
     var front: () -> Bool = { NSApp.isActive }
-    /// Whether it moves and fades, or is where it ends at once: a test's own, as a main thread busy with other tests runs
-    /// no animation to its end.
+    /// Whether the strip moves and fades, or jumps straight to where it ends. Tests turn it off, because a main thread
+    /// busy with other tests never runs an animation to its end.
     var animates = true
     var panelForTests: NSPanel? { panel }
     var isOff: Bool { app.settings[SettingKeys.dockStrip] == "off" }
 
-    /// Out of the way for a while, whatever comes meanwhile; nil brings it back now.
+    /// Hides the strip until the given date, whatever news comes meanwhile. Nil brings the strip back now.
     func hide(until: Date?) {
         hiddenUntil = until
         hideEnds?.invalidate()
@@ -161,7 +172,7 @@ final class AgentStrip {
         refresh()
     }
 
-    /// This agent stops calling until its state changes.
+    /// Keeps this session's agent off the strip until its state changes.
     func later(_ session: String) {
         if let found = app.session(session) { putOff.insert(StripModel.key(found)) }
         closeCard()
@@ -176,7 +187,8 @@ final class AgentStrip {
             goAway()
             return
         }
-        // Up as it was, showing the same where it stood (the screens' room too): a refresh for nothing it shows.
+        // The strip is up and would show the same things in the same place, on screens of the same size, so this
+        // refresh has nothing to change.
         let look = Look(
             state: state, place: place, peeking: peeking, pointerOn: row.pointerOn,
             screens: NSScreen.screens.map(\.visibleFrame))
@@ -185,8 +197,9 @@ final class AgentStrip {
         line.apply(fullScreen: state.fullScreen)
         let wasUp = isShowing
         let hidden = place?.edge != nil && !peeking
-        // Under the pointer the tiles stay where they are: a pill moving to other news would slide the tile being aimed at
-        // away. News comes as its tile's mark meanwhile, and the strip is laid out anew once the pointer leaves.
+        // While the pointer is on the strip, the tiles stay where they are, because a pill moving to other news would
+        // slide away the tile the user is aiming at. Meanwhile news shows as a mark on its tile, and the strip is laid
+        // out again once the pointer leaves.
         let frozen = row.pointerOn && wasUp && laidOut?.peeking == peeking
         var opened = hidden ? nil : StripModel.opened(state.items)
         if frozen, let was = laidOut, state.items.contains(where: { $0.workspace == was.opened }) {
@@ -214,7 +227,8 @@ final class AgentStrip {
         if let card, !state.items.contains(where: { $0.session == card.session && $0.cell != .working }) {
             closeCard()
         }
-        // Another question while one was up: the card shows what Allow answers, so the new one comes in a card of its own.
+        // A new question came while a card was up. The card shows what Allow answers, so the new question gets a card
+        // of its own.
         else if let card, card.question != app.session(card.session)?.summary {
             closeCard()
             goesOn = true
@@ -225,11 +239,11 @@ final class AgentStrip {
         follow(opened)
         expireDone()
         tell(hidden: hidden, appeared: !wasUp)
-        // Up for the first time in a call: it goes behind the edge as it would have when the call began.
+        // When the strip first comes up during a call, it goes behind the edge, as it would have when the call began.
         if calls.inCall, !placedInCall, beforeCall == nil, place?.edge == nil, isShowing { call(true) }
     }
 
-    /// The handle and its sign, on the side away from the edge it hides behind.
+    /// Shows the handle and its glint on the side of the strip away from the edge it hides behind.
     func showEdge(hidden: Bool) {
         let edge = place?.edge
         if glint.superview == nil {
@@ -253,8 +267,9 @@ final class AgentStrip {
         NSLayoutConstraint.activate(glintSide)
     }
 
-    /// News, each once, as loud as what brings the strip up (Comes Up For): out of the edge as a line, one after another,
-    /// while it hides; a flash of its tile while it's out. The strip just coming up is news enough: nothing flashes then.
+    /// Tells each piece of news once, if it is as loud as what brings the strip up (the Comes Up For setting). While
+    /// the strip hides behind an edge, news comes out of the edge as a line, one after another. While the strip is out,
+    /// the news flashes its tile. Nothing flashes when the strip has just come up, because that is news enough.
     private func tell(hidden: Bool, appeared: Bool) {
         let upTo = StripModel.loudest(state.comesFor)
         let news = StripModel.news(state.items, told: told, upTo: upTo)
@@ -269,7 +284,8 @@ final class AgentStrip {
         if !line.isShowing { tellNext() }
     }
 
-    /// The next news still standing comes out of the edge; a click on it opens its card there.
+    /// Brings the next pending news that still stands out of the edge as a line. A click on the line opens the agent's
+    /// card there.
     private func tellNext() {
         let standing = Set(state.items.map(StripModel.newsKey))
         pending = pending.filter { standing.contains(StripModel.newsKey($0)) }
@@ -280,7 +296,8 @@ final class AgentStrip {
         line.show(news, more: pending.count, app: app, by: panel.frame, edge: edge)
     }
 
-    /// Its card, beside the line it came out as, with the strip left behind the edge; a card for work going on there isn't.
+    /// Opens the agent's card beside the line, with the strip left behind the edge. Work still going on has no card, so
+    /// then the strip peeks out instead.
     private func openFromLine(_ item: StripItem) {
         guard let now = state.items.first(where: { $0.session == item.session }), now.cell != .working else {
             return peekFromLine()
@@ -290,7 +307,8 @@ final class AgentStrip {
         open(now, by: by, at: place?.edge == .right ? .bottomRight : .bottomLeft)
     }
 
-    /// The pointer on a hidden strip brings it all out at once; off it, it goes back after a moment.
+    /// Called when the pointer enters or leaves the strip. The pointer on a hidden strip brings all of it out, and when
+    /// the pointer leaves, the strip goes back after a moment.
     func hoverStrip(_ on: Bool) {
         row.pointerOn = on
         relayout?.invalidate()
@@ -308,7 +326,8 @@ final class AgentStrip {
         }
     }
 
-    /// Off the strip into the gap it left at the edge isn't off: it waits again instead of going under the pointer.
+    /// A pointer that moves off the strip into the gap it left at the edge still counts as on it, so the strip waits
+    /// again instead of sliding back under the pointer.
     private func settle(_ on: Bool) {
         if !on, let edge = place?.edge, let panel,
             StripModel.inGap(NSEvent.mouseLocation, beside: panel.frame, edge: edge)
@@ -318,7 +337,8 @@ final class AgentStrip {
         peek(on)
     }
 
-    /// Out from a click on the line: the pointer isn't on it yet, so it goes back unless the pointer comes.
+    /// Brings the strip out after a click on the line. The pointer isn't on the strip yet, so the strip goes back after
+    /// a while unless the pointer comes to it.
     private func peekFromLine() {
         peek(true)
         peekTimer = Timer.scheduledTimer(withTimeInterval: Motion.linger, repeats: false) { [weak self] _ in
@@ -334,7 +354,8 @@ final class AgentStrip {
         refresh()
     }
 
-    /// Wakes when the next finished-and-read agent's while is up; nothing else changes then, so nothing else would refresh.
+    /// Sets a timer for when the next finished, already-read agent is due to leave the strip. Nothing else changes at
+    /// that moment, so nothing else would refresh the strip.
     private func expireDone() {
         expiry?.invalidate()
         let ends = app.sessions.filter { DockIcon.cell($0) == nil && StripModel.cell($0, now: Date()) == .done }
@@ -346,18 +367,21 @@ final class AgentStrip {
         }
     }
 
-    /// After an answer, the next question is up at once: several in a row take a click each, not two.
+    /// After an answer, opens the next question's card at once, so answering several in a row takes one click each, not
+    /// two.
     private func follow(_ opened: String?) {
         guard goesOn, card == nil else { return }
         goesOn = false
         if let item = state.items.first(where: { $0.workspace == opened }), item.cell == .asks { open(item) }
     }
 
-    /// What a tile says under the pointer, in words of its own over the strip: the strip doesn't change size, so the tile
-    /// stays under the pointer. A moment's rest brings it, as a hover card; moving to the next tile, at once.
+    /// Shows a tip over the strip that says what the tile under the pointer stands for. The tip floats above, so the
+    /// strip doesn't change size and the tile stays under the pointer. The tip comes after a moment's rest, like a
+    /// hover card, and at once when the pointer moves on to the next tile.
     private func hover(_ item: StripItem, on: Bool, over button: NSView, open: Bool) {
         tipTimer?.invalidate()
-        // The open pill says its own; it has a tip for what its words leave out: the other agents, or what one at work does.
+        // The open pill already says what its agent is doing. It gets a tip only for what its words leave out, such as
+        // the other agents, the CI mark, or what a working agent does.
         guard on, !open || item.agents.count > 1 || item.cell == .working || item.ci != nil else {
             tipTimer = Timer.scheduledTimer(withTimeInterval: Motion.hoverClose, repeats: false) { [weak self] _ in
                 MainActor.assumeIsolated { self?.tip?.hide() }   // the main run loop's timer
@@ -377,7 +401,8 @@ final class AgentStrip {
         }
     }
 
-    /// A question, a failure or finished work opens its card, answered from here; work going on goes to its workspace.
+    /// A click on a question, a failure or finished work opens its card, to answer from the strip. A click on work
+    /// going on shows its workspace in Kelp.
     private func clicked(_ item: StripItem) {
         tip?.hide()
         if item.cell == .working {
@@ -392,7 +417,8 @@ final class AgentStrip {
         open(item)
     }
 
-    /// `by`, `at`: where its card stands, if not over the strip (the line out of the edge).
+    /// Opens the item's card. `by` and `at` say where the card stands when it isn't over the strip, as when it opens
+    /// from the line out of the edge.
     private func open(_ item: StripItem, by anchor: NSRect? = nil, at side: StripCorner? = nil) {
         closeCard()
         guard let session = app.session(item.session), let panel else { return }
@@ -422,7 +448,7 @@ final class AgentStrip {
     }
 
     private func goAway() {
-        lastLook = nil   // it fades while it's still up: wanted back meanwhile, it's laid out again
+        lastLook = nil   // the panel is still up while it fades, so if it's wanted back, it's laid out again
         closeCard()
         tip?.hide()
         line.hide()

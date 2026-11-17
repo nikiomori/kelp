@@ -7,28 +7,30 @@ import SwiftUI
 /// How much of the agents' plans is used. It shows the fullest limit of all (or each agent's fullest, by a setting)
 /// with the agent's icon and name, over a bar the width of the row, with its percentage, the time it resets if that is
 /// within 12 hours, and a tick where an even pace would have the bar by now. On hover it shows that agent's limits,
-/// each with its bar and reset; with one row shown, every agent's limits.
+/// each with its bar and reset. When only one row is shown, the hover card lists every agent's limits.
 /// The numbers come from the agents' own /usage screens (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor; the
 /// daemon reads them) and from Codex's app server (or its session logs, when they are newer). Agents that don't report
 /// limits aren't listed.
 struct UsageView: View {
-    struct Line: Equatable {   // used: 0...1
+    struct Line: Equatable {   // `used` is a share from 0 to 1
         var label: String
         var used: Double
         var resets: String?
         var resetAt: Date?
-        /// How long its window is (nil: not known, so no pace tick).
+        /// How long the limit's window is, or nil when it isn't known, in which case there is no pace tick.
         var window: TimeInterval?
         var kind = ""
 
-        /// How much of the window has gone, which is where the bar would be now at an even pace; nil when that can't be told.
+        /// Returns how much of the window has gone, which is where the bar would be now at an even pace, or nil when
+        /// that can't be told.
         func pace(now: Date = Date()) -> Double? {
             guard let resetAt, let window, window > 0 else { return nil }
             let left = resetAt.timeIntervalSince(now)
             return left > 0 && left <= window ? 1 - left / window : nil
         }
 
-        /// The reset beside the bar: only one within 12 hours says when work can go on today; later ones are in the card.
+        /// Returns the reset time shown beside the bar. Only a reset within 12 hours is shown, because it says when
+        /// work can go on today. Later resets are in the card.
         func soon(now: Date = Date()) -> String? {
             guard let resetAt, let resets else { return nil }
             let left = resetAt.timeIntervalSince(now)
@@ -38,14 +40,14 @@ struct UsageView: View {
     struct Row: Identifiable, Equatable {
         var id: String, name: String, fullName: String
         var lines: [Line] = []
-        /// When the numbers were read (nil: unknown); past half an hour they say how old they are (Codex reads its limits
-        /// only when it's used).
+        /// When the numbers were read, or nil when that is unknown. Numbers older than half an hour say how old they
+        /// are, because Codex reads its limits only when it is used.
         var readAt: Date?
         var stale: Bool { readAt.map { Date().timeIntervalSince($0) > 1800 } ?? false }
         var main: Line? { lines.max { $0.used < $1.used } }
     }
     let app: AppModel
-    /// The line over it, against the sidebar's rows; Settings' preview of it has none.
+    /// Whether to draw the divider above the view, against the sidebar's rows. The preview in Settings has none.
     private let ruled: Bool
     init(app: AppModel, ruled: Bool = true) {
         self.app = app
@@ -54,23 +56,24 @@ struct UsageView: View {
     @State private var rows: [Row] = []
     @State private var hovered: String?
 
-    /// The agents that have used anything of their plans: a row at 0% says nothing.
+    /// The agents that have used any of their plans, because a row at 0% says nothing.
     private var used: [Row] { rows.filter { ($0.main?.used ?? 0) > 0 } }
     private var fullest: [Row] { used.max { ($0.main?.used ?? 0) < ($1.main?.used ?? 0) }.map { [$0] } ?? [] }
     private var all: Bool { app.settings[SettingKeys.usageLimits] != "fullest" }
-    /// The rows on show (Settings › Agents, or the footer's right-click): nothing once plan limits are turned off.
+    /// The rows shown, as chosen in Settings › Agents or the footer's right-click menu. There are none once plan limits
+    /// are turned off.
     private var shown: [Row] {
         guard app.settings[SettingKeys.readPlans] else { return [] }
         return all ? used.sorted { ($0.main?.used ?? 0) > ($1.main?.used ?? 0) } : fullest
     }
 
     var body: some View {
-        // The loader hangs off a container that always exists: on an EmptyView `.task` never runs.
+        // The loader hangs off a container that always exists, because on an EmptyView it would never run.
         VStack(alignment: .leading, spacing: 0) {
             if !shown.isEmpty {
                 if ruled { Divider() }
-                // A minute at a time: a reading ages while nothing else changes.
-                // The reset times only while the bars keep their room; a narrow sidebar has them on hover.
+                // Redraws every minute, because a reading ages even while nothing else changes.
+                // The reset times show only while the bars keep their room. A narrow sidebar shows them on hover.
                 TimelineView(.periodic(from: .now, by: 60)) { _ in
                     let resets = app.settings[SettingKeys.usageResets]
                     ViewThatFits(in: .horizontal) {
@@ -79,7 +82,8 @@ struct UsageView: View {
                     }.padding(.horizontal, Metrics.inset).padding(.vertical, Metrics.gapWide)
                 }
             } else if !ruled {
-                // Settings' preview is a row of the card: says why it's empty rather than leaving a blank strip.
+                // The preview in Settings is a row of the card, so it says why it's empty rather than leaving a blank
+                // strip.
                 Text(
                     app.settings[SettingKeys.readPlans]
                         ? String(localized: "No plan used yet: the limits show here once an agent has used some.")
@@ -88,7 +92,8 @@ struct UsageView: View {
             }
         }
         .fontDesign(app.themes.chromeDesign)
-        // Watched while shown: the daemon says when a plan read or the token count changed.
+        // The limits are watched while the view is shown, so the daemon says when a plan reading or the token count
+        // changed.
         .onAppear {
             app.watch(.limits)
             load()
@@ -110,8 +115,8 @@ struct UsageView: View {
                         HStack(spacing: Metrics.gap) {
                             Text(row.name).lineLimit(1)
                             Spacer(minLength: Metrics.gapWide)
-                            // An old reading says how old in place of its reset, which it can no longer vouch for; the
-                            // row is dimmed and its share marked "~", so the age doesn't read as a reset time.
+                            // An old reading shows its age in place of its reset time, which it can no longer vouch
+                            // for. The row is dimmed and its share marked "~", so the age doesn't read as a reset time.
                             if row.stale, let read = row.readAt {
                                 Text(String(localized: "\(shortAgo(read)) ago")).fixedSize().monospacedDigit()
                                     .foregroundStyle(.secondary)
@@ -128,7 +133,8 @@ struct UsageView: View {
                 }
                 .font(.ui(TextSize.caption))
                 .opacity(row.stale ? 0.45 : 1)
-                // Under the pointer the row greys in (faded, as a list row does), past its edges so nothing moves.
+                // Under the pointer the row's background fades to grey, as a list row's does. The grey reaches past
+                // the row's edges, so nothing moves.
                 .padding(.horizontal, 4).padding(.vertical, 2)
                 .background(
                     RoundedRectangle(cornerRadius: Metrics.radiusXS).fill(
@@ -144,7 +150,8 @@ struct UsageView: View {
                         get: { hovered == row.id }, set: { if !$0, hovered == row.id { hovered = nil } }),
                     arrowEdge: .top
                 ) {
-                    // A row per agent: the card is about the one under the pointer. One row: it's the only way to the others.
+                    // With a row per agent, the card is about the agent under the pointer. With one row, the card
+                    // shows every agent, because it's the only way to see the others.
                     let cards = all ? [row] : used
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(cards) { card in
@@ -191,7 +198,7 @@ struct UsageView: View {
                         Date(timeIntervalSince1970: $0)
                     }
                 }
-            // Codex logs its limits only when it's used: an old reading says how old it is.
+            // Codex logs its limits only when it is used, so an old reading says how old it is.
             case Session.codexAgent:
                 row.lines = Self.codex(usage)
                 row.readAt = usage.codex.first.map { Date(timeIntervalSince1970: $0.observedAt) }
@@ -201,13 +208,15 @@ struct UsageView: View {
         }
     }
 
-    /// "Claude Code" → "Claude", "Cursor Agent" → "Cursor", "GitHub Copilot" → "Copilot": room for three in a sidebar.
+    /// Shortens an agent's name, such as "Claude Code" → "Claude", "Cursor Agent" → "Cursor" and "GitHub Copilot" →
+    /// "Copilot", to make room for three in a sidebar.
     static func short(_ name: String) -> String {
         let shortName = name.hasPrefix("GitHub ") ? String(name.dropFirst(7)) : name
         return [" Code", " CLI", " Agent"].reduce(shortName) { $0.hasSuffix($1) ? String($0.dropLast($1.count)) : $0 }
     }
 
-    /// Readings as the daemon passes them: kind ("session", "week", "week · Fable", "Gemini week"), percent, resets.
+    /// Turns readings into lines. The daemon passes each reading with a kind ("session", "week", "week · Fable",
+    /// "Gemini week"), a percent and a reset time.
     private static func lines(_ readings: [UsageGet.Limit]) -> [Line] {
         readings.map { reading in
             Line(
@@ -230,7 +239,7 @@ struct UsageView: View {
                         : kind.prefix(1).uppercased() + kind.dropFirst()
     }
 
-    /// Claude Code's /usage, or the percentages a session printed.
+    /// The lines for Claude Code, from its /usage screen or else from the percentages a session printed.
     private static func claude(_ usage: UsageGet.Result) -> [Line] {
         lines(usage.plans?[Session.claudeAgent] ?? usage.claudeLimits ?? [])
     }
@@ -256,8 +265,8 @@ struct UsageView: View {
 }
 
 extension UsageView {
-    /// Each agent's plan limits as the sidebar reads them, the fullest first, and when they were read: the Usage tab's
-    /// Plan column (kept coming with `watchingPlans`).
+    /// Each agent's plan limits as the sidebar reads them, the fullest first, and when they were read. The Usage tab's
+    /// Plan column uses them, and `watchingPlans` keeps them coming.
     static func plans(_ app: AppModel) -> [String: (
         limits: [(label: String, used: Double, resets: String?)], readAt: Date?,
         note: (text: String, color: NSColor)?
@@ -274,8 +283,8 @@ extension UsageView {
 }
 
 extension UsageView {
-    /// What's said beside an agent where agents are chosen (`Contributions.plans`); nothing once plan limits are
-    /// turned off.
+    /// The note shown beside each agent where agents are chosen (`Contributions.plans`). There are none once plan
+    /// limits are turned off.
     static func notes(_ app: AppModel) -> [String: PlanNote] {
         guard app.settings[SettingKeys.readPlans] else { return [:] }
         return Dictionary(
@@ -295,7 +304,7 @@ extension View {
     }
 }
 
-/// The sidebar's foot: a right-click sets what it shows.
+/// The plan limits at the foot of the sidebar. A right-click on them sets what they show.
 final class UsageFooter: NSHostingView<UsageView> {
     var app: AppModel?
     static func make(_ app: AppModel) -> UsageFooter {
@@ -323,9 +332,10 @@ final class UsageFooter: NSHostingView<UsageView> {
     }
 }
 
-/// The sidebar's foot as it really is, with this Mac's readings; the rows below change it as they are switched. It
-/// leaves out the line above it, which belongs to the sidebar's edge rather than the foot. It is as wide as the row and
-/// sits on the card as the rows do: a grey plate of its own read as a box inside the box.
+/// A live sample of the sidebar's foot for Settings, with this Mac's readings. The settings rows below it change it as
+/// they are switched. It leaves out the divider above the foot, which belongs to the sidebar's edge rather than the
+/// foot. It is as wide as the row and sits on the card as the rows do, because a grey plate of its own read as a box
+/// inside the box.
 struct LimitsSample: View {
     @Environment(AppModel.self) private var app
     var body: some View {

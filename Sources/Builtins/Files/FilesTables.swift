@@ -26,8 +26,9 @@ final class ResultsTable: NSTableView {
     }
 }
 
-/// The tree as the inspector's list: rows 24 (with the text size), the rounded selection (DesignKit's ListRowView), no
-/// background of its own over the panel. The results are styled alike (`SearchResults`).
+/// Styles the tree like the inspector's other lists: 24-point rows that grow with the text size, the rounded selection
+/// of DesignKit's ListRowView, and no background of its own over the panel. The results (`SearchResults`) are styled
+/// the same way.
 extension FilesPanel {
     func styleLists() {
         outline.rowSizeStyle = .custom

@@ -2,11 +2,13 @@ import AppKit
 import Core
 import Quartz
 
-/// Built off the main actor (`update`), then read and changed only on it.
+/// A file or folder in the Files tree. The tree is built off the main actor (`update`), then read and changed only on
+/// the main actor.
 final class FileNode: NSObject, @unchecked Sendable {
     let name: String, path: String   // path relative to worktree root
     var children: [FileNode]?   // nil = file
-    /// Git ignores it (drawn dimmed, like VS Code's). `unread`: an ignored folder whose files are read when it opens.
+    /// `ignored`: git ignores this node, so it's drawn dimmed, as VS Code does. `unread`: an ignored folder whose files
+    /// aren't read until it opens.
     let ignored: Bool
     var unread: Bool
     init(name: String, path: String, dir: Bool, ignored: Bool = false) {
@@ -17,7 +19,8 @@ final class FileNode: NSObject, @unchecked Sendable {
         unread = ignored && dir
     }
 
-    /// Build a sorted tree (folders first) from relative paths, and what git ignores (`files.ignored`: a folder ends with "/").
+    /// Builds a sorted tree, folders first, from relative paths and the paths git ignores. In `ignored`, as
+    /// `files.ignored` lists it, a folder ends with "/".
     static func tree(_ paths: [String], ignored: [String] = []) -> [FileNode] {
         let root = FileNode(name: "", path: "", dir: true)
         var dirs: [String: FileNode] = ["": root]
@@ -29,7 +32,7 @@ final class FileNode: NSObject, @unchecked Sendable {
                 if let folder = dirs[acc] {
                     parent = folder
                     continue
-                }   // an ignored folder with tracked files in it: those show
+                }   // tracked files inside an ignored folder still show
                 let node = FileNode(
                     name: part, path: acc, dir: dir || index < parts.count - 1,
                     ignored: isIgnored && index == parts.count - 1)
@@ -44,7 +47,7 @@ final class FileNode: NSObject, @unchecked Sendable {
         return root.children ?? []
     }
 
-    /// An ignored folder's files as `files.ignored` lists them (each path from the root).
+    /// Fills this ignored folder with its files, as `files.ignored` lists them (each path from the root).
     func read(_ entries: [String]) {
         unread = false
         children = entries.map { entry in
@@ -69,13 +72,15 @@ final class FileNode: NSObject, @unchecked Sendable {
     /// Where the node sorts among its folder's nodes: folders first, then by name, ignoring case.
     private var order: (Int, String) { (children != nil ? 0 : 1, name.lowercased()) }
 
-    // Keys made once per node: lowercasing inside the comparator did it n log n times (100k files in a big repo).
+    // Each node's sort key is made once, because lowercasing inside the comparator ran n log n times (100k files in a
+    // big repo).
     private static func sort(_ node: FileNode) {
         node.children = node.children?.map { ($0.order, $0) }.sorted { $0.0 < $1.0 }.map(\.1)
         node.children?.forEach(sort)
     }
 
-    /// The ignored folders read open (`opened`, outer first) take their files again in a tree just built.
+    /// Gives the ignored folders that were opened and read (`opened`) their files again in a newly built tree, outer
+    /// folders first.
     static func open(_ opened: [String: [String]], in nodes: [FileNode]) {
         for folder in opened.keys.sorted(by: { $0.count < $1.count }) {
             find(folder, in: nodes).map { if $0.ignored { $0.read(opened[folder] ?? []) } }
@@ -83,23 +88,26 @@ final class FileNode: NSObject, @unchecked Sendable {
     }
 }
 
-/// What a new listing does to the tree: nothing, a few files in or out, or a new tree.
+/// How a new listing changes the tree: not at all, by a few files added or removed, or with a whole new tree.
 enum TreeUpdate: Sendable {
     case same, patch(added: [String], removed: [String]), tree([FileNode])
 }
 
-/// A row in or out of the tree, in the order they happened: `parent` nil is the top level.
+/// One row inserted into or removed from the tree. Edits come in the order they happened, and a nil `parent` is the
+/// top level.
 struct TreeEdit {
     let parent: FileNode?, index: Int, inserted: Bool
 }
 
 extension FileNode {
-    /// More than this is the listing changing as a whole (a checkout, a pull): the tree is built again.
+    /// More changed paths than this mean the listing changed as a whole (a checkout, a pull), so the tree is built
+    /// again.
     static let mostPatched = 64
 
-    /// From the listing the tree was built from (`was`; nil, none) to the new one, off the main actor: comparing and
-    /// building 100k paths there held up the window. A path in an ignored folder read open (`opened`), whose files the
-    /// listing doesn't name, or a change in what's ignored builds it again.
+    /// Works out how the tree changes from the listing it was built from (`was`, nil when there was none) to the new
+    /// one. It runs off the main actor, because comparing and building 100k paths there held up the window. The tree is
+    /// built again when what's ignored changed, or when a changed path lies in an opened ignored folder (`opened`),
+    /// whose files the listing doesn't name.
     static func update(
         was: (paths: [String], ignored: [String])?, paths: [String], ignored: [String], opened: [String: [String]]
     ) -> TreeUpdate {
@@ -115,9 +123,9 @@ extension FileNode {
         return .tree(nodes)
     }
 
-    /// Takes the `removed` files out of the tree (and their folders left empty) and puts the `added` ones in, each where
-    /// its folder sorts it; the edits say where, one after another. Nil, and the tree as it was, when a path changed
-    /// between file and folder: it's built again then.
+    /// Takes the `removed` files out of the tree, with any folders they leave empty, and puts the `added` files in,
+    /// each at its sorted place in its folder. Returns the edits in the order they were made. Returns nil and leaves
+    /// the tree as it was when a path changed between file and folder, because the tree is built again then.
     static func patch(_ nodes: inout [FileNode], added: [String], removed: [String]) -> [TreeEdit]? {
         let root = FileNode(name: "", path: "", dir: true)
         root.children = nodes
@@ -129,13 +137,13 @@ extension FileNode {
             edits.append(TreeEdit(parent: parent === root ? nil : parent, index: index, inserted: inserted))
         }
         for path in removed { root.remove(path, edit) }
-        var fresh = Set<ObjectIdentifier>()   // folders made here: the outline asks for what's in them
+        var fresh = Set<ObjectIdentifier>()   // the folders just added, whose contents the outline asks for itself
         for path in added { root.add(path, fresh: &fresh, edit) }
         nodes = root.children ?? []
         return edits
     }
 
-    /// The nodes from here down to `path`, it last; nil if it isn't in the tree.
+    /// The nodes from this one down to `path`, with the node at `path` last, or nil if `path` isn't in the tree.
     private func chain(to path: String) -> [FileNode]? {
         var out = [self]
         for part in path.split(separator: "/") {
@@ -145,9 +153,9 @@ extension FileNode {
         return out
     }
 
-    /// `path` can go in as a file: no file on its way, no folder in its place.
+    /// Whether `path` can go in as a file: no file stands on its way, and no folder stands in its place.
     private func fits(_ path: String) -> Bool {
-        guard !path.hasSuffix("/") else { return false }   // a folder listed as one
+        guard !path.hasSuffix("/") else { return false }   // the path names a folder
         var node: FileNode? = self
         for part in path.split(separator: "/") {
             guard let next = node?.children?.first(where: { $0.name == part }) else { return true }
@@ -159,7 +167,8 @@ extension FileNode {
 
     private func remove(_ path: String, _ edit: (FileNode, Int, Bool) -> Void) {
         guard var chain = chain(to: path) else { return }
-        // The file, then each folder it leaves empty (an ignored one stays, as a new tree keeps it).
+        // Removes the file, then each folder it leaves empty. An empty ignored folder stays, as a newly built tree
+        // would keep it.
         while chain.count > 1, let gone = chain.popLast(), let parent = chain.last,
             let index = parent.children?.firstIndex(of: gone)
         {

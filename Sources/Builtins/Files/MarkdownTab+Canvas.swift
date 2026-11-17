@@ -3,16 +3,16 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A design's canvas in its tab: drawn again whenever a board or the design system changes on disk, checked each time
-/// it's drawn, and the check handed to `kelp artifact check` when one waits for it.
+/// A design's canvas in its tab. The canvas is drawn again whenever a board or the design system changes on disk, and
+/// it is checked each time it's drawn. When a `kelp artifact check` is waiting, the check's findings answer it.
 extension MarkdownTab {
     /// The project a page in `.kelp/artifacts` belongs to: the folder that holds `.kelp`.
     nonisolated static func projectRoot(of path: String) -> String {
         path.range(of: "/\(Artifacts.folder)/").map { String(path[..<$0.lowerBound]) } ?? path
     }
 
-    /// Follows the checks `kelp artifact check` asks for. Its boards and the design system are followed by the bar: a
-    /// change to them moves the canvas's time in the artifacts' list (`boardsChanged`).
+    /// Follows the checks that `kelp artifact check` asks for. The bar follows the boards and the design system,
+    /// because a change to them moves the canvas's time in the artifacts list (`boardsChanged`).
     func followCanvas() {
         let path = Paths.real(url.path) ?? url.path
         track(owner: self) { [app] in
@@ -20,14 +20,14 @@ extension MarkdownTab {
         } changed: { [weak self] event in
             guard let self, let event else { return }
             pendingCheck = event.request
-            rerender()   // drawn again from the files as they are now, then answered
+            rerender()   // draws again from the files as they are now, then the check is answered
         }
     }
 
-    /// A board or the design system changed on disk: drawn again.
+    /// Called when a board or the design system changed on disk, so the canvas is drawn again.
     func boardsChanged() { rerender(after: .milliseconds(150)) }
 
-    /// What Kelp's script found on the canvas just drawn: shown in the bar, and the answer to a waiting check.
+    /// Takes what Kelp's script found on the canvas just drawn. The bar shows it, and it answers a waiting check.
     func canvasChecked(_ issues: [String]) {
         checkIssues = issues
         onCheck?(issues)
@@ -36,7 +36,7 @@ extension MarkdownTab {
         Task { await app.quiet(UIBrowserReply(request: request, result: .array(issues.map(JSONValue.string)))) }
     }
 
-    /// A message from Kelp's scripts on the canvas; false for one that isn't theirs.
+    /// Handles a message from Kelp's scripts on the canvas. Returns false when the message isn't one of theirs.
     func canvasMessage(_ kind: String, _ body: [String: Any]) -> Bool {
         switch kind {
         case "check": canvasChecked(body["issues"] as? [String] ?? [])
@@ -109,7 +109,7 @@ extension MarkdownTab {
     }
 
     /// What a click on a board does: nothing (View), put a mark on it (Mark), or choose it to change by hand (Edit).
-    /// On a doc or slides, Edit is the source beside the page.
+    /// On a doc or slides, Edit shows the source beside the page.
     enum CanvasMode: Int { case view, mark, edit }
     var canvasMode: CanvasMode {
         if marking { return .mark }
@@ -118,7 +118,7 @@ extension MarkdownTab {
         return modeSegment == 2 ? .view : .edit
     }
 
-    /// The bar's View / Mark / Edit.
+    /// Sets the mode chosen with View / Mark / Edit in the bar.
     func setCanvasMode(_ mode: CanvasMode) {
         marking = mode == .mark
         guard page != .canvas else {
@@ -126,14 +126,14 @@ extension MarkdownTab {
             if !editing { chosen = nil }
             return runJS("kelpEdit(\(editing)); kelpMark(\(marking))")
         }
-        // A doc's or slides' source: beside the page, or alone while the pane is too narrow for both.
+        // On a doc or slides, the source shows beside the page, or alone while the pane is too narrow for both.
         let segment = mode == .edit ? (narrowPane ? 0 : 1) : 2
         if modeSegment != segment { modeSegment = segment }
         if mode == .edit { editor.focus() }
         runJS("window.kelpMark?.(\(marking))")
     }
 
-    /// The words of a doc's marks and its column (`PageMarks`).
+    /// The words shown for a doc's marks and in its column (`PageMarks`).
     var pageMarkLabels: [String: String] {
         let labels = canvasLabels
         return [
@@ -145,10 +145,11 @@ extension MarkdownTab {
         ]
     }
 
-    /// A dashboard's Update: its agent runs the numbers again.
+    /// Update on a dashboard: asks the agent to run the numbers again.
     func askUpdate() { _ = canvasMessage("update", [:]) }
 
-    /// Present in the bar: the boards one at a time, as large as the pane.
+    /// Starts or stops presenting, for Present in the bar. Presenting shows the boards one at a time, as large as
+    /// the pane.
     func togglePresenting() {
         presentingBoards.toggle()
         if presentingBoards { focusPreview() }
@@ -165,7 +166,7 @@ extension MarkdownTab {
 
     private var notesPath: String { url.deletingLastPathComponent().appendingPathComponent(CanvasMark.file).path }
 
-    /// The marks not sent yet, kept beside the canvas.
+    /// Saves the marks not sent yet in a file beside the canvas.
     private func keep(_ marks: [CanvasMark]) {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
@@ -174,15 +175,17 @@ extension MarkdownTab {
         Task { await app.call(FilesWrite(path: notesPath, text: text, base: nil)) }
     }
 
-    /// `line` to the chat that made the canvas (else the agent on screen); `keep`: the marks left after it.
+    /// Sends `line` to the chat that made the canvas, or else to the agent on screen. `keep` is the marks left after
+    /// sending, saved first when given.
     private func send(_ line: String, keep marks: [CanvasMark]?) {
         if let marks { keep(marks) }
         guard let author = pageAuthor else { return FileActions(app).sendToAgent(text: line) }
         Task { await app.call(SessionSend(id: author.id, text: line, enter: true)) }
     }
 
-    /// A board's file changed by hand (a tweak, a style, a text), unless it changed since the page was drawn: then the
-    /// edit can't be placed for sure, and the canvas draws again from the file.
+    /// Writes a change made by hand (a tweak, a style, a text) into a board's file. When the file changed since the
+    /// page was drawn, the edit can't be placed for sure, so nothing is written and the canvas draws again from the
+    /// file.
     private func rewrite(_ board: String, _ change: @escaping (String) -> String?) {
         let path = url.deletingLastPathComponent().appendingPathComponent(board).path
         Task {
@@ -210,7 +213,8 @@ extension MarkdownTab {
         ]
     }
 
-    /// What's turned on again once the canvas is drawn again: marking or editing, and the element chosen.
+    /// The scripts that turn things back on after the canvas is drawn again: the zoom, marking or editing, and the
+    /// chosen element.
     var canvasModeScripts: [String] {
         let zoom = canvasZoom.map { ["kelpZoom(\($0))"] } ?? []
         if marking { return zoom + ["kelpMark(true)"] }
@@ -219,7 +223,7 @@ extension MarkdownTab {
         return zoom + ["kelpEdit(true)"] + (select.map { [$0] } ?? [])
     }
 
-    /// An older version of the canvas made the files again: each of its boards, then the canvas.
+    /// Restores an older version of the canvas by writing its files again: each of its boards, then the canvas.
     func restoreCanvas(_ snapshot: CanvasSnapshot) {
         let folder = url.deletingLastPathComponent()
         Task {
@@ -234,7 +238,7 @@ extension MarkdownTab {
         }
     }
 
-    /// The check's findings to the chat that made the canvas (else the agent on screen), to fix.
+    /// Sends the check's findings to the chat that made the canvas (or else to the agent on screen), to fix.
     func sendCheck() {
         guard let issues = checkIssues, !issues.isEmpty else { return }
         let line =

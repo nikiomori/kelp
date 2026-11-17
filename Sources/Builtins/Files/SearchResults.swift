@@ -4,8 +4,8 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// The Files panel's other list: what a search or a language server found, line by line where the tree would be. A click
-/// or ↩ opens the line; its menu offers what the editor does for a line.
+/// The Files panel's second list: the lines a search or a language server found, shown in place of the tree. A click
+/// or ↩ opens the line, and the row's menu offers what the editor offers for a line.
 @MainActor
 final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     let table = ResultsTable()
@@ -42,7 +42,7 @@ final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         let top = NSTextField(labelWithString: "\(match.path):\(match.line)")
         top.font = .uiDigits(TextSize.caption)
         top.textColor = .secondaryLabelColor
-        top.lineBreakMode = .byTruncatingHead   // the line number stays
+        top.lineBreakMode = .byTruncatingHead   // so the line number at the end stays
         top.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let txt = NSTextField(labelWithString: match.text)
         txt.font = .uiMono(TextSize.caption)
@@ -64,7 +64,7 @@ final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         app.workbench.open(TabURI.file(root + "/" + match.path, line: match.line))
     }
 
-    /// A line the search found: what the editor offers for a line.
+    /// Builds the menu for a found line, with what the editor offers for a line.
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         guard matches.indices.contains(table.clickedRow) else { return }

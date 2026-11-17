@@ -1,10 +1,12 @@
-// The Usage tab's Plans: each agent's limits now, a bar each, and when each runs out at the pace it's filling.
+// The Plans section of the Usage tab. It shows each agent's limits now, with a bar for each, and when each limit runs
+// out at the pace it is filling.
 import Core
 import DesignKit
 import KelpKit
 import SwiftUI
 
-/// What a limit comes to at its pace: used up (back at its reset), full before it resets, or where it ends at the reset.
+/// Where a limit is heading at its pace: used up (and back at its reset), full before it resets, or the percent it
+/// reaches at the reset.
 enum PlanOutlook: Equatable {
     case usedUp(back: Date?)
     case fullBefore(Date)
@@ -27,7 +29,7 @@ enum PlanOutlook: Equatable {
             ?? .unknown
     }
 
-    /// The line under the bar.
+    /// Returns the line under the bar, which says when the limit runs out or resets.
     func text(_ line: UsageView.Line, now: Date = Date()) -> String {
         let resets = line.resets.map { String(localized: " · resets \($0)") } ?? ""
         switch self {
@@ -51,7 +53,7 @@ enum PlanOutlook: Equatable {
         }
     }
 
-    /// How soon it needs looking at: used up, then full before its reset, then the rest.
+    /// How soon the limit needs attention: used up first, then full before its reset, then the rest.
     var urgency: Int {
         switch self {
         case .usedUp: 2
@@ -61,14 +63,15 @@ enum PlanOutlook: Equatable {
     }
 }
 
-/// A card per agent that reports plan limits, the one that needs looking at first; under them, the agents that don't.
+/// A card for each agent that reports plan limits, with the one that needs attention first. Under the cards, a line
+/// names the agents that report none.
 struct PlanCards: View {
     let app: AppModel
     /// The agents used in the span that report no limits.
     let unplanned: [String]
 
     var body: some View {
-        // A minute at a time: forecasts and "read … ago" age while nothing else changes.
+        // Redraws every minute, because the forecasts and "read … ago" age even while nothing else changes.
         TimelineView(.periodic(from: .now, by: 60)) { context in
             let cards = Self.cards(app, now: context.date), pace = app.settings[SettingKeys.usagePace]
             if !cards.isEmpty {
@@ -97,7 +100,8 @@ struct PlanCards: View {
 
     typealias Card = (row: UsageView.Row, outlooks: [PlanOutlook])
 
-    /// Each agent's limits, the fullest first, with their outlooks; the cards in order of need, old readings last.
+    /// Returns each agent's limits, the fullest first, with their outlooks. The cards are in order of need, with old
+    /// readings last.
     static func cards(_ app: AppModel, now: Date) -> [Card] {
         let forecast = LimitWatch.of(app).forecast
         let cards = UsageView.rows(app).map { row -> Card in
@@ -187,7 +191,7 @@ private struct PlanCard: View {
         }
     }
 
-    /// What Claude Code's work came to lately, at list prices: it ties the percentages to the work that used them.
+    /// What Claude Code's recent work cost at list prices, which ties the percentages to the work that used them.
     static func claudeSpent(_ app: AppModel) -> String? {
         guard let claude = app.latest(LimitsEvent.self)?.usage.claude.first else { return nil }
         let week = UsageReportView.dollars(claude.week.cost), today = UsageReportView.dollars(claude.today.cost)

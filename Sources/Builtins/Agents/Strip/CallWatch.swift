@@ -1,4 +1,4 @@
-// Whether the Mac is in a call: a microphone in use, by any app.
+// Whether the Mac is in a call, which here means that some app is using the microphone.
 import CoreAudio
 import Foundation
 
@@ -25,7 +25,7 @@ final class CallWatch {
         follow()
     }
 
-    /// Onto the default input, which a headset plugged in changes.
+    /// Moves the listener onto the current default input, which changes when a headset is plugged in.
     private func follow() {
         if device != kAudioObjectUnknown {
             AudioObjectRemovePropertyListenerBlock(device, &running, .main, runningChanged)

@@ -3,12 +3,13 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The bar over a page an agent made (`.kelp/artifacts/<name>/doc.md`): what it is, whether its agent is writing it,
-/// its versions (one per turn of the agent, ‹ › and a list), the chat that made it, and ⋯. An older version shows in the
-/// preview, read-only, until Show Latest; Restore makes it the file again.
+/// The bar over a page an agent made (`.kelp/artifacts/<name>/doc.md`). It shows the page's kind, whether the agent
+/// is writing it, its versions (one per agent turn, stepped with ‹ › or picked from a list), the chat that made it,
+/// and a ⋯ menu. An older version shows in the preview, read-only, until Show Latest. Restore writes it back as the
+/// file.
 @MainActor
 final class ArtifactBar: NSObject {
-    /// A version to show: a kept one, or the file as it is (nil).
+    /// A version the bar can show: a kept version, or the current file when `version` is nil.
     struct Entry {
         var version: ArtifactVersion?
         var label: String
@@ -16,7 +17,7 @@ final class ArtifactBar: NSObject {
     }
 
     let app: AppModel, path: String
-    unowned let markdown: MarkdownTab   // which holds this bar
+    unowned let markdown: MarkdownTab   // the tab that holds this bar
     private let watched: Watched
     private let workspace: String?
     /// `path` without symlinks, as the daemon lists it.
@@ -34,46 +35,49 @@ final class ArtifactBar: NSObject {
     private let latest = TextButton(String(localized: "Show Latest"))
     private let restore = TextButton(String(localized: "Restore"))
     private let author = TextButton("")
-    /// A canvas's check: what Kelp found wrong where it drew the boards (`CanvasScript`).
+    /// On a canvas, the result of Kelp's check of the drawn boards: what it found wrong (`CanvasScript`).
     private let check = TextButton("")
-    /// What its chat spent on it (Claude Code's): calls and dollars, quiet.
+    /// What the chat that made the page spent on it, in calls and dollars, as quiet text (Claude Code chats only).
     private let spent = NSTextField(labelWithString: "")
     private var spentAt: Double?
-    /// A canvas's View / Mark / Edit: what a click on a board does (nothing, a mark for the agent, a change by hand).
+    /// The View / Mark / Edit control. On a canvas it sets what a click on a board does: nothing, a mark for the agent,
+    /// or a change by hand.
     private let modes = NSSegmentedControl(
         labels: [String(localized: "View"), String(localized: "Mark"), String(localized: "Edit")],
         trackingMode: .selectOne, target: nil, action: nil)
-    /// A canvas's Present: its boards one at a time, each as large as the pane (like a deck's slides).
+    /// The Present button. It shows a canvas's boards one at a time, each as large as the pane, like slides in a deck.
     private let present = TextButton(String(localized: "Present"))
-    /// The changes the agent's last turn made to a doc; a click goes to the next one.
+    /// The button that counts the changes the agent's last turn made to a doc. A click goes to the next change.
     private let changes = TextButton("")
-    /// A dashboard's figures: when they were drawn, and Update (its agent runs them again).
+    /// On a dashboard, the time its figures were drawn, and an Update button that asks the agent to run them again.
     private let fresh = NSTextField(labelWithString: "")
     private let refresh = TextButton(String(localized: "Update"))
     /// The kept version a doc's changes are counted from.
     var baselineN: Int?
     private var issues: [String] = []
-    /// A canvas's time as the list last said: its boards' and the design system's latest change.
+    /// The canvas's modified time from the last artifacts list: the latest change to its boards or its design system.
     private var canvasTime: Double?
     private lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in
         self?.showMore()
     }
     private var item: ArtifactItem?
-    /// Its own record, read when the list doesn't have it; and its kind, from either.
+    /// The page's own record, read from artifact.json when the artifacts list doesn't have the page. `pageKind` comes
+    /// from the list's item or from this record.
     private var recorded: ArtifactRecord?
     private(set) var pageKind: Artifacts.Kind?
     var entries: [Entry] = []
-    /// What's on screen: a version's number, which a new version or one dropped doesn't move; nil for the file as it is.
+    /// The number of the version on screen, or nil for the current file. A number, unlike an index, stays the same when
+    /// versions are added or dropped.
     var shownN: Int?
-    /// Where that version is in `entries` now.
+    /// The index of the shown version in `entries` now.
     var shown: Int? { shownN.flatMap { number in entries.firstIndex { $0.version?.n == number } } }
 
     private(set) lazy var view: NSView = {
         kind.font = .ui(TextSize.row, weight: .medium)
-        kind.textColor = .labelColor   // what this is: not a path, so not quiet like one
+        kind.textColor = .labelColor   // the page's kind is not a path, so it isn't quiet like one
         status.textColor = .secondaryLabelColor
         for field in [kind, status] { field.lineBreakMode = .byTruncatingTail }
-        kind.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)   // it gives way before the buttons
+        kind.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)   // truncates before the buttons do
         status.font = .ui(TextSize.row)
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         ring.style = .spinning
@@ -141,7 +145,8 @@ final class ArtifactBar: NSObject {
         self.path = path
         self.markdown = markdown
         watched = Watched(.artifacts, in: app)
-        // The workspace whose folder holds the page: the innermost one, for a branch's folder inside its project's.
+        // The workspace whose folder holds the page. When a branch's folder sits inside its project's folder, the
+        // innermost workspace wins.
         // Paths are compared with symlinks resolved, because a tab opened as /tmp/… is in the project at
         // /private/tmp/….
         let real = Paths.real(path) ?? path
@@ -163,7 +168,8 @@ final class ArtifactBar: NSObject {
         }
     }
 
-    /// The kind its file says, before its record does: canvas.json is a design until it says it's a dashboard.
+    /// Returns the page's kind from its file name, for use before its record is read. canvas.json counts as a design
+    /// until the record says it's a dashboard.
     static func kind(ofFile path: String) -> Artifacts.Kind? {
         guard isPage(path) else { return nil }
         return Artifacts.Kind.allCases.first { path.hasSuffix("/" + $0.file) }
@@ -183,7 +189,8 @@ final class ArtifactBar: NSObject {
         return .symbol(symbol, name)
     }
 
-    /// A page as the workspace's list of artifacts has it (a tab not built yet is named by it).
+    /// Returns a page's title and kind from the workspace's artifacts list. A tab that isn't built yet takes its name
+    /// from this.
     static func listed(_ path: String, in app: AppModel) -> (title: String, kind: Artifacts.Kind)? {
         guard isPage(path) else { return nil }
         let real = Paths.real(path) ?? path
@@ -220,7 +227,8 @@ final class ArtifactBar: NSObject {
             canvasTime = time
         }
         if let title = item?.title ?? recorded?.title, !title.isEmpty { markdown.onPageTitle?(title, pageKind) }
-        // The file as it is goes last; a last version it hasn't changed from is the same page, named by its turn.
+        // The current file goes last. When it hasn't changed since the last kept version, the two are the same page,
+        // so that version is dropped and the current file takes its turn's label.
         let versions = item?.versions ?? []
         let live = item?.changed != false || versions.isEmpty
         entries =
@@ -233,12 +241,12 @@ final class ArtifactBar: NSObject {
         if shownN != nil, shown.map({ $0 >= entries.count - 1 }) ?? true {
             shownN = nil
             markdown.showVersion(nil)
-        }   // gone, or now the latest
+        }   // the shown version is gone, or is now the latest
         let writing =
             session?.status == .working && (item?.modified).map { Date().timeIntervalSince1970 - $0 < 120 } == true
         if markdown.page == .canvas { markdown.canvasWriter = writing ? app.catalog.name(session?.agent) : nil }
         if markdown.page == .markdown { followBaseline(versions: versions, live: item?.changed != false) }
-        if markdown.page != .canvas { modes.selectedSegment = markdown.canvasMode.rawValue }   // ⇧⌘V may have moved it
+        if markdown.page != .canvas { modes.selectedSegment = markdown.canvasMode.rawValue }   // ⇧⌘V may change mode
         if shown != nil {
             status.stringValue = String(localized: "An older version, from \(Self.time(entries[shown ?? 0].at))")
         } else {
@@ -255,7 +263,8 @@ final class ArtifactBar: NSObject {
         restore.isHidden = shown == nil
         author.isHidden = session == nil
         if let session {
-            // The agent, not the chat's title, which reads as the page's own name; the chat is in the tip.
+            // The button names the agent, not the chat's title, because that title reads as the page's own name.
+            // The chat's title goes in the tooltip.
             author.title = app.catalog.name(session.agent)   // displayName is the chat's title once it has one
             author.image = session.agent.flatMap { app.catalog.icon($0, size: 14) }
             let tip =
@@ -272,9 +281,10 @@ final class ArtifactBar: NSObject {
         "proof": String(localized: "Proof")
     ]
 
-    /// A dashboard: View and Mark (nothing to change by hand), no Present, and when its figures were drawn.
+    /// Sets the bar up for a dashboard: View and Mark only (there is nothing to change by hand), no Present, and the
+    /// time its figures were drawn.
     private func showDashboard() {
-        _ = view   // built: its controls are set up before this changes them
+        _ = view   // builds the view, so its controls are set up before this changes them
         markdown.isDashboard = true
         if modes.segmentCount == 3 { modes.segmentCount = 2 }
         present.isHidden = true
@@ -293,7 +303,8 @@ final class ArtifactBar: NSObject {
         check.toolTip = String(localized: "What Kelp found where it drew the boards: cut-off text, contrast, sizes")
     }
 
-    /// What the chat spent on the page so far, once its file changed (at most every 10 s while it's being written).
+    /// Shows what the chat has spent on the page so far. It runs when the page's file changes, at most every 10 s
+    /// while the page is being written.
     private func countSpent(at time: Double) {
         guard spentAt.map({ time - $0 >= 10 }) ?? true else { return }
         spentAt = time
@@ -318,7 +329,8 @@ final class ArtifactBar: NSObject {
         markdown.setCanvasMode(MarkdownTab.CanvasMode(rawValue: modes.selectedSegment) ?? .view)
     }
 
-    /// A page outside the workspace's list (opened from elsewhere) is named by its own record, as one in it is.
+    /// Names a page that isn't in the workspace's list (one opened from elsewhere) from its own artifact.json, the way
+    /// a listed page is named.
     private func nameFromRecord() {
         let record = (path as NSString).deletingLastPathComponent + "/artifact.json"
         Task {
@@ -349,13 +361,13 @@ final class ArtifactBar: NSObject {
 
     private func showMore() {
         let menu = NSMenu(), app = self.app, path = self.path, md = markdown
-        if modes.isHidden {   // a review: its Markdown, beside or instead of the page (the others have View / Edit)
+        if modes.isHidden {   // a review: these show its Markdown beside or instead of the page (others use `modes`)
             for (mode, title) in [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")]
                 .enumerated()
             {
                 let item = menu.add(title) { md.modeSegment = mode }
                 item.state = md.modeSegment == mode ? .on : .off
-                item.isEnabled = md.shownVersion == nil   // an older version is only read
+                item.isEnabled = md.shownVersion == nil   // an older version is read-only
             }
             menu.addItem(.separator())
         }

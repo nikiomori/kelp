@@ -4,11 +4,12 @@ import Core
 import WebKit
 
 extension BrowserTab {
-    /// Counts what changes in the page (and the site's own frames in it), so an action can say whether it did anything:
-    /// `__kelpN` real changes, `__kelpLast` when the last one was, `__kelpDoc` which document this is, `__kelpAdded`
-    /// the nodes added (or texts rewritten) since the last whole snapshot. Kelp's own pointer and glow aren't the page
-    /// reacting; an attribute written with the value it had is nothing, and a style only counts as the first on its
-    /// element in 200 ms (a menu shown by `display` is a change, an animation loop goes quiet).
+    /// Counts the changes in the page (and in the site's own frames inside it), so an action can say whether it did
+    /// anything. `__kelpN` counts real changes, `__kelpLast` is when the last one was, `__kelpDoc` tells which document
+    /// this is, and `__kelpAdded` holds the nodes added (or texts rewritten) since the last whole snapshot. Changes to
+    /// Kelp's own pointer and glow don't count, because they aren't the page reacting. An attribute written with the
+    /// value it already had doesn't count either. A style change counts only when it is the first on its element in
+    /// 200 ms, so a menu shown by `display` is a change while an animation loop goes quiet.
     static let observeJS = #"""
         const W = window;
         if (!W.__kelpObs) {
@@ -52,7 +53,8 @@ extension BrowserTab {
         frames(W);
         """#
 
-    /// Where the page is and how long it has been still (ms), for an action's `change`.
+    /// Returns which document and address the page is at and how long it has been still (ms), so an action can report
+    /// its `change`.
     static var probeJS: String { observeJS + probeBody }
     private static let probeBody = #"""
         return {doc: W.__kelpDoc, url: location.href, n: W.__kelpN, idle: performance.now() - W.__kelpLast,
@@ -74,12 +76,13 @@ extension BrowserTab {
         };
         """#
 
-    /// The page as an accessibility tree, one line per element: role, name, state, and a ref (`e12`) for what can be
-    /// clicked or typed in. An element keeps its ref while it is on the page, and elements that appeared since the last
-    /// whole snapshot say `[new]`. Elements without a role don't show, but their children do, one level up; links,
-    /// buttons and fields show their text, not what is inside them. A frame from the page's own site is read too;
-    /// another site's frame can't be.
-    /// Over `max` lines, the middle is dropped, because a dialog's buttons are usually the page's last lines.
+    /// Writes the page as an accessibility tree, one line per element with its role, name, state, and a ref (`e12`) for
+    /// what can be clicked or typed in. An element keeps its ref while it is on the page, and elements that appeared
+    /// since the last whole snapshot are marked `[new]`. Elements without a role don't show, but their children do, one
+    /// level up. Links, buttons and fields show their text, not the elements inside them. A frame from the page's own
+    /// site is read too, but another site's frame can't be.
+    /// When there are over `max` lines, the middle is dropped, because a dialog's buttons are usually the page's last
+    /// lines.
     static var snapshotJS: String { observeJS + shownTextJS + snapshotBody }
     private static let snapshotBody = #"""
         if (!W.__kelpRefs) { W.__kelpRefs = new Map(); W.__kelpIds = new WeakMap(); W.__kelpNext = 0; }
@@ -220,9 +223,9 @@ extension BrowserTab {
         return '- page ' + JSON.stringify(document.title) + ' ' + location.href + '\n' + body.join('\n');
         """#
 
-    /// `el(ref)` finds the element of `ref` from a snapshot (or the first one a CSS selector matches) and scrolls it
-    /// into view. `box(e)` gives where an element is in the top page (a frame's own position is added, since its
-    /// elements' boxes are relative to the frame).
+    /// Finds `el`, the element of `ref` from a snapshot (or the first element a CSS selector matches), and scrolls it
+    /// into view. `box(e)` gives where an element is in the top page. It adds each frame's own position, because the
+    /// boxes of elements in a frame are relative to the frame.
     static let findJS = #"""
         // A ref, or a CSS selector for an element the snapshot gave none.
         const byRef = /^e\d+$/.test(ref);
@@ -242,10 +245,10 @@ extension BrowserTab {
         };
         """#
 
-    /// `el` accepts the pointer only as it would accept a person's: the element must be enabled, shown, and not covered
-    /// at its middle by something else (a cookie banner, a dialog's backdrop). A script's events would reach a covered
-    /// element anyway, but a person's click wouldn't. A box under its own label, and (`editable`) a field under the
-    /// field that a combobox lays over it, count as reachable.
+    /// Checks that `el` would take the pointer as it would take a person's: the element must be enabled, shown, and not
+    /// covered at its middle by something else (a cookie banner, a dialog's backdrop). A script's events would reach a
+    /// covered element anyway, but a person's click wouldn't. Two covered cases still count as reachable: a box under
+    /// its own label, and, when `editable` is set, a field under the field that a combobox lays over it.
     static let reachJS = #"""
         {
         const say = e => {
@@ -280,9 +283,9 @@ extension BrowserTab {
         }
         """#
 
-    /// The agent's pointer glides to `el` from where it last was, then a glow closes in on it, so the user watching
-    /// sees what the agent is about to click or type in; the action waits for both when the page is on screen (a link's
-    /// page would replace them at once). The pointer fades when the agent stops.
+    /// Moves the agent's pointer to `el` from where it last was, then closes a glow in on the element, so the user
+    /// watching sees what the agent is about to click or type in. When the page is on screen, the action waits for
+    /// both, because a link's page would replace them at once. The pointer fades when the agent stops.
     static let flashJS = #"""
         {
         const fr = box(el), on = document.visibilityState === 'visible';
@@ -335,7 +338,8 @@ extension BrowserTab {
         }
         """#
 
-    /// Before a screenshot: no outline of ours, finite animations done (a dialog closing), and a frame drawn.
+    /// Readies the page for a screenshot. It removes Kelp's pointer and outlines, waits for finite animations to end (a
+    /// dialog closing), and waits for a frame to be drawn.
     static let calmJS = #"""
         try {
           document.querySelectorAll('[data-kelp-flash]').forEach(e => e.remove());
@@ -346,8 +350,8 @@ extension BrowserTab {
         } catch (_) {}
         """#
 
-    /// What a mouse click sends: pointer and mouse down, focus, up, then click (which follows a link, ticks a box,
-    /// submits).
+    /// Sends what a mouse click sends: pointer and mouse down, focus, pointer and mouse up, then click (which follows a
+    /// link, ticks a box, or submits).
     static let clickJS = #"""
         const r = el.getBoundingClientRect(), view = el.ownerDocument.defaultView;
         const o = {bubbles: true, cancelable: true, composed: true, view, button: 0, clientX: r.left + r.width / 2,
@@ -359,12 +363,13 @@ extension BrowserTab {
         el.click();
         """#
 
-    /// Replaces the field's text the way typing does: a key at a time (keydown, the value through its own setter so
-    /// frameworks that wrap it, as React does, see it, input, keyup), so masks and suggestions follow and the user sees
-    /// it typed; then `change`. A key the page cancels isn't typed. Fields whose half-typed value isn't one (date,
-    /// number, colour) take the whole text at once, and one it isn't in their format is refused; a select takes an
-    /// option by its text or value (any case), or the one option its text starts with. `submit` presses Enter. Returns
-    /// what the field shows then (a password: the text typed).
+    /// Replaces the field's text the way typing does, one key at a time, so masks and suggestions follow and the user
+    /// sees the text typed. Each key sends keydown, sets the value through the field's own setter (so frameworks that
+    /// wrap it, as React does, see it), then sends input and keyup. A `change` event follows the last key. A key the
+    /// page cancels isn't typed. Fields where a half-typed value means nothing (date, number, colour) take the whole
+    /// text at once, and refuse text that isn't in their format. A select takes an option by its value, or by its text
+    /// in any case, or the one option whose text starts with the given text. `submit` presses Enter. Returns what the
+    /// field shows afterwards, or the text typed for a password.
     static let typeJS = #"""
         el.focus();
         const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -425,9 +430,10 @@ extension BrowserTab {
         return el.localName === 'select' ? (el.selectedOptions[0] || {text: ''}).text.trim() : el.value;
         """#
 
-    /// `files` ({name, type, data in base64}) into the file field `el` is, holds or labels (or the page's only one, for
-    /// a styled button over a hidden field), then `input` and `change`: what choosing them in the panel does. With no
-    /// field, they're dropped on `el` (a drop zone), as dragging them there from Finder does; returns "dropped" then.
+    /// Puts `files` ({name, type, data in base64}) into a file field, then sends `input` and `change`, as choosing them
+    /// in the open panel does. The field is `el` itself, the one `el` holds or labels, or the page's only file field
+    /// (for a styled button over a hidden field). With no field, the files are dropped on `el` (a drop zone), as
+    /// dragging them there from Finder does, and the script returns "dropped".
     static let uploadJS = #"""
         const isFile = x => x && x.localName === 'input' && x.type === 'file';
         const all = el.ownerDocument.querySelectorAll('input[type=file]');
@@ -457,10 +463,11 @@ extension BrowserTab {
         return 'chosen';
         """#
 
-    /// `el` dragged onto the element of `onto` (a ref, or a selector for a zone with none), as a person drags: pressed,
-    /// moved there in steps, let go. What the page makes draggable when pressed (`draggable`: lists, boards, files)
-    /// gets the drag events a browser sends, and the element under the pointer must take the drop (its `dragover`
-    /// cancelled), as in a browser; anything else follows the pointer (sortable lists by pointer, sliders, canvases).
+    /// Drags `el` onto the element `onto` (a ref, or a selector for a zone the snapshot gave no ref) the way a person
+    /// drags: press, move there in steps, let go. An element the page makes draggable when pressed (`draggable`, as in
+    /// lists, boards and files) gets the drag events a browser sends. The element under the pointer must then take the
+    /// drop by cancelling its `dragover`, as in a browser. Anything else gets pointer events as the pointer moves
+    /// (sortable lists driven by the pointer, sliders, canvases).
     static let dragJS = #"""
         const ontoRef = /^e\d+$/.test(onto);
         const dst = ontoRef ? window.__kelpRefs.get(onto) : el.ownerDocument.querySelector(onto);
@@ -514,8 +521,8 @@ extension BrowserTab {
         }
         """#
 
-    /// `text` shown on the page (as a person sees it: transparent text isn't, a frame of the site's own is), `selector`
-    /// on it.
+    /// Returns whether `text` is shown on the page and `selector` matches on it. Text counts as a person sees it, so
+    /// transparent text doesn't count, and text in a frame of the site's own does.
     static var waitJS: String { shownTextJS + waitBody }
     private static let waitBody = #"""
         if (selector && !document.querySelector(selector)) return false;
@@ -535,7 +542,8 @@ extension BrowserTab {
         return norm(seen.join(' ')).includes(norm(text));
         """#
 
-    /// What the pointer moving onto `el` sends: menus that open from script do; a CSS `:hover` doesn't follow events.
+    /// Sends what the pointer moving onto `el` sends. Menus that open from a script open, but a CSS `:hover` doesn't
+    /// follow events, so menus built on it don't.
     static let hoverJS = #"""
         const r = el.getBoundingClientRect(), view = el.ownerDocument.defaultView;
         const o = {bubbles: true, cancelable: true, composed: true, view, clientX: r.left + r.width / 2,
@@ -546,10 +554,10 @@ extension BrowserTab {
         el.dispatchEvent(new PointerEvent('pointermove', p)); el.dispatchEvent(new MouseEvent('mousemove', o));
         """#
 
-    /// A key (`Escape`, `Shift+Tab`, `ArrowDown`, `a`) on the focused element (in a shadow root or a frame of the
-    /// site's own too), or on `ref` once it's focused. Events from a script do nothing by themselves, so what the
-    /// browser would do follows unless the page prevented it: Tab moves the focus, Enter clicks a link or button or
-    /// submits a field's form, Space clicks a button or a box.
+    /// Presses a key (`Escape`, `Shift+Tab`, `ArrowDown`, `a`) on the focused element, also inside a shadow root or a
+    /// frame of the site's own, or on `ref` once it's focused. Events from a script do nothing by themselves, so the
+    /// script then does what the browser would, unless the page prevented it. Tab moves the focus, Enter clicks a link
+    /// or button or submits a field's form, and Space clicks a button or a box.
     static let pressJS = #"""
         const deep = () => {
           let a = document.activeElement;
@@ -592,8 +600,9 @@ extension BrowserTab {
         (deep() || el).dispatchEvent(new KeyboardEvent('keyup', o));
         """#
 
-    /// Scrolls the page, or the biggest box that scrolls when the page itself doesn't (an app's main pane), by most of
-    /// a screen, to an end, or `ref` into view; then waits a little for what scrolling loads. Says where it is.
+    /// Scrolls the page, or the biggest box that scrolls when the page itself doesn't (an app's main pane). It scrolls
+    /// by most of a screen, to an end, or `ref` into view, then waits a little for what scrolling loads. Returns the
+    /// scroll position, out of how far the page can scroll.
     static let scrollJS = #"""
         if (/^e\d+$/.test(to)) {
           const el = window.__kelpRefs && window.__kelpRefs.get(to);

@@ -1,8 +1,9 @@
 import Core
 import Foundation
 
-/// What was pasted into Add a Skill or MCP Server, read: a skill's folder, a repository of skills, or a server (a
-/// command, an address, JSON). A repository is told from a server's address by its host or its `.git`.
+/// What the text pasted into Add a Skill or MCP Server turns out to be: a skill's folder, a repository of skills, or a
+/// server (a command, an address, JSON). A repository's address is told apart from a server's by its host or its
+/// `.git` ending.
 enum AddonPaste: Equatable {
     case server(name: String, entry: ServerEntry)
     case folder(String)
@@ -28,7 +29,8 @@ enum AddonPaste: Equatable {
         return false
     }
 
-    /// The agents Kelp can hand it to: a server goes on two agents' command lines; a skill sits where all of these read.
+    /// The agents Kelp can hand the pasted item to. A server goes on the command lines of two agents, and a skill goes
+    /// in a folder that all of these agents read.
     var agents: [String] {
         isServer
             ? [Session.claudeAgent, Session.codexAgent]

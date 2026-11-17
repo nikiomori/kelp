@@ -3,11 +3,13 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Who could go on with the work of a session a plan limit stopped, and what to say under its title.
+/// Works out which agents could go on with the work of a session a plan limit stopped, and what to say under the
+/// strip's title.
 extension LimitStop {
     struct Taker: Equatable { var id: String, name: String, used: Double? }
 
-    /// The installed agents but this one and those out of plan: the freest first, those without a plan's numbers last.
+    /// Returns the installed agents other than this one and those whose plan is used up. The agent with the most room
+    /// comes first, and agents without a plan's numbers come last.
     static func takers(_ agents: [(id: String, name: String)], except: String?, used: [String: Double]) -> [Taker] {
         let open = agents.filter { $0.id != except && (used[$0.id] ?? 0) < 100 }.map {
             Taker(id: $0.id, name: $0.name, used: used[$0.id])
@@ -17,7 +19,8 @@ extension LimitStop {
         }.map(\.element)
     }
 
-    /// The one the button names: the first with room, else the first without numbers, else the freest there is.
+    /// Picks the agent the button names: the first one under 90 %, or else the first without numbers, or else the one
+    /// with the most room.
     static func pick(_ takers: [Taker]) -> Taker? {
         takers.first { ($0.used ?? 100) < 90 } ?? takers.first { $0.used == nil } ?? takers.first
     }
@@ -37,8 +40,10 @@ extension LimitStop {
     }
 }
 
-/// Over the foot of the terminal of an agent a plan limit stopped: go on in another agent, or here at the reset. Over it, not
-/// beside it: the TUI keeps its size. ✕ puts it away; the row goes on saying so until the agent does something else.
+/// A strip over the bottom of an agent's terminal, shown when a plan limit stopped the agent. It offers to go on in
+/// another agent, or in this one at the reset. It floats over the terminal instead of beside it, so the agent's TUI
+/// keeps its size. ✕ puts the strip away, but the agent's row still says the limit stopped it until the agent does
+/// something else.
 @MainActor
 final class LimitStrip: NSView {
     private let app: AppModel, id: String
@@ -46,7 +51,7 @@ final class LimitStrip: NSView {
     private let handOff = NSComboButton(title: "", menu: NSMenu(), target: nil, action: nil)
     private let later = NSButton(), cancel = NSButton()
     private var taker: String?
-    private var dismissed: Date?   // the stop ✕ put away: the next one shows again
+    private var dismissed: Date?   // the limit hit that ✕ put away; the next hit shows again
     private var watchingPlans = false
     private var clock: Task<Void, Never>?
 
@@ -101,7 +106,8 @@ final class LimitStrip: NSView {
         row.spacing = Metrics.gapWide
         row.detachesHiddenViews = true
         row.edgeInsets = NSEdgeInsets(top: 10, left: 14, bottom: 10, right: 10)
-        // A narrow pane drops the wait first; the words give way before any button.
+        // In a narrow pane the "Continue at" button hides first, then the hand-off button. The words are cut before
+        // any button hides.
         row.setVisibilityPriority(.init(rawValue: 300), for: later)
         row.setVisibilityPriority(.init(rawValue: 400), for: handOff)
         let card = FloatingCard(row)
@@ -150,7 +156,7 @@ final class LimitStrip: NSView {
         cancel.isHidden = !waiting
     }
 
-    /// How full each agent's fullest plan limit is.
+    /// Returns how full each agent's fullest plan limit is.
     private func planUse() -> [String: Double] {
         guard let limits = app.latest(LimitsEvent.self)?.usage else { return [:] }
         return limits.fresh().reduce(into: [:]) {
@@ -168,7 +174,8 @@ final class LimitStrip: NSView {
         return menu
     }
 
-    /// While it's up: the plans' numbers stay fresh, and "in 38 min" counts down to the reset, which nothing announces.
+    /// While the strip is up, it keeps the plans' numbers fresh and redraws every 30 seconds, so "in 38 min" counts
+    /// down to the reset, which no event announces.
     private func showing(_ on: Bool) {
         if on != watchingPlans {
             watchingPlans = on
@@ -190,7 +197,8 @@ final class LimitStrip: NSView {
         update()
     }
 
-    /// At the reset and a minute more: a turn that goes on by itself has started by then. Past it: now.
+    /// Asks the daemon to type "continue" a minute after the reset, because a turn that goes on by itself has started
+    /// by then. When the reset has passed, it sends "continue" now.
     @objc private func laterTapped() {
         guard let reset = app.session(id)?.limitHit?.resetAt else { return }
         let app = app, id = id

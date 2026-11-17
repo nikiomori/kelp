@@ -1,27 +1,29 @@
-// An agent's subagents in the browser: a page for each, in the tab of the agent's page, with a row of them to switch
-// between.
+// How an agent's subagents use the browser: each gets a page in the tab of the agent's page, and a row of pills over
+// the page switches between them.
 import AppKit
 import Core
 import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// The pages of one agent page's tab (`BrowserTab.pageSet`): its own, the first to drive it (the agent, or the subagent
-/// that opened it); and one for each other that opens a page (`kelp browser open` from a subagent), made then. A row of
-/// them over the page, each saying who drives it and what it did last, switches; a subagent's page goes when the
-/// subagent ends. Words, not pictures: a picture small enough for the row said nothing, and would be taken all along.
+/// The pages in the tab of one agent's page (`BrowserTab.pageSet`). The tab's own page belongs to whoever drove it
+/// first (the agent, or the subagent that opened it). Each other agent or subagent that opens a page (a subagent's
+/// `kelp browser open`) gets one, made at that moment. A row of pills over the page switches between them, each
+/// saying who drives the page and what it did last. A subagent's page goes when the subagent ends. The pills show
+/// words, not pictures, because a picture small enough for the row said nothing and would have to be taken all along.
 @MainActor
 @Observable
 final class PageSet {
     @ObservationIgnored unowned let host: BrowserTab
-    /// Whose the tab's own page is: the subagent, or "" for the agent, that drove it first.
+    /// Who owns the tab's own page: the subagent that drove it first, or "" when the agent did.
     @ObservationIgnored var owner: String?
-    /// The others' pages, by who drives them, in the order they came.
+    /// The pages of everyone else, by who drives them, in the order they came.
     private(set) var pages: [(who: String, tab: BrowserTab)] = []
-    /// The page on show: one of `pages`, or nil for the tab's own.
+    /// Who drives the page on show: one of `pages`, or nil for the tab's own page.
     private(set) var shown: String?
     @ObservationIgnored private let row = NSStackView()
-    /// A pill each, by who drives its page: the tab's own page's under its `owner`, which no other page has.
+    /// One pill for each page, by who drives the page. The pill of the tab's own page is under its `owner`, which no
+    /// other page has.
     @ObservationIgnored private(set) var pills: [String: PointerButton] = [:]
     @ObservationIgnored private var following = false
 
@@ -35,8 +37,8 @@ final class PageSet {
         host.switchSlot.pin(row)
     }
 
-    /// The page `args` is for, when it isn't the tab's own page: a subagent's page, made for its `open`. Nil means the
-    /// tab's own page.
+    /// Returns the page that `args` is for when it isn't the tab's own page. That is a subagent's page, made for the
+    /// subagent's `open`. Nil means the tab's own page.
     func route(_ action: BrowserAction, _ args: JSONValue) -> BrowserTab? {
         let who = args["subagent"]?.string ?? ""
         guard let owner else {
@@ -45,7 +47,7 @@ final class PageSet {
         }
         if who == owner { return nil }
         if let page = pages.first(where: { $0.who == who })?.tab { return page }
-        guard action == .open else { return nil }   // reading or clicking before it opened one: the page it shares
+        guard action == .open else { return nil }   // before its own open, a subagent uses the shared page
         let page = BrowserTab(uri: TabURI.agentPage("about:blank"), app: host.app)
         page.host = host
         page.watch()
@@ -56,12 +58,12 @@ final class PageSet {
         return page
     }
 
-    /// After an action on one of the set's pages: its words in the row.
+    /// Updates the words in the row after an action on one of the set's pages.
     func acted(_ page: BrowserTab) {
         if !pages.isEmpty { showRow() }
     }
 
-    /// The page in front: `who`'s, or the tab's own (nil).
+    /// Brings a page to the front: the page `who` drives, or the tab's own page for nil.
     func show(_ who: String?) {
         shown = pages.contains { $0.who == who } ? who : nil
         for (key, page) in pages {
@@ -75,7 +77,7 @@ final class PageSet {
     /// The page on show, for ⌘R and ⌘F.
     var shownTab: BrowserTab { pages.first { $0.who == shown }?.tab ?? host }
 
-    /// Its subagents' pages go as they end (and all of them with the turn).
+    /// Closes each subagent's page as the subagent ends, and all of them when the turn ends.
     private func follow(_ session: String?) {
         guard !following, let session else { return }
         following = true
@@ -98,11 +100,12 @@ final class PageSet {
         show(pages.contains { $0.who == shown } ? shown : nil)
     }
 
-    /// The row: a pill for each page, who drives it and what it did last, the one on show filled.
+    /// Updates the row: a pill for each page that says who drives it and what it did last, with the pill of the page on
+    /// show filled.
     private func showRow() {
         host.switchHeight.isActive = pages.isEmpty
-        // The agent's own page ("") is among `pages` when a subagent drove the tab first: since pages are keyed by
-        // their owner, the tab's own pill isn't the agent's.
+        // When a subagent drove the tab first, the agent's own page ("") is among `pages`. Because pages are keyed by
+        // who drives them, the pill of the tab's own page then isn't the agent's.
         let all = [(owner ?? "", host, true)] + pages.map { ($0.who, $0.tab, false) }
         for (index, (who, page, own)) in all.enumerated() {
             let pill = pills[who] ?? makePill(who, own: own)
@@ -121,7 +124,8 @@ final class PageSet {
         return pill
     }
 
-    /// `mobile · clicks “Pay now”`: who drives it (a subagent by what it was asked, the agent by name) and its last step.
+    /// Returns a pill's title, such as `mobile · clicks “Pay now”`: who drives the page (a subagent by its task, the
+    /// agent by name) and its last step.
     private func name(_ who: String, _ page: BrowserTab) -> String {
         let whose = page.driverName(who)
         let step = page.drive?.lastStep

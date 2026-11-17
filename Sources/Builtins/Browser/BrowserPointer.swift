@@ -1,13 +1,14 @@
-// Who is at the page and what it does: the agent's colour on its pointer and glow, and a label at the pointer.
+// Shows who is at the page and what it does, with the agent's colour on its pointer and glow, and a label at the
+// pointer.
 import AppKit
 import Core
 import DesignKit
 import KelpKit
 
 extension BrowserTab {
-    /// The pointer's colour and label for `action` on `ref`, as the user watching reads them: the agent's own colour
-    /// (Claude's orange), or Kelp's purple for an agent whose colour doesn't stand out on a page (near black, grey),
-    /// and a label like `Claude · clicks “Save”`; plus the label's type size and padding.
+    /// Returns the pointer's colour and label for `action` on `ref`, as the user watching sees them. The colour is the
+    /// agent's own (Claude's orange), or Kelp's purple for an agent whose colour doesn't stand out on a page (near
+    /// black, grey). The label reads like `Claude · clicks “Save”`, and its type size and padding come with it.
     func pointerLook(_ action: BrowserAction, ref: String, _ request: JSONValue) -> [String: Any] {
         let agent = request["session"]?.string.flatMap { app.session($0) }?.agent
         let who = agent == nil ? String(localized: "Agent") : app.catalog.name(agent)
@@ -28,7 +29,8 @@ extension BrowserTab {
         }
     }
 
-    /// `button "Save"` → `Save`: the name a snapshot gave, without its role; nil for an element without one.
+    /// Returns the name a snapshot gave an element, without its role, so `button "Save"` gives `Save`. It returns nil
+    /// for an element without a name.
     nonisolated static func shownName(_ named: String) -> String? {
         guard let open = named.firstIndex(of: "\""), let close = named.lastIndex(of: "\""), open < close else {
             return nil
@@ -36,7 +38,7 @@ extension BrowserTab {
         return named[named.index(after: open)..<close].replacingOccurrences(of: "\\\"", with: "\"")
     }
 
-    /// A colour that stands out on any page: the agent's own, unless it's grey, nearly black or nearly white.
+    /// Returns a colour that stands out on any page: the agent's own, unless it's grey, nearly black or nearly white.
     static func vivid(_ hex: String?) -> NSColor {
         guard let color = hex.flatMap(NSColor.init(hex:))?.usingColorSpace(.sRGB), color.saturationComponent > 0.3,
             (0.35...0.95).contains(color.brightnessComponent)

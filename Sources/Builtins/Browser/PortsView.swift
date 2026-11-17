@@ -4,8 +4,8 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// A blank browser tab offers what the workspace is serving: each port its terminals or agents listen on, to open,
-/// copy, or stop. Refreshed every few seconds while it shows.
+/// What a blank browser tab shows: the ports the workspace's terminals and agents listen on, each to open, copy or
+/// stop. The list is refreshed every few seconds while it shows.
 @MainActor
 final class PortsView: NSView {
     var onOpen: ((String) -> Void)?
@@ -52,7 +52,8 @@ final class PortsView: NSView {
     }
     override var isHidden: Bool { didSet { follow() } }
 
-    /// Watched while it shows: the daemon looks every few seconds and says when the ports changed.
+    /// Watches the workspace's ports while the view shows. The daemon looks every few seconds and says when the ports
+    /// changed.
     private func follow() {
         let wid = window != nil && !isHidden ? app.workbench.workspaceId : nil
         guard wid != ports.key else { return }
@@ -129,7 +130,7 @@ final class PortsView: NSView {
     }
 }
 
-/// A port's row: its buttons again on a right-click.
+/// A port's row, which offers its buttons again in a right-click menu.
 private final class PortRow: NSStackView {
     var items: ((NSMenu) -> Void)?
     override func menu(for event: NSEvent) -> NSMenu? {

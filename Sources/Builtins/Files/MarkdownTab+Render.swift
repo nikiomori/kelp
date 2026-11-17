@@ -6,19 +6,19 @@ import KelpKit
 import Markdown
 import WebKit
 
-/// The preview's page: built off the main thread for what the file is (a doc, slides, a review, a canvas, HTML), and
-/// a plain document's body replaced in place while it's typed.
+/// Builds the preview's page off the main thread, for whatever the file is (a doc, slides, a review, a canvas, HTML).
+/// While a plain document is being typed, only its body is replaced in place.
 extension MarkdownTab {
-    /// What the preview shows, from the file's path.
+    /// What the preview shows, decided from the file's path.
     enum Page {
         case markdown
         /// An agent's slides: the Markdown cut into 16:9 slides.
         case slides
-        /// A review an agent wrote: its page is answered, not read (`ReviewPage`).
+        /// A review an agent wrote. The user answers its page rather than just reading it (`ReviewPage`).
         case review
-        /// An agent's page of HTML: the preview is the file itself.
+        /// An agent's HTML page. The preview shows the file itself.
         case html
-        /// A design's canvas.json: the preview is its boards, drawn by Kelp (`CanvasPage`).
+        /// A design's canvas.json. The preview shows its boards, drawn by Kelp (`CanvasPage`).
         case canvas
 
         @MainActor init(_ url: URL) {
@@ -35,8 +35,8 @@ extension MarkdownTab {
             }
         }
     }
-    /// The page is built off the main thread (a long document, or mermaid's 5.5 MB script inlined), and not at all
-    /// while only the source shows.
+    /// Renders the preview. The page is built off the main thread, because a document can be long or inline mermaid's
+    /// 5.5 MB script. It isn't built at all while only the source shows.
     func rerender(after delay: Duration = .zero) {
         renderTask?.cancel()
         guard !web.isHidden else {
@@ -121,19 +121,20 @@ extension MarkdownTab {
             }.value
             guard !Task.isCancelled else { return }
             if let swap, let swappable, swap.samePage(as: swappable), !web.isLoading, await replace(swap) { return }
-            // Keep the reader's place across re-renders, and the slide shown (numbers both, so the async call can't trap
-            // on nil).
+            // Keeps the reader's place and the slide shown across re-renders. Both values are numbers, so the async
+            // call can't trap on nil.
             let was =
                 (try? await web.evaluateJavaScript("[window.scrollY, window.kelpAt ?? 0]", contentWorld: Self.world))
                 as? [Double] ?? [0, 0]
             let scrollY = was.first ?? 0, slide = Int(was.last ?? 0)
             guard !Task.isCancelled else { return }
-            // In Split, on the block being edited; the place it had otherwise.
+            // In Split, the preview goes to the block being edited; otherwise it goes back to where it was.
             let place =
                 currentMode == "split" && (kind == .markdown || kind == .slides)
                 ? "kelpToLine(\(editor.cursor?.line ?? 1))"
                 : kind == .slides ? "kelpGo(\(slide))" : "window.scrollTo(0, \(scrollY))"
-            // A canvas is Kelp's own page: its boards sit in frames sandboxed without scripts (`CanvasPage`).
+            // A canvas is Kelp's own page, so its scripts run; its boards sit in frames sandboxed without scripts
+            // (`CanvasPage`).
             links.load(
                 html, baseURL: base, scripts: scripts + [place], world: Self.world, pageScripts: kind == .canvas,
                 in: web)
@@ -141,8 +142,8 @@ extension MarkdownTab {
         }
     }
 
-    /// A plain document's page: what it's made of (its folder, appearance, colours, and the scripts its body needs), and
-    /// its body.
+    /// The rendered page of a plain document. It holds the page's body and what the page is made of: the document's
+    /// folder, the appearance, the colours, and the scripts the body needs.
     struct Swap: Sendable {
         let folder: String, dark: Bool, colors: String?, mermaid: Bool, math: Bool
         let body: String
@@ -151,9 +152,9 @@ extension MarkdownTab {
         }
     }
 
-    /// Replaces the shown page's body with `swap`'s and draws its diagrams and formulas again: loading a new page at
-    /// each pause in the typing read mermaid's and KaTeX's scripts again and lost the place. False when the page has no
-    /// body to replace.
+    /// Replaces the body of the page on screen with the body in `swap`, and draws its diagrams and formulas again.
+    /// Loading a new page at each pause in typing read the mermaid and KaTeX scripts again and lost the reader's place.
+    /// Returns false when the page has no body to replace.
     func replace(_ swap: Swap) async -> Bool {
         let place = currentMode == "split" ? "kelpToLine(\(editor.cursor?.line ?? 1));" : ""
         let js = """
@@ -168,7 +169,7 @@ extension MarkdownTab {
             })()
             """
         do { return try await web.evaluateJavaScript(js, contentWorld: Self.world) as? Bool == true } catch {
-            return false   // a new page, then
+            return false   // so the caller loads a new page
         }
     }
 }

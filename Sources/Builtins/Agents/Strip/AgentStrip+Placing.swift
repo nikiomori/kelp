@@ -1,12 +1,14 @@
-// Where the agent strip stands: dropped in a corner, tucked behind a screen's side, put on its screen.
+// Where the agent strip stands. It can be dropped in a corner or tucked behind the side of a screen, and it is put on
+// the right screen.
 import AppKit
 import Core
 import DesignKit
 import KelpKit
 
 extension AgentStrip {
-    /// Let go after a drag: thrown (`going` fast), it flies as far as it goes that way; else to the nearest corner of the
-    /// screen it's on, or behind the side it went past. A card it left behind goes.
+    /// Places the strip when the user lets go of a drag. A strip thrown fast (`going`) flies as far as it can that way.
+    /// Otherwise it goes to the nearest corner of its screen, or behind the side it was dragged past. An open card
+    /// closes.
     func dropped(going velocity: CGVector = .zero) {
         guard let panel, let screen = Self.screen(under: panel.frame) else { return }
         let frame = panel.frame, area = screen.visibleFrame
@@ -19,7 +21,8 @@ extension AgentStrip {
         moved(to: Self.place(nearest, of: screen))
     }
 
-    /// Two fingers swept over it: as far as it goes that way, behind the side from that side's corner, out again.
+    /// Moves the strip after a two-finger swipe over it, as far as it can go that way. A swipe toward a side from that
+    /// side's corner tucks the strip behind the side, and a swipe away brings it out again.
     func swipe(_ way: StripWay) {
         guard let panel, let screen = Self.screen(under: panel.frame) else { return }
         let high = panel.frame.midY > screen.visibleFrame.midY
@@ -29,7 +32,8 @@ extension AgentStrip {
         fling(way, from: corner, edge: place?.edge, on: screen)
     }
 
-    /// Off to where `way` sends it from `corner` (or from behind `edge`); false when there's nowhere further that way.
+    /// Moves the strip where `way` sends it from `corner`, or from behind `edge`. Returns false when there's nowhere
+    /// further to go that way.
     @discardableResult
     private func fling(_ way: StripWay, from corner: StripCorner, edge: StripEdge?, on screen: NSScreen) -> Bool {
         guard let panel else { return false }
@@ -42,17 +46,19 @@ extension AgentStrip {
         return true
     }
 
-    /// At a corner of that screen; the foot of the main one is where it starts, so that's no place to keep.
+    /// Returns the place at a corner of that screen. The bottom of the main screen is where the strip starts, so that
+    /// place is nil and isn't saved.
     private static func place(_ corner: StripCorner, of screen: NSScreen) -> StripPlace? {
         corner == .bottom && screen == NSScreen.main ? nil : StripPlace(corner: corner, display: number(of: screen))
     }
 
-    /// From the menu: behind the side of its screen it's nearer, where it stands.
+    /// Tucks the strip, from the menu, behind the nearer side of its screen at the height where it stands.
     func tuck() {
         if let behind = tucked() { moved(to: behind) }
     }
 
-    /// Behind the side of its screen it's nearer (the other, if a screen stands past that one), at its height.
+    /// Returns the place behind the nearer side of the strip's screen, at the strip's height. When another screen
+    /// stands past that side, the place is behind the other side.
     func tucked() -> StripPlace? {
         guard let panel, let screen = Self.screen(under: panel.frame) else { return nil }
         let area = screen.visibleFrame
@@ -63,8 +69,9 @@ extension AgentStrip {
         return Self.place(behind: edge, of: screen, at: panel.frame)
     }
 
-    /// A call began or ended (`CallWatch`): out of the way behind the nearer side while it lasts, and back where it stood
-    /// after. Not kept: the place the person chose stays theirs, and one they choose during the call wins.
+    /// Called when a call begins or ends (`CallWatch`). During the call the strip moves out of the way behind the
+    /// nearer side, and after it the strip goes back where it stood. This move isn't saved, so the place the user chose
+    /// stays theirs, and a place they choose during the call wins.
     func call(_ on: Bool) {
         if on, !placedInCall, place?.edge == nil, beforeCall == nil, let behind = tucked() {
             beforeCall = .some(place)
@@ -87,8 +94,9 @@ extension AgentStrip {
         goes()
     }
 
-    /// To its new place with a spring, whatever is under the pointer (`refresh` keeps the tiles still there, and a dragged
-    /// strip is): not left half past a side where it was let go, but sprung back to where it's whole.
+    /// Moves the strip to its new place with a spring, even while the pointer is on it. (`refresh` keeps the tiles
+    /// still under the pointer, and a dragged strip is always under it.) So a strip let go half past a side isn't left
+    /// there, but springs back to where it's whole.
     private func goes() {
         springs = true
         defer { springs = false }
@@ -96,14 +104,16 @@ extension AgentStrip {
         if springs, isShowing { put(appearing: false) }
     }
 
-    /// At the height it stands; the corner is the one it would take by that side.
+    /// Returns the place behind `edge` at the height where the strip stands. Its corner is the bottom corner on that
+    /// side.
     private static func place(behind edge: StripEdge, of screen: NSScreen, at frame: NSRect) -> StripPlace {
         StripPlace(
             corner: edge == .right ? .bottomRight : .bottomLeft, display: number(of: screen), edge: edge,
             y: frame.minY - screen.visibleFrame.minY)
     }
 
-    /// The screen most of it is on: one pushed past an edge has no `screen` of its own.
+    /// Returns the screen that most of the frame is on, because a window pushed past an edge has no `screen` of its
+    /// own.
     private static func screen(under frame: NSRect) -> NSScreen? {
         NSScreen.screens.max { $0.frame.intersection(frame).width < $1.frame.intersection(frame).width }
             ?? NSScreen.main
@@ -129,7 +139,8 @@ extension AgentStrip {
         (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
     }
 
-    /// Where it was put, or else the screen the pointer is on when it comes up: the one being looked at, as the Dock's can't be told.
+    /// Returns the screen the strip was put on. Otherwise, when the strip comes up, it is the screen the pointer is on,
+    /// because that is the one being looked at and the Dock's screen can't be told.
     private func screen(appearing: Bool, of panel: NSPanel) -> NSScreen? {
         if let display = place?.display, let put = NSScreen.screens.first(where: { Self.number(of: $0) == display }) {
             return put
@@ -147,14 +158,14 @@ extension AgentStrip {
         let size = NSSize(width: width(of: content), height: StripButton.stripHeight)
         let behind = place?.edge.map { StripModel.tucked(size, in: area, edge: $0, y: place?.y ?? 0, out: peeking) }
         let frame = behind ?? StripModel.frame(size, in: area, at: corner)
-        guard animates else {   // where it ends, at once
+        guard animates else {   // jump to where it ends, with no animation
             window.setFrame(frame, display: true)
             window.alphaValue = 1
             if appearing { window.orderFrontRegardless() }
             return
         }
         guard appearing else {
-            // nothing moved: no animation to run
+            // nothing moved, so there's no animation to run
             guard window.frame != frame || window.alphaValue != 1 else { return }
             let past = springs && !Motion.reduced ? StripModel.past(frame, from: window.frame) : frame
             springs = false
@@ -178,13 +189,15 @@ extension AgentStrip {
         window.slideIn(to: frame, by: CGVector(dx: 0, dy: Motion.reduced ? 0 : corner.isTop ? 8 : -8))
     }
 
-    /// What the strip's width follows: its tiles, the open one, the edge it hides behind (the handle's room) and the text size.
+    /// What the strip's width depends on: its tiles, the open one, the edge it hides behind (which adds room for the
+    /// handle) and the text size.
     struct Measured: Equatable {
         let items: [StripItem], opened: String?, edge: StripEdge?, scale: CGFloat
     }
 
-    /// Measured once per look of the row: the panel's `fittingSize` is a whole Auto Layout pass (~100 ms seen on Kelp
-    /// coming to the front). Not kept while the row waits under the pointer (`deferred`): it shows older tiles then.
+    /// Returns the row's width, measured once for each look of the row, because the panel's `fittingSize` is a whole
+    /// Auto Layout pass (about 100 ms, seen when Kelp came to the front). The width isn't kept while the row waits
+    /// under the pointer (`deferred`), because the row shows older tiles then.
     private func width(of content: NSView) -> CGFloat {
         let key = Measured(items: state.items, opened: laidOut?.opened, edge: place?.edge, scale: TextSize.scale)
         if !deferred, let measured, measured.key == key { return measured.width }
@@ -195,7 +208,7 @@ extension AgentStrip {
         return width
     }
 
-    /// The spring's way back from a little past its place, unless it was sent somewhere else since.
+    /// Springs the strip back from a little past its place, unless it was sent somewhere else since.
     private func springBack(to frame: NSRect, after move: Int) {
         guard move == moves, let panel else { return }
         NSAnimationContext.runAnimationGroup { context in

@@ -1,14 +1,14 @@
-// The pages agents drive (`kelp browser`), as they show outside the page's own tab.
+// The pages that agents drive with `kelp browser`, and how they show outside the page's own tab.
 import AppKit
 import Core
 import DesignKit
 import KelpKit
 
-/// What each page driven by an agent (or one of its subagents) is doing. It feeds the browser mark on the agent's row
-/// (lit in the agent's colour for a while after each action, `litFor`, and grey while the page is only open), the glow
-/// on the page's tab, and the page in the agent's card. The pages report to it (`drives`, `acted`, `change`, `closed`);
-/// the marks the shell shows (`BrowserMarks`) read it under observation, and ask a page for its picture or to come
-/// forward. The app has one.
+/// Tracks what each page driven by an agent (or one of its subagents) is doing. It feeds the browser mark on the
+/// agent's row, the glow on the page's tab, and the page in the agent's card. The mark is lit in the agent's colour for
+/// `litFor` seconds after each action, and grey while the page is only open. The pages report here through `drives`,
+/// `acted`, `change` and `closed`. The marks the shell shows (`BrowserMarks`) observe this model, and through it ask a
+/// page for its picture or to come forward. The app has one.
 @MainActor
 @Observable
 final class AgentPages {
@@ -33,14 +33,14 @@ final class AgentPages {
     }
     struct Page: Equatable {
         var session: String, subagent: String?
-        /// The workspace and the tab it's in.
+        /// The workspace and the tab that hold the page.
         var workspace: String, tab: String
         var title = "", url = ""
-        /// The colour its pointer has: the agent's, made to stand out on a page.
+        /// The colour of the agent's pointer on the page. It is the agent's colour, made to stand out on a page.
         var color: NSColor = .systemPurple
-        /// The last few things done there, oldest first.
+        /// The last few things the agent did on the page, oldest first.
         var steps: [Step] = []
-        /// What the page reported as errors since it was opened: how many, and the last.
+        /// How many errors the page has reported since it was opened, and the last one.
         var errors = 0, lastError: String?
         var holder: Holder = .agent
         init(session: String, subagent: String?, workspace: String, tab: String) {
@@ -51,11 +51,11 @@ final class AgentPages {
         }
     }
 
-    /// By page id (one for each web view an agent drives).
+    /// The pages by id. There is one id for each web view an agent drives.
     private(set) var pages: [String: Page] = [:]
     /// The pages that acted in the last `litFor` seconds.
     private(set) var lit: Set<String> = []
-    /// The page `kelp browser` last drove in each workspace (a tab id): its next command goes to the same one.
+    /// The tab id of the page that `kelp browser` last drove in each workspace, so its next command goes to that page.
     @ObservationIgnored var browsed: [String: String] = [:]
     @ObservationIgnored private var handles: [String: WeakPage] = [:]
     @ObservationIgnored private var dimming: [String: Task<Void, Never>] = [:]
@@ -65,7 +65,8 @@ final class AgentPages {
 
     // MARK: told by the browser
 
-    /// `id` is driven now, as `page` says; `handle` gives its picture and takes the user's buttons.
+    /// Records that page `id` is now driven, as `page` describes. `handle` is the tab that takes the page's picture and
+    /// acts on the user's buttons.
     func drives(_ id: String, _ page: Page, handle: BrowserTab) {
         handles[id] = WeakPage(page: handle)
         if pages[id] != page { pages[id] = page }
@@ -77,7 +78,7 @@ final class AgentPages {
         if pages[id] != page { pages[id] = page }
     }
 
-    /// An action done there: the last step, and the page lit for `litFor`.
+    /// Records an action on page `id`. The action becomes the page's last step, and the page stays lit for `litFor`.
     func acted(_ id: String, _ step: String) {
         change(id) { page in
             page.steps.append(Step(step))
@@ -86,7 +87,7 @@ final class AgentPages {
         lit.insert(id)
         dimming[id]?.cancel()
         dimming[id] = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(Self.litFor)) } catch { return }   // a newer action lights it again
+            do { try await Task.sleep(for: .seconds(Self.litFor)) } catch { return }   // cancelled by a newer action
             self?.lit.remove(id)
         }
     }
@@ -100,7 +101,8 @@ final class AgentPages {
 
     // MARK: read by the marks
 
-    /// A session's pages, its own first, then its subagents' by when they last acted.
+    /// Returns the pages of a session: the session's own pages first, then those of its subagents. Within each group
+    /// the page that acted most recently comes first.
     func of(session: String) -> [(id: String, page: Page)] {
         pages.filter { $0.value.session == session }.map { (id: $0.key, page: $0.value) }.sorted {
             ($0.page.subagent == nil ? 0 : 1, -($0.page.steps.last?.at.timeIntervalSince1970 ?? 0), $0.id)
@@ -113,8 +115,8 @@ final class AgentPages {
         pages.filter { $0.value.tab == tab }.map { (id: $0.key, page: $0.value) }
     }
 
-    /// What a session's row shows: nil without a page; lit while a page acted lately; and who has the page when that is
-    /// the user.
+    /// What the browser mark on a session's row shows. `mark(for:)` returns nil when the session has no page. `color`
+    /// is set while one of the session's pages acted lately, and `holder` says who has the page when that is the user.
     struct Mark: Equatable {
         let color: NSColor?, holder: Holder
     }
@@ -130,14 +132,14 @@ final class AgentPages {
         Set(of(session: session).filter { lit.contains($0.id) }.compactMap(\.page.subagent))
     }
 
-    /// The glow on a tab while what's in it acted lately: its agent's colour.
+    /// Returns the colour of the glow on a tab. It is the agent's colour while a page in the tab acted lately.
     func glow(tab: String) -> NSColor? {
         of(tab: tab).first { lit.contains($0.id) }?.page.color
     }
 
     func handle(_ id: String) -> BrowserTab? { handles[id]?.page }
 
-    /// The page's group comes up, the page in front.
+    /// Brings up the workspace that holds the page, with the page in front.
     func show(_ id: String) {
         guard let page = pages[id] else { return }
         app.workbench.show(workspace: page.workspace)

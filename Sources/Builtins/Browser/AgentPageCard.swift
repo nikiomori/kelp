@@ -1,16 +1,18 @@
-// An agent's card: the page it drives (`AgentPages`), as a picture with what it did there last.
+// The part of an agent's card that shows the page the agent drives (`AgentPages`): a picture of the page and the
+// agent's last steps there.
 import AppKit
 import Core
 import DesignKit
 import KelpKit
 import SwiftUI
 
-/// The page an agent (or one of its subagents) acted on last: a picture, taken while the card is up (when it opens and
-/// after each action, never otherwise), its last steps, the errors it reported, and Show Page / Take Over. Several
-/// pages: small pictures of the others under it, a click shows that one.
+/// Shows the page that an agent (or one of its subagents) acted on last. The card holds a picture of the page, the last
+/// steps taken there, the errors the page reported, and the Show Page and Take Over buttons. The picture is taken only
+/// while the card is up, when the card opens and after each action. When there are several pages, small pictures of
+/// the others sit under the main one, and clicking one shows that page in the card.
 struct AgentPageCard: View {
     let app: AppModel, session: String
-    /// Puts the card away (a page shown takes its place).
+    /// Puts the card away. Showing a page calls it, because the page then takes the card's place.
     let close: @MainActor () -> Void
     @State private var picked: String?
     @State private var pictures: [String: NSImage] = [:]
@@ -43,7 +45,7 @@ struct AgentPageCard: View {
         }
     }
 
-    /// The page acted on last.
+    /// Returns the page that was acted on last.
     static func latest(_ pages: [(id: String, page: AgentPages.Page)]) -> (id: String, page: AgentPages.Page)? {
         pages.max { ($0.page.steps.last?.at ?? .distantPast) < ($1.page.steps.last?.at ?? .distantPast) }
     }
@@ -77,7 +79,7 @@ struct AgentPageCard: View {
         app.session(session)?.runningSubagents.first { $0.id == id }?.title ?? String(localized: "Subagent")
     }
 
-    /// `localhost:3000/checkout`.
+    /// Returns the host, port and path of `url`, such as `localhost:3000/checkout`.
     static func place(_ url: String) -> String {
         guard let parsed = URL(string: url), let host = parsed.host else { return url }
         return host + (parsed.port.map { ":\($0)" } ?? "") + (parsed.path == "/" ? "" : parsed.path)

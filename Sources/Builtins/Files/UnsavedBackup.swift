@@ -3,19 +3,22 @@ import DesignKit
 import Foundation
 import KelpKit
 
-/// Text typed and not saved, kept in the daemon's store so a crash or a force quit of the window doesn't take it. A save
-/// or a Don't Save takes it away, so all that's left at launch is what a crash left, and a tab that opens takes it back.
+/// Keeps text that was typed but not saved in the daemon's store, so a crash or a force quit of the window doesn't lose
+/// it. A save or Don't Save removes it, so all that's left at launch is what a crash left, and a tab that opens takes
+/// its text back.
 /// Limit: a buffer over `limit` isn't kept, it would be written whole at every pause in typing.
 @MainActor
 final class UnsavedBackup {
     static let limit = 2 * 1024 * 1024
-    static let prefix = "backup."   // the shell looks there after a launch: `UnsavedBackups.prefix`
+    static let prefix = "backup."   // after a launch, the shell looks for keys with this prefix (`UnsavedBackups`)
     private let app: AppModel, key: String, uri: String, workspace: String
     private let waiting = Debounce()
-    /// Something of this tab's is in the store: a save, which comes often, asks it to forget nothing otherwise.
+    /// Whether this tab has text in the store. Saves come often, so when nothing is stored, a save doesn't ask the
+    /// store to forget anything.
     private var stored: Bool
-    /// Typed and not kept yet (the pause hasn't come): kept at once when the tab goes, dropped without a question (its
-    /// save failed while its workspace went): what isn't in the store would be lost.
+    /// Text typed but not stored yet, because the pause in typing hasn't come. It is stored at once when the tab goes
+    /// away, as when the tab is dropped without a question (its save failed while its workspace closed), because text
+    /// that isn't in the store would be lost.
     private var pending: String?
 
     init(app: AppModel, uri: String) {
@@ -31,7 +34,7 @@ final class UnsavedBackup {
         return parts.count == 3 ? parts[2] : nil
     }
 
-    /// After a pause in typing: it runs on the main thread.
+    /// Stores `text` after a pause in typing. The store write runs on the main thread.
     func keep(_ text: String) {
         pending = text
         waiting.after(1) { [weak self] in self?.flush() }

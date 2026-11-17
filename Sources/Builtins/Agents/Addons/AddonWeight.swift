@@ -2,10 +2,10 @@ import AppKit
 import DesignKit
 import SwiftUI
 
-/// Over the list: what a chat starts with before the first word ("38.4k tokens before the first word"), as a bar and a
-/// legend of its parts, biggest first; just the counts while the weights aren't known. Colour says state in Kelp, so
-/// the parts are shades of the text's colour, the biggest in the accent. `when`: when the chat read it all ("loaded
-/// 14:20"), beside the headline.
+/// The summary over the list. It shows what a chat starts with before the first word ("38.4k tokens before the first
+/// word") as a bar and a legend of the parts, biggest first. While the weights aren't known, it shows just the counts.
+/// In Kelp colour means state, so the parts are shades of the text colour, with the biggest in the accent. `when` is
+/// when the chat read it all ("loaded 14:20"), shown beside the headline.
 struct AddonWeight: View {
     let headline: String
     let shares: [AddonGroups.Share]

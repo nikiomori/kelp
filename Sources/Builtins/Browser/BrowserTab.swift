@@ -13,14 +13,15 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     let web: WKWebView
     let address = NSTextField()
     let designButton = PointerButton(frame: .zero)
-    /// Shown instead of a blank page: the workspace's servers.
+    /// The workspace's servers, shown instead of a blank page.
     let ports: PortsView
     let app: AppModel
     var designOn = false
     @ObservationIgnored var clicks = DesignClicks()
     @ObservationIgnored var clickWatch: Any?
-    /// An agent page's tab with its subagents' pages too (BrowserPages.swift): the row that switches between them, over
-    /// the page area, which holds this page's own content and theirs; and, on theirs, the tab they're in.
+    /// Views for the tab of an agent's page that also holds its subagents' pages (BrowserPages.swift). `switchSlot`
+    /// holds the row that switches between the pages, over `pageArea`, which holds this page's own content and the
+    /// subagents' pages. On a subagent's page, `host` is the tab the page is in.
     let switchSlot = NSView(), pageArea = NSView()
     @ObservationIgnored private(set) lazy var switchHeight = switchSlot.heightAnchor.constraint(equalToConstant: 0)
     @ObservationIgnored private(set) var ownContent = NSView()
@@ -28,61 +29,67 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @ObservationIgnored weak var host: BrowserTab?
     /// The user's clicks and keys in the page while an agent drives it (`watchUser`).
     @ObservationIgnored var userWatch: Any?
-    /// `preview:/path/page.html`: a local page shown as the browser sees it, reloaded whenever a file next to it changes.
+    /// The file of a local page (`preview:/path/page.html`), shown as the browser sees it and reloaded whenever a file
+    /// next to it changes.
     private var previewFile: String? { start.hasPrefix("preview:") ? String(start.dropFirst("preview:".count)) : nil }
     private var watcher: FileWatcher?
-    /// The page's address and title as of its last commit or load: what the tab shows follows these.
+    /// The page's address and title as of its last commit or load. What the tab shows follows these.
     private var page: (url: URL?, title: String?) = (nil, nil)
     var uri: String {
         let shown = previewFile != nil ? start : page.url?.absoluteString ?? start
         return agent ? TabURI.agentPage(shown) : shown
     }
     let start: String
-    /// An agent's page (`kelp browser open`): cookies and storage of its own, gone when the tab is.
+    /// Whether this is an agent's page (`kelp browser open`). Such a page has cookies and storage of its own, which go
+    /// when the tab closes.
     let agent: Bool
     /// Why the last load failed, until the next one commits (`kelp browser` says it).
     var loadError: String?
-    /// The address that failed while its error page shows: the bar, the tab and Reload keep to it, not to about:blank.
+    /// The address that failed, while its error page shows. The bar, the tab and Reload keep to this address, not to
+    /// about:blank.
     var failed: URL?
     @ObservationIgnored private var watches: [NSKeyValueObservation] = []
-    /// ⌘F's card (BrowserFind.swift), made the first time.
+    /// The find card for ⌘F (BrowserFind.swift), made the first time it is needed.
     @ObservationIgnored var finding: FindCard?
-    /// The workspace's servers while a local address failed: the page loads again once its port is served.
+    /// The workspace's servers, watched while a local address failed, so the page loads again once its port is served.
     @ObservationIgnored lazy var serving = Watched(.ports, in: app)
     /// How far the page has loaded, as a line under the bar while it loads.
     @ObservationIgnored private let progress = NSView()
     @ObservationIgnored private lazy var progressWidth = progress.widthAnchor.constraint(equalToConstant: 0)
-    /// The page's size, set by the user (⋯ › Page Size) or the agent (`kelp browser viewport`): the page sits at the
-    /// pane's top, in the middle, at that size; nil fills the pane (`placeWeb`).
+    /// The page's size, set by the user (⋯ › Page Size) or the agent (`kelp browser viewport`). The page sits at that
+    /// size at the top of the pane, centred across. Nil means the page fills the pane (`placeWeb`).
     @ObservationIgnored var viewport: CGSize?
-    /// The user's typing in the address bar removed text: no completion is offered for it.
+    /// Set when the user's typing in the address bar removed text, so no completion is offered for it.
     @ObservationIgnored var deleting = false
     private let back = IconButton(.symbol("chevron.left"), tip: String(localized: "Back"), target: nil, action: nil)
     private let forward = IconButton(
         .symbol("chevron.right"), tip: String(localized: "Forward"), target: nil, action: nil)
     private let reload = IconButton(
         .symbol("arrow.clockwise"), tip: String(localized: "Reload (⌘R)"), target: nil, action: nil)
-    /// This page among those agents drive (`AgentPages`).
+    /// This page's id among the pages agents drive (`AgentPages`).
     let pageId = UUID().uuidString
-    /// What `kelp browser` keeps here once an agent drives the page (`watch()`); nil on a page only the user browses.
+    /// What `kelp browser` keeps on this tab once an agent drives the page (`watch()`). It is nil on a page only the
+    /// user browses.
     @ObservationIgnored var drive: AgentDrive?
-    /// Downloads under way (BrowserDownloads.swift): where each goes, where from, from which page.
+    /// The downloads under way (BrowserDownloads.swift), with where each goes, where it comes from, and the page it
+    /// came from.
     @ObservationIgnored var downloading: [ObjectIdentifier: (to: URL, source: URL?, page: URL?)] = [:]
     /// When WebKit last decided a navigation is a download that has no destination yet. An action's answer waits for it
     /// (5 s at most, in case it never starts), since on a busy Mac the download can begin after the answer's first
     /// look.
     @ObservationIgnored var downloadDecided: Date?
     var downloadComing: Bool { downloadDecided.map { Date().timeIntervalSince($0) < 5 } ?? false }
-    /// The bar under the toolbar once an agent drives the page: it says so, with Take Over / Hand Back. It has no
-    /// height until then.
+    /// The bar under the toolbar once an agent drives the page. It says that an agent drives the page, with Take Over
+    /// or Hand Back. It has no height until then.
     @ObservationIgnored private let agentSlot = NSView()
     @ObservationIgnored private lazy var agentSlotHeight = agentSlot.heightAnchor.constraint(equalToConstant: 0)
     @ObservationIgnored private let agentLabel = NSTextField(labelWithString: "")
     @ObservationIgnored private let agentButton = PointerButton()
-    /// The page being recorded (BrowserRecording.swift), and the file the last one went to.
+    /// The recording of the page in progress (BrowserRecording.swift), and the file the last recording went to.
     @ObservationIgnored var recording: PageRecording?
     @ObservationIgnored var lastRecording: URL?
-    /// In the bar while the page is recorded, by the user or an agent: it says so, and stops it.
+    /// The button in the bar while the user or an agent records the page. It shows that the page is being recorded,
+    /// and stops the recording.
     let recordButton = IconButton(
         .symbol("record.circle"), tip: String(localized: "Stop Recording"), target: nil, action: nil)
     @ObservationIgnored private var webFill: [NSLayoutConstraint] = []
@@ -118,8 +125,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         cfg.preferences.isElementFullscreenEnabled = true
         cfg.applicationNameForUserAgent = Self.safariName
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")   // "Inspect Element" in the page's context menu
-        // A window the user's page opened (BrowserDialogs.swift): WebKit made it, with the opener's cookies and a
-        // `window.opener`, and is loading it already.
+        // A window the user's page opened (BrowserDialogs.swift) was made by WebKit, with the opener's cookies and a
+        // `window.opener`, and WebKit is loading it already.
         let opened = BrowserTab.opened.removeValue(forKey: start)
         web = opened ?? WKWebView(frame: .zero, configuration: cfg)
         web.allowsBackForwardNavigationGestures = true
@@ -170,7 +177,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             web.leadingAnchor.constraint(equalTo: body.leadingAnchor),
             web.trailingAnchor.constraint(equalTo: body.trailingAnchor)
         ]
-        // Wider than the pane: from its left edge, cut on the right; taller: cut at the bottom.
+        // A page wider than the pane starts at the pane's left edge and is cut on the right. A page taller than the
+        // pane is cut at the bottom.
         let middle = web.centerXAnchor.constraint(equalTo: body.centerXAnchor)
         middle.priority = .defaultLow
         webFixed = [
@@ -224,7 +232,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         stopWatchingUser()
     }
 
-    /// The local address that failed is served now (its dev server started in this screen).
+    /// Whether the local address that failed is served now, because its dev server started in this screen.
     private var failedServed: Bool {
         guard let failed, let port = failed.port, Self.isLocal(failed), let wid = serving.key else { return false }
         // A remote project's port is served here once forwarded (`here`).
@@ -268,7 +276,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         showAgentBar()
     }
 
-    /// The page at the size the agent set (`viewport`), or filling the pane.
+    /// Lays out the page at the size set in `viewport`, or filling the pane.
     func placeWeb() {
         NSLayoutConstraint.deactivate(webFill + webFixed)
         webFixed.removeSubrange(3...)
@@ -284,9 +292,9 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         if !agentSlot.subviews.isEmpty { showAgentBar() }
     }
 
-    /// The bar follows the page as WebKit changes it (KVO, delivered on the main thread): Back and Forward only when
-    /// there's a page that way, Reload turns into Stop while loading, and a single-page app's own address and title
-    /// changes (pushState, document.title) reach the bar and the tab, not just loads.
+    /// Makes the bar follow the page as WebKit changes it (KVO, delivered on the main thread). Back and Forward are
+    /// enabled only when there's a page that way, and Reload turns into Stop while loading. A single-page app's own
+    /// changes of address and title (pushState, document.title) reach the bar and the tab, not just loads.
     private func follow() {
         watches = [
             web.observe(\.canGoBack, options: .initial) { [weak self] _, _ in
@@ -321,7 +329,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         }
     }
 
-    /// The page's address and title in the bar and the tab; the bar keeps what the user is typing in it.
+    /// Shows the page's address and title in the bar and the tab. The bar keeps what the user is typing in it.
     func showPage() {
         let blank = web.url?.absoluteString == "about:blank"
         guard let url = blank ? failed ?? web.url : web.url else { return }
@@ -334,7 +342,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         if web.isLoading { web.stopLoading() } else { reloadPage() }
     }
 
-    /// Reload, or on the error page another try at the address that failed (a dev server that has started since).
+    /// Reloads the page. On the error page, it tries the address that failed again (a dev server may have started
+    /// since).
     func reloadPage(fromOrigin: Bool = false) {
         if let failed {
             web.load(URLRequest(url: failed))
@@ -355,7 +364,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
             web.loadFileURL(fileURL, allowingReadAccessTo: dir)
             address.stringValue = fileURL.absoluteString
             watcher = FileWatcher(root: dir.path) { [weak self] _ in MainActor.assumeIsolated { _ = self?.web.reload() }
-            }   // delivered on main
+            }   // FileWatcher delivers on the main thread
             return
         }
         let typed = raw.trimmingCharacters(in: .whitespaces)

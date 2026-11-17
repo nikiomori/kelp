@@ -3,25 +3,28 @@ import DesignKit
 import KelpKit
 import WebKit
 
-/// What a page asks: `alert`, `confirm`, `prompt`, and a file to upload. Without a UI delegate WebKit answered them all
-/// with "no" and showed nothing. The user's pages ask the user, in a sheet. An agent's page (until the user takes it
-/// over) answers for the agent: with what `kelp browser dialog` said ahead, else OK to an alert and no to the rest;
-/// either way it's in the console and in the action's answer, so the agent knows it was asked.
+/// Handles what a page asks for: `alert`, `confirm`, `prompt`, and a file to upload. Without a UI delegate, WebKit
+/// answered them all with "no" and showed nothing. The user's pages ask the user in a sheet. An agent's page (until the
+/// user takes it over) answers for the agent, with what `kelp browser dialog` set ahead, or else OK to an alert and no
+/// to the rest. Either way the question goes in the console and in the action's answer, so the agent knows it was
+/// asked.
 extension BrowserTab: WKUIDelegate {
-    /// Whether the agent answers this page's questions: a page it drives (its own, or the user's page it was let into,
-    /// while it still drives it; ten minutes after its last action that tab is the user's again), and that wasn't taken
-    /// over.
+    /// Whether the agent answers this page's questions. It does on a page it drives that wasn't taken over: the agent's
+    /// own page, or a user's page the agent was let into, while it still drives it. Ten minutes after the agent's last
+    /// action, that tab is the user's again.
     var agentAnswers: Bool {
         guard let drive, !drive.takenOver else { return false }
         return agent || Date().timeIntervalSince(drive.drivenAt) < 600
     }
 
-    /// Windows the user's pages opened, until their tab takes them (`BrowserTab.init`), by the tab's address.
+    /// The web views of windows that the user's pages opened, by their tab's address. Each is kept until its tab takes
+    /// it (`BrowserTab.init`).
     static var opened: [String: WKWebView] = [:]
 
-    /// A link to a new window (`target=_blank`, `window.open`), which WebKit dropped without this. The user's page opens
-    /// it in a tab beside, the web view WebKit made: it keeps `window.opener`, so a sign-in popup posts back and closes.
-    /// A page an agent drives (one page each) goes there itself, so the agent sees where it led.
+    /// Handles a link to a new window (`target=_blank`, `window.open`), which WebKit dropped without this. The user's
+    /// page opens it in a new tab beside it, in the web view WebKit made. That web view keeps `window.opener`, so a
+    /// sign-in popup can post back and close. A page an agent drives (one page per agent) loads the link itself, so the
+    /// agent sees where it led.
     func webView(
         _ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
         for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures
@@ -31,10 +34,10 @@ extension BrowserTab: WKUIDelegate {
             return nil
         }
         if let url = navigationAction.request.url, !["http", "https", "about"].contains(url.scheme?.lowercased()) {
-            PreviewLinks.openOutside(url)   // mail goes out, the rest is refused with a banner
+            PreviewLinks.openOutside(url)   // a mailto: link opens in Mail; other schemes get a banner
             return nil
         }
-        configuration.userContentController = WKUserContentController()   // the opener's holds its own tab's handlers
+        configuration.userContentController = WKUserContentController()   // so the opener tab's handlers stay with it
         let popup = WKWebView(frame: .zero, configuration: configuration)
         let key = "about:blank#opened-\(UUID().uuidString.prefix(6))"
         Self.opened[key] = popup
@@ -42,7 +45,7 @@ extension BrowserTab: WKUIDelegate {
         return popup
     }
 
-    /// The page closed its window (`window.close()`, a sign-in popup that's done): its tab goes.
+    /// Closes the tab when the page closes its window (`window.close()`, a sign-in popup that's done).
     func webViewDidClose(_ webView: WKWebView) {
         app.workbench.closeTab(uri: uri, remember: false)
     }
@@ -95,7 +98,8 @@ extension BrowserTab: WKUIDelegate {
         return await runSheet(panel) == .OK ? panel.urls : nil
     }
 
-    /// The answer `kelp browser dialog` left (used once), else `fallback`; noted where the agent reads.
+    /// Returns the answer that `kelp browser dialog` left (used once), or else `fallback`, and notes it where the agent
+    /// reads.
     private func agentAnswer(_ kind: String, _ message: String, fallback: Bool) -> (accept: Bool, text: String?) {
         let told = drive?.dialogAnswer != nil, answer = drive?.dialogAnswer ?? (fallback, nil)
         drive?.dialogAnswer = nil
@@ -110,13 +114,15 @@ extension BrowserTab: WKUIDelegate {
         return answer
     }
 
-    /// A dialog the agent's page answered: in its console, and in the answer of the action that brought it up.
+    /// Notes a dialog the agent's page answered, in the page's console and in the answer of the action that brought it
+    /// up.
     func noteDialog(_ line: String) {
         noteLog("[dialog] " + line)
         if let drive { AgentDrive.add(line, to: &drive.dialogs) }
     }
 
-    /// The page's question as a sheet: who asks (the frame's host, as Safari says it), what, and the buttons.
+    /// Shows the page's question in a sheet, with who asks (the frame's host, as Safari puts it), the question and the
+    /// buttons.
     private func ask(_ message: String, from frame: WKFrameInfo, buttons: [String], field: NSTextField? = nil) async
         -> NSApplication.ModalResponse
     {

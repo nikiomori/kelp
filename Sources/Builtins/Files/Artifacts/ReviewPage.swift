@@ -2,14 +2,15 @@ import Core
 import Foundation
 import Markdown
 
-/// A review an agent wrote (`.kelp/artifacts/<name>/review.md`) as a page to answer: each point's options are a choice
-/// you click (or 1–9 for the point, A–D for its option), a note goes under a picked point, and a capsule at the foot
-/// shows which points have an answer, picks the recommended option where you haven't, and sends the picks to the chat
-/// that wrote it (⌘↩). Once sent, the picks stay and the rest fade, until Change Answers; a point the agent has done
-/// says so. The page only reports clicks (`kelpSync`: pick / note / send / recommended / unsend); the tab writes them
-/// into the file, which then draws the page again.
+/// Draws a review an agent wrote (`.kelp/artifacts/<name>/review.md`) as a page to answer. The user clicks one of a
+/// point's options (or types 1–9 for the point, A–D for the option), and can add a note under a picked point. A
+/// capsule at the foot shows which points have an answer, picks the recommended option wherever the user hasn't
+/// picked, and sends the picks to the chat that wrote the review (⌘↩). Once sent, the picks stay and the other options
+/// fade, until Change Answers. A point the agent has done says so. The page only reports clicks to `kelpSync` (pick /
+/// note / send / recommended / unsend). The tab writes them into the file, and the changed file draws the page again.
 enum ReviewPage {
-    /// `sendTo`: the agent's name on the button; nil when its chat has ended (the picks go to the agent on screen).
+    /// `sendTo` is the agent's name on the Send button. It is nil when the agent's chat has ended, and then the picks
+    /// go to the agent on screen.
     static func body(_ review: Review, sendTo: String?) -> String {
         let esc = MarkdownHTML.esc
         var html = "<h1>\(esc(review.title))</h1>\n"
@@ -48,7 +49,7 @@ enum ReviewPage {
         return html + capsule(review, sendTo: sendTo)
     }
 
-    /// The foot: where the answers stand and what to do with them.
+    /// The capsule at the foot: how many points are answered, and what to do with the answers.
     private static func capsule(_ review: Review, sendTo: String?) -> String {
         let esc = MarkdownHTML.esc
         let picks = review.points.compactMap { p in p.pick.map { p.number + $0 } }.joined(separator: " ")
@@ -81,7 +82,7 @@ enum ReviewPage {
             + "<div class=\"k-keys\">\(esc(String(localized: "1–9 point · A–D option · ⌘↩ send")))</div>"
     }
 
-    /// The page's look on top of the Markdown one.
+    /// The review page's CSS, applied on top of the Markdown page's CSS.
     static let style = """
         <style>
         :root{--k-acc:#007aff}:root.dark{--k-acc:#0a84ff}@supports (color:AccentColor){:root,:root.dark{--k-acc:AccentColor}}
@@ -131,7 +132,7 @@ enum ReviewPage {
         </style>
         """
 
-    /// Its clicks and keys: JavaScript, run beside the page (`MarkdownTab.world`).
+    /// The JavaScript that handles the page's clicks and keys. It runs beside the page (`MarkdownTab.world`).
     static let script = """
         const post = m => webkit.messageHandlers.kelpSync?.postMessage(m);
         document.querySelectorAll('.k-opt').forEach(b => b.addEventListener('click', () => post({ kind: 'pick', point: b.dataset.p, key: b.dataset.k })));
@@ -168,7 +169,7 @@ enum ReviewPage {
         });
         """
 
-    /// A line of Markdown inline (code, emphasis, links), without the paragraph around it.
+    /// Renders a line of inline Markdown (code, emphasis, links), without the paragraph around it.
     private static func inline(_ text: String) -> String {
         let html = MarkdownHTML.render(text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard html.hasPrefix("<p>"), html.hasSuffix("</p>") else { return html }

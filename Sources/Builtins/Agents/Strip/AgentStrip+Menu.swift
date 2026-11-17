@@ -1,11 +1,12 @@
-// The agent strip's right-click menu: the tile's own agent first, then the strip.
+// The agent strip's right-click menu. Items for the tile's agent come first, then items for the strip itself.
 import AppKit
 import Core
 import DesignKit
 import KelpKit
 
 extension AgentStrip {
-    /// What the tile is about, and what can be done to it from here, over what the strip itself does.
+    /// Returns a tile's menu: what the tile is about and what can be done to its agent from here, above the items for
+    /// the strip itself.
     func menu(for item: StripItem) -> NSMenu {
         let menu = NSMenu()
         tileItems(menu, item)
@@ -14,8 +15,9 @@ extension AgentStrip {
         return menu
     }
 
-    /// Its workspace and what it says, then Open in Kelp, Continue for one back at its prompt, Later (Dismiss for finished
-    /// work: off the strip until it does something else) and Mute ▸.
+    /// Adds the tile's items. They are the workspace and what the agent says, then Open in Kelp, the CI mark's action,
+    /// Continue for an agent back at its prompt, Later, and Mute ▸. Later reads Dismiss for finished work, and either
+    /// one keeps the agent off the strip until it does something else.
     private func tileItems(_ menu: NSMenu, _ item: StripItem) {
         let about = menu.addItem(
             withTitle: [item.name, item.words.map(StripModel.brief)].compactMap { $0 }.joined(separator: " — "),
@@ -46,8 +48,8 @@ extension AgentStrip {
         menu.add(String(localized: "Mute Notifications"), submenu: times)
     }
 
-    /// Hide it for a while, what brings it up, where it stands, its settings. Turning it off and full-screen apps are in
-    /// those settings.
+    /// Adds the strip's own items: hide it for a while, what brings it up, where it stands, and its settings. Turning
+    /// the strip off and showing it over full-screen apps are in those settings.
     private func stripItems(_ menu: NSMenu) {
         let hide = NSMenu()
         for c in Mutes.choices() where c.until != Mutes.forever {

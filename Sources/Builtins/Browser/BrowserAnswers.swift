@@ -1,14 +1,16 @@
-// What an action's answer says beside the page: the element it reached and what it brought.
+// The fields that the answer to an agent's browser action adds to the page's address and title: the element the
+// action reached, and what the page shows after it.
 import Core
 import Foundation
 
 extension BrowserTab {
-    /// Lines of the page an answer carries at most: the rest is a snapshot away.
+    /// The most lines of the page that one answer carries. The agent reads the rest with a snapshot.
     nonisolated static let shownLines = 40
 
-    /// `answer` with the name of the element `ref` was in the snapshot it came from, and what the page shows since:
-    /// another page's top (`page`: also for open, which a new tab answers as info), or the lines that came in this one
-    /// (`new`), so the agent needn't take a snapshot to see what its action did.
+    /// Returns `answer` with two additions, so the agent needn't take a snapshot to see what its action did. `element`
+    /// is the name `ref` had in the snapshot the ref came from. Then `page` holds the top of the page when the action
+    /// led to another page (also for open, which a new tab answers as info), or `new` holds the lines that came in this
+    /// page.
     func looked(_ action: BrowserAction, ref: String?, _ answer: JSONValue) async throws -> JSONValue {
         guard case .object(var fields) = answer else { return answer }
         if let ref, let name = drive?.names[ref] { fields["element"] = .string(name) }
@@ -24,7 +26,8 @@ extension BrowserTab {
         return .object(fields)
     }
 
-    /// A snapshot (of what's inside `ref`, when given), its refs' names kept for the answers of actions on them.
+    /// Returns a snapshot of the page, or of what's inside `ref` when given. It keeps the name of each ref in it, so
+    /// the answer to a later action on that ref can name the element.
     func snapshot(_ ref: String, max: Int) async throws -> String {
         let text = try await run(Self.snapshotJS, ["ref": ref, "max": max]) as? String ?? ""
         for line in text.split(separator: "\n") {
@@ -33,7 +36,8 @@ extension BrowserTab {
         return text
     }
 
-    /// `- button "Save" [checked] [ref=e12] [new]` → (`e12`, `button "Save"`): the role and name, without states.
+    /// Returns the ref of a snapshot line and the element's role and name, without its states. For example,
+    /// `- button "Save" [checked] [ref=e12] [new]` gives (`e12`, `button "Save"`).
     nonisolated static func named(_ line: String) -> (String, String)? {
         guard let at = line.range(of: " [ref=e"), let end = line[at.upperBound...].firstIndex(of: "]") else {
             return nil
@@ -48,16 +52,16 @@ extension BrowserTab {
         return (ref, String(what))
     }
 
-    /// A page's first lines, and how many more there are.
+    /// Returns the first lines of a page, and a note of how many more there are.
     nonisolated static func top(_ lines: [String]) -> String {
         guard lines.count > shownLines else { return lines.joined(separator: "\n") }
         return (lines.prefix(shownLines) + ["… \(lines.count - shownLines) more lines: snapshot shows them"])
             .joined(separator: "\n")
     }
 
-    /// The lines marked `[new]`, each under the lines it sits in; nil when none came.
+    /// Returns the lines marked `[new]`, each under the lines that contain it, or nil when no new line came.
     nonisolated static func fresh(_ lines: [String]) -> String? {
-        let all = [""] + lines   // `kept` passes over a first line: the page's own
+        let all = [""] + lines   // `kept` skips the first line (the page's own), so a blank one stands in
         let keep = kept(all) { $0.hasSuffix(" [new]") }.map { all[$0] }
         guard !keep.isEmpty else { return nil }
         guard keep.count > shownLines else { return keep.joined(separator: "\n") }

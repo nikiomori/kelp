@@ -5,54 +5,57 @@ import EditorKit
 import KelpKit
 import WorkbenchKit
 
-/// A file as a tab: code editor with LSP, Markdown with preview, notebooks, or a Quick Look preview.
-/// Like a Mac document: edits show as a dot on the tab and the window's close button, ⌘S saves, closing asks
-/// (Settings › Editor › Save automatically turns autosave on). Agents edit files on disk too: unchanged buffers
-/// follow the disk; conflicting edits ask. The daemon reads and writes it (here or on a remote project's host) and says
-/// when its version changes (`WatchTopic.file`); the tab touches no file itself.
+/// A file shown as a tab: a code editor with a language server, Markdown with a preview, a notebook, or a Quick Look
+/// preview. It behaves like a Mac document: edits show as a dot on the tab and on the window's close button, ⌘S saves,
+/// and closing asks first (Settings › Editor › Save automatically turns autosave on). Agents edit files on disk too, so
+/// a buffer with no edits follows the disk and conflicting edits ask. The daemon reads and writes the file (here or on
+/// a remote project's host) and says when its version changes (`WatchTopic.file`). The tab never touches the file.
 @MainActor @Observable
 final class FileTab: SavableTab {
     let path: String, url: URL
     let app: AppModel
     let view: NSView
     private(set) var editor: CodeEditor?
-    /// Over the text while it holds merge conflicts.
+    /// The bar shown over the text while the file holds merge conflicts.
     var conflicts: ConflictBar?
     private(set) var markdown: MarkdownTab?
-    /// A page an agent made is named by its title, not "doc.md", and shows what kind it is.
+    /// A page an agent made is named by its title, not "doc.md", and its icon shows what kind of page it is.
     private var pageTitle: String?
     private var pageKind: Artifacts.Kind?
     private var notebook: NotebookTab?
     var changeBars: ChangeBars?
-    /// Its indentation and what Save tidies.
+    /// The file's indentation rules and what Save tidies up.
     private(set) var rules: FileRules?
     weak var statusBar: EditorStatusBar?
-    /// What the file was last read or written as; a compare against the one before is moot.
+    /// The text the file was last read or written as. Setting it cancels a running compare, because a compare against
+    /// the old text is moot.
     var lastSaved = "" { didSet { comparing?.cancel() } }
     var isEdited = false
-    /// Keystrokes so far: a save knows whether the buffer is still the text it wrote.
+    /// The number of edits so far, so a save can tell whether the buffer still holds the text it wrote.
     var edits = 0
     var comparing: Task<Void, Never>?
     var autosave: Bool { app.settings[SettingKeys.autoSave] }
     let autosaving = Debounce()
     var lspTask: Task<Void, Never>?
-    /// Typed and not sent to the language server yet (changes go a moment after the last key).
+    /// Text typed but not yet sent to the language server (changes are sent a moment after the last key).
     var lspUnsent: String?
-    /// The connection (`AppModel.connections`) its language server was given this file on; nil when it has none. A new
-    /// daemon knows nothing of it: the file is given again.
+    /// The daemon connection (`AppModel.connections`) on which the language server was given this file; nil when no
+    /// server has it. A new daemon knows nothing of the file, so the file is given to the server again.
     var lspOpenedOn: Int?
-    /// Its version as the daemon pushes it (a `.file` watch, `Watched`), while the tab is open.
+    /// The file's version as the daemon pushes it while the tab is open (a `.file` watch, `Watched`).
     private let version: Watched
-    /// Its project's folder (the file's own folder outside every project); followed as the workspaces change.
+    /// The folder of the file's project, or the file's own folder when no project holds it. It is updated as the
+    /// workspaces change.
     var root: String
-    /// A remote project's file: no language server, formatter or notebook for it here; its preview shows a copy.
+    /// True for a file in a remote project. Such a file gets no language server, formatter or notebook here, and its
+    /// preview shows a local copy.
     let remote: Bool
     /// The preview of a remote image or PDF, once its copy is here.
     private var preview: NSView?
     /// A preview of a file here, built again when the file is written over.
     private var following: FollowedPreview?
     private var pendingLine: Int?
-    /// Closed with Don't Save: deinit's autosave mustn't write it after all.
+    /// Set when the tab was closed with Don't Save, so the autosave in deinit must not write the file after all.
     private var discarded = false
     func discard() {
         discarded = true
@@ -61,14 +64,17 @@ final class FileTab: SavableTab {
         backup.drop()
     }
     @ObservationIgnored lazy var backup = UnsavedBackup(app: app, uri: uri)
-    /// The file was moved or deleted under the tab (often by an agent): the tab says so, ⌘S asks before writing it back.
+    /// True when the file was moved or deleted under the tab (often by an agent). The tab says so, and ⌘S asks before
+    /// writing the file back.
     var gone = false
-    /// The last save (each waits for the one before) and whether it wrote; `writing` while one is on its way to disk.
+    /// The last save and whether it wrote (each save waits for the one before it). `writing` is true while a save is on
+    /// its way to disk.
     var saving: Task<Bool, Never>?
     var writing = false
-    /// Focused while its text was still on the way: focused (and its line shown) once it's here.
+    /// Set when the tab was focused while its text was still loading, so the editor takes focus (and shows the pending
+    /// line) once the text arrives.
     private var focusWhenLoaded = false
-    /// Whether the tab is on screen, and what waits for it to show (the disk's newest version).
+    /// Whether the tab is on screen, and the work that waits until it shows (such as the disk's newest version).
     @ObservationIgnored lazy var whenShown = WhenShown(view)
     /// The first read (tests wait for it).
     private(set) var loading: Task<Void, Never>?
@@ -111,9 +117,10 @@ final class FileTab: SavableTab {
             view = nb.view
             return
         }
-        // Off the main thread, by the daemon: only a regular file (a pipe or /dev/zero would block or never end), up to
-        // `openLimit` (a 300 MB log would hang the window), as UTF-8; a remote project's on its host. A host's image or
-        // PDF is copied here instead: Quick Look and PDFKit read a file.
+        // The daemon reads the file off the main thread. It reads only a regular file (a pipe or /dev/zero would block
+        // or never end), only up to `openLimit` (a 300 MB log would hang the window), and as UTF-8. A remote project's
+        // file is read on its host. A remote image or PDF is copied here instead, because Quick Look and PDFKit need a
+        // local file.
         let box = EditorBox()
         view = box
         let wait = host.map { Self.message(String(localized: "Reading it from \($0)…"), failed: false) }
@@ -138,7 +145,8 @@ final class FileTab: SavableTab {
             wait?.removeFromSuperview()
             switch read {
             case .success(let file): loaded(file, in: box)
-            // Moved or deleted (often by an agent) since the tab was opened: say so, never an empty buffer ⌘S would write.
+            // The file was moved or deleted (often by an agent) after the tab opened. Say so, rather than show an empty
+            // buffer that ⌘S would write.
             case .failure(let error as RPCError)
             where error.code == RPCError.invalidParams("").code && Unopenable(error) == nil:
                 box.pin(missing())
@@ -148,12 +156,12 @@ final class FileTab: SavableTab {
         }
     }
 
-    /// Its text is here: the editor (Markdown with its preview, or code with a status bar), its language server, and its
-    /// version followed from then on.
+    /// Called once the file's text arrives. Shows the editor (Markdown with its preview, or code with a status bar),
+    /// starts the language server, and follows the file's version from then on.
     private func loaded(_ file: FilesRead.Result, in box: NSView) {
         let app = self.app
         let found = ChangeBars.project(of: path, in: app.worktrees)
-        root = found?.worktree.path ?? root   // the workspaces may have come in since
+        root = found?.worktree.path ?? root   // the workspaces may have loaded since init
         let inside = found.map { $0.worktree.path + "/" + $0.file } ?? path   // as its project names it, not through a symlink
         let text = file.text
         let editable = CodeEditor.canEdit(text)
@@ -175,7 +183,8 @@ final class FileTab: SavableTab {
         let crumbs = Breadcrumbs(app: app, path: inside, root: root, editor: codeEditor)
         let conflictBar = withConflictBar(codeEditor)
         let language = codeEditor.languageId
-        // Each its own: its language may say otherwise than the setting for all files, and a change to either shows at once.
+        // Word wrap is read per file, because the file's language may override the setting for all files. A change to
+        // either setting shows at once.
         track(owner: self) {
             app.settings[SettingKeys.wordWrap, language: language]
         } changed: { [weak codeEditor, weak bar] wraps in
@@ -202,14 +211,14 @@ final class FileTab: SavableTab {
         } else {
             box.pin(stacked(withTrustBar(crumbs), conflictBar, codeEditor.view, bar))
         }
-        let before = codeEditor.onSelection   // Markdown's selection bar follows the selection too
+        let before = codeEditor.onSelection   // kept, because Markdown's selection bar follows the selection too
         codeEditor.onSelection = { [weak bar, weak codeEditor] in
             before?()
             bar?.show(cursor: codeEditor?.cursor)
             bar?.show(problem: codeEditor?.problemAtCursor?.message)
         }
         codeEditor.onChange = { [weak self] t in self?.edited(t) }
-        if let kept = backup.text {   // what a crash left
+        if let kept = backup.text {   // the unsaved text a crash left behind
             if kept == text {
                 backup.drop()
             } else {
@@ -218,7 +227,7 @@ final class FileTab: SavableTab {
             }
         }
         codeEditor.contextMenu = { [weak self] m in self?.contextMenu(m) }
-        track(owner: self) {   // the editor follows on its own; the page's preview is drawn here
+        track(owner: self) {   // the editor follows the theme itself; the Markdown preview is redrawn here
             app.themes.editorRevision
         } changed: { [weak self] _ in
             self?.markdown?.themeChanged()
@@ -230,7 +239,7 @@ final class FileTab: SavableTab {
         } changed: { [weak self] _ in
             self?.followProject()
         }
-        // Its version on disk, here or on its host (where the daemon reads its digest now and then).
+        // Follow the file's version on disk, here or on its host (where the daemon checks the file's digest at times).
         let filePath = path
         version.key = filePath
         track(owner: self) { [app] in
@@ -238,7 +247,7 @@ final class FileTab: SavableTab {
         } changed: { [weak self] _ in
             self?.diskChanged()
         }
-        guard !remote else { return }   // a host's file: no language server here
+        guard !remote else { return }   // a remote file gets no language server here
         bar.onTrust = { [weak self] in
             Task { [weak self] in
                 guard let self else { return }
@@ -261,10 +270,11 @@ final class FileTab: SavableTab {
         }
     }
     isolated deinit {
-        // Dropped without close() (its workspace went away and its save failed): autosave writes what's safe to write, never
-        // over a conflict (the daemon writes only over the version last read or written here). Sent now: nothing may hold
-        // the tab once it's gone (a save on its way holds it, so none is). Either way the backup keeps the text
-        // (`UnsavedBackup`'s deinit) until a workspace holding the file takes it back.
+        // The tab was dropped without close() (its workspace went away and its save failed). Autosave writes what is
+        // safe to write and never writes over a conflict, because the daemon writes only over the version last read or
+        // written here. The write is sent now, because nothing may hold the tab once it is gone (a save on its way
+        // would hold it, so none is running). Either way the backup keeps the text (see the deinit in `UnsavedBackup`)
+        // until a workspace that holds the file takes it back.
         if autosave, !discarded, let editor, FileSync.save(buffer: editor.text, saved: lastSaved, disk: disk) == .write
         {
             let write = FilesWrite(path: path, text: editor.text, base: known?.stamp)
@@ -287,7 +297,7 @@ final class FileTab: SavableTab {
         }
     }
     func goTo(line: Int) {
-        guard let editor else {   // still being read: once it's here
+        guard let editor else {   // the text is still loading, so go to the line once it arrives
             pendingLine = line
             focusWhenLoaded = true
             return
@@ -295,12 +305,13 @@ final class FileTab: SavableTab {
         editor.goTo(line: line)
         editor.focus()
     }
-    /// What was last read or written, and its version.
+    /// The version and text last read or written.
     var known: (stamp: FileStamp, text: String?)?
     var reading = false
     var readAgain = false
 
-    /// What the tab says instead of the text (the daemon refuses it, here or on a host: `files.read`).
+    /// Returns what the tab says instead of the text when the daemon refuses to read the file (`files.read`), here or
+    /// on a host.
     static func reason(_ unopenable: Unopenable) -> String {
         switch unopenable {
         case .special: String(localized: "Kelp opens files, not devices or pipes.")
@@ -313,8 +324,7 @@ final class FileTab: SavableTab {
         }
     }
 
-    /// The tab's items for its context menu.
-    /// The editor's context menu, after Cut, Copy and Paste.
+    /// Adds the file's items to the context menu on its tab.
 
     static func menu(
         _ app: AppModel, _ menu: NSMenu, uri: String, workspace: String,
@@ -322,7 +332,7 @@ final class FileTab: SavableTab {
     ) {
         let path = TabURI.filePath(uri).path
         menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path) }
-        // A host's page isn't on this Mac for the browser to load.
+        // A page on a remote host isn't on this Mac, so the browser can't load it.
         if ["html", "htm"].contains((path as NSString).pathExtension.lowercased()), RemoteHost.containing(path) == nil {
             menu.add(String(localized: "Open Preview to the Side")) { openBeside("preview:" + path) }
         }
@@ -332,7 +342,8 @@ final class FileTab: SavableTab {
             copies: [(String(localized: "Web Link"), { @MainActor in copyWebLink(app, path) })])
     }
 
-    /// What the tab shows instead of the file: the empty state, a warning when it couldn't be opened.
+    /// Returns the view the tab shows instead of the file: an empty state while the file is fetched, or a warning when
+    /// the file couldn't be opened.
 
     private static func message(_ text: String, failed: Bool = true) -> NSView {
         let container = NSView(), empty = EmptyStateView()

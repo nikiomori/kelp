@@ -5,9 +5,9 @@ import EditorKit
 import KelpKit
 import WorkbenchKit
 
-/// "untitled:<n>": a new file with no name yet, like VS Code's Untitled-1. It is plain text until it is saved: the
-/// first ⌘S asks where to save it and under what name (the extension makes it code; with none it becomes .txt), and
-/// then the tab belongs to that file.
+/// The "untitled:<n>" tab: a new file with no name yet, like VS Code's Untitled-1. It stays plain text until it is
+/// saved. The first ⌘S asks where to save it and under what name (the extension makes it code; with no extension it
+/// becomes .txt), and then the tab belongs to that file.
 @MainActor @Observable
 final class UntitledTab: SavableTab {
     let uri: String, app: AppModel
@@ -17,7 +17,7 @@ final class UntitledTab: SavableTab {
     let view: NSView = EditorBox()
     let title: String
     var icon: NSImage? { .symbol("doc") }
-    /// Any text, until Don't Save.
+    /// True when the tab holds any text, until Don't Save.
     private(set) var isEdited = false
     private var discarded = false
     @ObservationIgnored private lazy var backup = UnsavedBackup(app: app, uri: uri)
@@ -87,7 +87,7 @@ final class UntitledTab: SavableTab {
             localized: "Name it with an extension for code (main.py, App.swift); without one it's a .txt file.")
         guard await runSheet(panel) == .OK, var url = panel.url else { return false }
         if url.pathExtension.isEmpty { url.appendPathExtension("txt") }
-        // Over whatever is there: the save panel asked about replacing it.
+        // Writes over whatever is there, because the save panel already asked about replacing it.
         let res = await app.tryCall(FilesWrite(path: url.path, text: editor.text, base: nil))
         if let error = res.error {
             Banner.show(String(localized: "Couldn't save \(url.lastPathComponent): \(error)"))
@@ -98,7 +98,7 @@ final class UntitledTab: SavableTab {
         return true
     }
 
-    /// The name to propose: the first line, as VS Code proposes it ("def main():" → "def main()").
+    /// Returns the name to propose, taken from the first line as VS Code does ("def main():" → "def main()").
     static func suggestedName(_ text: String) -> String? {
         let line = text.split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
         let name = line.components(separatedBy: CharacterSet(charactersIn: "/:\\\"*?<>|")).joined().trimmingCharacters(

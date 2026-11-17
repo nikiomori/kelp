@@ -27,7 +27,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         self.app = app
         super.init()
     }
-    /// Session History (one window per app).
+    /// Returns the Session History window, one per app.
     static func of(_ app: AppModel) -> HistoryWindow { app.part { HistoryWindow(app: app) } }
     private let pending = Debounce()
 
@@ -159,7 +159,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         }
     }
 
-    /// The count, or nothing: an empty list says so in its middle.
+    /// Shows the count in the toolbar, or nothing when the list is empty, because an empty list says so in its middle.
     private func showCount() {
         status.stringValue = rows.isEmpty ? "" : String(localized: "\(rows.count) conversations")
     }
@@ -180,7 +180,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         let field = NSTextField.label(
             text, font: .ui(TextSize.body), color: id == "updated" ? .secondaryLabelColor : .labelColor,
             truncation: id == "cwd" ? .byTruncatingHead : .byTruncatingTail)
-        return NSStackView(views: [field])   // placed in the middle of the row, on the agent's line
+        return NSStackView(views: [field])   // the stack centres the text in the row, level with the agent cell
     }
     /// The agent as the sidebar shows it: its icon and its name from the catalog.
     private func agentCell(_ agent: String) -> NSView {
@@ -189,7 +189,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         cell.spacing = Metrics.gap
         return cell
     }
-    /// Drag a conversation onto a terminal pane: drops its resume command there.
+    /// Dragging a conversation onto a terminal pane drops its resume command there.
     func tableView(_ table: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
         command(rows[row]) as NSString
     }
@@ -202,7 +202,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     @objc private func copyCommand() {
         guard table.selectedRow >= 0 else { return }
         copyText(command(rows[table.selectedRow]))
-        status.crossfade()   // as the commit card's "Copied"
+        status.crossfade()   // the same way the commit card shows "Copied"
         status.stringValue = String(localized: "Copied")
         DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) { [weak self] in
             self?.status.crossfade()

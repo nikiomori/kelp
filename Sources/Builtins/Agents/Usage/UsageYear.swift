@@ -2,7 +2,8 @@ import Charts
 import DesignKit
 import SwiftUI
 
-/// The last 12 months, a bar each with its figure over it; this month, not over yet, lighter.
+/// A chart of the last 12 months, a bar for each with its figure above it. This month isn't over yet, so its bar is
+/// lighter.
 struct MonthBars: View {
     let months: [(start: Date, value: Double)]
     let color: Color
@@ -35,7 +36,7 @@ struct MonthBars: View {
         .frame(height: 110)
     }
 
-    /// Days' figures (by the day's start) summed into the 12 months up to `now`'s, the oldest first.
+    /// Sums the days' figures (keyed by each day's start) into the 12 months up to the month of `now`, oldest first.
     nonisolated static func months(_ days: [Date: Double], now: Date = Date(), calendar: Calendar = .current) -> [(
         start: Date, value: Double
     )] {

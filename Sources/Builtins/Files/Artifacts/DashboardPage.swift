@@ -1,11 +1,12 @@
 import Foundation
 
-/// A dashboard's canvas as a page of data (`CanvasPage.View.dashboard`): its boards fill the pane one view at a time
-/// (a switch at the top right when there's more than one), in the window's theme, and the pointer over a figure shows
-/// where it came from and when (its `data-source`), through the sheet `CanvasEdit` puts over the boards (their frames
-/// run no script), on in View as well.
+/// Shows a dashboard's canvas as a page of data (`CanvasPage.View.dashboard`). Its boards fill the pane one view at a
+/// time, in the window's theme, with a switch at the top right when there's more than one. The pointer over a figure
+/// shows where it came from and when (its `data-source`). That works through the sheet `CanvasEdit` puts over the
+/// boards, because their frames run no script, so the sheet stays on in View mode as well.
 enum DashboardPage {
-    /// `noSource`: what a figure without a source says. JavaScript, after `CanvasEdit` and `CanvasEditMode`.
+    /// Returns the dashboard's JavaScript, which runs after `CanvasEdit` and `CanvasEditMode`. `noSource` is the text
+    /// shown for a figure without a source.
     static func source(noSource: String) -> String {
         """
         (function () {

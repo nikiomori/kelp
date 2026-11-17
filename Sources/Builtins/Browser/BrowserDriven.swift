@@ -1,12 +1,14 @@
-// What the shell shows of a page an agent drives, outside its tab (`AgentPages`): whose it is, what it did last.
+// What the shell shows, outside the tab, of a page an agent drives (`AgentPages`): whose page it is, and what the agent
+// did there last.
 import AppKit
 import Core
 import KelpKit
 import WebKit
 
 extension BrowserTab {
-    /// An agent's action that is about to be done here: the page is marked as its session's (and subagent's) and lit,
-    /// with this step as the last one. A call from outside a session (the user's own `kelp browser`) leaves no mark.
+    /// Records an agent's action that is about to be done on this page. The page is marked as the session's (and the
+    /// subagent's) and lit, with this step as the last one. A call from outside a session (the user's own
+    /// `kelp browser`) leaves no mark.
     func told(_ action: BrowserAction, _ args: JSONValue) {
         guard let session = args["session"]?.string, let tab = args["tab"]?.string,
             let workspace = args["workspace"]?.string
@@ -27,14 +29,14 @@ extension BrowserTab {
         if drive?.driver != session || drive?.subagent != subagent {
             drive?.driver = session
             drive?.subagent = subagent
-            showAgentBar()   // says who
+            showAgentBar()   // the bar says which agent drives
         }
         let step = Self.step(action, args, named: args["ref"]?.string.flatMap { drive?.names[$0] })
         drive?.lastStep = step
         pages.acted(pageId, step)
     }
 
-    /// What an action is, as the card lists it: `clicks “Pay now”`, `opens localhost:3000/checkout`.
+    /// Describes an action as the card lists it, such as `clicks “Pay now”` or `opens localhost:3000/checkout`.
     nonisolated static func step(_ action: BrowserAction, _ args: JSONValue, named: String?) -> String {
         let what = named.flatMap(shownName).map { " “\($0)”" } ?? ""
         switch action {
@@ -63,7 +65,8 @@ extension BrowserTab {
         }
     }
 
-    /// An error the page reported (a console error, a request that failed), for the card.
+    /// Counts an error the page reported (a console error, a request that failed), and keeps it as the last one for the
+    /// card.
     func noteError(_ text: String) {
         let line = String(text.prefix(160))
         AgentPages.of(app).change(pageId) { page in
@@ -72,7 +75,7 @@ extension BrowserTab {
         }
     }
 
-    /// Its address and title, as the card says them.
+    /// Updates the page's address and title as the card shows them.
     func showDriven() {
         let title = title, url = web.url?.absoluteString ?? start
         AgentPages.of(app).change(pageId) { page in
@@ -85,7 +88,7 @@ extension BrowserTab {
         let small = WKSnapshotConfiguration()
         small.snapshotWidth = 480
         do { return try await web.takeSnapshot(configuration: small) } catch {
-            return nil   // a page WebKit can't draw now (between two documents): the card keeps its last picture
+            return nil   // WebKit can't draw the page now (between two documents), so the card keeps its last picture
         }
     }
 
@@ -97,7 +100,8 @@ extension BrowserTab {
         }
     }
 
-    /// After an action here: the row of pages shows it, when the tab has one (not made for a tab that has none).
+    /// Tells the tab's row of pages that `page` acted, so the row shows it. Only a tab that already has pages tells it,
+    /// so no row is made for a tab without one.
     func pageSetActed(_ page: BrowserTab) {
         if agent, host == nil, !pageSet.pages.isEmpty { pageSet.acted(page) }
     }

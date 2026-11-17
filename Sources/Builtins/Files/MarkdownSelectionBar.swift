@@ -14,7 +14,7 @@ final class MarkdownSelectionBar: NSView {
         }
         row.spacing = Metrics.iconGap
         row.edgeInsets = NSEdgeInsets(top: 3, left: 5, bottom: 3, right: 5)
-        let card = FloatingCard(row, radius: Metrics.radiusMD)   // the popover's material, as the other floating controls
+        let card = FloatingCard(row, radius: Metrics.radiusMD)   // popover material, like the other floating bars
         setFrameSize(card.fittingSize)
         card.frame = bounds
         card.autoresizingMask = [.width, .height]
@@ -26,7 +26,8 @@ final class MarkdownSelectionBar: NSView {
 
     required init?(coder: NSCoder) { nil }
 
-    /// Over `selection` (in `container`'s coordinates), or under it where there's no room above; kept inside.
+    /// Shows the bar over `selection` (in `container`'s coordinates), or under it when there's no room above. The bar
+    /// is kept inside the container's width.
     func show(over selection: NSRect, in container: NSView) {
         let size = frame.size, gap: CGFloat = 6
         let above = container.isFlipped ? selection.minY - gap - size.height : selection.maxY + gap
@@ -34,6 +35,6 @@ final class MarkdownSelectionBar: NSView {
         let originY = fits ? above : container.isFlipped ? selection.maxY + gap : selection.minY - gap - size.height
         let originX = min(max(selection.minX, 4), container.bounds.width - size.width - 4)
         setFrameOrigin(NSPoint(x: originX, y: originY))
-        if isHidden { fadeIn() }   // it comes in over the text rather than popping up
+        if isHidden { fadeIn() }   // it fades in over the text rather than popping up
     }
 }

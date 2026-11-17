@@ -3,11 +3,13 @@ import DesignKit
 import EditorKit
 import KelpKit
 
-/// What a file tab shows besides its text: the trust question over code, and the way out when the file is gone.
+/// The views a file tab shows besides its text: the question whether to trust the project's code, the merge conflicts
+/// bar, and the way out when the file is gone.
 extension FileTab {
-    /// The breadcrumbs with the trust question under them (`TrustBar`), hidden while it doesn't ask.
+    /// Returns the breadcrumbs with the trust question (`TrustBar`) under them. The question stays hidden while the
+    /// project doesn't need to be asked.
     func withTrustBar(_ crumbs: NSView) -> NSView {
-        guard !remote else { return crumbs }   // a host's file: no language server here
+        guard !remote else { return crumbs }   // a remote file gets no language server here
         let app = self.app
         let trust = TrustBar.make(
             project: (root as NSString).lastPathComponent,
@@ -30,7 +32,7 @@ extension FileTab {
         return column
     }
 
-    /// The merge conflicts' bar over `editor`, its label following the caret.
+    /// Returns the merge conflicts bar shown over `editor`. Its label follows the caret.
     func withConflictBar(_ editor: CodeEditor) -> NSView {
         let conflictBar = ConflictBar(editor: editor)
         conflicts = conflictBar
@@ -42,7 +44,8 @@ extension FileTab {
         return conflictBar.bar
     }
 
-    /// Moved or deleted: a way out of the tab, and to where the file was.
+    /// Returns the view for a file that was moved or deleted. It offers a way out of the tab, and a way to the Files
+    /// panel, where the file was.
     func missing() -> NSView {
         let app = self.app, uri = self.uri
         let close = ClosureButton(title: String(localized: "Close Tab")) { app.workbench.closeTab(uri: uri) }

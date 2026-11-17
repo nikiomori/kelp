@@ -2,32 +2,34 @@ import AppKit
 import DesignKit
 import WebKit
 
-/// Pictures of pages for the Artifacts card, as Safari shows sites: each page laid out off screen at a desktop
-/// window's width, its scripts off and its links going nowhere, and its top taken at the card's proportions. A live
-/// page squeezed into the card laid out too narrow (boards cut off, columns crushed, a scroll bar). One page at a time:
-/// a newer one replaces one still loading. Kept per page and version while the panel lives.
+/// Takes pictures of pages for the Artifacts card, the way Safari shows sites. Each page is laid out off screen at a
+/// desktop window's width, with its scripts off and its links going nowhere, and its top is taken at the card's
+/// proportions. A live page squeezed into the card was laid out too narrow (boards cut off, columns crushed, a scroll
+/// bar). Only one page loads at a time, so a newer request replaces one still loading. Pictures are cached per page
+/// and version while the panel lives.
 @MainActor
 final class ArtifactShots: NSObject, WKNavigationDelegate {
-    /// What a page is laid out in: a desktop window, at the card's proportions.
+    /// The size a page is laid out at: a desktop window, at the card's proportions.
     static let page = NSSize(width: 1280, height: 802)
-    /// A page that hasn't finished by then (a font or image that never comes) is taken as it is.
+    /// When a page hasn't finished loading by then (a font or image never comes), its picture is taken as it is.
     private static let wait: TimeInterval = 5
 
     private let cache = NSCache<NSString, NSImage>()
     private var loading: (navigation: WKNavigation?, done: CheckedContinuation<Void, Never>)?
-    /// Pictures asked for so far: one that isn't the last when its page is in gives way.
+    /// How many pictures have been asked for. When a page has loaded, a request that is no longer the latest gives up.
     private var asked = 0
     private lazy var web: WKWebView = {
-        let web = WKWebView(frame: NSRect(origin: .zero, size: Self.page))   // off screen: no layout sizes it
+        let web = WKWebView(frame: NSRect(origin: .zero, size: Self.page))   // off screen, so no layout sizes it
         web.navigationDelegate = self
         return web
     }()
 
-    /// The page's picture, as wide as the card; nil when it couldn't be drawn or a newer page came meanwhile.
+    /// Returns the page's picture, as wide as the card. Returns nil when it couldn't be drawn, or when a newer page was
+    /// asked for meanwhile.
     func picture(html: String, base: URL, key: String, dark: Bool, board: Bool) async -> NSImage? {
         let key = "\(key)|\(dark)" as NSString
         if let kept = cache.object(forKey: key) { return kept }
-        finish()   // a page still loading gives way
+        finish()   // a page still loading is given up
         asked += 1
         let mine = asked
         web.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
@@ -50,9 +52,9 @@ final class ArtifactShots: NSObject, WKNavigationDelegate {
         } catch { return nil }
     }
 
-    /// A Design canvas's board (the element in its `x-dc` past the `helmet`: 880 × 150, or a phone's 390 × 844), taken
-    /// whole so the card can fit all of it; a page is taken at its top. It is measured in Kelp's own world, so the
-    /// page's scripts stay off.
+    /// Returns the rect of a Design canvas's board, so the card can fit the whole board. The board is the first element
+    /// in `x-dc` that isn't the `helmet` (880 × 150, or 390 × 844 for a phone). Other pages are taken at their top.
+    /// The board is measured in Kelp's own script world, so the page's own scripts stay off.
     private func boardRect() async -> CGRect {
         let top = CGRect(origin: .zero, size: Self.page)
         let found: Any?
@@ -76,7 +78,7 @@ final class ArtifactShots: NSObject, WKNavigationDelegate {
         loading.done.resume()
     }
 
-    // The page's own scripts don't run; nothing takes it elsewhere (it's never on screen to be clicked).
+    // The page's own scripts don't run, and nothing navigates it elsewhere (it's never on screen to be clicked).
     func webView(
         _ webView: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences,
         decisionHandler: @escaping @MainActor (WKNavigationActionPolicy, WKWebpagePreferences) -> Void

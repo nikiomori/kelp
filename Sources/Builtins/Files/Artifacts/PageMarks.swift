@@ -1,11 +1,11 @@
 import Foundation
 
 /// Marks on an agent's Markdown page (a doc, slides), as on a canvas. With Mark on (`kelpMark(true)` from the bar),
-/// text you select gets a number and a line in the column on the right (`window.kelpColumn`) for what should change;
-/// Send puts them all in one message. With Mark off, a selection shows a Mark button that turns it on. The column's
-/// other list is the page's headings. A mark is found again by its text each time the page is drawn, since the agent
-/// may have moved it. It sends to `kelpSync`: `marks` (send), `marksDraft` (keep), and `mode` (Mark turned on from the
-/// page).
+/// text the user selects gets a number and a line in the column on the right (`window.kelpColumn`) for what should
+/// change, and Send puts all the marks in one message. With Mark off, a selection shows a Mark button that turns Mark
+/// on. The column's other list is the page's headings. Each time the page is drawn, a mark is found again by its text,
+/// because the agent may have moved that text. The script sends `marks` (send), `marksDraft` (keep), and `mode` (Mark
+/// turned on from the page) to `kelpSync`.
 enum PageMarks {
     static func source(marks: [CanvasMark], labels: [String: String]) -> String {
         """
@@ -142,8 +142,9 @@ enum PageMarks {
           draw();
         """
 
-    /// What changed in the agent's last turn, on a doc: a bar beside each block holding a changed line (`lines`, from
-    /// `Artifacts.changedLines`), `kelpChange(1)` going to the next. Its count goes to `kelpSync` as `changes`.
+    /// Shows what the agent's last turn changed in a doc. A bar goes beside each block that holds a changed line
+    /// (`lines`, from `Artifacts.changedLines`), and `kelpChange(1)` scrolls to the next one. The number of changes
+    /// goes to `kelpSync` as `changes`.
     static func changes(_ lines: [Int]) -> String {
         """
         (function () {
@@ -169,8 +170,8 @@ enum PageMarks {
         """
     }
 
-    /// The look of the marks on the page, of the Mark button, and of a changed block's bar, together with the column's
-    /// look (`CanvasChrome`).
+    /// The CSS for the marks on the page, the Mark button and the bar beside a changed block, together with the CSS for
+    /// the column (`CanvasChrome`).
     static let style = """
         <style>
         \(CanvasChrome.style)

@@ -4,17 +4,18 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// A row's own menu, built for what the row is: a skill (the person's or the project's), a plugin or one of its skills,
-/// a server (Kelp's, an agent's own, or the account's), something that doesn't work, or an instruction file. Items that
-/// can't apply to the row are left out, and items that can't be undone come last.
+/// The menu of a row in the Skills & MCP panel, built for what the row holds: a skill (the person's or the project's),
+/// a plugin or one of its skills, a server (Kelp's, an agent's own, or the account's), something that doesn't work, or
+/// an instruction file. Items that can't apply to the row are left out, and items that can't be undone come last.
 @MainActor
 struct AddonMenu {
     let app: AppModel, worktreeId: String
-    /// Everything listed: a plugin's id and folder, and the servers waiting for a sign-in, are read from it.
+    /// Every item in the list. The menu reads a plugin's id and folder, and the servers that wait for a sign-in, from
+    /// these items.
     let items: [Addon]
-    /// The chat the panel shows, if it shows one: Fix with Agent types into it.
+    /// The chat the panel shows, if it shows one. Fix with Agent types into this chat.
     let chat: Session?
-    /// After a change: the list read again.
+    /// Called after a change, to read the list again.
     let done: () -> Void
 
     func fill(_ menu: NSMenu, _ line: AddonLine) {
@@ -50,15 +51,15 @@ struct AddonMenu {
         }
     }
 
-    /// A skill of the person's or the project's that some agents don't read: Give to All Agents hands it to those
-    /// agents.
+    /// True for a skill of the person's or the project's that some agents don't read. Give to All Agents hands such a
+    /// skill to those agents.
     static func notEveryAgentHas(_ addon: Addon) -> Bool {
         [.yours, .project].contains(addon.source) && addon.key != nil
             && !(addon.agents.contains(Session.claudeAgent) && addon.agents.contains(Session.codexAgent))
     }
 
-    /// A skill in a folder: one of the person's or the project's skills, which can be handed to every agent and moved
-    /// to the Trash.
+    /// Fills the menu for a skill in a folder. When it is one of the person's or the project's skills, the menu can
+    /// also hand it to every agent and move it to the Trash.
     private func skill(_ menu: NSMenu, _ addon: Addon) {
         locate(menu, addon.path, open: String(localized: "Open SKILL.md"), folder: true)
         separate(menu)
@@ -79,7 +80,8 @@ struct AddonMenu {
         }
     }
 
-    /// A plugin's line, or a skill of it: its switch, its folder, and taking it out with the agent that installed it.
+    /// Fills the menu for a plugin's line or for one of the plugin's skills. It holds the plugin's switch and folder,
+    /// and uninstalls the plugin with the agent that installed it.
     private func plugin(_ menu: NSMenu, _ name: String, key: String?, off: Bool) {
         separate(menu)
         if let key { onOff(menu, key, off: off) }
@@ -101,7 +103,8 @@ struct AddonMenu {
         }
     }
 
-    /// What doesn't work: its whole error, and the chat asked to find out why.
+    /// Fills the menu for an item that doesn't work. It shows or copies the whole error, and can ask the chat to find
+    /// out why.
     private func problem(_ menu: NSMenu, _ addon: Addon) {
         let error = addon.error ?? addon.problem ?? ""
         menu.add(String(localized: "Show the Error")) {
@@ -158,7 +161,7 @@ struct AddonMenu {
     func reveal(_ path: String) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
     func outside(_ address: String) { if let url = URL(string: address) { PreviewLinks.openOutside(url) } }
 
-    /// The project's switches, one after another, then the list again.
+    /// Sets the project's switch for each key, one after another, then reads the list again.
     func set(_ keys: [String], on: Bool) {
         Task { [app, worktreeId, done] in
             for key in keys { await app.call(AddonsSet(worktreeId: worktreeId, key: key, on: on)) }
@@ -173,7 +176,8 @@ struct AddonMenu {
         }
     }
 
-    /// An agent's own command, in a terminal tab the person sees: what it does to its files is its own.
+    /// Runs an agent's own command in a terminal tab the person sees. What the command does to the agent's files is
+    /// up to that agent, not Kelp.
     func run(_ command: String, _ title: String) { app.workbench.starter?.run(command: command, title: title) }
 
     func confirm(_ question: String, _ detail: String, action: String, then: @escaping @MainActor () -> Void) {
@@ -182,7 +186,7 @@ struct AddonMenu {
         }
     }
 
-    /// The whole error, to read and copy.
+    /// Shows the whole error in a sheet, to read and copy.
     static func showError(_ title: String, _ error: String) async {
         let alert = NSAlert()
         alert.messageText = title

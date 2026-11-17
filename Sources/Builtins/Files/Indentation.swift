@@ -4,12 +4,14 @@ import Foundation
 enum Indentation: Equatable, Sendable {
     case tabs, spaces(Int)
 
-    /// Read from the file's first lines: tabs if most indented lines start with one; else the step the indent most often
-    /// moves by from one line to the next, the smaller of two as common, not how deep most lines are (a long function's body
-    /// all at 8 is still indented by 4). Nil when nothing is indented.
+    /// Detects the indentation from the file's first lines. It is tabs when more lines start with a tab than with
+    /// spaces. Otherwise it is the step by which the indent most often changes from one line to the next (the smaller
+    /// step when two are equally common). It is not how deep most lines are, because a long function's body all at 8 is
+    /// still indented by 4. Returns nil when nothing is indented.
     static func detect(_ text: String) -> Indentation? {
         var tabs = 0, indented = 0, lines = 0, last = 0, steps: [Int: Int] = [:]
-        // Bytes, stopping at the 2000th line: splitting all of a 5 MB file into Characters took 80 ms of main thread.
+        // Read bytes and stop at the 2000th line, because splitting all of a 5 MB file into Characters took 80 ms of
+        // the main thread.
         let bytes = text.utf8
         var index = bytes.startIndex
         while index < bytes.endIndex, lines < 2000 {
@@ -24,7 +26,7 @@ enum Indentation: Equatable, Sendable {
                 continue
             }
             let spaces = line.prefix { $0 == 32 }.count
-            guard spaces < line.count else { continue }   // only spaces: says nothing
+            guard spaces < line.count else { continue }   // a line of only spaces says nothing
             if spaces > 0 { indented += 1 }
             if [2, 3, 4, 8].contains(abs(spaces - last)) { steps[abs(spaces - last), default: 0] += 1 }
             last = spaces
@@ -35,9 +37,10 @@ enum Indentation: Equatable, Sendable {
         return .spaces(best?.key ?? 4)
     }
 
-    /// `text` with each line's leading whitespace in this indentation, the same depth with `tabSize` columns to a level.
+    /// Returns `text` with each line's leading whitespace rewritten in this indentation, at the same depth, counting
+    /// `tabSize` columns to a level.
     func applied(to text: String, tabSize: Int) -> String {
-        text.components(separatedBy: "\n").map { line -> String in   // not split(): "\r\n" is one Character to it
+        text.components(separatedBy: "\n").map { line -> String in   // not split(), which takes "\r\n" as one Character
             let lead = line.prefix { $0 == " " || $0 == "\t" }
             let columns = lead.reduce(0) { $1 == "\t" ? $0 + tabSize - $0 % tabSize : $0 + 1 }
             let indent: String
@@ -51,7 +54,8 @@ enum Indentation: Equatable, Sendable {
         }.joined(separator: "\n")
     }
 
-    /// What Save tidies: spaces and tabs at line ends, and a last line without a newline.
+    /// Returns the text as Save tidies it: without spaces and tabs at line ends (`trim`), and with a newline after the
+    /// last line (`finalNewline`).
     static func cleaned(_ text: String, trim: Bool, finalNewline: Bool) -> String {
         var out =
             !trim

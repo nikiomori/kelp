@@ -1,11 +1,12 @@
 import Foundation
 
-/// What an `.editorconfig` asks of a file (editorconfig.org): nil what it leaves alone.
+/// The settings an `.editorconfig` file (editorconfig.org) asks of a file. A setting the config leaves alone is nil.
 struct EditorRules: Equatable, Sendable {
     var tabSize: Int?, insertSpaces: Bool?, trimTrailingWhitespace: Bool?, insertFinalNewline: Bool?
     init() {}
 
-    /// `self` from a nearer file, `other` from one further up: the nearer one's say stands.
+    /// Merges two configs. `self` comes from the nearer `.editorconfig` and `other` from one further up, and where both
+    /// set a rule, the nearer one wins.
     func over(_ other: EditorRules) -> EditorRules {
         var merged = self
         merged.tabSize = tabSize ?? other.tabSize
@@ -17,7 +18,8 @@ struct EditorRules: Equatable, Sendable {
 }
 
 enum EditorConfig {
-    /// `file`, relative to the config's folder. `root`: `root = true`, no need to look further up.
+    /// Reads the rules a config's text sets for `file`, a path relative to the config's folder. `root` is true when the
+    /// config says `root = true`, so there's no need to look further up.
     static func read(_ text: String, file: String) -> (rules: EditorRules, root: Bool) {
         var rules = EditorRules(), root = false, inSection = false, section = false
         for raw in text.split(whereSeparator: \.isNewline) {
@@ -50,7 +52,7 @@ enum EditorConfig {
         }
     }
 
-    /// Matches a section's glob; a glob without a `/` matches a file's name at any depth.
+    /// Returns whether a section's glob matches `file`. A glob without a `/` matches the file's name at any depth.
     static func matches(_ glob: String, _ file: String) -> Bool {
         let name = glob.contains("/") ? file : (file as NSString).lastPathComponent
         let bare = glob.hasPrefix("/") ? String(glob.dropFirst()) : glob

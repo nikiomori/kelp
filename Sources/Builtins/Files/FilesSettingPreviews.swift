@@ -5,8 +5,9 @@ import EditorKit
 import KelpKit
 import SwiftUI
 
-/// The real editor, read-only, on a few lines of Swift, over Settings › Editor's rows: font, colors, wrapping, rulers,
-/// whitespace, brackets and guides as those rows set them for every language (`FileRules.applyLooks`, as a file's tab).
+/// The preview over the rows of Settings › Editor: the real editor, read-only, on a few lines of Swift. It shows the
+/// font, colors, wrapping, rulers, whitespace, brackets and guides as those rows set them for every language, through
+/// `FileRules.applyLooks`, as a file's tab does.
 struct EditorSample: NSViewRepresentable {
     @Environment(AppModel.self) private var app
 
@@ -38,9 +39,10 @@ struct EditorSample: NSViewRepresentable {
 
     func updateNSView(_ view: NSView, context: Context) {
         let editor = context.coordinator
-        _ = app.themes.editorRevision   // font, colors and wrapping are the editor's own (ThemeManager sets them)
+        _ = app.themes.editorRevision   // redraws when ThemeManager sets the editor's font, colors or wrapping
         FileRules.applyLooks(to: editor, app.settings, language: nil)
-        // A moment later: ThemeManager applies a settings change after the views that read it are told.
+        // Refreshes a moment later, because ThemeManager applies a settings change only after the views that read it
+        // are told.
         DispatchQueue.main.async { editor.refreshAppearance() }
     }
 }

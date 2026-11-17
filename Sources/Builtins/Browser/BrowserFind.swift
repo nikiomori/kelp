@@ -2,8 +2,9 @@ import AppKit
 import DesignKit
 import WebKit
 
-/// ⌘F on a page: Edit › Find reaches the tab through the responder chain (`BrowserBox`), the card floats over the page,
-/// WebKit finds and selects the match. WebKit says only whether there is one, so the card counts nothing.
+/// Finds text on a page with ⌘F. Edit › Find reaches the tab through the responder chain (`BrowserBox`), the find card
+/// floats over the page, and WebKit finds and selects the match. WebKit says only whether there is a match, so the
+/// card shows no count.
 extension BrowserTab {
     func find(_ action: NSFindPanelAction?) {
         switch action {
@@ -17,7 +18,7 @@ extension BrowserTab {
         if let finding { return finding }
         let card = FindCard()
         card.onSearch = { [weak self] _ in
-            // From the match shown: a longer word typed in finds it again instead of the next one.
+            // Search from the match shown, so typing a longer word finds the same match again instead of the next one.
             self?.web.evaluateJavaScript("getSelection()?.collapseToStart()", in: nil, in: Self.world) { _ in }
             self?.step(forward: true)
         }

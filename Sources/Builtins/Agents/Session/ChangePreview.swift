@@ -2,12 +2,13 @@ import AppKit
 import Core
 import DesignKit
 
-/// The first rows of a change, in the card that asks for it: an update's key and the columns it changes, each value as
-/// it was and as it becomes; a delete's rows struck out in red and an insert's in green, by their first columns.
-/// Several statements asked for as one get a line each, with the rows each would change.
+/// A preview of the first rows a database change touches, shown in the card that asks the user to allow the change.
+/// For an update it shows the key and the changed columns, each value as it was and as it becomes. A delete's rows
+/// are struck out in red and an insert's rows are green, by their first columns. When several statements are asked
+/// for as one, each statement gets a line with the number of rows it would change.
 @MainActor
 final class ChangePreview: NSView {
-    /// Rows and columns it shows at most: the rest are a click away, in the database's tab.
+    /// The most rows, columns and statements the preview shows. The rest are a click away, in the database's tab.
     static let rows = 3, columns = 5, statements = 6
     private static let widest: CGFloat = 280, widestStatement: CGFloat = 560
     private let grid = NSGridView()
@@ -24,14 +25,15 @@ final class ChangePreview: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    // The fill follows the appearance: asked for again when it changes
+    // AppKit calls updateLayer again when the appearance changes, so the fill follows light and dark mode.
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
         layer?.cornerRadius = Metrics.radiusSM
         layer?.backgroundColor = NSColor.fillRest.cgColor
     }
 
-    /// Shows `result`'s first rows when it says what the change does to them; how many it shows (0: nothing to show).
+    /// Shows the first rows of `result` when the result says what the change does to them. Returns how many rows it
+    /// shows, or 0 when there is nothing to show.
     func show(_ result: QueryResult) -> Int {
         let columns = Self.columns(of: result)
         guard let change = result.change, !columns.isEmpty, !result.rows.isEmpty else {
@@ -51,7 +53,8 @@ final class ChangePreview: NSView {
         return shown.count
     }
 
-    /// Several statements asked as one: each on a line with the rows it would change; how many it shows.
+    /// Shows several statements asked for as one, each on a line with the number of rows it would change. Returns how
+    /// many statements it shows.
     func show(statements parts: [StatementResult]) -> Int {
         let shown = parts.prefix(Self.statements)
         lay(
@@ -68,8 +71,8 @@ final class ChangePreview: NSView {
         return shown.count
     }
 
-    /// Each column as wide as its widest text, up to `widest`, past which it's cut: the box takes its rows' width, not
-    /// the card's shared out among them.
+    /// Fills the grid with `rows`. Each column is as wide as its widest text, up to `widest`, and longer text is cut.
+    /// This way the box is as wide as its rows, instead of sharing out the card's whole width among the columns.
     private func lay(_ rows: [[NSView]], widest: CGFloat) {
         while grid.numberOfRows > 0 { grid.removeRow(at: 0) }
         for view in grid.subviews { view.removeFromSuperview() }
@@ -82,8 +85,9 @@ final class ChangePreview: NSView {
         }
     }
 
-    /// The key columns first, then the columns an update changes, or the first columns of a delete or an insert. None
-    /// for an update whose old rows aren't known, since there is nothing to compare.
+    /// Returns the columns to show: the key columns first, then the columns an update changes, or the first columns of
+    /// a delete or an insert. Returns none for an update whose old rows aren't known, since there is nothing to
+    /// compare.
     static func columns(of result: QueryResult) -> [Int] {
         guard let change = result.change else { return [] }
         let key = change.key.compactMap(result.columns.firstIndex(of:))

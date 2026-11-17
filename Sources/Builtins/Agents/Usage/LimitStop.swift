@@ -3,19 +3,20 @@ import Foundation
 import KelpKit
 
 extension LimitHit {
-    /// When it resets, if that can be told, read from when it stopped: "3pm" stays today's once that has passed.
+    /// When the limit resets, if that can be told. The time is read relative to when the session stopped, so "3pm"
+    /// still means that day's 3pm once it has passed.
     var resetAt: Date? { resets.flatMap { ResetTime.parse($0, now: at) } }
 }
 
-/// What to say of a session a plan limit stopped: its row's line, its banner, its title (`PlanWords`, for the shell), and
-/// on its strip who could go on with its work.
+/// The words for a session a plan limit stopped: the line on its row, its banner, and its title (`PlanWords`, for the
+/// shell). Its strip also says who could go on with its work.
 enum LimitStop {
-    /// A time, with its date unless that's today.
+    /// Formats a time, with its date unless the date is today.
     static func clock(_ d: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
         d.formatted(date: calendar.isDate(d, inSameDayAs: now) ? .omitted : .abbreviated, time: .shortened)
     }
 
-    /// Its row's second line.
+    /// The second line of the session's row.
     static func rowLine(_ session: Session, now: Date = Date()) -> (word: String, text: String)? {
         if let at = session.continueAt {   // at a limit's reset, or after an API error that passes
             return (String(localized: "Continues"), String(localized: "at \(clock(at, now: now))"))

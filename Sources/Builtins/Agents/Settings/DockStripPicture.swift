@@ -1,8 +1,8 @@
 import DesignKit
 import SwiftUI
 
-/// Settings' picture of each "Show agents above the Dock" choice: the bottom of a screen, the Dock, and over it the
-/// strip with a question (when needed) or every agent's dot (always).
+/// The picture Settings shows for each "Show agents above the Dock" choice. It draws the bottom of a screen and the
+/// Dock, and above the Dock the strip with a question (for "when needed") or a dot for every agent (for "always").
 struct DockStripPicture: View {
     let option: String
 
@@ -36,8 +36,8 @@ struct DockStripPicture: View {
     }
 }
 
-/// Settings' picture of each "Dock icon" choice: Kelp's icon as the Dock shows it, plain, with its agents as pills at its
-/// foot, or with the plan's ring.
+/// The picture Settings shows for each "Dock icon" choice: Kelp's icon as the Dock shows it, either plain, with the
+/// agents as pills at its foot, or with the ring for the plan's usage.
 struct DockIconPicture: View {
     let option: String
 

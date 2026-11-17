@@ -4,8 +4,8 @@ import DesignKit
 import EditorKit
 import KelpKit
 
-/// How one file is indented and what Save tidies. A choice made in the status bar comes first, then the project's
-/// `.editorconfig`, then what the file itself does, then the settings for its language.
+/// Decides how one file is indented and what Save tidies. A choice made in the status bar comes first, then the
+/// project's `.editorconfig`, then what the file itself does, then the settings for the file's language.
 @MainActor
 final class FileRules {
     private let app: AppModel, path: String, root: String
@@ -49,7 +49,7 @@ final class FileRules {
         Task { [weak self] in await self?.readConfig() }
     }
 
-    /// `"80, 120"`, as Settings has it.
+    /// Parses a list of columns such as `"80, 120"`, as Settings stores it.
     static func columns(_ text: String?) -> [Int] {
         (text ?? "").split { !$0.isNumber }.compactMap { Int($0) }.filter { $0 > 0 }
     }
@@ -59,8 +59,8 @@ final class FileRules {
         Self.applyLooks(to: editor, app.settings, language: editor.languageId)
     }
 
-    /// The rows that change how an editor looks, for `language`'s files (nil: every language's, as Settings' sample
-    /// shows them).
+    /// Applies the settings that change how an editor looks, as set for `language`'s files. A nil language takes the
+    /// settings for every language, as the sample in Settings shows them.
     static func applyLooks(to editor: CodeEditor, _ settings: SettingsStore, language: String?) {
         editor.rulers = Self.columns(settings[SettingKeys.rulers, language: language])
         editor.whitespace =
@@ -94,8 +94,8 @@ final class FileRules {
         bar?.show(indent: spaces ? .spaces(size) : .tabs)
     }
 
-    /// The .editorconfig files from the file's folder up to the workspace's folder, or up to one with `root = true`;
-    /// the nearer file's settings win.
+    /// Reads the .editorconfig files from the file's folder up to the workspace's folder, or up to one with
+    /// `root = true`. Where two files disagree, the nearer file's settings win.
     private func readConfig() async {
         var folder = (path as NSString).deletingLastPathComponent, found = EditorRules()
         while Paths.inside(folder, root) {
@@ -111,7 +111,8 @@ final class FileRules {
         apply()
     }
 
-    /// A save's tidying (`FileTab.tidy`), one step of undo with what was typed before it. Autosave leaves the line being typed alone.
+    /// Tidies the file for a save (`FileTab.tidy`), as one undo step together with what was typed before it.
+    /// Autosave leaves the line being typed alone.
     func cleanUpForSave() {
         guard let editor else { return }
         let language = editor.languageId

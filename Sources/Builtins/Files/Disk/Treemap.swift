@@ -1,8 +1,8 @@
 import CoreGraphics
 
-/// Rectangles for sizes (biggest first) that fill a rectangle, each as near a square as the rest allow: the squarified
-/// treemap (Bruls, Huizing, van Wijk). A row of them is laid along the free space's shorter side until the next would
-/// make the row's worst one longer.
+/// Lays out rectangles for sizes (biggest first) that fill a rectangle, each as near a square as the others allow.
+/// This is the squarified treemap (Bruls, Huizing, van Wijk). Rectangles go into a row along the shorter side of the
+/// free space until the next one would make the row's most elongated rectangle longer.
 enum Treemap {
     static func layout(_ sizes: [Double], in rect: CGRect) -> [CGRect] {
         let total = sizes.reduce(0, +)
@@ -24,14 +24,14 @@ enum Treemap {
         return out + place(row, in: free).rects
     }
 
-    /// The longest side over the shortest of the row's most elongated rectangle.
+    /// Returns the longer side over the shorter side of the row's most elongated rectangle.
     private static func worst(_ row: [Double], _ side: Double) -> Double {
         let sum = row.reduce(0, +), most = row.max() ?? 0, least = row.min() ?? 0
         guard sum > 0, least > 0 else { return .infinity }
         return max(side * side * most / (sum * sum), sum * sum / (side * side * least))
     }
 
-    /// The row along the free space's shorter side, and what's left of it.
+    /// Places the row along the shorter side of the free space, and returns its rectangles and the space left over.
     private static func place(_ row: [Double], in free: CGRect) -> (rects: [CGRect], free: CGRect) {
         let sum = row.reduce(0, +)
         guard sum > 0 else { return (row.map { _ in .zero }, free) }

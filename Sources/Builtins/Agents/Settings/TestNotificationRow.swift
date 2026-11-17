@@ -1,7 +1,8 @@
 import KelpKit
 import SwiftUI
 
-/// Settings › Notifications: a banner now, so a setting that silences Kelp shows up before an agent waits on you.
+/// The Send Test Notification button in Settings › Notifications. It sends a banner now, so a setting that silences
+/// Kelp shows up before an agent waits on you.
 struct TestNotificationRow: View {
     let app: AppModel
 

@@ -1,4 +1,5 @@
-// The page recorded as a video or a GIF: `kelp browser record`, ⋯ › Record Video / Record GIF, the red button stops it.
+// Records the page as a video or a GIF, started by `kelp browser record` or ⋯ › Record Video / Record GIF. The red
+// button stops it.
 import AVFoundation
 import AppKit
 import Core
@@ -8,7 +9,8 @@ import UniformTypeIdentifiers
 import WebKit
 
 extension BrowserTab {
-    /// `kelp browser record [file] | record stop`: the file's path, where it goes or where it went.
+    /// Handles `kelp browser record [file] | record stop`. It answers with the file's path: where the recording goes,
+    /// or where it went.
     func record(_ args: JSONValue) async throws -> JSONValue {
         if args["stop"]?.bool == true {
             guard recording != nil else {
@@ -27,7 +29,7 @@ extension BrowserTab {
         return .object(["path": .string(to.path), "recording": .bool(true)])
     }
 
-    /// ⋯ › Record Video / Record GIF: into ~/Downloads, as the page's files go.
+    /// Starts a recording from ⋯ › Record Video / Record GIF. It goes into ~/Downloads, as the page's downloads do.
     func recordFromMenu(gif: Bool) {
         let stamp = DateFormatter()
         stamp.dateFormat = "yyyy-MM-dd HH.mm.ss"
@@ -53,7 +55,8 @@ extension BrowserTab {
         }
     }
 
-    /// The red button, the menu, 10 minutes, the tab closed: the file, and a banner that shows it in Finder.
+    /// Saves the recording when the red button or the menu stops it, at 10 minutes, or when the tab closes, and shows a
+    /// banner that can show the file in Finder.
     @objc func saveRecording() {
         Task {
             do {
@@ -79,9 +82,9 @@ extension BrowserTab {
     }
 }
 
-/// Frames of a page as WebKit draws them, written while it goes: H.264 for .mp4 / .mov, a GIF for .gif. The first frame
-/// sets the size; a page resized since sits in the middle of it. Limit: a tab off screen isn't drawn, so its picture stands
-/// still (or isn't taken) until it's shown.
+/// Records frames of a page as WebKit draws them, and writes them as it goes: H.264 for .mp4 and .mov, a GIF for .gif.
+/// The first frame sets the size, and a page resized later is fitted into it, at the top and centred across.
+/// Limit: a tab off screen isn't drawn, so its picture stands still (or isn't taken) until it's shown.
 @MainActor
 final class PageRecording {
     nonisolated static let fps = 10.0, longest: TimeInterval = 600
@@ -101,12 +104,12 @@ final class PageRecording {
         }
     }
 
-    /// A frame of `web` every 1/fps s, but none while `paused`; `ended` once it's run for `longest`.
+    /// Takes a frame of `web` every 1/fps s, but none while `paused`, and calls `ended` once it has run for `longest`.
     func run(_ web: WKWebView, paused: @escaping () -> Bool, ended: @escaping () -> Void) {
         loop = Task { [weak web, start, sink] in
             while !Task.isCancelled, let web, Date().timeIntervalSince(start) < Self.longest {
                 let now = Date()
-                // No picture this time (WebKit had none to give): the last frame lasts.
+                // When there is no picture this time (WebKit had none to give), the last frame lasts longer.
                 if !paused(), let image = await Self.picture(of: web),
                     let frame = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
                 {
@@ -132,13 +135,14 @@ final class PageRecording {
         try await sink.finish(at: Date().timeIntervalSince(start))
     }
 
-    /// The frame's size from the first picture: its longer side at most `most`, both even (H.264 wants them so).
+    /// Returns the frame size for the first picture: its longer side at most `most`, and both sides even, because H.264
+    /// needs that.
     nonisolated static func size(of image: CGImage, most: Int) -> (width: Int, height: Int) {
         let scale = min(1, Double(most) / Double(max(image.width, image.height, 1)))
         return (max(2, Int(Double(image.width) * scale) & ~1), max(2, Int(Double(image.height) * scale) & ~1))
     }
 
-    /// `image` fit in the middle of `ctx`, on white.
+    /// Draws `image` on white, fitted into `ctx` at the top and centred across.
     nonisolated static func draw(_ image: CGImage, in ctx: CGContext) {
         let box = CGRect(x: 0, y: 0, width: ctx.width, height: ctx.height)
         let scale = min(box.width / CGFloat(image.width), box.height / CGFloat(image.height))
@@ -150,13 +154,14 @@ final class PageRecording {
     }
 }
 
-/// Off the main thread: a frame's drawing and encoding, and a GIF's finish, take a while for each of 10 a second.
+/// Writes frames off the main thread, because drawing and encoding a frame, and finishing a GIF, take a while at 10
+/// frames a second.
 private protocol FrameSink: Actor {
     func add(_ image: CGImage, at time: TimeInterval)
     func finish(at time: TimeInterval) async throws
 }
 
-/// Nothing came: the tab wasn't on screen, or the user had the page the whole time.
+/// The error when no frame came, because the tab wasn't on screen or the user had the page the whole time.
 private let nothingRecorded = RPCError.internalError(
     "Nothing was recorded: the page's tab wasn't on screen. Show it and record again.")
 
@@ -230,7 +235,8 @@ private actor MovieSink: FrameSink {
     }
 }
 
-/// A frame the same as the one before only makes that one last longer: a page that sits still costs nothing.
+/// Writes a GIF. A frame the same as the one before only makes that one last longer, so a page that sits still costs
+/// nothing.
 private actor GIFSink: FrameSink {
     private let file: CGImageDestination
     private var size: (width: Int, height: Int)?
@@ -264,7 +270,7 @@ private actor GIFSink: FrameSink {
         held = (small, bytes, time)
     }
 
-    /// The frame held, lasting until `time`.
+    /// Writes the held frame, lasting until `time`.
     private func put(until time: TimeInterval) {
         guard let held else { return }
         let delay = max(0.05, time - held.at)

@@ -11,7 +11,8 @@ struct LanguageRow: Identifiable, Equatable {
 }
 
 enum LanguageRows {
-    /// The languages that have a server, those of the same servers on one row, in the order they're declared.
+    /// Returns the rows for the languages that have a server, in the order they're declared. Languages that use the
+    /// same servers share one row.
     static func rows(_ languages: [LanguageSpec]) -> [LanguageRow] {
         var rows: [LanguageRow] = []
         for language in languages where !language.allServers.isEmpty {
@@ -30,7 +31,7 @@ enum LanguageRows {
         return rows
     }
 
-    /// What a language is called: its id as a word, or the name people write.
+    /// Returns the name of a language: the name people write (TypeScript, C++), or else its id capitalized.
     static func name(_ id: String) -> String { names[id] ?? id.prefix(1).uppercased() + id.dropFirst() }
     private static let names = [
         "typescript": "TypeScript", "typescriptreact": "TSX", "javascript": "JavaScript", "javascriptreact": "JSX",
@@ -41,7 +42,7 @@ enum LanguageRows {
 
     /// The ids of the languages a project has files of, from its files' paths.
     static func used(_ languages: [LanguageSpec], in files: [String]) -> Set<String> {
-        var kinds: Set<String> = []   // one path per extension and per bare name: a project has thousands of files
+        var kinds: Set<String> = []   // one entry per extension or bare name, as a project has thousands of files
         for file in files {
             let name = (file as NSString).lastPathComponent, ext = (name as NSString).pathExtension
             kinds.insert(ext.isEmpty ? name : "x." + ext)

@@ -5,19 +5,19 @@ import EditorKit
 import KelpKit
 import WorkbenchKit
 
-/// What a file's tab says beside its text: its right-click menu and what the language server found.
+/// The parts of a file tab around its text: the right-click menu, and what the language server found or answers.
 extension FileTab {
     var selectedText: String? { editor?.selectedText }
     var selectedLines: ClosedRange<Int>? { editor?.selectedLines }
     var reopenURI: String? { TabURI.file(path, line: selectedLines?.lowerBound) }
 
-    /// What the language server can change or find from here.
+    /// The language server's actions for this file: what it can change or find.
     var server: LanguageServerActions { LanguageServerActions(app: app, tab: self, root: root) }
 
     func contextMenu(_ menu: NSMenu) {
         let app = self.app, path = self.path
         let lines = { [weak self] in self?.selectedText?.isEmpty == false ? self?.selectedLines : nil }
-        if language?.server != nil, !remote {   // a host's file has no language server here
+        if language?.server != nil, !remote {   // a remote file has no language server here
             menu.add(String(localized: "Jump to Definition")) { [weak self] in self?.jumpToDefinition() }
             menu.add(String(localized: "Find References")) { [weak self] in self?.server.findReferences() }
             menu.add(String(localized: "Rename Symbol…")) { [weak self] in self?.server.rename() }
@@ -55,15 +55,15 @@ extension FileTab {
         LSPManager.of(app).change(root: root, path: path, text: text)
     }
 
-    /// Before asking the server about a place in the file: what's typed and not sent yet goes first, so the question is
-    /// about the text it has (`foo.` asks for foo's members, not for a column it hasn't got).
+    /// Sends the text typed but not yet sent, before the server is asked about a place in the file. That way the
+    /// question is about text the server has (`foo.` asks for the members of foo, not for a column the server lacks).
     func lspCaughtUp() async {
         lspTask?.cancel()
         sendUnsent()
         await LSPManager.of(app).sent()
     }
 
-    /// What the language server answers, once it has the file.
+    /// Connects the editor's completion, hover and signature help to the language server, once the server has the file.
     func connectServer(to codeEditor: CodeEditor, root projectRoot: String, path filePath: String) {
         let app = app
         codeEditor.completionProvider = { [weak self] line, col in
@@ -115,7 +115,7 @@ func copyWebLink(_ app: AppModel, _ path: String, lines: ClosedRange<Int>? = nil
 }
 
 extension RemoteHost {
-    /// The remote project a file is in, as this app's home keeps them (KELP_HOME/remote).
+    /// Returns the remote project that holds a file, from the remote projects this app's home keeps (KELP_HOME/remote).
     static func containing(_ path: String) -> (folder: String, remote: RemoteHost, remotePath: String)? {
         Remotes(home: Paths.root).containing(path)
     }

@@ -5,8 +5,9 @@ import EditorKit
 import KelpKit
 import WorkbenchKit
 
-/// What a file's tab shows of how the file differs from HEAD: bars beside the line numbers, followed from what git and the
-/// disk say (a host's project too, git runs there), and a card with the change when one is clicked.
+/// Shows in a file's tab how the file differs from HEAD: bars beside the line numbers, and a card with the change
+/// when a bar is clicked. The bars follow what git and the disk report. A project on a host works too, because git
+/// runs there.
 @MainActor
 final class ChangeBars {
     private let app: AppModel, editor: CodeEditor, worktree: Worktree, file: String
@@ -18,7 +19,7 @@ final class ChangeBars {
     private var card: NSPopover?
     private struct Seen: Equatable { let changes: [FileChange], branches: BranchInfo? }
 
-    /// `file`: its path inside `worktree` (`project`).
+    /// `file` is the file's path inside `worktree`, as `project(of:in:)` returns it.
     init(app: AppModel, worktree: Worktree, file: String, editor: CodeEditor, isEdited: @escaping () -> Bool) {
         self.app = app
         self.editor = editor
@@ -29,8 +30,8 @@ final class ChangeBars {
         git.key = app.gitKey(worktree.id)
         editor.onChangeMark = { [weak self] m, at, view in self?.show(m, at: at, in: view) }
         let id = worktree.id, mine = file
-        // This file's line in the status and the branch: a change to other files says nothing about its bars (the disk's
-        // changes to it come through `refresh` from its tab).
+        // Watches only this file's entries in the git status, and the branch, because a change to other files doesn't
+        // move this file's bars. Changes to the file on disk come through `refresh`, which the file's tab calls.
         track(owner: self) { [app] in
             let git = app.latest(GitEvent.self, app.gitKey(id))
             return Seen(changes: git?.changes?.filter { $0.path == mine } ?? [], branches: git?.branches)
@@ -40,9 +41,9 @@ final class ChangeBars {
         refresh()
     }
 
-    /// The innermost workspace holding `path`, and the path inside it. By real paths too: a file opened through a symlink
-    /// (/tmp is /private/tmp) is still its project's. The file's folder is resolved, not the file: a link to a file
-    /// elsewhere stays where it was opened.
+    /// Returns the innermost workspace holding `path`, and the path inside it. Real paths count too, so a file opened
+    /// through a symlink (/tmp is /private/tmp) still belongs to its project. Only the file's folder is resolved, not
+    /// the file itself, so a link to a file elsewhere stays in the project where it was opened.
     static func project(of path: String, in worktrees: [Worktree]) -> (worktree: Worktree, file: String)? {
         let url = URL(fileURLWithPath: path), folder = url.deletingLastPathComponent().path
         let real = (Paths.real(folder) ?? folder) + "/" + url.lastPathComponent
@@ -55,7 +56,8 @@ final class ChangeBars {
         return found.max { $0.0.path.count < $1.0.path.count }.map { (worktree: $0.0, file: $0.1) }
     }
 
-    /// Not while the buffer has edits: the file on disk says nothing about them, and typing moves the bars along meanwhile.
+    /// Reads the bars again after a short pause. `read` skips this while the buffer has edits, because the file on disk
+    /// says nothing about them, and typing moves the bars along meanwhile.
     func refresh() {
         refreshing.after(0.2) { [weak self] in self?.read() }
     }
@@ -65,7 +67,7 @@ final class ChangeBars {
         reading?.cancel()
         let wid = worktree.id, file = file
         reading = Task { [weak self] in
-            // Quiet: a folder outside git has no bars, and that's no failure.
+            // `quiet`, because a folder outside git simply has no bars, and that isn't a failure.
             guard let diff = await self?.app.quiet(GitDiff(id: wid, file: file)), !Task.isCancelled, let self else {
                 return
             }
@@ -80,7 +82,8 @@ final class ChangeBars {
         guard hunks.indices.contains(mark.hunk) else { return }
         let shown = hunks[mark.hunk], wid = worktree.id, file = file
         Task { [weak self] in
-            // Stage and Revert work on what isn't staged yet, as `git.hunk` finds it: the same lines of the unstaged diff.
+            // Stage and Revert act on changes not staged yet, as `git.hunk` finds them, so the buttons use the hunk
+            // over the same lines in the unstaged diff.
             let unstaged = await self?.app.quiet(GitDiff(id: wid, source: .unstaged, file: file))?.first?.hunks ?? []
             guard let self else { return }
             let hunk = Self.counterpart(of: shown, in: unstaged)
@@ -92,7 +95,8 @@ final class ChangeBars {
         }
     }
 
-    /// The hunk over the same new lines.
+    /// Returns the hunk in `others` that changes any of the same new lines as `hunk`, or else the one that starts on
+    /// the same line as `hunk`.
     static func counterpart(of hunk: Hunk, in others: [Hunk]) -> Hunk? {
         let lines = Set(hunk.lines.compactMap(\.newLine))
         return others.first { o in o.lines.contains { $0.kind != .context && $0.newLine.map(lines.contains) == true } }
@@ -108,7 +112,7 @@ final class ChangeBars {
                     go()
                 })
         }
-        // With edits in the buffer the file isn't what was diffed.
+        // While the buffer has edits, the file isn't what was diffed, so Revert and Stage are left out.
         if let hunk, !isEdited() {
             add(String(localized: "Revert…")) { [weak self] in self?.revert(hunk) }
             add(String(localized: "Stage")) { [weak self] in self?.stage(hunk) }
@@ -124,7 +128,7 @@ final class ChangeBars {
         Task { [app] in if await app.call(request) != nil { app.watchAgain(.git, app.gitKey(id)) } }
     }
 
-    /// The change goes at once: the banner's Undo brings it back.
+    /// Discards the change at once, without asking, because the banner's Undo brings it back.
     private func revert(_ hunk: Hunk) {
         let name = (file as NSString).lastPathComponent
         Task { [app, file, id = worktree.id] in
@@ -139,7 +143,7 @@ final class ChangeBars {
     }
 }
 
-/// The change in a popover: its lines in the diff's colours, and what can be done with it.
+/// The popover that shows a change: its lines in the diff's colours, and buttons for what can be done with it.
 final class ChangeCard: NSViewController {
     private static let mostLines = 24, width: CGFloat = 460
     private let shown: Hunk, actions: [NSView]
@@ -164,7 +168,7 @@ final class ChangeCard: NSViewController {
         stack.edgeInsets = NSEdgeInsets(
             top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
         view = stack
-        preferredContentSize = stack.fittingSize   // what the popover opens at
+        preferredContentSize = stack.fittingSize   // the size the popover opens at
     }
 
     private func lines() -> NSAttributedString {

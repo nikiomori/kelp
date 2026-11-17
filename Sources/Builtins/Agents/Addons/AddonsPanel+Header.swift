@@ -4,8 +4,8 @@ import DesignKit
 import KelpKit
 
 /// The panel's "+" menu (add a server, a skill from somewhere, or a new skill) and its ⋯ menu (the order, what is off,
-/// the skills' folders, restarting the chat, reading the list again). The order and what is off are this Mac's view,
-/// kept in UserDefaults.
+/// the skills' folders, restarting the chat, reading the list again). The order, and whether items that are off show,
+/// are this Mac's own view of the list, kept in UserDefaults.
 extension AddonsPanel {
     private static let byNameKey = "addons.byName", hideOffKey = "addons.hideOff"
 
@@ -65,7 +65,7 @@ extension AddonsPanel {
         app.projectName(app.worktree(app.workbench.workspaceId)?.repoId) ?? String(localized: "This Project")
     }
 
-    /// The sheet; then what it read is added, the list read again, and a new skill's SKILL.md opened in a tab.
+    /// Shows the Add sheet, then adds what it read, reads the list again, and opens a new skill's SKILL.md in a tab.
     private func addAny() {
         guard let workspace = app.workbench.workspaceId else { return }
         let sheet = AddonSheet(app: app, worktreeId: workspace, project: projectName, items: addons?.items ?? [])
@@ -84,7 +84,7 @@ extension AddonsPanel {
         }
     }
 
-    /// A name, then its SKILL.md to fill in, in a tab.
+    /// Asks for a skill's name, then opens the new SKILL.md in a tab to fill in.
     private func newSkill() {
         guard let workspace = app.workbench.workspaceId else { return }
         let project = projectName

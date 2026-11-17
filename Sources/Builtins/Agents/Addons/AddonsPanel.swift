@@ -5,11 +5,12 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// Skills & MCP: what the chat looked at last in the workspace on screen gets besides the prompt (its skills, MCP
-/// servers and instruction files, as it reported them at its start), or what a new chat there would get when it has no
-/// record. Read when the panel shows, and again when the workspace or the chat changes (`+Loading` shows the read). In
-/// a chat's own list what only other agents get sits apart. A switch is the project's: chats started from then on
-/// follow it, and the one on screen can be restarted to. A row opens its file.
+/// The Skills & MCP panel. It lists what the chat looked at last in the workspace on screen gets besides the prompt:
+/// its skills, MCP servers and instruction files, as the chat reported them when it started. When the chat has no such
+/// record, the panel lists what a new chat there would get. The list is read when the panel shows, and again when the
+/// workspace or the chat changes (`+Loading` shows the read in progress). In a chat's own list, what only other agents
+/// get sits in a section of its own. Each switch belongs to the project, so chats started after a flip follow it, and
+/// the chat on screen can be restarted to follow it too. Double-clicking a row opens its file.
 @MainActor
 final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate,
     NSSearchFieldDelegate
@@ -31,8 +32,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     lazy var add = IconButton(.symbol("plus"), tip: String(localized: "Add")) { [weak self] in self?.showAdd() }
     private(set) var addons: Addons?
     private(set) var lines: [AddonLine] = []
-    /// The groups folded or unfolded by hand: view state, not kept. While filtering, a set of its own that starts empty
-    /// with each new text (every group with a match open).
+    /// The groups the person folded or unfolded by hand. This is view state and isn't saved. While filtering, a
+    /// separate set is used that starts empty with each new filter text, so every group with a match starts open.
     private var toggled: Set<AddonGroup> = []
     private var toggledFiltering: Set<AddonGroup> = []
     private var shown = false
@@ -41,16 +42,17 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     var busySince: Date?
     /// The workspace and chat the list on screen was read for.
     private var shownKey: String?
-    /// The agent whose chat's own list is on screen: what only others get sits apart.
+    /// The agent of the chat whose own list is on screen. Items that only other agents get sit in a section of their
+    /// own.
     private var listAgent: String?
-    /// Switches flipped and not answered yet, at the state asked for.
+    /// The switches that were flipped and not answered yet, with the state asked for.
     private var pending: [String: Bool] = [:]
     private let foot = NSStackView()
     private var laidOut: CGFloat = 0
     private let resized = Debounce()
     private let footNote = NSTextField(labelWithString: "")
     private(set) var shownChat: Session?
-    /// The order, and whether what's off shows: this Mac's view of the list.
+    /// The order of the list, and whether items that are off show. This view setting belongs to this Mac.
     var display: AddonView = AddonsPanel.savedView() { didSet { relist() } }
 
     init(app: AppModel) {
@@ -69,7 +71,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         table.onReturn = { [weak self] in self.map { $0.open(row: $0.table.selectedRow) } }
         table.menu = NSMenu()
         table.menu?.delegate = self
-        // The inspector's own title names the panel: its bar names the chat, as Source Control's names the branch.
+        // The inspector's own title already names the panel, so this bar names the chat, the way the bar of Source
+        // Control names the branch.
         let header = Bar.panel([face, chatTitle], [add, more])
         chatTitle.font = .ui(TextSize.row, weight: .medium)
         chatTitle.lineBreakMode = .byTruncatingTail
@@ -80,7 +83,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         filter.sendsSearchStringImmediately = true
         filter.delegate = self
         filterBar.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: 0, right: Metrics.inset)
-        // Stacked: the filter and the summary take no room while they're hidden.
+        // The filter and the summary sit in a stack view, so they take no room while they are hidden.
         filterBar.isHidden = true
         weight.sizingOptions = [.intrinsicContentSize]
         weight.isHidden = true
@@ -111,7 +114,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     override func viewDidLoad() {
         super.viewDidLoad()
         track(owner: self) { [weak self] in
-            // A Tidy Up chat starting, working and stopping turns its line into Show Chat, then its result.
+            // When a Tidy Up chat starts, works and stops, the panel reloads, so the Instructions row turns into Show
+            // Chat and then into the result.
             [
                 self?.app.workbench.workspaceId, self?.chat?.id,
                 self.flatMap { TidyUp.chat($0.app, $0.app.workbench.workspaceId ?? "") }.map {
@@ -122,8 +126,9 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
             self?.reload()
         }
     }
-    /// Rows lay themselves out for the panel's width: drawn again when it changes. Dragging the inspector's edge, once
-    /// it rests: each step of the drag built every row again.
+    /// Rows lay themselves out for the panel's width, so they are drawn again when the width changes. While the
+    /// inspector's edge is dragged, the redraw waits until the drag rests, because each step of the drag used to build
+    /// every row again.
     override func viewDidLayout() {
         super.viewDidLayout()
         guard abs(table.bounds.width - laidOut) >= 1 else { return }
@@ -147,7 +152,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         endBusy()
     }
 
-    /// The agent chat looked at last in the workspace on screen (the focused tab when it's one), else its newest.
+    /// The agent chat looked at last in the workspace on screen (the focused tab, when that is an agent chat). Else
+    /// the workspace's newest agent chat that hasn't exited.
     private var chat: Session? {
         let workspace = app.workbench.workspaceId
         if let last = app.workbench.lastSession.flatMap(app.session), last.worktreeId == workspace, last.isAgent {
@@ -164,7 +170,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         guard let workspace = app.workbench.workspaceId else { return show(nil, error: nil, chat: nil, key: nil) }
         let chat = chat
         let key = workspace + "/" + (chat?.id ?? "")
-        // The bar names the chat at once: only the list waits for the daemon.
+        // The bar names the chat at once, and only the list waits for the daemon.
         if key != shownKey { name(chat, newChat: true) }
         beginBusy(stale: key != shownKey)
         loading = Task { [weak self, app] in
@@ -176,15 +182,16 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         }
     }
 
-    /// The bar: the chat's agent and name; else, when `newChat`, what a new chat gets.
+    /// Sets the bar to the chat's agent icon and name. With no chat, the bar says what a new chat gets when `newChat`
+    /// is true, and nothing otherwise.
     private func name(_ chat: Session?, newChat: Bool) {
         face.image = chat.flatMap { app.catalog.icon($0.agent, size: Metrics.appIcon) }
         chatTitle.stringValue =
             chat.map(app.catalog.displayName) ?? (newChat ? String(localized: "What a new chat gets") : "")
     }
 
-    /// Shows the answer for `key`. When reading the same list again fails, the old list stays, under a line that says
-    /// so; another chat's list crossfades in; the same chat's list lights what changed.
+    /// Shows the answer for `key`. When reading the same list again fails, the old list stays under a line that says
+    /// so. Another chat's list crossfades in, and a new answer for the same chat lights up what changed.
     private func show(_ value: Addons?, error: String?, chat: Session?, key: String?) {
         endBusy()
         pending = [:]
@@ -211,11 +218,12 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         weight.rootView = AddonWeight(
             headline: AddonGroups.headline(items, chat: known), shares: known ? AddonGroups.weight(items) : [],
             when: known ? chat.map { AddonGroups.loaded($0.createdAt) } : nil)
-        // The chat when the list is its own record (or nothing came back), else what a new one would get.
+        // The bar names the chat when the list is that chat's own record (or nothing came back), else it names what a
+        // new chat would get.
         let named = value.map { $0.chat ? chat : nil } ?? chat
         name(named, newChat: value != nil)
         listAgent = known ? chat?.agent : nil
-        // Something waits for a restart, and there's a chat to restart.
+        // The foot shows when something waits for a restart and there is a chat to restart.
         shownChat = known ? chat : nil
         let gone = value?.gone ?? []
         let behind = items.contains { AddonGroups.behind($0) != nil }
@@ -226,7 +234,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         if let before { glow(changedFrom: before) }
     }
 
-    /// The lines again, the selected one kept selected while it's still there.
+    /// Rebuilds the lines, and keeps the selected line selected while it is still there.
     private func relist() {
         let selected = lines.indices.contains(table.selectedRow) ? lines[table.selectedRow] : nil
         let filtering = !display.filter.isEmpty
@@ -246,7 +254,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         display.filter = filter.stringValue.trimmingCharacters(in: .whitespaces)
     }
 
-    /// The project's switches, one after another, then the list again: the daemon says what they are now.
+    /// Sets the project's switches one after another, then reads the list again, because the daemon says what they
+    /// are now.
     func flip(_ keys: [String], on: Bool) {
         guard let workspace = app.workbench.workspaceId else { return }
         for key in keys { pending[key] = on }
@@ -282,10 +291,10 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         relist()
     }
 
-    /// A double click: the row's file in a tab.
+    /// A double click opens the row's file in a tab.
     @objc private func openClicked() { open(row: table.clickedRow) }
 
-    /// Return, or a double click: the row's file in a tab.
+    /// Opens the row's file in a tab, on Return or a double click.
     private func open(row: Int) {
         guard lines.indices.contains(row) else { return }
         switch lines[row] {
@@ -310,7 +319,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         switch lines[row] {
         case .section: TextSize.of(Metrics.rowSection)
         case .instructions(_, .some) where TidyUp.working(app, app.workbench.workspaceId ?? "") == nil:
-            TextSize.of(Metrics.rowTwoLine) + TextSize.of(Metrics.row)   // its buttons on a line of their own
+            TextSize.of(Metrics.rowTwoLine) + TextSize.of(Metrics.row)   // the row's buttons get a line of their own
         case .problem, .unsigned, .instructions: TextSize.of(Metrics.rowTwoLine)
         case .group, .item: TextSize.of(Metrics.row)
         }
@@ -344,7 +353,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     }
 }
 
-/// The list: Return opens the selected row's file, as a double click does.
+/// The panel's table, where Return opens the selected row's file, as a double click does.
 @MainActor
 final class AddonTable: NSTableView {
     var onReturn: () -> Void = {}

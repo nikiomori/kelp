@@ -1,13 +1,14 @@
 import Core
 import Foundation
 
-/// An agent's slides (`slides.md`): the Markdown page cut at its rules (`---`) into 16:9 slides, a strip of them on the
-/// left and one at a time beside it; ← → (space, Page Up/Down) step, a click on the strip goes there. Each slide's
-/// layout comes from what it holds: the first is the title, a heading that is a number is a big number, a picture
-/// sits beside its text, the rest read as a list. The project's design system (`.kelp/design`) gives the accent and the
-/// font, if it has one. `kelpPresent(true)`: one slide as large as the pane, on black, with a strip at the foot.
+/// Shows an agent's slides (`slides.md`). The Markdown page is cut at its rules (`---`) into 16:9 slides, with a strip
+/// of them on the left and one slide at a time beside it. ← → (or Space, Page Up/Down) step through them, and a click
+/// on the strip goes to that slide. Each slide's layout comes from what it holds: the first is the title slide, a
+/// heading that is a number shows as a big number, a picture sits beside its text, and the rest read as a list. The
+/// project's design system (`.kelp/design`) gives the accent and the font, if there is one. `kelpPresent(true)` shows
+/// one slide as large as the pane, on black, with a strip at the foot.
 enum SlidesPage {
-    /// The deck's own tokens from the project's `tokens.json`: its accent and its font, in light and dark.
+    /// Returns the deck's tokens from the project's `tokens.json`: the accent and the font, in light and dark.
     static func tokens(_ json: String) -> String {
         let css = DesignSystem.css(tokens: json)
         func pick(_ vars: String) -> String {
@@ -77,8 +78,9 @@ enum SlidesPage {
         </style>
         """
 
-    /// `labels`: of, escEnds. JavaScript, run beside the page (`MarkdownTab.world`), after `scrollSync`, whose
-    /// `kelpToLine` it takes over: the source's line shows its slide, and a slide shown moves the source to it.
+    /// Returns the slides' JavaScript (`labels` has the keys of and escEnds). It runs beside the page
+    /// (`MarkdownTab.world`) after `scrollSync`, and it takes over `kelpToLine` from it. A line in the source shows the
+    /// slide that holds it, and showing a slide scrolls the source to that slide.
     static func script(labels: [String: String]) -> String {
         """
         (function () {

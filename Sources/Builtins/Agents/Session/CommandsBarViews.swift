@@ -5,8 +5,8 @@ import DesignKit
 import KelpKit
 import TerminalKit
 
-/// The bar's own line: the last command or the count, what can be done to a run under the pointer, and a chevron. A click
-/// folds or unfolds.
+/// The header line of the commands bar. It shows the last command or the count, the actions for the current run when
+/// the pointer is over the line, and a chevron. A click on it folds or unfolds the bar.
 @MainActor
 final class Header: PointerControl {
     let row = CommandRow(), chevron = NSImageView()
@@ -47,8 +47,8 @@ final class Header: PointerControl {
     }
 }
 
-/// The console's top edge: dragged, the console takes more of the pane or less. The terminal over it gets one resize, at
-/// the end.
+/// The top edge of the console. Dragging it gives the console more or less of the pane. The terminal above is resized
+/// only once, when the drag ends.
 @MainActor
 final class Grip: NSView {
     var dragged: (CGFloat) -> Void = { _ in }
@@ -65,16 +65,18 @@ final class Grip: NSView {
     override func mouseUp(with event: NSEvent) { GhosttyTerminalView.holdSize(false) }
 }
 
-/// One command: its mark, the agent's words for it, what it runs in grey, and how long it took or has been running.
+/// A row for one command. It shows the command's status mark, the agent's description of it, the command itself in
+/// grey, and how long it took or has been running.
 @MainActor
 final class CommandRow: NSTableCellView {
     static let id = NSUserInterfaceItemIdentifier("command")
     private let mark = StatusMark(size: 12)
     private let server = NSImageView(image: .symbol("play.fill", String(localized: "Serving a page")))
-    /// The agent's words for it (else the command, else a title); then the command.
+    /// `lead` shows the agent's description of the command (or else the command, or else a title), and `command` shows
+    /// the command.
     private let lead = NSTextField(labelWithString: ""), command = NSTextField(labelWithString: ""),
         time = NSTextField(labelWithString: "")
-    /// The mark's room, so the commands line up; a count goes without it.
+    /// The space that holds the mark, so the commands line up. A row that shows a count has no slot.
     private let slot = NSView()
 
     init() {
@@ -85,7 +87,7 @@ final class CommandRow: NSTableCellView {
         time.font = .uiDigits(TextSize.caption)
         time.textColor = .secondaryLabelColor
         for l in [lead, command] { l.lineBreakMode = .byTruncatingTail }
-        lead.setContentCompressionResistancePriority(.init(260), for: .horizontal)   // short of room, the command goes first
+        lead.setContentCompressionResistancePriority(.init(260), for: .horizontal)   // the command is cut first
         command.setContentCompressionResistancePriority(.init(250), for: .horizontal)
         command.setContentHuggingPriority(.init(1), for: .horizontal)   // the time sits at the right
         server.symbolConfiguration = .chrome(Metrics.iconTiny)
@@ -109,7 +111,8 @@ final class CommandRow: NSTableCellView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// A command with a terminal: its name, what it last printed, or how it ended. Green ▶ while it serves a page.
+    /// Shows a command that has its own terminal: its name, then what it last printed or how it ended. A green ▶
+    /// replaces the mark while it serves a page.
     func show(run: Session, tail: String?, page: Int?, now: Date) {
         let live = run.status != .exited, serving = live && page != nil
         let status = live ? AgentStatus.working : Self.status(exit: run.exitCode)
@@ -125,7 +128,8 @@ final class CommandRow: NSTableCellView {
         toolTip = run.argv.last ?? run.command
     }
 
-    /// Exit 0 ✓, a signal it was stopped with (SIGINT, SIGKILL, SIGTERM) a grey ✕, anything else a failure.
+    /// Returns the status for an exit code. Exit 0 is a ✓, and a stop by a signal (SIGINT, SIGKILL, SIGTERM) is a grey
+    /// ✕. Any other code is a failure.
     static func status(exit code: Int?) -> AgentStatus {
         switch code {
         case 0?: .done
@@ -141,7 +145,7 @@ final class CommandRow: NSTableCellView {
             ? code : [code, tail].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
-    /// `c`, or (none) just `title`.
+    /// Shows a shell command, or just `title` when `agentCommand` is nil.
     func show(_ agentCommand: AgentCommand?, title: String = "", now: Date) {
         mark.status = agentCommand.map(Self.status)
         server.isHidden = true
@@ -153,13 +157,14 @@ final class CommandRow: NSTableCellView {
             ? .ui(TextSize.caption, weight: .semibold)
             : words == nil ? .uiMono(TextSize.caption) : .ui(TextSize.caption)
         lead.stringValue = words ?? agentCommand?.shortCommand ?? title
-        // empty, it still pushes the time to the right
+        // even when empty, the command field still pushes the time to the right
         command.stringValue = words == nil ? "" : agentCommand?.shortCommand ?? ""
         time.stringValue = agentCommand.map { Self.time($0, now: now) } ?? ""
         toolTip = agentCommand.map { [$0.description, $0.command].compactMap { $0 }.joined(separator: "\n") }
     }
 
-    /// Running spins; a fine end is a grey ✓, a failure red, one stopped a grey ✕. One moved to the background started fine.
+    /// Returns the status mark of a shell command. A running command spins, one that ended well is a grey ✓, a failure
+    /// is red, and a stopped one is a grey ✕. A command moved to the background counts as started well.
     static func status(_ agentCommand: AgentCommand) -> AgentStatus {
         switch agentCommand.outcome {
         case nil: .working
@@ -169,7 +174,8 @@ final class CommandRow: NSTableCellView {
         }
     }
 
-    /// "12s", "1m 5s"; "in the background" for one whose end isn't told.
+    /// Returns how long the command ran, such as "12s" or "1m 5s". A command moved to the background shows "in the
+    /// background", because nothing reports when it ends.
     static func time(_ agentCommand: AgentCommand, now: Date) -> String {
         if agentCommand.outcome == .background { return String(localized: "in the background") }
         return shortSpan(

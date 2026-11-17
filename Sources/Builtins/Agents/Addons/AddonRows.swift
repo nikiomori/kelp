@@ -3,23 +3,26 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Draws the Skills & MCP panel's rows: a section's title with its count, a group's line (chevron, name, where it is
-/// from, count and weight), an item (its kind's symbol, its name, the agents that get it when that is worth saying,
-/// where it is from, what it costs), and what is wrong with an item.
+/// Draws the rows of the Skills & MCP panel. A section row shows its title and count. A group row shows a chevron,
+/// the group's name, where its items come from, their count and their weight. An item row shows a symbol for the
+/// item's kind, its name, the agents that get it (when that is worth saying), where it comes from and what it costs.
+/// A problem row shows what is wrong with an item.
 @MainActor
 struct AddonRows {
     let app: AppModel
-    /// The agent of the chat on screen: a row only it gets needs no logo.
+    /// The agent of the chat on screen. A row that only this agent gets needs no agent logo.
     var agent: String?
-    /// Switches flipped and not answered yet: the state asked for, shown held until the list comes back.
+    /// The switches that were flipped and not answered yet, with the state asked for. Each one is shown held at that
+    /// state until the new list comes back.
     var pending: [String: Bool] = [:]
-    /// A switch was flipped: the key it stands for (`Addon.key`), and whether it's on now.
+    /// Called when a switch is flipped, with the key the switch stands for (`Addon.key`) and whether it is on now.
     var onSwitch: (String, Bool) -> Void = { _, _ in }
-    /// A row's file to open: its button under the pointer.
+    /// Called with a row's file when the person clicks the Open button that shows under the pointer.
     var onOpen: (String) -> Void = { _ in }
-    /// Off Here: the keys to switch off for the project.
+    /// Called by Off Here with the keys to switch off for the project.
     var onOff: ([String]) -> Void = { _ in }
-    /// Tidy Up, or Show Chat while one tidies up; then Review and Undo.
+    /// Called by Tidy Up, or by Show Chat while a chat is tidying up. The callbacks below answer Review, Undo and
+    /// Keep, which show after a Tidy Up.
     var onTidy: () -> Void = {}
     var onReview: () -> Void = {}
     var onUndo: () -> Void = {}
@@ -41,11 +44,12 @@ struct AddonRows {
         return line(views, inset: Metrics.inset)
     }
 
-    /// `off` is the group's own switch (a plugin's); nil for a group whose items switch one by one. A plugin's line
-    /// sits in the Plugins group, one step in.
+    /// Draws a group's line. `off` is the state of the group's own switch, which only a plugin has; nil for a group
+    /// whose items switch one by one. A plugin's line sits inside the Plugins group, indented one step.
     func group(_ addonGroup: AddonGroup, count: Int, tokens: Int?, open: Bool, off: Bool?) -> NSView {
         let chevron = NSImageView()
-        // A plugin that's off has nothing to unfold: its name still starts where the others do.
+        // A plugin that is off has nothing to unfold, so it gets no chevron. The empty chevron view still keeps the
+        // plugin's name lined up with the others.
         if count > 0 { chevron.image = .symbol(open ? "chevron.down" : "chevron.right") }
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .tertiaryLabelColor
@@ -64,12 +68,13 @@ struct AddonRows {
         return row
     }
 
-    /// `width` is the row's width, so the name gets its room first and what sits beside it gets only what is left.
-    /// `parent` is the group the row sits under, which already says where the item is from (for an agent's group, whose
-    /// it is). Under the pointer, a row with a file shows a button that opens it.
+    /// Draws an item's row. `width` is the row's width, so the name gets its room first and the marks beside it get
+    /// only what is left. `parent` is the group the row sits under. That group already says where the item comes from
+    /// (or, for an agent's group, which agent gets it). Under the pointer, a row with a file shows a button that opens
+    /// the file.
     func item(_ addon: Addon, depth: Int, width: CGFloat, parent: AddonGroup? = nil) -> NSView {
-        // A plugin's skill sits under its plugin's line, so its bare name is enough there ("sales:call-prep" →
-        // "call-prep").
+        // A plugin's skill sits under the plugin's line, so the skill's bare name is enough there ("sales:call-prep"
+        // → "call-prep").
         let title = addon.source == .plugin ? addon.name.split(separator: ":").last.map(String.init) : nil
         let name = NSTextField.label(
             title ?? addon.name, font: .ui(TextSize.row), color: addon.off ? .secondaryLabelColor : .labelColor)
@@ -84,11 +89,13 @@ struct AddonRows {
                             "This chat read \(shortTokens(then)) when it started: new chats read \(shortTokens(now)). Restart it to read them too."
                     )))
         }
-        // A plugin's skill goes with its plugin: the switch is on the plugin's line.
+        // A plugin's skill goes on and off with its plugin, so the skill's row has no switch. The switch is on the
+        // plugin's line.
         if let key = addon.key, !key.hasPrefix("plugin:") {
             held.append(toggle(key, on: !addon.off, name: addon.name))
         }
-        // What a narrow panel drops, last first: who gets it, where it's from, what it weighs.
+        // A narrow panel drops these marks from the end of the list: first the agents that get the item, then where
+        // it comes from, then what it weighs.
         var extras: [NSView] = []
         if let tokens = now ?? addon.tokens { extras.append(digits(shortTokens(tokens))) }
         if parent == nil || parent?.agent != nil { extras.append(scope(addon.source)) }
@@ -115,7 +122,8 @@ struct AddonRows {
         return row
     }
 
-    /// The switch and the chat disagree until it restarts: a mark that fits the narrowest panel, its words in the tip.
+    /// A mark that says the switch and the chat disagree until the chat restarts. It fits the narrowest panel, and its
+    /// words are in the tooltip.
     private func waiting(_ tip: String = String(localized: "This chat follows the switch after a restart")) -> NSView {
         let mark = NSImageView(image: .symbol("arrow.clockwise", String(localized: "After restart")))
         mark.symbolConfiguration = .chrome(Metrics.iconSmall)
@@ -125,7 +133,8 @@ struct AddonRows {
         return mark
     }
 
-    /// The switch; held (dimmed, a turning ring beside it) at the state asked for while the daemon answers.
+    /// Returns the switch. While the daemon answers, the switch is held at the state asked for, dimmed, with a turning
+    /// ring beside it.
     private func toggle(_ key: String, on: Bool, name: String) -> NSView {
         let asked = pending[key]
         let control = AddonSwitch(key: key, on: asked ?? on, changed: onSwitch)
@@ -141,7 +150,7 @@ struct AddonRows {
         return held
     }
 
-    /// Where it's from, as a quiet symbol; its words in the tooltip.
+    /// Shows where an item comes from as a quiet symbol, with the words in the tooltip.
     private func scope(_ source: Addon.Source) -> NSView {
         let mark = NSImageView(image: .symbol(source.symbol, source.words))
         mark.symbolConfiguration = .chrome(Metrics.iconSmall)
@@ -151,7 +160,8 @@ struct AddonRows {
         return mark
     }
 
-    /// Needs a Look: the name over what's wrong, in red, and a button that switches it off here.
+    /// A Needs a Look row with the item's name above what is wrong with it, in red, and an Off Here button that
+    /// switches the item off for this project.
     func problem(_ addon: Addon) -> NSView {
         let off = addon.key.flatMap { addon.off ? nil : [$0] } ?? []
         let row = twoLines(addon.name, addon.problem ?? "", color: .textRed, buttons: offHere(off), mark: .textRed)
@@ -159,7 +169,7 @@ struct AddonRows {
         return row
     }
 
-    /// Needs a Look: the servers waiting for a sign-in, as one line with one button for all of them.
+    /// A Needs a Look row for the servers that wait for a sign-in, with one button that switches all of them off.
     func unsigned(_ servers: [Addon]) -> NSView {
         let text = AddonGroups.unsignedText(servers)
         let row = twoLines(
@@ -169,9 +179,9 @@ struct AddonRows {
         return row
     }
 
-    /// The Needs a Look row for the project's instruction files, in one of three states: what they cost every chat and
-    /// the worst of what is wrong with them (Tidy Up); an agent shortening them (Show Chat); or what the agent saved
-    /// (Review, Undo).
+    /// The Needs a Look row for the project's instruction files. It has three states, each with its own buttons: what
+    /// the files cost every chat and the worst problem in them (Tidy Up), an agent shortening them (Show Chat), or what
+    /// the agent saved (Keep, Review, Undo).
     func instructions(_ files: [Addon], tidied: Tidied?, working: Bool) -> NSView {
         let name = String(localized: "Instructions")
         if working {
@@ -181,7 +191,7 @@ struct AddonRows {
                 symbol: "ellipsis.circle", mark: .secondaryLabelColor)
         }
         if let tidied {
-            // Saved already: Keep closes this, Review shows it, Undo takes it back.
+            // The files are saved already. Keep closes this row, Review shows the changes, and Undo takes them back.
             let saved = "\(shortTokens(tidied.tokensBefore)) → \(shortTokens(tidied.tokensNow))"
             let keep = button(String(localized: "Keep"), String(localized: "The changes stay: close this"), onKeep)
             let review = button(String(localized: "Review"), String(localized: "Every change, file by file"), onReview)
@@ -217,7 +227,7 @@ struct AddonRows {
         return button
     }
 
-    /// Off Here: switches the keys off for the project; nil when there's nothing to switch.
+    /// Returns the Off Here button, which switches the keys off for the project; empty when there is nothing to switch.
     private func offHere(_ keys: [String]) -> [TextButton] {
         guard !keys.isEmpty else { return [] }
         let tip = String(localized: "Off in this project: new chats here don’t get it")
@@ -240,7 +250,7 @@ struct AddonRows {
         words.spacing = Metrics.lineGap
         words.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         guard buttonsUnder else { return line([warning, words, NSView()] + buttons, inset: Metrics.inset) }
-        // A third line of their own, where a narrow panel has room for the words and the buttons both.
+        // The buttons get a third line of their own, so a narrow panel has room for both the words and the buttons.
         let row = NSStackView(views: buttons)
         row.spacing = Metrics.gap
         words.addArrangedSubview(row)
@@ -252,7 +262,7 @@ struct AddonRows {
         return cell
     }
 
-    /// The agents that get it, as their icons; nil when the list doesn't say.
+    /// Returns the icons of the agents that get an item; nil when the item names no agents.
     private func faces(_ ids: [String]) -> NSView? {
         guard !ids.isEmpty else { return nil }
         let icons = ids.prefix(Self.most).map {
@@ -281,7 +291,7 @@ struct AddonRows {
 
     // MARK: Parts
 
-    /// A group's items start where its name does: each level one chevron and a gap further in.
+    /// A group's items start where the group's name does, so each level is indented by one chevron and a gap.
     private static let chevron: CGFloat = 12
     private static func inset(_ depth: Int) -> CGFloat { Metrics.inset + CGFloat(depth) * (chevron + Metrics.gap) }
 
@@ -299,7 +309,7 @@ struct AddonRows {
     }
 }
 
-/// A row's switch: the system's small one, which says what it stands for when flipped.
+/// The switch on a row. It is the system's mini switch, and when flipped it reports the key it stands for.
 @MainActor
 final class AddonSwitch: NSSwitch {
     private let key: String
@@ -320,7 +330,7 @@ final class AddonSwitch: NSSwitch {
     @objc private func flipped() { changed(key, state == .on) }
 }
 
-/// A row: under the pointer it shows what waits for it (the button that opens its file).
+/// A row of the panel. Under the pointer it shows its hidden views, such as the button that opens the item's file.
 @MainActor
 final class AddonCell: NSStackView, Hoverable {
     var hovered: [NSView] = []

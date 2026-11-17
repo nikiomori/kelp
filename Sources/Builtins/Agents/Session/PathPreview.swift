@@ -5,8 +5,8 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// Paths agents print, made useful: ⌘-click opens them (on their line), resting the pointer on one shows the file —
-/// the changed lines when it has changes, the lines around the one named, or the picture.
+/// Makes the paths agents print useful. ⌘-click opens a path at its line, and resting the pointer on a path shows the
+/// file: its changed lines when it has changes, the lines around the line named, or the picture.
 @MainActor
 enum TerminalPaths {
     static let images: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "heic", "tiff", "bmp", "svg", "ico"]
@@ -15,7 +15,7 @@ enum TerminalPaths {
     /// file and its line, looked up from `cwd`, or from the one folder in `elsewhere` (the other projects) that has the
     /// file, since an agent may name another project's files.
     static func resolve(_ token: String, cwd: String, elsewhere: [String] = []) -> (path: String, line: Int?)? {
-        guard !token.contains("://") || token.hasPrefix("file://") else { return nil }   // URLs are Ghostty's
+        guard !token.contains("://") || token.hasPrefix("file://") else { return nil }   // Ghostty opens URLs itself
         var text = token.hasPrefix("file://") ? (URL(string: token)?.path ?? token) : token
         while let trailing = text.last, ".:;!?".contains(trailing) { text.removeLast() }   // Ghostty's links take the "." that ends a sentence
         if text.hasPrefix("@") { text.removeFirst() }   // "@src/x.ts" (an agent's mention)
@@ -29,19 +29,20 @@ enum TerminalPaths {
             if let existing = file(candidate, in: cwd) { return (existing, line) }
         }
         let found = raw.hasPrefix("/") ? [] : Set(elsewhere.compactMap { file(raw, in: $0) })
-        return found.count == 1 ? found.first.map { ($0, line) } : nil   // in two projects: which one is anyone's guess
+        return found.count == 1 ? found.first.map { ($0, line) } : nil   // a file found in two projects is ambiguous
     }
 
-    /// A file: not a folder, nor a pipe or device (reading one to preview it would block).
+    /// Returns the path when it is a regular file, not a folder, a pipe or a device, because reading a pipe or a device
+    /// to preview it would block.
     private static func file(_ path: String, in dir: String) -> String? {
         let abs = path.hasPrefix("/") ? path : (dir as NSString).appendingPathComponent(path)
         var st = stat()
         return stat(abs, &st) == 0 && st.st_mode & S_IFMT == S_IFREG ? (abs as NSString).standardizingPath : nil
     }
 
-    /// ⌘-click: in Kelp, on its line (the tab it's already in, if any); ⌥⌘-click: shown in the Finder. Not opened with its
-    /// app: a program printed the path, and a .command file (or any script) would run there — from a cloned repo,
-    /// without Gatekeeper's check.
+    /// Opens a path on ⌘-click in Kelp at its line, in the tab that already shows the file if there is one. ⌥⌘-click
+    /// shows it in the Finder. The file is never opened with its app, because a program printed the path, and a
+    /// .command file (or any script) would run, from a cloned repo, without Gatekeeper's check.
     static func open(
         _ token: String, cwd: String, elsewhere: [String] = [], workspace: String? = nil, flags: NSEvent.ModifierFlags,
         in app: AppModel
@@ -59,9 +60,10 @@ enum TerminalPaths {
 }
 
 extension TerminalPaths {
-    /// In a remote project's terminal a path names the host's file: from its folder there, or by its path on the host.
-    /// Opened once the project lists it (asked of the host: a click may), its tab read from there. Never hovered: the
-    /// preview reads the file here.
+    /// In a remote project's terminal, a path names a file on the host, either relative to the project's folder there
+    /// or by its full path on the host. The file opens once the project's file list contains it (the list is asked of
+    /// the host, which a click may do), and its tab reads the file from the host. Hovering never previews such a path,
+    /// because the preview reads the file on this Mac.
     static func openOnHost(_ token: String, cwd: String, workspace: String?, in app: AppModel) -> Bool {
         guard let workspace, let remote = RemoteHost.of(cwd), let (path, line) = onHost(token, root: remote.path)
         else { return false }
@@ -75,8 +77,9 @@ extension TerminalPaths {
         return true
     }
 
-    /// A token as a path in the project whose folder is `root` on its host, from that folder: one relative to it (a
-    /// diff's "a/…" too) or under it; nil for a word, a path elsewhere, or one that climbs out.
+    /// Returns a token as a path relative to `root`, the project's folder on its host. The token may be relative to
+    /// that folder (a diff's "a/…" too) or a full path under it. Returns nil for a word, a path elsewhere, or a path
+    /// that climbs out of the folder.
     static func onHost(_ token: String, root: String) -> (path: String, line: Int?)? {
         var text = token.hasPrefix("file://") ? (URL(string: token)?.path ?? token) : token
         while let trailing = text.last, ".:;!?".contains(trailing) { text.removeLast() }
@@ -104,7 +107,8 @@ extension TerminalPaths {
         return (path, line)
     }
 
-    /// A file of a remote project, dropped on a terminal: its path on the host, which is what a program there can open.
+    /// Returns the path on the host of a remote project's file dropped on a terminal, because that is the path a
+    /// program there can open.
     static func onHost(_ path: String) -> String { Remotes(home: Paths.root).containing(path)?.remotePath ?? path }
 }
 
@@ -119,7 +123,8 @@ final class PathPreview {
         popover.animates = false
     }
 
-    /// The first of `tokens` (what the word under the pointer may be) that is a file; none closes it.
+    /// Shows the first of `tokens` (the readings of the word under the pointer) that is a file. When none is, it
+    /// closes the popover.
     func show(_ tokens: [String], rect: NSRect, in view: NSView, cwd: String, worktree: String?) {
         let projects = app.repos.map(\.path)
         guard let found = tokens.lazy.compactMap({ TerminalPaths.resolve($0, cwd: cwd, elsewhere: projects) }).first
@@ -156,11 +161,13 @@ final class PreviewModel {
         self.line = line
         self.app = app
         name = (path as NSString).lastPathComponent
-        let dir = (path as NSString).deletingLastPathComponent, root = (cwd as NSString).standardizingPath   // both without /private
+        // Both paths are standardized, so neither starts with the /private that /tmp and /var resolve to.
+        let dir = (path as NSString).deletingLastPathComponent, root = (cwd as NSString).standardizingPath
         folder = Paths.relative(dir, to: root) ?? (dir == root ? "" : (dir as NSString).abbreviatingWithTildeInPath)
     }
 
-    /// The file is read off the main thread: a hover over a path on a slow volume mustn't stall the window.
+    /// Loads the preview. The file is read off the main thread, because a hover over a path on a slow volume mustn't
+    /// stall the window.
     func load(worktree: String?) {
         let path = path, line = line
         Task {
@@ -172,7 +179,8 @@ final class PreviewModel {
             }
             lines = await Task.detached { Self.excerpt(path, around: line) }.value
             guard let worktree else { return }
-            // Uncommitted changes in it: show those (the hunk with the line asked about, else the first).
+            // When the file has uncommitted changes, show those instead: the hunk that holds the line asked about,
+            // or else the first hunk.
             let diff = await app.quiet(GitDiff(id: worktree, source: .all, file: path))
             guard let hunks = diff?.first?.hunks, !hunks.isEmpty else { return }
             let hunk =
@@ -186,7 +194,7 @@ final class PreviewModel {
         }
     }
 
-    /// Up to 14 lines around the line named (or the file's first), read from at most 256 KB of it.
+    /// Returns up to 14 lines around the line named (or from the file's start), read from at most its first 256 KB.
     nonisolated static func excerpt(_ path: String, around line: Int?) -> [Line] {
         guard let handle = FileHandle(forReadingAtPath: path) else { return [] }
         defer { try? handle.close() }

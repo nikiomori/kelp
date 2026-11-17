@@ -8,14 +8,14 @@ import SwiftUI
 import WorkbenchKit
 
 extension Builtins {
-    /// The Markdown file in the focused tab; a beep when it's something else.
+    /// Returns the Markdown file in the focused tab, or beeps and returns nil when the tab holds something else.
     static func markdown(_ app: AppModel) -> MarkdownTab? {
         let tab = (app.workbench.focusedContent as? FileTab)?.markdown
         if tab == nil { NSSound.beep() }
         return tab
     }
 
-    /// The file in the focused tab; a beep when it's something else.
+    /// Returns the file in the focused tab, or beeps and returns nil when the tab holds something else.
     static func fileTab(_ app: AppModel) -> FileTab? {
         let tab = app.workbench.focusedContent as? FileTab
         if tab == nil { NSSound.beep() }
@@ -45,7 +45,7 @@ extension Builtins {
                 cmd("markdown.cycleView", "Markdown: Source, Split, Preview", "shift+cmd+v") {
                     markdown(app)?.cycleMode()
                 },
-                // The formatting bar's commands, from the keyboard (as on GitHub); on only in a Markdown file's editor.
+                // The formatting bar's commands, with GitHub's keys. They are enabled only in a Markdown file's editor.
                 cmd("markdown.bold", "Bold", "cmd+b") { markdown(app)?.bold() },
                 cmd("markdown.italic", "Italic", "cmd+i") { markdown(app)?.italic() },
                 cmd("markdown.code", "Code") { markdown(app)?.code() },
@@ -95,7 +95,8 @@ extension Builtins {
                     if fileTab(app) != nil { app.workbench.openQuickly(text: ":") }
                 },
                 cmd("editor.jumpToDefinition", "Jump to Definition", "ctrl+cmd+j") { fileTab(app)?.jumpToDefinition() },
-                // VS Code's Selection menu; on only in a code editor (AppDelegate.validateMenuItem). ⌘D, ⌘[ ⌘]: see EditorBox.
+                // VS Code's Selection menu, enabled only in a code editor (AppDelegate.validateMenuItem). EditorBox
+                // explains how ⌘D, ⌘[ and ⌘] reach the editor first.
                 cmd("editor.addNextOccurrence", "Add Next Occurrence", "cmd+d") {
                     CodeEditor.focused?.addNextOccurrence()
                 },
@@ -136,7 +137,8 @@ extension Builtins {
                 cmd("editor.foldAll", "Fold All") { CodeEditor.focused?.foldAll() },
                 cmd("editor.foldLevel2", "Fold Level 2") { CodeEditor.focused?.foldAll(level: 2) },
                 cmd("editor.foldLevel3", "Fold Level 3") { CodeEditor.focused?.foldAll(level: 3) },
-                // ⌥⌘↩: "path:12-30" into the agent's prompt (it reads the file itself), without pressing Return.
+                // ⌥⌘↩ types "path:12-30" into the agent's prompt without pressing Return. The agent reads the file
+                // itself.
                 cmd("editor.sendToAgent", "Send to Agent", "opt+cmd+return") {
                     if let tab = fileTab(app) {
                         FileActions(app).sendToAgent(
@@ -152,10 +154,9 @@ extension Builtins {
                 cmd("editor.copyWebLink", "Copy Web Link") {
                     if let tab = fileTab(app) { copyWebLink(app, tab.path, lines: tab.selectedLines) }
                 },
-                // The language's commands (`contributes.languages`): format the file (running it and its tests belongs
-                // to Run).
-                // ⌃⇧I, as in Xcode: an Option-only key like VS Code's ⇧⌥F never reaches the menu from a text view (it
-                // types Ï).
+                // The language's own commands (`contributes.languages`) only format the file. Running the file and its
+                // tests belongs to Run. The key is ⌃⇧I, as in Xcode, because an Option key like VS Code's ⇧⌥F never
+                // reaches the menu from a text view (it types Ï).
                 cmd("editor.format", "Format Document", "ctrl+shift+i") {
                     if let tab = fileTab(app) { Task { await tab.format() } }
                 }
@@ -166,7 +167,7 @@ extension Builtins {
                     schemes: ["file"], make: { FileTab(uri: $0, app: app) },
                     placeholder: { uri in
                         let path = TabURI.filePath(uri).path, name = (path as NSString).lastPathComponent
-                        if let page = ArtifactBar.listed(path, in: app) {   // an agent's page: its title, as once built
+                        if let page = ArtifactBar.listed(path, in: app) {   // an agent's page shows its listed title
                             return (page.title, ArtifactBar.icon(page.kind), path)
                         }
                         return (name, app.fileIcons.image(name), path)
@@ -188,7 +189,7 @@ extension Builtins {
     }
 }
 
-// How the app keeps what the daemon pushes about files and artifacts: Files' own kinds, not the shell's.
+// How the app stores what the daemon pushes about files and artifacts. These kinds belong to Files, not to the shell.
 extension FileEvent: Pushed {
     package var key: String { path }
     package static var forgottenWith: WatchTopic? { .file }

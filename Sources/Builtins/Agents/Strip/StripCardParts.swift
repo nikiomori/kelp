@@ -1,10 +1,10 @@
-// What a card over the agent strip is made of: its head, what it asks, and the answers under it.
+// The parts of a card over the agent strip: its header, what the agent asks, and the answers under it.
 import AppKit
 import Core
 import DesignKit
 import KelpKit
 
-/// A push button that takes the click that reaches it with Kelp behind.
+/// A push button that takes a click even while Kelp is behind other apps.
 final class CardButton: NSButton {
     private var run: (() -> Void)?
     convenience init(
@@ -23,12 +23,14 @@ final class CardButton: NSButton {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-/// Words that act (Later, Open in Kelp): quiet beside the answers, and they too take the first click with Kelp behind.
+/// A text button, such as Later or Open in Kelp. It looks quieter than the answers, and it too takes the first click
+/// while Kelp is behind other apps.
 private final class CardLink: PointerButton {
     convenience init(_ title: String, _ run: @escaping () -> Void) {
         self.init(title: title, action: run)
         font = .ui(TextSize.row)
-        // Quiet by size and no fill: a button's secondary tint on Liquid Glass fades to nothing.
+        // It stays quiet through its size and lack of fill, because a button's secondary tint fades to nothing on
+        // Liquid Glass.
         contentTintColor = .labelColor
         padding = Metrics.gap / 2
     }
@@ -36,8 +38,8 @@ private final class CardLink: PointerButton {
 }
 
 extension StripCard {
-    /// Its project, which agent, which of the waiting questions this is, and ✕, which only closes: a click on the tile
-    /// brings it back.
+    /// Builds the card's header: the project, the agent, which of the waiting questions this is, and ✕. The ✕ only
+    /// closes the card, and a click on the tile brings it back.
     func header(_ session: Session, position: (Int, Int)?) -> NSView {
         let worktree = app.worktree(session.worktreeId)
         let place = app.groupName(worktree) ?? app.projectName(worktree?.repoId) ?? ""
@@ -73,7 +75,8 @@ extension StripCard {
         return bar
     }
 
-    /// What it asks: a permission's kind over the whole of what it would do; a question with its answers; or what it said.
+    /// Builds what the agent asks. A permission shows its kind above the whole of what it would do, a question shows
+    /// its answers, and anything else shows what the agent said.
     func body(_ session: Session, _ kind: StripCardKind) -> [NSView] {
         switch kind {
         case .permission:
@@ -101,7 +104,7 @@ extension StripCard {
         return label
     }
 
-    /// The whole command or path, in the code font, wrapped: what Allow allows, with nothing left out.
+    /// Shows the whole command or path, wrapped, in the code font, so the user sees all of what Allow allows.
     private func code(_ text: String) -> NSView {
         let label = NSTextField(wrappingLabelWithString: text)
         label.font = .uiMono(TextSize.caption)
@@ -127,7 +130,8 @@ extension StripCard {
         return box
     }
 
-    /// A button an answer, its number its key; side by side while three fit, else one under another.
+    /// Makes one button per answer, with the answer's number as its key. The buttons sit side by side when there are at
+    /// most three short answers, and one under another otherwise.
     private func answers(_ labels: [String]) -> NSView {
         let buttons = labels.enumerated().map { i, label in
             CardButton(label, key: i < 9 ? "\(i + 1)" : "") { [weak self] in self?.pick(label) }
@@ -140,8 +144,8 @@ extension StripCard {
         return stack
     }
 
-    /// Later and Open in Kelp quiet on the left, the answers on the right: Deny and Allow (filling in as it arms), the
-    /// quick replies and Send.
+    /// Builds the footer, with the quiet Later and Open in Kelp on the left and the answers on the right. The answers
+    /// are Deny and Allow (which fills in as it arms), or the quick reply and Send.
     func footer(_ kind: StripCardKind) -> NSView {
         var views: [NSView] = [
             CardLink(String(localized: "Later")) { [weak self] in self?.onEnd(.later) },
@@ -168,7 +172,8 @@ extension StripCard {
         return bar
     }
 
-    /// Takes clicks once it has filled in: a card that came up under a click meant for something else can't be allowed by it.
+    /// Makes the Allow button. It takes clicks only once it has filled in, so a click meant for something else can't
+    /// allow a card that came up under it.
     private func allowButton() -> NSButton {
         let allow = CardButton(String(localized: "Allow"), key: "\r") { [weak self] in self?.answer("allow") }
         allow.bezelColor = .controlAccentColor

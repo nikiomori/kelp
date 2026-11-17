@@ -1,11 +1,12 @@
 import KelpKit
 import WebKit
 
-/// `kelp browser console | network`: what the page printed and asked for, kept here since the agent first drove the tab
-/// (an agent's own page: since it opened). The page's `console`, `fetch` and `XMLHttpRequest` are wrapped in its own
-/// world (Kelp's world has its own globals), so the page could post fake entries: it only fills its own lists.
+/// Keeps what `kelp browser console | network` show: what the page printed and requested since the agent first drove
+/// the tab, or since it opened for an agent's own page. The page's `console`, `fetch` and `XMLHttpRequest` are wrapped
+/// in the page's own world, because Kelp's world has its own globals. So the page could post fake entries, but it only
+/// fills its own lists.
 extension BrowserTab {
-    /// Starts keeping the lists: for the next documents, and for this one from now.
+    /// Starts keeping the lists, for the next documents and for this one from now on.
     @discardableResult
     func watch() -> AgentDrive {
         if let drive { return drive }
@@ -49,7 +50,7 @@ extension BrowserTab {
         if let drive { AgentDrive.add(line, to: &drive.requests) }
     }
 
-    /// The list as text, emptied after when `clear`.
+    /// Returns the console or request list as text, and empties it afterwards when `clear` is set.
     func listed(_ console: Bool, clear: Bool) -> String {
         let list = (console ? drive?.logs : drive?.requests) ?? []
         if clear { if console { drive?.logs = [] } else { drive?.requests = [] } }
@@ -101,16 +102,16 @@ extension BrowserTab {
         """#
 }
 
-/// What an agent driving a page leaves on its tab (`kelp browser`), made by `BrowserTab.watch()`: a page only the user
-/// browses carries none of it.
+/// The state that an agent driving a page with `kelp browser` leaves on the page's tab. `BrowserTab.watch()` makes it,
+/// so a page only the user browses has none.
 @MainActor
 final class AgentDrive {
-    /// Each list keeps its last lines only: `while (true) alert()` stays bounded.
+    /// Each list keeps only its last lines, so `while (true) alert()` stays bounded.
     static let keep = 500
-    /// When `kelp browser` last acted here (`BrowserTab.agentAnswers`).
+    /// When `kelp browser` last acted on this page (read by `BrowserTab.agentAnswers`).
     var drivenAt = Date.distantPast
-    /// The user took the agent's page over (Take Over, or a click or a key in it): its questions go to the user, and the
-    /// agent's commands wait until it's handed back (`handedBack`).
+    /// Whether the user took the agent's page over (with Take Over, or a click or a key in it). While they have it, the
+    /// page's questions go to the user, and the agent's commands wait until the page is handed back (`handedBack`).
     var takenOver = false {
         didSet {
             guard !takenOver else { return }
@@ -121,15 +122,15 @@ final class AgentDrive {
     }
     /// What the agent asked the user to do on the page (`kelp browser ask`), and the session that asked.
     var asked: (text: String, session: String)?
-    /// The session that acted here last: whose name the strip says; and what it did (`BrowserTab.step`).
+    /// The session that acted on the page last, whose name the strip shows, and what it did (`BrowserTab.step`).
     var driver: String?, lastStep: String?
-    /// The subagent that acted here last; nil: the agent itself.
+    /// The subagent that acted on the page last, or nil when it was the agent itself.
     var subagent: String?
     /// When the user last clicked or typed in the page while it was theirs.
     var userAt = Date.distantPast
     private var waiters: [UUID: CheckedContinuation<Bool, Never>] = [:]
 
-    /// Whether the user handed the page back within `seconds` (true at once when the page is the agent's own).
+    /// Whether the user handed the page back within `seconds`. It is true at once when the agent already has the page.
     func handedBack(within seconds: TimeInterval) async -> Bool {
         guard takenOver else { return true }
         let id = UUID()
@@ -137,28 +138,30 @@ final class AgentDrive {
             waiters[id] = continuation
             // A timeout, not a wait for something to be ready.
             DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
-                MainActor.assumeIsolated {   // the main queue
+                MainActor.assumeIsolated {   // asyncAfter runs on the main queue
                     self.waiters.removeValue(forKey: id)?.resume(returning: false)
                 }
             }
         }
     }
-    /// `kelp browser dialog`: how the agent answers the page's next question (BrowserDialogs.swift).
+    /// How the agent answers the page's next question, as set by `kelp browser dialog` (BrowserDialogs.swift).
     var dialogAnswer: (accept: Bool, text: String?)?
-    /// `kelp browser console | network`.
+    /// The lines that `kelp browser console | network` print.
     var logs: [String] = [], requests: [String] = []
-    /// The questions the page answered and what it downloaded, since the last action's answer said them.
+    /// The page's questions that were answered for the agent, and the files the page downloaded, since the last
+    /// action's answer listed them.
     var dialogs: [String] = [], downloads: [String] = []
 
-    /// What each ref was in the snapshot it came from (`button "Save"`), for the answer of an action on it.
+    /// The element each ref named in the snapshot it came from (`button "Save"`), so the answer to an action on the ref
+    /// can name it.
     var names: [String: String] = [:]
     /// The page's fetch and XHR calls still out, by id, with when each started.
     var inflight: [String: Date] = [:]
-    /// A call started in the last 1.5 s is still out: what an action set off is loading.
+    /// Whether a call started in the last 1.5 s is still out, which means what an action set off is still loading.
     var busy: Bool { inflight.values.contains { Date().timeIntervalSince($0) < 1.5 } }
 
     func started(_ id: String) {
-        inflight = inflight.filter { Date().timeIntervalSince($0.value) < 60 }   // a page that left takes its calls along
+        inflight = inflight.filter { Date().timeIntervalSince($0.value) < 60 }   // calls of a page that left never end
         inflight[id] = Date()
     }
 

@@ -10,7 +10,7 @@ extension FilesPanel: @preconcurrency QLPreviewPanelDataSource, @preconcurrency 
             return
         }
         panel.makeKeyAndOrderFront(nil)
-        if panel.dataSource == nil {   // no key window's chain led here
+        if panel.dataSource == nil {   // the key window's responder chain didn't lead here
             panel.dataSource = self
             panel.delegate = self
             panel.reloadData()

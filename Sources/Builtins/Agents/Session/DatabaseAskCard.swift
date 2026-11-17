@@ -3,12 +3,13 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Over the foot of an agent's terminal while it waits for the user to allow a change to a database (`kelp db query`):
-/// which database, the statement, the first rows of the change as its trial left them (each value that changes as it
-/// was and as it becomes, `ChangePreview`), how many rows it changed, and Show Rows (its tab), Deny, Allow. What's
-/// asked is read from the workspace's database runs (`db.activity`) when its row starts asking, its rows from
-/// `db.result`; the answer goes as a permission's does. Made the first time this agent asks anything; it shows only
-/// for a database's question.
+/// A card over the bottom of an agent's terminal, shown while the agent waits for the user to allow a change to a
+/// database (`kelp db query`). It shows the database, the statement, and the first rows of the change as the trial run
+/// left them (`ChangePreview` shows each changed value as it was and as it becomes). It says how many rows changed,
+/// and offers Show Rows (which opens the database's tab), Deny and Allow. When the agent's row starts asking, the card
+/// reads the question from the workspace's database runs (`db.activity`) and the rows from `db.result`. The answer is
+/// sent the same way as an answer to a permission prompt. The card is made the first time this agent asks anything,
+/// but it shows only for a database's question.
 @MainActor
 final class DatabaseAskCard: NSView {
     private let app: AppModel, session: String, worktree: String
@@ -36,7 +37,7 @@ final class DatabaseAskCard: NSView {
         detail.font = .ui(TextSize.row)
         let deny = NSButton(title: String(localized: "Deny"), target: self, action: #selector(denied))
         let allow = NSButton(title: String(localized: "Allow"), target: self, action: #selector(allowed))
-        for button in [showButton, deny, allow] { button.bezelStyle = .push }   // no key: the terminal keeps its keys
+        for button in [showButton, deny, allow] { button.bezelStyle = .push }   // none takes Return, the terminal does
         let head = NSStackView(views: [mark, title])
         head.spacing = Metrics.gap
         let buttons = NSStackView(views: [showButton, NSView(), deny, allow])
@@ -59,7 +60,8 @@ final class DatabaseAskCard: NSView {
             card.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
         isHidden = true
-        // While its row asks (Allow / Deny): the change it waits on, read once, if what it asks is a database's.
+        // While the agent's row asks for Allow or Deny, the card reads once the change the agent waits on, and shows
+        // it if the question is about a database.
         track(owner: self) { [app] in
             app.session(session).map { $0.asksPermission ? $0.summary : "" } ?? ""
         } changed: { [weak self] question in
@@ -84,11 +86,11 @@ final class DatabaseAskCard: NSView {
         }
     }
 
-    /// The words and the rows: with the change's rows, the title says how many of which table, and the line under
-    /// them how many more there are.
+    /// Fills in the text and the rows. When the change's rows are known, the title says how many rows of which table
+    /// change, and the line under the rows says how many more there are.
     private func say(_ run: DatabaseRun, _ rows: QueryResult?) {
         let who = app.session(session).map { app.catalog.name($0.agent) } ?? String(localized: "The agent")
-        sql.isHidden = rows?.statements != nil   // several: each is on its line of the list
+        sql.isHidden = rows?.statements != nil   // with several statements, each has its own line
         if let parts = rows?.statements { return say(run, parts, who) }
         let shown = rows.map(preview.show) ?? 0
         preview.isHidden = shown == 0
@@ -112,7 +114,8 @@ final class DatabaseAskCard: NSView {
         if more > 0 { showButton.title = String(localized: "Show All \(rows.total) Rows") }
     }
 
-    /// Several statements asked as one: a line each, and that they're kept together or not at all.
+    /// Fills in the card for several statements asked for as one. Each gets a line, and a note says that they all
+    /// apply or none do.
     private func say(_ run: DatabaseRun, _ parts: [StatementResult], _ who: String) {
         let shown = preview.show(statements: parts)
         preview.isHidden = false

@@ -1,6 +1,6 @@
-// What the pages agents drive show outside their tabs (`AgentPages`): a mark on the agent's row, the tab's look, the
-// agent's card, and a subagent's last step; and the choice on the project menu of whether new chats get the browser
-// skill.
+// What the pages that agents drive show outside their tabs (`AgentPages`): a mark on the agent's row, the look of the
+// tab, the agent's card, and a subagent's last step. This file also adds the choice on the project menu of whether new
+// chats get the browser skill.
 import AppKit
 import Core
 import DesignKit
@@ -10,9 +10,10 @@ import WorkbenchKit
 
 @MainActor
 enum BrowserMarks {
-    /// The browser mark on an agent's row: lit in the agent's colour for a while after it acted on a page, grey while
-    /// the page is only open, in the accent colour while the user has the page; none without a page. A click brings the
-    /// page up. Its subagents that acted on a page lately have their dots lit.
+    /// Returns the browser mark on an agent's row. It is lit in the agent's colour for a while after the agent acted on
+    /// a page, grey while the page is only open, and in the accent colour while the user has the page. There is no mark
+    /// without a page. A click on the mark brings the page up. The dots of the agent's subagents that acted on a page
+    /// lately are lit.
     static func row(_ row: SidebarItem.Kind, _ app: AppModel) -> [RowMark] {
         guard case .agent(let sid) = row else { return [] }
         let pages = AgentPages.of(app), own = pages.of(session: sid)
@@ -33,14 +34,16 @@ enum BrowserMarks {
         ]
     }
 
-    /// The page tabs of `workspace` an agent drives: whose, and the glow in its colour while it acts there.
+    /// Returns the page tabs in `workspace` that an agent drives, each with the agent's session, and with a glow in the
+    /// agent's colour while it acts there.
     static func driven(_ workspace: String, _ app: AppModel) -> [String: (session: String, glow: NSColor?)] {
         let pages = AgentPages.of(app)
         let here = pages.pages.values.filter { $0.workspace == workspace }
         return Dictionary(here.map { ($0.tab, ($0.session, pages.glow(tab: $0.tab))) }) { first, _ in first }
     }
 
-    /// In an agent's card: whether its chats get the browser skill, and the page it drives.
+    /// Returns the browser part of an agent's card: whether the agent's chats get the browser skill, and the page it
+    /// drives.
     static func card(_ session: Session, _ app: AppModel, close: @escaping @MainActor () -> Void) -> AnyView? {
         let skill = session.browser.map { "Browser \(BrowserSkillWords.line($0))" }
         guard skill != nil || !AgentPages.of(app).of(session: session.id).isEmpty else { return nil }
@@ -53,7 +56,7 @@ enum BrowserMarks {
             })
     }
 
-    /// A subagent's last `kelp browser` command: what it did on its page, in words.
+    /// Describes in words what a subagent's last `kelp browser` command did on its page.
     static func step(_ session: String, _ subagent: String, _ command: String, _ app: AppModel) -> String? {
         let pages = AgentPages.of(app).of(session: session)
         guard command.contains("kelp browser"), let done = pages.first(where: { $0.page.subagent == subagent })?.page
@@ -62,8 +65,8 @@ enum BrowserMarks {
         return String(localized: "Browser · \(done.text)")
     }
 
-    /// Whether new chats in a project get Kelp's browser skill: as Settings say (the daemon says why, a moment after
-    /// the menu opens), or always or never in this project.
+    /// Adds the menu that sets whether new chats in a project get Kelp's browser skill. They follow Settings (the
+    /// daemon says why, a moment after the menu opens), or get it always or never in this project.
     static func menu(_ row: SidebarItem.Kind, _ menu: NSMenu, _ app: AppModel) {
         guard case .project(let id) = row, let worktree = app.gitFolder(project: id),
             RemoteHost.of(worktree.path) == nil
@@ -87,8 +90,8 @@ enum BrowserMarks {
     }
 }
 
-/// Whether a chat gets the browser skill and why ("on · Vite in package.json", `BrowserSkill.line`), in the app's
-/// language: a reason in its words, the web app found as it is.
+/// Says whether a chat gets the browser skill and why ("on · Vite in package.json", from `BrowserSkill.line`), in the
+/// app's language. A known reason is put in the app's words, and the web app found is shown as it is.
 enum BrowserSkillWords {
     static func line(_ daemonLine: String) -> String {
         guard let skill = BrowserSkill.parse(daemonLine) else { return daemonLine }

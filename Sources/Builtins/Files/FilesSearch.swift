@@ -23,7 +23,8 @@ extension FilesPanel {
         }
         leftScroll.isHidden = message != nil || !results.scroll.isHidden
     }
-    /// Results follow the typing (a pause of a quarter second), like Xcode's Find navigator.
+    /// Results follow the typing after a short pause (a quarter second for contents, a tenth for names), like Xcode's
+    /// Find navigator.
     func controlTextDidChange(_ note: Notification) {
         guard note.object as? NSSearchField === search else { return }
         showSearchOptions()
@@ -31,7 +32,7 @@ extension FilesPanel {
             if self?.byName == true { self?.narrowTree() } else { self?.runSearch() }
         }
     }
-    /// ↓ from the field goes into the results; ↩ there opens the line.
+    /// ↓ from the field moves into the results (or into the tree when searching by name), and ↩ there opens the line.
     func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
         if let edit = renaming, control === edit.field, sel == #selector(NSResponder.cancelOperation(_:)) {   // Esc keeps the old name
             edit.field.stringValue = edit.url.lastPathComponent
@@ -52,7 +53,7 @@ extension FilesPanel {
         results.table.selectRowIndexes([0], byExtendingSelection: false)
         return true
     }
-    /// ⇧⌘F (Find in Workspace): straight into this field; pressed again there, back to what you were doing.
+    /// ⇧⌘F (Find in Workspace) goes straight into this field. Pressed again there, it goes back to the tab you were in.
     func findInFiles() {
         guard let window = view.window else { return }
         searchBy(name: false)
@@ -64,14 +65,14 @@ extension FilesPanel {
         search.currentEditor()?.selectAll(nil)
     }
 
-    /// A language server's list where a search's goes.
+    /// Shows a list from a language server, such as references, where search results go.
     func show(references found: [SearchMatch]) {
         searchBy(name: false)
         search.stringValue = ""
         results.show(found)
         showContentResults(true)
         noResults.show(nil)
-        replaceRow.isHidden = true   // a server's list: Rename is the way to change it
+        replaceRow.isHidden = true   // a server's list is changed through Rename, not Replace
     }
 
     @objc func runSearch() {
@@ -87,18 +88,18 @@ extension FilesPanel {
         if query.isEmpty { showReplace() }
         guard !query.isEmpty else { return }
         let options = searchOptions
-        searching?.cancel()   // and the daemon stops its rg when the next one starts (`replaces`)
+        searching?.cancel()   // the daemon also stops the old rg when the next search starts (`replaces`)
         searching = Task {
             let found = await app.tryCall(
                 FilesSearch(
                     id: current.id, query: query, regex: options.regex, case: options.matchCase,
                     word: options.wholeWord,
                     replaces: true))
-            // A newer search, options or workspace.
+            // Drops the result when a newer search, new options or another workspace came in meanwhile.
             guard !Task.isCancelled, worktree?.id == current.id, searchOptions == options,
                 search.stringValue.trimmingCharacters(in: .whitespaces) == query
             else { return }
-            // Half typed, a pattern often isn't one yet: what it found last stays.
+            // A half-typed pattern often isn't valid yet, so the last results stay.
             if options.regex, let error = found.error, !results.matches.isEmpty {
                 showPatternError(error)
                 return
@@ -121,7 +122,8 @@ extension FilesPanel {
         patternError.isHidden = detail == nil || !replaceRow.isHidden
         let top = !replaceRow.isHidden ? Metrics.row + Metrics.gap : detail == nil ? 0 : Metrics.row
         guard top != resultsTop.constant else { return }
-        // The results make room for the line and take it back, not jump a row with every key of a pattern being typed.
+        // The results slide down to make room for the error line and back up, instead of jumping a row with every key
+        // of a pattern being typed.
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = view.window == nil ? 0 : Motion.duration(Motion.fast)
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
@@ -131,7 +133,8 @@ extension FilesPanel {
         }
     }
 
-    /// What the language servers say of the project's open files, in a search's place; errors first.
+    /// Shows what the language servers report about the project's open files, in place of search results, errors
+    /// first.
     func showProblems() {
         let found = Self.problems(in: app.latest(FileEvent.self).byKey.mapValues { $0.problems ?? [] }, root: root)
         show(references: found)
@@ -154,13 +157,13 @@ extension FilesPanel {
         return all.filter(\.isError).map(\.match) + all.filter { !$0.isError }.map(\.match)
     }
 
-    /// The replace field comes with what it would replace.
+    /// Shows the replace field only while there are content matches for it to replace.
     func showReplace() {
         replaceRow.isHidden = byName || results.matches.isEmpty || results.scroll.isHidden
         showPatternError(nil)
     }
 
-    /// Back to the tree.
+    /// A button that clears the search and goes back to the tree.
     private func clearButton() -> NSButton {
         ClosureButton(title: String(localized: "Clear Search")) { [weak self] in
             guard let self else { return }

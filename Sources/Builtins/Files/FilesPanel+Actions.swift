@@ -50,7 +50,7 @@ extension FilesPanel {
         }
     }
 
-    /// The node at a relative path, its folders opened.
+    /// Returns the node at a relative path, and opens the folders on the way to it.
     func node(at rel: String) -> FileNode? {
         var list = nodes, found: FileNode?, acc = ""
         for part in rel.split(separator: "/") {
@@ -86,7 +86,8 @@ extension FilesPanel {
         // Like Xcode's navigator: the file opens, the keys stay here (↑↓, Space, ↩, ⌘C).
         openFile(node.path, focus: false)
     }
-    /// Like Finder's new folder: "untitled" appears with its name selected; type one and it opens.
+    /// Adds a file the way Finder adds a new folder: "untitled" appears with its name selected, and once a name is
+    /// typed, the file opens.
     @objc func newFile() { addFile(in: selectedDir) }
     func addFile(in dir: String) {
         let
@@ -99,7 +100,8 @@ extension FilesPanel {
             reloadTree { [weak self] in self?.beginRename(rel, open: true) }
         }
     }
-    /// Markdown templates from <repo>/.kelp/templates and ~/.kelp/templates with {{date}}, {{branch}}, {{title}}…
+    /// Makes a file from a Markdown template in <repo>/.kelp/templates or ~/.kelp/templates, filling in {{date}},
+    /// {{branch}}, {{title}}…
     @objc func newFromTemplate() { addFromTemplate(in: selectedDir) }
     func addFromTemplate(in dir: String) {
         let repo = app.repo(worktree?.repoId)
@@ -138,7 +140,7 @@ extension FilesPanel {
             let body = Templates.expand(
                 text, vars: ["branch": worktree?.branch ?? "", "title": title, "repo": repo?.name ?? ""])
             let rel = dir.isEmpty ? file : dir + "/" + file
-            // Its folders made too; a name that's taken fails rather than being written over.
+            // The file's folders are made too. A name that's taken fails rather than being written over.
             guard await app.call(FilesCreate(path: root + "/" + rel, text: body)) != nil else { return }
             reloadTree()
             openFile(rel)
@@ -152,7 +154,7 @@ extension FilesPanel {
         else { return }
         let path = URL(fileURLWithPath: root).appendingPathComponent(dir).appendingPathComponent(name).path
         guard await app.call(FilesCreate(path: path, folder: true)) != nil else { return }
-        reloadTree()   // empty folders are invisible to git; it appears once it has a file
+        reloadTree()   // git doesn't list empty folders, so the new one shows once it has a file
     }
     @objc func rename() {
         guard let node = selectedNode else {

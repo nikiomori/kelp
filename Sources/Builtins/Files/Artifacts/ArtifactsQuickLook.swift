@@ -2,7 +2,8 @@ import AppKit
 import Core
 import Quartz
 
-/// Quick Look (Space, or the row's menu) for the picked page: its file, or Kelp's copy of a page on a service.
+/// Quick Look (Space, or the row's menu) for the selected page. It shows the page's file, or Kelp's copy of a page on
+/// a service.
 extension ArtifactsPanel: @preconcurrency QLPreviewPanelDataSource {
     func togglePreview() {
         guard let (item, _) = item(at: table.selectedRow) else { return }

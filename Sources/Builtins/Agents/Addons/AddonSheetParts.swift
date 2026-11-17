@@ -3,15 +3,15 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The boxes of Add a Skill or MCP Server: what was read (its kind, its name, what it signs in with, where it's
-/// used), who gets it, and what this Mac has that only some agents see.
+/// Builds the boxes of the Add a Skill or MCP Server sheet. They show what was read (its kind, its name, what it signs
+/// in with, where it is used), who gets it, and what this Mac has that only some agents see.
 @MainActor
 enum AddonSheetParts {
     static func text(_ string: String, _ font: NSFont, _ color: NSColor = .labelColor) -> NSTextField {
         NSTextField.label(string, font: font, color: color, truncation: .byTruncatingMiddle)
     }
 
-    /// A title over a line about it.
+    /// A title with a line about it underneath.
     static func words(_ title: String, _ about: String, mono: Bool = false) -> NSStackView {
         let column = NSStackView(views: [
             text(title, mono ? .uiMono(TextSize.row) : .ui(TextSize.body)),
@@ -31,8 +31,8 @@ enum AddonSheetParts {
         return row
     }
 
-    /// Rows on one quiet ground, a hairline between them. The ground is a box behind them: a box sizes nothing by what
-    /// it holds, so the rows' stack is what gives the height.
+    /// Puts rows on one quiet background with a hairline between them. The background is a box behind the rows. A box
+    /// doesn't size itself to what it holds, so the stack of rows gives the height.
     static func box(_ rows: [NSView]) -> NSView {
         var parts: [NSView] = []
         for row in rows {
@@ -64,7 +64,7 @@ enum AddonSheetParts {
         let image = NSImageView(image: .symbol(name))
         image.symbolConfiguration = .chrome(Metrics.iconLarge)
         image.contentTintColor = .secondaryLabelColor
-        image.widthAnchor.constraint(equalToConstant: Metrics.iconMenu).isActive = true   // names start in one line
+        image.widthAnchor.constraint(equalToConstant: Metrics.iconMenu).isActive = true   // so the names line up
         return image
     }
 
@@ -125,7 +125,7 @@ enum AddonSheetParts {
         return [box(rows), box(who)]
     }
 
-    /// Where it will sit, in words under "Use in".
+    /// Says where the item will be saved, in the words shown under "Use in".
     private static func place(_ paste: AddonPaste, shared: Bool, _ sheet: AddonSheet) -> String {
         switch (paste.isServer, shared) {
         case (true, false): String(localized: "Kelp’s own file, readable by you only")
@@ -135,7 +135,7 @@ enum AddonSheetParts {
         }
     }
 
-    /// What a server signs in with: its name, and its value hidden, to type over.
+    /// A row for one value a server signs in with: the value's name, and the value itself hidden, to type over.
     private static func secret(_ id: String, _ key: String, _ value: String?, _ sheet: AddonSheet) -> NSView {
         let field = sheet.secrets[id] ?? NSSecureTextField()
         if sheet.secrets[id] == nil {
@@ -150,7 +150,8 @@ enum AddonSheetParts {
 
     // MARK: Found on This Mac
 
-    /// A heading and the rows: a server only one agent has, a skill some agents don't read. nil when there are none.
+    /// Returns the Found on This Mac heading and its rows: servers only one agent has, and skills some agents don't
+    /// read. nil when there are none.
     static func found(_ sheet: AddonSheet) -> [NSView]? {
         let here = sheet.items.filter { addon in
             addon.kind == .server

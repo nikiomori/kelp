@@ -12,27 +12,30 @@ final class EditorStatusBar: NSView {
     /// "Wrap" while long lines wrap: a click turns it off.
     private let wrap = PointerButton()
     private var wrapping = false
-    /// "Restricted" while the project isn't trusted to run its language server or formatter, as VS Code's Restricted Mode
-    /// says: the banner that asked is long gone, this stays. A click offers Trust.
+    /// Reads "Restricted", as VS Code's Restricted Mode does, while the project isn't trusted to run its language
+    /// server or formatter. The banner that asked about trust is long gone by then, but this label stays. A click
+    /// offers Trust.
     private let restricted = PointerButton()
-    /// The file's language servers by name, or that none is installed: a click lists each, with Restart and Install.
+    /// Names the file's language servers, or says that none is installed. A click lists each server, with Restart and
+    /// Install.
     private let servers = PointerButton()
     var onServers: ((NSView) -> Void)?
     private let row = NSStackView()
     var onTrust: (() -> Void)?
-    /// How many problems the file has: a click lists those of every open file.
+    /// Shows how many problems the file has. A click lists the problems of every open file.
     private let problems = PointerButton()
-    /// What the one under the cursor says.
+    /// The message of the problem under the cursor.
     private let problem = NSTextField(labelWithString: "")
     var onProblems: (() -> Void)? { didSet { problems.onClick = onProblems } }
     var onWrap: (() -> Void)? { didSet { wrap.onClick = onWrap } }
-    /// The indentation in use: a click offers another, or converts the file.
+    /// Shows the indentation in use. A click offers another one, or converts the file.
     private let indentButton = PointerButton()
     var indentMenu: (() -> NSMenu)?
-    /// How the editor behaves, a right-click away; set by the tab that has an app to ask.
+    /// The right-click menu of editor options. The file's tab sets it, because the tab has the app to ask.
     var contextMenu: (() -> NSMenu)?
     override func menu(for event: NSEvent) -> NSMenu? { contextMenu?() }
-    /// Off in a Markdown preview: there's no cursor to place, and how the source is indented or wrapped says nothing.
+    /// False in a Markdown preview, because there's no cursor to place, and how the source is indented or wrapped
+    /// doesn't matter there.
     var editing = true {
         didSet {
             place.isHidden = !editing
@@ -111,10 +114,10 @@ final class EditorStatusBar: NSView {
         servers.title = summary?.title ?? ""
         servers.contentTintColor = summary?.missing == true ? .textOrange : nil
     }
-    /// A Markdown file's Edit, Split, Preview, last in the bar.
+    /// Adds a Markdown file's Edit / Split / Preview control, last in the bar.
     func show(modes: NSControl) {
         modes.controlSize = .mini
-        modes.font = .ui(TextSize.caption)   // the bar's own size, as "Markdown" beside it
+        modes.font = .ui(TextSize.caption)   // the bar's own text size, like "Markdown" beside it
         row.addArrangedSubview(modes)
     }
 
@@ -147,7 +150,7 @@ final class EditorStatusBar: NSView {
 }
 
 extension EditorStatusBar {
-    /// How the editor behaves.
+    /// The menu of editor options: wrapping, auto-save, format on save, and a link to Editor Settings.
     static func menu(_ app: AppModel, language: String?) -> NSMenu {
         let menu = NSMenu()
         menu.add(String(localized: "Wrap Long Lines")) { app.extensions.run("editor.toggleWordWrap") }.state =

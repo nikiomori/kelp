@@ -1,4 +1,5 @@
-// A review page's answers in the Markdown preview: a point's answer written back, a quote asked about.
+// The answers on a review page in the Markdown preview: each point's answer is written back into the file, and Send
+// hands the answers to the agent.
 import AppKit
 import Core
 import EditorKit
@@ -8,16 +9,17 @@ import WebKit
 extension MarkdownTab {
     // MARK: a review's answers
 
-    /// The chat that made this page (a review's answers go back to it, and questions about it), while it's there.
+    /// The chat that made this page, while that chat is still running. A review's answers, and questions about the
+    /// page, go back to it.
     var pageAuthor: Session? {
         Artifacts.record(in: url.deletingLastPathComponent())?.session.flatMap(app.session).flatMap {
             $0.status == .exited ? nil : $0
         }
     }
 
-    /// A pick, a note, the recommended picks or Change Answers go into the file (the agent reads its answers there);
-    /// Send types the line saying them into the chat that wrote it, or, once that has ended, into the agent on screen
-    /// for the user to send, and the file says when.
+    /// Writes a pick, a note, the recommended picks or Change Answers into the file, because the agent reads its
+    /// answers there. Send types a line with the answers into the chat that wrote the review. When that chat has
+    /// ended, the line goes into the agent on screen for the user to send. Then the file records when it was sent.
     func answer(_ kind: String, point: String, value: String) {
         let text: String? =
             switch kind {
@@ -43,7 +45,8 @@ extension MarkdownTab {
         }
     }
 
-    /// `value` as a JavaScript literal (JSON is one): a string, the marks, the labels of a page's script.
+    /// Returns `value` as a JavaScript literal, by encoding it as JSON. It's used for a string, the marks, and the
+    /// labels of a page's script.
     nonisolated static func js(_ value: some Encodable) -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]

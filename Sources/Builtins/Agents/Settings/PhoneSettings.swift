@@ -5,16 +5,17 @@ import DesignKit
 import KelpKit
 import SwiftUI
 
-/// Settings › Phone: the agents on a phone's browser. The switch, the code a phone scans to pair (one phone, ten
-/// minutes), how the phone reaches this Mac and whether it's ready, the phones paired. Watched (`phone`) while the
-/// page shows.
+/// The Settings › Phone page, which puts the agents in a phone's browser. It holds the switch, the code a phone scans
+/// to pair (good for one phone, for ten minutes), how the phone reaches this Mac and whether that is ready, and the
+/// paired phones. The page watches the `phone` topic while it shows.
 struct PhoneSettings: View {
     let app: AppModel
     @State private var watched: Watched?
 
     private var state: PhoneState? { app.latest(PhoneEvent.self)?.state }
 
-    /// How the phone reaches this Mac: what `phone.via` says, else a relay when one is named (as Kelp 0.14 kept it).
+    /// How the phone reaches this Mac. It is what `phone.via` says, or else the relay when a relay is named (the way
+    /// Kelp 0.14 stored it).
     private var via: String {
         let via = app.settings[SettingKeys.phoneVia]
         return via.isEmpty && !app.settings[SettingKeys.phoneRelay].isEmpty ? "relay" : via
@@ -39,7 +40,7 @@ struct PhoneSettings: View {
                 """)
         }
         .task {
-            // Let go with the page: `Watched` stops watching as this view's state goes.
+            // The watch ends with the page, because `Watched` stops watching when this view's state goes away.
             guard watched == nil else { return }
             let watching = Watched(.phone, in: app)
             watching.key = ""
@@ -92,7 +93,8 @@ struct PhoneSettings: View {
 
     private func pair() async { if await app.call(PhonePair()) != nil { app.watchAgain(.phone) } }
 
-    /// Tailscale, an address of the user's own, or Kelp's relay; each says what it needs.
+    /// The picker for how the phone reaches this Mac: Tailscale, an address of the user's own, or Kelp's relay. Each
+    /// choice says what it needs.
     @ViewBuilder private var way: some View {
         let port = Int(app.settings[SettingKeys.phonePort])
         Section {
@@ -137,7 +139,7 @@ struct PhoneSettings: View {
         }
     }
 
-    /// Tailscale's three steps, each ticked once Kelp sees it done, and where to do the first one that isn't.
+    /// Tailscale's three steps, each ticked once Kelp sees it done, with a link or hint for the first step that isn't.
     @ViewBuilder private func tailscale(_ steps: TailscaleSteps) -> some View {
         step(String(localized: "Tailscale is installed"), done: steps.installed) {
             link(String(localized: "Download Tailscale"), TailscaleSteps.download)
@@ -150,7 +152,7 @@ struct PhoneSettings: View {
         }
     }
 
-    /// `next`: the steps before it are done, so this one is the one to do now.
+    /// `next` is true when the steps before this one are done, so this is the step to do now.
     private func step(_ title: String, done: Bool, next: Bool = true, @ViewBuilder todo: () -> some View)
         -> some View
     {
@@ -173,7 +175,7 @@ struct PhoneSettings: View {
             Circle().fill(state.connected && state.address != nil ? Color(nsColor: .systemGreen) : .secondary)
                 .frame(width: 7, height: 7)
             if let steps = state.tailscale, !steps.serving {
-                Text("Finish Tailscale’s steps above.").foregroundStyle(.secondary)   // they say what's missing
+                Text("Finish Tailscale’s steps above.").foregroundStyle(.secondary)   // the steps say what's missing
             } else if let error = state.error {
                 Text(error).foregroundStyle(Color.textRed)
             } else if state.address == nil {
@@ -211,7 +213,7 @@ struct PhoneSettings: View {
         }
     }
 
-    /// The link as a QR code, a point a module: drawn larger without smoothing.
+    /// Returns the link as a QR code at one point per module, so it is drawn larger without smoothing.
     static func qr(_ text: String) -> NSImage? {
         let filter = CIFilter.qrCodeGenerator()
         filter.message = Data(text.utf8)

@@ -6,8 +6,9 @@ import KelpKit
 import SwiftUI
 
 extension UsageView {
-    /// How full a limit is (a bar can't be mistaken for the "working" spinner); orange from 70 %, red from 90 %. `pace`: a
-    /// tick where an even pace would have it now, cut out of the bar on both sides so it shows on the fill as on the track.
+    /// A bar for how full a limit is, which can't be mistaken for the "working" spinner. It turns orange from 70 % and
+    /// red from 90 %. `pace` adds a tick where an even pace would have the bar now. The tick sticks out of the bar on
+    /// both sides, so it shows on the fill as well as on the track.
     struct Bar: View {
         let used: Double
         var pace: Double?
@@ -16,9 +17,9 @@ extension UsageView {
             GeometryReader { geometry in
                 let width = geometry.size.width
                 MeterBar(share: used, tint: UsageView.tint(used), height: height)
-                    // An overlay, so the taller tick doesn't make the bar thicker than one without it.
-                    // On whole points, so it's one sharp line; flattening the bar to cut a gap round it lost the
-                    // popover's vibrancy (the track went black).
+                    // The tick is an overlay, so the taller tick doesn't make the bar thicker than one without it.
+                    // It sits on whole points, so it's one sharp line. Flattening the bar to cut a gap round the tick
+                    // lost the popover's vibrancy (the track went black).
                     .overlay(alignment: .leading) {
                         if let pace {
                             Rectangle().fill(.primary).frame(width: 1, height: height + 4).offset(
@@ -61,7 +62,8 @@ extension UsageView {
                         }
                         let even = pace ? line.pace() : nil
                         Bar(used: line.used, pace: even)
-                        // One line: when it resets at the left, the tick's value at the right (it wrapped as one sentence).
+                        // One line with the reset time at the left and the tick's value at the right, because as one
+                        // sentence it wrapped.
                         if line.resets != nil || even != nil {
                             HStack {
                                 if let resets = line.resets { Text("Resets \(resets)").lineLimit(1) }

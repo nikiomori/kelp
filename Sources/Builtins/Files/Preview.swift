@@ -6,8 +6,8 @@ import PDFKit
 import Quartz
 import UniformTypeIdentifiers
 
-/// Read-only previews for files the editor shouldn't open: PDFs via PDFKit, images an `ImagePreview` (copyable),
-/// everything else Quick Look can show.
+/// Read-only previews for files the editor shouldn't open: PDFs through PDFKit, images in an `ImagePreview` (which can
+/// be copied), and everything else that Quick Look can show.
 @MainActor
 enum Preview {
     static let pdf: Set<String> = ["pdf"]
@@ -21,7 +21,8 @@ enum Preview {
         return pdf.contains(pathExtension) || quickLook.contains(pathExtension)
     }
 
-    /// The bytes of the PDF or image are read off the main thread, so a file on a slow volume can't stall the window.
+    /// Returns the preview view for `url`. A PDF's or image's bytes are read off the main thread, so a file on a slow
+    /// volume can't stall the window.
     static func view(for url: URL, app: AppModel) async -> NSView {
         let isPDF = pdf.contains(url.pathExtension.lowercased()),
             isImage = UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true
@@ -42,13 +43,14 @@ enum Preview {
     }
 }
 
-/// A file's preview that follows the file: written over (a new render of a video, an image), it's built again, since
-/// Quick Look, PDFKit and an image read once keep showing the old one. Gone, it stays as shown.
+/// A file's preview that follows the file. When the file is written over (a new render of a video, an image), the
+/// preview is built again, because Quick Look, PDFKit and an image read once keep showing the old content. When the
+/// file is deleted, the preview stays as it is.
 @MainActor
 final class FollowedPreview {
     let view = NSView()
     private(set) var shown: NSView
-    /// The version shown: nil until the daemon pushes the first, which is the one already shown.
+    /// The file version on screen. It is nil until the daemon pushes the first version, which is the one already shown.
     private var stamp: FileStamp?
     private let version: Watched
 
@@ -72,7 +74,7 @@ final class FollowedPreview {
 
     private func show(_ next: NSView) {
         let focused = shown.window?.firstResponder === shown
-        (shown as? QLPreviewView)?.close()   // or its player keeps playing the old file
+        (shown as? QLPreviewView)?.close()   // otherwise its player keeps playing the old file
         shown.removeFromSuperview()
         shown = next
         view.pin(next)
@@ -80,8 +82,9 @@ final class FollowedPreview {
     }
 }
 
-/// An image as a tab, like Xcode's: at most its own size, centered. ⌘C or Copy Image in its menu puts it on the
-/// pasteboard as the file's own bytes (a GIF keeps its frames) and as PNG for apps (and agents) that only read that.
+/// An image shown as a tab, as Xcode does: centered, and never larger than its own size. ⌘C or Copy Image in its menu
+/// puts the image on the pasteboard as the file's own bytes (so a GIF keeps its frames), and also as PNG for apps (and
+/// agents) that only read PNG.
 @MainActor
 final class ImagePreview: NSImageView {
     private let url: URL
@@ -89,7 +92,8 @@ final class ImagePreview: NSImageView {
     init(image: NSImage, url: URL) {
         self.url = url
         super.init(frame: .zero)
-        // A pixel is a point, as in a browser: NSImage would size it by the file's DPI (a 72-dpi-less PNG comes out huge).
+        // One pixel is one point, as in a browser. NSImage would size the image by the file's DPI, so a PNG without
+        // 72-dpi metadata would come out huge.
         if let rep = image.representations.first, rep.pixelsWide > 0 {
             image.size = NSSize(width: rep.pixelsWide, height: rep.pixelsHigh)
         }
@@ -97,7 +101,8 @@ final class ImagePreview: NSImageView {
         imageScaling = .scaleProportionallyDown
         animates = true
         focusRingType = .none
-        // Its size is the image's: at the default priority a big one would push the window past the screen.
+        // The view's natural size is the image's size, so at the default priority a big image would push the window
+        // past the screen.
         for orientation in [NSLayoutConstraint.Orientation.horizontal, .vertical] {
             setContentCompressionResistancePriority(.defaultLow, for: orientation)
         }
@@ -133,8 +138,8 @@ final class ImagePreview: NSImageView {
     }
 }
 
-/// Links clicked in a PDF go by the preview's rules (`PreviewLinks.target`): a repo's PDF can link to an app it ships
-/// or to another app's scheme, and PDFKit on its own would open either.
+/// Sends links clicked in a PDF through the preview's rules (`PreviewLinks.target`). A repo's PDF can link to an app it
+/// ships or to another app's scheme, and PDFKit on its own would open either one.
 @MainActor
 final class PDFLinks: NSObject, @MainActor PDFViewDelegate {
     private let app: AppModel
@@ -142,15 +147,16 @@ final class PDFLinks: NSObject, @MainActor PDFViewDelegate {
     func pdfViewWillClick(onLink sender: PDFView, with url: URL) { PreviewLinks.open(url, in: app) }
 }
 
-/// A PDF with its links' delegate, which it keeps (PDFView holds its delegate weakly, and asks it what it answers: a
-/// view that were its own delegate would ask itself forever).
+/// A PDF view that keeps its own link delegate alive, because PDFView holds its delegate weakly. The delegate is a
+/// separate object because PDFView forwards to its delegate what it can't answer, so a view that was its own delegate
+/// would ask itself forever.
 @MainActor
 final class LinkedPDFView: PDFView {
     let links: PDFLinks
     init(app: AppModel) {
         links = PDFLinks(app: app)
         super.init(frame: .zero)
-        delegate = links   // without a delegate PDFKit opens any link with its app
+        delegate = links   // without a delegate, PDFKit opens any link in the app for its scheme
     }
     required init?(coder: NSCoder) { fatalError() }
 }

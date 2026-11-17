@@ -3,7 +3,7 @@ import Foundation
 /// A merge conflict as git writes it into a file: `<<<<<<<`, the current side, `|||||||` and the base (with diff3, if
 /// any), `=======`, the incoming side, `>>>>>>>`. Ranges are in UTF-16, as the editor's are.
 struct MergeConflict: Equatable {
-    /// From the start of the `<<<<<<<` line to the end of the `>>>>>>>` one, its line break included.
+    /// The whole block, from the start of the `<<<<<<<` line to the end of the `>>>>>>>` line, with its line break.
     let whole: NSRange
     let current: NSRange, incoming: NSRange
 
@@ -59,7 +59,7 @@ struct MergeConflict: Equatable {
         (text as NSString).replacingCharacters(in: whole, with: resolved(in: text, keeping: keep))
     }
 
-    /// "<", "|", "=" or ">" when the line is that marker.
+    /// Returns "<", "|", "=" or ">" when the line is that marker, and nil otherwise.
     private static func marker(_ string: NSString, _ line: NSRange) -> Character? {
         guard line.length >= 7 else { return nil }
         let head = string.substring(with: NSRange(location: line.location, length: 7))

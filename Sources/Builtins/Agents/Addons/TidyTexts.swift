@@ -8,8 +8,9 @@ extension AddonGroups {
         items.filter { $0.kind == .instructions && ($0.source == .project || $0.name == "MEMORY.md") }
     }
 
-    /// What an instruction file holds now, in tokens, when the chat shown read another amount at its start (a Tidy Up
-    /// since, an edit): the chat keeps what it read until it restarts. nil: no chat, or the same.
+    /// Returns an instruction file's size now, in tokens, when the chat on screen read a different amount at its start
+    /// (after a Tidy Up or an edit since). The chat keeps what it read until it restarts. nil when there is no chat or
+    /// the two amounts are about the same.
     static func behind(_ addon: Addon) -> Int? {
         guard addon.kind == .instructions, addon.loaded == true, let then = addon.tokens, let now = addon.check?.tokens,
             abs(now - then) > max(50, then / 10)
@@ -17,7 +18,7 @@ extension AddonGroups {
         return now
     }
 
-    /// What's wrong with an instruction file, as what it means for the person, the worst first.
+    /// Lists what is wrong with an instruction file in terms of what it means for the person, the worst first.
     static func findings(_ check: InstructionCheck, name: String) -> [String] {
         var out: [String] = []
         let reader = name == "AGENTS.md" ? "Codex" : "Claude"
@@ -38,8 +39,9 @@ extension AddonGroups {
         return out
     }
 
-    /// Needs a Look's line under the instruction files: the worst finding with its file's name and how many more there
-    /// are, and whether agents lose lines now or soon will (`warn` shows it in the warning colour).
+    /// The detail line of the Needs a Look row for instruction files. It holds the worst finding with its file's name
+    /// and how many more there are. `warn` is true when agents lose lines now or soon will, and shows the line in the
+    /// warning colour.
     static func instructionsText(_ files: [Addon]) -> (detail: String, warn: Bool) {
         func losing(_ file: Addon) -> Bool {
             (file.check?.cut ?? 0) > 0 || (file.check?.share ?? 0) >= InstructionCheck.near

@@ -33,7 +33,8 @@ extension Builtins {
                     },
                     driven: { BrowserMarks.driven($0, app) })
             ],
-            // The page an agent drives: a mark on its row, and in a project's menu whether new chats get the skill.
+            // A page an agent drives puts a mark on the agent's row. A project's menu says whether new chats in the
+            // project get the browser skill.
             rowMarks: [{ BrowserMarks.row($0, app) }],
             rowMenu: [{ BrowserMarks.menu($0, $1, app) }],
             skills: [browserSkill],

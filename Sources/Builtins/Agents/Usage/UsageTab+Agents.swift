@@ -26,7 +26,7 @@ extension UsageReportView {
         }
     }
 
-    /// The chosen agent while it has anything in the span.
+    /// The chosen agent, as long as it used anything in the span.
     var sel: String? { selected.flatMap { s in agent(s) == nil ? nil : s } }
     func agent(_ id: String) -> UsageAgents.Agent? { usage?.agents.first { $0.id == id && $0.tokens > 0 } }
     var series: [UsageAgents.Agent] {
@@ -37,7 +37,8 @@ extension UsageReportView {
         usage?.counted?.firstIndex(of: id).map { Self.palette[$0 % Self.palette.count] } ?? .gray
     }
 
-    /// The span's cost against the one before it, the cost a day, the tokens, and what kind of token the cost went on.
+    /// The headline figures: the span's cost against the span before it, the cost per active day, the tokens, and what
+    /// kind of token the cost went on.
     func kpis() -> some View {
         let shown = series, cost = shown.reduce(0) { $0 + $1.cost }, tokens = shown.reduce(0) { $0 + $1.tokens }
         let cached = shown.reduce(0) { $0 + $1.cacheRead }, ids = Set(shown.map(\.id))
@@ -54,7 +55,7 @@ extension UsageReportView {
         }
     }
 
-    /// "at API prices · +139% on the 30 days before ($5,058)".
+    /// Returns the line under the cost, such as "at API prices · +139% on the 30 days before ($5,058)".
     nonisolated static func change(_ cost: Double, before: Double?, days: Int) -> String {
         let label = String(localized: "at API prices")
         guard let before, cost > 0 || before > 0 else { return label }
@@ -77,14 +78,14 @@ extension UsageReportView {
                 .bottom, 4)
             Divider()
             ForEach(paid) { row($0, total: total) }
-            // Two or more with no list price fold into one row that names them; a click opens them.
+            // Two or more agents with no list price fold into one row that names them, and a click on it unfolds them.
             if free.count > 1 { freeRow(free) }
             if free.count == 1 || showFree { ForEach(free) { row($0, total: total) } }
             ForEach(rest) { row($0, total: total) }
         }
     }
 
-    /// agent | the span | share | tokens | cost, the same widths in every row.
+    /// Lays out the columns agent | span | share | tokens | cost, with the same widths in every row.
     private func columns(
         _ agent: some View, _ span: some View, _ share: some View, _ tokens: some View, _ cost: some View
     ) -> some View {
@@ -97,7 +98,8 @@ extension UsageReportView {
         }
     }
 
-    /// A row narrows what's under the table to its agent (again: back to all); one with nothing counted isn't a button.
+    /// A row for one agent. A click narrows what's under the table to that agent, and a second click goes back to all.
+    /// A row with nothing counted isn't a button.
     @ViewBuilder private func row(_ line: Line, total: Double) -> some View {
         let on = sel == line.id
         let content = cells(line, total: total)
@@ -121,7 +123,7 @@ extension UsageReportView {
         }
     }
 
-    /// The agents with no list price as one row: their icons and names, their tokens together.
+    /// Shows the agents with no list price as one row, with their icons, their names and their tokens added up.
     private func freeRow(_ free: [Line]) -> some View {
         let tokens = free.reduce(0) { $0 + ($1.usage?.tokens ?? 0) }
         return Button {
@@ -159,7 +161,7 @@ extension UsageReportView {
     }
 
     @ViewBuilder private func cells(_ line: Line, total: Double) -> some View {
-        if usage == nil {   // its logs still being read: grey where the figures will be
+        if usage == nil {   // while the logs are still read, grey placeholders stand in for the figures
             columns(agentCell(line), Self.reading, Self.reading, Self.reading, Self.reading)
         } else {
             columns(
@@ -168,7 +170,7 @@ extension UsageReportView {
         }
     }
 
-    /// A figure not read yet.
+    /// A grey placeholder for a figure not read yet.
     private static var reading: some View {
         Text(verbatim: "0000").font(.ui(TextSize.caption)).redacted(reason: .placeholder)
     }
@@ -186,7 +188,8 @@ extension UsageReportView {
         }
     }
 
-    /// Its share of the span's cost as a bar in its colour: one agent at 99.8 % shows what the rest come to.
+    /// The agent's share of the span's cost, as a bar in its colour. The percent has one decimal, so an agent at
+    /// 99.8 % still shows that the rest come to something.
     @ViewBuilder private func shareCell(_ agentUsage: UsageAgents.Agent?, total: Double) -> some View {
         if let agentUsage, agentUsage.cost > 0, total > 0 {
             let share = agentUsage.cost / total
@@ -206,7 +209,8 @@ extension UsageReportView {
         }
     }
 
-    /// Its days on its own scale, so a small agent's pattern shows beside a big one's (tokens when it costs nothing).
+    /// The agent's days as a chart on its own scale, so a small agent's pattern shows beside a big one's. It charts
+    /// tokens when the agent costs nothing.
     @ViewBuilder private func spanCell(_ line: Line) -> some View {
         if let usage, let agentUsage = line.usage {
             Chart(usage.days.filter { $0.agent == line.id }, id: \.self) { record in
@@ -249,7 +253,8 @@ extension UsageReportView {
     }
 }
 
-/// What kind of token the cost went on: reading the cache is most of a long chat's bill, writing it much of the rest.
+/// Shows what kind of token the cost went on. Reading the cache is most of a long chat's bill, and writing the cache
+/// is much of the rest.
 struct CostSplit: View {
     let costs: UsageAgents.Costs
 
@@ -266,7 +271,7 @@ struct CostSplit: View {
                 }
             }
             .frame(height: 6).clipShape(Capsule())
-            // Two by two: four in a row were cut short at the figures' width.
+            // The parts sit two to a row, because four in a row were cut short at the figures' width.
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 2) {
                 ForEach(Array(stride(from: 0, to: parts.count, by: 2)), id: \.self) { start in
                     GridRow {

@@ -2,8 +2,9 @@ import AppKit
 import DesignKit
 import KelpKit
 
-/// An agent's fullest plan limit in a few words, where agents are chosen: "92 % · 3:40pm", "Full · 3:40pm". The sidebar's
-/// numbers and colours; none for a plan unused, or read too long ago to tell.
+/// An agent's fullest plan limit in a few words, such as "92 % · 3:40pm" or "Full · 3:40pm", shown where agents are
+/// chosen. It uses the sidebar's numbers and colours. There is none for an unused plan, or for one read too long ago
+/// to tell.
 struct PlanNote: Equatable {
     let used: Double, resets: String?
     static let staleAfter: TimeInterval = 1800
@@ -16,14 +17,15 @@ struct PlanNote: Equatable {
 
     private var isFull: Bool { used >= 1 }
     private var percent: String { "\(Int((used * 100).rounded())) %" }
-    /// How full, without when it resets: where a half-width row has no room for the time.
+    /// How full the limit is, without the reset time, for a half-width row that has no room for the time.
     var amount: String { isFull ? String(localized: "Full") : percent }
     var text: String { [amount, resets].compactMap { $0 }.joined(separator: " · ") }
     /// The reset time on its own, for a tip beside `amount`.
     var resetsTip: String? { resets.map { String(localized: "Resets \($0)") } }
     var color: NSColor { used >= 0.9 ? .textRed : used >= 0.7 ? .textOrange : .secondaryLabelColor }
 
-    /// Said under the first-task field when the agent it starts is nearly out.
+    /// Returns the warning shown under the first-task field when the agent that field starts is nearly out of its
+    /// plan.
     func warning(for name: String) -> String? {
         guard used >= 0.9 else { return nil }
         if isFull {
@@ -34,15 +36,16 @@ struct PlanNote: Equatable {
             ?? String(localized: "\(name) is at \(percent).")
     }
 
-    /// The agent with the most left of `agents`, when that's a lot: one with no reading can't be said to have any.
+    /// Returns the agent in `agents` with the most left, when that's over half. An agent with no reading can't be said
+    /// to have any room.
     static func roomiest(_ agents: [String], notes: [String: PlanNote]) -> String? {
         agents.compactMap { a in notes[a].map { (a, $0.used) } }.filter { $0.1 < 0.5 }.min { $0.1 < $1.1 }?.0
     }
 
-    /// As the shell shows it beside the agent (`PlanWords.notes`).
+    /// The note as the shell shows it beside the agent (`PlanWords.notes`).
     var shown: AgentNote { (used, amount, text, resetsTip, color) }
 
-    /// What the shell asks of the plan limits (`Contributions.plans`).
+    /// The answers the shell asks for about plan limits (`Contributions.plans`).
     @MainActor static func words(_ app: AppModel) -> PlanWords {
         PlanWords(
             notes: { UsageView.notes(app).mapValues(\.shown) },

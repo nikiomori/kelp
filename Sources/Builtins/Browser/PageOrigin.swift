@@ -1,10 +1,11 @@
 import Foundation
 
-/// The site a page belongs to, as far as a login reaches: its scheme and its registered domain, so `mail.example.com`
-/// and `www.example.com` are one site, `example.org` another. A country's second level (`co.uk`, `com.au`) and a host
-/// that gives each customer a subdomain (`vercel.app`, `github.io`…) count as the suffix, so `a.vercel.app` and
-/// `b.vercel.app` are two sites. An IP address or a one-label host (`localhost`) is itself, with its port. Limit: no full
-/// public suffix list; a shared host missing from `sharedHosts` is one site.
+/// The site a page belongs to, as far as a login reaches. It is the page's scheme and registered domain, so
+/// `mail.example.com` and `www.example.com` are one site, and `example.org` is another. A country's second level
+/// (`co.uk`, `com.au`) and a host that gives each customer a subdomain (`vercel.app`, `github.io`…) count as the
+/// suffix, so `a.vercel.app` and `b.vercel.app` are two sites. An IP address or a one-label host (`localhost`) is its
+/// own site, with its port.
+/// Limit: no full public suffix list; a shared host missing from `sharedHosts` is one site.
 enum PageOrigin {
     static func of(_ url: URL?) -> String? {
         guard let url, let scheme = url.scheme?.lowercased(), let host = url.host?.lowercased(), !host.isEmpty else {
@@ -16,7 +17,8 @@ enum PageOrigin {
         let country =
             labels.last?.count == 2
             && ["co", "com", "net", "org", "gov", "ac", "edu", "ne", "or"].contains(labels[labels.count - 2])
-        // The longest shared suffix it ends in (`s3.amazonaws.com` before `amazonaws.com`), and one label more.
+        // The site is the longest shared suffix the host ends in (`s3.amazonaws.com` before `amazonaws.com`), or else
+        // the country's two labels or the top level, plus one more label.
         let suffix =
             (1..<labels.count).reversed().first { sharedHosts.contains(labels.suffix($0).joined(separator: ".")) }
             ?? (country ? 2 : 1)

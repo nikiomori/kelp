@@ -5,8 +5,9 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// Settings › Languages: every language that has a server, the project's own first, with what's installed and what
-/// runs, and Install for what isn't there. Asked of the daemon when the page shows and after each thing done on it.
+/// The Settings › Languages page. It lists every language that has a server, the project's own languages first, with
+/// which servers are installed and running, and Install for those that are missing. The daemon is asked when the page
+/// shows and after each action on it.
 struct LanguagesSettings: View {
     let app: AppModel
     @State private var typed = ""
@@ -64,13 +65,13 @@ struct LanguagesSettings: View {
     }
 }
 
-/// One server: a dot, its name, what it's doing, and the one thing to do about it.
+/// One server's line: a dot, the server's name, what the server is doing, and the one action that fits.
 struct ServerLine: View {
     let app: AppModel
     let server: LanguageSpec.Server
     let root: String?
     var asks = false
-    /// A file's own list offers Restart outright; the page keeps it in the row's menu.
+    /// A file's own server list offers Restart as a button, while the settings page keeps Restart in the row's menu.
     var restarts = false
     private var lsp: LSPManager { LSPManager.of(app) }
 
@@ -137,7 +138,8 @@ struct ServerLine: View {
     }
 }
 
-/// A file's own servers, from its status bar: what runs, Restart, Install, and the way to every language.
+/// The popover listing a file's own servers, opened from its status bar: what runs, Restart, Install, and a link to
+/// all languages.
 struct FileServers: View {
     let app: AppModel
     let language: LanguageSpec

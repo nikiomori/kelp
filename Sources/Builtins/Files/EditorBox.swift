@@ -1,8 +1,9 @@
 import AppKit
 import EditorKit
 
-/// Holds a file's editor. While the editor has the focus its commands (`editor.…`) get their keys before the menu bar,
-/// which gives a key to the first item that has it, on or off: ⌘D is Add Next Occurrence here and Split Right elsewhere.
+/// Holds a file's editor. While the editor has the focus, its commands (`editor.…`) get their keys before the menu bar
+/// does. The menu bar gives a key to the first item that has it, enabled or not, and ⌘D is Add Next Occurrence here but
+/// Split Right elsewhere.
 final class EditorBox: NSView {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard CodeEditor.focused != nil, let item = Self.editorItem(for: event, in: NSApp.mainMenu),

@@ -46,7 +46,8 @@ final class NotebookTab: NSViewController {
         reload()
     }
 
-    /// Read by the daemon (off the main thread, refused like any file tab's past the size limit), then rendered.
+    /// Reads the notebook through the daemon (off the main thread, and refused past the size limit like any file
+    /// tab's file), then renders it.
     func reload() {
         Task {
             let data = await app.tryCall(FilesRead(path: path)).value.map { Data($0.text.utf8) }
@@ -85,7 +86,7 @@ final class NotebookTab: NSViewController {
         status.stringValue = String(localized: "Running…")
         let file = url
         Task {
-            // A notebook may compute for hours: the timeout is only for one that never ends.
+            // A notebook may compute for hours, so the timeout only catches one that never ends.
             let result = await Shell.exec(
                 app, [jupyter, "nbconvert", "--to", "notebook", "--execute", "--inplace", file.path],
                 cwd: file.deletingLastPathComponent().path, timeout: 12 * 3600)
@@ -110,7 +111,7 @@ final class NotebookTab: NSViewController {
                             worktreeId: wid, command: "jupyter lab --no-browser " + ShellQuote.word(path),
                             title: "Jupyter", openURLs: true)))
             else { return }
-            app.upsert(session)   // its event may have come first
+            app.upsert(session)   // the session's own event may have arrived first
             // Jupyter's URL arrives as a dev-server URL and opens in a browser tab
             status.stringValue = String(localized: "Starting Jupyter Lab… it opens in the Browser tab")
         }

@@ -2,7 +2,8 @@ import AppKit
 import DesignKit
 import KelpKit
 
-/// The bar over the tree, as every inspector panel has one: the search field, New File, and the rest in ⋯.
+/// Builds the bar over the tree, which every inspector panel has: the search field, New File, and the other actions
+/// in ⋯.
 extension FilesPanel {
     func header() -> NSView {
         let plus = IconButton(

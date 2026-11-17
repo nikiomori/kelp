@@ -4,8 +4,8 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// The words of a search by file name, as in a terminal: `swift daemon` (all of them, in the path), `Sources/Daemon/` a
-/// folder, `!test` to leave out, `:changed` what git has touched.
+/// A search by file name, read word by word as in a terminal. `swift daemon` keeps paths holding all the words,
+/// `Sources/Daemon/` keeps a folder, `!test` leaves out paths with a word, and `:changed` keeps what git has touched.
 struct NameFilter: Equatable {
     private(set) var wanted: [String] = [], left: [String] = [], changedOnly = false
 
@@ -23,10 +23,12 @@ struct NameFilter: Equatable {
 
     var isEmpty: Bool { wanted.isEmpty && left.isEmpty && !changedOnly }
 
-    /// Lower case and composed (a name on disk may have й as и + ˘, typed it's one): compared code unit by code unit then.
+    /// Lowercases and composes text, because a name on disk may spell й as и + ˘ while typing gives one character.
+    /// Folded text can then be compared code unit by code unit.
     static func folded(_ text: String) -> String { text.lowercased().precomposedStringWithCanonicalMapping }
 
-    /// `folded`: the path went through `folded` already. `.literal`: a key in 200k paths took 360 ms, Character by Character.
+    /// Pass `folded: true` when the path went through `folded` already. The search is `.literal`, because comparing
+    /// Character by Character took 360 ms per key in 200k paths.
     func matches(_ path: String, folded done: Bool = false, changed: @autoclosure () -> Bool) -> Bool {
         let key = done ? path : Self.folded(path)
         func has(_ word: String) -> Bool { key.range(of: word, options: .literal) != nil }
@@ -35,7 +37,8 @@ struct NameFilter: Equatable {
 }
 
 extension FilesPanel {
-    /// So many folders opening at once would hold up the keys: the rest is a word away.
+    /// The most matches shown, because more folders opening at once would hold up typing. More words in the search
+    /// narrow it, so the rest can show.
     private nonisolated static let mostShown = 2000
 
     private var nameFilter: NameFilter? {
@@ -43,14 +46,15 @@ extension FilesPanel {
     }
     var isNarrowed: Bool { nameFilter != nil }
 
-    /// The tree as it's to show: only what the name filter keeps, folders keeping their shape.
+    /// The tree to show: only the paths the name filter keeps, inside their folders.
     func treeShown(_ paths: [String], ignored: [String]) -> [FileNode] {
         guard let filter = nameFilter else { return FileNode.tree(paths, ignored: ignored) }
-        if lowered.of != paths { lowered = (paths, paths.map(NameFilter.folded)) }   // the same listing: one buffer, compared at once
+        if lowered.of != paths { lowered = (paths, paths.map(NameFilter.folded)) }   // fold the paths once per listing
         return FileNode.tree(Self.kept(paths, lowered.paths, by: filter, changed: Set(status.keys)))
     }
 
-    /// The first `mostShown` of `paths` (`low`: as `NameFilter.folded` makes them) that `filter` keeps.
+    /// Returns the first `mostShown` of `paths` that `filter` keeps. `low` holds the same paths after
+    /// `NameFilter.folded`.
     nonisolated static func kept(_ paths: [String], _ low: [String], by filter: NameFilter, changed: Set<String>)
         -> [String]
     {
@@ -60,10 +64,11 @@ extension FilesPanel {
         return Array(kept.prefix(mostShown).map { paths[$0] })
     }
 
-    /// As the name filter is typed: what it keeps is found off the main thread (every path, every key), the newest wins.
+    /// Narrows the tree as the name filter is typed. Matches are found off the main thread, because each key checks
+    /// every path, and the newest search wins.
     func narrowTree() {
         guard let (paths, ignored) = shownPaths else { return }
-        listing += 1   // a listing being worked out was for the tree as it was
+        listing += 1   // a listing still being worked out was for the old tree
         narrowing?.cancel()
         guard let filter = nameFilter else {
             return show(FileNode.tree(paths, ignored: ignored ?? []), base: (paths, ignored ?? []))
@@ -74,7 +79,7 @@ extension FilesPanel {
                 let low = known ?? paths.map(NameFilter.folded)
                 return (low, Self.kept(paths, low, by: filter, changed: changed))
             }.value
-            guard !Task.isCancelled, ticket == listing else { return }   // a newer key, or a newer listing
+            guard !Task.isCancelled, ticket == listing else { return }   // a newer key or listing came in
             lowered = (paths, low)
             show(FileNode.tree(kept), base: nil)
         }
@@ -91,7 +96,7 @@ extension FilesPanel {
         (0..<outline.numberOfRows).first { (outline.item(atRow: $0) as? FileNode)?.children == nil }
     }
 
-    /// ↩ in the field opens the first file left, once the tree is narrowed; ⇧↩ beside.
+    /// Once the tree is narrowed, ↩ in the field opens the first file left, and ⇧↩ opens it beside.
     func openFirstOnReturn() {
         guard let event = NSApp.currentEvent, event.type == .keyDown else { return }
         let beside = event.modifierFlags.contains(.shift), narrowed = narrowing
@@ -116,7 +121,7 @@ extension FilesPanel {
         search.currentEditor()?.selectAll(nil)
     }
 
-    /// What sits under the bar: the replace field and what's wrong with a pattern.
+    /// Sets up the rows under the search bar: the replace field, and the label that says what's wrong with a pattern.
     func setUpSearchRows() {
         patternError.font = .ui(TextSize.caption)
         patternError.textColor = .textRed
@@ -131,7 +136,8 @@ extension FilesPanel {
         replaceRow.isHidden = true
     }
 
-    /// The field's magnifier menu chooses what to search, as in Finder and Mail; the choice is kept.
+    /// Sets up the magnifier menu in the search field, which chooses what to search, as in Finder and Mail. The choice
+    /// is kept.
     func setUpSearchMode() {
         let menu = NSMenu()
         for (title, name) in [(String(localized: "File Names"), true), (String(localized: "File Contents"), false)] {

@@ -20,7 +20,8 @@ extension Builtins {
                     SettingKeys.defaultAgent, "Default agent", .enum,
                     "Used by New Agent (⌥⌘T). More agents are in the Agent Catalog.",
                     options: app.catalog.all.map(\.id),
-                    // The agents installed now, by their names: asked when the row shows, not when this is declared.
+                    // The choices are the agents installed now, shown by name. They are worked out when the row shows,
+                    // not when this spec is declared.
                     choices: SettingChoices(
                         options: { app.catalog.installed(app.catalog.all).map(\.id) },
                         name: { app.catalog.name($0) })),
@@ -98,7 +99,8 @@ extension Builtins {
             previews: ["Plan limits": { AnyView(LimitsSample()) }])
     }
 
-    /// Under one heading, the help a line each: three "Skill:" titles and three-line help read as a wall.
+    /// The skill settings sit under one heading with one line of help each, because three "Skill:" titles with
+    /// three-line help read as a wall of text.
     private static var skillSpecs: [SettingSpec] {
         [
             s(
@@ -114,7 +116,7 @@ extension Builtins {
                 SettingKeys.skillTerminals, "Run commands in Kelp tabs", .boolean,
                 "Tests and servers run in a tab you can watch; Claude Code reads what they print.",
                 group: "Claude Code skills",
-                // A terminal's near-black, lifted in dark mode, where it sank.
+                // A terminal's near-black, made lighter in dark mode, where it sank into the background.
                 icon: (
                     "terminal.fill", .dynamic(light: NSColor(hex: 0x3A3A3C), dark: NSColor(white: 0.42, alpha: 1))
                 )),
@@ -291,17 +293,17 @@ extension SettingKeys {
     static let dockStripFullScreen = Setting("agents.dockStrip.fullScreen", true)
 }
 
-/// Each option's name, by `name`.
+/// Maps each option to the label that `name` gives it.
 private func labels(_ options: [String], _ name: (String) -> String) -> [String: String] {
     Dictionary(uniqueKeysWithValues: options.map { ($0, name($0)) })
 }
 
-/// How a notification comes, for each kind of news.
+/// The labels for how a notification comes, used by each kind of news.
 private let alerts = [
     "sound": String(localized: "Banner + Sound"), "banner": String(localized: "Banner"), "off": String(localized: "Off")
 ]
 
-/// "After 4 Hours": when an idle agent pauses.
+/// The label for when an idle agent pauses, like "After 4 Hours".
 private func pauseAfter(_ value: String) -> String {
     let minutes = Int(value) ?? -1
     return minutes == 0

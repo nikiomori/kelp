@@ -1,4 +1,5 @@
-// What a click or right-click on the commands bar does: a command's output, a run's tab, the menus.
+// What a click or a right-click on the commands bar does. It shows a command's output, opens a run's tab, or builds
+// the menus.
 import AppKit
 import Core
 import DesignKit
@@ -25,9 +26,10 @@ extension CommandsBar {
         popover.show(relativeTo: table.rect(ofRow: row), of: table, preferredEdge: .minY)
     }
 
-    /// A statement it ran with `kelp db query`: its rows in the database's tab, found among what ran on the workspace's
-    /// databases (`db.activity`, newest first) as the first of this agent's since the command started. False when it
-    /// isn't there (the daemon restarted since, or it didn't get as far as running).
+    /// Opens the rows of a statement the agent ran with `kelp db query` in the database's tab. The statement is the
+    /// earliest one this agent ran since the command started, among what ran on the workspace's databases
+    /// (`db.activity`, newest first). Returns false when it isn't there, because the daemon restarted since or the
+    /// command never got as far as running it.
     private func openDatabaseRun(_ command: AgentCommand) async -> Bool {
         guard let wid = app.session(session)?.worktreeId,
             let activity = await app.quiet(DatabaseActivity(worktreeId: wid))
@@ -42,7 +44,7 @@ extension CommandsBar {
         return true
     }
 
-    /// A command's row.
+    /// Fills the right-click menu of a command's row.
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         let row = table.clickedRow
@@ -64,7 +66,8 @@ extension CommandsBar {
             copyText(command)
         }
     }
-    /// The bar's own line: its last command, and the way to turn the shell tool's commands off.
+    /// Returns the menu of the bar's header line. It holds the actions for the current run or the last command, and a
+    /// way to turn off the shell tool's commands.
     func headerMenu() -> NSMenu {
         let menu = NSMenu(), app = app
         if let run = current {

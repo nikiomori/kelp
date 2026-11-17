@@ -1,4 +1,5 @@
-// A file tab's language: run/test/format commands, its project's change bars and language server.
+// How a file tab follows its language: the run, test and format commands, and the change bars and language server
+// of the file's project.
 import AppKit
 import Core
 import DesignKit
@@ -9,8 +10,8 @@ import WorkbenchKit
 
 // MARK: its project and language server
 extension FileTab {
-    /// The workspaces changed (or weren't known yet when the tab opened): the change bars and the language server follow
-    /// the file's project.
+    /// Moves the change bars and the language server to the file's project. Called when the workspaces change, or when
+    /// they weren't known yet as the tab opened.
     func followProject() {
         guard let editor, let found = ChangeBars.project(of: path, in: app.worktrees),
             changeBars == nil || found.worktree.path != root
@@ -18,7 +19,7 @@ extension FileTab {
         changeBars = ChangeBars(app: app, worktree: found.worktree, file: found.file, editor: editor) { [weak self] in
             self?.isEdited == true
         }
-        guard found.worktree.path != root else { return }   // its first bars: the project is the one it had
+        guard found.worktree.path != root else { return }   // the first bars, for the project the tab already had
         if lspOpenedOn != nil {
             LSPManager.of(app).close(root: root, path: path)
             lspOpenedOn = nil
@@ -31,8 +32,8 @@ extension FileTab {
         let filePath = path, projectRoot = root, app = app
         guard LSPManager.of(app).language(filePath)?.allServers.isEmpty == false,
             LSPManager.of(app).whenTrusted(projectRoot, { [weak self] in self?.startLSP() })
-        else { return }   // asked once per project
-        if lspOpenedOn != nil {   // again (a server installed since): what was open at the others is closed first
+        else { return }   // waits until the project is trusted (asked once per project)
+        if lspOpenedOn != nil {   // a restart (a server was installed since): close the file on the old servers first
             LSPManager.of(app).close(root: projectRoot, path: filePath)
             lspOpenedOn = nil
         }
@@ -47,7 +48,7 @@ extension FileTab {
         }
     }
 
-    /// The status bar names the file's language servers, and lists them with how to install one that's missing.
+    /// Makes the status bar name the file's language servers. A click lists them, with how to install a missing one.
     func nameServers(in bar: EditorStatusBar) {
         let app = app
         bar.onServers = { [weak self] button in
@@ -65,7 +66,7 @@ extension FileTab {
         }
     }
 
-    /// LSP: definition of the symbol at the cursor, opened as a tab.
+    /// Opens the definition of the symbol at the cursor as a tab, as the language server finds it (a beep if none).
     func jumpToDefinition() {
         guard let editor, let (line, column) = editor.cursor else { return }
         let filePath = path, projectRoot = root, app = app
@@ -88,8 +89,8 @@ extension FileTab {
 
     var language: LanguageSpec? { LSPManager.of(app).language(path) }
 
-    /// The language's `run`, `test` or `format` with this file's variables filled in. Nil when there's none (a beep
-    /// for a file of no language, else a banner).
+    /// Returns the language's `run`, `test` or `format` command with this file's variables filled in. Returns nil when
+    /// there is no such command, with a beep for a file with no language and a banner otherwise.
     func command(_ name: String) async -> String? {
         guard let lang = language, editor != nil else {
             NSSound.beep()
@@ -117,16 +118,16 @@ extension FileTab {
         return ShellTemplate.fill(template) { vars[$0] }
     }
 
-    /// Format Document: the text goes to the language's `format` on stdin and comes back formatted, as one undoable
-    /// edit with the cursor on its line. A failure shows the command's first lines of error.
+    /// Runs Format Document. The text goes to the language's `format` command on stdin and comes back formatted, as one
+    /// undoable edit with the cursor kept on its line. A failure shows the first lines of the command's error.
     func format() async {
         guard !remote else {
             NSSound.beep()
             return
-        }   // its formatter would run here, not on the host
+        }   // the formatter would run on this Mac, not on the host
         guard let cmd = await command("format"), let editor else { return }
         guard LSPManager.of(app).askTrust(root, again: true, { [weak self] in Task { await self?.format() } })
-        else { return }   // its toolchain may be the repo's
+        else { return }   // the formatter may be the repo's own code, so it needs trust
         let text = editor.text, line = editor.cursor?.line ?? 1
         let result = await Shell.run(app, cmd, cwd: url.deletingLastPathComponent().path, input: text, timeout: 20)
         guard result.code == 0 else {

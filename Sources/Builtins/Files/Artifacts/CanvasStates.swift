@@ -1,10 +1,10 @@
 import Foundation
 
-/// A canvas with nothing to draw yet, or nothing it can read, as Kelp's empty state (`EmptyStateView`'s anatomy in the
-/// page): a light symbol, a title, a line on why and what fills it, and its one action; and a board listed but not
-/// written yet as a dashed frame of its size.
+/// The empty states of a canvas, drawn in the page with the same parts as `EmptyStateView`. When there is nothing to
+/// draw yet, or nothing that can be read, the page shows a light symbol, a title, a line on why and what fills it, and
+/// one action. A board that is listed but not written yet shows as a dashed frame of its size.
 enum CanvasStates {
-    /// No boards in canvas.json yet. `writer`: the agent writing it now, if one is.
+    /// The state for a canvas.json with no boards yet. `writer` is the agent writing it now, if there is one.
     static func empty(writer: String?) -> String {
         let line =
             writer.map {
@@ -14,7 +14,8 @@ enum CanvasStates {
         return block(symbol: grid, title: String(localized: "No Boards Yet"), line: line, detail: nil, actions: "")
     }
 
-    /// canvas.json doesn't read: why, where, and the two ways to fix it (by hand, or by its agent).
+    /// The state for a canvas.json that can't be read: why, where, and the two ways to fix it (by hand, or by the
+    /// agent).
     static func unreadable(_ why: String, file: String, agent: String?) -> String {
         let ask = String(localized: "Ask \(agent ?? String(localized: "the Agent")) to Fix")
         let open = String(localized: "Open File"), quoted = CanvasPage.escape(why)
@@ -27,7 +28,7 @@ enum CanvasStates {
             actions: actions)
     }
 
-    /// A board canvas.json names but whose file isn't there yet, at its size.
+    /// The frame for a board that canvas.json names but whose file isn't there yet, drawn at the board's size.
     static func unwritten(_ name: String, file: String, w: Int, h: Int?, writing: Bool) -> String {
         let label = writing ? "<span class=\"kelp-ring\"></span>" : ""
         return """

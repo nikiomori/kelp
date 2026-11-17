@@ -3,9 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The Artifacts panel's rows: a heading, or a page's kind, title (bold until opened), Claude's mark for a page on
-/// claude.ai, how many of its title there are, a second line when there's news, and when it last changed, which turns
-/// into ↗ under the pointer for a page that opens in the browser.
+/// Builds the rows of the Artifacts panel. A row is a heading, or a page. A page's row shows its kind, its title (bold
+/// until opened), Claude's mark when the page is on claude.ai, how many pages share the title, a second line when there
+/// is news, and when it last changed. For a page that opens in the browser, the time turns into ↗ under the pointer.
 @MainActor
 struct ArtifactCells {
     let panel: ArtifactsPanel
@@ -31,7 +31,7 @@ struct ArtifactCells {
             panel.title(item, project), font: .ui(TextSize.row, weight: panel.isNew(item) ? .semibold : .regular))
         var title: [NSView] = [name]
         if item.url != nil, let logo = panel.app.catalog.icon(Session.claudeAgent, size: Metrics.iconSmall) {
-            // A page on claude.ai, not a file here: the mark of where it lives, beside the name.
+            // The page is on claude.ai, not a file here, so the name gets the mark of where it lives.
             let mark = NSImageView(image: logo)
             mark.toolTip = String(localized: "On claude.ai: opens in your browser")
             mark.setContentCompressionResistancePriority(.required, for: .horizontal)
@@ -69,7 +69,8 @@ struct ArtifactCells {
         return row
     }
 
-    /// When it last changed, or a spinner while its agent writes it; ↗ in its place under the pointer for a web page.
+    /// The end of a page's row: when the page last changed, or a spinner while its agent writes it. For a web page, a
+    /// hidden ↗ follows, which takes the time's place under the pointer.
     private func end(_ item: ArtifactItem) -> [NSView] {
         if panel.writing(item) {
             let ring = NSProgressIndicator()
@@ -94,7 +95,8 @@ struct ArtifactCells {
 
 }
 
-/// A page's row: under the pointer its time gives way to ↗ (when it has one), and the panel hears of it for the card.
+/// The row for a page. Under the pointer, the row's time is swapped for ↗ (when the row has one), and the row tells
+/// the panel, which shows the page's card.
 final class ArtifactCell: NSStackView, Hoverable {
     var onHover: (Bool) -> Void = { _ in }
     func setHover(_ on: Bool) {

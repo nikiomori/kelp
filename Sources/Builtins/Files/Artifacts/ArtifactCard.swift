@@ -4,10 +4,10 @@ import DesignKit
 import KelpKit
 import Markdown
 
-/// The card a page's row shows when the pointer rests on it, beside the panel: a picture of the top of the page (of the
-/// file, or of Kelp's copy of a page on a service, `ArtifactItem.preview`, drawn by `ArtifactShots`), its whole title,
-/// and who made it and when. Rows of text-heavy pages look alike as thumbnails; at this size the page's headings and
-/// pictures can be read.
+/// The card shown beside the panel when the pointer rests on a page's row. It holds a picture of the top of the page,
+/// the page's whole title, and who made it and when. The picture is drawn by `ArtifactShots` from the file, or from
+/// Kelp's copy of a page on a service (`ArtifactItem.preview`). Text-heavy pages look alike as thumbnails, but at this
+/// size their headings and pictures can be read.
 @MainActor
 final class ArtifactCard {
     struct Shown {
@@ -20,7 +20,7 @@ final class ArtifactCard {
     private let card = HoverPopover()
     private var shownTarget: String?
     private let shots = ArtifactShots()
-    /// The picture's place: a grey fill until the page is drawn, then the page, faded in.
+    /// The place for the picture. It is a grey fill until the page is drawn, and then the page fades in.
     private lazy var picture: NSImageView = {
         let view = NSImageView()
         view.imageScaling = .scaleProportionallyUpOrDown
@@ -42,7 +42,7 @@ final class ArtifactCard {
         }
     }
 
-    /// The pointer is over a page's row, or over none.
+    /// Called when the pointer moves over a page's row (`shown`), or off every row (nil).
     func hover(_ shown: Shown?, rect: NSRect, in view: NSView) {
         guard let shown else {
             card.closeSoon()
@@ -99,7 +99,7 @@ final class ArtifactCard {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Metrics.lineGap
-        // A page published before Kelp kept copies has no picture: the card is its title alone.
+        // A page published before Kelp kept copies has no picture, so the card starts with its title.
         if item.preview != nil { stack.setCustomSpacing(Metrics.gap + 2, after: picture) }
         stack.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 10, right: 8)
         stack.widthAnchor.constraint(equalToConstant: Self.size.width + 16).isActive = true
@@ -110,8 +110,8 @@ final class ArtifactCard {
         NSTextField.label(text, font: .ui(TextSize.caption), color: .secondaryLabelColor)
     }
 
-    /// A page of HTML as it is; Markdown as its tab draws it. Read through the daemon, as a tab reads it; one it
-    /// refuses (too big) or that can't be drawn leaves the grey place.
+    /// Draws the picture of a page: HTML as it is, Markdown the way its tab draws it. The file is read through the
+    /// daemon, as a tab reads it. When the daemon refuses it (too big) or it can't be drawn, the grey fill stays.
     private func load(_ path: String, version: Double, dark: Bool, board: Bool) {
         loading?.cancel()
         let base = URL(fileURLWithPath: path).deletingLastPathComponent(), app = self.app

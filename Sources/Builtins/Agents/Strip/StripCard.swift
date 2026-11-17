@@ -1,24 +1,26 @@
-// The card over the agent strip: one agent's question, answered with Kelp left behind.
+// The card over the agent strip, where the user answers one agent's question while Kelp stays behind other apps.
 import AppKit
 import Core
 import DesignKit
 import KelpKit
 
-/// Over the strip: one agent's question, answered from here with Kelp left behind, the way its banner answers. It takes the
-/// keyboard as it opens (⏎ Allow or Send, ⌘⌫ Deny, a digit picks an answer, ⎋ closes) and goes as a popover goes: on a
-/// click anywhere else, or another Space.
+/// A card over the strip that shows one agent's question, so the user can answer it while Kelp stays behind, as from
+/// the agent's banner. It takes the keyboard as it opens (⏎ is Allow or Send, ⌘⌫ is Deny, a digit picks an answer,
+/// ⎋ closes). It closes as a popover does, on a click anywhere else or a move to another Space.
 @MainActor
 final class StripCard {
     static let width: CGFloat = 320
-    /// A card can come up under a click meant for something else: Allow takes clicks only after this, filling in meanwhile.
+    /// A card can come up under a click meant for something else, so Allow takes clicks only after this delay and fills
+    /// in meanwhile.
     static let arming: TimeInterval = 0.6
     static var armAfter: Duration { .milliseconds(Int(arming * 1000)) }
 
-    /// How it was left: put off, answered, or just closed or gone to Kelp.
+    /// How the card was left: put off, answered, or just closed or left for Kelp.
     enum End { case later, answered, left }
 
     let session: String
-    /// The question it shows: Allow answers this one. Another asked meanwhile is the strip's to show in a new card.
+    /// The question the card shows, which is the one Allow answers. If the agent asks another question meanwhile, the
+    /// strip shows it in a new card.
     let question: String
     let app: AppModel
     let onEnd: (End) -> Void
@@ -36,7 +38,7 @@ final class StripCard {
         return field
     }()
 
-    /// `position`: which of the questions waiting this is, and of how many, when there are more.
+    /// `position` says which of the waiting questions this is, and out of how many, when more than one waits.
     init(
         _ s: Session, app: AppModel, fullScreen: Bool, position: (Int, Int)? = nil,
         onEnd: @escaping (End) -> Void
@@ -74,8 +76,8 @@ final class StripCard {
         onEnd(.answered)
     }
 
-    /// One of its question's answers, picked in its menu; not there any more (answered in the terminal, another question
-    /// on screen), the agent is shown.
+    /// Sends an answer the user picked in the question's menu. If the question is gone (answered in the terminal, or
+    /// another question is on screen), Kelp shows the agent instead.
     func pick(_ label: String) {
         let id = session, app = app, asked = question
         Task {
@@ -87,7 +89,8 @@ final class StripCard {
         onEnd(.answered)
     }
 
-    /// As from a banner: sent with Kelp behind; refused (a half-typed line in its prompt), the agent is shown.
+    /// Sends the typed reply with Kelp left behind, as a banner does. If the agent refuses it (say, a half-typed line
+    /// sits in its prompt), Kelp shows the agent instead.
     @objc func send() {
         say(reply.stringValue.trimmingCharacters(in: .whitespacesAndNewlines))
     }
@@ -104,7 +107,8 @@ final class StripCard {
         onEnd(.answered)
     }
 
-    /// Over the strip, or under it at the top of a screen; lined up with the strip's corner.
+    /// Shows the card above the strip, or below it when the strip is at the top of a screen, lined up with the strip's
+    /// corner.
     func show(by strip: NSRect, in area: NSRect?, at corner: StripCorner) {
         guard let shown = panel, let content = shown.contentView else { return }
         content.layoutSubtreeIfNeeded()
@@ -116,7 +120,7 @@ final class StripCard {
             frame.origin.x = min(max(frame.minX, area.minX + Metrics.gapWide), area.maxX - size.width - Metrics.gapWide)
         }
         shown.slideIn(to: frame, by: CGVector(dx: 0, dy: Motion.reduced ? 0 : -8))
-        // Keys come here now; Kelp stays behind, so the app in front is still the one in front once it closes.
+        // The card takes the keys now. Kelp stays behind, so the app in front is still in front once the card closes.
         shown.makeKey()
         if reply.superview != nil { shown.makeFirstResponder(reply) }
         watch()
@@ -142,7 +146,7 @@ final class StripCard {
         watchers = []
         if let spaces { NSWorkspace.shared.notificationCenter.removeObserver(spaces) }
         spaces = nil
-        // It goes as the strip does: faded, not cut.
+        // The card fades out as the strip does, rather than vanishing at once.
         panel?.fadeOut()
         panel = nil
     }

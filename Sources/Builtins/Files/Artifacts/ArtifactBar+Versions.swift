@@ -3,11 +3,12 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A page's kept versions in its bar: back and forward through them, one shown in the preview and restored, the
-/// menu that lists them, and the version a doc's changes are counted from.
+/// The kept versions of a page, in its bar. This steps back and forward through them, shows one in the preview and
+/// restores it, lists them in a menu, and picks the version a doc's changes are counted from.
 extension ArtifactBar {
-    /// The version a doc's changes are counted from, the one its agent's last turn started from: the version before the
-    /// last kept one, or the last kept one while a turn is writing the file (the file then differs from it).
+    /// Picks the version a doc's changes are counted from, which is the one the agent's last turn started from. That is
+    /// the version before the last kept one, or the last kept one while a turn is still writing the file (because the
+    /// file then differs from it).
     func followBaseline(versions: [ArtifactVersion], live: Bool) {
         let n = (live ? versions.last : versions.dropLast().last)?.n
         guard n != baselineN else { return }
@@ -25,7 +26,7 @@ extension ArtifactBar {
         show(index == entries.count - 1 ? nil : index)
     }
 
-    /// Entry `i` in the preview (nil: the file as it is).
+    /// Shows entry `index` in the preview, or the current file when `index` is nil.
     func show(_ index: Int?) {
         guard let index, let version = entries[index].version else {
             shownN = nil

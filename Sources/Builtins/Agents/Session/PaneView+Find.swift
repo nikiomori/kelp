@@ -12,7 +12,7 @@ extension PaneView {
         switch NSFindPanelAction(rawValue: UInt((sender as? NSMenuItem)?.tag ?? 1)) {
         case .next?: terminal.perform(action: "navigate_search:next")
         case .previous?: terminal.perform(action: "navigate_search:previous")
-        // Ghostty answers with start_search and the text
+        // Ghostty answers with start_search and the selected text
         case .setFindString?: terminal.perform(action: "search_selection")
         default: showFind(nil)
         }

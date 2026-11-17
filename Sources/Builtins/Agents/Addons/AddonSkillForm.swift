@@ -3,7 +3,7 @@ import Core
 import DesignKit
 import KelpKit
 
-/// New Skill: a name for a SKILL.md to fill in, for every agent or only in this project.
+/// The New Skill sheet. It asks for the name of a SKILL.md to fill in, for every agent or only in this project.
 @MainActor
 final class AddonSkillForm: NSObject, NSTextFieldDelegate {
     private let field = NSTextField()
@@ -35,7 +35,7 @@ final class AddonSkillForm: NSObject, NSTextFieldDelegate {
         alert.buttons.first?.isEnabled = false
     }
 
-    /// What was typed and whether it's the project's only; nil when cancelled.
+    /// Returns what was typed and whether the skill is only for this project; nil when cancelled.
     func ask() async -> (text: String, project: Bool)? {
         guard await runSheet(alert) == .alertFirstButtonReturn else { return nil }
         let typed = field.stringValue.trimmingCharacters(in: .whitespaces)

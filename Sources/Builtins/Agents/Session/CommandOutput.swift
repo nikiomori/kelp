@@ -3,8 +3,8 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A command an agent ran, in a popover over its row: the whole command, how it went, and the end of what it printed
-/// (the last 4 KB, as the hook gave it), to read or copy.
+/// A popover over a command's row that shows a command an agent ran. It shows the whole command, how it ended, and the
+/// end of what it printed (the last 4 KB, as the hook passed it on), for the user to read or copy.
 @MainActor
 final class CommandOutput: NSViewController {
     private let command: AgentCommand
@@ -21,7 +21,7 @@ final class CommandOutput: NSViewController {
         let title = NSTextField(wrappingLabelWithString: agentCommand.command)
         title.font = .uiMono(TextSize.row)
         title.maximumNumberOfLines = 6
-        title.preferredMaxLayoutWidth = Self.width - 2 * Metrics.inset   // wraps at the popover's width, and says how tall that is
+        title.preferredMaxLayoutWidth = Self.width - 2 * Metrics.inset   // wraps at this width, reporting its height
         title.isSelectable = true
         let said = NSTextField(
             labelWithString: [agentCommand.description, Self.outcome(agentCommand)].compactMap { $0 }.joined(
@@ -46,10 +46,10 @@ final class CommandOutput: NSViewController {
         for x in stack.arrangedSubviews { x.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
         stack.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
         view = stack
-        preferredContentSize = stack.fittingSize   // the popover's own size otherwise, whatever the text
+        preferredContentSize = stack.fittingSize   // without this the popover keeps its own size, whatever the text
     }
 
-    /// What it printed, scrolled to its end; or why there's nothing to show.
+    /// Returns what the command printed, scrolled to its end, or a line saying why there is nothing to show.
     private func output() -> NSView {
         guard let out = command.output else {
             let none = NSTextField(
@@ -65,7 +65,7 @@ final class CommandOutput: NSViewController {
         }
         let scroll = NSTextView.scrollableTextView()
         scroll.drawsBackground = false
-        // As tall as what it printed, up to 300 pt.
+        // The view is as tall as the output, up to 300 pt.
         let lines = CGFloat(out.reduce(into: 1) { n, ch in if ch == "\n" { n += 1 } })
         scroll.heightAnchor.constraint(
             equalToConstant: min(300, lines * ceil(NSFont.uiMono(TextSize.caption).boundingRectForFont.height) + 12)
@@ -82,7 +82,7 @@ final class CommandOutput: NSViewController {
         return scroll
     }
 
-    /// "Exit code 1", "Stopped", "Running in the background"…
+    /// Returns how the command went, such as "Exit code 1", "Stopped" or "Running in the background".
     static func outcome(_ agentCommand: AgentCommand) -> String {
         switch agentCommand.outcome {
         case nil: String(localized: "Running for \(CommandRow.time(agentCommand, now: Date()))")

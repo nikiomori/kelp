@@ -1,18 +1,19 @@
 import Core
 import Foundation
 
-/// A design's canvas as the tab shows it: rows of boards, each board in a frame of its own (an iframe, so its styles
-/// and its phone width are its own). The frame holds the board's fragment on a page Kelp makes from the project's
-/// design system, once in light and once in dark when the system has a dark theme. The boards' scripts don't run;
-/// Kelp's script (`script`) sizes the frames, fits the canvas to the pane and checks what is drawn.
+/// Builds a design's canvas as the tab shows it: rows of boards, each board in its own frame (an iframe, so the board
+/// keeps its own styles and phone width). Each frame holds the board's fragment on a page Kelp makes from the
+/// project's design system, once in light and once in dark when the system has a dark theme. The boards' scripts
+/// don't run. Kelp's own script (`script`) sizes the frames, fits the canvas to the pane and checks what is drawn.
 enum CanvasPage {
-    /// Which themes the boards show in (a view preference of this Mac; none set: the window's own).
+    /// Which themes the boards show in. It is a view preference of this Mac; when none is set, the window's own
+    /// theme is used.
     enum Themes: String, CaseIterable { case both, light, dark }
     static let themesKey = "artifacts.canvasThemes"
 
-    /// How the canvas is drawn: in which themes, who is writing it now (their board gets the ring), and whether it is a
-    /// dashboard, which shows its boards as the pane's page, one view at a time, without rows, names or sizes
-    /// (`DashboardPage`).
+    /// How the canvas is drawn: in which themes, which agent is writing it now (the board being written gets the
+    /// ring), and whether it is a dashboard. A dashboard shows its boards as the pane's page, one view at a time,
+    /// without rows, names or sizes (`DashboardPage`).
     struct View: Sendable {
         var themes: Themes
         var writer: String?
@@ -21,17 +22,17 @@ enum CanvasPage {
 
     struct Built: Sendable {
         var html: String
-        /// What the files themselves say is wrong, before anything is drawn: part of the check.
+        /// The problems found in the files themselves before anything is drawn. They are part of the check.
         var issues: [String]
         /// Each board's tweaks, and the marks not sent yet (`CanvasEdit`).
         var tweaks: [String: [Tweak]] = [:]
         var marks: [CanvasMark] = []
-        /// The design system's token names by group: the properties panel's choices (`CanvasEditMode`).
+        /// The design system's token names by group, which are the choices in the properties panel (`CanvasEditMode`).
         var tokens: [String: [String]] = [:]
     }
 
-    /// The page for `snapshot` (the canvas and its boards' text), with the design system from `root` and the marks from
-    /// `folder`. Reads files: off the main thread.
+    /// Builds the page for `snapshot` (the canvas and the text of its boards), with the design system from `root` and
+    /// the marks from `folder`. It reads files, so call it off the main thread.
     static func build(_ snapshot: CanvasSnapshot, folder: URL, root: String, view: View) -> Built {
         let themes = view.themes
         let json = snapshot.canvas
@@ -47,7 +48,7 @@ enum CanvasPage {
                 why, file: Artifacts.projectPath(folder.appendingPathComponent("canvas.json").path), agent: view.writer)
             return Built(html: shell(body: page), issues: ["canvas.json: " + why])
         }
-        // The board its agent saved last is the one being written, while it writes.
+        // While the agent writes, the board it saved last is the one being written.
         let newest =
             view.writer == nil
             ? nil
@@ -95,7 +96,8 @@ enum CanvasPage {
             marks: marks, tokens: DesignSystem.names(tokens: tokensJSON))
     }
 
-    /// A board's own page: `vars` (the system's tokens for its theme, then its tweaks), the kit, then the fragment.
+    /// Returns a board's own page: `vars` (the system's tokens for the theme, then the board's tweaks), then the kit,
+    /// then the fragment.
     static func boardPage(_ fragment: String, theme: String, vars: String, kit: String, base: URL) -> String {
         """
         <!doctype html><html data-theme="\(theme)"><head><meta charset="utf-8"><base href="\(base.absoluteString)/">
@@ -124,7 +126,7 @@ enum CanvasPage {
             """
     }
 
-    /// What's wrong in a board's source, without drawing it.
+    /// Returns what's wrong in a board's source, found without drawing it.
     static func lint(_ source: String, board: String, hasSystem: Bool) -> [String] {
         var out: [String] = []
         if source.range(of: "<script", options: .caseInsensitive) != nil {
@@ -143,7 +145,7 @@ enum CanvasPage {
         return out
     }
 
-    /// Why canvas.json doesn't read: where its JSON breaks, or that it isn't a list of boards.
+    /// Says why canvas.json can't be read: where its JSON breaks, or that it isn't a list of boards.
     static func problem(_ json: String) -> String {
         do { _ = try JSONSerialization.jsonObject(with: Data(json.utf8)) } catch {
             return ((error as NSError).userInfo[NSDebugDescriptionErrorKey] as? String) ?? error.localizedDescription
@@ -179,7 +181,7 @@ enum CanvasPage {
         Artifacts.small(url.path, limit: 4 << 20).map { String(decoding: $0, as: UTF8.self) }
     }
 
-    /// Text for an attribute or an element: `&`, `<`, `>` and `"` escaped.
+    /// Escapes `&`, `<`, `>` and `"`, so the text can go in an attribute or an element.
     static func escape(_ text: String) -> String {
         text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;")

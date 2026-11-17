@@ -7,7 +7,7 @@ import KelpKit
 import SwiftUI
 
 extension AgentsSettings {
-    /// Found after its installer ended: offered in New Agent from now on.
+    /// The row for an agent found after its installer ended. New Agent offers the agent from now on.
     func started(_ agentManifest: AgentManifest) -> some View {
         HStack {
             Label {
@@ -67,10 +67,11 @@ extension AgentsSettings {
             if let cmd = agentManifest.update {
                 Button(newer(versionInfo) ? String(localized: "Update") : String(localized: "Check for Update")) {
                     run(cmd, String(localized: "Update \(agentManifest.name)"))
-                }.help(cmd).disabled(versions.isEmpty)   // "Checking…" beside it
+                }.help(cmd).disabled(versions.isEmpty)   // while "Checking…" shows beside it
             }
         }
-        // The agents of SSH projects run on their hosts: the same command there, one terminal per host.
+        // The agents of SSH projects run on their hosts, so Update on Hosts runs the same command there, in one
+        // terminal per host.
         if let cmd = agentManifest.update, !hosts.isEmpty {
             HStack {
                 let names = hosts.map(\.host).joined(separator: ", ")
@@ -85,8 +86,9 @@ extension AgentsSettings {
         }
     }
 
-    /// How Kelp starts it: binary, arguments, environment (and a provider's variables).
-    /// Bordered fields as wide as the card, as the text settings are bordered: an agent's environment lines are long.
+    /// The Launch section: how Kelp starts the agent, with its binary, arguments and environment (and a provider's
+    /// variables). The fields are bordered and as wide as the card, like the text settings, because an agent's
+    /// environment lines are long.
     func launch(_ agentManifest: AgentManifest) -> some View {
         Section {
             input("Command", $command, .command)
@@ -111,7 +113,8 @@ extension AgentsSettings {
         }
     }
 
-    /// A bordered field beside its name, its text from the left: a form sets a field's text at its trailing end.
+    /// A bordered field beside its name, with its text aligned left, because a form otherwise puts a field's text at
+    /// the trailing end.
     private func input(
         _ title: LocalizedStringKey, _ text: Binding<String>, _ which: LaunchField, prompt: LocalizedStringKey? = nil,
         lines: ClosedRange<Int> = 1...1
@@ -125,7 +128,7 @@ extension AgentsSettings {
         }
     }
 
-    /// One remote project's folder per host: a command run in it runs on that host, in its login shell.
+    /// One remote project's folder per host. A command run in that folder runs on the host, in the host's login shell.
     private var hosts: [(host: String, folder: String)] {
         var seen = Set<String>()
         return app.repos.compactMap { repo in
@@ -137,7 +140,7 @@ extension AgentsSettings {
         guard let starter = app.workbench.starter else {
             run(agentManifest.install ?? "", String(localized: "Install \(agentManifest.name)"))
             return
-        }   // says what to do
+        }   // with no workspace, run() says what to do on a banner
         app.catalog.install(agentManifest, in: starter)
         app.workbench.bringToFront()
     }
@@ -147,7 +150,7 @@ extension AgentsSettings {
         app.workbench.bringToFront()
     }
 
-    /// The agent's own command, in a terminal in the workspace on screen, so what it does is in plain sight.
+    /// Runs the agent's own command in a terminal in the workspace on screen, so what it does is in plain sight.
     private func run(_ cmd: String, _ title: String, in folder: String? = nil) {
         guard let starter = app.workbench.starter else {
             copyText(cmd)
@@ -159,13 +162,15 @@ extension AgentsSettings {
     }
 
     func loadVersions() async {
-        // Quiet: a version beside each agent (npm offline, say); unknown versions just stay blank.
+        // Uses `quiet`, because a version beside each agent is only decoration (npm may be offline, say). Unknown
+        // versions just stay blank.
         let rows = await app.quiet(AgentsVersions(), timeout: 60) ?? []
         var byId: [String: (String?, String?)] = [:]
         for row in rows { byId[row.id] = (row.version, row.latest) }
         for a in agents where byId[a.id] == nil { byId[a.id] = (nil, nil) }
         versions = byId
-        // What an installer runs with: without it, Install says what to get first. Not knowing, nothing is held back.
+        // Checks for the tools installers run with. When one is missing, Install says what to get first. When the
+        // check fails, nothing is held back.
         if let found = await app.quiet(ProcessWhich(commands: ["npm", "brew"])) {
             lacking = Set(["npm", "brew"].filter { found[$0] == nil })
         }
@@ -209,8 +214,8 @@ extension AgentsSettings {
         }
     }
 
-    /// Only what changed: looking at an agent mustn't leave an override behind. The values go along now, since the fields
-    /// may hold another agent by the time the keychain answers.
+    /// Saves only when something changed, because just looking at an agent mustn't leave an override behind. The
+    /// values are copied now, since the fields may hold another agent by the time the keychain answers.
     func persist() {
         guard let agent = agents.first(where: { $0.id == loaded }) else { return }
         guard command != agent.command || args != agent.args.joined(separator: " ") || env != Self.envText(agent) else {
@@ -220,7 +225,7 @@ extension AgentsSettings {
         Task { await save(agent, command: c, args: a, env: e) }
     }
 
-    /// A secret the keychain refused, or a file that couldn't be written, says why.
+    /// Saves the launch settings. When the keychain refuses a secret or the file can't be written, a banner says why.
     private func save(_ agent: AgentManifest, command: String, args: String, env: String) async {
         var manifest = agent
         manifest.command = command
@@ -231,15 +236,15 @@ extension AgentsSettings {
                 return parts.count == 2
                     ? (String(parts[0]).trimmingCharacters(in: .whitespaces), String(parts[1])) : nil
             }, uniquingKeysWith: { $1 })
-        // Secrets: the daemon puts them in the keychain; the file only says where they are.
+        // The daemon puts secrets in the keychain, and the file only says where they are.
         for (k, v) in pairs where AgentManifest.isSecret(k) && v != AgentManifest.keychainValue && !v.isEmpty {
             guard await app.call(AgentSetSecret(agent: manifest.id, key: k, value: v)) != nil else { return }
             pairs[k] = AgentManifest.keychainValue
         }
         for k in manifest.env.keys where pairs[k] == nil && manifest.env[k] == AgentManifest.keychainValue {
-            await app.call(AgentSetSecret(agent: manifest.id, key: k))   // removed: forget it
+            await app.call(AgentSetSecret(agent: manifest.id, key: k))   // the secret was removed, so forget it
         }
-        manifest.env = pairs.filter { !$0.value.isEmpty }   // a preset's blank line until it's filled in
+        manifest.env = pairs.filter { !$0.value.isEmpty }   // drops a preset's blank line until it is filled in
         let file: JSONValue
         do { file = try JSONValue.from(manifest) } catch {
             Banner.show(
@@ -248,7 +253,7 @@ extension AgentsSettings {
         }
         guard await app.call(AgentSave(agent: manifest.id, manifest: file)) != nil else { return }
         files = AgentManifest.load(dir: Paths.agents)
-        if field == nil { load() }   // a secret reads as the keychain's mark now; not under someone's typing
+        if field == nil { load() }   // reloads so a secret shows the keychain's mark, but not while someone types
         app.agents = AgentManifest.load(dir: Paths.agents)
         app.availability.refresh(force: true)
     }

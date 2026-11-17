@@ -3,9 +3,10 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Add a Skill or MCP Server: one field for what's at hand (a command, an address, JSON, a skill's folder or a
-/// repository of skills); under it what Kelp read of it, where it will be used, and which agents get it; then what
-/// this Mac has already that only some agents see, a click each. Editing a server is the same sheet, filled in.
+/// The Add a Skill or MCP Server sheet. It has one field for whatever the person has at hand (a command, an address,
+/// JSON, a skill's folder or a repository of skills). Under the field it shows what Kelp read from it, where it will
+/// be used, and which agents get it. Then it lists what this Mac already has that only some agents see, each handed on
+/// with one click. Editing a server uses the same sheet, filled in.
 @MainActor
 final class AddonSheet: NSObject, NSTextFieldDelegate {
     enum Added {
@@ -21,13 +22,14 @@ final class AddonSheet: NSObject, NSTextFieldDelegate {
     let field = NSTextField()
     let name = NSTextField()
     let scope = NSSegmentedControl()
-    /// What Kelp read and who gets it: rebuilt as the field changes.
+    /// The boxes that show what Kelp read and who gets it, rebuilt as the field changes.
     let read = NSStackView()
     private let add = NSButton()
     private(set) var paste: AddonPaste?
-    /// What a server signs in with, by "env:KEY" / "header:KEY": the values typed here replace what was pasted.
+    /// The fields for what a server signs in with, keyed by "env:KEY" or "header:KEY". Values typed here replace the
+    /// ones that were pasted.
     var secrets: [String: NSSecureTextField] = [:]
-    /// Something on this Mac was handed on from the sheet: the list is read again whatever the sheet ends with.
+    /// True once the sheet has handed on something found on this Mac, so the list is read again however the sheet ends.
     private(set) var changed = false
 
     init(app: AppModel, worktreeId: String, project: String, items: [Addon], editing: Editing? = nil) {
@@ -40,7 +42,8 @@ final class AddonSheet: NSObject, NSTextFieldDelegate {
         build()
     }
 
-    /// What to add; nil when cancelled. `changed` says whether the sheet handed something on meanwhile.
+    /// Shows the sheet and returns what to add; nil when cancelled. `changed` says whether the sheet handed something
+    /// on meanwhile.
     func ask() async -> Added? {
         guard await runSheet(window) == .OK, let paste else { return nil }
         let shared = scope.selectedSegment == 1
@@ -78,7 +81,7 @@ final class AddonSheet: NSObject, NSTextFieldDelegate {
         read.orientation = .vertical
         read.alignment = .leading
         read.spacing = Metrics.inset
-        if let editing {   // the entry as its file spells it, over several lines; where it lives stays
+        if let editing {   // the entry shows as its file spells it, and the scope is locked so it stays in that file
             field.stringValue = editing.json
             field.usesSingleLineMode = false
             field.cell?.wraps = true
@@ -111,10 +114,10 @@ final class AddonSheet: NSObject, NSTextFieldDelegate {
         if (note.object as? NSTextField) === field { show() }
     }
 
-    /// The boxes under the field for what it holds now, and the sheet as tall as they are.
+    /// Rebuilds the boxes under the field for what the field holds now, and resizes the sheet to fit them.
     private func show() {
         let now = AddonPaste.read(field.stringValue)
-        // Typing on in the field keeps what was typed into the boxes below, while it's still the same kind of thing.
+        // While the field still holds the same kind of thing, typing in it keeps what was typed into the boxes below.
         let same = now?.isServer == paste?.isServer && now != nil
         paste = now
         if !same { secrets = [:] }
@@ -145,7 +148,8 @@ final class AddonSheet: NSObject, NSTextFieldDelegate {
         }
     }
 
-    /// A row of Found on This Mac was taken: handed on at once, by the same calls the rows' menus make.
+    /// Hands on an item the person picked under Found on This Mac at once, with the same calls that the menus on the
+    /// panel's rows make.
     func take(_ addon: Addon, done: @escaping () -> Void) {
         guard let key = addon.key else { return }
         Task { [app, worktreeId] in

@@ -5,7 +5,8 @@ import EditorKit
 import KelpKit
 import WorkbenchKit
 
-/// What a language server does beyond the file on screen: where a symbol is used, renaming it, its fixes.
+/// The language server's actions that reach beyond the file on screen: finding where a symbol is used, renaming it,
+/// and quick fixes.
 @MainActor
 struct LanguageServerActions {
     let app: AppModel, tab: FileTab, root: String
@@ -14,7 +15,8 @@ struct LanguageServerActions {
         tab.editor?.cursor.map { (tab.path, $0.line, $0.column) }
     }
 
-    /// In the Files panel's results, grouped by file as those are.
+    /// Finds where the symbol at the cursor is used, and lists the places in the Files panel's results, grouped by file
+    /// as the panel's results are.
     func findReferences() {
         guard let place else { return }
         let app = app, request = LSPReferences(root: root, path: place.path, line: place.line, column: place.column)
@@ -65,7 +67,8 @@ struct LanguageServerActions {
             for action in actions {
                 menu.add(action.title) {
                     Task {
-                        // A fix that reaches other files (the server names them, anywhere) shows which first, as a rename does.
+                        // A fix that changes other files (the server names them, anywhere) lists those files first,
+                        // as a rename does.
                         if action.files.contains(where: { $0.path != path }) {
                             guard
                                 await Self.confirm(
@@ -97,10 +100,11 @@ struct LanguageServerActions {
             action: button)
     }
 
-    /// The tab's own file takes the edits in its buffer, for its undo. Others are written, over the version just read; a file
-    /// with unsaved edits holds the whole change back, half a rename being worse than none.
+    /// Applies a language server's edits. The tab's own file takes its edits in the buffer, so undo covers them. Other
+    /// files are written over the version just read. When another file has unsaved edits, the whole change is held
+    /// back, because half a rename is worse than none.
     func apply(_ files: [CodeFileEdit]) async {
-        // A server may name it by its real path, the tab by the one it was given (/tmp, /private/tmp).
+        // A server may name a file by its real path, and the tab by the path it was given (/tmp versus /private/tmp).
         func real(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
         let own = real(tab.path), others = files.filter { real($0.path) != own }
         let edited = Set(app.workbench.editedFiles.compactMap { $0.fileURL.map { real($0.path) } })

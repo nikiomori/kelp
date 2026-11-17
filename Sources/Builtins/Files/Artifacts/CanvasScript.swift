@@ -1,11 +1,11 @@
 import Foundation
 
-/// Kelp's script that runs beside a canvas (`MarkdownTab.world`; the boards' own scripts don't run). It makes each
-/// board's frame as tall as what it holds (unless the board's height is fixed), fits the canvas to the pane, and checks
+/// Kelp's script that runs beside a canvas, in `MarkdownTab.world` (the boards' own scripts don't run). It makes each
+/// board's frame as tall as its content (unless the board's height is fixed), fits the canvas to the pane, and checks
 /// what is drawn: text cut off, contrast under 4.5:1, a board wider or taller than its frame, an image that doesn't
-/// load, and controls without a `data-id`. The result goes to `kelpSync` as `{kind: "check", issues}`, after the files'
-/// own checks (`CanvasPage.lint`), to the column's Check list (`kelp-check` with `window.kelpIssues`), and onto the
-/// boards as a `!` on each element at fault.
+/// load, and controls without a `data-id`. The findings, after those from the files' own checks (`CanvasPage.lint`),
+/// go three places: to `kelpSync` as `{kind: "check", issues}`, to the Check list in the column (`kelp-check` with
+/// `window.kelpIssues`), and onto the boards as a `!` on each element at fault.
 /// `kelpZoom(z)` sets the canvas's size by hand (nil fits it to the pane beside the column).
 enum CanvasScript {
     static func source(issues: [String]) -> String {
@@ -81,7 +81,7 @@ enum CanvasScript {
         """
     }
 
-    /// What the check reads on each drawn board (`check(f, out)`), with the colour helpers it needs.
+    /// The script that checks each drawn board (`check(f, out)`), with the colour helpers it needs.
     private static let checker = """
             function rgb(s) {
               const m = s.match(/rgba?\\(([^)]+)\\)/); if (!m) return null;

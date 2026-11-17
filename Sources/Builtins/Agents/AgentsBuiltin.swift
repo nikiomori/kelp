@@ -32,7 +32,8 @@ extension Builtins {
                 },
                 cmd("agents.usage", "Usage", "opt+cmd+u") { app.workbench.open("usage:") },
                 cmd("agents.history", "Session History", "shift+cmd+h") { HistoryWindow.of(app).show() },
-                // Like Caffeine: ticked keeps the Mac awake until unticked, which goes back to the setting's default.
+                // Works like Caffeine. While ticked, it keeps the Mac awake, and unticking it goes back to the
+                // setting's default.
                 cmd("power.keepAwake", "Keep Mac Awake") {
                     let always = app.settings[SettingKeys.keepAwake] == "always"
                     app.settings.set(SettingKeys.keepAwake, always ? nil : "always")
@@ -66,13 +67,13 @@ extension Builtins {
                     schemes: ["subagent"], make: { SubagentTab(uri: $0, app: app) },
                     placeholder: { _ in (String(localized: "Subagent"), .symbol("list.bullet.rectangle"), nil) })
             ],
-            // The plan limits: the sidebar's foot, each reading as it lands (their pace, their notifications), and the note
-            // beside each agent where agents are chosen.
+            // The plan limits show in the sidebar's foot, and each new reading is handled as it lands (for its pace and
+            // its notifications). A note on the limits sits beside each agent wherever agents are chosen.
             sidebarSections: [SidebarSection(id: "limits", foot: true) { UsageFooter.make(app) }],
             pushed: [{ LimitWatch.of(app).landed($0) }],
             plans: PlanNote.words(app),
-            // The strip over the Dock, with Kelp behind another app, and its items in the Dock icon's menu; the context
-            // rings on agents' tabs, watched for the workspace on screen.
+            // Starts the strip over the Dock, which shows while Kelp is behind another app, and puts its items in the
+            // Dock icon's menu. Also starts the context rings on agents' tabs, watched for the workspace on screen.
             launched: [{ AgentStrip.of(app).start() }, { ContextRings.start(app) }],
             dockMenu: [{ AgentStrip.of(app).dockItems($0) }],
             dockUsage: { LimitWatch.dockFace(app) },
@@ -81,13 +82,14 @@ extension Builtins {
     }
 }
 
-// How the app keeps what the daemon pushes about agents' commands: Agents' own kinds, not the shell's.
+// How the app keeps what the daemon pushes about agents' commands. These are the Agents built-in's own event kinds,
+// not the shell's.
 extension CommandsEvent: Pushed {
     package var key: String { session }
     package static var forgottenWith: WatchTopic? { .commands }
 }
 
-/// What starts agents and terminals in the workspace on screen; a beep when there is none.
+/// Returns what starts agents and terminals in the workspace on screen, and beeps when there is none.
 @MainActor private func starter(_ app: AppModel) -> SessionStarter? {
     if app.workbench.starter == nil { NSSound.beep() }
     return app.workbench.starter

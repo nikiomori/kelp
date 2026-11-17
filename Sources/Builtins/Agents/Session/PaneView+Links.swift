@@ -5,11 +5,12 @@ import KelpKit
 import TerminalKit
 import WorkbenchKit
 
-/// Links a terminal prints, opened: a page as a tab or in the browser, a file as a tab, a remote project's local
-/// page through its forwarded port.
+/// Opens the links a terminal prints: a page as a tab or in the browser, a file as a tab, and a remote project's
+/// local page through its forwarded port.
 extension PaneView {
-    /// A local link in a terminal of a remote project means the host: `url` with the port it has on this Mac. As it was
-    /// on this Mac's own projects, nil when it can't be brought here.
+    /// A local link in the terminal of a remote project points at the host. Returns `url` with the port forwarded to
+    /// it on this Mac. For this Mac's own projects it returns `url` unchanged, and it returns nil when the port can't
+    /// be forwarded.
     private static func hostLink(_ url: String, in wid: String?, _ app: AppModel) async -> String? {
         guard let wid, app.worktree(wid).flatMap({ RemoteHost.of($0.path) }) != nil,
             var components = URLComponents(string: url)
@@ -21,11 +22,12 @@ extension PaneView {
         return components.string
     }
 
-    /// A link ⌘-clicked in the terminal: local pages open as a browser tab, the rest in the default browser; ⌥ swaps
-    /// the two. Files open as a tab, ⌥ or not. Nothing else opens: a program prints these links (OSC 8 hides the target
-    /// behind any text), and an app, a .command file or another app's scheme would run. A link without a scheme is a
-    /// path from `cwd` (or another project's, `TerminalPaths.resolve`): one Ghostty found in the text ("banner/x.html"),
-    /// or an agent's Markdown link to its own file.
+    /// Opens a link ⌘-clicked in the terminal. Local pages open as a browser tab and other pages in the default
+    /// browser, and ⌥ swaps the two. Files open as a tab, with ⌥ or without. Nothing else opens, because a program
+    /// prints these links (OSC 8 can hide the target behind any text), and an app, a .command file or another app's
+    /// scheme would run. A link without a scheme is a path from `cwd`, or from another project
+    /// (`TerminalPaths.resolve`). Such a path is one Ghostty found in the text ("banner/x.html"), or an agent's
+    /// Markdown link to its own file.
     static func openLink(_ url: URL, cwd: String, elsewhere: [String], workspace wid: String? = nil, in app: AppModel) {
         if url.scheme == nil {
             let path = url.path(percentEncoded: false)
@@ -61,7 +63,7 @@ extension PaneView {
                 }
             }
         case .file(let path): app.workbench.open(TabURI.file(path), split: .right)
-        case .mail, .refused: PreviewLinks.openOutside(url)   // which says why another app's scheme doesn't open
+        case .mail, .refused: PreviewLinks.openOutside(url)   // openOutside says why another app's scheme doesn't open
         }
     }
 }

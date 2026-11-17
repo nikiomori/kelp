@@ -1,8 +1,8 @@
 import Core
 import EditorKit
 
-/// A run of lines that differ from HEAD, as an editor's gutter marks it: 0-based in the file as it is now (a removal on
-/// the line under the gap, with a count of 0), and the index of the hunk it came from.
+/// A run of lines that differ from HEAD, as the editor's gutter marks it. Lines are 0-based in the file as it is now. A
+/// removal sits on the line below the gap, with a count of 0. Each run keeps the index of the hunk it came from.
 typealias LineChange = CodeEditor.ChangeMark
 
 extension LineChange {

@@ -3,11 +3,11 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A server's menu, by where the server comes from: one Kelp keeps (edited here), one in a single agent's own settings
-/// (removed with that agent's command), one from the account or waiting for a sign-in, or one that came with a plugin
-/// or the agent.
+/// A server's menu, which depends on where the server comes from. Kelp edits the servers it keeps itself. A server in
+/// a single agent's own settings is removed with that agent's command. Other servers come from the account, wait for
+/// a sign-in, or came with a plugin or the agent.
 extension AddonMenu {
-    /// The agent whose own file holds this server alone, for "Give to All Agents".
+    /// Returns the one agent whose own settings file holds this server, so "Give to All Agents" can copy it from there.
     static func only(_ addon: Addon) -> String? {
         guard addon.kind == .server, addon.source == .yours, addon.origin != Addon.kept,
             addon.agents.count == 1, let agent = addon.agents.first,
@@ -32,7 +32,8 @@ extension AddonMenu {
         onOff(menu, addon)
     }
 
-    /// Added with + or handed on from an agent: Kelp's to edit and remove.
+    /// Fills the menu for a server that was added with + or handed on from an agent. Kelp keeps such a server, so Kelp
+    /// can edit and remove it.
     private func kept(_ menu: NSMenu, _ addon: Addon) {
         guard let key = addon.key else { return }
         menu.add(String(localized: "Edit…")) { edit(addon, key) }
@@ -52,7 +53,8 @@ extension AddonMenu {
         }
     }
 
-    /// In one agent's own settings: Kelp reads it, and taking it out is that agent's own command, run in plain sight.
+    /// Fills the menu for a server in one agent's own settings. Kelp only reads it there, so removing it runs that
+    /// agent's own command in a terminal tab the person sees.
     private func agentsOwn(_ menu: NSMenu, _ addon: Addon, _ agent: String) {
         if let key = addon.key { copyJSON(menu, addon, key) }
         separate(menu)
@@ -75,7 +77,7 @@ extension AddonMenu {
         }
     }
 
-    /// The account's connectors, and servers that wait for a sign-in.
+    /// Fills the menu for the account's connectors and for servers that wait for a sign-in.
     private func account(_ menu: NSMenu, _ addon: Addon) {
         if addon.signIn {
             let name = AddonGroups.serverName(addon)
@@ -103,7 +105,8 @@ extension AddonMenu {
         }
     }
 
-    /// The form, filled with the entry as its file has it; saved under the same name, in the same file.
+    /// Opens the form filled with the entry as its file has it, and saves the result under the same name in the same
+    /// file.
     private func edit(_ addon: Addon, _ key: String) {
         let project = app.projectName(app.worktree(worktreeId)?.repoId) ?? String(localized: "This Project")
         let name = AddonGroups.serverName(addon), shared = addon.origin == ".mcp.json"
@@ -118,14 +121,14 @@ extension AddonMenu {
         }
     }
 
-    /// `{"name": {…}}`, as the agents' files spell an entry.
+    /// Returns the entry as `{"name": {…}}`, the way the agents' files spell it.
     static func json(_ name: String, _ entry: ServerEntry) -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         do {
             return String(decoding: try encoder.encode([name: entry]), as: UTF8.self)
         } catch {
-            return ""   // a ServerEntry is strings and lists of them: it always encodes
+            return ""   // a ServerEntry holds only strings and lists of strings, so it always encodes
         }
     }
 }

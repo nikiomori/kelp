@@ -1,20 +1,21 @@
 import Core
 import Foundation
 
-/// A mark the user put on a board (Mark on the canvas's bar): what it points at and what they said of it. Kept in the
-/// artifact's `notes.json` until sent, so a canvas drawn again (the agent saved a board) or a tab reopened keeps them.
+/// A mark the user put on a board with Mark on the canvas's bar: what it points at and the user's note on it. Marks are
+/// kept in the artifact's `notes.json` until sent, so they survive when the canvas is drawn again (because the agent
+/// saved a board) or the tab is reopened.
 struct CanvasMark: Codable, Equatable, Sendable {
     var board: String
-    /// `[data-id=title]`, or the element's tag when nothing around it has an id.
+    /// The element's selector, such as `[data-id=title]`, or its tag when nothing around it has an id.
     var target: String
-    /// The start of its text, so the agent knows which one without the id.
+    /// The start of the element's text, so the agent can tell which element it is without an id.
     var text: String
     var note: String
 
     static let file = "notes.json"
 
-    /// The marks as one line for the chat, grouped by board: `Marks on <file>: boards/A.html 1 [data-id=t] «Hi»:
-    /// bigger; …`.
+    /// Returns the marks as one line for the chat, grouped by board: `Marks on <file>: boards/A.html 1 [data-id=t]
+    /// «Hi»: bigger; …`.
     /// Marks on a page (a doc or slides) have no board or target: `Marks on <file>: 1 «quoted text»: note`.
     static func message(_ marks: [CanvasMark], canvas: String) -> String {
         var n = 0
@@ -29,21 +30,22 @@ struct CanvasMark: Codable, Equatable, Sendable {
         return "Marks on \(canvas): " + boards.joined(separator: " | ")
     }
 
-    /// The marks in a `notes.json`; none for a file that isn't one.
+    /// Returns the marks in a `notes.json`, or none when the data doesn't decode as one.
     static func read(_ data: Data?) -> [CanvasMark] {
         guard let data else { return [] }
         do { return try JSONDecoder().decode([CanvasMark].self, from: data) } catch { return [] }
     }
 }
 
-/// Kelp's script for what the user does on a canvas (`MarkdownTab.world`; the boards' own scripts don't run):
-/// - marks on elements (`kelpMark(true)` from the bar): a click outlines the element and puts a number on it, and the
+/// Kelp's script for what the user does on a canvas. It runs in `MarkdownTab.world`, and the boards' own scripts don't
+/// run. It handles:
+/// - marks on elements (`kelpMark(true)` from the bar). A click outlines the element and puts a number on it, and the
 /// column on the right holds the notes and sends them;
-/// - Pick on each row;
-/// - each board's tweaks, moved live and saved;
-/// - Present (`kelpPresent(true)`): the boards one at a time, each as large as the pane; ← → step through them and Esc
-/// ends.
-/// It sends to `kelpSync`: `marks` (send), `marksDraft` (keep), `pick`, `tweak` and `present` (ended).
+/// - the Pick button on each row;
+/// - each board's tweaks, which move the board live and are saved;
+/// - Present (`kelpPresent(true)`), which shows the boards one at a time, each as large as the pane. ← → step through
+/// them and Esc ends.
+/// It sends these to `kelpSync`: `marks` (send), `marksDraft` (keep), `pick`, `tweak` and `present` (ended).
 enum CanvasEdit {
     struct Labels: Encodable {
         var send: String, pick: String, tweaks: String, note: String, remove: String
@@ -268,7 +270,8 @@ enum CanvasEdit {
           draw();
         """
 
-    /// The style of what Kelp puts on the canvas (pins, the column's rows, Pick, tweaks, the strip while presenting).
+    /// The CSS for what Kelp puts on the canvas: pins, the rows in the column, Pick, tweaks, and the strip shown while
+    /// presenting.
     static let style = """
         .kelp-layer { position: absolute; inset: 0 auto auto 0; pointer-events: none; z-index: 10; }
         .kelp-sheet { position: fixed; inset: 0; display: none; cursor: crosshair; z-index: 15; }

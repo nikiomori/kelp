@@ -1,4 +1,5 @@
-// Saving a file tab: autosave, writes over a known version, the disk changing under it, asking on close.
+// How a file tab saves: autosave, writes only over a known version, following the disk when it changes under the tab,
+// and asking on close.
 import AppKit
 import Core
 import DesignKit
@@ -8,12 +9,14 @@ import WorkbenchKit
 
 extension FileTab {
     /// Asks about unsaved changes in a sheet, like any Mac document: Save, Don't Save, or keep the tab. With autosave
-    /// it only asks when writing isn't safe: an agent changed the file meanwhile, or it was moved or deleted.
+    /// on, it asks only when writing isn't safe, because an agent changed the file meanwhile or the file was moved or
+    /// deleted.
     func close() async -> Bool {
         autosaving.cancel()
-        _ = await saving?.value   // a save on its way: what's asked is checked against what it wrote
+        _ = await saving?.value   // a save on its way finishes first, so the check sees what it wrote
         guard let editor, isEdited else { return true }
-        // The version this is checked against: what's written goes only over it, whatever is read meanwhile
+        // Keep the version this check is made against, because the write may replace only that version on disk,
+        // whatever is read meanwhile.
         let action = FileSync.save(buffer: editor.text, saved: lastSaved, disk: disk), checked = known?.stamp
         if autosave, action == .write, await writeAndClose(over: checked) { return true }
         let alert = NSAlert()
@@ -50,7 +53,7 @@ extension FileTab {
         editedStateMayHaveChanged()
         markdown?.textChanged()
         conflicts?.edited(editor?.lastEdit)
-        guard lspOpenedOn != nil else { return }   // no language server for it (or for a file on another machine)
+        guard lspOpenedOn != nil else { return }   // no language server has the file (none does on another machine)
         lspTask?.cancel()
         lspUnsent = text
         lspTask = Task { [weak self] in
@@ -60,13 +63,14 @@ extension FileTab {
         }
     }
 
-    /// The file as the daemon last gave or pushed it: gone, or its text as last read or written here (nil: not UTF-8).
-    /// Kept current by its version (`diskChanged`), so a save's check reads nothing; the daemon then writes only over
-    /// that version, so a change it hasn't heard of yet is still never written over.
+    /// The file as the daemon last gave or pushed it: missing, or its text as last read or written here (nil when the
+    /// file isn't UTF-8). New versions keep it current (`diskChanged`), so the check before a save reads nothing. The
+    /// daemon then writes only over that version, so a change the tab hasn't heard of yet is still never written over.
     var disk: FileSync.Disk { gone ? .missing : .present(known?.text) }
 
-    /// ⌘S, Save All, a sheet's Save and quitting: tidied first (`tidy`), then written. False when it couldn't be written,
-    /// or the user is asked first (an agent changed the file meanwhile, or it's gone).
+    /// Saves the file for ⌘S, Save All, the Save button on a sheet, and quitting. The text is tidied first (`tidy`) and
+    /// then written. Returns false when the file couldn't be written, or when the user must be asked first because an
+    /// agent changed the file meanwhile or the file is gone.
     @discardableResult
     func save() async -> Bool {
         guard editor != nil else { return true }
@@ -79,24 +83,25 @@ extension FileTab {
                 return gone ? await askToWriteBack() : false
             case .conflict:
                 apply(disk)
-                return false   // don't clobber an agent's edit: ask
+                return false   // don't write over an agent's edit; ask instead
             case .missing: return await askToWriteBack()
             default: return true
             }
         }
     }
 
-    /// What a save the user asks for does first: trailing spaces, the final newline, Format on Save. Autosave doesn't (it
-    /// would move the line being typed).
+    /// Tidies the text before a save the user asks for: trailing spaces, the final newline, and Format on Save.
+    /// Autosave skips this, because it would move the line being typed.
     func tidy() async {
         rules?.cleanUpForSave()
-        // A host's file: its formatter would run here, not there (`format`).
+        // A remote file isn't formatted, because its formatter would run on this Mac, not on the host (`format`).
         if app.settings[SettingKeys.formatOnSave, language: editor?.languageId], language?.format != nil, !remote {
             await format()
         }
     }
 
-    /// Moved or deleted (git mv, a rename): writing would bring the old file back beside the new one, so it asks.
+    /// Asks before writing a file that was moved or deleted (git mv, a rename), because writing would bring the old
+    /// file back beside the new one.
     private func askToWriteBack() async -> Bool {
         guard
             await confirm(
@@ -107,7 +112,8 @@ extension FileTab {
         return await write(overAnything: true)
     }
 
-    /// Autosave writes only when that's safe; a conflict asks (if the tab is on screen), a missing file waits for ⌘S.
+    /// Autosaves the file, only when writing is safe. A conflict asks the user (if the tab is on screen), and a missing
+    /// file waits for ⌘S.
     private func autosaveNow() async {
         _ = await serially { [self] in
             guard let editor else { return true }
@@ -121,8 +127,8 @@ extension FileTab {
         }
     }
 
-    /// Saves go one at a time, each checked against what the one before wrote, not what's on its way. The task holds
-    /// the tab: one closed (or its workspace) right after Save still gets written.
+    /// Runs saves one at a time, so each is checked against what the save before it wrote, not what is still on its
+    /// way. The task holds the tab, so a tab closed right after Save (or whose workspace closed) still gets written.
     private func serially(_ save: @escaping @MainActor () async -> Bool) async -> Bool {
         let previous = saving
         let next = Task {
@@ -133,15 +139,16 @@ extension FileTab {
         return await next.value
     }
 
-    /// The buffer to the file, by the daemon (atomically, through a symlink to the file it points at), only over the version
-    /// last read or written here; `overAnything`: whatever is there (Save Here). Changed meanwhile: asked about, unless
-    /// only touched (its text still what this tab last saved), which is written over once. Only through `serially`.
-    /// `checked`: the version a caller checked before a wait of its own (closing), else the one known now.
+    /// Writes the buffer to the file through the daemon (atomically, and through a symlink to the file it points at),
+    /// only over the version last read or written here. With `overAnything` it writes over whatever is there (Save
+    /// Here). When the file changed meanwhile the user is asked, unless the file was only touched (its text is still
+    /// what this tab last saved), and then it is written over once. Call it only through `serially`. `checked` is the
+    /// version a caller checked before a wait of its own (closing); without it, the version known now is used.
     private func write(overAnything: Bool = false, touched: Bool = false, checked: FileStamp? = nil) async -> Bool {
         guard let editor else { return true }
-        // A Swift string, made off the main thread (5 MB took 400 ms on it): the buffer is compared against it on every
-        // keystroke, fast only with a Swift string on this side (`FileSync.same`).
-        // The version the save was checked against, taken before the wait: an agent's version read meanwhile isn't it.
+        // Make a native Swift string off the main thread (5 MB took 400 ms on it). The buffer is compared against this
+        // text on every keystroke, and that is fast only with a Swift string on this side (`FileSync.same`). Take the
+        // version the save was checked against before the wait, because an agent's version read meanwhile isn't it.
         let buffer = editor.text, at = edits, base = overAnything ? nil : checked ?? known?.stamp
         let text = await Task.detached { String(decoding: Data(buffer.utf8), as: UTF8.self) }.value
         writing = true
@@ -152,7 +159,7 @@ extension FileTab {
                 readAgain = false
                 diskChanged()
             }
-        }   // its own version pushed, or an agent's right after
+        }   // read again for a version pushed meanwhile: the tab's own, or an agent's right after
         if let error = res.error {
             Banner.show(String(localized: "Couldn't save \(title): \(error)"), style: .error)
             return false
@@ -172,29 +179,31 @@ extension FileTab {
         guard let conflict = written.conflict else { return false }
         known = (conflict.stamp, conflict.text)
         if !touched, let now = conflict.text, FileSync.same(now, lastSaved) { return await write(touched: true) }
-        apply(.present(conflict.text))   // an agent's edit: asked about
+        apply(.present(conflict.text))   // an agent's edit, so the user is asked
         return false
     }
 
-    /// Closing with a save: the tab waits until the file has it, and stays (with its edits) when that failed.
-    /// `answering`: what the sheet said it does, so a Save that puts a deleted file back or replaces an agent's version does.
-    /// `over`: the version that was checked; an agent's read after it isn't written over.
+    /// Saves and then lets the tab close. The tab waits until the file is written, and stays open (with its edits) when
+    /// the write fails. `answering` is what the sheet said Save does, so a Save that puts a deleted file back or
+    /// replaces an agent's version really does that. `over` is the version that was checked, so an agent's version read
+    /// after that check isn't written over.
     func writeAndClose(answering action: FileSync.Action = .write, over checked: FileStamp? = nil) async -> Bool {
         await serially { [self] in await write(overAnything: action != .write, checked: checked) }
     }
 
     var pendingSave: Task<Void, Never>? { saving.map { s in Task { _ = await s.value } } }
 
-    /// The file is `text` now (written or taken from disk), and the buffer was it `at` that many keystrokes: still is, or
-    /// it's compared.
+    /// Records that the file now holds `text` (written or taken from disk), which the buffer held after `at` edits.
+    /// When no edit came since, the tab is no longer edited; otherwise the buffer is compared.
     private func saved(_ text: String, at: Int) {
         lastSaved = text
         if at == edits { setEdited(false) } else { editedStateMayHaveChanged() }
     }
 
-    /// After a keystroke. Most change the buffer's length, which tells at once; one that doesn't (a letter typed over, an
-    /// undo back to the saved text) is compared, off the main thread for a big file (33 ms for 5 MB). Edited meanwhile:
-    /// a quit right then still asks.
+    /// Works out after a keystroke whether the buffer differs from the saved text. Most keystrokes change the buffer's
+    /// length, which answers at once. One that doesn't (a letter typed over, an undo back to the saved text) needs a
+    /// compare, done off the main thread for a big file (33 ms for 5 MB). The tab counts as edited during that compare,
+    /// so a quit right then still asks.
     private func editedStateMayHaveChanged() {
         comparing?.cancel()
         guard let text = editor?.text else { return setEdited(false) }
@@ -214,10 +223,11 @@ extension FileTab {
         if !now { backup.drop() }
     }
 
-    /// A new version pushed (`WatchTopic.file`): read again only one this tab didn't read or write itself (a log a dev
-    /// server appends to changes every quarter second). One read at a time; versions meanwhile make one more, as do
-    /// versions while a save writes the file. A tab not on screen with nothing unsaved reads it once it shows: an agent
-    /// rewriting files would have every open tab read, compare and take each version.
+    /// Handles a new version the daemon pushed (`WatchTopic.file`). The file is read again only for a version this tab
+    /// didn't read or write itself (a log that a dev server appends to changes every quarter second). One read runs at
+    /// a time, and versions that come during a read or while a save writes the file cause one more read. A tab that
+    /// isn't on screen and has nothing unsaved reads the file once it shows, because otherwise an agent rewriting files
+    /// would make every open tab read, compare and take each version.
 
     func diskChanged() {
         if editor != nil, !isEdited, !whenShown.onScreen, app.latest(FileEvent.self, path)?.stamp != nil {
@@ -248,8 +258,8 @@ extension FileTab {
                 apply(.present(file.text))
             case .failure(let error) where Unopenable(error) == .binary:
                 known = (now, nil)
-                apply(.present(nil))   // asked about as such
-            case .failure: break   // grown past the limit (a log), a pipe now, or gone (its next version says so): kept as shown
+                apply(.present(nil))   // the user is asked, as for a file that is no longer text
+            case .failure: break   // the file is too big now (a log), a pipe, or gone; the tab keeps its text
             }
             if readAgain {
                 readAgain = false
@@ -280,8 +290,9 @@ extension FileTab {
         let alert = NSAlert()
         alert.messageText = String(localized: "\(title) changed on disk")
         alert.informativeText = String(localized: "An agent edited this file while you had unsaved changes.")
-        // No longer text (another encoding, binary): there's no disk version to show, and an empty one would throw the
-        // edits away. Keep Mine writes them; Cancel leaves the tab and the file as they are.
+        // When the file is no longer text (another encoding, or binary), there is no disk version to show, and an empty
+        // one would throw the edits away. Keep Mine writes the edits, and Cancel leaves the tab and the file as they
+        // are.
         let notText: Bool = if case .present(nil) = self.disk { true } else { false }
         if notText {
             alert.informativeText = String(
@@ -289,12 +300,13 @@ extension FileTab {
                     "The file on disk is no longer text (another encoding, or binary). Keep Mine writes your version over it."
             )
         }
-        // What Keep Mine writes over: the version shown now, not one an agent saves while the sheet is up
+        // Keep Mine writes over the version shown now, not over one an agent saves while the sheet is up.
         let checked = known?.stamp
         alert.addButton(withTitle: String(localized: "Keep Mine"))
         alert.addButton(withTitle: notText ? String(localized: "Cancel") : String(localized: "Use Disk Version"))
-        // Holds the tab until answered: closing it meanwhile mustn't throw away the user's choice (or their edits).
-        alert.beginSheetModal(for: window) { response in   // AppKit: on main
+        // The handler holds the tab until the user answers, so closing the tab meanwhile can't lose the choice (or the
+        // edits).
+        alert.beginSheetModal(for: window) { response in   // AppKit calls this on the main thread
             MainActor.assumeIsolated {
                 if response == .alertFirstButtonReturn {
                     self.lastSaved = disk

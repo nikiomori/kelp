@@ -6,8 +6,9 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// Account profiles for the agents whose manifests have them (Claude Code, Codex): each has its own config dir
-/// (`AgentHome`'s variable), so logins stay side by side and switching is just a different environment.
+/// An account profile for an agent whose manifest supports profiles (Claude Code, Codex). Each profile has its own
+/// config folder, set through the variable that `AgentHome` names, so logins sit side by side and switching accounts
+/// just means a different environment.
 struct AccountProfile: Codable, Hashable, Identifiable {
     var name: String
     var agent: String
@@ -20,8 +21,9 @@ struct AccountProfile: Codable, Hashable, Identifiable {
 
 @MainActor
 enum Accounts {
-    /// nil, with a banner, when the settings can't be read: a list saved after an empty one read in its place would
-    /// write the profiles there are over. Read from the daemon, not the app's copy: that one may be a read that failed.
+    /// Reads the saved profiles. Returns nil and shows a banner when the settings can't be read, because saving after
+    /// an empty list was read in place of the real one would overwrite the existing profiles. It reads from the daemon,
+    /// not the app's copy of the settings, because that copy may come from a read that failed.
     static func load(_ app: AppModel) async -> [AccountProfile]? {
         guard let settings = await app.call(SettingsGet()) else { return nil }
         guard let saved = settings[SettingKeys.accounts.key] else { return [] }
@@ -31,7 +33,8 @@ enum Accounts {
             return nil
         }
     }
-    /// As every setting is set (`SettingsStore.set`): shown at once, and said on a banner if settings.json refused it.
+    /// Saves the list the way every setting is saved (`SettingsStore.set`). The change shows at once, and a banner says
+    /// so if settings.json refused it.
     static func save(_ app: AppModel, _ list: [AccountProfile]) {
         do { app.settings.set(SettingKeys.accounts, try list.map { try JSONValue.from($0) }) } catch {
             Banner.show(AppModel.message(error), style: .error)
@@ -43,7 +46,8 @@ struct AccountsSettings: View {
     let app: AppModel
     init(app: AppModel) { self.app = app }
     @State private var profiles: [AccountProfile] = []
-    /// Read: until then (or when that failed) nothing is saved, so no list overwrites the one in settings.json.
+    /// True once the profiles were read. Until then, or when the read failed, nothing is saved, so no list overwrites
+    /// the one in settings.json.
     @State private var loaded = false
     @State private var selection: AccountProfile.ID?
     @State private var newName = ""
@@ -93,7 +97,7 @@ struct AccountsSettings: View {
         }
     }
 
-    /// Opens the agent in that profile so the user can run its login flow once.
+    /// Opens the agent in the selected profile, so the user can run the agent's login flow once.
     private func login() {
         guard let profile = profiles.first(where: { $0.id == selection }) else { return }
         guard let wid = app.workbench.workspaceId else {
@@ -114,7 +118,7 @@ struct AccountsSettings: View {
         }
     }
 
-    /// Kelp forgets the profile; its folder, with the login in it, stays where it is.
+    /// Makes Kelp forget the profile. The profile's folder, with the login in it, stays where it is.
     private func remove() {
         guard let profile = profiles.first(where: { $0.id == selection }) else { return }
         Task {

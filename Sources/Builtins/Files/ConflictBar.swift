@@ -2,8 +2,9 @@ import AppKit
 import DesignKit
 import EditorKit
 
-/// Over a file with merge conflicts: which one the caret is at, the way to the others, and Accept Current / Incoming /
-/// Both for it, each one undoable edit. Hidden once none is left; the file is staged in Source Control as resolved.
+/// The bar over a file with merge conflicts. It says which conflict the caret is at, steps to the others, and offers
+/// Accept Current / Incoming / Both for it, each as one undoable edit. The bar hides once no conflict is left. Staging
+/// the file in Source Control marks it resolved.
 @MainActor
 final class ConflictBar {
     private(set) lazy var bar: Bar = {
@@ -34,11 +35,12 @@ final class ConflictBar {
         refresh()
     }
 
-    /// Read the conflicts again: after an edit, or the file read again from disk.
+    /// Reads the conflicts again, after an edit or when the file is read again from disk.
     func refresh() {
         conflicts = editor.map { MergeConflict.all(in: $0.text) } ?? []
         bar.isHidden = conflicts.isEmpty
-        // The current side with its <<<<<<< line, the incoming with its >>>>>>> one; a diff3 base between stays plain.
+        // Tints the current side with its <<<<<<< line, and the incoming side with its >>>>>>> line. A diff3 base
+        // between the two stays plain.
         editor?.tint(
             conflicts.flatMap {
                 [
@@ -55,26 +57,27 @@ final class ConflictBar {
         caretMoved()
     }
 
-    /// After a keystroke: read again only when there are conflicts to follow, or the edit could have made or broken a
-    /// marker line (each keystroke read all of a 5 MB file).
+    /// Called after a keystroke. It reads the conflicts again only when there are conflicts to follow, or when the edit
+    /// could have made or broken a marker line, because otherwise each keystroke would read all of a 5 MB file.
     func edited(_ edit: [(column: Int, removed: String, inserted: String)]?) {
         guard conflicts.isEmpty, let edit, !edit.contains(where: Self.couldMark) else { return refresh() }
     }
 
-    /// Whether an edit's piece can change which lines are markers: one is told by its first eight characters, so a piece
-    /// further along its line matters only with a marker's character or a line break in it.
+    /// Returns whether one piece of an edit can change which lines are conflict markers. A marker line is recognised by
+    /// its first eight characters, so a piece further along the line matters only if it holds a marker character or a
+    /// line break.
     static func couldMark(_ piece: (column: Int, removed: String, inserted: String)) -> Bool {
         piece.column <= 8
             || [piece.removed, piece.inserted].contains { $0.contains { $0.isNewline || "<|=>".contains($0) } }
     }
 
-    /// The label follows the caret.
+    /// Updates the label to the conflict the caret is at.
     func caretMoved() {
         guard !conflicts.isEmpty else { return }
         label.stringValue = String(localized: "Merge conflict \(current + 1) of \(conflicts.count)")
     }
 
-    /// The one the caret is in, else the next after it, else the first.
+    /// The index of the conflict the caret is in, else of the next one after the caret, else of the first.
     private var current: Int {
         let caret = editor?.selectedRange.location ?? 0
         return conflicts.firstIndex { NSMaxRange($0.whole) > caret } ?? 0

@@ -5,14 +5,15 @@ import DesignKit
 import KelpKit
 import SwiftUI
 
-/// "usage:" — the agents' plans now, each limit with when it runs out at its pace; then what they used over a span, a row
-/// each: its days on its own scale, its share of the cost, its tokens and what they'd cost at API prices (a subscription
-/// bills differently), from its own logs on this Mac. A click on a row or a project narrows what's under it to that one.
-/// Window › Usage (⌥⌘U).
+/// The "usage:" tab, opened with Window › Usage (⌥⌘U). It first shows the agents' plans now, with when each limit
+/// runs out at its pace. Under them is what the agents used over a span, one row for each agent, read from the agent's
+/// own logs on this Mac. Each row shows the agent's days on its own scale, its share of the cost, its tokens, and what
+/// they'd cost at API prices (a subscription bills differently). A click on a row or a project narrows what's under
+/// it to that agent or project.
 struct UsageReportView: View {
     let app: AppModel
     init(app: AppModel) { self.app = app }
-    /// An agent's row: what it used in the span (nil: nothing counted).
+    /// An agent's row, with what it used in the span, or nil when nothing was counted.
     struct Line: Identifiable {
         let id: String
         let usage: UsageAgents.Agent?
@@ -36,14 +37,16 @@ struct UsageReportView: View {
     @State private var year: [UsageAgents.Day] = []
     @State private var yearFor: String?
 
-    /// The charts' colours, by an agent's place among those the daemon counts: the same in every span.
+    /// The charts' colours, given by an agent's place among the agents the daemon counts, so an agent keeps its colour
+    /// in every span.
     static let palette: [Color] = [
         .blue, .purple, .orange, .brown, .mint, .yellow, .cyan, .red, .teal, .green, .pink, .indigo
     ]
 
     var body: some View {
         let lines = agentLines(UsageView.plans(app).keys)
-        // As wide as the pane up to 1400, and the table's own width at least: a narrower pane scrolls sideways, from the left.
+        // The page is as wide as the pane, up to 1400, and at least as wide as the table. A narrower pane scrolls
+        // sideways, starting from the left.
         GeometryReader { pane in
             ScrollView([.vertical, .horizontal]) {
                 page(lines).padding([.horizontal, .bottom], 24).frame(
@@ -58,7 +61,8 @@ struct UsageReportView: View {
     private func page(_ lines: [Line]) -> some View {
         VStack(alignment: .leading, spacing: 26) {
             header
-            // The plans first: whether work can go on now. They don't depend on the span, so they stand over its picker.
+            // The plans come first, because they say whether work can go on now. They don't depend on the span, so
+            // they stand above the span's picker.
             PlanCards(app: app, unplanned: unplanned)
             VStack(alignment: .leading, spacing: 18) {
                 period
@@ -85,7 +89,7 @@ struct UsageReportView: View {
         }
     }
 
-    /// Where the figures come from, in the band other tabs give their bar: banners start under it.
+    /// Says where the figures come from, in the band where other tabs have their bar, so banners start under it.
     private var header: some View {
         HStack(spacing: Metrics.gapWide) {
             Text("From each agent's own logs and /usage on this Mac").font(.ui(TextSize.caption)).foregroundStyle(
@@ -123,7 +127,7 @@ struct UsageReportView: View {
         }
     }
 
-    /// One line; the agents read and left out on request.
+    /// The footnote line. A link in it shows which agents are read and what is left out.
     private var footnote: some View {
         HStack(spacing: 4) {
             Text("Prices are API list prices: a plan bills differently.")
@@ -150,12 +154,12 @@ struct UsageReportView: View {
 
     // MARK: Under the table
 
-    /// Cost or tokens a day over the span stacked by agent (the chosen one's alone), the span's average dashed across it,
-    /// and the day under the pointer by agent.
+    /// The chart of cost or tokens per day over the span, stacked by agent (or only the chosen agent). A dashed line
+    /// marks the span's average, and the day under the pointer is broken down by agent.
     private func detail(_ usage: UsageAgents.Result) -> some View {
         let ids = series.map(\.id)
-        // Only those with a bar, in the legend too: a free agent has none in Cost (and a mark outside the colour scale's
-        // domain traps in Charts).
+        // Only agents with a bar are drawn, in the legend too, because a free agent has none in Cost. Also, a mark
+        // outside the colour scale's domain traps in Charts.
         let drawn = ids.filter { id in usage.days.contains { $0.agent == id && value($0) > 0 } }
         let records = usage.days.filter { drawn.contains($0.agent) }
         let average = records.reduce(0) { $0 + value($1) } / Double(range)
@@ -232,7 +236,7 @@ struct UsageReportView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
     }
 
-    /// The last 12 months, a bar each, for the agents (the chosen one); what it all came to over them.
+    /// The last 12 months, a bar for each, for all agents or only the chosen one, with the total over the 12 months.
     private var months: some View {
         var days: [Date: Double] = [:]
         var active = Set<String>()
@@ -261,8 +265,8 @@ struct UsageReportView: View {
         return start...max(start, end)
     }
 
-    /// Eight rows with their share of the first row, then the rest on request. A model's dot has its agent's colour;
-    /// clicking a project narrows the page to it (clicking again goes back to all).
+    /// A list of eight rows, each with a bar for its share of the first row, and the rest on request. A model's dot has
+    /// its agent's colour. Clicking a project narrows the page to that project, and clicking it again goes back to all.
     private func groups(_ title: String, _ rows: [UsageAgents.Group], all: Binding<Bool>, model: Bool) -> some View {
         let top = rows.first.map { $0.cost > 0 ? $0.cost : Double($0.tokens) } ?? 1
         return VStack(alignment: .leading, spacing: 6) {
@@ -321,7 +325,8 @@ struct UsageReportView: View {
         failed = read.error
         if let fresh = read.value { usage = fresh }
         loading = false
-        // The months once the span's figures are in: both wait on the same logs, and the table is what's asked for first.
+        // Read the months only once the span's figures are in, because both wait on the same logs and the table is
+        // what the user asked for first.
         let key = project ?? ""
         if yearFor != key {
             year = await app.quiet(UsageAgents(days: 371, project: project), timeout: 330)?.days ?? []
@@ -331,8 +336,8 @@ struct UsageReportView: View {
 
     // MARK: Formats
 
-    /// "claude-opus-5-5" → "Opus 5.5", "claude-haiku-4-5-20251001" → "Haiku 4.5", as Claude Code names them; the other
-    /// agents' models as they write them.
+    /// Returns a model's name as Claude Code shows it, such as "claude-opus-5-5" → "Opus 5.5" and
+    /// "claude-haiku-4-5-20251001" → "Haiku 4.5". Other agents' models stay as those agents write them.
     static func model(_ id: String) -> String {
         guard id.hasPrefix("claude-") else { return id }
         var words: [String] = []
@@ -346,7 +351,7 @@ struct UsageReportView: View {
         return words.joined(separator: " ")
     }
 
-    /// A day as the daemon writes it ("2026-10-29", local), at its start.
+    /// Parses a day as the daemon writes it ("2026-10-29", local time) into the start of that day.
     static func date(_ day: String) -> Date { dayFormat.date(from: day) ?? Date() }
     private static let dayFormat: DateFormatter = {
         let formatter = DateFormatter()
@@ -355,13 +360,13 @@ struct UsageReportView: View {
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()
-    /// Dollars, with cents under ten.
+    /// Formats dollars, with cents for amounts under ten.
     nonisolated static func dollars(_ v: Double) -> String {
         v.formatted(.currency(code: "USD").precision(.fractionLength(v < 10 ? 2 : 0)))
     }
-    /// "—" for tokens with no price (a model without a list price).
+    /// Formats dollars, or "—" for tokens with no price (a model without a list price).
     func money(_ v: Double, _ tokens: Int) -> String { v == 0 && tokens > 0 ? "—" : Self.dollars(v) }
-    /// A chart's figure: dollars or tokens, as the chart shows.
+    /// Formats a chart's figure in dollars or tokens, whichever the chart shows.
     func amount(_ v: Double) -> String { byCost ? Self.dollars(v) : count(Int(v)) }
     func count(_ n: Int) -> String { n.formatted(.number.notation(.compactName)) }
     func percent(_ part: Int, of whole: Int) -> String {

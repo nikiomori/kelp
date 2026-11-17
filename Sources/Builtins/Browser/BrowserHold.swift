@@ -1,5 +1,5 @@
-// Who has an agent's page: the agent; the user, who took it with a click or a key (or Take Over); the user, because the
-// agent asked them to do something there (`kelp browser ask`).
+// Who has an agent's page. It is the agent, or the user who took the page with a click, a key or Take Over, or the
+// user because the agent asked them to do something there (`kelp browser ask`).
 import AppKit
 import Core
 import DesignKit
@@ -9,8 +9,8 @@ extension BrowserTab {
     /// How long the user may leave a page they took before the strip asks whether to hand it back.
     static let remindAfter: TimeInterval = 120
 
-    /// The user's own clicks and keys in the page, while an agent drives it: the first one takes the page (scrolling and
-    /// pointing don't). A key with ⌘ is a shortcut (copy, find), not typing into the page.
+    /// Watches the user's own clicks and keys in the page while an agent drives it. The first click or key takes the
+    /// page, but scrolling and pointing don't. A key with ⌘ is a shortcut (copy, find), not typing into the page.
     func watchUser() {
         guard userWatch == nil else { return }
         userWatch = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .keyDown]) {
@@ -38,15 +38,15 @@ extension BrowserTab {
             drive.takenOver = true
             showAgentBar()
         }
-        // The reminder, once they've left it alone that long.
+        // Show the reminder once the user has left the page alone for `remindAfter`.
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.remindAfter + 1) { [weak self] in
-            MainActor.assumeIsolated { self?.showAgentBar() }   // main queue
+            MainActor.assumeIsolated { self?.showAgentBar() }   // asyncAfter runs on the main queue
         }
     }
 
-    /// `kelp browser ask`: with `text`, the page goes to the user and its strip asks them; with `ended`, the question
-    /// is over, and the page goes back to the agent when the user said Done (`allow`). The answer is wherever the page
-    /// is now.
+    /// Handles `kelp browser ask`. With `text`, the page goes to the user and the strip on the page asks them. With
+    /// `ended`, the question is over, and the page goes back to the agent when the user said Done (`allow`). The answer
+    /// says where the page is now.
     func ask(_ args: JSONValue) async throws -> JSONValue {
         guard let drive else { throw RPCError.invalidParams("That tab shows no page of an agent's.") }
         if let text = args["text"]?.string {
@@ -63,7 +63,8 @@ extension BrowserTab {
         return try await settled()
     }
 
-    /// Done on the strip: the agent's question is answered (as Allow on its row would), the page goes back to it.
+    /// Handles Done on the strip. It answers the agent's question (as Allow on the agent's row would) and gives the
+    /// page back to the agent.
     func done() {
         guard let asked = drive?.asked else { return }
         drive?.takenOver = false
@@ -72,7 +73,8 @@ extension BrowserTab {
         Task { await app.call(SessionChoose(id: asked.session, answer: "allow", question: question)) }
     }
 
-    /// Who drives the page, as the user reads it: a subagent (`who`) by what it was asked, else the agent's name.
+    /// Names who drives the page, for the user. A subagent (`who`) is named by the task it was given, otherwise the
+    /// name is the agent's.
     func driverName(_ who: String) -> String {
         let session = drive?.driver.flatMap { app.session($0) }
         guard !who.isEmpty else { return session.map { app.catalog.name($0.agent) } ?? String(localized: "The agent") }

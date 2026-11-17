@@ -4,10 +4,10 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// Who last changed the caret's line, in a menu at the caret: the agent's turn (its prompt), the commit, or nobody yet;
-/// then its changes, and the chat it came from.
+/// Shows who last changed the line at the caret, in a menu at the caret. The menu names the agent's turn (with its
+/// prompt), the commit, or nobody yet, and then offers the change itself and the chat it came from.
 extension FileTab {
-    /// The project's workspace the file is in, and its path there; nil for a file outside any.
+    /// The workspace of the project that holds the file, and the file's path in it; nil when no project holds it.
     var inProject: (worktree: String, file: String)? {
         ChangeBars.project(of: path, in: app.worktrees).map { ($0.worktree.id, $0.file) }
     }

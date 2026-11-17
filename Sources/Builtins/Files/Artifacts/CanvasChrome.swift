@@ -1,10 +1,11 @@
 import Foundation
 
-/// What Kelp puts around a canvas's boards, inside the page (`MarkdownTab.world`): the column on the right that Mark
-/// and Edit fill (`window.kelpColumn`), the theme switch at the top right (one theme at a time, or both), and the zoom
-/// capsule at the bottom right (− % + and Fit). It is drawn with Kelp's own tokens, in the window's light or dark look.
-/// It sends to `kelpSync`: `themes` (light, dark or both) and `zoom` (a size, or null for Fit), which the tab keeps for
-/// the next drawing. Without `floats` (a doc's page, a dashboard) it adds only the column.
+/// The controls Kelp puts around a canvas's boards, inside the page (`MarkdownTab.world`). They are the column on the
+/// right that Mark and Edit fill (`window.kelpColumn`), the theme switch at the top right (one theme at a time, or
+/// both), and the zoom capsule at the bottom right (− % + and Fit). They are drawn with Kelp's own tokens, in the
+/// window's light or dark look. They send `themes` (light, dark or both) and `zoom` (a size, or null for Fit) to
+/// `kelpSync`, and the tab keeps both for the next drawing. Without `floats` (a doc's page, a dashboard), only the
+/// column is added.
 enum CanvasChrome {
     struct Labels {
         var light: String, dark: String, both: String, fit: String, zoomOut: String, zoomIn: String
@@ -64,7 +65,8 @@ enum CanvasChrome {
             """
     }
 
-    /// Kelp's tokens for what it draws on the page, in light and dark (the window's appearance), and its parts' style.
+    /// The CSS for what Kelp draws on the page: Kelp's tokens in light and dark (following the window's appearance),
+    /// and the style of each control.
     static let style = """
         :root { --k-ground: #f2f2f2; --k-win: #eaeced; --k-card: #fff; --k-label: rgba(0,0,0,.85);
           --k-sec: rgba(0,0,0,.5); --k-sep: rgba(0,0,0,.1); --k-rest: rgba(0,0,0,.05); --k-hover: rgba(0,0,0,.08);

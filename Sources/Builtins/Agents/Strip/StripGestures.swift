@@ -1,7 +1,8 @@
-// The agent strip's gestures without a window: which way a throw or a swipe went, and where that sends it.
+// The agent strip's gestures, worked out without a window: which way a throw or a swipe went, and where that sends
+// the strip.
 import AppKit
 
-/// Which way a throw or a swipe went: x and y are each -1, 0 or 1 (y up), so a slanted one goes to a corner.
+/// Which way a throw or a swipe went. x and y are each -1, 0 or 1, with y up, so a slanted move goes to a corner.
 struct StripWay: Equatable {
     let x: Int, y: Int
 }
@@ -13,14 +14,16 @@ enum StripTarget: Equatable {
 }
 
 extension StripModel {
-    /// Faster than this when let go (points a second), it was thrown: it flies on that way, not to the nearest place.
+    /// A strip let go faster than this, in points a second, was thrown, so it flies on that way instead of going to the
+    /// nearest place.
     static let throwSpeed: CGFloat = 600
-    /// Two fingers going this far over the strip are a swipe: it flies at once, not when they lift.
+    /// Two fingers moving this far over the strip make a swipe, and the strip flies at once, not when they lift.
     static let swipeDistance: CGFloat = 30
-    /// Across this much of the main way (tan 26.6°), it went slanted: to a corner of the other row too.
+    /// A move whose cross part is at least this share of its main part (tan 26.6°) counts as slanted, so it also goes
+    /// to a corner in the other row.
     private static let slant: CGFloat = 0.5
 
-    /// The way of a move, if it went anywhere.
+    /// Returns which way a move went, or nil if it went nowhere.
     static func way(_ vector: CGVector) -> StripWay? {
         let major = max(abs(vector.dx), abs(vector.dy))
         guard major > 0 else { return nil }
@@ -28,21 +31,22 @@ extension StripModel {
         return StripWay(x: axis(vector.dx), y: axis(vector.dy))
     }
 
-    /// The way it was thrown, if it was.
+    /// Returns which way the strip was thrown, or nil if it wasn't thrown.
     static func thrown(_ velocity: CGVector) -> StripWay? {
         hypot(velocity.dx, velocity.dy) >= throwSpeed ? way(velocity) : nil
     }
 
-    /// The finger's way from a swipe's scroll: AppKit's deltas follow the content, which natural scrolling turns round.
+    /// Returns which way the fingers moved in a swipe's scroll. AppKit's deltas follow the content, which natural
+    /// scrolling turns round.
     static func swipe(dx: CGFloat, dy: CGFloat, natural: Bool) -> StripWay? {
         let x = natural ? dx : -dx, up = natural ? -dy : dy
         guard hypot(x, up) >= swipeDistance else { return nil }
         return way(CGVector(dx: x, dy: up))
     }
 
-    /// Where a fling in that direction lands, as far as it can go: to that side's corner of the strip's row (or the
-    /// other row's corner, for a slanted fling), behind the side when flung from that side's corner, and out from
-    /// behind a side to its corner.
+    /// Returns where a fling in that direction lands, as far as it can go. It lands in that side's corner of the
+    /// strip's row, or of the other row for a slanted fling. A fling from that side's corner goes behind the side, and
+    /// a fling away from a side brings the strip out to that side's corner.
     static func flung(from corner: StripCorner, edge: StripEdge?, _ way: StripWay) -> StripTarget? {
         let high = way.y == 0 ? corner.isTop : way.y > 0
         if let edge {
@@ -56,7 +60,8 @@ extension StripModel {
         return way.x == 0 ? nil : .edge(way.x < 0 ? .left : .right)
     }
 
-    /// A spring's swing: a little further on the way from `from` to `frame`, a tenth of the way and at most `swing`.
+    /// Returns where a spring swings to: a little past `frame` on the way from `from`, by a tenth of the way and at
+    /// most `swing`.
     static func past(_ frame: NSRect, from: NSRect) -> NSRect {
         let dx = frame.midX - from.midX, dy = frame.midY - from.midY, way = hypot(dx, dy)
         guard way > 0 else { return frame }

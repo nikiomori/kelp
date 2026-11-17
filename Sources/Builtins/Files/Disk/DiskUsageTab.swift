@@ -5,10 +5,10 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// "disk:<project>": what the project takes on its disk (this Mac's, or a remote project's host's). It lists the
-/// project's parts sorted by what removing them costs, beside a map of them. What is chosen goes to the Trash in one
-/// click (the Finder can put it back); for a remote project it is moved aside on its host (into its `.git/kelp-trash`,
-/// kept a week).
+/// Makes the "disk:<project>" tab, which shows how much disk the project takes, on this Mac or on a remote project's
+/// host. It lists the project's parts, sorted by what removing them costs, beside a map of them. One click moves the
+/// chosen parts to the Trash, where the Finder can put them back. For a remote project they are moved aside on its
+/// host instead, into its `.git/kelp-trash`, which keeps them a week.
 @MainActor
 func diskUsageTab(uri: String, app: AppModel, sizes: DiskSizes) -> KelpKit.TabContent {   // not SwiftUI's
     HostedTabContent(
@@ -22,9 +22,10 @@ struct DiskUsageView: View {
     @State private var trashing = false
 
     private var repo: Repo? { app.repo(repoId) }
-    /// The project's folder as the daemon names it (its files' part): a remote one's stand-in, links resolved here.
+    /// The project's folder as the daemon names it, read from the project-files part. For a remote project it is the
+    /// stand-in folder, with links resolved here.
     private var root: String { sizes.byRepo[repoId]?.items.first { $0.what == .files }?.path ?? repo?.path ?? "" }
-    /// A remote project's host: its parts are there, out of the Finder's reach.
+    /// A remote project's host. The project's parts are there, out of the Finder's reach.
     private var host: String? { repo.flatMap { RemoteHost.of($0.path)?.host } }
 
     var body: some View {
@@ -62,7 +63,8 @@ struct DiskUsageView: View {
         }
         .task(id: repoId) { sizes.measure(repoId, app: app) }
         .onChange(of: measured?.at, initial: true) {
-            // What rebuilds is chosen to start with; what's gone since is no longer.
+            // At first, the parts that rebuild are chosen. After a new measure, parts that are gone are no longer
+            // chosen.
             let items = measured?.items ?? []
             chosen = chosen.isEmpty ? Set(items.of(.rebuilds).map(\.path)) : chosen.intersection(items.map(\.path))
         }
@@ -109,9 +111,10 @@ struct DiskUsageView: View {
     }
 }
 
-/// The total, then the parts by group (a box for each that can go), and the button that moves the chosen ones.
+/// The list beside the map: the total, then the parts by group with a checkbox on each part that can go, and the
+/// button that moves the chosen ones.
 struct DiskList: View {
-    /// `host`: a remote project's, where its parts are and where they go aside; nil on this Mac.
+    /// `host` is a remote project's host, where its parts are and where they are moved aside. It is nil on this Mac.
     let items: [RepoDiskUsage.Item], root: String, host: String?
     @Binding var chosen: Set<String>
     let trash: () -> Void, trashing: Bool
@@ -126,7 +129,8 @@ struct DiskList: View {
                         let these = items.of(group)
                         if !these.isEmpty {
                             HStack(spacing: Metrics.gap) {
-                                // The fill its parts have on the map, shaped as the foot's bar (a square read as a box).
+                                // The group's fill from the map, shaped like the footer's bar, because a square would
+                                // read as a checkbox.
                                 DiskFill(group: group).frame(
                                     width: Metrics.iconSmall + Metrics.gap, height: Metrics.gap
                                 )
@@ -181,9 +185,10 @@ struct DiskList: View {
     }
 }
 
-/// A part: its box when it can go, its name and what it is, its size; Show in Finder under the pointer.
+/// A part's row: a checkbox when it can go, its name and what it is, and its size. Show in Finder appears under the
+/// pointer.
 struct DiskRow: View {
-    /// `local`: on this Mac, where the Finder can show it.
+    /// `local` means the part is on this Mac, where the Finder can show it.
     let item: RepoDiskUsage.Item, root: String, local: Bool
     @Binding var chosen: Set<String>
     @State private var hovering = false
@@ -191,7 +196,7 @@ struct DiskRow: View {
     var body: some View {
         let canGo = item.removable && !item.what.leftAlone
         HStack(spacing: Metrics.gapWide) {
-            // One that can't go keeps the box's room, hidden: the names stand in one column.
+            // A part that can't go keeps the checkbox's room, hidden, so the names line up in one column.
             Toggle(
                 "",
                 isOn: Binding(

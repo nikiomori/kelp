@@ -1,21 +1,23 @@
 import AppKit
 import Core
 import KelpKit
-@preconcurrency import UserNotifications   // its content isn't marked Sendable
+@preconcurrency import UserNotifications   // UserNotifications' types aren't marked Sendable
 
-/// The plan limits for as long as Kelp runs, from every reading the daemon pushes (`Contributions.pushed`): each limit's
-/// pace, and the notifications they call for (a level crossed, full before the reset, unused near it, a reset that lets
-/// stopped agents go on), posted through the shell's (`Notifications.notifyUser`).
+/// Follows the plan limits for as long as Kelp runs, from every reading the daemon pushes (`Contributions.pushed`).
+/// It tracks each limit's pace and posts the notifications the limits call for: a level crossed, full before the
+/// reset, unused near the reset, and a reset that lets stopped agents go on. The shell posts them
+/// (`Notifications.notifyUser`).
 @MainActor
 final class LimitWatch {
     private let app: AppModel
     var forecast = LimitForecast()   // the pace of each limit, from the readings pushed so far
     init(app: AppModel) { self.app = app }
 
-    /// The app's one.
+    /// Returns the app's one LimitWatch.
     static func of(_ app: AppModel) -> LimitWatch { app.part { LimitWatch(app: app) } }
 
-    /// The Dock icon's Plan Usage face: the fullest limit read in the last half hour, orange from the warning level.
+    /// The Plan Usage face of the Dock icon. It shows the fullest limit read in the last half hour, in orange from the
+    /// warning level up.
     static func dockFace(_ app: AppModel) -> DockFace? {
         guard let fullest = app.latest(LimitsEvent.self)?.usage.fresh().map(\.limit.percent).max() else { return nil }
         return dockFace(fullest, warnAt: app.settings.usageAlertAt)
@@ -24,7 +26,7 @@ final class LimitWatch {
         .usage(percent: Int(percent.rounded()), high: warnAt.map { percent >= Double($0) } ?? false)
     }
 
-    /// Each reading as it lands: the forecast takes every one.
+    /// Handles each reading as it lands. The forecast records every one.
     func landed(_ pushed: any Pushed) {
         guard let limits = pushed as? LimitsEvent else { return }
         forecast.record(limits.usage)
@@ -32,7 +34,7 @@ final class LimitWatch {
     }
 
     private var limitAlerts = LimitAlerts()
-    private var forecastTold = Set<String>()   // limits already warned about, until they stop filling faster than they reset
+    private var forecastTold = Set<String>()   // limits already warned about, until they stop filling before the reset
     private func limitsChanged(_ usage: UsageGet.Result?) {
         guard let usage else { return }
         for a in limitAlerts.update(usage, first: app.settings.usageAlertAt) {
@@ -54,7 +56,8 @@ final class LimitWatch {
             guard let until = resets.full[agent]?.until else { continue }
             resetWaits[agent]?.cancel()
             resetWaits[agent] = Task { [weak self] in
-                // A minute past it: a turn that goes on by itself at the reset has started by then. The clock counts sleep.
+                // Wait until a minute past the reset, because a turn that goes on by itself has started by then.
+                // The continuous clock counts time asleep.
                 do {
                     try await Task.sleep(until: .now + .seconds(until.timeIntervalSinceNow + 60), clock: .continuous)
                 } catch { return }
@@ -63,7 +66,8 @@ final class LimitWatch {
         }
     }
 
-    /// A limit that stopped sessions reset: a banner whose Continue tells them to go on.
+    /// Called when a limit that stopped sessions resets. It posts a banner whose Continue tells those sessions to go
+    /// on.
     private func limitReset(_ agent: String) {
         resetWaits[agent] = nil
         guard let full = resets.end(agent) else { return }
@@ -87,7 +91,8 @@ final class LimitWatch {
             let agent = r.agent, l = r.limit, resetAt = r.resetAt
             let key = LimitForecast.key(agent, l.kind), window = UsageGet.window(l.kind)
             read.insert(key)
-            // Told again only once its pace eases to 90 % at the reset: a pace that wobbles around full isn't news each read.
+            // A limit is warned about again only after its pace eases to 90 % at the reset, because a pace that
+            // wobbles around full isn't news at each reading.
             if forecast.atReset(key, resetAt: resetAt, window: window).map({ $0 <= 90 }) ?? true {
                 forecastTold.remove(key)
             }
@@ -103,8 +108,8 @@ final class LimitWatch {
         forecastTold.formIntersection(read)
     }
 
-    /// A week (or month) that resets within a day with over half left, once per window: kept across launches, since the
-    /// day it holds is long enough to see Kelp quit and open again.
+    /// Warns once per window about a weekly (or monthly) limit that resets within a day with over half of it left.
+    /// What was told is kept across launches, because Kelp may quit and open again within that day.
     private func unusedNearReset(_ agent: String, _ limit: UsageGet.Limit, resetAt: Date?, window: TimeInterval?) {
         guard LimitForecast.unusedNearReset(percent: limit.percent, resetAt: resetAt, window: window), let resetAt
         else {
@@ -127,6 +132,6 @@ final class LimitWatch {
 }
 
 extension SettingsStore {
-    /// The share of a plan limit that alerts; nil: never ("off").
+    /// The percent of a plan limit at which Kelp alerts, or nil when alerts are off.
     var usageAlertAt: Int? { Int(self[SettingKeys.alertAt]) }
 }

@@ -5,15 +5,16 @@ import DesignKit
 import KelpKit
 import SwiftUI
 
-/// Settings › Agent Catalog: every agent Kelp knows, installed first. Its card: Install (its own installer in a terminal you
-/// can watch, or what it needs first), the version (and a newer one, if published) and Update, and how it's launched:
-/// binary, arguments, environment, saved like every other setting, on leaving the fields. Secrets in the environment go to
-/// the login keychain. Reset deletes the override.
+/// The Settings › Agent Catalog page: every agent Kelp knows, installed agents first. The selected agent's card holds
+/// Install (the agent's own installer in a terminal you can watch, or what it needs first), the version (and a newer
+/// one, if published) with Update, and how the agent is launched. The launch fields (binary, arguments, environment)
+/// are saved like every other setting when you leave them. Secrets in the environment go to the login keychain, and
+/// Reset deletes the override.
 struct AgentsSettings: View {
     let app: AppModel
     init(app: AppModel) { self.app = app }
     @State var files = AgentManifest.load(dir: Paths.agents)
-    /// The presets and ~/.kelp/agents, then the agents extensions add.
+    /// The agents from the presets and ~/.kelp/agents, plus the agents that extensions add, sorted by name.
     var agents: [AgentManifest] {
         (files + app.catalog.all.filter { a in !files.contains { $0.id == a.id } })
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
@@ -24,27 +25,30 @@ struct AgentsSettings: View {
     @State var command = ""
     @State var args = ""
     @State var env = ""
-    /// The agent the fields hold: by the time they're saved another one may be selected.
+    /// The agent whose launch settings the fields hold, because by the time they are saved another agent may be
+    /// selected.
     @State var loaded: String?
     enum LaunchField { case command, args, env }
     @FocusState var field: LaunchField?
     @State var versions: [String: (version: String?, latest: String?)] = [:]
-    @State var lacking: Set<String> = []   // npm, brew: not on this Mac
+    @State var lacking: Set<String> = []   // the installer tools (npm, brew) that aren't on this Mac
 
     private var updates: [AgentManifest] { agents.filter { newer(versions[$0.id]) } }
-    /// "2.1.310" is newer than "2.1.304" (numbers, not text; a build ahead of npm isn't behind).
+    /// True when the latest version is newer than the installed one, compared as numbers, not text ("2.1.310" is newer
+    /// than "2.1.304"). A build ahead of npm doesn't count as behind.
     func newer(_ versionInfo: (version: String?, latest: String?)?) -> Bool {
         guard let version = versionInfo?.version, let latest = versionInfo?.latest else { return false }
         return version.compare(latest, options: .numeric) == .orderedAscending
     }
-    /// Found on this Mac: offered in New Agent.
+    /// True when the agent is found on this Mac, which means New Agent offers it.
     private func installed(_ manifest: AgentManifest) -> Bool {
         app.availability.ids.contains(manifest.id) || versions[manifest.id]?.version != nil
     }
 
     var body: some View {
-        // Two grouped forms side by side, as every other page is one: the agents in a card on the left, the chosen one's on the
-        // right. Settings' own search finds an agent by name and opens this page on it, so there's no second search field.
+        // Two grouped forms side by side, since every other page is one grouped form. The agents sit in a card on the
+        // left, and the chosen agent's card is on the right. Settings' own search finds an agent by name and opens this
+        // page on it, so there is no second search field.
         GeometryReader { pane in
             HStack(alignment: .top, spacing: 0) {
                 list.frame(width: min(Self.listWidth, pane.size.width * 0.4))
@@ -68,12 +72,12 @@ struct AgentsSettings: View {
     /// The list's column, the form's margins included.
     private static let listWidth: CGFloat = 300
 
-    /// What's on this Mac first; the rest under it, greyed, to install from the card.
+    /// The agent list: the agents on this Mac first, and the rest under them, greyed, to install from the card.
     private var list: some View {
         let have = show == .available ? [] : agents.filter(installed)
         let rest = show == .installed ? [] : agents.filter { !installed($0) }
-        // Every agent Kelp knows, on this Mac or not: one click to the ones there are to install. Over the list, not in a
-        // card of its own: a box around one control.
+        // The segments show every agent Kelp knows, on this Mac or not, and one click shows the ones there are to
+        // install. They sit over the list rather than in a card of their own, which would be a box around one control.
         return VStack(alignment: .leading, spacing: 0) {
             Segments(
                 labels: [String(localized: "All"), String(localized: "Installed"), String(localized: "Available")],
@@ -124,13 +128,13 @@ struct AgentsSettings: View {
         return .handled
     }
 
-    /// The id `by` places from `id` in the list as shown; none past either end, or when `id` isn't shown.
+    /// Returns the id `by` places away from `id` in the list as shown; nil past either end, or when `id` isn't shown.
     static func neighbour(of id: String?, by: Int, in ids: [String]) -> String? {
         guard let index = ids.firstIndex(where: { $0 == id }), ids.indices.contains(index + by) else { return nil }
         return ids[index + by]
     }
 
-    /// Opened from Settings' search on an agent's name: that agent.
+    /// When Settings' search opened this page on an agent's name, selects that agent.
     private func reveal() {
         guard let word = UserDefaults.standard.string(forKey: "settings.group"),
             let agent = agents.first(where: { $0.name == word })
@@ -172,7 +176,8 @@ struct AgentsSettings: View {
                 Spacer(minLength: 0)
             }
             .contentShape(Rectangle())
-            // The chosen one tinted to just past its text: a form's rows take no list row background on macOS.
+            // The chosen row is tinted to just past its text, because a form's rows take no list row background on
+            // macOS.
             .background {
                 RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous)
                     .fill(on ? Color(nsColor: .fillTint(.controlAccentColor)) : .clear).padding(-Metrics.gap)
@@ -185,7 +190,7 @@ struct AgentsSettings: View {
     @ViewBuilder private func card(_ manifest: AgentManifest) -> some View {
         Section {
             HStack(spacing: Metrics.inset) {
-                // As tall as the name and the line under it.
+                // The icon is as tall as the name and the line under it.
                 Image(nsImage: app.catalog.icon(manifest.id, size: Metrics.rowTwoLine) ?? NSImage()).resizable()
                     .frame(width: Metrics.rowTwoLine, height: Metrics.rowTwoLine)
                 VStack(alignment: .leading, spacing: Metrics.lineGap) {
@@ -203,7 +208,8 @@ struct AgentsSettings: View {
         if installed(manifest) { launch(manifest) }
     }
 
-    /// Not on this Mac: its installer, what it needs first, the installer running, or ended without the agent found.
+    /// The install box for an agent that isn't on this Mac. It shows the agent's installer, what it needs first, the
+    /// installer running, or that the installer ended without the agent being found.
     @ViewBuilder private func installBox(_ manifest: AgentManifest) -> some View {
         switch app.availability.phases[manifest.id] {
         case .running(let tab)?:

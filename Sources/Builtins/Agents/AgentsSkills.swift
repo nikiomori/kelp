@@ -2,7 +2,8 @@ import Core
 import KelpKit
 
 extension Builtins {
-    /// `kelp session new --cmd`, for agents: tests, builds and servers where the user can watch them.
+    /// The skill that teaches agents `kelp session new --cmd`, to run tests, builds and servers where the user can
+    /// watch them.
     static let terminalsSkill = SkillSpec(
         name: "kelp-terminals",
         description:
@@ -33,7 +34,7 @@ extension Builtins {
         """
     )
 
-    /// `kelp session new --agent`, for agents: work handed to another agent, its result coming back.
+    /// The skill that teaches agents `kelp session new --agent`, to hand work to another agent and get its result back.
     static let agentsSkill = SkillSpec(
         name: "kelp-agents",
         description:

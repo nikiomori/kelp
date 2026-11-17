@@ -42,7 +42,7 @@ final class SessionTab: TabContent {
     }
     var icon: NSImage? { app.catalog.icon(session?.agent) }
     var badge: TabBadge? { .of(session, meter: app.latest(ContextEvent.self, sessionId)?.shown) }
-    /// Only one on screen: a hidden pane's grid is from whatever size it last had.
+    /// The grid of a pane on screen only, because a hidden pane's grid is from whatever size it last had.
     var terminalGrid: (cols: Int, rows: Int)? { pane.window == nil ? nil : pane.gridSize }
     var toolTip: String? {
         session.map {
@@ -53,11 +53,12 @@ final class SessionTab: TabContent {
     }
     func focus() { pane.focus() }
 
-    /// Closing the tab ends the session; it asks only when something would stop: a working agent, what a finished one
-    /// left running, or a program running in a terminal (an idle shell or a finished agent with nothing left just closes).
+    /// Closing the tab ends the session. It asks first only when something would stop: a working agent, what a
+    /// finished agent left running, or a program running in a terminal. An idle shell, or a finished agent with
+    /// nothing left running, just closes.
     func close() async -> Bool { await Self.close(app, session: sessionId) }
 
-    /// Its items in the tab's context menu.
+    /// Adds the session's items to the tab's context menu.
     static func menu(
         _ app: AppModel, _ menu: NSMenu, uri: String, workspace: String,
         openBeside: @escaping @MainActor (String) -> Void
@@ -69,7 +70,7 @@ final class SessionTab: TabContent {
         }
     }
 
-    /// Also for a tab that was never built (EditorArea closes those without making them).
+    /// Closes a session's tab, also one that was never built, because EditorArea closes those without making them.
     static func close(_ app: AppModel, session sid: String) async -> Bool {
         let session = app.session(sid)
         let beside = session?.aside ?? [], names = beside.joined(separator: ", ")
@@ -98,8 +99,8 @@ final class SessionTab: TabContent {
         return true
     }
 
-    /// What runs in the foreground of a terminal: the tab closes or stays on this answer. A daemon that doesn't answer
-    /// within 2 s closes the tab as if nothing ran.
+    /// Returns the program running in the foreground of a terminal, which decides whether the tab asks before it
+    /// closes. When the daemon doesn't answer within 2 s, the tab closes as if nothing ran.
     private static func busy(_ app: AppModel, _ sid: String) async -> String? {
         await app.quiet(SessionBusy(id: sid), timeout: 2) ?? nil
     }

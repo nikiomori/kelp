@@ -4,29 +4,31 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// Tidy Up (Needs a Look › Instructions): the project's instruction files, all at once, go to an agent in a chat of its
-/// own. Kelp copies them first and hands the agent the `tidyInstructions` recipe (`addons.tidy`); the agent reports,
-/// and changes them only when the person says apply. Kelp writes none of the files itself.
+/// Tidy Up (Needs a Look › Instructions) hands all of the project's instruction files at once to an agent, in a chat of
+/// its own. Kelp copies the files first and hands the agent the `tidyInstructions` recipe (`addons.tidy`). The agent
+/// reports, and changes the files only when the person says to apply. Kelp writes none of the files itself.
 @MainActor
 struct TidyUp {
     let app: AppModel, worktreeId: String
-    /// What the panel lists: the files to tidy are read from it.
+    /// The items the panel lists, which the files to tidy are read from.
     let items: [Addon]
 
     static var title: String { String(localized: "Tidy Up") }
 
-    /// The chat tidying up the workspace's files, while it's open.
+    /// The chat that is tidying up the workspace's files, while that chat is open.
     static func chat(_ app: AppModel, _ worktreeId: String) -> Session? {
         app.sessions.first {
             $0.worktreeId == worktreeId && $0.titleManual && $0.title == title && $0.status != .exited
         }
     }
-    /// That chat while its agent works or asks: the line shows it instead of the result.
+    /// The Tidy Up chat while its agent works or asks. Meanwhile the Instructions row shows that chat instead of the
+    /// result.
     static func working(_ app: AppModel, _ worktreeId: String) -> Session? {
         chat(app, worktreeId).flatMap { [.working, .waiting].contains($0.status) ? $0 : nil }
     }
 
-    /// The button: to the chat that's tidying up, else a new one with `agent` (nil: the default one).
+    /// Answers the button. It goes to the chat that is tidying up, else starts a new chat with `agent` (nil for the
+    /// default agent).
     func run(agent: String? = nil) {
         if agent == nil, let chat = Self.working(app, worktreeId) {
             app.workbench.focus(session: chat.id)
@@ -47,7 +49,7 @@ struct TidyUp {
         }
     }
 
-    /// Tidy Up with: the agents on this Mac, for a run with another than the default one.
+    /// The Tidy Up with menu lists the agents on this Mac, to run Tidy Up with an agent other than the default.
     func agents() -> NSMenu {
         let menu = NSMenu()
         for agent in app.catalog.installed(app.catalog.all) where Session.isAgent(agent.id) {
@@ -56,16 +58,16 @@ struct TidyUp {
         return menu
     }
 
-    /// Review: every change against Kelp's copies, in the diff tab.
+    /// Review shows every change against Kelp's copies in the diff tab.
     func review() { app.workbench.open(TabURI.diff(worktreeId, source: .tidy)) }
 
-    /// Keep Changes: the result leaves the panel; the copies stay in Kelp's home.
+    /// Keep Changes takes the result off the panel, and the copies stay in Kelp's home.
     func keep(_ done: @escaping () -> Void) async {
         guard await app.call(AddonsTidyEnd(worktreeId: worktreeId, undo: false)) != nil else { return }
         done()
     }
 
-    /// Undo: after a question, Kelp puts its copies back; what the agent wrote stays beside them.
+    /// Undo asks first, then Kelp puts its copies back. What the agent wrote stays beside them.
     func undo(_ done: @escaping () -> Void) async {
         let alert = NSAlert()
         alert.messageText = String(localized: "Put the instruction files back as they were?")

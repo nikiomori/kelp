@@ -1,14 +1,16 @@
 import Core
 import Foundation
 
-/// Plan limits that ran out, and the sessions they stopped: at the reset those can be told to go on.
+/// Tracks the plan limits that ran out and the sessions they stopped, so those sessions can be told to go on at the
+/// reset.
 /// Limit: kept by this window; a limit that ran out before Kelp opened gets no reset notice.
 struct LimitResets {
-    /// Since Kelp saw the agent's limit run out, until the last of its full limits resets.
+    /// When Kelp saw the agent's limit run out, and when the last of its full limits resets.
     struct Full: Equatable { var since: Date, until: Date }
     private(set) var full: [String: Full] = [:]   // agent id → its full limits
 
-    /// Agents whose limit just ran out, or now resets later (a weekly one ran out too), from the readings the sidebar shows.
+    /// Returns the agents whose limit just ran out, or now resets later because a weekly limit ran out too. It reads
+    /// the readings the sidebar shows.
     mutating func update(_ readings: [UsageGet.Result.Reading], now: Date = Date())
         -> [String]
     {
@@ -25,10 +27,10 @@ struct LimitResets {
 
     mutating func end(_ agent: String) -> Full? { full.removeValue(forKey: agent) }
 
-    /// The agent's sessions that stopped while its limit was full and haven't moved since. One that went on by itself at
-    /// the reset (Claude Code can) changed its status after it, so it isn't told twice, and one the daemon will go on with
-    /// (`Session.continueAt`) needs no asking. The limit is read from the screen a moment after the turn stopped: two minutes
-    /// of slack.
+    /// Returns the agent's sessions that stopped while its limit was full and haven't changed status since. A session
+    /// that went on by itself at the reset (Claude Code can) changed its status after the reset, so it isn't told
+    /// twice. A session the daemon will continue by itself (`Session.continueAt`) needs no asking. The limit is read
+    /// from the screen a moment after the turn stopped, so the check allows two minutes of slack.
     static func stopped(_ sessions: [Session], agent: String, _ full: Full) -> [Session] {
         sessions.filter { session in
             guard session.agent == agent, [.done, .error].contains(session.status), session.continueAt == nil,

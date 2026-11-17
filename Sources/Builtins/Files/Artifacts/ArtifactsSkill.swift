@@ -2,8 +2,8 @@ import Core
 import KelpKit
 
 extension Builtins {
-    /// `kelp artifact`, for agents: where a doc, a review or a plan goes, and how. Always written: which chats get it
-    /// is the daemon's choice (Settings' `agents.skills.artifacts`).
+    /// The `kelp artifact` skill for agents: where a doc, a review or a plan goes, and how. It is always written; the
+    /// daemon decides which chats get it (the `agents.skills.artifacts` setting).
     static let artifactsSkill = SkillSpec(
         name: "kelp-artifacts",
         description:
