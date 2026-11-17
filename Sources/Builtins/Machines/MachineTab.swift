@@ -293,12 +293,7 @@ struct MachineView: View {
     /// Changes the machine's size: one of processors, memory (GB) or disk (GB) at a time, with the list updated from
     /// the answer.
     private func resize(cpus: Int? = nil, memory: Int? = nil, disk: Int? = nil) {
-        Task {
-            // The daemon pushes the list as it has it now, so there is one source for it, not a copy patched here.
-            if await app.call(VMConfigure(name: name, cpus: cpus, memory: memory, disk: disk)) != nil {
-                app.watchAgain(.machines)
-            }
-        }
+        Task { await Machines.change(app, VMConfigure(name: name, cpus: cpus, memory: memory, disk: disk)) }
     }
 
     /// What the machine is, a row each. Processors, memory and a Linux disk show as steppers while it's shut down (a

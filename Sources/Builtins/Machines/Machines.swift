@@ -97,8 +97,7 @@ enum Machines {
                 name = "\(base)\(n)"
                 n += 1
             }
-            // The list is read again as the daemon has it.
-            if await app.call(VMCreate(name: name, image: image, file: file)) != nil { app.watchAgain(.machines) }
+            await change(app, VMCreate(name: name, image: image, file: file))
         }
     }
 
@@ -151,17 +150,20 @@ enum Machines {
 
     /// Starts, sleeps or stops a machine. Its row follows as the daemon pushes the list again.
     static func control(_ app: AppModel, machine name: String, _ action: VMControl.Action) {
-        Task {
-            // The list is read again as the daemon has it now.
-            if await app.call(VMControl(name: name, action: action)) != nil { app.watchAgain(.machines) }
-        }
+        Task { await change(app, VMControl(name: name, action: action)) }
     }
 
     /// Makes a machine whose making failed again, as it was (`vm.create` with its name alone).
     static func makeAgain(_ app: AppModel, _ name: String) {
-        Task {
-            if await app.call(VMCreate(name: name)) != nil { app.watchAgain(.machines) }   // read as the daemon has it
-        }
+        Task { await change(app, VMCreate(name: name)) }
+    }
+
+    /// Asks the daemon for a change to a machine, then reads the list again as the daemon has it now, so there is one
+    /// source for it, not a copy patched here. False if the change failed (a banner said why).
+    @discardableResult static func change<M: RPCMethod>(_ app: AppModel, _ method: M) async -> Bool {
+        guard await app.call(method) != nil else { return false }
+        app.watchAgain(.machines)
+        return true
     }
 
     /// Asks first, then stops the machine and erases its folder (disk, keys, password), so there's no getting it back.
@@ -185,9 +187,8 @@ enum Machines {
                     String(localized: "Delete “\(name)”?"), detail: detail, action: String(localized: "Delete"),
                     destructive: true)
             guard asked else { return }
-            guard await app.call(VMControl(name: name, action: .delete)) != nil else { return }
+            guard await change(app, VMControl(name: name, action: .delete)) else { return }
             app.workbench.closeTab(uri: TabURI.machine(name))
-            app.watchAgain(.machines)   // the list is read again as the daemon has it now
         }
     }
 
