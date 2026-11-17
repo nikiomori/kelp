@@ -68,10 +68,11 @@ extension VMService {
             throw RPCError.invalidParams("There's already a machine called \(machine.name).")
         }
         chmod(machineFolder.path, 0o700)
-        step(machine, kind == .macos && given == nil ? .asking : .starting)
         // to go on after a restart
         if let given { try given.path.write(to: folder(machine.name).source, atomically: true, encoding: .utf8) }
         try JSONEncoder().encode(machine).write(to: folder(machine.name).machine)
+        // After machine.json: a step finds the machine by it, and without it notes nothing (it reads as deleted).
+        step(machine, kind == .macos && given == nil ? .asking : .starting)
         Task.detached {
             switch kind {
             case .macos: await self.makeMac(machine, ipsw: given)

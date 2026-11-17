@@ -346,11 +346,17 @@ struct VMService: Sendable {
         return try JSONDecoder().decode(VMHelper.Reply.self, from: line)
     }
 
-    /// Its kelp-vm gone, the machine off at once: before its folder is (deleted, or made again).
-    func quit(_ name: String) {
+    /// Its kelp-vm gone, the machine off at once: before its folder is (deleted, or made again). One still there after
+    /// `patience` (stuck in Virtualization) is killed, by the pid it noted as it took its lock.
+    func quit(_ name: String, patience: TimeInterval = 10) {
         guard alive(name) else { return }
-        do { _ = try ask(name, .init(op: .quit), wait: 10) } catch { Log.vm.info("\(name) quit: \(error)") }   // it hangs up as it goes
-        for _ in 0..<100 where alive(name) { usleep(100_000) }
+        // it hangs up as it goes
+        do { _ = try ask(name, .init(op: .quit), wait: patience) } catch { Log.vm.info("\(name) quit: \(error)") }
+        let end = Date().addingTimeInterval(patience)
+        while alive(name), Date() < end { usleep(100_000) }
+        guard alive(name), let pid = folder(name).endChild(VMFolder.helperNote) else { return }
+        Log.vm.error("\(name)'s kelp-vm \(pid) didn't quit: killed")
+        for _ in 0..<20 where alive(name) { usleep(100_000) }   // its lock goes with it
     }
 
     /// The machine gone: its kelp-vm, what a killed one left (an emulator, a runner), an iOS one's simulator (it lives in

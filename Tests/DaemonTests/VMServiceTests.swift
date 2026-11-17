@@ -181,6 +181,18 @@ import os
         #expect(again?.notMade == true && again?.detail != "tar: broken")
     }
 
+    /// A new machine reads as being made from its first answer, its step in its folder for a kelpd after this one to go
+    /// on from: here from a raw disk of the user's, so it fails at its start (no kelp-vm), saying why.
+    @Test func aNewMachineIsBeingMadeFromItsFirstAnswer() async throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        let raw = home.appendingPathComponent("own.raw")
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        try Data(count: 4096).write(to: raw)
+        let made = try vms.create(VMCreate(name: "deb", image: "linux", file: raw.path))
+        #expect(made.state == .creating)
+        #expect(try await waitFor(60) { vms.list().first?.state == .error })
+    }
+
     /// With no kelp-vm to ask, an Android machine is asleep while its emulator's snapshot is kept, as a Linux one is
     /// while its saved state is; shutting it down then forgets that snapshot, and the next start boots afresh.
     @Test func anAndroidMachineSleepsInItsSnapshotUntilItsShutDown() throws {
@@ -337,6 +349,42 @@ import os
         #expect(FileManager.default.fileExists(atPath: home.appendingPathComponent("vms/deb/machine.json").path))
         close(lock)
         #expect(!vms.alive("deb"))
+    }
+
+    /// A kelp-vm that holds its lock and doesn't quit (stuck in Virtualization) is killed by the pid it noted, so the
+    /// machine can be deleted without restarting the Mac.
+    @Test func aKelpVMThatWontQuitIsKilledByItsNote() async throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        try folder([:])
+        let lock = home.appendingPathComponent("vms/deb/kelp-vm.lock").path
+        let stuck = try Process.run(
+            URL(fileURLWithPath: "/usr/bin/perl"),
+            arguments: ["-e", "use Fcntl ':flock'; open(F, '>>', $ARGV[0]); flock(F, LOCK_EX); sleep 60", lock])
+        defer { if stuck.isRunning { kill(stuck.processIdentifier, SIGKILL) } }
+        #expect(try await waitFor(5) { vms.alive("deb") })
+        let start = try #require(Subprocess.started(stuck.processIdentifier))
+        try "\(stuck.processIdentifier) \(start)".write(
+            to: vms.folder("deb").child(VMFolder.helperNote), atomically: true, encoding: .utf8)
+        vms.quit("deb", patience: 0.3)
+        #expect(!vms.alive("deb"))
+        #expect(try await waitFor(3) { !stuck.isRunning })
+    }
+
+    /// A disk grown before machine.json could be written says a smaller size there: a later grow to less than the file
+    /// is leaves it as it is, never cut back under what's on it.
+    @Test func aDiskIsNeverCutBackByAnOlderSize() throws {
+        defer { try? FileManager.default.removeItem(at: home) }
+        try folder([:])
+        let disk = vms.folder("deb").disk.path
+        FileManager.default.createFile(atPath: disk, contents: nil)
+        #expect(truncate(disk, 40 << 30) == 0)   // grown to 40 GB; machine.json still says 32
+        func size() throws -> Int64? {
+            (try FileManager.default.attributesOfItem(atPath: disk)[.size] as? NSNumber)?.int64Value
+        }
+        _ = try vms.configure(VMConfigure(name: "deb", disk: 36))
+        #expect(try size() == 40 << 30)
+        _ = try vms.configure(VMConfigure(name: "deb", disk: 48))
+        #expect(try size() == 48 << 30)
     }
 
     @Test func offOrAsleepFromItsFolderWithoutItsProcess() throws {

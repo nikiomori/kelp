@@ -96,7 +96,13 @@ extension VMService {
             guard machine.kind == .linux else {
                 throw RPCError.invalidParams("A macOS machine's disk can't grow: its recovery partition sits after it.")
             }
-            guard truncate(folder(machine.name).disk.path, off_t(disk) << 30) == 0 else {
+            // By the file's own size, not machine.json's: one grown before a write of that failed is never cut back.
+            let path = folder(machine.name).disk.path
+            var st = stat()
+            guard stat(path, &st) == 0 else {
+                throw RPCError.internalError("Reading the disk's size: \(String(cString: strerror(errno)))")
+            }
+            if st.st_size < off_t(disk) << 30, truncate(path, off_t(disk) << 30) != 0 {
                 throw RPCError.internalError("Growing the disk: \(String(cString: strerror(errno)))")
             }
         }
