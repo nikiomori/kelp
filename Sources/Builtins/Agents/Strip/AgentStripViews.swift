@@ -275,13 +275,7 @@ final class StripButton: PointerControl {
         }
         let title = NSMutableAttributedString(
             attributedString: text(item.name, .ui(TextSize.row, weight: .medium), .labelColor))
-        let color: NSColor =
-            switch item.cell {
-            case .asks: .textOrange
-            case .failed: .textRed
-            case .working, .done: .secondaryLabelColor
-            }
-        title.append(text("  " + StripModel.brief(item.words ?? ""), .ui(TextSize.row), color))
+        title.append(text("  " + StripModel.brief(item.words ?? ""), .ui(TextSize.row), item.cell.wordsColor))
         return title
     }
 

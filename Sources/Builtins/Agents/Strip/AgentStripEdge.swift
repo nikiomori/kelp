@@ -256,12 +256,10 @@ final class StripLine {
             let line = NSMutableAttributedString(
                 string: item.name,
                 attributes: [.font: NSFont.ui(TextSize.row, weight: .medium), .foregroundColor: NSColor.labelColor])
-            let color: NSColor =
-                item.cell == .asks ? .textOrange : item.cell == .failed ? .textRed : .secondaryLabelColor
             line.append(
                 NSAttributedString(
                     string: "  " + StripModel.brief(item.words ?? ""),
-                    attributes: [.font: NSFont.ui(TextSize.row), .foregroundColor: color]))
+                    attributes: [.font: NSFont.ui(TextSize.row), .foregroundColor: item.cell.wordsColor]))
             if more > 0 {
                 line.append(
                     NSAttributedString(

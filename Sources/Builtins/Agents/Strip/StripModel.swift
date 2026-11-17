@@ -1,7 +1,13 @@
 // The agent strip's values and the pure logic behind them: its items, corners and place, what it shows.
 import AppKit
 import Core
+import DesignKit
 import KelpKit
+
+extension DockFace.Cell {
+    /// The colour of what the agent says on the strip: orange when it asks, red when it failed, quiet otherwise.
+    var wordsColor: NSColor { self == .asks ? .textOrange : self == .failed ? .textRed : .secondaryLabelColor }
+}
 
 /// One workspace on the strip. It carries the most urgent state among its agents, and the agent in that state.
 struct StripItem: Equatable {

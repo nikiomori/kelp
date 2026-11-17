@@ -126,13 +126,8 @@ extension AgentStrip {
     func moved(to place: StripPlace?) {
         beforeCall = nil
         placedInCall = calls.inCall
-        self.place = place
         StripPlace.save(place)
-        peeking = false
-        closeCard()
-        tip?.hide()
-        line.hide()
-        goes()
+        put(place)
     }
 
     private static func number(of screen: NSScreen) -> UInt32? {
