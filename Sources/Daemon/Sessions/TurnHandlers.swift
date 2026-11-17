@@ -77,7 +77,7 @@ struct Turns: Sendable {
     /// The turn and the checkout's top, when a turn may be undone or redone there: the agent rests, no commits since the
     /// turn began, no other agent in the checkout, and its snapshot still there.
     func place(session id: String, turn: String) throws -> (SessionTurns.Mark, String) {
-        guard try store.session(id) != nil else { throw RPCError.invalidParams("No such agent.") }
+        guard try store.session(id) != nil else { throw RPCError.noSession(id) }
         let status = live[id]?.snapshot.status   // nil: paused, so not in a turn
         guard let mark = try store.turns(session: id).first(where: { $0.id == turn }) else {
             throw RPCError.invalidParams("No such turn.")

@@ -21,9 +21,10 @@ struct SourceControl: Sendable {
     /// to the next one's start or now for the newest; else since its last turn started. A paused agent isn't woken: its
     /// turns are kept in the store.
     func turnDiff(session: String?, turn: String?) throws -> (folder: String, source: DiffSource) {
-        guard let sessionId = session, let rec = try store.session(sessionId) else {
-            throw RPCError.invalidParams("No such agent.")
+        guard let sessionId = session else {
+            throw RPCError.invalidParams("Say whose turn to show: an agent's session.")
         }
+        guard let rec = try store.session(sessionId) else { throw RPCError.noSession(sessionId) }
         let ls = live[sessionId]
         if let turn {
             let marks = try store.turns(session: sessionId)
@@ -44,9 +45,10 @@ struct SourceControl: Sendable {
     /// The branch checked out in `workspace` now (a switch makes the record stale) merged into its project's base, and
     /// only the base, in the main checkout: refused while either has uncommitted changes or the main one is mid-merge.
     func merge(_ workspace: Worktree, keepConflicts: Bool) throws -> GitMerge.Result {
-        guard let repo = try store.repo(workspace.repoId) else { throw RPCError.invalidParams("no repo") }
+        guard let repo = try store.repo(workspace.repoId) else { throw RPCError.noProject(workspace.repoId) }
         if try Git.isDirty(workspace.path, remotes: remotes) {
-            throw RPCError.invalidParams("worktree has uncommitted changes")
+            throw RPCError.invalidParams(
+                "The workspace has uncommitted changes: commit or discard them, then merge.")
         }
         // The main checkout too: a merge (and the abort a conflict brings) must never touch the user's own work there.
         if Git.isMerging(repo.path, remotes: remotes) {

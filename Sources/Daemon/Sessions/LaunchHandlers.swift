@@ -62,7 +62,7 @@ extension SessionCreate: Handled {
 extension SessionRestart: Handled {
     var fence: Fence { Fence(actsOn: id) }   // it stops the session, and may brief it anew
     func handle(_ sessions: Sessions) throws -> Session {
-        guard try sessions.store.session(id) != nil else { throw RPCError.invalidParams("no session") }
+        guard try sessions.store.session(id) != nil else { throw RPCError.noSession(id) }
         // It comes back: its children stay, and its parent hears nothing. One restart at a time: a second one meanwhile
         // would find the old record still there and start a second copy of the conversation.
         guard sessions.reports.restarting(id, true) else {
@@ -81,7 +81,7 @@ extension SessionRestart: Handled {
             } else {
                 try sessions.store.update(Session.self, id) { if $0.status == .paused { $0.status = .exited } }
             }
-            guard let session = try sessions.store.session(id) else { throw RPCError.invalidParams("no session") }
+            guard let session = try sessions.store.session(id) else { throw RPCError.noSession(id) }
             return session
         }
         do {
@@ -124,7 +124,7 @@ extension SessionRestart: Handled {
 
 extension SessionFork: Handled {
     func handle(_ sessions: Sessions) throws -> Session {
-        guard let old = try sessions.store.session(id) else { throw RPCError.invalidParams("no session") }
+        guard let old = try sessions.store.session(id) else { throw RPCError.noSession(id) }
         let manifest = try sessions.setup.manifest(old.agent, command: nil, fallbackArgv: old.argv)
         var launch = Sessions.Launch()
         launch.argv = try Self.argv(old, manifest, sessions)
@@ -157,7 +157,9 @@ extension SessionFork: Handled {
 
 extension HistoryResume: Handled {
     func handle(_ sessions: Sessions) throws -> Session {
-        guard let session else { throw RPCError.invalidParams("session required") }
+        guard let session else {
+            throw RPCError.invalidParams("Say which conversation to resume (`session`): History lists them.")
+        }
         let (cwd, wid) = try sessions.setup.resumePlace(session.cwd, worktreeId: worktreeId)
         guard FileManager.default.fileExists(atPath: cwd) else {
             throw RPCError.invalidParams("the session's folder no longer exists: \(cwd)")

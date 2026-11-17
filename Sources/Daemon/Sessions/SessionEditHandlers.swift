@@ -6,14 +6,14 @@ import Foundation
 extension SessionMove: Handled {
     func handle(_ sessions: Sessions) throws -> Done {
         guard let to = try sessions.store.worktree(worktreeId), !to.archived else {
-            throw RPCError.invalidParams("no worktree")
+            throw RPCError.noWorkspace(worktreeId)
         }
         try sessions.wakeLocks.withLock(id) {
             guard
                 let session = try sessions.existing(id)?.snapshot
                     ?? sessions.store.sessions().first(where: { $0.id == id })
             else {
-                throw RPCError.invalidParams("no session")
+                throw RPCError.noSession(id)
             }
             // Its process keeps its folder: a workspace elsewhere is other files, which only a new agent can have.
             guard let from = try session.worktreeId.flatMap(sessions.store.worktree), from.path == to.path else {

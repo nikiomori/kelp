@@ -326,7 +326,7 @@ extension SessionWhy: Handled {
 }
 extension SessionTrail: Handled {
     func handle(_ sessions: Sessions) throws -> String {
-        guard let trail = try sessions.trail(id) else { throw RPCError.invalidParams("no session \(id)") }
+        guard let trail = try sessions.trail(id) else { throw RPCError.noSession(id) }
         return trail.read()
     }
 }
@@ -355,7 +355,7 @@ extension SessionMarkUnread: Handled {
 extension SessionContinueAt: Handled {
     var fence: Fence { Fence(actsOn: id) }   // it types "continue" into the session later
     func handle(_ sessions: Sessions) throws -> Done {
-        guard let ls = sessions.existing(id) else { throw RPCError.invalidParams("no session") }
+        guard let ls = sessions.existing(id) else { throw RPCError.notRunning(id) }
         ls.continueAt(at)
         return Done()
     }

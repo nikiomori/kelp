@@ -78,9 +78,8 @@ extension Sessions {
     /// connection to its host dropped (`connectionLost`), attached again to its tmux session there, its turns kept.
     func wake(_ id: String, cols: UInt16 = 120, rows: UInt16 = 32) throws -> LiveSession {
         wakeTries.withLock { $0 += 1 }
-        guard var rec = try store.session(id), isPaused(rec) || rec.connectionLost else {
-            throw RPCError.invalidParams("no live session \(id)")
-        }
+        guard var rec = try store.session(id) else { throw RPCError.noSession(id) }
+        guard isPaused(rec) || rec.connectionLost else { throw RPCError.notRunning(id) }
         rec.exitCode = nil
         let manifest = try setup.manifest(rec.agent, command: nil, fallbackArgv: rec.argv)
         let argv = setup.resumeArgv(rec, manifest)

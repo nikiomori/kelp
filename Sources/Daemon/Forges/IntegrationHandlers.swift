@@ -18,7 +18,7 @@ extension Store {
             return (repo, worktree.path)
         }
         guard let repoId else { throw RPCError.invalidParams("missing repoId") }
-        guard let repo = try self.repo(repoId) else { throw RPCError.invalidParams("no repo") }
+        guard let repo = try self.repo(repoId) else { throw RPCError.noProject(repoId) }
         return (repo, repo.path)
     }
 

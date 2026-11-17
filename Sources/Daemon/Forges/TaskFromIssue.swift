@@ -7,7 +7,7 @@ import Integrations
 
 extension TaskFromIssue: AsyncHandled {
     func handle(_ work: ForgeWork) async throws -> Result {
-        guard let repo = try work.workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
+        guard let repo = try work.workspaces.store.repo(repoId) else { throw RPCError.noProject(repoId) }
         let body = body ?? "", url = url ?? ""
         var branch =
             branch.flatMap { $0.isEmpty ? nil : $0 }

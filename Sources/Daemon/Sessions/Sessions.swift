@@ -91,7 +91,8 @@ final class Sessions: Sendable, WorkspaceSessions {
     func mustWake(_ id: String) throws {
         switch try live.phase(id, record: { try store.session(id) }) {
         case .running, .lettingGo, .paused: return
-        case .ended, .deleted: throw RPCError.invalidParams("no live session \(id)")
+        case .ended: throw RPCError.notRunning(id)
+        case .deleted: throw RPCError.noSession(id)
         }
     }
 
@@ -102,7 +103,7 @@ final class Sessions: Sendable, WorkspaceSessions {
             let ls = try liveSession(id)
             if let result = try ls.input({ try work(ls) }) { return result }
         }
-        throw RPCError.invalidParams("no live session \(id)")
+        throw RPCError.notRunning(id)
     }
 
     /// The last `bytes` (0 to 16 MB) it printed.
@@ -113,7 +114,8 @@ final class Sessions: Sendable, WorkspaceSessions {
         guard store.look("session \(id)", { try $0.session(id) }) != nil,
             let data = Data(tail: bytes, of: root.appendingPathComponent("history/\(id).log"))
         else {
-            throw RPCError.invalidParams("no history for \(id)")
+            throw RPCError.invalidParams(
+                "No output kept for session \(id): it never ran here, or its history was cleaned up.")
         }
         return data
     }
@@ -340,7 +342,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         let pty = PTY(adopting: handed.pid, fd: handed.fd)
         do {
             guard let rec = try store.session(handed.id) else {
-                throw RPCError.invalidParams("no session \(handed.id)")
+                throw RPCError.noSession(handed.id)
             }
             var adoptedManifest = try setup.manifest(rec.agent, command: nil, fallbackArgv: rec.argv)
             // As `liveManifest`; past startup, nothing is answered for it.

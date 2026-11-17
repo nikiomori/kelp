@@ -260,7 +260,7 @@ import Testing
     #expect(agents["counted"]?.array?.first?.string == "claude")
     #expect(
         agents["ownPrice"]?.array?.contains("grok") == true && agents["ownPrice"]?.array?.contains("claude") == false)
-    await #expect(throws: RPCError.invalidParams("session required")) {
+    await #expect(throws: RPCError.invalidParams("Say which conversation to resume (`session`): History lists them.")) {
         try await d.handle("history.resume", .null, conn: -1)
     }
 }
@@ -342,4 +342,27 @@ private func signals(_ s: DispatchSemaphore, _ n: Int, by deadline: DispatchTime
     _ = try await c.call(AgentSave(agent: "codex"))
     #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("codex.json").path))
     #expect(AgentManifest.load(dir: dir).first { $0.id == "codex" }?.command == "codex")
+}
+
+/// A call naming a project, workspace or session the daemon doesn't have says which one, and where the real ones are
+/// listed; one naming a session that has ended says how to bring it back.
+@Test func aMissingRecordIsNamedWithWhereToFindTheRealOnes() async throws {
+    let w = try await world()
+    let ended = try await w.c.call(SessionCreate(cwd: w.repo.path, command: "true"))
+    try await waitFor { try await w.c.call(SessionList()).first { $0.id == ended.id }?.status == .exited }
+    let rows: [(method: String, params: JSONValue, says: [String])] = [
+        ("repo.rename", .obj(["id": "p-gone", "name": "x"]), ["p-gone", "kelp repo list"]),
+        ("worktree.note", .obj(["id": "w-gone", "note": "x"]), ["w-gone", "kelp worktree list --all"]),
+        ("session.fork", .obj(["id": "s-gone"]), ["s-gone", "kelp session list"]),
+        ("session.write", .obj(["id": "s-gone", "text": "x"]), ["s-gone", "kelp session list"]),
+        ("session.write", .obj(["id": .string(ended.id), "text": "x"]), [ended.id, "kelp session restart"])
+    ]
+    for row in rows {
+        do {
+            _ = try await w.d.handle(row.method, row.params, conn: -1)
+            Issue.record("\(row.method) \(row.params) went through")
+        } catch let error as RPCError {
+            for words in row.says { #expect(error.message.contains(words), "\(row.method): \(error.message)") }
+        }
+    }
 }

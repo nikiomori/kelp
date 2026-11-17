@@ -9,7 +9,7 @@ extension Databases {
     /// A copy for the workspace's branch (`DatabaseCopy`): the copy as it's listed now.
     func copy(_ worktreeId: String, _ name: String) async throws -> DatabaseInfo {
         guard let worktree = try store.worktree(worktreeId) else {
-            throw RPCError.invalidParams("No workspace \(worktreeId).")
+            throw RPCError.noWorkspace(worktreeId)
         }
         guard remotes.of(worktree.path) == nil else {
             throw RPCError.invalidParams("A remote project's databases stay on its host: Kelp copies them only here.")

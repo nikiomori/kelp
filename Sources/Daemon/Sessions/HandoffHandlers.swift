@@ -7,7 +7,7 @@ import Integrations
 
 extension SessionHandoff: Handled {
     func handle(_ sessions: Sessions) throws -> Session {
-        guard let old = try sessions.store.session(id) else { throw RPCError.invalidParams("no session") }
+        guard let old = try sessions.store.session(id) else { throw RPCError.noSession(id) }
         return try start(from: old, in: old.cwd, worktreeId: old.worktreeId, sessions)
     }
 

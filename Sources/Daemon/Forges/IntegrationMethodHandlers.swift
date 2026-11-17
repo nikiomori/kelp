@@ -305,7 +305,7 @@ extension GitHubPRCreate: AsyncHandled {
     func handle(_ forges: Forges) async throws -> Result {
         guard let workspace = try forges.store.worktree(worktreeId), let repo = try forges.store.repo(workspace.repoId)
         else {
-            throw RPCError.invalidParams("no worktree")
+            throw RPCError.noWorkspace(worktreeId)
         }
         let made = try await forges.createPR(workspace, in: repo, title: title, body: body, draft: draft == true)
         return Result(url: made.url, title: made.title)
@@ -315,8 +315,10 @@ extension GitHubPRCreate: AsyncHandled {
 extension GitHubPRMerge: AsyncHandled {
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) async throws -> Done {
-        guard let workspace = try forges.store.worktree(worktreeId), let number = pr ?? workspace.prNumber else {
-            throw RPCError.invalidParams("no PR linked")
+        guard let workspace = try forges.store.worktree(worktreeId) else { throw RPCError.noWorkspace(worktreeId) }
+        guard let number = pr ?? workspace.prNumber else {
+            throw RPCError.invalidParams(
+                "This workspace has no pull request: create one first (`kelp github pr-create`).")
         }
         let how = method ?? "squash"
         switch try await forges.offloads.run({ forges.forge(workspace.path) }) {

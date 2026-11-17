@@ -69,7 +69,7 @@ final class Databases: Sendable {
     /// The workspace's databases with their passwords: found in its folder, changed or added by hand in its project.
     func connections(_ worktreeId: String) throws -> [DatabaseConnection] {
         guard let worktree = try store.worktree(worktreeId) else {
-            throw RPCError.invalidParams("No workspace \(worktreeId).")
+            throw RPCError.noWorkspace(worktreeId)
         }
         let host = remotes.of(worktree.path), remote = host != nil
         var found = host.map { onHost($0, worktreeId) } ?? DatabaseFind.find(in: worktree.path)
@@ -221,7 +221,7 @@ final class Databases: Sendable {
     func save(_ worktreeId: String, _ database: DatabaseInfo, password: String?, library: Bool) throws -> DatabaseInfo {
         if library { return try saveInLibrary(worktreeId, database, password: password) }
         guard let worktree = try store.worktree(worktreeId) else {
-            throw RPCError.invalidParams("No workspace \(worktreeId).")
+            throw RPCError.noWorkspace(worktreeId)
         }
         let name = database.name.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty, !name.contains("/") else { throw RPCError.invalidParams("Give it a name without /.") }

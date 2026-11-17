@@ -13,7 +13,7 @@ extension SessionMoveAcross: Handled {
         let workspaces = moves.workspaces, store = workspaces.store, remotes = workspaces.remotes,
             sessions = moves.sessions
         guard let old = try store.session(id), let wid = old.worktreeId else {
-            throw RPCError.invalidParams("no session")
+            throw RPCError.noSession(id)
         }
         let from = try store.worktree(named: wid)
         guard let fromRepo = try store.repo(from.repoId), let toRepo = try store.repo(repoId), toRepo.id != fromRepo.id

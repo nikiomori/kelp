@@ -152,7 +152,9 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
         if n <= 0 { break }
         out.append(contentsOf: buf[0..<n])
     }
-    #expect(String(decoding: out, as: UTF8.self) == "kelp: unknown agent gone\r\n")
+    #expect(
+        String(decoding: out, as: UTF8.self)
+            == "kelp: Unknown agent gone: Settings › Agents lists the agents Kelp starts.\r\n")
 }
 
 /// A send to a paused agent wakes it (git, files, a spawn) off the connection's reader thread: what that connection sends

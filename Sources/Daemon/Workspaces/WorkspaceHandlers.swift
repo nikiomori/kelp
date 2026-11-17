@@ -73,7 +73,7 @@ extension ScratchEnsure: Handled {
 
 extension RepoRelocate: Handled {
     func handle(_ workspaces: Workspaces) throws -> Repo {
-        guard let old = try workspaces.store.repo(id)?.path else { throw RPCError.invalidParams("no repo") }
+        guard let old = try workspaces.store.repo(id)?.path else { throw RPCError.noProject(id) }
         let root = try Git.root(of: path, remotes: workspaces.remotes)
         // Its path only, in one write: the copy read before git ran would put back a rename made meanwhile.
         guard let repo = try workspaces.store.update(Repo.self, id, { $0.path = root }) else {
@@ -90,7 +90,7 @@ extension RepoRelocate: Handled {
 /// An empty name goes back to the folder's, as `repo.add` named it (a remote project's: the folder on its host).
 extension RepoRename: Handled {
     func handle(_ workspaces: Workspaces) throws -> Repo {
-        guard var repo = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
+        guard var repo = try workspaces.store.repo(id) else { throw RPCError.noProject(id) }
         let given = name.trimmingCharacters(in: .whitespacesAndNewlines)
         repo.name =
             !given.isEmpty
@@ -107,7 +107,7 @@ extension RepoRename: Handled {
 extension RepoRemove: Handled {
     var fence: Fence { Fence(ends: .project(id), notForAgents: "Only the user removes a project from Kelp.") }
     func handle(_ workspaces: Workspaces) throws -> Done {
-        guard let repo = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
+        guard let repo = try workspaces.store.repo(id) else { throw RPCError.noProject(id) }
         let ids = Set(try workspaces.store.worktrees(repo: repo.id).map(\.id))
         workspaces.sessions.discard(try workspaces.store.sessions().filter { ids.contains($0.worktreeId ?? "") })
         let passwords = try workspaces.databases.accounts(ofRepo: repo.id)
@@ -121,7 +121,7 @@ extension RepoRemove: Handled {
 extension WorkspaceCreate: Handled {
     var fence: Fence { Fence(makesInProject: repoId) }
     func handle(_ workspaces: Workspaces) throws -> Worktree {
-        guard let repo = try workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
+        guard let repo = try workspaces.store.repo(repoId) else { throw RPCError.noProject(repoId) }
         var workspace = try workspaces.createWorkspace(in: repo)
         if let asker = Sessions.asker {
             workspace.madeBy = asker
@@ -135,7 +135,7 @@ extension WorkspaceCreate: Handled {
 extension WorktreeCreate: Handled {
     var fence: Fence { Fence(makesInProject: repoId) }
     func handle(_ workspaces: Workspaces) throws -> Result {
-        guard let repo = try workspaces.store.repo(repoId) else { throw RPCError.invalidParams("no repo") }
+        guard let repo = try workspaces.store.repo(repoId) else { throw RPCError.noProject(repoId) }
         return try workspaces.createBranchWorkspace(in: repo, self)
     }
 }
@@ -152,7 +152,7 @@ extension WorktreeArchive: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let workspace = try workspaces.store.worktree(id), let repo = try workspaces.store.repo(workspace.repoId)
         else {
-            throw RPCError.invalidParams("no worktree")
+            throw RPCError.noWorkspace(id)
         }
         try workspaces.archive(workspace, repo)
         return Done()
@@ -169,7 +169,7 @@ extension WorktreeRemove: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let workspace = try workspaces.store.worktree(id), let repo = try workspaces.store.repo(workspace.repoId)
         else {
-            throw RPCError.invalidParams("no worktree")
+            throw RPCError.noWorkspace(id)
         }
         try workspaces.removeWorkspace(workspace, repo, force: force == true, dropCommits: dropCommits == true)
         workspaces.databases.dropCopies(of: workspace)   // its own copies of the project's databases go with it
@@ -180,7 +180,7 @@ extension WorktreeRemove: Handled {
 extension WorktreeUnarchive: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard try workspaces.store.update(Worktree.self, id, { $0.archived = false }) != nil else {
-            throw RPCError.invalidParams("no worktree")
+            throw RPCError.noWorkspace(id)
         }
         workspaces.notify(ChangedEvent.worktree)
         return Done()
@@ -206,7 +206,7 @@ extension WorktreeDirty: Handled {
 extension WorktreeNote: Handled {
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard try workspaces.store.update(Worktree.self, id, { $0.note = note }) != nil else {
-            throw RPCError.invalidParams("no worktree")
+            throw RPCError.noWorkspace(id)
         }
         workspaces.notify(ChangedEvent.worktree)
         return Done()
@@ -215,7 +215,7 @@ extension WorktreeNote: Handled {
 
 extension RepoWorktreeSizes: Handled {
     func handle(_ workspaces: Workspaces) throws -> [Item] {
-        guard let repo = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
+        guard let repo = try workspaces.store.repo(id) else { throw RPCError.noProject(id) }
         return try Self.sizes(of: repo, workspaces)
     }
 
@@ -255,14 +255,14 @@ extension RepoWorktreeSizes: Handled {
 extension RepoRemoveWorktrees: Handled {
     var fence: Fence { Fence(notForAgents: "Only the user clears a project's worktrees.") }
     func handle(_ workspaces: Workspaces) throws -> Result {
-        guard let repo = try workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
+        guard let repo = try workspaces.store.repo(id) else { throw RPCError.noProject(id) }
         return try workspaces.removeWorktrees(paths, of: repo)
     }
 }
 
 extension RepoDiskUsage: Handled {
     func handle(_ disk: DiskUsage) throws -> Result {
-        guard let repo = try disk.workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
+        guard let repo = try disk.workspaces.store.repo(id) else { throw RPCError.noProject(id) }
         return try disk.measure(repo)
     }
 }
@@ -270,7 +270,7 @@ extension RepoDiskUsage: Handled {
 extension RepoDiskTrash: Handled {
     var fence: Fence { Fence(notForAgents: "Only the user clears a project's disk.") }
     func handle(_ disk: DiskUsage) throws -> Result {
-        guard let repo = try disk.workspaces.store.repo(id) else { throw RPCError.invalidParams("no repo") }
+        guard let repo = try disk.workspaces.store.repo(id) else { throw RPCError.noProject(id) }
         return try disk.trash(paths, of: repo)
     }
 }

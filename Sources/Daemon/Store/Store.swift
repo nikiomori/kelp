@@ -235,7 +235,7 @@ final class Store: Sendable {
 extension Store {
     /// The worktree a client named: one that isn't there is the client's error.
     func worktree(named id: String) throws -> Worktree {
-        guard let found = try worktree(id) else { throw RPCError.invalidParams("no worktree \(id)") }
+        guard let found = try worktree(id) else { throw RPCError.noWorkspace(id) }
         return found
     }
 }

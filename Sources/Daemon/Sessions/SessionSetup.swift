@@ -254,7 +254,9 @@ final class SessionSetup: Sendable {
                 command: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
                 args: ["-l"], tracksStatus: false)
         }
-        guard let manifest = agent(id) else { throw RPCError.invalidParams("unknown agent \(id)") }
+        guard let manifest = agent(id) else {
+            throw RPCError.invalidParams("Unknown agent \(id): Settings › Agents lists the agents Kelp starts.")
+        }
         return manifest
     }
 }

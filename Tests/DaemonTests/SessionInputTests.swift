@@ -340,7 +340,7 @@ import os
 }
 
 /// Input that comes while an idle pause stops the program waits for it and wakes the agent: it used to be refused
-/// ("no live session") because the pause hadn't been saved yet.
+/// ("has ended") because the pause hadn't been saved yet.
 @Test func inputDuringAnIdlePauseWakesTheAgent() async throws {
     let w = try await world(agents: [
         AgentManifest(
