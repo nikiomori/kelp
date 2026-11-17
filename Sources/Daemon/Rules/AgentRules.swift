@@ -7,8 +7,8 @@ import GRDB
 enum AgentRules {
     /// The methods an agent's program, or one kelpd runs (an extension's, a git hook), may call at all; each still has its
     /// own rules (`actsOn`, `inWorkspace`, …). What agents use (their skills, hooks and `kelp` commands) and what reads.
-    /// Everything else is the user's (commits, pushes, PRs, CI, trackers, credentials, projects, routines, scripts, the
-    /// daemon itself): a new method is closed to agents until it's put here. By type, so a renamed one stays named.
+    /// Everything else is the user's (commits, pushes, PRs, CI, trackers, credentials, projects, scripts, the daemon
+    /// itself): a new method is closed to agents until it's put here. By type, so a renamed one stays named.
     static let methods: Set<String> = Set((reading + acting).map { $0.name })
     /// What only reads: a workspace it names may be any (a review of another branch, a status); what acts is held to the
     /// agent's own workspaces, every one it names, whatever the field (`Store.workspaces(namedBy:)`).
@@ -57,6 +57,9 @@ enum AgentRules {
         VMConnect.self, VMScreen.self, VMUI.self, VMType.self, VMControl.self,
         // a machine it needs, made only once the user allows it on its row (`VMCreate`'s handler)
         VMCreate.self,
+        // a routine the user asked it for: a new one in its project, added only once they allow it on its row
+        // (`RoutineSet`'s handler); changing, running and deleting one stay theirs
+        RoutineSet.self,
         // its own workspaces' databases: which, their tables, and a statement (read-only, or a change as the database's
         // `agentAccess` says, `Databases.query`); another project's aren't its to look at, production ones included
         DatabaseList.self, DatabaseSchemaRead.self, DatabaseQuery.self

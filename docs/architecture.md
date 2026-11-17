@@ -383,7 +383,9 @@ and one named another way, by the window, a path or a tab's address (`db:<worksp
 with `inWorkspace`), open web pages only with cookies of their own (`kelp browser open`; a plain page tab is the
 user's, logged in, and `kelp shot` would see it, so neither `ui.open` nor a session started with `openURLs`, whose
 printed page opens by itself, gives an agent one), make workspaces only in the project
-they work in (`makesInProject`), run only the app's commands that show something (`UICommand.forAgents`, ids no extension may take), start
+they work in (`makesInProject`), add a routine there only once the user allows it on the agent's row (`RoutineSet`'s handler: a
+new one, its name, prompt, agent and times all in the question; changing, running and deleting one stay the user's),
+run only the app's commands that show something (`UICommand.forAgents`, ids no extension may take), start
 sessions only under their own account (`profile`), set no setting of the
 user's own (`SettingsSet.usersOnly`, the keyboard's included), never answer a question (one a hook said, until what
 answers it comes, not a "working" the session says itself; or "trust this folder?" or a numbered menu on screen:

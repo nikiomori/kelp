@@ -185,14 +185,15 @@ enum StripCardKind: Equatable {
 extension StripModel {
     /// A permission's question as the card shows it: what kind of thing it allows, over the thing itself in full. "Allow npm
     /// test?" → "Allow this command?" over `npm test`; "Allow editing App.swift?" → "Allow editing?" over the path; a bare tool
-    /// ("Allow github: create_issue?") stays as it is.
+    /// ("Allow github: create_issue?") stays as it is. A routine an agent asks for: all of it, as the daemon wrote it.
     static func permission(_ summary: String) -> (title: String, detail: String?) {
         guard summary.hasPrefix("Allow "), summary.hasSuffix("?") else { return (summary, nil) }
         let what = String(summary.dropFirst(6).dropLast())
         let kinds = [
             ("editing", String(localized: "Allow editing?")), ("writing", String(localized: "Allow writing?")),
             ("reading", String(localized: "Allow reading?")), ("fetching", String(localized: "Allow fetching?")),
-            ("searching the web for", String(localized: "Allow a web search?"))
+            ("searching the web for", String(localized: "Allow a web search?")),
+            ("a routine,", String(localized: "Allow this routine?"))
         ]
         for (verb, title) in kinds where what.hasPrefix(verb + " ") {
             return (title, what.dropFirst(verb.count + 1).trimmingCharacters(in: CharacterSet(charactersIn: "“”")))

@@ -17,12 +17,14 @@ extension Main {
         switch sub {
         case "add":
             let prompt = flag("--prompt"), agent = flag("--agent") ?? Session.claudeAgent, model = flag("--model")
-            let every = Routine.Every(rawValue: flag("--every") ?? "weekdays") ?? .weekdays
+            let every = Routine.Every(rawValue: flag("--every") ?? "weekdays")
             let at = flag("--at") ?? (every == .hourly ? ":00" : "9:00"), day = flag("--day") ?? "mon",
                 skip = has("--skip-missed")
-            let hm = at.split(separator: ":", omittingEmptySubsequences: false).map { Int($0) ?? 0 }
+            // A word that isn't a time or a schedule is refused, not taken for midnight or weekdays; so is --help.
+            let parts = at.split(separator: ":", omittingEmptySubsequences: false),
+                hm = parts.compactMap { $0.isEmpty ? 0 : Int($0) }
             let days = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
-            guard let prompt, let name = args.first,
+            guard let prompt, let every, let name = args.first, !name.hasPrefix("-"), hm.count == parts.count,
                 let weekday = days.firstIndex(of: String(day.lowercased().prefix(3)))
             else {
                 fail(

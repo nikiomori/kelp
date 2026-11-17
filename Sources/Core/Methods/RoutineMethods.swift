@@ -138,6 +138,9 @@ public struct RoutineList: InternalMethod {
 public struct RoutineSet: InternalMethod {
     public static let name = "routine.set"
     public typealias Result = Routine
+    /// An agent's new one asks the user first, on its row, for up to ten minutes; the user's is saved at once.
+    public static let answerWithin: TimeInterval = 600
+    public static var timeout: TimeInterval? { answerWithin + 60 }
     public var routine: Routine
     public init(routine: Routine) { self.routine = routine }
 }

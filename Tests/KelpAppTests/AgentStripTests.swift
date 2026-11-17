@@ -263,6 +263,9 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(StripModel.permission("Allow searching the web for “swift 6”?") == ("Allow a web search?", "swift 6"))
     #expect(StripModel.permission("Allow github: create_issue?") == ("Allow github: create_issue?", nil))
     #expect(StripModel.permission("Allow Bash?") == ("Allow Bash?", nil))
+    // A routine an agent asks for: all of it under the title, as long as the daemon lets one be.
+    let routine = "Triage: “Label the new issues.” (Claude Code, weekdays at 9:00)"
+    #expect(StripModel.permission("Allow a routine, \(routine)?") == ("Allow this routine?", routine))
 }
 
 /// A tile's menu starts with its own agent: what it says, then what can be done to it from here; the strip's own below.

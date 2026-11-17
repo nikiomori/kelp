@@ -88,8 +88,8 @@ final class Routines: Sendable {
         if told { changed() }
     }
 
-    /// Adds or changes one. A new one, one switched on and one with a new schedule count from now.
-    func set(_ new: Routine) throws -> Routine {
+    /// What one must have to be saved, or asked about.
+    func check(_ new: Routine) throws {
         guard try store.repo(new.repoId) != nil else { throw RPCError.invalidParams("no project \(new.repoId)") }
         guard !new.name.trimmingCharacters(in: .whitespaces).isEmpty,
             !new.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -98,6 +98,11 @@ final class Routines: Sendable {
         guard (0..<1440).contains(new.time), (1...7).contains(new.weekday) else {
             throw RPCError.invalidParams("no such time")
         }
+    }
+
+    /// Adds or changes one. A new one, one switched on and one with a new schedule count from now.
+    func set(_ new: Routine) throws -> Routine {
+        try check(new)
         return try queue.sync {
             var routine = new
             let old = try new.id.isEmpty ? nil : store.db.read { try Routine.fetchOne($0, key: new.id) }
@@ -237,12 +242,67 @@ extension RoutineList: Handled {
     func handle(_ routines: Routines) throws -> RoutinesEvent { try routines.list() }
 }
 
-extension RoutineSet: Handled {
-    /// A routine starts agents later, from nobody's session: what an agent set up would run as the user's own.
+/// A routine starts agents later, with nobody at the keys: the user's to decide. An agent's new one, in the project it
+/// works in, asks them on its row (Allow / Deny), as a machine does, with all of it in the question; changing or
+/// deleting one stays the user's.
+extension RoutineSet: AsyncHandled {
     static let theUsers =
-        "A routine is the user's to set up: in Kelp's window (Routines), or `kelp routine` in a terminal of theirs."
-    var fence: Fence { Fence(notForAgents: Self.theUsers) }
-    func handle(_ routines: Routines) throws -> Routine { try routines.set(routine) }
+        "A routine is the user's to change or delete: in Kelp's window (Routines), or `kelp routine` in a terminal of theirs."
+    /// How long an agent's name and prompt may be: what the card beside Allow shows whole (`StripModel.permission`).
+    /// Limit: a prompt of wide letters (Chinese, Japanese) near its length is cut there, and read whole on the row.
+    static let asked = (name: 40, prompt: 200)
+
+    var fence: Fence {
+        Fence(notForAgents: routine.id.isEmpty ? nil : Self.theUsers, makesInProject: routine.repoId)
+    }
+
+    func handle(_ routines: Routines, conn: Int) async throws -> Routine {
+        let sessions = routines.sessions
+        if case .some(let session) = routines.store.agent(origin: Sessions.asker) {
+            guard let session, let ls = sessions.existing(session) else {
+                throw RPCError.refused("A routine is the user's to add: tell them `kelp routine add` makes one.")
+            }
+            try routines.check(routine)   // not asked for one that can't be
+            guard routine.name.count <= Self.asked.name, routine.prompt.count <= Self.asked.prompt else {
+                throw RPCError.invalidParams(
+                    "The user reads all of an agent's routine before allowing it: a name of up to \(Self.asked.name) "
+                        + "characters, a prompt of up to \(Self.asked.prompt). Put longer instructions in a file of "
+                        + "the project and name it in the prompt.")
+            }
+            let who = try sessions.setup.manifest(routine.agent, command: nil).name
+            let question = Self.question(routine, agent: who)
+            ls.askForKelp(question)
+            let answer = await sessions.permissions.waitForKelp(
+                session, question: question, within: Self.answerWithin,
+                asker: routines.clients.connection(conn)?.peerPID)
+            ls.kelpAsked(question)
+            guard answer == "allow" else {
+                throw RPCError.refused(
+                    answer == "deny"
+                        ? "The user didn't allow the routine \(routine.name)."
+                        : "Nobody answered: \(routine.name) wasn't added.")
+            }
+        }
+        return try await sessions.offloads.run { [self] in try routines.set(routine) }
+    }
+
+    /// What the agent's row asks, all of the routine in it:
+    /// "Allow a routine, Morning triage: “Label the new issues.” (Claude Code, weekdays at 9:00)?".
+    static func question(_ routine: Routine, agent: String) -> String {
+        func oneLine(_ text: String) -> String { text.split(whereSeparator: \.isWhitespace).joined(separator: " ") }
+        let minute = String(format: "%02d", routine.time % 60), at = "\(routine.time / 60):\(minute)"
+        var english = Calendar(identifier: .gregorian)
+        english.locale = Locale(identifier: "en_US")
+        let when =
+            switch routine.every {
+            case .hourly: "every hour at :\(minute)"
+            case .daily: "every day at \(at)"
+            case .weekdays: "weekdays at \(at)"
+            case .weekly: "\(english.weekdaySymbols[routine.weekday - 1])s at \(at)"
+            }
+        let who = [agent, routine.model].compactMap { $0 }.joined(separator: " ")
+        return "Allow a routine, \(oneLine(routine.name)): “\(oneLine(routine.prompt))” (\(who), \(when))?"
+    }
 }
 
 extension RoutineDelete: Handled {

@@ -114,6 +114,9 @@ private func rows() async throws -> Rows {
     let r = try await rows()
     defer { r.w.d.stop() }
     let agent = Caller.session(r.mine.id)
+    func routine(id: String = "", repo: String? = nil) -> Routine {
+        Routine(id: id, name: "Nightly", repoId: repo ?? r.w.repo.id, agent: "claude", prompt: "x")
+    }
     try expectRows(
         r.w.d,
         [
@@ -136,7 +139,12 @@ private func rows() async throws -> Rows {
             (agent, VMType(name: "m"), false, "not its password"),
             (agent, VMControl(name: "m", action: .sleep), true, "a sleep: the next command wakes it"),
             (agent, VMControl(name: "m", action: .stop), false, "not a shutdown: other chats run in it"),
-            (agent, VMCreate(name: "m"), true, "a machine, made once the user allows it on its row")
+            (agent, VMCreate(name: "m"), true, "a machine, made once the user allows it on its row"),
+            (agent, RoutineSet(routine: routine()), true, "a new routine in its project, added once the user allows"),
+            (agent, RoutineSet(routine: routine(id: "r")), false, "not a change to one there"),
+            (agent, RoutineSet(routine: routine(repo: UUID().uuidString)), false, "nor one in a project not its own"),
+            (agent, RoutineDelete(id: "r"), false, "nor one deleted"),
+            (agent, RoutineRun(id: "r"), false, "or run now")
         ])
 }
 

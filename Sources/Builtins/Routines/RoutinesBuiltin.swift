@@ -38,7 +38,8 @@ extension Builtins {
                 TabProvider(
                     schemes: ["routines"], make: { routinesTab(uri: $0, app: app) },
                     placeholder: { _ in (String(localized: "Routines"), .symbol("clock.arrow.circlepath"), nil) })
-            ]
+            ],
+            skills: [routinesSkill]
         )
     }
 }

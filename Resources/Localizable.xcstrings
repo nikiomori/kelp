@@ -21616,6 +21616,26 @@
         }
       }
     },
+    "Add routines": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавлять рутины"
+          }
+        }
+      }
+    },
+    "Ask Claude Code for work on a schedule: it adds a routine once you allow it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попросите Claude Code о работе по расписанию: он добавит рутину, когда вы разрешите."
+          }
+        }
+      }
+    },
     "Hand work to other agents": {
       "localizations": {
         "ru": {
@@ -22601,6 +22621,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Разрешить поиск в сети?"
+          }
+        }
+      }
+    },
+    "Allow this routine?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить эту рутину?"
           }
         }
       }

@@ -57,7 +57,7 @@ struct Fence {
     /// The sessions it ends with what it removes (a workspace, a project's): an agent ends only its own and those it
     /// started, never the user's other agents.
     var ends: Ending?
-    /// Why an agent, or a program it runs, may not call it at all (a routine starts agents of the user's later): nil if it may.
+    /// Why an agent, or a program it runs, may not call it at all (deleting a routine, the user's own): nil if it may.
     var notForAgents: String?
     /// The session it types keys into as they are: never an agent's while that one asks a question, which a key answers.
     var typesInto: String?

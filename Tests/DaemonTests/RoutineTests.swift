@@ -146,3 +146,48 @@ private final class Heard: @unchecked Sendable {
     let on = try await w.c.call(RoutineSet(routine: off))
     #expect(on.checked > skip.checked)
 }
+
+/// An agent's routine.set asks the user on its row first, all of the routine in the question (its line breaks as
+/// spaces): Deny refuses it, Allow adds it. One that can't be made, or longer than the card shows whole, isn't asked about.
+@Test func anAgentsRoutineIsAddedOnlyOnceTheUserAllowsIt() async throws {
+    let w = try await world(agents: [bot])
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
+    func routine(_ name: String = "Morning triage", agent: String = "bot", prompt: String = "Label the\n  new issues.")
+        -> Routine
+    {
+        Routine(
+            name: name, repoId: w.repo.id, agent: agent, model: "fast", prompt: prompt, every: .weekly,
+            time: 9 * 60 + 5, weekday: 2)
+    }
+    func ask(_ routine: Routine) -> Task<Routine, Error> {
+        Task {
+            try await Sessions.$asker.withValue(agent.id) {
+                try await RoutineSet(routine: routine).handle(w.d.workspaces.routines, conn: -1)
+            }
+        }
+    }
+    func summary() throws -> String { try w.d.store.session(agent.id)?.summary ?? "" }
+    let question = "Allow a routine, Morning triage: “Label the new issues.” (Bot fast, Mondays at 9:05)?"
+    let denied = ask(routine())
+    #expect(try await waitFor { try summary() == question })
+    #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "deny", question: question)))
+    await #expect(throws: RPCError.self) { try await denied.value }
+    #expect(try await w.c.call(RoutineList()).routines.isEmpty)
+    let long = String(repeating: "x", count: RoutineSet.asked.prompt + 1)
+    for unasked in [routine(" "), routine(prompt: long), routine(agent: "uninstalled")] {
+        await #expect(throws: RPCError.self) { try await ask(unasked).value }
+    }
+    #expect(try summary().isEmpty)
+    let allowed = ask(routine())
+    #expect(try await waitFor { try summary() == question })
+    #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: question)))
+    let added = try await allowed.value
+    #expect(added.prompt == "Label the\n  new issues." && !added.id.isEmpty)   // saved as it was written
+    #expect(try await w.c.call(RoutineList()).routines.map(\.id) == [added.id])
+    #expect(RoutineSet.question(routine(), agent: "Bot").count < 336)   // the card's eight lines of 42
+    var hourly = routine()
+    (hourly.every, hourly.time, hourly.model) = (.hourly, 15, nil)
+    #expect(RoutineSet.question(hourly, agent: "Bot").hasSuffix("(Bot, every hour at :15)?"))
+}

@@ -53,7 +53,8 @@ let usage = """
       ext update [id]                      what came from GitHub, to the library's latest (or its branch's)
       routine add <name> --prompt <text> [--agent id] [--model m] [--every hourly|daily|weekdays|weekly] [--at 9:00]
                   [--day mon] [--skip-missed]   an agent on a schedule in this project, in a workspace of its own; one
-                                           missed while the Mac slept runs once when it wakes (--skip-missed: doesn't)
+                                           missed while the Mac slept runs once when it wakes (--skip-missed: doesn't);
+                                           an agent's asks the user on its row first
       routine list | run <id> | rm <id>    routines and their runs of the last two weeks; run now; delete
       artifact guide <doc|review|slides|design|dashboard|proof> [part]   how and where to make one: read it first
       artifact check <design>              what the window finds wrong on a design: cut-off text, contrast, sizes
