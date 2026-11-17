@@ -7,8 +7,8 @@ import os
 // What `Watches` reads for each topic, asked as a client would ask it (`ask`, Server.swift).
 
 extension Daemon {
-    /// What a folder's branch committed since it left its project's base, for `GitEvent.branchFiles`. A base that
-    /// isn't a branch here (a project made before it had one) says nothing, in the log.
+    /// The files a folder's branch committed since it left its project's base, for `GitEvent.branchFiles`. A base that
+    /// isn't a branch here (a project made before it had one) gives nil, with a note in the log.
     private func branchFiles(_ worktree: Worktree) async throws -> [String]? {
         guard let base = try store.repo(worktree.repoId)?.baseBranch, worktree.branch != base else { return nil }
         let remotes = remotes
@@ -19,8 +19,8 @@ extension Daemon {
         }
     }
 
-    /// A folder's pull request. Merged on the forge (a squash leaves the branch's commits out of the base): its group
-    /// may be done with.
+    /// Reads a folder's pull request. When it was merged on the forge (a squash leaves the branch's commits out of the
+    /// base), the folder's group may no longer be needed.
     private func prRead(_ key: String) async -> Data? {
         let pr = await logged(.pr, key) { try await ask(GitHubBranchPR(worktreeId: key)) } ?? nil
         if let pr, pr.state == "MERGED" {
@@ -30,14 +30,15 @@ extension Daemon {
         return pr.flatMap { line(PREvent(worktree: key, pr: $0)) }
     }
 
-    /// A project's open pull requests, for the Issues panel and its number: other people's change on the forge only.
+    /// A project's open pull requests, for the Issues panel and its count. Only other people's changes on the forge
+    /// change it, so it has no folder to watch.
     private func prsRead(_ repo: String) async -> Data? {
         do { return line(PRsEvent(repo: repo, prs: try await ask(GitHubPRs(repoId: repo, filter: .open)))) } catch {
             return line(PRsEvent(repo: repo, error: error.rpcMessage))
         }
     }
 
-    /// What only a branch group's folder holds (`GitEvent.only`); nothing to say for a project's own folder.
+    /// How much only a branch group's folder holds (`GitEvent.only`). Returns nil for a project's own folder.
     private func ownWork(_ worktree: Worktree, in repo: Repo?) async throws -> Int? {
         guard let repo, repo.path != worktree.path else { return nil }
         let remotes = remotes, workspaces = workspaces
@@ -66,8 +67,8 @@ extension Daemon {
         return (work.files, work.only, dirty)
     }
 
-    /// Lines added and removed. A local folder's new files are the ones its status just listed, unless it listed only
-    /// its first `FileChange.limit`.
+    /// Counts lines added and removed. A local folder's new files are the ones its status just listed, unless it listed
+    /// only its first `FileChange.limit`.
     private func lineStats(_ key: String, local worktree: Worktree?, _ changes: [FileChange]) async -> LineStats? {
         guard !changes.isEmpty else { return LineStats() }
         let remotes = remotes
@@ -98,7 +99,7 @@ extension Daemon {
             }
         case .ports:
             return Watches.Topic(backsOffFrom: 10) { [self] _ in
-                // A host is asked over ssh: less often, and as with git only while watched.
+                // A host is asked over ssh, so less often, and as with git only while watched.
                 let remote = sessions.processes.remote(key) != nil
                 let ports = await logged(.ports, key) { try await ask(PortsList(worktreeId: key)) }
                 return (ports.flatMap { line(PortsEvent(worktree: key, ports: $0)) }, remote ? 10 : 3)
@@ -110,15 +111,15 @@ extension Daemon {
                 }
             }
         case .ci:
-            // gh / glab ask the forge: often while a run goes on (or just after a push asked, `fast`), else every 2 minutes,
-            // for a run started elsewhere (a merge on the forge, a push from another machine). A run going on isn't
-            // slowed: its clock is short for a reason.
+            // gh / glab ask the forge often while a run goes on (or just after a push asked, `fast`), and otherwise
+            // every 2 minutes, to catch a run started elsewhere (a merge on the forge, a push from another machine). A
+            // run going on isn't slowed, because its clock is short for a reason.
             return Watches.Topic(backsOffFrom: 120) { [self] fast in
                 do {
                     let result = try await ask(CIRunsList(worktreeId: key))
                     let running = CIRuns.latest(result.runs).contains { $0.status != "completed" }
                     return (line(CIEvent(worktree: key, result: result)), running ? 10 : fast ? 5 : 120)
-                } catch {   // no network yet after a wake, a slow gh: tried again, or the mark stays on this error
+                } catch {   // no network after a wake, or a slow gh: tried again, else the mark shows this error
                     return (line(CIEvent(worktree: key, error: error.rpcMessage)), 120)
                 }
             }
@@ -127,7 +128,8 @@ extension Daemon {
         case .prs:
             return Watches.Topic(backsOffFrom: 120) { [self] _ in (await prsRead(key), 120) }
         case .context:
-            // A 1 MB transcript tail: while the agent works, and when its status changes (`touched`).
+            // Reads a 1 MB transcript tail, so it polls only while the agent works, and reads again when its status
+            // changes (`touched`).
             return Watches.Topic { [self] _ in
                 let usage = await logged(.context, key) { try await ask(SessionContextWindow(id: key)) }
                 let working = sessions.existing(key)?.snapshot.status == .working
@@ -135,15 +137,17 @@ extension Daemon {
             }
         case .commands, .edits: return agentTools(watch)
         case .subagents:
-            // The tail of each one at work: only while a card or a journal is open, and a transcript says nothing of itself.
+            // Reads the tail of each subagent at work, only while a card or a journal is open. It polls, because a
+            // transcript sends no events of its own.
             return Watches.Topic { [self] _ in
                 let steps = await logged(.subagents, key) { try await ask(SessionSubagentSteps(id: key)) }
                 return (steps.flatMap { line(SubagentsEvent(session: key, steps: $0)) }, 3)
             }
         case .phone: return Watches.Topic { [self] _ in await phoneRead() }
         case .limits:
-            // From memory (the probes read the plans on their own clock): cheap. The token totals are read again only
-            // while Kelp's window is seen: the limits still are, for their notifications and the Dock.
+            // Read from memory (the probes read the plans on their own clock), so it's cheap. The token totals are read
+            // again only while Kelp's window is seen. The limits are read even when it isn't, for their notifications
+            // and the Dock.
             return Watches.Topic { [self] _ in
                 let away = clients.uiState.away == true ? true : nil
                 let usage = await logged(.limits, key) { try await ask(UsageGet(cachedTokens: away)) }
@@ -151,7 +155,7 @@ extension Daemon {
             }
         case .file:
             guard key.hasPrefix("/") else { return Watches.Topic { _ in (nil, nil) } }
-            if let located = remotes.containing(key) {   // no file events from a host: its file's digest, read there
+            if let located = remotes.containing(key) {   // no file events from a host: the digest is read there
                 let first = FirstRead()
                 return Watches.Topic(backsOffFrom: 10) { [self] _ in
                     await hostFileRead(key, located.remote, located.remotePath, first: first.take())
@@ -165,7 +169,7 @@ extension Daemon {
             }
         case .artifacts: return artifactsTopic(key)
         case .databases:
-            // Its files are read again (a .env or compose file may have changed); what ran is in memory.
+            // The workspace's files are read again (a .env or compose file may have changed); what ran is in memory.
             return Watches.Topic(
                 folder: workspaceFolder(key) { _ in { $0.contains { DatabaseFind.matters($0.path) } } }
             ) {
@@ -176,7 +180,8 @@ extension Daemon {
                 }
             }
         case .machines:
-            // Each machine's kelp-vm answers from memory; one with a command running is asked over its own connection who runs it.
+            // Each machine's kelp-vm answers from memory. A machine with a command running is asked over its own
+            // connection who runs it.
             return Watches.Topic { [self] _ in
                 do {
                     let all = try await ask(VMList())
@@ -202,7 +207,8 @@ extension Daemon {
         }
     }
 
-    /// A local workspace's folder, and which of its file events matter (made from its path); nil for a remote one.
+    /// A local workspace's folder, and which of its file events matter (made from its path). Returns nil for a remote
+    /// workspace.
     private func workspaceFolder(
         _ id: String, _ matters: (String) -> @Sendable ([FileWatcher.Change]) -> Bool
     ) -> (String, @Sendable ([FileWatcher.Change]) -> Bool)? {
@@ -211,7 +217,8 @@ extension Daemon {
         return (worktree.path, matters(worktree.path))
     }
 
-    /// The events `touches` counts, leaving out the folders git ignores.
+    /// A local workspace's folder, as above, with the file events that `touches` counts, leaving out the folders git
+    /// ignores.
     private func workspaceFolder(
         _ id: String, ignoring touches: @escaping @Sendable ([FileWatcher.Change]) -> Bool
     ) -> (String, @Sendable ([FileWatcher.Change]) -> Bool)? {
@@ -222,7 +229,7 @@ extension Daemon {
         }
     }
 
-    /// Status and branches at once, then the lines and what the branch holds from them.
+    /// Reads the status and branches at once, then from them the line counts and what the branch holds.
     private func gitRead(_ key: String, first: Bool, memo: BranchMemo) async -> (Data?, TimeInterval?) {
         // A remote project's folder here holds only its marker: no file events come, so it's read now and then.
         let worktree = store.look("workspace \(key)") { try $0.worktree(key) }
@@ -239,7 +246,7 @@ extension Daemon {
                 (event.branchFiles, event.only, event.dirty) = try await branchWork(worktree, branches, changes, memo)
             }
             event.stats = await stats
-            // A remote project's branch has no file events to follow: its workspace takes the one git just read.
+            // A remote project's branch has no file events to follow, so its workspace takes the branch git just read.
             if remote, let worktree, let current = event.branches?.current, current != worktree.branch {
                 let store = store
                 Log.store.attempt("following \(worktree.path)'s branch") {
@@ -260,19 +267,19 @@ extension Daemon {
                 worktree: key, paths: try await direct(FilesList(id: key)),
                 ignored: try? await direct(FilesIgnored(id: key)))
         } catch { event = FilesEvent(worktree: key, error: error.rpcMessage) }
-        return (line(event), remote ? 10 : nil)   // as git: a remote folder is listed every 10 s while watched
+        return (line(event), remote ? 10 : nil)   // as for git, a remote folder is listed every 10 s while watched
     }
 
-    /// Whether a watch of `worktree` reads now: always on this Mac; on a host over a connection already open, or on the
-    /// watch's first read, when someone just showed it. A poll never dials a host: until something connects (a terminal,
-    /// an agent, Connect), the panel keeps what it showed.
+    /// Whether a watch of `worktree` reads now. It always does on this Mac. On a host it reads over a connection
+    /// already open, or on the watch's first read, when someone just showed it. A poll never dials a host, so until
+    /// something connects (a terminal, an agent, Connect), the panel keeps what it showed.
     private func mayRead(_ worktree: Worktree?, first: Bool) async -> Bool {
         guard !first, let remote = worktree.flatMap({ remotes.of($0.path) }) else { return true }
         do { return try await offload { remote.connection != nil } } catch { return false }
     }
 
-    /// A file's folder, as FSEvents names it (/tmp is /private/tmp), and its events that name it: the file itself may
-    /// not be there to resolve.
+    /// A file's folder, and a test for the events that name the file, as given or as FSEvents names it (/tmp is
+    /// /private/tmp). Only the folder is resolved, because the file itself may not be there to resolve.
     /// Limit: a symlink's target changing elsewhere isn't seen; watch the target's folder if that matters.
     private static func fileFolder(_ path: String) -> (String, @Sendable ([FileWatcher.Change]) -> Bool) {
         let dir = (path as NSString).deletingLastPathComponent, name = (path as NSString).lastPathComponent
@@ -280,7 +287,8 @@ extension Daemon {
         return (dir, { $0.contains { names.contains($0.path) } })
     }
 
-    /// A stat: what changed is the version, not the text (the app reads that only for a version it doesn't hold).
+    /// Reads a file's stat and problems. What changes is the version, not the text (the app reads the text only for a
+    /// version it doesn't hold).
     private func fileRead(_ path: String) async -> (Data?, TimeInterval?) {
         var problems: [CodeProblem] = []
         do { problems = try await ask(LSPProblems(path: path)) } catch {
@@ -301,8 +309,9 @@ extension Daemon {
         return Watches.Topic(folder: root.map { ($0, matters) }) { [self] _ in (await artifacts(key), nil) }
     }
 
-    /// A remote project's open file: its version is its bytes' digest (`FileService.digest`), read on the host every
-    /// 10 s (60 s once it's quiet), only over a connection already open after the first; gone, none.
+    /// Reads a remote project's open file. Its version is its bytes' digest (`FileService.digest`), read on the host
+    /// every 10 s (60 s once it's quiet). After the first read, it is read only over a connection already open. A file
+    /// that is gone has no version.
     private func hostFileRead(_ key: String, _ remote: RemoteHost, _ path: String, first: Bool) async
         -> (Data?, TimeInterval?)
     {
@@ -317,15 +326,16 @@ extension Daemon {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             }
         } catch { out = nil }
-        guard let said = out, !said.isEmpty else { return (nil, 10) }   // not asked, or the host away: as shown
+        guard let said = out, !said.isEmpty else { return (nil, 10) }   // not asked, or host away: keep what's shown
         let stamp = said == "missing" ? nil : "sha256:" + said
         return (line(FileEvent(path: key, stamp: stamp)), 10)
     }
 
-    /// A workspace's artifacts, as its folder here keeps them; a remote project's chats are asked on the host first for
-    /// pages they published there. Every page is read, so off the pool; a failed read sends nothing, and the panel keeps
-    /// what it had rather than going empty. Pages published before Kelp kept copies get theirs from their chats'
-    /// transcripts after the list went out: what that writes pushes it again, with previews.
+    /// Reads a workspace's artifacts, as its folder here keeps them. For a remote project, its chats are asked on the
+    /// host first for pages they published there. Every page is read, so this runs off the pool. A failed read sends
+    /// nothing, and the panel keeps what it had rather than going empty. Pages published before Kelp kept copies get
+    /// their copies from their chats' transcripts after the list went out, and what that writes pushes the list again,
+    /// with previews.
     private func artifacts(_ key: String) async -> Data? {
         let store = store, remotes = remotes, sessions = sessions
         do {
@@ -363,7 +373,7 @@ extension Daemon {
         do { return (line(PhoneEvent(state: try await ask(PhoneStatus()))), 2) } catch { return (nil, 2) }
     }
 
-    /// What an agent's tools did, from memory: read again when its hooks tell more (`Sessions.touchCommands`,
+    /// What an agent's tools did, read from memory, and read again when its hooks tell more (`Sessions.touchCommands`,
     /// `touchEdits`).
     private func agentTools(_ watch: Watches.Key) -> Watches.Topic {
         let key = watch.key
@@ -376,7 +386,8 @@ extension Daemon {
         }
     }
 
-    /// What `read` gives, or nil when it fails: the watch says nothing new then, and the log why (`Watches.failed`).
+    /// Returns what `read` gives, or nil when it fails. Then the watch says nothing new, and the log says why
+    /// (`Watches.failed`).
     private func logged<T>(_ topic: WatchTopic, _ key: String, _ read: () async throws -> T) async -> T? {
         do { return try await read() } catch {
             watches.failed(.init(topic: topic, key: key), error.rpcMessage)

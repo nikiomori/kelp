@@ -7,9 +7,9 @@ import Integrations
 
 extension SessionCreate: Handled {
     static let agents = AgentAccess.acts
-    /// Its workspace said, not left to the walk: a session made there would let an agent into it. Where it runs (`cwd`)
-    /// wins over `worktreeId`: held to the workspace that holds it. A tmux session by name would attach to one of the
-    /// user's (`new-session -A`), and type in it as the agent.
+    /// The workspace is named here, not left to the walk, because a session made there would let an agent into it.
+    /// Where it runs (`cwd`) wins over `worktreeId`, and is held to the workspace that holds it. An agent may not name
+    /// a tmux session, because it would attach to one of the user's (`new-session -A`) and type in it as the agent.
     var fence: Fence {
         Fence(
             inWorkspace: worktreeId, writesInFolder: cwd,
@@ -34,7 +34,8 @@ extension SessionCreate: Handled {
         launch.parent = try sessions.parent(asked, of: self)
         launch.startedBy = try sessions.starter(asked, of: self)
         launch.role = role
-        // "swift build", not the program's "Custom"; a prompt names the session itself, and its fresh workspace and branch.
+        // A command's title is "swift build", not the program's "Custom". A prompt names the session itself, and its
+        // fresh workspace and branch.
         if launch.title == nil, prompt == nil, let command { launch.title = CommandName.of(command) }
         if let tmux {   // a terminal running tmux: the record keeps the argv that attaches again (Tmux.session)
             let name = Tmux.name(tmux)
@@ -44,8 +45,8 @@ extension SessionCreate: Handled {
         } else if command == nil, Session.isTerminal(agent),
             sessions.settings[SettingKeys.tmux]
         {
-            // A terminal in a tmux session of its own, which ends with it (Tmux.isOwn): on a host it runs the host's
-            // login shell in tmux, as an agent does there, and without tmux on the host just the shell
+            // A terminal gets a tmux session of its own, which ends with it (Tmux.isOwn). On a host it runs the host's
+            // login shell in tmux, as an agent does there, or just the shell when the host has no tmux.
             if sessions.remotes.of(dir) != nil {
                 launch.onHostInTmux = true
             } else if LoginPath.find("tmux") != nil {
@@ -65,16 +66,18 @@ extension SessionRestart: Handled {
     var fence: Fence { Fence(actsOn: id) }   // it stops the session, and may brief it anew
     func handle(_ sessions: Sessions) throws -> Session {
         guard try sessions.store.session(id) != nil else { throw RPCError.noSession(id) }
-        // It comes back: its children stay, and its parent hears nothing. One restart at a time: a second one meanwhile
-        // would find the old record still there and start a second copy of the conversation.
+        // The session comes back, so its children stay and its parent hears nothing. Only one restart runs at a time,
+        // because a second one meanwhile would find the old record still there and start a second copy of the
+        // conversation.
         guard sessions.reports.restarting(id, true) else {
             throw RPCError.invalidParams("It's restarting already: wait for its new tab.")
         }
         defer { sessions.reports.restarting(id, false) }
-        // One copy of the conversation at a time: the resumed agent starts once the old one is gone (SIGKILL after 2 s).
-        // Under its wake lock, and a paused one marked ended there: a tab opening it meanwhile can't wake a second copy.
-        // If the new one can't start, the old one still ends as Ended. The record is read there, as it is then (a rename
-        // just before is kept, in it and in the new session's title).
+        // One copy of the conversation at a time: the resumed agent starts once the old one is gone (SIGKILL after 2
+        // s). This runs under the session's wake lock, and a paused session is marked ended there, so a tab opening it
+        // meanwhile can't wake a second copy. If the new session can't start, the old one still ends as Ended. The
+        // record is read under the lock, as it is then (a rename just before is kept, in it and in the new session's
+        // title).
         var owed: [OwedInput] = []
         let old: Session = try sessions.wakeLocks.withLock(id) {
             if let ls = sessions.existing(id) {
@@ -103,8 +106,8 @@ extension SessionRestart: Handled {
         launch.origin = old.origin
         launch.role = old.role
         if launch.profile == nil { launch.profile = old.profile }   // the same account unless told otherwise
-        // A remote agent still running in its tmux session on the host: the new tab attaches to it (after a dropped
-        // connection, that's all a restart is), so there's still one copy. Starting afresh ends it.
+        // When a remote agent is still running in its tmux session on the host, the new tab attaches to it (after a
+        // dropped connection, that's all a restart is), so there's still one copy. Starting afresh ends it.
         if resume != false { launch.tmux = old.tmux }
         // The new session pins an id of its own, never the old one's.
         launch.argv = Self.withoutSessionId(
@@ -179,9 +182,9 @@ extension HistoryResume: Handled {
 }
 
 extension SessionSetup {
-    /// Where a conversation from History goes on: `worktreeId`'s folder, else the folder it was in, on the workspace there.
-    /// A chat with no project stays in its own folder (the agent finds its conversation by it), made again if it was swept
-    /// empty, and on the No Project row.
+    /// Where a conversation from History goes on: the folder of `worktreeId`, or else the folder it was in, on the
+    /// workspace there. A chat with no project stays in its own folder (the agent finds its conversation by it), made
+    /// again if it was swept away empty, and on the No Project row.
     func resumePlace(_ was: String, worktreeId: String?) throws -> (cwd: String, worktreeId: String?) {
         let scratch = ScratchChats(root: root)
         if scratch.isChat(was) {
@@ -217,7 +220,8 @@ extension RecipeRender: Handled {
     }
 }
 
-/// The agents on this Mac, side by side, each through `offload`; latest from npm where they publish there.
+/// Reads the versions of the agents on this Mac side by side, each through `offload`, and the latest version from npm
+/// where they publish there.
 extension AgentsVersions: AsyncHandled {
     static let agents = AgentAccess.reads
     func handle(_ sessions: Sessions) async throws -> [Item] {

@@ -23,20 +23,22 @@ extension Daemon {
 
     func serve(_ fd: Int32) {
         let client = clients.add(fd: fd)
-        // Accepted as this one stopped or handed over (its cancel doesn't stop an accept already running): added first,
-        // then looked at, so either the stop's hang-up has it or it's hung up here (its reader then reads the end and
-        // cleans up as for any other), and connects to the next one.
+        // A client may be accepted just as this daemon stopped or handed over, because cancelling doesn't stop an
+        // accept already running. It is added first and checked after, so either the stop's hang-up catches it or it is
+        // hung up here. Its reader then reads the end and cleans up as for any other client, and the client connects to
+        // the next daemon.
         if !isServing { client.hangUp() }
         Thread.detachNewThread { [self] in
-            // Who it is, looked up before anything it sent is read, while its program is surely there: here, not on the
-            // accept queue, as a tmux pane's asks tmux (`Callers.tmuxPane`).
+            // Looks up who the client is before anything it sent is read, while its program is surely still there. This
+            // runs here, not on the accept queue, because the lookup for a tmux pane asks tmux (`Callers.tmuxPane`).
             _ = callers.caller(client.id)
             var received = LineBuffer()
             var buf = [UInt8](repeating: 0, count: 65536)
             var spoke = false
-            // Requests of this client still being answered: past `pendingLimit` more are refused, not queued for good.
+            // How many of this client's requests are still being answered. Past `pendingLimit`, more are refused
+            // instead of queuing forever.
             let pending = OSAllocatedUnfairLock(initialState: 0)
-            var ended = false   // the client said all it had (`printf … | nc -U`): what it asked is still answered
+            var ended = false   // the client sent all it had (`printf … | nc -U`), but its requests are still answered
             reading: while true {
                 let count = read(fd, &buf, buf.count)
                 if count <= 0 {
@@ -44,7 +46,8 @@ extension Daemon {
                     break
                 }
                 let lines = received.append(Data(buf[0..<count]))
-                // A line past any request's size (a 50 MB file saved, escaped) isn't one: hang up rather than keep it all.
+                // A line longer than any request (a 50 MB file saved, escaped) isn't a request, so hang up rather than
+                // keep it all.
                 guard received.pending <= Self.lineLimit else {
                     Log.rpc.error("hung up on a client whose line passed \(Self.lineLimit) bytes with no end")
                     break reading
@@ -54,7 +57,8 @@ extension Daemon {
                         refuse(line, client)
                         continue
                     }
-                    // A JSON-RPC client after all (it came in raw, Clients.add): events from now on.
+                    // The client speaks JSON-RPC after all (it came in raw, Clients.add), so it gets events from now
+                    // on.
                     if !spoke {
                         spoke = true
                         if req.method != SessionStream.name { clients.setRaw(client.id, false) }
@@ -63,9 +67,11 @@ extension Daemon {
                         answerInOrder(handler, req, client)
                         continue
                     }
-                    // Not a call: it ends JSON-RPC on this connection, which becomes a raw byte pipe (kelp attach).
+                    // session.stream isn't a call. It ends JSON-RPC on this connection, which becomes a raw byte pipe
+                    // (kelp attach).
                     if req.method == SessionStream.name {
-                        // What came after its line in the same read is the stream's already: its whole lines, then the rest.
+                        // What came after this line in the same read already belongs to the stream: its whole lines,
+                        // then the rest.
                         let after = lines[(index + 1)...].reduce(Data()) { $0 + $1 + Data("\n".utf8) }
                         stream(client, req.params ?? .null, leftover: after + received.takeRemainder())
                         break reading
@@ -87,18 +93,20 @@ extension Daemon {
                     }
                 }
             }
-            // Limit: polls every 10 ms, at most a minute; this thread has nothing else to do. A half-close and a client that
-            // died look alike here (both read 0, both poll as POLLHUP on macOS); either way it asks for nothing more, so its
-            // watches go now (no git polling or host stats for it that minute), and a long wait pending ends on its own time.
-            // Waited for after a read error too: what it asked is checked against the session it runs in, which is known
-            // only while it's connected (`Callers.caller`).
+            // Limit: this polls every 10 ms, for at most a minute, while the client's pending requests finish; this
+            // thread has nothing else to do. A half-close and a client that died look alike here (both read 0, both
+            // poll as POLLHUP on macOS). Either way the client asks for nothing more, so its watches go now (no git
+            // polling or host stats for it that minute), and a long wait still pending ends in its own time.
+            // The wait happens after a read error too, because what the client asked is checked against the session it
+            // runs in, which is known only while it's connected (`Callers.caller`).
             if ended { watches.drop(client.id) }
             for _ in 0..<6000 where pending.withLock({ $0 }) > 0 { usleep(10_000) }
             hungUp(client)
         }
     }
 
-    /// Not a request: say so to whoever sent an id, rather than leave it waiting.
+    /// Answers a line that isn't a request with an error, when the line has an id, rather than leave the sender
+    /// waiting.
     private func refuse(_ line: Data, _ client: Connection) {
         guard let id = (try? JSONDecoder().decode(JSONValue.self, from: line))?["id"], id != .null,
             let refusal = try? Wire.line(
@@ -107,10 +115,11 @@ extension Daemon {
         client.send(refusal)
     }
 
-    /// Quick, and only right in the order they were sent (keystrokes, a setting dragged, two sends; a saved layout or a
-    /// terminal size that finished second must not win over the newer one): applied on the reader thread, one after
-    /// another, calls and notifications alike (`Handled.inOrder`); a call's reply goes out in that order, or once the
-    /// handler has it (`Handled.answerLater`). What has to wait for the reply comes after it (`Handled.replied`).
+    /// Answers a method that is quick and right only in the order sent (keystrokes, a setting dragged, two sends; a
+    /// saved layout or a terminal size that finished second must not win over the newer one). These are applied on the
+    /// reader thread one after another, calls and notifications alike (`Handled.inOrder`). A call's reply goes out in
+    /// that order, or once the handler has it (`Handled.answerLater`). What has to wait for the reply runs after it
+    /// (`Handled.replied`).
     private func answerInOrder(_ handler: any Handled.Type, _ req: Request, _ client: Connection) {
         let reply = replying(to: req, on: client), params = req.params ?? .null
         if handler.answerLater(params, in: self, conn: client.id, reply: reply) { return }
@@ -132,24 +141,27 @@ extension Daemon {
         }
     }
 
-    /// The connection ended: what it held goes with it.
+    /// Cleans up after a connection ended: what it held goes with it.
     private func hungUp(_ client: Connection) {
         clients.remove(client.id)   // first: an attach finishing now sees it gone (Clients.isConnected)
         watches.drop(client.id)
         sessions.live.all.forEach { $0.detach(client.id) }
-        lsp.closeAll(conn: client.id)   // its files: a server left with none stops a while later
+        lsp.closeAll(conn: client.id)   // closes its files; a server left with none stops a while later
         client.close()
     }
 
-    /// Raw attach (`kelp attach`, the libghostty terminal): history then live output as plain bytes; whatever the client
-    /// writes is the user's typing. Terminal replies (DA, kitty keyboard) flow back the same way, so the agent sees a real terminal.
-    /// `SessionStream`'s `cols` / `rows`: the attaching terminal's, so a paused agent wakes at the size it's shown at.
-    /// An ended session shows what it last printed (from its log), then the attach ends.
+    /// Serves a raw attach (`kelp attach`, the libghostty terminal): the history, then live output, as plain bytes.
+    /// Whatever the client writes is the user's typing. Terminal replies (DA, kitty keyboard) flow back the same way,
+    /// so the agent sees a real terminal.
+    /// `SessionStream`'s `cols` / `rows` are the attaching terminal's size, so a paused agent wakes at the size it's
+    /// shown at. An ended session shows what it last printed (from its log), and then the attach ends.
     private func stream(_ client: Connection, _ params: JSONValue, leftover: Data) {
-        // Before waking: its status events must not land in the byte stream. It stays raw until `hungUp` removes it.
+        // Set raw before waking, so the session's status events don't land in the byte stream. The client stays raw
+        // until `hungUp` removes it.
         clients.setRaw(client.id, true)
-        // What it writes is typing, so it may type where session.write may: an agent's program only into its own sessions
-        // (asked once, as it opens), and never while one asks a question (asked as each chunk comes: a question comes later).
+        // What the client writes is typing, so it may type only where session.write may. An agent's program types only
+        // into its own sessions (checked once, as the stream opens), and never while the session asks a question
+        // (checked for each chunk, because a question can come later).
         let caller = callers.caller(client.id)
         let held: Bool, session: String, size: (cols: UInt16, rows: UInt16)
         do {
@@ -174,7 +186,8 @@ extension Daemon {
         }
         let ls: LiveSession
         do { ls = try sessions.liveSession(session, cols: size.cols, rows: size.rows) } catch {
-            // One Kelp has that didn't wake says why (its agent's CLI gone, its folder deleted), here and in the log.
+            // A session Kelp has that didn't wake says why (its agent's CLI gone, its folder deleted), here and in the
+            // log.
             guard store.look("session \(session)", { try $0.session(session) }) != nil else {
                 client.send(Data("kelp: no such session\r\n".utf8))
                 return
@@ -184,12 +197,13 @@ extension Daemon {
             client.send(Data("kelp: \(why)\r\n".utf8))
             return
         }
-        // Queued under the session's lock: no live output gets ahead of it. One paused at this moment ends the attach,
-        // as the pause does for those already attached (`letGo`).
+        // The history is queued under the session's lock, so no live output gets ahead of it. A session paused at this
+        // moment ends the attach, as the pause does for those already attached (`letGo`).
         guard ls.attach(client.id, send: { client.send($0) }) != nil else { return }
         let type = { (chunk: Data) -> Bool in
-            // While the session asks, an agent's attach ends there, the chunk unsent (a terminal reply's payload can carry a
-            // Return): dropped and going on, what it types around the question would join into one line.
+            // While the session asks a question, an agent's attach ends there and the chunk isn't sent (a terminal
+            // reply's payload can carry a Return). If the chunk were dropped and the attach went on, what the agent
+            // types around the question would join into one line.
             guard held, ls.asksSomething else {
                 ls.userInput(chunk)
                 return true
@@ -219,8 +233,8 @@ extension Daemon {
         }
     }
 
-    /// A call's refusal went back to its caller; a notification's failure (a layout or UI state not saved) and anything
-    /// unexpected has only the log.
+    /// Logs a failed method. A call's refusal already went back to its caller, so it is logged at debug level. A
+    /// notification's failure (a layout or UI state not saved) and anything unexpected has only the log.
     static func log(_ method: String, failed error: Error, notification: Bool) {
         if let rpcError = error as? RPCError, !notification {
             Log.rpc.debug("\(method, privacy: .public) failed: \(rpcError.message)")
@@ -229,7 +243,8 @@ extension Daemon {
         }
     }
 
-    /// A reply line around a result already encoded: the result isn't decoded and encoded again on its way out.
+    /// Wraps a result that is already encoded in a reply line, so the result isn't decoded and encoded again on its way
+    /// out.
     static func replyLine(id: JSONValue, result: Data) -> Data {
         var line = Data(#"{"jsonrpc":"2.0","id":"#.utf8)
         line.append((try? JSONEncoder().encode(id)) ?? Data("null".utf8))
@@ -242,14 +257,15 @@ extension Daemon {
         try? Wire.line(Reply(id: id, error: (error as? RPCError) ?? .internalError("\(error)")))
     }
 
-    /// A method answered as a client would get it (refusals and error mapping included), its result as its type.
+    /// Answers a method as a client would get it (refusals and error mapping included) and returns its result as its
+    /// type.
     func ask<M: Answered>(_ method: M) async throws -> M.Result {
         try JSONDecoder().decode(M.Result.self, from: await answer(M.name, try method.params() ?? .null, conn: -1))
     }
 
-    /// `ask` without the trip through JSON, for what a watch reads itself, often and large: the handler's result as it
-    /// is (a file list holds up to 200k paths, which `ask` encoded, decoded, and the event then encoded again). Kelp's own
-    /// read: no caller to check. Its errors as `ask` gives them.
+    /// Like `ask` but without the trip through JSON, for what a watch reads itself, often and large. It returns the
+    /// handler's result as it is (a file list holds up to 200k paths, which `ask` encoded and decoded, and the event
+    /// then encoded again). This is Kelp's own read, so there is no caller to check. Errors come as `ask` gives them.
     func direct<M: Handled>(_ method: M) async throws -> M.Result where M.Service: Sendable {
         let service = M.Service.of(self)
         do { return try await offload(quick: M.quick) { try method.handle(service, conn: -1) } } catch {
@@ -257,7 +273,8 @@ extension Daemon {
         }
     }
 
-    /// A project or workspace record changed, or a record went: it goes to every client (they keep their lists from these).
+    /// Sends every client a project or workspace record that changed, or a record that went (clients keep their lists
+    /// from these).
     func recordChanged(_ change: Store.Change) {
         switch change {
         case .repo(let repo): notify(repo)

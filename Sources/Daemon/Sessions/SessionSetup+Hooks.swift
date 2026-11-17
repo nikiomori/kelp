@@ -10,8 +10,8 @@ extension SessionSetup {
     /// Kelp's plugin dir for an agent; its hooks file is this with ".json".
     func hooksDir(_ manifest: AgentManifest) -> URL { root.appendingPathComponent("hooks-\(manifest.id)") }
 
-    /// What `transport` needs in the environment. A variable the user set themselves stays theirs, and the hooks aren't
-    /// wired (`wiredHooks`); `.settingsFlag` is on the command line (`spawn`).
+    /// Sets what `transport` needs in the environment. A variable the user set themselves stays theirs, and then the
+    /// hooks aren't wired (`wiredHooks`). `.settingsFlag` goes on the command line instead (`spawn`).
     func wire(
         _ transport: HookTransport, _ manifest: AgentManifest, _ rec: Session, _ env: inout [String: String]
     ) {
@@ -49,8 +49,8 @@ extension SessionSetup {
         }
     }
 
-    /// Kilo looks for the global AGENTS.md only in KILO_CONFIG_DIR once it's set: the person's own (`config`'s
-    /// kilo/AGENTS.md), linked in, or the link gone with it.
+    /// Kilo looks for the global AGENTS.md only in KILO_CONFIG_DIR once that is set, so the person's own file
+    /// (kilo/AGENTS.md in `config`) is linked in, and the link is removed when the file is gone.
     static func linkKiloInstructions(into dir: URL, config: URL) throws {
         let fm = FileManager.default
         let theirs = config.appendingPathComponent("kilo/AGENTS.md"), link = dir.appendingPathComponent("AGENTS.md")
@@ -59,7 +59,7 @@ extension SessionSetup {
         if fm.fileExists(atPath: theirs.path) { try fm.createSymbolicLink(at: link, withDestinationURL: theirs) }
     }
 
-    /// The manifest its live session reads: with the hooks this launch wired, or none.
+    /// The manifest the live session reads: with the hooks this launch wired, or with none.
     func liveManifest(
         _ manifest: AgentManifest, cwd: String, worktreeId: String?, env: [String: String], argv: [String]
     )
@@ -68,10 +68,10 @@ extension SessionSetup {
         wiredHooks(trustAnswered(manifest, cwd: cwd, worktreeId: worktreeId, env: env), env: env, argv: argv, cwd: cwd)
     }
 
-    /// Only hooks this launch really wired report: not a remote session's (Kelp's files are on this Mac), nor one whose
-    /// variable the user set themselves, whose file couldn't be written, or whose flag a custom command line left out.
-    /// Those have their screen read instead. `cwd`: where it starts now; nil for one taken over running, whose Codex
-    /// may have started under a kelpd that gave it none.
+    /// Keeps the hooks only when this launch really wired them: not for a remote session (Kelp's files are on this
+    /// Mac), nor when the user set the variable themselves, the file couldn't be written, or a custom command line left
+    /// the flag out. Those sessions have their screen read instead. `cwd` is where the session starts now. It is nil
+    /// for a session taken over running, whose Codex may have started under a kelpd that gave it no hooks.
     func wiredHooks(_ manifest: AgentManifest, env: [String: String], argv: [String], cwd: String? = nil)
         -> AgentManifest
     {
@@ -91,10 +91,10 @@ extension SessionSetup {
         return out
     }
 
-    /// The agent's "trust this folder?" is answered by Kelp only when that question is actually coming and the user already
-    /// settled it: the agent doesn't trust the session's folder yet (else it asks nothing, and an armed answer could only
-    /// ever press a different menu) but does trust the project's main checkout. Anything else, including a repository it
-    /// has never seen or one on a remote host, is the user's to answer.
+    /// Kelp answers the agent's "trust this folder?" only when that question is actually coming and the user already
+    /// settled it. That means the agent doesn't trust the session's folder yet (otherwise it asks nothing, and an armed
+    /// answer could only ever press a different menu) but does trust the project's main checkout. Anything else,
+    /// including a repository it has never seen or one on a remote host, is the user's to answer.
     func trustAnswered(_ manifest: AgentManifest, cwd: String, worktreeId: String?, env: [String: String])
         -> AgentManifest
     {
@@ -104,9 +104,9 @@ extension SessionSetup {
         // For a remote project the question is always the user's: it is decided before running any git (which would go
         // over ssh, under the session's wake lock, to a host that may not answer).
         guard remotes.of(cwd) == nil else { return out }
-        // The project only counts for its own workspace's folder: any other cwd passed with its worktreeId is just a folder.
-        // (A workspace on another branch of a trusted project is trusted the way Claude trusts a folder, whatever is checked
-        // out in it.)
+        // The project only counts for its own workspace's folder; any other cwd passed with its worktreeId is just a
+        // folder. (A workspace on another branch of a trusted project is trusted the way Claude trusts a folder,
+        // whatever is checked out in it.)
         var project: String?
         if let wid = worktreeId, let worktree = store.look("workspace \(wid)", { try $0.worktree(wid) }),
             let repo = store.look("project \(worktree.repoId)", { try $0.repo(worktree.repoId) }),

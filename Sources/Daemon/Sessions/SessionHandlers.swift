@@ -19,7 +19,8 @@ extension SessionList: Handled {
 extension SessionAttach: Handled {
     static let agents = AgentAccess.acts
     func handle(_ sessions: Sessions, conn: Int) throws -> Result {
-        // Ended: what it last printed, from its log. One whose host dropped is attached to it again (`wake`).
+        // An ended session returns what it last printed, from its log. A session whose host dropped is attached to
+        // again instead (`wake`).
         if sessions.existing(id) == nil, let rec = try sessions.store.session(id), rec.status == .exited,
             !rec.connectionLost
         {
@@ -32,9 +33,9 @@ extension SessionAttach: Handled {
         return Result(history: history.base64EncodedString())
     }
 
-    /// A running or paused one: the reply with the history is queued in the same step that subscribes, so no live output
-    /// can reach this connection ahead of it (the screen would show the newest bytes before the history they follow).
-    /// The rest (an ended one, from its log) as any other call, by `handle`.
+    /// For a running or paused session, the reply with the history is queued in the same step that subscribes, so no
+    /// live output can reach this connection ahead of it (the screen would show the newest bytes before the history
+    /// they follow). Any other session (an ended one, read from its log) is answered like any other call, by `handle`.
     static func respond(
         _ checked: () throws -> Self, _ sessions: Sessions, conn: Int,
         reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
@@ -45,16 +46,17 @@ extension SessionAttach: Handled {
                 || sessions.store.look("session \(method.id)", { try $0.session(method.id) }).map(wakes) == true
         else { return false }
         let sid = method.id
-        // A wake that fails says why, once: falling through would wake it a second time, in the slow lane.
+        // A wake that fails says why, once, because falling through would wake the session a second time, in the slow
+        // lane.
         let ls: LiveSession
         do { ls = try await sessions.offloads.runNow({ try sessions.liveSession(sid) }) } catch {
             reply(.failure(error))
             return true
         }
-        // Subscribed, then looked at: one that closed while the session woke is detached again (it would count as
-        // watching for good, and the session would never pause). Its end removes it from `clients` before it detaches
-        // from every session, so one of the two always detaches it. The history (up to 1 MiB) is built under the
-        // session's lock only, not the one every event goes through.
+        // The connection subscribes first and is checked after. A connection that closed while the session woke is
+        // detached again, or it would count as watching for good and the session would never pause. A connection's end
+        // removes it from `clients` before detaching it from every session, so one of the two always detaches it. The
+        // history (up to 1 MiB) is built under the session's lock only, not the one every event goes through.
         let attached =
             ls.attach(conn) { history in
                 if let result = try? JSONEncoder().encode(Result(history: history.base64EncodedString())) {
@@ -70,7 +72,8 @@ extension SessionAttach: Handled {
     }
 }
 
-/// Answered by the connection itself (`Daemon.serve`), which it makes a terminal's byte pipe: never a call's reply.
+/// Answered by the connection itself (`Daemon.serve`), which it turns into a terminal's byte pipe. It never gets a
+/// call's reply.
 extension SessionStream: Handled {
     static let agents = AgentAccess.acts
     var fence: Fence { Fence(actsOn: id, typesInto: id) }   // what comes after is typing: held to session.write's rules
@@ -112,19 +115,19 @@ extension SessionSend: SessionInput {
     /// Two sends in a row reach the session in that order (`submit` only queues: nothing here waits on the agent).
     static var inOrder: Bool { true }
     /// An agent's send to a session that asks something (a hookless agent's "(y/n)" read off its screen included) is
-    /// refused, not queued (`typesInto`): `submit` holds text only for a question an agent said, and its Enter would
-    /// answer this one.
+    /// refused, not queued (`typesInto`), because `submit` holds text back only for a question an agent said, and the
+    /// send's Enter would answer this one.
     var fence: Fence { Fence(actsOn: id, typesInto: id) }
     func apply(to session: LiveSession) throws -> Done {
-        // Still starting (woken just now, by this send or anyone else), a question open, an unread draft in the box, or
-        // text still waiting ahead: queued, and typed once the program is ready for it (`LiveSession.submit`). A paused
-        // one wakes on its lane, not on the reader thread (`SessionInput`).
+        // When the session is still starting (woken just now, by this send or anyone else), has a question open, an
+        // unread draft in the box, or text still waiting ahead, the text is queued and typed once the program is ready
+        // for it (`LiveSession.submit`). A paused session wakes on its lane, not on the reader thread (`SessionInput`).
         try session.submit(text, enter: enter != false)
         return Done()
     }
 }
 
-/// A running one only: a size never wakes a paused agent (a wake gets the size it's shown at anyway).
+/// Resizes a running session only: a size never wakes a paused agent (a wake gets the size it's shown at anyway).
 extension SessionResize: Handled {
     static let agents = AgentAccess.acts
     static var inOrder: Bool { true }
@@ -135,14 +138,14 @@ extension SessionResize: Handled {
     }
 }
 
-/// Under its wake lock, as waking is: a paused session marked ended here can't be woken halfway through, nor this kill land
-/// on the old copy while a wake starts a new one.
+/// Runs under the session's wake lock, as waking does, so a paused session marked ended here can't be woken halfway
+/// through, and this kill can't land on the old copy while a wake starts a new one.
 extension SessionKill: Handled {
     static let agents = AgentAccess.acts
     var fence: Fence { Fence(actsOn: id) }
     func handle(_ sessions: Sessions) throws -> Done {
-        // A remote agent's tmux session ends with it, and its record then names none: it reads as ended, not as an agent
-        // still running on the host (`connectionLost`). The live record too, before its exit is saved.
+        // A remote agent's tmux session ends with it, and its record then names none, so it reads as ended, not as an
+        // agent still running on the host (`connectionLost`). The live record drops it too, before its exit is saved.
         let before = try sessions.store.session(id)
         try sessions.wakeLocks.withLock(id) {
             if let ls = sessions.existing(id) {
@@ -212,8 +215,8 @@ final class PermissionWaits: Sendable {
     /// What `waitForKelp` gives when the asking program ended first.
     static let askerGone = "gone"
 
-    /// Kelp's question `question` for `id`, waiting for Allow or Deny; nil when nobody answered, `askerGone` when `asker`
-    /// (the program the command runs in) ended before an answer.
+    /// Waits for the answer (Allow or Deny) to Kelp's question `question` for `id`. Returns nil when nobody answered,
+    /// or `askerGone` when `asker` (the program the command runs in) ended before an answer.
     func waitForKelp(_ id: String, question: String, within seconds: TimeInterval, asker: pid_t? = nil) async -> String?
     {
         let token = UUID()
@@ -232,7 +235,7 @@ final class PermissionWaits: Sendable {
                         answer: continuation, exit: exit))
             }
             exit?.activate()
-            // Gone before the watch began: its exit was before the source and won't come
+            // If the asker was gone before the watch began, its exit came before the source and won't be seen.
             if let asker, kill(asker, 0) != 0, errno == ESRCH {
                 answerKelp(id, question: nil, Self.askerGone, only: token)
             }
@@ -242,8 +245,8 @@ final class PermissionWaits: Sendable {
         }
     }
 
-    /// Hands `answer` to Kelp's oldest question of `id` (the oldest that is `question`, when given; the one of `token`);
-    /// whether one was waiting.
+    /// Hands `answer` to Kelp's oldest question for `id` (the oldest that is `question`, when given; the one with
+    /// `token`, when given). Returns whether one was waiting.
     @discardableResult
     func answerKelp(_ id: String, question: String?, _ answer: String?, only token: UUID? = nil) -> Bool {
         let waiting = kelpWaits.withLock { waits -> KelpWait? in
@@ -261,7 +264,8 @@ final class PermissionWaits: Sendable {
         return waiting != nil
     }
 
-    /// Every question Kelp asks for `id`'s commands goes unanswered: its turn is over, and every command of it.
+    /// Ends every question Kelp asks for `id`'s commands with no answer, because the turn is over, and every command of
+    /// it.
     func endKelpQuestions(_ id: String) {
         let all = kelpWaits.withLock { $0.removeValue(forKey: id) } ?? []
         for wait in all {
@@ -270,7 +274,8 @@ final class PermissionWaits: Sendable {
         }
     }
 
-    /// The hook of `id`'s permission question, waiting for Allow or Deny; a newer one lets the older go with no answer.
+    /// Waits for Allow or Deny for the hook of `id`'s permission question. A newer wait lets the older one go with no
+    /// answer.
     func waitForPermission(_ id: String, within seconds: TimeInterval) async -> String? {
         let token = UUID()
         return await withCheckedContinuation { continuation in
@@ -281,7 +286,8 @@ final class PermissionWaits: Sendable {
         }
     }
 
-    /// Hands `answer` to the hook waiting for `id`'s question (nil: none, it went on otherwise); whether one was waiting.
+    /// Hands `answer` to the hook waiting for `id`'s question (nil means no answer: the question went on some other
+    /// way). Returns whether one was waiting.
     @discardableResult
     func answerPermission(_ id: String, _ answer: String?, only token: UUID? = nil) -> Bool {
         let waiting = waits.withLock { waits -> CheckedContinuation<String?, Never>? in
@@ -354,10 +360,11 @@ extension SessionContext: Handled {
     func handle(_ sessions: Sessions) throws -> String { try sessions.printed(id, bytes: bytes ?? 24_000) }
 }
 
-/// Never re-inserts a deleted one (publish and edit only update).
+/// Never re-inserts a deleted session (publish and edit only update).
 extension SessionMarkRead: Handled {
     static let agents = AgentAccess.acts
-    // Not `quick`: they wait for a wake of the same session (`Sessions.setUnread`), as long as a locked keychain can take.
+    // Not `quick`, because these wait for a wake of the same session (`Sessions.setUnread`), which can take as long as
+    // a locked keychain does.
     func handle(_ sessions: Sessions) throws -> Done {
         try sessions.setUnread(id, false)
         return Done()

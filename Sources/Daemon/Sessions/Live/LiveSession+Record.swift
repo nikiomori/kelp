@@ -21,7 +21,7 @@ extension LiveSession {
         }
     }
 
-    /// A hook's `cwd`: where the agent works now. The record when that changed.
+    /// Records a hook's `cwd`, where the agent works now. Returns the record when that changed.
     func workIn(_ dir: String) -> Session? {
         func real(_ path: String) -> String {
             URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
@@ -34,7 +34,7 @@ extension LiveSession {
         }
     }
 
-    /// Whether that changed the record: one that didn't needs no save.
+    /// Applies `body` and returns whether that changed the record; a record that didn't change needs no save.
     func change(_ body: @Sendable (inout Session) -> Void) -> Bool {
         state.withLock { st in
             let before = st.record

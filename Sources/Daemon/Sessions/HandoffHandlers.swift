@@ -12,12 +12,12 @@ extension SessionHandoff: Handled {
         return try start(from: old, in: old.cwd, worktreeId: old.worktreeId, sessions)
     }
 
-    /// The next agent, briefed with `old`'s work, started in `cwd`: its own folder, or where a moved chat goes on
-    /// (here or on a host, `session.moveAcross`).
+    /// Starts the next agent, briefed with `old`'s work, in `cwd`: the old session's own folder, or where a moved chat
+    /// goes on (here or on a host, `session.moveAcross`).
     func start(from old: Session, in cwd: String, worktreeId: String?, _ sessions: Sessions) throws -> Session {
         let target = agent ?? old.agent, remote = sessions.remotes.of(old.cwd), there = sessions.remotes.of(cwd)
         var manifest = try sessions.setup.manifest(target, command: nil)
-        // A remote agent's conversation is on its host: the end of it, brought here to write the brief from.
+        // A remote agent's conversation is on its host, so its end is brought here to write the brief from.
         let file =
             remote.map { Self.hostCopy(of: old, on: $0, sessions) }
             ?? sessions.agentUsage.conversations.conversationFile(of: old, live: sessions.existing(old.id))
@@ -42,9 +42,10 @@ extension SessionHandoff: Handled {
 
     private var limit: Int { full == true ? 400_000 : 40_000 }
 
-    /// What `agent` starts with to open the conversation as its own; nil when it can't, and it reads the brief instead.
-    /// Codex imports a Claude Code transcript itself, as a thread it resumes (only into the default account: another
-    /// account's Codex wouldn't find it). pi and oh-my-pi open a session of theirs Kelp writes, which they go on in.
+    /// The arguments `agent` starts with to open the conversation as its own. Returns nil when it can't, and then the
+    /// agent reads the brief instead. Codex imports a Claude Code transcript itself, as a thread it resumes (only into
+    /// the default account, because another account's Codex wouldn't find it). pi and oh-my-pi open a session file in
+    /// their own format that Kelp writes, and they go on in it.
     private func native(
         _ old: Session, _ manifest: AgentManifest, file: URL?, at place: (cwd: String, uncommitted: String),
         _ sessions: Sessions
@@ -61,7 +62,7 @@ extension SessionHandoff: Handled {
             }
             let session = try conversation.piSession(
                 cwd: cwd, agent: old.agent ?? "agent", limit: limit, uncommitted: uncommitted)
-            // One per hand-off: the agent writes on in it, and an earlier one may still be open.
+            // A new file for each hand-off, because the agent writes on in it and an earlier one may still be open.
             let path = try Self.handoffFile("\(old.id)-\(UUID().uuidString.prefix(8).lowercased()).jsonl", sessions)
             try session.write(to: path, atomically: true, encoding: .utf8)
             return [flag, path.path]
@@ -93,8 +94,8 @@ extension SessionHandoff: Handled {
         return file
     }
 
-    /// The end of a remote Claude Code's conversation (`Conversations.remoteTail`, over the open connection), in a file
-    /// here; nil without one, and the brief is its screen.
+    /// Copies the end of a remote Claude Code's conversation (`Conversations.remoteTail`, over the open connection)
+    /// into a file here. Returns nil without a connection, and then the brief is the session's screen.
     private static func hostCopy(of session: Session, on remote: RemoteHost, _ sessions: Sessions) -> URL? {
         guard let tail = sessions.agentUsage.conversations.remoteTail(of: session, on: remote) else { return nil }
         return Log.session.attempt("keeping \(session.id)'s conversation from its host") {

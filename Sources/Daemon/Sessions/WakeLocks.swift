@@ -3,10 +3,11 @@ import Foundation
 import os
 
 /// One lock per session for what changes whether its program runs: waking it, pausing it, stopping it, deleting it.
-/// Per session, not one for the daemon: waiting for one program to exit (up to 10 s) or a slow host doesn't hold up
-/// opening any other session.
+/// The locks are per session, not one for the daemon, so waiting for one program to exit (up to 10 s) or a slow host
+/// doesn't hold up opening any other session.
 final class WakeLocks: Sendable {
-    /// Each with how many callers hold it or wait for it: gone once none do, so a deleted session leaves nothing behind.
+    /// Each lock with how many callers hold it or wait for it. A lock goes once none do, so a deleted session leaves
+    /// nothing behind.
     private let locks = OSAllocatedUnfairLock<[String: (lock: NSLock, users: Int)]>(initialState: [:])
 
     private func take(_ id: String) -> NSLock {
@@ -35,8 +36,8 @@ final class WakeLocks: Sendable {
         return try lock.withLock(body)
     }
 
-    /// Several sessions' at once (a workspace's), taken in one order (by id) so two callers can't each hold what the
-    /// other waits for.
+    /// Takes several sessions' locks at once (a workspace's), in one order (by id), so two callers can't each hold what
+    /// the other waits for.
     func withLocks<T>(_ ids: [String], _ body: () throws -> T) rethrows -> T {
         let ids = Set(ids).sorted()
         let held = ids.map(take)

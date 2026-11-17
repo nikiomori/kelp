@@ -6,27 +6,29 @@ import os
 
 extension LiveSession {
     /// What a session's status and typing rest on beside its record, all of it handed to the kelpd that takes over
-    /// (`Handover.Status`), so a field added here goes over an update by itself. Lost, a Stop held for subagents read as
-    /// done three minutes after an update, a dialog answered elsewhere stayed Needs You, an agent that reports itself was
-    /// guessed at again, a multi-line send was submitted line by line, and the next send's Enter sent an unread draft or
-    /// the user's half line. Read leniently: a field an older kelpd didn't hand over has its default.
+    /// (`Handover.Status`), so a field added here goes over an update by itself. When this was lost, a Stop held for
+    /// subagents read as done three minutes after an update, a dialog answered elsewhere stayed Needs You, an agent
+    /// that reports itself was guessed at again, a multi-line send was submitted line by line, and the next send's
+    /// Enter sent an unread draft or the user's half line. It is read leniently, so a field an older kelpd didn't hand
+    /// over has its default.
     struct Kept: Codable, Sendable {
         /// The last Stop was held as working (subagents, a goal, a command): the agent is quiet by design until it wakes.
         var holding = false
-        /// The last Stop left work in the background or a timer: quiet, but something will wake it. Assumed until a
-        /// Stop says.
+        /// The last Stop left work in the background or a timer, so the agent is quiet but something will wake it. It
+        /// is assumed until a Stop says otherwise.
         var parked = true
         /// Whose permission dialogs are open, and how many: subagents by id, "" for the main thread. Claude Code sends
         /// no hook for an answer, and none for the next dialog of a batch when the first is answered.
         var asking: [String: Int] = [:]
-        /// AskUserQuestion is open: a key answers one of its questions, and only its PostToolUse says that was the last.
+        /// Whether AskUserQuestion is open. A key answers one of its questions, and only its PostToolUse says that was
+        /// the last.
         var questionOpen = false
         var turnEnd = TurnEnd()
         var transcript: String?
         /// A line was sent and no key pressed since, so the input box is empty; `typing` alone can't say (↑ brings
         /// back an old prompt).
         var boxEmpty = false
-        /// The program turned on bracketed paste (ESC[?2004h): it tells a paste from typing.
+        /// Whether the program turned on bracketed paste (ESC[?2004h), so it tells a paste from typing.
         var pasteMode = false
         /// A draft is typed but not sent (an issue's brief, a hand-off's): the user reads it and presses Return. Until
         /// the user types anything, text sent meanwhile waits behind the draft, because its Enter would submit the
@@ -34,7 +36,7 @@ extension LiveSession {
         var draftWaiting = false
         /// What the user typed and hasn't sent, as far as their keys tell (arrows and history recall aren't followed).
         var typing = ""
-        /// A hook or a report came: it has them, and they run.
+        /// Whether a hook or a report came, which shows the agent has hooks and they run.
         var hooksSpoke = false
 
         init() {}
@@ -56,7 +58,8 @@ extension LiveSession {
         }
     }
 
-    /// What changes, all of it: only ever read or written inside `state.withLock`. The `let`s are fixed at launch.
+    /// Everything about the session that changes, only ever read or written inside `state.withLock`. The `let`s are
+    /// fixed at launch.
     struct State {
         var record: Session
         var detector: StatusDetector
@@ -68,7 +71,8 @@ extension LiveSession {
         let wantsTopic: Bool, wantsURL: Bool
         let limitScreen: AgentManifest.LimitScreen?   // what it prints of its plan's limits, read as it runs
 
-        // Output: the last `ringLimit` bytes, the modes in effect where they start (what the ring dropped had set them), the log.
+        // Output: the last `ringLimit` bytes, the modes in effect where they start (the bytes the ring dropped had set
+        // them), and the log.
         var ring = Data(), ringModes = TerminalModes()
         var logSize: Int
         var attached = Set<Int>()   // connection ids receiving raw output
@@ -87,7 +91,7 @@ extension LiveSession {
         var utf8Carry = Data()   // the start of a character the last chunk was cut in (`UTF8Chunks`)
         var pasteCarry = Data()
         var sawURL = false, sawBusy = false, lastLimits: [LimitScreens.Reading] = []
-        /// An agent without hooks printed that its plan ran out: it counts if its turn stops by it (`settleLimit`).
+        /// An agent without hooks printed that its plan ran out. It counts if the turn then stops (`settleLimit`).
         var limitSeen: (hit: LimitHit, at: Date)?
         /// Turns in a row an API error that passes ended and Kelp went on with (`LiveSession.retry`).
         var retries = 0
@@ -98,7 +102,7 @@ extension LiveSession {
         var lastLifeUp = ProcessInfo.processInfo.systemUptime
         /// When the latest hook heard ran (`SessionHook.at`).
         var newestHook: TimeInterval = 0
-        /// When a line went into an agent whose hooks haven't spoken yet: one should come now (`hooksSilent`).
+        /// When a line went into an agent whose hooks haven't spoken yet, so a hook should come now (`hooksSilent`).
         var lineSentUp: TimeInterval?
         /// What its shell tool ran (`ran`), the last `commandLimit`; `commandChanges` counts the changes, for the watchers.
         /// Limit: in memory, so a restarted background service starts the list over; the transcript keeps them all.
@@ -107,21 +111,24 @@ extension LiveSession {
         var commandAgents: [String: String] = [:]
         /// The file its tools changed last, and how many edits so far (`edits` watchers).
         var lastEdit: String?, edits = 0
-        /// Esc / ⌃C / an answer while it works or asks: Claude Code sends no hook when a turn is cut short, so the
-        /// screen decides ("Interrupted…") within a few seconds. `seen` is the text printed since.
+        /// Set by Esc, ⌃C or an answer while the agent works or asks. Claude Code sends no hook when a turn is cut
+        /// short, so the screen decides ("Interrupted…") within a few seconds. `seen` is the text printed since.
         var interruptArmed: (at: Date, seen: String)?
-        /// Kelp asks these (`LiveSession.askForKelp`), oldest first: the row asks the oldest, whatever the screen and the
-        /// hooks say, until they're over.
+        /// The questions Kelp asks (`LiveSession.askForKelp`), oldest first. The row asks the oldest, whatever the
+        /// screen and the hooks say, until they're over.
         var kelpQuestions: [String] = []
         var kelpQuestion: String? { kelpQuestions.first }
-        /// The prompt that started this turn set a /goal, this one: its first Stop comes before the first check is written.
+        /// The /goal that the prompt starting this turn set. The turn's first Stop comes before the first check is
+        /// written.
         var goalAsked: String?
-        /// Esc / ⌃C as it worked: an idle it reports in the seconds after is that stop, not a finished turn.
+        /// When Esc or ⌃C was pressed while the agent worked. An idle it reports in the seconds after is that stop, not
+        /// a finished turn.
         var stopKeyAt = Date.distantPast
 
         // Typing into it (LiveSessionInput).
         var autoAnswers: [(NSRegularExpression, AgentManifest.AutoAnswer)]
-        /// Drawn and quiet once (or 25 s up): text typed before then could land in a program still starting.
+        /// Whether the program has drawn and gone quiet once (or 25 s passed). Text typed before then could land in a
+        /// program still starting.
         var startedUp = false
         /// Text waiting until the program is ready (drawn, quiet, no question open), first in first out: the launch
         /// prompt, then whatever was sent while it waited.
@@ -131,12 +138,13 @@ extension LiveSession {
         /// Someone answered the agent's first question (the user typed, or Kelp's auto-answer pressed its key). From
         /// then on, a trust dialog's words left in the scrollback no longer hold the launch prompt back.
         var dialogSettled = false
-        /// Anything typed into it yet, by the user or by Kelp (a prompt): startup answers are only for what the agent asks
-        /// before that. After it, a matching line is something the agent read or wrote, not its own dialog.
+        /// Whether anything was typed into the session yet, by the user or by Kelp (a prompt). Startup answers are only
+        /// for what the agent asks before that; after it, a matching line is something the agent read or wrote, not its
+        /// own dialog.
         var typedYet = false
-        /// Menu answer in progress: move one step at a time, re-reading the screen, and press Enter only on the wanted
-        /// option. `screen`: what must still be on screen for each key (the dialog being answered); nil for a menu the
-        /// user answers from a notification.
+        /// A menu answer in progress: it moves one step at a time, re-reading the screen, and presses Enter only on the
+        /// wanted option. `screen` is what must still be on screen for each key (the dialog being answered); it is nil
+        /// for a menu the user answers from a notification.
         var steering: (choose: NSRegularExpression, since: Date, lastKey: Date, screen: NSRegularExpression?)?
         /// The version an update last restarted it for (`restartAgent`).
         var updatedTo: String?
@@ -192,17 +200,20 @@ extension LiveSession {
             return (starting, ending)
         }
 
-        /// A row that says working or asks while the screen stood still for minutes and no hook came. A Stop (or a compaction's
-        /// end) Kelp doesn't know of or missed would leave it working, keeping the Mac awake, until the next prompt, and a turn
-        /// cut short elsewhere (Remote Control, a No there) sends no hook at all and only prints that it was. Claude Code redraws
-        /// its timer every second while it works; one held for what it waits for is quiet by design.
-        /// A menu on that screen is a question whose hook never came: it waits for the user, and its turn goes on after.
-        /// Limit: a still screen is the only evidence, and the answer, done, is also what a quiet but live agent would get.
+        /// Releases a row that says working or asks while the screen stood still for minutes and no hook came. A Stop
+        /// (or a compaction's end) Kelp doesn't know of or missed would leave it working, keeping the Mac awake, until
+        /// the next prompt, and a turn cut short elsewhere (Remote Control, a No there) sends no hook at all and only
+        /// prints that it was. Claude Code redraws its timer every second while it works, but a session held for what
+        /// it waits for is quiet by design.
+        /// A menu on that screen is a question whose hook never came, so it waits for the user, and its turn goes on
+        /// after.
+        /// Limit: a still screen is the only evidence, and the answer, done, is also what a quiet but live agent would
+        /// get.
         mutating func releaseStale(at up: TimeInterval = ProcessInfo.processInfo.systemUptime) {
             let limit: TimeInterval = kept.holding || record.subagents != nil ? 1800 : 180
             let status = detector.status
             guard saysItself, status == .working || status == .waiting, up - lastLifeUp > limit else { return }
-            lastLifeUp = up   // looked at; again after as long
+            lastLifeUp = up   // looked at; the next look comes as long after
             if menuOpen() {
                 if status == .working {
                     detector.override(.waiting, because: "no sign of life for \(Int(limit)) s, and a menu on screen")
@@ -221,16 +232,16 @@ extension LiveSession {
             detector.override(.done, because: "no sign of life for \(Int(limit)) s")
         }
 
-        /// Nothing it was held for counts any more.
+        /// Drops what the session was held for, which no longer counts.
         private mutating func release() {
             kept.holding = false
             record.goal = nil
             record.awaiting = nil
         }
 
-        /// Nothing a tick would do (`LiveSession.tick`): no status a quiet screen or a silent hook moves on (working,
-        /// waiting), nothing timed (the start-up wait, text or a report to type, a menu being walked, an interrupt watched,
-        /// a continue, hooks awaited, a quiet working row) and nothing the record hasn't been told.
+        /// Whether a tick has nothing to do (`LiveSession.tick`): no status a quiet screen or a silent hook moves on
+        /// (working, waiting), nothing timed (the start-up wait, text or a report to type, a menu being walked, an
+        /// interrupt watched, a continue, hooks awaited, a quiet working row), and nothing the record hasn't been told.
         var atRest: Bool {
             startedUp && pendingPrompts.isEmpty && reports.isEmpty && steering == nil && interruptArmed == nil
                 && lineSentUp == nil && record.continueAt == nil && record.quietSince == nil && kelpQuestions.isEmpty
@@ -238,8 +249,8 @@ extension LiveSession {
                 && (detector.status == record.status || record.status == .exited)
         }
 
-        /// The detector's status into the record; the record when it changed. Ended is final: a hook or a keystroke that
-        /// arrives after the exit doesn't bring the session back.
+        /// Copies the detector's status into the record and returns the record when it changed. Ended is final, so a
+        /// hook or a keystroke that arrives after the exit doesn't bring the session back.
         mutating func sync() -> Session? {
             record.subagentsAsk(kept.asking.keys)
             let status = kelpQuestion == nil || detector.status == .exited ? detector.status : .waiting
@@ -251,8 +262,9 @@ extension LiveSession {
             guard status != record.status, record.status != .exited else { return said ? record : nil }
             trail.add("\(record.status.rawValue) → \(status.rawValue)  \(detector.source)")
             record.status = status
-            // Read off the screen: a guess, said as one (`Session.guessed`). Hooks and the program's own reports aren't.
-            // `releaseStale`'s too ("no sign of life"): a still screen is all it had, whatever the agent reported before.
+            // A status read off the screen is a guess and is marked as one (`Session.guessed`); hooks and the program's
+            // own reports aren't. So is one from `releaseStale` ("no sign of life"), because a still screen is all it
+            // had, whatever the agent reported before.
             let src = detector.source
             record.guessed = ["screen", "no hook", "no sign of life"].contains(where: src.hasPrefix) ? true : nil
             if status == .done || status == .waiting || status == .exited || status == .error { record.unread = true }
@@ -265,8 +277,9 @@ extension LiveSession {
             return record
         }
 
-        /// Working with no news for 5 minutes: the time of the last (a hook from an agent that sends them, else output),
-        /// kept in `record.quietSince` until news comes or it stops working. Whether it changed, for the sidebar.
+        /// Notes a session working with no news for 5 minutes. The time of the last news (a hook from an agent that
+        /// sends them, else output) is kept in `record.quietSince` until news comes or the session stops working.
+        /// Returns whether it changed, for the sidebar.
         mutating func noteQuiet(now: Date = Date()) -> Bool {
             let heard = hooked && kept.hooksSpoke ? lastHookAt : (lastOutputAt ?? .distantPast)
             let last = max(heard, record.statusAt ?? .distantPast)
@@ -276,10 +289,12 @@ extension LiveSession {
             return true
         }
 
-        /// The user's keys into `typing`; the first line of 8 characters or more they send (once), which names the session.
+        /// Adds the user's keys to `typing`. Returns the first line of 8 characters or more they send (once), which
+        /// names the session.
         mutating func noteTyping(_ data: Data) -> String? {
             let text = String(decoding: data, as: UTF8.self)
-            // Esc puts nothing in the box: a report waiting for it to be empty would wait on the next Return.
+            // Esc puts nothing in the box, so it doesn't count as filling it; otherwise a report waiting for an empty
+            // box would wait for the next Return.
             if text != "\u{1B}", LiveSession.kittyKey(text)?.key != 27 { kept.boxEmpty = false }
             if text.hasPrefix("\u{1B}[200~") {   // a paste: its newlines are text, not Return
                 kept.typing += text.replacingOccurrences(of: "\u{1B}[200~", with: "").replacingOccurrences(
@@ -318,7 +333,7 @@ extension LiveSession {
             return sent
         }
 
-        /// Return: the line is sent. The first one of 8 characters or more, once.
+        /// Return sends the line. Returns the first line of 8 characters or more, once.
         private mutating func sendLine() -> String? {
             let line = kept.typing.trimmingCharacters(in: .whitespacesAndNewlines)
             kept.typing = ""

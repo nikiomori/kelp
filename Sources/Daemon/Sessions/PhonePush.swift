@@ -3,14 +3,15 @@ import CoreGraphics
 import Foundation
 import os
 
-/// A push to a phone through a service like ntfy (Settings › Agents, off until it has an address), when an agent needs you
-/// and you're away from the Mac. In the daemon: closing Kelp's window is when it's needed. It only tells: answering stays on
-/// the Mac, so that knowing the channel's address never lets anyone approve a command. A failed send is tried once more.
+/// Sends a push to a phone through a service like ntfy (Settings › Agents, off until it has an address) when an agent
+/// needs you and you're away from the Mac. It lives in the daemon, because the push matters most once Kelp's window is
+/// closed. It only tells: answering stays on the Mac, so knowing the channel's address never lets anyone approve a
+/// command. A failed send is tried once more.
 /// The paired phones (PhoneBridge.swift) hear by the same rules, each through its browser's push service.
 enum PhonePush {
-    /// No input for this long is being away.
+    /// After this long with no input, you count as away.
     static let awayAfter: TimeInterval = 300
-    /// A question asked while you were here, and still standing after this: you left without answering.
+    /// A question asked while you were here that still stands after this long means you left without answering.
     static let askAgainAfter: TimeInterval = 600
 
     static func url(_ setting: String?) -> URL? {
@@ -18,12 +19,14 @@ enum PhonePush {
         return ["https", "http"].contains(url.scheme) && url.host != nil ? url : nil
     }
 
-    /// A question, a failure, a plan limit: what stands still until someone looks. Not a failure Kelp goes on from itself.
+    /// Whether the session is worth a push: a question, a failure or a plan limit, which stand still until someone
+    /// looks. A failure Kelp goes on from by itself isn't.
     static func worthTelling(_ session: Session) -> Bool {
         session.limitHit != nil || session.status == .waiting || (session.status == .error && session.continueAt == nil)
     }
 
-    /// `name`: the agent's. By default it leaves out what the agent said, which goes through someone else's server.
+    /// The push's title and body. `name` is the agent's name. By default the body leaves out what the agent said,
+    /// because it goes through someone else's server.
     static func message(_ session: Session, name: String, place: String, details: Bool) -> (title: String, body: String)
     {
         let what =
@@ -31,7 +34,7 @@ enum PhonePush {
         return ("\(name) \(what)", details && !session.summary.isEmpty ? "\(place): \(session.summary)" : place)
     }
 
-    /// Rows muted past now, as the app keeps them (`Mutes`).
+    /// Whether any of `ids` is a row muted past now, as the app keeps mutes (`Mutes`).
     static func muted(_ mutes: JSONValue?, _ ids: [String?], now: Date = Date()) -> Bool {
         guard case .object(let mutedUntil)? = mutes else { return false }
         return ids.contains { id in
@@ -39,7 +42,7 @@ enum PhonePush {
         }
     }
 
-    /// ntfy takes the title in the query: a header would need its own encoding for anything but ASCII.
+    /// ntfy takes the title in the query, because a header would need its own encoding for anything but ASCII.
     static func request(_ url: URL, title: String, body: String) -> URLRequest? {
         guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
         components.queryItems = (components.queryItems ?? []) + [URLQueryItem(name: "title", value: title)]
@@ -59,7 +62,7 @@ enum PhonePush {
 extension ExtensionEvents {
     private var phoneAway: Bool { clients.uiState == ShownUI() || PhonePush.inputIdle >= PhonePush.awayAfter }
 
-    /// Told once per stop by `heard`.
+    /// Called once per stop by `heard`.
     func phoneHeard(_ session: Session) {
         guard PhonePush.worthTelling(session),
             PhonePush.url(settings[SettingKeys.phoneURL]) != nil || phone.takesPushes
@@ -98,7 +101,8 @@ extension ExtensionEvents {
         phone.hear(.push(title: title, body: body, agent: session.id))
         guard let url, let request = PhonePush.request(url, title: title, body: body) else { return }
         Task.detached {
-            // Once more a little later: right after a wake the network often isn't back yet, and being away is that.
+            // Tries once more a little later, because right after a wake the network often isn't back yet, and the Mac
+            // sleeps while you're away.
             for wait in [0, 30] {
                 do {
                     try await Task.sleep(for: .seconds(wait))

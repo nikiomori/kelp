@@ -9,7 +9,8 @@ import Foundation
 extension SessionSetup {
     static let projectSkills = ".agents/skills"
 
-    /// Writes them for a chat starting in `cwd`; the hover card's line about the browser's (nil without it).
+    /// Writes the skills for a chat starting in `cwd`, and returns the hover card's line about the browser skill (nil
+    /// without it).
     func writeProjectSkills(worktreeId: String?, cwd: String) -> String? {
         let (on, browser) = chosenSkills(worktreeId: worktreeId, cwd: cwd)
         let folder = URL(fileURLWithPath: cwd).appendingPathComponent(Self.projectSkills)

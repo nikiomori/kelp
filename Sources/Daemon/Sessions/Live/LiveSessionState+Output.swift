@@ -5,11 +5,12 @@ import Foundation
 // What a session's output says: its reports, title, paste mode, URLs, a busy port, plan limits, an auto answer.
 
 extension LiveSession.State {
-    // What a chunk of output says. Whether a chunk has a sequence at all is asked of its bytes: String.contains
-    // compares Characters, and on a stream of output that was most of the daemon's time.
+    // What a chunk of output says. Whether a chunk has a sequence at all is checked on its bytes, because
+    // String.contains compares Characters, and on a stream of output that took most of the daemon's time.
 
-    /// OSC 7501 reports (true: the agent asked whether Kelp reads them) and ConEmu progress. An agent with hooks is read
-    /// for its subagents alone: only there does it say what each does. Its status stays its hooks'.
+    /// Reads OSC 7501 reports and ConEmu progress, and returns true when the agent asked whether Kelp reads the
+    /// reports. An agent with hooks is read for its subagents alone, because only there does it say what each does; its
+    /// status still comes from its hooks.
     mutating func readReports(_ text: String, _ data: Data) -> Bool {
         var probe = false
         if data.range(of: Data(ProgramStatus.prefix.utf8)) != nil || !oscCarry.isEmpty {
@@ -30,7 +31,8 @@ extension LiveSession.State {
         return probe
     }
 
-    /// A hook knows a subagent's kind and may come first, so a report adds no more than it knows.
+    /// A hook knows a subagent's kind and may come first, so a report never overwrites the kind; it adds only what the
+    /// report itself knows.
     private mutating func subagentReported(_ report: ProgramStatus.Report) {
         guard let id = report.id else { return }
         var running = record.subagents ?? [:], tasks = record.subagentTasks ?? [:]
@@ -100,7 +102,7 @@ extension LiveSession.State {
             of: "[::]", with: "localhost")
     }
 
-    /// The port a server couldn't get, once: a run that printed its page got one.
+    /// The port a server couldn't get, once. A run that already printed its page's URL got a port.
     mutating func busyPort(_ plain: String) -> Int? {
         guard !sawURL, !sawBusy, wantsURL else { return nil }
         guard
@@ -125,9 +127,9 @@ extension LiveSession.State {
         return found
     }
 
-    /// The words count only by a turn that stopped: the same ones in a file it reads, or a test's output, stop nothing.
-    /// Hooks say so themselves (`hitLimit`). Limit: words printed in the last half minute of a turn that ended for another
-    /// reason count too.
+    /// Plan-limit words count only when a turn stopped near them; the same words in a file the agent reads, or in a
+    /// test's output, stop nothing. Hooks report a limit themselves (`hitLimit`).
+    /// Limit: words printed in the last half minute of a turn that ended for another reason count too.
     mutating func settleLimit() {
         guard let seen = limitSeen, [.done, .error].contains(record.status), let at = record.statusAt,
             abs(seen.at.timeIntervalSince(at)) < 30

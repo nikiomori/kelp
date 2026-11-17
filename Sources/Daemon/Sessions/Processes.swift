@@ -43,7 +43,8 @@ final class SessionProcesses: Sendable {
         return (owner, rows)
     }
 
-    /// Read every 3 s while the window shows, so from the kernel: lsof and ps cost 2 % of a core for as long as Kelp is open.
+    /// The ports a workspace's sessions listen on. They are read every 3 s while the window shows, so they come from
+    /// the kernel, because lsof and ps cost 2 % of a core for as long as Kelp is open.
     func ports(worktree wid: String) -> [Port] {
         if let (worktree, remote) = remote(wid) {
             return forwards.ports(

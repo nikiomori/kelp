@@ -15,12 +15,14 @@ extension SessionMove: Handled {
             else {
                 throw RPCError.noSession(id)
             }
-            // Its process keeps its folder: a workspace elsewhere is other files, which only a new agent can have.
+            // The session's process keeps its folder, and a workspace elsewhere is other files, which only a new agent
+            // can have.
             guard let from = try session.worktreeId.flatMap(sessions.store.worktree), from.path == to.path else {
                 throw RPCError.invalidParams("Only a screen of the same folder can take it.")
             }
             try sessions.edit(id, held: true) { $0.worktreeId = worktreeId }
-            // Before the reply, as a record written in the store is: the app finds it on its new screen.
+            // Sent before the reply, as a record written in the store is, so the app finds the session on its new
+            // screen.
             if let ls = sessions.existing(id) { sessions.notify(ls.snapshot) }
         }
         return Done()
@@ -29,7 +31,7 @@ extension SessionMove: Handled {
 
 extension SessionRename: Handled {
     static let agents = AgentAccess.acts
-    // its title on the user's row: an agent names only its own and those it started
+    // the title shows on the user's row, so an agent renames only its own sessions and those it started
     var fence: Fence { Fence(actsOn: id) }
     func handle(_ sessions: Sessions) throws -> Done {
         try sessions.edit(id) { [title] in

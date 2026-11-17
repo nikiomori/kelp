@@ -19,8 +19,9 @@ enum DevContainer {
         }
     }
 
-    /// `argv` as it runs in the container: a terminal's login shell is the container's (bash, else sh), a command line
-    /// goes to sh (it may have no zsh), and Claude-style hooks are the ones that report through the terminal.
+    /// Returns `argv` as it runs in the container. A terminal gets the container's login shell (bash, else sh), a
+    /// command line goes to sh (the container may have no zsh), and Claude-style hooks are swapped for the ones that
+    /// report through the terminal.
     static func inside(_ argv: [String], _ manifest: AgentManifest) throws -> [String] {
         if manifest.id == Session.shellAgent {
             return ["sh", "-c", "if command -v bash >/dev/null 2>&1; then exec bash -l; else exec sh -l; fi"]
@@ -45,8 +46,8 @@ enum DevContainer {
         }
     }
 
-    /// `run` in `folder`'s container, at `cwd`: sh brings it up when it isn't (its log on screen), else quietly finds
-    /// it, then `docker exec` with `env`'s names.
+    /// Wraps `run` to run in `folder`'s container, at `cwd`. sh brings the container up when it isn't up (with its log
+    /// on screen), or else quietly finds it, then runs `docker exec` with the names in `env`.
     static func wrap(
         _ run: [String], cwd: String, in box: (folder: String, project: String), readOnly: [String], env: [String]
     ) -> [String] {

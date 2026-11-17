@@ -45,8 +45,8 @@ enum ChatMove {
                 .map(String.init))
     }
 
-    /// `from`'s HEAD as a new branch of `to`, named `name` (`name-2`… when taken): its commits in a bundle of what `to`
-    /// hasn't got (since `base`, when `to` has that; all of them otherwise). Answers the branch's name.
+    /// Carries `from`'s HEAD to `to` as a new branch named `name` (`name-2`… when taken). The commits go in a bundle of
+    /// what `to` hasn't got (since `base` when `to` has it, otherwise all of them). Returns the branch's name.
     static func carry(from: String, base: String, to: String, name: String, remotes: Remotes) throws -> String {
         var branch = name, number = 2
         while Git.branchExists(to, branch, remotes: remotes) {
@@ -59,7 +59,7 @@ enum ChatMove {
             return branch
         }
         let since = try Git.line(["merge-base", "HEAD", base], cwd: from, ok: [0, 1], remotes: remotes)
-        // `to` may not have fetched what `from` started from: asked once, not required.
+        // `to` may not have fetched what `from` started from, so it fetches once, but doesn't require it.
         if !since.isEmpty, !has(to, since, remotes) {
             _ = Git.succeeds(["fetch", "-q", "origin"], cwd: to, remotes: remotes)
         }
@@ -71,7 +71,8 @@ enum ChatMove {
         return branch
     }
 
-    /// `from`'s uncommitted changes, new files too (not ones that look like secrets: `snapshotTree`), applied in `to`.
+    /// Applies `from`'s uncommitted changes in `to`, new files too (but not ones that look like secrets:
+    /// `snapshotTree`).
     static func carryUncommitted(from: String, to: String, remotes: Remotes) throws {
         let tree = try Git.snapshotTree(from, remotes: remotes)
         let patch = try Git.run(["diff", "--binary", "HEAD", tree], cwd: from, remotes: remotes)
@@ -83,7 +84,7 @@ enum ChatMove {
         Git.succeeds(["cat-file", "-e", commit + "^{commit}"], cwd: dir, remotes: remotes)
     }
 
-    /// `data` in a temporary file on `dir`'s side (this Mac, or its host): the file's path there.
+    /// Writes `data` to a temporary file on `dir`'s side (this Mac, or its host) and returns the file's path there.
     private static func place(_ data: Data, at dir: String, _ remotes: Remotes) throws -> String {
         if let host = remotes.of(dir) {
             return String(

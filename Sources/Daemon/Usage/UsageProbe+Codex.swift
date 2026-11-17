@@ -8,10 +8,10 @@ import os
 extension AgentUsage {
     static let codexEvery: TimeInterval = 600
 
-    /// Codex's limits as its /status shows them, asked of `codex app-server` every 10 minutes (half a minute after a
-    /// turn): no tokens, and no TUI, so no startup question (trust this folder? these hooks?) stands in the way. Never
-    /// Codex's `/usage`: there it spends a limit reset.
-    /// Limit: the default account's only (CODEX_HOME); account profiles keep what their sessions logged.
+    /// Refreshes Codex's limits as its /status shows them, asked of `codex app-server` every 10 minutes (and half a
+    /// minute after a turn). That spends no tokens and opens no TUI, so no startup question (trust this folder? these
+    /// hooks?) stands in the way. It never uses Codex's `/usage`, because there it spends a limit reset.
+    /// Limit: only the default account is asked (CODEX_HOME); account profiles keep what their sessions logged.
     func refreshCodexIfStale() {
         guard readsPlans else { return }
         let start: Bool = codexLive.withLock { live in
@@ -32,7 +32,7 @@ extension AgentUsage {
         }
     }
 
-    /// One `account/rateLimits/read`.
+    /// Asks one `account/rateLimits/read`.
     static func codexLimits(path: String, open: OpenProbes? = nil) -> CodexLimits? {
         let answer = askCodex(path: path, method: "account/rateLimits/read", open: open)
         let limits = CodexUsage.limits(rateLimits: (answer?["result"] as? [String: Any])?["rateLimits"], at: Date())
@@ -42,10 +42,11 @@ extension AgentUsage {
         return limits
     }
 
-    /// One question to `codex app-server` started with `args` (`-c` pairs): its answer (result or error), nil if none
-    /// came. The app server quits as soon as its input closes, before answering, so it gets a terminal like the /usage
-    /// probes and is stopped once it has answered. `until`: a notification that says the work asked for is done (an
-    /// import's), what's returned then instead of the result; an error is still the answer.
+    /// Asks one question of `codex app-server` started with `args` (`-c` pairs) and returns its answer (result or
+    /// error), or nil if none came. The app server quits as soon as its input closes, before answering, so it gets a
+    /// terminal like the /usage probes and is stopped once it has answered. `until` names a notification that says the
+    /// work asked for is done (an import's). That notification is returned instead of the result, though an error is
+    /// still the answer.
     static func askCodex(
         path: String, args: [String] = [], method: String, params: String? = nil, open: OpenProbes? = nil,
         within seconds: TimeInterval = 20, until notification: String? = nil
@@ -55,7 +56,7 @@ extension AgentUsage {
             until: notification)
     }
 
-    /// `argv` starts the app server: ssh running it on a host, say.
+    /// The same, with `argv` starting the app server (ssh running it on a host, say).
     static func askCodex(
         argv: [String], method: String, params: String? = nil, open: OpenProbes? = nil,
         within seconds: TimeInterval = 20, until notification: String? = nil
@@ -70,7 +71,7 @@ extension AgentUsage {
         }
         let exited = OSAllocatedUnfairLock(initialState: false)
         pty.onOutput = { out.append($0) }
-        pty.onExit = { _ in exited.withLock { $0 = true } }   // gone without an answer (no Codex there): no wait
+        pty.onExit = { _ in exited.withLock { $0 = true } }   // exited unanswered (no Codex there): stop waiting
         pty.start()
         open?.add(pty)
         defer {

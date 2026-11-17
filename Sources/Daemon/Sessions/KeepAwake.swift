@@ -2,7 +2,7 @@ import Foundation
 import IOKit.pwr_mgt
 import os
 
-/// The Mac kept awake while agents work: one IOKit assertion at a time, the ticker and a settings change both apply it.
+/// Keeps the Mac awake while agents work, with one IOKit assertion at a time. The ticker and settings changes apply it.
 final class KeepAwake: Sendable {
     /// The assertion held now, and its type (nil: none).
     let held = OSAllocatedUnfairLock<(id: UInt32, type: String?)>(initialState: (0, nil))
@@ -14,7 +14,7 @@ final class KeepAwake: Sendable {
             mode == "always"
             ? kIOPMAssertPreventUserIdleDisplaySleep
             : mode == "agents" && working ? kIOPMAssertPreventUserIdleSystemSleep : nil
-        held.withLock { held in   // the ticker and a settings change at once: one assertion
+        held.withLock { held in   // the ticker and a settings change may run at once: keep one assertion
             guard held.type != want else { return }
             Self.release(&held)
             guard let want else { return }
@@ -28,7 +28,7 @@ final class KeepAwake: Sendable {
         }
     }
 
-    /// None held from now on (a hand-over: the next kelpd takes its own).
+    /// Releases the assertion (on a hand-over, the next kelpd takes its own).
     func release() { held.withLock { Self.release(&$0) } }
 
     private static func release(_ held: inout (id: UInt32, type: String?)) {

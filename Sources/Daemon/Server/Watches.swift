@@ -12,29 +12,31 @@ import os
 final class Watches: Sendable {
     struct Key: Hashable, Sendable { let topic: WatchTopic, key: String }
     private struct Entry {
-        let number: Int   // this watch's: a read begun for one stopped since says nothing to the next
+        let number: Int   // numbers this watch, so a read begun for a watch stopped since says nothing to the next
         var watchers: Set<Int>
-        var last: Data?   // the event as last sent (sorted keys): the next goes out only when it differs
+        var last: Data?   // the event as last sent (sorted keys); the next is sent only when it differs
         var reading = false, again = false
         var timer: Int?   // the scheduled read's number; a newer one (or none) makes it a no-op
         var files: FileStreams.Hold?
         var fastUntil = Date.distantPast
-        var tag: String?   // context: the session's status at the last read
+        var tag: String?   // for the context topic: the session's status at the last read
         var quiet = 0   // reads in a row that found nothing new
-        var topic: Topic?   // what it is, asked once as it begins
+        var topic: Topic?   // the topic, asked for once as the watch begins
         var failure: String?   // why its last read failed, as the log said it
     }
     private let entries = OSAllocatedUnfairLock<[Key: Entry]>(initialState: [:])
     private let closed = OSAllocatedUnfairLock(initialState: false)
     /// Watches running now (tests).
     var count: Int { entries.withLock { $0.count } }
-    private let numbers = OSAllocatedUnfairLock(initialState: 0)   // watches' and scheduled reads'
-    /// Reads so far by key, counted once a test sets it to `[:]`: one read for two watchers, and none after the last one
-    /// left. Nil, as the daemon runs: a count for every key ever watched would only grow.
+    private let numbers = OSAllocatedUnfairLock(initialState: 0)   // numbers for watches and scheduled reads
+    /// Reads so far, by key, counted once a test sets this to `[:]` (to check one read for two watchers, and none after
+    /// the last one left). It stays nil while the daemon runs, because a count for every key ever watched would only
+    /// grow.
     let reads = OSAllocatedUnfairLock<[Key: Int]?>(initialState: nil)
-    /// What a topic is: the folder whose file events can change it and which of them do, how it's read now (the event as
-    /// sent, nil: nothing to say; and when to read it again with nothing else saying so, nil: only when something does),
-    /// and from which clock on its reads back off while nothing changes (`slowed`).
+    /// What a topic is. `folder` is the folder whose file events can change it, and which of those events do. `read`
+    /// reads it now and returns the event as sent (nil when there's nothing to say) and when to read it again if
+    /// nothing else says so (nil means only when something does). `backsOffFrom` is the clock from which its reads back
+    /// off while nothing changes (`slowed`).
     struct Topic: Sendable {
         var folder: (String, @Sendable ([FileWatcher.Change]) -> Bool)?
         var backsOffFrom = TimeInterval.infinity
@@ -78,7 +80,8 @@ final class Watches: Sendable {
             byKey[key] = entry
             return (false, again, entry.last)
         }
-        // Stopped while this was taking its place: it goes too, rather than run on unseen.
+        // If the daemon stopped every watch while this one was being added, this one goes too, rather than run on
+        // unseen.
         if closed.withLock({ $0 }) {
             let late = entries.withLock { byKey in
                 defer { byKey = [:] }
@@ -110,7 +113,7 @@ final class Watches: Sendable {
         _ = gone   // its scheduled read finds it gone; its hold on a file stream goes with it
     }
 
-    /// A connection went away.
+    /// Stops every watch of a connection that went away.
     func drop(_ conn: Int) {
         let gone = entries.withLock { byKey -> [Entry] in
             var out: [Entry] = []
@@ -137,8 +140,8 @@ final class Watches: Sendable {
         _ = all   // released off the lock (a file watch's deinit waits on its own queue)
     }
 
-    /// Something says it may have changed (a session's status, for its context): read again if it did.
-    /// A read of `key` that failed: in the log when its reason is new for this watch, not again at every read.
+    /// Records that a read of `key` failed. It goes in the log when its reason is new for this watch, not again at
+    /// every read.
     func failed(_ key: Key, _ reason: String) {
         let new = entries.withLock { byKey -> Bool in
             guard byKey[key] != nil, byKey[key]?.failure != reason else { return false }
@@ -152,6 +155,8 @@ final class Watches: Sendable {
         }
     }
 
+    /// Reads `key` again when `tag` differs from the last one, because something says it may have changed (a session's
+    /// status, for its context).
     func touched(_ key: Key, tag: String) {
         let go = entries.withLock { byKey -> Bool in
             guard var entry = byKey[key], entry.tag != tag else { return false }
@@ -166,7 +171,8 @@ final class Watches: Sendable {
         let topic = reading.withLock { $0.topic }?(key)
         entries.withLock { byKey in byKey[key]?.topic = topic }
         if let (root, matters) = topic?.folder {
-            // Debounced: a save is several events, a checkout hundreds. On a queue of its own (`FileStreams`).
+            // File events are debounced, because a save is several events and a checkout hundreds. They arrive on a
+            // queue of their own (`FileStreams`).
             let hold = streams.hold(root) { [weak self] changes in
                 guard let self, matters(changes) else { return }
                 soon(key)
@@ -218,8 +224,8 @@ final class Watches: Sendable {
             let (line, next) = await topic?.read(fastUntil > Date()) ?? (nil, nil)
             reads.withLock { $0?[key, default: 0] += 1 }
             let ours = entries.withLock { byKey -> (send: Data?, to: Set<Int>, again: Bool, quiet: Int)? in
-                // Stopped meanwhile, maybe started again: what it read may be older than the new watch's first value,
-                // and the new one keeps its own clock.
+                // If the watch stopped meanwhile, and maybe started again, this read may be older than the new watch's
+                // first value, and the new watch keeps its own clock.
                 guard var entry = byKey[key], entry.number == number else { return nil }
                 entry.reading = false
                 let changed = line != nil && line != entry.last
@@ -232,13 +238,14 @@ final class Watches: Sendable {
             }
             guard let (send, to, again, quiet) = ours else { return }
             if let send { clients.targets(to).forEach { $0.send(send) } }
-            // Files changing all through a read: not back to back, or a large repository's git never stops; and not more than
-            // 8 s behind either, or a slow repository's panels stay stale while an agent writes.
+            // When files kept changing during a read, the next read doesn't come back to back, or a large repository's
+            // git never stops. It isn't more than 8 s behind either, or a slow repository's panels stay stale while an
+            // agent writes.
             if again {
                 schedule(key, after: min(8, max(0.4, 4 * Date().timeIntervalSince(began))))
             } else if let next {
-                // A backed-off read lands a little apart from the others': every project's watches start and slow down
-                // together, so gh and ssh ran in bursts (10 in one 30 s, then 2 in three minutes).
+                // A backed-off read lands a little apart from the others, because every project's watches start and
+                // slow down together, so gh and ssh ran in bursts (10 in one 30 s, then 2 in three minutes).
                 let wait =
                     fastUntil > Date() ? next : Self.slowed(next, quiet: quiet, from: topic?.backsOffFrom ?? .infinity)
                 schedule(key, after: wait == next ? wait : wait * Double.random(in: 0.8...1.2))
@@ -246,9 +253,9 @@ final class Watches: Sendable {
         }
     }
 
-    /// When to read again what's asked over the network (gh, glab, ssh: a clock of `from` or longer) after `quiet` reads
-    /// that found nothing new: twice as long each time, so projects nobody is working on stop costing processes, quota
-    /// and wake-ups. A change, or a watcher asking again, starts over.
+    /// When to read again a topic asked over the network (gh, glab, ssh: a clock of `from` or longer) after `quiet`
+    /// reads that found nothing new. The wait doubles each time, so projects nobody is working on stop costing
+    /// processes, quota and wake-ups. A change, or a watcher asking again, starts over.
     static func slowed(_ next: TimeInterval, quiet: Int, from: TimeInterval) -> TimeInterval {
         guard next >= from else { return next }
         return min(next * pow(2, Double(min(quiet, 6))), next >= 60 ? next * 8 : 60)
@@ -258,10 +265,11 @@ final class Watches: Sendable {
 extension WatchStart: Handled {
     static let agents = AgentAccess.reads
     static var inOrder: Bool { true }   // a start and a stop sent in a row apply in that order
-    /// A topic reads as the user (`ask`), so each says whether an agent may watch it: a new one is decided here, not let
-    /// through by default. The ones agents watch read only what they may read themselves (`AgentAccess.reads`, a file's
-    /// problems). Databases are the window's view: hidden ones, All My Projects (hosts, users, keychain items) and the
-    /// user's own statements; an agent asks `db.list` and `db.query`, which say what it may see.
+    /// A topic reads as the user (`ask`), so each topic says whether an agent may watch it, and a new topic is decided
+    /// here, not let through by default. The topics agents watch read only what agents may read themselves
+    /// (`AgentAccess.reads`, a file's problems). The databases topic is the window's view, with hidden databases, All
+    /// My Projects (hosts, users, keychain items) and the user's own statements. An agent asks `db.list` and `db.query`
+    /// instead, which say what it may see.
     var fence: Fence { Fence(notForAgents: refusal) }
     private var refusal: String? {
         switch topic {
@@ -291,7 +299,8 @@ extension Methods {
     static let watchMethods: [any Answered.Type] = [WatchStart.self, WatchStop.self]
 }
 
-/// A watch's first read, once: what someone just put on screen, which may connect to a host (`mayRead`).
+/// Lets a watch's first read through once. It reads what someone just put on screen, so it may connect to a host
+/// (`mayRead`).
 final class FirstRead: Sendable {
     private let left = OSAllocatedUnfairLock(initialState: true)
     func take() -> Bool {

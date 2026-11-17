@@ -16,14 +16,16 @@ extension SessionTurnUndo: Handled {
         }
         // The state before the undo stays reachable for Redo (git gc keeps it), since each undo is in the ref's log.
         try Git.setRef(Turns.undoneRef(id), to: before, reflog: "undo turn " + turn, cwd: dir, remotes: remotes)
-        // And what was staged before it, so Redo is the undo taken back whole; none (conflicts) drops an older one's.
+        // Also keep what was staged before the undo, so Redo takes the undo back whole. When nothing could be kept
+        // (conflicts), the older staged ref is dropped.
         let staged = try Git.indexTree(dir, remotes: remotes)
         try Git.setRef(Turns.undoneStagedRef(id), to: staged, cwd: dir, remotes: remotes)
         let index = try turns.kept(Turns.stagedRef(mark.id), in: dir)
         do {
             try Git.restore(plan.files, from: mark.tree, now: before, index: index, cwd: dir, remotes: remotes)
         } catch {
-            // Stopped part way (a file the Trash refused): the files it touched go back as they were, not half undone.
+            // If it stopped part way (a file the Trash refused), the files it touched go back as they were, not half
+            // undone.
             let back: Void? = Log.session.attempt("putting a stopped undo back") {
                 let changed = try Git.changed(since: before, cwd: dir, remotes: remotes)
                 try Git.restore(
@@ -59,23 +61,25 @@ extension SessionTurnRedo: Handled {
 struct Turns: Sendable {
     let live: SessionTable, store: Store, remotes: Remotes
 
-    /// The folder before the session's last undone turn.
+    /// The ref that keeps the folder as it was before the session's last undone turn.
     static func undoneRef(_ session: String) -> String { "refs/kelp/undone/" + session }
-    /// What was staged before it, and what was when a turn began (`Git.turnSnapshot`), each kept as long as the snapshot
-    /// it was taken with.
+    /// The refs that keep what was staged before that undo, and what was staged when a turn began (`Git.turnSnapshot`).
+    /// Each is kept as long as the snapshot it was taken with.
     static func undoneStagedRef(_ session: String) -> String { "refs/kelp/undone-staged/" + session }
     static func stagedRef(_ turn: String) -> String { "refs/kelp/staged/" + turn }
     private static func refs(_ mark: SessionTurns.Mark) -> [String] {
         ["refs/kelp/turns/" + mark.id, stagedRef(mark.id)]
     }
 
-    /// The tree a ref of these keeps, nil when there is none: nothing was undone, or nothing staged could be kept.
+    /// The tree one of these refs keeps, or nil when there is none (nothing was undone, or nothing staged could be
+    /// kept).
     func kept(_ ref: String, in dir: String) throws -> String? {
         try Git.resolve(ref, cwd: dir, remotes: remotes)
     }
 
-    /// The turn and the checkout's top, when a turn may be undone or redone there: the agent rests, no commits since the
-    /// turn began, no other agent in the checkout, and its snapshot still there.
+    /// Returns the turn and the checkout's top folder when the turn may be undone or redone there: the agent rests, no
+    /// commits were made since the turn began, no other agent is in the checkout, and the turn's snapshot is still
+    /// there.
     func place(session id: String, turn: String) throws -> (SessionTurns.Mark, String) {
         guard try store.session(id) != nil else { throw RPCError.noSession(id) }
         let status = live[id]?.snapshot.status   // nil: paused, so not in a turn
@@ -103,12 +107,12 @@ struct Turns: Sendable {
         return (mark, dir)
     }
 
-    /// A turn that began, kept with its snapshot under refs/kelp/turns/ so `git gc` doesn't take it while the turn is listed;
-    /// the turns that drop off the list let theirs go.
-    /// Its session deleted while the snapshot was taken: no turn, and no ref. Deleted between the two, the delete's own
-    /// `dropRefs` may have run before the ref was made: it's dropped here.
-    /// `staged`: what the user had staged (`Git.turnSnapshot`), for the turn's undo to leave staged. Its refs and the
-    /// dropped turns' in its repository are one git run.
+    /// Keeps a turn that began, with its snapshot under refs/kelp/turns/ so `git gc` doesn't take it while the turn is
+    /// listed. The turns that drop off the list let theirs go.
+    /// If the session was deleted while the snapshot was taken, there is no turn and no ref. If it was deleted between
+    /// the two, the delete's own `dropRefs` may have run before the ref was made, so the ref is dropped here.
+    /// `staged` is what the user had staged (`Git.turnSnapshot`), for the turn's undo to leave staged. This turn's refs
+    /// and those of the dropped turns in its repository are written in one git run.
     func keep(_ mark: SessionTurns.Mark, staged: String?) {
         Log.store.attempt("keeping a turn") {
             guard let dropped = try store.addTurn(mark) else { return }
@@ -126,8 +130,9 @@ struct Turns: Sendable {
         }
     }
 
-    /// A session going: its turns' snapshots and its last undone state needn't be kept any more. `repo`: where to drop
-    /// them when their folder, a removed worktree, is gone; the refs are in the project's repository, which it shared.
+    /// Drops the refs of a session that is going: its turns' snapshots and its last undone state needn't be kept any
+    /// more. `repo` is where to drop them when their folder, a removed worktree, is gone, because the refs are in the
+    /// project's repository, which the worktree shared.
     func dropRefs(of session: String, in repo: String? = nil) {
         Log.store.attempt("dropping \(session)'s turn refs") {
             dropRefs(try store.turns(session: session), of: session, in: repo)
@@ -141,8 +146,8 @@ struct Turns: Sendable {
                 })
     }
 
-    /// Deletes each ref in its folder's repository, one git run per repository; one already gone, or a folder that is,
-    /// stops none of the others.
+    /// Deletes each ref in its folder's repository, one git run per repository. A ref already gone, or a folder that is
+    /// gone, stops none of the others.
     private func delete(_ refs: [(ref: String, folder: String)]) {
         for (folder, group) in Dictionary(grouping: refs, by: \.folder)
         where FileManager.default.fileExists(atPath: folder) {

@@ -3,14 +3,14 @@ import Core
 import Foundation
 import os
 
-/// The sessions: which run now (`live`), starting, waking, pausing and deleting them, what they tell the clients, the
-/// Mac kept awake while agents work (`keepAwake`). Paused and ended ones are only in the store.
+/// The sessions: which run now (`live`), starting, waking, pausing and deleting them, what they tell the clients, and
+/// keeping the Mac awake while agents work (`keepAwake`). Paused and ended sessions are only in the store.
 final class Sessions: Sendable, WorkspaceSessions {
     let live = SessionTable()
     let reports = ChildReports()
     /// What extensions run and the phone hears when an agent asks, finishes or fails (ExtensionEvents.swift).
     let events: ExtensionEvents
-    let wakeLocks = WakeLocks()   // one wake per session even when several clients open it at once; pausing holds it too
+    let wakeLocks = WakeLocks()   // one wake per session, however many clients open it at once; pausing locks too
     /// Wakes tried so far (tests: one attach wakes once, even when it fails).
     let wakeTries = OSAllocatedUnfairLock(initialState: 0)
     let permissions = PermissionWaits()   // a permission question's hook, waiting for Allow or Deny
@@ -32,7 +32,7 @@ final class Sessions: Sendable, WorkspaceSessions {
     /// What runs under the sessions: ports, CPU and memory, forwarded ports, a host's load (Processes.swift).
     let processes: SessionProcesses
     let turns: Turns   // the snapshot each agent's turn began with, kept for its diff and its undo
-    let offloads: Slots   // the daemon's, for what waits on programs (`AgentsVersions`)
+    let offloads: Slots   // the daemon's slots, for work that waits on programs (`AgentsVersions`)
     let recaps = OSAllocatedUnfairLock<Set<String>>(initialState: [])   // sessions with a recap running: one at a time each
 
     init(
@@ -87,7 +87,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         }
     }
 
-    /// Not running: it has to be paused (or being paused), to be woken for input.
+    /// Throws unless the session is running, or paused (or being paused) so it can be woken for input.
     func mustWake(_ id: String) throws {
         switch try live.phase(id, record: { try store.session(id) }) {
         case .running, .lettingGo, .paused: return
@@ -96,8 +96,8 @@ final class Sessions: Sendable, WorkspaceSessions {
         }
     }
 
-    /// `work` with the running session `id`, woken first if paused. Never one an idle pause is stopping: that one is out
-    /// of `live` by then, so the next look waits for the pause and wakes it.
+    /// Runs `work` with the running session `id`, woken first if paused. It never gets a session an idle pause is
+    /// stopping, because that one is out of `live` by then, so the next look waits for the pause and wakes it.
     func withInput<T>(_ id: String, _ work: (LiveSession) throws -> T) throws -> T {
         for _ in 0..<3 {
             let ls = try liveSession(id)
@@ -106,7 +106,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         throw RPCError.notRunning(id)
     }
 
-    /// The last `bytes` (0 to 16 MB) it printed.
+    /// The last `bytes` (0 to 16 MB) the session printed.
     func liveSessionOrLog(_ id: String, bytes: Int) throws -> Data {
         let bytes = max(0, min(bytes, 16 << 20))
         if let ls = existing(id) { return ls.tail(bytes) }
@@ -146,7 +146,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         var onHostInTmux = false   // a command (run.start) that outlives a dropped connection, as agents do
         var parent: String?   // the agent that started it
         var startedBy: String?   // the agent whose line shows this command
-        var origin: String?   // for a restart, the old session's origin; else the caller's (`Sessions.asker`)
+        var origin: String?   // the old session's origin on a restart; else the caller's session (`Sessions.asker`)
         var role: SessionRole?   // the job it's started for (a reviewer); a restart keeps the old one's
 
         init() {}
@@ -169,8 +169,9 @@ final class Sessions: Sendable, WorkspaceSessions {
         }
     }
 
-    /// The session whose program the call being answered came from (`caller`, as `Caller.origin`), bound around each
-    /// handler and carried into `offload`: whatever it starts is that session's (`Session.origin`), on every path that starts one.
+    /// The session whose program the call being answered came from (`caller`, as `Caller.origin`). It is bound around
+    /// each handler and carried into `offload`, so whatever the call starts belongs to that session (`Session.origin`),
+    /// on every path that starts one.
     @TaskLocal static var asker: String?
 
     @discardableResult
@@ -183,7 +184,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         // A remote project's sessions run on its host (see `launchArgv`). Kelp's hooks and skills are files on this Mac,
         // so they stay out: status comes from what the agent reports, and from the screen.
         let local = remotes.of(cwd) == nil
-        // An account profile is a folder on this Mac: an agent on a host signs in there, as that host's.
+        // An account profile is a folder on this Mac, so an agent on a host signs in on the host instead.
         if !local, launch.profile != nil, let host = remotes.of(cwd)?.host {
             throw RPCError.invalidParams(
                 "Account profiles are for agents on this Mac: one on \(host) signs in there, in a terminal of the project."
@@ -201,8 +202,9 @@ final class Sessions: Sendable, WorkspaceSessions {
             if manifest.env[OpenCode2.serverConfig] == nil { manifest.env[OpenCode2.serverConfig] = v2.config }
         }
         if local, manifest.id == Session.claudeAgent { argv = setup.withServers(argv, flag: "--mcp-config") }
-        // Kelp's skills (written by the app into this home), for this session only: nothing goes into ~/.claude. A restart's
-        // argv carries the ones it had: they're chosen again, as for a new chat (the browser's may differ by now).
+        // Kelp's skills (written by the app into this home) are for this session only; nothing goes into ~/.claude. A
+        // restart's argv carries the skills it had, and they're chosen again, as for a new chat (the browser skill may
+        // differ by now).
         if local, let flag = manifest.pluginDirFlag, launch.argv == nil || SessionSetup.hasSkills(argv, root: root) {
             argv = SessionSetup.withoutSkills(argv, root: root, flag: flag, contextFlag: manifest.contextFlag)
             let skills = setup.skillArgs(
@@ -215,8 +217,9 @@ final class Sessions: Sendable, WorkspaceSessions {
         if local, manifest.pluginDirFlag == nil, Session.isAgent(manifest.id) {
             rec.browser = setup.writeProjectSkills(worktreeId: worktreeId, cwd: cwd)
         }
-        // Its own id, unless it resumes one (a restart's argv carries none: see session.restart). A remote project's too:
-        // the flag needs no file here, and it names the conversation on the host (`Conversations.remoteTail`).
+        // The session gets its own id, unless it resumes one (a restart's argv carries none: see session.restart). A
+        // remote project's session gets one too, because the flag needs no file here and it names the conversation on
+        // the host (`Conversations.remoteTail`).
         if let flag = manifest.sessionIdFlag, !argv.contains(flag), !manifest.resumes(argv) {
             argv += [flag, rec.id.lowercased()]
         }
@@ -226,7 +229,8 @@ final class Sessions: Sendable, WorkspaceSessions {
         rec.startedBy = launch.startedBy
         rec.origin = launch.origin ?? Self.asker
         rec.role = launch.role
-        // A remote agent runs in a tmux session of its own on the host: a dropped connection or a daemon restart leaves it working.
+        // A remote agent runs in a tmux session of its own on the host, so a dropped connection or a daemon restart
+        // leaves it working.
         if !local, launch.onHostInTmux || Session.isAgent(manifest.id) {
             rec.tmux = launch.tmux ?? Tmux.own()
         }
@@ -279,9 +283,9 @@ final class Sessions: Sendable, WorkspaceSessions {
     func hangUpStreams(_ ls: LiveSession) { clients.split(ls.letGo()).raw.forEach { $0.hangUp() } }
 
     /// Deletes a session for good: it stops, its record and log go, and its exit can't save it again.
-    /// Under its wake lock, as a wake is: a paused session being opened at this moment can't come back after its record and log
-    /// are gone (it would restart an agent for a deleted project and save the record again). A terminal's own tmux session
-    /// ends with it unless `keepTmux` (a restart, whose new session attaches to it).
+    /// This runs under its wake lock, as a wake does, so a paused session being opened at this moment can't come back
+    /// after its record and log are gone (it would restart an agent for a deleted project and save the record again). A
+    /// terminal's own tmux session ends with it unless `keepTmux` (a restart, whose new session attaches to it).
     func discard(_ session: Session, keepTmux: Bool = false) { discard([session], keepTmux: keepTmux) }
 
     /// Discards several sessions that stopped together (a project's, a workspace's) with one wait for all of them,
@@ -296,7 +300,8 @@ final class Sessions: Sendable, WorkspaceSessions {
             Self.waitGone(pids)   // gone before their project or folder goes (SIGKILL after 2 s)
             for session in all {
                 live.forget(session.id)
-                // Its turns as the delete took them: a turn kept meanwhile (`Turns.keep`) is either among them or refused.
+                // The turns are dropped as the delete took them, so a turn kept meanwhile (`Turns.keep`) is either
+                // among them or refused.
                 do { turns.dropRefs(try store.deleteSession(session), of: session.id) } catch {
                     Log.store.error("couldn't delete session \(session.id, privacy: .public): \(error)")
                 }
@@ -313,22 +318,23 @@ final class Sessions: Sendable, WorkspaceSessions {
         familyLeft(all)
     }
 
-    /// Every running one, as the daemon stops: paused (a resumable agent comes back paused, not as a second copy) or
-    /// ended, its whole tree gone before this returns. None starts or wakes from now on.
+    /// Stops every running session as the daemon stops. Each is paused (a resumable agent comes back paused, not as a
+    /// second copy) or ended, with its whole process tree gone before this returns. No session starts or wakes from now
+    /// on.
     func pauseAll() {
         let manifests = AgentManifest.load(dir: Paths.agents(in: root))
         Self.waitGone(live.close().flatMap { ls in live.remove(ls.snapshot.id).map { pause($0, manifests) } ?? [] })
     }
 
-    /// Every running one, for the kelpd that takes over (`Daemon.handOver`): out of `live` with its program left running and
-    /// its last record saved. One ending right now isn't handed over: its record says what became of it. None starts or
-    /// wakes from now on.
+    /// Hands every running session to the kelpd that takes over (`Daemon.handOver`). Each is taken out of `live` with
+    /// its program left running and its last record saved. A session ending right now isn't handed over, because its
+    /// record says what became of it. No session starts or wakes from now on.
     func handOver() -> [Handover.Session] {
-        keepAwake.release()   // the next one takes its own
+        keepAwake.release()   // the next kelpd takes its own
         let all = live.close()
         reports.settle(within: 5)   // a child's report on its way: typed into its parent below, or owed
-        // What was sent and isn't written yet goes in first (a send's Enter comes 0.3 s behind its text): the program has
-        // it before the next kelpd takes over, which couldn't send it.
+        // Input that was sent and isn't written yet goes in first (a send's Enter comes 0.3 s behind its text), so the
+        // program has it before the next kelpd takes over, which couldn't send it.
         DispatchQueue.concurrentPerform(iterations: all.count) { all[$0].drainInput(within: 2) }
         return all.compactMap { ls in
             guard live.remove(ls.snapshot.id) != nil, let fd = ls.pty.handOver() else { return nil }
@@ -337,8 +343,8 @@ final class Sessions: Sendable, WorkspaceSessions {
         }
     }
 
-    /// One the kelpd before this one ran (`Handover`), live here from now on: its program never stopped. One that can't be
-    /// (its record gone) is stopped rather than left running unseen.
+    /// Takes over a session the kelpd before this one ran (`Handover`), live here from now on; its program never
+    /// stopped. A session that can't be taken over (its record gone) is stopped rather than left running unseen.
     func adopt(_ handed: Handover.Session) {
         let pty = PTY(adopting: handed.pid, fd: handed.fd)
         do {
@@ -346,7 +352,7 @@ final class Sessions: Sendable, WorkspaceSessions {
                 throw RPCError.noSession(handed.id)
             }
             var adoptedManifest = try setup.manifest(rec.agent, command: nil, fallbackArgv: rec.argv)
-            // As `liveManifest`; past startup, nothing is answered for it.
+            // As in `liveManifest`, but past startup nothing is answered for it.
             adoptedManifest = setup.wiredHooks(
                 adoptedManifest, env: setup.hookedEnv(adoptedManifest, rec, secrets: false), argv: rec.argv)
             let ls = LiveSession(
@@ -362,21 +368,24 @@ final class Sessions: Sendable, WorkspaceSessions {
         } catch {
             Log.session.error("\(handed.id, privacy: .public) wasn't taken over: \(error)")
             pty.terminate()
-            pty.start()   // start: its exit is reaped
+            pty.start()   // started so that its exit is reaped
         }
     }
 
-    /// The idle pause counts in minutes: looked for at most every 15 s, not on each 0.5 s tick.
+    /// The idle pause counts in minutes, so idle agents are looked for every 15 s (sooner for a short setting), not on
+    /// each 0.5 s tick.
     static let idleCheckEvery: TimeInterval = 15
 
-    /// The ticker looks for idle agents as often as a quarter of Settings › hibernateMinutes, at most every 15 s: a pause
-    /// is late by a quarter of it at most. Switched off, never.
+    /// Whether the ticker should look for idle agents now. It looks at least every 15 s, and more often when a quarter
+    /// of Settings › hibernateMinutes is shorter, so a pause is late by a quarter of the setting at most. With the
+    /// setting off, it never looks.
     func idlePauseDue(_ now: Date) -> Bool {
         let minutes = settings[SettingKeys.hibernateMinutes]
         return minutes > 0 && idleCheckDue(now, every: min(Self.idleCheckEvery, minutes * 15))
     }
 
-    /// A look for idle agents is due: `every` seconds since the last (a short setting is looked for more often).
+    /// Whether a look for idle agents is due, because `every` seconds have passed since the last one (a short setting
+    /// is looked for more often). A clock that went back also makes it due.
     func idleCheckDue(_ now: Date, every: TimeInterval = idleCheckEvery) -> Bool {
         pausingIdle.withLock { idle in
             guard now.timeIntervalSince(idle.lookedAt) >= every || now < idle.lookedAt else {
@@ -387,7 +396,7 @@ final class Sessions: Sendable, WorkspaceSessions {
         }
     }
 
-    /// Settings › keepAwake, while an agent works or always (`KeepAwake.apply`).
+    /// Applies Settings › keepAwake, while an agent works or always (`KeepAwake.apply`).
     func applyKeepAwake() {
         keepAwake.apply(
             settings[SettingKeys.keepAwake],

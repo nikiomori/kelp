@@ -7,7 +7,7 @@ extension ProcessRefreshPath: Handled {
     func handle(_: NoService) throws -> Done {
         LoginPath.reread()
         return Done()
-    }   // runs the user's shell: not `quick`, on an offload thread
+    }   // runs the user's shell, so it isn't `quick` and runs on an offload thread
 }
 
 extension ProcessWhich: Handled {
@@ -21,14 +21,16 @@ extension ProcessRun: Handled {
     func handle(_ setup: SessionSetup) throws -> Result {
         guard argv.first?.isEmpty == false else { throw RPCError.invalidParams("Nothing to run.") }
         if let extensionId { try setup.requireEnabledExtension(extensionId) }
-        // What sessions get (PATH with `kelp` on it, this home), minus the markers of whatever started the daemon.
+        // The environment sessions get (PATH with `kelp` on it, this home), minus the markers of whatever started the
+        // daemon.
         var env = ProcessInfo.processInfo.environment.filter { k, _ in !PTY.scrubbed.contains { k.hasPrefix($0) } }
         env["PATH"] = Sessions.childPath
         env["KELP_HOME"] = setup.root.path
         env["KELP_SOCKET"] = setup.socketPath
         var dir = cwd.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil } ?? NSHomeDirectory()
-        // A remote project's folder here holds only its marker (its git would walk up into another repository): run
-        // from the home folder, told where the project is, for a command that goes there (`ssh "$KELP_REMOTE_HOST"`).
+        // A remote project's folder here holds only its marker (its git would walk up into another repository). So the
+        // command runs from the home folder and is told where the project is, for a command that goes there (`ssh
+        // "$KELP_REMOTE_HOST"`).
         let remotes = setup.remotes
         if let cwd, let remote = remotes.of(cwd) ?? remotes.containing(cwd)?.remote {
             env["KELP_REMOTE_HOST"] = remote.host
@@ -39,7 +41,8 @@ extension ProcessRun: Handled {
             argv, cwd: dir, env: env, stdin: stdin.map { Data($0.utf8) },
             timeLimit: max(0.1, min(timeLimit ?? 60, 86400)),
             limit: Self.outputLimit)
-        // Not a part as if it were all of it: a formatter's would replace the file's text.
+        // Cut-off output isn't passed on as if it were all of it, because a formatter's output would replace the file's
+        // text.
         guard !result.truncated else {
             let name = ((argv.first ?? "") as NSString).lastPathComponent
             throw RPCError.internalError(
@@ -52,13 +55,15 @@ extension ProcessRun: Handled {
             timedOut: result.timedOut)
     }
 
-    /// Of each stream: the reply carries both, JSON-escaped (a control byte takes six), under a connection's `backlogLimit`.
+    /// The most read of each stream. The reply carries both, JSON-escaped (a control byte takes six), and must stay
+    /// under a connection's `backlogLimit`.
     static let outputLimit = 16 << 20
 }
 
 extension SessionSetup {
-    /// An extension's command runs only while that extension is installed and on (Settings › Extensions): a page or a
-    /// list left open after turning it off can't run it any more. `id` is its folder's name; the manifest has its id.
+    /// Throws unless the extension is installed and on (Settings › Extensions), because its commands run only then. A
+    /// page or a list left open after turning it off can't run them any more. `id` is the extension's folder name; the
+    /// manifest has its real id.
     func requireEnabledExtension(_ id: String) throws {
         struct Manifest: Decodable {
             var id: String
@@ -83,10 +88,11 @@ extension SessionSetup {
         }
     }
 
-    /// Whether the user allowed the extension in folder `name` to run commands as its files are now (`ExtensionFiles.extensionTrustKey`,
-    /// which only Kelp's window writes). Without a record, none is: the window records what was installed before it asked
-    /// (`ExtensionTrust.adopt`) and asks about the rest. `read`: the folder's files as just read, whose manifest the caller
-    /// runs from (`ExtensionFiles.extensionFiles`), so what was checked is what runs.
+    /// Whether the user allowed the extension in folder `name` to run commands as its files are now
+    /// (`ExtensionFiles.extensionTrustKey`, which only Kelp's window writes). Without a record, no extension is
+    /// allowed. The window records what was installed before it asked (`ExtensionTrust.adopt`) and asks about the rest.
+    /// `read` is the folder's files as just read, whose manifest the caller runs from
+    /// (`ExtensionFiles.extensionFiles`), so what was checked is what runs.
     func trustsExtension(_ name: String, read: [String: Data]? = nil) -> Bool {
         guard
             let state = Log.store.attempt(

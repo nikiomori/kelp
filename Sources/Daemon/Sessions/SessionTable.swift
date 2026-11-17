@@ -2,17 +2,18 @@ import Core
 import Foundation
 import os
 
-/// The sessions whose program runs now, by id, and where every other one is in its life (`phase`). Paused and ended ones
-/// are only in the store.
+/// The sessions whose program runs now, by id, and where every other session is in its life (`phase`). Paused and ended
+/// sessions are only in the store.
 final class SessionTable: Sendable {
     /// Where a session is in its life: what decides whether input may wake it.
     enum Phase: Equatable, Sendable {
-        /// Its program runs: in the table.
+        /// The program runs, and the session is in the table.
         case running
-        /// Out of the table, its program stopping for an idle pause (`letGo`): input waits for the pause, then wakes it.
+        /// Out of the table, with its program stopping for an idle pause (`letGo`). Input waits for the pause, then
+        /// wakes it.
         case lettingGo
-        /// Not running, and a wake brings it back. `saved` false: the pause couldn't be written (a full disk), so the
-        /// record says otherwise; nothing runs all the same.
+        /// Not running, and a wake brings it back. `saved` is false when the pause couldn't be written (a full disk),
+        /// so the record says otherwise, though nothing runs all the same.
         case paused(saved: Bool)
         /// Not running, and nothing brings it back: it ended (or its record says it ran, and no program does).
         case ended
@@ -26,13 +27,14 @@ final class SessionTable: Sendable {
         var held: [String: Phase] = [:]
     }
     private let table = OSAllocatedUnfairLock(initialState: State())
-    /// Told when the table goes from none to one: the daemon's ticker speeds up again (`Daemon.pace`).
+    /// Called when the table goes from no session to one, so the daemon's ticker speeds up again (`Daemon.pace`).
     private let firstAdded = OSAllocatedUnfairLock<(@Sendable () -> Void)?>(initialState: nil)
     func whenFirstAdded(_ tell: @escaping @Sendable () -> Void) { firstAdded.withLock { $0 = tell } }
 
     subscript(id: String) -> LiveSession? { table.withLock { $0.live[id] } }
     var all: [LiveSession] { table.withLock { Array($0.live.values) } }
-    /// Refused once the daemon is stopping (`close`): one started then would outlive it, running with nobody to pause it.
+    /// Adds a running session. It is refused once the daemon is stopping (`close`), because a session started then
+    /// would outlive it, running with nobody to pause it.
     func add(_ ls: LiveSession) throws {
         let first = try table.withLock { state in
             guard !state.closed else { throw RPCError.internalError("Kelp's background service is stopping") }
@@ -41,16 +43,16 @@ final class SessionTable: Sendable {
         }
         if first { firstAdded.withLock { $0 }?() }
     }
-    /// No more from now on: what runs, for the daemon to pause as it stops.
+    /// Closes the table to new sessions and returns what runs, for the daemon to pause as it stops.
     func close() -> [LiveSession] {
         table.withLock {
             $0.closed = true
             return Array($0.live.values)
         }
     }
-    /// Out of the table (paused, deleted): what was there.
+    /// Takes `id` out of the table (paused, deleted) and returns what was there.
     func remove(_ id: String) -> LiveSession? { table.withLock { $0.live.removeValue(forKey: id) } }
-    /// Out only if `ls` is still the one there and `ok` says so, checked under the same lock.
+    /// Takes `ls` out only if it is still the one there and `ok` says so, both checked under the same lock.
     func remove(_ ls: LiveSession, if ok: (LiveSession) -> Bool = { _ in true }) -> Bool {
         table.withLockUnchecked { state in   // `ok` runs here, never later
             let id = ls.snapshot.id
@@ -72,10 +74,11 @@ final class SessionTable: Sendable {
         }
     }
 
-    /// The idle pause is over: its record says paused (or `saved` says it couldn't).
+    /// Ends the idle pause. The record now says paused (or `saved` says it couldn't be written).
     func letGone(_ id: String) { table.withLock { if $0.held[id] == .lettingGo { $0.held[id] = nil } } }
 
-    /// A record of `id` saved (`written`) or not, saying paused or not: a pause that couldn't be saved is still one here.
+    /// Notes a record of `id` that was saved (`written`) or not, and says paused or not. A pause that couldn't be saved
+    /// still counts as a pause here.
     func saved(_ id: String, paused: Bool, written: Bool) {
         table.withLock { state in
             if paused && !written {
@@ -86,10 +89,10 @@ final class SessionTable: Sendable {
         }
     }
 
-    /// Deleted: nothing kept of it here.
+    /// Forgets a deleted session, so nothing of it is kept here.
     func forget(_ id: String) { table.withLock { _ = $0.held.removeValue(forKey: id) } }
 
-    /// Where `id` is now. `record`: its record, read only when it isn't running (not under this lock).
+    /// Where `id` is now. `record` reads its record, only when it isn't running (and not under this lock).
     func phase(_ id: String, record: () throws -> Session?) rethrows -> Phase {
         let (running, held) = table.withLock { ($0.live[id] != nil, $0.held[id]) }
         if running { return .running }

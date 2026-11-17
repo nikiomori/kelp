@@ -2,10 +2,11 @@ import Agents
 import Core
 import Foundation
 
-/// A turn a plan limit stopped: the record says so until the agent does anything else (`State.sync`), and at the time it was
-/// told it goes on by itself. Here in the daemon, on the ticker: Kelp's window can be closed by then.
+/// Handles a turn that a plan limit stopped. The record says so until the agent does anything else (`State.sync`), and
+/// the session goes on by itself at the time it was told. This runs here in the daemon, on the ticker, because Kelp's
+/// window can be closed by then.
 extension LiveSession {
-    /// A hook said so; the Stop that ended the turn comes right after.
+    /// Records that a hook said a plan limit was hit; the Stop that ended the turn comes right after.
     func hitLimit(_ reading: LimitScreens.Reading) {
         state.withLock { state in
             state.record.limitHit = LimitHit(kind: reading.kind, resets: reading.resets)
@@ -37,8 +38,9 @@ extension LiveSession {
     /// Pauses before each "continue" after an API error that passes, here in the daemon too (`continueIfDue`).
     static let retryPauses: [TimeInterval] = [60, 300]
 
-    /// An API error that passes (`Hooks.passes`) ended the turn: it goes on after a pause, twice in a row at most. Typing
-    /// anything first, or the agent going on by itself, takes the `continueAt` away. Inside `state.withLock`.
+    /// Schedules a continue after an API error that passes (`Hooks.passes`) ended the turn. The session goes on after a
+    /// pause, twice in a row at most. Typing anything first, or the agent going on by itself, takes the `continueAt`
+    /// away. Call it inside `state.withLock`.
     func retry(now: Date, _ state: inout State) {
         guard state.retries < Self.retryPauses.count else { return }
         let pause = Self.retryPauses[state.retries]

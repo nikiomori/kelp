@@ -30,8 +30,8 @@ extension LiveSession {
         // the previous turn's (which credited it with that turn's changes), and snapshots can't land out of order.
         turnWork.async { [weak self] in
             if starting {
-                // None in a folder without git, which is no failure. One git couldn't take is: the turn has no diff and
-                // no Undo, and the log says why.
+                // A folder without git has no snapshot, which is no failure. A snapshot git couldn't take is one: the
+                // turn has no diff and no Undo, and the log says why.
                 let snapshot =
                     Log.session.attempt("a turn's snapshot in \(cwd)") { try Git.turnSnapshot(cwd, remotes: remotes) }
                     ?? nil
@@ -43,8 +43,8 @@ extension LiveSession {
                         snapshot.staged)
                 }
             } else if let start {
-                // No snapshot to compare with, or a diff that failed: no result for this turn. Not one that changed
-                // nothing, nor the turn before's left standing as the last.
+                // With no snapshot to compare with, or a diff that failed, this turn has no result. It isn't shown as a
+                // turn that changed nothing, and the turn before's result isn't left standing as the last.
                 let files = self?.turnBase.flatMap { base in
                     Log.session.attempt("what a turn changed in \(cwd)") {
                         try Git.changesSince(tree: base, cwd: cwd, remotes: remotes)

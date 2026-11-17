@@ -4,8 +4,9 @@ import Core
 import Foundation
 import os
 
-/// Plan limits as the agents themselves show them in `/usage` (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor). A hidden copy of
-/// the agent opens that screen now and then and quits: no tokens are spent and Kelp never touches their credentials.
+/// Reads plan limits as the agents themselves show them in `/usage` (Claude Code, Grok, Antigravity, Kimi, Copilot,
+/// Cursor). A hidden copy of the agent opens that screen now and then and quits, so no tokens are spent and Kelp never
+/// touches their credentials.
 extension AgentUsage {
     struct PlanProbe: Sendable {
         let agent: String, command: String, every: TimeInterval
@@ -13,25 +14,26 @@ extension AgentUsage {
         var shown: @Sendable (String) -> Bool = { _ in true }   // the usage screen has loaded
         let parse: @Sendable (String) -> [LimitScreens.Reading]
         var env: [String: String] = [:]   // extra launch env (e.g. Kimi's trust-this-run)
-        var answersTrust = false   // its "trust this folder?" has a default that trusts for this run only (Copilot)
-        /// With these it prints the usage and exits, no terminal: nothing opens, so no session or prompt history is left (Claude's `-p`).
+        var answersTrust = false   // its "trust this folder?" defaults to trusting for this run only (Copilot)
+        /// Arguments that make the agent print the usage and exit without a terminal. Nothing opens, so no session or
+        /// prompt history is left (Claude's `-p`).
         var printArgs: [String] = []
     }
     struct PlanState {
         var readings: [LimitScreens.Reading] = []
         var at: Date?, readAt: Date?
         var running = false
-        /// Probes in a row that read nothing: each waits twice as long.
+        /// How many probes in a row read nothing. Each retry waits twice as long.
         var fails = 0
-        /// Limits a session saw run out that `/usage` doesn't show (Cursor's Free plan reads 0% after its last request): held
-        /// over the probe's readings until the probe's reset date for that limit moves on.
+        /// Limits a session saw run out that `/usage` doesn't show (Cursor's Free plan reads 0% after its last
+        /// request). They are held over the probe's readings until the probe's reset date for that limit moves on.
         var hits: [LimitScreens.Reading] = []
         /// When a session of the agent last began or ended a turn, and whether the last one heard of began one.
         var usedAt: Date?, working = false
 
-        /// Whether the probe is due: `every` after the last try. While nobody uses the agent (no turn since the reading,
-        /// none going on) and none of its limits has reset since, only every `idleEvery`: what moves the plan then is
-        /// use elsewhere (claude.ai), and a probe costs a whole run of the agent.
+        /// Whether the probe is due, `every` seconds after the last try. While nobody uses the agent (no turn since the
+        /// reading, none going on) and none of its limits has reset since, it is due only every `idleEvery`. Only use
+        /// elsewhere (claude.ai) moves the plan then, and a probe costs a whole run of the agent.
         func due(every: TimeInterval, now: Date = Date()) -> Bool {
             let since = now.timeIntervalSince(at ?? .distantPast)
             guard let readAt, !working, (usedAt ?? .distantPast) < readAt,
@@ -43,7 +45,8 @@ extension AgentUsage {
             return since > max(every, AgentUsage.idleEvery)
         }
 
-        /// The probe's `readings`, with each hit still in its cycle over the reading of its kind.
+        /// Takes the probe's fresh readings, with each hit that is still in its cycle laid over the reading of its
+        /// kind.
         mutating func read(_ fresh: [LimitScreens.Reading]) {
             hits.removeAll { h in fresh.contains { $0.kind == h.kind && $0.resets != h.resets } }
             readings = fresh
@@ -56,11 +59,11 @@ extension AgentUsage {
         }
     }
 
-    /// A session printed that `agent`'s plan ran out.
+    /// Records that a session printed that `agent`'s plan ran out.
     func recordPlanHit(_ agent: String, _ readings: [LimitScreens.Reading]) {
         plans.withLock { plans in
             var plan = plans[agent] ?? PlanState()
-            // No date in what it printed: the cycle /usage last showed.
+            // When what it printed has no reset date, use the cycle /usage last showed.
             var readings = readings
             for index in readings.indices where readings[index].resets == nil {
                 readings[index].resets = plan.readings.first { $0.kind == readings[index].kind }?.resets
@@ -72,7 +75,8 @@ extension AgentUsage {
     }
 
     static let planProbes = [
-        // Opened in a terminal, every reading was a session of its own in Claude's /resume and a "/usage" in its prompt history.
+        // Opened in a terminal, every reading left a session of its own in Claude's /resume and a "/usage" in its
+        // prompt history.
         PlanProbe(
             agent: Session.claudeAgent, command: "claude", every: 600, parse: LimitScreens.parseUsage,
             printArgs: ["-p", "/usage", "--no-session-persistence", "--strict-mcp-config"]),   // no MCP server starts for it
@@ -86,13 +90,14 @@ extension AgentUsage {
         PlanProbe(
             agent: "antigravity", command: "agy", every: 1800, parse: { LimitScreens.parseAntigravityUsage($0) },
             printArgs: ["-p", "/usage"]),
-        // Trust for this process only: the probe has no one to answer "Trust this folder?".
+        // Trusts the folder for this process only, because the probe has no one to answer "Trust this folder?".
         PlanProbe(
             agent: "kimi", command: "kimi", every: 1800,
             ready: { $0.contains("│ >") || $0.contains("context:") },
             shown: { $0.contains("Plan usage") }, parse: LimitScreens.parseKimiUsage,
             env: ["KIMI_CODE_TRUST_WORKSPACE": "1"]),
-        // "Plan ■■■■ 2% used 5 / 200 AIC". Its folder question is answered with Enter: "1. Yes", for this session only.
+        // Copilot shows "Plan ■■■■ 2% used 5 / 200 AIC". Its folder question is answered with Enter, which picks "1.
+        // Yes" for this session only.
         PlanProbe(
             agent: "copilot", command: "copilot", every: 1800, ready: { $0.contains("/ commands") },
             shown: { $0.contains("Plan") && $0.contains("% used") }, parse: LimitScreens.parseCopilotUsage,
@@ -108,12 +113,13 @@ extension AgentUsage {
             settings[SettingKeys.readPlans.key] ?? settings[SettingKeys.readClaudePlan.key])
     }
 
-    /// How long after its last session an agent's limits are still read: a probe is a whole run of the agent (one installed
-    /// but unused cost a launch every half hour, up to a GB at once with the others).
+    /// How long after its last session an agent's limits are still read, because a probe is a whole run of the agent
+    /// (an agent installed but unused cost a launch every half hour, up to a GB at once with the others).
     static let probeLately: TimeInterval = 14 * 86400
 
-    /// `readUsedLately`, read at most once an hour: it reads every session in the store, and the limits are asked for
-    /// every 10 s. Limit: an agent first used in a while is probed up to an hour after its session starts.
+    /// Returns `readUsedLately`, read at most once an hour, because it reads every session in the store and the limits
+    /// are asked for every 10 s. Limit: an agent first used in a while is probed up to an hour after its session
+    /// starts.
     func usedLately(now: Date = Date()) -> Set<String> {
         if let known = usedLatelyRead.withLock({ $0 }), now.timeIntervalSince(known.at) < 3600 { return known.agents }
         let agents = readUsedLately(now: now)
@@ -182,8 +188,9 @@ extension AgentUsage {
                 }
                 plans.withLock { [readings] plans in
                     if !readings.isEmpty { plans[probe.agent]?.read(readings) }
-                    // A failed probe retries in 2 minutes rather than waiting a whole round, then less often: one that
-                    // can't read this plan would run every 2 minutes for as long as Kelp is open.
+                    // A failed probe retries in 2 minutes rather than waiting a whole round, then less often each time,
+                    // because a probe that can't read this plan would otherwise run every 2 minutes for as long as Kelp
+                    // is open.
                     let fails = readings.isEmpty ? (plans[probe.agent]?.fails ?? 0) + 1 : 0
                     plans[probe.agent]?.fails = fails
                     let wait = min(120 * pow(2, Double(fails - 1)), probe.every)
@@ -196,10 +203,10 @@ extension AgentUsage {
 
     /// A probe costs what starting the agent costs (Claude: 7.5 s of CPU and 400 MB), so turns ending close together share one.
     static let planGap: TimeInterval = 300
-    /// How often an agent nobody uses is read: under the half hour after which the sidebar dims a reading.
+    /// How often an agent nobody uses is read, just under the half hour after which the sidebar dims a reading.
     static let idleEvery: TimeInterval = 1500
 
-    /// A session of `agent` began (`working`) or ended a turn: its plan is in use.
+    /// Records that a session of `agent` began (`working`) or ended a turn, so its plan is in use.
     func planSeen(_ agent: String, working: Bool) {
         plans.withLock {
             $0[agent, default: PlanState()].usedAt = Date()
@@ -207,8 +214,9 @@ extension AgentUsage {
         }
     }
 
-    /// A turn just ended, so the agent's usage moved: read its plan half a minute from now instead of at the next round
-    /// (up to 10 minutes late for Claude), and not within `planGap` of the last reading. The UI's next `usage.get` starts the read.
+    /// A turn just ended, so the agent's usage moved. Its plan is read half a minute from now instead of at the next
+    /// round (up to 10 minutes late for Claude), and not within `planGap` of the last reading. The UI's next
+    /// `usage.get` starts the read.
     func planUsed(_ agent: String) {
         if agent == Session.codexAgent {
             codexLive.withLock { $0.at = min($0.at, Date().addingTimeInterval(30 - Self.codexEvery)) }
@@ -229,8 +237,8 @@ extension AgentUsage {
         return Log.session.attempt("making the usage probe's folder") { try Paths.ensure(dir) }.map { dir.path }
     }
 
-    /// Always the same session, so a reading leaves no session of its own in the agent's list (Copilot and Cursor kept one
-    /// per reading). Kimi keeps none for a launch that only looked.
+    /// The probe's argv, which reuses one session so a reading leaves no session of its own in the agent's list
+    /// (Copilot and Cursor kept one per reading). Kimi keeps none for a launch that only looked.
     private func probeArgv(_ agent: String, _ path: String) -> [[String]] {
         guard ["grok", "copilot", "cursor"].contains(agent) else { return [[path]] }
         let file = root.appendingPathComponent("probe/\(agent)-session")
@@ -241,14 +249,14 @@ extension AgentUsage {
             try id.write(to: file, atomically: true, encoding: .utf8)
         }
         return switch agent {
-        // Resume, then same id, then a fresh one if another probe still holds the lock ("already in use").
+        // Grok: resume, then the same id, then a fresh one if another probe still holds the lock ("already in use").
         case "grok":
             [
                 [path, "--resume", id], [path, "--session-id", id],
                 [path, "--session-id", UUID().uuidString.lowercased()]
             ]
-        // Resumes that session, or starts it under that id. No bare `copilot` after it: each failed reading left a
-        // session.
+        // Copilot resumes that session, or starts it under that id. No bare `copilot` follows, because each failed
+        // reading left a session.
         case "copilot": [[path, "--session-id", id]]
         default: [[path, "--trust", "--resume", id], [path, "--trust"]]   // Cursor: an id it doesn't know becomes the new chat's
         }
@@ -311,13 +319,14 @@ extension AgentUsage {
     }
 }
 
-/// The probes' terminals still open, ended with the daemon (`Daemon.stop`, `handOver`): their own `defer` never runs after
-/// `exit`, and an agent left on a hung-up terminal lives on with launchd (Grok there spun a whole core for a day).
+/// The probes' terminals still open, ended along with the daemon (`Daemon.stop`, `handOver`). Their own `defer` never
+/// runs after `exit`, and an agent left on a hung-up terminal lives on under launchd (Grok there spun a whole core for
+/// a day).
 final class OpenProbes: Sendable {
     private let ptys = OSAllocatedUnfairLock<[ObjectIdentifier: PTY]>(initialState: [:])
     func add(_ pty: PTY) { ptys.withLock { $0[ObjectIdentifier(pty)] = pty } }
     func remove(_ pty: PTY) { _ = ptys.withLock { $0.removeValue(forKey: ObjectIdentifier(pty)) } }
-    /// Ends them all (SIGKILL after 2 s): the pids, for `Sessions.waitGone`.
+    /// Ends them all (SIGKILL after 2 s) and returns their pids, for `Sessions.waitGone`.
     func endAll() -> [pid_t] {
         ptys.withLock { all in
             defer { all = [:] }

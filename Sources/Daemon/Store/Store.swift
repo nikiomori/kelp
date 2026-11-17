@@ -5,11 +5,11 @@ import os
 
 /// SQLite persistence for repos, worktrees, sessions and diff comments.
 final class Store: Sendable {
-    /// A pool on disk: reads run beside a write (WAL) instead of queueing behind it, and many come from the cooperative
-    /// pool and connection reader threads, where waiting on a status write's fsync would hold up keystrokes. A queue in
-    /// memory (tests: a pool needs a file).
-    /// Also the query surface of the records only one feature keeps (routines, comments, saved databases): they read and
-    /// write their own tables through it. Those writes aren't told (`changed`): only projects, workspaces and sessions are.
+    /// The database. On disk it is a pool, so reads run beside a write (WAL) instead of queueing behind it. Many reads
+    /// come from the cooperative pool and the connections' reader threads, where waiting on a status write's fsync
+    /// would hold up keystrokes. In memory (tests) it is a queue, because a pool needs a file.
+    /// The features that keep records of their own (routines, comments, saved databases) also read and write their
+    /// tables through it. Those writes aren't reported (`changed`); only projects, workspaces and sessions are.
     let db: any DatabaseWriter
 
     /// A project or workspace record written (as it is now) or deleted, or a session deleted (its writes are pushed as
@@ -17,17 +17,19 @@ final class Store: Sendable {
     enum Change: Sendable {
         case repo(Repo), worktree(Worktree), repoRemoved(String), worktreeRemoved(String)
         case sessionRemoved(String, workspace: String?)
-        /// Saved as ended (it stays a week, `keepEnded`): its workspace may have nobody left in it.
+        /// A session saved as ended (it stays a week, `keepEnded`), so its workspace may have nobody left in it.
         case sessionEnded(workspace: String)
     }
-    /// Told of every one, after its write: every write goes through here, so the daemon pushes them from one place.
-    /// In a struct: a lock holding the function itself got it back wrapped once more on every read (the generic inout's
-    /// conversion, in a debug build at least), so each change was told slower, and a few thousand overflowed the stack.
+    /// Hears of every change, after its write. Every write goes through here, so the daemon pushes changes from one
+    /// place.
+    /// The function sits in a struct because a lock holding the bare function handed it back wrapped once more on every
+    /// read (the generic inout's conversion, in a debug build at least). Each change was then told more slowly, and a
+    /// few thousand overflowed the stack.
     struct Listener: Sendable { var tell: (@Sendable (Change) -> Void)? }
     let changed = OSAllocatedUnfairLock(initialState: Listener())
-    /// A write and its telling, one at a time: changes are told in the order they were committed. Told after a write
-    /// that wasn't, two writers could pass each other in between, and the app keep the older record. Recursive: one
-    /// told that writes again (none does now) goes on.
+    /// Takes a write and its report one at a time, so changes are reported in the order they were committed. Without
+    /// this lock, two writers could pass each other between a write and its report, and the app would keep the older
+    /// record. The lock is recursive, so a listener that writes again (none does now) goes on.
     private let ordered = NSRecursiveLock()
     private func report(_ record: Any, removed: Bool = false) {
         guard let tell = changed.withLock({ $0.tell }) else { return }
@@ -50,7 +52,7 @@ final class Store: Sendable {
         try Self.migrator.migrate(db)
     }
 
-    /// A consistent copy at `path` while this one goes on writing (an update's adopt check opens it).
+    /// Makes a consistent copy at `path` while this store goes on writing (an update's adopt check opens it).
     func copy(to path: URL) throws { try db.backup(to: try DatabaseQueue(path: path.path)) }
 
     func repos() throws -> [Repo] { try db.read { try Repo.order(Column("name")).fetchAll($0) } }
@@ -65,12 +67,12 @@ final class Store: Sendable {
     func worktree(_ id: String) throws -> Worktree? { try db.read { try Worktree.fetchOne($0, key: id) } }
     func sessions() throws -> [Session] { try db.read { try Session.order(Column("createdAt")).fetchAll($0) } }
     func session(_ id: String) throws -> Session? { try db.read { try Session.fetchOne($0, key: id) } }
-    /// The sessions these started (`parent`), read through its index.
+    /// The sessions these parents started (`parent`), read through that column's index.
     func children(of parents: Set<String>) throws -> [Session] {
         try db.read { try Session.filter(parents.contains(Column("parent"))).fetchAll($0) }
     }
     func owe(_ all: [OwedInput]) throws { try db.write { d in for input in all { try input.insert(d) } } }
-    /// What's owed to `session`, in the order it came, and it's no longer kept here.
+    /// Returns the input owed to `session`, in the order it came, and removes it from the store.
     func takeOwed(_ session: String) throws -> [OwedInput] {
         try db.write { database in
             let all = OwedInput.filter(Column("session") == session).order(Column("id"))
@@ -87,9 +89,10 @@ final class Store: Sendable {
             return saved
         }
     }
-    /// Changes a record (a workspace, a session) in one write: read, change, save with nothing in between. Saving a copy
-    /// read earlier would put back fields someone else changed meanwhile (a rename, a PR, archiving). Nil when it's gone.
-    /// A change that leaves it as it was isn't one: no new revision, no write, nothing told.
+    /// Changes a record (a workspace, a session) in one write: read, change, save with nothing in between. Saving a
+    /// copy read earlier would put back fields someone else changed meanwhile (a rename, a PR, archiving). Returns nil
+    /// when the record is gone. A change that leaves the record as it was doesn't count, so there is no new revision,
+    /// no write and no report.
     @discardableResult
     func update<R: FetchableRecord & PersistableRecord & Equatable>(
         _: R.Type, _ id: String, _ change: (inout R) throws -> Void
@@ -106,7 +109,7 @@ final class Store: Sendable {
             return record
         }
     }
-    /// Only a row that's there: a session deleted meanwhile stays deleted (`save` would insert it again).
+    /// Updates only a row that's there, so a session deleted meanwhile stays deleted (`save` would insert it again).
     @discardableResult
     func update<R: PersistableRecord>(_ record: R) throws -> R {
         try ordered.withLock {
@@ -120,7 +123,8 @@ final class Store: Sendable {
         }
     }
 
-    /// The record with the next revision, read in the write that saves it: what a client gets later is newer.
+    /// Returns the record with the next revision, read in the write that saves it, so what a client gets later is
+    /// newer.
     private static func revised<R: PersistableRecord>(_ record: R, _ database: Database) throws -> R {
         guard var revisable = record as? any Revised else { return record }
         let now =
@@ -136,7 +140,7 @@ final class Store: Sendable {
             report(record, removed: true)
         }
     }
-    /// A session deleted, with the turns that go with it, read in the same write: none added meanwhile is missed.
+    /// Deletes a session and returns its turns, read in the same write so no turn added meanwhile is missed.
     func deleteSession(_ session: Session) throws -> [SessionTurns.Mark] {
         try ordered.withLock {
             let marks = try db.write { database in
@@ -149,8 +153,8 @@ final class Store: Sendable {
             return marks
         }
     }
-    /// A turn that began; past `keep` of the session's, the oldest go, and are returned. nil, and nothing added, when its
-    /// session is gone (deleted while the turn's snapshot was taken).
+    /// Adds a turn that began. When the session has more than `keep` turns, the oldest are deleted and returned.
+    /// Returns nil, adding nothing, when the session is gone (deleted while the turn's snapshot was taken).
     @discardableResult
     func addTurn(_ turn: SessionTurns.Mark, keep: Int = 20) throws -> [SessionTurns.Mark]? {
         try db.write { database in
@@ -164,7 +168,7 @@ final class Store: Sendable {
             return Array(old)
         }
     }
-    /// The turns any agent began in `folder`, the oldest first: the last `limit`.
+    /// The last `limit` turns any agent began in `folder`, the oldest first.
     func turns(folder: String, limit: Int = 100) throws -> [SessionTurns.Mark] {
         try db.read {
             try SessionTurns.Mark.filter(Column("folder") == folder).order(Column("at").desc).limit(limit).fetchAll($0)
@@ -210,13 +214,14 @@ final class Store: Sendable {
         LSPOpen.trustKey, ExtensionFiles.extensionTrustKey, Repo.devContainerKey, Repo.machineKey
     ]
 
-    /// What the daemon keeps apart from the app's own state, JSON by key: the user's trust (`trustKeys`), which it
-    /// decides by, and what it keeps for itself (`Forwards`). Each is written by the one method that owns it.
+    /// Reads what the daemon keeps apart from the app's own state, as JSON by key: the user's trust (`trustKeys`),
+    /// which the daemon decides by, and what it keeps for itself (`Forwards`). Each key is written by the one method
+    /// that owns it.
     func daemonState<T: Decodable>(_ key: String, as type: T.Type) throws -> T? {
         try db.read { try String.fetchOne($0, sql: "SELECT value FROM daemonState WHERE key = ?", arguments: [key]) }
             .map { try JSONDecoder().decode(T.self, from: Data($0.utf8)) }
     }
-    /// No value deletes the key.
+    /// A nil value deletes the key.
     func setDaemonState(_ key: String, _ value: (some Encodable)?) throws { try set("daemonState", key, value) }
     func setUIState(_ key: String, _ value: JSONValue?) throws { try set("uiState", key, value) }
 
@@ -242,7 +247,8 @@ extension Store {
 }
 
 extension Store {
-    /// What `read` finds; nil when the store couldn't answer, which is logged: for a look its caller goes on without.
+    /// Returns what `read` finds, or nil when the store couldn't answer, which is logged. It is for a look its caller
+    /// can go on without.
     func look<T>(_ what: @autoclosure () -> String, _ read: (Store) throws -> T?) -> T? {
         Log.store.attempt(what()) { try read(self) } ?? nil
     }

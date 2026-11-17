@@ -3,21 +3,22 @@ import Foundation
 import os
 
 /// `settings.json` in the Kelp home: one flat object with dotted keys (VS Code style).
-/// Hand edits are picked up by `reloadIfChanged`; a file that doesn't parse is ignored and the last good settings stay,
-/// also when it broke while Kelp wasn't running (`lastGood`): extensions turned off mustn't start again because of a comma.
+/// Hand edits are picked up by `reloadIfChanged`. A file that doesn't parse is ignored and the last good settings stay,
+/// even when it broke while Kelp wasn't running (`lastGood`), because extensions turned off mustn't start again because
+/// of a comma.
 final class SettingsStore: Sendable {
     let url: URL
-    /// The settings and the file's date as last read or written, held only to copy them: the ticker reads settings twice
-    /// a second, and must not wait on a disk.
+    /// The settings and the file's date as last read or written. The lock is held only to copy them, because the ticker
+    /// reads settings twice a second and must not wait on a disk.
     private let state = OSAllocatedUnfairLock<(values: [String: JSONValue], mtime: Date?)>(initialState: ([:], nil))
-    /// The file's reads and writes, one at a time (a set's read, merge and write stay together).
+    /// Takes the file's reads and writes one at a time (a set's read, merge and write stay together).
     let file = NSLock()
     private var lastGood: URL { url.deletingLastPathComponent().appendingPathComponent("settings.last-good.json") }
 
     init(root: URL) {
         url = root.appendingPathComponent("settings.json")
         if FileManager.default.fileExists(atPath: url.path) {
-            // Only a file that parsed: a broken one is the user's, not to be written over.
+            // Upgrade only a file that parsed, because a broken one is the user's and is not to be written over.
             if reloadIfChanged(), let upgraded = Self.upgraded(values) {
                 file.withLock { _ = Log.store.attempt("upgrading settings.json") { try write(upgraded) } }
             }
@@ -33,11 +34,11 @@ final class SettingsStore: Sendable {
     /// A declared setting: its value in settings.json, else its default.
     subscript<Value>(_ setting: Setting<Value>) -> Value { setting.read(self[setting.key]) }
 
-    /// nil or .null removes the key.
+    /// Sets `key` and returns all the settings. nil or .null removes the key.
     func set(_ key: String, _ value: JSONValue?) throws -> [String: JSONValue] {
         try file.withLock {
-            // A hand edit saved before this is merged, not overwritten; a file that doesn't parse is the user's work in
-            // progress, so nothing is written over it. One saved while this merged (an editor's save) is read again.
+            // A hand edit saved before this is merged, not overwritten. A file that doesn't parse is the user's work in
+            // progress, so nothing is written over it. A file saved while this merged (an editor's save) is read again.
             for _ in 0..<3 {
                 let seen = modified()
                 var values = self.values
@@ -61,8 +62,8 @@ final class SettingsStore: Sendable {
         }
     }
 
-    /// true when the file changed on disk and parsed. After a set writing now has finished: a hand edit saved meanwhile
-    /// is read then (no later event may come to read it).
+    /// Returns true when the file changed on disk and parsed. It waits until a set that is writing has finished, so a
+    /// hand edit saved meanwhile is read then (no later event may come to read it).
     func reloadIfChanged() -> Bool {
         file.lock()
         defer { file.unlock() }
@@ -70,7 +71,8 @@ final class SettingsStore: Sendable {
         guard mtime != state.withLock({ $0.mtime }) else { return false }
         let read = Self.read(url), onDisk = read?.values
         if let read, onDisk != state.withLock({ $0.values }) { remember(read.data) }
-        // Nothing read yet, so nothing to stay: the start of a daemon with a broken file.
+        // When nothing was read yet (a daemon starting with a broken file), there are no settings to keep, so the last
+        // good copy is used.
         let kept = onDisk == nil && state.withLock({ $0.values.isEmpty }) ? Self.read(lastGood)?.values : nil
         if kept != nil { Log.store.fault("settings.json doesn't parse: running on the last settings that did") }
         state.withLock { st in
@@ -80,8 +82,8 @@ final class SettingsStore: Sendable {
         return onDisk != nil
     }
 
-    /// What older Kelps wrote, as today's settings; nil when there's nothing to change. The artifacts switch and
-    /// `artifacts.where` became one choice: switched off is "off", Claude Code's pages kept on this Mac is "all".
+    /// Converts what older Kelps wrote into today's settings; nil when there's nothing to change. The artifacts switch
+    /// and `artifacts.where` became one choice: switched off is "off", Claude Code's pages kept on this Mac is "all".
     static func upgraded(_ values: [String: JSONValue]) -> [String: JSONValue]? {
         let key = SettingKeys.skillArtifacts.key, place = "artifacts.where"
         var was: Bool?
@@ -110,17 +112,18 @@ final class SettingsStore: Sendable {
         Log.store.attempt("keeping the last good settings") { try data.write(to: lastGood, options: .atomic) }
     }
 
-    /// The date of the file a symlink points at: the link's own never changes on an edit.
+    /// The modification date of the file a symlink points at, because the link's own date never changes on an edit.
     private func modified() -> Date? {
         (try? FileManager.default.attributesOfItem(atPath: url.resolvingSymlinksInPath().path))?[.modificationDate]
             as? Date
     }
 
-    /// Under `file`; the values change only once they're on disk.
+    /// Writes the settings while holding `file`. The values in memory change only once they're on disk.
     private func write(_ values: [String: JSONValue]) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        // To where a symlink points (settings.json kept in a dotfiles repo): an atomic write would replace the link itself.
+        // Writes to where a symlink points (settings.json kept in a dotfiles repo), because an atomic write would
+        // replace the link itself.
         let data = try encoder.encode(JSONValue.object(values)) + Data("\n".utf8)
         try data.write(to: url.resolvingSymlinksInPath(), options: .atomic)
         remember(data)
@@ -129,9 +132,9 @@ final class SettingsStore: Sendable {
     }
 }
 
-/// The settings as clients hear of them (`event.settings`): as they are when it's their turn, one change after another,
-/// so two sets close together can't announce themselves the wrong way round (the app takes each event as the whole of
-/// the settings). Keep Mac Awake follows at once.
+/// Tells clients the settings (`event.settings`) one change after another, each with the settings as they are when its
+/// turn comes. So two sets close together can't announce themselves the wrong way round (the app takes each event as
+/// the whole of the settings). Keep Mac Awake follows at once.
 final class SettingsEvents: Sendable {
     let store: SettingsStore
     private let clients: Clients
@@ -147,8 +150,9 @@ final class SettingsEvents: Sendable {
 
     func changed() { queue.async(execute: announce) }
 
-    /// A set's event goes out before its reply: the app stops holding a key back at the reply, and an event after it
-    /// would put an older value back, for the next ⌘+ to count from. (Never from `queue`, as the file watch delivers.)
+    /// Sends a set's event before its reply. The app stops holding a key back at the reply, so an event after the reply
+    /// would put an older value back for the next ⌘+ to count from. Never call this from `queue`, where the file watch
+    /// delivers.
     func changedBeforeReply() { queue.sync(execute: announce) }
 
     private var announce: @Sendable () -> Void {
@@ -158,10 +162,11 @@ final class SettingsEvents: Sendable {
         }
     }
 
-    /// Hand edits of settings.json, as they're saved: FSEvents on the folder of the file it resolves to (a symlink into
-    /// someone's dotfiles too). Limit: a symlink pointed elsewhere later is followed after the daemon restarts; FSEvents
-    /// watches a folder with what's under it, so the home's other writes (history, the store) wake this too, coalesced
-    /// and dropped by name at once.
+    /// Watches for hand edits of settings.json as they're saved, with FSEvents on the folder of the file it resolves to
+    /// (a symlink into someone's dotfiles too).
+    /// Limit: a symlink pointed elsewhere later is followed only after the daemon restarts. FSEvents watches a folder
+    /// with everything under it, so the home's other writes (history, the store) wake this too; they are coalesced and
+    /// dropped by name at once.
     private let watcher = OSAllocatedUnfairLock<FileWatcher?>(initialState: nil)
     func watch() {
         let file = store.url.resolvingSymlinksInPath(), name = "/" + file.lastPathComponent
@@ -203,7 +208,7 @@ extension SettingsSet: Handled {
     static let usersOnly = [
         "phone.", "accounts.", SettingKeys.extensionLibrary.key, SettingKeys.disabledExtensions.key,
         SettingKeys.tmux.key, SettingKeys.childReports.key, SettingKeys.worktreesFolder.key,
-        SettingKeys.databaseAccess.key,   // what agents may do to the databases found: the Allow it would lift
+        SettingKeys.databaseAccess.key,   // what agents may do to found databases; changing it lifts the Allow
         SettingKeys.databaseTimeout.key,   // how long an agent's read may hold a database
         // how an agent calls the user (waiting, done, failed) and whether the banner stays: not the agent's to quiet
         SettingKeys.onWaiting.key, SettingKeys.onFinish.key, SettingKeys.onError.key, SettingKeys.holdBanners.key,

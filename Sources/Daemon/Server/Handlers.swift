@@ -9,59 +9,67 @@ import os
 /// A method declared in Core (`RPCMethod`) that the daemon answers, sync (`Handled`) or async (`AsyncHandled`), listed
 /// once in `Daemon.methods`. Its result is encoded straight into the reply (`answer`), never through a JSONValue.
 protocol Answered: RPCMethod {
-    /// Applied on the connection's reader thread, after what was sent before it, call or notification: only right in the
-    /// order sent, and quick (`Handled` only). Everything else runs on a task of its own, its reply whenever it's ready.
+    /// True for a method applied on the connection's reader thread, after every call or notification sent before it.
+    /// Only a quick method that is right only in the order sent is applied this way (`Handled` only). Every other
+    /// method runs on a task of its own and replies whenever it's ready.
     static var inOrder: Bool { get }
     /// The result as the reply's JSON.
     static func answer(_ params: JSONValue, _ daemon: Daemon, conn: Int) async throws -> Data
-    /// Who may call it, and on what (`Fence`): checked before it runs, for every caller (`Daemon.allow`).
+    /// Who may call the method, and on what (`Fence`). It is checked before the method runs, for every caller
+    /// (`Daemon.allow`).
     var fence: Fence { get }
-    /// Whether an agent's program may call it at all, and to read or to act (`AgentRules.methods`): none by default.
+    /// Whether an agent's program may call the method at all, and whether to read or to act (`AgentRules.methods`). It
+    /// is `.none` by default.
     static var agents: AgentAccess { get }
-    /// Whether it runs gh in the project's folder: then, for a remote project with no GitHub origin, what it answers
-    /// (`Daemon.refuseRemoteForge`). nil for one that runs nothing there.
+    /// For a method that runs gh in the project's folder, what it answers for a remote project with no GitHub origin
+    /// (`Daemon.refuseRemoteForge`). It is nil for a method that runs nothing there.
     static var onRemote: RemoteForge? { get }
 }
 
 enum Ending { case workspace(String), project(String) }
 
-/// Who may call a method and what it reaches, as its handler says once (`Answered.fence`): what `Clients.requireApp`
-/// and `AgentRules.allow` check before it runs. Each gate is a label of the init, none by default, so one misspelled
-/// doesn't compile and none is left to a protocol's default.
+/// Who may call a method and what it reaches, as its handler says once (`Answered.fence`). `Clients.requireApp` and
+/// `AgentRules.allow` check it before the method runs. Each gate is a label of the init and is off by default, so a
+/// misspelled gate doesn't compile and no gate is left to a protocol's default.
 struct Fence {
-    /// Who may call it: nil for any client of the socket (the app, the CLI, agents and their scripts), else what anyone
-    /// but Kelp's window is told (`Clients.requireApp`). Its params may decide (`state.set` of an `lsp.` key).
+    /// Who may call the method. nil lets any client of the socket call it (the app, the CLI, agents and their scripts).
+    /// Otherwise it is the refusal that anyone but Kelp's window is told (`Clients.requireApp`). The params may decide
+    /// (`state.set` of an `lsp.` key).
     var onlyFromKelp: String?
     /// The session whose status the method reports (hooks, `kelp report`, herdr's). A program inside a session reports
     /// only for that session; from outside every session (the app, a terminal elsewhere), it may report for any.
     var reportsFor: String?
-    /// The session it types into or stops. Not a gate of its own: every session a call names, in any field, is held to
-    /// the agent's own and those it started (`Store.named(by:)`), so for one that exists this adds nothing. It does
-    /// refuse an id that names no session, and keeps a typed agent from acting on the user's terminal it was typed into,
-    /// which it may still name (`AgentRules.allow`).
+    /// The session the method types into or stops. It isn't a gate of its own, because every session a call names, in
+    /// any field, is held to the agent's own and those it started (`Store.named(by:)`). So for a session that exists it
+    /// adds nothing. It does refuse an id that names no session, and it keeps a typed agent from acting on the user's
+    /// terminal it was typed into, which the agent may still name (`AgentRules.allow`).
     var actsOn: String?
     /// Whether the method answers an agent's question (Allow / Deny). Only the user may answer, so it is never accepted
     /// from a session an agent runs or started, which could approve its own question or another agent's.
     var answersQuestion: Bool = false
-    /// The workspace it works in (`kelp browser`'s tabs, a port's process): an agent works only in its own, whose
-    /// pages may carry the user's login it was let into.
+    /// The workspace the method works in (`kelp browser`'s tabs, a port's process). An agent works only in its own
+    /// workspace, whose pages may carry the user's logins that the agent was let into.
     var inWorkspace: String?
-    /// A folder it writes in (an artifact's `cwd`): held to the workspace that holds it, as `inWorkspace` is. One outside
-    /// every workspace (a chat of no project) is anyone's.
+    /// A folder the method writes in (an artifact's `cwd`). It is held to the workspace that holds the folder, as
+    /// `inWorkspace` is. A folder outside every workspace (a chat with no project) is open to anyone.
     var writesInFolder: String?
     /// The sessions the method ends along with what it removes (a workspace, a project): an agent may end only its own
     /// sessions and those it started, never the user's other agents.
     var ends: Ending?
-    /// Why an agent, or a program it runs, may not call it at all (deleting a routine, the user's own): nil if it may.
+    /// Why an agent, or a program it runs, may not call the method at all (deleting a routine, which is the user's
+    /// own). It is nil if it may.
     var notForAgents: String?
-    /// The session it types keys into as they are: never an agent's while that one asks a question, which a key answers.
+    /// The session the method types raw keys into. It is never an agent's session while that agent asks a question,
+    /// because a key would answer it.
     var typesInto: String?
-    /// A session it shows (a tab of it), checked as any session a call names: a typed agent's own terminal included.
+    /// A session the method shows (a tab of it). It is checked like any session a call names, a typed agent's own
+    /// terminal included.
     var shows: String?
-    /// Words it leaves for another to read (a review comment), whose author is `reportsFor`'s: an agent names its session,
-    /// or they would read as the user's.
+    /// Whether the method leaves words for another to read (a review comment), signed by the `reportsFor` session. An
+    /// agent must name its session, or the words would read as the user's.
     var signs: Bool = false
-    /// The project it makes something in (a workspace): one the agent works in, not any of the user's.
+    /// The project the method makes something in (a workspace). It must be a project the agent works in, not any of the
+    /// user's.
     var makesInProject: String?
 }
 
@@ -70,7 +78,7 @@ extension Answered {
     static var agents: AgentAccess { .none }
     static var onRemote: RemoteForge? { nil }
 
-    /// The method's params as its type, from a client allowed to call it: checked here, for every method.
+    /// Decodes the params as the method's type and checks that the client may call it. Every method is checked here.
     static func checked(_ params: JSONValue, _ daemon: Daemon, conn: Int) throws -> Self {
         let method = try decoded(params)
         try daemon.allow(method, conn: conn)
@@ -78,9 +86,9 @@ extension Answered {
     }
 }
 
-/// What a method's handler is given (`Handled.Service`): one of the daemon's services, never the daemon itself, so it
-/// reaches only what that service holds. A handler names the type it takes (`handle(_ sessions: Sessions)`); which of
-/// the daemon's that is, each service says once, here.
+/// What a method's handler is given (`Handled.Service`): one of the daemon's services, never the daemon itself, so the
+/// handler reaches only what that service holds. A handler names the type it takes (`handle(_ sessions: Sessions)`),
+/// and each service says once, here, which part of the daemon it is.
 protocol DaemonService { static func of(_ daemon: Daemon) -> Self }
 
 /// For a method that needs nothing of the daemon's.
@@ -167,23 +175,26 @@ extension Upgrade: DaemonService {
 /// that asked (attach, detach, ui.publish) write `handle(_:conn:)`; the rest write `handle(_:)`.
 protocol Handled: Answered {
     associatedtype Service: DaemonService
-    /// Memory or a short write to the store, never a program: answered on a thread of its own at once, not after a slot
-    /// in `offload` behind slow git, gh or ssh (an agent's `kelp hook` waits for its reply). `Subprocess.quickOnly`
-    /// holds it to that: one that starts a program fails instead of quietly becoming slow.
+    /// True for a method that only reads memory or makes a short write to the store, and never runs a program. It is
+    /// answered on a thread of its own at once, not after a slot in `offload` behind slow git, gh or ssh (an agent's
+    /// `kelp hook` waits for its reply). `Subprocess.quickOnly` enforces that, so a quick method that starts a program
+    /// fails instead of quietly becoming slow.
     static var quick: Bool { get }
     func handle(_ service: Service) throws -> Result
     func handle(_ service: Service, conn: Int) throws -> Result
-    /// An in-order method that answers later, off the reader thread (`SessionInput`'s, from its session's lane): true when
-    /// it took the call, `reply` then given its result. `allowed` is `Daemon.allow` for the caller it came from.
+    /// For an in-order method that answers later, off the reader thread (`SessionInput`, from its session's lane).
+    /// Returns true when it took the call, and then `reply` gets the result. `allowed` is `Daemon.allow` for the caller
+    /// the call came from.
     static func answerLater(
         _ params: JSONValue, _ service: Service, allowed: @escaping @Sendable (any Answered) throws -> Void,
         reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
     ) -> Bool
-    /// What waits until an in-order method's reply has left (daemon.upgrade's hand-over, daemon.shutdown's stop).
+    /// Runs what has to wait until an in-order method's reply has left (the hand-over of daemon.upgrade, the stop of
+    /// daemon.shutdown).
     static func replied(_ service: Service)
-    /// A call that sends its reply itself, where a result returned can't go (`session.attach`'s, queued inside the
-    /// session's lock): true when it did, false to be answered as any other. `checked`: the call, from a caller allowed
-    /// to make it (`Answered.checked`).
+    /// For a call that sends its reply itself, where a returned result can't go (`session.attach`, whose reply is
+    /// queued inside the session's lock). Returns true when it replied, or false to be answered like any other call.
+    /// `checked` returns the call, from a caller allowed to make it (`Answered.checked`).
     static func respond(
         _ checked: () throws -> Self, _ service: Service, conn: Int,
         reply: @escaping @Sendable (Swift.Result<Data, Error>) -> Void
@@ -220,7 +231,7 @@ extension Handled {
         await respond({ try checked(params, daemon, conn: conn) }, Service.of(daemon), conn: conn, reply: reply)
     }
 
-    /// On the calling thread: an in-order method's, on the reader thread.
+    /// Answers on the calling thread, which for an in-order method is the reader thread.
     static func answerNow(_ params: JSONValue, _ daemon: Daemon, conn: Int) throws -> Data {
         try Sessions.$asker.withValue(daemon.callers.caller(conn).origin) {
             try JSONEncoder().encode(checked(params, daemon, conn: conn).handle(Service.of(daemon), conn: conn))
@@ -231,8 +242,8 @@ extension Handled {
     }
 }
 
-/// A method that waits on a web API (Linear, Jira, Bitbucket): async, with its gh / git calls through `offload`.
-/// `handle(_:conn:)` for one that reports progress to the asking connection (repo.clone).
+/// A method that waits on a web API (Linear, Jira, Bitbucket). It is async, and its gh / git calls go through
+/// `offload`. A method that reports progress to the asking connection (repo.clone) writes `handle(_:conn:)`.
 protocol AsyncHandled: Answered {
     associatedtype Service: DaemonService
     func handle(_ service: Service) async throws -> Result
@@ -267,9 +278,10 @@ extension RPCMethod {
 enum Methods {}
 
 extension Daemon {
-    /// Whether the client on `conn` may make this call: the one place every path asks (`checked`, a session's input). A
-    /// call only Kelp's window makes (`onlyFromKelp`), then what its caller may reach (`AgentRules.allow`).
-    /// `caller`: who sent it, when that was found before (input queued for a session that wakes).
+    /// Throws unless the client on `conn` may make this call. This is the one place every path asks (`checked`, a
+    /// session's input). It checks calls that only Kelp's window makes (`onlyFromKelp`) first, then what the caller may
+    /// reach (`AgentRules.allow`).
+    /// `caller` is who sent the call, when that was found earlier (input queued for a session that wakes).
     func allow(_ method: any Answered, conn: Int, caller known: Caller? = nil) throws {
         if let refusal = method.fence.onlyFromKelp { try clients.requireApp(conn, refusal) }
         try AgentRules.allow(
@@ -277,8 +289,9 @@ extension Daemon {
             databases: workspaces.databases)
     }
 
-    /// `allow` for `conn`'s caller as it is now, asked again later as that caller: input queued for a session that wakes
-    /// is asked from the lane, when its connection may be gone, and a gone one can't be told apart (`Callers.caller`).
+    /// Returns `allow` for the caller on `conn` as it is now, to be asked later as that same caller. Input queued for a
+    /// session that wakes is checked from the lane, when its connection may be gone, and a gone connection can't be
+    /// told apart (`Callers.caller`).
     func allowing(_ conn: Int) -> @Sendable (any Answered) throws -> Void {
         let caller = callers.caller(conn)
         return { [self] in try allow($0, conn: conn, caller: caller) }
@@ -303,16 +316,17 @@ extension Daemon {
         return Dictionary(uniqueKeysWithValues: all.map { ($0.name, $0) })
     }()
 
-    /// The reply's result, encoded once.
+    /// Answers `method` and returns the reply's result, encoded once.
     func answer(_ method: String, _ params: JSONValue, conn: Int) async throws -> Data {
         guard let methodType = Self.methods[method] else { throw RPCError.methodNotFound }
         if let quiet = try await refuseRemoteForge(methodType, params) { return quiet }
         do { return try await methodType.answer(params, self, conn: conn) } catch { throw Self.rpc(error) }
     }
 
-    /// An in-order method, here on the connection's reader thread, where everything sent after it waits: it starts no
-    /// program (`Subprocess.quickOnly` refuses one, so the call fails at once instead of holding up the connection), and
-    /// one that still took long says so in the log. None runs gh (`onRemote`, `refuseRemoteForge`).
+    /// Answers an in-order method here on the connection's reader thread, where everything sent after it waits. It may
+    /// start no program (`Subprocess.quickOnly` refuses one, so the call fails at once instead of holding up the
+    /// connection), and a method that still took long says so in the log. No in-order method runs gh (`onRemote`,
+    /// `refuseRemoteForge`).
     func answerNow(_ methodType: any Handled.Type, _ params: JSONValue, conn: Int) throws -> Data {
         let start = DispatchTime.now()
         defer {
@@ -326,12 +340,12 @@ extension Daemon {
         }
     }
 
-    /// The same as a value, for callers that read it by hand (tests).
+    /// The same answer decoded as a value, for callers that read it by hand (tests).
     func handle(_ method: String, _ params: JSONValue, conn: Int) async throws -> JSONValue {
         try JSONDecoder().decode(JSONValue.self, from: await answer(method, params, conn: conn))
     }
 
-    /// git's and the integrations' own errors, as the app shows them; anything else as it is.
+    /// Turns errors from git and the integrations into ones the app shows. Any other error passes through as it is.
     static func rpc(_ error: Error) -> Error {
         switch error {
         case let error as GitError: RPCError.internalError(error.message)
@@ -341,12 +355,13 @@ extension Daemon {
         }
     }
 
-    /// gh / glab run in the folder here; a remote project's is only a marker under ~/.kelp, and their git would walk up to
-    /// whatever repository holds it (a dotfiles home). One on GitHub runs gh on the repository its origin names
-    /// (`HostRepo`); on GitLab or elsewhere, a method that runs gh (`onRemote`) is refused, or answers null when the
-    /// sidebar asked.
-    /// That origin is read on the host, over ssh: through `offload` like any git run, and only for a remote project's
-    /// call. On the request's own task, a host that didn't answer held a pool thread for each of the sidebar's reads.
+    /// gh / glab run in the project's folder here. A remote project's folder is only a marker under ~/.kelp, and their
+    /// git would walk up to whatever repository holds it (a dotfiles home). For a remote project on GitHub, gh runs on
+    /// the repository its origin names (`HostRepo`). On GitLab or elsewhere, a method that runs gh (`onRemote`) is
+    /// refused, or answers null when the sidebar asked.
+    /// That origin is read on the host over ssh, through `offload` like any git run, and only for a remote project's
+    /// call. When it was read on the request's own task, a host that didn't answer held a pool thread for each of the
+    /// sidebar's reads.
     private func refuseRemoteForge(_ methodType: any Answered.Type, _ params: JSONValue) async throws -> Data? {
         guard let onRemote = methodType.onRemote, let path = (try? store.repoPath(params)).map({ $0.1 }),
             remotes.of(path) != nil, try await offloads.run({ GitHub.repo(onHost: path) }) == nil
@@ -355,13 +370,13 @@ extension Daemon {
         throw RPCError.invalidParams("Pull requests and CI aren't available for remote projects yet.")
     }
 
-    /// git, gh and ssh hold their thread until they exit, and Swift's cooperative pool has one thread per core: a few slow
-    /// ones (the sidebar asks every folder's PR at once) would stall every other request, a terminal's attach included.
-    /// A thread of its own, not GCD's pool: that one stops at 64 threads (concurrent queues Kelp makes draw from it too),
-    /// Swift's tasks run on it as well, and once slow hosts hold them all no request is answered. git, gh and ssh all have
-    /// time limits, so a thread is held only while its program runs; at most `offloadLimit` run at once, the rest wait
-    /// their turn in the order they came, holding no thread meanwhile. `quick` work (`Handled.quick`) takes no slot and
-    /// starts no program.
+    /// Runs `work` on a thread of its own. git, gh and ssh hold their thread until they exit, and Swift's cooperative
+    /// pool has one thread per core, so a few slow ones (the sidebar asks every folder's PR at once) would stall every
+    /// other request, a terminal's attach included. It doesn't use GCD's pool either: that pool stops at 64 threads
+    /// (concurrent queues Kelp makes draw from it too), Swift's tasks run on it as well, and once slow hosts hold them
+    /// all no request is answered. git, gh and ssh all have time limits, so a thread is held only while its program
+    /// runs. At most `offloadLimit` run at once, and the rest wait their turn in the order they came, holding no thread
+    /// meanwhile. `quick` work (`Handled.quick`) takes no slot and starts no program.
     func offload<T: Sendable>(quick: Bool = false, _ work: @escaping @Sendable () throws -> T) async throws -> T {
         try await offloads.run(quick: quick, work)
     }
@@ -373,17 +388,18 @@ extension Daemon {
 
     /// Up to 128 requests run at once. That is wider than any fan-out Kelp makes itself (the sidebar asks for a PR per
     /// folder, and every watched folder's status), and wider than the slow requests that once stalled every other one
-    /// (aRequestIsAnsweredWhileManySlowOnesRun holds 80): the next request still runs while that many wait on hosts
-    /// that don't answer. Past the limit, a runaway client's requests queue instead of each starting a program: every
-    /// request is a thread here, plus two threads reading its pipes (`Subprocess`) and a process, and the user's
-    /// processes are capped for the whole login (kern.maxprocperuid), terminals included.
+    /// (the test aRequestIsAnsweredWhileManySlowOnesRun holds 80), so the next request still runs while that many wait
+    /// on hosts that don't answer. Past the limit, a runaway client's requests queue instead of each starting a
+    /// program, because every request is a thread here, plus two threads reading its pipes (`Subprocess`) and a
+    /// process. The user's processes are capped for the whole login (kern.maxprocperuid), terminals included.
     static let offloadLimit = 128
 }
 
 extension AgentRules {
-    /// What an agent's program, or one kelpd runs (an extension's, a git hook), may call: each handler's `agents`.
+    /// The methods that an agent's program, or a program kelpd runs (an extension's, a git hook), may call, from each
+    /// handler's `agents`.
     static let methods: Set<String> = Set(Daemon.methods.filter { $0.value.agents != .none }.keys)
-    /// What only reads (`AgentAccess.reads`).
+    /// The methods that only read (`AgentAccess.reads`).
     static let reads: Set<String> = Set(Daemon.methods.filter { $0.value.agents == .reads }.keys)
 }
 

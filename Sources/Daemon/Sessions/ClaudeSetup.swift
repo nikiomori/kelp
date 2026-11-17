@@ -3,17 +3,19 @@ import Core
 import Foundation
 
 extension SessionSetup {
-    /// What a Claude Code session's requests start with, as its /context counts it (system prompt, tools, MCP, memory
-    /// files, skills): a copy of Claude Code in the session's folder, with its skills, model and system prompt, prints
-    /// it and exits. `-p` with `--no-session-persistence` leaves no session in /resume and nothing in the prompt history.
-    /// Nobody watches this copy and `-p` asks nothing, so as with `planProbes`, no hook or MCP server runs in it, and a folder
-    /// whose agent config differs from the base branch (someone's PR) isn't opened at all.
-    /// Read once a half hour per folder and flags; nil for another agent, a remote project, or when it can't be read.
+    /// Reads what a Claude Code session's requests start with, as its /context counts it (system prompt, tools, MCP,
+    /// memory files, skills). A copy of Claude Code in the session's folder, with its skills, model and system prompt,
+    /// prints it and exits. `-p` with `--no-session-persistence` leaves no session in /resume and nothing in the prompt
+    /// history.
+    /// Nobody watches this copy and `-p` asks nothing, so as with `planProbes`, no hook or MCP server runs in it, and a
+    /// folder whose agent config differs from the base branch (someone's PR) isn't opened at all.
+    /// It is read once a half hour per folder and flags. Returns nil for another agent, a remote project, or when it
+    /// can't be read.
     /// Limit: the project's own MCP servers aren't counted.
     func claudeSetup(_ session: Session) -> SessionContextParts.Setup? {
         guard session.agent == Session.claudeAgent, remotes.of(session.cwd) == nil else { return nil }
         let carried = ["--plugin-dir", "--append-system-prompt", "--model", "--mcp-config"]
-        // Not Kelp's servers file: with it this copy would start them, and nobody watches it.
+        // Kelp's servers file is left out, because with it this copy would start the servers, and nobody watches it.
         let flags = session.argv.indices.dropLast().filter {
             carried.contains(session.argv[$0]) && session.argv[$0 + 1] != serversFile.path
         }

@@ -62,14 +62,16 @@ extension LiveSession {
             if st.record.unread {
                 st.record.unread = false
                 read = st.record
-            }   // typing into it is having read it
-            // Hooks send nothing for a cut-short turn, and a heuristic would call it done a few seconds late: the screen decides.
+            }   // typing into a session counts as reading it
+            // Hooks send nothing for a cut-short turn, and a heuristic would call it done a few seconds late, so the
+            // screen decides.
             if Self.isStopKey(keys), st.record.status == .working || (st.saysItself && st.record.status == .waiting) {
                 st.interruptArmed = (Date(), "")
                 st.stopKeyAt = Date()
             }
             if st.saysItself {
-                // An answer to a question or a permission menu: it works again (Claude Code sends no hook for that).
+                // An answer to a question or a permission menu means the agent works again (Claude Code sends no hook
+                // for that).
                 if st.record.status == .waiting || st.asked, Self.answersMenu(keys) {
                     st.interruptArmed = (Date(), "")
                     if st.answeredOne() { st.detector.override(.working, because: "an answer typed in the terminal") }

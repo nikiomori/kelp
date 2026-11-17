@@ -31,8 +31,8 @@ extension UIOpen: Handled {
         if ["terminal", "agent"].contains(scheme) {
             return "An agent starts terminals and agents with `kelp session new`, which keeps them its own."
         }
-        // A plain page tab has the user's cookies (and `kelp shot` sees it): an agent's page has its own. A local page
-        // (`preview:`) has them too, and it can go on to any site.
+        // A plain page tab has the user's cookies (and `kelp shot` sees it), while an agent's page has cookies of its
+        // own. A local page (`preview:`) has the user's cookies too, and it can go on to any site.
         if ["http", "https", "preview"].contains(scheme) {
             return "A page tab opened this way is logged in as the user: open it with `kelp browser open <url>` "
                 + "(a local page: `kelp browser open preview:<path>`), which gives it cookies of its own."
@@ -83,11 +83,12 @@ extension UICommand: Handled {
     func handle(_ clients: Clients) throws -> Delivered { try clients.relay(UIEvent(self)) }
 }
 
-/// To the app, which does it in a browser tab and answers with `ui.browser.reply`; this waits for that answer.
-/// A subagent's command says whose it is (`args.subagent`): Claude Code's hook told which subagent runs it.
+/// Sends a `kelp browser` command to the app, which runs it in a browser tab and answers with `ui.browser.reply`; this
+/// waits for that answer.
+/// A subagent's command says whose it is (`args.subagent`), because Claude Code's hook told which subagent runs it.
 extension UIBrowser: AsyncHandled {
     static let agents = AgentAccess.acts
-    // none named: the one on screen, which needn't be the agent's
+    // With no workspace named, the page would open in the one on screen, which needn't be the agent's.
     var fence: Fence { Fence(inWorkspace: worktreeId ?? "") }
     func handle(_ relay: BrowserRelay) async throws -> JSONValue {
         let ui = relay.ui
@@ -95,13 +96,14 @@ extension UIBrowser: AsyncHandled {
         let clients = ui.clients, apps = clients.apps
         guard !apps.isEmpty else { throw RPCError.internalError("The Kelp app isn't running") }
         var call = self
-        // An agent drives the page as itself, whichever session it names: the page's card, pointer and Done say who.
+        // An agent drives the page as itself, whichever session it names, so the page's card, pointer and Done say
+        // which agent it is.
         if case .some(let own) = relay.asks.store.agent(origin: Sessions.asker) {
             guard case .object(var fields) = args ?? .object([:]) else {
                 throw RPCError.invalidParams("kelp browser's args are an object")
             }
             fields["session"] = own.map(JSONValue.string)
-            fields["subagent"] = nil   // which subagent is the hook's to say, below
+            fields["subagent"] = nil   // the hook says which subagent, below
             call.args = .object(fields)
         }
         if case .object(var fields) = call.args, let session = fields["session"]?.string,
@@ -122,13 +124,15 @@ extension UIBrowser: AsyncHandled {
     }
 }
 
-/// The page goes to the user with the question, and the agent's row asks it, as Kelp's own questions are asked
-/// (`askForKelp`): Done on the page answers Allow. Then the page leaves the question, and the answer is where it is.
+/// Hands the page to the user with the question, and the agent's row asks it, the way Kelp's own questions are asked
+/// (`askForKelp`). Done on the page answers Allow. Then the page leaves the question behind, and the reply carries the
+/// answer.
 extension UIBrowserAsk: AsyncHandled {
     static let agents = AgentAccess.acts
     var fence: Fence { Fence(inWorkspace: worktreeId ?? "") }
     func handle(_ relay: BrowserRelay, conn: Int) async throws -> JSONValue {
-        // An agent asks on its own row, never one it names; the user's script, on the row of the session it runs in.
+        // An agent asks on its own row, never on one it names. The user's script asks on the row of the session it runs
+        // in (`args.session`).
         let row: String? =
             switch relay.asks.store.agent(origin: Sessions.asker) {
             case .some(let own): own
@@ -172,7 +176,7 @@ extension UIBrowserReply: Handled {
 }
 
 extension Clients {
-    /// To every Kelp window as `event.ui`.
+    /// Relays an event to every Kelp window as `event.ui`.
     fileprivate func relay(_ event: UIEvent) throws -> Delivered {
         let apps = apps
         guard !apps.isEmpty else { throw RPCError.internalError("The Kelp app isn't running") }
@@ -192,7 +196,8 @@ extension StateGet: Handled {
     func handle(_ ui: UIStore) throws -> JSONValue {
         if let prefix {
             var all = try ui.store.uiState(prefix: prefix)
-            // daemonState's, never a stale copy an older daemon left in uiState (or none, where the trust was taken back)
+            // Trust keys come from daemonState, never from a stale copy an older daemon left in uiState (and none comes
+            // back where the trust was taken back).
             for key in Store.trustKeys where key.hasPrefix(prefix) {
                 all[key] = try ui.store.daemonState(key, as: JSONValue.self)
             }

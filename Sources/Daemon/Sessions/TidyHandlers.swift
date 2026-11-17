@@ -8,7 +8,7 @@ import GitKit
 // undone, and `done` once it ended.
 
 enum TidyRuns {
-    /// What a run records: the workspace it was for and the paths it kept (a memory index: its folder).
+    /// What a run records: the workspace it was for and the paths it kept (for a memory index, its folder).
     struct Info: Codable {
         var worktreeId: String
         var kept: [String]
@@ -19,7 +19,8 @@ enum TidyRuns {
 
     static func folder(_ root: URL) -> URL { root.appendingPathComponent("tidy") }
 
-    /// What a run keeps of an instruction file: a memory index's whole folder (the agent moves its memories too).
+    /// The path a run keeps for an instruction file: for a memory index, its whole folder (the agent moves its memories
+    /// too).
     static func kept(_ path: String) -> String {
         (path as NSString).lastPathComponent == "MEMORY.md" ? (path as NSString).deletingLastPathComponent : path
     }
@@ -70,8 +71,9 @@ enum TidyRuns {
         }.joined(separator: "; ")
     }
 
-    /// What every chat reads of what a run kept, in tokens: a memory folder's index up to where Claude Code stops, any
-    /// other file whole. `base` is where the kept paths sit (the run's copies, or "" for the files now).
+    /// How many tokens of what a run kept every chat reads: a memory folder's index up to where Claude Code stops
+    /// reading, and any other file whole. `base` is where the kept paths sit (the run's copies, or "" for the files
+    /// now).
     static func tokens(_ info: Info, base: String) -> Int {
         info.kept.reduce(0) { sum, kept in
             let index = base + kept + "/MEMORY.md"
@@ -82,7 +84,7 @@ enum TidyRuns {
         }
     }
 
-    /// The run's copies against the files now, as the diff tab reads them: a memory folder's files as
+    /// Diffs the run's copies against the files now, as the diff tab reads them: a memory folder's files as
     /// "memory/<name>", any other file by its name. Moves (into archive/) are renames, not whole files.
     static func diff(_ run: URL, _ info: Info, remotes: Remotes) throws -> [FileDiff] {
         try info.kept.flatMap { kept -> [FileDiff] in
@@ -103,8 +105,9 @@ enum TidyRuns {
         }
     }
 
-    /// Puts back every kept path from the run's copies; what was there goes to `after/`, so nothing is lost. An Undo that
-    /// stopped midway can be tried again: what it already put back is left, and `after/` never written over.
+    /// Puts back every kept path from the run's copies; what was there goes to `after/`, so nothing is lost. An Undo
+    /// that stopped midway can be tried again: what it already put back is left alone, and `after/` is never written
+    /// over.
     static func undo(_ run: URL, _ info: Info) throws {
         let manager = FileManager.default
         for kept in info.kept {
@@ -150,7 +153,7 @@ extension AddonsTidyEnd: Handled {
         guard let (run, info) = TidyRuns.open(worktreeId, root: workspaces.root) else {
             throw RPCError.invalidParams("no Tidy Up to end in this workspace")
         }
-        // The one write Kelp makes to an agent's own files: its own copies back, on the person's Undo.
+        // The one write Kelp makes to an agent's own files: putting Kelp's own copies back, on the person's Undo.
         if undo { try TidyRuns.undo(run, info) }
         try Data().write(to: run.appendingPathComponent("done"))
         return Done()

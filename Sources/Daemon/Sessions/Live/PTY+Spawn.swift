@@ -11,7 +11,7 @@ extension PTY {
         for attempt in 1..<attempts {
             do { return try body() } catch let error as PTYError where error.code == EIO || error.code == ENXIO {
                 usleep(UInt32(attempt) * 20_000)
-            }   // ENXIO: openpty raced the same
+            }   // ENXIO: openpty hit the same race
         }
         return try body()
     }
@@ -82,7 +82,8 @@ extension PTY {
         let dir = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath().deletingLastPathComponent()
         var path = dir.appendingPathComponent("kelp").path
         #if DEBUG
-            // Tests run inside xctest: the kelp built with them (else a test that dies leaves programs without a terminal running).
+            // Tests run inside xctest, so they use the kelp built with them (otherwise a test that dies leaves programs
+            // running without a terminal).
             if let override = ProcessInfo.processInfo.environment["KELP_TRAMPOLINE"] { path = override }
         #endif
         return FileManager.default.isExecutableFile(atPath: path) ? path : nil

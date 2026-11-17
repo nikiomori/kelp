@@ -7,7 +7,7 @@ import Foundation
 extension SessionContextWindow: Handled {
     static let agents = AgentAccess.reads
     func handle(_ sessions: Sessions) throws -> Usage? {
-        // For a remote session: the end of its conversation on the host, which holds its last turn's usage.
+        // For a remote session, read the end of its conversation on the host, which holds its last turn's usage.
         let conversations = sessions.agentUsage.conversations, ls = sessions.existing(id)
         guard
             let transcript = ls.flatMap(conversations.transcript(of:))

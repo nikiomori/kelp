@@ -2,10 +2,11 @@ import Core
 import Foundation
 import os
 
-/// `contributes.events` (docs/extensions.md): a command an extension runs when an agent asks, finishes or fails, or a
-/// workspace is added. kelpd runs them, so they work with the window closed: a push to a phone needs nothing more.
-/// What they're about comes in environment variables, never into the command's text: it's what agents print, and a
-/// shell would run it. Kelp's own push to a phone goes out from here too (PhonePush.swift).
+/// Runs `contributes.events` (docs/extensions.md): the commands an extension runs when an agent asks, finishes or
+/// fails, or when a workspace is added. kelpd runs them, so they work with the window closed, and a push to a phone
+/// needs nothing more. The event's details come in environment variables, never in the command's text, because they
+/// hold what agents print and a shell would run it. Kelp's own push to a phone goes out from here too
+/// (PhonePush.swift).
 final class ExtensionEvents: Sendable {
     let root: URL, live: SessionTable, store: Store, settings: SettingsStore, clients: Clients
     let setup: SessionSetup   // which extensions the user allowed, and an agent's name
@@ -13,7 +14,7 @@ final class ExtensionEvents: Sendable {
     private let told = OSAllocatedUnfairLock(initialState: [String: AgentStatus]())
     /// Runs on one thread however many events fire. Limit: a command that hangs holds the next one back for its 30 s.
     let queue = DispatchQueue(label: "dev.kelp.extension-events", qos: .utility)
-    /// A status from before this daemon was told before it.
+    /// When this daemon started. A status from before then was told by an earlier daemon, so it isn't told again.
     private let started = Date()
 
     init(
@@ -29,8 +30,8 @@ final class ExtensionEvents: Sendable {
         self.phone = phone
     }
 
-    /// The event name for a saved session, given once per stop. A child's result is for its parent to read, as with
-    /// notifications.
+    /// Returns the event name for a saved session, once per stop. A child session's `done` fires nothing, because its
+    /// result is for its parent to read, as with notifications.
     func event(of session: Session) -> String? {
         told.withLock { told in
             if session.status == .working || session.status == .exited { told[session.id] = nil }
@@ -45,17 +46,18 @@ final class ExtensionEvents: Sendable {
         }
     }
 
-    /// A status has to stand this long: a program may say idle for a second as a turn starts (Codex), and a question answered
-    /// at once asked nobody away from the Mac.
-    /// KELP_TEST_SLOW stretches it with the tests' waits (a sanitizer's run): what has to stand still does, in its time.
+    /// How long a status has to stand before its event fires. A program may say idle for a second as a turn starts
+    /// (Codex), and a question answered at once didn't need anybody away from the Mac.
+    /// KELP_TEST_SLOW stretches it along with the tests' waits (in a sanitizer's run), so a status that has to stand
+    /// still does, at the slower pace.
     static let eventDelay = 2.5 * (ProcessInfo.processInfo.environment["KELP_TEST_SLOW"].flatMap(Double.init) ?? 1)
 
-    /// Every saved change of a session (`Sessions.said`), told once per stop.
+    /// Hears every saved change of a session (`Sessions.said`) and fires its event once per stop.
     func heard(_ session: Session) {
         guard let event = event(of: session) else { return }
         queue.asyncAfter(deadline: .now() + Self.eventDelay) { [weak self] in
             guard let self else { return }
-            // Gone since: a result still stands, and a question has nobody left to answer it.
+            // When the session is gone since, a result still stands, but a question has nobody left to answer it.
             let now = live[session.id]?.snapshot.status
             guard now == session.status || (now == nil && session.status != .waiting) else { return }
             let asks = session.status != .done
@@ -78,8 +80,8 @@ final class ExtensionEvents: Sendable {
         }
     }
 
-    /// Read from disk each time: events are rare, and what's installed takes effect without a reload. Blocks: never on a
-    /// session's queue or a reader.
+    /// Runs every handler of `event`. The manifests are read from disk each time, because events are rare and what's
+    /// installed then takes effect without a reload. It blocks, so never call it on a session's queue or a reader.
     private func fire(_ event: String, cwd: String, values: [String: String]) {
         let env = ProcessInfo.processInfo.environment.merging(values.merging(["KELP_EVENT": event]) { a, _ in a }) {
             _, new in new
@@ -115,9 +117,10 @@ final class ExtensionEvents: Sendable {
             }
         }
         return folders.sorted { $0.path < $1.path }.flatMap { folder -> [(id: String, run: String)] in
-            // A first look, for whether it handles the event at all; then what runs comes from the same read as the
-            // digest checked against what the user allowed, so a manifest swapped in between runs nothing unseen.
-            // Limit: a script of the folder that the command runs is read again as it runs.
+            // A first read checks whether the extension handles the event at all. What runs then comes from the same
+            // read as the digest checked against what the user allowed, so a manifest swapped in between runs nothing
+            // unseen.
+            // Limit: a script in the folder that the command runs is read again when it runs.
             let file = folder.appendingPathComponent("extension.json")
             guard let first = manifest(FileManager.default.contents(atPath: file.path), folder),
                 first.contributes?.events?.contains(where: { $0.on == event }) == true

@@ -13,8 +13,8 @@ struct PTYError: Error, LocalizedError, CustomStringConvertible {
 
 /// A child process on a pseudo-terminal. The daemon owns this, so the process outlives any UI.
 /// Once the program has exited its fd and pid are gone for good: they may already name another session's terminal or
-/// another process, so nothing is written to the one or signalled at the other after that.
-final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on `queue`) under it too
+/// another process, so nothing is written to the fd or signalled to the pid after that.
+final class PTY: @unchecked Sendable {   // unchecked: phases are under `phase`, and so is `source` (set on `queue`)
     let pid: pid_t
     let primaryFD: Int32
     private var source: DispatchSourceRead?
@@ -33,7 +33,8 @@ final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on
     /// Every change of phase, and what must happen with one (closing the fd, a signal to the pid), is under this lock.
     private let phase = OSAllocatedUnfairLock(initialState: Phase())
     var phases: Phase { phase.withLock { $0 } }
-    /// Its output is still read here: false once the terminal is closed, or its program let go of it (EOF) and runs on.
+    /// Whether the output is still read here. It is false once the terminal is closed, or once the program let go of it
+    /// (EOF) and runs on.
     var reading: Bool { phase.withLock { _ in source != nil } }
 
     /// Typing goes out on a queue of its own, from a copy of the terminal's fd that only this queue closes: a program that
@@ -70,8 +71,8 @@ final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on
         _ = fcntl(writeFD, F_SETFL, fcntl(writeFD, F_GETFL) | O_NONBLOCK)   // shared with primaryFD: its reads already allow EAGAIN
     }
 
-    /// A program the kelpd this one replaced started (`Handover`): still this process's child, its terminal's fd kept
-    /// open across exec.
+    /// Takes over a program that the kelpd this one replaced started (`Handover`). It is still this process's child,
+    /// and its terminal's fd was kept open across exec.
     init(adopting pid: pid_t, fd: Int32) {
         self.pid = pid
         primaryFD = fd
@@ -81,10 +82,10 @@ final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on
         _ = fcntl(writeFD, F_SETFL, fcntl(writeFD, F_GETFL) | O_NONBLOCK)
     }
 
-    /// For the kelpd that takes over (`Handover`): output stops being read here once what was read is handled, and the fd
-    /// stays open, never written or closed here again. The program's exit is that one's to read. Nil once it has ended
-    /// (being reaped here: the new kelpd would find no such child). One not started yet goes too, and one whose output
-    /// already ended while its program runs on.
+    /// Hands the terminal to the kelpd that takes over (`Handover`). Output stops being read here once what was read is
+    /// handled, and the fd stays open, never written or closed here again. The new kelpd reads the program's exit.
+    /// Returns nil once the program has ended (it is reaped here, so the new kelpd would find no such child). A PTY not
+    /// started yet is handed over too, and so is one whose output already ended while its program runs on.
     func handOver() -> Int32? {
         queue.sync {
             let given = phase.withLock { current -> Bool in
@@ -121,12 +122,14 @@ final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on
         watchExit()
     }
 
-    /// The program's exit, seen without a thread of its own waiting for it (a process source). A zombie until `reaped`
-    /// goes up, so its pid can't be anyone else's meanwhile; one handed over is the next kelpd's to reap. The source
-    /// keeps itself until it fired, so a PTY dropped meanwhile still has its program reaped.
+    /// Watches for the program's exit without a thread of its own waiting for it (a process source). The program stays
+    /// a zombie until it is marked `reaped`, so its pid can't be anyone else's meanwhile; a program handed over is the
+    /// next kelpd's to reap. The source keeps itself alive until it fired, so a PTY dropped meanwhile still has its
+    /// program reaped.
     private func watchExit() {
-        // The phase itself, not through the PTY: one dropped after a hand-over (an update's exec that failed, its sessions
-        // taken back by a new PTY on the same pid) must still see it was handed over, and leave the reaping to that one.
+        // The closure holds the phase itself, not the PTY, because a PTY dropped after a hand-over (an update's exec
+        // that failed, its sessions taken back by a new PTY on the same pid) must still see it was handed over and
+        // leave the reaping to the new PTY.
         let pid = pid, once = OSAllocatedUnfairLock(initialState: false), phase = phase
         let exits = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: .global(qos: .utility))
         let reap: @Sendable () -> Void = { [weak self] in
@@ -169,7 +172,7 @@ final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on
         }
     }
 
-    /// Once: the wait thread is the only caller, and only for a program reaped here.
+    /// Runs once: the exit watch (`watchExit`) is the only caller, and only for a program reaped here.
     private func finish(_ status: Int32) {
         // Flush anything still buffered in the kernel.
         var buf = [UInt8](repeating: 0, count: 65536)
@@ -203,8 +206,8 @@ final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on
         writes.async { [closeFD] in closeFD(fd) }   // after any write still queued has given up
     }
 
-    /// Dropped while its program runs (the limits probe quits that way): hang up the terminal. A controlling process
-    /// waits in exit until its output is read, and nobody reads it any more.
+    /// A PTY dropped while its program runs (the limits probe quits that way) hangs up the terminal, because a
+    /// controlling process waits in exit until its output is read, and nobody reads it any more.
     deinit { hangUp() }
 
     /// Typing into the program; dropped once it has exited (the fd may be another terminal's by then).
@@ -294,7 +297,7 @@ final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on
                     Darwin.kill(-$0, SIGKILL)
                     Darwin.kill($0, SIGKILL)
                 }
-            }   // keeps `phase` until then
+            }   // holds the PTY, and so `phase`, until then
         }
         Subprocess.killLater(Array(all.dropFirst()), after: grace)
         return all
@@ -306,7 +309,8 @@ final class PTY: @unchecked Sendable {   // phases under `phase`; source (set on
     }
 }
 
-/// Closes an fd when asked, but never while a dispatch source still has it. Not asked (a hand-over), it stays open.
+/// Closes an fd when asked, but never while a dispatch source still has it. When it is never asked (a hand-over), the
+/// fd stays open.
 final class FDCloser: Sendable {
     let fd: Int32
     private let state = OSAllocatedUnfairLock<(asked: Bool, watched: Bool, done: Bool)>(
@@ -318,8 +322,8 @@ final class FDCloser: Sendable {
     }
     /// A read source has the fd from now until its cancel handler runs (`cancelled`).
     func watch() { state.withLock { $0.watched = true } }
-    /// Close it once no source has it: at once, or when the cancel handler runs. However the source ended (hung up, or
-    /// its own EOF), the fd is closed once, never under GCD.
+    /// Asks to close the fd once no source has it: at once, or when the cancel handler runs. However the source ended
+    /// (hung up, or its own EOF), the fd is closed once, never under GCD.
     func ask() {
         state.withLock {
             $0.asked = true

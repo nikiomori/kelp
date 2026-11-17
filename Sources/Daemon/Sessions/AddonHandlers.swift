@@ -4,8 +4,8 @@ import Foundation
 
 // addons.*: what the workspace's agents get, read from their own files and from a chat's own record.
 
-/// What `addons.*` reads with: the agents' setup (a chat's account profile, where Kelp's own skills are) and the
-/// sessions running, not the whole of `Sessions`.
+/// What `addons.*` handlers are given: the agents' setup (a chat's account profile, where Kelp's own skills are) and
+/// the sessions running, not the whole of `Sessions`.
 struct AgentAddons {
     let setup: SessionSetup, live: SessionTable
     var store: Store { setup.store }
@@ -31,21 +31,24 @@ extension AddonsList: Handled {
         }
         let files = own.map { AddonFiles(claude: $0) } ?? AddonFiles()
         let kept = ServerFiles.read(addons.setup.serversFile).keys.sorted()
-        // Which skills are Claude Code's own: learnt from its /context, read once here if nothing read one yet.
+        // Which skills are Claude Code's own is learnt from its /context, which is read once here if nothing has read
+        // it yet.
         if loaded != nil, ClaudeBuiltIns.names == nil, let chat { _ = addons.setup.claudeSetup(chat) }
         let (items, gone) = AddonList.list(
             loaded: loaded, files: files, cwd: chat?.cwd ?? worktree.path, kelp: kelp.sorted(), kept: kept,
             builtIn: ClaudeBuiltIns.names, kelpHome: addons.root)
         let off = addons.setup.addonsOff(worktreeId: worktreeId).off
         var all = AddonSwitches.applied(off, to: items)
-        // A plugin that's off has no skill listed to say which install it is: its line still names it, to uninstall.
+        // A plugin that's off has no listed skill to say which install it is, so its line still names the install, for
+        // uninstalling.
         if all.contains(where: { $0.kind == .plugin }) {
             let plugins = files.plugins()
             for index in all.indices where all[index].kind == .plugin {
                 all[index].plugin = plugins[all[index].name]?.id
             }
         }
-        // What each instruction file says against what's on disk: read every time, the files change under the chats.
+        // Compares what each instruction file says with what's on disk. It is read every time, because the files change
+        // under the chats.
         for index in all.indices where all[index].kind == .instructions {
             guard let path = all[index].path else { continue }
             all[index].check = InstructionChecks.check(path, cwd: chat?.cwd ?? worktree.path)
@@ -84,7 +87,7 @@ extension AddonsAdd: Handled {
         }
         let file = project ? URL(fileURLWithPath: worktree.path).appendingPathComponent(".mcp.json") : setup.serversFile
         try ServerFiles.write(name, found, to: file)
-        // Kelp's own holds what servers sign in with: the person's only.
+        // Kelp's own servers file holds what servers sign in with, so only the person may read it.
         if !project { try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path) }
         return Done()
     }
@@ -122,7 +125,8 @@ extension AddonsEntry: Handled {
     }
 }
 
-/// `key` as a skill of the person's own; anything else isn't theirs to move.
+/// Returns the skill `key` names when it is a skill of the person's own. Anything else isn't theirs to move, so it
+/// throws.
 private func ownSkill(_ key: String) throws -> String {
     guard key.hasPrefix("skill:"), !key.dropFirst(6).contains(":") else {
         throw RPCError.invalidParams("only a skill in your own folders or the project's")
@@ -157,7 +161,7 @@ extension AddonsInstall: Handled {
         if FileManager.default.fileExists(atPath: local.path) {
             return try files.installSkills(from: local, cwd: worktree.path, project: project)
         }
-        // A repository: one shallow clone into a folder of its own name, read, then gone.
+        // From a repository: one shallow clone into a folder named after it, read, then removed.
         guard let url = URL(string: source), ["https", "ssh", "git"].contains(url.scheme ?? "") else {
             throw RPCError.invalidParams("a folder here or a git address: \(source)")
         }

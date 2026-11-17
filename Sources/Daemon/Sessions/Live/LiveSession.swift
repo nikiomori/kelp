@@ -9,12 +9,12 @@ import os
 /// daemon's callbacks, sends to clients) runs after the lock, or is queued under it where order matters (`emit`).
 final class LiveSession: Sendable {
     static let ringLimit = 1 << 20
-    /// How far back a menu is looked for (`menuScreen`): over an hour of a dot blinking.
+    /// How far back, in bytes, a menu is looked for (`menuScreen`): over an hour of a dot blinking.
     static let menuReach = 256 << 10
-    /// Past this the log keeps only what the ring holds: a chatty dev server must not fill the disk.
+    /// Past this size the log keeps only what the ring holds, so a chatty dev server can't fill the disk.
     static let logLimit = 8 << 20
 
-    /// What the daemon hears from it, fixed before the program starts.
+    /// What the daemon hears from the session, fixed before the program starts.
     struct Callbacks: Sendable {
         /// Raw output, for the connections attached at that moment.
         var output: @Sendable (_ session: String, _ data: Data, _ attached: Set<Int>) -> Void = { _, _, _ in }
@@ -23,25 +23,28 @@ final class LiveSession: Sendable {
         var firstPrompt: @Sendable (String) -> Void = { _ in }
         /// The topic the agent keeps in the terminal's title (Claude Code does): a short name for the session.
         var topic: (@Sendable (String) -> Void)?
-        /// First local URL a process prints (dev servers): the app opens it in the worktree's browser.
+        /// The first local URL a process prints (dev servers), which the app opens in the worktree's browser.
         var localURL: (@Sendable (String) -> Void)?
         /// The port a server says it couldn't get, before it printed any URL.
         var busyPort: (@Sendable (Int) -> Void)?
         /// Plan usage the agent printed (Claude Code's "used 80% of your weekly limit").
         var limits: (@Sendable ([LimitScreens.Reading]) -> Void)?
-        /// A turn began: how its folder was, and what was staged then (nil: nothing it could write), to keep (`SessionTurns`).
+        /// A turn began, with how its folder was and what was staged then (nil when there was nothing it could write),
+        /// to keep (`SessionTurns`).
         var turnStarted: (@Sendable (SessionTurns.Mark, String?) -> Void)?
-        /// A turn ended, started by this prompt: the pages its agent made keep a version (`Artifacts.keepVersions`).
+        /// A turn started by this prompt ended, so the pages its agent made keep a version (`Artifacts.keepVersions`).
         var turnEnded: (@Sendable (String) -> Void)?
     }
 
     let pty: PTY
     let callbacks: Callbacks
-    /// Whether a pause can bring it back (its agent resumes, or it runs in tmux): fixed by what it was started with.
+    /// Whether a pause can bring the session back (its agent resumes, or it runs in tmux), fixed by what it was started
+    /// with.
     let resumable: Bool
     let state: OSAllocatedUnfairLock<State>
     private let log: FileHandle?
-    /// A write of the history that failed was logged: once, as a full disk fails every chunk after it.
+    /// Whether a failed write of the history was logged already. It is logged once, because a full disk fails every
+    /// chunk after it.
     private let logFailed = OSAllocatedUnfairLock(initialState: false)
     let logURL: URL
     let trail: StatusTrail
@@ -83,7 +86,7 @@ final class LiveSession: Sendable {
             historyDir: historyDir, callbacks: callbacks)
     }
 
-    /// `pty`: started for it, or taken over from the kelpd before this one (`Sessions.adopt`).
+    /// `pty` was started for this session, or taken over from the kelpd before this one (`Sessions.adopt`).
     init(record: Session, manifest: AgentManifest, pty: PTY, historyDir: URL, callbacks: Callbacks) {
         var rec = record
         // A woken session goes on in the same log: what it showed before the pause stays readable.
@@ -108,26 +111,27 @@ final class LiveSession: Sendable {
         pty.onExit = { [weak self] code in self?.handleExit(code) }
     }
 
-    /// Output and status start flowing.
+    /// Starts the PTY, so output and status start flowing.
     func start() { pty.start() }
 
-    /// Being deleted: it stops, and neither its exit nor anything else saves its record again.
+    /// Stops a session being deleted, so neither its exit nor anything else saves its record again.
     @discardableResult
     func discard() -> [pid_t] {
         state.withLock { $0.final = true }
         return pty.terminate()
     }
-    /// Its record says its last (a pause, an end): nothing it does saves it again.
+    /// Marks the record as the last one (a pause, an end), so nothing the session does saves it again.
     func finish() { state.withLock { $0.final = true } }
     var isFinal: Bool { state.withLock { $0.final } }
     var topic: String? { state.withLock { $0.lastTopic } }
-    /// Claude Code transcript (from hook payloads): where its subagents' transcripts live.
+    /// Claude Code's transcript path (from hook payloads), which also tells where its subagents' transcripts live.
     var transcriptPath: String? {
         get { state.withLock { $0.kept.transcript } }
         set { state.withLock { $0.kept.transcript = newValue } }
     }
-    /// How long it has done nothing. An agent with hooks tells by its status (and someone typing): at rest it still redraws
-    /// by itself, such as Claude Code's "Checking for updates". For the others, output is all there is.
+    /// How long the session has done nothing. For an agent with hooks this goes by its status (and someone typing),
+    /// because at rest it still redraws by itself, such as Claude Code's "Checking for updates". For the others, output
+    /// is all there is.
     func idleSeconds(at now: Date) -> TimeInterval {
         state.withLock { st in
             let last =
@@ -137,15 +141,16 @@ final class LiveSession: Sendable {
         }
     }
     var isAttached: Bool { state.withLock { !$0.attached.isEmpty } }
-    /// The tree when its last turn started.
+    /// The folder's tree when the last turn started.
     var turnBase: String? { state.withLock { $0.turnTree } }
     /// Where the agent worked when its last turn started: `turnBase` is a snapshot of that folder.
     var turnDir: String? { state.withLock { $0.turnFolder } }
     var lastTurn: Turn? { state.withLock { $0.turnResult } }
     var snapshot: Session { state.withLock { $0.record } }
 
-    /// The log's own last `ringLimit` bytes, read from the file, become the log: after a wake the ring holds only what was
-    /// printed since, and trimming to that would drop most of what the session showed before its pause. Its new size.
+    /// Trims the log to its own last `ringLimit` bytes, read from the file, and returns its new size. After a wake the
+    /// ring holds only what was printed since, and trimming to that would drop most of what the session showed before
+    /// its pause.
     private static func trimmed(_ log: FileHandle?, _ url: URL) -> Int? {
         guard let log, let tail = Data(tail: ringLimit, of: url) else { return nil }
         let trimmed: Void? = Log.session.attempt("trimming \(url.lastPathComponent)") {
@@ -164,7 +169,7 @@ final class LiveSession: Sendable {
         var trimLog = false
     }
 
-    /// On the PTY's queue, one chunk after another: the log is written here, after the lock, in that order.
+    /// Runs on the PTY's queue, one chunk after another, so the log is written here, after the lock, in that order.
     private func handleOutput(_ chunk: Data) {
         let text = state.withLock { st in
             let (whole, rest) = UTF8Chunks.split(st.utf8Carry + chunk)
@@ -173,7 +178,7 @@ final class LiveSession: Sendable {
         }
         let heard = state.withLock { hear(chunk, text, &$0) }
         // Disk, off the lock: a slow disk or the trim (a megabyte read back) doesn't hold up typing, attaching or status.
-        do { try log?.write(contentsOf: chunk) } catch {   // per chunk: said the first time only
+        do { try log?.write(contentsOf: chunk) } catch {   // fails per chunk; logged the first time only
             if !logFailed.withLock({
                 defer { $0 = true }
                 return $0
@@ -198,7 +203,8 @@ final class LiveSession: Sendable {
         callbacks.output(heard.id, chunk, heard.attached)
     }
 
-    /// Inside the lock: the chunk into the ring and the readers, and what to do about it once the lock is let go.
+    /// Inside the lock, feeds the chunk to the ring and the readers, and returns what to do about it once the lock is
+    /// let go.
     private func hear(_ chunk: Data, _ text: String, _ st: inout State) -> Heard {
         st.lastLifeUp = ProcessInfo.processInfo.systemUptime
         st.ring.append(chunk)
@@ -230,8 +236,8 @@ final class LiveSession: Sendable {
         return heard
     }
 
-    /// The auto-answer's key, once the question has had time to draw: only if it's still the one on screen and nobody
-    /// typed meanwhile (the key would land in their text, or answer whatever came next).
+    /// Presses the auto-answer's key once the question has had time to draw, but only if it's still the one on screen
+    /// and nobody typed meanwhile (the key would land in their text, or answer whatever came next).
     private func pressIfStillAsked(_ answer: (input: String, asked: NSRegularExpression, after: Double)) {
         let still = state.withLock { st -> Bool in
             guard !st.typedYet else { return false }
@@ -241,7 +247,7 @@ final class LiveSession: Sendable {
         if still { write(Data(answer.input.utf8)) }
     }
 
-    /// On the PTY's queue too, after its last output: the log closes after the last write.
+    /// Also runs on the PTY's queue, after its last output, so the log closes after the last write.
     private func handleExit(_ code: Int32) {
         state.withLock { st in
             st.ended = true
@@ -259,7 +265,8 @@ final class LiveSession: Sendable {
         if let log { Log.session.attempt("closing a history log") { try log.close() } }
     }
 
-    /// `kelp report`: the record to publish when only what it says changed (a new state goes out through `callbacks.status`).
+    /// Applies a `kelp report`. Returns the record to publish when only what it says changed (a new state goes out
+    /// through `callbacks.status`).
     func report(_ report: ProgramStatus.Report) -> Session? {
         state.withLock { st in
             st.apply(report)
@@ -270,17 +277,18 @@ final class LiveSession: Sendable {
     }
 
     /// Hands a change to `callbacks.status` (saved, sent to the app, turn bookkeeping) in the order the changes were made:
-    /// called inside `state.withLock`, so it's queued in that order and run one after another. Called after the lock,
-    /// from whichever thread made the change, an older "working" could be saved after a newer "done" and stay.
+    /// called inside `state.withLock`, so it's queued in that order and run one after another. If it were called after
+    /// the lock, from whichever thread made the change, an older "working" could be saved after a newer "done" and
+    /// stay.
     func emit(_ session: Session?) {
         guard let session else { return }
         statusQueue.async { self.callbacks.status(self, session) }   // holds the session until it ran: one just taken out of `live` still says so
     }
-    /// `body` on the status queue, after every change queued before it.
+    /// Runs `body` on the status queue, after every change queued before it.
     func inOrder(_ body: @escaping @Sendable () -> Void) { state.withLock { _ in statusQueue.async(execute: body) } }
 
-    /// What time moves on: a quiet screen settling its status, text waiting to be typed, the timers. Whether there was
-    /// anything to do: a session at rest (`State.atRest`) costs a look under its lock and no more.
+    /// Moves on what time moves on: a quiet screen settling its status, text waiting to be typed, the timers. Returns
+    /// whether there was anything to do; a session at rest (`State.atRest`) costs a look under its lock and no more.
     @discardableResult
     func tick() -> Bool {
         guard !state.withLock({ $0.atRest }) else { return false }
@@ -309,13 +317,15 @@ final class LiveSession: Sendable {
             let settled =
                 (quiet && Date().timeIntervalSince(st.started) > 2) || Date().timeIntervalSince(st.started) > 25
             if settled { st.startedUp = true }
-            // Not once it's let go: one being handed over takes what waits along (`handedOver`).
+            // Not once the session is let go, because a session being handed over takes what waits along with it
+            // (`handedOver`).
             if let prompt = st.pendingPrompts.first, settled, !st.letGo, st.readyForText(submits: !prompt.draft) {
                 st.pendingPrompts.removeFirst()
                 type(prompt.text, enter: !prompt.draft, paste: prompt.paste, &st)   // queued here, under the lock: nothing sent meanwhile gets ahead
             }
             if quiet, settled, !st.letGo, st.takesReport() {
-                // To a program that takes no pastes on one line: its newlines would submit a part of it each.
+                // For a program that takes no pastes, the report goes on one line, because each of its newlines would
+                // submit a part.
                 let report = st.reports.removeFirst()
                 type(
                     st.kept.pasteMode ? report : report.replacingOccurrences(of: "\n", with: " "), enter: true,
@@ -326,11 +336,12 @@ final class LiveSession: Sendable {
         return true
     }
 
-    /// Bytes into the program after anything Kelp is still typing (`sends`): a key never lands between a send's text and its Enter.
+    /// Writes bytes into the program after anything Kelp is still typing (`sends`), so a key never lands between a
+    /// send's text and its Enter.
     func write(_ data: Data) { sends.async { [pty] in pty.write(data) } }
 
-    /// For a hand-over: no input is taken from now on (a caller is refused, not told it went in), then waits until what
-    /// was taken is written to the program (one that doesn't read gives up after `within` seconds).
+    /// For a hand-over, stops taking input (a caller is refused, not told it went in), then waits until what was taken
+    /// is written to the program (a program that doesn't read is given up on after `within` seconds).
     func drainInput(within seconds: TimeInterval) {
         let end = Date().addingTimeInterval(seconds)
         _ = letGo()

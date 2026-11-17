@@ -4,9 +4,9 @@ import Core
 import Foundation
 import os
 
-/// What the agents leave on disk and what their plans allow: conversations (`history.list`; whose file is whose is
-/// `Conversations`'), token usage (`usage.get`, `usage.agents`), context windows and plan limits. Reading them takes
-/// long (gigabytes of transcripts), so what was read is kept here.
+/// What the agents leave on disk and what their plans allow: conversations (`history.list`; `Conversations` knows which
+/// file is whose), token usage (`usage.get`, `usage.agents`), context windows and plan limits. Reading them takes long
+/// (gigabytes of transcripts), so what was read is kept here.
 final class AgentUsage: Sendable {
     let root: URL
     let settings: SettingsStore
@@ -20,7 +20,7 @@ final class AgentUsage: Sendable {
     let agentIndexes: [UsageFormat: UsageIndex]
     /// Latest Claude plan usage by kind ("weekly", "session"…), as printed by Claude Code.
     let claudeLimits = OSAllocatedUnfairLock<[String: UsageGet.Limit]>(initialState: [:])
-    /// From the agents' own /usage screens, by agent id (UsageProbe).
+    /// The plan readings from the agents' own /usage screens, by agent id (UsageProbe).
     let plans = OSAllocatedUnfairLock<[String: PlanState]>(initialState: [:])
     /// Codex's limits as its app server last gave them, and when it was last asked (UsageProbe).
     let codexLive = OSAllocatedUnfairLock<(limits: CodexLimits?, at: Date, running: Bool)>(
@@ -30,13 +30,13 @@ final class AgentUsage: Sendable {
     let subagentTails = StatMemo<SessionSubagentSteps.Last?>()
     /// The agents used lately, and when that was read (`usedLately`).
     let usedLatelyRead = OSAllocatedUnfairLock<(at: Date, agents: Set<String>)?>(initialState: nil)
-    /// The usage probes running now, so the daemon's end ends them too.
+    /// The usage probes running now, so they end when the daemon ends.
     let openProbes: OpenProbes
     /// Which file each session's agent keeps its conversation in, and the Codex thread a transcript becomes.
     let conversations: Conversations
-    /// The transcripts history.list read last, by the folders read. Its search field asks on every keystroke, and each read
-    /// parses the head and tail of every conversation on disk: a search reuses the list read when the window opened (or a
-    /// minute ago). Keyed by folders.
+    /// The transcripts history.list read last, keyed by the folders it read. Its search field asks on every keystroke,
+    /// and each read parses the head and tail of every conversation on disk, so a search reuses the list read when the
+    /// window opened (or a minute ago).
     let historyRead = OSAllocatedUnfairLock<[[URL]: (at: Date, list: [AgentSessionInfo])]>(initialState: [:])
 
     let remotes: Remotes
@@ -49,7 +49,7 @@ final class AgentUsage: Sendable {
         let probes = OpenProbes()
         self.openProbes = probes
         self.conversations = Conversations(settings: settings, openProbes: probes, remotes: remotes)
-        // A new number in the name: a parser or price change reads everything again.
+        // A parser or price change bumps the number in the name, so everything is read again.
         self.usageIndex = UsageIndex(cache: root.appendingPathComponent("usage-index-3.json"))
         self.agentIndexes = Dictionary(
             uniqueKeysWithValues: UsageFormat.allCases.filter { $0 != .claude }.map {
@@ -57,7 +57,7 @@ final class AgentUsage: Sendable {
             })
     }
 
-    /// Where the agents keep their conversations, account profiles' included (`Conversations.roots`).
+    /// Where the agents keep their conversations, including those of account profiles (`Conversations.roots`).
     func agentRoots() -> (claude: [URL], codex: [URL]) { conversations.roots() }
 
     func recordLimits(_ readings: [LimitScreens.Reading]) {
@@ -70,8 +70,9 @@ final class AgentUsage: Sendable {
         }
     }
 
-    /// Every agent's usage since `since`, by agent id: the logs each keeps on this Mac (all account profiles' for Claude and
-    /// Codex). Cursor, Amp and fx keep no token counts there; Droid, Goose, Hermes and Kiro only a session's, not read.
+    /// Every agent's usage since `since`, by agent id, from the logs each keeps on this Mac (every account profile's
+    /// for Claude and Codex). Cursor, Amp and fx keep no token counts there. Droid, Goose, Hermes and Kiro keep counts
+    /// only per session, which aren't read.
     typealias AgentRow = (agent: String, row: UsageIndex.Row)
     func agentRows(since: Date) -> [AgentRow] {
         let roots = agentRoots(), exists = { (url: URL) in FileManager.default.fileExists(atPath: url.path) }
@@ -85,8 +86,8 @@ final class AgentUsage: Sendable {
         return out + databaseRows(since: since)
     }
 
-    /// The agents that keep their calls in SQLite (`AgentDatabases`), each database copied with its WAL to read. A copy on
-    /// the same disk is a clone: it takes no time or room however big the database.
+    /// The usage of the agents that keep their calls in SQLite (`AgentDatabases`). Each database is copied with its WAL
+    /// to be read. A copy on the same disk is a clone, so it takes no time or room however big the database.
     private func databaseRows(since: Date) -> [AgentRow] {
         let fm = FileManager.default,
             dir = fm.temporaryDirectory.appendingPathComponent("kelp-usage-\(UUID().uuidString)")
@@ -111,9 +112,10 @@ final class AgentUsage: Sendable {
         }
     }
 
-    /// Claude Code's window for `model`. Transcripts don't name it: 1M for the models that have it natively (Claude Code's
-    /// catalog says `native_1m`), else 1M once the model was seen past 200k tokens here (an older model with the [1m] opt-in;
-    /// in the newest transcripts, then in any reading), else 200k.
+    /// Claude Code's context window for `model`. Transcripts don't name it, so it is 1M for the models that have it
+    /// natively (Claude Code's catalog says `native_1m`). Otherwise it is 1M once the model was seen past 200k tokens
+    /// here (an older model with the [1m] opt-in), first in the newest transcripts and then in any reading. Otherwise
+    /// it is 200k.
     /// Limit: an older model with the opt-in that never went past 200k on this Mac reads as 200k until it does.
     func contextWindow(model: String, peak: Int) -> Int {
         if Self.nativeMillion(model) { return 1_000_000 }
@@ -165,7 +167,8 @@ final class AgentUsage: Sendable {
             primaryWindowMinutes: limits.primaryWindowMinutes, secondaryWindowMinutes: limits.secondaryWindowMinutes)
     }
 
-    /// Claude's own percentages from the last 12 hours (they reset; older readings mislead).
+    /// Returns `usage` with the plans' readings and Codex's limits added, and Claude's own percentages from the last 12
+    /// hours only (they reset, so older readings mislead).
     func withLimits(_ usage: UsageGet.Result) -> UsageGet.Result {
         var result = usage
         refreshPlansIfStale()

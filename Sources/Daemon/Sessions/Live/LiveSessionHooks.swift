@@ -4,22 +4,26 @@ import Foundation
 
 /// What an agent's hooks do to its session (`SessionHook`): its status, a Stop's verdict, its tools and commands.
 extension LiveSession {
-    /// Whether a hook that ran at `at` is the latest heard, or nothing says it isn't (a caller that doesn't send the time).
-    /// `says`: it says what the status is. A tool's hook doesn't, and it runs side by side with AskUserQuestion's own for the
-    /// same event: taken for the latest, it dropped that one, and the row kept asking.
+    /// Whether a hook that ran at `at` is the latest heard, or nothing says it isn't (a caller that doesn't send the
+    /// time).
+    /// `says` means the hook says what the status is. A tool's hook doesn't, and it runs side by side with
+    /// AskUserQuestion's own hook for the same event. When the tool's hook was taken for the latest, it dropped that
+    /// one, and the row kept asking.
     func newest(_ at: TimeInterval?, says: Bool) -> Bool {
         state.withLock { st in
             st.spoke()
             guard let at else { return true }
-            // The same time twice: a hook sent again when the daemon went away with its reply, already counted.
+            // The same time twice is a hook sent again after the daemon went away with its reply, and it was already
+            // counted.
             guard says ? at > st.newestHook : at >= st.newestHook else { return false }
             if says { st.newestHook = at }
             return true
         }
     }
 
-    /// `State.hook`: the record goes out when its status or what the row says changed. `at`: checked again here, in the lock
-    /// the change is made in: a newer hook on another thread may have gone first since `newest` said yes.
+    /// Applies a hook (`State.hook`); the record goes out when its status or what the row says changed. `at` is checked
+    /// again here, in the lock the change is made in, because a newer hook on another thread may have gone first since
+    /// `newest` said yes.
     func hook(
         _ event: HookEvent, trigger: String? = nil, message: String? = nil, asker: String? = nil,
         question: Bool = false,
@@ -36,8 +40,9 @@ extension LiveSession {
         }
     }
 
-    /// Kelp asks `question` for one of the agent's commands (a database change, `Databases`): the row asks it until
-    /// `kelpAsked`, whatever its screen says meanwhile (the command's own spinner); after the ones asked before it.
+    /// Asks Kelp's `question` for one of the agent's commands (a database change, `Databases`). The row asks it until
+    /// `kelpAsked`, whatever the screen says meanwhile (the command's own spinner), after the questions asked before
+    /// it.
     func askForKelp(_ question: String) {
         state.withLock { st in
             st.kelpQuestions.append(question)
@@ -45,8 +50,8 @@ extension LiveSession {
         }
     }
 
-    /// One of Kelp's questions is over, answered or not: that command goes on (or has ended); the row asks the next, or
-    /// says what it does.
+    /// Ends one of Kelp's questions, answered or not. Its command goes on (or has ended), and the row asks the next
+    /// question or says what the agent does.
     func kelpAsked(_ question: String) {
         state.withLock { st in
             guard let index = st.kelpQuestions.firstIndex(of: question) else { return }
@@ -56,7 +61,8 @@ extension LiveSession {
         }
     }
 
-    /// Background shells ended: they leave the record now, not at the next Stop. Whether it changed.
+    /// Removes background shells that ended from the record now, not at the next Stop. Returns whether the record
+    /// changed.
     func tasksEnded(_ ids: [String]) -> Bool {
         state.withLock { st in
             let gone = st.kept.turnEnd.ended(ids), left = st.record.background?.filter { !gone.contains($0) }
@@ -67,8 +73,9 @@ extension LiveSession {
         }
     }
 
-    /// It says it has sat at its prompt for a minute. Claude Code says so only after a finished turn: not with a dialog open,
-    /// not after Esc (2.1.316), so a row still working or asking missed a Stop. Droid says it instead of a Stop when Esc stopped it.
+    /// The agent says it has sat at its prompt for a minute. Claude Code says so only after a finished turn, not with a
+    /// dialog open and not after Esc (2.1.316), so a row still working or asking missed a Stop. Droid says it instead
+    /// of a Stop when Esc stopped it.
     func atPrompt() {
         state.withLock { st in
             guard !st.kept.holding, st.detector.status == .working || st.detector.status == .waiting else { return }
@@ -78,7 +85,7 @@ extension LiveSession {
         }
     }
 
-    /// The /goal the turn's prompt set, once: its first Stop goes by it.
+    /// Takes, once, the /goal the turn's prompt set, so the turn's first Stop goes by it.
     func takeGoalAsked() -> String? {
         state.withLock { st in
             defer { st.goalAsked = nil }
@@ -122,7 +129,7 @@ extension LiveSession {
         }
     }
 
-    /// One of its subagents started (`kind` says what it is) or ended (nil). Whether the record changed.
+    /// Records that a subagent started (`kind` says what it is) or ended (nil). Returns whether the record changed.
     func subagent(_ id: String?, kind: String?) -> Bool {
         state.withLock { st in
             st.heard()
@@ -138,7 +145,7 @@ extension LiveSession {
 
     static let commandLimit = 100
 
-    /// A tool started or ended, or a batch of them did (`kelp hook command`): `State.tool`.
+    /// Records that a tool started or ended, or a batch of them did (`kelp hook command`), through `State.tool`.
     func tool(_ hook: String?, agent: String?) {
         state.withLock { st in
             st.tool(hook, agent: agent)
@@ -146,8 +153,8 @@ extension LiveSession {
         }
     }
 
-    /// A command its shell tool started or ended (`kelp hook command`), into its list; the row says the one running. The
-    /// record when what it runs changed. `agent`: the subagent whose tool it is.
+    /// Adds a command the shell tool started or ended (`kelp hook command`) to the session's list; the row says the one
+    /// running. Returns the record when what it runs changed. `agent` is the subagent whose tool it is.
     func ran(_ command: AgentCommand, by agent: String? = nil) -> Session? {
         state.withLock { st in
             st.commandAgents[command.id] = command.outcome == nil ? agent : nil
@@ -171,7 +178,7 @@ extension LiveSession {
         }
     }
 
-    /// The subagent whose `kelp browser` command asks now (nil: the agent's own): `LiveSession.browsing`.
+    /// The subagent whose `kelp browser` command asks now (nil for the agent's own), from `LiveSession.browsing`.
     func browsing(_ words: String) -> String? {
         state.withLock { st in Self.browsing(words, st.commands, st.commandAgents) }
     }
@@ -193,7 +200,7 @@ extension LiveSession {
         return match.flatMap { agents[$0.id] }
     }
 
-    /// The time to `release` by, if a Stop is held (an update took the wait for it along: it starts over).
+    /// The time to `release` by, if a Stop is held. The wait starts over, because an update ended the old one.
     func heldAgain() -> Date? {
         state.withLock { st in
             guard st.kept.holding else { return nil }
@@ -203,7 +210,8 @@ extension LiveSession {
         }
     }
 
-    /// A Stop held as working that nothing came after (`at`: its time): the goal was met, or the wait ran out.
+    /// Releases a Stop held as working that nothing came after (`at` is its time), because the goal was met or the wait
+    /// ran out.
     func release(_ at: Date) {
         state.withLock { st in
             guard st.lastHookAt == at, st.detector.status == .working else { return }

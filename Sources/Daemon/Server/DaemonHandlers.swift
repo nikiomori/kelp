@@ -2,7 +2,7 @@ import Core
 import Foundation
 import ServiceManagement
 
-// daemon.*: ping, shutdown, upgrade, and whether it may run in the background: the daemon's own lifetime.
+// daemon.*: the daemon's own lifetime (ping, shutdown, upgrade, and whether it may run in the background).
 
 extension Ping: Handled {
     static let agents = AgentAccess.reads
@@ -10,8 +10,8 @@ extension Ping: Handled {
     func handle(_: NoService) throws -> String { "pong" }
 }
 extension DaemonShutdown: Handled {
-    /// In order, as daemon.upgrade: the stop starts once its reply is queued, and the replies queued go out before
-    /// anyone is hung up (`Daemon.answerInOrder`), not on a timer a busy machine could outrun.
+    /// Answered in order, like daemon.upgrade. The stop starts once its reply is queued, and the queued replies go out
+    /// before anyone is hung up (`Daemon.answerInOrder`). Nothing waits on a timer that a busy machine could outrun.
     static var inOrder: Bool { true }
     func handle(_: Shutdown) throws -> Done { Done() }
     static func replied(_ shutdown: Shutdown) { Thread.detachNewThread(shutdown.run) }
@@ -24,19 +24,20 @@ struct Shutdown {
 }
 
 extension DaemonUpgrade: Handled {
-    /// Answered on the reader thread, its reply queued right after: the hand-over (which drains what's queued) starts
-    /// once it is, not on a timer that a busy cooperative pool could outrun (`Daemon.serve`).
+    /// Answered on the reader thread, with its reply queued right after. The hand-over (which drains what's queued)
+    /// starts once the reply is queued, not on a timer that a busy cooperative pool could outrun (`Daemon.serve`).
     static var inOrder: Bool { true }
     func handle(_ upgrade: Upgrade) throws -> Done {
-        // Only kelpd itself: a daemon hosted in another program (the tests) would exec that program.
+        // Only kelpd itself upgrades, because a daemon hosted in another program (the tests) would exec that program.
         guard URL(fileURLWithPath: upgrade.executable).lastPathComponent == "kelpd",
             FileManager.default.isExecutableFile(atPath: upgrade.executable)
         else {
             throw RPCError.invalidParams("no kelpd to upgrade to at \(upgrade.executable)")
         }
         if let why = upgrade.refused() { throw RPCError.invalidParams(why) }
-        // Before the reply, so a refusal reaches the app as this call's error and it asks the user at once, instead of
-        // reconnecting to a daemon that stayed. The app waits for this answer; only its own connection is held meanwhile.
+        // This check runs before the reply, so a refusal reaches the app as this call's error and it asks the user at
+        // once, instead of reconnecting to a daemon that stayed. The app waits for this answer; only its own connection
+        // is held meanwhile.
         guard Subprocess.allowingPrograms(upgrade.adoptable) else {
             let why = "The new background service can't take the running sessions over."
             Upgrade.refuse(root: upgrade.root, executable: upgrade.executable, why)
@@ -49,12 +50,12 @@ extension DaemonUpgrade: Handled {
     static func replied(_ upgrade: Upgrade) { Thread.detachNewThread(upgrade.run) }
 }
 
-/// daemon.upgrade's: the binary the daemon runs and its exec in place, nothing else of it.
+/// What daemon.upgrade needs from the daemon: the binary it runs and the exec in place, nothing else.
 struct Upgrade {
     let executable: String, root: URL
     /// Whether the kelpd at `executable` takes the sessions over (`Handover.adoptable`).
     var adoptable: () -> Bool = { true }
-    /// Until no slow work is running (at most a few seconds).
+    /// Waits until no slow work is running (at most a few seconds).
     var waitIdle: () -> Void = {}
     let run: @Sendable () -> Void
 
@@ -78,7 +79,8 @@ struct Upgrade {
 }
 
 extension DaemonBackgroundAllowed: Handled {
-    /// Off the reader: each `status` waits for the system. A kelpd outside an app (a build's) has no such switch.
+    /// Runs off the reader thread, because each `status` waits for the system. A kelpd outside an app (in a build
+    /// folder) has no such switch, so it says yes.
     func handle(_: NoService) throws -> Bool {
         let app = Bundle.main.bundleURL, suffix = (Bundle.main.bundleIdentifier ?? "").dropFirst("dev.kelp.app".count)
         guard app.pathExtension == "app" else { return true }

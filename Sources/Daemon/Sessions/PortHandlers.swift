@@ -1,7 +1,8 @@
 import Core
 import Foundation
 
-// ports.* and session.usage: what the sessions' processes listen on and use, stopping one, forwarding a host's port.
+// ports.* and session.usage: the ports the sessions' processes listen on and what they use, stopping a process, and
+// forwarding a host's port.
 
 extension PortsList: Handled {
     static let agents = AgentAccess.reads
@@ -14,7 +15,8 @@ extension SessionUsage: Handled {
 
 extension PortsStop: Handled {
     static let agents = AgentAccess.acts
-    // said, not left to the walk: it stops a process, and an id of no workspace finds none
+    // the workspace is named, not left to the walk, because this stops a process; an id of no workspace finds no
+    // process
     var fence: Fence { Fence(inWorkspace: worktreeId) }
     func handle(_ processes: SessionProcesses) throws -> Done {
         let pid = Int32(clamping: pid ?? 0)

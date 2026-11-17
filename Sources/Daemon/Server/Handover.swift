@@ -7,8 +7,9 @@ import os
 /// running session's terminal, all left open across exec in the same process. The programs stay this process's children
 /// and never notice; what they print meanwhile waits in their terminals.
 public struct Handover: Codable, Sendable {
-    /// `modes` and `bytes`: its history, as the last `bytes` of its log in those terminal modes. `pending`: text sent
-    /// that waits for the agent to be ready (a launch prompt, a send while a question is open), typed by the next one.
+    /// One running session. `modes` and `bytes` give its history: the last `bytes` of its log, in those terminal modes.
+    /// `pending` is text sent that waits for the agent to be ready (a launch prompt, a send while a question is open),
+    /// which the next kelpd types.
     struct Session: Codable, Sendable {
         var id: String, pid: Int32, fd: Int32, modes: String, bytes: Int
         var pending: [Prompt]?
@@ -16,12 +17,13 @@ public struct Handover: Codable, Sendable {
         var reports: [String]?
     }
     struct Prompt: Codable, Sendable { var text: String, draft: Bool, paste: Bool }
-    /// What a session's status and typing depend on, apart from its record: the session's whole `Kept` value, with its
-    /// fields next to `hooked` (the status detector's), as earlier kelpds wrote them one by one.
+    /// What a session's status and typing depend on, apart from its record: the session's whole `Kept` value. Its
+    /// fields are encoded next to `hooked` (from the status detector), as earlier kelpds wrote them one by one.
     struct Status: Codable, Sendable {
         var kept: LiveSession.Kept
         var hooked: Bool?
-        /// Whether `pasteMode` was said: a kelpd from before it leaves the modes its terminal is in to tell.
+        /// Whether the hand-over has `pasteMode`. When a kelpd from before that field wrote it, the session's terminal
+        /// modes tell instead.
         var saysPasteMode = true
 
         private enum CodingKeys: String, CodingKey { case hooked, pasteMode }
@@ -48,14 +50,14 @@ public struct Handover: Codable, Sendable {
     var sessions: [Session]
     // A newer kelpd reads what an older one wrote: fields are only ever added, as optionals.
 
-    /// What `kelpd --can-adopt` prints: the kelpd being exec'd into says it runs here and reads this hand-over, before
-    /// any session is given up. One that can't (another architecture, a broken signature, a kelpd from before the flag)
-    /// prints something else or nothing.
+    /// What `kelpd --can-adopt` prints. With it, the kelpd about to be exec'd into says that it runs here and reads
+    /// this hand-over, before any session is given up. A kelpd that can't (another architecture, a broken signature, a
+    /// kelpd from before the flag) prints something else or nothing.
     public static let canAdopt = "kelpd adopts handover 1"
     static let storeFile = "kelp.sqlite"
 
-    /// `kelpd --can-adopt`'s answer in `root`: `canAdopt` once the store there, if any (`adoptable`'s copy), opens and
-    /// migrates; else why not.
+    /// The answer `kelpd --can-adopt` gives in `root`. It is `canAdopt` when there is no store there, or when the store
+    /// (`adoptable`'s copy) opens and migrates. Otherwise it says why not.
     public static func canAdopt(root: URL) -> (ok: Bool, said: String) {
         let path = root.appendingPathComponent(storeFile).path
         guard FileManager.default.fileExists(atPath: path) else { return (true, canAdopt) }
@@ -67,12 +69,12 @@ public struct Handover: Codable, Sendable {
         }
     }
 
-    /// Whether the kelpd at `executable` takes sessions over (`canAdopt`), asked by running it. In a home of its own: a
-    /// kelpd from before the flag starts as a daemon instead, there, touching nothing of this one's (its store, its
-    /// lock), and is stopped at the time limit. `home`: where that one is made. `store`: puts a copy of this one's store
-    /// there, which the new kelpd opens and migrates as it would after the exec: one that can't is refused here, while
-    /// every agent can still go on, not after the exec, which would end them all. Asked in an empty home first: a kelpd
-    /// from before the flag mustn't start on a copy of the user's sessions.
+    /// Whether the kelpd at `executable` takes sessions over (`canAdopt`), found by running it in a home of its own. A
+    /// kelpd from before the flag starts as a daemon there instead, touching nothing of this daemon's (its store, its
+    /// lock), and is stopped at the time limit. `home` is where that scratch home is made. `store` puts a copy of this
+    /// daemon's store there, which the new kelpd opens and migrates as it would after the exec. A kelpd that can't is
+    /// refused here, while every agent can still go on, not after the exec, which would end them all. It is asked in an
+    /// empty home first, because a kelpd from before the flag mustn't start on a copy of the user's sessions.
     static func adoptable(_ executable: String, home: URL, store: (_ copy: URL) throws -> Void = { _ in }) -> Bool {
         let scratch = home.appendingPathComponent("adopt-check-\(getpid())")
         defer {
@@ -102,8 +104,8 @@ public struct Handover: Codable, Sendable {
             && answers()
     }
 
-    /// The file `kelpd --adopt` names, read and removed. Nil if it can't be read: then the lock this process still holds
-    /// makes the start fail, and the sessions end with it, as after a crash.
+    /// Reads and removes the file `kelpd --adopt` names. Returns nil if it can't be read; then the lock this process
+    /// still holds makes the start fail, and the sessions end with it, as after a crash.
     public static func take(_ path: String) -> Handover? {
         defer { unlink(path) }
         do { return try JSONDecoder().decode(Handover.self, from: Data(contentsOf: URL(fileURLWithPath: path))) } catch
@@ -113,9 +115,9 @@ public struct Handover: Codable, Sendable {
         }
     }
 
-    /// What the kelpd before this one still ran besides the sessions (a git, a language server it was stopping) is this
-    /// process's now: reaped once it ends instead of staying a zombie. Called before this run starts a program of its own,
-    /// whose exit is its runner's to read.
+    /// Reaps what the kelpd before this one still ran besides the sessions (a git, a language server it was stopping).
+    /// Those are this process's children now, so each is reaped when it ends instead of staying a zombie. Call it
+    /// before this run starts a program of its own, because that program's exit is for its runner to read.
     public func reapOthers() {
         let kept = Set(sessions.map(\.pid))
         var pids = [pid_t](repeating: 0, count: 4096)
@@ -128,8 +130,8 @@ public struct Handover: Codable, Sendable {
         }
     }
 
-    /// Exec in place (`POSIX_SPAWN_SETEXEC`) of `exe --adopt file`: the same process, pid and children; of its files only
-    /// stdio and these stay open. Returns only by throwing.
+    /// Execs `exe --adopt file` in place (`POSIX_SPAWN_SETEXEC`), keeping the same process, pid and children. Of its
+    /// files, only stdio and the hand-over's stay open. Returns only by throwing.
     func exec(_ exe: String, file: String) throws {
         var attr: posix_spawnattr_t?
         posix_spawnattr_init(&attr)

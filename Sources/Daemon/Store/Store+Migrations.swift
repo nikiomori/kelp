@@ -231,7 +231,7 @@ extension Store {
         migrator.registerMigration("worktree.madeBy") { db in
             try db.alter(table: "worktree") { t in t.add(column: "madeBy", .text) }
         }
-        // a project's databases: added by hand, or what was changed of a found one
+        // a project's databases: added by hand, or the changes made to a found one
         migrator.registerMigration("database") { db in
             try db.create(table: "database") { table in
                 table.primaryKey("id", .text)   // repoId/name
@@ -240,14 +240,15 @@ extension Store {
                 table.column("json", .text).notNull()   // the Database, as sent
             }
         }
-        migrator.registerMigration("databaseLibrary") { db in   // "All my projects": no project's
+        migrator.registerMigration("databaseLibrary") { db in   // "All my projects": databases of no project
             try db.create(table: "databaseLibrary") { table in
                 table.primaryKey("id", .text)   // its name
                 table.column("json", .text).notNull()
             }
         }
-        // Production is the user's word only: the marks Kelp guessed from a host or a name go, once. Kelp didn't keep
-        // who set a mark, so all go; a server elsewhere stays read only for agents through its access.
+        // Only the user marks a database as production, so the marks Kelp guessed from a host or a name are removed,
+        // once. Kelp didn't keep who set a mark, so all of them go; a server elsewhere stays read-only for agents
+        // through its access.
         migrator.registerMigration("database.productionByHand") { db in
             for table in ["database", "databaseLibrary"] {
                 for row in try Row.fetchAll(db, sql: "SELECT id, json FROM \(table)") {
@@ -268,10 +269,10 @@ extension Store {
                 }
             }
         }
-        // What the daemon decides by or keeps for itself, out of the app's state, which `state.set` writes as it's
-        // told: the user's trust as it was, and the port forwardings (there a JSON string of their JSON) as their JSON.
-        // Copied, not moved: an older daemon on this store (a downgrade) still finds them where it looks; from here on
-        // daemonState is what counts.
+        // Copies what the daemon decides by or keeps for itself out of the app's state, which `state.set` writes as
+        // it's told. The user's trust is copied as it was, and the port forwardings (kept there as a JSON string of
+        // their JSON) are copied as their JSON. They are copied, not moved, so an older daemon on this store (a
+        // downgrade) still finds them where it looks. From here on, daemonState is what counts.
         migrator.registerMigration("daemonState") { db in
             try db.create(table: "daemonState") { table in
                 table.primaryKey("key", .text)
@@ -293,7 +294,7 @@ extension Store {
             try db.alter(table: "session") { t in t.add(column: "role", .text) }
         }
         // Sessions are read by their workspace (an agent's every acting call, `ending`) and by who started them
-        // (`endChildren`): looked up, not every session read.
+        // (`endChildren`), so these indexes look them up instead of reading every session.
         migrator.registerMigration("session.indexes") { db in
             try db.create(index: "session_worktreeId", on: "session", columns: ["worktreeId"])
             try db.create(index: "session_parent", on: "session", columns: ["parent"])

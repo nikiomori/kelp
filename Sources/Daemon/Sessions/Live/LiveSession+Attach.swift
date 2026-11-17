@@ -6,10 +6,11 @@ import Foundation
 
 extension LiveSession {
     func tail(_ count: Int) -> Data { state.withLock { $0.ring.suffix(min(max(0, count), Self.ringLimit)) } }
-    /// The history, `conn` gets the output from here on. `send` runs under the lock with that history, so it goes out
-    /// before any of the live output that follows. It starts by setting the modes the cut-off part had set (Codex's
-    /// alternate screen and mouse reporting): without them the new terminal keeps the wheel and clicks to itself.
-    /// nil once it was let go (`letGo`): its program is stopping, and nothing it shows would be live.
+    /// Attaches `conn` and returns the history; `conn` gets the output from here on. `send` runs under the lock with
+    /// that history, so it goes out before any of the live output that follows. The history starts by setting the modes
+    /// the cut-off part had set (Codex's alternate screen and mouse reporting), because without them the new terminal
+    /// keeps the wheel and clicks to itself. Returns nil once the session was let go (`letGo`), because its program is
+    /// stopping and nothing it shows would be live.
     @discardableResult
     func attach(_ conn: Int, send: @Sendable (Data) -> Void = { _ in }) -> Data? {
         let history = state.withLock { st -> Data? in
@@ -23,7 +24,8 @@ extension LiveSession {
         return history
     }
     func detach(_ conn: Int) { state.withLock { _ = $0.attached.remove(conn) } }
-    /// Out of `live` with its program still to stop (paused, deleted): nobody attaches from now on. Who was attached.
+    /// Lets go of a session taken out of `live` with its program still to stop (paused, deleted), so nobody attaches
+    /// from now on. Returns who was attached.
     func letGo() -> Set<Int> {
         state.withLock { st in
             st.letGo = true
@@ -32,8 +34,9 @@ extension LiveSession {
         }
     }
 
-    /// Input from a client, `work` writing it: nil (nothing done) once the session was let go, its program stopping, so
-    /// the caller wakes it again instead. An idle pause doesn't let go of one with input on its way (`letGoIdle`).
+    /// Takes input from a client, with `work` writing it. Returns nil (nothing done) once the session was let go and
+    /// its program is stopping, so the caller wakes it again instead. An idle pause doesn't let go of a session with
+    /// input on its way (`letGoIdle`).
     func input<T>(_ work: () throws -> T) rethrows -> T? {
         let open = state.withLock { st -> Bool in
             guard !st.letGo else { return false }
@@ -45,12 +48,14 @@ extension LiveSession {
         defer { state.withLock { $0.inputsInFlight -= 1 } }
         return try work()
     }
-    /// Drawn and quiet after its start (or 25 s on): text sent now is typed at once, not kept for later.
+    /// Whether the program has drawn and gone quiet after its start (or 25 s passed), so text sent now is typed at
+    /// once, not kept for later.
     var startedUp: Bool { state.withLock { $0.startedUp } }
-    /// Inputs taken so far: an idle pause lets go only if none came after it looked.
+    /// How many inputs were taken so far. An idle pause lets go only if none came after it looked.
     var inputs: Int { state.withLock { $0.inputs } }
-    /// `letGo` for an idle pause: only while nobody is attached, no input came since there were `seen`, and it still rests.
-    /// Candidates go one after another, up to 3 s each, so a later one may have moved on since it was picked.
+    /// `letGo` for an idle pause. It lets go only while nobody is attached, no input came since there were `seen`, and
+    /// the session still rests. Candidates go one after another, up to 3 s each, so a later one may have moved on since
+    /// it was picked.
     func letGoIdle(seen: Int) -> Bool {
         state.withLock { st in
             guard st.attached.isEmpty, st.inputs == seen, st.inputsInFlight == 0,
@@ -62,8 +67,9 @@ extension LiveSession {
         }
     }
 
-    /// Given up to the kelpd that takes over (`Sessions.handOver`), its output no longer read here: what that one needs to
-    /// show the same history. The log holds every byte the ring does by now (it's written as output is handled).
+    /// Gives the session up to the kelpd that takes over (`Sessions.handOver`), and its output is no longer read here.
+    /// Returns what the new kelpd needs to show the same history. The log holds every byte the ring does by now (it's
+    /// written as output is handled).
     func handedOver(fd: Int32) -> Handover.Session {
         state.withLock { st in
             Handover.Session(
@@ -75,10 +81,11 @@ extension LiveSession {
         }
     }
 
-    /// Taken over from the kelpd this one replaced: its history is the log's last `bytes` (that one's ring), in `modes`. It's
-    /// long past starting up: no launch prompt, startup answer or title from its first prompt comes now.
+    /// Sets up a session taken over from the kelpd this one replaced. Its history is the log's last `bytes` (the old
+    /// kelpd's ring), in `modes`. It's long past starting up, so no launch prompt, startup answer or title from its
+    /// first prompt comes now.
     /// What was waiting to be typed (`pending`) is typed here once the agent is ready, as it would have been there.
-    /// `status`: what its status rested on there; nil from a kelpd that didn't say.
+    /// `status` is what its status rested on there; it is nil from a kelpd that didn't say.
     func adopted(
         modes: String, bytes: Int, pending: [Handover.Prompt] = [], reports: [String] = [],
         status: Handover.Status? = nil
@@ -98,7 +105,8 @@ extension LiveSession {
                 hooked: status?.hooked
             )
             st.trail.add("\(st.record.status.rawValue) → \(st.detector.status.rawValue)  \(st.detector.source)")
-            // A question read again and found to be none: the turn ended long ago, so one already read stays read.
+            // A question read again may turn out to be none. The turn then ended long ago, so a session already read
+            // stays read.
             if st.detector.status != st.record.status {
                 st.record.status = st.detector.status
                 emit(st.record)

@@ -4,10 +4,10 @@ import Darwin
 import Foundation
 import os
 
-/// Whether Codex trusts Kelp's hooks as `CodexHooks` passes them: asked once per Codex binary (its path, size and date)
-/// of `codex app-server` (`hooks/list`, about 0.1 s). Only then do its sessions get them. A hash Codex doesn't agree
-/// with would stop the start at its "review these hooks" question, where the prompt Kelp types would land. Until then,
-/// and with a Codex that has no hooks, its status comes from its screen as before.
+/// Tells whether Codex trusts Kelp's hooks as `CodexHooks` passes them, by asking `codex app-server` (`hooks/list`,
+/// about 0.1 s) once per Codex binary (its path, size and date). Only then do its sessions get the hooks. A hash Codex
+/// doesn't agree with would stop the start at its "review these hooks" question, where the prompt Kelp types would
+/// land. Until then, and with a Codex that has no hooks, the session's status comes from its screen as before.
 final class CodexHookCheck: Sendable {
     private let known = OSAllocatedUnfairLock<[String: (answer: Bool, at: Date)]>(initialState: [:])
     private let ask: @Sendable (String) -> [String: Any]?
@@ -25,16 +25,17 @@ final class CodexHookCheck: Sendable {
         check(Self.fingerprint(path), "codex at \(path)") { Self.agrees(ask(path)) }
     }
 
-    /// The Codex on a remote project's host, with the hooks it gets there: asked over ssh, once per host while this
-    /// kelpd runs (up to 10 s, at its first Codex session). None there, or none that knows hooks: its screen is read,
-    /// and the host is asked again ten minutes on (Codex installed or updated there meanwhile).
+    /// Whether the Codex on a remote project's host trusts the hooks it gets there. It is asked over ssh, once per host
+    /// while this kelpd runs (up to 10 s, at its first Codex session). With no Codex there, or one that doesn't know
+    /// hooks, its screen is read, and the host is asked again ten minutes later (Codex installed or updated there
+    /// meanwhile).
     func agrees(on host: RemoteHost) -> Bool {
         check("ssh:" + host.host, "codex on \(host.host)", noFor: 600) {
             Self.agrees(askHost(host), events: CodexHooks.hostEvents)
         }
     }
 
-    /// `noFor`: how long a no stands before it's asked again; a yes stands.
+    /// `noFor` is how long a no stands before it's asked again; a yes stands for good.
     private func check(_ id: String, _ what: String, noFor: TimeInterval = .infinity, _ ask: () -> Bool) -> Bool {
         if let known = known.withLock({ $0[id] }), known.answer || Date().timeIntervalSince(known.at) < noFor {
             return known.answer
@@ -45,7 +46,7 @@ final class CodexHookCheck: Sendable {
         return answer
     }
 
-    /// Every Kelp hook listed as trusted.
+    /// Whether every Kelp hook is listed as trusted.
     static func agrees(
         _ answer: [String: Any]?, events: [CodexHooks.Event] = CodexHooks.events
     ) -> Bool {
@@ -57,15 +58,16 @@ final class CodexHookCheck: Sendable {
     }
 
     @Sendable static func hooksList(_ path: String) -> [String: Any]? {
-        // Ask from a folder of its own: a project's .codex hooks are a separate question, and Kelp's hooks are the same
-        // everywhere.
+        // Asks from a folder of its own, because a project's .codex hooks are a separate question and Kelp's hooks are
+        // the same everywhere.
         let cwd = NSTemporaryDirectory()
         let params = #"{"cwds":["# + ShellQuote.doubleQuoted(cwd) + "]}"
         return AgentUsage.askCodex(path: path, args: CodexHooks.args, method: "hooks/list", params: params, within: 5)
     }
 
-    /// Its app server started on the host as its sessions are, with the hooks they get, asked about the project's folder.
-    /// No terminal there and no password asked (BatchMode): one that would ask is a no, at once.
+    /// Asks the host's Codex app server, started as its sessions are and with the hooks they get, about the project's
+    /// folder. There is no terminal there and no password is asked (BatchMode), so a host that would ask counts as a
+    /// no, at once.
     @Sendable static func hooksList(on host: RemoteHost) -> [String: Any]? {
         let codex = host.command(["codex", "app-server"] + CodexHooks.hostArgs)
         let params = #"{"cwds":["# + ShellQuote.doubleQuoted(host.path) + "]}"
@@ -73,7 +75,7 @@ final class CodexHookCheck: Sendable {
             argv: [host.ssh] + host.sshArgs(tty: false) + [codex], method: "hooks/list", params: params, within: 10)
     }
 
-    /// A new Codex (an update replaces the file) is asked again.
+    /// Identifies the Codex binary, so a new Codex (an update replaces the file) is asked again.
     static func fingerprint(_ path: String) -> String {
         let real = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
         var info = stat()

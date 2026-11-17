@@ -3,8 +3,9 @@ import Agents
 import Core
 import Foundation
 
-/// A project's switches for skills, MCP servers and plugins (`addons.set`), and how a chat that starts is told: the
-/// choice is Kelp's own (UI state `addons.off.<repo>`), and reaches the agent on its command line, for that run only.
+/// A project's switches for skills, MCP servers and plugins (`addons.set`), and how a starting chat is told about them.
+/// The choice is Kelp's own (UI state `addons.off.<repo>`) and reaches the agent on its command line, for that run
+/// only.
 extension SessionSetup {
     static func addonsOffKey(_ repo: String) -> String { "addons.off.\(repo)" }
 
@@ -26,8 +27,9 @@ extension SessionSetup {
         try store.setUIState(Self.addonsOffKey(repo), off.isEmpty ? nil : .array(off.sorted().map(JSONValue.string)))
     }
 
-    /// The settings file a chat of `manifest`'s starts with: Kelp's hooks, and for Claude Code in a project with
-    /// something off, that too, in a file of the project's own. One file: a second `--settings` would replace the first.
+    /// The settings file a chat of `manifest` starts with. It holds Kelp's hooks, and for Claude Code in a project with
+    /// something turned off, the switches too, in a file of the project's own. It is one file, because a second
+    /// `--settings` would replace the first.
     func settingsFile(_ manifest: AgentManifest, worktreeId: String?) throws -> URL {
         let plain = hooksDir(manifest).appendingPathExtension("json")
         let (repo, off) = manifest.id == Session.claudeAgent ? addonsOff(worktreeId: worktreeId) : (nil, [])
@@ -61,11 +63,13 @@ extension SessionSetup {
         return out
     }
 
-    /// Kelp's own servers (`addons.add`): for every project, handed to the agents that take one at a start.
+    /// The file of Kelp's own servers (`addons.add`), for every project, handed to the agents that take a servers file
+    /// at start.
     var serversFile: URL { root.appendingPathComponent("mcp.json") }
 
-    /// Kelp's servers a chat in the workspace starts with: all but what's off in its project.
-    /// A project's `.mcp.json` isn't among them: a branch can bring one, and the agent that reads it asks first.
+    /// Kelp's servers that a chat in the workspace starts with: all of them except the ones turned off in its project.
+    /// A project's `.mcp.json` isn't among them, because a branch can bring one, and the agent that reads it asks
+    /// first.
     func handedServers(worktreeId: String?) -> [String: ServerEntry] {
         let off = addonsOff(worktreeId: worktreeId).off
         return ServerFiles.read(serversFile).filter { !off.contains("server:\($0.key)") }
@@ -86,13 +90,14 @@ extension SessionSetup {
         return ServerFiles.read(serversFile).isEmpty ? out : out + [flag, serversFile.path]
     }
 
-    /// What Kelp's servers need of a Codex chat's environment (`ServerFiles.codex`): what they sign in with.
+    /// The environment variables Kelp's servers need in a Codex chat (`ServerFiles.codex`): what they sign in with.
     func codexEnvironment(worktreeId: String?) -> [String: String] {
         ServerFiles.codex(handedServers(worktreeId: worktreeId)).environment
     }
 
-    /// A Codex `argv` with its own servers that are off here left out and Kelp's servers passed in, right after the
-    /// program. Limit: at a restart, a `-c mcp_servers.…` the person typed themselves is taken for one of Kelp's.
+    /// A Codex `argv` that leaves out Codex's own servers turned off here and passes Kelp's servers in, right after the
+    /// program.
+    /// Limit: at a restart, a `-c mcp_servers.…` the person typed themselves is taken for one of Kelp's.
     func withCodexSwitches(_ argv: [String], worktreeId: String?) -> [String] {
         var out: [String] = [], index = 0
         while index < argv.count {
@@ -105,7 +110,7 @@ extension SessionSetup {
         }
         let off = addonsOff(worktreeId: worktreeId).off, own = AddonFiles().codexServers()
         guard !out.isEmpty else { return out }
-        // One Codex has itself stays its own: Kelp's of the same name isn't laid over it.
+        // A server Codex has itself stays its own: Kelp's server of the same name isn't laid over it.
         let handed = handedServers(worktreeId: worktreeId).filter { !own.contains($0.key) }
         out.insert(contentsOf: AddonSwitches.codexArgs(off, servers: own) + ServerFiles.codex(handed).args, at: 1)
         return out

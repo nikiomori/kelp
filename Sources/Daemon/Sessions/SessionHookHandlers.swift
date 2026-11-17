@@ -4,7 +4,7 @@ import Foundation
 
 // session.hook and session.annotate: what an agent's hooks, and Kelp's window, say about a session.
 
-/// A late one (it was paused or ended since) wakes nothing.
+/// A late hook (its session was paused or ended since) wakes nothing.
 extension SessionHook: Handled {
     static let agents = AgentAccess.acts
     var fence: Fence { Fence(reportsFor: id) }
@@ -27,7 +27,8 @@ extension SessionHook: Handled {
         }
         guard let name = event else { throw RPCError.invalidParams("missing event") }
         guard let event = HookEvent(rawValue: name) else {
-            // A hooks file from another Kelp, or a typo in an agent's: said here, where it arrives, and nothing more.
+            // A hooks file from another Kelp, or a typo in an agent's, is logged here, where it arrives, and nothing
+            // more happens.
             Log.session.error("a hook said \(name, privacy: .public), which is no event")
             ls.trail.add("\(trailLine): no such event")
             return Done()
@@ -41,7 +42,7 @@ extension SessionHook: Handled {
             ls.edited(edited)
             sessions.touchEdits(ls)
         }
-        if event == .subagent {   // who runs says nothing of the turn: its Stop does
+        if event == .subagent {   // a subagent starting or stopping says nothing of the turn; its Stop does
             ls.trail.add(trailLine)
             if ls.subagent(agentId, kind: hookName == "SubagentStart" ? agentType ?? "" : nil) { sessions.publish(ls) }
             return Done()
@@ -50,7 +51,7 @@ extension SessionHook: Handled {
             ls.trail.add("\(trailLine): older than what it said since")
             return Done()
         }
-        if event == .command {   // a tool started or ended: what that says of its turn
+        if event == .command {   // a tool started or ended, which says something of its turn
             ls.tool(hookName, agent: agentId)
             return Done()
         }
@@ -63,7 +64,7 @@ extension SessionHook: Handled {
                 answered: hookName == "PostToolUse", goal: goal, choices: notification.flatMap(Hooks.choices), at: at)
             return Done()
         }
-        // Its turn is over, and every command of it: a question Kelp asked for one goes unanswered.
+        // The turn is over, and so is every command of it, so a question Kelp asked for one of them goes unanswered.
         sessions.permissions.endKelpQuestions(id)
         let limit = notification.flatMap(Hooks.limitHit)
         if let limit { ls.hitLimit(limit) }
@@ -91,7 +92,7 @@ extension SessionHook: Handled {
         return Done()
     }
 
-    /// What it says, for the session's trail.
+    /// What the hook said, as a line for the session's trail.
     private var trailLine: String {
         ["hook", event, hookName, trigger, notification?["notification_type"]?.string].compactMap { $0 }.joined(
             separator: " ")
@@ -100,7 +101,8 @@ extension SessionHook: Handled {
     /// How long a command the agent waits for may run before its row says done anyway (a server TurnEnd took for a test).
     static let commandWait: TimeInterval = 600
 
-    /// What a held Stop waits for, in the kelpd that took it over: the wait ended with the one before.
+    /// Waits again for what a held Stop waits for, in the kelpd that took the session over, because the wait ended with
+    /// the kelpd before.
     static func waitAgain(_ ls: LiveSession) {
         guard let at = ls.heldAgain() else { return }
         let held = ls.snapshot
@@ -111,8 +113,8 @@ extension SessionHook: Handled {
         }
     }
 
-    /// After a Stop with a goal open, Claude Code checks it (a model's answer, seconds): met, the turn is done; not met,
-    /// it goes on and stops again. No answer within a minute: done.
+    /// After a Stop with a goal open, Claude Code checks the goal (a model's answer, in seconds). When it is met, the
+    /// turn is done; when not, the agent goes on and stops again. With no answer within a minute, the turn is done.
     static func watchGoal(_ ls: LiveSession, path: String, after: GoalStatus, stoppedAt: Date, tries: Int = 30) {
         DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
             guard let now = GoalStatus.last(inFile: path), now.id != after.id else {

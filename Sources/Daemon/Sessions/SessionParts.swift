@@ -5,7 +5,7 @@ import Foundation
 
 /// What a workspace does with its sessions: starts the ones its .kelp.yaml and its runs name, pauses them before it goes
 /// away and lets go of their records then, and reads what runs in it. It never wakes, types into, restarts, moves or
-/// hands off a session: `Workspaces` keeps this, not all of `Sessions`.
+/// hands off a session, because `Workspaces` keeps only this, not all of `Sessions`.
 protocol WorkspaceSessions: Sendable {
     var setup: SessionSetup { get }
     var live: SessionTable { get }

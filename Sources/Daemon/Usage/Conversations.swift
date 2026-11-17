@@ -6,19 +6,21 @@ import os
 
 /// Where each session's agent keeps its conversation, and what reads it: the transcript of a Claude Code session, the
 /// rollout a Codex has open, a pi's session file, the last reply of any of them, and the Codex thread a Claude Code
-/// transcript becomes. What's in the files is AgentData's to read; this knows which file is whose. A remote project's
-/// Claude Code keeps its conversation on the host: its last bytes are read there (`remoteTail`).
+/// transcript becomes. AgentData reads what's in the files; this class knows which file belongs to which session. A
+/// remote project's Claude Code keeps its conversation on the host, so its last bytes are read there (`remoteTail`).
 final class Conversations: Sendable {
     let settings: SettingsStore
-    let remotes: Remotes   // which sessions' folders stand for one on a host
-    /// The usage probes running now (`AgentUsage`'s): Codex's import runs as one, so the daemon's end ends it too.
+    let remotes: Remotes   // which session folders stand for a folder on a host
+    /// The usage probes running now (shared with `AgentUsage`). Codex's import runs as one, so it ends when the daemon
+    /// ends.
     let openProbes: OpenProbes
-    /// Where Claude Code and Codex keep their conversations, before the account profiles' (tests set it before the first call).
+    /// The default folders where Claude Code and Codex keep their conversations, not counting account profiles (tests
+    /// set it before the first call).
     let homes = OSAllocatedUnfairLock(
         initialState: (claude: ClaudeHistory.defaultRoot, codex: CodexHistory.defaultRoot))
 
-    /// Claude Code's folder on a host, as a word for sh (tests set one: their host is this Mac, where `~/.claude` is
-    /// the user's).
+    /// Claude Code's folder on a host, quoted for sh. Tests set their own, because their host is this Mac, where
+    /// `~/.claude` is the user's.
     let hostClaude = OSAllocatedUnfairLock(initialState: #""${CLAUDE_CONFIG_DIR:-$HOME/.claude}""#)
 
     init(settings: SettingsStore, openProbes: OpenProbes, remotes: Remotes) {
@@ -60,7 +62,7 @@ final class Conversations: Sendable {
         .first { FileManager.default.fileExists(atPath: $0.path) }
     }
 
-    /// What its last turn ended with, if the agent keeps that somewhere Kelp can read.
+    /// What the session's last turn ended with, if the agent keeps that somewhere Kelp can read.
     func lastReply(of ls: LiveSession) -> String? {
         let session = ls.snapshot
         if let remote = remotes.of(session.cwd) {
@@ -101,7 +103,7 @@ final class Conversations: Sendable {
         remoteConversation(of: session, on: remote, read: "tail -c \(Self.remoteTailBytes)")
     }
 
-    /// What `read` (sh reading the file on its stdin) prints of that conversation on the host.
+    /// Runs `read` on the host (sh, reading the conversation's file on its stdin) and returns what it prints.
     func remoteConversation(of session: Session, on remote: RemoteHost, read: String) -> Data? {
         guard session.agent == Session.claudeAgent, remote.connection != nil else { return nil }
         let argv = session.argv
@@ -116,8 +118,9 @@ final class Conversations: Sendable {
         return out.flatMap { $0.isEmpty ? nil : $0 }
     }
 
-    /// The end of a remote Claude Code's conversation (`bytes` of it, over the open connection), in a file here that
-    /// what reads a transcript reads: the newest for each session. Nil without a connection or a conversation there.
+    /// Copies the end of a remote Claude Code's conversation (its last `bytes`, over the open connection) into a file
+    /// here that transcript readers can read, the newest for each session. Returns nil without a connection or a
+    /// conversation there.
     func hostTail(of session: Session, bytes: Int) -> URL? {
         guard let remote = remotes.of(session.cwd),
             let tail = remoteConversation(of: session, on: remote, read: "tail -c \(bytes)")
@@ -131,16 +134,17 @@ final class Conversations: Sendable {
         }
     }
 
-    /// Whether Claude Code's conversation `id` is surely not on `remote`'s host (asked over ssh, which connects if it
-    /// must: a wake or a restart does anyway); false when that can't be told.
+    /// Whether Claude Code's conversation `id` is surely not on `remote`'s host. It asks over ssh, which connects if it
+    /// must (a wake or a restart does anyway). Returns false when that can't be told.
     func hostLacks(_ id: String, on remote: RemoteHost) -> Bool {
         let script = Self.remoteTailScript(
             path: remote.path, id: id, claude: hostClaude.withLock { $0 }, read: "head -c 1")
         do { return try remote.run(script, timeLimit: 15).isEmpty } catch { return false }
     }
 
-    /// For sh on the host: the folder as the host resolves it (a leading ~, a symlink), named as Claude Code names it
-    /// (each character that isn't a letter or a digit is "-"), then the file's end (or what `read` prints of it).
+    /// A script for sh on the host. It resolves the folder as the host does (a leading ~, a symlink), names it as
+    /// Claude Code names it (each character that isn't a letter or a digit is "-"), then prints the file's end (or what
+    /// `read` prints of it).
     static func remoteTailScript(
         path: String, id: String?, claude: String, read: String = "tail -c \(remoteTailBytes)"
     ) -> String {
@@ -155,8 +159,8 @@ final class Conversations: Sendable {
         ].joined(separator: "\n")
     }
 
-    /// The conversation a running Codex has open, the one thing that says whose it is when two work in a folder. The program
-    /// behind its node wrapper holds it: another process of its group.
+    /// The conversation a running Codex has open, which is the one thing that tells whose it is when two work in a
+    /// folder. The program behind Codex's node wrapper holds the file open, so every process in its group is checked.
     private static func openRollout(pid: Int32) -> URL? {
         func lines(_ argv: [String]) -> [Substring] {
             let out = Log.session.attempt("asking \(argv[0])") {
@@ -192,7 +196,8 @@ final class Conversations: Sendable {
                 return URL(fileURLWithPath: argv[flag + 1])
             }
             let root = UsageFormat(rawValue: agent).flatMap(\.defaultRoot)
-            // Pinned (pi's `--session-id`, or `--session <id>` after a wake): that one, not the folder's latest.
+            // A pinned session (pi's `--session-id`, or `--session <id>` after a wake) uses that file, not the folder's
+            // latest.
             if let root, let flag = argv.lastIndex(where: { $0 == "--session-id" || $0 == "--session" }),
                 flag + 1 < argv.count, let file = PiHistory.file(id: argv[flag + 1], root: root)
             {
@@ -204,9 +209,10 @@ final class Conversations: Sendable {
     }
 
     /// The Codex thread a Claude Code transcript becomes, imported by Codex itself (its app server's
-    /// `externalAgentConfig/import`, what its /import does): the whole conversation, tool calls included. One imported
-    /// before and unchanged since isn't imported again: its thread is the one Codex's import ledger names. Nil when Codex
-    /// can't (not installed, or a transcript outside ~/.claude/projects, which it doesn't look in).
+    /// `externalAgentConfig/import`, what its /import does): the whole conversation, tool calls included. A transcript
+    /// imported before and unchanged since isn't imported again; its thread is the one Codex's import ledger names.
+    /// Returns nil when Codex can't import it (not installed, or a transcript outside ~/.claude/projects, which it
+    /// doesn't look in).
     func codexThread(importing transcript: URL, cwd: String) -> String? {
         let item: [String: Any] = [
             "itemType": "SESSIONS", "description": "Kelp hand-off",

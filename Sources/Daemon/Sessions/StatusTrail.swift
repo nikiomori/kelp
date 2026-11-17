@@ -1,11 +1,13 @@
 import Core
 import Foundation
 
-/// A session's status changes and the hooks it heard, a line each, beside its history log: what `kelp why` can't tell from
-/// the status of now, once a row has read wrong. The file goes on through a pause and a new kelpd.
-/// Limit: only what reached the daemon. A hook that never did leaves no line, and what the app made of a change isn't here.
+/// A session's status changes and the hooks it heard, a line each, in a file beside its history log. It tells what
+/// `kelp why` can't tell from the current status, once a row has read wrong. The file goes on through a pause and a new
+/// kelpd.
+/// Limit: only what reached the daemon. A hook that never did leaves no line, and what the app made of a change isn't
+/// here.
 struct StatusTrail: Sendable {
-    /// Past this the file keeps its newer half: some thousands of lines.
+    /// Past this size the file keeps only its newer half, some thousands of lines.
     static let limit = 256 << 10
     private static let time = Date.ISO8601FormatStyle(includingFractionalSeconds: true, timeZone: .current)
 
@@ -19,7 +21,7 @@ struct StatusTrail: Sendable {
         let now = Date(), up = Int(ProcessInfo.processInfo.systemUptime)
         disk.async { [url] in
             let fd = open(url.path, O_WRONLY | O_APPEND | O_CREAT, 0o644)
-            guard fd >= 0 else { return }   // unlogged: a full disk would flood the log
+            guard fd >= 0 else { return }   // not logged, because a full disk would flood the log
             defer { close(fd) }
             Unix.writeAll(fd, Data("\(now.formatted(Self.time))  up \(up)  \(what)\n".utf8))
             if lseek(fd, 0, SEEK_END) > off_t(Self.limit) { Self.trim(url) }
@@ -28,7 +30,7 @@ struct StatusTrail: Sendable {
 
     /// Everything so far, oldest first; empty when nothing was written.
     func read() -> String {
-        disk.sync {}   // what's still on its way
+        disk.sync {}   // wait for what's still on its way
         return Data(tail: 2 * Self.limit, of: url).map { String(decoding: $0, as: UTF8.self) } ?? ""
     }
 

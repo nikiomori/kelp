@@ -2,13 +2,14 @@ import Core
 import Foundation
 import os
 
-/// One FSEvents stream per folder for every watch in it (`Watches`): a workspace's git, files, databases and artifacts,
-/// and the folders of its open files, each had a recursive stream of its own. A watch takes the stream of a folder it's
-/// in if one runs (not through a build folder, whose events a stream drops), else starts one for its own folder; the
-/// stream stops with the last watch that held it. Each hears only the events in its folder, on a queue of its own:
-/// what it makes of them may run git (check-ignore), and one slow folder must not hold up the others.
+/// Shares one FSEvents stream per folder among every watch in it (`Watches`). Before, a workspace's git, files,
+/// databases and artifacts, and the folders of its open files, each had a recursive stream of its own. A watch takes
+/// the stream of a folder it's in if one runs (not through a build folder, whose events a stream drops), or else starts
+/// one for its own folder. The stream stops with the last watch that held it. Each watch hears only the events in its
+/// folder, on a queue of its own, because what it makes of them may run git (check-ignore) and one slow folder must not
+/// hold up the others.
 final class FileStreams: Sendable {
-    /// One watch's hold on a stream: let go when it goes.
+    /// One watch's hold on a stream. The stream is let go when the hold is freed.
     final class Hold: Sendable {
         fileprivate let streams: FileStreams, root: String, id: Int
         fileprivate init(_ streams: FileStreams, root: String, id: Int) {
@@ -36,7 +37,8 @@ final class FileStreams: Sendable {
         let listener = Listener(
             prefixes: Array(Set([folder, Paths.real(folder) ?? folder].map { $0 + "/" })),
             queue: DispatchQueue(label: "kelp.watches.files"), heard: heard)
-        // Off the lock: `covers` resolves links. A stream gone meanwhile is started again for that root.
+        // This runs outside the lock because `covers` resolves links. A stream that went away meanwhile is started
+        // again for that root.
         let root = state.withLock { Array($0.byRoot.keys) }.first { Self.covers($0, folder) } ?? folder
         let (id, start) = state.withLock { state -> (Int, Bool) in
             state.next += 1
@@ -49,12 +51,12 @@ final class FileStreams: Sendable {
                 [weak self] changes in self?.tell(root, changes)
             }
             let unused = state.withLock { state -> FileWatcher? in
-                // Let go meanwhile: it stops.
+                // If the stream was let go meanwhile (or got a watcher already), this watcher stops.
                 guard state.byRoot[root] != nil, state.byRoot[root]?.watcher == nil else { return watcher }
                 state.byRoot[root]?.watcher = watcher
                 return nil
             }
-            _ = unused   // stopped here, off the lock
+            _ = unused   // an unused watcher stops here, outside the lock
         }
         return Hold(self, root: root, id: id)
     }
@@ -65,8 +67,8 @@ final class FileStreams: Sendable {
             && !FileWatcher.isBuildOutput(Paths.realNearest(folder) + "/", under: [Paths.realNearest(root) + "/"])
     }
 
-    /// Each listener of `root`'s stream gets the events in its folder, and those that say anything may have changed in
-    /// one above it (a folder to scan again).
+    /// Gives each listener of `root`'s stream the events in its folder, and the events on a folder above it that say
+    /// anything may have changed (a folder to scan again).
     private func tell(_ root: String, _ changes: [FileWatcher.Change]) {
         let listeners = state.withLock { $0.byRoot[root].map { Array($0.listeners.values) } ?? [] }
         for listener in listeners {
@@ -86,6 +88,6 @@ final class FileStreams: Sendable {
             guard state.byRoot[root]?.listeners.isEmpty == true else { return nil }
             return state.byRoot.removeValue(forKey: root)?.watcher
         }
-        _ = gone   // its stream stops here, off the lock
+        _ = gone   // the stream stops here, outside the lock
     }
 }

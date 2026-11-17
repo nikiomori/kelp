@@ -4,7 +4,7 @@ import Core
 import Foundation
 import os
 
-/// Per account: Claude 5h block / today / week, Codex limits.
+/// Usage per account: Claude's 5-hour block, today and the week, and Codex's limits.
 extension UsageGet: Handled {
     static let agents = AgentAccess.reads
     func handle(_ usage: AgentUsage) throws -> Result {
@@ -31,7 +31,8 @@ extension UsageGet: Handled {
         let live = usage.codexLive.withLock { $0.limits }
         for (index, root) in roots.codex.enumerated()
         where index == 0 || FileManager.default.fileExists(atPath: root.path) {
-            // The default account's (the first) is also asked of its app server (UsageProbe): the newer reading wins.
+            // The default account (the first) is also asked through its app server (UsageProbe), and the newer reading
+            // wins.
             let latest = [CodexUsage.latest(root: root), index == 0 ? live : nil].compactMap { $0 }.max {
                 $0.observedAt < $1.observedAt
             }
@@ -43,13 +44,13 @@ extension UsageGet: Handled {
     }
 }
 
-/// What every agent used, by day and agent, agent, model and project.
+/// What every agent used: by day and agent, and by agent, by model and by project.
 extension UsageAgents: Handled {
     static let agents = AgentAccess.reads
     func handle(_ usage: AgentUsage) throws -> Result {
         let since = AgentUsage.since(days: self.days), span = max(1, min(371, self.days ?? 30))
         let project = usage.projects()
-        // The span before it too, for "on the 30 days before" (not past the year the logs are read for).
+        // Reads the span before it too, for "on the 30 days before" (but not past the year the logs are read for).
         let compared = 2 * span <= 371
         var all = usage.agentRows(since: compared ? AgentUsage.since(days: 2 * span) : since)
         if let only = self.project { all = all.filter { project($0.row.cwd) == only } }
@@ -84,17 +85,18 @@ extension UsageAgents: Handled {
 }
 
 extension AgentUsage {
-    /// The first of the last `days` days (1–371: the Usage tab's year of weeks; 30 if not said), from midnight.
+    /// Midnight on the first of the last `days` days (1–371, the Usage tab's year of weeks; 30 if not given).
     static func since(days: Int?) -> Date {
         let cal = Calendar.current
         return cal.date(byAdding: .day, value: 1 - max(1, min(371, days ?? 30)), to: cal.startOfDay(for: Date()))
             ?? Date()
     }
 
-    /// The Kelp project a folder is in, else the folder's name; the projects read once (a reply names thousands of rows').
+    /// Returns a lookup from a folder to the Kelp project it is in, or else to the folder's name. The projects are read
+    /// once, because a reply names the project of thousands of rows.
     func projects() -> (String) -> String {
         let repos = store.look("the projects") { try $0.repos() } ?? []
-        var named: [String: String] = [:]   // each folder looked up once: the rows repeat a few
+        var named: [String: String] = [:]   // each folder is looked up once, because rows share a few folders
         return { cwd in
             if let name = named[cwd] { return name }
             let name =
@@ -105,8 +107,8 @@ extension AgentUsage {
         }
     }
 
-    /// A row's cost split by kind of token in the shares its list price gives them (so they add up to its cost, the hour
-    /// writes and long prompts included); nil for a model without one.
+    /// Splits a row's cost by kind of token, in the shares its list price gives them, so they add up to its cost (the
+    /// hour writes and long prompts included). Returns nil for a model without a list price.
     static func costs(_ model: String, _ tokenCounts: TokenCounts, _ cost: Double) -> UsageAgents.Costs? {
         guard let price = Pricing.of(model) else { return nil }
         let parts = [

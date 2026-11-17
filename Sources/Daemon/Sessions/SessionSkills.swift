@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 
 /// Kelp's skills for a Claude Code session: each a plugin folder the app writes into `agent-skills`, passed one by one
-/// (`--plugin-dir`), with a sentence of context. The browser's goes only to a project with a web app, by default:
+/// (`--plugin-dir`), with a sentence of context. By default the browser skill goes only to a project with a web app,
 /// decided when the chat starts (and again at a restart). Its one line costs every chat ~95 tokens, and an agent with
 /// no page to look at is better off without the tool.
 extension SessionSetup {
@@ -27,8 +27,9 @@ extension SessionSetup {
         return (argv, browser?.line)
     }
 
-    /// Kelp's skills on disk that a chat starting in `cwd` gets (each a plugin folder), and the browser's choice.
-    /// `claude`: a Claude Code chat (of account `profile`), which may have pages of its own (`artifactsSkill`).
+    /// Kelp's skills on disk that a chat starting in `cwd` gets (each a plugin folder), and the choice about the
+    /// browser skill. `claude` means a Claude Code chat (of account `profile`), which may have pages of its own
+    /// (`artifactsSkill`).
     func chosenSkills(worktreeId: String?, cwd: String, claude: Bool = false, profile: String? = nil) -> (
         on: [URL], browser: BrowserSkill?
     ) {
@@ -56,9 +57,9 @@ extension SessionSetup {
         return (on, browser)
     }
 
-    /// Whether a chat gets Kelp's pages (`agents.skills.artifacts`): every agent, none, or (the default) those with no
-    /// artifacts of their own. A Claude Code that publishes its own is sent there by Kelp's guide anyway: the skill
-    /// would cost every chat its line and every page a detour.
+    /// Whether a chat gets Kelp's pages skill (`agents.skills.artifacts`): every agent, none, or (the default) those
+    /// with no artifacts of their own. Kelp's guide sends a Claude Code that publishes its own pages there anyway, so
+    /// the skill would cost every chat its line and every page a detour.
     func artifactsSkill(claude: Bool, profile: String?) -> Bool {
         switch settings[SettingKeys.skillArtifacts] {
         case "off": false
@@ -88,7 +89,8 @@ extension SessionSetup {
     }
 
     /// One sentence naming the skills that are on. Without it, "add a panel" reads as a request for the agent's own UI.
-    /// `browserGuide`: the browser's skill is off here, so the agent hears where its guide is (a few words, not the skill's line).
+    /// `browserGuide` is set when the browser skill is off here, so the agent hears where its guide is (a few words,
+    /// not the skill's line).
     static func kelpContext(_ on: [String], browserGuide: String?) -> String? {
         let kelp = ["kelp-extensions", "kelp-settings"].filter(on.contains)
         guard !kelp.isEmpty || browserGuide != nil else { return nil }
@@ -134,8 +136,9 @@ extension SessionSetup {
     static func browserUsedKey(_ repo: String) -> String { "browser.used.\(repo)" }
 
     /// Whether the chat's project has a database Kelp knows of, as `kelp db list` would list it: found in its folder or,
-    /// on a branch, in the project's (an untracked SQLite file stays there), or added by hand. A remote project's files
-    /// are read on its host only when asked for (`Databases.onHost`): it gets the skill, which says when there are none.
+    /// on a branch, in the project's main folder (an untracked SQLite file stays there), or added by hand. A remote
+    /// project's files are read on its host only when asked for (`Databases.onHost`), so a remote project gets the
+    /// skill, which says when there are none.
     func hasDatabases(worktreeId: String?) -> Bool {
         guard let id = worktreeId,
             let worktree = Log.store.attempt("the workspace \(id)", { try store.worktree(id) }) ?? nil
@@ -170,7 +173,7 @@ extension SessionSetup {
         return BrowserSkill(on: false, .noWebApp, hint: true)
     }
 
-    /// "auto", "on" or "off"; the switch it used to be counts as on / off.
+    /// Reads the browser setting as "auto", "on" or "off". The on/off switch it used to be still counts as on or off.
     static func browserSetting(_ value: JSONValue?) -> String {
         if case .bool(let on)? = value { return on ? "on" : "off" }
         return value?.string ?? SettingKeys.skillBrowser.fallback
@@ -180,7 +183,7 @@ extension SessionSetup {
         Log.store.attempt("UI state \(key)") { try store.uiState(prefix: key)[key] } ?? nil
     }
 
-    /// A tab on a page this Mac serves (a dev server), in any of the project's workspaces.
+    /// Whether a tab shows a page this Mac serves (a dev server), in any of the project's workspaces.
     private func localPageOpen(repo: String) -> Bool {
         let worktrees = Log.store.attempt("the workspaces of \(repo)") { try store.worktrees(repo: repo) } ?? []
         return worktrees.contains { worktree in
@@ -292,7 +295,8 @@ extension SkillsBrowser: Handled {
 }
 
 extension UIStore {
-    /// An agent drove a page from this workspace: its project has pages to look at (`SessionSetup.browserUsedKey`).
+    /// Records that an agent drove a page from this workspace, so its project has pages to look at
+    /// (`SessionSetup.browserUsedKey`).
     func browserUsed(in worktreeId: String?) {
         guard let worktreeId else { return }
         Log.store.attempt("noting the browser was used") {

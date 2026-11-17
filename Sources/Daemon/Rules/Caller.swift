@@ -1,6 +1,6 @@
 import Foundation
 
-/// Who a call came from, by its process (`Callers.caller`): what it may do is `Daemon.allow`'s, by this.
+/// Who a call came from, told by its process (`Callers.caller`). `Daemon.allow` decides from this what the call may do.
 enum Caller: Hashable, Sendable {
     /// Outside every session: the user's own terminal, Kelp's window, the daemon itself. Not held to an agent's rules.
     case user
@@ -11,10 +11,10 @@ enum Caller: Hashable, Sendable {
     /// shell). It is held to an agent's rules as that session's agent, whatever the session is.
     case typedAgent(String)
     /// A program this daemon started (an extension's command or event, a repo's git hook, what they leave running), or
-    /// one on a connection that hung up: whoever wrote it, it acts on no session and answers no question.
+    /// a program on a connection that hung up. Whoever wrote it, it acts on no session and answers no question.
     case kelpd
-    /// Gone before it could be looked at (it connected and ended at once, leaving the connection to a child): held to an
-    /// agent's rules, and speaks for no session.
+    /// A caller that was gone before it could be looked at (it connected and ended at once, leaving the connection to a
+    /// child). It is held to an agent's rules and speaks for no session.
     case unknown
     /// None of the above, and not a caller Kelp can tell is the user's (`Callers.session(running:)`): a program that
     /// left every terminal and app behind (a double fork with `setsid`, `script`, a tmux server nobody is attached to).
@@ -26,23 +26,24 @@ enum Caller: Hashable, Sendable {
     /// agent's rules (`forAnAgent`).
     static let typed = "typed:"
 
-    /// Whether `origin` (or a `madeBy`) is what an agent typed into `terminal` started.
+    /// Whether `origin` (or a `madeBy`) says it was started by an agent the user typed into `terminal`.
     static func started(_ origin: String?, byAgentTypedInto terminal: String) -> Bool { origin == typed + terminal }
-    /// Whether `origin` is what an agent typed into some terminal started.
+    /// Whether `origin` says it was started by an agent the user typed into some terminal.
     static func typedOrigin(_ origin: String?) -> Bool { origin?.hasPrefix(typed) == true }
 
-    /// The session an origin (or a `madeBy`) names: the session's id, or for a `typed:` origin the terminal's session;
-    /// nil for a mark.
+    /// Returns the session an origin (or a `madeBy`) names: the session's id, or the terminal's session for a `typed:`
+    /// origin. Returns nil for a mark.
     static func session(of origin: String?) -> String? {
         guard let origin, !marks.contains(origin) else { return nil }
         return origin.hasPrefix(typed) ? String(origin.dropFirst(typed.count)) : origin
     }
 
-    /// The marks `origin` records for a caller with no session: never a session's id (a UUID), and where a line stops.
+    /// The marks that `origin` records for a caller with no session. A mark is never a session's id (a UUID), and a
+    /// lineage stops at it.
     static let marks: Set<String> = [Callers.ownProgram, Callers.unknown, Callers.detached]
 
-    /// What a session it starts records as its origin (`Session.origin`): its session, or a mark (`marks`) where its
-    /// line stops, which `Store.forAnAgent` holds to an agent's rules.
+    /// What a session started by this caller records as its origin (`Session.origin`): the caller's session, or a mark
+    /// (`marks`) where the lineage stops. `Store.forAnAgent` holds a lineage that ends in a mark to an agent's rules.
     var origin: String? {
         switch self {
         case .user: nil

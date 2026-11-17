@@ -10,12 +10,14 @@ final class ChildReports: Sendable {
             restarting: Set<String> = []
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
-    /// A status from before this daemon was told before it, or will be found by asking.
+    /// When this daemon started. A status from before then was told by an earlier daemon, or will be found by asking.
     private let started = Date()
-    /// Where reports are made, one after another: a child's "needs you" can't reach its parent after the result that came
-    /// next. Not the caller's queue, which is the session's own: these read the disk and take other sessions' locks.
+    /// The queue where reports are made one after another, so a child's "needs you" can't reach its parent after the
+    /// result that came next. It isn't the caller's queue, which is the session's own, because reports read the disk
+    /// and take other sessions' locks.
     private let queue = DispatchQueue(label: "dev.kelp.child-reports", qos: .utility)
-    /// Reports being made: a hand-over waits for them, as they're marked told already and the next kelpd wouldn't make them.
+    /// The reports being made. A hand-over waits for them, because they're already marked as told and the next kelpd
+    /// wouldn't make them.
     private let making = DispatchGroup()
 
     func make(_ work: @escaping @Sendable () -> Void) {
@@ -26,17 +28,18 @@ final class ChildReports: Sendable {
         }
     }
 
-    /// Before a hand-over: the reports on their way are kept (typed or owed) first, for up to `seconds`.
+    /// Waits, before a hand-over, until the reports on their way are kept (typed or owed), for up to `seconds`.
     func settle(within seconds: Double) { _ = making.wait(timeout: .now() + seconds) }
 
-    /// An ended child's replies, kept only to tell its next one from the last (its status stays: an exit is said once).
+    /// Forgets an ended child's replies, which were kept only to tell its next reply from the last. Its status stays,
+    /// so an exit is reported once.
     func ended(_ id: String) {
         state.withLock {
             $0.replies[id] = nil
             $0.said[id] = nil
         }
     }
-    /// A deleted one's everything.
+    /// Forgets everything about a deleted session.
     func forget(_ id: String) {
         state.withLock {
             $0.told[id] = nil
@@ -45,15 +48,16 @@ final class ChildReports: Sendable {
         ended(id)
     }
 
-    /// Marks it restarting, or unmarks it; false when it already was: a second restart meanwhile would start a second copy.
+    /// Marks a session as restarting, or unmarks it. Returns false when nothing changed, because a second restart
+    /// meanwhile would start a second copy.
     @discardableResult
     func restarting(_ id: String, _ on: Bool) -> Bool {
         state.withLock { on ? $0.restarting.insert(id).inserted : $0.restarting.remove(id) != nil }
     }
     func isRestarting(_ id: String) -> Bool { state.withLock { $0.restarting.contains(id) } }
 
-    /// Once per stop: a session is saved for many reasons, and work begun again makes the next stop news. Leaving after a
-    /// reported result says nothing new.
+    /// Whether a saved session is news for its parent, once per stop. A session is saved for many reasons, and work
+    /// begun again makes the next stop news. Exiting after a reported result says nothing new.
     func isNews(_ session: Session) -> Bool {
         state.withLock { st in
             if session.status == .working { st.told[session.id] = nil }
@@ -70,7 +74,7 @@ final class ChildReports: Sendable {
     func said(_ reply: String, by id: String) { state.withLock { $0.said[id] = reply } }
     func takeSaid(by id: String) -> String? { state.withLock { $0.said.removeValue(forKey: id) } }
 
-    /// Whether `reply` is one not reported yet, and now it is.
+    /// Whether `reply` wasn't reported yet. It counts as reported from now on.
     func isNewReply(_ reply: String, of id: String) -> Bool {
         state.withLock { st in
             if st.replies[id] == reply { return false }
@@ -85,8 +89,8 @@ final class ChildReports: Sendable {
         let cut =
             body.count > most
             ? "…" + body.suffix(most) + "\n(cut: kelp terminal read \(session.id.prefix(8)) shows more)" : body
-        // As it will be typed: a control character taken out later would close the tag again. Spaced out ("</ kelp>")
-        // it still reads as the closing tag, as `Untrusted.frame` allows for.
+        // Escape the text as it will be typed, because a control character taken out later would close the tag again.
+        // Spaced out ("</ kelp>"), it still reads as the closing tag, as `Untrusted.frame` allows for.
         let safe = LiveSession.typeable(cut).replacingOccurrences(
             of: #"<(\s*/?\s*kelp)"#, with: "<\\\\$1", options: [.regularExpression, .caseInsensitive])
         return "<kelp from=\"\(name) \(session.id.prefix(8))\" status=\"\(session.status.rawValue)\">\n" + safe
@@ -95,8 +99,9 @@ final class ChildReports: Sendable {
 }
 
 extension Sessions {
-    /// The parent of `create`, if it makes one: an agent's, and of an agent. A shell or a test run has no input to report to:
-    /// typed there, a report would be run as a command. A command it runs is its own affair too.
+    /// The parent of `create`, when it gets one: only an agent that an agent started has a parent. A shell or a test
+    /// run has no input to report to, and a report typed there would run as a command. A command the agent runs is its
+    /// own affair too.
     func parent(_ id: String?, of create: SessionCreate) throws -> String? {
         guard let id, create.command == nil, create.tmux == nil, !Session.isTerminal(create.agent),
             let agent = try store.session(id), agent.isAgent
@@ -104,14 +109,15 @@ extension Sessions {
         return agent.id
     }
 
-    /// The agent a command belongs to: `parent` on a command, which is no child (it hears nothing and outlives the agent).
+    /// The agent a command belongs to. It stands in for `parent` on a command, which is no child (it hears nothing and
+    /// outlives the agent).
     func starter(_ id: String?, of create: SessionCreate) throws -> String? {
         guard let id, create.command != nil, let agent = try store.session(id), agent.isAgent else { return nil }
         return agent.id
     }
 
-    /// Every saved change of a session: its parent's news, and the end of its children. Never on the caller's queue, which is
-    /// the session's own: these read the disk and take other sessions' locks.
+    /// Hears every saved change of a session, for its parent's news and the end of its children. It never runs on the
+    /// caller's queue, which is the session's own, because these read the disk and take other sessions' locks.
     func familyHeard(_ session: Session) {
         guard !reports.isRestarting(session.id) else { return }
         let news = session.parent != nil && settings[SettingKeys.childReports] && reports.isNews(session)
@@ -128,7 +134,8 @@ extension Sessions {
         }
     }
 
-    /// A question it has moved on from: what came next reports itself, and a "needs you" after it would be read as news.
+    /// Whether the session asked a question it has since moved on from. What came next reports itself, and a "needs
+    /// you" after it would be read as news.
     private func askedEarlier(_ session: Session) -> Bool {
         guard session.status == .waiting, let now = existing(session.id)?.snapshot else { return false }
         return (now.statusAt ?? .distantPast) > (session.statusAt ?? .distantPast) && now.status != .waiting
@@ -144,10 +151,10 @@ extension Sessions {
         }
     }
 
-    /// nil: nothing to report after all.
+    /// The report's body, or nil when there's nothing to report after all.
     private func reportBody(_ session: Session) -> String? {
-        // What it printed, without the blank lines a redrawn screen leaves. Limit: an agent whose replies Kelp can't read
-        // reports this, spinner frames and all.
+        // What the session printed, without the blank lines a redrawn screen leaves.
+        // Limit: an agent whose replies Kelp can't read reports this, spinner frames and all.
         func tail() -> String {
             let text =
                 Log.session.attempt("reading what \(session.id) printed") { try printed(session.id, bytes: 1500) } ?? ""
@@ -158,7 +165,8 @@ extension Sessions {
         case .done:
             if let said = reports.takeSaid(by: session.id) { return said.isEmpty ? tail() : said }
             let reply = finalReply(session)
-            // It went on: a program that says "idle" for a second as a turn starts (Codex) hadn't stopped, and the real stop reports.
+            // If it went on, it hadn't stopped: a program says "idle" for a second as a turn starts (Codex), and the
+            // real stop reports.
             return existing(session.id)?.snapshot.status == .working ? nil : reply ?? tail()
         case .exited: return "Exit code \(session.exitCode ?? 0)\n" + tail()
         default: return session.summary.isEmpty ? tail() : session.summary
@@ -180,7 +188,8 @@ extension Sessions {
         return reply   // the same words twice: they're this turn's as well
     }
 
-    /// Deleted, not ended (their workspace closed): no exit gets saved for them, so what one does happens here.
+    /// Handles sessions that were deleted, not ended (their workspace closed). No exit gets saved for them, so what an
+    /// exit does happens here.
     func familyLeft(_ all: [Session]) {
         let ids = Set(all.map(\.id)), left = all.filter { $0.status != .exited && !reports.isRestarting($0.id) }
         for id in ids { reports.forget(id) }
@@ -197,7 +206,8 @@ extension Sessions {
         }
     }
 
-    /// A restart that couldn't start the new one: it did end, and that went unheard while it was only restarting.
+    /// Handles a restart that couldn't start the new session. The old one did end, and that went unheard while it was
+    /// only restarting.
     func restartFailed(_ id: String) {
         reports.restarting(id, false)
         guard var session = Log.session.attempt("reading \(id)", { try store.session(id) }) ?? nil else { return }
@@ -217,7 +227,8 @@ extension Sessions {
     /// started becomes the new one's), and what the old one hadn't typed yet the new one types. `owed` is what was
     /// taken from the old session as it stopped.
     func passChildren(of old: String, to new: String, owed: [OwedInput]) throws {
-        // What an agent typed into it started (`typed:`) and the workspaces it or one made, too.
+        // What an agent typed into the old session started (`typed:`) moves too, as do the workspaces the old session
+        // or that agent made.
         let typedOld = Caller.typedAgent(old).origin, typedNew = Caller.typedAgent(new).origin
         let pass: @Sendable (inout Session) -> Void = { session in
             if session.parent == old { session.parent = new }
@@ -233,7 +244,8 @@ extension Sessions {
             try edit(child.id, pass)
         }
         for worktree in try store.worktrees() where worktree.madeBy == old || worktree.madeBy == typedOld {
-            // In one write: a copy saved back would undo a rename or an archive meanwhile, or bring a removed one back.
+            // In one write, because a copy saved back would undo a rename or an archive meanwhile, or bring a removed
+            // workspace back.
             try store.update(Worktree.self, worktree.id) {
                 $0.madeBy = $0.madeBy == old ? new : $0.madeBy == typedOld ? typedNew : $0.madeBy
             }

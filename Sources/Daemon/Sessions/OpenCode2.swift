@@ -30,14 +30,15 @@ final class OpenCode2: Sendable {
         return answer
     }
 
-    /// "opencode v2.2.7" or "1.17.11": the first number of the last word.
+    /// The major version: the first number of the last word ("opencode v2.2.7" or "1.17.11").
     static func major(_ version: String) -> Int {
         let word = version.split(whereSeparator: \.isWhitespace).last ?? ""
         return Int(word.drop { !$0.isNumber }.prefix { $0.isNumber }) ?? 0
     }
 
-    /// Its own server, and `-m <model>`, which its terminal UI would refuse to start with, as config (which its server,
-    /// its own now, reads from the environment): nil without one.
+    /// Adds `--standalone`, so the session gets its own server, and takes out `-m <model>`, which the terminal UI would
+    /// refuse to start with. The model goes into config instead, which the session's own server reads from the
+    /// environment. The config is nil without a model.
     static func argv(_ argv: [String]) -> (argv: [String], config: String?) {
         var out: [String] = []
         var model: String?

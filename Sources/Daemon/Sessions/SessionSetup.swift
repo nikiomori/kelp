@@ -33,17 +33,19 @@ final class SessionSetup: Sendable {
         self.agentUsage = agentUsage
     }
 
-    /// What runs: `argv` itself, or for a remote project ssh running it in the project's folder on the host. Records
-    /// keep the plain argv, so a restart or a wake wraps it once (older records kept the ssh line: that runs as it is).
+    /// The command line that runs: `argv` itself, or for a remote project, ssh running it in the project's folder on
+    /// the host. Records keep the plain argv, so a restart or a wake wraps it once (older records kept the ssh line,
+    /// which runs as it is).
     func launchArgv(
         _ argv: [String], cwd: String, manifest: AgentManifest, tmux: String? = nil, env: [String: String] = [:]
     ) throws -> [String] {
         var run = argv
         if let remote = remotes.of(cwd), argv.first != remote.ssh {
             let (own, secret) = Self.hostEnv(manifest, env), envFile = try Self.sendEnv(secret, to: remote)
-            // A command line (`.custom`: zsh -lc "…") goes to sh there: the host may have no zsh.
+            // A command line (`.custom`: zsh -lc "…") goes to sh there, because the host may have no zsh.
             var onHost = Session.customCommand(agent: manifest.id, argv).map { ["sh", "-c", $0] } ?? argv
-            // Here, not in the record: every start gets this kelpd's, and a title or a restart never sees it.
+            // Added here, not in the record, so every start gets this kelpd's hook settings, and a title or a restart
+            // never sees them.
             if tmux != nil, case .settingsFlag(let flag)? = manifest.hooks, !onHost.contains(flag) {
                 onHost += [flag, try Hooks.hostSettingsJSON()]
             }
@@ -75,8 +77,9 @@ final class SessionSetup: Sendable {
         return [resolved] + hooks + run.dropFirst()
     }
 
-    /// The machine `cwd`'s project runs its terminals in (its menu's Run Terminals In), while that machine is there and
-    /// shares folders (Linux, macOS); nil: they run here. A dev container, when the project has one on, comes first.
+    /// The machine that `cwd`'s project runs its terminals in (Run Terminals In on its menu), while that machine exists
+    /// and shares folders (Linux, macOS). Returns nil when they run here. A dev container, when the project has one
+    /// turned on, comes first.
     func machine(_ cwd: String) -> String? {
         guard remotes.of(cwd) == nil,
             let on = store.look(
@@ -113,8 +116,8 @@ final class SessionSetup: Sendable {
         }
     }
 
-    /// The workspace folder holding `cwd`, and its project's, when that project runs in its dev container and the
-    /// folder has one; nil: it runs here.
+    /// The workspace folder holding `cwd`, and its project's folder, when that project runs in its dev container and
+    /// the folder has one. Returns nil when it runs here.
     func devContainer(_ cwd: String) -> (folder: String, project: String)? {
         guard remotes.of(cwd) == nil,
             let on = store.look(
@@ -139,15 +142,16 @@ final class SessionSetup: Sendable {
         return (own, manifest.resolvedEnv.filter { !$0.value.isEmpty && RemoteHost.isName($0.key) })
     }
 
-    /// `env` into a file of its own on the host (`RemoteHost.envFile`, readable by its user alone), which the program's
-    /// command reads and removes as it starts (`RemoteHost.prelude`): never on a command line there. Its name; nil for
-    /// nothing to send.
+    /// Writes `env` into a file of its own on the host (`RemoteHost.envFile`, readable by its user alone), which the
+    /// program's command reads and removes as it starts (`RemoteHost.prelude`), so it is never on a command line there.
+    /// Returns the file's name, or nil when there is nothing to send.
     static func sendEnv(_ env: [String: String], to remote: RemoteHost) throws -> String? {
         guard !env.isEmpty else { return nil }
         let name = UUID().uuidString.lowercased()
         let text = env.sorted { $0.key < $1.key }.filter { RemoteHost.isName($0.key) }
             .map { "export \($0.key)=\(ShellQuote.word($0.value))\n" }.joined()
-        // One a start never read goes five minutes on (its user's only: the others' can't be removed).
+        // A file that no start read is removed after five minutes (only this user's, because other users' files can't
+        // be removed).
         let left = #"find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'kelp-env-*' -mmin +5 -exec rm -f {} + 2>/dev/null; "#
         try remote.run(
             left + "umask 077; set -C; cat > \(RemoteHost.envFile(name))", stdin: Data(text.utf8), timeLimit: 20)
@@ -157,7 +161,7 @@ final class SessionSetup: Sendable {
     /// A local Codex that agrees on Kelp's hooks gets them on its command line (`CodexHookCheck`).
     func codexHooksOn(_ manifest: AgentManifest, argv: [String], cwd: String) -> Bool {
         guard manifest.hooks == .codexConfig, remotes.of(cwd) == nil, let exe = argv.first else { return false }
-        // Not found: it won't start either.
+        // If Codex isn't found, it won't start either.
         do { return codexHooks.agrees(try LoginPath.resolve(exe)) } catch { return false }
     }
 
@@ -166,21 +170,23 @@ final class SessionSetup: Sendable {
     func launchEnv(_ manifest: AgentManifest, _ rec: Session) -> [String: String] {
         var env = hookedEnv(manifest, rec)
         env["PATH"] = Sessions.childPath
-        // What Kelp's servers sign in with, by the names Codex's command line gives them. The person's own stays theirs.
+        // What Kelp's servers sign in with, by the names Codex's command line gives them. A variable the person set
+        // themselves keeps their value.
         if manifest.id == Session.codexAgent, remotes.of(rec.cwd) == nil {
             env.merge(codexEnvironment(worktreeId: rec.worktreeId)) { theirs, _ in theirs }
         }
         return env
     }
 
-    /// `launchEnv` without its PATH, whose first read waits for the login shell (seconds, up to 8): what taking a running
-    /// session over needs, which happens before this kelpd answers anyone.
-    /// `secrets`: read from the keychain, which can wait for a locked login. Not for a running program, whose environment is
-    /// long set: nobody is served while kelpd takes sessions over.
+    /// `launchEnv` without its PATH, whose first read waits for the login shell (seconds, up to 8). Taking a running
+    /// session over needs only this, and it happens before this kelpd answers anyone.
+    /// `secrets` are read from the keychain, which can wait for a locked login. They aren't read for a running program,
+    /// whose environment is long set, because nobody is served while kelpd takes sessions over.
     func hookedEnv(_ manifest: AgentManifest, _ rec: Session, secrets: Bool = true) -> [String: String] {
         var env = secrets ? manifest.resolvedEnv : manifest.env
         if let name = rec.profile, let prof = profile(name, agent: manifest.id) { env[prof.key] = prof.dir }
-        // Not into tmux: its server keeps the first client's environment for every pane, whichever tab they're shown in.
+        // Not set for tmux, because its server keeps the first client's environment for every pane, whichever tab
+        // they're shown in.
         if Tmux.session(rec.argv) == nil { env["KELP_SESSION"] = rec.id }
         if let editor = promptEditor(manifest, rec, given: env["VISUAL"]) { env["VISUAL"] = editor }
         env["KELP_SOCKET"] = socketPath
@@ -200,8 +206,9 @@ final class SessionSetup: Sendable {
         return PortBlocks.port(for: folder, among: all.map(\.path))
     }
 
-    /// A long prompt, handed to the agent's external editor (Ctrl+G), opens in a Kelp tab: only the name, since agents split
-    /// the string at spaces. Not for a shell, which has no prompt to hand over, nor on a host, which has no `kelp`.
+    /// Returns the editor (`kelp edit --wait`) that opens a long prompt, handed to the agent's external editor
+    /// (Ctrl+G), in a Kelp tab. It names `kelp` without its path, because agents split the string at spaces. There is
+    /// none for a shell, which has no prompt to hand over, nor on a host, which has no `kelp`.
     private func promptEditor(_ manifest: AgentManifest, _ rec: Session, given: String?) -> String? {
         let mine = given ?? ProcessInfo.processInfo.environment["VISUAL"]
         guard mine == nil, manifest.id != Session.shellAgent, remotes.of(rec.cwd) == nil, Tmux.session(rec.argv) == nil,
