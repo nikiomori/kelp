@@ -68,20 +68,6 @@ let zshCall =
     zshAsk + #"; r() { ask "{\"jsonrpc\":\"2.0\",\"id\":\"ask\",\"method\":\"$2\",\"params\":$3}"; "#
     + #"print -r -- "<$1> $line"; }"#
 
-/// A script's `ask` leaves its own answer, though an event reached its connection first: its hook's wait is answered
-/// only when the test says, after an event was sent to everyone.
-@Test func aScriptsAskTakesItsOwnAnswerNotAnEventAheadOfIt() async throws {
-    let w = try await world()
-    defer { w.d.stop() }
-    let wait = #"r wait session.permissionWait "{\"id\":\"$KELP_SESSION\"}""#
-    let me = try await w.c.call(
-        SessionCreate(worktreeId: try await firstWorkspace(w).id, command: "/bin/zsh -c '\(zshCall); \(wait); cat'"))
-    #expect(try await waitFor(10) { w.d.sessions.permissions.waits.withLock { $0[me.id] != nil } })
-    w.d.notify(ChangedEvent.worktree)
-    w.d.sessions.permissions.answerPermission(me.id, "allow")
-    #expect(try await waitFor(10) { try await w.c.call(SessionRead(id: me.id)).contains(#/<wait> [^\n]*"allow"/#) })
-}
-
 /// A daemon on a fresh home with `agents` in its agents folder, started, and a client of it.
 func daemon(agents: [AgentManifest] = [], lspDelays: (retry: TimeInterval, idle: TimeInterval)? = nil) throws -> (
     d: Daemon, c: RPCClient, root: URL

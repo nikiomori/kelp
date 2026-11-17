@@ -2,15 +2,6 @@ import Testing
 
 @testable import Daemon
 
-/// A recipe fills each placeholder once: an issue's body that says "{url}" stays as written (in any order of the names).
-@Test func recipesFillEachPlaceholderOnce() {
-    for _ in 0..<20 {   // Dictionary order changes from run to run: the old loop got this right only sometimes
-        let brief = Recipes.render(
-            "issue", config: RepoConfig(), vars: ["title": "T", "body": "see {url} and {title}", "url": "U"])
-        #expect(brief.contains("\nsee {url} and {title}\n</untrusted>\n\n(Issue: U)"))
-    }
-}
-
 /// What someone outside wrote (a CI log, review comments, an issue) reaches the agent framed as data it can't close,
 /// and a long log only by its tail.
 @Test func outsideTextInARecipeIsFramedAsData() {

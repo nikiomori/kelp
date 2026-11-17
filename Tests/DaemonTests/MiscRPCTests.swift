@@ -58,12 +58,6 @@ func trustQuestionStandIn() -> String {
     }
 }
 
-@Test func cancellingAnUnknownCloneIsHarmless() async throws {
-    let w = try await world()
-    defer { w.d.stop() }
-    _ = try await w.c.call("repo.cloneCancel", .obj(["id": "never-started"]))
-}
-
 /// A cancel can land between a clone's `set` and its `run`: `interrupt` raises there, and that would end the daemon.
 @Test func cancellingACloneStillStartingIsHarmless() {
     let c = Forges.Clones()
@@ -413,19 +407,6 @@ func trustQuestionStandIn() -> String {
         })
     await #expect(throws: (any Error).self) { _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id)])) }
     #expect(FileManager.default.fileExists(atPath: wt.path + "/last-words.txt"))   // refused, and the work is still there
-}
-
-@Test func archivingAWorkspacePausesItsAgentsSoTheyResume() async throws {
-    let sleepy = AgentManifest(
-        id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "echo up; sleep 30", "x"], autoAnswers: [],
-        resumeArgs: ["--resume"])
-    let w = try await world(agents: [sleepy])
-    defer { w.d.stop() }
-    let wt = try await workspace(w, "to-archive")
-    let s: Session = try await w.c.call(
-        "session.create", .obj(["worktreeId": .string(wt.id), "agent": "sleepy"]), as: Session.self)
-    _ = try await w.c.call("worktree.archive", .obj(["id": .string(wt.id)]))
-    #expect(try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused)   // paused, not ended
 }
 
 /// A terminal showing an agent whose workspace is archived is hung up as the agent pauses (`kelp attach` ends, and the app

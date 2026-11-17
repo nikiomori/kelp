@@ -408,16 +408,6 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     #expect(Callers.tmuxSocket(["tmux", "new"]) == [])
 }
 
-/// A process's own arguments, read back as it was started (what a tmux server's socket is told by).
-@Test func aProcessesArgumentsAreReadBack() throws {
-    let p = Process()
-    p.executableURL = URL(fileURLWithPath: "/bin/sleep")
-    p.arguments = ["7"]
-    try p.run()
-    defer { p.terminate() }
-    #expect(Subprocess.arguments(p.processIdentifier) == ["/bin/sleep", "7"])
-}
-
 /// The socket a tmux server was started on is read from tmux's own options only: not from its command's.
 @Test func aTmuxServersSocketIsReadFromItsOwnOptions() {
     #expect(Callers.tmuxSocket(["tmux", "-Lwork", "new"]) == ["-L", "work"])

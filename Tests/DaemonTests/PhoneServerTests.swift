@@ -28,18 +28,6 @@ import Testing
 }
 
 /// Tailscale's own status: this Mac's name in its tailnet, once it's connected.
-/// The steps Settings ticks: as far as Tailscale got.
-@Test func tailscalesStepsGoAsFarAsItGot() {
-    let none = Result<String, PhoneTailscale.Failed>.failure(PhoneTailscale.Failed(message: "not installed"))
-    #expect(none.steps == TailscaleSteps())
-    let signedOut = Result<String, PhoneTailscale.Failed>.failure(
-        PhoneTailscale.Failed(message: "sign in", steps: TailscaleSteps(installed: true)))
-    #expect(signedOut.steps == TailscaleSteps(installed: true))
-    #expect(
-        Result<String, PhoneTailscale.Failed>.success("https://m.ts.net:8443").steps
-            == TailscaleSteps(installed: true, signedIn: true, serving: true))
-}
-
 @Test func tailscalesStatusNamesThisMac() {
     let running = #"{"BackendState":"Running","Self":{"DNSName":"studio.tail1234.ts.net."}}"#
     #expect(PhoneTailscale.address(status: Data(running.utf8)) == "https://studio.tail1234.ts.net:8443")

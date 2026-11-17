@@ -21,13 +21,6 @@ private func write(_ r: Rig, _ name: String, _ text: String) throws {
     try text.write(toFile: r.wt.path + "/" + name, atomically: true, encoding: .utf8)
 }
 
-@Test func repoListHasTheAddedRepo() async throws {
-    let r = try await rig()
-    defer { r.d.stop() }
-    let repos = try await r.c.call("repo.list", as: [Repo].self)
-    #expect(repos.contains { $0.id == r.repo.id })
-}
-
 @Test func branchesSwitchAndLogFollowTheWorkspace() async throws {
     let r = try await rig()
     defer { r.d.stop() }

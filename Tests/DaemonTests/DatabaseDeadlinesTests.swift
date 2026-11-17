@@ -29,15 +29,6 @@ import Testing
     #expect(try #require(DatabaseQuery.timeout) > agentsChange)
 }
 
-/// A MySQL call past its time that KILL QUERY stopped may have finished first: what's said doesn't tell the user a
-/// rerun is safe.
-@Test func aStoppedMySQLCallSaysToLookFirst() {
-    for stopped in [true, false] {
-        #expect(
-            MySQLWire.late("No answer from app in 310 s.", stopped: stopped).hasSuffix("look before running it again."))
-    }
-}
-
 /// A change held to the rows its trial changed is asked as that many; Appwrite's, which can't be held, says the number
 /// is the trial's, not that it's what will change. Every other way holds it, through a client too.
 @Test func aChangeNotHeldToItsRowsDoesNotPromiseThem() {

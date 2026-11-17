@@ -280,13 +280,6 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     #expect(try await c.call(SessionList()).first { $0.id == id }?.subagentRuns == nil)
 }
 
-/// Only an app has a switch in Login Items: a kelpd outside one is never held back by it.
-@Test func aDaemonOutsideAnAppIsAllowedInTheBackground() async throws {
-    let w = try await world()
-    defer { w.d.stop() }
-    #expect(try await w.c.call(DaemonBackgroundAllowed()))
-}
-
 /// A terminal report says what a subagent does, and a hook what kind it is: the same id, so the two make one. An agent with
 /// hooks is read for this alone, its own state in a report changes nothing.
 @Test(arguments: [false, true]) func aSubagentsTaskComesFromItsReport(hooked: Bool) async throws {

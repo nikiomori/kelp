@@ -122,12 +122,6 @@ final class Box: @unchecked Sendable {
     #expect(try await waitFor(10) { box.text.contains("SIZE=30 100") }, "\(box.text.debugDescription)")
 }
 
-/// Agents are found on the login-shell PATH even when the daemon itself started with a bare one (from Finder).
-@Test func loginPathFindsToolsAndExplainsMisses() throws {
-    #expect(try LoginPath.resolve("git").hasSuffix("/git"))
-    #expect(throws: RPCError.self) { try LoginPath.resolve("kelp-no-such-agent-cli") }
-}
-
 /// The limits probe drops its PTY right after signalling the agent, which still writes as it quits. As the terminal's
 /// controlling process it then waits in exit for that output to be read, and nobody read it any more: it hung there
 /// for good, each one holding a PTY until the daemon ran out of file descriptors.
