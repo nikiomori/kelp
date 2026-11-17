@@ -9,9 +9,11 @@ import os
 /// MySQL and MariaDB over their text protocol: values come as the server writes them.
 struct MySQLWire: DatabaseRunner {
     let c: DatabaseConnection
+    /// How long a read may run past the server's own limit before its connection is closed.
+    var grace: TimeInterval = 10
 
     func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
-        try await Self.with(c, within: timeout + 10) { conn in
+        try await Self.with(c, within: timeout + grace) { conn in
             try await Self.limit(conn, timeout)
             _ = try await Self.run(conn, "START TRANSACTION READ ONLY")
             return try await Self.run(conn, sql)

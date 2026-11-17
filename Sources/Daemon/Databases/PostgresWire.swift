@@ -8,9 +8,11 @@ import os
 
 struct PostgresWire: DatabaseRunner {
     let c: DatabaseConnection
+    /// How long a read may run past the server's own limit before its connection is closed.
+    var grace: TimeInterval = 10
 
     func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
-        try await Self.with(c, within: timeout + 10) { conn in
+        try await Self.with(c, within: timeout + grace) { conn in
             try await Self.run(conn, "BEGIN TRANSACTION READ ONLY")
             try await Self.run(conn, "SET LOCAL statement_timeout = '\(Int(timeout))s'")
             return try await Self.rows(conn, sql)

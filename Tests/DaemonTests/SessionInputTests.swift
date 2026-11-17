@@ -382,18 +382,16 @@ import os
     #expect(w.d.sessions.wakeTries.withLock { $0 } - before == 1)
 }
 
-/// Whether a pause can bring a session back is known from its start: an agent that resumes can, a plain command can't.
-@Test func aSessionKnowsFromItsStartWhetherAPauseCanBringItBack() async throws {
-    let w = try await world(agents: [
-        AgentManifest(
-            id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "exec cat"],
-            resumeArgs: ["--resume"])
-    ])
-    defer { w.d.stop() }
-    let wt = try await workspace(w, "resumable")
-    let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "sleepy"))
-    let command = try await w.c.call(SessionCreate(worktreeId: wt.id, command: "exec cat"))
-    #expect(w.d.sessions.live[agent.id]?.resumable == true && w.d.sessions.live[command.id]?.resumable == false)
+/// Whether a pause can bring a session back: an agent that resumes can, a plain command can't, a tmux terminal can
+/// (its tmux session outlives it).
+@Test func aSessionKnowsWhetherAPauseCanBringItBack() {
+    let sleepy = AgentManifest(
+        id: "sleepy", name: "Sleepy", command: "/bin/zsh", args: ["-c", "exec cat"], resumeArgs: ["--resume"])
+    let agent = Session(cwd: "/tmp", command: "sleepy", agent: "sleepy")
+    #expect(Sessions.resumable(agent, [sleepy]))
+    #expect(!Sessions.resumable(agent, []))   // an agent that can't resume
+    #expect(!Sessions.resumable(Session(cwd: "/tmp", command: "exec cat"), [sleepy]))
+    #expect(Sessions.resumable(Session(cwd: "/tmp", command: "work", argv: Tmux.argv("work")), []))
 }
 
 @Test func cutShortTurnsAreRecognisedOnScreen() {

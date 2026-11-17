@@ -56,13 +56,13 @@ private func callPastItsTime(_ engine: DatabaseInfo.Engine) async throws {
     var db = DatabaseInfo(name: "slow", engine: engine, host: "127.0.0.1", port: server.port, database: "d", user: "u")
     db.ssl = "disable"
     let conn = DatabaseConnection(database: db)
-    // Its whole time is `timeout + 10`: 10 s. Waited for 25 s at most: a call that never ends fails here, not as a hang.
+    // Its whole time is `timeout + grace`: 3 s. Waited for 25 s at most: a call that never ends fails here, not as a hang.
     let said = await firstOf(seconds: 25, otherwise: "no answer after 25 s") {
         do {
             _ =
                 engine == .postgres
-                ? try await PostgresWire(c: conn).read("SELECT 1", timeout: 0)
-                : try await MySQLWire(c: conn).read("SELECT 1", timeout: 0)
+                ? try await PostgresWire(c: conn, grace: 3).read("SELECT 1", timeout: 0)
+                : try await MySQLWire(c: conn, grace: 3).read("SELECT 1", timeout: 0)
             return "an answer"
         } catch { return (error as? DatabaseFailure)?.message ?? "\(error)" }
     }

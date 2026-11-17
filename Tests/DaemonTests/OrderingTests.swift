@@ -111,7 +111,10 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     }
     _ = try await c.call(SettingsSet(key: "terminal.fontSize", value: .int(13)))   // broadcasts event.settings
     #expect(heard(loud).contains("event.settings"))
-    #expect(heard(quiet).isEmpty)
+    // What the quiet one hears next is the answer to its own ping: the broadcast before it never came.
+    Unix.writeAll(quiet, try Wire.line(RPCRequest(id: 2, method: Ping.name)))
+    let next = heard(quiet)
+    #expect(next.contains("\"id\":2") && !next.contains("event.settings"), "\(next)")
 }
 
 /// `kelp attach` sends `session.stream` as its first line: an event broadcast between its connect and that line went into

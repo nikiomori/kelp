@@ -45,14 +45,12 @@ import Testing
 
 /// SQLite's INTEGER PRIMARY KEY is the rowid: the schema doesn't call it nullable, as an agent would then guard for it.
 @Test func aSQLiteRowidKeyIsntNullable() async throws {
-    let w = try await world()
-    defer { w.d.stop() }
-    let wt = try await firstWorkspace(w)
-    let queue = try DatabaseQueue(path: (wt.path as NSString).appendingPathComponent("app.sqlite3"))
+    let path = tmp().appendingPathComponent("app.sqlite3").path
+    let queue = try DatabaseQueue(path: path)
     try await queue.write { try $0.execute(sql: "CREATE TABLE t (code TEXT PRIMARY KEY, note TEXT)") }
     try await queue.write { try $0.execute(sql: "CREATE TABLE u (id INTEGER PRIMARY KEY, note TEXT)") }
     try queue.close()
-    let schema = try await w.c.call(DatabaseSchemaRead(worktreeId: wt.id, database: "app"))
+    let schema = try await SQLiteRun(c: fileConnection(path, .sqlite), off: Slots(1)).schema()
     let nullable = Dictionary(uniqueKeysWithValues: schema.tables.map { ($0.name, $0.columns.map(\.nullable)) })
     #expect(nullable["u"] == [false, true])
     #expect(nullable["t"] == [true, true])   // a TEXT key takes NULL in SQLite, unless NOT NULL says otherwise

@@ -337,12 +337,11 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 }
 
 /// A folder with new files is dirty though the repository doesn't list them.
-@Test func newFilesCountWhateverStatusShows() async throws {
-    let r = try await rig()
-    defer { r.d.stop() }
-    try Git.run(["config", "status.showUntrackedFiles", "no"], cwd: r.wt.path, remotes: .none)
-    try write(r, "new.txt", "work")
-    #expect(try Git.isDirty(r.wt.path, remotes: .none))
+@Test func newFilesCountWhateverStatusShows() throws {
+    let repo = try makeRepo()
+    try Git.run(["config", "status.showUntrackedFiles", "no"], cwd: repo, remotes: .none)
+    try "work".write(toFile: repo + "/new.txt", atomically: true, encoding: .utf8)
+    #expect(try Git.isDirty(repo, remotes: .none))
 }
 
 /// A home seeded from Kelp's shares its branch groups' folders: closing one here doesn't trash what Kelp may be working in.
