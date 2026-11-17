@@ -4,7 +4,8 @@ import Foundation
 import KelpKit
 
 /// The workspace on screen's git, watched for as long as it's on screen (the daemon pushes it when its files change):
-/// the number on the Source Control icon, the window bar's branch chip and Source Control itself read `AppModel.git`.
+/// the number on the Source Control icon, the window bar's branch chip and Source Control itself read its `GitEvent`
+/// (`AppModel.latest`).
 @MainActor
 final class ChangedFiles {
     private let app: AppModel

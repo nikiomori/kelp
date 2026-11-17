@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import DesignKit
+import WorkbenchKit
 
 // MARK: tmux and built-ins' lists
 
@@ -58,10 +59,7 @@ extension QuickOpen {
     func tmuxItems(_ sessions: [Tmux.Session], _ q: String) -> [Item] {
         func item(_ name: String, icon: String, detail: String) -> Item {
             let app = self.app
-            var components = URLComponents()
-            components.scheme = "terminal"
-            components.queryItems = [URLQueryItem(name: "tmux", value: name)]
-            let uri = components.string ?? "terminal:"
+            let uri = TabURI.terminal(["tmux": name])
             return Item(
                 kind: "tmux", icon: icon, title: name, detail: detail, action: { app.workbench.runURI(uri) },
                 split: { app.workbench.runURI(uri, split: .right) })

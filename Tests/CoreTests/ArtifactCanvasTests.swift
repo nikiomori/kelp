@@ -41,7 +41,6 @@ import Testing
             Tweak(name: "--accent", value: "#1f7a5a", options: []),
             Tweak(name: "--gap", value: "12px", options: ["8px", "12px", "16px"])
         ])
-    #expect(tweaks[0].isColor && !tweaks[1].isColor)
     let set = Tweak.set("--gap", to: "16px", in: board)
     #expect(set.map(Tweak.all) == [tweaks[0], Tweak(name: "--gap", value: "16px", options: ["8px", "12px", "16px"])])
     #expect(Tweak.set("--gap", to: "1px; } x", in: board) == nil)

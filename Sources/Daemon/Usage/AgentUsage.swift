@@ -5,8 +5,8 @@ import Foundation
 import os
 
 /// What the agents leave on disk and what their plans allow: conversations (`history.list`; whose file is whose is
-/// `Conversations`'), token usage (`usage.get`, `usage.report`), context windows and plan limits. Reading them takes long (gigabytes of transcripts), so what was read
-/// is kept here.
+/// `Conversations`'), token usage (`usage.get`, `usage.agents`), context windows and plan limits. Reading them takes
+/// long (gigabytes of transcripts), so what was read is kept here.
 final class AgentUsage: Sendable {
     let root: URL
     let settings: SettingsStore
@@ -14,7 +14,7 @@ final class AgentUsage: Sendable {
     let usageCache = OSAllocatedUnfairLock<(at: Date, value: UsageGet.Result)?>(initialState: nil)
     /// Claude models with the 1M context window (contextWindow); nil until first asked.
     let longContextModels = OSAllocatedUnfairLock<Set<String>?>(initialState: nil)
-    /// Claude Code's usage by day / model / folder, read incrementally (usage.report).
+    /// Claude Code's usage by day / model / folder, read incrementally (usage.agents, usage.get).
     let usageIndex: UsageIndex
     /// The other agents' logs (Codex, Grok, Kimi Code, pi, oh-my-pi, Qwen Code, Gemini CLI), read the same way (usage.agents).
     let agentIndexes: [UsageFormat: UsageIndex]

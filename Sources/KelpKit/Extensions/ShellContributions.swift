@@ -53,7 +53,6 @@ package struct TabProvider {
     var driven: (@MainActor (_ workspace: String) -> [String: (session: String, glow: NSColor?)])?
 }
 
-/// Everything one extension adds. Built-ins fill it in Swift; folders from extension.json.
 /// What the window bar's branch chip does, from the built-in that knows git (Git): what runs on a workspace's branch now
 /// ("Pushing…") and the popover a click opens.
 package struct BranchActions {
@@ -206,6 +205,7 @@ package protocol SidebarRow: NSView {
     func update()
 }
 
+/// Everything one extension adds. Built-ins fill it in Swift; folders from extension.json.
 package struct Contributions {
     /// What a built-in hands over, once (a folder extension's are read from its manifest).
     package init(

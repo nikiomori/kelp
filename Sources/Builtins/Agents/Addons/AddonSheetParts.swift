@@ -153,9 +153,8 @@ enum AddonSheetParts {
     /// A heading and the rows: a server only one agent has, a skill some agents don't read. nil when there are none.
     static func found(_ sheet: AddonSheet) -> [NSView]? {
         let here = sheet.items.filter { addon in
-            if addon.kind == .server { return AddonMenu.only(addon) != nil }
-            let own = addon.kind == .skill && (addon.source == .yours || addon.source == .project)
-            return own && addon.key != nil && !(addon.agents.contains("claude") && addon.agents.contains("codex"))
+            addon.kind == .server
+                ? AddonMenu.only(addon) != nil : addon.kind == .skill && AddonMenu.notEveryAgentHas(addon)
         }
         guard !here.isEmpty else { return nil }
         let title = text(

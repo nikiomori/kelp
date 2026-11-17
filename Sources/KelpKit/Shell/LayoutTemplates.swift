@@ -135,15 +135,10 @@ struct LayoutTemplates {
 
     /// What runs again for a session's tab: its agent anew, its command (a Run command's), or a shell where it was.
     static func running(_ s: Session) -> String {
-        var c = URLComponents()
-        c.scheme = "terminal"
-        if s.isAgent, let agent = s.agent { return "agent:" + agent }
-        if let line = s.customCommand {
-            c.queryItems = [URLQueryItem(name: "cmd", value: line), URLQueryItem(name: "title", value: s.title)]
-        } else if let tmux = Tmux.session(s.argv) {
-            c.queryItems = [URLQueryItem(name: "tmux", value: tmux)]
-        }
-        return c.string ?? "terminal:"
+        if s.isAgent, let agent = s.agent { return TabURI.agent(agent) }
+        if let line = s.customCommand { return TabURI.terminal(["cmd": line, "title": s.title]) }
+        if let tmux = Tmux.session(s.argv) { return TabURI.terminal(["tmux": tmux]) }
+        return TabURI.terminal()
     }
 
     /// What a run URI starts (as `EditorArea.runURI` reads one); `script`: one of the project's commands, by name.

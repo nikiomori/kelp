@@ -64,16 +64,11 @@ public struct LayoutTemplate: Codable, Equatable {
                 for item in parts(pane, ",") {
                     var tab = TabRef(uri: "")
                     if agents.contains(item) {
-                        tab.uri = "agent:" + item
+                        tab.uri = TabURI.agent(item)
                     } else if ["shell", "terminal"].contains(item) {
-                        tab.uri = "terminal:"
+                        tab.uri = TabURI.terminal()
                     } else if commands.contains(item) {
-                        var c = URLComponents()
-                        c.scheme = "terminal"
-                        c.queryItems = [
-                            URLQueryItem(name: "script", value: item), URLQueryItem(name: "title", value: item)
-                        ]
-                        tab.uri = c.string ?? "terminal:"
+                        tab.uri = TabURI.terminal(["script": item, "title": item])
                         firstRun = firstRun ?? tab
                     } else if item == "page" {
                         wantsPage.append(tab)

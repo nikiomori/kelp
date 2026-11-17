@@ -126,8 +126,6 @@ public struct Tweak: Equatable, Sendable, Encodable {
     /// Its choices; empty for a colour.
     public var options: [String]
 
-    public var isColor: Bool { options.isEmpty && value.hasPrefix("#") }
-
     private static var line: Regex<(Substring, Substring, Substring, Substring?)> {
         /<!--\s*tweak\s+(--[A-Za-z0-9_-]+)\s*:\s*([^<>;()]+?)\s*(?:\(([^<>;()]*)\))?\s*-->/
     }

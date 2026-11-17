@@ -98,7 +98,9 @@ import Testing
     let read = try await c.call(FilesRead(path: repo.path + "/a.txt"))
     #expect(read.text == "changed\n")
     // Saving writes it there; an edit there since it was read comes back instead, and nothing is written over it.
-    let save = { (text: String) in try await c.call(FilesWrite(path: repo.path + "/a.txt", text: text, base: read.stamp)) }
+    let save = { (text: String) in
+        try await c.call(FilesWrite(path: repo.path + "/a.txt", text: text, base: read.stamp))
+    }
     #expect(try await save("mine\n").conflict == nil)
     #expect(try String(contentsOfFile: there + "/a.txt", encoding: .utf8) == "mine\n")
     #expect(try await save("again\n").conflict?.text == "mine\n")
@@ -243,9 +245,7 @@ import Testing
         to: dir.appendingPathComponent("s1.jsonl"), atomically: true, encoding: .utf8)
     let list = try await d.handle("history.list", .obj(["cwd": "/work/app"]), conn: -1)
     #expect(list.array?.map { $0["title"]?.string } == ["Fix the parser"])
-    let report = try await d.handle("usage.report", .obj(["days": 1]), conn: -1)
-    #expect(report["models"]?.array?.first?["tokens"]?.int == 8)
-    // By agent too (other agents' folders may have rows of their own: only Claude's are this test's).
+    // By agent (other agents' folders may have rows of their own: only Claude's are this test's).
     let agents = try await d.handle("usage.agents", .obj(["days": 1]), conn: -1)
     let claude = agents["agents"]?.array?.first { $0["id"]?.string == "claude" }
     #expect(claude?["tokens"]?.int == 8 && claude?["input"]?.int == 3 && claude?["output"]?.int == 5)

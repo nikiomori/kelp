@@ -49,12 +49,36 @@ def one_letter_names(code):
     its whole life is in view."""
     n = 0
     for l in code:
-        n += len(re.findall(r"\b(?:let|var)\s+[a-z]\b(?!\w)|\(\s*[a-z]\s*:", l))
+        n += len(re.findall(r"\b(?:let|var)\s+[a-z]\b(?!\w)", l))
         for c in re.finditer(r"\{\s*\[?[a-z](?:,\s*[a-z])*\]?\s+in\b", l):
             rest = l[c.end():]
             if rest.count("}") <= rest.count("{"):
                 n += 1
-    return n
+    return n + sum(len(name) == 1 and name.islower() for name in parameter_names("\n".join(code)))
+
+
+def parameter_names(code):
+    """The names a `func`, `init` or `subscript` declares for its parameters (`of r: Repo` → r), over as many lines as
+    its list runs: an argument label at a call (`NSPoint(x: 0)`) names nothing."""
+    names = []
+    for m in re.finditer(r"\b(?:func\s+[^\s(<]+(?:<[^>]*>)?|init[?!]?|subscript)\s*\(", code):
+        depth, part, at = 1, "", m.end()
+        while at < len(code) and depth:
+            ch = code[at]
+            if not (ch == ">" and code[at - 1] == "-"):   # a closure type's `->` closes nothing
+                depth += {"(": 1, "[": 1, "<": 1, ")": -1, "]": -1, ">": -1}.get(ch, 0)
+            if depth == 1 and ch == "," or depth == 0:
+                names.append(part)
+                part = ""
+            elif depth >= 1:
+                part += ch
+            at += 1
+    found = []
+    for p in names:
+        head = p.split(":")[0].split()
+        if ":" in p and head:
+            found.append(head[-1])
+    return found
 
 
 def count_loc(*dirs):

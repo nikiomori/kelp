@@ -113,8 +113,7 @@ struct ExtActions {
             case .terminal(let command, let title):
                 app.workbench.starterForNewTab?.run(command: command, title: title ?? a.title)
             case .tmux(let name):
-                app.workbench.runURI(
-                    "terminal:?tmux=" + (name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name))
+                app.workbench.runURI(TabURI.terminal(["tmux": name]))
             }
         } else if let uri = a.open {
             if let target = openURI(uri, item: item) {

@@ -120,8 +120,6 @@ final class LiveSession: Sendable {
     /// Its record says its last (a pause, an end): nothing it does saves it again.
     func finish() { state.withLock { $0.final = true } }
     var isFinal: Bool { state.withLock { $0.final } }
-    /// The program exited and that was handled (its record final, its log closed).
-    var hasEnded: Bool { state.withLock { $0.ended } }
     var topic: String? { state.withLock { $0.lastTopic } }
     /// Claude Code transcript (from hook payloads): where its subagents' transcripts live.
     var transcriptPath: String? {

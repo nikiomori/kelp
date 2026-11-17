@@ -42,20 +42,6 @@ extension UsageGet: Handled {
     }
 }
 
-/// What Claude Code used, by day / model / project, priced as the API would.
-extension UsageReport: Handled {
-    func handle(_ usage: AgentUsage) throws -> Result {
-        let since = AgentUsage.since(days: days)
-        let rows = usage.usageIndex.rows(
-            roots: usage.agentRoots().claude.filter { FileManager.default.fileExists(atPath: $0.path) }, since: since)
-        let all = rows.map { (Session.claudeAgent, $0) }, project = usage.projects()
-        func group(_ key: (AgentUsage.AgentRow) -> String) -> [Group] { AgentUsage.groups(all, by: key) }
-        return Result(
-            days: group { $0.row.day }, models: group { $0.row.model }, projects: group { project($0.row.cwd) },
-            since: since.timeIntervalSince1970)
-    }
-}
-
 /// What every agent used, by day and agent, agent, model and project.
 extension UsageAgents: Handled {
     func handle(_ usage: AgentUsage) throws -> Result {
@@ -67,7 +53,7 @@ extension UsageAgents: Handled {
         if let only = self.project { all = all.filter { project($0.row.cwd) == only } }
         let first = UsageIndex.day(since)
         let rows = all.filter { $0.row.day >= first }
-        func group(_ key: (AgentUsage.AgentRow) -> String) -> [UsageReport.Group] { AgentUsage.groups(rows, by: key) }
+        func group(_ key: (AgentUsage.AgentRow) -> String) -> [UsageAgents.Group] { AgentUsage.groups(rows, by: key) }
         let days = Dictionary(grouping: rows) { [$0.row.day, $0.agent] }.map { key, rs in
             Day(
                 day: key[0], agent: key[1], cost: rs.reduce(0) { $0 + $1.row.tally.cost },
@@ -133,9 +119,9 @@ extension AgentUsage {
     }
 
     /// Sums `rows` by a key, most expensive first (then most tokens: a model with no list price costs 0).
-    static func groups(_ rows: [AgentRow], by key: (AgentRow) -> String) -> [UsageReport.Group] {
+    static func groups(_ rows: [AgentRow], by key: (AgentRow) -> String) -> [UsageAgents.Group] {
         Dictionary(grouping: rows, by: key).map { name, rs in
-            UsageReport.Group(
+            UsageAgents.Group(
                 name: name, cost: rs.reduce(0) { $0 + $1.row.tally.cost },
                 tokens: rs.reduce(0) { $0 + $1.row.tally.tokens.total })
         }
@@ -169,5 +155,5 @@ extension HistoryList: Handled {
 }
 
 extension Methods {
-    static let usageMethods: [any Answered.Type] = [UsageGet.self, UsageReport.self, UsageAgents.self, HistoryList.self]
+    static let usageMethods: [any Answered.Type] = [UsageGet.self, UsageAgents.self, HistoryList.self]
 }

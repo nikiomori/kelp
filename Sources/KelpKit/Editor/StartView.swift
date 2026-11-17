@@ -84,7 +84,7 @@ final class StartView: NSView {
         let agentList = agents.isEmpty ? StartCard(rows: installRows()) : tiles(agents)
         // Made again when what it offers changes (Database, once the workspace's databases are read).
         let openCard = NSStackView()
-        let choices = { [weak self] in NewTabChoices.open(app, w) { self?.onOpen?("terminal:") } }
+        let choices = { [weak self] in NewTabChoices.open(app, w) { self?.onOpen?(TabURI.terminal()) } }
         track(owner: openCard) {
             choices().map(\.title)
         } changed: { [weak openCard] _ in

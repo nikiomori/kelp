@@ -14,6 +14,15 @@ public enum TabURI {
     /// It runs something instead of showing it: `terminal:?cmd=…`, `agent:?prompt=…`. Only `runURI` takes one.
     public static func runs(_ uri: String) -> Bool { ["terminal", "agent"].contains(scheme(uri)) }
     public static func session(_ id: String) -> String { "session:\(id)" }
+    /// A new terminal tab: a shell where it opens, or what `query` says it runs (`tmux`, `cmd`, `script`, `title`).
+    public static func terminal(_ query: KeyValuePairs<String, String?> = [:]) -> String {
+        var components = URLComponents()
+        components.scheme = "terminal"
+        if !query.isEmpty { components.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) } }
+        return components.string ?? "terminal:"
+    }
+    /// A new tab of the agent `id`.
+    public static func agent(_ id: String) -> String { "agent:" + id }
     /// A page an agent drives (`kelp browser open`), with cookies and storage of its own: `agentweb:` and its address.
     public static let agentScheme = "agentweb"
     public static func agentPage(_ url: String) -> String { agentScheme + ":" + url }

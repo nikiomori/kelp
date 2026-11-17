@@ -133,13 +133,6 @@ final class AgentPages {
         of(tab: tab).first { lit.contains($0.id) }?.page.color
     }
 
-    /// What the tabs of `workspace` show of their pages, for their strip to follow: tab, session, lit.
-    func tabMarks(workspace: String) -> [String] {
-        pages.filter { $0.value.workspace == workspace }.map {
-            "\($0.value.tab) \($0.value.session) \(lit.contains($0.key))"
-        }.sorted()
-    }
-
     func handle(_ id: String) -> BrowserTab? { handles[id]?.page }
 
     /// The page's group comes up, the page in front.

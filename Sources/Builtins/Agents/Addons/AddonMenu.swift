@@ -50,13 +50,19 @@ struct AddonMenu {
         }
     }
 
+    /// A skill of the person's or the project's that some agents don't read: Give to All Agents hands it to them.
+    static func notEveryAgentHas(_ addon: Addon) -> Bool {
+        [.yours, .project].contains(addon.source) && addon.key != nil
+            && !(addon.agents.contains("claude") && addon.agents.contains("codex"))
+    }
+
     /// A skill in a folder: the person's or the project's can be handed to every agent and trashed.
     private func skill(_ menu: NSMenu, _ addon: Addon) {
         locate(menu, addon.path, open: String(localized: "Open SKILL.md"), folder: true)
         separate(menu)
         onOff(menu, addon)
         guard [.yours, .project].contains(addon.source), let key = addon.key else { return }
-        if !addon.agents.contains("claude") || !addon.agents.contains("codex") {
+        if Self.notEveryAgentHas(addon) {
             menu.add(String(localized: "Give to All Agents")) { send(AddonsLink(worktreeId: worktreeId, key: key)) }
         }
         separate(menu)

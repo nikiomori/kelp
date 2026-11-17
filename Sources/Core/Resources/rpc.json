@@ -5212,7 +5212,7 @@
           },
           "models" : {
             "items" : {
-              "$ref" : "#/components/schemas/UsageReport.Group"
+              "$ref" : "#/components/schemas/UsageAgents.Group"
             },
             "type" : "array"
           },
@@ -5221,7 +5221,7 @@
           },
           "projects" : {
             "items" : {
-              "$ref" : "#/components/schemas/UsageReport.Group"
+              "$ref" : "#/components/schemas/UsageAgents.Group"
             },
             "type" : "array"
           },
@@ -5289,6 +5289,26 @@
         ],
         "type" : "object"
       },
+      "UsageAgents.Group" : {
+        "description" : "A model's, a project's or an agent's (`name`) cost and tokens over the span.",
+        "properties" : {
+          "cost" : {
+            "type" : "number"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "tokens" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "cost",
+          "name",
+          "tokens"
+        ],
+        "type" : "object"
+      },
       "UsageAgents.Result" : {
         "properties" : {
           "agents" : {
@@ -5313,7 +5333,7 @@
           },
           "models" : {
             "items" : {
-              "$ref" : "#/components/schemas/UsageReport.Group"
+              "$ref" : "#/components/schemas/UsageAgents.Group"
             },
             "type" : "array"
           },
@@ -5326,13 +5346,13 @@
           "previous" : {
             "description" : "The same number of days before `since`, by agent (`name` is its id); nil past the year the logs are read for.",
             "items" : {
-              "$ref" : "#/components/schemas/UsageReport.Group"
+              "$ref" : "#/components/schemas/UsageAgents.Group"
             },
             "type" : "array"
           },
           "projects" : {
             "items" : {
-              "$ref" : "#/components/schemas/UsageReport.Group"
+              "$ref" : "#/components/schemas/UsageAgents.Group"
             },
             "type" : "array"
           },
@@ -5509,58 +5529,6 @@
         "required" : [
           "claude",
           "codex"
-        ],
-        "type" : "object"
-      },
-      "UsageReport.Group" : {
-        "properties" : {
-          "cost" : {
-            "type" : "number"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "tokens" : {
-            "type" : "integer"
-          }
-        },
-        "required" : [
-          "cost",
-          "name",
-          "tokens"
-        ],
-        "type" : "object"
-      },
-      "UsageReport.Result" : {
-        "properties" : {
-          "days" : {
-            "description" : "Most expensive first; `since` is the first day's start (seconds since 1970).",
-            "items" : {
-              "$ref" : "#/components/schemas/UsageReport.Group"
-            },
-            "type" : "array"
-          },
-          "models" : {
-            "items" : {
-              "$ref" : "#/components/schemas/UsageReport.Group"
-            },
-            "type" : "array"
-          },
-          "projects" : {
-            "items" : {
-              "$ref" : "#/components/schemas/UsageReport.Group"
-            },
-            "type" : "array"
-          },
-          "since" : {
-            "type" : "number"
-          }
-        },
-        "required" : [
-          "days",
-          "models",
-          "projects",
-          "since"
         ],
         "type" : "object"
       },
@@ -13639,27 +13607,6 @@
         "name" : "result",
         "schema" : {
           "$ref" : "#/components/schemas/UsageGet.Result"
-        }
-      },
-      "x-internal" : true
-    },
-    {
-      "description" : "What Claude Code used over `days`, by day, model and project, priced as the API would.",
-      "name" : "usage.report",
-      "paramStructure" : "by-name",
-      "params" : [
-        {
-          "name" : "days",
-          "required" : false,
-          "schema" : {
-            "type" : "integer"
-          }
-        }
-      ],
-      "result" : {
-        "name" : "result",
-        "schema" : {
-          "$ref" : "#/components/schemas/UsageReport.Result"
         }
       },
       "x-internal" : true

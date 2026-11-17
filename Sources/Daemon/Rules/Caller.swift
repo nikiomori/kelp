@@ -40,7 +40,7 @@ enum Caller: Hashable, Sendable {
     static let marks: Set<String> = [Callers.ownProgram, Callers.unknown, Callers.detached]
 
     /// What a session it starts records as its origin (`Session.origin`): its session, or a mark (`marks`) where its
-    /// line stops, which `Sessions.forAnAgent` holds to an agent's rules.
+    /// line stops, which `Store.forAnAgent` holds to an agent's rules.
     var origin: String? {
         switch self {
         case .user: nil

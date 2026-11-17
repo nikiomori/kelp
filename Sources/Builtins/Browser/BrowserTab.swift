@@ -266,7 +266,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         showAgentBar()
     }
 
-    /// The page at the size the agent set (`AgentDrive.viewport`), or filling the pane.
+    /// The page at the size the agent set (`viewport`), or filling the pane.
     func placeWeb() {
         NSLayoutConstraint.deactivate(webFill + webFixed)
         webFixed.removeSubrange(3...)

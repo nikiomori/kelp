@@ -81,7 +81,7 @@ part of the card) is Browser's. The shell gives them places to show up in: the c
   Restart attaches to it again ("Connection lost" › Reconnect), closing the tab ends it. After attaching, tmux's redraw
   doesn't count as a turn.
 
-## Contribution points (built-in Swift extensions and `extension.json` folders use the same ones, the last two rows aside)
+## Contribution points (built-in Swift extensions and `extension.json` folders use the same ones, the rows marked built-ins only aside)
 | Point | Where it shows |
 | --- | --- |
 | panels | right inspector (selector icons) |
@@ -89,6 +89,7 @@ part of the card) is Browser's. The shell gives them places to show up in: the c
 | commands | command palette (⇧⌘P), menus, key bindings, `kelp run <id>` |
 | settings | Settings window (generated forms) and `~/.kelp/settings.json`; a row says what its options are called and how they show (`labels`, `look`), a built-in's setting brings what only its code knows of its choices (`choices`: the agents installed and their names, a pictured setting's drawings), and its section its tile's colour and previews (`tint`, `previews`), so the window names no built-in's key or section |
 | themes | Appearance settings; build the window round the terminal and editor, and color all three |
+| iconThemes | file icons, picked in Settings › Appearance › File Icon Theme, from a VS Code file icon theme |
 | agents | agent CLIs offered in the "+" menu and the empty workspace |
 | languages | file tabs: completion and jump to definition from the language server; Run File, Test at Cursor and Format Document (⌘R / ⌘U without project commands) (built in: Swift, TS/JS, Python, Go, Rust) |
 | tabs (built-ins only) | a tab for a URI scheme of its own (`vm:`, `host:`, `cilog:`); its tabs an agent drives (`driven`: a page), which wear the agent's logo and card and glow while it acts |
@@ -97,7 +98,9 @@ part of the card) is Browser's. The shell gives them places to show up in: the c
 | agentCards (built-ins only) | a part of an agent's hover card under what the card says of it (the page it drives, Browser's) |
 | quickPrefixes (built-ins only) | ⌘P's list for what's typed after a character of the built-in's ("#": the project's open pull requests, Issues', from their watch) |
 | subagentSteps (built-ins only) | a subagent's last command in the built-in's words on its agent's card ("Browser · clicks “Pay now”") |
-| browser (built-ins only) | `kelp browser`'s commands, done by the built-in that has pages (Browser), which acts in a loaded workspace's tabs through Workbench (`loadedTabs`, `content`, `openBeside`); none, and the command is told the Browser is off |
+| events (built-ins only) | a daemon event the shell keeps nothing of, heard as it comes, the first built-in that takes it ending the round: a page a session printed, a port another program holds (Run's), an agent's `kelp browser` command (Browser's; none takes it, and the command is told the Browser is off) |
+| rowMenu (built-ins only) | items at the top of a sidebar row's menu, each ending with its separator (a merged PR's "Switch to main and Pull", a server's own) |
+| sessionHidden (built-ins only) | sessions it keeps running with no tab and no sidebar row (Run's runs put away in the Run menu) |
 | branch (built-ins only) | the window bar's branch chip: what runs on the branch, the popover a click opens (Git's sync); the top of a project's menu for its folder's branch (a merged PR's switch) |
 | ci (built-ins only) | a folder's CI and pull request marks beside its sidebar row, in ⌃Tab and on the window bar ("#12"): what they say, where a click goes, the PR in its hover card, the branch chip menu's Create Pull Request and CI items (Git's); none, and no CI or PR shows |
 | pushed (built-ins only) | each reading the daemon pushes, as it lands, not only the latest (a limit's pace, its notifications) |
@@ -277,7 +280,7 @@ machines are Apple's Virtualization (`Sources/KelpVM`), Android the SDK's emulat
 XCUITest runner. A command runs inside over the machine's own SSH (`kelp vm run`, marked with its session); a macOS
 machine's screen is read and driven from the Mac's side, in turns by session. Idle, a machine pauses, then sleeps (its
 state saved, `kelp-vm` gone), and wakes on the next command. Making one (download, install, first boot) is kelpd's
-(`Sources/Daemon/VM*.swift`), its step in the folder's `creating`, taken up again by the next kelpd if one stopped midway.
+(`Sources/Daemon/Machines/`), its step in the folder's `creating`, taken up again by the next kelpd if one stopped midway.
 An agent's `vm.create` asks the user on its row first (Allow / Deny, as a database change does); shutting one down or
 deleting it stays the user's. A project's terminals can run in a machine (`machines.projects`, `SessionSetup.inMachine`).
 

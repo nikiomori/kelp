@@ -529,7 +529,7 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     #expect(try await waitFor(10) { w.d.sessions.existing(s.id)?.snapshot.status == .working })
     let ls = try #require(w.d.sessions.existing(s.id))
     _ = try await w.c.call("worktree.archive", .obj(["id": .string(wt.id)]))
-    #expect(try await waitFor(10) { ls.hasEnded })   // its last words and exit handled
+    #expect(try await waitFor(10) { ls.state.withLock { $0.ended } })   // its last words and exit handled
     await withCheckedContinuation { done in ls.inOrder { done.resume() } }   // and any status change that queued
     #expect(
         try w.d.store.session(s.id)?.status == .paused,

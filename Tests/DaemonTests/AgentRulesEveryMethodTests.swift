@@ -95,7 +95,7 @@ private func rows() async throws -> Rows {
         HistoryList(), HostStatsRead(host: "h"), JiraStatus(), LinearStatus(), Ping(),
         ProcessWhich(commands: ["git"]), RemoteListFolders(host: "h", path: "/"), RepoIcon(path: r.wt.path),
         RepoList(), RoutineList(), SessionUsage(), SettingsGet(), StateGet(), UIStateGet(), UsageAgents(),
-        UsageGet(), UsageReport(), VMDetailRead(name: "m"), VMList(), WatchStop(.git, r.wt.id)
+        UsageGet(), VMDetailRead(name: "m"), VMList(), WatchStop(.git, r.wt.id)
     ]
     let agent = Caller.session(r.mine.id)
     // The trackers' contents are the user's: read with their keys, a query reaching the whole site.

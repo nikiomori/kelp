@@ -263,7 +263,7 @@ struct UsageReportView: View {
 
     /// Eight rows with their share of the first, then the rest on request. A model's dot is its agent's colour; a project
     /// narrows the page to it (again: back to all).
-    private func groups(_ title: String, _ rows: [UsageReport.Group], all: Binding<Bool>, model: Bool) -> some View {
+    private func groups(_ title: String, _ rows: [UsageAgents.Group], all: Binding<Bool>, model: Bool) -> some View {
         let top = rows.first.map { $0.cost > 0 ? $0.cost : Double($0.tokens) } ?? 1
         return VStack(alignment: .leading, spacing: 6) {
             Text(title).font(.ui(TextSize.body, weight: .semibold))

@@ -6,10 +6,7 @@ import SwiftUI
 /// instead of its name in a menu (`SettingSpec.look`). The value written is the option, as from the menu.
 enum SettingPictures {
     /// The shell's own settings it draws; a built-in draws its own (`SettingChoices.picture`).
-    static let keys: Set<String> = [
-        SettingKeys.textSize.key, SettingKeys.tabWidth.key, SettingKeys.tabHeight.key,
-        SettingKeys.rowHeight.key, SettingKeys.agentDetail.key, SettingKeys.projectColor.key, SettingKeys.serverLook.key
-    ]
+    static var keys: Set<String> { Set(PictureArt.drawings.keys) }
 }
 
 /// A setting's options as tiles: its drawing, its name under it, the chosen one ringed in the accent colour. Five to a
@@ -95,19 +92,24 @@ private struct PictureArt: View {
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        switch key {
-        case SettingKeys.textSize.key: textSize
-        case SettingKeys.tabWidth.key: tabs
-        case SettingKeys.tabHeight.key: tabBand(option == "compact" ? 16 : 20)
-        case SettingKeys.rowHeight.key: rows(["compact": 24, "regular": 28, "large": 32][option] ?? 28)
-        case SettingKeys.agentDetail.key: agentRow
-        case SettingKeys.projectColor.key: projectRow
-        case SettingKeys.serverLook.key: serverRow
-        default:
+        if let draw = Self.drawings[key] {
+            draw(self)
+        } else {
             // A built-in's own setting, drawn by it.
             app.extensions.specs[key]?.choices?.picture?(option)
         }
     }
+
+    /// The shell's own drawings, by setting.
+    static let drawings: [String: @MainActor (PictureArt) -> AnyView] = [
+        SettingKeys.textSize.key: { AnyView($0.textSize) },
+        SettingKeys.tabWidth.key: { AnyView($0.tabs) },
+        SettingKeys.tabHeight.key: { AnyView($0.tabBand($0.option == "compact" ? 16 : 20)) },
+        SettingKeys.rowHeight.key: { AnyView($0.rows(["compact": 24, "regular": 28, "large": 32][$0.option] ?? 28)) },
+        SettingKeys.agentDetail.key: { AnyView($0.agentRow) },
+        SettingKeys.projectColor.key: { AnyView($0.projectRow) },
+        SettingKeys.serverLook.key: { AnyView($0.serverRow) }
+    ]
 
     private static let pink = Color(nsColor: .systemPink)
     /// Text drawn into a picture at a fixed size: the Text size picture shows each size itself, so it mustn't follow the setting.

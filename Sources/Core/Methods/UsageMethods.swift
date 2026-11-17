@@ -96,9 +96,12 @@ public struct UsageGet: InternalMethod {
         self.cachedTokens = cachedTokens
     }
 }
-/// What Claude Code used over `days`, by day, model and project, priced as the API would.
-public struct UsageReport: InternalMethod {
-    public static let name = "usage.report"
+/// What each agent used over `days`, read from its own logs on this Mac (Claude Code, Codex, Grok, Kimi Code, Copilot): by
+/// day and agent, and by agent, model and project, priced as the API would (Grok as it says itself; 0 for a model with no
+/// list price).
+public struct UsageAgents: InternalMethod {
+    public static let name = "usage.agents"
+    /// A model's, a project's or an agent's (`name`) cost and tokens over the span.
     public struct Group: Codable, Sendable, Equatable {
         public var name: String, cost: Double, tokens: Int
         public init(name: String, cost: Double, tokens: Int) {
@@ -107,24 +110,6 @@ public struct UsageReport: InternalMethod {
             self.tokens = tokens
         }
     }
-    public struct Result: Codable, Sendable, Equatable {
-        /// Most expensive first; `since` is the first day's start (seconds since 1970).
-        public var days: [Group], models: [Group], projects: [Group], since: Double
-        public init(days: [Group], models: [Group], projects: [Group], since: Double) {
-            self.days = days
-            self.models = models
-            self.projects = projects
-            self.since = since
-        }
-    }
-    public var days: Int?
-    public init(days: Int? = nil) { self.days = days }
-}
-/// What each agent used over `days`, read from its own logs on this Mac (Claude Code, Codex, Grok, Kimi Code, Copilot): by
-/// day and agent, and by agent, model and project, priced as the API would (Grok as it says itself; 0 for a model with no
-/// list price).
-public struct UsageAgents: InternalMethod {
-    public static let name = "usage.agents"
     public struct Day: Codable, Sendable, Hashable {
         public var day: String, agent: String, cost: Double, tokens: Int
         public init(day: String, agent: String, cost: Double, tokens: Int) {
@@ -138,12 +123,12 @@ public struct UsageAgents: InternalMethod {
     public struct Agent: Codable, Sendable, Equatable {
         public var id: String, cost: Double, tokens: Int
         public var input: Int, output: Int, cacheWrite: Int, cacheRead: Int
-        public var models: [UsageReport.Group], projects: [UsageReport.Group]
+        public var models: [Group], projects: [Group]
         /// Its cost by kind of token, over the models with a list price (nil: none had one).
         public var costs: Costs?
         public init(
             id: String, cost: Double, tokens: Int, input: Int, output: Int, cacheWrite: Int, cacheRead: Int,
-            models: [UsageReport.Group], projects: [UsageReport.Group], costs: Costs? = nil
+            models: [Group], projects: [Group], costs: Costs? = nil
         ) {
             self.id = id
             self.cost = cost
@@ -174,16 +159,16 @@ public struct UsageAgents: InternalMethod {
     }
     public struct Result: Codable, Sendable, Equatable {
         /// `days` by day ("yyyy-MM-dd") and agent id; agents and groups most expensive first; `since` is the first day's start.
-        public var days: [Day], agents: [Agent], models: [UsageReport.Group], projects: [UsageReport.Group],
+        public var days: [Day], agents: [Agent], models: [Group], projects: [Group],
             since: Double
         /// The agents whose logs are read, in a fixed order (one not here keeps no counts on this Mac), and those whose
         /// own figure is the cost (the rest are priced from list prices). Nil from a kelpd before they were said.
         public var counted: [String]?, ownPrice: [String]?
         /// The same number of days before `since`, by agent (`name` is its id); nil past the year the logs are read for.
-        public var previous: [UsageReport.Group]?
+        public var previous: [Group]?
         public init(
-            days: [Day], agents: [Agent], models: [UsageReport.Group], projects: [UsageReport.Group], since: Double,
-            counted: [String]? = nil, ownPrice: [String]? = nil, previous: [UsageReport.Group]? = nil
+            days: [Day], agents: [Agent], models: [Group], projects: [Group], since: Double,
+            counted: [String]? = nil, ownPrice: [String]? = nil, previous: [Group]? = nil
         ) {
             self.days = days
             self.agents = agents

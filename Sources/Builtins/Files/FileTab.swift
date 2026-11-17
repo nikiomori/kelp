@@ -41,7 +41,7 @@ final class FileTab: SavableTab {
     /// The connection (`AppModel.connections`) its language server was given this file on; nil when it has none. A new
     /// daemon knows nothing of it: the file is given again.
     var lspOpenedOn: Int?
-    /// Its version as the daemon pushes it (`AppModel.fileVersions`), while the tab is open.
+    /// Its version as the daemon pushes it (a `.file` watch, `Watched`), while the tab is open.
     private let version: Watched
     /// Its project's folder (the file's own folder outside every project); followed as the workspaces change.
     var root: String

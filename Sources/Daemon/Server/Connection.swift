@@ -20,7 +20,7 @@ final class Connection: Sendable {
     /// The program that connected (`Unix.peerExecutable`), read once as it's accepted: an exec after that changes
     /// nothing. For what only Kelp's window may do.
     let peer: String?
-    /// Its process, to tell which session a report comes from (`Answered.reportsFor`).
+    /// Its process, to tell which session a report comes from (`Fence.reportsFor`).
     let peerPID: pid_t?
     /// Who that process is (`Callers.caller`), looked up once: its pid and parents stay while it's connected. nil until then.
     let owner = OSAllocatedUnfairLock<Caller?>(initialState: nil)
