@@ -1,4 +1,5 @@
 import Foundation
+import Markdown
 
 /// The empty states of a canvas, drawn in the page with the same parts as `EmptyStateView`. When there is nothing to
 /// draw yet, or nothing that can be read, the page shows a light symbol, a title, a line on why and what fills it, and
@@ -18,7 +19,7 @@ enum CanvasStates {
     /// agent).
     static func unreadable(_ why: String, file: String, agent: String?) -> String {
         let ask = String(localized: "Ask \(agent ?? String(localized: "the Agent")) to Fix")
-        let open = String(localized: "Open File"), quoted = CanvasPage.escape(why)
+        let open = String(localized: "Open File"), quoted = MarkdownHTML.esc(why)
         let actions = """
             <span class="kelp-actions"><button class="kelp-pill" data-kelp="source">\(open)</button>\
             <button class="kelp-prominent" data-kelp="fixCanvas" data-why="\(quoted)">\(ask)</button></span>
@@ -32,16 +33,16 @@ enum CanvasStates {
     static func unwritten(_ name: String, file: String, w: Int, h: Int?, writing: Bool) -> String {
         let label = writing ? "<span class=\"kelp-ring\"></span>" : ""
         return """
-            <div class="frame"><div class="name">\(label)\(CanvasPage.escape(name))</div>\
+            <div class="frame"><div class="name">\(label)\(MarkdownHTML.esc(name))</div>\
             <div class="kelp-skel" style="width: \(w)px; height: \(h ?? 360)px">\
-            <span>\(CanvasPage.escape(file))</span><span>\(String(localized: "Not written yet"))</span></div></div>
+            <span>\(MarkdownHTML.esc(file))</span><span>\(String(localized: "Not written yet"))</span></div></div>
             """
     }
 
     private static func block(symbol: String, title: String, line: String, detail: String?, actions: String) -> String {
-        let code = detail.map { "<span class=\"kelp-code\">\(CanvasPage.escape($0))</span>" } ?? ""
+        let code = detail.map { "<span class=\"kelp-code\">\(MarkdownHTML.esc($0))</span>" } ?? ""
         return """
-            <div class="kelp-empty">\(symbol)<b>\(CanvasPage.escape(title))</b><p>\(CanvasPage.escape(line))</p>\
+            <div class="kelp-empty">\(symbol)<b>\(MarkdownHTML.esc(title))</b><p>\(MarkdownHTML.esc(line))</p>\
             \(code)\(actions)</div>
             """
     }

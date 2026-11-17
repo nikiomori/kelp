@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import Markdown
 
 /// Builds a design's canvas as the tab shows it: rows of boards, each board in its own frame (an iframe, so the board
 /// keeps its own styles and phone width). Each frame holds the board's fragment on a page Kelp makes from the
@@ -85,7 +86,7 @@ enum CanvasPage {
                         writing: board.file == newest && theme == shown.first)
                 }
             }
-            let title = row.title.map { "<h2>\(escape($0))</h2>" } ?? ""
+            let title = row.title.map { "<h2>\(MarkdownHTML.esc($0))</h2>" } ?? ""
             rows += "<section class=\"row\">\(title)<div class=\"boards\">\(frames)</div></section>"
         }
         let body = canvas.boards.isEmpty ? CanvasStates.empty(writer: view.writer) : rows
@@ -119,10 +120,10 @@ enum CanvasPage {
         let name = (board.title ?? (board.file as NSString).lastPathComponent) + " · " + size + (dark ? " · dark" : "")
         let height = h.map { " data-h=\"\($0)\"" } ?? ""
         return """
-            <div class="frame"><div class="name">\(writing ? ring : "")\(escape(name))</div>\
+            <div class="frame"><div class="name">\(writing ? ring : "")\(MarkdownHTML.esc(name))</div>\
             <iframe sandbox="allow-same-origin" \
-            data-board="\(escape(board.file))" data-theme="\(theme)" data-w="\(w)"\(height) \
-            style="width: \(w)px; height: \(h ?? 600)px" srcdoc="\(escape(doc))"></iframe></div>
+            data-board="\(MarkdownHTML.esc(board.file))" data-theme="\(theme)" data-w="\(w)"\(height) \
+            style="width: \(w)px; height: \(h ?? 600)px" srcdoc="\(MarkdownHTML.esc(doc))"></iframe></div>
             """
     }
 
@@ -179,11 +180,5 @@ enum CanvasPage {
 
     private static func read(_ url: URL) -> String? {
         Artifacts.small(url.path, limit: 4 << 20).map { String(decoding: $0, as: UTF8.self) }
-    }
-
-    /// Escapes `&`, `<`, `>` and `"`, so the text can go in an attribute or an element.
-    static func escape(_ text: String) -> String {
-        text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;")
     }
 }
