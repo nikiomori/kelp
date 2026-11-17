@@ -217,20 +217,34 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     #expect(GitError.tooMuch.stderr == nil && GitError.refused("no").stderr == nil)
 }
 
+/// A remote's address becomes a site and a repo path, and a file's lines a link to them at a commit on that site.
 @Test func webLinks() {
-    #expect(Git.webRepo("git@github.com:o/r.git")! == ("github.com", "o/r"))
-    #expect(Git.webRepo("ssh://git@gitlab.example.com:2222/team/sub/r.git")! == ("gitlab.example.com", "team/sub/r"))
-    #expect(Git.webRepo("https://me@bitbucket.org/ws/r.git")! == ("bitbucket.org", "ws/r"))
-    #expect(Git.webRepo("/local/path") == nil)
-    #expect(
-        Git.webURL(remote: "git@github.com:o/r.git", sha: "abc", file: "a b/c.swift", lines: 3...5)
-            == "https://github.com/o/r/blob/abc/a%20b/c.swift#L3-L5")
-    #expect(
-        Git.webURL(remote: "https://gitlab.com/o/r", sha: "abc", file: "c.swift", lines: 7...7)
-            == "https://gitlab.com/o/r/-/blob/abc/c.swift#L7")
-    #expect(
-        Git.webURL(remote: "git@bitbucket.org:o/r.git", sha: "abc", file: "c.swift", lines: 1...2)
-            == "https://bitbucket.org/o/r/src/abc/c.swift#lines-1:2")
+    let repos: [(String, String?)] = [
+        ("git@github.com:o/r.git", "github.com o/r"), ("https://github.com/o/r", "github.com o/r"),
+        ("https://me@bitbucket.org/ws/r.git", "bitbucket.org ws/r"),
+        ("https://user@gitlab.com/group/sub/r.git", "gitlab.com group/sub/r"),
+        ("ssh://git@gitlab.example.com:2222/team/sub/r.git", "gitlab.example.com team/sub/r"),
+        ("ssh://git@host.example:22/o/r", "host.example o/r"),   // the port isn't part of the path
+        ("git@github.com:123/app.git", "github.com 123/app"),   // a number as the owner is an owner, not a port
+        ("/local/path/repo", nil), ("nothing", nil)
+    ]
+    for (remote, repo) in repos { #expect(Git.webRepo(remote).map { "\($0.0) \($0.1)" } == repo, "\(remote)") }
+    let file = "src/my file.swift"
+    let links: [(String, ClosedRange<Int>?, String?)] = [
+        ("git@github.com:o/r.git", 3...3, "https://github.com/o/r/blob/abc/src/my%20file.swift#L3"),
+        ("git@github.com:o/r.git", 3...9, "https://github.com/o/r/blob/abc/src/my%20file.swift#L3-L9"),
+        ("https://gitlab.com/g/r", 7...7, "https://gitlab.com/g/r/-/blob/abc/src/my%20file.swift#L7"),
+        ("https://gitlab.com/g/r", 3...9, "https://gitlab.com/g/r/-/blob/abc/src/my%20file.swift#L3-9"),
+        ("https://bitbucket.org/w/r", 3...9, "https://bitbucket.org/w/r/src/abc/src/my%20file.swift#lines-3:9"),
+        ("git@bitbucket.org:o/r.git", 1...2, "https://bitbucket.org/o/r/src/abc/src/my%20file.swift#lines-1:2"),
+        ("https://github.com/o/r", nil, "https://github.com/o/r/blob/abc/src/my%20file.swift"),
+        ("not a remote", nil, nil)
+    ]
+    for (remote, lines, url) in links {
+        #expect(
+            Git.webURL(remote: remote, sha: "abc", file: file, lines: lines) == url,
+            "\(remote) \(String(describing: lines))")
+    }
 }
 
 @Test func lineKinds() {
@@ -464,28 +478,6 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     for bad in ["", "-oProxyCommand=x", "a b", "a\tb", "a\nb"] {
         #expect(!RemoteHost.isHost(bad), "\(bad.debugDescription)")
     }
-}
-
-@Test func remoteAddressesBecomeAHostAndARepoPath() {
-    func r(_ s: String) -> String? { Git.webRepo(s).map { "\($0.0) \($0.1)" } }
-    #expect(r("git@github.com:o/r.git") == "github.com o/r")
-    #expect(r("https://github.com/o/r") == "github.com o/r")
-    #expect(r("https://user@gitlab.com/group/sub/r.git") == "gitlab.com group/sub/r")
-    #expect(r("ssh://git@host.example:22/o/r") == "host.example o/r")   // the port isn't part of the path
-    #expect(r("git@github.com:123/app.git") == "github.com 123/app")   // a number as the owner is an owner, not a port
-    #expect(r("/local/path/repo") == nil && r("nothing") == nil)
-}
-
-@Test func webLinksPointAtTheCommitAndLinesOnEachSite() {
-    func u(_ remote: String, _ lines: ClosedRange<Int>?) -> String? {
-        Git.webURL(remote: remote, sha: "abc", file: "src/my file.swift", lines: lines)
-    }
-    #expect(u("git@github.com:o/r.git", 3...3) == "https://github.com/o/r/blob/abc/src/my%20file.swift#L3")
-    #expect(u("git@github.com:o/r.git", 3...9) == "https://github.com/o/r/blob/abc/src/my%20file.swift#L3-L9")
-    #expect(u("https://gitlab.com/g/r", 3...9) == "https://gitlab.com/g/r/-/blob/abc/src/my%20file.swift#L3-9")
-    #expect(u("https://bitbucket.org/w/r", 3...9) == "https://bitbucket.org/w/r/src/abc/src/my%20file.swift#lines-3:9")
-    #expect(u("https://github.com/o/r", nil) == "https://github.com/o/r/blob/abc/src/my%20file.swift")
-    #expect(u("not a remote", nil) == nil)
 }
 
 @Test func eachSiteHasItsOwnPathsForCIAndPullRequests() {

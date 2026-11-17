@@ -589,30 +589,6 @@ func codeOnly(_ s: String) -> String {
             })
 }
 
-/// Sizes come from DesignKit, not from a number at the call. Each count is a ceiling that only goes down: what's left is a
-/// tile's fixed glyph, an icon row's point size, radii concentric with another (9 in a row, 14 and 16 in glass), and
-/// the colourful icons that need a weight (`NSImage.symbol` itself is DesignKit's).
-@Test func chromeTakesItsSizesFromDesignKit() throws {
-    let chrome = ["Sources/KelpKit", "Sources/Builtins"]
-    #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count <= 1)
-    #expect(try matches(#"\.font\(\.system\(size"#, in: chrome).count >= 1, "fewer now: lower the ceiling")
-    #expect(try matches(#"cornerRadius( =|:) *[0-9]"#, in: chrome).count == 0)
-    // Drawn by hand too: a system font at a size of its own (a tile's letters, scaled to the tile), a rounded path's
-    // radius typed in (icon tiles). The debt as it is: each ceiling is today's count.
-    let fonts = try matches(#"systemFont\(ofSize"#, in: chrome), radii = try matches(#"xRadius: *[0-9]"#, in: chrome)
-    #expect(fonts.count == 4, "a new one, or fewer now (lower the count): \(fonts)")
-    #expect(radii.count == 5, "a new one, or fewer now (lower the count): \(radii)")
-    // Text sizes by name (`TextSize.caption`); what's left is a title, a big number, a tile's glyph, a grid's NULL.
-    let typed = try matches(#"\.ui(Mono|Digits)?\(\d"#, in: chrome + ["Sources/DesignKit", "Sources/EditorKit"])
-    #expect(typed.count == 4, "a new one, or fewer now (lower the count): \(typed)")
-    #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count <= 1)
-    #expect(try matches(#"NSImage\(systemSymbolName"#, in: chrome).count >= 1, "fewer now: lower the ceiling")
-    // The system's text styles stay at their size whatever Text size says: SwiftUI text takes `Font.ui` too.
-    let styles = try matches(
-        #"\.font\(\.(headline|subheadline|caption|footnote|title|body|callout)"#, in: chrome + ["Sources/EditorKit"])
-    #expect(styles.count <= 0, "\(styles)")
-}
-
 /// A `try?` turns a failure into nothing, unseen: right for a probe ("is it there", "does it parse"), wrong for a write,
 /// a cleanup or a store change, which say what failed with `Log.attempt` instead. Each module's count is a ceiling.
 @Test func failuresAreNotSwallowed() throws {
@@ -638,17 +614,6 @@ func codeOnly(_ s: String) -> String {
         #expect(n <= ceiling, "try? in \(module): \(n), over its ceiling")
         #expect(n >= ceiling, "try? in \(module): \(n), under its ceiling \(ceiling): lower it")
     }
-}
-
-/// A radius or a duration comes from DesignKit (`Metrics`, `Motion`). What's left has no token: the glass panels, a row's glow,
-/// the backdrop's drift, and a duration of 0.
-@Test func looksComeFromTheDesignSystem() throws {
-    let typed = try matches(#"(cornerRadius|[dD]uration) = \d"#, in: ["Sources/KelpKit", "Sources/Builtins"])
-    #expect(typed.count <= 2, "\(typed)")
-    #expect(typed.count >= 2, "fewer now: lower the ceiling")
-    let delays = try matches(#"\.now\(\) \+ 0\.\d"#, in: ["Sources/KelpKit", "Sources/Builtins"])
-    #expect(delays.count <= 2, "\(delays)")   // a dev aid's, and key bindings read back: neither is motion
-    #expect(delays.count >= 2, "fewer now: lower the ceiling")
 }
 
 /// Who may call a method is the method's to say (`onlyFromKelp`), checked in one place for every call: a handler that
@@ -900,17 +865,37 @@ func codeOnly(_ s: String) -> String {
     #expect(named.count >= 5, "fewer now (\(named.count)): lower the ceiling")
 }
 
-/// The design's values come from DesignKit, not typed in where they're used: a fill's opacity is `fillRest` / `fillHover`
-/// / `fillSelected` or `fillTint(_:)`, a text size is one of `TextSize`'s. What still types one (a shadow, a stroke, a
-/// drawn icon, a grid's own densities) is counted, and the counts only go down. Settings' pictures draw mock windows and
-/// aren't chrome.
+/// The design's values come from DesignKit, not typed in where they're used: a size, a radius, a duration (`Metrics`,
+/// `Motion`), a text size (`TextSize`), a fill's opacity (`fillRest` / `fillHover` / `fillSelected` or `fillTint(_:)`).
+/// What still types one is counted, and each count is a ceiling that only goes down. What's left: a tile's fixed glyph,
+/// an icon row's point size, radii concentric with another (9 in a row, 14 and 16 in glass), the colourful icons that
+/// need a weight (`NSImage.symbol` itself is DesignKit's), the glass panels, a row's glow, the backdrop's drift, a
+/// duration of 0, a shadow, a stroke, a drawn icon, a grid's own densities, a title, a big number, a grid's NULL.
+/// Settings' pictures draw mock windows and aren't chrome.
 @Test func designValuesComeFromDesignKit() throws {
+    let chromeDirs = ["Sources/KelpKit", "Sources/Builtins"]
+    func exactly(_ found: [String], _ count: Int, _ what: String) {
+        #expect(found.count <= count, "\(what) typed by hand: \(found)")
+        #expect(found.count >= count, "\(what): fewer now (\(found.count)): lower the ceiling")
+    }
+    exactly(try matches(#"\.font\(\.system\(size"#, in: chromeDirs), 1, "system font sizes")
+    exactly(try matches(#"cornerRadius( =|:) *[0-9]"#, in: chromeDirs), 0, "corner radii")
+    exactly(try matches(#"systemFont\(ofSize"#, in: chromeDirs), 4, "system fonts at a size")   // a tile's letters
+    exactly(try matches(#"xRadius: *[0-9]"#, in: chromeDirs), 5, "drawn radii")   // icon tiles
+    exactly(
+        try matches(#"\.ui(Mono|Digits)?\(\d"#, in: chromeDirs + ["Sources/DesignKit", "Sources/EditorKit"]), 4,
+        "text sizes")
+    exactly(try matches(#"NSImage\(systemSymbolName"#, in: chromeDirs), 1, "symbols made by hand")
+    // The system's text styles stay at their size whatever Text size says: SwiftUI text takes `Font.ui` too.
+    exactly(
+        try matches(
+            #"\.font\(\.(headline|subheadline|caption|footnote|title|body|callout)"#,
+            in: chromeDirs + ["Sources/EditorKit"]),
+        0, "system text styles")
+    exactly(try matches(#"(cornerRadius|[dD]uration) = \d"#, in: chromeDirs), 2, "radii and durations")
+    // A dev aid's, and key bindings read back: neither is motion.
+    exactly(try matches(#"\.now\(\) \+ 0\.\d"#, in: chromeDirs), 2, "delays")
     let pictures = ["SettingPictures", "SettingPreviews", "ThemeGallery", "DockStripPicture"]
-    let chrome = { (found: [String]) in found.filter { path in !pictures.contains { path.contains($0) } } }
-    let alphas = chrome(try matches(#"withAlphaComponent\(0?\.[0-9]|\.opacity\(0?\.[0-9]"#, in: appDirs))
-    #expect(alphas.count <= 23, "opacities typed by hand: \(alphas)")
-    #expect(alphas.count >= 23, "fewer now (\(alphas.count)): lower the ceiling")
-    let sizes = chrome(try matches(#"\.ui(Digits|Mono)?\([0-9]"#, in: appDirs))
-    #expect(sizes.count <= 4, "text sizes typed by hand: \(sizes)")
-    #expect(sizes.count >= 4, "fewer now (\(sizes.count)): lower the ceiling")
+    let alphas = try matches(#"withAlphaComponent\(0?\.[0-9]|\.opacity\(0?\.[0-9]"#, in: appDirs)
+    exactly(alphas.filter { path in !pictures.contains { path.contains($0) } }, 23, "opacities")
 }
