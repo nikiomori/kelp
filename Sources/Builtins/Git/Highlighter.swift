@@ -1,4 +1,5 @@
 import AppKit
+import EditorKit
 
 /// A diff line's colours: the editor's tree-sitter captures where the diff has them (`DiffColors`), and plain without.
 enum Highlighter {
@@ -10,7 +11,7 @@ enum Highlighter {
         _ s: String, spans: [DiffColors.Span], from: Int, font: NSFont, colors: [String: NSColor]
     ) -> NSAttributedString {
         let result = NSMutableAttributedString(
-            string: s, attributes: [.font: font, .foregroundColor: NSColor.labelColor])
+            string: s, attributes: [.font: font, .foregroundColor: CodeEditor.page.text])
         for span in spans {
             let range = NSRange(location: span.range.location + from, length: span.range.length)
             guard NSMaxRange(range) <= result.length,

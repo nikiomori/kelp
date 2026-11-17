@@ -2,6 +2,7 @@ import AppKit
 import Core
 import Daemon
 import DesignKit
+import EditorKit
 import Foundation
 import GitKit
 import TestSupport
@@ -457,4 +458,10 @@ extension AppOfItsOwn {
     let barred: [NSControl] = [push, pop, seg, inner]
     #expect(barred.allSatisfy { $0.controlSize == .small && $0.font == .ui(11) })
     #expect(check.controlSize == .regular && own.controlSize == .regular)
+}
+
+/// A diff's plain code is the colour of the editor's text, so a file reads the same in both tabs under any theme.
+@MainActor @Test func aDiffsPlainTextIsTheEditorsTextColour() {
+    let text = Highlighter.attributed("let a = 1", spans: [], from: 0, font: CodeEditor.font, colors: [:])
+    #expect(text.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == CodeEditor.page.text)
 }
