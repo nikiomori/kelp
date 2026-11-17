@@ -63,9 +63,9 @@ enum CanvasEdit {
     }
 
     private static let body = """
-          const post = m => webkit.messageHandlers.kelpSync?.postMessage(m);
-          const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls;
-            if (text != null) e.textContent = text; return e; };
+          // The column (`CanvasChrome`) is set up before this script, on every canvas.
+          const C = window.kelpColumn; if (!C) return;
+          const { el, post } = C;
           const layer = el('div', 'kelp-layer'), outline = el('div', 'kelp-outline');
           // While marking, a sheet over the canvas takes the pointer: a board's frame runs no script, its own listeners
           // included, so what's under the pointer is asked of the frame (elementFromPoint).
@@ -82,7 +82,7 @@ enum CanvasEdit {
           };
           window.kelpMark = on => {
             setMode(on ? 'mark' : mode === 'mark' ? null : mode);
-            if (on) draw(); else if (mode !== 'edit') window.kelpColumn?.close();
+            if (on) draw(); else if (mode !== 'edit') C.close();
           };
           const pointed = e => e.closest('[data-id]') || e;
           const describe = e => {
@@ -116,15 +116,11 @@ enum CanvasEdit {
               Object.assign(pin.style, { left: (b.x + b.w - 9) + 'px', top: (b.y - 9) + 'px' });
               layer.append(pin);
             });
-            if (mode !== 'mark' || !window.kelpColumn) return;
-            const issues = window.kelpIssues || [], seg = el('span', 'kelp-seg');
+            if (mode !== 'mark') return;
+            const issues = window.kelpIssues || [];
             const tabs = [['marks', L.marks + ' ' + marks.length], ['check', L.check + ' ' + issues.length]];
-            for (const [key, name] of tabs) {
-              const b = el('button', key === tab ? 'on' : '', name);
-              b.onclick = () => { tab = key; draw(); };
-              seg.append(b);
-            }
-            window.kelpColumn.open([seg], tab === 'marks' ? markRows() : checkRows(issues));
+            const pick = key => { tab = key; draw(); };
+            C.open([C.tabs(tabs, tab, pick)], tab === 'marks' ? markRows() : checkRows(issues));
           }
           function markRows() {
             if (!marks.length) return [el('p', 'kelp-note', L.noMarks)];

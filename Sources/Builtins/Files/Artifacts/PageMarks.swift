@@ -18,7 +18,7 @@ enum PageMarks {
     }
 
     private static let body = """
-          const el = C.el, post = m => webkit.messageHandlers.kelpSync?.postMessage(m);
+          const { el, post } = C;
           const root = document.querySelector('.markdown-body') || document.body;
           const layer = el('div', 'kelp-layer'), button = el('button', 'kelp-markbtn', L.mark);
           document.body.append(layer);
@@ -62,15 +62,9 @@ enum PageMarks {
             });
             if (window.CSS && CSS.highlights) CSS.highlights.set('kelp-mark', new Highlight(...ranges));
             if (!on) return;
-            const seg = el('span', 'kelp-seg');
             const tabs = [['marks', L.marks + ' ' + marks.length]].concat(window.kelpSlides ? [] : [['contents',
               L.contents]]);
-            for (const [key, name] of tabs) {
-              const b = el('button', key === tab ? 'on' : '', name);
-              b.onclick = () => { tab = key; draw(); };
-              seg.append(b);
-            }
-            C.open([seg], tab === 'marks' ? markRows() : contents());
+            C.open([C.tabs(tabs, tab, key => { tab = key; draw(); })], tab === 'marks' ? markRows() : contents());
           }
           function markRows() {
             if (!marks.length) return [el('p', 'kelp-note', L.noMarks)];

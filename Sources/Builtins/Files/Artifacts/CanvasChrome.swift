@@ -33,20 +33,27 @@ enum CanvasChrome {
                   if (!document.body.classList.contains('kelp-with-col')) return;
                   document.body.classList.remove('kelp-with-col'); window.kelpFit?.();
                 },
-                el
+                // A switch of [key, name] pairs with `current` on; a click calls `pick` with the key.
+                tabs(list, current, pick) {
+                  const seg = el('span', 'kelp-seg');
+                  for (const [key, name] of list) {
+                    const b = el('button', key === current ? 'on' : '', name);
+                    b.onclick = () => pick(key);
+                    seg.append(b);
+                  }
+                  return seg;
+                },
+                el, post
               };
               // The empty state's actions (canvas.json that doesn't read): open the file, or ask its agent.
               for (const b of document.querySelectorAll('[data-kelp]'))
                 b.onclick = () => post({ kind: b.dataset.kelp, why: b.dataset.why || '' });
               if (!\(floats)) return;
               // One theme at a time, or both side by side: the tab draws the boards again.
-              const themes = el('div', 'kelp-float kelp-themes'), seg = el('span', 'kelp-seg');
-              for (const [key, name] of [['light', \(js(l.light))], ['dark', \(js(l.dark))], ['both', \(js(l.both))]]) {
-                const b = el('button', key === \(js(themes)) ? 'on' : '', name);
-                b.onclick = () => post({ kind: 'themes', value: key });
-                seg.append(b);
-              }
-              themes.append(seg);
+              const themes = el('div', 'kelp-float kelp-themes');
+              themes.append(window.kelpColumn.tabs(
+                [['light', \(js(l.light))], ['dark', \(js(l.dark))], ['both', \(js(l.both))]], \(js(themes)),
+                key => post({ kind: 'themes', value: key })));
               // The canvas's size: steps down and up, or fitted to the pane.
               const zoom = el('div', 'kelp-float kelp-zoom');
               const out = el('button', 'kelp-ib', '−'), into = el('button', 'kelp-ib', '+');
