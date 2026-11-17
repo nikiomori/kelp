@@ -74,32 +74,23 @@ extension QuickOpen {
         // Commands come after what's open, so the empty field without agents to list starts with tabs and workspaces,
         // not the Kelp menu. The commands are every enabled menu item with an action. The app menu's items name no
         // menu, because "Kelp" beside each said nothing.
+        // Extension commands are in the menus (Tools) already. Services ("Convert Text to Chinese"…) aren't listed.
         let appMenu = NSApp.mainMenu?.items.first?.submenu
-        func walk(_ menu: NSMenu, path: String) {
-            for i in menu.items {
-                if let submenu = i.submenu {
-                    // Leave out the system's Services ("Convert Text to Chinese"…): they are other apps' actions, not
-                    // Kelp's commands.
-                    if submenu !== NSApp.servicesMenu {
-                        walk(submenu, path: submenu === appMenu ? "" : path.isEmpty ? i.title : path + " › " + i.title)
-                    }
-                    continue
-                }
-                guard let action = i.action, !i.isSeparatorItem, !i.isHidden, !i.title.isEmpty else { continue }
-                // Take only what the menu would offer now: something handles it and it's enabled (Run File needs a
-                // file…).
-                guard let target = NSApp.target(forAction: action, to: i.target, from: i),
-                    (target as? NSMenuItemValidation)?.validateMenuItem(i) ?? true
-                else { continue }
-                // No icon unless the menu item has one, because the same ⌘ on every row said nothing.
-                items.append(
-                    Item(
-                        kind: "Command", icon: "", title: i.title, detail: path,
-                        action: { NSApp.sendAction(action, to: i.target, from: i) },
-                        image: i.image, key: i.keyEquivalent.isEmpty ? "" : Self.shortcut(i)))
-            }
+        for (i, path) in NSApp.mainMenu?.leaves() ?? [] {
+            guard let action = i.action, !i.isHidden, !i.title.isEmpty else { continue }
+            // Take only what the menu would offer now: something handles it and it's enabled (Run File needs a
+            // file…).
+            guard let target = NSApp.target(forAction: action, to: i.target, from: i),
+                (target as? NSMenuItemValidation)?.validateMenuItem(i) ?? true
+            else { continue }
+            // No icon unless the menu item has one, because the same ⌘ on every row said nothing.
+            let detail = path.filter { $0.submenu !== appMenu }.map(\.title).joined(separator: " › ")
+            items.append(
+                Item(
+                    kind: "Command", icon: "", title: i.title, detail: detail,
+                    action: { NSApp.sendAction(action, to: i.target, from: i) },
+                    image: i.image, key: i.keyEquivalent.isEmpty ? "" : Self.shortcut(i)))
         }
-        if let menu = NSApp.mainMenu { walk(menu, path: "") }   // extension commands are in the menus (Tools) already
         // Every setting is listed. One with choices (Color Theme…) lists them here, and the others open their page.
         for section in app.extensions.all.settings {
             for spec in section.specs {

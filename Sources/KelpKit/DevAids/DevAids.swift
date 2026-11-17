@@ -197,20 +197,12 @@ extension AppDelegate {
             }
             // In another language, list the menu items still in English (not in Localizable.xcstrings yet).
             if Bundle.main.preferredLocalizations.first != "en" {
-                func walk(_ menu: NSMenu) {
-                    for i in menu.items where !i.isSeparatorItem {
-                        if let submenu = i.submenu {
-                            if submenu !== NSApp.servicesMenu { walk(submenu) }
-                            continue
-                        }
-                        if i.title.range(of: "[А-яЁё]", options: .regularExpression) == nil,
-                            i.title.range(of: "[a-z]{3}", options: .regularExpression) != nil
-                        {
-                            print("UNTRANSLATED", i.title)
-                        }
-                    }
+                for (i, _) in NSApp.mainMenu?.leaves() ?? []
+                where i.title.range(of: "[А-яЁё]", options: .regularExpression) == nil
+                    && i.title.range(of: "[a-z]{3}", options: .regularExpression) != nil
+                {
+                    print("UNTRANSLATED", i.title)
                 }
-                NSApp.mainMenu.map(walk)
             }
             for t in main.editors.current?.contents.values.map({ $0 }) ?? []
             where TabURI.scheme(t.uri) == "session" && t.view.window === window {

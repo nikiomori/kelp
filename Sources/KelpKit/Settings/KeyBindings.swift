@@ -40,29 +40,22 @@ enum KeyBindings {
     /// Names every item and applies the overrides. Runs while the titles are English.
     static func apply(to menu: NSMenu, _ settings: SettingsStore) {
         let over = overrides(settings)
-        func walk(_ level: NSMenu, _ path: [String]) {
-            for item in level.items where !item.isSeparatorItem {
-                if let submenu = item.submenu {
-                    if submenu !== NSApp.servicesMenu { walk(submenu, path + [item.title]) }
-                    continue
-                }
-                guard let action = item.action else { continue }
-                // A command's item goes by the command id, the others by their English path ("Edit › Copy").
-                let command = action == #selector(AppDelegate.runCommand(_:)),
-                    name = item.identifier?.rawValue ?? item.title
-                // in English, so the id is the same in every language
-                let id = command ? name : (path + [item.title]).joined(separator: " › ")
-                item.identifier = NSUserInterfaceItemIdentifier(id)
-                defaults[id] =
-                    item.keyEquivalent.isEmpty
-                    ? KeySpec?.none : KeySpec(key: item.keyEquivalent, mods: .init(item.keyEquivalentModifierMask))
-                guard let spec = over[id] else { continue }
-                let shortcut = spec.isEmpty ? nil : KeySpec(spec)
-                item.keyEquivalent = shortcut?.key ?? ""
-                item.keyEquivalentModifierMask = shortcut?.mods.flags ?? []
-            }
+        for (item, path) in menu.leaves() {
+            guard let action = item.action else { continue }
+            // A command's item goes by the command id, the others by their English path ("Edit › Copy").
+            let command = action == #selector(AppDelegate.runCommand(_:)),
+                name = item.identifier?.rawValue ?? item.title
+            // in English, so the id is the same in every language
+            let id = command ? name : (path.map(\.title) + [item.title]).joined(separator: " › ")
+            item.identifier = NSUserInterfaceItemIdentifier(id)
+            defaults[id] =
+                item.keyEquivalent.isEmpty
+                ? KeySpec?.none : KeySpec(key: item.keyEquivalent, mods: .init(item.keyEquivalentModifierMask))
+            guard let spec = over[id] else { continue }
+            let shortcut = spec.isEmpty ? nil : KeySpec(spec)
+            item.keyEquivalent = shortcut?.key ?? ""
+            item.keyEquivalentModifierMask = shortcut?.mods.flags ?? []
         }
-        walk(menu, [])
     }
 
     /// macOS's own app-menu commands (About, Hide, Hide Others, Show All, Quit), which System Settings › Keyboard
@@ -74,29 +67,16 @@ enum KeyBindings {
     ]
 
     static func entries() -> [Entry] {
-        var out: [Entry] = []
-        func walk(_ level: NSMenu, _ path: [String]) {
-            for item in level.items where !item.isSeparatorItem {
-                if let submenu = item.submenu {
-                    if submenu !== NSApp.servicesMenu {
-                        walk(submenu, path + [item.identifier?.rawValue ?? item.title])
-                    }
-                    continue
-                }
-                guard let id = item.identifier?.rawValue, defaults.keys.contains(id),
-                    !(item.action.map(systemActions.contains) ?? false)
-                else { continue }
-                let key =
-                    item.keyEquivalent.isEmpty
-                    ? nil : KeySpec(key: item.keyEquivalent, mods: .init(item.keyEquivalentModifierMask))
-                out.append(
-                    Entry(
-                        id: id, menu: path.map(loc).joined(separator: " › "), title: item.title,
-                        key: key, defaultKey: defaults[id] ?? nil))
-            }
+        (NSApp.mainMenu?.leaves() ?? []).compactMap { item, path in
+            guard let id = item.identifier?.rawValue, defaults.keys.contains(id),
+                !(item.action.map(systemActions.contains) ?? false)
+            else { return nil }
+            let key =
+                item.keyEquivalent.isEmpty
+                ? nil : KeySpec(key: item.keyEquivalent, mods: .init(item.keyEquivalentModifierMask))
+            let menu = path.map { loc($0.identifier?.rawValue ?? $0.title) }.joined(separator: " › ")
+            return Entry(id: id, menu: menu, title: item.title, key: key, defaultKey: defaults[id] ?? nil)
         }
-        NSApp.mainMenu.map { walk($0, []) }
-        return out
     }
 
     static func matches(_ entry: Entry, _ query: String) -> Bool {
