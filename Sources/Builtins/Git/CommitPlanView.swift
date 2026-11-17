@@ -73,13 +73,8 @@ private final class PlanCard: FieldBox {
         badge.textColor = .secondaryLabelColor
         badge.setContentHuggingPriority(.required, for: .horizontal)   // the message takes the width, not the number
         text.string = commit.message
-        text.isRichText = false
-        text.font = .ui(TextSize.body)
+        text.plain(font: .ui(TextSize.body), inset: NSSize(width: 2, height: 6))
         text.drawsBackground = false
-        text.textContainerInset = NSSize(width: 2, height: 6)
-        text.allowsUndo = true
-        text.isAutomaticQuoteSubstitutionEnabled = false
-        text.isAutomaticDashSubstitutionEnabled = false
         // The text is sized by the card's constraints, not by itself. There is no scroll view; the card grows with the
         // message instead.
         text.isVerticallyResizable = false
@@ -135,10 +130,6 @@ private final class PlanCard: FieldBox {
         fit()
     }
     private func fit() {
-        guard let lm = text.layoutManager, let tc = text.textContainer else { return }
-        lm.ensureLayout(for: tc)
-        let lines = lm.usedRect(for: tc).height + text.textContainerInset.height * 2
-        let next = min(max(30, ceil(lines)), 8 * 17 + 12)
-        if height?.constant != next { height?.constant = next }
+        if let next = text.fittingHeight(maxLines: 8), height?.constant != next { height?.constant = next }
     }
 }

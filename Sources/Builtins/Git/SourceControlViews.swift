@@ -137,6 +137,22 @@ final class CommitTextView: NSTextView {
         let rect = NSRect(x: container.size.width - corner, y: 0, width: corner, height: 14)   // the first line
         container.exclusionPaths = corner > 0 ? [NSBezierPath(rect: rect)] : []
     }
+    /// Plain text in `font`, with undo and without smart quotes or dashes: a commit message is what is typed.
+    func plain(font: NSFont, inset: NSSize) {
+        isRichText = false
+        self.font = font
+        textContainerInset = inset
+        allowsUndo = true
+        isAutomaticQuoteSubstitutionEnabled = false
+        isAutomaticDashSubstitutionEnabled = false
+    }
+    /// How tall the message wants to be, from one line up to `maxLines`.
+    func fittingHeight(maxLines: Int) -> CGFloat? {
+        guard let lm = layoutManager, let tc = textContainer else { return nil }
+        lm.ensureLayout(for: tc)
+        let lines = lm.usedRect(for: tc).height + textContainerInset.height * 2
+        return min(max(30, ceil(lines)), CGFloat(maxLines) * 17 + 12)
+    }
     var onChange: (() -> Void)?
     private func isCommitKey(_ event: NSEvent) -> Bool {
         (event.keyCode == 36 || event.keyCode == 76) && event.modifierFlags.contains(.command)

@@ -274,13 +274,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 
     /// The message field (it grows to six lines) and Commit with its split menu.
     private func commitBox() -> NSView {
-        message.isRichText = false
-        message.font = .ui(TextSize.body)
+        message.plain(font: .ui(TextSize.body), inset: NSSize(width: 4, height: 6))
         message.drawsBackground = false
-        message.textContainerInset = NSSize(width: 4, height: 6)
-        message.allowsUndo = true
-        message.isAutomaticQuoteSubstitutionEnabled = false
-        message.isAutomaticDashSubstitutionEnabled = false
         message.isVerticallyResizable = true
         message.autoresizingMask = .width
         message.onCommit = { [weak self] in self?.commit(push: false, amend: false) }
@@ -364,11 +359,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 
     func messageChanged() {
         placeholder.isHidden = !message.string.isEmpty
-        if let lm = message.layoutManager, let tc = message.textContainer {
-            lm.ensureLayout(for: tc)
-            let lines = lm.usedRect(for: tc).height + message.textContainerInset.height * 2
-            messageHeight?.constant = min(max(30, ceil(lines)), 6 * 17 + 12)
-        }
+        if let height = message.fittingHeight(maxLines: 6) { messageHeight?.constant = height }
         updateCommitButton()
     }
 

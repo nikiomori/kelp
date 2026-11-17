@@ -142,14 +142,10 @@ final class CommitMessageTab: TabContent {
     }
 
     private func build() {
-        text.isRichText = false
-        text.allowsUndo = true
-        text.font = CodeEditor.font   // a commit message is written in the editor's font, at its size
-        text.textContainerInset = NSSize(width: 12, height: 12)
+        // A commit message is written in the editor's font, at its size.
+        text.plain(font: CodeEditor.font, inset: NSSize(width: 12, height: 12))
         text.isVerticallyResizable = true
         text.autoresizingMask = .width
-        text.isAutomaticQuoteSubstitutionEnabled = false
-        text.isAutomaticDashSubstitutionEnabled = false
         text.onCommit = { [weak self] in self?.commit() }
         text.onChange = { [weak self] in self?.dimComments() }
         let scroll = NSScrollView()
