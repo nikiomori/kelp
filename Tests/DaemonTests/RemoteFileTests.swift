@@ -110,3 +110,33 @@ import Testing
     #expect(try await waitFor(10) { !fm.fileExists(atPath: repo.path + "/.kelp-icon") })
     #expect(try await c.call(RepoIcon(path: repo.path)) == nil)
 }
+
+/// A remote save takes the place of the file in one move (a dropped connection leaves it whole), keeping its mode; a file
+/// with another name (a hard link) is written in place, so both names still show the same text.
+@Test func aRemoteSaveMovesItsCopyOverTheFileUnlessItHasOtherNames() async throws {
+    _ = localSSH
+    let (d, c, _) = try daemon()
+    defer { d.stop() }
+    let there = try makeRepo()
+    let repo = try await c.call(RepoAddRemote(host: "box", path: there))
+    let fm = FileManager.default
+    func inode(_ name: String) throws -> Int {
+        (try fm.attributesOfItem(atPath: there + "/" + name)[.systemFileNumber] as? Int) ?? -1
+    }
+    func save(_ name: String, _ text: String) async throws {
+        let read = try await c.call(FilesRead(path: repo.path + "/" + name))
+        _ = try await c.call(FilesWrite(path: repo.path + "/" + name, text: text, base: read.stamp))
+    }
+    try "#!/bin/sh\n".write(toFile: there + "/run.sh", atomically: true, encoding: .utf8)
+    #expect(chmod(there + "/run.sh", 0o755) == 0)
+    let before = try inode("run.sh")
+    try await save("run.sh", "#!/bin/sh\necho hi\n")
+    #expect(try String(contentsOfFile: there + "/run.sh", encoding: .utf8) == "#!/bin/sh\necho hi\n")
+    #expect(try inode("run.sh") != before, "written in place")
+    #expect((try fm.attributesOfItem(atPath: there + "/run.sh")[.posixPermissions] as? Int) == 0o755)
+    #expect(link(there + "/a.txt", there + "/also.txt") == 0)
+    let linked = try inode("a.txt")
+    try await save("a.txt", "both\n")
+    #expect(try inode("a.txt") == linked)
+    #expect(try String(contentsOfFile: there + "/also.txt", encoding: .utf8) == "both\n")
+}

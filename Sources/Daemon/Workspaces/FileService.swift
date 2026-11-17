@@ -265,9 +265,11 @@ struct FileService: Sendable {
         -> FilesWrite.Result
     {
         let file = ShellQuote.word(path)
-        // Sent to a file beside it, then copied over it on the host once all of it came (a dropped connection ends the
-        // upload as if it were done: its size tells), so the file keeps its mode, owner and links. Limit: a disk that fills up
-        // during that copy leaves it short, so the copy beside it stays then, and the error says where.
+        // Sent to a file beside it, kept once all of it came (a dropped connection ends the upload as if it were done: its
+        // size tells). Then a copy of the file (its mode with it) takes the text and is moved over it, so a connection
+        // dropped meanwhile leaves the file whole. A link, a file with other names (hard links) or another user's is
+        // written in place instead, so it stays what it is: there a disk that fills up during the copy leaves it short,
+        // so the upload beside it stays then, and the error says where.
         // Changed there since it was read: its digest compared in that same run, right before the copy, so an edit on
         // the host between a look and the write isn't written over (exit 3: the caller decides; 4: gone). One that
         // can't be read (permissions) fails the save. Limit: a host without sha256sum, shasum or openssl writes it
@@ -287,10 +289,16 @@ struct FileService: Sendable {
             "t=$(mktemp \(tmp)) || exit 1; "
             + "if ! { cat > \"$t\" && [ \"$(wc -c < \"$t\" | tr -d ' ')\" = \(data.count) ]; }; then rm -f \"$t\"; exit 1; fi; "
             + check
-            + "cat \"$t\" > \(file) || { echo \"not written whole; your text is in $t\" >&2; exit 1; }; rm -f \"$t\""
+            + "if [ -L \(file) ] || [ ! -O \(file) ] || [ \"$(ls -ld -- \(file) | awk '{print $2}')\" != 1 ]; then "
+            + "cat \"$t\" > \(file) || { echo \"not written whole; your text is in $t\" >&2; exit 1; }; "
+            + "else n=$(mktemp \(tmp)) && cp -p \(file) \"$n\" && cat \"$t\" > \"$n\" && mv -f \"$n\" \(file) "
+            + "|| { rm -f \"$n\"; echo \"not written; your text is in $t\" >&2; exit 1; }; fi; rm -f \"$t\""
         do { _ = try remote.run(script, stdin: data) } catch let error as ProgramError where error.status == 3 {
-            let now = try remote.run("cat -- \(file)")
-            return .init(conflict: .init(stamp: Self.digest(now), text: String(data: now, encoding: .utf8)))
+            // The conflict stands whatever comes next: a file that can't be read again now shows no text, not an error.
+            let now = Log.store.attempt("reading \(path) again after a conflict") { try remote.run("cat -- \(file)") }
+            return .init(
+                conflict: .init(
+                    stamp: now.map(Self.digest) ?? "", text: now.flatMap { String(data: $0, encoding: .utf8) }))
         } catch let error as ProgramError where error.status == 4 { return .init(missing: true) }
         return .init(stamp: Self.digest(data))
     }
