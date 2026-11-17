@@ -3,8 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The branch's CI in a line under Commit: the latest run of each workflow, a failure first with the job that broke
-/// ("CI: Failed · test"; the step is in the tooltip). Only the summary: a click opens the CI Runs panel, which has the log and the actions.
+/// The branch's CI in a line under Commit. It shows the latest run of each workflow, a failure first with the job that
+/// broke ("CI: Failed · test"; the step is in the tooltip). It is only the summary: a click opens the CI Runs panel,
+/// which has the log and the actions.
 final class CIStatusRow: PointerControl {
     private let text = NSTextField(labelWithString: ""), time = NSTextField(labelWithString: "")
     private let chevron = NSImageView()
@@ -31,7 +32,8 @@ final class CIStatusRow: PointerControl {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// `latest`: one run per workflow, newest first; `failure`: where the failed one broke ("job › step"), once its jobs are read.
+    /// `latest` holds one run per workflow, newest first. `failure` is where the failed one broke ("job › step"), once
+    /// its jobs are read.
     func show(_ latest: [CIRuns.Run], failure: String?) {
         guard
             let run = latest.first(where: \.failed) ?? latest.first(where: { $0.status != "completed" }) ?? latest.first
@@ -69,6 +71,6 @@ final class CIStatusRow: PointerControl {
         setAccessibilityLabel([head, place].filter { !$0.isEmpty }.joined(separator: ", "))
     }
 
-    // one target, labels included
+    // The row is one click target, labels included.
     override func hitTest(_ p: NSPoint) -> NSView? { super.hitTest(p) != nil ? self : nil }
 }

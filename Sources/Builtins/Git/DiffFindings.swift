@@ -4,7 +4,7 @@ import DesignKit
 import KelpKit
 
 /// Review comments (a reviewer agent's or the user's) shown as findings to pick from. Each open comment has a box that
-/// says whether it goes to the agent with Send to Agent (Space flips it on the selected comment); "Fix This One" sends
+/// says whether Send to Agent sends it to the agent; Space flips the box on the selected comment. "Fix This One" sends
 /// that comment alone, and "Dismiss" resolves it.
 extension DiffViewController {
     func commentRow(_ diffComment: DiffComment) -> NSView {
@@ -42,7 +42,7 @@ extension DiffViewController {
         return row
     }
 
-    /// Space on a selected comment: in or out of what Send to Agent sends.
+    /// Space on a selected comment puts it in or out of what Send to Agent sends.
     func flipSelectedComment() -> Bool {
         guard rows.indices.contains(table.selectedRow), case .comment(let comment) = rows[table.selectedRow],
             comment.state == .open
@@ -59,7 +59,7 @@ extension DiffViewController {
         }
     }
 
-    /// The open comments still ticked.
+    /// The ids of the open comments that are still ticked.
     var picked: [String] { notes.saved.filter { $0.state == .open && !notes.skipped.contains($0.id) }.map(\.id) }
 
     @objc func sendComments() { send(picked) }
@@ -72,7 +72,8 @@ extension DiffViewController {
         }
         Task {
             guard let sid = await pickAgentSession(wid) else { return }
-            guard let count = await app.call(CommentSend(id: wid, session: sid, only: ids)) else { return }   // the banner says why
+            // On failure the banner says why.
+            guard let count = await app.call(CommentSend(id: wid, session: sid, only: ids)) else { return }
             status.stringValue = String(localized: "Sent \(count) comments to agent")
             await load()
         }

@@ -4,7 +4,8 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// What can be done to a run, for the panel's menus and the bar over a job. `changed`: the runs are worth reading again.
+/// What can be done to a run, for the panel's menus and the bar over a job. `changed` says the runs are worth reading
+/// again.
 @MainActor
 struct CIActions {
     let app: AppModel, worktree: String, changed: () -> Void
@@ -19,7 +20,7 @@ struct CIActions {
         act(CIRerunJob(worktreeId: worktree, job: job), said: String(localized: "Re-running the job"))
     }
 
-    /// A cancelled run can't be taken back, only started again.
+    /// Cancels a run. A cancelled run can't be taken back, only started again.
     func cancel(_ run: CIRuns.Run) {
         Task {
             guard
@@ -32,7 +33,7 @@ struct CIActions {
         }
     }
 
-    /// The commit's changes here; on the forge's site if this clone hasn't fetched it.
+    /// Shows the commit's changes here, or on the forge's site if this clone hasn't fetched the commit.
     func showCommit(_ run: CIRuns.Run) {
         guard let sha = run.sha else { return }
         Task {
@@ -44,17 +45,17 @@ struct CIActions {
         }
     }
 
-    /// What broke in this job, typed into the workspace's agent for the user to send.
+    /// Types what broke in this job into the workspace's agent, for the user to send.
     func fix(_ job: CIRuns.Job) {
         guard hasAgent else { return }
         Task {
-            // the banner says why
+            // On failure the banner says why.
             guard let report = await app.call(CIFailures(worktreeId: worktree, job: job.id)) else { return }
             GitFix(app).send("fixCI", worktree: worktree, vars: ["check": job.name, "error": report.forAgent])
         }
     }
 
-    /// False, said in a banner: nobody to ask.
+    /// Whether there is an agent to ask. When there is none, a banner says so.
     var hasAgent: Bool {
         if !FileActions(app).agents(in: worktree).isEmpty { return true }
         Banner.show(String(localized: "No agent on this screen. Start one with ⌥⌘T, then ask again."), style: .error)

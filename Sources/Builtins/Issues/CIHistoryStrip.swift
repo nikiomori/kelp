@@ -3,8 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A workflow's latest runs in a line, newest on the right, in the colours of their marks: whether it broke just now or has
-/// been red for a while, without reading the list. A mark goes to its run. Hidden with nothing to compare.
+/// A workflow's latest runs in a line, newest on the right, in the colours of their marks. It shows whether the
+/// workflow broke just now or has been red for a while, without reading the list. A mark goes to its run. The strip is
+/// hidden when there is nothing to compare.
 @MainActor
 final class CIHistoryStrip: NSView {
     var onPick: ((CIRuns.Run) -> Void)?
@@ -12,7 +13,7 @@ final class CIHistoryStrip: NSView {
     private let words = NSTextField(labelWithString: "")
     private let line = NSStackView()
     private var height: NSLayoutConstraint?
-    /// "green on #177", and "#177" in green for a panel too narrow for the words, which the tooltip keeps.
+    /// "green on #177", and "#177" in green for a panel too narrow for the words; the tooltip keeps the words.
     private var whole = "", short: String?, wholeWidth: CGFloat = 0
 
     init() {
@@ -33,7 +34,7 @@ final class CIHistoryStrip: NSView {
 
     func show(_ history: CIRuns.History?) {
         let tall = history == nil ? 0 : TextSize.of(Metrics.row)
-        if tall != height?.constant {   // it opens, the runs under it moving down, not jumping
+        if tall != height?.constant {   // it opens, so the runs under it move down rather than jump
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = window == nil ? 0 : Motion.duration(Motion.base)
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
@@ -54,7 +55,7 @@ final class CIHistoryStrip: NSView {
         probe.font = words.font
         wholeWidth = probe.fittingSize.width
         words.toolTip = whole.isEmpty ? nil : whole
-        needsLayout = true   // which of the two fits
+        needsLayout = true   // layout picks which of the two fits
     }
 
     override func layout() {
@@ -67,7 +68,7 @@ final class CIHistoryStrip: NSView {
     }
 }
 
-/// One run: 8 × 12, in the colour of its mark.
+/// One run's mark, 8 × 12, in the colour of the run's mark.
 @MainActor
 private final class HistoryMark: PointerControl {
     private let color: NSColor

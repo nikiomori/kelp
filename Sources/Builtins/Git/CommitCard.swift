@@ -3,24 +3,26 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The card a commit shows while the pointer rests on its row, in place of a tooltip: the whole subject and body, who
-/// and when, how big the change is, and the hash to copy. It stays while the pointer is on it.
+/// The card a commit shows while the pointer rests on its row, in place of a tooltip. It has the whole subject and
+/// body, who made the commit and when, how big the change is, and the hash to copy. It stays while the pointer is on
+/// it.
 @MainActor
 final class CommitCard {
     private let card = HoverPopover()
     private var shown: String?
     private var details: [String: CommitDetails] = [:]
     private var pictures: [String: NSImage] = [:]
-    /// The daemon's details of a commit; without them the card shows what the graph knows.
+    /// Loads the daemon's details of a commit; without them the card shows what the graph knows.
     var load: (@MainActor (String) async -> CommitDetails?)?
-    /// The author's picture from the project's forge, by email; without one the card keeps the initial.
+    /// Loads the author's picture from the project's forge, by email; without one the card keeps the initial.
     var picture: (@MainActor (String) async -> NSImage?)?
 
     init() {
         card.onClose = { [weak self] in self?.shown = nil }
     }
 
-    /// The pointer came onto or left a commit's row. A card already up follows the pointer to the next row at once.
+    /// Called when the pointer came onto or left a commit's row. A card already up follows the pointer to the next row
+    /// at once.
     func hover(_ on: Bool, commit c: GraphCommit, pushed: Bool?, over row: NSView) {
         guard on else {
             card.closeSoon()
@@ -65,11 +67,11 @@ final class CommitCard {
     }
 }
 
-/// The card's content: the type and scope, the subject, the body, then who, when, how big and the hash.
+/// The card's content: the type and scope, the subject and the body, then who, when, how big, and the hash.
 final class CommitCardView: NSView {
     var onInside: ((Bool) -> Void)?
     static let width: CGFloat = 320
-    /// The author's picture, or their initial until it comes (or when the forge has none).
+    /// The author's picture, or the author's initial until it comes (or when the forge has none).
     let avatar = NSImageView()
 
     init(_ commit: GraphCommit, details commitDetails: CommitDetails?, pushed: Bool?, picture: NSImage?) {
@@ -80,7 +82,7 @@ final class CommitCardView: NSView {
         avatar.wantsLayer = true
         avatar.layer?.cornerRadius = size / 2
         avatar.layer?.masksToBounds = true
-        avatar.setAccessibilityElement(false)   // the name follows it
+        avatar.setAccessibilityElement(false)   // the author's name follows it
         NSLayoutConstraint.activate([
             avatar.widthAnchor.constraint(equalToConstant: size), avatar.heightAnchor.constraint(equalToConstant: size)
         ])
@@ -90,7 +92,7 @@ final class CommitCardView: NSView {
             rows.append(head)
         }
         let title = Self.text(subject.text, font: .ui(TextSize.body, weight: .semibold), color: .labelColor, lines: 4)
-        if subject.breaking {   // a breaking change: a red "!" before the words, as in the row
+        if subject.breaking {   // a breaking change gets a red "!" before the words, as in the row
             let breakingTitle = NSMutableAttributedString(
                 string: "! ",
                 attributes: [.font: NSFont.ui(TextSize.body, weight: .semibold), .foregroundColor: NSColor.textRed])
@@ -138,7 +140,8 @@ final class CommitCardView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    // The card is never key (it would take focus from the editor): the pointer is tracked while the app is in the back too.
+    // The card is never key, because it would take focus from the editor. So the pointer is tracked while the app is
+    // in the back too.
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         for a in trackingAreas { removeTrackingArea(a) }
@@ -148,7 +151,8 @@ final class CommitCardView: NSView {
     override func mouseEntered(with event: NSEvent) { onInside?(true) }
     override func mouseExited(with event: NSEvent) { onInside?(false) }
 
-    /// The type's mark, "fix · daemon" and "↑ Not pushed yet"; nothing for a plain subject that's on the remote.
+    /// The header: the type's mark, "fix · daemon" and "↑ Not pushed yet". Nil for a plain subject that's on the
+    /// remote.
     private static func header(_ subject: CommitSubject, merge: Bool, unpushed: Bool) -> NSView? {
         var views: [NSView] = []
         if let mark = CommitCell.mark(subject, merge: merge) {
@@ -160,7 +164,8 @@ final class CommitCardView: NSView {
                 ?? String(localized: "Merge commit")
             views += [icon, label(kind, font: .ui(TextSize.caption, weight: .medium))]
         }
-        for v in views { v.setContentCompressionResistancePriority(.init(760), for: .horizontal) }   // "Not pushed yet" gives way
+        // The type and scope resist squeezing, so "Not pushed yet" gives way first.
+        for v in views { v.setContentCompressionResistancePriority(.init(760), for: .horizontal) }
         if unpushed {
             let up = NSImageView(image: .symbol("arrow.up"))
             up.symbolConfiguration = .chrome(Metrics.iconTiny)
@@ -173,7 +178,7 @@ final class CommitCardView: NSView {
         return row
     }
 
-    /// A letter in a circle of a colour the name picks (the graph's lane colours).
+    /// A letter in a circle, in a colour the name picks from the graph's lane colours.
     static func initial(_ name: String, size: CGFloat) -> NSImage {
         let color = GraphView.color(name.unicodeScalars.reduce(0) { $0 &+ Int($1.value) })
         let letter = NSAttributedString(
@@ -190,7 +195,7 @@ final class CommitCardView: NSView {
         }
     }
 
-    /// The author's picture, "Nikolay · 3h ago · Oct 22, 8:17 PM".
+    /// The author's picture and "Nikolay · 3h ago · Oct 22, 8:17 PM".
     private static func meta(_ commit: GraphCommit, avatar: NSView) -> NSView {
         let date = Date(timeIntervalSince1970: commit.date), age = Date().timeIntervalSince(date)
         let ago = age < 60 ? String(localized: "now") : String(localized: "\(shortSpan(age)) ago")
@@ -210,7 +215,7 @@ final class CommitCardView: NSView {
         return row
     }
 
-    /// "4 files +31 −11" and the short hash, which copies the whole one.
+    /// "4 files +31 −11" and the short hash, which copies the whole hash.
     private static func footer(_ commit: GraphCommit, details: CommitDetails?) -> NSView {
         var views: [NSView] = []
         if let details, details.files > 0 {

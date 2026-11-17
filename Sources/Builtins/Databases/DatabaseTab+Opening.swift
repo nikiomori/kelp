@@ -3,11 +3,11 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Opening a database: the tab waits under "Connecting to …" (a wheel turning, past half a second), and if it can't
-/// open, says why with the ways on (the password, the connection's form, another try).
+/// Opening a database. The tab waits under "Connecting to …" (with a wheel that turns past half a second). If the
+/// database can't open, the tab says why and offers the ways on: the password, the connection's form, another try.
 extension DatabaseTab {
 
-    /// The tab hidden under "Connecting to …" (said past half a second): nothing to press until it's open.
+    /// Hides the tab under "Connecting to …" (shown past half a second), so nothing can be pressed until it's open.
     func connecting() {
         whole.isHidden = true
         gate.show(nil)
@@ -25,7 +25,7 @@ extension DatabaseTab {
         }
     }
 
-    /// Why it didn't open, and the ways on: a password typed, the connection changed, another try.
+    /// Says why the database didn't open, and offers the ways on: type a password, change the connection, try again.
     func failed(_ why: String) {
         whole.isHidden = true
         let noPassword = why.contains("no password") || why.contains("password authentication failed")
@@ -44,7 +44,7 @@ extension DatabaseTab {
         gate.showError(String(localized: "Can’t Open \(address.name)"), text: why, buttons: buttons)
     }
 
-    /// The connection's form (its password there); tried again once it closes.
+    /// Opens the connection's form, where its password is, and tries again once the form closes.
     private func editConnection() {
         guard let db = database else { return }
         let library =

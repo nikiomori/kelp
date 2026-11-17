@@ -15,7 +15,8 @@ public struct SymbolIcon: View {
 
     public var body: some View {
         Group {
-            // A glyph is drawn 3 pt over the point size it stands beside: a symbol is taller than its point size too.
+            // A glyph is drawn 3 pt over the point size it stands beside, because a symbol is taller than its point
+            // size too.
             if let glyph = Glyph.image(name, size: size + 3) {
                 Image(nsImage: glyph).renderingMode(.template)
             } else {

@@ -54,7 +54,7 @@ extension ForgeItemTab {
         return Bar.content([route], trailing, stretching: route)
     }
 
-    /// The next thing to do: the accent's push button, the one blue thing in the bar.
+    /// The button for the next thing to do: the accent's push button, the one blue thing in the bar.
     private func primary(_ title: String, _ action: @escaping () -> Void) -> PointerButton {
         let button = TextButton(title, onClick: action)
         button.restFill = .controlAccentColor
@@ -116,14 +116,14 @@ extension ForgeItemTab {
         menu.add(String(localized: "Reload")) { [weak self] in self?.reload() }
     }
 
-    /// A group on a branch of its own named after the issue, its agent given the issue to read before sending; the PR
-    /// from that branch says it fixes the issue.
+    /// Starts a group on a branch of its own named after the issue, and gives its agent the issue to read before
+    /// sending. The PR from that branch says it fixes the issue.
     func startOnBranch() {
         guard let issue = issueView?.issue else { return }
         IssueWork(app: app, repoId: repoId).startOnBranch(issue)
     }
 
-    /// The default agent in the group on screen, on whatever it has out.
+    /// Starts the default agent in the group on screen, on whatever branch it has out.
     func startHere() {
         guard let issue = issueView?.issue else { return }
         IssueWork(app: app, repoId: repoId).startHere(issue)
@@ -149,7 +149,8 @@ struct IssueWork {
         }
     }
 
-    /// Its text typed in but not sent: whoever filed the issue wrote it, so the user reads it before the agent acts.
+    /// Types the issue's text in without sending it, because whoever filed the issue wrote it, so the user reads it
+    /// before the agent acts.
     func startHere(_ issue: GitHub.Issue) {
         guard let starter = app.workbench.starter, let wid = app.workbench.workspaceId else {
             NSSound.beep()

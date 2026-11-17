@@ -5,15 +5,15 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// "Review with": another agent (another vendor's, say) reviews what the diff shows, in a session beside it, and leaves
-/// its findings with `kelp comment add`; they appear in the diff with its name, to pick from (`DiffFindings`). The prompt
-/// is the `reviewWith` recipe, which a project's `.kelp.yaml` can change.
+/// "Review with": another agent (another vendor's, say) reviews what the diff shows, in a session beside it, and
+/// leaves its findings with `kelp comment add`. The findings appear in the diff with the agent's name, to pick from
+/// (`DiffFindings`). The prompt is the `reviewWith` recipe, which a project's `.kelp.yaml` can change.
 extension DiffViewController {
-    /// The menu's agents and their models, made when it opens.
+    /// Fills the menu with the agents and their models when it opens.
     func reviewItems(_ menu: NSMenu) {
         while menu.numberOfItems > 1 { menu.removeItem(at: 1) }   // the first is the pull-down's title
         let agents = app.catalog.installed(app.catalog.all).filter { Session.isAgent($0.id) }
-        // Tidy Up's files aren't the project's code: the agent that tidied them reports on them itself.
+        // Tidy Up's files aren't the project's code, and the agent that tidied them reports on them itself.
         guard sourcePicked != .tidy else {
             menu.addItem(withTitle: String(localized: "Only for the Project’s Code"), action: nil, keyEquivalent: "")
             return
@@ -57,10 +57,10 @@ extension DiffViewController {
         }
     }
 
-    /// The reviewer's tab title (its `SessionRole.reviewer` is what keeps findings from it).
+    /// The reviewer's tab title. Its `SessionRole.reviewer`, not the title, is what keeps findings from going to it.
     static func reviewTitle(_ agent: String) -> String { String(localized: "Review: \(agent)") }
 
-    /// What the diff shows, in words and as the command that prints it, for the reviewer.
+    /// What the diff shows, in words and as the command that prints it, for the reviewer to read.
     func reviewScope(_ wid: String) -> (String, String) {
         if let single {
             let file = ShellQuote.word(single.file)
@@ -91,7 +91,7 @@ extension DiffViewController {
         case .commit:
             let hash = commitHash ?? "HEAD"
             return (String(localized: "commit \(hash)"), "git show " + ShellQuote.word(hash))
-        case .turn:   // since the turn began: its snapshot against the files now, new ones listed too
+        case .turn:   // since the turn began: the turn's snapshot against the files now, new files listed too
             let tree = (turnPop.selectedItem?.representedObject as? SessionTurns.Mark)?.tree ?? "HEAD"
             return (
                 String(localized: "the agent's turn: the files changed since it began"),
@@ -104,7 +104,8 @@ extension DiffViewController {
         }
     }
 
-    /// The diff reads its comments again as the reviewer works (its status moves), so its findings come as it leaves them.
+    /// The diff reads its comments again as the reviewer works (as the reviewer's status moves), so its findings show
+    /// as it leaves them.
     func followReviewer() {
         track(
             owner: self, now: false, { [weak self] in self?.reviewerStatus },

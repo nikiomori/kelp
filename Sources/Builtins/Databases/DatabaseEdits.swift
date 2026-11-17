@@ -1,15 +1,15 @@
 import Core
 import Foundation
 
-/// What the user changed in a table's rows, and the statements that save it: an UPDATE per edited row and a DELETE per
-/// deleted one, each found by its primary key's values as they were read (with no key, by all its values, and only one
-/// such row touched); an INSERT per new row.
+/// The user's changes to a table's rows, and the statements that save them. Each edited row gets an UPDATE and each
+/// deleted row a DELETE, which find the row by its primary key's values as they were read. With no key they match all
+/// the row's values and touch only one such row. Each new row gets an INSERT.
 struct DatabaseEdits: Equatable {
     /// The new value by row and column (nil: NULL).
     private(set) var cells: [Int: [Int: String?]] = [:]
-    /// Rows added at the end: a value per column (nil: left to the database's default).
+    /// Rows added at the end, with a value per column (nil leaves it to the database's default).
     private(set) var added: [[String?]] = []
-    /// Rows read that are to go.
+    /// Rows that were read and are to be deleted.
     private(set) var deleted = Set<Int>()
 
     var count: Int { cells.values.map(\.count).reduce(0, +) + added.count + deleted.count }
@@ -18,7 +18,7 @@ struct DatabaseEdits: Equatable {
     func edited(row: Int, column: Int) -> Bool { cells[row]?[column] != nil }
     func value(row: Int, column: Int) -> String?? { cells[row]?[column] }
 
-    /// A value typed over the one read; typing the old value back drops the edit.
+    /// Records a value typed over the one that was read; typing the old value back drops the edit.
     mutating func set(row: Int, column: Int, to value: String?, was old: String?) {
         if value == old {
             cells[row]?[column] = nil
@@ -35,7 +35,7 @@ struct DatabaseEdits: Equatable {
     }
     mutating func removeAdded(_ index: Int) { if added.indices.contains(index) { added.remove(at: index) } }
 
-    /// Deleting a row marked deleted keeps it.
+    /// Marks a row deleted and drops its edits. Deleting a row that is already marked deleted keeps the row after all.
     mutating func toggleDeleted(_ row: Int) {
         if deleted.remove(row) == nil {
             deleted.insert(row)
@@ -49,7 +49,7 @@ struct DatabaseEdits: Equatable {
         deleted = []
     }
 
-    /// Deletes, then updates, then inserts, in row order.
+    /// Returns the deletes, then the updates, then the inserts, each in row order.
     func statements(
         table: String, engine: DatabaseInfo.Engine, columns: [String], primary: [String], rows: [[String?]]
     ) -> [String] {
@@ -60,18 +60,20 @@ struct DatabaseEdits: Equatable {
         func match(_ row: Int) -> String {
             keys.map { key in
                 let old = rows[row][key]
-                // Without a key every column is compared, as text in Postgres (json has no "=")
+                // Without a key every column is compared. Postgres compares them as text, because json has no "=".
                 let column = Self.name(columns[key], engine) + (!keyed && engine == .postgres ? "::text" : "")
                 return column + (old == nil ? " IS NULL" : " = \(engine.literal(old))")
             }.joined(separator: " AND ")
         }
-        // ponytail: rows told apart by their values; two identical rows are one (either goes). CockroachDB has no ctid.
+        // ponytail: rows are told apart by their values, so of two identical rows either one goes.
+        // CockroachDB has no ctid.
         func one(_ row: Int) -> String {
             if keyed { return " WHERE " + match(row) }
             switch engine {
-            case .mysql, .appwrite: return " WHERE " + match(row) + " LIMIT 1"   // Appwrite always has its $id
+            case .mysql, .appwrite: return " WHERE " + match(row) + " LIMIT 1"   // an Appwrite row always has its $id
             case .postgres:
-                // ctid is unique within one table only: a partitioned or inherited one has a row of that ctid in each
+                // ctid is unique within one table only, and a partitioned or inherited table has a row with that ctid
+                // in each part, so tableoid is matched too.
                 return " WHERE (tableoid, ctid) = (SELECT tableoid, ctid FROM \(name) WHERE \(match(row)) LIMIT 1)"
             case .sqlite, .duckdb: return " WHERE rowid = (SELECT rowid FROM \(name) WHERE \(match(row)) LIMIT 1)"
             }
@@ -93,8 +95,9 @@ struct DatabaseEdits: Equatable {
         return deletes + updates + inserts
     }
 
-    /// A table or column name, quoted for the engine: "orders", `orders` in MySQL. Postgres names a table outside
-    /// public by its schema ("audit.orders", as its schema lists it): two parts; elsewhere a "." is the name's own.
+    /// Quotes a table or column name for the engine: "orders", or `orders` in MySQL. Postgres names a table outside
+    /// public with its schema ("audit.orders", as the schema lists it), so the name has two parts. In other engines a
+    /// "." is part of the name itself.
     static func name(_ name: String, _ engine: DatabaseInfo.Engine) -> String {
         let parts = engine == .postgres ? name.split(separator: ".", maxSplits: 1).map(String.init) : [name]
         return parts.map(engine.quoted).joined(separator: ".")

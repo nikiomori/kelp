@@ -1,11 +1,11 @@
 import AppKit
 @preconcurrency import SwiftTreeSitter
 
-/// Brackets coloured by how deep they sit. Only the grammar's bracket tokens count, so one in a string or a comment isn't
-/// one, whether or not the grammar's highlights name them; and the depth where the colouring starts comes from the tree,
-/// so a colour doesn't change with the scroll position.
+/// Brackets coloured by how deep they sit. Only the grammar's bracket tokens count, so a bracket in a string or a
+/// comment isn't one, whether or not the grammar's highlights name them. The depth where the colouring starts comes
+/// from the tree, so a colour doesn't change with the scroll position.
 extension SyntaxHighlighter {
-    /// Past this many siblings a list's own brackets aren't counted: reaching a child walks the ones before it.
+    /// Past this many siblings a list's own brackets aren't counted, because reaching a child walks the ones before it.
     private static let mostSiblings: UInt32 = 2_000
 
     /// A grammar without one of the tokens refuses the query, so each is tried alone.
@@ -35,7 +35,8 @@ extension SyntaxHighlighter {
 
     private static func opens(_ character: unichar) -> Bool { character == 40 || character == 91 || character == 123 }
 
-    /// The brackets still open at `at`: down the tree to it, counting the ones left of the way (those inside a sibling match).
+    /// The brackets still open at `at`, found going down the tree to it and counting the ones left of the way (those
+    /// inside a sibling match).
     private static func depth(before at: Int, in string: NSString, under root: Node) -> Int {
         var node = root, depth = 0
         while node.childCount <= mostSiblings {

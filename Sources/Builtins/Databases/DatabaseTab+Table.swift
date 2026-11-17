@@ -4,8 +4,9 @@ import DesignKit
 import KelpKit
 import UniformTypeIdentifiers
 
-/// A table's Data (a page of rows in the asked order and with the asked filters, edits saved together, and the rows an
-/// agent's last change touched marked) and its Structure (columns, keys, indexes, with CREATE TABLE in the details).
+/// A table's Data and its Structure. Data is a page of rows in the order and with the filters asked for; edits are
+/// saved together, and the rows that an agent's last change touched are marked. Structure shows the columns, keys
+/// and indexes, with CREATE TABLE in the details.
 extension DatabaseTab {
     var current: DatabaseSchema.Table? { mode.table.flatMap { name in tables.first { $0.name == name } } }
 
@@ -28,7 +29,8 @@ extension DatabaseTab {
         startReading()
         let asked = page
         let result = await query(sql, limit: Self.pageSize)
-        // Another page, table or filter asked meanwhile: this answer is the older one's (looked at after each wait)
+        // When another page, table or filter was asked for meanwhile, this answer is for the older ask. It is checked
+        // after each wait.
         let still = { [weak self] in
             self.map { $0.page == asked && $0.sidebar.current == name && $0.filters.condition == condition } ?? false
         }
@@ -36,7 +38,7 @@ extension DatabaseTab {
         reading?.cancel()
         busy.stopAnimation(nil)
         guard let result else { return }
-        grid.editable = current?.kind != "view"   // a table without a key too: its rows found by their values
+        grid.editable = current?.kind != "view"   // a table without a key too: its rows are found by their values
         grid.source = (name, engine)
         let orders = grid.orders
         grid.show(columns: result.columns, rows: result.rows, info: info)
@@ -54,7 +56,7 @@ extension DatabaseTab {
         await mark(name, primary: primary, still: still)
     }
 
-    /// "Reading…" in the foot only once half a second has gone: a quick read doesn't flicker.
+    /// Shows "Reading…" in the foot only once half a second has gone, so a quick read doesn't flicker.
     func startReading() {
         reading?.cancel()
         reading = Task { [weak self] in
@@ -64,17 +66,18 @@ extension DatabaseTab {
         }
     }
 
-    /// With a filter on, how many rows it leaves: counted (the server stops a count that takes too long).
+    /// Counts how many rows the filter leaves. The server stops a count that takes too long.
     private func count(_ name: String, _ condition: String) async -> Int? {
         let sql = "SELECT count(*) FROM " + DatabaseEdits.name(name, engine) + " WHERE " + condition
         let answer = await app.quiet(DatabaseQuery(worktreeId: address.worktree, database: address.name, sql: sql))
         return (answer?.rows.first?.first ?? nil).flatMap { Int($0) }
     }
 
-    /// "1–200 of ≈ 12 408 rows · filtered · 14 ms", ‹ › where there's more.
+    /// Shows "1–200 of ≈ 12 408 rows · filtered · 14 ms" in the foot, with ‹ › when there are more pages.
     func pageChanged(shown: Int, ms: Int) {
         let first = page * Self.pageSize
-        // A page not full is the last one: the total is known, whatever the server's estimate says (0 before ANALYZE)
+        // A page that isn't full is the last one, so the total is known, whatever the server's estimate says (0
+        // before ANALYZE).
         let ended = shown < Self.pageSize
         let estimate = (filters.isActive ? nil : current?.rows).flatMap { $0 >= first + shown ? $0 : nil }
         let total = ended ? first + shown : counted ?? estimate
@@ -137,7 +140,7 @@ extension DatabaseTab {
         Task { await showTable(name) }
     }
 
-    /// Columns: each one shown or hidden, and all back.
+    /// The Columns menu: show or hide each column, or show all of them again.
     func columnsMenu() {
         let menu = NSMenu()
         for column in grid.table.tableColumns.dropFirst() {
@@ -153,7 +156,7 @@ extension DatabaseTab {
 
     // MARK: An agent's last change
 
-    /// The rows the latest change an agent made here left (kept as RETURNING gave them), found again by their key.
+    /// Marks the rows that the latest agent change here left, as RETURNING gave them, found again by their key.
     private func mark(_ name: String, primary: [String], still: () -> Bool) async {
         guard !primary.isEmpty else { return }
         let runs = app.latest(DatabasesEvent.self, address.worktree)?.runs ?? []
@@ -176,8 +179,8 @@ extension DatabaseTab {
         status.stringValue += " · ▍" + String(localized: "\(grid.marked.count) changed by \(who) \(shortAgo(last.at))")
     }
 
-    /// The latest change to `table` (`runs` is newest first), when an agent made it. A change the user made since (an
-    /// undo, an edit) leaves no rows to mark as the agent's.
+    /// The latest change to `table` (`runs` is newest first), when an agent made it. When the user made a change
+    /// since (an undo, an edit), there are no rows to mark as the agent's.
     static func lastAgentChange(_ runs: [DatabaseRun], to table: String, in database: String) -> DatabaseRun? {
         let short = table.split(separator: ".").last.map { $0.lowercased() } ?? table
         let last = runs.first {
@@ -217,7 +220,7 @@ extension DatabaseTab {
         footChanged()
     }
 
-    /// CREATE TABLE as the columns read: what an agent or a migration starts from.
+    /// CREATE TABLE as the columns read, which is what an agent or a migration starts from.
     func definition(_ table: DatabaseSchema.Table) -> String {
         let lines =
             table.columns.map { column in
@@ -237,7 +240,7 @@ extension DatabaseTab {
 
     // MARK: Details
 
-    /// The right column follows the table, the selected row and this table's agent runs.
+    /// Makes the right column follow the table, the selected row and this table's agent runs.
     func detailsChanged() {
         details.table = current
         let picked = grid.selectedRows.first
@@ -251,11 +254,12 @@ extension DatabaseTab {
         }
         details.agentName = agentToAsk.map { app.catalog.name($0.agent) }
         details.show(picked == nil ? nil : .row)
-        // Closed until a row is picked (what the table's tab would say is on screen already); one the user closed stays so.
+        // The details stay closed until a row is picked, because what they'd say of the table is on screen already.
+        // Once the user closes them, they stay closed.
         if picked != nil, !detailsClosed { details.view.isHidden = false }
     }
 
-    /// A field edited in the details: the same edit as in its cell.
+    /// Applies a field edited in the details as the same edit in the row's cell.
     func editFromDetails(_ column: Int, _ value: String?) {
         guard let row = grid.selectedRows.first, grid.rows.indices.contains(row) else { return }
         let old = grid.rows[row].indices.contains(column) ? grid.rows[row][column] : nil
@@ -263,7 +267,7 @@ extension DatabaseTab {
         grid.changed(rows: [row])
     }
 
-    /// A foreign key's arrow in a cell: the table it names, at that row.
+    /// Follows a foreign key's arrow in a cell to the table it names, at that row.
     func followKey(_ column: String, _ value: String) {
         guard let ref = current?.columns.first(where: { $0.name == column })?.references else { return }
         let parts = ref.split(separator: ".")
@@ -271,7 +275,7 @@ extension DatabaseTab {
         follow(String(parts[0]), String(parts[1]), value)
     }
 
-    /// That table, filtered to that row.
+    /// Shows `table` filtered to the row where `column` holds `value`.
     func follow(_ table: String, _ column: String, _ value: String) {
         let target = tables.first { $0.name == table || $0.name.hasSuffix("." + table) }?.name ?? table
         Task {
@@ -311,14 +315,14 @@ extension DatabaseTab {
         ResultText.text(format, grid.columns, picked.map { grid.rows[$0] }, table: mode.table, engine: engine)
     }
 
-    /// Saved where the user says: a file of their own choosing, not the project's.
+    /// Saves the rows where the user says: a file of their own choosing, not one in the project.
     private func export(_ format: ResultText.Format, _ picked: [Int]) {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = (mode.table ?? address.name) + "." + format.fileExtension
         let body = text(format, picked)
         Task {
             guard await runSheet(panel) == .OK, let url = panel.url else { return }
-            // Written off the main thread: a big table's text to a slow disk
+            // Written off the main thread, because a big table's text may go to a slow disk.
             let written = await Task.detached { Result { try body.write(to: url, atomically: true, encoding: .utf8) } }
                 .value
             if case .failure(let error) = written {
@@ -331,7 +335,7 @@ extension DatabaseTab {
 
     @objc func discardEdits() { grid.discard() }
 
-    /// What saving would run, before it runs.
+    /// Shows what saving would run, before it runs.
     @objc func showEdits() {
         guard let statements = pending() else { return }
         let text = statements.joined(separator: ";\n") + ";"
@@ -352,7 +356,7 @@ extension DatabaseTab {
             rows: grid.rows)
     }
 
-    /// All of it in one transaction (`db.apply`); a production database asks first, in words.
+    /// Saves all the edits in one transaction (`db.apply`). A production database asks first, in words.
     @objc func saveEdits() {
         guard let name = mode.table, let statements = pending(), !statements.isEmpty else { return }
         Task {
@@ -362,7 +366,7 @@ extension DatabaseTab {
                 alert.informativeText = statements.joined(separator: ";\n") + ";"
                 let change = alert.addButton(withTitle: String(localized: "Change Production"))
                 change.hasDestructiveAction = true
-                change.keyEquivalent = ""   // Return cancels: a change to production is a click
+                change.keyEquivalent = ""   // Return cancels, so a change to production takes a click
                 alert.addButton(withTitle: String(localized: "Cancel")).keyEquivalent = "\r"
                 guard await runSheet(alert) == .alertFirstButtonReturn else { return }
             }
@@ -375,7 +379,8 @@ extension DatabaseTab {
             grid.edits.clear()
             await showTable(name)
             status.stringValue += " · " + Self.rows(done.changed ?? 0) + " " + String(localized: "saved")
-            // Each statement is one row; fewer means a row wasn't where it was read (changed meanwhile)
+            // Each statement changes one row, so fewer changes mean a row wasn't where it was read (it changed
+            // meanwhile).
             if let changed = done.changed, changed < statements.count {
                 Banner.show(
                     String(

@@ -5,11 +5,12 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// A branch's pull request as Git marks it: "#12" beside its folder and on the window bar (`FolderCI.pr`), in full in
-/// the folder's hover card, and Create Pull Request where the branch has none.
+/// A branch's pull request as Git marks it: "#12" beside its folder and on the window bar (`FolderCI.pr`), the PR in
+/// full in the folder's hover card, and Create Pull Request where the branch has none.
 enum PullRequests {
-    /// "#12" in the PR's state colour, and what it says; its checks are the folder's CI mark, the tooltip counts them.
-    /// Nothing while Settings › Appearance › Changes and pull requests is off. A click opens the PR's own tab.
+    /// "#12" in the PR's state colour, and the tooltip that says what it is. The PR's checks show as the folder's CI
+    /// mark, and the tooltip counts them. Returns nil while Settings › Appearance › Changes and pull requests is off.
+    /// A click opens the PR's own tab.
     @MainActor static func mark(_ folder: String, _ app: AppModel) -> (
         title: NSAttributedString, tip: String, uri: String
     )? {
@@ -18,7 +19,8 @@ enum PullRequests {
         return (title, tip, uri(folder, number: pr.number, page: pr.url, app))
     }
 
-    /// The PR's own tab (Issues'), as the Issues panel opens it; its page only while the folder's project isn't known.
+    /// The PR's own tab (Issues'), as the Issues panel opens it, or the PR's page while the folder's project isn't
+    /// known.
     @MainActor static func uri(_ folder: String, number: Int?, page: String, _ app: AppModel) -> String {
         guard let repo = app.worktree(folder)?.repoId, let number else { return page }
         return TabURI.pullRequest(repo: repo, number: number)
@@ -49,12 +51,12 @@ enum PullRequests {
         return (label, String(localized: "Pull request #\(number) · \(said) · \(checks)") + "\n" + pr.title)
     }
 
-    /// In the folder's hover card.
+    /// The PR as the folder's hover card shows it.
     @MainActor static func card(_ folder: String, _ app: AppModel) -> AnyView? {
         app.latest(PREvent.self, folder)?.pr.map { AnyView(PRLine(pr: $0)) }
     }
 
-    /// The branch chip's menu: Create Pull Request while the branch has none.
+    /// Adds Create Pull Request to the branch chip's menu while the branch has no PR.
     @MainActor static func menuItems(_ menu: NSMenu, worktree: String?, _ app: AppModel) {
         guard let worktree, app.latest(PREvent.self, app.gitFolder(of: worktree)?.id ?? "")?.pr == nil else { return }
         menu.add(String(localized: "Create Pull Request…")) { PRActions(app).create(worktree: worktree) }
@@ -97,7 +99,7 @@ struct PRActions {
     let app: AppModel
     init(_ app: AppModel) { self.app = app }
 
-    /// Pushes and opens a PR; title and body come from the branch's commits.
+    /// Pushes the branch and opens a PR whose title and body come from the branch's commits.
     func create(worktree wid: String) {
         let detail = String(
             localized: "Pushes \(app.worktree(wid)?.branch ?? "the branch") and opens a PR titled from its commits.")

@@ -3,8 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// What the Message field shows of the agent writing the commit: its logo and chevron in the field's corner, the line
-/// that replaces the text while it reads, the words under the field after, and the plan over the button.
+/// What the Message field shows of the agent writing the commit. The agent's logo and chevron sit in the field's
+/// corner, a line replaces the text while the agent reads, words go under the field after, and the plan goes over the
+/// button.
 @MainActor
 final class AgentCommitControls {
     let logo: IconButton
@@ -16,11 +17,11 @@ final class AgentCommitControls {
     let noteLogo = NSImageView()
     let noteText = NSTextField(labelWithString: "")
     let again: PointerButton
-    /// Its tab, while it waits for an answer there.
+    /// Opens the agent's tab, while the agent waits for an answer there.
     let watch: PointerButton
     let note: NSStackView
     let plan = CommitPlanView()
-    /// The plan the cards were made from: a message typed into one updates it without making the cards again.
+    /// The plan the cards were made from. A message typed into a card updates the plan without making the cards again.
     var shown: CommitPlan?
 
     init(_ controller: SourceControlController) {
@@ -65,7 +66,7 @@ final class AgentCommitControls {
         plan.onCommit = { [weak controller] in controller?.makeCommits(push: false) }
     }
 
-    /// A word that acts, in the link colour, underlined under the pointer.
+    /// A word that acts, in the link colour and underlined under the pointer.
     private static func link(_ title: String, _ target: AnyObject, _ action: Selector) -> PointerButton {
         let button = PointerButton(title: title) {}
         button.target = target
@@ -78,7 +79,7 @@ final class AgentCommitControls {
 }
 
 extension SourceControlController {
-    /// The field, the words and the plan as `worktreeId`'s agent and plan stand.
+    /// Shows the field, the words and the plan as the agent and plan of `worktreeId` stand.
     func showAgentCommit() {
         let ui = agentUI, wid = worktreeId ?? ""
         let run = agentCommits[wid], plan = plans[wid], note = notes[wid]
@@ -108,7 +109,7 @@ extension SourceControlController {
         if plan != ui.shown {
             ui.shown = plan
             if let plan { ui.plan.show(plan, logo: icon) }
-            rebuildChanges()   // the rows' commit numbers
+            rebuildChanges()   // the rows show their commit numbers
         }
         updateCommitButton()
     }

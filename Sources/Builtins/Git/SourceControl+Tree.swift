@@ -13,15 +13,15 @@ extension SourceControlController {
         rebuildGraph()
     }
 
-    /// Sections fold through `collapsed`, not the outline's own expansion state, which goes stale across reloads
-    /// (a click then "expanded" a section already open).
+    /// Sections fold through `collapsed`, not through the outline's own expansion state, which goes stale across
+    /// reloads (a click then "expanded" a section that was already open).
     func rebuildChanges() {
         let places = stagingPlaces()
         if clearing {
             clearing = false
             outline.crossfade(Motion.base)
         }
-        let before = Self.flat(roots)   // the nodes kept are filled again below
+        let before = Self.flat(roots)   // the nodes that are kept get filled again below
         var rows = Rows(changeNodes)
         var out: [Node] = []
         func section(_ section: Section, _ files: [FileChange]) {
@@ -77,13 +77,13 @@ extension SourceControlController {
         }
         graphNodes = rows.kept
         graphRoots = out
-        if show(graphOutline, was: before, rows.redrawn) { card.close() }   // its row was drawn again
+        if show(graphOutline, was: before, rows.redrawn) { card.close() }   // the card's row was drawn again
         layoutGraph()
     }
 
-    /// The outline after a rebuild. The same rows in the same order: only those whose look changed are drawn again (and
-    /// the sections and notes, which say little); else it loads again, the cells set aside coming back for new rows.
-    /// Whether any row was drawn again.
+    /// Shows the outline after a rebuild and returns whether any row was drawn again. When the rows are the same and
+    /// in the same order, only those whose look changed are drawn again (and the sections and notes, which say
+    /// little). Otherwise the outline loads again, and the cells it set aside come back for new rows.
     private func show(_ outline: NSOutlineView, was before: [Node], _ redrawn: [Node]) -> Bool {
         guard before.elementsEqual(Self.flat(roots(of: outline)), by: ===) else {
             outline.reloadData()
@@ -95,15 +95,15 @@ extension SourceControlController {
         return !rows.isEmpty
     }
 
-    /// The rows in order: every node with children is open (folding is `collapsed`'s).
+    /// The rows in order, with every node that has children open (folding is up to `collapsed`).
     private static func flat(_ nodes: [Node]) -> [Node] { nodes.flatMap { [$0] + flat($0.children) } }
 
-    /// A rebuild's nodes: the previous rebuild's nodes by key, kept, and the ones whose rows have to be drawn again.
+    /// A rebuild's nodes: the nodes of the previous rebuild kept by key, and the ones whose rows must be drawn again.
     struct Rows {
         private let last: [String: Node]
         private(set) var kept: [String: Node] = [:], redrawn: [Node] = []
         init(_ last: [String: Node]) { self.last = last }
-        /// `look` nil: drawn again on every rebuild.
+        /// When `look` is nil, the node is drawn again on every rebuild.
         mutating func node(_ key: String, _ kind: Node.Kind, look: Node.Look? = nil) -> Node {
             let node = last[key] ?? Node(kind)
             if look == nil || node.look != look || last[key] == nil { redrawn.append(node) }
@@ -115,15 +115,15 @@ extension SourceControlController {
         mutating func note(_ text: String) -> Node { node("n \(text)", .note(text)) }
     }
 
-    /// The graph is a pane of its own under the changes, as in VS Code, so a long list of changes never pushes it
-    /// out of sight: its header folds it, dragging the header sizes it.
+    /// The graph is a pane of its own under the changes, as in VS Code, so a long list of changes never pushes it out
+    /// of sight. Its header folds it, and dragging the header sizes it.
     func layoutGraph() {
         let has = !commits.isEmpty && !empty.showing, open = has && !collapsed.contains(Section.graph.rawValue)
         graphBar.isHidden = !has
         graphBar.expanded = open
         graphOutline.enclosingScrollView?.isHidden = !open
         barHeight?.constant = has ? GraphBar.height : 0
-        // At most half the screen: a height saved while the window was being stretched stays out.
+        // At most half the screen, so a height saved while the window was being stretched stays out.
         let saved = UserDefaults.standard.object(forKey: "scm.graphHeight") as? CGFloat
         graphHeight?.constant = min(saved ?? 0, (NSScreen.main?.visibleFrame.height ?? 800) / 2)
         graphHeight?.isActive = open && saved != nil
@@ -151,10 +151,11 @@ extension SourceControlController {
         }
         UserDefaults.standard.set(Array(collapsed), forKey: "scm.collapsed")
         turning = section
-        // What folds isn't moved row by row: it fades into what's there next, as a panel does, not at once.
+        // What folds isn't moved row by row. It fades into what's there next, as a panel does, rather than at once.
         if view.window != nil { (section == .graph ? view : outline).crossfade(Motion.base) }
         if section == .graph { layoutGraph() } else { rebuildChanges() }
-        DispatchQueue.main.async { [weak self] in self?.turning = nil }   // the outline asks for the cell when it lays out
+        // The outline asks for the cell when it lays out, so `turning` is cleared after that.
+        DispatchQueue.main.async { [weak self] in self?.turning = nil }
     }
 
     private func roots(of outline: NSOutlineView) -> [Node] { outline === graphOutline ? graphRoots : roots }
@@ -180,7 +181,7 @@ extension SourceControlController {
         return true
     }
     func outlineView(_ outline: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { outline.listRowView() }
-    /// A changed file drags out as itself: into a terminal (an agent's prompt), Finder, another app. A deleted one
+    /// A changed file drags out as itself: into a terminal (an agent's prompt), Finder, or another app. A deleted file
     /// has nothing to drag.
     func outlineView(_ outline: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
         guard case .file(let file, _)? = (item as? Node)?.kind, let root = app.worktree(worktreeId)?.path else {
@@ -192,11 +193,13 @@ extension SourceControlController {
 
     func outlineView(_ outline: NSOutlineView, viewFor tc: NSTableColumn?, item: Any) -> NSView? {
         guard let node = item as? Node else { return nil }
-        // Each kind's cell: one the outline set aside when its row went, else a new one; `show` sets all it shows.
+        // Each kind has its cell: one the outline set aside when its row went, else a new one. `show` sets everything
+        // the cell shows.
         switch node.kind {
         case .section(let section):
             let cell = outline.makeView(withIdentifier: SectionCell.id, owner: nil) as? SectionCell ?? SectionCell()
-            // The first section carries what isn't committed yet ("+120 −30"), the header's room being the quick actions'.
+            // The first section shows what isn't committed yet ("+120 −30"), because the header's room is for the
+            // quick actions.
             let first = node === roots.first && !stats.isHidden
             cell.show(
                 title: loc(section.rawValue), count: node.files.count, expanded: !collapsed.contains(section.rawValue),
@@ -244,8 +247,8 @@ extension SourceControlController {
         return cell
     }
 
-    /// As wide as the lanes this commit's row draws, not the widest point of the whole graph: one crossing far down made
-    /// every row start its subject two lanes out from its line.
+    /// As wide as the lanes this commit's row draws, not the widest point of the whole graph, because one crossing far
+    /// down made every row start its subject two lanes away from its line.
     static func graphWidth(_ commit: GraphCommit) -> CGFloat {
         let lanes = ([commit.lane] + commit.top.flatMap { $0 } + commit.bottom.flatMap { $0 }).max() ?? 0
         return GraphView.width(lanes: min(lanes + 1, GraphView.maxLanes))
@@ -286,7 +289,8 @@ extension SourceControlController {
             return
         }
         Task {
-            // Unfolded by a click: a banner says why it can't, and it folds back to be asked again.
+            // When a click unfolds the commit and its files can't be read, a banner says why and the commit folds back,
+            // so the user can ask again.
             guard let files = await app.call(GitCommitFiles(id: wid, commit: hash)) else {
                 openCommits.remove(hash)
                 rebuildGraph()
@@ -307,7 +311,7 @@ extension SourceControlController {
             openFile(file)
             return
         }
-        // the review beside it scrolls there instead
+        // When a review beside it shows the file, the review scrolls there instead.
         if DiffViewController.reveal(file.path, worktree: worktree) { return }
         app.workbench.open(DiffTab.uri(worktree, file: file.path, source: section == .staged ? .staged : .unstaged))
     }

@@ -15,12 +15,12 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
     public var onSearch: ((String) -> Void)?
     public var onStep: ((_ next: Bool) -> Void)?
     public var onClose: (() -> Void)?
-    /// ⌥↩ in the field (the editor: a cursor on every match); unset, ⌥↩ steps as ↩ does.
+    /// Called for ⌥↩ in the field (the editor puts a cursor on every match). When unset, ⌥↩ steps as ↩ does.
     public var onSelectAll: (() -> Void)?
-    /// The field's width: a Replace field below matches it.
+    /// The field's width, which a Replace field below matches.
     public static let fieldWidth: CGFloat = 190
     private var pending: DispatchWorkItem?
-    /// From the owner; -1 while it's still counting.
+    /// The match count and the selected match, set by the owner; -1 while it's still counting.
     public var total = -1 { didSet { updateCount() } }
     public var selected = -1 { didSet { updateCount() } }
 
@@ -50,8 +50,8 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Floats it in `host`, `inset.height` down from `top`'s top edge and `inset.width` in from `trailing`'s right
-    /// (nil: `top`'s).
+    /// Floats the card in `host`, `inset.height` down from the top edge of `top` and `inset.width` in from the right
+    /// edge of `trailing` (or of `top`, when nil).
     public func float(
         in host: NSView, top: NSView, trailing: NSView? = nil,
         inset: NSSize = NSSize(width: Metrics.gapWide * 2, height: Metrics.gapWide)
@@ -67,7 +67,7 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
     public func begin(_ needle: String?) {
         if isHidden {
             isHidden = false
-            comeIn()   // as a banner and the other cards over content
+            comeIn()   // as a banner and the other cards over content do
         }
         if let needle, !needle.isEmpty, needle != field.stringValue {
             field.stringValue = needle
@@ -77,7 +77,7 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
         field.currentEditor()?.selectAll(nil)
     }
 
-    /// What an owner that counts its own way found: "2 of 7+", "Not a valid pattern".
+    /// Shows what an owner that counts its own way found: "2 of 7+", "Not a valid pattern".
     public func show(count text: String, canStep: Bool) {
         count.stringValue = text
         steps.isEnabled = canStep
@@ -96,14 +96,14 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
         steps.isEnabled = total != 0
     }
 
-    // One or two letters match half the scrollback: wait for a pause before searching for them.
+    // One or two letters match half the scrollback, so the search for them waits for a pause.
     public func controlTextDidChange(_ notification: Notification) {
         pending?.cancel()
         guard field.stringValue.count < 3, !field.stringValue.isEmpty else {
             search()
             return
         }
-        // on the main queue below
+        // Runs on the main queue below.
         let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.search() } }
         pending = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
@@ -127,7 +127,7 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
         }
     }
 
-    /// ⌘G / ⇧⌘G while typing (the field editor would swallow them otherwise).
+    /// Handles ⌘G / ⇧⌘G while typing, because the field editor would swallow them otherwise.
     override public func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard !isHidden, let forward = event.findStep, (window?.firstResponder as? NSText)?.delegate === field
         else { return super.performKeyEquivalent(with: event) }
@@ -144,7 +144,8 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
 }
 
 extension NSEvent {
-    /// ⌘G → forward, ⇧⌘G → back, anything else nil. By key code, as a Russian layout sends another letter.
+    /// ⌘G → forward, ⇧⌘G → back, anything else nil. It goes by key code, because a Russian layout sends another
+    /// letter.
     public var findStep: Bool? {
         let mods = modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard type == .keyDown, keyCode == 5, mods.subtracting(.shift) == .command else { return nil }

@@ -3,17 +3,17 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A comment being written: where it goes, and its field, kept across the diff being read again (an agent at work).
+/// A comment being written: where it goes and its field. It is kept while the diff is read again (an agent at work).
 @MainActor
 struct CommentDraft {
     var file: String, start: Int, end: Int, quote: String, side: String?
     let field = NSTextField(wrappingLabelWithString: "")
-    /// Its card, made once: a new read of the diff moves this one, so what's typed and the caret stay.
+    /// The comment's card, made once. A new read of the diff moves this card, so what's typed and the caret stay.
     var card: NSView?
 }
 
-/// The review's comments: those saved (on this diff's commit), the one being written, and the open ones left out of Send
-/// to Agent (`DiffFindings`).
+/// The review's comments: those saved (on this diff's commit), the one being written, and the open ones the user left
+/// out of Send to Agent (`DiffFindings`).
 @MainActor
 struct ReviewNotes {
     var saved: [DiffComment] = []
@@ -21,26 +21,28 @@ struct ReviewNotes {
     var skipped: Set<String> = []
 }
 
-/// A comment is written in a card right under its line, as on GitHub: the Comment button, or the "+" beside a line under
-/// the pointer, opens it; ⌘↩ saves, Esc puts it away.
+/// A comment is written in a card right under its line, as on GitHub. The Comment button, or the "+" beside a line
+/// under the pointer, opens the card; ⌘↩ saves the comment, and Esc puts the card away.
 extension DiffViewController {
-    /// Where a line's code starts, past its numbers: what goes under a line (a card, unchanged lines) starts there too.
+    /// Where a line's code starts, past its numbers. What goes under a line (a card, unchanged lines) starts there too.
     static let codeIndent: CGFloat = 88
-    /// The commit on screen when it's a past one's diff: a comment there is on that commit, not the folder's HEAD.
+    /// The commit on screen when the diff is a past commit's, because a comment there is on that commit, not on the
+    /// folder's HEAD.
     var shownCommit: String? {
         if let single { return single.source == .commit ? single.commit : nil }
         return sourcePicked == .commit ? commitHash : nil
     }
 
-    /// The card's field: two lines and more as they wrap; its row holds it and the buttons.
+    /// The height of the card's field: two lines, and more as the text wraps. The card's row holds the field and the
+    /// buttons.
     static let draftField: CGFloat = 44
     static var draftHeight: CGFloat { draftField + 22 + 3 * Metrics.gap }
 
-    /// The lines selected (or `row` alone) get a card under the last of them.
+    /// Opens a card under the last of the selected lines (or under `row` alone).
     func openDraft(at row: Int? = nil) {
         if let row { table.selectRowIndexes([row], byExtendingSelection: false) }
-        // One file, and one side's numbers: a range across two files, or from an old line to a new one, names lines that
-        // aren't the ones quoted.
+        // A comment covers one file and one side's numbers, because a range across two files, or from an old line
+        // to a new one, names lines that aren't the ones quoted.
         let shown = table.selectedRowIndexes.compactMap { shownLine($0) }
         guard let file = shown.first?.0 else {
             NSSound.beep()
@@ -67,7 +69,8 @@ extension DiffViewController {
         view.window?.makeFirstResponder(newDraft.field)
     }
 
-    /// The card's row goes under its line (and the comments already there), wherever a new read of the diff put it.
+    /// Puts the card's row under its line (and under the comments already there), wherever a new read of the diff put
+    /// the line.
     func placeDraft() {
         rows.removeAll { $0 == .draft }
         guard let draft = notes.draft else { return }
@@ -113,7 +116,7 @@ extension DiffViewController {
         return card
     }
 
-    /// The table read again, the comment being typed keeping the keys (Space there is a space, not a comment's box).
+    /// Reloads the table while the comment being typed keeps the keys (Space there types a space, not a comment's box).
     func reloadKeepingDraft() {
         let typing = notes.draft.map { d in view.window?.firstResponder === d.field.currentEditor() } ?? false
         table.reloadData()
@@ -151,7 +154,7 @@ extension DiffViewController {
     }
 }
 
-/// A line of the diff that shows a "+" at its start under the pointer: a comment on that line.
+/// A line of the diff that shows a "+" at its start under the pointer, which starts a comment on that line.
 final class DiffLineRowView: NSTableRowView {
     var onPlus: (() -> Void)? { didSet { plus.isHidden = true } }
     private lazy var plus: IconButton = {

@@ -5,7 +5,7 @@ import DesignKit
 import KelpKit
 
 extension DiffViewController {
-    /// The table's rows and changed words, built off the main thread: a big diff is a lot of rows.
+    /// Builds the table's rows and changed words off the main thread, because a big diff is a lot of rows.
     func buildRows(_ fileDiffs: [FileDiff], _ cm: [DiffComment], sideBySide: Bool) async -> (
         [ReviewRow], [String: NSRange]
     ) {
@@ -33,20 +33,20 @@ extension DiffViewController {
         }
     }
 
-    /// Source Control beside the tab lists the same files: the tab's own list steps aside meanwhile, and comes back
-    /// where it was when the inspector closes or shows another panel. One file's tab has none.
+    /// When Source Control beside the tab lists the same files, the tab's own list steps aside. It comes back where
+    /// it was when the inspector closes or shows another panel. One file's tab has no list.
     func placeFileList() {
         let hide = single != nil || app.workbench.panelBeside == "git.changes"
         guard let list = fileList, let split, list.isHidden != hide else { return }
         list.isHidden = hide
         split.adjustSubviews()
-        if !hide { positioned = false }   // at its width again on the next layout
+        if !hide { positioned = false }   // set to its width again on the next layout
     }
 
     /// Whether the hunks shown come from the staged diff (so they offer Unstage) or the unstaged diff (so they offer
-    /// Stage); nil where they come from neither and git can't take them as they are. The uncommitted diff (against
-    /// HEAD) counts as the unstaged diff for a file with nothing staged, and as the staged diff for a file with nothing
-    /// left unstaged.
+    /// Stage). It is nil where they come from neither and git can't take them as they are. The uncommitted diff
+    /// (against HEAD) counts as the unstaged diff for a file with nothing staged, and as the staged diff for a file
+    /// with nothing left unstaged.
     func hunksStaged(_ file: Int) -> Bool? {
         if hidesSpace { return nil }
         if let single {
@@ -66,8 +66,8 @@ extension DiffViewController {
         }
     }
 
-    /// One file of the review, in a tab of its own that has room for the whole file's changes; nil for the agent's last
-    /// turn.
+    /// The URI for one file of the review in a tab of its own, which has room for the whole file's changes. Nil for
+    /// the agent's last turn.
     private func alone(_ path: String) -> String? {
         guard single == nil, let wid = worktreeId else { return nil }
         switch sourcePicked {
@@ -82,7 +82,7 @@ extension DiffViewController {
     // MARK: table
     func numberOfRows(in table: NSTableView) -> Int { table === files ? diffs.count : rows.count }
 
-    /// The file list's rows light up under the pointer as every inspector list's do; the diff's own rows don't.
+    /// The file list's rows light up under the pointer, as every inspector list's rows do; the diff's own rows don't.
     func tableView(_ table: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
         if table === files { return ListRowView() }
         let rowView = DiffLineRowView()   // a line shows a "+" under the pointer, for a comment on it
@@ -94,7 +94,7 @@ extension DiffViewController {
         let app = self.app
         if table === files { return fileRow(row) }
         let id = col?.identifier.rawValue ?? ""
-        let first = id == "t" || id == "l" || col == nil   // nil: a hunk header, one view across the row
+        let first = id == "t" || id == "l" || col == nil   // nil is a hunk header, one view across the row
         switch rows[row] {
         case .draft: return draftCard()
         case .comment(let comment): return commentRow(comment)

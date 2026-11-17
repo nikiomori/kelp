@@ -3,14 +3,14 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Add Database. One field first: whatever is pasted is read as it's typed (`DatabaseAddress`) and what Kelp understood
-/// is said under it. Under that, a new one by engine, and what this Mac has already: other apps' connections (a click
-/// goes to Import) and Docker's running servers (a click fills the form). Continue, an engine or a container goes to the
-/// form (`DatabaseForm`), in the same sheet; an existing database opens straight there.
+/// Add Database. It starts with one field that reads whatever is pasted as it's typed (`DatabaseAddress`), and says
+/// under it what Kelp understood. Below are the engines to start a new database with, and what this Mac already has.
+/// That is other apps' connections, where a click goes to Import, and Docker's running servers, where a click fills
+/// the form. Continue, an engine or a container opens the form (`DatabaseForm`) in the same sheet. Editing an existing
+/// database opens straight to the form.
 @MainActor
 final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     static let width: CGFloat = 520
-    /// The order the engines are offered in: servers first, the most used first.
     let app: AppModel, worktreeId: String
     let window = NSPanel(
         contentRect: NSRect(x: 0, y: 0, width: width, height: 10), styleMask: [.titled], backing: .buffered,
@@ -22,10 +22,10 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     private let next = NSButton()
     private var parsed: DatabaseAddress?
     private let tiles = NSStackView()
-    /// The pane on screen past the first: kept while it shows.
+    /// The pane shown after the first one, kept alive while it shows.
     private var pane: AnyObject?
 
-    /// `library`: the one edited is of All My Projects, and is saved back there.
+    /// `library` means the database edited is one of All My Projects, so it is saved back there.
     static func run(_ app: AppModel, worktreeId: String, editing: DatabaseInfo?, library: Bool = false) async {
         let sheet = DatabaseSheet(app: app, worktreeId: worktreeId)
         if let editing {
@@ -36,7 +36,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         _ = await runSheet(sheet.window)
     }
 
-    /// Straight to the form, filled in: a file dropped on the panel, a database duplicated.
+    /// Goes straight to the form, filled in, for a file dropped on the panel or a database duplicated.
     static func run(_ app: AppModel, worktreeId: String, adding address: DatabaseAddress) async {
         let sheet = DatabaseSheet(app: app, worktreeId: worktreeId)
         sheet.openForm(address)
@@ -59,7 +59,8 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         window.makeFirstResponder(first)
     }
 
-    /// As tall as what it shows, always the sheet's width (fittingSize alone comes out narrower).
+    /// Sizes the sheet as tall as what it shows and always at its own width, because fittingSize alone comes out
+    /// narrower.
     func fit() {
         window.setContentSize(NSSize(width: Self.width, height: window.contentView?.fittingSize.height ?? 0))
     }
@@ -122,7 +123,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         Task { await fillFound() }
     }
 
-    /// Other apps' connections, then Docker's running servers: rows that come in as they're read.
+    /// Adds other apps' connections, then Docker's running servers, as rows that come in as they're read.
     private func fillFound() async {
         let sources = await app.quiet(DatabaseImportSources()) ?? []
         for source in sources where source.count > 0 {
@@ -155,14 +156,14 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
 
     func controlTextDidChange(_ notification: Notification) { read() }
 
-    /// Return in the field is Continue: the field editor takes it before the default button would.
+    /// Return in the field means Continue, because the field editor takes Return before the default button would.
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
         guard selector == #selector(NSResponder.insertNewline(_:)), parsed != nil else { return false }
         continued()
         return true
     }
 
-    /// What the field says, as Kelp reads it: the database and where, or what it can't read.
+    /// Says under the field how Kelp reads it: the database and where it is, or what Kelp can't read.
     private func read() {
         let text = field.stringValue
         do {
@@ -177,13 +178,14 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         understood.isHidden = understood.stringValue.isEmpty
         next.isEnabled = parsed != nil
         found.alphaValue = parsed == nil ? 1 : 0.45
-        // Not an address: words that find an engine or a service in the grid.
+        // When the text is not an address, its words find an engine or a service in the grid.
         layTiles(parsed == nil ? text.trimmingCharacters(in: .whitespaces) : "")
         if parsed == nil, !text.contains(":"), !text.contains("/") { understood.isHidden = true }
         fit()
     }
 
-    /// "Postgres · app_staging" over "app on db.example.com:5432 · SSL required" and where the password goes.
+    /// What Kelp understood: "Postgres · app_staging" over "app on db.example.com:5432 · SSL required", and where the
+    /// password goes.
     static func understood(_ db: DatabaseInfo, password: Bool) -> NSAttributedString {
         let place =
             db.engine.isFile
@@ -206,7 +208,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         return text
     }
 
-    /// The presets whose name has `find` in it, six a row.
+    /// Lays out the presets whose name contains `find`, six to a row.
     private func layTiles(_ find: String) {
         for row in tiles.arrangedSubviews { row.removeFromSuperview() }
         let shown = EnginePreset.all.filter { find.isEmpty || $0.name.lowercased().contains(find.lowercased()) }
@@ -225,7 +227,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
             name: "", engine: preset.engine, host: preset.engine.isFile ? nil : "localhost",
             port: preset.port ?? preset.engine.defaultPort)
         db.ssl = preset.ssl
-        if preset.speaks != nil || preset.engine == .appwrite, !preset.engine.isFile { db.host = "" }   // its own host
+        if preset.speaks != nil || preset.engine == .appwrite, !preset.engine.isFile { db.host = "" }   // has own host
         openForm(DatabaseAddress(database: db), preset: preset)
     }
 
@@ -299,7 +301,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     }
 }
 
-/// A row of "Found on This Mac": the app's own icon (or a symbol), a name over a detail, and a click.
+/// A row of "Found on This Mac": the app's own icon (or a symbol), a name over a detail, and an action on click.
 @MainActor
 final class FoundRow: PointerControl {
     init(icon: NSImage, title: String, detail: String, trailing: String?, action: @escaping () -> Void) {

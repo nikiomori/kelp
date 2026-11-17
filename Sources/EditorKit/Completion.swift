@@ -17,14 +17,14 @@ extension CodeEditor {
         public var label: String
         public var detail: String?
         public var insert: String
-        /// "method", "keyword"…
+        /// The item's kind: "method", "keyword"…
         public var kind: String?
         public var documentation: String?
-        /// `insert` has tab stops ($1, ${2:name}).
+        /// Whether `insert` has tab stops ($1, ${2:name}).
         public var snippet = false
-        /// What the server says replaces what; else the word at the cursor.
+        /// What the server says to replace with the item; else the word at the cursor is replaced.
         public var edit: TextEdit?
-        /// More edits with it, as an import an item needs.
+        /// More edits that go with the item, such as an import it needs.
         public var more: [TextEdit] = []
         public init(
             label: String, detail: String? = nil, insert: String, kind: String? = nil, documentation: String? = nil,
@@ -44,8 +44,8 @@ extension CodeEditor {
 }
 
 enum CompletionFilter {
-    /// What matches `typed`, its letters in order: those starting with it first, then at a word, then the rest, each in the
-    /// server's order.
+    /// The items that match `typed`, with its letters in order: those starting with it first, then those matching at a
+    /// word, then the rest, each part in the server's order.
     static func ranked(_ items: [CodeEditor.Completion], typed: String) -> [CodeEditor.Completion] {
         guard !typed.isEmpty else { return items }
         let query = typed.lowercased()
@@ -65,7 +65,8 @@ enum CompletionFilter {
 
 /// A snippet's text and its tab stops.
 enum Snippet {
-    /// `stops`: where each stop is in `text`, those of one number together, in the order Tab goes: 1, 2… and 0 last.
+    /// `stops` says where each stop is in `text`, with those of one number together, in the order Tab goes: 1, 2…
+    /// and 0 last.
     static func parse(_ source: String) -> (text: String, stops: [[NSRange]]) {
         var out = "", found: [Int: [NSRange]] = [:]
         read(Array(source.unicodeScalars), into: &out, &found)
@@ -74,7 +75,7 @@ enum Snippet {
         return (out, order.compactMap { found[$0] })
     }
 
-    /// A stop's empty places show what its placeholder says: `${1:name} = $1` starts as `name = name`.
+    /// The empty places of a stop show what its placeholder says: `${1:name} = $1` starts as `name = name`.
     private static func mirror(_ text: inout String, _ found: inout [Int: [NSRange]]) {
         let buffer = NSMutableString(string: text)
         for stop in found.keys.sorted() {
@@ -99,7 +100,7 @@ enum Snippet {
         text = buffer as String
     }
 
-    /// Multi-line text takes the indent of the line it goes in, its tabs the file's indent.
+    /// Multi-line text takes the indent of the line it goes into, and its tabs become the file's indent.
     static func fitted(_ text: String, indent: String, unit: String) -> String {
         text.replacingOccurrences(of: "\t", with: unit).replacingOccurrences(of: "\n", with: "\n" + indent)
     }
@@ -138,7 +139,7 @@ enum Snippet {
                         inner.append(scalars[index])
                         index += 1
                     }
-                    if choice {   // ${1|one,two|}: the first
+                    if choice {   // ${1|one,two|} starts as the first choice
                         out +=
                             String(String.UnicodeScalarView(inner)).split(separator: "|").first?.split(separator: ",")
                             .first.map(String.init) ?? ""

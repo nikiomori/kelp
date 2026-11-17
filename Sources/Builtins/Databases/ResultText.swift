@@ -3,7 +3,7 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Rows as text to copy or save: TSV (what a spreadsheet pastes), CSV, JSON (an object a row), a Markdown table, or
+/// Rows as text to copy or save: TSV (what a spreadsheet pastes), CSV, JSON (an object per row), a Markdown table, or
 /// INSERT statements for the table they came from.
 enum ResultText {
     enum Format: String, CaseIterable {
@@ -47,7 +47,7 @@ enum ResultText {
             .joined(separator: "\n") + "\n"
     }
 
-    /// Numbers stay numbers, JSON stays JSON, NULL is null; the rest are strings.
+    /// Rows as JSON, where numbers stay numbers, JSON stays JSON and NULL is null; the rest are strings.
     static func json(_ columns: [String], _ rows: [[String?]]) -> String {
         let objects = rows.map { row -> [String: Any] in
             var object: [String: Any] = [:]
@@ -70,10 +70,10 @@ enum ResultText {
             let data = try JSONSerialization.data(
                 withJSONObject: objects, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
             return String(decoding: data, as: UTF8.self)
-        } catch { return "[]" }   // only strings, numbers and what was parsed go in: it can't fail
+        } catch { return "[]" }   // only strings, numbers and parsed JSON go in, so it can't fail
     }
 
-    /// A cell that holds JSON, as JSON; nil for text that only starts like it.
+    /// The JSON a cell holds, or nil for text that only starts like JSON.
     private static func parsedJSON(_ value: String) -> Any? {
         do { return try JSONSerialization.jsonObject(with: Data(value.utf8)) } catch { return nil }
     }
@@ -149,7 +149,7 @@ extension ResultGrid: NSMenuDelegate {
         if read {
             menu.add(String(localized: "Duplicate Row")) { [weak self] in
                 guard let self else { return }
-                // its key left out: the database gives the copy its own
+                // The key is left out, so the database gives the copy its own.
                 let copy = rows[row].enumerated().map { i, v in info[columns[i]]?.primary == true ? nil : v }
                 addRow(copy)
             }
@@ -161,7 +161,7 @@ extension ResultGrid: NSMenuDelegate {
 }
 
 extension ResultGrid {
-    /// A column's header: its order, hiding it (and bringing all back), its width.
+    /// The menu on a column's header: its order, hiding it (and bringing all columns back), and its width.
     func headerMenu(_ menu: NSMenu, _ header: NSTableHeaderView) {
         let at = header.convert(header.window?.mouseLocationOutsideOfEventStream ?? .zero, from: nil)
         let index = header.column(at: at)

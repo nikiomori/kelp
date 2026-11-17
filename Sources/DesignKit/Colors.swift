@@ -12,8 +12,8 @@ extension NSColor {
             blue: CGFloat(hex & 0xFF) / 255, alpha: alpha)
     }
 
-    /// "#rrggbb" or "rrggbb", as themes and Ghostty's config write colours, with two more digits for alpha; nil for
-    /// anything else.
+    /// Parses "#rrggbb" or "rrggbb", as themes and Ghostty's config write colours, with two more digits for alpha. Nil
+    /// for anything else.
     public convenience init?(hex: String) {
         var digits = hex.trimmingCharacters(in: .whitespaces)
         if digits.hasPrefix("#") { digits.removeFirst() }
@@ -25,7 +25,7 @@ extension NSColor {
         }
     }
 
-    /// "#rrggbb" in sRGB, as CSS and themes write it (the colour as the current appearance has it).
+    /// "#rrggbb" in sRGB, as CSS and themes write it, for the colour as the current appearance has it.
     public var hexString: String {
         guard let srgb = usingColorSpace(.sRGB) else { return "#000000" }
         return String(
@@ -39,17 +39,18 @@ extension NSColor {
         NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light }
     }
 
-    /// Status colours for text ("+6 −2", "1 needs you", M/U letters, an error under a field). The system ones are made for
-    /// glyphs: as 11 pt text on a light sidebar systemOrange is 2.1:1 and systemGreen 2.0:1, where text needs 4.5:1. Light
-    /// appearances get darker shades (≥ 4.7:1 on the diff list's #E9E9E9); dark keeps the system colours, except red and
-    /// purple, which are lighter there.
-    public static let textOrange = dynamic(light: NSColor(hex: 0x9A5000), dark: .systemOrange)   // amber, so M and D don't both read red
+    /// Status colours for text ("+6 −2", "1 needs you", M/U letters, an error under a field). The system colours are
+    /// made for glyphs: as 11 pt text on a light sidebar, systemOrange is 2.1:1 and systemGreen 2.0:1, where text needs
+    /// 4.5:1. Light appearances get darker shades (≥ 4.7:1 on the diff list's #E9E9E9). Dark appearances keep the
+    /// system colours, except red and purple, which are lighter there. The orange is amber, so M and D don't both read
+    /// red.
+    public static let textOrange = dynamic(light: NSColor(hex: 0x9A5000), dark: .systemOrange)
     public static let textGreen = dynamic(light: NSColor(hex: 0x1C7332), dark: .systemGreen)
     public static let textRed = dynamic(light: NSColor(hex: 0xCC0014), dark: NSColor(hex: 0xFF6961))
     public static let textPurple = dynamic(light: NSColor(hex: 0x9C27B0), dark: NSColor(hex: 0xE07BFF))
 
-    /// A git status letter's colour, as Files, Source Control and the diff show it: M amber, U and A green, D and ! red,
-    /// R and C the accent.
+    /// A git status letter's colour, as Files, Source Control and the diff show it: M amber, U and A green, D and !
+    /// red, R and C the accent.
     public static func gitLetter(_ letter: String) -> NSColor {
         switch letter {
         case "!", "D": .textRed
@@ -59,8 +60,9 @@ extension NSColor {
         }
     }
 
-    /// The accent where a glyph or a count must read as the one with something to do (↑3 to push): the label's colour
-    /// when the accent is Graphite, whose grey came out lighter than the idle arrows beside it and looked disabled.
+    /// The accent, where a glyph or a count must read as the one with something to do (↑3 to push). With the Graphite
+    /// accent it is the label's colour, because Graphite's grey came out lighter than the idle arrows beside it and
+    /// looked disabled.
     public static let emphasis = NSColor(name: nil) { _ in
         (NSColor.themeAccent.usingColorSpace(.sRGB)?.saturationComponent ?? 1) < 0.1 ? .labelColor : .themeAccent
     }
@@ -70,26 +72,29 @@ extension NSColor {
     public static let themeAccent = NSColor(name: nil) { _ in chosenAccent.withLock { $0 } ?? .controlAccentColor }
     public static func setThemeAccent(_ color: NSColor?) { chosenAccent.withLock { $0 = color } }
 
-    /// The three grey fills behind a control or a row: at rest (a field, a chip), under the pointer, chosen. Black in
-    /// light appearances, white in dark: `labelColor.withAlphaComponent` is fixed to the appearance it was first read in
-    /// (white, on a dark Mac), which left every fill invisible on a light theme.
+    /// The three grey fills behind a control or a row: at rest (a field, a chip), under the pointer, and chosen. They
+    /// are black in light appearances and white in dark. `labelColor.withAlphaComponent` is fixed to the appearance it
+    /// was first read in (white, on a dark Mac), which left every fill invisible on a light theme.
     public static let fillRest = grey(0.05)
     public static let fillHover = grey(0.08)
     public static let fillSelected = grey(0.12)
-    /// A card's fill in a colour someone picked: strong enough to tell apart, quiet enough for the text and marks on it.
-    /// Ask for it while drawing, it's fixed to the current appearance as `labelColor.withAlphaComponent` is.
+    /// A card's fill in a colour someone picked: strong enough to tell apart, quiet enough for the text and marks on
+    /// it. Ask for it while drawing, because it's fixed to the current appearance, as `labelColor.withAlphaComponent`
+    /// is.
     public static func fillTint(_ color: NSColor) -> NSColor { color.withAlphaComponent(0.16) }
-    /// A diff's fills: a whole added or removed line, the words changed in it (stronger), a hunk's header band and the band
-    /// of unchanged lines between hunks.
+    /// A diff's fills: a whole added or removed line, the words changed in it (stronger), a hunk's header band, and the
+    /// band of unchanged lines between hunks.
     public static let diffAdded = tint(.systemGreen, 0.14)
     public static let diffRemoved = tint(.systemRed, 0.14)
     public static let diffAddedWord = tint(.systemGreen, 0.32)
     public static let diffRemovedWord = tint(.systemRed, 0.32)
     public static let diffHunk = NSColor(name: nil) { _ in NSColor.themeAccent.withAlphaComponent(0.08) }
     public static let diffGap = tint(.quaternaryLabelColor, 0.06)
-    /// A merge conflict's sides in the editor, as VS Code shows them: the current one as `diffAdded`, the incoming blue.
+    /// A merge conflict's sides in the editor, as VS Code shows them: the current side as `diffAdded`, the incoming one
+    /// blue.
     public static let conflictIncoming = tint(.systemBlue, 0.14)
-    /// `color` at `alpha`, read in each appearance (`withAlphaComponent` alone keeps the one it was first read in).
+    /// `color` at `alpha`, read again in each appearance (`withAlphaComponent` alone keeps the appearance it was first
+    /// read in).
     private static func tint(_ color: NSColor, _ alpha: CGFloat) -> NSColor {
         NSColor(name: nil) { appearance in
             var resolved = color
@@ -97,7 +102,8 @@ extension NSColor {
             return resolved.withAlphaComponent(alpha)
         }
     }
-    /// Twice as strong with Increase Contrast (System Settings › Accessibility › Display), as the system's own fills get.
+    /// A grey that is twice as strong with Increase Contrast (System Settings › Accessibility › Display), as the
+    /// system's own fills get.
     private static func grey(_ alpha: CGFloat) -> NSColor {
         NSColor(name: nil) { appearance in
             let strong = fillAlpha(alpha, highContrast: increaseContrast)
@@ -106,7 +112,8 @@ extension NSColor {
         }
     }
     public static func fillAlpha(_ alpha: CGFloat, highContrast: Bool) -> CGFloat { highContrast ? 2 * alpha : alpha }
-    /// Increase Contrast is on: what Kelp draws itself gets the edges and weight the system gives its own controls.
+    /// Whether Increase Contrast is on, so what Kelp draws itself gets the edges and weight the system gives its own
+    /// controls.
     public static var increaseContrast: Bool { NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast }
 }
 

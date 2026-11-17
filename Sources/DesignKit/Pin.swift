@@ -1,7 +1,7 @@
 import AppKit
 
 extension NSLayoutConstraint {
-    /// The constraint at `priority`, for a list of them in `activate`.
+    /// Returns the constraint at `priority`, for a list of them in `activate`.
     public func withPriority(_ priority: Float) -> NSLayoutConstraint {
         self.priority = .init(priority)
         return self
@@ -25,8 +25,8 @@ extension NSView {
 /// A scroll view's document that starts at the top.
 public final class FlippedView: NSView { public override var isFlipped: Bool { true } }
 
-/// `views` top to bottom, each the full width; the one without a height of its own takes the rest (a body under or
-/// over a bar). Used by every mode view.
+/// Stacks `views` top to bottom, each the full width. The one without a height of its own takes the rest (a body under
+/// or over a bar). Every mode view uses it.
 @MainActor
 public func stacked(_ views: NSView...) -> NSView {
     let column = NSView()

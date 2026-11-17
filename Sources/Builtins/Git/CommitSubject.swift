@@ -1,8 +1,8 @@
 import Foundation
 
-/// A commit subject read as a Conventional Commit ("fix(daemon): stop …"): the type and scope apart from the words, so
-/// the graph shows a mark and the change instead of the prefix. A subject without one, or with a type not in `types`,
-/// stays as written.
+/// A commit subject read as a Conventional Commit ("fix(daemon): stop …"). The type and scope are kept apart from the
+/// words, so the graph shows a mark and the change instead of the prefix. A subject without a prefix, or with a type
+/// not in `types`, stays as written.
 struct CommitSubject: Equatable, Sendable {
     static let types: Set<String> = [
         "feat", "fix", "refactor", "perf", "docs", "test", "build", "ci", "chore", "style", "revert"
@@ -23,8 +23,8 @@ struct CommitSubject: Equatable, Sendable {
         text = Self.capitalized(String(match.4))
     }
 
-    /// A message body as a card shows it: git's hard wraps (at about 72 columns) joined back into paragraphs. Blank
-    /// lines, list items and indented lines (code) keep their breaks.
+    /// A message body as a card shows it, with git's hard wraps (at about 72 columns) joined back into paragraphs.
+    /// Blank lines, list items and indented lines (code) keep their breaks.
     static func reflow(_ body: String) -> String {
         body.components(separatedBy: "\n\n").map { para in
             para.split(separator: "\n").reduce(into: "") { out, line in
@@ -34,8 +34,8 @@ struct CommitSubject: Equatable, Sendable {
         }.filter { !$0.isEmpty }.joined(separator: "\n\n")
     }
 
-    /// "open the file" → "Open the file", as a sentence reads once the prefix is gone. A first word that isn't plain
-    /// lowercase ("SIGKILL", "kelp.json", "iOS") is a name and stays as it is.
+    /// Capitalizes the subject once the prefix is gone, so it reads as a sentence: "open the file" → "Open the file".
+    /// A first word that isn't plain lowercase ("SIGKILL", "kelp.json", "iOS") is a name and stays as it is.
     static func capitalized(_ subject: String) -> String {
         let word = subject.prefix { !$0.isWhitespace }.trimmingCharacters(in: CharacterSet(charactersIn: ",;:"))
         guard let first = word.first, word.allSatisfy({ ($0.isLetter && $0.isLowercase) || $0 == "'" || $0 == "’" })

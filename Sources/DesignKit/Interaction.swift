@@ -1,10 +1,12 @@
 import AppKit
 
-/// How a control answers the pointer: its fill fades in and out (not switched), held it darkens in the first frame, and
-/// a click dips it and lets it spring back. Nothing moves under Reduce Motion; the fills still change, at once.
+/// How a control answers the pointer. Its fill fades in and out rather than switching, when held it darkens in the
+/// first frame, and a click dips it and lets it spring back. Nothing moves under Reduce Motion, but the fills still
+/// change, at once.
 @MainActor
 extension NSView {
-    /// `updateTrackingAreas`' body: `old` goes and a new area over the visible rect takes its place, reporting enter and exit.
+    /// The body of `updateTrackingAreas`: `old` goes, and a new area over the visible rect takes its place, reporting
+    /// enter and exit.
     public func retracked(_ old: NSTrackingArea?, _ active: NSTrackingArea.Options) -> NSTrackingArea {
         if let old { removeTrackingArea(old) }
         let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .inVisibleRect, active], owner: self)
@@ -12,8 +14,8 @@ extension NSView {
         return area
     }
 
-    /// The layer's background becomes `color` (nil: none) over `Motion.fast`, from wherever it is now. `held`: a press,
-    /// which shows at once: faded, a quick click would be over before it was seen.
+    /// Fades the layer's background to `color` (nil for none) over `Motion.fast`, from wherever it is now. `held` is a
+    /// press, which shows at once, because faded, a quick click would be over before it was seen.
     public func fadeBackground(to color: NSColor?, held: Bool = false) {
         wantsLayer = true
         guard let layer else { return }
@@ -23,7 +25,7 @@ extension NSView {
         if held { layer.removeAnimation(forKey: "backgroundColor") }
     }
 
-    /// What the view shows next fades in over what it showed (call it right before swapping its content).
+    /// Fades what the view shows next in over what it showed. Call it right before swapping its content.
     public func crossfade(_ duration: TimeInterval = Motion.fast) {
         guard !Motion.reduced else { return }
         wantsLayer = true
@@ -57,7 +59,7 @@ extension NSView {
     public func turn(from angle: CGFloat) {
         wantsLayer = true
         guard !Motion.reduced, let layer, bounds.width > 0 else { return }
-        // The click's spring is on the same transform: its tail popped after the turn.
+        // The click's spring is on the same transform, and its tail popped after the turn, so it's removed.
         layer.removeAnimation(forKey: "press")
         let animation = CABasicAnimation(keyPath: "transform")
         animation.fromValue = NSValue(caTransform3D: aboutCentre(CATransform3DMakeRotation(angle, 0, 0, 1)))
@@ -67,7 +69,8 @@ extension NSView {
         layer.add(animation, forKey: "turn")
     }
 
-    /// Shown, fading in from what shows now: nothing if it was hidden, wherever a fade out had got to if not.
+    /// Shows the view, fading in from what shows now: from nothing if it was hidden, or from wherever a fade out had
+    /// got to if not.
     public func fadeIn(_ duration: TimeInterval = Motion.fast) {
         wantsLayer = true
         let from = isHidden ? 0 : layer?.presentation()?.opacity ?? Float(alphaValue)
@@ -81,10 +84,10 @@ extension NSView {
         layer.add(fade, forKey: "opacity")
     }
 
-    /// Where the view stands in its window: take it before a layout changes, for `slide(from:)` after.
+    /// Where the view stands in its window. Take it before a layout changes, for `slide(from:)` after.
     public var placeInWindow: NSPoint { convert(NSPoint(x: bounds.midX, y: bounds.midY), to: nil) }
 
-    /// A view a layout moved seems to travel from where it stood (`placeInWindow`) instead of jumping there.
+    /// Makes a view that a layout moved seem to travel from where it stood (`placeInWindow`) instead of jumping there.
     public func slide(from place: NSPoint, duration: TimeInterval = Motion.appear) {
         let now = placeInWindow, dx = place.x - now.x, dy = place.y - now.y
         wantsLayer = true
@@ -97,7 +100,7 @@ extension NSView {
         layer.add(animation, forKey: "slide")
     }
 
-    /// Coming into view (what appears over content, not a row): it fades in, rising a little.
+    /// Brings the view into view, for what appears over content, not a row. It fades in, rising a little.
     public func comeIn() {
         guard !Motion.reduced, window != nil else { return }
         wantsLayer = true
@@ -110,9 +113,9 @@ extension NSView {
         }
     }
 
-    /// About to go in a change that can't animate it: a picture of the view stays where it stood, over `parent`, and
-    /// fades over `duration`, drifting `drift` points up the screen (down when negative). Call it before the view is
-    /// removed or redrawn.
+    /// For a view about to go in a change that can't animate it. A picture of the view stays where it stood, over
+    /// `parent`, and fades over `duration`, drifting `drift` points up the screen (down when negative). Call it before
+    /// the view is removed or redrawn.
     public func leaveGhost(in parent: NSView, duration: TimeInterval = Motion.appear, drift: CGFloat = 0) {
         guard !Motion.reduced, window != nil, bounds.width > 0, bounds.height > 0,
             let picture = bitmapImageRepForCachingDisplay(in: bounds)
@@ -126,7 +129,7 @@ extension NSView {
         parent.addSubview(ghost)
         if drift != 0, let layer = ghost.layer {
             let move = CABasicAnimation(keyPath: "transform.translation.y")
-            move.toValue = parent.isFlipped ? -drift : drift   // a flipped view's layer is flipped: its y runs down
+            move.toValue = parent.isFlipped ? -drift : drift   // a flipped view's layer is flipped, so its y runs down
             move.duration = duration
             move.timingFunction = Motion.soft
             move.fillMode = .forwards
@@ -142,9 +145,9 @@ extension NSView {
         }
     }
 
-    /// A number on show changed: the old one drifts off and fades while the new one comes in from the other side, up
-    /// the screen when it grew (`up`), down when it fell, as the system's numeric text does. Call it right before
-    /// setting the new number, on a view showing only the number, so its words or its capsule stay put.
+    /// For a number on show that changed. The old number drifts off and fades while the new one comes in from the
+    /// other side, up the screen when it grew (`up`) and down when it fell, as the system's numeric text does. Call it
+    /// right before setting the new number, on a view showing only the number, so its words or its capsule stay put.
     public func roll(up: Bool) {
         guard !Motion.reduced, window != nil, let parent = superview, bounds.height > 0 else { return }
         let shift = bounds.height / 2 * (up ? 1 : -1)
@@ -158,7 +161,7 @@ extension NSView {
         layer?.add(fade, forKey: "roll")
     }
 
-    /// Something failed: the view shakes its head, as a password field does.
+    /// When something failed, the view shakes its head, as a password field does.
     public func shake() {
         wantsLayer = true
         guard !Motion.reduced, let layer else { return }
@@ -168,8 +171,8 @@ extension NSView {
         layer.add(animation, forKey: "shake")
     }
 
-    /// Work on its way through a control (a push, a pull): a soft shade runs up (`true`) or down its glyph, again and
-    /// again. nil: it stops. Nothing under Reduce Motion: the words on the panel's button say it.
+    /// Shows work on its way through a control (a push, a pull): a soft shade runs up (`true`) or down its glyph, again
+    /// and again, and nil stops it. Nothing runs under Reduce Motion, because the words on the panel's button say it.
     public func flow(up: Bool?) {
         wantsLayer = true
         guard let layer else { return }
@@ -193,7 +196,7 @@ extension NSView {
         layer.mask = band
     }
 
-    /// `transform` about the view's middle: a layer-backed view's anchor is its corner.
+    /// `transform` about the view's middle, because a layer-backed view's anchor is its corner.
     private func aboutCentre(_ transform: CATransform3D) -> CATransform3D {
         CATransform3DConcat(
             CATransform3DConcat(CATransform3DMakeTranslation(-bounds.midX, -bounds.midY, 0), transform),
@@ -203,9 +206,9 @@ extension NSView {
 
 @MainActor
 extension CALayer {
-    /// `keyPath` takes `value` now and is seen to go there from wherever it showed, over `duration`; at once under
-    /// Reduce Motion. No implicit action: a bare layer's own 0.25 s one showed the old value again after the fade. A
-    /// colour's nil is clear; another value nil before comes in where it's going.
+    /// Sets `keyPath` to `value` now, and shows it going there from wherever it showed, over `duration`, or at once
+    /// under Reduce Motion. There's no implicit action, because a bare layer's own 0.25 s one showed the old value
+    /// again after the fade. A colour's nil is clear; a value that was nil before comes in where it's going.
     public func animate(
         _ keyPath: String, to value: Any?, duration: TimeInterval = Motion.fast,
         timing: CAMediaTimingFunctionName = .easeOut
@@ -227,22 +230,22 @@ extension CALayer {
     }
 }
 
-/// What `leaveGhost` leaves: only a picture, clicks go through it.
+/// What `leaveGhost` leaves: only a picture, and clicks go through it.
 private final class Ghost: NSImageView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 @MainActor
 extension NSTableView {
-    /// A panel's list: one column as wide as the table (an outline's own), no header, no fill; in `scroll`, which
-    /// gets a vertical scroller and no fill either.
+    /// Makes this a panel's list: one column as wide as the table (an outline's own column), no header and no fill, in
+    /// `scroll`, which gets a vertical scroller and no fill either.
     @discardableResult
     public func plainList(_ column: String, in scroll: NSScrollView = NSScrollView()) -> NSScrollView {
         let col = NSTableColumn(identifier: .init(column))
         col.resizingMask = .autoresizingMask
         addTableColumn(col)
         (self as? NSOutlineView)?.outlineTableColumn = col
-        // The column is the panel's width and stays it: an outline otherwise widens it to its longest row whenever one
+        // The column is the panel's width and stays it. Otherwise an outline widens it to its longest row whenever one
         // opens, and the rows' right-hand ends (a run's time) go past the panel's edge.
         (self as? NSOutlineView)?.autoresizesOutlineColumn = false
         headerView = nil
@@ -254,7 +257,7 @@ extension NSTableView {
         return scroll
     }
 
-    /// Where the rows on show stand, by a key that outlives a reload: for `settleRows` after it.
+    /// Where the rows on show stand, by a key that outlives a reload, for `settleRows` after it.
     public func rowPlaces(_ key: (Int) -> String?) -> [String: NSPoint] {
         var places: [String: NSPoint] = [:]
         enumerateAvailableRowViews { rowView, row in
@@ -263,8 +266,8 @@ extension NSTableView {
         return places
     }
 
-    /// After a reload: rows that stayed travel from where they stood, new ones fade in. More than a few coming or going
-    /// is the list changing as a whole, not something happening: that just shows.
+    /// After a reload, rows that stayed travel from where they stood, and new ones fade in. More than a few coming or
+    /// going means the list changed as a whole, not that something happened, so then it just shows.
     public func settleRows(from places: [String: NSPoint], _ key: (Int) -> String?) {
         guard !places.isEmpty, !Motion.reduced, window?.isVisible == true else { return }
         layoutSubtreeIfNeeded()

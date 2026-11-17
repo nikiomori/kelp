@@ -5,27 +5,28 @@ import DesignKit
 import EditorKit
 import KelpKit
 
-/// The order a diff's reads and row builds come in: one read at a time, and an answer or rows for what's no longer asked
-/// are dropped. Only `load` and the builds change it.
+/// The order a diff's reads and row builds come in. There is one read at a time, and an answer or rows for what is no
+/// longer asked for are dropped. Only `load` and the builds change it.
 struct DiffLoads {
-    /// One read at a time: what asks meanwhile (git events, a click) makes one more read after it (`again`), not one
-    /// each. A caller gets a diff read after it asked.
+    /// The read under way. There is one read at a time, and whatever asks meanwhile (git events, a click) makes one
+    /// more read after it (`again`), not one each. A caller gets a diff read after it asked.
     var reading: Task<Void, Never>?
     var again = false
-    /// Counts changes to what's asked (another source or workspace): a read of the old one drops its answer.
+    /// Counts changes to what's asked for (another source or workspace), so a read of the old one drops its answer.
     var asking = 0
-    /// Counts row builds: one that a newer build or a new diff overtook drops its rows.
+    /// Counts row builds, so a build that a newer build or a new diff overtook drops its rows.
     var builds = 0
-    /// What the diff on screen was read from: a git event that leaves it as it was reads nothing.
+    /// What the diff on screen was read from. A git event that leaves it as it was reads nothing.
     var basis: GitDiff.Basis?
-    /// Reads so far: tests see a burst of events make one more, not one each.
+    /// How many reads ran so far, so tests can see a burst of events make one more read, not one each.
     var reads = 0
-    /// Diffs coloured so far: an answer the same as the diff on screen isn't coloured again.
+    /// How many diffs were coloured so far. An answer the same as the diff on screen isn't coloured again.
     var colourings = 0
 }
 
 extension DiffViewController {
-    /// The agent whose turns a turn diff shows: the one text goes to without asking (`FileActions.agent`), else the newest.
+    /// The agent whose turns a turn diff shows: the one text goes to without asking (`FileActions.agent`), else the
+    /// newest.
     func turnAgent(_ wid: String) -> String? {
         (FileActions(app).agent(in: wid) ?? FileActions(app).agents(in: wid).last)?.id
     }
@@ -45,7 +46,7 @@ extension DiffViewController {
         case .uncommitted, .unstaged, .staged, .branch, .tidy: return GitDiff(id: id, source: sourcePicked.wire)
         case .commit: return GitDiff(id: id, source: .commit, commit: commitHash ?? "HEAD")
         case .turn:
-            // The agent whose turns the picker lists, not whichever has the focus by now.
+            // The agent whose turns the picker lists, not whichever agent has the focus by now.
             let listed = (turnPop.itemArray.first?.representedObject as? SessionTurns.Mark)?.session
             var turn = GitDiff(id: id, source: .turn, session: listed ?? turnAgent(id) ?? "")
             turn.turn = chosenTurn
@@ -64,7 +65,7 @@ extension DiffViewController {
                 loads.again = false
                 await loadOnce()
             } while loads.again
-            loads.reading = nil   // with the last check: no await between, so a later caller starts a new one
+            loads.reading = nil   // no await since the last check, so a later caller starts a new read
         }
         loads.reading = task
         await task.value
@@ -81,8 +82,9 @@ extension DiffViewController {
             return
         }
         if single == nil, sourcePicked == .commit, askCommit {
-            askCommit = false   // before asking: a load that starts while the question is up doesn't ask again
-            let log = await app.call(GitLog(id: wid, all: true)) ?? []   // the user picked "a commit": a banner if git can't list them
+            askCommit = false   // before asking, so a load that starts while the question is up doesn't ask again
+            // The user picked "a commit", so a banner says when git can't list them.
+            let log = await app.call(GitLog(id: wid, all: true)) ?? []
             let commits = log.prefix(30).map { ("\($0.hash)  \($0.subject)", $0.hash) }
             if let hash = await pick(
                 String(localized: "Review which commit?"), from: commits, action: String(localized: "Show"), width: 360)
@@ -94,7 +96,7 @@ extension DiffViewController {
             }
         }
         askCommit = false
-        let agent = turnAgent(wid)   // read once: the focus can move during the reads below
+        let agent = turnAgent(wid)   // read once, because the focus can move during the reads below
         if single == nil, sourcePicked == .turn, agent == nil {
             loads.builds += 1
             diffs = []
@@ -111,16 +113,19 @@ extension DiffViewController {
         let result = await app.tryCall(request)
         let newDiffs = result.value ?? []
         var ch: [FileChange] = [], cm: [DiffComment] = []
-        if single == nil, result.error == nil {   // the files' letters and the comments: the diff above already said what failed
-            // The letters as pushed for this workspace (a review tab watches it), else asked.
+        // The files' letters and the comments; when the diff failed, its error already says so.
+        if single == nil, result.error == nil {
+            // The letters come as pushed for this workspace (a review tab watches it), or else are asked for.
             if let pushed = app.latest(GitEvent.self, app.gitKey(wid))?.changes {
                 ch = pushed
             } else {
                 ch = await app.quiet(GitStatus(id: wid)) ?? []
             }
-            cm = (await app.quiet(CommentList(id: wid)) ?? []).filter { [on = shownCommit] in $0.isOn(on) }   // a past commit's comments on its diff
+            // On a past commit's diff, only that commit's comments.
+            cm = (await app.quiet(CommentList(id: wid)) ?? []).filter { [on = shownCommit] in $0.isOn(on) }
         }
-        // Compared once, off the main thread: a big diff (a lock file beside an agent's edit) is megabytes.
+        // The diffs are compared once, off the main thread, because a big diff (a lock file beside an agent's edit)
+        // is megabytes.
         let shown = diffs, same = await Task.detached { newDiffs == shown }.value
         if !same { opened = [:] }   // lines opened between changes may have moved
         let grammars = same ? [:] : DiffColors.grammars(newDiffs)   // the same diff keeps its colours
@@ -131,13 +136,13 @@ extension DiffViewController {
             Dictionary(newDiffs.map { ($0.path, ViewedFiles.print($0)) }) { a, _ in a }
         }.value
         let spans = await parsed
-        // Rows, cell tags and the hunk buttons index `diffs`: they change together, once every answer is in.
+        // Rows, cell tags and the hunk buttons all index `diffs`, so they change together, once every answer is in.
         guard asked == loads.asking, wid == worktreeId else { return }
-        loads.builds += 1   // rows a layout change is still building are the old diff's
+        loads.builds += 1   // rows that a layout change is still building are the old diff's
         if let spans {
             position.stringValue = ""
             syntax = spans
-        }   // "Change 3 of 17" counted another diff
+        }   // "Change 3 of 17" counted the old diff
         diffs = newDiffs
         viewed.prints = printed
         changes = ch
@@ -152,7 +157,7 @@ extension DiffViewController {
         if let error = result.error {
             status.stringValue = error
             return
-        }   // why there's nothing, not "0 files"
+        }   // the error says why there's nothing, rather than "0 files"
         status.stringValue = statusText()
     }
 }

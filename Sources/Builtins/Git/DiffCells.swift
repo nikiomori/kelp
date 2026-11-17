@@ -22,14 +22,14 @@ extension DiffViewController {
     func number(_ value: Int?, kind: DiffLine.Kind) -> NSTextField {
         lineCell(value.map(String.init) ?? "", font: font, color: .secondaryLabelColor, align: .right, fill: tint(kind))
     }
-    /// The side of a side-by-side row that has no line: hatched, like VS Code.
+    /// The side of a side-by-side row that has no line, hatched as in VS Code.
     func filler() -> NSTextField { lineCell("", font: font, fill: Self.hatch) }
     func band(_ string: String) -> NSTextField {
         lineCell(string, font: .ui(TextSize.caption), color: .tertiaryLabelColor, fill: .diffGap)
     }
 
-    /// The cells a line's row is made of: one the table set aside when its row scrolled away, else a new one. Every
-    /// look one has is set again here, so nothing of the line it showed before stays.
+    /// The cells a line's row is made of. Each is a cell the table set aside when its row scrolled away, or else a new
+    /// one. Every look a cell can have is set again here, so nothing of the line it showed before stays.
     static let lineCellId = NSUserInterfaceItemIdentifier("diff.line")
     static let codeCellId = NSUserInterfaceItemIdentifier("diff.code")
     private func lineCell(
@@ -51,9 +51,10 @@ extension DiffViewController {
     private func prefix(_ diffLine: DiffLine, marker: Bool) -> String {
         marker ? (diffLine.kind == .add ? "+ " : diffLine.kind == .del ? "- " : "  ") : " "
     }
-    /// Lines wrap at words and go on under their own code's indent, not under the "+" (at most half the column). Tabs
-    /// stop every four columns, as `height(of:)` counts them. Limit: past 4000 characters (a minified file) at any
-    /// character from the edge, which `height(of:)` can count without measuring every such line on each resize.
+    /// Lines wrap at words and go on under their own code's indent, not under the "+", indented at most half the
+    /// column. Tab stops come every four columns, as `height(of:)` counts them. Limit: past 4000 characters (a
+    /// minified file) at any character from the edge, which `height(of:)` can count without measuring every such line
+    /// on each resize.
     private static func wrap(_ text: String, prefix: String, font: NSFont, width: CGFloat) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle(), space = metrics(font).char
         style.tabStops = []
@@ -66,7 +67,7 @@ extension DiffViewController {
         style.headIndent = min(CGFloat(indent(prefix, text)) * space, width / 2)
         return style
     }
-    /// Columns before a line's code: the marker, then its leading spaces and tabs.
+    /// The number of columns before a line's code: the marker, then the line's leading spaces and tabs.
     nonisolated static func indent(_ prefix: String, _ text: String) -> Int {
         var column = prefix.count
         for c in text {
@@ -78,7 +79,8 @@ extension DiffViewController {
     private func wrapWidth(marker: Bool) -> CGFloat {
         (table.tableColumn(withIdentifier: .init(marker ? "t" : "r"))?.width ?? 0) - 4
     }
-    /// What a row shows of a line: a text field takes seconds over a megabyte, and nobody reads that far along one line.
+    /// The part of a line a row shows. A text field takes seconds over a megabyte, and nobody reads that far along one
+    /// line.
     static func shown(_ line: String) -> String { line.utf16.count > 20_000 ? String(line.prefix(20_000)) + "…" : line }
     func codeCell(_ diffLine: DiffLine, file f: Int, marker: Bool) -> NSTextField {
         let prefix = prefix(diffLine, marker: marker)
@@ -103,7 +105,8 @@ extension DiffViewController {
                 range: NSRange(location: wordRange.location + (prefix as NSString).length, length: wordRange.length))
         }
         markFound(styled, from: (prefix as NSString).length)
-        // Its own paragraph style, the same `height(of:)` measures with: the field's mode doesn't reach an attributed string.
+        // The text gets its own paragraph style, the same one `height(of:)` measures with, because the field's mode
+        // doesn't reach an attributed string.
         styled.addAttribute(
             .paragraphStyle, value: Self.wrap(text, prefix: prefix, font: font, width: wrapWidth(marker: marker)),
             range: NSRange(location: 0, length: styled.length))
@@ -121,7 +124,7 @@ extension DiffViewController {
         guard (notification.object as? NSTableView) === files, files.selectedRow >= 0 else { return }
         scroll(toFile: diffs[files.selectedRow].path)
     }
-    /// A file's band to the top, its changes under it; false for a file this diff doesn't show.
+    /// Scrolls a file's band to the top, with its changes under it; returns false for a file this diff doesn't show.
     @discardableResult func scroll(toFile path: String) -> Bool {
         guard
             let index = rows.firstIndex(where: {
@@ -133,10 +136,10 @@ extension DiffViewController {
         return true
     }
 
-    /// Every diff controller made, for `reveal`.
+    /// Every diff controller made, for `reveal` to look through.
     static let reviews = NSHashTable<DiffViewController>.weakObjects()
-    /// A file clicked in Source Control: the review of that workspace on screen scrolls to it, in place of a tab of its
-    /// own; false when none shows it.
+    /// Called for a file clicked in Source Control. The review of that workspace on screen scrolls to the file, in
+    /// place of a tab of its own. Returns false when no review shows it.
     static func reveal(_ path: String, worktree: String) -> Bool {
         reviews.allObjects.contains {
             $0.single == nil && $0.worktreeId == worktree && $0.view.window != nil && $0.scroll(toFile: path)
@@ -168,7 +171,7 @@ extension DiffViewController {
     }
     @objc func nextChange() { jump(1) }
     @objc func prevChange() { jump(-1) }
-    /// To the next (or previous) change or comment, and says which of how many it is.
+    /// Jumps to the next (or previous) change or comment, and says which of how many it is.
     private func jump(_ dir: Int, comments: Bool = false) {
         let idx = rows.indices.filter {
             switch rows[$0] {
@@ -193,15 +196,15 @@ extension DiffViewController {
         table.scrollRowToVisible(target)
     }
 
-    /// A file in the list: its letter and counts, its folder only when the whole of it fits.
+    /// A file's row in the list: its letter and counts, and its folder only when the whole folder fits.
     func fileRow(_ row: Int) -> NSView {
         let diff = diffs[row]
-        // The same letters and colours as Source Control and Files; a long name loses its middle, not its counts.
+        // The same letters and colours as in Source Control and Files. A long name loses its middle, not its counts.
         let (letter, color) = changes.first { $0.path == diff.path }?.badge ?? (" ", .labelColor)
         let short = NSMutableAttributedString(
             string: letter + "  ",
             attributes: [.font: NSFont.ui(TextSize.micro, weight: .bold), .foregroundColor: color])
-        // The name, then its folder in grey, shown only when all of it fits: a cut folder ("So…") says nothing.
+        // The name, then its folder in grey, shown only when all of it fits, because a cut folder ("So…") says nothing.
         let dir = (diff.path as NSString).deletingLastPathComponent
         short.append(
             NSAttributedString(
@@ -228,17 +231,17 @@ extension DiffViewController {
             labelWithAttributedString: GitFolders.changes(added: diff.additions, removed: diff.deletions))
         counts.setContentHuggingPriority(.required, for: .horizontal)
         counts.setContentCompressionResistancePriority(.required, for: .horizontal)
-        if viewed.has(diff) { nameLabel.alphaValue = 0.55 }   // read: dimmed, as GitHub dims a viewed file
+        if viewed.has(diff) { nameLabel.alphaValue = 0.55 }   // a file marked viewed is dimmed, as GitHub dims it
         let row = NSStackView(views: [nameLabel, counts])
-        row.distribution = .fill   // the room goes to the name: the counts stand in a column at the end
+        row.distribution = .fill   // the room goes to the name, and the counts stand in a column at the end
         row.spacing = 6
         row.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 6)
         row.toolTip = diff.path
         return row
     }
 
-    /// A file's band across the review: its icon, path and "+6 −2" on a grey fill, where one file's changes end and the
-    /// next one's begin (bold text alone on the page didn't mark it).
+    /// A file's band across the review: its icon, path and "+6 −2" on a grey fill, where one file's changes end and
+    /// the next one's begin. Bold text alone on the page didn't mark that place.
     func fileBand(_ path: String, added a: Int, removed d: Int) -> NSView {
         let icon = NSImageView(image: app.fileIcons.image((path as NSString).lastPathComponent))
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
@@ -248,7 +251,7 @@ extension DiffViewController {
         let stack = NSStackView(views: [
             icon, name, NSTextField(labelWithAttributedString: GitFolders.changes(added: a, removed: d))
         ])
-        // the room between goes to a spacer
+        // A spacer takes the room between.
         if single == nil, let index = diffs.firstIndex(where: { $0.path == path }) {
             let gap = NSView()
             gap.setContentHuggingPriority(.init(1), for: .horizontal)
@@ -264,9 +267,9 @@ extension DiffViewController {
 
     // MARK: long lines wrap
 
-    /// A row as tall as its code wrapped at its column's width (a monospaced font: so many characters a line); a file's
-    /// band a little taller than a line. Each line's count is kept by its text and width (`wraps`): a reload or a
-    /// scroll back measures none again.
+    /// The height of a row: its code wrapped at its column's width (a monospaced font fits so many characters on a
+    /// line), and a file's band a little taller than a line. The line count of each line is cached by its text and
+    /// width (`wraps`), so a reload or a scroll back measures none again.
     func height(of row: Int) -> CGFloat {
         let lineHeight = Self.lineHeight
         if rows.indices.contains(row), rows[row] == .draft { return Self.draftHeight }   // the comment card
@@ -292,10 +295,11 @@ extension DiffViewController {
     private func wrappedLines(_ text: String, prefix marked: String, width: CGFloat) -> Int {
         let metrics = Self.metrics(font), fit = max(1, Int(width / metrics.char))
         let shown = Self.shown(text)
-        let count = shown.reduce(2) { $0 + ($1 == "\t" ? 4 : 1) }   // with its "+ " marker; a tab about four
-        guard count > fit else { return 1 }   // most lines: no need to measure
+        let count = shown.reduce(2) { $0 + ($1 == "\t" ? 4 : 1) }   // with its "+ " marker; a tab counts about four
+        guard count > fit else { return 1 }   // most lines fit, so they need no measuring
         guard shown.utf16.count <= Highlighter.maxColored else { return (count + fit - 1) / fit }
-        // Word wrap leaves each line's end empty, so the characters alone would undercount: ask the text system.
+        // Word wrap leaves each line's end empty, so counting characters alone would undercount. The text system is
+        // asked instead.
         let attributed = NSAttributedString(
             string: marked + text,
             attributes: [.font: font, .paragraphStyle: Self.wrap(text, prefix: marked, font: font, width: width)])
@@ -315,8 +319,8 @@ extension DiffViewController {
         return (char, line)
     }
 
-    /// The pane got wider or narrower: lines wrap at the new width. While it's dragged, once the drag ends
-    /// (`DiffTable.onResized`), not on every frame of it.
+    /// Called when the pane got wider or narrower, so lines wrap at the new width. While the pane is dragged, that
+    /// happens once the drag ends (`DiffTable.onResized`), not on every frame of it.
     @objc func columnsResized(_ notification: Notification) {
         guard !table.inLiveResize else {
             table.resizedLive = true
@@ -326,7 +330,7 @@ extension DiffViewController {
     }
     func remeasure() { table.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<rows.count)) }
 
-    /// A hunk's header row: where it is, and Stage / Unstage (and Discard where the diff is the unstaged one).
+    /// A hunk's header row: where the hunk is, and Stage / Unstage (and Discard where the diff is the unstaged one).
     func hunkRow(file f: Int, hunk h: Int, header: String) -> NSView {
         let stack = NSStackView()
         stack.spacing = 6
@@ -338,14 +342,14 @@ extension DiffViewController {
         where_.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         stack.addArrangedSubview(where_)
         if let staged = hunksStaged(f) {
-            // Buttons with names at the end of the hunk, as in Xcode's and GitHub Desktop's reviews.
+            // Buttons with names sit at the end of the hunk, as in Xcode's and GitHub Desktop's reviews.
             func button(_ title: String, _ selector: Selector) -> NSButton {
                 let hunkButton = TextButton(title, target: self, action: selector)
                 hunkButton.tag = f * 10000 + h
                 return hunkButton
             }
             stack.addArrangedSubview(NSView())
-            // Only where the hunks shown are the unstaged diff's, the one Discard works on.
+            // Discard shows only where the hunks shown are the unstaged diff's, the one Discard works on.
             let unstaged =
                 single.map { $0.source == .unstaged && $0.commit == nil } ?? (sourcePicked == .unstaged)
             if unstaged { stack.addArrangedSubview(button(String(localized: "Discard"), #selector(discardHunk(_:)))) }
@@ -356,13 +360,13 @@ extension DiffViewController {
     }
 }
 
-/// The lines each line of code wraps to, by its text and the width it wraps at (`height(of:)`).
+/// How many lines each line of code wraps to, by its text and the width it wraps at (`height(of:)`).
 struct WrapCounts {
     struct Key: Hashable {
         let text: String, prefix: String, width: CGFloat, font: NSFont
     }
     private var counts: [Key: Int] = [:]
-    /// Lines measured, rather than found here.
+    /// How many lines were measured, rather than found here.
     private(set) var measured = 0
 
     /// Limit: forgets everything past 50,000 counts (widths a pane was set to one after another), and measures again.
@@ -376,7 +380,8 @@ struct WrapCounts {
     }
 }
 
-/// A file-list row: its folder only when the whole of it fits (`full`), else the name and counts alone (`short`).
+/// A file-list row. It shows its folder only when the whole folder fits (`full`), and else the name and counts alone
+/// (`short`).
 final class FitLabel: NSTextField {
     var full = NSAttributedString(), short = NSAttributedString()
     override func setFrameSize(_ size: NSSize) {

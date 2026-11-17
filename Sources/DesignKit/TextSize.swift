@@ -2,18 +2,20 @@ import AppKit
 import SwiftUI
 
 /// Settings › Appearance › Text size: larger text in the app's own chrome (sidebar, inspector, tabs, bars, popovers)
-/// for people who want it; code (the terminal, the editor, a diff) has its own font size. Set as settings change, before
-/// views that follow the setting hear of it: the sidebar redraws, the inspector's panels are rebuilt, the tabs retitle.
+/// for people who want it. Code (the terminal, the editor, a diff) has its own font size. It is set as settings
+/// change, before the views that follow the setting hear of it: the sidebar redraws, the inspector's panels are
+/// rebuilt, and the tabs retitle.
 /// Limit: other views built before the change (a tab's toolbar and status bar) keep their size until they are built
 /// again; following the setting there too means each tracking it.
 @MainActor
 public enum TextSize {
     public internal(set) static var scale: CGFloat = 1
-    /// The theme's face for the chrome: the system font's own designs, so weights and sizes keep working.
+    /// The theme's face for the chrome: one of the system font's own designs, so weights and sizes keep working.
     public internal(set) static var design = NSFontDescriptor.SystemDesign.default
 
-    /// The chrome's sizes, named as the design system names them; `.ui(TextSize.row)`, not a number typed in.
-    /// The one big line of a page: a project's name on its empty workspace, a tab's own title, a meter's number: 20.
+    /// The chrome's sizes, named as the design system names them, so code writes `.ui(TextSize.row)`, not a number.
+    /// This one is the one big line of a page (a project's name on its empty workspace, a tab's own title, a meter's
+    /// number): 20.
     public nonisolated static let title: CGFloat = 20
     /// A card's name, a popover's headline, the field you type what you want into (Quick Open, the start prompt): 15.
     public nonisolated static let heading: CGFloat = 15
@@ -31,7 +33,7 @@ public enum TextSize {
         design = ["mono": .monospaced, "serif": .serif, "rounded": .rounded][name ?? ""] ?? .default
     }
 
-    /// A row or spacing measured for normal text, at this size.
+    /// A row or a spacing measured for normal text, scaled to this text size.
     public static func of(_ points: CGFloat) -> CGFloat { (points * scale).rounded() }
 }
 
@@ -57,7 +59,7 @@ extension NSFont {
 
 @MainActor
 extension NSTextField {
-    /// One line of chrome text, cut at `truncation`; it's the first to give way when its line is too narrow.
+    /// One line of chrome text, cut at `truncation`. It's the first view to give way when its line is too narrow.
     public static func label(
         _ text: String, font: NSFont, color: NSColor = .labelColor, truncation: NSLineBreakMode = .byTruncatingTail
     ) -> NSTextField {
@@ -79,7 +81,7 @@ extension Font {
     public static func uiMono(_ size: CGFloat, weight: NSFont.Weight = .regular) -> Font {
         Font(NSFont.uiMono(size, weight: weight) as CTFont)
     }
-    /// An `Image(systemName:)` beside chrome text: the symbols' one weight at a size from Metrics.
+    /// The font for an `Image(systemName:)` beside chrome text: the symbols' one weight at a size from Metrics.
     public static func symbol(_ size: CGFloat = Metrics.iconPoint) -> Font { .ui(size, weight: Metrics.iconWeight) }
 }
 

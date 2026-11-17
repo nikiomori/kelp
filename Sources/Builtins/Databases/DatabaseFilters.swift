@@ -3,9 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The filter over a table's rows (⇧⌘F), like TablePro's: rows of column ▾ condition ▾ value, each with a box that
-/// turns it on, + and −; Match all or any. Choosing Raw SQL in the column list turns that row into a WHERE clause of
-/// its own. Apply (↩) reads the rows again with the filter.
+/// The filter over a table's rows (⇧⌘F), like TablePro's. Each rule is a row of column ▾, condition ▾ and value, with
+/// a checkbox that turns the rule on and + and − buttons; Match all or any joins the rules. Choosing Raw SQL in the
+/// column list turns that row into a WHERE clause of its own. Apply (↩) reads the rows again with the filter.
 @MainActor
 final class DatabaseFilters: NSObject, NSTextFieldDelegate {
     struct Rule: Equatable {
@@ -38,7 +38,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         view.isHidden = true
     }
 
-    /// For a table's columns; rules for columns it lacks go.
+    /// Takes a table's columns; rules for columns the table lacks are dropped.
     func use(columns: [String], engine: DatabaseInfo.Engine) {
         self.columns = columns
         self.engine = engine
@@ -47,7 +47,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         lay()
     }
 
-    /// A condition from a cell's menu: its column, condition and value as a rule to change.
+    /// Adds a condition picked from a cell's menu (its column, condition and value) as a rule the user can change.
     func add(column: String, op: Condition, value: String?) {
         let rule = Rule(column: column, op: op, value: value ?? "")
         if rules.count == 1, rules[0].value.isEmpty, rules[0].op.takesValue {
@@ -67,7 +67,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
 
     var isActive: Bool { !condition.isEmpty }
 
-    /// The WHERE the rules that are on make: "status = 'pending' AND note IS NULL".
+    /// The WHERE clause made by the rules that are on, such as "status = 'pending' AND note IS NULL".
     var condition: String {
         let parts = rules.filter(\.on).compactMap(sql)
         guard !parts.isEmpty else { return "" }

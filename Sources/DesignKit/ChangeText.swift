@@ -1,8 +1,8 @@
 import AppKit
 
 extension NSAttributedString {
-    /// "pending → cancelled": a value that changed, the old one struck out on the diff's red, the new one on its green;
-    /// nil reads NULL.
+    /// "pending → cancelled": a value that changed, with the old one struck out on the diff's red and the new one on
+    /// its green. Nil reads NULL.
     public static func change(from old: String?, to new: String?, font: NSFont) -> NSAttributedString {
         func part(_ value: String?, _ fill: NSColor, struck: Bool) -> NSAttributedString {
             var attributes: [NSAttributedString.Key: Any] = [

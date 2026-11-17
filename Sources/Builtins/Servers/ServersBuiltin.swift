@@ -7,7 +7,7 @@ import WorkbenchKit
 extension Builtins {
 
     /// A remote project's machine as a tab ("host:<name>"): how it is doing, what runs there, Kelp's agents on it, and
-    /// its ports. It opens from the server's heading in the sidebar, its menu, and Quick Open.
+    /// its ports. It opens from the server's heading in the sidebar, from its menu, and from Quick Open.
     package static let servers = Builtin(
         "kelp.servers", "Servers", "How each SSH server is doing: CPU, memory, disk, processes and agents.",
         icon: "server.rack"

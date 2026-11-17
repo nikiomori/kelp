@@ -1,13 +1,14 @@
 import AppKit
 
-/// Finding and replacing in a text: every search is a regular expression, plain text just escaped.
+/// Finding and replacing in a text. Every search is a regular expression, with plain text just escaped.
 public struct FindOptions: Equatable, Sendable {
     public var matchCase = false, wholeWord = false, regex = false, preserveCase = false
     public init() {}
 }
 
 enum TextSearch {
-    /// A word like `the` can match a lot of a 5 MB file: past this the bar says so, and doesn't keep them all.
+    /// A word like `the` can match a lot of a 5 MB file, so past this many matches the bar says so and doesn't keep
+    /// them all.
     static let mostMatches = 10_000
 
     static func pattern(_ query: String, _ options: FindOptions) throws -> NSRegularExpression {
@@ -29,7 +30,7 @@ enum TextSearch {
         return out
     }
 
-    /// What `match` becomes: `$1` and the like in a regex's template, `template` as it stands otherwise.
+    /// What `match` becomes: `$1` and the like filled in from a regex's template, or `template` as it stands otherwise.
     static func replacement(
         _ match: NSTextCheckingResult, _ regex: NSRegularExpression, in string: NSString, template: String,
         _ options: FindOptions
@@ -40,7 +41,7 @@ enum TextSearch {
         return options.preserveCase ? likeIt(text, string.substring(with: match.range)) : text
     }
 
-    /// In the case `found` was: all capitals, or a capital first.
+    /// Puts `text` in the case `found` was in: all capitals, or a capital first.
     static func likeIt(_ text: String, _ found: String) -> String {
         if found.count > 1, found == found.uppercased(), found != found.lowercased() { return text.uppercased() }
         if found.first?.isUppercase == true { return text.prefix(1).uppercased() + text.dropFirst() }
@@ -76,7 +77,8 @@ public enum ReplaceInText {
         }
     }
 
-    /// In one pass from the start: replacing in place moved the rest of the file once per match (10k matches in 3.8 MB, 5.5 s).
+    /// Applies the matches in one pass from the start, because replacing in place moved the rest of the file once per
+    /// match (10k matches in 3.8 MB took 5.5 s).
     public static func applying(_ matches: [ReplaceMatch], to text: String) -> String {
         let string = text as NSString, out = NSMutableString(capacity: string.length)
         var at = 0

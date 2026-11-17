@@ -2,13 +2,15 @@ import AppKit
 import Core
 import DesignKit
 
-/// What ⌘F in a diff found: the text, the rows holding it, the one stepped to, and its card.
+/// What ⌘F in a diff found: the text, the rows holding it, the row stepped to, and the find card.
 struct DiffFinding {
     var needle = "", rows: [Int] = [], at = -1
-    /// Counts searches: one a newer search or new rows overtook drops what it found, and waits for that one (`latest`).
+    /// Counts searches. A search that a newer search or new rows overtook drops what it found and waits for that one
+    /// (`latest`).
     var searches = 0
     var latest: Task<Void, Never>?
-    /// A search still to show that goes to the first match: one that overtakes it (a reload's) goes there too.
+    /// True while a search still to show goes to the first match. A search that overtakes it (a reload's) goes there
+    /// too.
     var stepping = false
     var card: FindCard?
 }
@@ -38,9 +40,10 @@ extension DiffViewController {
         return card
     }
 
-    /// The lines holding `needle` (any case), in every file. `step`: go to the first; a diff read again keeps its place.
-    /// The rows are looked through off the main thread: a big diff is a lot of lines, and each new load looks again.
-    /// The task ends once this search, or the one that overtook it, shows what it found.
+    /// Finds the lines holding `needle` (in any case) in every file. With `step` it goes to the first match; a diff
+    /// read again keeps its place. The rows are looked through off the main thread, because a big diff is a lot of
+    /// lines and each new load looks again. The task ends once this search, or the one that overtook it, shows what
+    /// it found.
     @discardableResult
     func search(_ needle: String, step: Bool = true) -> Task<Void, Never> {
         find.needle = needle
@@ -71,7 +74,7 @@ extension DiffViewController {
         find.at = step || find.at >= find.rows.count ? -1 : find.at
         find.card?.total = needle.isEmpty ? -1 : find.rows.count
         find.card?.selected = find.at
-        table.reloadData()   // the marks
+        table.reloadData()   // draws the marks
         if step, !find.rows.isEmpty { stepFind(next: true) }
     }
 
@@ -97,7 +100,7 @@ extension DiffViewController {
         }
     }
 
-    /// Every match of the find's text in a shown line, past its first `from` characters (the +/- marker).
+    /// Marks every match of the find's text in a shown line, past its first `from` characters (the +/- marker).
     func markFound(_ string: NSMutableAttributedString, from: Int) {
         guard !find.needle.isEmpty else { return }
         let text = string.string as NSString
@@ -105,7 +108,7 @@ extension DiffViewController {
         while case let match = text.range(of: find.needle, options: .caseInsensitive, range: rest),
             match.location != NSNotFound
         {
-            // Dark text on the find colour, as Xcode marks a match: grey comment text on yellow can't be read.
+            // Dark text on the find colour, as Xcode marks a match, because grey comment text on yellow can't be read.
             string.addAttributes(
                 [.backgroundColor: NSColor.findHighlightColor, .foregroundColor: NSColor.black], range: match)
             rest = NSRange(location: NSMaxRange(match), length: text.length - NSMaxRange(match))

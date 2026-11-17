@@ -5,12 +5,12 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// Kelp's side of a server: its agents there (and what each costs), what still runs in Kelp's tmux sessions though no tab
-/// shows it, its Docker containers, the ports something listens on and what does (forwarded here in a click), and its
-/// projects.
+/// Kelp's side of a server: its agents there (and what each costs), what still runs in Kelp's tmux sessions though no
+/// tab shows it, its Docker containers, the ports something listens on and what listens (forwarded here in a click),
+/// and its projects.
 struct ServerSide: View {
     let app: AppModel, host: String, stats: HostStats
-    /// Port on the host → port on this Mac, once forwarded (this run of Kelp).
+    /// The port on this Mac for each port on the host, once forwarded during this run of Kelp.
     private var forwarded: [Int: Int] { app.part { ServerForwards() }.ports[host] ?? [:] }
 
     private var projects: [Repo] { app.repos.filter { RemoteHost.of($0.path)?.host == host } }
@@ -21,7 +21,8 @@ struct ServerSide: View {
     private var agents: [Session] {
         app.sessions.filter { screens.contains($0.worktreeId ?? "") && $0.status != .exited && $0.isChat }
     }
-    /// Kelp's tmux sessions no live tab shows: closed here, or dropped with the connection, still running there.
+    /// Kelp's tmux sessions that no live tab shows: closed here, or dropped with the connection, but still running
+    /// there.
     private var leftRunning: [HostStats.TmuxSession] {
         (stats.tmux ?? []).filter { t in t.session.flatMap(app.session).map { $0.status == .exited } ?? true }
     }
@@ -55,7 +56,7 @@ struct ServerSide: View {
         }
     }
 
-    /// What its processes there take together.
+    /// What a session's processes on the server take together.
     private func cost(_ sid: String) -> String? {
         let mine = (stats.processes ?? []).filter { $0.session == sid }
         guard !mine.isEmpty else { return nil }
@@ -179,9 +180,10 @@ struct ServerSide: View {
     }
 }
 
-/// A port something listens on: what does (its container, or its program when ss says), and where it's reached. Forward
-/// stays on a port the server keeps to itself, the only way to reach it from here; on one open to all it comes under
-/// the pointer; never on ssh's own. Once forwarded, the port here, opened in a click.
+/// A port something listens on: what listens (its container, or its program when ss says), and where it's reached.
+/// Forward stays shown on a port the server keeps to itself, because that is the only way to reach it from here. On a
+/// port open to all, Forward shows under the pointer, and it never shows on ssh's own port. Once the port is
+/// forwarded, the row shows the port here, which opens in a click.
 private struct PortRow: View {
     let port: HostStats.Port, forwardedTo: Int?
     let open: (Int) -> Void, forward: () -> Void

@@ -4,7 +4,7 @@ import DesignKit
 import KelpKit
 import SwiftUI
 
-/// One row a service, so what's connected reads at a glance; fields that are filled in once open in a sheet.
+/// One row per service, so what's connected reads at a glance. Fields that are filled in once open in a sheet.
 struct IntegrationsSettings: View {
     let app: AppModel
     init(app: AppModel) { self.app = app }
@@ -107,7 +107,8 @@ struct IntegrationsSettings: View {
         }
     }
 
-    /// The sheet's values, in its fields' order. False keeps it open: `call` has said what went wrong.
+    /// Connects with the sheet's values, in its fields' order. Returning false keeps the sheet open, because `call`
+    /// has said what went wrong.
     private func connect(_ account: Account, _ values: [String]) async -> Bool {
         switch account {
         case .jira:

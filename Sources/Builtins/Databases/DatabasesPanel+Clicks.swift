@@ -3,7 +3,7 @@ import Core
 import DesignKit
 import KelpKit
 
-/// What a click on a row does (opens a database or a run, folds a section or a group) and what its menu holds.
+/// What a click on a row does (open a database or a run, fold a section or a group), and what the row's menu holds.
 extension DatabasesPanel {
     // MARK: Clicks
 
@@ -18,7 +18,7 @@ extension DatabasesPanel {
         case .group(let name, _):
             if folded.remove(name) == nil { folded.insert(name) }
         case .database(let db, _):
-            // ⌘ and ⇧ pick several (to drag or for the menu): a plain click opens it
+            // ⌘ and ⇧ pick several databases (to drag, or for the menu); a plain click opens the database.
             if !NSEvent.modifierFlags.isDisjoint(with: [.command, .shift]) { return }
             app.workbench.open(DatabaseURI(worktree: wid, name: db.name).uri)
             return
@@ -28,7 +28,7 @@ extension DatabasesPanel {
         case .use: return showUseMenu(at: index)
         case .problem, .project: return
         }
-        table.crossfade(Motion.base)   // a fold: its rows fade out or in rather than snap (too many to move one by one)
+        table.crossfade(Motion.base)   // a fold's rows fade out or in, because there are too many to move one by one
         reload()
     }
 
@@ -48,7 +48,7 @@ extension DatabasesPanel {
         }
     }
 
-    /// One of All My Databases, used in this project: its agents reach it from now on.
+    /// Uses one of All My Databases in this project, so the project's agents reach it from now on.
     func use(_ db: DatabaseInfo) {
         let wid = workspace
         Task { await app.call(DatabaseUse(worktreeId: wid, name: db.name)) }

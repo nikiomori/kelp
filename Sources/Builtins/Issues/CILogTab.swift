@@ -17,7 +17,7 @@ final class CILogTab: KelpKit.TabContent {   // not SwiftUI's
     private var editor: CodeEditor?
     private var text = ""
 
-    /// Tabs on screen, so that a second step moves the one that's open instead of reading the log again.
+    /// The tabs on screen, so that a second step moves the tab that's open instead of reading the log again.
     private static var shown: [String: () -> CILogTab?] = [:]
     /// The step to show once the log is read.
     private static var waiting: [String: String] = [:]

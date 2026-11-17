@@ -13,8 +13,8 @@ struct ServerDetail: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             meters
-            // Too narrow for both side by side (a process row needs `ProcessRow.least`): the side column goes under the
-            // processes, which SwiftUI otherwise centres past the left edge.
+            // When the view is too narrow for both side by side (a process row needs `ProcessRow.least`), the side
+            // column goes under the processes, which SwiftUI otherwise centres past the left edge.
             GeometryReader { geometry in
                 if geometry.size.width >= ProcessRow.least + 20 + 240 {
                     HStack(alignment: .top, spacing: 20) {
@@ -64,7 +64,7 @@ struct ServerDetail: View {
     private var load: String {
         ServerReading.load(stats, separator: " · ").map { String(localized: "load \($0)") } ?? ""
     }
-    /// The cores the load is shared by (it says little without them), and where the time went.
+    /// The cores the load is shared by (the load says little without them), and where the time went.
     private var cpuFoot: String? {
         let parts = [
             stats.cores.map { $0 == 1 ? String(localized: "1 core") : String(localized: "\($0) cores") },
@@ -87,7 +87,7 @@ struct ServerDetail: View {
     private func trend(_ value: KeyPath<HostStats.Sample, Double?>) -> [Trend.Point] {
         history.compactMap { sample in sample[keyPath: value].map { Trend.Point(at: sample.at, value: $0) } }
     }
-    /// In and out together, against the hour's busiest moment.
+    /// Traffic in and out together, scaled against the hour's busiest moment.
     private var traffic: [Trend.Point] {
         let points = history.compactMap { s in s.received.map { Trend.Point(at: s.at, value: $0 + (s.sent ?? 0)) } }
         let top = max(1, points.map(\.value).max() ?? 1)
@@ -103,7 +103,8 @@ struct ServerDetail: View {
     }
 }
 
-/// One meter: the number, what it's out of, the last hour (or a bar where history says little: disk), and a line under.
+/// One meter: the number, what it's out of, the last hour (or a bar for disk, where history says little), and a line
+/// under it.
 private struct Tile: View {
     let label: LocalizedStringKey, value: String, detail: String
     let share: Double?
@@ -145,8 +146,8 @@ private struct Tile: View {
     }
 }
 
-/// The last hour of a reading, 0–1, placed by time: a line over a faint fill, half-way dashed, the last point marked. A
-/// gap of over a minute (not connected, not watched) breaks the line.
+/// The last hour of a reading, 0–1, placed by time: a line over a faint fill, dashed half-way, with the last point
+/// marked. A gap of over a minute (not connected, not watched) breaks the line.
 private struct Trend: View {
     struct Point { let at: Double, value: Double }
     let points: [Point]

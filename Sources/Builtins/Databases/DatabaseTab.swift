@@ -4,14 +4,15 @@ import DesignKit
 import EditorKit
 import KelpKit
 
-/// "db:<workspace>/<name>[?run=<id>|?table=<name>]", laid out the way TablePlus and TablePro lay out a database:
-/// - on the left, its items, saved queries and history (`DatabaseSidebar`);
-/// - on top, its environment's tag (PROD in red), and more quietly where you are, with the filter's rows under it
+/// The tab for "db:<workspace>/<name>[?run=<id>|?table=<name>]", laid out the way TablePlus and TablePro lay out a
+/// database:
+/// - on the left, the database's items, saved queries and history (`DatabaseSidebar`);
+/// - on top, the environment's tag (PROD in red) and, more quietly, where you are, with the filter's rows under it
 /// (⇧⌘F);
 /// - in the middle, a table's rows, a run's rows, or a query of the user's own;
 /// - at the foot, everything about the table shown (Data / Structure, + Row, the row count, the changes, Columns,
 /// pages);
-/// - on the right, its details (`DatabaseDetails`).
+/// - on the right, the details (`DatabaseDetails`).
 /// While an agent asks to change this database, a bar above everything says which agent and how much, with Deny and
 /// Allow.
 @MainActor
@@ -31,7 +32,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
 
     let uri: String
     let view = NSView()
-    /// What the strip calls the tab: it follows what's shown (`DatabaseTabName`).
+    /// What the tab strip calls the tab. It follows what's shown (`DatabaseTabName`).
     let name: DatabaseTabName
     var title: String { name.title }
     static func title(_ address: DatabaseURI) -> String {
@@ -50,10 +51,10 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     let details = DatabaseDetails()
     let filters = DatabaseFilters()
     let empty = EmptyStateView()
-    /// Over the whole tab until the database is open: connecting, or why it isn't and what to do.
+    /// Covers the whole tab until the database is open, saying it is connecting, or why it isn't and what to do.
     let gate = EmptyStateView()
     let loading = LoadingView()
-    /// Turning in the foot while a page is read (past half a second).
+    /// Spins in the foot while a page is read, once the read takes past half a second.
     let busy = NSProgressIndicator()
     let whole = NSSplitView()
     let capsule = NSTextField(labelWithString: "")
@@ -63,25 +64,25 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         action: nil)
     let sqlText = NSTextField(wrappingLabelWithString: "")
     lazy var editor = CodeEditor(text: "", url: URL(fileURLWithPath: "/query.sql"))
-    /// What's typed there is kept for the database once typing pauses (`keepDraft`).
+    /// Keeps the query typed in the editor for the database once typing pauses (`keepDraft`).
     let draft = Debounce()
     let status = NSTextField(labelWithString: "")
     let changes = NSTextField(labelWithString: "")
     let askBar = NSStackView()
     let askText = NSTextField(labelWithString: "")
     var asking: DatabaseRun?
-    /// The server's version, once asked (for the capsule).
+    /// The server's version once it has been asked, for the capsule.
     var version: String?
-    /// The first event came: what waited on it was asked for.
+    /// True once the first event came and what waited on it was asked for.
     var started = false
-    /// The user picked what to show: the first table, shown once the list is read, no longer takes over.
+    /// True once the user picked what to show, so the first table, shown once the list is read, no longer takes over.
     var chosen = false
-    /// The page of a table's rows shown, and how many a page holds.
+    /// The page of a table's rows that is shown, and how many rows a page holds.
     var page = 0
     static let pageSize = 200
-    /// Rows the table has with the filter on, when it was counted.
+    /// How many rows the table has with the filter on, once they were counted.
     var counted: Int?
-    /// While rows are read: said only past half a second, so a quick read doesn't flicker.
+    /// The read in progress. It is shown only past half a second, so a quick read doesn't flicker.
     var reading: Task<Void, Never>?
     lazy var watched = Watched(.databases, in: app)
     lazy var run = NSButton(title: String(localized: "Run"), target: self, action: #selector(runQuery))
@@ -111,7 +112,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         details.view.isHidden.toggle()
         detailsClosed = details.view.isHidden
     }
-    /// The user closed the details: picking a row no longer opens them.
+    /// True once the user closed the details, so picking a row no longer opens them.
     var detailsClosed = false
 
     lazy var copyAs = IconButton(.symbol("square.and.arrow.up"), tip: String(localized: "Copy or Export Rows")) {
@@ -140,7 +141,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
             self?.grid.density = density
             self?.grid.table.reloadData()
         }
-        // The workspace's databases come with its first event: then the capsule's version and the saved queries.
+        // The workspace's databases come with its first event, and then the capsule's version and the saved queries
+        // are asked for.
         track(owner: self) { [app, address] in
             app.latest(DatabasesEvent.self, address.worktree) != nil
         } changed: { [weak self] known in
@@ -196,7 +198,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         whole.setHoldingPriority(.init(260), forSubviewAt: 0)
         whole.setHoldingPriority(.init(200), forSubviewAt: 1)
         whole.setHoldingPriority(.init(260), forSubviewAt: 2)
-        // The split starts from its panes' frames: the list 280 wide until the user drags it (then kept, per Mac).
+        // The split starts from its panes' frames. The list is 280 wide until the user drags it, and then its width
+        // is kept per Mac.
         sidebar.view.setFrameSize(NSSize(width: 280, height: 400))
         center.setFrameSize(NSSize(width: 800, height: 400))
         details.view.setFrameSize(NSSize(width: DatabaseDetails.width, height: 400))
@@ -206,11 +209,12 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         view.pin(whole)
         gate.place(in: view)
         loading.place(in: view)
-        empty.place(in: grid.area)   // over the scroll view, not in it: there the rows' ground covers it
+        empty.place(in: grid.area)   // over the scroll view, not in it, where the rows' background would cover it
         arrange()
     }
 
-    /// Where you are: the environment's tag, then "PostgreSQL 16.4 · AGR_GIS · public.orders"; a click, its menu.
+    /// Where you are: the environment's tag, then "PostgreSQL 16.4 · AGR_GIS · public.orders". A click opens the
+    /// database's menu.
     private func capsuleBar() -> NSView {
         capsule.font = .ui(TextSize.caption, weight: .medium)
         capsule.textColor = .secondaryLabelColor
@@ -283,7 +287,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         askBar.isHidden = true
     }
 
-    /// The parts that talk to each other.
+    /// Wires up the parts that talk to each other.
     private func wire() {
         grid.density = app.settings[SettingKeys.databaseDensity]
         grid.onChange = { [weak self] in self?.footChanged() }
@@ -316,7 +320,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         details.onAsk = { [weak self] in if let table = self?.mode.table { self?.askAbout(table) } }
     }
 
-    /// What each mode shows: a table its part, filters and the row tools; a run its SQL; a query its editor.
+    /// Shows what each mode needs: a table gets its part, filters and row tools; a run its SQL; a query its editor.
     func arrange() {
         let table = mode.table != nil, data = table && part.selectedSegment == 0
         part.isHidden = !table
@@ -330,7 +334,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         saveQuery.isHidden = mode != .query
         sqlText.superview?.isHidden = !mode.isRun
         editor.view.isHidden = mode != .query
-        // Until something is picked, the tab is named by its address (a query isn't what it opens on)
+        // Until something is picked, the tab is named by its address, because a query isn't what the tab opens on.
         name.title = mode == .query && !chosen ? Self.title(address) : Self.title(address.name, showing: mode)
         capsuleChanged()
         footChanged()
@@ -352,7 +356,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         }
         whole.isHidden = false
         gate.show(nil)
-        if version == nil { Task { await askVersion() } }   // after: one connection asks macOS for a password, not two
+        if version == nil { Task { await askVersion() } }   // after, so macOS asks for a password once, not twice
         schema = read
         sidebar.schema = read
         let named = address.table.flatMap { name in tables.first { $0.name == name } }

@@ -1,10 +1,10 @@
 import AppKit
 
-/// Folding by indentation, as VS Code does for most languages: a line whose next lines go in further can hide them
-/// (from its own end to the end of the last one in), shown as a ⋯ capsule; the line that comes back out (a closing
-/// `}`) stays. The hidden characters get null glyphs, so the text, its undo and the find bar don't change.
-final class Folds: @unchecked Sendable {   // the main thread only: the layout manager asks for glyphs there
-    /// Top to bottom, apart.
+/// Folding by indentation, as VS Code does for most languages. A line whose next lines go in further can hide them
+/// (from its own end to the end of the last line further in), shown as a ⋯ capsule. The line that comes back out (a
+/// closing `}`) stays. The hidden characters get null glyphs, so the text, its undo and the find bar don't change.
+final class Folds: @unchecked Sendable {   // used on the main thread only, where the layout manager asks for glyphs
+    /// The folded ranges, top to bottom, not overlapping.
     private(set) var hidden: [NSRange] = []
 
     var isEmpty: Bool { hidden.isEmpty }
@@ -21,7 +21,8 @@ final class Folds: @unchecked Sendable {   // the main thread only: the layout m
 
     func intersects(_ range: NSRange) -> Bool { hidden.contains { NSIntersectionRange($0, range).length > 0 } }
 
-    /// Folds `range`; one inside it goes (it's hidden anyway), one around it stays and this one isn't added.
+    /// Folds `range`. A fold inside it goes, because it's hidden anyway; when a fold around it exists, that one stays
+    /// and this one isn't added.
     func add(_ range: NSRange) {
         guard fold(at: range.location) == nil else { return }
         hidden.removeAll { NSIntersectionRange($0, range).length > 0 }
@@ -35,8 +36,8 @@ final class Folds: @unchecked Sendable {   // the main thread only: the layout m
         return hidden
     }
 
-    /// An edit about to be made (ranges top to bottom, new lengths): a fold it reaches into opens, those after it move.
-    /// Returns the ones that opened, where they'll be.
+    /// Called for an edit about to be made (ranges top to bottom, with new lengths). A fold it reaches into opens, and
+    /// the folds after it move. Returns the folds that opened, where they will be.
     func edit(_ edits: [(NSRange, Int)]) -> [NSRange] {
         var kept: [NSRange] = [], opened: [NSRange] = []
         for folded in hidden {
@@ -59,8 +60,8 @@ final class Folds: @unchecked Sendable {   // the main thread only: the layout m
 
     // MARK: Regions
 
-    /// What folding `line` hides: from its end to the end of the last following line that's further in; nil when the
-    /// next non-blank line isn't.
+    /// What folding `line` hides: from its end to the end of the last following line that's further in. Nil when the
+    /// next non-blank line isn't further in.
     static func region(of line: NSRange, in string: NSString) -> NSRange? {
         guard let own = indent(line, in: string) else { return nil }
         var last: NSRange?, at = NSMaxRange(line)
@@ -91,7 +92,7 @@ final class Folds: @unchecked Sendable {   // the main thread only: the layout m
 
 extension EditorTextView: NSLayoutManagerDelegate {
     // swiftlint:disable function_parameter_count
-    /// Folded characters get null glyphs: no width, no line of their own.
+    /// Folded characters get null glyphs, with no width and no line of their own.
     public nonisolated func layoutManager(
         _ lm: NSLayoutManager, shouldGenerateGlyphs glyphs: UnsafePointer<CGGlyph>,
         properties: UnsafePointer<NSLayoutManager.GlyphProperty>, characterIndexes: UnsafePointer<Int>,
@@ -108,7 +109,7 @@ extension EditorTextView: NSLayoutManagerDelegate {
     }
     // swiftlint:enable function_parameter_count
 
-    /// Folds `range` (or opens it), laid out again.
+    /// Folds `range` (or opens it) and lays it out again.
     func setFolded(_ range: NSRange, _ on: Bool) {
         if on { folds.add(range) } else { folds.remove(range) }
         relayOut(range)
@@ -138,7 +139,7 @@ extension EditorTextView: NSLayoutManagerDelegate {
         for fold in folds.hidden {
             let box = capsule(for: fold)
             guard box.intersects(dirty) else { continue }
-            color.withAlphaComponent(fold == hoveredFold ? 0.24 : 0.14).setFill()   // under the pointer it brightens
+            color.withAlphaComponent(fold == hoveredFold ? 0.24 : 0.14).setFill()   // brighter under the pointer
             NSBezierPath(roundedRect: box, xRadius: box.height / 2, yRadius: box.height / 2).fill()
             let dots = NSAttributedString(
                 string: "⋯",
@@ -150,12 +151,12 @@ extension EditorTextView: NSLayoutManagerDelegate {
 }
 
 extension CodeEditor {
-    /// ⌥⌘[: the block the cursor's line opens, or else the innermost one around the cursor.
+    /// ⌥⌘[ folds the block the cursor's line opens, or else the innermost block around the cursor.
     public func fold() {
         let string = textView.string as NSString, caret = textView.selectedRange().location
         var line = string.lineRange(for: NSRange(location: caret, length: 0))
         if let region = foldRegion(line, in: string) { return textView.setFolded(region, true) }
-        // Up to the lines that are less indented: the blocks around the cursor, innermost first.
+        // Goes up to the lines that are less indented, which open the blocks around the cursor, innermost first.
         var limit = Folds.indent(line, in: string) ?? Int.max
         while line.location > 0, limit > 0 {
             line = string.lineRange(for: NSRange(location: line.location - 1, length: 0))
@@ -168,7 +169,7 @@ extension CodeEditor {
         NSSound.beep()
     }
 
-    /// ⌥⌘]: the fold on the cursor's line, or around it.
+    /// ⌥⌘] opens the fold on the cursor's line, or around it.
     public func unfold() {
         let string = textView.string as NSString, caret = textView.selectedRange().location
         let line = string.lineRange(for: NSRange(location: caret, length: 0))
@@ -181,7 +182,7 @@ extension CodeEditor {
 
     public func unfoldAll() { textView.folds.removeAll().forEach { textView.relayOut($0) } }
 
-    /// A click on the gutter's chevron: the line's block folds, or opens.
+    /// A click on the gutter's chevron folds the line's block, or opens it.
     func toggleFold(line: NSRange) {
         let string = textView.string as NSString
         if let folded = textView.folds.fold(at: MultiCursor.lineEnd(string, line.location)) {

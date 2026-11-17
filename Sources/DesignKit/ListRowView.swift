@@ -4,14 +4,14 @@ import AppKit
 @MainActor
 public protocol Hoverable: AnyObject { func setHover(_ on: Bool) }
 
-/// A row of an inspector list: the system's selection colour on a rounded rect inset 6 from the sides and 1 from its
-/// neighbours, and the pointer passed on to a `Hoverable` cell. The selection pill is the sidebar's alone.
+/// A row of an inspector list. It draws the system's selection colour on a rounded rect inset 6 from the sides and 1
+/// from its neighbours, and passes the pointer on to a `Hoverable` cell. The selection pill is the sidebar's alone.
 /// A palette's row (Spotlight's) asks for its own inset and corner, a fixed selection colour that stays emphasised in a
 /// panel that isn't key, the pointer even while another window has the keyboard, and which rows light up at all.
 /// Rows that belong together sit on a `Card`, the sidebar's look for a project: one quiet shape under all of them.
 @MainActor
 public final class ListRowView: NSTableRowView {
-    /// Its part of a card: the first row rounds its top, the last its bottom; `fill` the card's colour.
+    /// The row's part of a card: the first row rounds its top and the last its bottom, and `fill` is the card's colour.
     public struct Card: Equatable {
         public var first: Bool, last: Bool, fill: NSColor
         public init(first: Bool, last: Bool, fill: NSColor = .fillRest) {
@@ -20,7 +20,7 @@ public final class ListRowView: NSTableRowView {
             self.fill = fill
         }
     }
-    /// The extra room a card's first row takes above its content, and its last row below: the card's edge sits 2 pt
+    /// The extra room a card's first row takes above its content, and its last row below. The card's edge sits 2 pt
     /// from the row's edge, and the selection 4 pt inside the card (the sidebar's spacing). A list adds it to those
     /// rows' heights and cells.
     public static let cardPad: CGFloat = 6
@@ -52,13 +52,13 @@ public final class ListRowView: NSTableRowView {
         get { selection != nil || super.isEmphasized }
         set { super.isEmphasized = newValue }
     }
-    /// Under the pointer: the selection's shape in the hover grey, faded in and out. A layer, not a view: a row view's
-    /// subviews are its cells (`view(atColumn:)` counts them).
+    /// The selection's shape in the hover grey under the pointer, faded in and out. It is a layer, not a view, because
+    /// a row view's subviews are its cells (`view(atColumn:)` counts them).
     private let hoverFill = CALayer()
     private var hovering = false { didSet { showHover() } }
     override public var isSelected: Bool {
         didSet {
-            // The selection goes and comes, as the hover does.
+            // The selection goes and comes with a fade, as the hover does.
             if isSelected != oldValue, window != nil { crossfade() }
             showHover()
         }
@@ -76,8 +76,9 @@ public final class ListRowView: NSTableRowView {
         (subviews.first { $0 is Hoverable } as? Hoverable)?.setHover(on)
     }
 
-    /// A list scrolled under a still pointer: rows coming under it get an "entered", the ones leaving often no "exited",
-    /// so several stayed lit at once. Each scroll asks again where the pointer is; a reused row starts unlit.
+    /// When a list scrolled under a still pointer, rows coming under it got an "entered" but the rows leaving often no
+    /// "exited", so several stayed lit at once. So each scroll asks again where the pointer is, and a reused row starts
+    /// unlit.
     private var scrollWatch: NSObjectProtocol?
     override public func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -95,7 +96,7 @@ public final class ListRowView: NSTableRowView {
     }
     override public func prepareForReuse() {
         super.prepareForReuse()
-        alphaValue = 1   // a row faded on its way out, set aside before it came back
+        alphaValue = 1   // the row may have faded on its way out before it was set aside and came back
         setHovering(false)
     }
     private func recheckPointer() {
@@ -123,7 +124,7 @@ public final class ListRowView: NSTableRowView {
     override public func layout() {
         super.layout()
         CATransaction.begin()
-        CATransaction.setDisableActions(true)   // the fill follows the row's size, it doesn't slide there
+        CATransaction.setDisableActions(true)   // the fill follows the row's size rather than sliding there
         hoverFill.frame = pill
         CATransaction.commit()
         // On a card's first or last row the cell keeps clear of the pad, so its text sits in the middle of its pill.
@@ -141,7 +142,7 @@ public final class ListRowView: NSTableRowView {
         NSBezierPath(roundedRect: pill, xRadius: radius, yRadius: radius).fill()
     }
 
-    /// The shape of the selection and of the pointer's highlight: on a card, 4 pt inside it.
+    /// The shape of the selection and of the pointer's highlight; on a card, it sits 4 pt inside the card.
     private var pill: NSRect {
         guard let card else { return bounds.insetBy(dx: inset, dy: 1) }
         let top = card.first ? Self.cardPad : 1, bottom = card.last ? Self.cardPad : 1
@@ -149,7 +150,7 @@ public final class ListRowView: NSTableRowView {
             x: inset + 4, y: top, width: bounds.width - 2 * (inset + 4), height: bounds.height - top - bottom)
     }
 
-    /// Its slice of the card: a rounded rect running past the row's edge where the card goes on.
+    /// Draws the row's slice of the card: a rounded rect running past the row's edge where the card goes on.
     override public func drawBackground(in dirtyRect: NSRect) {
         super.drawBackground(in: dirtyRect)
         guard let card else { return }
@@ -164,8 +165,8 @@ public final class ListRowView: NSTableRowView {
 
 extension NSTableView {
     private static let listRowId = NSUserInterfaceItemIdentifier("list.row")
-    /// A plain `ListRowView` for `rowViewForRow`: one the table set aside when its row went, else a new one. A new one
-    /// per row made each row scrolled in (and each reload) a view and a scroll watch.
+    /// A plain `ListRowView` for `rowViewForRow`: one the table set aside when its row went, or else a new one. A new
+    /// one per row made each row scrolled in (and each reload) a new view and a scroll watch.
     public func listRowView() -> ListRowView {
         if let row = makeView(withIdentifier: Self.listRowId, owner: nil) as? ListRowView { return row }
         let row = ListRowView()
@@ -174,7 +175,7 @@ extension NSTableView {
     }
 }
 
-/// An inspector list that is an outline: the plain style puts the disclosure triangles at the edge (the source-list
+/// An inspector list that is an outline. The plain style puts the disclosure triangles at the edge (the source-list
 /// style had an inset of its own), so its rows start 8 pt in and line up with the panel's other rows.
 @MainActor
 open class ListOutlineView: NSOutlineView {

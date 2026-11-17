@@ -4,14 +4,14 @@ import Foundation
 import KelpKit
 import WorkbenchKit
 
-/// What the pull requests ask of you while you're elsewhere: the open PRs of the project on screen, watched (the daemon
-/// reads them every two minutes), how many wait for your review (the number on the panel's icon), and which changed
-/// since you last opened them.
+/// What the pull requests ask of you while you're elsewhere. It watches the open PRs of the project on screen (the
+/// daemon reads them every two minutes), counts how many wait for your review (the number on the panel's icon), and
+/// tracks which changed since you last opened them.
 @MainActor @Observable
 final class PRWatch {
     private let app: AppModel
     @ObservationIgnored private let watched: Watched
-    /// Who gh is signed in as: whose review is asked for.
+    /// Who gh is signed in as, which says whose review is asked for.
     private(set) var viewer: String?
 
     init(app: AppModel) {
@@ -28,11 +28,11 @@ final class PRWatch {
         }
     }
 
-    /// The project's open PRs as last read; nil until then, or when they couldn't be.
+    /// The project's open PRs as last read; nil until then, or when they couldn't be read.
     func prs(_ repo: String?) -> [GitHub.PullRequest]? { app.latest(PRsEvent.self, repo ?? "")?.prs }
 
-    /// ⌘P's "#123" or "#login": the open PRs of the project on screen, as watched (no gh run for a keystroke), each opened
-    /// in its own tab as the panel opens it; why there are none when they couldn't be read.
+    /// The rows for ⌘P's "#123" or "#login": the open PRs of the project on screen, as watched (no gh runs for a
+    /// keystroke). Each opens in its own tab, as the panel opens it. When the PRs couldn't be read, the rows say why.
     func quickRows(_ term: String) -> [QuickItem] {
         guard let repo = app.worktree(app.workbench.workspaceId)?.repoId, let read = app.latest(PRsEvent.self, repo)
         else { return [] }
@@ -58,14 +58,15 @@ final class PRWatch {
     // MARK: changed since you looked
 
     private static let key = "issues.seenPRs"
-    /// A PR's page and when it last changed as you saw it. The first time the list shows a PR is as good as a look:
+    /// Each PR's page, with when it last changed as you saw it. The first time the list shows a PR counts as a look, so
     /// only what changes after that is news.
     private static var seen: [String: String] {
         get { UserDefaults.standard.dictionary(forKey: key) as? [String: String] ?? [:] }
         set { UserDefaults.standard.set(newValue.count > 500 ? [:] : newValue, forKey: key) }
     }
 
-    /// Takes note of the PRs not seen before; the numbers of those that changed since they were last opened.
+    /// Takes note of the PRs not seen before, and returns the numbers of those that changed since they were last
+    /// opened.
     static func unseen(_ prs: [GitHub.PullRequest]) -> Set<Int> {
         var known = seen, news: Set<Int> = []
         for pr in prs {
@@ -80,7 +81,7 @@ final class PRWatch {
         return news
     }
 
-    /// Opened: what it says now is seen.
+    /// Called when a PR is opened, so what it says now counts as seen.
     static func saw(_ pr: GitHub.PullRequest) {
         guard let updated = pr.updatedAt else { return }
         seen[pr.url] = updated

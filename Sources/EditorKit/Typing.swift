@@ -5,9 +5,9 @@ import AppKit
 @MainActor enum Typing {
     static let closers: [unichar: unichar] = [40: 41, 91: 93, 123: 125, 34: 34, 39: 39, 96: 96]   // () [] {} "" '' ``
 
-    /// A new line at every cursor, indented as its line (no more than the cursor's column: Return inside the indent
-    /// doesn't double it); one level more after an opening bracket (and after `:` where that opens a block). Between a
-    /// pair, the closer goes to a line of its own below the cursor.
+    /// Puts a new line at every cursor, indented as its line, but no more than the cursor's column, so Return inside
+    /// the indent doesn't double it. It goes one level more after an opening bracket (and after `:` where that opens a
+    /// block). Between a pair, the closer goes to a line of its own below the cursor.
     static func newline(_ tv: EditorTextView) {
         let string = tv.string as NSString
         let cs = tv.cursors, br = tv.lineBreak
@@ -20,7 +20,8 @@ import AppKit
             let prev = (line.location..<cursor.location).reversed().lazy.map { string.character(at: $0) }.first {
                 $0 != 32 && $0 != 9
             }
-            let opens = prev.map { [40, 91, 123].contains($0) || ($0 == 58 && tv.colonOpensBlock) } ?? false   // ( [ { and :
+            // ( [ { and :
+            let opens = prev.map { [40, 91, 123].contains($0) || ($0 == 58 && tv.colonOpensBlock) } ?? false
             let next = NSMaxRange(cursor) < string.length ? string.character(at: NSMaxRange(cursor)) : nil
             let first = br + indent + (opens ? tv.indentUnit : "")
             carets.append((first as NSString).length)
@@ -30,7 +31,8 @@ import AppKit
         tv.replace(cs, with: texts, caret: carets)
     }
 
-    /// Tab: the indent at each cursor, or every touched line one level in when a selection spans lines; ⇧Tab: one out.
+    /// Tab puts in the indent at each cursor, or moves every touched line one level in when a selection spans lines.
+    /// ⇧Tab moves them one level out.
     static func tab(_ tv: EditorTextView, back: Bool) {
         let string = tv.string as NSString
         if back || tv.cursors.contains(where: { string.substring(with: $0).contains("\n") }) {
@@ -40,7 +42,8 @@ import AppKit
         tv.replace(cs, with: cs.map { _ in tv.indentUnit })
     }
 
-    /// ⌘] / ⌘[ and Tab on a selection: the lines the cursors touch, one level in or out; the selections stay on them.
+    /// ⌘] / ⌘[ and Tab on a selection move the lines the cursors touch one level in or out; the selections stay on
+    /// them.
     static func shift(_ tv: EditorTextView, out: Bool) {
         let string = tv.string as NSString
         let unit = (tv.indentUnit as NSString).length
@@ -51,13 +54,13 @@ import AppKit
                 return removed > 0 ? (NSRange(location: line.location, length: removed), "") : nil
             }
             return lead.length == line.length - lineBreak(string, line)
-                ? nil : (NSRange(location: line.location, length: 0), tv.indentUnit)   // not blank lines
+                ? nil : (NSRange(location: line.location, length: 0), tv.indentUnit)   // blank lines are skipped
         }
         tv.replace(edits.map(\.0), with: edits.map(\.1), keep: true)
     }
 
-    /// An opening bracket or quote typed at the one cursor comes with its closer, or wraps the selection; a closer typed
-    /// just before the same closer steps over it. True when done here.
+    /// An opening bracket or quote typed at the one cursor comes with its closer, or wraps the selection. A closer
+    /// typed just before the same closer steps over it. Returns true when it handled the key.
     static func pairs(_ tv: EditorTextView, _ typed: String) -> Bool {
         let units = Array(typed.utf16)
         guard units.count == 1, tv.cursors.count == 1 else { return false }
@@ -76,7 +79,8 @@ import AppKit
         }
         let word = CharacterSet.alphanumerics
         let prev = selection.location > 0 ? UnicodeScalar(string.character(at: selection.location - 1)) : nil
-        // Before a space, a closer, punctuation or the end; a quote not right after a letter (the ' in don't).
+        // Only before a space, a closer, punctuation or the end, and a quote only when not right after a letter (the '
+        // in don't).
         guard next.map({ [9, 10, 13, 32, 41, 93, 125, 44, 59, 58].contains($0) }) ?? true,
             close != character || !(prev.map(word.contains) ?? false)
         else { return false }
@@ -84,7 +88,7 @@ import AppKit
         return true
     }
 
-    /// ⌫ between a pair just typed, `(|)`: both go. True when done here.
+    /// ⌫ between a pair just typed, `(|)`, deletes both. Returns true when it handled the key.
     static func unpair(_ tv: EditorTextView) -> Bool {
         let string = tv.string as NSString, selection = tv.selectedRange()
         guard tv.cursors.count == 1, selection.length == 0, selection.location > 0, selection.location < string.length,
@@ -96,7 +100,7 @@ import AppKit
 
     // MARK: Lines
 
-    /// The lines under the ranges, each once, top to bottom; a selection ending at a line's start leaves that line out.
+    /// The lines under the ranges, each once, top to bottom. A selection ending at a line's start leaves that line out.
     static func lines(_ ranges: [NSRange], in string: NSString) -> [NSRange] {
         var out: [NSRange] = []
         for range in ranges {

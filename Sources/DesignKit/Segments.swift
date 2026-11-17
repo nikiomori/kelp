@@ -1,10 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// A segmented choice for SwiftUI as wide as its labels, never wider than its column, in any language. A segmented Picker
-/// makes every segment as wide as the longest label: three times it in all (321 pt in Russian), a bar across the pane that
-/// reads as tabs, or one sliding off a 250 pt column. Regular size, as in Settings and sheets; a tab's or panel's takes
-/// `.controlSize(.small)` like any control.
+/// A segmented choice for SwiftUI, as wide as its labels and never wider than its column, in any language. A segmented
+/// Picker makes every segment as wide as the longest label, three times it in all (321 pt in Russian), which gives a
+/// bar across the pane that reads as tabs, or one sliding off a 250 pt column. It is regular size, as in Settings and
+/// sheets; a tab's or panel's takes `.controlSize(.small)` like any control.
 public struct Segments: NSViewRepresentable {
     let labels: [String]
     @Binding var selection: Int

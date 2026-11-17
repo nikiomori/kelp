@@ -3,10 +3,11 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The form of Add Database: only the engine's own fields (a file's path; or host, port, user, password, database),
-/// SSH and SSL folded until they're wanted, then its name, where it's kept, what agents may do, Production and why. It
-/// connects by itself once typing pauses (`db.check`): the line at its foot says what's there, or the server's words.
-/// Add works without a check that passed: a server may be down for now.
+/// The form of Add Database. It shows only the engine's own fields (a file's path, or host, port, user, password and
+/// database), with SSH and SSL folded until they're wanted. Then come the database's name, where it is kept, what
+/// agents may do, and Production with why. The form connects by itself once typing pauses (`db.check`), and the line
+/// at its foot says what it found or gives the server's words. Add works without a passing check, because a server
+/// may be down for now.
 @MainActor
 final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     private unowned let sheet: DatabaseSheet
@@ -21,19 +22,20 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     private let stage = NSSegmentedControl(
         labels: DatabaseInfo.Stage.allCases.map(DatabaseLook.title), trackingMode: .selectOne, target: nil, action: nil)
     private let why = DatabaseSheet.small("")
-    /// What agents may do with it as the form stands: Production's reading wins over the choice.
+    /// Says what agents may do with the database as the form stands. Under Production agents only read, whatever the
+    /// choice says.
     private let agentsWhy = DatabaseSheet.small("")
     private let status = NSTextField(wrappingLabelWithString: "")
     private let add = NSButton()
     private var nameTyped = false
     private var checking: Task<Void, Never>?
     private(set) var view = NSView()
-    /// A new one starts at its host (or file); one pasted, picked or edited at its password.
+    /// The field focused first: the host (or file) for a new database, the password for one pasted, picked or edited.
     var firstField: NSView { engine.isFile ? path : fresh ? host : password }
     private let fresh: Bool
 
     private let preset: EnginePreset?
-    /// Edited from All My Projects: kept there.
+    /// True when the database is edited from All My Projects, so it is kept there.
     private let inLibrary: Bool
     private var whyRow: NSGridRow?
 
@@ -85,7 +87,8 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         path.stringValue = db.path ?? ""
         name.stringValue = editing?.name ?? (db.name.isEmpty ? "" : db.name)
         nameTyped = editing != nil
-        // Its name is its key (and its password's): an edit keeps it, a new name would be a copy without the password.
+        // A database's name is the key for it and for its password. So an edit keeps the name, because a new name
+        // would make a copy without the password.
         name.isEditable = editing == nil
 
         var rows: [(String, NSView)] = []
@@ -113,7 +116,8 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
             parts.append(note)
             wide.append(note)
         }
-        // Appwrite is a URL: its scheme says SSL, and an SSH tunnel would need a port and break its certificate
+        // Appwrite is a URL whose scheme says SSL, and an SSH tunnel would need a port and break its certificate, so
+        // Appwrite gets no SSH or SSL folds.
         if !engine.isFile, !appwrite { parts += folds(db) }
         let separator = NSBox()
         separator.boxType = .separator
@@ -166,14 +170,14 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         check(after: 0)
     }
 
-    /// SSH and SSL, each a checkbox that unfolds its choice: what most databases on this Mac never need.
+    /// SSH and SSL, each a checkbox that unfolds its settings. Most databases on this Mac never need them.
     private func folds(_ db: DatabaseInfo) -> [NSView] {
         sshOn.setButtonType(.switch)
         sshOn.title = String(localized: "Through SSH")
         sshOn.state = db.ssh == nil ? .off : .on
         sshOn.target = self
         sshOn.action = #selector(foldsChanged)
-        Task { [ssh] in   // ~/.ssh/config read off the main thread
+        Task { [ssh] in   // reads ~/.ssh/config off the main thread
             ssh.addItems(withObjectValues: await Task.detached { RemoteHost.configHosts() }.value)
         }
         ssh.placeholderString = String(localized: "user@server or a Host from ~/.ssh/config")
@@ -207,7 +211,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
 
     // MARK: What it says
 
-    /// The database the fields describe; nil while they don't (no host, no file).
+    /// The database the fields describe, or nil while they don't describe one (no host, no file).
     var typed: DatabaseInfo? {
         var db = editing ?? DatabaseInfo(name: "", engine: engine)
         db.engine = engine
@@ -239,7 +243,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     }
 
     func comboBoxSelectionDidChange(_ notification: Notification) {
-        DispatchQueue.main.async { [weak self] in   // the combo box's text follows the pick after this call
+        DispatchQueue.main.async { [weak self] in   // the combo box's text follows the pick only after this call
             guard let self else { return }
             if !self.nameTyped { self.name.stringValue = self.suggestedName }
             self.changed()
@@ -254,13 +258,13 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         return database.stringValue.isEmpty ? host.stringValue : database.stringValue
     }
 
-    /// The environment is only what the user picks (never guessed from the host); the line beside it says what it means.
+    /// The environment is only what the user picks, never guessed from the host. The line beside it says what it means.
     @objc private func changed() {
         let db = typed
         let elsewhere = db.map { $0.ssh != nil || $0.host.map { !DatabaseInfo.isLocal($0) } ?? false } ?? false
         let picked = DatabaseInfo.Stage.allCases[max(0, stage.selectedSegment)]
         why.stringValue = Self.why(picked, elsewhere: elsewhere)
-        whyRow?.isHidden = why.stringValue.isEmpty   // the grid's row, or its gap stays
+        whyRow?.isHidden = why.stringValue.isEmpty   // hides the grid's row, or its gap would stay
         let access = DatabaseInfo.Access.allCases[max(0, agents.selectedSegment)]
         agentsWhy.stringValue =
             picked == .production && access != .hidden && access != .read
@@ -278,7 +282,8 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         changed()
     }
 
-    /// What the environment means for agents, and a word when one elsewhere isn't Production.
+    /// Says what the environment means for agents. A database that is not on this Mac but is marked Local or
+    /// Development gets a word to pick Production if it is one.
     static func why(_ stage: DatabaseInfo.Stage, elsewhere: Bool) -> String {
         let meaning = DatabaseLook.meaning(stage)
         guard stage == .local || stage == .development, elsewhere else { return meaning }
@@ -287,7 +292,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
 
     // MARK: Checking
 
-    /// Connects once typing has paused for `delay`: what's there, or why not, at the form's foot.
+    /// Connects once typing has paused for `delay`, then says at the form's foot what is there, or why it failed.
     private func check(after delay: TimeInterval) {
         checking?.cancel()
         guard let db = typed else {
@@ -296,7 +301,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         }
         let secret = password.stringValue.isEmpty ? nil : password.stringValue
         checking = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(delay)) } catch { return }   // typed on: a newer check
+            do { try await Task.sleep(for: .seconds(delay)) } catch { return }   // typed on, so a newer check runs
             guard let self, !Task.isCancelled else { return }
             self.status.stringValue = String(localized: "Connecting…")
             self.status.textColor = .secondaryLabelColor

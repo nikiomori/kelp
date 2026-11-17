@@ -3,8 +3,8 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The unchanged lines between two changes: a capsule saying how many and in which function (git's own guess, from the
-/// next hunk's header); a click shows them in place, read from the file as the diff shows it.
+/// The unchanged lines between two changes, as a capsule saying how many and in which function (git's own guess, from
+/// the next hunk's header). A click shows the lines in place, read from the file as the diff shows it.
 extension DiffViewController {
     func gapRow(file: Int, from: Int, lines count: Int, context: String) -> NSView {
         let title = String(localized: "⋯  \(count) unchanged lines") + (context.isEmpty ? "" : "  ·  " + context)
@@ -15,7 +15,7 @@ extension DiffViewController {
         button.toolTip = String(localized: "Show These Lines")
         button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let row = NSStackView(views: [button])
-        row.edgeInsets = NSEdgeInsets(top: 0, left: Self.codeIndent, bottom: 0, right: Metrics.gapWide)   // under the code
+        row.edgeInsets = NSEdgeInsets(top: 0, left: Self.codeIndent, bottom: 0, right: Metrics.gapWide)   // under code
         return row
     }
 
@@ -24,7 +24,7 @@ extension DiffViewController {
         let path = diffs[f].path
         var whole = diffRequest()
         whole.file = path
-        whole.context = 1_000_000   // the file whole, as one hunk
+        whole.context = 1_000_000   // asks for the whole file, as one hunk
         Task {
             let shown =
                 await app.call(whole)?.first { $0.path == path }?.hunks.flatMap(\.lines)
@@ -32,7 +32,7 @@ extension DiffViewController {
             guard shown.count == n else {
                 NSSound.beep()
                 return
-            }   // the file moved on since: the next read shows it
+            }   // the file moved on since, and the next read shows it
             opened[DiffRows.gapKey(path, from)] = shown
             rebuildRows()
         }

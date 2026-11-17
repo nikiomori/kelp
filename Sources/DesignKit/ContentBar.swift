@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// `Bar.content` in SwiftUI: a tab's toolbar, 32 pt (with the text size), its controls small, a little room between them,
-/// a flexible space where the content puts a `Spacer`. The line under it is the tab's (`Divider()`).
+/// `Bar.content` in SwiftUI: a tab's toolbar, 32 pt (scaled with the text size), with small controls, a little room
+/// between them, and a flexible space where the content puts a `Spacer`. The line under it is the tab's (`Divider()`).
 public struct ContentBar<Content: View>: View {
     private let content: Content
     public init(@ViewBuilder _ content: () -> Content) { self.content = content() }
@@ -16,7 +16,7 @@ public struct ContentBar<Content: View>: View {
 }
 
 /// `TextButton` for SwiftUI: a button named in words in a tab's bar is the quiet grey plate, darker under the pointer.
-/// `ContentBar` gives it to every button it holds.
+/// `ContentBar` gives this style to every button it holds.
 public struct BarButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View { Plate(configuration: configuration) }

@@ -3,15 +3,15 @@ import DesignKit
 import Foundation
 import KelpKit
 
-/// The workspace on screen's git, watched for as long as it's on screen (the daemon pushes it when its files change):
-/// the number on the Source Control icon, the window bar's branch chip and Source Control itself read its `GitEvent`
-/// (`AppModel.latest`).
+/// Watches the git status of the workspace on screen for as long as it's on screen; the daemon pushes it when the
+/// workspace's files change. The number on the Source Control icon, the branch chip in the window bar and Source
+/// Control itself read its `GitEvent` (`AppModel.latest`).
 @MainActor
 final class ChangedFiles {
     private let app: AppModel
     private let watched: Watched
 
-    /// Files changed in the workspace on screen.
+    /// How many files changed in the workspace on screen.
     var count: Int { app.latest(GitEvent.self, app.gitKey(app.workbench.workspaceId))?.changes?.count ?? 0 }
 
     init(app: AppModel) {

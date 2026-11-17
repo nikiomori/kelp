@@ -2,7 +2,7 @@ import AppKit
 
 @MainActor
 extension NSMenu {
-    /// Closure-backed item (keeps its target alive through representedObject).
+    /// Adds an item backed by a closure (the item keeps its target alive through representedObject).
     @discardableResult
     public func add(
         _ title: String, symbol: String? = nil, key: String = "", _ action: @escaping @MainActor () -> Void
@@ -15,7 +15,7 @@ extension NSMenu {
         return item
     }
 
-    /// An item that opens `submenu`.
+    /// Adds an item that opens `submenu`.
     @discardableResult
     public func add(_ title: String, submenu: NSMenu) -> NSMenuItem {
         let item = addItem(withTitle: title, action: nil, keyEquivalent: "")
@@ -25,7 +25,8 @@ extension NSMenu {
 }
 
 extension NSMenuItem {
-    /// An image that says something, kept on macOS 27, whose menus hide the ones an item doesn't ask to show.
+    /// Sets an image that says something, so it is kept on macOS 27, whose menus hide the images an item doesn't ask to
+    /// show.
     public func show(_ image: NSImage?) {
         self.image = image
         #if compiler(>=6.4)   // the macOS 27 SDK
@@ -33,7 +34,7 @@ extension NSMenuItem {
         #endif
     }
 
-    /// A name, and in grey at `column` what tells it apart.
+    /// A name, and at `column`, in grey, what tells it apart.
     public static func titleWithNote(
         _ name: String, note: String, column: CGFloat, dim: Bool = false, noteColor: NSColor = .secondaryLabelColor
     ) -> NSAttributedString {
@@ -52,7 +53,7 @@ extension NSMenuItem {
         return text
     }
 
-    /// The longest name's width and a gap: where the grey notes start.
+    /// Where the grey notes start: the longest name's width and a gap.
     public static func noteColumn(_ names: [String]) -> CGFloat {
         (names.map { ($0 as NSString).size(withAttributes: [.font: NSFont.menuFont(ofSize: 0)]).width }.max() ?? 0)
             + Metrics.inset

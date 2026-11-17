@@ -5,7 +5,7 @@ import AppKit
 /// This is the one icon button used in bars: a panel's header, a tab's toolbar, the sidebar.
 @MainActor
 public final class IconButton: PointerButton {
-    /// `image` named `tip` (its tooltip), calling `action`.
+    /// An icon button showing `image`, named `tip` (its tooltip), that calls `action`.
     public convenience init(_ image: NSImage?, tip: String, action: @escaping () -> Void) {
         self.init(image, tip: tip, target: nil, action: nil)
         onClick = action
@@ -26,11 +26,12 @@ public final class IconButton: PointerButton {
         setContentCompressionResistancePriority(.required, for: .horizontal)
     }
 
-    /// An icon alone sits in the middle of its square; with a count ("↑ 56") the icon leads it. Leading with no count, the
-    /// "+" of a sidebar row stood 4 pt left of its hover square's centre.
+    /// An icon alone sits in the middle of its square; with a count ("↑ 56") the icon leads it. When it led with no
+    /// count, the "+" of a sidebar row stood 4 pt left of its hover square's centre.
     override public var title: String { didSet { imagePosition = title.isEmpty ? .imageOnly : .imageLeading } }
 
-    /// At work (Refresh while it reads): a spinner stands where the symbol was, which comes back after.
+    /// True while the button is at work (Refresh while it reads). A spinner stands where the symbol was, and the
+    /// symbol comes back after.
     public var busy = false {
         didSet {
             guard busy != oldValue else { return }

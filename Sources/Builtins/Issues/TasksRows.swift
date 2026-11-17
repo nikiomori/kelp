@@ -30,7 +30,7 @@ extension TasksViewController {
             case .projects: String(localized: "Projects")
             }
         }
-        /// The filter menu's own items (Linear adds its teams to them, Projects its boards once they're read).
+        /// The filter menu's own items. Linear adds its teams to them, and Projects its boards once they're read.
         var filters: [String] {
             switch self {
             case .pulls: [String(localized: "Open"), String(localized: "Recently Closed")]
@@ -40,10 +40,11 @@ extension TasksViewController {
             case .projects: [String(localized: "Loading projects…")]
             }
         }
-        /// Read from the project's forge (gh or glab): a missing remote or CLI is what an error says. Linear and Jira
-        /// need neither.
+        /// Whether the source is read from the project's forge (gh or glab), so that a missing remote or CLI is what an
+        /// error means. Linear and Jira need neither.
         var needsRemote: Bool { self != .linear && self != .jira }
-        /// What to do when it can't be read and gh or glab has no fix to offer; nil: the error's own words.
+        /// What to do when the source can't be read and gh or glab has no fix to offer; nil shows the error's own
+        /// words.
         var connectHint: String? {
             switch self {
             case .linear: String(localized: "Connect Linear in Settings › Integrations")
@@ -52,7 +53,7 @@ extension TasksViewController {
             case .pulls, .issues: nil
             }
         }
-        /// Empty with no filter; nil: "Nothing here", and no filter narrows it to say so.
+        /// What the list says when it's empty with no filter. Nil means "Nothing here", because no filter narrows it.
         var none: String? {
             switch self {
             case .pulls: String(localized: "No Open Pull Requests")

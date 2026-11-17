@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// SwiftUI's side of `PointerButton`, for settings and extension panels: under the pointer a grey fill fades in, held it
-/// darkens at once and the button dips by `Motion.pressDip`, as Kelp's AppKit controls do. Reduce Motion: the fills change,
-/// nothing moves. `flush`: the fill reaches past the label, its neighbours stand where they would without it (a glyph in
-/// a line of text).
+/// SwiftUI's side of `PointerButton`, for settings and extension panels. Under the pointer a grey fill fades in, and
+/// when held it darkens at once and the button dips by `Motion.pressDip`, as Kelp's AppKit controls do. Under Reduce
+/// Motion the fills change and nothing moves. With `flush`, the fill reaches past the label, and its neighbours stand
+/// where they would without it (a glyph in a line of text).
 public struct PointerButtonStyle: ButtonStyle {
     private let radius: CGFloat
     private let flush: Bool
@@ -47,8 +47,9 @@ public struct PointerButtonStyle: ButtonStyle {
     }
 }
 
-/// A card that is a choice (a theme): pressed it dips a little; under the pointer it tells its label, whose tile brightens
-/// its own edge (`cardEdge`). A ring of the style's own went round the caption too, and with the tile's it was two lines.
+/// A card that is a choice (a theme). When pressed it dips a little, and under the pointer it tells its label, whose
+/// tile brightens its own edge (`cardEdge`). A ring of the style's own went round the caption too, and with the tile's
+/// it made two lines.
 public struct PointerCardStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: ButtonStyleConfiguration) -> some View { Card(configuration: configuration) }
@@ -75,12 +76,13 @@ public struct PointerCardStyle: ButtonStyle {
 }
 
 extension EnvironmentValues {
-    /// The pointer is over the `PointerCardStyle` button this is in.
+    /// Whether the pointer is over the `PointerCardStyle` button this view is in.
     @Entry var cardHovering = false
 }
 
 extension View {
-    /// A choice tile's one edge: the accent when it's the one picked, brighter under the pointer, a hairline otherwise.
+    /// A choice tile's one edge: the accent when it's the one picked, brighter under the pointer, and a hairline
+    /// otherwise.
     public func cardEdge(selected: Bool, radius: CGFloat = Metrics.radiusMD) -> some View {
         modifier(CardEdge(selected: selected, radius: radius))
     }
@@ -99,8 +101,8 @@ private struct CardEdge: ViewModifier {
 }
 
 extension View {
-    /// A borderless menu (⋯, +) answers the pointer as a `PointerButtonStyle` button beside it does: under it a grey
-    /// fill fades in. Its press is the menu opening, which is the system's.
+    /// Makes a borderless menu (⋯, +) answer the pointer as a `PointerButtonStyle` button beside it does: under the
+    /// pointer a grey fill fades in. Its press is the menu opening, which is the system's.
     public func pointerMenu() -> some View { modifier(PointerMenu()) }
 }
 
@@ -116,7 +118,7 @@ private struct PointerMenu: ViewModifier {
             )
             .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)
             .onHover { hovering = $0 }
-            // the fill reaches past the glyph; its neighbours stay where they were
+            // The fill reaches past the glyph, and its neighbours stay where they were.
             .padding(.horizontal, -PointerButtonStyle.padding)
     }
 }

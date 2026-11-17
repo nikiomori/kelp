@@ -4,9 +4,9 @@ import DesignKit
 import KelpKit
 
 extension CIRuns.Run {
-    /// How long it took, in the words its state needs: "6m 42s", "3m 12s of ~15m", "queued 1m 20s". `usual`: what this
-    /// workflow takes, which says "about", not a countdown: green runs of one project differ by a factor of four.
-    /// Nil: the forge didn't say.
+    /// How long the run took, in the words its state needs: "6m 42s", "3m 12s of ~15m", "queued 1m 20s". `usual` is
+    /// what this workflow takes, which says "about", not a countdown, because green runs of one project differ by a
+    /// factor of four. Nil when the forge didn't say.
     func timeWords(usual: Double?) -> String? {
         guard let elapsed = seconds() else { return nil }
         let span = ciSpan(elapsed)
@@ -20,11 +20,11 @@ extension CIRuns.Run {
     }
 }
 
-/// "6m 42s", "1h 31m": two parts at most, the way Kelp says a span.
+/// "6m 42s", "1h 31m": a span in two parts at most, the way Kelp says a span.
 func ciSpan(_ seconds: Double) -> String { shortSpan(seconds, units: 2, smallest: .second) }
 
-/// What's still going counts up on screen, without asking the forge: seconds pass by themselves, from when it began. Runs only
-/// while the panel shows, for labels still in a window.
+/// Counts up on screen what's still going, without asking the forge, because seconds pass by themselves from when the
+/// run began. It runs only while the panel shows, for labels still in a window.
 @MainActor
 final class CIClock {
     private struct Hand {
@@ -59,20 +59,22 @@ final class CIClock {
     }
 }
 
-/// A run's second line. What the run is sits on the left and gives way first; how long and when stand in their own columns on
-/// the right, the length a shade brighter, so a list of runs reads down its edge.
+/// A run's second line. What the run is sits on the left and gives way first. How long it took and when stand in their
+/// own columns on the right, the length a shade brighter, so a list of runs reads down its edge.
 @MainActor
 final class CIRunMeta: NSView {
-    /// "When" keeps its width, so the lengths beside it stand in a column. Under `narrow`, the attempt shrinks to "↻ 2".
+    /// "When" keeps its width, so the lengths beside it stand in a column. Under `narrow`, the attempt shrinks to
+    /// "↻ 2".
     private static let whenColumn: CGFloat = 26, narrow: CGFloat = 216
     private let attempt: AttemptChip?
     private let who: NSTextField, line: NSStackView
-    /// With the commit, and without it: a narrow panel keeps the run's number whole, the tooltip has the commit.
+    /// The words with the commit, and without it. A narrow panel keeps the run's number whole, and the tooltip has the
+    /// commit.
     private let whole: NSAttributedString, short: NSAttributedString
     private var showsCommit = true
     private lazy var wholeWidth = NSTextField(labelWithAttributedString: whole).fittingSize.width
 
-    /// `extras`: what tells this run from its neighbours, after the number and commit (its workflow, its event).
+    /// `extras` is what tells this run from its neighbours, after the number and commit (its workflow, its event).
     init(_ run: CIRuns.Run, extras: [String], usual: Double?, clock: CIClock) {
         attempt = run.attempt.flatMap { $0 > 1 ? AttemptChip($0) : nil }
         whole = Self.who(run, extras, commit: true)
@@ -87,7 +89,7 @@ final class CIRunMeta: NSView {
         if !run.finished { clock.follow(time) { run.timeWords(usual: usual) } }
         time.font = .uiDigits(TextSize.caption)
         time.textColor = .labelColor
-        // A run still going has no "when" yet: its time is now.
+        // A run still going has no "when" yet, because its time is now.
         let ago = NSTextField(labelWithString: run.finished ? CIRunLook.ago(run.began) : "")
         ago.font = .uiDigits(TextSize.caption)
         ago.textColor = .secondaryLabelColor
@@ -105,7 +107,7 @@ final class CIRunMeta: NSView {
 
     override func layout() {
         super.layout()
-        attempt?.compact = bounds.width < TextSize.of(Self.narrow)   // the time stays whole
+        attempt?.compact = bounds.width < TextSize.of(Self.narrow)   // so the time stays whole
         let need = line.fittingSize.width - who.fittingSize.width + wholeWidth
         let fits = need <= bounds.width
         if fits != showsCommit {
@@ -114,7 +116,7 @@ final class CIRunMeta: NSView {
         }
     }
 
-    /// "#67 2f2111f", the commit in the face of code.
+    /// "#67 2f2111f", with the commit in the code font.
     private static func who(_ run: CIRuns.Run, _ extras: [String], commit: Bool) -> NSAttributedString {
         let one = NSMutableParagraphStyle()
         one.lineBreakMode = .byTruncatingTail
@@ -139,10 +141,10 @@ final class CIRunMeta: NSView {
     }
 }
 
-/// The panel's rows of one line.
+/// The panel's one-line rows.
 @MainActor
 enum CIRow {
-    /// "8 steps passed  2m 04s": a chevron opens them.
+    /// "8 steps passed  2m 04s", with a chevron that opens the steps.
     static func fold(_ fold: CIRuns.StepRow) -> NSView {
         let count = fold.steps.count
         switch fold {
@@ -168,7 +170,7 @@ enum CIRow {
         }
     }
 
-    /// Mark, name, and on the right a number, whose label comes back for what counts up.
+    /// A mark, a name, and a number on the right; the number's label is returned for what counts up.
     static func line(_ mark: NSView, _ name: String, font: NSFont, color: NSColor, right: String?) -> (
         cell: NSView, time: NSTextField?
     ) {
@@ -200,7 +202,7 @@ enum CIRow {
     }
 }
 
-/// "attempt 2": only from the second try on.
+/// "attempt 2", shown only from the second try on.
 @MainActor
 private final class AttemptChip: PointerControl {
     private let label = NSTextField(labelWithString: "")

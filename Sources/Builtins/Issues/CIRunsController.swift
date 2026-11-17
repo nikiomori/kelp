@@ -3,9 +3,10 @@ import Core
 import DesignKit
 import KelpKit
 
-/// CI of the branch on screen: runs → jobs → steps, what broke in the picked job under them (the latest failure opens
-/// by itself; `CIJobPane`), and Run Workflow… for workflows started by hand. It uses GitHub Actions (gh) or GitLab
-/// (glab); without them, it shows a button that installs and signs in. The globe opens the project's pages on its site.
+/// CI of the branch on screen: runs → jobs → steps, and under them what broke in the picked job (`CIJobPane`; the
+/// latest failure opens by itself). Run Workflow… starts workflows that are started by hand. It uses GitHub Actions
+/// (gh) or GitLab (glab); without them, it shows a button that installs and signs in. The globe opens the project's
+/// pages on its site.
 @MainActor
 final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate {
     let app: AppModel
@@ -26,7 +27,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             case .step, .fold: nil
             }
         }
-        /// What stays open across a refresh, which makes every item anew.
+        /// What stays open across a refresh, because a refresh makes every item anew.
         var key: String? {
             switch kind {
             case .run(let run): "run \(run.id)"
@@ -37,9 +38,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         }
     }
     let outline = ListOutlineView()
-    private let branch = BranchChip()   // Source Control's, in the same place: switching panels doesn't move it
+    private let branch = BranchChip()   // in the same place as Source Control's, so switching panels doesn't move it
     private let empty = EmptyStateView()
-    /// Until the first answer for the workspace (gh can take seconds): the panel isn't blank meanwhile.
+    /// Shown until the first answer for the workspace comes (gh can take seconds), so the panel isn't blank meanwhile.
     private let loading = LoadingView(rows: true)
     private lazy var checkAgain: NSButton = {   // as large as the setup button beside it
         let button = ClosureButton(title: String(localized: "Check Again")) { [weak self] in self?.reload() }
@@ -57,7 +58,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         pane.runOf = { [weak self] id in self?.run(id) }
         return pane
     }()
-    /// The log's half of the split, shown once a job is picked: empty, it took most of the height and left the runs a strip.
+    /// The log's half of the split, shown once a job is picked. When empty, it took most of the height and left the
+    /// runs a strip.
     private var logPane: (view: NSView, room: NSLayoutConstraint, split: NSSplitView)?
     let workflowsButton = IconButton(nil, tip: "", target: nil, action: nil)
     var runs: [Item] = []
@@ -65,7 +67,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     var worktree: String?
     var branchName = ""
     private var autoOpened = Set<Int>()
-    /// The list being shown, its open runs read again.
+    /// The list being shown, while its open runs are read again.
     private var applying: Task<Void, Never>?
     let clock = CIClock()
     private let history = CIHistoryStrip()
@@ -112,7 +114,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         split.dividerStyle = .thin
         split.addArrangedSubview(scroll)
         split.addArrangedSubview(bottom)
-        split.setHoldingPriority(.init(260), forSubviewAt: 0)   // the runs keep their room; the log takes what's left
+        split.setHoldingPriority(.init(260), forSubviewAt: 0)   // the runs keep their room, and the log takes the rest
         let stack = stacked(header, history, split)
         empty.place(in: stack, under: header)
         loading.place(in: stack, under: header)
@@ -124,7 +126,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             app.workbench.workspaceId
         } changed: { [weak self, app] in
             self?.worktree = $0
-            self?.branch.title = app.worktree($0)?.branch ?? ""   // before the runs come: the header names it at once
+            self?.branch.title = app.worktree($0)?.branch ?? ""   // set before the runs come, so the header names it
             self?.loadPages()
             if app.latest(CIEvent.self, app.gitKey($0)) == nil { self?.loading.show(String(localized: "Loading…")) }
         }
@@ -135,13 +137,13 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         }
     }
 
-    /// From origin, not gh: there even when gh or glab isn't set up.
+    /// Reads the pages from origin, not from gh, so they're there even when gh or glab isn't set up.
     private func loadPages() {
         guard let worktreeId = worktree else { return }
         pages = nil
         webButton.isHidden = true
         Task {
-            // a decoration: without it there's no globe
+            // Only a decoration: without the pages there's no globe.
             let found = await app.quiet(GitWebPages(worktreeId: worktreeId)) ?? nil
             guard worktreeId == worktree else { return }
             pages = found
@@ -166,10 +168,10 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 
     @objc private func runSetup() { if let setup { Forge.run(setup, in: app) } }
 
-    /// Shown, the log takes about half the height (the runs keep the rest); hidden, the runs have it all.
+    /// When shown, the log takes about half the height and the runs keep the rest; when hidden, the runs have it all.
     private func showLogPane(_ on: Bool) {
         guard let pane = logPane, pane.view.isHidden == on else { return }
-        if view.window != nil { pane.split.crossfade(Motion.base) }   // half the panel changes hands: not at once
+        if view.window != nil { pane.split.crossfade(Motion.base) }   // half the panel changes hands, so not at once
         pane.view.isHidden = !on
         pane.room.isActive = on
         if on { pane.split.setPosition(pane.split.bounds.height * 0.45, ofDividerAt: 0) }
@@ -177,7 +179,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
 
     // MARK: loading
 
-    // The runs are watched for the workspace on screen all the time (`FailedRuns`, the icon's dot): not again here.
+    // The runs of the workspace on screen are watched all the time (`FailedRuns`, the icon's dot), so not again here.
     override func viewDidAppear() {
         super.viewDidAppear()
         clock.start()
@@ -187,31 +189,33 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         clock.stop()
     }
 
-    /// Refresh, and after starting runs: the daemon reads them now, and keeps looking for a while.
+    /// Refresh, and what runs after starting runs: the daemon reads them now, and keeps looking for a while.
     func reload() { if let worktree { app.watchAgain(.ci, app.gitKey(worktree)) } }
 
     private func apply(_ event: CIEvent?) {
         guard let event, event.worktree == app.gitKey(worktree) else { return }
         loading.show(nil)
-        // A newer list replaces the rows the last one's jobs were being opened in: that one stops at its next step.
+        // A newer list replaces the rows that the last list's jobs were being opened in, so that task stops at its
+        // next step.
         applying?.cancel()
         applying = Task {
             if let error = event.error {
-                branch.title = app.worktree(worktree)?.branch ?? ""   // whose runs these would be, still
+                branch.title = app.worktree(worktree)?.branch ?? ""   // still names whose runs these would be
                 workflowsButton.isHidden = true
                 show(note: error, failed: true)
                 return
             }
             branchName = event.result?.branch ?? ""
             branch.title = branchName
-            // What was open stays open across a refresh, its jobs read again.
+            // What was open stays open across a refresh, and its jobs are read again.
             let open = Set(
                 runs.flatMap { [$0] + openBelow($0) }.filter { outline.isItemExpanded($0) }.compactMap(\.key))
             let selected = (outline.item(atRow: outline.selectedRow) as? Item)?.id
             let was = Dictionary(runs.compactMap { run in run.key.map { ($0, run) } }) { first, _ in first }
             runs = (event.result?.runs ?? []).map { run in
                 let item = Item(.run(run))
-                // An open run keeps its rows until they're read again: shut and opened a moment later, the list jumped.
+                // An open run keeps its rows until they're read again, because when shut and opened a moment later the
+                // list jumped.
                 if let key = item.key, open.contains(key) { item.children = was[key]?.children }
                 return item
             }
@@ -239,8 +243,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
                 if read { reopen(run) }
             }
             guard !Task.isCancelled else { return }
-            // A workflow's latest run failed (what Source Control's CI line shows): open it at the first failed job,
-            // with its log (once, so closing it sticks).
+            // When a workflow's latest run failed (what Source Control's CI line shows), the run opens at its first
+            // failed job, with the job's log. It does so once, so closing it sticks.
             let failing = Set(CIRuns.latest(allRuns).filter(\.failed).map(\.id))
             if let item = runs.first(where: { failing.contains($0.id ?? -1) }), let id = item.id,
                 autoOpened.insert(id).inserted
@@ -250,7 +254,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         }
     }
 
-    /// A mark in the strip: its run, in the list.
+    /// Shows in the list the run of a mark in the strip.
     private func reveal(_ run: CIRuns.Run) {
         guard let item = runs.first(where: { $0.id == run.id }) else { return }
         let row = outline.row(forItem: item)
@@ -259,10 +263,10 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         outline.scrollRowToVisible(row)
     }
 
-    /// A run's jobs and the folds of their steps, top down, as they have to be opened.
+    /// A run's jobs and the folds of their steps, top down, in the order they have to be opened.
     private func openBelow(_ run: Item) -> [Item] { (run.children ?? []).flatMap { [$0] + ($0.children ?? []) } }
 
-    /// `failed`: `text` is the error, and says what fixes it (`showForge`).
+    /// With `failed`, `text` is the error and says what fixes it (`showForge`).
     private func show(note text: String?, failed: Bool = false) {
         if failed, let text {
             setup = empty.showForge(
@@ -272,7 +276,8 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             setup = nil
             empty.show(text, symbol: "checkmark.seal")
         }
-        // The runs and the log go together: the log's divider alone under the header drew a second line there.
+        // The runs and the log hide together, because the log's divider alone under the header drew a second line
+        // there.
         outline.enclosingScrollView?.superview?.isHidden = text != nil
         if text != nil {
             showLogPane(false)
@@ -280,12 +285,13 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         }
     }
 
-    /// A run's jobs, read (again) into its rows. False: they couldn't be read, or a newer list came meanwhile.
+    /// Reads a run's jobs (again) into its rows. Returns false when they couldn't be read, or a newer list came
+    /// meanwhile.
     private func readJobs(_ item: Item) async -> Bool {
         guard case .run(let run) = item.kind, let worktree else { return false }
-        // the banner says why; asked again next time
+        // On failure the banner says why, and the jobs are asked for again next time.
         guard let jobs = await app.call(CIJobs(worktreeId: worktree, run: run.id)) else { return false }
-        guard runs.contains(where: { $0 === item }) else { return false }   // these rows are gone
+        guard runs.contains(where: { $0 === item }) else { return false }   // these rows are gone now
         item.children = jobs.map { job in
             let jobItem = Item(.job(job, run: run.id))
             jobItem.children = CIRuns.rows(job.steps).map { row in

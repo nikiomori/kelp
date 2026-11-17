@@ -1,8 +1,8 @@
 import AppKit
 import DesignKit
 
-/// The list of what can go in at the cursor: a panel under it that never takes the keys, with a selected item's documentation
-/// beside it. The text view sends it ↑ ↓ ↩ ⇥ and Esc while it's open.
+/// The list of what can go in at the cursor: a panel under it that never takes the keys, with the selected item's
+/// documentation beside it. The text view sends it ↑ ↓ ↩ ⇥ and Esc while it's open.
 @MainActor
 final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     private static let width: CGFloat = 380, docWidth: CGFloat = 280, mostRows = 9
@@ -49,7 +49,7 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         docCard.widthAnchor.constraint(equalToConstant: Self.docWidth).isActive = true
     }
 
-    /// Under `caret` (in screen coordinates), or over it when the screen ends first.
+    /// Shows the list under `caret` (in screen coordinates), or over it when the screen ends first.
     func show(_ items: [CodeEditor.Completion], at caret: NSRect, in parent: NSWindow?) {
         self.items = items
         table.reloadData()

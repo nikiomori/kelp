@@ -3,8 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Source Control, modeled on VS Code's: branch and sync up top, the commit message, merge / staged / unstaged
-/// changes (click → diff), and the history graph. All git work happens in the daemon; this only lays out the answers.
+/// Source Control, modeled on VS Code's: branch and sync up top, the commit message, the merge, staged and unstaged
+/// changes (a click shows the diff), and the history graph. All git work happens in the daemon; this only lays out
+/// the answers.
 @MainActor
 final class SourceControlController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate {
     let app: AppModel
@@ -17,12 +18,12 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         case merge = "Merge Changes", staged = "Staged Changes", changes = "Changes", graph = "Graph"
     }
 
-    /// A row, kept across rebuilds by its key (a section, a path, a hash): the outline keeps its place and its cell.
+    /// A row, kept across rebuilds by its key (a section, a path, a hash), so the outline keeps its place and its cell.
     final class Node: NSObject {
         enum Kind {
             case section(Section), file(FileChange, Section), commit(Int), commitFile(String, FileChange), note(String)
         }
-        /// What a file's or a commit's row shows; a rebuild draws again only the rows whose look changed.
+        /// What a file's or a commit's row shows. A rebuild draws again only the rows whose look changed.
         enum Look: Equatable {
             case file(FileChange, shared: [String], commit: Int?)
             case commit(GraphCommit, head: Bool, pushed: Bool?, lands: Double?, arrives: Double?)
@@ -36,8 +37,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     }
     /// The rows of the last rebuild, by key (`Node`).
     var changeNodes: [String: Node] = [:], graphNodes: [String: Node] = [:]
-    /// What each workspace showed when another one came on screen: switching back shows it at once, and git is read
-    /// again only where the status the daemon pushes says it changed (`apply`). `info` is what its graph was read for.
+    /// What each workspace showed when another one came on screen. Switching back shows it at once, and git is read
+    /// again only where the status the daemon pushes says it changed (`apply`). `info` is what the graph was read for.
     var seen: [String: Seen] = [:]
     struct Seen {
         var changes: [FileChange], info: BranchInfo?, commits: [GraphCommit], unpushed: Set<String>, more: Bool,
@@ -50,17 +51,18 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     let graphOutline = NSOutlineView()
     let graphBar = GraphBar()
     var graphHeight: NSLayoutConstraint?, graphClosed: NSLayoutConstraint?, barHeight: NSLayoutConstraint?
-    /// Never dragged, the changes are as tall as their rows, up to half the panel, and the open graph follows right under
-    /// them (a gap there looked like something still loading); they keep at least their rows' height up to 80 pt.
+    /// Until the user drags the divider, the changes are as tall as their rows, up to half the panel, and the open
+    /// graph follows right under them, because a gap there looked like something still loading. The changes keep at
+    /// least their rows' height, up to 80 pt.
     var changesHug: NSLayoutConstraint?, changesCap: NSLayoutConstraint?, changesRoom: NSLayoutConstraint?
-    let branchButton = BranchChip()   // greys in under the pointer, as the window bar's branch chip
+    let branchButton = BranchChip()   // greys in under the pointer, as the window bar's branch chip does
     lazy var bar = SourceControlBar(self)
     let message = CommitTextView()
     let placeholder = NSTextField(labelWithString: "")
     var messageField: NSView?, messageScroll: NSView?
     private var messageHeight: NSLayoutConstraint?
     var commitButton: SplitPushButton?
-    /// Beside Commit: its other ways (Commit & Push, Amend), or Push / Pull while it offers to sync.
+    /// The menus beside Commit: its other ways (Commit & Push, Amend), or Push / Pull while it offers to sync.
     private let commitMenu = NSMenu(), syncMenu = NSMenu(), planMenu = NSMenu()
     private var moreMenu: NSMenu?
     private var pullItem: NSMenuItem?
@@ -71,35 +73,36 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
 
     var worktreeId: String?
     var changes: [FileChange] = []
-    /// Its files another folder of the project changes too, with their branches.
+    /// The files that another folder of the project changes too, with that folder's branches.
     var shared: [String: [String]] = [:]
     var info: BranchInfo?
     var commits: [GraphCommit] = []
     var unpushed = Set<String>()
-    /// Commits that just reached the remote, and when each one lands: oldest first, as they left.
+    /// Commits that just reached the remote, and when each one lands, oldest first as they left.
     var landing: [String: Double] = [:]
-    /// Commits just made or pulled: they come into the graph one after another (hash: when).
+    /// Commits just made or pulled, which come into the graph one after another (hash: when).
     var arriving: [String: Double] = [:]
-    /// What the panel's button says it just did, for a moment after.
+    /// What the panel's button says it just did, for a moment afterwards.
     var confirmed: String?
-    /// Which `finish` is on show: a later one, or new work, takes over its moment.
+    /// Counts the calls to `finish`, so a later one, or new work, takes over the moment of the one on show.
     var finishes = 0
-    /// A commit went through: the list of changes fades to what's left rather than switching.
+    /// True after a commit went through, so the list of changes fades to what's left rather than switching.
     var clearing = false
-    /// Files were staged, unstaged or discarded: the rows travel to their places when the status shows it (the shape then).
+    /// Files that were staged, unstaged or discarded. Their rows travel to their places when the status shows the
+    /// change (the shape then).
     var staging: Set<String>?
-    /// How many actions that stay here (stage, commit) run, by workspace: one outlives a switch to another one, and ends
-    /// on its own. A pull, push or fetch is `SyncState`'s.
+    /// How many actions that stay here (stage, commit) run, by workspace. An action outlives a switch to another
+    /// workspace and ends on its own. A pull, push or fetch belongs to `SyncState`.
     var work: [String: Int] = [:]
     /// Commit messages being written in the workspaces not on screen.
     var drafts: [String: String] = [:]
-    /// An agent writing the commit, by workspace (AgentCommit.swift); the commits it proposed; the words it left.
+    /// By workspace: the agent writing the commit (AgentCommit.swift), the commits it proposed, and the words it left.
     var agentCommits: [String: AgentCommit] = [:]
     var plans: [String: CommitPlan] = [:]
     var notes: [String: AgentNote] = [:]
     lazy var agentUI = AgentCommitControls(self)
-    /// The pull, push or fetch running on the branch, whoever started it: what the button says, and whether the ↑ and ↓
-    /// arrows pulse.
+    /// The pull, push or fetch running on the branch, whoever started it: what the button says, and whether the ↑ and
+    /// ↓ arrows pulse.
     var syncing: (title: String, push: Bool, pull: Bool)? {
         worktreeId.flatMap { GitSync.state(app).running[$0] }.map { ($0.title, $0.op == .push, $0.op == .pull) }
     }
@@ -107,8 +110,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var more = false, limit = 200, loadingMore = false
     var commitFiles: [String: [FileChange]] = [:]
     var openCommits = Set<String>()
-    /// The card for the commit under the pointer, with the daemon's details (read quietly: without them it shows what
-    /// the row has).
+    /// The card for the commit under the pointer, with the daemon's details. They are read quietly, and without them
+    /// the card shows what the row has.
     lazy var card: CommitCard = {
         let commitCard = CommitCard()
         commitCard.load = { [weak self] hash in
@@ -124,19 +127,20 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         return commitCard
     }()
     var collapsed = Set(UserDefaults.standard.stringArray(forKey: "scm.collapsed") ?? [])
-    /// The section a click just folded or opened: its rebuilt cell's chevron turns.
+    /// The section a click just folded or opened, so the chevron in its rebuilt cell turns.
     var turning: Section?
     var roots: [Node] = []
     var graphRoots: [Node] = []
-    /// The workspace's git and its branch's CI, watched while the panel is on screen (the daemon pushes changes).
+    /// The workspace's git status and its branch's CI, watched while the panel is on screen (the daemon pushes
+    /// changes).
     lazy var gitWatch = Watched(.git, in: app)
     lazy var ciWatch = Watched(.ci, in: app)
-    /// What git said while the panel was hidden: applied when it shows (`apply`).
+    /// Holds what git said while the panel was hidden, and applies it when the panel shows (`apply`).
     lazy var whenShown = WhenShown(view)
     let stats = NSTextField(labelWithString: "")
     let ciRow = CIStatusRow()
     var ciRuns: [CIRuns.Run] = []
-    /// Where each failed run broke ("job › step"), read once: a finished run doesn't change.
+    /// Where each failed run broke ("job › step"), read once, because a finished run doesn't change.
     var ciFailures: [Int: String] = [:]
 
     // MARK: view
@@ -167,20 +171,20 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             x.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(x)
         }
-        // Open, the graph is the height it was dragged to. Under windowSizeStayPut: it never stretches the window.
+        // When open, the graph is the height it was dragged to. Under windowSizeStayPut it never stretches the window.
         let gh = graphScroll.heightAnchor.constraint(equalToConstant: 260)
         gh.priority = .init(495)
         graphHeight = gh
         changesHug = scroll.heightAnchor.constraint(equalToConstant: 0)
         changesHug?.priority = .init(495)
         changesCap = scroll.heightAnchor.constraint(lessThanOrEqualTo: root.heightAnchor, multiplier: 0.5)
-        changesCap?.priority = .init(750)   // under the 80 pt the changes keep
+        changesCap?.priority = .init(750)   // weaker than the 80 pt the changes keep
         graphClosed = graphScroll.heightAnchor.constraint(equalToConstant: 0)
         graphClosed?.priority = .defaultHigh
         let bh = graphBar.heightAnchor.constraint(equalToConstant: 0)
         barHeight = bh
         let room = scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 80)
-        room.priority = .init(760)   // the graph gives way first
+        room.priority = .init(760)   // the changes keep 80 pt, so the graph shrinks first
         changesRoom = room
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: root.topAnchor),
@@ -192,7 +196,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             sep.topAnchor.constraint(equalTo: box.bottomAnchor, constant: 10),
             sep.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             sep.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            sep.heightAnchor.constraint(equalToConstant: 1),   // unset, a rebuilt panel's layout can stretch it tall (and vertical)
+            // Unset, a rebuilt panel's layout can stretch the line tall (and vertical).
+            sep.heightAnchor.constraint(equalToConstant: 1),
             scroll.topAnchor.constraint(equalTo: sep.bottomAnchor),
             scroll.bottomAnchor.constraint(equalTo: graphBar.topAnchor), room,
             scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
@@ -206,7 +211,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         ])
         empty.place(in: root, under: header)
         view = root
-        updateHeader()   // NSButton's own "Button" title must not show while the branch loads
+        updateHeader()   // so NSButton's own "Button" title doesn't show while the branch loads
         if app.workbench.workspaceId == nil { showNoProject(true) }
         followAgentCommits()
         track(owner: self) { [app] in
@@ -233,7 +238,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         track(owner: self, now: false) { [weak self] in
             self?.gitKey
         } changed: { [weak self] _ in
-            self?.followWatches()   // its folder's workspace went: the watch follows the one it shares now
+            self?.followWatches()   // the folder's workspace went, so the watch follows the one it shares now
         }
         track(owner: self, now: false) { [weak self, app] in
             self?.worktreeId.flatMap { GitSync.state(app).running[$0] }
@@ -249,7 +254,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         }
     }
 
-    /// A list in the panel: one column, no header, rows drawn by the cells.
+    /// Makes a list for the panel: one column, no header, and rows drawn by the cells.
     private func list(_ outline: NSOutlineView) -> NSScrollView {
         let scrollView = outline.plainList("scm")
         scrollView.autohidesScrollers = true
@@ -267,7 +272,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         return scrollView
     }
 
-    /// The message field (grows to six lines) and Commit with its split menu.
+    /// The message field (it grows to six lines) and Commit with its split menu.
     private func commitBox() -> NSView {
         message.isRichText = false
         message.font = .ui(TextSize.body)
@@ -288,7 +293,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         placeholder.textColor = .placeholderTextColor
         placeholder.font = .ui(TextSize.body)
         placeholder.lineBreakMode = .byTruncatingTail
-        placeholder.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)   // a long branch name truncates, not widens the panel
+        // A long branch name truncates rather than widening the panel.
+        placeholder.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let field = FieldBox()
         field.wantsLayer = true
         messageField = field
@@ -299,8 +305,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             self?.remote([.push], done: String(localized: "Pushed"))
         }
         pullItem = syncMenu.add(String(localized: "Pull")) { [weak self] in self?.pullPressed() }
-        // The panel's main action: the accent colour while there's something to commit (macOS 26's primary tint).
-        // Words alone, as macOS's push buttons: a ✓ or an arrow before them only crowded the title.
+        // The panel's main action, in the accent colour while there's something to commit (macOS 26's primary tint).
+        // It has words alone, as macOS's push buttons do, because a ✓ or an arrow before them only crowded the title.
         let cb = SplitPushButton(
             title: String(localized: "Commit"), arrowTip: String(localized: "Commit & Push, Amend…"))
         cb.target = self
@@ -317,7 +323,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         stack.orientation = .vertical
         stack.spacing = 8
         stack.setCustomSpacing(4, after: field)   // the words under the field belong to it
-        stack.setCustomSpacing(6, after: buttons)   // a hidden CI line takes no room
+        stack.setCustomSpacing(6, after: buttons)   // so a hidden CI line takes no room
         let box = NSView()
         for x in [messageScroll, placeholder, ui.corner, ui.work] as [NSView] {
             x.translatesAutoresizingMaskIntoConstraints = false
@@ -327,7 +333,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         box.addSubview(stack)
         let heightConstraint = messageScroll.heightAnchor.constraint(equalToConstant: 30)
         messageHeight = heightConstraint
-        // The agent's logo and chevron sit in the field's top corner; while it reads, its line takes the text's place.
+        // The agent's logo and chevron sit in the field's top corner. While the agent reads, its line takes the
+        // text's place.
         NSLayoutConstraint.activate([
             messageScroll.topAnchor.constraint(equalTo: field.topAnchor, constant: 1),
             messageScroll.bottomAnchor.constraint(equalTo: field.bottomAnchor, constant: -1),
@@ -366,7 +373,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     }
 
     func updateCommitButton() {
-        placeholder.stringValue = String(localized: "Message")   // ⌘↩ and what a commit takes are in Commit's tooltip
+        placeholder.stringValue = String(localized: "Message")   // ⌘↩ and what a commit takes are in the tooltip
         guard let cb = commitButton else { return }
         let plan = worktreeId.flatMap { plans[$0] }
         let next = changes.isEmpty && plan == nil ? nextStep : nil
@@ -390,11 +397,13 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             plan != nil
             ? String(localized: "Make the commits one by one, each with only its files (⌘↩ in a card)")
             : next == nil ? what : info?.upstream.map { String(localized: "Pull from and push to \($0)") }
-        // Saying what it's doing or did, it reads as lit, not switched off, and does nothing when pressed.
+        // While the button says what it's doing or did, it reads as lit, not switched off, and does nothing when
+        // pressed.
         let saying = syncing != nil || confirmed != nil
         if saying { cb.action = nil }
-        cb.isEnabled = saying || (!busy && (!changes.isEmpty || next != nil))   // with no message, Commit opens a page to write one
-        // The agent's words are coming: what to commit isn't written yet.
+        // With no message, Commit opens a page to write one.
+        cb.isEnabled = saying || (!busy && (!changes.isEmpty || next != nil))
+        // While an agent is still writing the commit, there is nothing to commit yet, so the button is off.
         if worktreeId.map({ agentCommits[$0] != nil }) == true { cb.isEnabled = false }
         cb.arrow.isEnabled = !saying && cb.isEnabled
         bar.update(info, changes: changes.count, busy: busy)
@@ -418,14 +427,14 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         planMenu.add(String(localized: "Discard Plan")) { [weak self] in self?.discardPlan() }
     }
 
-    /// With nothing to commit, the button offers what's left, as in VS Code: sync the commits the remote doesn't
-    /// have yet (or pull the ones it has), or publish a branch with no upstream.
+    /// With nothing to commit, the button offers what's left, as in VS Code: sync the commits the remote doesn't have
+    /// yet (or pull the ones it has), or publish a branch with no upstream.
     private var nextStep: String? {
         guard let info, info.current != nil else { return nil }
         guard info.upstream != nil else { return info.remote.isEmpty ? nil : String(localized: "Publish Branch") }
         let ahead = info.ahead ?? 0, behind = info.behind ?? 0
         guard ahead + behind > 0 else { return nil }
-        // The arrow before the count, as the title bar's chip and the header write it: ↓2 ↑56.
+        // The arrows go before the counts, as the title bar's chip and the header write them: ↓2 ↑56.
         return String(localized: "Sync Changes") + (behind > 0 ? " ↓\(behind)" : "") + (ahead > 0 ? " ↑\(ahead)" : "")
     }
 }

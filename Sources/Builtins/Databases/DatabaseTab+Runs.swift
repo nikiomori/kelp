@@ -1,4 +1,4 @@
-// A database tab's runs and its agent: the query runs it shows, the question an agent's change asks, the foot.
+// A database tab's runs and its agent: the runs it shows, the question an agent's change asks, and the foot.
 import AppKit
 import Core
 import DesignKit
@@ -21,11 +21,11 @@ extension DatabaseTab {
             result = read.value ?? nil
         grid.editable = false
         grid.source = nil
-        if let parts = result?.statements {   // several run as one: a line each, with the rows it changed
+        if let parts = result?.statements {   // several statements ran as one: a line each, with the rows it changed
             grid.show(
                 columns: [String(localized: "statement"), String(localized: "rows changed")],
                 rows: parts.map { [$0.sql, $0.changed.map(String.init)] })
-            grid.table.tableColumns.dropFirst().first.map(grid.sizeToFit)   // the statement, as much as fits
+            grid.table.tableColumns.dropFirst().first.map(grid.sizeToFit)   // fits as much of the statement as it can
         } else {
             grid.show(columns: result?.columns ?? [], rows: result?.rows ?? [])
             grid.show(change: result?.change, changed: result?.changedColumns ?? [])
@@ -34,7 +34,7 @@ extension DatabaseTab {
             empty.showError(Self.stateTitle(record?.state ?? .failed), text: error)
         } else if result?.statements != nil {
             empty.show(nil)
-        } else if let error = read.error {   // not read: that isn't "not kept"
+        } else if let error = read.error {   // a failed read doesn't mean the rows weren't kept
             empty.showError(String(localized: "Can't read \(address.name)"), text: error)
         } else if result == nil {
             empty.show(
@@ -60,13 +60,13 @@ extension DatabaseTab {
         }
     }
 
-    /// "1 row", "200 rows", "3 rows changed": the plural right.
+    /// "1 row", "200 rows", "3 rows changed", with the plural right.
     static func rows(_ n: Int, changed: Bool = false) -> String {
         let count = n == 1 ? String(localized: "1 row") : String(localized: "\(n.formatted()) rows")
         return changed ? count + " " + String(localized: "changed") : count
     }
 
-    /// "84 ms", "1.5 s": how long a read took.
+    /// How long a read took: "84 ms", "1.5 s".
     nonisolated static func took(_ ms: Int) -> String {
         ms < 1000 ? "\(ms) ms" : (Double(ms) / 1000).formatted(.number.precision(.fractionLength(1))) + " s"
     }
@@ -83,8 +83,8 @@ extension DatabaseTab {
         }
     }
 
-    /// The runs of this database changed: the bar follows the one that asks, a run shown takes its new state, the
-    /// list and the details their latest.
+    /// Called when this database's runs changed. The bar follows the run that asks, a run on screen takes its new
+    /// state, and the list and the details show their latest.
     func runsChanged() {
         let runs = app.latest(DatabasesEvent.self, address.worktree)?.runs.filter { $0.database == address.name } ?? []
         let was = asking
@@ -99,7 +99,7 @@ extension DatabaseTab {
             askText.toolTip = asking.sql
         }
         if case .run(let id) = mode, was?.id == id, asking?.id != id { Task { await showRun(id) } }
-        // An agent's runs and any change: the tab's own reads of a page aren't history.
+        // History lists an agent's runs and any change; the tab's own reads of a page aren't history.
         sidebar.runs = runs.filter { $0.session != nil || $0.changed != nil }
         detailsChanged()
         capsuleChanged()
@@ -125,7 +125,8 @@ extension DatabaseTab {
         Task { await leave(to: .query) }
     }
 
-    /// The user's statement, as theirs: a change runs without a question. Its error shows where the rows would.
+    /// Runs the user's statement as the user's own, so a change runs without a question. Its error shows where the
+    /// rows would.
     func query(_ sql: String, limit: Int = ResultGrid.shown) async -> QueryResult? {
         let (result, error) = await app.tryCall(
             DatabaseQuery(worktreeId: address.worktree, database: address.name, sql: sql, limit: limit))
@@ -138,8 +139,8 @@ extension DatabaseTab {
         return result
     }
 
-    /// Under a statement the database refused: Ask <agent>, which puts the statement and what the database said in
-    /// the agent's prompt. None without an agent to ask.
+    /// The buttons under a statement the database refused: Ask <agent>, which puts the statement and what the
+    /// database said in the agent's prompt. There are none when there is no agent to ask.
     private func askAbout(_ sql: String, said error: String) -> [NSButton] {
         guard let agent = agentToAsk else { return [] }
         let ask = ClosureButton(title: String(localized: "Ask \(app.catalog.name(agent.agent))")) { [weak self] in
@@ -165,7 +166,7 @@ extension DatabaseTab {
         }
     }
 
-    /// A table in this tab (it replaces the one shown), or in a tab of its own.
+    /// Opens a table in this tab, in place of the one shown, or in a tab of its own.
     func openTable(_ name: String, pin: Bool) {
         if pin {
             app.workbench.open(DatabaseURI(worktree: address.worktree, name: address.name, table: name).uri)
@@ -184,7 +185,7 @@ extension DatabaseTab {
         for v in [save, discard, showSQL] { v.isHidden = edits == 0 }
         let picked = grid.selectedRows.count, agent = agentToAsk
         ask.isHidden = picked == 0 || agent == nil || edits > 0 || mode == .query
-        if let agent {   // short: the count is the selection on screen, and in the tooltip
+        if let agent {   // the title stays short; the count is the selection on screen, and in the tooltip
             let name = app.catalog.name(agent.agent)
             ask.title = String(localized: "Ask \(name)")
             ask.image = app.catalog.icon(agent.agent, size: 14)

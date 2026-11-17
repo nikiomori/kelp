@@ -28,7 +28,7 @@ extension SyncPopover {
         result = nil
         Task {
             let error = await GitSync.run(app, wid, ops)
-            listKey = ""   // the lists and the fetch time are read again, even when no count moved
+            listKey = ""   // reads the lists and the fetch time again, even when no count moved
             if let error {
                 failed(error, ops: ops)
             } else if ops.contains(.push) {
@@ -49,7 +49,8 @@ extension SyncPopover {
         }
     }
 
-    /// A pull that stopped on conflicts is work for the agent (and for Source Control); anything else says why, here.
+    /// A pull that stopped on conflicts is work for the agent (and for Source Control). Any other failure says why,
+    /// here.
     private func failed(_ error: String, ops: [GitRemoteOp.Step]) {
         guard ops.contains(.pull), error.lowercased().contains("conflict") else {
             result = (Self.summary(error), true, GitSync.isRejected(error))
@@ -62,7 +63,7 @@ extension SyncPopover {
         app.workbench.showPanel("git.changes")
     }
 
-    /// Git's message in a few lines: the pieces of a long push or pull report that say why.
+    /// Git's message cut to a few lines: the pieces of a long push or pull report that say why.
     private static func summary(_ error: String) -> String {
         if GitSync.isRejected(error) {
             return String(localized: "Push rejected: the remote has commits this branch doesn't. Pull first.")
@@ -77,7 +78,7 @@ extension SyncPopover {
 
     @objc func commitPressed() { commitAll(thenPush: false) }
 
-    /// ⌘⏎ in the field: commit, then push (or publish) what's now ahead.
+    /// ⌘⏎ in the field commits, then pushes (or publishes) what's now ahead.
     private func commitAll(thenPush: Bool) {
         let text = message.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard commit.isEnabled, !text.isEmpty else { return }
@@ -89,7 +90,8 @@ extension SyncPopover {
                 app.watchAgain(.git, folder)
                 update()
             }
-            // Source Control's commit, the one way to commit: what's staged, else every change; a failure offers a fix.
+            // This is Source Control's commit, the one way to commit: what's staged, else every change. A failure
+            // offers a fix.
             guard await GitCommit.run(app, wid, message: text, push: false, amend: false).committed else { return }
             message.stringValue = ""
             if thenPush {
@@ -99,7 +101,7 @@ extension SyncPopover {
         }
     }
 
-    /// The local branches to switch to, and a new one; the remote ones are in Source Control.
+    /// The menu of local branches to switch to, and a new one. The remote branches are in Source Control.
     @objc func switchMenu() {
         guard let info = app.latest(GitEvent.self, folder)?.branches else { return }
         let menu = NSMenu(), wid = wid
@@ -121,7 +123,7 @@ extension SyncPopover {
     private func switchBranch(_ request: GitSwitch) {
         Task {
             await app.call(request)
-            app.watchAgain(.git, folder)   // the chip now, not on the next file event
+            app.watchAgain(.git, folder)   // updates the chip now, not on the next file event
         }
     }
 }

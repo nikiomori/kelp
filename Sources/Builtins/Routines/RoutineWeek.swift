@@ -1,8 +1,8 @@
 import Core
 import Foundation
 
-/// The week on the Routines tab: a column a day, a mark a run. What ran comes from the runs; what will, from the schedule
-/// (`Routine.next`, the function the daemon plans with).
+/// The week on the Routines tab: a column per day, and a mark per run. What ran comes from the runs, and what will run
+/// comes from the schedule (`Routine.next`, the function the daemon plans with).
 struct RoutineWeek {
     struct Mark: Identifiable, Equatable {
         enum Kind: Equatable { case run(Routine.Run.Outcome), next, planned }
@@ -22,7 +22,7 @@ struct RoutineWeek {
 
     func isToday(_ day: Date) -> Bool { calendar.isDate(day, inSameDayAs: now) }
 
-    /// The routine's runs that were due on `day`, then, from now on, when it's due (the very next time: `next`).
+    /// The routine's runs that were due on `day`, then, from now on, when it's due (the very next time is `next`).
     func marks(_ routine: Routine, runs: [Routine.Run], day: Date) -> [Mark] {
         guard let end = calendar.date(byAdding: .day, value: 1, to: day) else { return [] }
         var out = runs.filter { $0.routineId == routine.id && $0.due >= day && $0.due < end }.sorted { $0.due < $1.due }
@@ -53,7 +53,7 @@ struct RoutineWeek {
         }
     }
 
-    /// 540 → "9:00" in the person's clock (13:30 or 1:30 PM).
+    /// 540 → "9:00", in the person's clock (13:30 or 1:30 PM).
     static func time(_ minutes: Int) -> String {
         RepeatFields.date(minutes).formatted(date: .omitted, time: .shortened)
     }

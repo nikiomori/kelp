@@ -33,7 +33,8 @@ extension SyncPopover {
         fit()
     }
 
-    /// The words' size and the popover's edges around them (its shadow margin and the arrow), known once it's shown.
+    /// Sizes the popover from its words and its edges around them (the shadow margin and the arrow), known once it's
+    /// shown.
     private func fit() {
         let size = root.fittingSize, edges = view.safeAreaInsets
         let wanted = NSSize(
@@ -66,14 +67,15 @@ extension SyncPopover {
         }
     }
 
-    /// "fetched 4m ago": how old the counts may be.
+    /// "fetched 4m ago", which says how old the counts may be.
     private static func fetched(_ date: Date) -> String {
         let ago = shortAgo(date)
         return ago == String(localized: "now")
             ? String(localized: "fetched just now") : String(localized: "fetched \(ago) ago")
     }
 
-    /// The one sync that matters now, full width; none when there's nothing to move. A rejected push turns it into the fix.
+    /// The one sync that matters now, full width; none when there's nothing to move. A rejected push turns it into
+    /// the fix.
     private func showPrimary(ahead: Int, behind: Int, published: Bool, possible: Bool, running: String?) {
         let (title, ops) = Self.action(
             ahead: ahead, behind: behind, published: published, rejected: result?.rejected == true)
@@ -123,7 +125,8 @@ extension SyncPopover {
         status.isHidden = note.isHidden
     }
 
-    /// The commits behind the counts, read again when the head, the upstream or a count moves (a fetch, a commit, a push).
+    /// The commits behind the counts, read again when the head, the upstream or a count moves (a fetch, a commit, a
+    /// push).
     private func loadLists(_ info: BranchInfo?) {
         guard let branch = info else { return }
         let key = "\(branch.head ?? "")|\(branch.upstream ?? "")|\(branch.ahead ?? -1)|\(branch.behind ?? -1)"
@@ -142,8 +145,8 @@ extension SyncPopover {
         outgoing.isHidden = ahead == 0
         incoming.isHidden = behind == 0
 
-        // The button above says what the commits are: a caption only where two lists, or a first push, need telling
-        // apart.
+        // The button above says what the commits are, so there is a caption only where two lists, or a first push,
+        // need telling apart.
         let title = published ? String(localized: "To push") : String(localized: "To publish")
         let named = !published || behind > 0
         let mine = cut(out, of: ahead)
@@ -169,9 +172,9 @@ extension SyncPopover {
         incoming.setViews([toggle] + rows, in: .top)
     }
 
-    /// The newest run of each workflow (CI and deploys apart), as CI Runs marks them, under the standing line: it is
-    /// the remote's state. No caption: the mark and the workflow's name say it. A row opens CI Runs, which has the
-    /// logs and Re-run. Settings › Appearance › CI can leave it out.
+    /// The newest run of each workflow (CI and deploys apart), marked as CI Runs marks them, under the standing line,
+    /// because it is the remote's state. There's no caption, because the mark and the workflow's name say it. A row
+    /// opens CI Runs, which has the logs and Re-run. Settings › Appearance › CI can leave it out.
     private func showCI() {
         let runs =
             !app.settings[SettingKeys.ciPopover]
@@ -211,10 +214,11 @@ extension SyncPopover {
         return field
     }
 
-    /// "11m", as the sidebar and the graph write how long ago (the relative formatter's short style wrote "−11 мин" in Russian).
+    /// "11m", as the sidebar and the graph write how long ago. The relative formatter's short style wrote "−11 мин"
+    /// in Russian.
     private func when(_ commit: Unsynced.Commit) -> String { shortAgo(Date(timeIntervalSince1970: commit.date)) }
 
-    /// All of them when they fit in `shown` rows; past that one row fewer, so "and N more" counts at least two.
+    /// All the commits when they fit in `shown` rows; past that, one row fewer, so "and N more" counts at least two.
     private func cut(_ commits: [Unsynced.Commit], of count: Int) -> [Unsynced.Commit] {
         Array(commits.prefix(count > Self.shown ? Self.shown - 1 : Self.shown))
     }
@@ -232,7 +236,7 @@ extension SyncPopover {
         return line
     }
 
-    /// The first few changed files, as Source Control lists them: the letter, the folder in grey, the name.
+    /// The first few changed files, as Source Control lists them: the letter, the folder in grey, and the name.
     private func showFiles(_ list: [FileChange]) {
         let shown = list.prefix(list.count > 3 ? 2 : 3).map { file -> NSView in
             let code = file.letter(inWorktree: file.unstaged || file.untracked)

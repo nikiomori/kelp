@@ -1,8 +1,9 @@
 import AppKit
 
-/// What a panel or a tab shows instead of a list that has nothing, or couldn't load: one block in the middle of the
-/// room under its bar, lifted 40 pt — an icon (28 pt at the chrome's weight, tertiary), a title, a line of what to do, a command that
-/// fixes it (selectable, monospaced) and at most a button or two. An error is the same block with a warning triangle.
+/// What a panel or a tab shows instead of a list that has nothing, or couldn't load. It is one block in the middle of
+/// the room under its bar, lifted 40 pt: an icon (28 pt at the chrome's weight, tertiary), a title, a line of what to
+/// do, a command that fixes it (selectable, monospaced), and at most a button or two. An error is the same block with
+/// a warning triangle.
 @MainActor
 public final class EmptyStateView: NSView {
     private let icon = NSImageView()
@@ -11,7 +12,7 @@ public final class EmptyStateView: NSView {
     private let fix = NSTextField(wrappingLabelWithString: "")
     private let buttons = NSStackView()
     private let stack = NSStackView()
-    /// It has something to say (it may still be fading out when it hasn't).
+    /// Whether the view has something to say (it may still be fading out when it hasn't).
     public private(set) var showing = false
 
     public init() {
@@ -26,14 +27,15 @@ public final class EmptyStateView: NSView {
         fix.isSelectable = true
         for label in [title, text, fix] { label.alignment = .center }
         buttons.spacing = Metrics.gapWide
-        buttons.setHuggingPriority(.defaultHigh, for: .horizontal)   // as wide as its buttons: centred
+        buttons.setHuggingPriority(.defaultHigh, for: .horizontal)   // as wide as its buttons, so they're centred
         stack.setViews([icon, title, text, fix, buttons], in: .center)
         stack.orientation = .vertical
         stack.spacing = Metrics.gapWide
         stack.setCustomSpacing(Metrics.gap, after: title)   // a title and its line read as one
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
-        // Lifted over the middle while there's room; in a short area it slides down rather than past the top.
+        // The block is lifted over the middle while there's room; in a short area it slides down rather than past the
+        // top.
         let lifted = stack.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -Metrics.emptyLift)
         lifted.priority = .defaultHigh
         NSLayoutConstraint.activate([
@@ -49,7 +51,7 @@ public final class EmptyStateView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Away as the list comes back under it: faded, not cut.
+    /// Goes away as the list comes back under it, faded rather than cut.
     private func leave() {
         guard showing else { return }
         showing = false
@@ -60,7 +62,7 @@ public final class EmptyStateView: NSView {
             animator().alphaValue = 0
         } completionHandler: { [weak self] in
             MainActor.assumeIsolated {   // AppKit runs it on the main thread
-                guard let self, !self.showing else { return }   // shown again meanwhile
+                guard let self, !self.showing else { return }   // unless it was shown again meanwhile
                 self.isHidden = true
                 self.alphaValue = 1
             }
@@ -73,15 +75,15 @@ public final class EmptyStateView: NSView {
     ) {
         guard let title else { return leave() }
         if isHidden || !showing {
-            fadeIn()   // in rather than flashing up over the list it replaces, or back from going
+            fadeIn()   // fades in rather than flashing up over the list it replaces, or comes back from going
         } else if self.title.stringValue != title, window != nil {
-            crossfade()   // one state into the next ("No Changes" into an error)
+            crossfade()   // from one state into the next ("No Changes" into an error)
         }
         showing = true
         self.title.stringValue = title
         self.text.stringValue = text ?? ""
         self.fix.stringValue = fix ?? ""
-        // Kelp's own drawing where it has one (the checklist, CI's check), as the panel's icon is.
+        // Kelp's own drawing where it has one (the checklist, CI's check), as the panel's icon does.
         icon.image = symbol.flatMap {
             Glyph.image($0, size: Metrics.iconEmpty + 4) ?? NSImage(systemSymbolName: $0, accessibilityDescription: nil)
         }
@@ -96,7 +98,7 @@ public final class EmptyStateView: NSView {
         self.buttons.isHidden = buttons.isEmpty
     }
 
-    /// An error in the same place: what failed, what to do, the command that fixes it.
+    /// Shows an error in the same place: what failed, what to do, and the command that fixes it.
     public func showError(_ title: String, text: String?, fix: String? = nil, buttons: [NSButton] = []) {
         show(title, symbol: "exclamationmark.triangle", text: text, fix: fix, buttons: buttons)
     }
@@ -105,7 +107,8 @@ public final class EmptyStateView: NSView {
     public func place(in area: NSView, under top: NSView? = nil) { pin(in: area, under: top) }
 
     /// The same block as a web page, for a web view that has nothing to show (a page that didn't load, a notebook that
-    /// can't be read): the title and a line under it, centred and lifted as the view is. Plain text; it's escaped here.
+    /// can't be read): the title and a line under it, centred and lifted as the view is. The text is plain, and it's
+    /// escaped here.
     public static func html(_ title: String, text: String) -> String {
         let esc = { (raw: String) in
             raw.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
@@ -117,7 +120,7 @@ public final class EmptyStateView: NSView {
             + "<div style='font-weight:600;color:-apple-system-label;margin-bottom:\(Int(Metrics.gap))px'>\(esc(title))</div>\(esc(text))</div></body></html>"
     }
 
-    /// Clicks go through where the block has nothing (the list under a hidden or transparent spot).
+    /// Clicks go through where the block has nothing (to the list under a hidden or transparent spot).
     override public func hitTest(_ point: NSPoint) -> NSView? {
         let hit = super.hitTest(point)
         return hit === self ? nil : hit

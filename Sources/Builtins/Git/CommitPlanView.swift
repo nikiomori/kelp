@@ -2,15 +2,16 @@ import AppKit
 import DesignKit
 import KelpKit
 
-/// The plan over the Commit button: who wrote it with Ask Again and Discard, then a card per commit, its message edited
-/// in place as the Message field's is, its files named under it, ✕ to drop it (its files stay uncommitted).
+/// The plan over the Commit button. It names who wrote it, with Ask Again and Discard, then has a card per commit. A
+/// card's message is edited in place as the Message field's is, its files are named under it, and ✕ drops the commit
+/// (its files stay uncommitted).
 @MainActor
 final class CommitPlanView: NSStackView {
     var onEdit: ((Int, String) -> Void)?
     var onRemove: ((Int) -> Void)?
     var onAskAgain: (() -> Void)?
     var onDiscard: (() -> Void)?
-    /// ⌘↩ in a card: every commit of the plan.
+    /// Called for ⌘↩ in a card, which makes every commit of the plan.
     var onCommit: (() -> Void)?
     private let logo = NSImageView()
     private let title = NSTextField(labelWithString: "")
@@ -55,7 +56,7 @@ final class CommitPlanView: NSStackView {
     }
 }
 
-/// One commit of the plan: its number, its message (editable), and its files.
+/// The card of one commit of the plan: its number, its message (editable), and its files.
 @MainActor
 private final class PlanCard: FieldBox {
     var onEdit: ((String) -> Void)?
@@ -79,7 +80,8 @@ private final class PlanCard: FieldBox {
         text.allowsUndo = true
         text.isAutomaticQuoteSubstitutionEnabled = false
         text.isAutomaticDashSubstitutionEnabled = false
-        // Sized by the card's constraints, not by itself: no scroll view, the card grows with the message instead.
+        // The text is sized by the card's constraints, not by itself. There is no scroll view; the card grows with the
+        // message instead.
         text.isVerticallyResizable = false
         text.isHorizontallyResizable = false
         text.textContainer?.widthTracksTextView = true
@@ -121,13 +123,13 @@ private final class PlanCard: FieldBox {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// "3 files: Package.swift, PRWork.swift, …": the names say more than a count in a panel this narrow.
+    /// "3 files: Package.swift, PRWork.swift, …", because in a panel this narrow the names say more than a count.
     static func files(_ paths: [String]) -> String {
         let names = paths.map { ($0 as NSString).lastPathComponent }.joined(separator: ", ")
         return paths.count == 1 ? names : String(localized: "\(paths.count) files: \(names)")
     }
 
-    /// As tall as its message, up to eight lines: measured once the card has its width.
+    /// Makes the card as tall as its message, up to eight lines, measured once the card has its width.
     override func layout() {
         super.layout()
         fit()

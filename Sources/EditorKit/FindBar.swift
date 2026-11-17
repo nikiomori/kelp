@@ -1,12 +1,14 @@
 import AppKit
 import DesignKit
 
-/// ⌘F in a code editor: floats at its top right. Matches as you type, the count and every match shown; ↩ / ⇧↩ or ⌘G / ⇧⌘G
-/// step, ⌥↩ makes every match a cursor, Esc goes back to the text. The chevron opens replacing, with `$1` in a regex.
+/// ⌘F in a code editor, floating at its top right. It matches as you type and shows the count and every match. ↩ / ⇧↩
+/// or ⌘G / ⇧⌘G step through the matches, ⌥↩ makes every match a cursor, and Esc goes back to the text. The chevron
+/// opens replacing, with `$1` in a regex.
 @MainActor
 final class FindBar: NSView, NSSearchFieldDelegate {
     private weak var editor: CodeEditor?
-    /// The field, its count and steps, Done: what every find bar has (DesignKit); the options and Replace go in its slots.
+    /// The field, its count and steps, and Done, which every find bar has (DesignKit). The options and Replace go in
+    /// its slots.
     private lazy var card = FindCard(
         leading: [more], trailing: [caseToggle, wordToggle, regexToggle, scopeToggle], below: replaceRow)
     var field: NSSearchField { card.field }
@@ -73,8 +75,8 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     func begin(with text: String?) {
         let shown = !isHidden && !card.isHidden
         isHidden = false
-        card.isHidden = false   // Esc hid it
-        if !shown { card.comeIn() }   // as the other find bars
+        card.isHidden = false   // Esc hid the card
+        if !shown { card.comeIn() }   // as the other find bars do
         if let text, !text.isEmpty, text != field.stringValue { field.stringValue = text }
         window?.makeFirstResponder(field)
         field.currentEditor()?.selectAll(nil)
@@ -90,12 +92,14 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         window?.makeFirstResponder(tv)
     }
 
-    /// The text changed under it: the matches move, the cursor stays where the edit left it.
-    /// A moment after the typing stops: a search per key over a 5 MB file was 19 ms of every key while the bar was open.
+    /// Called when the text changed under the bar. The matches move, and the cursor stays where the edit left it. The
+    /// search runs a moment after the typing stops, because a search per key over a 5 MB file was 19 ms of every key
+    /// while the bar was open.
     func textChanged() {
         guard !isHidden else { return }
         researching?.cancel()
-        let again = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.search(moving: false) } }   // main queue
+        // Runs on the main queue.
+        let again = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.search(moving: false) } }
         researching = again
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: again)
     }
@@ -120,7 +124,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     private func toggleReplace() {
         if replaceRow.isHidden { replaceRow.fadeIn() } else { replaceRow.isHidden = true }
         more.image = .symbol(replaceRow.isHidden ? "chevron.right" : "chevron.down")
-        more.turn(from: replaceRow.isHidden ? -.pi / 2 : .pi / 2)   // as a sidebar row's chevron
+        more.turn(from: replaceRow.isHidden ? -.pi / 2 : .pi / 2)   // turns as a sidebar row's chevron does
     }
 
     func search(moving: Bool) {
@@ -161,7 +165,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
             canStep: !found.isEmpty)
     }
 
-    /// Selected and in view. The keys stay in the field.
+    /// Selects the match and scrolls it into view. The keys stay in the field.
     private func show(_ position: Int) {
         guard let tv = editor?.textView, found.indices.contains(position) else { return }
         index = position
@@ -180,7 +184,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         show(((index ?? -1) + (forward ? 1 : found.count - 1)) % found.count)
     }
 
-    /// Cursors in the text, one on each match: type to change them all.
+    /// Puts a cursor in the text on each match, so typing changes them all.
     func selectAllMatches() {
         guard let tv = editor?.textView, !found.isEmpty else { return }
         let ranges = found.map(\.range)
@@ -206,8 +210,8 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         search(moving: false)
     }
 
-    /// ⌘G and ⇧⌘G with the keys in a field. Before the menu: its item would go to the field's editor, a text view too, whose
-    /// find panel is off.
+    /// ⌘G and ⇧⌘G with the keys in a field, handled before the menu, because the menu's item would go to the field's
+    /// editor, a text view too, whose find panel is off.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard let forward = event.findStep, !isHidden,
             (window?.firstResponder as? NSView)?.isDescendant(of: self) == true
@@ -216,7 +220,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         return true
     }
 
-    /// The menu's Find items with the keys on one of the bar's buttons, which the text view isn't behind.
+    /// The menu's Find items, when the keys are on one of the bar's buttons, which the text view isn't behind.
     @objc func performFindPanelAction(_ sender: Any?) {
         switch NSFindPanelAction(rawValue: UInt((sender as? NSMenuItem)?.tag ?? 1)) {
         case .next: step(forward: true)
@@ -225,7 +229,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         }
     }
 
-    /// The Replace field's keys; the find field's keys are handled by the card.
+    /// The Replace field's keys; the card handles the find field's keys.
     func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
         switch sel {
         case #selector(NSResponder.cancelOperation(_:)): card.close()
@@ -260,7 +264,7 @@ extension CodeEditor {
             ?? {
                 let created = FindBar(editor: self)
                 created.translatesAutoresizingMaskIntoConstraints = false
-                // Beside the scroll view, not in it: its clip view would draw over the bar.
+                // The bar goes beside the scroll view, not in it, because its clip view would draw over the bar.
                 (scroll.superview ?? scroll).addSubview(created, positioned: .above, relativeTo: scroll)
                 NSLayoutConstraint.activate([
                     created.topAnchor.constraint(equalTo: scroll.topAnchor, constant: Metrics.gap),
@@ -274,7 +278,7 @@ extension CodeEditor {
 }
 
 extension EditorTextView {
-    /// Every match in what's drawn; the one the bar is on stands out.
+    /// Draws every match in what's drawn, with the one the bar is on standing out.
     func drawFindMarks(in rect: NSRect) {
         guard !findMarks.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
         let shown = lm.characterRange(

@@ -3,13 +3,14 @@ import Core
 import DesignKit
 import KelpKit
 
-/// What the branch chip opens: one line on where the branch stands against its upstream, the one sync that matters, the
-/// commits it would move, and a line to commit what's changed. Everything bigger (staging, history, diffs) stays in Source Control.
+/// What the branch chip opens: one line on where the branch stands against its upstream, the one sync that matters,
+/// the commits it would move, and a line to commit what's changed. Everything bigger (staging, history, diffs) stays
+/// in Source Control.
 @MainActor
 final class SyncPopover: NSViewController {
-    static let width: CGFloat = 320, shown = 6   // a popover of commits, as the commit card
-    /// What reaches past the words' edge: the pad a link line and a text button grey in under the pointer, so their
-    /// words keep to the same edge as every other line.
+    static let width: CGFloat = 320, shown = 6   // as wide as the commit card, another popover of commits
+    /// How far a link line and a text button reach past the words' edge, as the pad that greys in under the pointer.
+    /// So their words keep to the same edge as every other line.
     static let bleed: CGFloat = 4
     static let captionAttributes: [NSAttributedString.Key: Any] =
         [.font: NSFont.ui(TextSize.caption, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor]
@@ -24,7 +25,7 @@ final class SyncPopover: NSViewController {
     lazy var commit = ClosureButton(title: String(localized: "Commit")) { [weak self] in self?.commitPressed() }
     let busy = NSProgressIndicator(), note = NSTextField(wrappingLabelWithString: ""), status = NSStackView()
     let outgoing = NSStackView(), incoming = NSStackView(), ci = NSStackView(), files = NSStackView()
-    /// The folder whose git and CI it shows (a workspace shares its project's): the one the branch chip reads.
+    /// The folder whose git and CI the popover shows (a workspace shares its project's), the one the branch chip reads.
     var folder: String { app.gitKey(wid) }
     let changes = NSTextField(labelWithString: ""), stats = NSTextField(labelWithString: ""),
         message = NSTextField()
@@ -61,7 +62,7 @@ final class SyncPopover: NSViewController {
         state.lineBreakMode = .byTruncatingMiddle
         state.setContentCompressionResistancePriority(.init(250), for: .horizontal)
         fetch.padding = 4
-        fetch.image = .symbol("arrow.down.to.line", String(localized: "Fetch"))   // as Source Control's
+        fetch.image = .symbol("arrow.down.to.line", String(localized: "Fetch"))   // the same as Source Control's
         fetch.symbolConfiguration = .chrome()
         fetch.imagePosition = .imageLeading
         fetch.attributedTitle = NSAttributedString(
@@ -74,10 +75,10 @@ final class SyncPopover: NSViewController {
         head.setViews([name], in: .leading)
         head.setViews([fetch], in: .trailing)
 
-        // The popover's one action, shown in words alone in the accent colour (macOS 26's primary tint; the bezel
+        // The popover's one action, shown in words alone in the accent colour (macOS 26's primary tint, and the bezel
         // colour before it).
         primary.bezelStyle = .push
-        primary.controlSize = .regular   // a rounded rectangle, as Commit in the panel: large is a capsule
+        primary.controlSize = .regular   // a rounded rectangle, as Commit in the panel, because large is a capsule
         if #available(macOS 26, *) {
             primary.tintProminence = .primary
         } else {
@@ -111,11 +112,12 @@ final class SyncPopover: NSViewController {
         nothing.font = .ui(TextSize.row)
         nothing.textColor = .secondaryLabelColor
         hint.font = .ui(TextSize.caption)
-        hint.textColor = .secondaryLabelColor   // shown only once there's a message: it says what the keys will do
-        // Disabled, the button is its word alone (see showChanges): one box, the field's, not two. Its width stays put.
+        hint.textColor = .secondaryLabelColor   // shown only once there's a message, to say what the keys will do
+        // When disabled, the button is its word alone (see showChanges), so there is one box, the field's, not two.
+        // Its width stays put.
         commit.widthAnchor.constraint(equalToConstant: commit.fittingSize.width).isActive = true
 
-        // The whole line is the link, its chevron too: it greys in under the pointer and springs when clicked.
+        // The whole line is the link, its chevron too. It greys in under the pointer and springs when clicked.
         let footer = LinkRow(String(localized: "Open Source Control")) { [weak self] in
             self?.app.workbench.showPanel("git.changes")
             self?.popover?.performClose(nil)
@@ -123,7 +125,8 @@ final class SyncPopover: NSViewController {
 
         let rules = (rule(), rule())
         root.orientation = .vertical
-        // Every line is centred and as wide as the words, or as wide plus its pad on each side: one left edge.
+        // Every line is centred and as wide as its words, or as wide plus its pad on each side, so there is one left
+        // edge.
         root.alignment = .centerX
         root.spacing = 8
         let side = Metrics.inset - Self.bleed
@@ -133,7 +136,7 @@ final class SyncPopover: NSViewController {
                 head, state, ci, status, primary, outgoing, incoming, rules.0, changeHead, files, field, nothing,
                 hint, rules.1, footer
             ], in: .top)
-        // One rhythm: 12 between parts, 4 from a part's caption (or the standing line) to its rows.
+        // One rhythm: 12 between parts, and 4 from a part's caption (or the standing line) to its rows.
         let gaps: [(NSView, CGFloat)] = [
             (head, Metrics.lineGap), (state, 12), (ci, 12), (status, 12), (primary, 12), (outgoing, 12),
             (incoming, 12), (rules.0, 12), (changeHead, 4), (files, 8), (field, 12), (hint, 12), (rules.1, 4)
@@ -147,10 +150,10 @@ final class SyncPopover: NSViewController {
         for part in [head, footer] as [NSView] {
             part.widthAnchor.constraint(equalToConstant: Self.width + 2 * Self.bleed).isActive = true
         }
-        ci.alignment = .centerX   // its runs' pads reach past the words' edge
+        ci.alignment = .centerX   // the pads of its runs reach past the words' edge
 
-        // On the popover's own glass, as the commit card, the hover card and every other popover: a ground of its own
-        // under it made this the one popover of another colour.
+        // The popover sits on its own glass, as the commit card, the hover card and every other popover do. A
+        // background of its own under it made this the one popover of another colour.
         view = root
     }
 
@@ -178,8 +181,8 @@ final class SyncPopover: NSViewController {
         }
     }
 
-    /// Opened for a pull or a push, not to type: the commit field waits for a click. The popover's window is made key,
-    /// though: in a window that isn't, the primary button is grey and reads as off.
+    /// The popover opens for a pull or a push, not for typing, so the commit field waits for a click. The popover's
+    /// window is made key, though, because in a window that isn't key the primary button is grey and reads as off.
     override func viewDidAppear() {
         super.viewDidAppear()
         view.window?.makeKey()
@@ -200,8 +203,8 @@ final class SyncPopover: NSViewController {
 
 }
 
-/// A line that is a link to somewhere else ("Open Source Control ›"): words on the left, a chevron on the right, the
-/// whole line one target that answers the pointer (`PointerControl`).
+/// A line that is a link to somewhere else ("Open Source Control ›"): words on the left and a chevron on the right,
+/// with the whole line one target that answers the pointer (`PointerControl`).
 @MainActor
 final class LinkRow: PointerControl {
     convenience init(_ title: String, action: @escaping () -> Void) {
@@ -209,7 +212,7 @@ final class LinkRow: PointerControl {
         label.font = .ui(TextSize.body)
         self.init([label, NSView()], said: title, action: action)
     }
-    /// `views` along the row, then the chevron; `said` is what VoiceOver reads for it.
+    /// Lays out `views` along the row, then the chevron. `said` is what VoiceOver reads for the row.
     init(_ views: [NSView], said: String, action: @escaping () -> Void) {
         super.init(frame: .zero)
         onClick = action
@@ -225,12 +228,12 @@ final class LinkRow: PointerControl {
         setAccessibilityLabel(said)
     }
     required init?(coder: NSCoder) { fatalError() }
-    // one target, label included
+    // The row is one click target, its label included.
     override func hitTest(_ point: NSPoint) -> NSView? { super.hitTest(point) == nil ? nil : self }
 }
 
-/// A commit to push or pull: its subject and when (or who). Under the pointer the hash takes that place; the tooltip
-/// has both and the whole subject.
+/// A commit to push or pull: its subject and when it was made (or who made it). Under the pointer the hash takes that
+/// place, and the tooltip has both and the whole subject.
 @MainActor
 final class CommitRow: NSStackView {
     private let trailing: NSTextField, rest: String, commitHash: String

@@ -1,8 +1,8 @@
 import Foundation
 import Observation
 
-/// Calls `changed` now (unless `now` is false: the first value is already shown) and whenever `value` changes
-/// (Observation for AppKit code). With an `owner` (a tab, say), it stops once the owner is gone.
+/// Calls `changed` now (unless `now` is false, because the first value is already shown) and whenever `value` changes.
+/// This is Observation for AppKit code. With an `owner` (a tab, say), it stops once the owner is gone.
 @MainActor
 public func track<T: Equatable>(
     owner: AnyObject? = nil, now: Bool = true, _ value: @escaping @MainActor () -> T,
@@ -11,7 +11,7 @@ public func track<T: Equatable>(
     Tracker(owner: owner, value: value, changed: changed, quiet: !now).run()
 }
 
-/// One `track`: kept alive by the observation it registers, until its owner is gone.
+/// One `track`, kept alive by the observation it registers until its owner is gone.
 @MainActor
 private final class Tracker<T: Equatable> {
     weak var owner: AnyObject?
@@ -31,7 +31,8 @@ private final class Tracker<T: Equatable> {
 
     func run() {
         if owned, owner == nil { return }
-        // onChange runs wherever the change was made: the next look is on main, on the next run-loop turn.
+        // onChange runs on whatever thread made the change, so the next look happens on main, on the next run-loop
+        // turn.
         let current = withObservationTracking {
             value()
         } onChange: { [self] in

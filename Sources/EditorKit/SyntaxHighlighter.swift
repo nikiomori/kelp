@@ -3,8 +3,8 @@ import AppKit
 @preconcurrency import SwiftTreeSitter
 import os
 
-/// Tree-sitter colors: the file parsed once and again after each edit (tree-sitter reuses what didn't change), and only
-/// what's on screen colored, as layout manager temporary attributes (they don't touch the text or its undo).
+/// Tree-sitter colors. The file is parsed once and again after each edit (tree-sitter reuses what didn't change), and
+/// only what's on screen is colored, as layout manager temporary attributes, which don't touch the text or its undo.
 @MainActor
 final class SyntaxHighlighter {
     private let worker = Worker()
@@ -12,19 +12,20 @@ final class SyntaxHighlighter {
     let bracketQuery: Query?
     /// The latest parse, for coloring on the main thread.
     private(set) var tree: Tree?
-    /// Edits described before they happen (the old text is needed for them), applied to the tree when they have.
+    /// Edits described before they happen (they need the old text), applied to the tree once they have happened.
     private var pending: [InputEdit] = []
     private var asked = 0, applied = 0
-    /// Once a text was long, its parses stay off the main thread (a short one waiting on a long one there would block).
+    /// Once a text was long, its parses stay off the main thread, because a short parse waiting on a long one there
+    /// would block.
     private var background = false
     var colors: [String: NSColor] = [:]
-    /// By depth, round and round; none: brackets keep their grammar's colour.
+    /// Bracket colors by depth, cycling round. When empty, brackets keep their grammar's colour.
     var bracketColors: [NSColor] = []
-    /// A parse asked for hasn't come in yet (a long text's, on the worker's queue).
+    /// Whether a parse asked for hasn't come in yet (a long text's, on the worker's queue).
     var waiting: Bool { applied < asked }
-    /// A parse done on the worker's queue came in: color again.
+    /// Called when a parse done on the worker's queue came in, so the text is colored again.
     var parsed: (() -> Void)?
-    /// Longer texts parse off the main thread so typing never waits for tree-sitter (5 MB took 2 s from scratch); their
+    /// Longer texts parse off the main thread so typing never waits for tree-sitter (5 MB took 2 s from scratch). Their
     /// colors catch up a moment later.
     static let syncLimit = 100_000
 
@@ -36,7 +37,8 @@ final class SyntaxHighlighter {
         bracketQuery = Self.bracketQuery(treeLanguage)
     }
 
-    /// An edit about to happen: `range` of the current text becomes `text`. Positions come from `lines` (the old text's).
+    /// Describes an edit about to happen: `range` of the current text becomes `text`. Positions come from `lines`,
+    /// which index the old text.
     func willReplace(_ range: NSRange, with text: String, in string: NSString, lines: inout LineIndex) {
         func point(_ location: Int) -> Point {
             let row = lines.line(at: location, in: string)
@@ -57,7 +59,8 @@ final class SyntaxHighlighter {
                 startPoint: start, oldEndPoint: point(NSMaxRange(range)), newEndPoint: newEnd))
     }
 
-    /// After the text changed: the tree follows (from scratch when the change wasn't described first, as setText's).
+    /// Called after the text changed, so the tree follows. It parses from scratch when the change wasn't described
+    /// first, as with setText.
     func parse(_ string: NSString, described: Bool = true) {
         let edits = described ? pending : nil
         pending = []
@@ -70,9 +73,9 @@ final class SyntaxHighlighter {
             return
         }
         worker.latest.withLock { $0 = generation }
-        let text = Worker.Text(string.copy() as? NSString ?? "")   // the text view's own string keeps changing
+        let text = Worker.Text(string.copy() as? NSString ?? "")   // a copy: the text view's string keeps changing
         worker.queue.async { [weak self] in
-            // A newer text is on its way: parsed then.
+            // When a newer text is on its way, this one is dropped and that one is parsed.
             guard let newTree = worker.parse(edits, text, generation) else { return }
             DispatchQueue.main.async {
                 guard let self, generation > self.applied else { return }
@@ -98,15 +101,16 @@ final class SyntaxHighlighter {
         paint(matches.highlights(), at: 0, within: range, lm)
         for inj in matches.compactMap({ $0.injection(with: text) })
         where NSIntersectionRange(inj.range, range).length > 0 {
-            // A block is parsed whole, here on the main thread: past this it keeps the outer grammar's colors.
+            // A block is parsed whole, here on the main thread, so a block past this size keeps the outer grammar's
+            // colors.
             guard inj.range.length <= Self.injectedLimit else { continue }
             guard NSMaxRange(inj.range) <= string.length,
                 let found = injected(inj.name, string.substring(with: inj.range))
             else {
                 continue
             }
-            // Its own colors only: the outer grammar's go (a fenced block was all one string color); Markdown's inline
-            // marks add to a heading's color instead.
+            // The block keeps its own colors only, and the outer grammar's go (a fenced block was all one string
+            // color). Markdown's inline marks add to a heading's color instead.
             if Self.language(named: inj.name)?.id != .markdownInline {
                 lm.removeTemporaryAttribute(.foregroundColor, forCharacterRange: NSIntersectionRange(inj.range, range))
             }
@@ -115,7 +119,7 @@ final class SyntaxHighlighter {
         colorBrackets(range, in: string, lm)
     }
 
-    /// The less specific first: a later, narrower one wins.
+    /// Paints the less specific highlights first, so a later, narrower one wins.
     private func paint(_ found: [NamedRange], at offset: Int, within range: NSRange, _ lm: NSLayoutManager) {
         for highlight in found {
             guard let tint = colors[highlight.name] ?? colors[highlight.nameComponents.first ?? ""] else { continue }
@@ -130,7 +134,8 @@ final class SyntaxHighlighter {
     // MARK: Languages inside
 
     private var parsers: [TreeSitterLanguage: (Parser, Query)] = [:]
-    /// What an injected piece of text colors as, by its language and text: they're small and come back on every scroll.
+    /// What an injected piece of text colors as, by its language and text. The pieces are small and come back on every
+    /// scroll.
     private var seen: [String: [NamedRange]] = [:]
     private var seenCharacters = 0
     private static let injectedLimit = 64_000
@@ -149,7 +154,7 @@ final class SyntaxHighlighter {
         }
         guard let (parser, query) = parsers[language.id], let tree = parser.parse(text) else { return nil }
         let found = query.execute(in: tree).resolve(with: .init(string: text)).highlights()
-        // By size: each edit of a block is a new entry here, as long as the block.
+        // The cache is bounded by size, because each edit of a block makes a new entry here, as long as the block.
         seenCharacters += text.utf16.count
         if seen.count > 500 || seenCharacters > 2_000_000 {
             seen = [:]
@@ -175,22 +180,23 @@ final class SyntaxHighlighter {
     }
 }
 
-/// The parser and its tree: used on the main thread for a short text, on `queue` alone once it was long.
+/// The parser and its tree. They are used on the main thread for a short text, and on `queue` alone once the text was
+/// long.
 private final class Worker: @unchecked Sendable {
-    /// The newest parse asked for: an older one only applies its edits.
+    /// The newest parse asked for. An older parse only applies its edits.
     let latest = OSAllocatedUnfairLock(initialState: 0)
     struct Text: @unchecked Sendable {
         let string: NSString
         init(_ string: NSString) { self.string = string }
-    }   // an immutable copy, or read under sync
+    }   // an immutable copy, or one read under sync
     let queue = DispatchQueue(label: "kelp.editor.parse")
     private let parser = Parser()
     private var tree: MutableTree?
 
     func setLanguage(_ language: Language) -> Bool { parser.reads(language) }
 
-    /// The edits applied to the last tree (none: from scratch) and the text parsed; a copy for the main thread. Nil
-    /// without parsing when a newer text waits.
+    /// Applies the edits to the last tree (nil edits mean from scratch), parses the text, and returns a copy of the
+    /// tree for the main thread. Returns nil without parsing when a newer text waits.
     func parse(_ edits: [InputEdit]?, _ text: Text, _ generation: Int) -> Tree? {
         let string = text.string
         if let edits, let tree { for edit in edits { tree.edit(edit) } } else { tree = nil }
@@ -209,7 +215,8 @@ private final class Worker: @unchecked Sendable {
 }
 
 extension Parser {
-    /// Set to read `language`; false, and logged, for a grammar this tree-sitter can't load (built for another version).
+    /// Sets the parser to read `language`. Returns false, and logs it, for a grammar this tree-sitter can't load
+    /// (built for another version).
     func reads(_ language: Language) -> Bool {
         do {
             try setLanguage(language)

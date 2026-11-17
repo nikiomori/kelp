@@ -4,16 +4,17 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// The picked job under the runs: what broke, or its log, and what can be done about it. Over them, as every tab's tools
-/// (DS content bar), the actions are icons with their names in tooltips, and only those that can do something for this job.
+/// The picked job, under the runs: what broke, or its log, and what can be done about it. Over them, as with every
+/// tab's tools (DS content bar), the actions are icons with their names in tooltips, and only the actions that can do
+/// something for this job show.
 @MainActor
 final class CIJobPane: NSObject {
     let view = NSStackView()
-    /// The job on show and its run.
+    /// The job on show, and its run.
     private(set) var shown: (job: CIRuns.Job, run: Int)?
-    /// After an action: the runs are worth reading again.
+    /// Called after an action, because the runs are worth reading again.
     var onChange: (() -> Void)?
-    /// The job's run, for Cancel while it runs.
+    /// Looks up the job's run, for Cancel while it runs.
     var runOf: ((Int) -> CIRuns.Run?)?
 
     private let app: AppModel
@@ -22,7 +23,7 @@ final class CIJobPane: NSObject {
     /// What the run's earlier try says of this failure.
     private var note: String?
     private let failures = CIFailuresView()
-    // Lines wrap at the pane's width: a long one (a URL, a command) was cut off at the edge.
+    // Lines wrap at the pane's width, because a long one (a URL, a command) was cut off at the edge.
     private let logScroll = NSTextView.scrollableTextView()
     private var log: NSTextView { logScroll.documentView as? NSTextView ?? NSTextView() }
     private let title = NSTextField(labelWithString: "")
@@ -82,7 +83,7 @@ final class CIJobPane: NSObject {
         log.string = ""
     }
 
-    /// Picked, or finished since: reads what broke, which comes with the log's tail.
+    /// Called when a job is picked or has finished since. It reads what broke, which comes with the log's tail.
     func show(_ job: CIRuns.Job, run: Int, in worktree: String) {
         shown = (job, run)
         self.worktree = worktree
@@ -90,7 +91,7 @@ final class CIJobPane: NSObject {
         note = nil
         log.string = ""
         arrange()
-        // gh hands out a job's log only once it's over; the next refresh after that brings it.
+        // gh hands out a job's log only once the job is over, and the next refresh after that brings it.
         guard job.status == "completed" else {
             log.string = String(localized: "The log appears when the job finishes.")
             return
@@ -110,11 +111,12 @@ final class CIJobPane: NSObject {
         }
     }
 
-    /// From the second try on: did the last one break the same way? That tells the code from a fluke of the runner, at the
-    /// price of one more log, read only for the job on show.
+    /// From the second try on, checks whether the last try broke the same way. That tells a bug in the code from a
+    /// fluke of the runner, at the price of one more log, read only for the job on show.
     private func compareWithEarlierTry(_ job: CIRuns.Job, run: Int, in worktree: String) async {
         guard job.failed, let now = report, let attempt = runOf?(run)?.attempt, attempt > 1 else { return }
-        let before = await app.quiet(CIFailures(worktreeId: worktree, run: run, attempt: attempt - 1))   // a remark: without it, none
+        // Only a remark, so without the earlier try there is none.
+        let before = await app.quiet(CIFailures(worktreeId: worktree, run: run, attempt: attempt - 1))
         guard shown?.job.id == job.id, let before, !before.failures.isEmpty else { return }
         note =
             now.failsLike(before)
@@ -123,14 +125,14 @@ final class CIJobPane: NSObject {
         arrange()
     }
 
-    /// A refresh brought the same job: nothing new to read.
+    /// Called when a refresh brought the same job, so there's nothing new to read.
     func keep(_ job: CIRuns.Job, run: Int) { shown = (job, run) }
 
     private var canShowFailure: Bool {
         shown?.job.failed == true && report.map { failures.show($0, note: note) } == true
     }
 
-    /// What this job can show and do. A green job has nothing to fix and only its log to read.
+    /// Arranges what this job can show and do. A green job has nothing to fix and only its log to read.
     private func arrange() {
         let failed = shown?.job.failed == true, why = canShowFailure
         mode.isHidden = !why
@@ -140,7 +142,7 @@ final class CIJobPane: NSObject {
         copyButton.isHidden = shown?.job.status != "completed"
         fullLogButton.isHidden = copyButton.isHidden
         title.isHidden = why
-        // While it runs, what it's doing.
+        // While the job runs, the title says what it's doing.
         title.stringValue = shown?.job.steps.first { $0.status == "in_progress" }?.shortName ?? shown?.job.name ?? ""
         let showFailure = why && mode.selectedSegment == 0
         failures.isHidden = !showFailure
@@ -169,7 +171,8 @@ final class CIJobPane: NSObject {
 
     private func rerun() { if let shown { actions?.rerunFailed(shown.run) } }
 
-    /// The project's copy of the file, which can differ from the commit the run tested; the line number is the run's.
+    /// Opens the project's copy of the file, which can differ from the commit the run tested; the line number is the
+    /// run's.
     private func open(_ failure: CIRuns.Failure) {
         guard let file = failure.file, let root = app.worktree(worktree)?.path else { return }
         app.workbench.open(

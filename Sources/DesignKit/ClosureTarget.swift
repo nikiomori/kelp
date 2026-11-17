@@ -1,7 +1,7 @@
 import AppKit
 
 public final class ClosureButton: NSButton {
-    private var handler: ClosureTarget?   // target is weak: the button keeps it
+    private var handler: ClosureTarget?   // the target is weak, so the button keeps it
     public convenience init(title: String, action: @escaping @MainActor () -> Void) {
         self.init(frame: .zero)
         self.title = title
@@ -11,7 +11,7 @@ public final class ClosureButton: NSButton {
     }
 }
 
-/// A menu item's or control's action as a closure; AppKit sends actions on the main thread.
+/// A menu item's or control's action as a closure. AppKit sends actions on the main thread.
 @MainActor
 public final class ClosureTarget: NSObject {
     let handler: @MainActor () -> Void

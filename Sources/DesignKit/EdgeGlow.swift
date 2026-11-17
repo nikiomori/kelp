@@ -1,9 +1,9 @@
 import AppKit
 
-/// State as light along the inside of an edge (an agent asks, failed, waits for its command): a soft glow inward (and a
-/// hairline, where there's room for one), the shadow of a frame drawn just outside and clipped to the rounded bounds. The
-/// pane's ring and a tab's are this one view, at their own corner and spread; nothing outside the edge is tinted, and
-/// clicks go through.
+/// State shown as light along the inside of an edge (an agent asks, failed, or waits for its command). It is a soft
+/// glow inward (and a hairline, where there's room for one), made by the shadow of a frame drawn just outside and
+/// clipped to the rounded bounds. The pane's ring and a tab's are this one view, each at its own corner and spread.
+/// Nothing outside the edge is tinted, and clicks go through.
 @MainActor
 public final class EdgeGlow: NSView {
     private let frameLayer = CAShapeLayer()
@@ -11,7 +11,7 @@ public final class EdgeGlow: NSView {
     private var breathing = false
     private var faint = false
     private let hairline: Bool
-    /// The corner it follows (a tab's capsule changes it as it lays out).
+    /// The corner radius the glow follows (a tab's capsule changes it as it lays out).
     public var radius: CGFloat {
         didSet {
             layer?.cornerRadius = radius
@@ -19,9 +19,9 @@ public final class EdgeGlow: NSView {
         }
     }
 
-    /// `spread`: how far the light reaches in, `strength` its opacity at the edge (a pane 14 and 0.6; a tab, 28 pt tall,
-    /// 3 and 0.5, so its middle stays the tab's own colour). `hairline` off: light only, no line along the edge (a tab: a
-    /// lined tab read as more chosen than the chosen one).
+    /// `spread` is how far the light reaches in, and `strength` its opacity at the edge (a pane uses 14 and 0.6; a
+    /// tab, 28 pt tall, uses 3 and 0.5, so its middle stays the tab's own colour). With `hairline` off there's light
+    /// only, with no line along the edge, because on a tab a lined tab read as more chosen than the chosen one.
     public init(radius: CGFloat, spread: CGFloat, strength: Float = 0.6, hairline: Bool = true) {
         self.radius = radius
         self.hairline = hairline
@@ -38,7 +38,7 @@ public final class EdgeGlow: NSView {
         frameLayer.shadowOpacity = strength
         layer?.addSublayer(frameLayer)
         followReduceMotion(#selector(motionChanged))
-        // A pane's ring lights a screenful: with nobody at the window it holds still.
+        // A pane's ring lights a screenful, so with nobody at the window it holds still.
         for name in [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification] {
             NotificationCenter.default.addObserver(self, selector: #selector(motionChanged), name: name, object: nil)
         }
@@ -47,15 +47,17 @@ public final class EdgeGlow: NSView {
 
     override public func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    /// Fades in and out, and eases into and out of breathing, rather than switching at once. nil: none. `faint`: half
-    /// the light, for what's there to notice and not to answer.
+    /// Shows a colour, or none for nil. It fades in and out, and eases into and out of breathing, rather than
+    /// switching at once. `faint` gives half the light, for what's there to notice and not to answer.
     public func show(_ color: NSColor?, breathing: Bool, faint: Bool = false) {
-        guard color != self.color || breathing != self.breathing || faint != self.faint else { return }   // every tab's every refresh comes here
+        // Every tab's every refresh comes here.
+        guard color != self.color || breathing != self.breathing || faint != self.faint else { return }
         self.color = color
         self.breathing = breathing
         self.faint = faint
         guard let color else {
-            // Keeps its colour and breathing while it fades; hidden at the end unless it was called back meanwhile.
+            // The glow keeps its colour and breathing while it fades, and is hidden at the end unless it was called
+            // back meanwhile.
             NSAnimationContext.runAnimationGroup({
                 $0.duration = Motion.duration(Motion.disappear)
                 animator().alphaValue = 0
@@ -104,7 +106,7 @@ public final class EdgeGlow: NSView {
             animation.autoreverses = true
             animation.repeatCount = .infinity
             animation.beginTime = Motion.beat(2 * animation.duration)
-            // no faster than it shows
+            // No faster than it shows.
             animation.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)
             frameLayer.add(animation, forKey: "breathe")
         } else {
@@ -117,15 +119,15 @@ public final class EdgeGlow: NSView {
     override public func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         if let color, !isHidden {
-            self.color = nil   // the same colour, resolved anew
+            self.color = nil   // so the same colour is resolved anew
             show(color, breathing: breathing, faint: faint)
         }
     }
 
     override public func layout() {
         super.layout()
-        // Given as the shadow's path, the shadow isn't worked out from the layer's pixels offscreen on every frame of the
-        // breathing animation.
+        // Given as the shadow's path, the shadow isn't worked out from the layer's pixels offscreen on every frame of
+        // the breathing animation.
         guard bounds.width > 0, bounds.height > 0 else { return }
         let path = Self.frame(around: bounds, radius: min(radius, bounds.height / 2, bounds.width / 2))
         CATransaction.begin()
@@ -136,8 +138,8 @@ public final class EdgeGlow: NSView {
         CATransaction.commit()
     }
 
-    /// A band just outside `rect`, its rounded inner edge wound against the outer one (mirrored), so the hole stays a
-    /// hole under the non-zero rule a shadow path is filled with.
+    /// A band just outside `rect`. Its rounded inner edge is wound against the outer one (mirrored), so the hole stays
+    /// a hole under the non-zero rule a shadow path is filled with.
     static func frame(around rect: CGRect, radius: CGFloat) -> CGPath {
         let path = CGMutablePath()
         path.addRect(rect.insetBy(dx: -40, dy: -40))

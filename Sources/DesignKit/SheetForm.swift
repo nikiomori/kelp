@@ -1,8 +1,8 @@
 import AppKit
 
-/// The one layout of a sheet that asks for something: its parts top to bottom, `sheetInset` from every edge; a field's
-/// name right-aligned in a column of `formLabel`, without a colon, as Settings rows have it; and every field, list,
-/// note and the buttons' row as wide as the sheet's inside, so the fields end where the buttons end.
+/// The one layout of a sheet that asks for something. Its parts go top to bottom, `sheetInset` from every edge. A
+/// field's name is right-aligned in a column of `formLabel`, without a colon, as Settings rows have it. Every field,
+/// list, note and the buttons' row is as wide as the sheet's inside, so the fields end where the buttons end.
 @MainActor
 public enum SheetForm {
     /// The names and their fields. Fields stretch to the end once `stack` lays the grid out.
@@ -16,7 +16,7 @@ public enum SheetForm {
         return grid
     }
 
-    /// `parts` stacked for a sheet `width` wide; a grid's fields, and the parts in `wide`, take the whole inside.
+    /// Stacks `parts` for a sheet `width` wide. A grid's fields, and the parts in `wide`, take the whole inside.
     public static func stack(_ parts: [NSView], wide: [NSView], width: CGFloat) -> NSStackView {
         let inside = width - 2 * Metrics.sheetInset
         let stack = NSStackView(views: parts)

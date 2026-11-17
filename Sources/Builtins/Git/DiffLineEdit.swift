@@ -31,7 +31,7 @@ extension DiffViewController: NSTextFieldDelegate {
         field.font = font
         field.isBordered = false
         field.drawsBackground = true
-        field.backgroundColor = CodeEditor.page.background   // over the line: what it says now mustn't show through
+        field.backgroundColor = CodeEditor.page.background   // over the line, so the old text mustn't show through
         field.textColor = CodeEditor.page.text
         field.frame = place(in: row)
         field.delegate = self
@@ -41,7 +41,7 @@ extension DiffViewController: NSTextFieldDelegate {
         view.window?.makeFirstResponder(field)
     }
 
-    /// Over the line's own cell, the last column in either layout, so the words don't move as it opens.
+    /// The field goes over the line's own cell, the last column in either layout, so the words don't move as it opens.
     private func place(in row: Int) -> NSRect {
         guard let cell = table.view(atColumn: table.numberOfColumns - 1, row: row, makeIfNecessary: false) else {
             return table.rect(ofRow: row).insetBy(dx: Metrics.inset, dy: 0)
@@ -74,7 +74,7 @@ extension DiffViewController: NSTextFieldDelegate {
     func write(_ new: String, over old: String, path: String, line: Int) async {
         guard let root = app.worktree(worktreeId)?.path, let read = await app.call(FilesRead(path: root + "/" + path))
         else { return }
-        // The line isn't as shown, or the write was refused: it changed between the read and the write.
+        // When the line isn't as shown, or the write was refused, the line changed between the read and the write.
         var stamp: FileStamp?
         if let text = TextEdits.replacing(line: line, expected: old, with: new, in: read.text) {
             guard let written = await app.call(FilesWrite(path: root + "/" + path, text: text, base: read.stamp))

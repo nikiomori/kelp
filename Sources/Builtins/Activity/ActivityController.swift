@@ -3,8 +3,8 @@ import Core
 import DesignKit
 import KelpKit
 
-/// What each running session costs, like Activity Monitor for agents: CPU (100% = one core) and memory summed over
-/// everything under its terminal, busiest first, with Stop. Measured every two seconds while the panel shows.
+/// What each running session costs, like Activity Monitor for agents: CPU (100% = one core) and memory, summed over
+/// every process under the session's terminal, busiest first, with Stop. It measures every two seconds while it shows.
 @MainActor
 final class ActivityController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     let app: AppModel
@@ -18,7 +18,8 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         var cpu: Double
         var memory: Int
         var processes: Int
-        /// Drawn alike: the figures as the row writes them (a measure two seconds on mostly moves a digit no one sees).
+        /// Two rows are equal when they print the same figures. A new measure every two seconds mostly moves a digit
+        /// no one sees, so such a row is not drawn again.
         static func == (lhs: Row, rhs: Row) -> Bool {
             lhs.session == rhs.session && lhs.processes == rhs.processes && (lhs.cpu > 80) == (rhs.cpu > 80)
                 && ActivityController.percent(lhs.cpu) == ActivityController.percent(rhs.cpu)
@@ -45,7 +46,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         view = root
     }
 
-    /// Watched while the panel shows: the daemon measures every two seconds and says when it changed.
+    /// The panel watches activity only while it shows. The daemon measures every two seconds and says when it changed.
     override func viewDidAppear() {
         super.viewDidAppear()
         watched.key = ""
@@ -56,7 +57,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         watched.key = nil
     }
     private lazy var watched = Watched(.activity, in: app)
-    /// Measures pushed while a collapsed inspector hides it: the latest shows when it does.
+    /// Holds back measures pushed while a collapsed inspector hides the panel; the latest shows when the panel does.
     private lazy var whenShown = WhenShown(view)
 
     override func viewDidLoad() {
@@ -71,7 +72,8 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
     private func show(_ event: ActivityEvent?) {
         guard let event else { return }
         let model = app
-        // Couldn't measure: say why where "No sessions running." would be, not that nothing runs.
+        // When the daemon couldn't measure, the empty state says why, in the place of "No sessions running.", rather
+        // than claiming nothing runs.
         let was = rows
         rows = (event.usage ?? []).compactMap { usage in
             guard let session = model.session(usage.session) else { return nil }
@@ -88,7 +90,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
                 rows.isEmpty ? String(localized: "No Sessions Running") : nil,
                 symbol: "gauge.with.dots.needle.33percent")
         }
-        // The same sessions in the same order: only the rows whose figures moved are drawn again.
+        // When the sessions and their order are unchanged, only the rows whose figures moved are drawn again.
         guard was.map(\.session.id) == rows.map(\.session.id) else { return table.reloadData() }
         let moved = IndexSet(rows.indices.filter { rows[$0] != was[$0] })
         table.reloadData(forRowIndexes: moved, columnIndexes: [0])

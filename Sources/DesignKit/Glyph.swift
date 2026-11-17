@@ -1,9 +1,9 @@
 import AppKit
 
 /// Kelp's own line drawings for a few symbols, as the design has them: git's branch and pull request with their
-/// commits as rings, a list with rings, CI's check in a ring, the activity gauge. `NSImage.symbol` hands them out
-/// under the SF Symbol names they replace, so every AppKit use (inspector, window bar, menus) gets them. Drawn on
-/// a 16-point grid with 1.3-point round strokes, as templates: they tint like symbols do.
+/// commits as rings, a list with rings, CI's check in a ring, and the activity gauge. `NSImage.symbol` hands them out
+/// under the SF Symbol names they replace, so every AppKit use (inspector, window bar, menus) gets them. They are
+/// drawn on a 16-point grid with 1.3-point round strokes, as templates, so they tint as symbols do.
 public enum Glyph {
     public static func image(_ name: String, size: CGFloat = 17) -> NSImage? {   // as tall as a 14-point symbol
         guard let shape = shapes[name] else { return nil }
@@ -78,8 +78,8 @@ public enum Glyph {
 }
 
 /// SF Symbol image helper used by tabs and menus; a few names get Kelp's own drawing instead (Glyph).
-/// One image per name and label: an image equals only itself, so a fresh one on every call made each tab, chip and
-/// row icon look changed on every session event (the tab strip's "nothing changed" check never held).
+/// It keeps one image per name and label, because an image equals only itself, so a fresh one on every call made each
+/// tab, chip and row icon look changed on every session event (the tab strip's "nothing changed" check never held).
 extension NSImage {
     public static func symbol(_ name: String, _ label: String? = nil) -> NSImage {
         let key = "\(name)\u{0}\(label ?? "")" as NSString
@@ -94,4 +94,5 @@ extension NSImage {
         return made
     }
 }
-nonisolated(unsafe) private let symbolCache = NSCache<NSString, NSImage>()   // NSCache is thread-safe; images handed out aren't changed
+// NSCache is thread-safe, and the images handed out aren't changed.
+nonisolated(unsafe) private let symbolCache = NSCache<NSString, NSImage>()

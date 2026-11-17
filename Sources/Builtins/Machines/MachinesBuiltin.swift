@@ -6,9 +6,9 @@ import WorkbenchKit
 
 extension Builtins {
 
-    /// A virtual machine as a tab ("vm:<name>"): its state, what runs in it and for which agent, its ports and folders.
-    /// It opens from the sidebar's Machines block, which is there once a machine exists; File › New Machine… makes the
-    /// first one.
+    /// A virtual machine as a tab ("vm:<name>"): its state, what runs in it and for which agent, its ports and
+    /// folders. It opens from the sidebar's Machines block, which is there once a machine exists. File › New Machine…
+    /// makes the first one.
     package static let machines = Builtin(
         "kelp.machines", "Machines", "Kelp's virtual machines: what runs in each, its ports and folders.",
         icon: "shippingbox"
@@ -22,7 +22,7 @@ extension Builtins {
             ],
             sidebarSections: [
                 SidebarSection(id: "machines") {
-                    // Kelp's virtual machines, once there's one
+                    // Kelp's virtual machines, once there's one.
                     let view = NSHostingView(rootView: MachinesView(app: app))
                     view.sizingOptions = [.intrinsicContentSize]
                     return view
@@ -50,7 +50,7 @@ extension Builtins {
     }
 }
 
-// How the app keeps what the daemon pushes about machines: Machines' own kinds, not the shell's.
+// How the app keeps what the daemon pushes about machines. These event kinds belong to Machines, not to the shell.
 extension MachinesEvent: Pushed {
     package var key: String { "" }
     package static var forgottenWith: WatchTopic? { nil }

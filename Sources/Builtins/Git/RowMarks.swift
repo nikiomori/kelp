@@ -6,8 +6,9 @@ import WorkbenchKit
 
 /// What Git marks beside a folder in the sidebar, the ⌃Tab switcher and the window bar (`FolderCI`): its CI, its
 /// branch's PR (`PullRequests`), and a PR that merged (`MergedPR`). Every folder the sidebar lists is watched for CI
-/// (while a run goes, else every 2 minutes) and for its PR (gh, once a minute); the branch chip and its popover read
-/// the same CI for the folder on screen, a hover card the PR of its folder. The app's one, as a part (`AppModel.part`).
+/// (while a run goes, else every 2 minutes) and for its PR (gh, once a minute). The branch chip and its popover read
+/// the same CI for the folder on screen, and a hover card reads the PR of its folder. The app has one, as a part
+/// (`AppModel.part`).
 @MainActor @Observable
 final class RowMarks {
     static func of(_ app: AppModel) -> RowMarks { app.part { RowMarks(app: app) } }
@@ -15,14 +16,16 @@ final class RowMarks {
     private let app: AppModel
     var prs: [String: GitHub.PullRequest] { app.latest(PREvent.self).byKey.compactMapValues(\.pr) }
     @ObservationIgnored private var following: [WatchTopic: Set<String>] = [:]
-    /// The folder whose hover card is open: its PR is read while it is, beside the folders' badges or without them.
+    /// The folder whose hover card is open. Its PR is read while the card is open, with or without the folders'
+    /// badges.
     var carded: String?
     @ObservationIgnored private var readPRs: [String: GitHub.PullRequest] = [:]
     @ObservationIgnored private var states: [String: CIRuns.State] = [:]
     @ObservationIgnored private var branches: [String: BranchInfo] = [:]
-    /// Folders whose CI passed while Kelp watched and that haven't been on screen since: the sidebar's quiet ✓.
+    /// Folders whose CI passed while Kelp watched and that haven't been on screen since. They get the
+    /// sidebar's quiet ✓.
     private(set) var unseen = Set<String>()
-    /// Folders whose pass is on screen, since when: the branch chip's ✓, for a minute.
+    /// Folders whose pass is on screen, with since when. The branch chip shows their ✓ for a minute.
     private(set) var shown: [String: Date] = [:]
 
     init(app: AppModel) {
@@ -56,12 +59,12 @@ final class RowMarks {
 
     private func prsRead(_ now: [String: GitHub.PullRequest]) {
         for id in MergedPR.justMerged(now, was: readPRs).keys { app.worktree(id).map(MergedPR(app: app).tell) }
-        readPRs = readPRs.merging(now) { $1 }   // a folder not read for a moment is still the same PR's
+        readPRs = readPRs.merging(now) { $1 }   // a folder not read for a moment still has the same PR
     }
 
-    /// CI beside folders off: only the folder on screen's CI, for the branch chip and its popover. Settings ›
-    /// Appearance › Changes and pull requests off: only the PR of a folder whose card is open, gh isn't asked for the
-    /// rest. Git turned off (no marks from it): none.
+    /// What to watch, by topic. With CI beside folders off, only the CI of the folder on screen, for the branch chip
+    /// and its popover. With Settings › Appearance › Changes and pull requests off, only the PR of a folder whose card
+    /// is open, and gh isn't asked for the rest. With Git turned off (no marks from it), nothing.
     private func wanted() -> [WatchTopic: Set<String>] {
         let settings = app.settings
         guard app.extensions.all.ci != nil else { return [:] }
@@ -85,24 +88,27 @@ final class RowMarks {
     }
 }
 
-/// A folder's CI in one mark: what it says now, and a pass only until it's been seen (the sidebar) or for its first
-/// minute on screen (the branch chip), so the ✓ tells you once and then gets out of the way.
+/// A folder's CI in one mark. It says what CI says now, but shows a pass only until the folder has been seen (in the
+/// sidebar) or for its first minute on screen (on the branch chip), so the ✓ tells you once and then gets out of the
+/// way.
 extension RowMarks {
-    /// Its runs and its PR's checks, the more pressing of the two (the checks lag a minute; the runs miss what isn't CI).
+    /// The more pressing of the folder's runs and its PR's checks. The checks lag a minute, and the runs miss what
+    /// isn't CI.
     func state(_ id: String) -> CIRuns.State? {
         let ci = app.latest(CIEvent.self, id)?.result.flatMap { CIRuns.state($0.runs) }
         return [ci, app.latest(PREvent.self, id)?.pr.flatMap { CIRuns.state($0.checks) }].compactMap { $0 }.max()
     }
-    /// Beside a folder in the sidebar (and the ⌃Tab switcher): a pass while it hasn't been on screen.
+    /// The mark beside a folder in the sidebar (and the ⌃Tab switcher), showing a pass only while the folder hasn't
+    /// been on screen.
     func sidebarCI(_ id: String) -> CIRuns.State? {
         guard app.settings[SettingKeys.ciSidebar], let ciState = state(id) else { return nil }
         return ciState != .passed || unseen.contains(id) ? ciState : nil
     }
-    /// Every folder's sidebar mark: the rows follow this, not each CI read.
+    /// Every folder's sidebar mark. The rows follow this, not each CI read.
     var sidebarMarks: [String: CIRuns.State] {
         Set(app.latest(CIEvent.self).byKey.keys).union(prs.keys).reduce(into: [:]) { $0[$1] = sidebarCI($1) }
     }
-    /// A workspace's CI on its agents' tiles in the Dock strip, as its folder's sidebar row marks it.
+    /// A workspace's CI on its agents' tiles in the Dock strip, as the sidebar row of its folder marks it.
     func tile(_ row: SidebarItem.Kind) -> RowMark? {
         guard case .workspace(let workspace) = row, let folder = app.gitFolder(of: workspace)?.id,
             let state = sidebarCI(folder)
@@ -116,20 +122,20 @@ extension RowMarks {
             }, tip: ciLine(folder) ?? String(localized: "CI"), key: "\(state)"
         ) { [weak self] in self?.openCI(folder) }
     }
-    /// On the branch chip: a pass for its first minute on screen.
+    /// The mark on the branch chip, which shows a pass for its first minute on screen.
     func chipCI(_ id: String) -> CIRuns.State? {
         guard let ciState = state(id) else { return nil }
         return ciState != .passed || unseen.contains(id) || shown[id] != nil ? ciState : nil
     }
-    /// Where the chip shows it (Settings › CI on the branch chip): in place of the branch glyph, after the counts, or
-    /// not at all.
+    /// Where the chip shows the mark (Settings › CI on the branch chip): in place of the branch glyph, after the
+    /// counts, or not at all.
     func chip(_ id: String) -> (state: CIRuns.State, atEnd: Bool)? {
         let place = app.settings[SettingKeys.ciBranchChip]
         guard place != "off", let ciState = chipCI(id) else { return nil }
         return (ciState, place == "end")
     }
 
-    /// "CI: Failed · Tests, Deploy": what the mark says, and which workflows say it.
+    /// What the mark says, and which workflows say it: "CI: Failed · Tests, Deploy".
     func ciLine(_ id: String) -> String? {
         guard let ciState = state(id) else { return nil }
         let runs = CIRuns.latest(app.latest(CIEvent.self, id)?.result?.runs ?? []).filter {
@@ -146,7 +152,8 @@ extension RowMarks {
         return String(localized: "CI: \(what)")
     }
 
-    /// CI Runs for the folder (it opens a failed job's log by itself), in its workspace; without the panel, the run's page.
+    /// Opens CI Runs for the folder in its workspace, and the panel opens a failed job's log by itself. Without the
+    /// panel, it opens the run's page.
     func openCI(_ id: String) {
         if app.gitFolder(of: app.workbench.workspaceId)?.id != id || app.workbench.page != nil {
             app.workbench.show(workspace: id)
@@ -160,7 +167,7 @@ extension RowMarks {
         }
     }
 
-    /// The branch chip's menu: Create Pull Request while the branch has none, and where its CI shows.
+    /// Fills the branch chip's menu: Create Pull Request while the branch has none, and where its CI shows.
     func menuItems(_ menu: NSMenu, worktree: String?) {
         PullRequests.menuItems(menu, worktree: worktree, app)
         if !menu.items.isEmpty { menu.addItem(.separator()) }
@@ -174,8 +181,8 @@ extension RowMarks {
         Set(app.latest(CIEvent.self).byKey.keys).union(prs.keys).reduce(into: [:]) { $0[$1] = state($1) }
     }
 
-    /// A run that went from running to passed: on screen, the chip's ✓ for a minute; elsewhere, the sidebar's until you go there.
-    /// Anything else (a new run, no CI) takes the ✓ away.
+    /// Handles runs that went from running to passed. On screen, the chip shows a ✓ for a minute; elsewhere, the
+    /// sidebar shows one until you go there. Anything else (a new run, no CI) takes the ✓ away.
     private func landed(_ now: [String: CIRuns.State]) {
         let here = app.gitFolder(of: app.workbench.workspaceId)?.id
         for (id, ciState) in now where ciState == .passed && (states[id] == .running || states[id] == .waiting) {
@@ -197,7 +204,8 @@ extension RowMarks {
         }
     }
 
-    /// A push from anywhere (a terminal, an agent) starts CI: look for its run now, not on the next 2-minute read.
+    /// A push from anywhere (a terminal, an agent) starts CI, so its run is looked for now, not on the next 2-minute
+    /// read.
     private func pushes(_ now: [String: BranchInfo]) {
         for id in following[.ci] ?? [] {
             if let new = now[id], let old = branches[id], new.pushed(since: old) { app.watchAgain(.ci, id) }

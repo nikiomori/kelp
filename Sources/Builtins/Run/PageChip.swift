@@ -4,14 +4,15 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// The title bar's way to what the workspace on screen serves, whoever started it: its address opens the page beside you
-/// (⇧⌘O; a database's is copied), "+2" opens the Run menu, which lists them all, and a right-click has the rest. There
-/// with no run chip too: an agent's server in a project with nothing to run. Hidden while nothing listens.
+/// The title bar's way to what the workspace on screen serves, whoever started it. The address opens the page beside
+/// you (⇧⌘O; a database's address is copied), "+2" opens the Run menu, which lists them all, and a right-click has the
+/// rest. It shows even with no run chip, for an agent's server in a project with nothing to run. It is hidden while
+/// nothing listens.
 @MainActor
 final class PageChip: ChipCapsule, WindowBarItem {
     private struct Look: Equatable { var workspace: String, page: ServedPage, more: Int }
 
-    /// Only the port, when the bar is short of room.
+    /// Shows only the port, when the bar is short of room.
     var compact = false { didSet { if compact != oldValue { show(look) } } }
 
     private let app: AppModel
@@ -52,8 +53,8 @@ final class PageChip: ChipCapsule, WindowBarItem {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Short of room the page's address comes down to its port. The bar's own width, so the choice can't feed back on
-    /// itself.
+    /// When the bar is short of room, the page's address comes down to its port. The choice uses the bar's own width,
+    /// so it can't feed back on itself.
     func fit(barWidth: CGFloat) { compact = barWidth < 900 }
 
     private var look: Look? {
@@ -82,8 +83,8 @@ final class PageChip: ChipCapsule, WindowBarItem {
             ? String(localized: "Open \(page.place) (⇧⌘O)") : String(localized: "Copy \(page.place) (⇧⌘O)")
     }
 
-    /// What a click doesn't do. A page that came from a run's printed address may have no process on this Mac: it may
-    /// run on a host.
+    /// The right-click menu: what a click doesn't do. A page that came from a run's printed address may have no
+    /// process on this Mac, because it may run on a host.
     private func menu(_ look: Look) -> NSMenu {
         let actions = NSMenu(), app = app, page = PageActions(app)
         if look.page.isWeb {

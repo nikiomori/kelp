@@ -2,8 +2,8 @@ import Core
 import KelpKit
 
 extension Builtins {
-    /// `kelp db`, for agents. Written whenever it's on; the daemon gives it only to chats in a project with a database
-    /// (`SessionSetup.hasDatabases`).
+    /// The `kelp db` skill, for agents. It is written whenever the built-in is on, and the daemon gives it only to
+    /// chats in a project with a database (`SessionSetup.hasDatabases`).
     static let databasesSkill = SkillSpec(
         name: "kelp-db",
         description:

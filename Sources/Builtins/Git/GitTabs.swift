@@ -5,9 +5,9 @@ import EditorKit
 import KelpKit
 import WorkbenchKit
 
-/// "diff:<workspace>" (every change), "diff:<workspace>?source=tidy" (Tidy Up's), "diff:<workspace>?commit=<hash>" or
-/// "diff:<workspace>?file=<path>[&source=unstaged|staged][&commit=<hash>]" (one file, like VS Code's diff editor:
-/// "name (Working Tree)", "name (Index)", "name (abc1234)").
+/// The diff tab: "diff:<workspace>" (every change), "diff:<workspace>?source=tidy" (Tidy Up's),
+/// "diff:<workspace>?commit=<hash>", or "diff:<workspace>?file=<path>[&source=unstaged|staged][&commit=<hash>]" for
+/// one file, like VS Code's diff editor ("name (Working Tree)", "name (Index)", "name (abc1234)").
 @MainActor
 final class DiffTab: TabContent {
     let worktreeId: String, app: AppModel
@@ -54,8 +54,8 @@ final class DiffTab: TabContent {
             controller.showTidy()
         }
         controller.show(worktree: worktreeId)
-        // Its workspace's git, pushed when its files change (a commit's diff doesn't change): read the diff again if it
-        // changed what the diff is read from.
+        // The workspace's git status is pushed when its files change (a commit's diff doesn't change). The diff is
+        // read again if the change touched what the diff is read from.
         guard commit == nil else { return }
         gitWatch.key = app.gitKey(worktreeId)
         var shown = false   // the first value is what was just loaded
@@ -81,9 +81,9 @@ final class DiffTab: TabContent {
 }
 
 extension GitDiff {
-    /// Which of a workspace's git readings this diff is read from. An event that leaves that reading as it was (a fetch
-    /// moving ahead/behind, a branch made elsewhere; and for a branch's or a commit's diff, edits too) needs no new
-    /// read. Edits and staging show in the status and the line counts, and commits in HEAD.
+    /// Which of a workspace's git readings this diff is read from. An event that leaves that reading as it was needs
+    /// no new read: a fetch moving ahead/behind, a branch made elsewhere, and for a branch's or a commit's diff, edits
+    /// too. Edits and staging show in the status and the line counts, and commits in HEAD.
     struct Basis: Equatable {
         var changes: [FileChange]?, stats: LineStats?, head: String?, branches: BranchInfo?, error: String?
     }
@@ -94,7 +94,7 @@ extension GitDiff {
         // HEAD against its base's merge base
         case .branch: return Basis(branches: event.branches, error: event.error)
         case .commit: return Basis(head: commit == "HEAD" ? event.branches?.head : nil, error: event.error)
-        // the files against the index, or a snapshot
+        // the files against the index, or against a snapshot
         case .unstaged, .turn: return Basis(changes: event.changes, stats: event.stats, error: event.error)
         case .all, .staged, .tidy:
             return Basis(changes: event.changes, stats: event.stats, head: event.branches?.head, error: event.error)   // against HEAD
@@ -103,7 +103,8 @@ extension GitDiff {
 }
 
 /// "commit:<workspace>[?push=1][&amend=1][&message=…]": the commit message as a page, like VS Code's COMMIT_EDITMSG.
-/// Commit with an empty message box opens it. Lines starting with "#" are left out; ⌘↩ or Commit commits, closing cancels.
+/// Commit with an empty message box opens it. Lines starting with "#" are left out. ⌘↩ or Commit commits, and closing
+/// the tab cancels.
 @MainActor
 final class CommitMessageTab: TabContent {
     let uri: String, app: AppModel
@@ -178,9 +179,10 @@ final class CommitMessageTab: TabContent {
         ])
     }
 
-    /// The message (the last commit's, when amending), then what goes into the commit as "#" lines, as git's own template does.
+    /// Fills in the message (the last commit's, when amending), then what goes into the commit as "#" lines, as git's
+    /// own template does.
     private func fill(_ message: String) async {
-        // The "#" lines only describe the commit; without them the message is still the message.
+        // The "#" lines only describe the commit, so without them the message is still the message.
         let changes = await app.quiet(GitStatus(id: worktreeId)) ?? []
         let branch = await app.quiet(GitBranches(id: worktreeId))?.current
         let staged = changes.filter { $0.staged && !$0.conflicted }
@@ -233,20 +235,21 @@ final class CommitMessageTab: TabContent {
     func focus() { text.window?.makeFirstResponder(text) }
 }
 
-/// Commits what's staged, or every change, new files too, when nothing is (VS Code's smart commit), then pushes if asked.
-/// Failures go to the banner, where an agent can be asked to fix them.
+/// Commits what's staged, or every change (new files too) when nothing is staged, like VS Code's smart commit, then
+/// pushes if asked. Failures go to the banner, where an agent can be asked to fix them.
 @MainActor
 enum GitCommit {
-    /// Nothing staged: the commit takes every change. A list cut at its limit can have left out what's staged, so it doesn't then.
+    /// Whether the commit takes every change, because nothing is staged. A list cut at its limit can have left out
+    /// what's staged, so then it doesn't.
     static func takesEverything(_ changes: [FileChange]) -> Bool {
         changes.count < FileChange.limit && !changes.contains { $0.staged && !$0.conflicted }
     }
 
-    /// A commit that went in and a push that didn't are two results: the one who asked says what's left.
+    /// Returns two results, because a commit can go in while the push doesn't, and the caller says what's left.
     static func run(_ app: AppModel, _ wid: String, message: String, push: Bool, amend: Bool) async -> (
         committed: Bool, pushed: Bool
     ) {
-        // Unread, nothing would look staged and every change would go in: stop with the banner instead.
+        // Without the status nothing would look staged and every change would go in, so stop with the banner instead.
         guard let changes = await app.call(GitStatus(id: wid)) else { return (false, false) }
         let result = await app.tryCall(
             Core.GitCommit(id: wid, message: message, all: takesEverything(changes), amend: amend))   // this enum's namesake
@@ -255,7 +258,7 @@ enum GitCommit {
             return (false, false)
         }
         guard push else { return (true, false) }
-        // The app's one push: the branch chip says "Pushing…", and CI is looked for.
+        // The app's one way to push: the branch chip says "Pushing…", and CI is looked for.
         let refused = await GitSync.run(app, wid, [.push])
         if let refused { GitFix(app).offer(refused, recipe: "fixPush", worktree: wid) }
         return (true, refused == nil)

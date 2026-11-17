@@ -3,8 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Undo This Change…: an agent's change put back from the rows Kelp kept of it (`DatabaseUndo`), after a look at what
-/// that runs. Only while the rows are as the change left them: changed since, nothing is written over.
+/// Undo This Change… puts an agent's change back from the rows Kelp kept of it (`DatabaseUndo`), after showing what
+/// that will run. It works only while the rows are as the change left them; when they changed since, nothing is
+/// written over.
 extension DatabaseTab {
     func undo(_ run: DatabaseRun) {
         let worktree = address.worktree, name = address.name, engine = engine
@@ -36,7 +37,7 @@ extension DatabaseTab {
                 return Banner.show(String(localized: "Nothing was put back: \(error ?? "")"))
             }
             let back = done.changed ?? 0
-            guard back == statements.count else {   // a database that can't count each (`Databases.applied`)
+            guard back == statements.count else {   // some database can't count each one (`Databases.applied`)
                 let rows = Self.rows(back).capitalizedFirst
                 return Banner.show(
                     String(localized: "\(rows) of \(table) put back: the others changed since Kelp read them."))
@@ -46,7 +47,7 @@ extension DatabaseTab {
         }
     }
 
-    /// The question, with the first statements it would run.
+    /// Asks the question, showing the first statements the undo would run.
     private func confirmed(_ statements: [String], who: String, table: String, at: Date) async -> Bool {
         let shown = statements.prefix(8).joined(separator: ";\n") + ";"
         let more = statements.count > 8 ? "\n" + String(localized: "… \(statements.count - 8) more") : ""

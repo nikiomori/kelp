@@ -3,9 +3,10 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The database tab's left column, like TablePlus' and TablePro's: Items (the Functions, Views and Tables of the schema
-/// picked at its foot; each section folds, and names use the editor's font), Queries (the saved ones, and New Query),
-/// and History (what agents and the user ran here). Its search finds items by name, and a table by its columns too.
+/// The database tab's left column, like TablePlus' and TablePro's. Items lists the Functions, Views and Tables of the
+/// schema picked at the column's foot; each section folds, and names use the editor's font. Queries lists the saved
+/// queries and New Query, and History lists what agents and the user ran here. The search finds items by name, and
+/// a table by its columns too.
 @MainActor
 final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate {
     enum Row {
@@ -37,7 +38,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     var saved: [SavedQuery] = [] {
         didSet { if part.selectedSegment == 1 { reload() } }
     }
-    /// The table on screen: selected in the list.
+    /// The table on screen, which the list keeps selected.
     var current: String? {
         didSet { select() }
     }
@@ -77,11 +78,11 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         }
         let top = NSStackView(views: [part])
         top.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: 0, bottom: 0, right: 0)
-        let find = NSStackView(views: [search, add])   // New Query beside the search, as the list's own "+"
+        let find = NSStackView(views: [search, add])   // New Query sits beside the search, as the list's own "+"
         find.spacing = Metrics.gap
         find.edgeInsets = NSEdgeInsets(
             top: Metrics.gap, left: Metrics.gapWide, bottom: Metrics.gap, right: Metrics.gapWide)
-        let foot = NSStackView(views: [schemaPicker, NSView()])   // only there when the database has other schemas
+        let foot = NSStackView(views: [schemaPicker, NSView()])   // shown only when the database has other schemas
         foot.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gap)
         foot.heightAnchor.constraint(equalToConstant: Metrics.statusBar + 4).isActive = true
         foot.isHidden = true
@@ -90,13 +91,13 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         column.spacing = 0
         for v in [find, scroll, foot] { v.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
         view.pin(column)
-        // As wide as the user drags it (the tab's split keeps it, per Mac; 280 until then).
+        // The column is as wide as the user drags it. The tab's split keeps that width per Mac, 280 until then.
         view.widthAnchor.constraint(greaterThanOrEqualToConstant: 180).isActive = true
     }
 
     // MARK: What it lists
 
-    /// "public" and the other schemas, from the tables' "schema.name"; the default one first.
+    /// Lists "public" and the other schemas, read from the tables' "schema.name", with the default one first.
     private func schemasChanged() {
         let others = Set(
             schema.tables.compactMap { $0.name.contains(".") ? String($0.name.split(separator: ".")[0]) : nil })
@@ -130,7 +131,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         case 2:
             out = runs.filter { find.isEmpty || $0.sql.lowercased().contains(find) }.map(Row.run)
         default:
-            // As Finder sorts: "1_weather" before "10_weather".
+            // Sorts as Finder does: "1_weather" before "10_weather".
             func ordered(_ a: String, _ b: String) -> Bool { a.localizedStandardCompare(b) == .orderedAscending }
             let functions = (schema.functions ?? []).filter { find.isEmpty || $0.lowercased().contains(find) }
                 .sorted(by: ordered)
@@ -194,7 +195,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             if table.kind == "view" { icon.contentTintColor = .systemPurple }
             let name = NSTextField.label(
                 table.name.split(separator: ".").last.map(String.init) ?? table.name, font: .uiMono(TextSize.caption))
-            name.lineBreakMode = .byTruncatingMiddle   // "cadaster_lan…_2021": names differ at their ends
+            name.lineBreakMode = .byTruncatingMiddle   // "cadaster_lan…_2021": these names differ at their ends
             let row = line([icon, name, NSView()], inset: 20)
             row.toolTip = [table.name, table.rows.map { String(localized: "\($0) rows") }, table.comment].compactMap {
                 $0
@@ -256,7 +257,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
 
     // MARK: Clicks
 
-    /// A table opens in the tab itself (it replaces the one shown); a double click keeps it in a tab of its own.
+    /// A click opens a table in the tab itself, in place of the one shown; a double click keeps it in a tab of its own.
     @objc private func clicked() {
         guard rows.indices.contains(list.clickedRow) else { return }
         switch rows[list.clickedRow] {
@@ -276,7 +277,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         onTable(table.name, true)
     }
 
-    /// A table dragged out (onto an agent's terminal) is its name and where to read it.
+    /// A table dragged out (onto an agent's terminal, say) carries its name.
     func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> (any NSPasteboardWriting)? {
         guard case .table(let table) = rows[row] else { return nil }
         return table.name as NSString
@@ -302,7 +303,7 @@ extension DatabaseSidebar: NSMenuDelegate {
             menu.add(String(localized: "Forget")) { [weak self] in self?.onForget(query) }
         case .run(let run):
             menu.add(String(localized: "Show Rows")) { [weak self] in self?.onRun(run, false) }
-            if run.session != nil, run.state == .done, (run.changed ?? 0) > 0 {   // an agent's change: put back
+            if run.session != nil, run.state == .done, (run.changed ?? 0) > 0 {   // an agent's change can be put back
                 menu.add(String(localized: "Undo This Change…")) { [weak self] in self?.onUndo(run) }
             }
             menu.add(String(localized: "Put in the Editor")) { [weak self] in self?.onRun(run, true) }

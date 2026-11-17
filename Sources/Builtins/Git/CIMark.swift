@@ -3,18 +3,18 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A branch's CI in one mark, drawn the way agents' states are: a spinning ring while it runs, an orange ◎ while a
-/// deploy waits for someone's approval, a quiet filled ✓ when it passed and you haven't looked, and a red dot when it
-/// failed (CI Runs' filled ✕ was the loudest thing in the sidebar and read as a window's close button). When `spelled`,
-/// it says "CI" instead.
-/// It sits over the image slot of a chip or a badge, and lets clicks through to it. The shell shows it through
+/// A branch's CI in one mark, drawn the way agents' states are. It shows a spinning ring while CI runs, an orange ◎
+/// while a deploy waits for someone's approval, a quiet filled ✓ when CI passed and you haven't looked, and a red dot
+/// when it failed. (CI Runs' filled ✕ was the loudest thing in the sidebar and read as a window's close button.) When
+/// `spelled`, the mark says "CI" instead.
+/// The mark sits over the image slot of a chip or a badge, and lets clicks through to it. The shell shows it through
 /// `FolderCI.mark`.
 @MainActor
 final class CIMark: NSView {
     private let agentLike = StatusMark(size: 12), word = NSTextField(labelWithString: "CI")
     var state: CIRuns.State? { didSet { if state != oldValue { update() } } }
-    /// Under the pointer (a sidebar row's CI badge): a failure says "CI" where its dot was, as the changes dot shows its
-    /// counts.
+    /// Set under the pointer (on a sidebar row's CI badge), where a failure says "CI" in place of its dot, as the
+    /// changes dot shows its counts.
     var spelled = false { didSet { if spelled != oldValue { update() } } }
 
     init() {
@@ -38,10 +38,11 @@ final class CIMark: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
-    /// The ring says nothing: its words belong to an agent, while the chip or badge it sits on says what CI does.
+    /// The ring says nothing to accessibility, because its words belong to an agent and the chip or badge it sits on
+    /// says what CI does.
     override func accessibilityChildren() -> [Any]? { [] }
 
-    /// How much wider than its 12 pt the mark is while it says "CI": the room a row must keep for it.
+    /// How much wider than its 12 pt the mark is while it says "CI", which is the room a row must keep for it.
     var overhang: CGFloat { spelled && state == .failed ? max(0, ceil(word.intrinsicContentSize.width) - 12) : 0 }
 
     private func update() {
@@ -57,14 +58,15 @@ final class CIMark: NSView {
             }
     }
 
-    /// The failure's dot, 6 pt in the mark's 12: drawn here, so it follows the appearance as text colours do.
+    /// Draws the failure's dot, 6 pt in the mark's 12, here so that it follows the appearance as text colours do.
     override func draw(_ dirtyRect: NSRect) {
         guard state == .failed, !spelled else { return }
         NSColor.textRed.setFill()
         NSBezierPath(ovalIn: bounds.insetBy(dx: bounds.width / 4, dy: bounds.height / 4)).fill()
     }
 
-    /// One for the shell (`FolderCI.mark`): the view, and what shows a state in it, answering its `overhang`.
+    /// Makes a mark for the shell (`FolderCI.mark`): the view, and a function that shows a state in it and returns its
+    /// `overhang`.
     static func made() -> (view: NSView, show: @MainActor (CIRuns.State?, Bool) -> CGFloat) {
         let mark = CIMark()
         return (

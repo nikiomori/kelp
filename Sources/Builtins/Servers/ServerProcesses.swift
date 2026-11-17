@@ -4,21 +4,22 @@ import DesignKit
 import KelpKit
 import SwiftUI
 
-/// The busiest processes, and what each is part of (a Kelp agent, a container, a service): what htop can't tell. One
-/// program's processes fold into a line ("nginx ×3") that opens to show them. All, or Kelp's alone when Kelp has any
-/// there; sorted by a click on a column's title. Plain rows, not a `Table`: its NSTableView took the reading every 2 s
-/// as an update in the middle of its own (AppKit's "reentrant operation" warning).
+/// The busiest processes, and what each is part of (a Kelp agent, a container, a service), which htop can't tell. One
+/// program's processes fold into a line ("nginx ×3") that opens to show them. It lists all processes, or Kelp's alone
+/// when Kelp has any there, sorted by a click on a column's title. The rows are plain, not a `Table`, because its
+/// NSTableView took the reading every 2 s as an update in the middle of its own (AppKit's "reentrant operation"
+/// warning).
 struct ServerProcesses: View {
     let app: AppModel, stats: HostStats
     @State private var kelpOnly = false
     @State private var sort = Sort.cpu
-    /// The folded lines opened, by `Line.id`.
+    /// The folded lines that are open, by `Line.id`.
     @State private var open: Set<String> = []
 
     enum Sort { case command, user, cpu, memory, running }
 
-    /// One program's processes in one place (agent, container or unit: two python3 in two services stay two), the busiest
-    /// first.
+    /// One program's processes in one place (an agent, a container or a unit, so two python3 in two services stay
+    /// two), the busiest first.
     struct Line: Identifiable {
         let id: String, members: [HostStats.Process]
         var cpu: Double { members.reduce(0) { $0 + $1.cpu } }
@@ -116,11 +117,11 @@ struct ServerProcesses: View {
     }
 }
 
-/// One process: its name, pid and arguments, what it's part of, who runs it, and what it takes. Double-click goes to its
-/// agent. `inside`: one of a folded line's, set in under it.
+/// One process: its name, pid and arguments, what it's part of, who runs it, and what it takes. A double-click goes to
+/// its agent. `inside` marks one of a folded line's processes, set in under it.
 struct ProcessRow: View {
     static let part: CGFloat = 140, user: CGFloat = 96, number: CGFloat = 64
-    /// The narrowest a row is whole: its fixed columns, the gaps and padding, and a little of the command.
+    /// The narrowest a row can be and stay whole: its fixed columns, the gaps and padding, and a little of the command.
     static let least: CGFloat = part + user + 3 * number + 5 * 8 + 2 * 8 + 80
     let app: AppModel, process: HostStats.Process
     var inside = false
@@ -165,7 +166,7 @@ struct ProcessRow: View {
     }
 }
 
-/// One program's processes folded into a line: their count, and what they take together. A click opens it.
+/// One program's processes folded into a line: their count, and what they take together. A click opens the line.
 private struct FoldedRow: View {
     let app: AppModel, line: ServerProcesses.Line
     @Binding var open: Bool

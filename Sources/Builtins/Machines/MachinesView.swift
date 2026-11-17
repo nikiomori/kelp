@@ -10,18 +10,20 @@ import SwiftUI
 /// A click opens its tab; a right-click starts, sleeps or stops it.
 struct MachinesView: View {
     let app: AppModel
-    /// The list, watched while it's shown: the daemon reads them every 5 s, every second while one starts.
+    /// The list, watched while it's shown. The daemon reads the machines every 5 s, and every second while one starts.
     @State private var watched: Watched?
     @State private var hovered: String?
-    /// What + offers, read once (it looks for an Android SDK and Xcode on disk), not at every redraw.
+    /// What + offers, read once rather than at every redraw, because it looks for an Android SDK and Xcode on disk.
     @State private var choices: [(title: String, image: String, missing: String?)] = []
 
-    /// Made only while Machines is on (`Contributions.sidebarSections`): off, nothing of it is drawn or watched.
+    /// Made only while Machines is on (`Contributions.sidebarSections`). When it's off, nothing of it is drawn or
+    /// watched.
     var body: some View { block }
 
     private var block: some View {
-        // The loader hangs off a container that always exists while it's on: on an EmptyView `.task` never runs. With no
-        // machine it draws nothing (File › New Machine… makes the first): the block is for those who have one.
+        // The loader hangs off a container that always exists while the block is on, because on an EmptyView `.task`
+        // never runs. With no machine the block draws nothing (File › New Machine… makes the first), because the
+        // block is for those who have one.
         let machines = Machines.machineList(app)
         return VStack(alignment: .leading, spacing: 0) {
             Color.clear.frame(height: 0)
@@ -49,7 +51,8 @@ struct MachinesView: View {
         .onDisappear { watched = nil }
     }
 
-    /// + : a new machine of each kind this Mac can run; what it lacks greys one out and says why.
+    /// The + menu: a new machine of each kind this Mac can run. A kind the Mac lacks something for is greyed out and
+    /// says why.
     private var add: some View {
         Menu {
             ForEach(choices, id: \.image) { choice in
@@ -115,7 +118,7 @@ struct MachinesView: View {
         .accessibilityAddTraits(.isButton)
     }
 
-    /// The agents with a command running in it: their icons, overlapping.
+    /// The agents with a command running in the machine: their icons, overlapping.
     @ViewBuilder private func faces(_ vmInfo: VMInfo) -> some View {
         let agents = (vmInfo.sessions ?? []).compactMap { app.session($0)?.agent }
         HStack(spacing: -Metrics.appIcon / 3) {   // overlapping, as a stack of faces
@@ -143,8 +146,8 @@ struct MachinesView: View {
     }
 }
 
-/// Start, Sleep and Shut Down as its state allows, Try Again for one whose making failed: its row's menu and its tab's
-/// alike.
+/// Start, Sleep and Shut Down as the machine's state allows, and Try Again for one whose making failed. The row's
+/// menu and the tab show the same controls.
 struct MachineControls: View {
     let app: AppModel, info: VMInfo
 
@@ -154,17 +157,17 @@ struct MachineControls: View {
         case .running, .paused:
             Button(String(localized: "Sleep")) { Machines.control(app, machine: name, .sleep) }
             Button(String(localized: "Shut Down")) { Machines.control(app, machine: name, .stop) }
-        case .starting:   // one starting can't be saved yet: kelp-vm refuses a sleep until it's up
+        case .starting:   // a machine starting can't be saved yet, because kelp-vm refuses a sleep until it's up
             Button(String(localized: "Shut Down")) { Machines.control(app, machine: name, .stop) }
         case .sleeping, .off:
             Button(String(localized: "Start")) { Machines.control(app, machine: name, .start) }
-            if info.state == .sleeping {   // its saved state forgotten: the next start boots afresh
+            if info.state == .sleeping {   // forgets the saved state, so the next start boots afresh
                 Button(String(localized: "Shut Down")) { Machines.control(app, machine: name, .stop) }
             }
         case .error:
             if info.notMade == true {
                 Button(String(localized: "Try Again")) { Machines.makeAgain(app, name) }
-            } else {   // made, its last start failed: its disk is whole, and a start tries again
+            } else {   // the machine was made but its last start failed; its disk is whole, and a start tries again
                 Button(String(localized: "Start")) { Machines.control(app, machine: name, .start) }
             }
         case .creating: EmptyView()

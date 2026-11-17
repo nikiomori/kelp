@@ -5,9 +5,10 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// "vm:<name>" — a machine at a glance: what runs in it (each `kelp vm run`, with the chat it came from), the ports
-/// something listens on (open in Kelp's browser), the folders shared with it and what it is. Watched while the tab is open
-/// (`WatchTopic.machineDetail`), with the list (the sidebar may be hidden); reading never wakes it.
+/// "vm:<name>": a machine at a glance. It shows what runs in it (each `kelp vm run`, with the chat it came from), the
+/// ports something listens on (they open in Kelp's browser), the folders shared with it, and what it is. It is watched
+/// while the tab is open (`WatchTopic.machineDetail`), along with the list, because the sidebar may be hidden.
+/// Reading it never wakes the machine.
 @MainActor
 func machineTab(uri: String, app: AppModel) -> KelpKit.TabContent {   // not SwiftUI's
     let name = TabURI.body(uri)
@@ -63,10 +64,11 @@ struct MachineView: View {
         }
     }
 
-    /// Nothing to run in: it's being made, or making it failed (a machine whose start failed boots again on a command).
+    /// Whether there's nothing to run in, because the machine is being made or making it failed. A machine whose start
+    /// failed boots again on a command.
     private var unusable: Bool { info.map { $0.state == .creating || $0.notMade == true } ?? true }
 
-    /// "Debian 13 · 2 CPUs (12%) · 1.2 GB in use · 3.1 GB on disk", sizes as its sidebar row says them.
+    /// "Debian 13 · 2 CPUs (12%) · 1.2 GB in use · 3.1 GB on disk", with sizes as its sidebar row says them.
     private func summary(_ info: VMInfo) -> String {
         let machine = info.machine
         var parts = [VMImage.named(machine.image)?.title ?? machine.image, String(localized: "\(machine.cpus) CPUs")]
@@ -96,7 +98,8 @@ struct MachineView: View {
                 .offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
             case .error: failed(info)
             case .sleeping, .off:
-                ScrollView {   // what it is stays in view: its files, and its size to change while it's shut down
+                // What the machine is stays in view: its files, and its size to change while it's shut down.
+                ScrollView {
                     VStack(spacing: 0) {
                         asleep(info).frame(maxWidth: .infinity).padding(.vertical, 24)
                         machine(info)
@@ -110,7 +113,8 @@ struct MachineView: View {
         }
     }
 
-    /// Making it failed (Try Again, Delete), or its last start did (its disk is whole: Start tries again).
+    /// Shown when making the machine failed (Try Again, Delete), or its last start did (its disk is whole, so Start
+    /// tries again).
     private func failed(_ info: VMInfo) -> some View {
         let notMade = info.notMade == true
         return EmptyState(
@@ -190,8 +194,8 @@ struct MachineView: View {
         }
     }
 
-    /// A macOS machine's screen: whose turn it is (agents read and drive it from the Mac's side, nothing to allow), and
-    /// the password for a dialog inside that asks for it.
+    /// A macOS machine's screen: whose turn it is (agents read and drive it from the Mac's side, so there is nothing
+    /// to allow), and the password for a dialog inside that asks for it.
     @ViewBuilder private func screen(_ guest: VMDetail.Guest) -> some View {
         Text("Screen").sectionHeading()
         VStack(alignment: .leading, spacing: 6) {
@@ -213,7 +217,7 @@ struct MachineView: View {
         .padding(.horizontal, 6).padding(.bottom, Metrics.gapWide)
     }
 
-    /// A `kelp vm run`: the chat it came from (a terminal's shows as Terminal), its command, how long it has run.
+    /// A `kelp vm run`: the chat it came from (a terminal's shows as Terminal), its command, and how long it has run.
     private func runRow(_ run: VMDetail.Run) -> some View {
         let session = run.session.flatMap(app.session)
         return Button {
@@ -257,7 +261,7 @@ struct MachineView: View {
         .padding(.horizontal, 6).padding(.vertical, 2)
     }
 
-    /// Its files and what it is: the end of the running view, and below the asleep one.
+    /// The machine's files and what it is, at the end of the running view and below the asleep one.
     private func machine(_ info: VMInfo) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             if let files = info.files { exchange(files) }
@@ -270,14 +274,14 @@ struct MachineView: View {
         .frame(maxWidth: 560, alignment: .leading)
     }
 
-    /// Its exchange folder: `~/Kelp` inside, a folder beside the machine here.
+    /// The machine's exchange folder: `~/Kelp` inside it, and a folder beside the machine here.
     private func exchange(_ files: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Files").sectionHeading().padding(.top, Metrics.gapWide)
             VStack(alignment: .leading, spacing: 6) {
                 Text("~/Kelp in it is this folder on your Mac: put files there for it, take what it leaves.")
                     .font(.ui(TextSize.row)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                Button(String(localized: "Open in Finder")) {   // the daemon made it with the list
+                Button(String(localized: "Open in Finder")) {   // the daemon made the folder along with the list
                     NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: files)
                 }
                 .controlSize(.small)
@@ -286,17 +290,19 @@ struct MachineView: View {
         }
     }
 
-    /// Changes its size: one of processors, memory (GB) or disk (GB) at a time, the list updated with the answer.
+    /// Changes the machine's size: one of processors, memory (GB) or disk (GB) at a time, with the list updated from
+    /// the answer.
     private func resize(cpus: Int? = nil, memory: Int? = nil, disk: Int? = nil) {
         Task {
-            // The list as the daemon has it now, pushed again: one source for it, not a copy patched here.
+            // The daemon pushes the list as it has it now, so there is one source for it, not a copy patched here.
             if await app.call(VMConfigure(name: name, cpus: cpus, memory: memory, disk: disk)) != nil {
                 app.watchAgain(.machines)
             }
         }
     }
 
-    /// What it is, a row each; processors, memory and a Linux disk as steppers while it's shut down (a disk only grows).
+    /// What the machine is, a row each. Processors, memory and a Linux disk show as steppers while it's shut down (a
+    /// disk only grows).
     private func facts(_ info: VMInfo) -> some View {
         let machine = info.machine, cores = ProcessInfo.processInfo.activeProcessorCount
         let editable = machine.kind.resizable && info.state == .off
@@ -363,7 +369,7 @@ struct MachineView: View {
     /// What a disk of `gib` may grow to: the next few of the usual sizes, up to the 2 TB a machine may have.
     static func growSizes(_ gib: Int) -> [Int] { Array([64, 128, 256, 512, 1024, 2048].filter { $0 > gib }.prefix(4)) }
 
-    /// A disk only grows: asked first, as there's no making it smaller again.
+    /// Grows the disk after asking first, because there's no making it smaller again.
     private func grow(to gib: Int) {
         Task {
             guard

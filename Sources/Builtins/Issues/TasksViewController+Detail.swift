@@ -16,7 +16,8 @@ extension TasksViewController {
         field.font = .ui(size, weight: weight)
         field.textColor = color
         field.isSelectable = true
-        // It wraps at the pane's width: measured for a wider one, its last lines were cut in the panel.
+        // The field wraps at the pane's width, because when measured for a wider one its last lines were cut in the
+        // panel.
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return field
     }
@@ -36,7 +37,7 @@ extension TasksViewController {
             return
         }
         switch row {
-        case .pr, .issue: return   // in a tab of its own
+        case .pr, .issue: return   // these open in a tab of their own
         case .jira(let issue):
             detail.addArrangedSubview(label("\(issue.key)  \(issue.title)", size: 17, weight: .semibold))
             detail.addArrangedSubview(jiraTransitions(issue.key, current: issue.status))
@@ -75,7 +76,8 @@ extension TasksViewController {
         let pop = NSPopUpButton()
         pop.addItem(withTitle: issue.state.name)
         Task {
-            guard let states = await app.quiet(LinearStates(teamId: issue.team.id)) else { return }   // keeps the current state
+            // When the states can't be read, the current state stays.
+            guard let states = await app.quiet(LinearStates(teamId: issue.team.id)) else { return }
             pop.removeAllItems()
             for state in states {
                 pop.addItem(withTitle: state.name)
@@ -100,7 +102,7 @@ extension TasksViewController {
         let pop = NSPopUpButton()
         pop.addItem(withTitle: current.isEmpty ? String(localized: "Status") : current)
         Task {
-            let ts = await app.quiet(JiraTransitions(key: key)) ?? []   // none offered: the status stays as shown
+            let ts = await app.quiet(JiraTransitions(key: key)) ?? []   // with none offered, the status stays as shown
             for transition in ts {
                 pop.addItem(withTitle: "→ " + transition.name)
                 pop.lastItem?.representedObject = transition.id

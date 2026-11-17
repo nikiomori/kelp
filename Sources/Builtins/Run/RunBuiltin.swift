@@ -4,8 +4,8 @@ import KelpKit
 
 extension Builtins {
 
-    /// A project's commands, each run in a tab of its own: the window bar's run chip and the page a run serves, the Run
-    /// menu (⌘R, ⌘U, ⌘.), the Run rows in the "+" menu and the empty workspace, and running the file in front.
+    /// A project's commands, each run in a tab of its own: the window bar's run chip and the page a run serves, the
+    /// Run menu (⌘R, ⌘U, ⌘.), the Run rows in the "+" menu and the empty workspace, and running the file in front.
     package static let run = Builtin(
         "kelp.run", "Run", "The project's commands: the run chip, the Run menu and the pages they serve.",
         icon: "play"
@@ -14,8 +14,8 @@ extension Builtins {
         let inWorkspace: @MainActor () -> Bool = { app.workbench.workspaceId != nil }
         return Contributions(
             commands: [
-                // The Run menu: what ran last in the project, else the list of what its files offer (`{"name": "lint"}`
-                // runs a .kelp.yaml command by name).
+                // The Run menu runs what ran last in the project, else lists what the project's files offer.
+                // `{"name": "lint"}` runs a .kelp.yaml command by name.
                 CommandSpec(id: "scripts.run", title: "Run", key: "cmd+r", enabled: inWorkspace) { args in
                     runs.run(args["name"]?.string ?? "run")
                 },
@@ -31,7 +31,8 @@ extension Builtins {
                     enabled: { app.workbench.workspaceId.map { !runs.pages($0).isEmpty } ?? false }
                 ) { _ in runs.openPage() },
                 CommandSpec(id: "scripts.edit", title: "Edit Commands…", enabled: inWorkspace) { _ in runs.edit() },
-                // The language's commands (`contributes.languages`): run the file in front and its test at the cursor.
+                // The language's commands (`contributes.languages`): run the file in front, and its test at the
+                // cursor.
                 cmd("editor.runFile", "Run File") { if let tab = fileTab(app) { runs.runFile(tab, "run") } },
                 cmd("editor.testAtCursor", "Test at Cursor") {
                     if let tab = fileTab(app) { runs.runFile(tab, "test") }
@@ -51,7 +52,8 @@ extension Builtins {
                 choices: { runs.choices($0) },
                 open: { runs.open($0, in: $1) },
                 run: { await runs.runForTemplate($0, $1) }),
-            // A page a session printed (a run's waits on the chip for a click), a run whose port another program holds.
+            // A page a session printed (a run's page waits on the chip for a click), and a run whose port another
+            // program holds.
             events: [
                 {
                     switch $0 {
@@ -65,7 +67,7 @@ extension Builtins {
         )
     }
 
-    /// The file tab in front (only a file's tab has a file); a beep when there is none.
+    /// The file tab in front (only a file's tab has a file), or a beep when there is none.
     private static func fileTab(_ app: AppModel) -> TabContent? {
         guard let tab = app.workbench.focusedContent, tab.fileURL != nil else {
             NSSound.beep()

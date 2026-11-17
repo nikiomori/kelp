@@ -4,7 +4,7 @@ import KelpKit
 
 extension Builtins {
 
-    /// Off on a clean install: Settings › Extensions turns it on.
+    /// The Activity built-in is off on a clean install; the user turns it on in Settings › Extensions.
     package static let activity = Builtin(
         "kelp.activity", "Activity", "CPU and memory of each agent and terminal, with Stop.",
         icon: "gauge.with.dots.needle.33percent", offByDefault: true
@@ -22,8 +22,8 @@ extension Builtins {
     }
 }
 
-// How the app keeps what the daemon pushes about activity: these are the Activity built-in's own kinds, not the
-// shell's.
+// How the app keeps what the daemon pushes about activity. These event kinds belong to the Activity built-in, not
+// to the shell.
 extension ActivityEvent: Pushed {
     package var key: String { "" }
     package static var forgottenWith: WatchTopic? { .activity }

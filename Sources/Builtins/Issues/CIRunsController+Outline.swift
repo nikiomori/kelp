@@ -9,7 +9,7 @@ extension CIRunsController {
 
     func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
         guard let item = item as? Item else { return runs.count }
-        if case .run = item.kind, item.children == nil { return 1 }   // a placeholder until it's opened
+        if case .run = item.kind, item.children == nil { return 1 }   // a placeholder row until the run is opened
         return item.children?.count ?? 0
     }
     func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
@@ -20,7 +20,7 @@ extension CIRunsController {
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
         guard let item = item as? Item else { return false }
         if case .step = item.kind { return false }
-        return item.children.map { !$0.isEmpty } ?? true   // a fold, a job with steps, a run not yet read
+        return item.children.map { !$0.isEmpty } ?? true   // a fold, a job with steps, or a run not yet read
     }
     func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         TextSize.of({ if case .run? = (item as? Item)?.kind { Metrics.rowTwoLine } else { Metrics.row } }())
@@ -40,11 +40,12 @@ extension CIRunsController {
         if let shown = jobPane.shown, shown.job.id == job.id, shown.job.status == job.status {
             jobPane.keep(job, run: run)
             return
-        }   // a refresh, nothing new to read
+        }   // a refresh brought nothing new to read
         showLog(job, run: run)
     }
 
-    /// A fold opens from anywhere on its row. A step goes to its place in the job's log, which is read when it's over.
+    /// A fold opens from anywhere on its row. A step goes to its place in the job's log, which is read once the job is
+    /// over.
     @objc func rowClicked() {
         guard let item = outline.item(atRow: outline.clickedRow) as? Item else { return }
         switch item.kind {
@@ -56,11 +57,11 @@ extension CIRunsController {
 
     private func showInLog(_ step: CIRuns.Step, of item: Item) {
         guard let worktree, let job = job(of: item), job.status == "completed" else { return }
-        if step.failed, jobPane.shown?.job.id == job.id { return }   // what broke is on show under the runs
+        if step.failed, jobPane.shown?.job.id == job.id { return }   // what broke is already on show under the runs
         CILogTab.open(app, worktree: worktree, job: job, step: step.name)
     }
 
-    /// The job a step belongs to, past the fold it may sit in.
+    /// The job a step belongs to, looking past the fold the step may sit in.
     func job(of item: Item) -> CIRuns.Job? {
         var up = outline.parent(forItem: item) as? Item
         while let parent = up {
@@ -83,10 +84,10 @@ extension CIRunsController {
                 CIRunLook.mark(job.status, job.conclusion), job.name, font: .ui(TextSize.row), color: .labelColor,
                 right: right
             ).cell
-            cell.toolTip = job.name   // a narrow panel cuts it
+            cell.toolTip = job.name   // a narrow panel cuts the name
             return cell
         case .step(let step):
-            // The step running now reads like a title; done ones grey, the ones still to come quieter still.
+            // The step running now reads like a title, done steps are grey, and the steps still to come quieter still.
             let color: NSColor =
                 step.status == "in_progress"
                 ? .labelColor : step.status == "completed" ? .secondaryLabelColor : .tertiaryLabelColor
@@ -100,13 +101,13 @@ extension CIRunsController {
         }
     }
 
-    /// The title, then `CIRunMeta`: which run, how long, when. The tooltip has the whole title, as a commit's first line
-    /// rarely fits, and the commit, which a narrow panel cuts.
+    /// The title, then `CIRunMeta`: which run, how long, and when. The tooltip has the whole title, because a commit's
+    /// first line rarely fits, and the commit, which a narrow panel cuts.
     private func runRow(_ run: CIRuns.Run) -> NSView {
         let title = NSTextField(labelWithString: run.title)
         title.font = .ui(TextSize.row)
         title.lineBreakMode = .byTruncatingTail
-        // What tells runs apart: the workflow only when there are several, the event only when it isn't a push.
+        // What tells runs apart: the workflow only when there are several, and the event only when it isn't a push.
         let several = Set(allRuns.map(\.workflow)).count > 1
         let usual = run.finished ? nil : CIRuns.typicalSeconds(allRuns, workflow: run.workflow)
         let meta = CIRunMeta(

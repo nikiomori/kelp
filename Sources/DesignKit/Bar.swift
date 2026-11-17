@@ -1,9 +1,9 @@
 import AppKit
 
-/// A bar over what a panel or a tab shows, with a hairline under it. `panel`: an inspector panel's header, 36 pt, what it
-/// shows on the left (a title, a branch, a search field), icon buttons on the right with ⋯ last. `content`: a tab's
-/// toolbar (diff, Markdown, notebook, browser), 32 pt, a little more room between its controls. Heights follow the
-/// text size, as the rows do. `foot`: under what a tab shows, 32 pt with the hairline over it.
+/// A bar over what a panel or a tab shows, with a hairline under it. `panel` is an inspector panel's header, 36 pt,
+/// with what it shows on the left (a title, a branch, a search field) and icon buttons on the right, ⋯ last. `content`
+/// is a tab's toolbar (diff, Markdown, notebook, browser), 32 pt, with a little more room between its controls.
+/// Heights follow the text size, as the rows do. `foot` goes under what a tab shows, 32 pt with the hairline over it.
 @MainActor
 public final class Bar: NSView {
     /// The bar's controls, left to right; a flexible space sits between `leading` and `trailing`.
@@ -20,7 +20,8 @@ public final class Bar: NSView {
         bar.set(leading, trailing, stretching: stretching)
         return bar
     }
-    /// A tab's toolbar gives its system controls one size: a pop-up kept 13 pt at small size beside 11 pt buttons.
+    /// Whether the bar gives its system controls one size, as a tab's toolbar does, because a pop-up stayed 13 pt at
+    /// small size beside 11 pt buttons.
     private var sizesControls = false
 
     public static func foot(_ leading: [NSView], _ trailing: [NSView] = []) -> Bar {
@@ -58,8 +59,8 @@ public final class Bar: NSView {
         ])
     }
 
-    /// Puts these controls in the bar instead of the ones it had. The room left over goes to `stretching` (a search field,
-    /// an address), else to a space between `leading` and `trailing`.
+    /// Puts these controls in the bar instead of the ones it had. The room left over goes to `stretching` (a search
+    /// field, an address), or else to a space between `leading` and `trailing`.
     public func set(_ leading: [NSView], _ trailing: [NSView] = [], stretching: NSView? = nil) {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let flex = stretching ?? NSView()
@@ -68,7 +69,7 @@ public final class Bar: NSView {
             stack.addArrangedSubview(view)
         }
         if sizesControls { (leading + trailing).forEach(Self.small) }
-        // Icon buttons side by side: their 22 pt squares already hold them apart.
+        // Icon buttons side by side get less spacing, because their 22 pt squares already hold them apart.
         for (left, right) in zip(stack.arrangedSubviews, stack.arrangedSubviews.dropFirst())
         where left is IconButton && right is IconButton {
             stack.setCustomSpacing(Metrics.iconGap, after: left)
@@ -76,8 +77,8 @@ public final class Bar: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Push buttons, pop-ups and segments as AppKit draws them, and those in a stack among them: small, in the chrome's
-    /// 11 pt. Kelp's own (`PointerButton`, `PointerPopUpButton`) size themselves.
+    /// Makes push buttons, pop-ups and segments as AppKit draws them, and those in a stack among them, small, in the
+    /// chrome's 11 pt. Kelp's own controls (`PointerButton`, `PointerPopUpButton`) size themselves.
     private static func small(_ view: NSView) {
         if let stack = view as? NSStackView {
             stack.arrangedSubviews.forEach(small)

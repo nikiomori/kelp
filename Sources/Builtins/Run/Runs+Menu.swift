@@ -6,13 +6,14 @@ import KelpKit
 import WorkbenchKit
 
 extension Runs {
-    /// The Run menu: first what is already running that the menu didn't start, then the project's commands, grouped by
-    /// program ("make", "npm · web") and each named by what it does, one line each: its purpose's symbol, its name, and
-    /// the program in grey. When more than three commands say nothing about their purpose, they go under More, by file.
-    /// A command's description and its whole command line are its tooltip.
+    /// The Run menu. First comes what is already running that the menu didn't start, then the project's commands,
+    /// grouped by program ("make", "npm · web") and each named by what it does. Each takes one line: its purpose's
+    /// symbol, its name, and the program in grey. When more than three commands say nothing about their purpose, they
+    /// go under More, by file. A command's description and its whole command line are its tooltip.
     func menu(_ wid: String) -> NSMenu {
         let runMenu = NSMenu()
-        // Servers this menu didn't start (an agent's dev server, one typed in a terminal): before starting a second one.
+        // Servers this menu didn't start (an agent's dev server, one typed in a terminal) come first, so the user sees
+        // them before starting a second one.
         let elsewhere = (state.ports[wid] ?? []).filter { port in
             ServedPages.listed(port) && app.session(port.session).map { choice(of: $0) == nil } ?? false
         }
@@ -23,7 +24,7 @@ extension Runs {
         let rows = rows(wid), rest = rows.filter { $0.purpose == .other }
         let shown = rest.count > 3 ? rows.filter { $0.purpose != .other } : rows
         let tools = shown.map(Self.source).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
-        // The programs, after the longest name.
+        // The programs' column starts after the longest name.
         let column = NSMenuItem.noteColumn(shown.map(\.name) + [String(localized: "More")])
         for tool in tools {
             if runMenu.numberOfItems > 0 { runMenu.addItem(.separator()) }
@@ -64,10 +65,11 @@ extension Runs {
         return runMenu
     }
 
-    /// One command on one line: its purpose's symbol (grey; green while it runs), its name, where it comes from ("make",
-    /// "npm · web") — and its port while it runs, what's missing when it can't. ⌘R and a check for what ⌘R runs.
+    /// One command on one line: its purpose's symbol (grey, or green while it runs), its name, and where it comes from
+    /// ("make", "npm · web"), with its port while it runs and what's missing when it can't. ⌘R and a check mark go on
+    /// what ⌘R runs.
     private func item(_ row: Row, in menu: NSMenu, _ wid: String, column: CGFloat) {
-        // Running: a click shows its output (its tab may be hidden here), ⌥ stops it; ⌘R or ▶ starts it over.
+        // While it runs, a click shows its output (its tab may be hidden here) and ⌥ stops it; ⌘R or ▶ starts it over.
         let item = menu.add(row.name, key: row.current ? "r" : "") { [weak self] in
             guard let self else { return }
             if let sid = row.session {
@@ -87,7 +89,7 @@ extension Runs {
                     Task { await self?.app.call(SessionKill(id: sid)) }
                 }
                 stop.show(Self.tinted("stop.circle.fill", .systemRed))
-                // an alternate pairs with its item by key: ⌥ added to ⌘R, or ⌥ alone
+                // An alternate pairs with its item by key: ⌥ added to ⌘R, or ⌥ alone.
                 stop.keyEquivalent = item.keyEquivalent
                 stop.keyEquivalentModifierMask = item.keyEquivalent.isEmpty ? .option : [.command, .option]
                 stop.isAlternate = true
@@ -107,18 +109,19 @@ extension Runs {
         item.attributedTitle = NSMenuItem.titleWithNote(row.name, note: note, column: column, dim: row.missing != nil)
     }
 
-    /// What a command is for: the order of a program's commands in the Run menu, its symbol.
+    /// What a command is for, which sets the order of a program's commands in the Run menu and their symbol.
     enum Purpose: Int {
         case install, run, test, build, deploy, other
     }
 
-    /// By run.detect's kind, and by name for what kinds don't say (deploy, release, rollback; smoke and e2e tests).
+    /// Finds the purpose by run.detect's kind, and by name for what kinds don't say (deploy, release, rollback; smoke
+    /// and e2e tests).
     static func purpose(_ row: Row) -> Purpose {
         let name = row.name.lowercased()
         if row.install || ["install", "setup", "bootstrap", "deps"].contains(where: name.hasPrefix) { return .install }
         if ["deploy", "release", "publish", "ship", "rollback"].contains(where: name.hasPrefix) { return .deploy }
         switch row.kind {
-        // building an image to run it: not the everyday server
+        // A Dockerfile's run builds an image to run it, which is not the everyday server.
         case "run": return row.file == "Dockerfile" ? .other : .run
         case "test": return .test
         case "build", "lint": return .build
@@ -126,9 +129,9 @@ extension Runs {
         }
     }
 
-    /// Its purpose's symbol and colour (green ▶ run, purple flask tests, orange hammer build, blue check lint, red plane
-    /// deploy, teal install) — the colour for a run's tab; the Run menu shows it only on what runs. The rest in grey, by
-    /// name. ▶ in a green circle: it runs now.
+    /// The symbol and colour of a command's purpose: green ▶ run, purple flask tests, orange hammer build, blue check
+    /// lint, red plane deploy, teal install. The colour is for a run's tab; the Run menu shows it only on what runs.
+    /// The rest are grey, chosen by name. ▶ in a green circle means it runs now.
     static func glyph(_ row: Row) -> (String, NSColor) {
         let name = row.name.lowercased()
         if row.running { return ("play.circle.fill", .systemGreen) }
@@ -151,10 +154,10 @@ extension Runs {
         }
     }
 
-    /// A symbol in colour (a menu draws a template image in its text colour); a circled one white on a disc of it — one
-    /// colour would paint its mark into the disc.
+    /// A symbol in colour, because a menu draws a template image in its text colour. A circled symbol is white on a
+    /// disc of the colour, because one colour would paint its mark into the disc.
     static func tinted(_ name: String, _ color: NSColor) -> NSImage? {
-        let key = "\(name)\u{0}\(color)" as NSString   // the same image each time, as NSImage.symbol
+        let key = "\(name)\u{0}\(color)" as NSString   // the same image each time, as NSImage.symbol does
         if let known = symbols.object(forKey: key) { return known }
         let colors = name.hasSuffix(".circle.fill") ? [.white, color] : [color]
         let look = NSImage.SymbolConfiguration.chrome().applying(.init(paletteColors: colors))
@@ -165,7 +168,8 @@ extension Runs {
     }
     private static let symbols = NSCache<NSString, NSImage>()
 
-    /// Where a command comes from, in a word: its program ("make", "npm", "uv", "compose", ".kelp.yaml") and its folder.
+    /// Where a command comes from, in a word: its program ("make", "npm", "uv", "compose", ".kelp.yaml") and its
+    /// folder.
     static func source(_ row: Row) -> String {
         let words = row.command.split(separator: " ").map(String.init)
         var tool = row.id.hasPrefix("kelp:") ? row.file : words.first ?? ""
@@ -175,8 +179,9 @@ extension Runs {
         return row.folder.isEmpty ? tool : "\(tool) · \((row.folder as NSString).lastPathComponent)"
     }
 
-    /// A server an agent or a terminal started here: what it is (the command the files name, when the agent's background
-    /// task runs it; else the program), who started it and its port. A click opens its page; with ⌥, it stops.
+    /// A server an agent or a terminal started here: what it is (the command the files name, when the agent's
+    /// background task runs it, else the program), who started it, and its port. A click opens its page, and ⌥-click
+    /// stops it.
     private func server(_ port: PortsList.Port, in menu: NSMenu, _ wid: String) {
         let session = app.session(port.session)
         let agent = session?.agent.flatMap { id in
@@ -202,7 +207,7 @@ extension Runs {
         stop.keyEquivalentModifierMask = .option
     }
 
-    /// A port Kelp didn't find: on the host, or on what the host reaches. Stays until it's turned off.
+    /// Forwards a port Kelp didn't find, on the host or on what the host reaches. It stays until it's turned off.
     private func forwardByHand(_ host: String, _ wid: String) {
         Task {
             let info = String(localized: "A port on the host, or an address it can reach: 5432, db.internal:5432.")

@@ -7,7 +7,8 @@ import KelpKit
 extension SourceControlController {
     // MARK: actions
 
-    /// `make`: the method, given the workspace's id. Pull, push and fetch go through `remote` instead.
+    /// Runs a git method on the workspace; `make` builds it from the workspace's id. Pull, push and fetch go through
+    /// `remote` instead.
     func run<M: RPCMethod>(done: String? = nil, _ make: (String) -> M) {
         guard let wid = worktreeId else { return }
         let method = make(wid)
@@ -20,17 +21,20 @@ extension SourceControlController {
         }
     }
 
-    /// Pull, push or fetch (`ops` one after another), through `GitSync` like the window bar's: the branch chip shows it,
-    /// and one runs at a time. `done`: what the button says after; nil, nothing unless it failed.
+    /// Pulls, pushes or fetches (`ops`, one after another) through `GitSync`, as the window bar does, so the branch
+    /// chip shows it and one runs at a time. `done` is what the button says afterwards; when it's nil, the button says
+    /// nothing unless the run failed.
     func remote(_ ops: [GitRemoteOp.Step], done: String?, title: String? = nil) {
-        guard let wid = worktreeId, !busy else {   // the menu's Pull and Push too: a second one would race the first
+        // The menu's Pull and Push are refused too while busy, because a second run would race the first.
+        guard let wid = worktreeId, !busy else {
             NSSound.beep()
             return
         }
         Task {
             let error = await GitSync.run(app, wid, ops, title: title)
             if let error {
-                // A rejected push or a pull that stopped on conflicts is work for the agent; other failures just say why.
+                // A rejected push, or a pull that stopped on conflicts, is work for the agent. Other failures just say
+                // why.
                 if ops == [.push] {
                     GitFix(app).offer(error, recipe: "fixPush", worktree: wid)
                 } else if ops.contains(.pull), error.lowercased().contains("conflict") {
@@ -128,8 +132,8 @@ extension SourceControlController {
         return actions
     }
 
-    /// An action of `wid` that stays here (stage, commit) started: it holds the buttons until it ends. What talks to the
-    /// remote is `GitSync`'s, and shows from `SyncState`.
+    /// Called when an action of `wid` that stays here (stage, commit) starts. It holds the buttons until it ends.
+    /// Whatever talks to the remote belongs to `GitSync` and shows from `SyncState`.
     func begin(_ wid: String) {
         work[wid, default: 0] += 1
         if wid == worktreeId { showWork() }
@@ -141,7 +145,7 @@ extension SourceControlController {
         if wid == worktreeId { showWork() }
     }
 
-    /// `wid`'s message went in as a commit: its text is over, wherever it's being kept.
+    /// Called when the message of `wid` went in as a commit, so the text is cleared wherever it's being kept.
     private func sent(_ wid: String) {
         notes[wid] = nil
         guard wid == worktreeId else {
@@ -162,7 +166,8 @@ extension SourceControlController {
             NSSound.beep()
             return
         }
-        // No message yet: a page to write it on, as in VS Code (amending starts from the last commit's message).
+        // With no message yet, a page opens to write it on, as in VS Code (amending starts from the last commit's
+        // message).
         guard !text.isEmpty else {
             let last = amend ? commits.first { $0.hash.hasPrefix(info?.head ?? "\u{0}") }?.subject : nil
             app.workbench.open(CommitMessageTab.uri(wid, push: push, amend: amend, message: last))
@@ -199,7 +204,7 @@ extension SourceControlController {
 
     func pullPressed() { remote([.pull], done: String(localized: "Pulled")) }
     func fetchPressed() { remote([.fetch], done: nil) }
-    /// Push, or publish a branch with no upstream.
+    /// Pushes, or publishes a branch with no upstream.
     func pushPressed() {
         if info?.upstream == nil {
             sync()
@@ -267,7 +272,7 @@ extension SourceControlController {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.height + 4), in: anchor)
     }
 
-    /// A workspace on its own branch (worktree) into the project's base branch.
+    /// Merges a workspace on its own branch (a worktree) into the project's base branch.
     private func mergeIntoBase() {
         guard let wid = worktreeId else { return }
         Task {
@@ -331,7 +336,7 @@ extension SourceControlController {
                 menu.add(discard.title) { discard.run() }
             }
         case .section(let section) where section != .graph:
-            // What its row's hover buttons do, with what throws work away last.
+            // The same as the row's hover buttons, with what throws work away last.
             if section != .merge, let wid = worktreeId {
                 menu.add(String(localized: "Open All Changes")) { app.workbench.open(DiffTab.uri(wid)) }
             }

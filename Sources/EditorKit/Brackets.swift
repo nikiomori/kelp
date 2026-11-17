@@ -1,11 +1,12 @@
 import AppKit
 @preconcurrency import SwiftTreeSitter
 
-/// The bracket next to the cursor and its partner, marked: found in the parse tree, so a bracket in a string or a
-/// comment isn't one; by counting in a file without a grammar.
+/// The bracket next to the cursor and its partner, marked. They are found in the parse tree, so a bracket in a string
+/// or a comment isn't one, and by counting in a file without a grammar.
 enum Brackets {
     private static let pairs: [unichar: unichar] = [40: 41, 91: 93, 123: 125]   // () [] {}
-    /// Tree-sitter finds a child by walking its siblings: an array this long took a stall per cursor move (400k: 230 ms).
+    /// Tree-sitter finds a child by walking its siblings, so an array this long took a stall per cursor move (400k:
+    /// 230 ms).
     private static let maxChildren: UInt32 = 10_000
 
     /// Where the bracket at `at` closes or opens; nil when it isn't one, or has none.
@@ -14,7 +15,7 @@ enum Brackets {
         let opens = pairs[bracket] != nil
         guard let other = pairs[bracket] ?? pairs.first(where: { $0.value == bracket })?.key else { return nil }
         guard let root = tree?.rootNode else { return count(from: at, opens: opens, bracket, other, in: string) }
-        // The bracket's own token, and the same bracket on the other side among its siblings.
+        // Finds the bracket's own token, and the same bracket on the other side among its siblings.
         guard let node = root.descendant(in: UInt32(at * 2)..<UInt32(at * 2 + 2)),
             node.range == NSRange(location: at, length: 1),
             let parent = node.parent, parent.childCount <= maxChildren
@@ -29,7 +30,7 @@ enum Brackets {
         return hit?.range.location
     }
 
-    /// Without a tree: the matching one by nesting, within 100k characters.
+    /// Without a tree, finds the matching bracket by nesting, within 100k characters.
     private static func count(from at: Int, opens: Bool, _ bracket: unichar, _ other: unichar, in string: NSString)
         -> Int?
     {
@@ -54,7 +55,8 @@ extension CodeEditor {
     func markBrackets() {
         guard let lm = textView.layoutManager else { return }
         let string = textView.string as NSString
-        // Only the marks: over the whole text this walks every color in it (160 ms per cursor move in a 5 MB file).
+        // Only the marks are removed, because over the whole text this walks every color in it (160 ms per cursor
+        // move in a 5 MB file).
         for mark in marked where NSMaxRange(mark) <= string.length {
             lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: mark)
         }
@@ -71,7 +73,8 @@ extension CodeEditor {
         }
     }
 
-    /// A mark after `edit` is replaced by `length` characters: the text carries it along; nil when the text under it went.
+    /// Moves a mark after `edit` is replaced by `length` characters, as the text carries it along. Nil when the text
+    /// under the mark went.
     static func moved(_ mark: NSRange, by edit: NSRange, to length: Int) -> NSRange? {
         if mark.location >= NSMaxRange(edit) {
             return NSRange(location: mark.location + length - edit.length, length: mark.length)

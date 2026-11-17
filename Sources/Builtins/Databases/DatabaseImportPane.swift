@@ -3,10 +3,11 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Import Connections, in Add Database's sheet: one app's connections with a checkbox each (one Kelp has already is
-/// off and says so), each with why it's Production or what SSH needs. Under them, whether to take the passwords too
-/// (said as the app keeps them: macOS asks for each, or Kelp reads its file) and whether this project's agents may
-/// use them now. They land in All my projects.
+/// Import Connections, in Add Database's sheet. It lists one app's connections with a checkbox each; a connection
+/// Kelp already has is unchecked and says so. Each also says why it's Production or what its SSH needs. Under the list,
+/// the user picks whether to take the passwords too and whether this project's agents may use the connections now.
+/// The password choice is worded for how the app keeps them (macOS asks for each, or Kelp reads the app's file). The
+/// connections land in All my projects.
 @MainActor
 final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     private unowned let sheet: DatabaseSheet
@@ -54,8 +55,8 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         scroll.heightAnchor.constraint(equalToConstant: 260).isActive = true
 
         passwords.setButtonType(.switch)
-        // From another app's keychain macOS asks once a password: by default each is read when its database is
-        // first opened, not all at once now.
+        // macOS asks before each password is read from another app's keychain. So by default each password is read
+        // when its database is first opened, not all at once now.
         passwords.state = source.passwords == "file" ? .on : .off
         passwords.isEnabled = source.passwords != "none"
         let project = sheet.app.projectName(sheet.app.worktree(sheet.worktreeId)?.repoId) ?? ""
@@ -175,7 +176,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         }
     }
 
-    /// What came in, said in the sheet: how many, which with passwords, which ask when opened, which couldn't come.
+    /// Says in the sheet what came in: how many, which with passwords, which ask when opened, which couldn't come.
     private func done(_ outcome: ImportOutcome) {
         let title = NSTextField(
             labelWithString: String(localized: "Imported \(outcome.imported.count) into All My Databases"))

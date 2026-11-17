@@ -2,7 +2,7 @@ import Core
 import KelpKit
 
 extension Builtins {
-    /// `kelp routine add`, for agents: the user asks a chat for work on a schedule, and allows what it adds.
+    /// The `kelp routine add` skill, for agents. The user asks a chat for work on a schedule, and allows what it adds.
     static let routinesSkill = SkillSpec(
         name: "kelp-routines",
         description:

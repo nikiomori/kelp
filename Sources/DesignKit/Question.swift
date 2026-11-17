@@ -2,7 +2,7 @@ import AppKit
 
 extension NSAlert {
     /// A question before something that can't be undone, for `runSheet`: the action first (red when `destructive`),
-    /// Cancel (or `cancel`) beside it.
+    /// with Cancel (or `cancel`) beside it.
     public convenience init(
         question: String, detail: String = "", action: String, cancel: String? = nil, destructive: Bool = false
     ) {
@@ -14,7 +14,7 @@ extension NSAlert {
     }
 }
 
-/// The question as a sheet, awaited: true when the action was picked.
+/// Asks the question as a sheet and waits; returns true when the action was picked.
 @MainActor
 public func confirm(
     _ question: String, detail: String = "", action: String, cancel: String? = nil, destructive: Bool = false
@@ -23,7 +23,7 @@ public func confirm(
     return await runSheet(alert) == .alertFirstButtonReturn
 }
 
-/// One of `choices` from a pop-up in a sheet: its value, nil when cancelled.
+/// Asks for one of `choices` from a pop-up in a sheet, and returns its value, or nil when cancelled.
 @MainActor
 public func pick(_ question: String, from choices: [(title: String, value: String)], action: String, width: CGFloat)
     async -> String?

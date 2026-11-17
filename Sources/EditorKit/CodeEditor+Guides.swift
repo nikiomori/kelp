@@ -20,8 +20,8 @@ extension EditorTextView {
         }
     }
 
-    /// A faint line per indent level, the block around the cursor's brighter. For what's drawn only: a line's own leading
-    /// spaces, so it costs the same in any file.
+    /// A faint line per indent level, with the block around the cursor's brighter. It looks only at what's drawn, at a
+    /// line's own leading spaces, so it costs the same in any file.
     func drawIndentGuides(in rect: NSRect) {
         guard indentGuides, let lm = layoutManager, let tc = textContainer else { return }
         let text = string as NSString, origin = textContainerOrigin, step = CGFloat(guideColumns) * spaceWidth,
@@ -39,12 +39,12 @@ extension EditorTextView {
         }
     }
 
-    /// Whole indents at a line's start; nil for a blank line.
+    /// The whole indents at a line's start; nil for a blank line.
     func indentLevel(_ line: NSRange, in text: NSString) -> Int? {
         Folds.indent(line, in: text, tab: guideColumns).map { $0 / max(guideColumns, 1) }
     }
 
-    /// A blank line goes on as far as the less indented of the lines either side.
+    /// A blank line's guides go on as far as the less indented of the lines either side.
     private func guideLevels(_ line: NSRange, in text: NSString) -> Int {
         if let level = indentLevel(line, in: text) { return level }
         func next(_ down: Bool) -> Int {
@@ -60,7 +60,7 @@ extension EditorTextView {
         return min(next(false), next(true))
     }
 
-    /// The cursor's line and those around it indented as far: within what's on screen, the only part that shows.
+    /// The cursor's line and the lines around it indented as far, within what's on screen, the only part that shows.
     private func activeGuide(in text: NSString) -> (level: Int, block: NSRange)? {
         guard let lm = layoutManager, let tc = textContainer, selectedRange().location <= text.length else {
             return nil
@@ -84,7 +84,8 @@ extension EditorTextView {
         return (level, NSRange(location: from.location, length: NSMaxRange(to) - from.location))
     }
 
-    /// Scanned in what's drawn only. Characters nobody means to have (no-break and zero-width spaces) are always marked.
+    /// Draws whitespace marks, scanning only what's drawn. Characters nobody means to have (no-break and zero-width
+    /// spaces) are always marked.
     func drawWhitespace(in rect: NSRect) {
         guard let lm = layoutManager, let tc = textContainer else { return }
         let text = string as NSString, origin = textContainerOrigin
@@ -104,7 +105,7 @@ extension EditorTextView {
                 at = lm.location(forGlyphAt: glyph)
             return NSPoint(x: line.minX + at.x + origin.x, y: line.minY + origin.y + line.height / 2)
         }
-        /// Spaces and tabs up to a line's end, from `start` on.
+        /// Whether only spaces and tabs run from `start` to the line's end.
         func trailing(_ start: Int) -> Bool {
             var end = start
             while end < chars.count, chars[end] == 32 || chars[end] == 9 { end += 1 }
@@ -112,7 +113,7 @@ extension EditorTextView {
         }
         for (index, character) in chars.enumerated() {
             let location = shown.location + index
-            if folds.fold(at: location) != nil { continue }   // in no line: its mark would land on the fold's
+            if folds.fold(at: location) != nil { continue }   // folded, in no line; its mark would land on the fold
             if Self.isUnusualSpace(character) {
                 NSColor.textOrange.setStroke()
                 let point = place(location),

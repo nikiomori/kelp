@@ -3,14 +3,14 @@ import DesignKit
 import Foundation
 import KelpKit
 
-/// The CI of the workspace on screen, watched for as long as it's on screen (gh asks the forge once, then again only
-/// while a run goes on): the red dot on the CI Runs icon when the branch's latest run of a workflow failed.
+/// Watches the CI of the workspace on screen for as long as it's on screen (gh asks the forge once, then again only
+/// while a run goes on). It puts the red dot on the CI Runs icon when the branch's latest run of a workflow failed.
 @MainActor
 final class FailedRuns {
     private let app: AppModel
     private let watched: Watched
 
-    /// A dot keyed by the failed runs: a new failure shows it again after the panel was looked at.
+    /// A dot keyed by the failed runs, so a new failure shows it again after the panel was looked at.
     var badge: PanelBadge? {
         let ci = app.latest(CIEvent.self, app.gitKey(app.workbench.workspaceId))
         let runs = CIRuns.latest(ci?.result?.runs ?? []).filter(\.failed)

@@ -1,8 +1,8 @@
 import AppKit
 
 /// Something small that floats over a tab's content (the terminal's find bar, "Session ended", the Markdown selection
-/// bar, the banner): the popover material on a continuous rounded rect, with a small shadow. `radius`: 8 for a control
-/// strip, 10 for a card.
+/// bar, the banner): the popover material on a continuous rounded rect, with a small shadow. `radius` is 8 for a
+/// control strip and 10 for a card.
 @MainActor
 public final class FloatingCard: NSView {
     private let material = NSVisualEffectView()
@@ -26,7 +26,8 @@ public final class FloatingCard: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Liquid Glass where there is (macOS 26), this card before. `glassRadius`: the glass's own, when it differs.
+    /// Liquid Glass where there is glass (macOS 26), and this card before. `glassRadius` is the glass's own radius,
+    /// when it differs.
     public static func ground(_ content: NSView, radius: CGFloat, glassRadius: CGFloat? = nil) -> NSView {
         if #available(macOS 26, *) {
             let glass = NSGlassEffectView()

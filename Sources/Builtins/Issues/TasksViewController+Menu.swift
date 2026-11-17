@@ -6,8 +6,8 @@ import KelpKit
 import SwiftUI
 
 extension TasksViewController {
-    /// The default agent starts on the issue in the workspace on screen, its text typed in but not sent: whoever filed the
-    /// issue wrote it, so the user reads it before the agent acts on it.
+    /// The default agent starts on the issue in the workspace on screen, with its text typed in but not sent. Whoever
+    /// filed the issue wrote it, so the user reads it before the agent acts on it.
     func startTask(ref: String, title: String, body: String, url: String) {
         guard let starter = app.workbench.starter, let wid = app.workbench.workspaceId else {
             NSSound.beep()
@@ -20,12 +20,14 @@ extension TasksViewController {
         }
     }
 
-    /// The project's `issue` recipe, as `kelp github issue` writes it: the title and body framed as someone else's words.
+    /// The project's `issue` recipe, as `kelp github issue` writes it: the title and body framed as someone else's
+    /// words.
     static func issuePrompt(_ issue: [String: String], in wid: String, _ app: AppModel) async -> String? {
         await app.call(RecipeRender(id: wid, name: "issue", vars: issue))
     }
 
-    /// Review comments as the agent reads them: 12 at most, each cut at 800 characters, so a long thread stays a prompt.
+    /// Review comments as the agent reads them: 12 at most, each cut at 800 characters, so a long thread stays a
+    /// prompt.
     static func forAgent(_ cs: [GitHub.ReviewComment]) -> String {
         var parts: [String] = []
         for (index, comment) in cs.prefix(12).enumerated() {

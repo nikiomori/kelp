@@ -3,7 +3,7 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A row of the grid: its stripe, and the columns' lines, drawn by the row so there are none under the last one.
+/// A row of the grid. The row draws its stripe and the columns' lines itself, so there are none under the last row.
 final class GridRowView: NSTableRowView {
     override func drawBackground(in dirtyRect: NSRect) {
         super.drawBackground(in: dirtyRect)
@@ -15,7 +15,7 @@ final class GridRowView: NSTableRowView {
     }
 }
 
-/// The grid's table: Space shows the row, ⌫ marks the selected rows to go.
+/// The grid's table: Space shows the row, and ⌫ marks the selected rows to be deleted.
 final class GridTable: NSTableView {
     var onSpace: () -> Void = {}
     var onDelete: () -> Void = {}
@@ -29,49 +29,50 @@ final class GridTable: NSTableView {
     }
 }
 
-/// Rows as a grid: a column a result column, its type and keys in the header when the table's known; NULL in grey,
-/// numbers in digits that line up; stripes only where there are rows. A table with a primary key can be edited: cells
-/// typed over, rows added at the end (green) or marked to go (red), all kept in `edits` until saved. Rows an agent's
-/// last change touched carry its mark in the numbers' column. A header click asks for that order (`onSort`).
+/// Rows as a grid. Each result column is a column, with a key's mark in its header and its type in the header's
+/// tooltip when the table is known. NULL shows in grey, numbers in digits that line up, and stripes only where there
+/// are rows. A table with a primary key can be edited: cells typed over, rows added at the end (green) or marked to be
+/// deleted (red), all kept in `edits` until saved. Rows that an agent's last change touched carry the agent's mark in
+/// the numbers' column. A header click asks for that order (`onSort`).
 @MainActor
 final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
     let scroll = NSScrollView()
-    let area = NSView()   // the rows' place in a tab: the scroll view fills it, an empty state goes over it
+    let area = NSView()   // where the rows go in a tab: the scroll view fills it, and an empty state goes over it
     let table = GridTable()
     private(set) var columns: [String] = []
     private(set) var rows: [[String?]] = []
-    /// The table's columns by name, when the rows come from a table: their types and keys, for the header.
+    /// The table's columns by name, when the rows come from a table. Their types and keys are for the header.
     private(set) var info: [String: DatabaseSchema.Column] = [:]
-    /// Columns of numbers (by index): they, and their headers, stand right.
+    /// The columns of numbers, by index. They and their headers are right-aligned.
     private var numeric: Set<Int> = []
     var edits = DatabaseEdits()
     var editable = false
-    /// What a change did to these rows, when they are the rows of a run that changed something: an update's cells show
+    /// What a change did to these rows, when they are the rows of a run that changed something. An update's cells show
     /// what they were, a delete's rows are struck out in red, and an insert's rows are green.
     var change: RowChange?
     /// The rows (by index) that an agent's last change touched, and that agent's colour.
     var marked = Set<Int>()
     var markColor = NSColor.systemOrange
-    /// The order asked for: a column and whether it goes up.
-    /// The order asked for: columns, each up or down; the first counts most.
+    /// The order asked for: columns, each up or down, where the first counts most.
     var orders: [(column: String, ascending: Bool)] = []
-    /// An edit was made or undone, or the selection changed.
+    /// Called when an edit was made or undone, or the selection changed.
     var onChange: () -> Void = {}
-    /// A header was clicked: the order to read the rows in next (nil: as they come).
+    /// Called when a header was clicked, with `orders` set to the order to read the rows in next (empty: as they
+    /// come).
     var onSort: () -> Void = {}
-    /// A foreign key's arrow: that column's value, to follow.
+    /// Called when a foreign key's arrow is clicked, with the column and its value to follow.
     var onFollow: (_ column: String, _ value: String) -> Void = { _, _ in }
-    /// Rows' height and the cells' font, as Settings › Databases says.
+    /// The rows' height and the cells' font, as Settings › Databases sets them.
     var density = "compact" {
         didSet { table.rowHeight = TextSize.of(Self.height(density)) }
     }
     static func height(_ density: String) -> CGFloat { density == "comfortable" ? 28 : density == "normal" ? 24 : 20 }
     var font: NSFont { .uiMono(density == "comfortable" ? 12.5 : 11.5) }
-    /// "Rows Where …" from a cell's menu: a WHERE condition.
+    /// Called for "Rows Where …" in a cell's menu, with a WHERE condition.
     var onFilter: (_ column: String, _ op: DatabaseFilters.Condition, _ value: String?) -> Void = { _, _, _ in }
     /// The table and engine the rows are of, for Copy as INSERT and the filters' quoting.
     var source: (table: String, engine: DatabaseInfo.Engine)?
-    /// Rows a table shows at most.
+    /// The most rows a table shows.
     static let shown = 1000
 
     override init() {
@@ -96,7 +97,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     }
 
     var selectedRows: [Int] { table.selectedRowIndexes.filter { rows.indices.contains($0) } }
-    /// All rows shown: those read, then those added.
+    /// How many rows are shown: those read, then those added.
     var count: Int { rows.count + edits.added.count }
 
     func show(columns: [String], rows: [[String?]], info: [DatabaseSchema.Column] = []) {
@@ -131,8 +132,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         table.reloadData()
     }
 
-    /// "id int8 ⚿", "user_id int8 → users": the name, then its type and keys quieter.
-    /// The name only, and a key's mark: the type, NOT NULL and what it refers to are in its tooltip and Structure.
+    /// The column's header: its name, and a key's mark for a primary key. The type, NOT NULL and what the column
+    /// refers to are in its tooltip and in Structure.
     private func header(_ name: String, right: Bool) -> NSAttributedString {
         let text = NSMutableAttributedString(
             string: name,
@@ -169,7 +170,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         }
     }
 
-    /// Up, then down, then as they come; ⌥-click adds a column to the order instead of starting over.
+    /// A header click sorts up, then down, then as the rows come. ⌥-click adds the column to the order instead of
+    /// starting over.
     func tableView(_ tableView: NSTableView, didClick tableColumn: NSTableColumn) {
         guard let columnIndex = Int(tableColumn.identifier.rawValue), columns.indices.contains(columnIndex) else {
             return
@@ -186,7 +188,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         onSort()
     }
 
-    /// As wide as its widest value on screen, within reason.
+    /// Makes the column as wide as its widest value on screen, within reason.
     func sizeToFit(_ column: NSTableColumn) {
         guard let columnIndex = Int(column.identifier.rawValue), columns.indices.contains(columnIndex) else { return }
         let longest =
@@ -200,7 +202,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
 
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { GridRowView() }
 
-    /// Stripes where there are rows only: none drawn past the last.
+    /// Draws stripes only where there are rows, none past the last one.
     func tableView(_ tableView: NSTableView, didAdd rowView: NSTableRowView, forRow row: Int) {
         rowView.backgroundColor =
             row >= rows.count || change?.kind == .insert
@@ -211,10 +213,10 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        // Asked for an old row while the columns change over to another result.
+        // AppKit can ask for an old row while the columns change over to another result.
         guard let id = tableColumn?.identifier.rawValue, row < count else { return nil }
         let new = row >= rows.count, at = row - rows.count
-        guard let column = Int(id) else {   // the row's number, and an agent's mark
+        guard let column = Int(id) else {   // the row's number column, with an agent's mark
             let field = reused(table.makeView(withIdentifier: Self.cellId, owner: nil) as? NSTextField)
             field.attributedStringValue = number(row, new: new)
             field.alignment = .right
@@ -225,7 +227,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             new
             ? (edits.added[at].indices.contains(column) ? edits.added[at][column] : nil)
             : edits.value(row: row, column: column) ?? read
-        // A foreign key: an arrow at the cell's end follows it to the row it names.
+        // A foreign key gets an arrow at the cell's end that follows it to the row it names.
         let name = columns.indices.contains(column) ? columns[column] : ""
         guard let value, info[name]?.references != nil, !new else {
             let field = reused(table.makeView(withIdentifier: Self.cellId, owner: nil) as? NSTextField)
@@ -241,8 +243,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         return cell
     }
 
-    /// The identifiers of reused cells: `makeView` hands a scrolled-away cell back for a row scrolled into view. One is
-    /// for a plain value, the other for a foreign key's value with its arrow.
+    /// The identifiers of reused cells: `makeView` hands a cell scrolled out of view back for a row scrolled into
+    /// view. One is for a plain value, the other for a foreign key's value with its arrow.
     static let cellId = NSUserInterfaceItemIdentifier("grid.cell")
     static let keyCellId = NSUserInterfaceItemIdentifier("grid.key")
 
@@ -280,7 +282,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         return cell
     }
 
-    /// A value, NULL or DEFAULT in its field: struck through on a row marked to go, yellow where it was edited.
+    /// Shows a value, NULL or DEFAULT in its field, struck through on a row marked to be deleted and yellow where it
+    /// was edited.
     private func show(_ value: String?, in field: NSTextField, row: Int, column: Int) {
         let new = row >= rows.count
         if let value {
@@ -323,7 +326,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             NSAttributedString(
                 string: new ? "+" : String(row + 1),
                 attributes: [.font: NSFont.uiDigits(TextSize.caption), .foregroundColor: NSColor.tertiaryLabelColor]))
-        // An attributed string keeps its own alignment: the field's `.right` doesn't reach it.
+        // An attributed string keeps its own alignment, so the field's `.right` doesn't reach it.
         text.addAttribute(
             .paragraphStyle, value: Self.aligned(.right), range: NSRange(location: 0, length: text.length))
         return text
@@ -336,8 +339,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         return style
     }
 
-    /// "integer", "double precision", "numeric(10,2)", "int unsigned", "REAL": a number type, by its first word.
-    /// Not "interval" or "point".
+    /// Whether a type is a number type, by its first word: "integer", "double precision", "numeric(10,2)", "int
+    /// unsigned", "REAL". "interval" and "point" are not.
     nonisolated static func isNumber(_ type: String) -> Bool {
         let word = type.lowercased().prefix { $0.isLetter || $0.isNumber }
         return [
@@ -348,7 +351,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
 
     func tableViewSelectionDidChange(_ notification: Notification) { onChange() }
 
-    /// An edit ends: kept, unless it's the value read (an empty field over NULL is no change).
+    /// When an edit ends, it is kept unless it is the value that was read (an empty field over NULL is no change).
     func controlTextDidEndEditing(_ notification: Notification) {
         guard let field = notification.object as? NSTextField else { return }
         let row = table.row(for: field), column = field.tag
@@ -378,7 +381,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         changed()
     }
 
-    /// A new row at the end, ready to type into.
+    /// Adds a new row at the end, ready to type into.
     func addRow(_ values: [String?]? = nil) {
         edits.add(values ?? Array(repeating: nil, count: columns.count))
         changed()
@@ -386,7 +389,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         table.selectRowIndexes([count - 1], byExtendingSelection: false)
     }
 
-    /// The selected rows marked to go (again: kept); new ones simply go.
+    /// Marks the selected rows to be deleted (a row marked already is kept again); new rows are simply removed.
     func deleteSelected() {
         for row in table.selectedRowIndexes.sorted(by: >) {
             if row >= rows.count { edits.removeAdded(row - rows.count) } else { edits.toggleDeleted(row) }
@@ -394,6 +397,6 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         changed()
     }
 
-    /// The selected rows as text with a header, tab between cells: for an agent.
+    /// The selected rows as text for an agent, with a header and a tab between cells.
     func text(_ rows: [Int]) -> String { ResultText.tsv(columns, rows.map { self.rows[$0] }) }
 }

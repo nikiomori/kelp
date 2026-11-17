@@ -5,8 +5,8 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A row's inline actions, shown under the pointer. A reused row shows another file's: the buttons run what it shows
-/// now, and are made again only when they're other buttons.
+/// A row's inline actions, shown under the pointer. A reused row shows another file's actions, so the buttons run
+/// what the row shows now, and are made again only when the buttons themselves differ.
 @MainActor
 private final class RowActions: NSStackView {
     private var actions: [RowAction] = []
@@ -15,7 +15,7 @@ private final class RowActions: NSStackView {
         guard new.map(\.symbol) != actions.map(\.symbol) || new.map(\.title) != actions.map(\.title) else { return }
         arrangedSubviews.forEach { $0.removeFromSuperview() }
         for index in new.indices {
-            // greys in under the pointer, dips when pressed
+            // The button greys in under the pointer and dips when pressed.
             let button = IconButton(.symbol(new[index].symbol), tip: new[index].title) { [weak self] in
                 self?.actions[index].run()
             }
@@ -46,11 +46,11 @@ private func pinRow(_ cell: NSView, _ views: [NSView], leading: CGFloat, trailin
     return lead
 }
 
-/// A section's header row. Its views are made once; `show` sets all it shows, as the outline hands a row set aside when
-/// it went back for another section.
+/// A section's header row. Its views are made once, and `show` sets everything it shows, because the outline hands a
+/// row it set aside to another section.
 final class SectionCell: NSTableCellView, Hoverable {
     static let id = NSUserInterfaceItemIdentifier("scm.section")
-    /// Where its rows start, past the inset: under its title, after the chevron.
+    /// Where the section's rows start past the inset: under its title, after the chevron.
     static let indent: CGFloat = 16
     private let chevron = NSImageView()
     private let actions = RowActions()
@@ -59,7 +59,7 @@ final class SectionCell: NSTableCellView, Hoverable {
     private let capsule = CountCapsule()
     private let detailField = NSTextField(labelWithString: "")
     private var open = true
-    /// Folded or opened: the chevron turns from what it showed.
+    /// Whether the section is open. Setting it turns the chevron from what it showed.
     var expanded: Bool {
         get { open }
         set {
@@ -69,9 +69,9 @@ final class SectionCell: NSTableCellView, Hoverable {
             if newValue != was { chevron.turn(from: Self.turn(newValue)) }
         }
     }
-    /// Where the chevron starts when it turns: from what it showed. `Self.turn(expanded)` for one just rebuilt.
+    /// The angle the chevron turns from: what it showed. `Self.turn(expanded)` gives it for a cell just rebuilt.
     static func turn(_ expanded: Bool) -> CGFloat { expanded ? .pi / 2 : -.pi / 2 }
-    /// The section was folded or opened by a click: its new cell's chevron turns there once it has a size.
+    /// True when a click folded or opened the section, so the new cell's chevron turns once the cell has a size.
     var turnsIn = false
     override func layout() {
         super.layout()
@@ -87,7 +87,8 @@ final class SectionCell: NSTableCellView, Hoverable {
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
         chevron.contentTintColor = .secondaryLabelColor
         chevron.widthAnchor.constraint(equalToConstant: 10).isActive = true
-        pinRow(self, [chevron, titleField, NSView(), actions, detailField, capsule], leading: Metrics.inset)   // the panel's edge, as its header's branch
+        // The row starts at the panel's edge, as the header's branch does.
+        pinRow(self, [chevron, titleField, NSView(), actions, detailField, capsule], leading: Metrics.inset)
         showChevron()
     }
     convenience init(title: String, count: Int?, expanded: Bool, actions rowActions: [RowAction]) {
@@ -96,7 +97,7 @@ final class SectionCell: NSTableCellView, Hoverable {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// All a section's row shows, set again: nothing of the section it showed before stays.
+    /// Sets again everything a section's row shows, so nothing of the section it showed before stays.
     func show(
         title: String, count: Int?, expanded: Bool, actions rowActions: [RowAction], detail: NSAttributedString? = nil
     ) {
@@ -121,7 +122,8 @@ final class SectionCell: NSTableCellView, Hoverable {
         actions.isHidden = !on
     }
     private var hovering = false
-    /// Its first action at work (the graph's Refresh): a spinner in its place, which stays when the pointer goes.
+    /// True while the section's first action is at work (the graph's Refresh). A spinner takes its place, and stays
+    /// when the pointer goes.
     var busy = false {
         didSet {
             guard busy != oldValue else { return }
@@ -131,7 +133,7 @@ final class SectionCell: NSTableCellView, Hoverable {
     }
 }
 
-/// A section's file count on a grey capsule, as in VS Code: a bare "3" next to "+6 −2" ran into it.
+/// A section's file count on a grey capsule, as in VS Code, because a bare "3" next to "+6 −2" ran into it.
 private final class CountCapsule: NSView {
     private let field = NSTextField(labelWithString: "")
     var text: String {
@@ -163,8 +165,8 @@ private final class CountCapsule: NSView {
     }
 }
 
-/// A changed file's row, in the changes or under a commit of the graph. Its views are made once; `show` sets all it
-/// shows, as the outline hands a row set aside when it went back for another file.
+/// A changed file's row, in the changes or under a commit of the graph. Its views are made once, and `show` sets
+/// everything it shows, because the outline hands a row it set aside to another file.
 final class FileCell: NSTableCellView, Hoverable {
     static let id = NSUserInterfaceItemIdentifier("scm.file")
     private let actions = RowActions()
@@ -173,7 +175,7 @@ final class FileCell: NSTableCellView, Hoverable {
     private let name = NSTextField(labelWithString: ""), dir = NSTextField(labelWithString: "")
     private let letterField = NSTextField(labelWithString: ""), number = NSTextField(labelWithString: "")
     private var leading: NSLayoutConstraint?
-    /// Under a commit: the lanes below it running on through its files, as in VS Code.
+    /// Under a commit, the lanes below it, which run on through its files as in VS Code.
     private var lanes: GraphView?
 
     init() {
@@ -200,14 +202,14 @@ final class FileCell: NSTableCellView, Hoverable {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// `shared`: the branches of other folders of the project that change this file too (`AppModel.sharedFiles`).
-    /// `through`: under a commit, the lanes that run on past it and the graph's width.
+    /// `shared` holds the branches of other folders of the project that change this file too
+    /// (`AppModel.sharedFiles`). `through` holds, under a commit, the lanes that run on past it and the graph's width.
     func show(
         _ fileChange: FileChange, icon image: NSImage, letter: (String, NSColor), indent: CGFloat,
         actions rowActions: [RowAction],
         shared: [String] = [], commit: Int? = nil, through: (lanes: [Int], width: CGFloat)? = nil
     ) {
-        alphaValue = 1   // a discarded file's row faded out (`fadeRows`)
+        alphaValue = 1   // a discarded file's row was faded out (`fadeRows`)
         path = fileChange.path
         actions.show(rowActions)
         actions.isHidden = true
@@ -223,10 +225,10 @@ final class FileCell: NSTableCellView, Hoverable {
         letterField.stringValue = letter.0
         letterField.textColor = letter.1
         let tip = shared.isEmpty ? nil : String(localized: "Also changed on \(shared.joined(separator: ", "))")
-        // Before the letter, where the eye checks a file's state.
+        // The merge mark goes before the letter, where the eye checks a file's state.
         mark.image = tip.map { .symbol("arrow.triangle.merge", $0) }
         mark.isHidden = tip == nil
-        // The plan's commit it goes into: the same number as its card over the button.
+        // The number of the plan's commit the file goes into, the same number as on its card over the button.
         number.stringValue = commit.map(String.init) ?? ""
         number.isHidden = commit == nil
         number.toolTip = commit.map { String(localized: "In commit \($0) of the plan") }

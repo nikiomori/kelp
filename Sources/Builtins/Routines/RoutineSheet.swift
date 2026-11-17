@@ -4,8 +4,8 @@ import DesignKit
 import KelpKit
 import SwiftUI
 
-/// New Routine / Edit Routine: a sheet with the routine's name, agent, prompt and when it runs. A window of its own, not
-/// an alert's accessory: the form grows a row for Weekly, and an alert keeps the size it opened with.
+/// New Routine / Edit Routine: a sheet with the routine's name, agent, prompt and when it runs. It is a window of its
+/// own, not an alert's accessory, because the form grows a row for Weekly and an alert keeps the size it opened with.
 @MainActor
 enum RoutineSheet {
     /// The routine as filled in; nil when cancelled.
@@ -18,7 +18,7 @@ enum RoutineSheet {
             rootView: RoutineFormView(form: form, agents: agents, editing: editing != nil) { [weak sheet] r in
                 if let sheet { sheet.sheetParent?.endSheet(sheet, returnCode: r) }
             })
-        host.sizingOptions = [.minSize, .maxSize]   // the sheet follows the form: taller for Weekly's day
+        host.sizingOptions = [.minSize, .maxSize]   // the sheet follows the form, taller for Weekly's day
         sheet.contentViewController = host
         guard await runSheet(sheet) == .OK, form.valid else { return nil }
         return form.routine
@@ -84,7 +84,7 @@ struct RoutineFormView: View {
     }
 }
 
-/// Repeat (Hourly · Daily · Weekdays · Weekly), at what time, on which day.
+/// The fields for Repeat (Hourly · Daily · Weekdays · Weekly), at what time, and on which day.
 struct RepeatFields: View {
     @Binding var routine: Routine
 

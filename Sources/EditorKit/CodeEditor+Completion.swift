@@ -1,14 +1,14 @@
 import AppKit
 
-/// What goes in at the cursor: asked of the server, narrowed as you type, put in with the server's edits; a snippet's tab stops
-/// after that, ⇥ moving through them.
+/// What goes in at the cursor: completions asked of the server, narrowed as you type, and put in with the server's
+/// edits. A snippet's tab stops come after that, with ⇥ moving through them.
 extension CodeEditor {
-    /// ⌃Space, a trigger character or Esc.
+    /// Shows completions, for ⌃Space, a trigger character or Esc.
     public func showCompletions() {
         guard completionProvider != nil || snippetSource != nil, let (line, column) = cursor else { return }
         let provider = completionProvider, at = textView.selectedRange().location, s = textView.string as NSString
         let start = min(Self.word(at: at, in: s).location, at)
-        let member = start > 0 && s.character(at: start - 1) == 46   // after a dot: a member, not a snippet
+        let member = start > 0 && s.character(at: start - 1) == 46   // after a dot it's a member, not a snippet
         Task { [weak self] in
             var items = await provider?(line, column) ?? []
             if !member, let own = await self?.snippetSource?() { items += own }
@@ -16,7 +16,7 @@ extension CodeEditor {
         }
     }
 
-    /// Only the snippets for this file: a way to see them.
+    /// Shows only the snippets for this file, as a way to see them.
     public func showSnippets() {
         let at = textView.selectedRange().location,
             start = min(Self.word(at: at, in: textView.string as NSString).location, at)
@@ -32,7 +32,7 @@ extension CodeEditor {
         refreshCompletions()
     }
 
-    /// The word typed since it opened narrows it; a cursor gone from that word closes it.
+    /// The word typed since the list opened narrows it, and a cursor gone from that word closes it.
     func refreshCompletions() {
         guard let (start, items) = completion.completing else { return }
         let at = textView.selectedRange(), s = textView.string as NSString
@@ -63,7 +63,8 @@ extension CodeEditor {
         return NSRange(location: from, length: max(to - from, 0))
     }
 
-    /// The server's edit reached as far as was typed when it was asked; the item takes all that's been typed since too.
+    /// Puts a completion in. The server's edit reached as far as was typed when it was asked, so the item also takes
+    /// all that's been typed since.
     func accept(_ completion: Completion) {
         let tv = textView, string = tv.string as NSString, at = tv.selectedRange().location
         let start = completion.edit.map { range($0, in: string).location } ?? self.completion.completing?.start ?? at
@@ -92,7 +93,7 @@ extension CodeEditor {
         tv.setCursors(self.completion.snippetStops[0])
     }
 
-    /// A server's edits, one undo, the cursors staying where they are.
+    /// Applies a server's edits as one undo, with the cursors staying where they are.
     public func perform(_ edits: [TextEdit]) {
         let string = textView.string as NSString
         let sorted = edits.map { (range($0, in: string), $0.text) }.sorted { $0.0.location < $1.0.location }
@@ -105,14 +106,14 @@ extension CodeEditor {
         return string.substring(with: Self.word(at: textView.selectedRange().location, in: string))
     }
 
-    /// Under the cursor, as a menu of what can be done there.
+    /// Pops up a menu of what can be done at the cursor, under the cursor.
     public func popUpAtCursor(_ menu: NSMenu) {
         let caret = textView.caretRect(at: textView.selectedRange().location)
         menu.popUp(positioning: nil, at: NSPoint(x: caret.minX, y: caret.maxY), in: textView)
     }
 
-    /// ⇥ in a snippet: on to the next stop, moved by what was typed at this one. Past the last the snippet is over.
-    /// False when no snippet is going on, or the cursors left it.
+    /// ⇥ in a snippet moves on to the next stop, shifted by what was typed at this one. Past the last stop the snippet
+    /// is over. Returns false when no snippet is going on, or the cursors left it.
     func nextSnippetStop() -> Bool {
         guard let now = completion.snippetStops.first else { return false }
         let cursors = textView.cursors
@@ -127,12 +128,12 @@ extension CodeEditor {
                 return NSRange(location: stop.location + by, length: stop.length)
             }
         }
-        guard let next = completion.snippetStops.first else { return true }   // that was the last: the cursor stays
+        guard let next = completion.snippetStops.first else { return true }   // that was the last, so the cursor stays
         textView.setCursors(next)
         return true
     }
 
-    /// The keys the list and a snippet take first. True when one did.
+    /// Gives the list and a snippet the keys first. Returns true when one of them took the key.
     func handle(_ command: Selector) -> Bool {
         if completion.list?.isOpen == true, let list = completion.list {
             switch command {
@@ -151,9 +152,9 @@ extension CodeEditor {
     }
 }
 
-/// What completion keeps between keys; only this file changes it.
+/// What completion keeps between keys. Only this file changes it.
 struct CompletionState {
-    /// While the list is open: where the word it completes starts, and all that was offered.
+    /// While the list is open: where the word it completes starts, and everything that was offered.
     fileprivate(set) var completing: (start: Int, items: [CodeEditor.Completion])?
     fileprivate(set) var list: CompletionList?
     /// A snippet's tab stops still to come, the current one first.

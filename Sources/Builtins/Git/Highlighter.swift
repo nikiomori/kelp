@@ -1,11 +1,11 @@
 import AppKit
 
-/// A diff line's colours: the editor's tree-sitter captures where the diff has them (`DiffColors`); without, it's plain.
+/// A diff line's colours: the editor's tree-sitter captures where the diff has them (`DiffColors`), and plain without.
 enum Highlighter {
-    /// Longer lines (a minified one) aren't coloured: nobody reads that far, and the captures would pile up.
+    /// Longer lines (a minified one) aren't coloured, because nobody reads that far and the captures would pile up.
     static let maxColored = 4000
 
-    /// `s` coloured by its line's captures, which start `from` characters in (past the "+ " marker).
+    /// Colours `s` by its line's captures, which start `from` characters in (past the "+ " marker).
     @MainActor static func attributed(
         _ s: String, spans: [DiffColors.Span], from: Int, font: NSFont, colors: [String: NSColor]
     ) -> NSAttributedString {

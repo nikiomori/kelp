@@ -3,8 +3,8 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The workspace's status, history and remote state: git and CI as the daemon pushes them while the panel is on screen
-/// (`gitWatch`, `ciWatch`), the graph read when the branches moved.
+/// The workspace's status, history and remote state. Git and CI come as the daemon pushes them while the panel is on
+/// screen (`gitWatch`, `ciWatch`), and the graph is read when the branches moved.
 extension SourceControlController {
     func bind(_ wid: String?) {
         guard wid != worktreeId else { return }
@@ -30,7 +30,7 @@ extension SourceControlController {
         message.string = wid.flatMap { drafts[$0] } ?? ""
         messageChanged()
         showAgentCommit()
-        finishes += 1   // what the last one's button was saying isn't about this one
+        finishes += 1   // what the button was saying about the last workspace isn't about this one
         confirmed = nil
         commitButton?.work = .none
         showWork()
@@ -40,14 +40,14 @@ extension SourceControlController {
         apply(app.latest(GitEvent.self, gitKey ?? ""))
     }
 
-    /// What its git and CI are watched and pushed under: the folder, which other workspaces may share.
+    /// The key that git and CI are watched and pushed under: the folder, which other workspaces may share.
     var gitKey: String? { worktreeId.map(app.gitKey) }
 
-    /// Watched only while on screen: swapped out of the inspector, it reads no git.
+    /// Watches only while the panel is on screen, so when it's swapped out of the inspector it reads no git.
     func followWatches() {
         let shown = view.window != nil ? gitKey : nil
         gitWatch.key = shown
-        ciWatch.key = info?.upstream != nil ? shown : nil   // no upstream: no CI line
+        ciWatch.key = info?.upstream != nil ? shown : nil   // with no upstream there is no CI line
     }
 
     override func viewDidDisappear() {
@@ -56,10 +56,10 @@ extension SourceControlController {
         card.close()
     }
 
-    /// Refresh, and after an action: read git again now rather than on the next file event.
+    /// Refresh, and what runs after an action: reads git again now rather than on the next file event.
     func reloadAll() { if let gitKey { app.watchAgain(.git, gitKey) } }
 
-    /// What the daemon read: the lists, the header, and the graph when the branches moved.
+    /// Applies what the daemon read: the lists, the header, and the graph when the branches moved.
     func apply(_ event: GitEvent?) {
         guard let event, event.worktree == gitKey else { return }
         if let error = event.error {
@@ -78,7 +78,7 @@ extension SourceControlController {
             br.head != info?.head || br.local != info?.local || br.remote != info?.remote || br.current != info?.current
             || br.ahead != info?.ahead || br.behind != info?.behind   // a push or fetch moved origin/…
         let changed = ch != changes || br != info
-        // A push (or a publish) starts CI: look for its run now and for a while.
+        // A push (or a publish) starts CI, so its run is looked for now and for a while.
         let pushed = info.map { br.pushed(since: $0) } ?? false
         changes = ch
         info = br
@@ -97,7 +97,7 @@ extension SourceControlController {
         layoutGraph()
     }
 
-    /// No project on screen: no branch to name and nothing to commit, so no header or box to leave empty.
+    /// With no project on screen there is no branch to name and nothing to commit, so no header or box is left empty.
     func showNoProject(_ none: Bool) {
         hideBox(none)
         headerBar?.isHidden = none
@@ -106,14 +106,14 @@ extension SourceControlController {
             text: String(localized: "A project's changes and history show here."))
     }
 
-    /// Nothing git can show here: say why instead of an empty commit box.
+    /// When git can show nothing here, says why instead of showing an empty commit box.
     private func showError(_ message: String?) {
         hideBox(message != nil)
         if message == nil { empty.show(nil) }
         guard let message else { return }
         let notRepo = message.contains("not a git repository")
         let away = message.hasPrefix("Can't reach ")   // the daemon's words for an unreachable remote host
-        // The command that makes git work again, selectable.
+        // The command that makes git work again, which the user can select.
         empty.showError(
             notRepo
                 ? String(localized: "Not a Git Repository")
@@ -122,14 +122,15 @@ extension SourceControlController {
             fix: FixRecipes.fix(for: message)?.command)
     }
 
-    /// Shown again (another panel was on screen): watched again, and what changed meanwhile comes at once.
+    /// Called when the panel shows again after another panel was on screen. It is watched again, and what changed
+    /// meanwhile comes at once.
     override func viewDidAppear() {
         super.viewDidAppear()
         followWatches()
     }
 
     /// The CI line under Commit, as the daemon pushes it (it looks again while a run goes on, and for a while after a
-    /// push). No upstream, no gh / glab, no runs: no line.
+    /// push). With no upstream, no gh / glab, or no runs, there is no line.
     func applyCI(_ event: CIEvent?) {
         guard let event, event.worktree == gitKey else { return }
         ciRuns = event.result?.runs ?? []
@@ -148,17 +149,18 @@ extension SourceControlController {
         }
     }
 
-    /// "test › Run swift test": the first failed job and its failed step.
+    /// The first failed job and its failed step: "test › Run swift test".
     private func failurePlace(_ wid: String, run: Int) async -> String? {
         let result = await app.tryCall(CIJobs(worktreeId: wid, run: run))
         guard let job = result.value?.first(where: \.failed) else { return nil }
         return ([job.name] + (job.steps.first(where: \.failed).map { [$0.name] } ?? [])).joined(separator: " › ")
     }
 
-    /// The details live in the CI Runs panel (it opens the failed job's log by itself); without it, the run's page.
+    /// Opens the details in the CI Runs panel, which opens the failed job's log by itself; without the panel, the
+    /// run's page.
     func openCI() { worktreeId.map(RowMarks.of(app).openCI) }
 
-    /// The graph's Refresh: it answers the click at once, as reading the graph can take a while.
+    /// The graph's Refresh. It answers the click at once, because reading the graph can take a while.
     func refreshGraph() async {
         graphBar.busy = true
         await loadGraph()
@@ -168,7 +170,8 @@ extension SourceControlController {
     func loadGraph() async {
         guard let wid = worktreeId else { return }
         let asked = info
-        // Quiet: git failing shows in the panel from the status read before this; a graph that failed alone keeps the last one.
+        // Read quietly, because git failing shows in the panel from the status read before this. A graph that failed
+        // alone keeps the last one.
         let graph = await app.quiet(GitGraph(id: wid, limit: limit), timeout: 60)
         guard wid == worktreeId else { return }
         if let graph {
@@ -187,7 +190,7 @@ extension SourceControlController {
         let places = arriving.isEmpty ? [:] : commitPlaces()
         rebuild()
         slideCommits(from: places)
-        // Landed once: a later rebuild (a commit unfolded) shows them as they are now.
+        // The commits land once, so a later rebuild (a commit unfolded) shows them as they are now.
         if !landing.isEmpty || !arriving.isEmpty {
             DispatchQueue.main.asyncAfter(deadline: .now() + Motion.linger) { [weak self] in
                 self?.landing = [:]
@@ -203,9 +206,10 @@ extension SourceControlController {
         }
     }
 
-    /// "+120 −30" for everything not committed yet; hovering splits it into code, tests and generated files.
+    /// Shows "+120 −30" for everything not committed yet; hovering splits it into code, tests and generated files.
     private func showStats(_ lineStats: LineStats?) {
-        defer { if !roots.isEmpty { outline.reloadData(forRowIndexes: [0], columnIndexes: [0]) } }   // the first section shows them
+        // The first section shows the stats.
+        defer { if !roots.isEmpty { outline.reloadData(forRowIndexes: [0], columnIndexes: [0]) } }
         guard let lineStats, lineStats.totalAdded + lineStats.totalRemoved > 0 else {
             stats.isHidden = true
             return

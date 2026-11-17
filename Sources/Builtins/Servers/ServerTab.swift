@@ -5,9 +5,9 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// "host:<name>" — a server at a glance: four meters with the last two minutes, the busiest processes with whose agent each
-/// is, and beside them Kelp's agents there, what still runs in tmux, the ports and the projects. Read every 2 s while it's
-/// on screen (`WatchTopic.hostDetail`); htop is a button away for the rest.
+/// "host:<name>": a server at a glance. It shows four meters with the last hour, the busiest processes with whose agent
+/// each is, and beside them Kelp's agents there, what still runs in tmux, the ports and the projects. It is read every
+/// 2 s while it's on screen (`WatchTopic.hostDetail`); htop is a button away for the rest.
 @MainActor
 func serverTab(uri: String, app: AppModel) -> KelpKit.TabContent {   // not SwiftUI's
     let host = TabURI.body(uri)
@@ -18,7 +18,7 @@ func serverTab(uri: String, app: AppModel) -> KelpKit.TabContent {   // not Swif
 
 struct ServerView: View {
     let app: AppModel, host: String
-    /// The last hour's readings: what the daemon kept, then each one pushed while the tab is open.
+    /// The last hour's readings: what the daemon kept, then each reading pushed while the tab is open.
     @State private var history: [HostStats.Sample] = []
     @State private var dialing = false
 
@@ -74,7 +74,7 @@ struct ServerView: View {
         }
     }
 
-    /// Not connected, or it couldn't be: why, in ssh's words, and the way back.
+    /// Shown when the server is not connected, or couldn't be: why, in ssh's words, and the way back.
     private var offline: some View {
         let error = stats?.error
         return EmptyState(
@@ -98,7 +98,7 @@ struct ServerView: View {
         }
     }
 
-    /// Opens the shared connection (the watch only reads over one that's open), then has the watch read it now: its first
+    /// Opens the shared connection (the watch only reads over one that's open), then has the watch read now. The first
     /// reading comes as every other does, pushed.
     private func dial() {
         guard !dialing else { return }
@@ -109,7 +109,8 @@ struct ServerView: View {
         }
     }
 
-    /// A reading pushed joins the hour (the daemon kept the same one a moment ago: one within a second is it).
+    /// Adds a pushed reading to the hour. A reading within a second of the last is the same one the daemon kept a
+    /// moment ago.
     private func remember(_ stats: HostStats?) {
         guard let stats, stats.connected else { return }
         let now = Date().timeIntervalSince1970
@@ -121,7 +122,7 @@ struct ServerView: View {
         history = history.filter { now - $0.at < 3600 } + [sample]
     }
 
-    /// What wants a look, worst first: services that failed, a disk, memory or CPU strained, a restart asked for.
+    /// What wants a look, worst first: services that failed, a disk, memory or CPU strained, or a restart asked for.
     private func attention(_ stats: HostStats) -> [(text: String, unit: String?)] {
         let failed = (stats.failedUnits ?? []).map { (String(localized: "\($0) failed"), Optional($0)) }
         let word = ServerActions.serverWord(app, host).map { ($0.text, String?.none) }
@@ -129,7 +130,7 @@ struct ServerView: View {
         return failed + [word, restart].compactMap { $0 }
     }
 
-    /// A line under the bar while something on the server wants a look; a failed service's status a click away.
+    /// A line under the bar while something on the server wants a look, with a failed service's status a click away.
     private func attentionLine(_ stats: HostStats) -> some View {
         let items = attention(stats)
         return HStack(spacing: Metrics.gapWide) {

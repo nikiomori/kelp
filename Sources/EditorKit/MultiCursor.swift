@@ -1,9 +1,10 @@
 import AppKit
 
-/// The arrows (by character, word, line), Home, End and Esc with more than one cursor: each cursor moves, or with ⇧
-/// each selection grows or shrinks at its moving end; Esc keeps the first. Other commands run for the first alone.
+/// The arrows (by character, word, line), Home, End and Esc with more than one cursor. Each cursor moves, or with ⇧
+/// each selection grows or shrinks at its moving end; Esc keeps the first cursor. Other commands run for the first
+/// cursor alone.
 @MainActor enum MultiCursor {
-    /// False for a command that isn't a move.
+    /// Returns false for a command that isn't a move.
     static func move(_ tv: EditorTextView, _ command: Selector) -> Bool {
         if command == #selector(NSResponder.cancelOperation(_:)) {
             tv.setCursors([tv.cursors[0]])
@@ -23,7 +24,7 @@ import AppKit
                 })
             return true
         }
-        // ⇧: each selection keeps its anchor; the other end moves.
+        // With ⇧, each selection keeps its anchor and the other end moves.
         let anchors = tv.anchors.count == cs.count ? tv.anchors : cs.map(\.location)
         var moved: [NSRange] = [], kept: [Int] = []
         for (selection, anchor) in zip(cs, anchors) {
@@ -33,7 +34,7 @@ import AppKit
             kept.append(anchor)
         }
         tv.setCursors(moved)
-        tv.anchors = tv.cursors.count == kept.count ? kept : []   // merged selections: start again
+        tv.anchors = tv.cursors.count == kept.count ? kept : []   // selections merged, so start again
         return true
     }
 
@@ -80,7 +81,7 @@ import AppKit
         }
     }
 
-    /// One character back or on (a composed one whole).
+    /// One character back (`before`) or on (`after`), taking a composed character as a whole.
     static func before(_ location: Int, in string: NSString) -> Int {
         location > 0 ? string.rangeOfComposedCharacterSequence(at: location - 1).location : 0
     }
@@ -88,7 +89,7 @@ import AppKit
         location < string.length ? NSMaxRange(string.rangeOfComposedCharacterSequence(at: location)) : string.length
     }
 
-    /// To the start of this or the previous word (⌥←), or the end of this or the next one (⌥→).
+    /// Moves to the start of this or the previous word (⌥←), or to the end of this or the next one (⌥→).
     static func wordLeft(_ location: Int, in string: NSString) -> Int {
         var scan = location
         while scan > 0, !isWord(string.character(at: scan - 1)) { scan -= 1 }
@@ -104,7 +105,8 @@ import AppKit
     }
 
     private static func isWord(_ character: unichar) -> Bool {
-        UnicodeScalar(character).map { CharacterSet.alphanumerics.contains($0) || $0 == "_" || $0 == "$" } ?? true   // a surrogate half: part of a word
+        // A surrogate half counts as part of a word.
+        UnicodeScalar(character).map { CharacterSet.alphanumerics.contains($0) || $0 == "_" || $0 == "$" } ?? true
     }
 
     /// Where the line holding `location` ends, before its line break.
@@ -114,7 +116,8 @@ import AppKit
         return contentsEnd
     }
 
-    /// The same column a line up or down, or that line's end when it's shorter; the first or last line goes to its end.
+    /// The same column a line up or down, or that line's end when it's shorter. From the first or last line it goes to
+    /// the end.
     static func vertical(_ string: NSString, _ location: Int, up: Bool) -> Int {
         let line = string.lineRange(for: NSRange(location: location, length: 0)), column = location - line.location
         if up {

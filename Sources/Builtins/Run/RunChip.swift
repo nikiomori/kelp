@@ -3,9 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The title bar's run control, Xcode's Run and scheme in one capsule: ▶ runs what ⌘R would (■ stops what runs here),
-/// the name opens the Run list. A name nothing ran yet is a guess, dimmed. Hidden while the project offers nothing to
-/// run. The page it serves has a capsule of its own (`PageChip`).
+/// The title bar's run control, Xcode's Run and scheme in one capsule. ▶ runs what ⌘R would (■ stops what runs here),
+/// and the name opens the Run list. A name that nothing ran yet is a guess, and is dimmed. The chip is hidden while
+/// the project offers nothing to run. The page a run serves has a capsule of its own (`PageChip`).
 @MainActor
 final class RunChip: ChipCapsule, WindowBarItem {
     struct Look: Equatable { var name: String, guess: Bool, running: Bool }
@@ -37,7 +37,8 @@ final class RunChip: ChipCapsule, WindowBarItem {
         } changed: { [weak self] in
             self?.show($0)
         }
-        // A workspace shown the first time: what its files offer (the list reads them again when it opens).
+        // When a workspace shows for the first time, reads what its files offer (the list reads them again when it
+        // opens).
         track(owner: self) {
             app.workbench.workspaceId
         } changed: { wid in
@@ -50,7 +51,7 @@ final class RunChip: ChipCapsule, WindowBarItem {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// As wide however short the bar is: its name truncates.
+    /// The chip keeps its width however short the bar is; its name truncates.
     func fit(barWidth: CGFloat) {}
 
     override func viewDidMoveToWindow() {
@@ -88,7 +89,8 @@ final class RunChip: ChipCapsule, WindowBarItem {
     }
 }
 
-/// The title bar's capsule of buttons, shared by the run and page chips: 22 high, round ends, a resting fill.
+/// The title bar's capsule of buttons, shared by the run and page chips: 22 pt high, with round ends and a resting
+/// fill.
 @MainActor
 class ChipCapsule: NSStackView {
     init() {
@@ -100,10 +102,10 @@ class ChipCapsule: NSStackView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Its buttons, in order: capsules too, so they don't square off its ends.
+    /// Holds its buttons in order. They are capsules too, so they don't square off its ends.
     func hold(_ chips: [PointerButton], font: NSFont) {
         for chip in chips {
-            chip.radius = nil   // a capsule, as the capsule it sits in
+            chip.radius = nil   // a capsule, like the capsule it sits in
             chip.font = font
             chip.setContentCompressionResistancePriority(.init(320), for: .horizontal)
         }

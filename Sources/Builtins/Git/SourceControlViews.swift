@@ -5,7 +5,7 @@ import KelpKit
 
 struct RowAction {
     let symbol: String, title: String, run: @MainActor () -> Void
-    /// `title` in English; it shows translated (tooltip, accessibility, context menu).
+    /// `title` is in English; it shows translated (in the tooltip, accessibility and the context menu).
     init(_ symbol: String, _ title: String, _ run: @escaping @MainActor () -> Void) {
         self.symbol = symbol
         self.title = loc(title)
@@ -13,7 +13,7 @@ struct RowAction {
     }
 }
 
-/// The Graph pane's header: a click folds the pane and a drag sizes it (VS Code's view header and sash in one).
+/// The Graph pane's header. A click folds the pane and a drag sizes it (VS Code's view header and sash in one).
 final class GraphBar: NSView {
     static let height = TextSize.of(26) + 1
     var onToggle: (() -> Void)?, onResize: ((CGFloat) -> Void)?, onRefresh: (() -> Void)?
@@ -24,12 +24,12 @@ final class GraphBar: NSView {
         }
     }
     private var cell: SectionCell?
-    /// Refresh at work.
+    /// Whether Refresh is at work.
     var busy: Bool {
         get { cell?.busy ?? false }
         set { cell?.busy = newValue }
     }
-    /// Under the pointer the header greys in as a list row does (inset, rounded), held it darkens.
+    /// Under the pointer the header greys in as a list row does (inset, rounded), and while it's held it darkens.
     private let fill = NSView()
     private var hovering = false, pressed = false
 
@@ -120,13 +120,13 @@ final class GraphBar: NSView {
     }
 }
 
-/// The commit message: ⌘↩ commits, like VS Code.
+/// The commit message, where ⌘↩ commits, as in VS Code.
 final class CommitTextView: NSTextView {
     var onCommit: (() -> Void)?
-    /// ⌥⌘↩: the agent writes it.
+    /// Called for ⌥⌘↩, which has the agent write the message.
     var onAgent: (() -> Void)?
-    /// Room kept free in the top-right corner, where the agent's logo sits over the field: the first line wraps before
-    /// it, the lines under it run the whole width.
+    /// Room kept free in the top-right corner, where the agent's logo sits over the field. The first line wraps before
+    /// it, and the lines under it run the whole width.
     var corner: CGFloat = 0 { didSet { if corner != oldValue { exclude() } } }
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
@@ -134,7 +134,7 @@ final class CommitTextView: NSTextView {
     }
     private func exclude() {
         guard let container = textContainer else { return }
-        let rect = NSRect(x: container.size.width - corner, y: 0, width: corner, height: 14)   // the first line's
+        let rect = NSRect(x: container.size.width - corner, y: 0, width: corner, height: 14)   // the first line
         container.exclusionPaths = corner > 0 ? [NSBezierPath(rect: rect)] : []
     }
     var onChange: (() -> Void)?
@@ -158,7 +158,7 @@ final class CommitTextView: NSTextView {
     }
 }
 
-/// The message field's rounded border; AppKit calls `updateLayer` again on every light / dark change.
+/// The message field's rounded border. AppKit calls `updateLayer` again on every light / dark change.
 class FieldBox: NSView {
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {

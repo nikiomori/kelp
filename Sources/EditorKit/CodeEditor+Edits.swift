@@ -11,8 +11,8 @@ extension CodeEditor {
         }
     }
 
-    /// ⌘D: the word at each cursor; then the next occurrence of the selected text joins the selections, past the
-    /// last one and then from the top.
+    /// ⌘D selects the word at each cursor. After that, the next occurrence of the selected text joins the selections,
+    /// past the last one and then from the top.
     public func addNextOccurrence() {
         let tv = textView, string = tv.string as NSString, sels = tv.cursors
         if sels.contains(where: { $0.length == 0 }) {
@@ -28,7 +28,7 @@ extension CodeEditor {
         tv.scrollRangeToVisible(next)
     }
 
-    /// ⇧⌘L: every occurrence of the selected text (or of the word at the cursor).
+    /// ⇧⌘L selects every occurrence of the selected text (or of the word at the cursor).
     public func selectAllOccurrences() {
         let tv = textView, string = tv.string as NSString
         guard let first = tv.cursors.first else { return }
@@ -39,11 +39,12 @@ extension CodeEditor {
                 of: string.substring(with: target), in: string, wholeWords: Self.isWord(target, in: string)))
     }
 
-    /// ⇧⌘K: the lines the selections touch, in one undo.
+    /// ⇧⌘K deletes the lines the selections touch, in one undo.
     public func deleteLines() {
         let string = textView.string as NSString
         let blocks = Self.lineBlocks(textView.cursors, in: string).map { block in
-            // The last line has no line break of its own: take the one before it (\r\n whole), or an empty line stays.
+            // The last line has no line break of its own, so take the one before it (\r\n whole), or an empty line
+            // stays.
             guard NSMaxRange(block) == string.length, block.location > 0,
                 string.character(at: NSMaxRange(block) - 1) != 10
             else { return block }
@@ -53,11 +54,11 @@ extension CodeEditor {
         textView.replace(blocks, with: blocks.map { _ in "" })
     }
 
-    /// ⌥↓ / ⌥↑: the selected lines trade places with the line below or above, selections along.
+    /// ⌥↓ / ⌥↑ swap the selected lines with the line below or above, and the selections move along.
     public func moveLines(down: Bool) {
         let tv = textView, string = tv.string as NSString, sels = tv.cursors
         let blocks = Self.lineBlocks(sels, in: string)
-        // Each block with its neighbour, as one replacement; blocks are a line apart at least, so the swaps don't meet.
+        // Each block and its neighbour make one replacement. Blocks are at least a line apart, so the swaps don't meet.
         let swaps = blocks.map { block -> (range: NSRange, text: String, shift: Int)? in
             guard down ? NSMaxRange(block) < string.length : block.location > 0 else { return nil }
             let other = string.lineRange(
@@ -66,7 +67,8 @@ extension CodeEditor {
                 down
                 ? (string.substring(with: other), string.substring(with: block))
                 : (string.substring(with: block), string.substring(with: other))
-            if !(top as NSString).hasSuffix("\n") {   // the last line moves up: its line break goes with the line now above it
+            // The last line moves up, so its line break goes with the line now above it.
+            if !(top as NSString).hasSuffix("\n") {
                 top += bottom.hasSuffix("\r\n") ? "\r\n" : "\n"
                 bottom.removeLast()
             }
@@ -82,8 +84,8 @@ extension CodeEditor {
         tv.scrollRangeToVisible(tv.selectedRange())
     }
 
-    /// ⇧⌥↓ / ⇧⌥↑: the selected lines once more, below or above; the selections move to the copy below, or stay on the
-    /// one above, as in VS Code.
+    /// ⇧⌥↓ / ⇧⌥↑ copy the selected lines once more, below or above. The selections move to the copy below, or stay on
+    /// the lines above, as in VS Code.
     public func copyLines(down: Bool) {
         let tv = textView, string = tv.string as NSString, sels = tv.cursors
         let blocks = Self.lineBlocks(sels, in: string)
@@ -102,8 +104,8 @@ extension CodeEditor {
             })
     }
 
-    /// ⌘/: the touched lines commented out, or back in when they all are: with the language's line comment, else each
-    /// line in its block comment (CSS, HTML).
+    /// ⌘/ comments out the touched lines, or puts them back in when all of them are commented. It uses the language's
+    /// line comment, else wraps each line in its block comment (CSS, HTML).
     public func toggleComment() {
         let (open, close) =
             language.lineCommentString.isEmpty ? language.rangeCommentStrings : (language.lineCommentString, "")
@@ -117,7 +119,8 @@ extension CodeEditor {
             .enumerated().map { index, body in
                 NSRange(
                     location: body.location,
-                    length: NSMaxRange(lines[index]) - Typing.lineBreak(string, lines[index]) - body.location)   // after the indent
+                    // after the indent
+                    length: NSMaxRange(lines[index]) - Typing.lineBreak(string, lines[index]) - body.location)
             }
         let texts = bodies.map { string.substring(with: $0) }
         if texts.allSatisfy({ $0.hasPrefix(open) && $0.hasSuffix(close) }) {
@@ -134,7 +137,7 @@ extension CodeEditor {
             }
             return textView.replace(edits.map(\.0), with: edits.map(\.1), keep: true)
         }
-        // At the block's least indent, so the marks line up.
+        // The marks go at the block's least indent, so they line up.
         let column = zip(lines, bodies).map { $1.location - $0.location }.min() ?? 0
         var edits: [(NSRange, String)] = []
         for (line, body) in zip(lines, bodies) {
@@ -144,7 +147,7 @@ extension CodeEditor {
         textView.replace(edits.map(\.0), with: edits.map(\.1), keep: true)
     }
 
-    /// ⌘] / ⌘[: the touched lines a level in or out.
+    /// ⌘] / ⌘[ move the touched lines a level in or out.
     public func indent(out: Bool) { Typing.shift(textView, out: out) }
 
     // MARK: Text
@@ -162,7 +165,7 @@ extension CodeEditor {
         return NSRange(location: start, length: end - start)
     }
 
-    /// Where `needle` is, case and all; with `wholeWords`, not where it's part of a longer word (`id` in `width`).
+    /// Where `needle` is, matching case. With `wholeWords`, not where it's part of a longer word (`id` in `width`).
     static func occurrences(of needle: String, in string: NSString, wholeWords: Bool = false) -> [NSRange] {
         var out: [NSRange] = [], from = 0
         while from < string.length {
@@ -175,7 +178,8 @@ extension CodeEditor {
         return out
     }
 
-    /// A whole word: `range` is the identifier around its start (⌘D from a caret picks one, and then looks for words alone).
+    /// Whether `range` is a whole word, meaning the identifier around its start. ⌘D from a caret picks one, and then
+    /// looks for whole words alone.
     static func isWord(_ range: NSRange, in string: NSString) -> Bool {
         range.length > 0 && word(at: range.location, in: string) == range
     }
@@ -200,17 +204,17 @@ extension CodeEditor {
 
 /// Selecting by what the code is, and more cursors.
 extension CodeEditor {
-    /// ⌃⇧⌘→: the next syntax node around the selection; with no grammar, the word, the line, then everything.
+    /// ⌃⇧⌘→ selects the next syntax node around the selection; with no grammar, the word, the line, then everything.
     public func expandSelection() {
         let tv = textView, string = tv.string as NSString, now = tv.selectedRange()
         guard let next = wider(than: now, in: string), next != now else { return }
-        if now != selectionGrown { selectionSteps = [] }   // moved by hand since: those steps led somewhere else
+        if now != selectionGrown { selectionSteps = [] }   // the selection moved by hand, so those steps don't apply
         selectionSteps.append(now)
         selectionGrown = next
         tv.setSelectedRange(next)
     }
 
-    /// ⌃⇧⌘←: back the way it grew.
+    /// ⌃⇧⌘← shrinks the selection back the way it grew.
     public func shrinkSelection() {
         guard textView.selectedRange() == selectionGrown, let last = selectionSteps.popLast() else { return }
         selectionGrown = last
@@ -232,7 +236,7 @@ extension CodeEditor {
         return line != range ? line : NSRange(location: 0, length: string.length)
     }
 
-    /// One more cursor on the line above or below each, at the same column.
+    /// Adds one more cursor on the line above or below each cursor, at the same column.
     public func addCursor(above: Bool) {
         let tv = textView, string = tv.string as NSString
         tv.setCursors(
@@ -240,7 +244,7 @@ extension CodeEditor {
                 + tv.cursors.map { NSRange(location: MultiCursor.vertical(string, $0.location, up: above), length: 0) })
     }
 
-    /// ⌥⇧I: a cursor at the end of every line of the selection.
+    /// ⌥⇧I puts a cursor at the end of every line of the selection.
     public func cursorsAtLineEnds() {
         let tv = textView, string = tv.string as NSString, selection = tv.selectedRange()
         var ends: [NSRange] = [], at = selection.location

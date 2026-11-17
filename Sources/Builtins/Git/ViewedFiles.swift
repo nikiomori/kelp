@@ -1,8 +1,8 @@
 import Core
 
-/// The files of a workspace's diff marked as read, each with a print of its diff when marked: a file an agent changed
-/// since doesn't match its print any more, so it's unread again by itself. Kept in the daemon's UI state as
-/// "path<TAB>print" strings under `key(worktree)`.
+/// The files of a workspace's diff marked as read, each with a print of its diff when it was marked. When an agent
+/// changes the file since, it no longer matches its print, so it is unread again by itself. The marks are kept in the
+/// daemon's UI state as "path<TAB>print" strings under `key(worktree)`.
 enum ViewedFiles {
     static func key(_ worktree: String) -> String { "viewed/" + worktree }
 
@@ -23,11 +23,12 @@ enum ViewedFiles {
             }, uniquingKeysWith: { _, b in b })
     }
 
-    /// Marks kept of files the diff on screen doesn't hold: another source (Staged, a commit) shows them.
+    /// How many marks are kept before the marks of files the diff on screen doesn't hold are dropped. Another source
+    /// (Staged, a commit) may show those files.
     static let kept = 300
 
-    /// `marks` with `d` marked or not. A file `diffs` doesn't hold keeps its mark (its print tells whether it's still
-    /// read), until there are more than `kept`: then only the files `diffs` holds keep theirs.
+    /// Returns `marks` with `fileDiff` marked or not. A file `diffs` doesn't hold keeps its mark (its print tells
+    /// whether it's still read) until there are more than `kept` marks; then only the files `diffs` holds keep theirs.
     static func marking(_ fileDiff: FileDiff, _ on: Bool, in marks: [String: String], diffs: [FileDiff]) -> [String] {
         let here = Set(diffs.map(\.path))
         var updated = marks.count < kept ? marks : marks.filter { here.contains($0.key) }
@@ -35,7 +36,8 @@ enum ViewedFiles {
         return updated.map { "\($0.key)\t\($0.value)" }.sorted()
     }
 
-    /// `printed`: the file's print worked out already (off the main thread, with its rows); a file not marked needs none.
+    /// `printed` is the file's print when it was worked out already (off the main thread, with its rows). A file that
+    /// isn't marked needs none.
     static func viewed(_ fileDiff: FileDiff, in marks: [String: String], printed: String? = nil) -> Bool {
         guard let mark = marks[fileDiff.path] else { return false }
         return mark == (printed ?? print(fileDiff))

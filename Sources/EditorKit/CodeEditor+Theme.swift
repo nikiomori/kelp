@@ -29,7 +29,8 @@ extension CodeEditor {
         public var palette: Palette?
         public var fontSize: CGFloat
         public var fontName: String?
-        /// Off by default, as in most editors: a long line runs past the edge and scrolls. On: it continues on the next row.
+        /// Off by default, as in most editors, so a long line runs past the edge and scrolls. When on, the line
+        /// continues on the next row.
         public var wrapLines: Bool
         public var wrappingIndent: WrappingIndent
         public init(
@@ -46,13 +47,14 @@ extension CodeEditor {
     /// The look every editor has (`apply(look:)`).
     public private(set) static var current = Look()
 
-    /// Gives every editor `look`, the open ones at once (`all`): no host has to remember to tell its own. Returns whether
-    /// it changed.
+    /// Gives every editor `look`, the open ones at once (`all`), so no host has to remember to tell its own. Returns
+    /// whether the look changed.
     @discardableResult
     public static func apply(look: Look) -> Bool {
         guard look != current else { return false }
         current = look
-        // One off screen (a tab not shown) takes it when it shows: each look, the whole text of each.
+        // An editor off screen (a tab not shown) takes the look when it shows, because each look restyles the whole
+        // text of each editor.
         for editor in all.allObjects {
             if editor.view.window == nil { editor.lookPending = true } else { editor.refreshAppearance() }
         }
@@ -99,7 +101,7 @@ extension CodeEditor {
             function: hex(palette.function) ?? base.function)
     }
 
-    /// The editor's font: code shown outside it (a diff) uses it too.
+    /// The editor's font. Code shown outside the editor (a diff) uses it too.
     public static var font: NSFont {
         current.fontName.flatMap { NSFont(name: $0, size: current.fontSize) }
             ?? .monospacedSystemFont(ofSize: current.fontSize, weight: .regular)
@@ -121,13 +123,13 @@ extension CodeEditor {
         lookPending = false
         tv.typingAttributes = [.font: font, .foregroundColor: look.text, .paragraphStyle: para]
         tv.defaultParagraphStyle = para
-        // Text comes in with the typing attributes: only a new font, colour or tab width goes over all of it.
+        // Text comes in with the typing attributes, so only a new font, colour or tab width goes over all of it.
         let style = tv.typingAttributes as NSDictionary
         if style != styled, let ts = tv.textStorage, ts.length > 0 {
             ts.addAttributes(tv.typingAttributes, range: NSRange(location: 0, length: ts.length))
         }
         styled = style
-        if tv.font != font { tv.font = font }   // it sets every character's font, and lays all of them out again
+        if tv.font != font { tv.font = font }   // setting it sets every character's font and lays them all out again
         tv.backgroundColor = look.background
         tv.insertionPointColor = look.text
         tv.selectedTextAttributes = [.backgroundColor: look.selection]
@@ -137,7 +139,7 @@ extension CodeEditor {
         gutter?.color = look.text.withAlphaComponent(0.4)
         gutter?.current = look.text
         gutter?.background = look.background
-        gutter?.fit(lines: lineCount)   // a bigger font needs a wider one
+        gutter?.fit(lines: lineCount)   // a bigger font needs a wider gutter
         gutter?.needsDisplay = true
         highlighter?.colors = Self.captureColors(look)
         highlighter?.bracketColors = bracketColors ? [look.number, look.keyword, look.type] : []
@@ -147,7 +149,8 @@ extension CodeEditor {
         tv.needsDisplay = true
     }
 
-    /// The column, or the view's edge when that comes first: a container that doesn't track the view needs telling.
+    /// Wraps at the column, or at the view's edge when that comes first, because a container that doesn't track the
+    /// view needs telling.
     func fitWrapColumn() {
         let tv = textView
         guard let tc = tv.textContainer, !tc.widthTracksTextView, !tv.isHorizontallyResizable, let wrapColumn else {
@@ -159,7 +162,7 @@ extension CodeEditor {
         if abs(tc.size.width - width) > 0.5 { tc.size = NSSize(width: width, height: .greatestFiniteMagnitude) }
     }
 
-    /// Long lines run past the edge (the view widens, a horizontal scroller shows) or wrap at it.
+    /// Long lines either run past the edge (the view widens and a horizontal scroller shows) or wrap at it.
     private func wrap(_ on: Bool) {
         let tv = textView
         guard let tc = tv.textContainer else { return }
@@ -180,7 +183,7 @@ extension CodeEditor {
         tv.layoutManager?.textContainerChangedGeometry(tc)
     }
 
-    /// Tree-sitter capture names (their first part, or the whole for the few that differ) to colors.
+    /// Maps tree-sitter capture names (their first part, or the whole name for the few that differ) to colors.
     static func captureColors(_ look: Colors) -> [String: NSColor] {
         let keyword = [
             "keyword", "include", "boolean", "repeat", "conditional", "tag", "exception", "label", "variable.builtin",
@@ -191,7 +194,7 @@ extension CodeEditor {
             "number": look.number, "float": look.number, "type": look.type, "constructor": look.type,
             "attribute": look.type,
             "function": look.function, "method": look.function,
-            // Markdown: headings, code, links and list marks
+            // Markdown: headings, code, links and list marks.
             "text.title": look.keyword, "text.literal": look.string, "text.uri": look.type, "text.reference": look.type,
             "punctuation.special": look.comment
         ]

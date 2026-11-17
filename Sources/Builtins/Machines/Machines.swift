@@ -5,17 +5,18 @@ import KelpKit
 import UniformTypeIdentifiers
 import WorkbenchKit
 
-/// Kelp's virtual machines (Core/VM/VMs.swift) as the sidebar's Machines block and a machine's tab ("vm:<name>") see them.
+/// Kelp's virtual machines (Core/VM/VMs.swift), as the sidebar's Machines block and a machine's tab ("vm:<name>") see
+/// them.
 @MainActor
 enum Machines {
-    /// Any Xcode, by any name (Xcode-beta.app, Xcode_27.1.app as CI names it): they share its bundle ID; Xcodes.app
-    /// (which installs them) doesn't.
+    /// Whether any Xcode is installed, by any name (Xcode-beta.app, or Xcode_27.1.app as CI names it), because they
+    /// share its bundle ID. Xcodes.app, which installs them, doesn't.
     private static var xcodeInstalled: Bool {
         NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.dt.Xcode") != nil
     }
 
-    /// The kinds of machine the sidebar's Machines + offers; `missing` says what this Mac lacks for one (Apple silicon, an
-    /// Android SDK, Xcode).
+    /// The kinds of machine the sidebar's Machines + offers. `missing` says what this Mac lacks for one (Apple
+    /// silicon, an Android SDK, Xcode).
     static var machineChoices: [(title: String, image: String, missing: String?)] {
         #if arch(arm64)
             let silicon: String? = nil
@@ -35,8 +36,8 @@ enum Machines {
         ]
     }
 
-    /// File › New Machine… (and Open Quickly's command): the kinds the sidebar's + offers, listed where the palette
-    /// shows. One this Mac can't run says why and isn't made.
+    /// File › New Machine… (and Open Quickly's command): lists the kinds the sidebar's + offers where the palette
+    /// shows. A kind this Mac can't run says why, and no machine is made.
     static func chooseNew(_ app: AppModel) {
         let choices = machineChoices
         app.workbench.showList(
@@ -96,11 +97,12 @@ enum Machines {
                 name = "\(base)\(n)"
                 n += 1
             }
-            if await app.call(VMCreate(name: name, image: image, file: file)) != nil { app.watchAgain(.machines) }   // as the daemon has it
+            // The list is read again as the daemon has it.
+            if await app.call(VMCreate(name: name, image: image, file: file)) != nil { app.watchAgain(.machines) }
         }
     }
 
-    /// The machine's tab, on the screen in front, or its page in a window of its own.
+    /// Opens the machine's tab on the screen in front, or its page in a window of its own.
     static func openMachine(_ app: AppModel, _ name: String, ownWindow: Bool = false) {
         if ownWindow { return app.workbench.openInOwnWindow(TabURI.machine(name)) }
         app.workbench.open(TabURI.machine(name), workspace: app.workbench.workspaceId ?? app.worktrees.first?.id)
@@ -110,8 +112,8 @@ enum Machines {
     /// shared at the same path; or in its home folder when that folder can't be shared or belongs to a remote project.
     static func runInMachine(_ app: AppModel, _ name: String, command: String? = nil) {
         let folder = app.workbench.workspaceId.flatMap(app.worktree)?.path
-        // A remote project's folder is on its host, not here to share: the machine's home, run from this Mac (`kelp`
-        // isn't on the host).
+        // A remote project's folder is on its host, not here to share. So the terminal opens in the machine's home,
+        // run from this Mac, because `kelp` isn't on the host.
         let remote = folder.map { RemoteHost.of($0) != nil } ?? false
         let home = remote || (folder.map { !VMs.mayShare($0) } ?? true)
         var line = "kelp vm run " + ShellQuote.word(name) + (home ? " --home" : "")
@@ -119,9 +121,10 @@ enum Machines {
         app.workbench.starterForNewTab?.run(command: line, title: name, cwd: remote ? NSHomeDirectory() : nil)
     }
 
-    /// Run Terminals In ▸ This Mac or a machine: from then on the project's new terminals and Run commands start in that
-    /// machine, in the same folder (the daemon's `SessionSetup.inMachine`); its agents stay here and reach it with
-    /// `kelp vm run`. This Mac's projects only, and only machines that share folders (Linux, macOS).
+    /// Run Terminals In ▸ This Mac or a machine. From then on, the project's new terminals and Run commands start in
+    /// that machine, in the same folder (the daemon's `SessionSetup.inMachine`). The project's agents stay here and
+    /// reach the machine with `kelp vm run`. Only this Mac's projects get it, and only machines that share folders
+    /// (Linux, macOS) are listed.
     static func addRunIn(to menu: NSMenu, _ repo: Repo, _ app: AppModel) {
         let machines = machineList(app).filter { $0.machine.kind.sharesFolders && $0.notMade != true }
         guard RemoteHost.of(repo.path) == nil, !machines.isEmpty else { return }
@@ -143,25 +146,26 @@ enum Machines {
         menu.addItem(.separator())
     }
 
-    /// The machines as the daemon last told (`WatchTopic.machines`).
+    /// The machines as the daemon last listed them (`WatchTopic.machines`).
     static func machineList(_ app: AppModel) -> [VMInfo] { app.latest(MachinesEvent.self)?.machines ?? [] }
 
-    /// Start, sleep or stop it; its row follows as the daemon pushes the list again.
+    /// Starts, sleeps or stops a machine. Its row follows as the daemon pushes the list again.
     static func control(_ app: AppModel, machine name: String, _ action: VMControl.Action) {
         Task {
-            if await app.call(VMControl(name: name, action: action)) != nil { app.watchAgain(.machines) }   // as the daemon has it now
+            // The list is read again as the daemon has it now.
+            if await app.call(VMControl(name: name, action: action)) != nil { app.watchAgain(.machines) }
         }
     }
 
-    /// One whose making failed, made again as it was (`vm.create` with its name alone).
+    /// Makes a machine whose making failed again, as it was (`vm.create` with its name alone).
     static func makeAgain(_ app: AppModel, _ name: String) {
         Task {
-            if await app.call(VMCreate(name: name)) != nil { app.watchAgain(.machines) }   // as the daemon has it now
+            if await app.call(VMCreate(name: name)) != nil { app.watchAgain(.machines) }   // read as the daemon has it
         }
     }
 
-    /// Asks first, then stops it and erases its folder (disk, keys, password): there's no getting it back. One still being
-    /// made stops being made (Stop Making), what it downloaded dropped.
+    /// Asks first, then stops the machine and erases its folder (disk, keys, password), so there's no getting it back.
+    /// A machine still being made stops being made (Stop Making), and what it downloaded is dropped.
     static func deleteMachine(_ app: AppModel, _ info: VMInfo) {
         let name = info.machine.name
         Task {
@@ -183,7 +187,7 @@ enum Machines {
             guard asked else { return }
             guard await app.call(VMControl(name: name, action: .delete)) != nil else { return }
             app.workbench.closeTab(uri: TabURI.machine(name))
-            app.watchAgain(.machines)   // as the daemon has it now
+            app.watchAgain(.machines)   // the list is read again as the daemon has it now
         }
     }
 
@@ -202,7 +206,7 @@ enum Machines {
         }
     }
 
-    /// Where making it got: the step in the user's words, and how far ("Downloading macOS 27.2 · 43%").
+    /// How far making the machine got: the step in the user's words, and how far ("Downloading macOS 27.2 · 43%").
     static func stepText(_ vmInfo: VMInfo) -> String {
         let what = vmInfo.detail ?? ""
         let text: String =
@@ -222,9 +226,9 @@ enum Machines {
         return text + (vmInfo.progress.map { " · " + $0.formatted(.percent.precision(.fractionLength(0))) } ?? "")
     }
 
-    /// The machine's second line: what it takes of the Mac (CPU and memory while it runs, else its disk) and what runs.
-    /// With `short`, for the row: a sleeping machine shows its disk alone, and how fast it wakes is left to the tooltip
-    /// (it didn't fit the row).
+    /// The machine's second line: what it takes of the Mac (CPU and memory while it runs, else its disk) and what runs
+    /// in it. With `short`, for the row, a sleeping machine shows its disk alone, and how fast it wakes is left to the
+    /// tooltip, because it didn't fit the row.
     static func machineLine(_ app: AppModel, _ info: VMInfo, short: Bool = false) -> String {
         switch info.state {
         case .creating: return stepText(info)
@@ -246,7 +250,7 @@ enum Machines {
             if connections > 0 {
                 parts.append(String(localized: "\(connections) running"))
             }
-            // Nothing runs, but an agent drives its screen (`VMInfo.sessions` names it then).
+            // Nothing runs, but an agent drives the machine's screen (`VMInfo.sessions` names it then).
             else if let sessionId = info.sessions?.first {
                 parts.append(
                     String(localized: "\(app.catalog.name(app.session(sessionId)?.agent)) is using the screen"))

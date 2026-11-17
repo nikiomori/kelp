@@ -6,8 +6,8 @@ import WorkbenchKit
 
 extension Builtins {
 
-    /// A project's databases, as its agents reach them (`kelp db`): the Databases panel (what is there, what agents
-    /// ran, who is asking), and a `db:` tab with a database's tables, a run's rows, and a query of the user's own.
+    /// A project's databases, as its agents reach them (`kelp db`). It adds the Databases panel (what is there, what
+    /// agents ran, who is asking) and a `db:` tab with a database's tables, a run's rows, and the user's own query.
     package static let databases = Builtin(
         "kelp.databases", "Databases", "The project's databases: what agents ran on them, and their tables.",
         icon: DatabaseLook.symbol
@@ -77,15 +77,16 @@ extension Builtins {
                         (DatabaseURI(uri).map(DatabaseTab.title) ?? TabURI.body(uri), .symbol(DatabaseLook.symbol), nil)
                     })
             ],
-            // "+" and the empty workspace offer Database where the workspace has one: its databases are followed while it's
-            // on screen (the daemon reads them again only when a file that names one changes).
+            // "+" and the empty workspace offer Database when the workspace has a database. So the databases are
+            // followed while the workspace is on screen; the daemon reads them again only when a file naming one
+            // changes.
             launched: [{ DatabaseFollow.start(app) }],
             skills: [databasesSkill]
         )
     }
 }
 
-/// The databases of the workspace on screen, kept watched while Kelp runs: what "+" offers reads them.
+/// Keeps the databases of the workspace on screen watched while Kelp runs, because what "+" offers reads them.
 @MainActor
 enum DatabaseFollow {
     private static var watched: Watched?
@@ -107,7 +108,7 @@ extension DatabasesEvent: Pushed {
 }
 
 extension TabURI {
-    /// A database's tab (`DatabaseURI`; the daemon and `kelp db` build it with `DatabaseTabURI`).
+    /// The scheme of a database's tab (`DatabaseURI`); the daemon and `kelp db` build such URIs with `DatabaseTabURI`.
     static let databaseScheme = "db"
 }
 
@@ -122,7 +123,7 @@ struct DatabaseURI: Equatable {
         self.table = table
     }
 
-    /// Read by `DatabaseTabURI.parts`, as the daemon reads it for what an agent may open.
+    /// Parses the URI with `DatabaseTabURI.parts`, the same way the daemon reads it to check what an agent may open.
     init?(_ uri: String) {
         guard let parts = DatabaseTabURI.parts(uri) else { return nil }
         (worktree, name) = (parts.worktree, parts.name)

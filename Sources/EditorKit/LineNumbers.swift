@@ -1,14 +1,14 @@
 import AppKit
 import DesignKit
 
-/// Where lines start, found only as far as asked and forgotten past an edit: a 5 MB file's line numbers without a scan
-/// per keystroke or per frame.
+/// Where lines start, found only as far as asked and forgotten past an edit, so a 5 MB file gets line numbers without
+/// a scan per keystroke or per frame.
 struct LineIndex {
     private(set) var starts = [0]
     /// Every line break before this offset is in `starts`.
     private var scanned = 0
 
-    /// The text changed from `offset` on.
+    /// Forgets what's known from `offset` on, because the text changed there.
     mutating func invalidate(from offset: Int) {
         starts.removeSubrange(upperBound(offset)...)
         scanned = min(scanned, offset)
@@ -45,8 +45,8 @@ struct LineIndex {
         }
     }
 
-    /// Calls `found` with the offset of each \n in `range`: memchr over the UTF-16 bytes, a \n being 0A 00 at an even
-    /// byte (a Swift loop over 3 MB took 100 ms in a debug build).
+    /// Calls `found` with the offset of each \n in `range`. It uses memchr over the UTF-16 bytes, where a \n is 0A 00
+    /// at an even byte, because a Swift loop over 3 MB took 100 ms in a debug build.
     static func eachBreak(in string: NSString, _ range: NSRange, _ found: (Int) -> Void) {
         var chars = [unichar](repeating: 0, count: range.length)
         string.getCharacters(&chars, range: range)
@@ -72,7 +72,7 @@ struct LineIndex {
         return count
     }
 
-    /// The first index whose start is past `offset`.
+    /// The first index whose line start is past `offset`.
     private func upperBound(_ offset: Int) -> Int {
         var lo = 0, hi = starts.count
         while lo < hi {
@@ -83,13 +83,14 @@ struct LineIndex {
     }
 }
 
-/// The line numbers beside the text, the editor's colors, the current line's brighter; a chevron where a block folds
-/// (always on a folded one, on the others while the pointer is over the gutter), a click on it folds or opens.
+/// The line numbers beside the text, in the editor's colors, with the current line's brighter. A chevron shows where a
+/// block folds (always on a folded one, and on the others while the pointer is over the gutter), and a click on it
+/// folds or opens the block.
 final class LineNumbers: NSRulerView {
     private weak var editor: CodeEditor?
     var color = NSColor.secondaryLabelColor, current = NSColor.labelColor, background = NSColor.textBackgroundColor
     private var hovering = false { didSet { if hovering != oldValue { needsDisplay = true } } }
-    /// The line under the pointer (its first character): its chevron sits on the hover grey, so it reads as a button.
+    /// The line under the pointer (its first character). Its chevron sits on the hover grey, so it reads as a button.
     private var hoverLine: Int? { didSet { if hoverLine != oldValue { needsDisplay = true } } }
     private static let chevron: CGFloat = 14
     private static let barInset: CGFloat = 1, barWidth: CGFloat = 3, barHit: CGFloat = 8
@@ -98,7 +99,8 @@ final class LineNumbers: NSRulerView {
         self.editor = editor
         super.init(scrollView: scroll, orientation: .verticalRuler)
         clientView = editor.textView
-        clipsToBounds = true   // its background covered the text otherwise (views don't clip by default since macOS 14)
+        // Otherwise its background covered the text, because views don't clip by default since macOS 14.
+        clipsToBounds = true
         addTrackingArea(
             NSTrackingArea(
                 rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow, .inVisibleRect],
@@ -115,7 +117,7 @@ final class LineNumbers: NSRulerView {
     }
     override func mouseMoved(with event: NSEvent) { hoverLine = lineStart(at: event)?.location }
 
-    /// Wide enough for the last line's number, three digits at least, and the chevrons.
+    /// Makes the gutter wide enough for the last line's number, three digits at least, and the chevrons.
     func fit(lines: Int) {
         let digits = max(3, String(lines).count)
         let width =
@@ -177,7 +179,7 @@ final class LineNumbers: NSRulerView {
         while let start = editor.lineIndex.start(ofLine: number, in: string), start < string.length,
             start <= NSMaxRange(visible)
         {
-            if let fold = tv.folds.fold(at: start) {   // folded away: on after the fold
+            if let fold = tv.folds.fold(at: start) {   // folded away, so go on after the fold
                 number = editor.lineIndex.line(at: NSMaxRange(fold), in: string) + 1
                 continue
             }
@@ -196,7 +198,7 @@ final class LineNumbers: NSRulerView {
         return line == caret ? current : color
     }
 
-    /// A wrapped line's bar runs along all its rows.
+    /// The height of a wrapped line's rows, so its bar runs along all of them.
     private func rowsHeight(of start: Int, first frag: NSRect) -> CGFloat {
         guard let editor, let lm = editor.textView.layoutManager, let tc = editor.textView.textContainer else {
             return frag.height
@@ -204,7 +206,8 @@ final class LineNumbers: NSRulerView {
         let string = editor.textView.string as NSString
         guard start < string.length else { return frag.height }
         var line = string.lineRange(for: NSRange(location: start, length: 0))
-        if string.character(at: NSMaxRange(line) - 1) == 10 { line.length -= 1 }   // the break would count the row under it, on the last line
+        // On the last line, the line break would count the row under it.
+        if string.character(at: NSMaxRange(line) - 1) == 10 { line.length -= 1 }
         guard line.length > 0 else { return frag.height }
         return lm.boundingRect(forGlyphRange: lm.glyphRange(forCharacterRange: line, actualCharacterRange: nil), in: tc)
             .height
@@ -220,7 +223,7 @@ final class LineNumbers: NSRulerView {
             NSRect(x: Self.barInset, y: y, width: Self.barWidth, height: height).fill()
             return
         }
-        // No line is left of it: a wedge pointing into the gap above this line.
+        // No line is left of it, so a wedge points into the gap above this line.
         let wedge = NSBezierPath()
         wedge.move(to: NSPoint(x: 0, y: y - 3))
         wedge.line(to: NSPoint(x: 5, y: y))
@@ -229,8 +232,8 @@ final class LineNumbers: NSRulerView {
         wedge.fill()
     }
 
-    /// A click on a line's chevron (anywhere on the gutter beside a foldable line) folds or opens its block; at the far left,
-    /// on a change's bar, shows that change.
+    /// A click on a line's chevron (anywhere on the gutter beside a foldable line) folds or opens its block. At the far
+    /// left, on a change's bar, it shows that change.
     override func mouseDown(with event: NSEvent) {
         guard let editor, let line = lineStart(at: event) else { return }
         let across = convert(event.locationInWindow, from: nil).x

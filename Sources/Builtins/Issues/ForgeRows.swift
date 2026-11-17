@@ -3,12 +3,12 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The list's lines for pull requests and issues: a state glyph, the title on up to two lines, and under it the number,
-/// who, how long ago and what stands out (a conflict, a draft, the checks).
+/// The list's lines for pull requests and issues: a state glyph, the title on up to two lines, and under it the
+/// number, who, how long ago, and what stands out (a conflict, a draft, the checks).
 @MainActor
 enum ForgeRows {
-    /// The PRs in the order you act on them: the branch on screen, what waits for your review, yours, the rest.
-    /// A heading only where there's more than one part.
+    /// The PRs in the order you act on them: the branch on screen, what waits for your review, yours, and the rest.
+    /// There is a heading only where there's more than one part.
     static func sections(_ prs: [GitHub.PullRequest], viewer: String?, branch: String?) -> [(
         String?, [GitHub.PullRequest]
     )] {
@@ -87,8 +87,8 @@ enum ForgeRows {
             title: issue.title, meta: joined(parts.map { ($0, nil) }), branch: working, unseen: false)
     }
 
-    /// "#49 · ada · 3d · conflict": the parts with a dot between them, each in its colour (without one, the caption's
-    /// grey).
+    /// "#49 · ada · 3d · conflict": the parts with a dot between them, each in its colour (or the caption's grey when
+    /// it has none).
     private static func joined(_ parts: [(String, NSColor?)]) -> NSAttributedString {
         let words = NSMutableAttributedString()
         for (index, (text, color)) in parts.enumerated() {
@@ -117,7 +117,7 @@ enum ForgeRows {
         field.font = .ui(TextSize.row, weight: .medium)
         return field
     }()
-    /// What the title has beside it in a row: the glyph's column and the insets.
+    /// The room the title gives up beside it in a row: the glyph's column and the insets.
     static let titleMargin: CGFloat = 2 * Metrics.inset + Metrics.iconLarge + Metrics.gapWide + 12
 }
 
@@ -126,7 +126,7 @@ enum ForgeRows {
 final class ForgeRowCell: NSView {
     private let name: NSTextField
 
-    /// A wrapping label wraps at the width it was last told: told again once the row has its own.
+    /// A wrapping label wraps at the width it was last told, so it is told again once the row has its own width.
     override func layout() {
         super.layout()
         guard abs(name.preferredMaxLayoutWidth - name.bounds.width) > 0.5 else { return }
@@ -142,7 +142,7 @@ final class ForgeRowCell: NSView {
         super.init(frame: .zero)
         name.font = .ui(TextSize.row, weight: unseen ? .semibold : .medium)
         name.maximumNumberOfLines = 2
-        name.cell?.truncatesLastVisibleLine = true   // wraps by word, an ellipsis ends the second line
+        name.cell?.truncatesLastVisibleLine = true   // it wraps by word, and an ellipsis ends the second line
         name.isSelectable = false
         name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let words = NSMutableAttributedString(attributedString: meta)

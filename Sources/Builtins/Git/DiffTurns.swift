@@ -4,15 +4,15 @@ import DesignKit
 import KelpKit
 
 /// The agent's turns, newest first, beside the "Agent's Last Turn" source. The daemon keeps where each turn started
-/// (`SessionTurns`), so any of them can be read again; each is named by the prompt that started it.
+/// (`SessionTurns`), so any turn can be read again. Each turn is named by the prompt that started it.
 extension DiffViewController {
-    /// The turn picked, nil for the last one.
+    /// The id of the turn picked, or nil for the last one.
     var chosenTurn: String? {
         guard turnPop.indexOfSelectedItem > 0 else { return nil }
         return (turnPop.selectedItem?.representedObject as? SessionTurns.Mark)?.id
     }
 
-    /// The picker's turns read again, the one picked kept; hidden with no history (none yet).
+    /// Reads the picker's turns again, keeping the one picked. The picker hides when the agent has no turns yet.
     func readTurns(_ session: String?) async {
         var marks: [SessionTurns.Mark] = []
         if let session { marks = await app.quiet(SessionTurns(id: session)) ?? [] }
@@ -35,16 +35,18 @@ extension DiffViewController {
         return button
     }
 
-    /// What goes back first, in a sheet; then only if the folder is still as it was shown (`SessionTurnUndo`).
+    /// Shows what goes back first, in a sheet, then undoes the turn only if the folder is still as it was shown
+    /// (`SessionTurnUndo`).
     private func undoTurn() {
-        // The turn's own agent, not whichever has the focus now.
+        // The turn's own agent undoes it, not whichever agent has the focus now.
         guard let mark = turnPop.selectedItem?.representedObject as? SessionTurns.Mark else {
             NSSound.beep()
             return
         }
         let sid = mark.session, turn = mark.id
         Task { [self] in
-            guard let plan = await app.call(SessionTurnUndo(id: sid, turn: turn)) else { return }   // the banner says why not
+            // On failure the banner says why not.
+            guard let plan = await app.call(SessionTurnUndo(id: sid, turn: turn)) else { return }
             guard !plan.files.isEmpty else {
                 status.stringValue = String(localized: "Nothing changed since that turn began")
                 return

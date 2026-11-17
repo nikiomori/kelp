@@ -3,8 +3,8 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Open Database (⌃⌘K), as TablePlus' ⌘K, in Open Quickly: a few letters find a database of the project or of All My
-/// Projects; after a "/" ("agro/crops") they find a table of the one before it.
+/// Open Database (⌃⌘K), like TablePlus' ⌘K, in Open Quickly. A few letters find a database of the project or of All
+/// My Projects; after a "/" ("agro/crops") they find a table of the database before the "/".
 @MainActor
 enum DatabaseOpener {
     static func show(_ app: AppModel, worktreeId: String) {

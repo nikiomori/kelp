@@ -3,19 +3,19 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The first row of a server's card, one line as tall as a project's row: the machine, a word only when something is
-/// wrong, and on the right CPU, memory and disk, each as a symbol and its percent (orange from 90), with the rest in
-/// the tooltip. A click opens the server's tab; under the pointer its icon turns into the chevron that folds its
-/// projects away, as a project's icon does.
+/// The first row of a server's card, one line as tall as a project's row. It shows the machine, a word only when
+/// something is wrong, and on the right CPU, memory and disk, each as a symbol and its percent (orange from 90), with
+/// the rest in the tooltip. A click opens the server's tab. Under the pointer the icon turns into the chevron that
+/// folds the server's projects away, as a project's icon does.
 @MainActor
 final class ServerHeader: NSTableCellView, SidebarRow {
     let host: String
     private weak var app: AppModel?
-    /// The sidebar's side of it: the fold, and the plate its card's look puts under the icon.
+    /// The sidebar's side of the header: the fold, and the plate that the card's look puts under the icon.
     private let row: ServerRow
     private let title = NSTextField(labelWithString: "")
     private let word = NSTextField(labelWithString: "")
-    /// At the right: the meters, or why there are none.
+    /// The meters at the right, or why there are none.
     private let meters = NSStackView()
     private let note = NSTextField(labelWithString: "")
     private let cpu = Meter("cpu", String(localized: "CPU")), ram = Meter("memorychip", String(localized: "Memory"))
@@ -47,7 +47,7 @@ final class ServerHeader: NSTableCellView, SidebarRow {
         note.font = .ui(TextSize.caption)
         note.textColor = .secondaryLabelColor
         note.lineBreakMode = .byTruncatingTail
-        note.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the server's name
+        note.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // yields before the server's name
         meters.setViews([cpu, ram, disk, note], in: .leading)
         meters.spacing = Metrics.gap
         meters.detachesHiddenViews = true
@@ -69,7 +69,8 @@ final class ServerHeader: NSTableCellView, SidebarRow {
             slot.widthAnchor.constraint(equalToConstant: 16), slot.heightAnchor.constraint(equalToConstant: 16),
             plate.widthAnchor.constraint(equalToConstant: 20), plate.heightAnchor.constraint(equalToConstant: 20),
             fold.widthAnchor.constraint(equalToConstant: 16), fold.heightAnchor.constraint(equalToConstant: 16),
-            // The same columns as a project's row (SidebarCell): the icon under theirs, the name under their names.
+            // The same columns as a project's row (SidebarCell): the icon under the projects' icons, the name under
+            // their names.
             row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
             row.trailingAnchor.constraint(equalTo: trailingAnchor),
             row.centerYAnchor.constraint(equalTo: centerYAnchor)
@@ -79,7 +80,7 @@ final class ServerHeader: NSTableCellView, SidebarRow {
                 rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
-        // The header follows every reading of its server; the sidebar's rows only what they show.
+        // The header follows every reading of its server; the sidebar's rows follow only what they show.
         track(owner: self, now: false) { [weak app, host] in
             app?.latest(HostEvent.self, host)
         } changed: { [weak self] _ in
@@ -93,8 +94,8 @@ final class ServerHeader: NSTableCellView, SidebarRow {
         super.setFrameSize(newSize)
         if newSize.width != old { fitMeters() }
     }
-    /// All three meters stay while the server's name keeps its first few letters (`nameFloor`); past that they step
-    /// aside, the disk first, then memory, then the CPU (all are in the tooltip and on the server's tab).
+    /// All three meters stay while the server's name keeps its first few letters (`nameFloor`). Past that they step
+    /// aside, the disk first, then memory, then the CPU; all are in the tooltip and on the server's tab.
     private func fitMeters() {
         let name = min(title.intrinsicContentSize.width, Self.nameFloor)
         let said = word.isHidden ? 0 : word.intrinsicContentSize.width + Metrics.gap
@@ -106,7 +107,7 @@ final class ServerHeader: NSTableCellView, SidebarRow {
         }
     }
 
-    /// About seven letters: enough to tell servers apart.
+    /// About seven letters, which is enough to tell servers apart.
     static let nameFloor: CGFloat = 52
 
     override func mouseEntered(with event: NSEvent) { showFold(true) }
@@ -123,7 +124,7 @@ final class ServerHeader: NSTableCellView, SidebarRow {
         title.stringValue = host
         let said = ServerActions.serverWord(app, host)
         let up = stats?.connected == true
-        // Off: the word goes to the right, where the meters would be.
+        // When the server is off, the word goes to the right, where the meters would be.
         word.stringValue = up ? said?.text ?? "" : ""
         word.textColor = said?.color ?? .secondaryLabelColor
         word.isHidden = word.stringValue.isEmpty
@@ -150,7 +151,7 @@ final class ServerHeader: NSTableCellView, SidebarRow {
             [String(localized: "Server \(host)"), said?.text, toolTip].compactMap { $0 }.joined(separator: ", "))
     }
 
-    /// Everything read, a line each: the tooltip.
+    /// The tooltip: everything read, a line each.
     static func details(_ stats: HostStats?) -> String? {
         guard let stats else { return nil }
         guard stats.connected else {
@@ -173,7 +174,7 @@ final class ServerHeader: NSTableCellView, SidebarRow {
     }
 }
 
-/// One meter on the header: a symbol and a percent without its sign (there's no room for three), orange from 90.
+/// One meter on the header: a symbol and a percent without its sign (there's no room for three signs), orange from 90.
 @MainActor
 private final class Meter: NSStackView {
     private let value = NSTextField(labelWithString: "")
@@ -188,7 +189,7 @@ private final class Meter: NSStackView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// It has a share to show; whether it fits beside the name is the header's to say.
+    /// Whether the meter has a share to show. Whether it fits beside the name is for the header to say.
     private(set) var has = false
     func show(_ percent: Int?) {
         has = percent != nil
@@ -203,10 +204,10 @@ private final class Meter: NSStackView {
 /// The servers' headers in the sidebar: what they watch and their menus.
 @MainActor
 enum ServerHeaders {
-    /// Hosts of the remote projects listed, watched for the mark on their icons (`WatchTopic.host`).
+    /// The hosts of the remote projects listed, watched for the mark on their icons (`WatchTopic.host`).
     private final class Watched { var hosts: Set<String> = [] }
 
-    /// Each listed server is watched while it's listed (every 10 s, never dialing).
+    /// Watches each listed server while it's listed (every 10 s, never dialing).
     static func watchHosts(_ hosts: Set<String>, _ app: AppModel) {
         let watched = app.part { Watched() }
         for host in hosts.subtracting(watched.hosts) { app.watch(.host, host) }
@@ -214,7 +215,7 @@ enum ServerHeaders {
         watched.hosts = hosts
     }
 
-    /// The header's; the sidebar adds how the card looks under it.
+    /// The header's menu; the sidebar adds how the card looks under it.
     static func serverMenu(_ menu: NSMenu, _ host: String, _ app: AppModel) {
         menu.add(String(localized: "Open Server")) { app.workbench.openServer(host) }
         menu.add(String(localized: "Open in Own Window")) { app.workbench.openInOwnWindow("host:" + host) }

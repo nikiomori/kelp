@@ -7,8 +7,8 @@ import WorkbenchKit
 /// Staging, discarding and commenting on what the diff shows.
 extension DiffViewController {
     // MARK: actions
-    /// The hunk a button stands for, by what identifies it (file and "@@" header), read when it's clicked: indices go
-    /// stale as soon as the diff reloads.
+    /// The hunk a button stands for, found by what identifies it (file and "@@" header) when it's clicked, because
+    /// indices go stale as soon as the diff reloads.
     private func hunk(_ button: NSButton) -> (path: String, index: Int, hunk: Hunk)? {
         let fileIndex = button.tag / 10000, hunkIndex = button.tag % 10000
         guard diffs.indices.contains(fileIndex), diffs[fileIndex].hunks.indices.contains(hunkIndex) else { return nil }
@@ -22,14 +22,16 @@ extension DiffViewController {
             await app.call(
                 GitHunk(id: wid, file: path, hunk: i, reverse: staged, header: h.header, fingerprint: h.fingerprint))
             await load()
-            app.watchAgain(.git, app.gitKey(wid))   // Source Control and the badges now, not on the next file event
+            // Source Control and the badges update now, not on the next file event.
+            app.watchAgain(.git, app.gitKey(wid))
         }
     }
-    /// A hunk goes at once: the banner's Undo brings it back.
+    /// Discards a hunk at once; the banner's Undo brings it back.
     @objc func discardHunk(_ button: NSButton) {
         guard let wid = worktreeId, let (path, _, shown) = hunk(button) else { return }
         Task {
-            // The lines shown, not only the header: a line an agent rewrote in place since is never thrown away unseen.
+            // The lines shown are sent, not only the header, so a line an agent rewrote in place since is never thrown
+            // away unseen.
             await discardWithUndo(
                 app,
                 {
@@ -50,7 +52,7 @@ extension DiffViewController {
         if menu === files.menu { fileMenu(menu, row: files.clickedRow) } else { lineMenu(menu, row: table.clickedRow) }
     }
 
-    /// Stage or Unstage, depending on how the file stands; a commit's or a turn's diff has nothing to stage.
+    /// Offers Stage or Unstage, depending on how the file stands. A commit's or a turn's diff has nothing to stage.
     func fileMenu(_ menu: NSMenu, row: Int) {
         menu.removeAllItems()
         let live = single?.commit == nil && sourcePicked.isLive
@@ -80,7 +82,8 @@ extension DiffViewController {
         }
     }
 
-    /// A comment's next state; a line of the diff, what can be done with a line; the other rows have no menu.
+    /// The menu of a row: a comment's next state, or what can be done with a line of the diff. The other rows have no
+    /// menu.
     func lineMenu(_ menu: NSMenu, row: Int) {
         menu.removeAllItems()
         guard rows.indices.contains(row) else { return }
@@ -91,13 +94,13 @@ extension DiffViewController {
         if comment.state != .open { state(String(localized: "Reopen"), "open") }
     }
 
-    /// The selected lines get a comment card under them (`DiffDraft`).
+    /// Gives the selected lines a comment card under them (`DiffDraft`).
     @objc func addComment() {
         guard worktreeId != nil else { return }
         openDraft()
     }
 
-    /// The file and the line a row of the diff shows, the new side's when it has both.
+    /// The file and the line a row of the diff shows, taking the new side's line when it has both.
     func shownLine(_ row: Int) -> (String, DiffLine)? {
         guard case .diff(let diffRow) = rows[row] else { return nil }
         switch diffRow {
@@ -127,7 +130,8 @@ extension DiffViewController {
         }
     }
 
-    /// The agent findings go to (`FileActions.pickAgent`): never a reviewer, they go to the agent that wrote the code.
+    /// The agent that findings go to (`FileActions.pickAgent`). It is never a reviewer, because findings go to the
+    /// agent that wrote the code.
     func pickAgentSession(_ wid: String) async -> String? {
         guard !FileActions(app).agents(in: wid).isEmpty else {
             status.stringValue = String(localized: "No running agent in this worktree")

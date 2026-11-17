@@ -3,7 +3,8 @@ import DesignKit
 import KelpKit
 import SwiftUI
 
-/// In a remote project's hover card: its server, how the machine is doing now, and the way into the server's tab.
+/// The part of a remote project's hover card about its server: how the machine is doing now, and the way into the
+/// server's tab.
 struct ServerSection: View {
     let app: AppModel, host: String
     let close: () -> Void
@@ -50,7 +51,7 @@ func serverLine(_ stats: HostStats?) -> String {
             separator: " · ")
 }
 
-/// CPU, memory, swap and disk as bars with their numbers; orange past 90 %.
+/// CPU, memory, swap and disk as bars with their numbers, orange past 90 %.
 struct ServerMeters: View {
     let stats: HostStats
     var body: some View {

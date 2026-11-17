@@ -6,8 +6,8 @@ import SwiftUI
 import WorkbenchKit
 
 /// "routines:<project>": the project's routines over this week, with a row per routine, a column per day, and a mark
-/// per run (done, asked, failed, running, missed), plus, ahead, when each is due. Under the week is the chosen routine:
-/// its prompt, when it repeats, and how the chosen run went.
+/// per run (done, asked, failed, running, missed), plus, ahead, when each routine is due. Under the week is the chosen
+/// routine: its prompt, when it repeats, and how the chosen run went.
 @MainActor
 func routinesTab(uri: String, app: AppModel) -> KelpKit.TabContent {   // not SwiftUI's
     HostedTabContent(
@@ -17,8 +17,8 @@ func routinesTab(uri: String, app: AppModel) -> KelpKit.TabContent {   // not Sw
 
 struct RoutinesView: View {
     let app: AppModel, repoId: String
-    @State private var chosen: String?   // routine
-    @State private var picked: String?   // run
+    @State private var chosen: String?   // the chosen routine's id
+    @State private var picked: String?   // the picked run's id
 
     var routines: [Routine] { app.latest(RoutinesEvent.self)?.routines.filter { $0.repoId == repoId } ?? [] }
     var runs: [Routine.Run] { app.latest(RoutinesEvent.self)?.runs ?? [] }
@@ -62,7 +62,8 @@ struct RoutinesView: View {
                 .foregroundStyle(
                     .secondary)
             Spacer()
-            if !list.isEmpty { Button(String(localized: "New Routine…")) { newRoutine() } }   // else it's under No Routines
+            // With no routines, the button is under No Routines instead.
+            if !list.isEmpty { Button(String(localized: "New Routine…")) { newRoutine() } }
         }
     }
 
@@ -77,7 +78,7 @@ struct RoutinesView: View {
     }
 }
 
-/// The week: names on the left, a column a day (today's shaded), a mark a run.
+/// The week: names on the left, a column per day (today's shaded), and a mark per run.
 struct WeekGrid: View {
     let week: RoutineWeek, routines: [Routine], runs: [Routine.Run]
     @Binding var chosen: String?
@@ -185,8 +186,8 @@ struct WeekGrid: View {
     }
 }
 
-/// One run, or a time it's due: ✓ done, ● asked, ! failed, spinner running, dashed missed; ahead, a ring (the next one
-/// in the accent colour). Its time under it.
+/// One run, or a time a run is due: ✓ done, ● asked, ! failed, a spinner running, dashed missed. Ahead, it is a ring
+/// (the next one in the accent colour). The time sits under it.
 struct RunMark: View {
     let mark: RoutineWeek.Mark, picked: Bool
 

@@ -6,8 +6,9 @@ import AppKit
 @MainActor
 public final class CodeEditor: NSObject {
     public static let readOnlyLimit = 5 * 1024 * 1024
-    /// More characters than this around the screen aren't colored: only a file of very long lines has that many, each token
-    /// a temporary attribute on the main thread (2.6 MB of JSON stopped the window 2.5 s, after every keystroke).
+    /// More characters than this around the screen aren't colored. Only a file of very long lines has that many, and
+    /// each token is a temporary attribute on the main thread (2.6 MB of JSON stopped the window 2.5 s, after every
+    /// keystroke).
     static let colorSpan = 200_000
     /// A line longer than this makes each keystroke lay all of it out again, in TextKit itself (200 KB: 230 ms; 2 MB: over a
     /// second, for every key): such a file is shown, not edited.
@@ -15,11 +16,13 @@ public final class CodeEditor: NSObject {
 
     let textView = EditorTextView(usingTextLayoutManager: false)
     let scroll: NSScrollView = EditorScrollView()
-    /// The font, colour and tab stops the text storage carries: the same look again touches none of its 5 MB.
+    /// The font, colour and tab stops the text storage carries, so the same look again touches none of its 5 MB.
     var styled: NSDictionary?
-    /// A look given while off screen (a hidden tab): applied when it shows (`apply(look:)`).
+    /// True when a look was given while off screen (a hidden tab), so it is applied when the editor shows
+    /// (`apply(look:)`).
     var lookPending = false
-    /// Where the edits since the last coloring pass begin: one below the top line leaves the sticky scopes as they are.
+    /// Where the edits since the last coloring pass begin. An edit below the top line leaves the sticky scopes as they
+    /// are.
     private var editedFrom: Int?
     /// The top line the sticky scopes were found for (`refreshSticky`).
     var stickyTop: Int?
@@ -31,35 +34,35 @@ public final class CodeEditor: NSObject {
         set { textView.contextMenu = newValue }
     }
     public var onSelection: (() -> Void)?
-    /// Completion items come from the app (LSP); the text view shows them in its completion list.
+    /// Completion items come from the app (LSP), and the text view shows them in its completion list.
     public var completionProvider: ((Int, Int) async -> [Completion])?
     /// This file's snippets, added to the language server's completions, or used alone when there is no server.
     public var snippetSource: (() async -> [Completion])?
 
     var lineIndex = LineIndex()
     var lineCount = 1
-    /// What the language server says. Set by the tab.
+    /// What the language server says about the file. The tab sets it.
     public var problems: [Problem] = [] { didSet { if problems != oldValue { problemsChanged() } } }
-    /// Lines with a problem; true where one is an error.
+    /// Lines with a problem, true where one of the problems is an error.
     var problemLines: [Int: Bool] = [:]
-    /// ⌘F's, once it's been asked for.
+    /// The ⌘F bar, once it's been asked for.
     var findBar: FindBar?
-    /// The completion list and a snippet's tab stops (CodeEditor+Completion changes it).
+    /// The completion list and a snippet's tab stops (CodeEditor+Completion changes them).
     var completion = CompletionState()
     /// What the server says of a 1-based position: a symbol's text, and the signature of the call there.
     public var hoverProvider: ((Int, Int) async -> String?)?
     public var signatureProvider: ((Int, Int) async -> (label: String, active: NSRange?)?)?
-    /// The hover and signature cards (CodeEditor+Hover changes it).
+    /// The hover and signature cards (CodeEditor+Hover changes them).
     var hover = HoverState()
-    /// What each Expand Selection grew from, for Shrink.
+    /// The selection each Expand Selection grew from, for Shrink.
     var selectionSteps: [NSRange] = []
-    /// The selection they led to.
+    /// The selection those steps led to.
     var selectionGrown: NSRange?
-    /// Wraps here at the latest, when it wraps at all (`editor.wordWrapColumn`).
+    /// The column lines wrap at, at the latest, when they wrap at all (`editor.wordWrapColumn`).
     public var wrapColumn: Int? {
         didSet { if wrapColumn != oldValue { refreshAppearance() } }
     }
-    /// Thin lines at these columns.
+    /// The columns where thin ruler lines are drawn.
     public var rulers: [Int] {
         get { textView.rulerColumns }
         set { textView.rulerColumns = newValue }
@@ -76,13 +79,13 @@ public final class CodeEditor: NSObject {
         get { textView.indentGuides }
         set { textView.indentGuides = newValue }
     }
-    /// The scopes around the top line stay pinned over the text (`editor.stickyScroll`).
+    /// Whether the scopes around the top line stay pinned over the text (`editor.stickyScroll`).
     public var stickyEnabled = true {
         didSet { refreshSticky() }
     }
-    /// How wide a tab shows.
+    /// How wide a tab shows, in columns.
     public private(set) var tabWidth = 4
-    /// This file's indentation, from its tab: what Tab and a new line put in, and the width of the tabs it has.
+    /// Sets this file's indentation, from its tab: what Tab and a new line put in, and the width of the tabs it has.
     public func useIndent(tabWidth: Int, spaces: Bool) {
         textView.guideColumns = tabWidth
         textView.indentUnit = spaces ? String(repeating: " ", count: tabWidth) : "\t"
@@ -90,17 +93,17 @@ public final class CodeEditor: NSObject {
         self.tabWidth = tabWidth
         refreshAppearance()
     }
-    /// This file's own say over `wrapLines`, its language's settings.
+    /// This file's own say over `wrapLines`, from its language's settings.
     public var wrapsHere: Bool?
-    /// The language as settings.json names it: "markdown", "swift", "plaintext".
-    /// Every `languageId` there is, for a setting's "[language]" block.
+    /// Every `languageId` there is, named as settings.json names a language ("markdown", "swift", "plaintext"), for a
+    /// setting's "[language]" block.
     public static var languageIds: [String] {
         (["plaintext"] + CodeLanguage.allLanguages.map(\.tsName)).filter { !$0.isEmpty }
     }
     public var languageId: String { language.id == .plainText ? "plaintext" : language.tsName }
-    /// Prose, whatever `wrapLines` says.
+    /// Whether the text is prose, which always wraps, whatever `wrapLines` says.
     public var alwaysWraps = false
-    /// Top to bottom. Set by the tab; typing moves them along.
+    /// The change marks, top to bottom. The tab sets them, and typing moves them along.
     public var changeMarks: [ChangeMark] = [] {
         didSet {
             markedLineCount = lineCount
@@ -110,18 +113,18 @@ public final class CodeEditor: NSObject {
     }
     /// How many lines the file had when the marks were last right.
     var markedLineCount = 1
-    /// A click on a mark: the mark, and where it is in `in`.
+    /// Called for a click on a mark, with the mark and where it is in `in`.
     public var onChangeMark: ((_ mark: ChangeMark, _ at: NSRect, _ in: NSView) -> Void)?
     var bracketColor = NSColor.clear
     var gutter: LineNumbers?
     let highlighter: SyntaxHighlighter?
     let language: CodeLanguage
-    /// Its own: ⌘Z undoes this file's edits, not the last edit in whichever tab.
+    /// The editor's own undo manager, so ⌘Z undoes this file's edits, not the last edit in whichever tab.
     private let undo = UndoManager()
-    /// The latest edit, piece by piece, as the old text had it: where in its line each began, what it took out and put in.
-    /// Nil when it wasn't described (undo's, or text set from disk).
+    /// The latest edit, piece by piece, as the old text had it: where in its line each piece began, and what it took
+    /// out and put in. Nil when the edit wasn't described (an undo's, or text set from disk).
     public private(set) var lastEdit: [(column: Int, removed: String, inserted: String)]?
-    /// Setting text that was on disk: no change event, its line count already known.
+    /// True while setting text that was on disk, so there is no change event and the line count is already known.
     private var loading = false
     private var described = false
     private var coloring = false
@@ -129,7 +132,7 @@ public final class CodeEditor: NSObject {
     var colored: NSRange?
     /// Where the brackets are marked now.
     var marked: [NSRange] = []
-    /// The editors there are, to find the focused one (CodeEditor+Edits).
+    /// The editors there are, used to find the focused one (CodeEditor+Edits).
     static let all = NSHashTable<CodeEditor>.weakObjects()
 
     /// The editor showing the file at `url`, if one is.
@@ -141,7 +144,8 @@ public final class CodeEditor: NSObject {
     public init(text: String, url: URL, editable: Bool = true) {
         self.url = url
         language = CodeLanguage.detectLanguageFrom(url: url, prefixBuffer: String(text.prefix(200)))
-        // Past it a file is only read, and tree-sitter's tree takes more than 50 times the text (54 MB of JSON: 3 GB).
+        // Past this size a file is only read, because tree-sitter's tree takes more than 50 times the text (54 MB of
+        // JSON: 3 GB).
         highlighter = text.utf8.count <= Self.readOnlyLimit ? SyntaxHighlighter(language) : nil
         super.init()
         Self.all.add(self)
@@ -181,7 +185,8 @@ public final class CodeEditor: NSObject {
         tv.isRichText = false
         tv.importsGraphics = false
         tv.allowsUndo = true
-        tv.usesFindPanel = true   // the menu's Find items reach `performFindPanelAction`; what they open is Kelp's own bar
+        // The menu's Find items reach `performFindPanelAction`; what they open is Kelp's own bar.
+        tv.usesFindPanel = true
         tv.smartInsertDeleteEnabled = false
         for off in [
             \NSTextView.isAutomaticQuoteSubstitutionEnabled, \.isAutomaticDashSubstitutionEnabled,
@@ -197,7 +202,7 @@ public final class CodeEditor: NSObject {
         tv.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
         tv.layoutManager?.allowsNonContiguousLayout = true
         tv.textStorage?.delegate = self
-        tv.layoutManager?.delegate = tv   // folds
+        tv.layoutManager?.delegate = tv   // for folds
         if let old = tv.textContainer {
             let container = WrappingContainer(size: old.size)
             container.widthTracksTextView = old.widthTracksTextView
@@ -215,9 +220,9 @@ public final class CodeEditor: NSObject {
         tv.onPointer = { [weak self] in self?.pointerMoved($0) }
     }
 
-    /// The text, without an undo step or a change event: what was on disk, at first or after it changed there.
+    /// Sets the text without an undo step or a change event, to what was on disk, at first or after it changed there.
     private func load(_ contents: String) {
-        _ = textView.folds.removeAll()   // the text is new: its glyphs are made again anyway
+        _ = textView.folds.removeAll()   // the text is new, and its glyphs are made again anyway
         lineCount = Self.breaks(in: contents) + 1
         loading = true
         textView.textStorage?.setAttributedString(
@@ -231,14 +236,15 @@ public final class CodeEditor: NSObject {
     public var text: String { textView.string }
     public var isMarkdown: Bool { language.id == .markdown }
 
-    /// Replace contents (e.g. the file changed on disk) without echoing a change event.
+    /// Replaces the contents (e.g. the file changed on disk) without echoing a change event.
     public func setText(_ contents: String) {
         let now = textView.string as NSString
-        // Not `==`: that compares character by character.
+        // Not `==`, because that compares character by character.
         guard now.length != contents.utf16.count || !now.isEqual(to: contents) else { return }
         let cursors = textView.cursors
-        // Only what changed goes in: an agent writing a file several times a second keeps the tree, the folds and the view.
-        guard textView.isEditable else {   // read only: `shouldChangeText` says no
+        // Only what changed goes in, so an agent writing a file several times a second keeps the tree, the folds and
+        // the view.
+        guard textView.isEditable else {   // read only, so `shouldChangeText` says no
             load(contents)
             return textView.setCursors(cursors.map { NSRange(location: min($0.location, textView.length), length: 0) })
         }
@@ -262,16 +268,16 @@ public final class CodeEditor: NSObject {
             })
     }
 
-    /// Replace everything as one undoable edit and set the selection (formatting toolbar).
-    /// Only what differs is replaced, as by `setText` (one undo step all the same): the whole text going in again dropped
-    /// the folds, the change marks' places and the syntax tree, and parsed a 5 MB file anew for a trimmed space.
+    /// Replaces everything as one undoable edit and sets the selection (formatting toolbar). Only what differs is
+    /// replaced, as by `setText`, though it is one undo step all the same. The whole text going in again dropped the
+    /// folds, the change marks' places and the syntax tree, and parsed a 5 MB file anew for a trimmed space.
     public func apply(text: String, selection: NSRange) {
         let (old, fresh) = Self.changed(textView.string as NSString, text as NSString)
         textView.replace([old], with: [(text as NSString).substring(with: fresh)])
         textView.setSelectedRange(selection)
     }
 
-    /// `column` 1-based, within the line.
+    /// Moves the cursor to a line; `column` is 1-based, within the line.
     public func goTo(line: Int, column: Int = 1) {
         let string = textView.string as NSString
         var location = lineIndex.start(ofLine: max(0, line - 1), in: string) ?? textView.length
@@ -282,7 +288,7 @@ public final class CodeEditor: NSObject {
         textView.scrollRangeToVisible(NSRange(location: location, length: 0))
     }
 
-    /// `line` (1-based) at the top of what's on screen; the cursor stays.
+    /// Scrolls `line` (1-based) to the top of what's on screen; the cursor stays.
     public func scroll(toLine line: Int) {
         let string = textView.string as NSString
         guard let lm = textView.layoutManager, string.length > 0,
@@ -295,9 +301,9 @@ public final class CodeEditor: NSObject {
 
     public func focus() { textView.window?.makeFirstResponder(textView) }
 
-    /// Whole lines filled behind the text: each range's lines, the editor's width. Empty: none.
+    /// Fills whole lines behind the text: each range's lines, the editor's width. An empty list fills none.
     public func tint(_ tints: [(range: NSRange, color: NSColor)]) {
-        guard !tints.isEmpty || !textView.lineTints.isEmpty else { return }   // none still: nothing to draw again
+        guard !tints.isEmpty || !textView.lineTints.isEmpty else { return }   // still none, so nothing to redraw
         textView.lineTints = tints
     }
 
@@ -319,8 +325,8 @@ public final class CodeEditor: NSObject {
         }
     }
 
-    /// What's on screen and a screen around it, unless that's colored already: a query runs on the main thread, and every
-    /// step of a scroll or of a panel sliding in comes through here.
+    /// Colors what's on screen and a screen around it, unless that's colored already, because a query runs on the
+    /// main thread and every step of a scroll or of a panel sliding in comes through here.
     func colorVisible() {
         guard let highlighter, let lm = textView.layoutManager, let tc = textView.textContainer else { return }
         let screen = textView.visibleRect
@@ -356,11 +362,12 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
         onSelection?()
     }
 
-    /// Before an edit, while the old text is there: the tree and the line count hear what's replaced by what.
+    /// Called before an edit, while the old text is there, so the tree and the line count hear what's replaced by
+    /// what.
     func willReplace(_ ranges: [NSRange], with texts: [String]) {
         let string = textView.string as NSString
         var pieces: [(column: Int, removed: String, inserted: String)] = []
-        // From the bottom: each edit's offsets still hold for the next.
+        // Goes from the bottom, so each edit's offsets still hold for the next.
         for (range, replacement) in zip(ranges, texts).reversed() {
             highlighter?.willReplace(range, with: replacement, in: string, lines: &lineIndex)
             let removed = string.substring(with: range)
@@ -386,11 +393,12 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
             editedFrom = min(editedFrom ?? editedRange.location, editedRange.location)
             if !loading { shiftChangeMarks(from: editedRange.location) }
             highlighter?.parse(textView.string as NSString, described: described)
-            // A described edit's parse on its way colors when it's in (`parsed`): the old colors moved with the edit.
+            // A described edit's parse on its way colors the text when it's in (`parsed`), and the old colors moved
+            // with the edit.
             if !described || highlighter?.waiting != true { colored = nil }
             described = false
             gutter?.needsDisplay = true
-            scrolled()   // after the edit is laid out: the gutter's width too (resizing it in here broke the layout)
+            scrolled()   // after the edit is laid out, the gutter's width too (resizing it in here broke the layout)
         }
     }
 }

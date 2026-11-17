@@ -2,9 +2,10 @@ import AppKit
 import Core
 import DesignKit
 
-/// The rows of a run that changed something, in the grid: each value an update changed, as it was and as it becomes.
+/// Shows the rows of a run that changed something in the grid, with each value an update changed as it was and as it
+/// becomes.
 extension ResultGrid {
-    /// The rows are a change's: its columns that changed (`changed`, by index) widen to hold both values.
+    /// Marks the rows as a change's. The columns that changed (`changed`, by index) widen to hold both values.
     func show(change: RowChange?, changed: [Int]) {
         self.change = change
         for column in table.tableColumns {
@@ -16,7 +17,7 @@ extension ResultGrid {
         table.reloadData()
     }
 
-    /// A cell an update changed, shown as "was → becomes"; false when it isn't one.
+    /// Shows a cell an update changed as "was → becomes"; returns false when the cell isn't one.
     func showChange(_ value: String?, in field: NSTextField, row: Int, column: Int) -> Bool {
         guard let was = change?.before, was.indices.contains(row), was[row].indices.contains(column),
             was[row][column] != value

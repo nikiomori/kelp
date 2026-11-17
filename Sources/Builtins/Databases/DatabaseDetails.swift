@@ -3,9 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The database tab's right column, like TablePro's inspector: Table (its rows, size, comment, columns, indexes, CREATE
-/// TABLE), Row (the selected row's fields, found by name and edited in place; a foreign key links to its row), and
-/// Agent (what agents ran on this table, and asking an agent about it).
+/// The right column of the database tab, like TablePro's inspector. It has three parts. Table shows the table's rows,
+/// size, comment, columns, indexes and CREATE TABLE. Row shows the selected row's fields, found by name and edited in
+/// place, where a foreign key links to its row. Agent shows what agents ran on this table, and asks an agent about it.
 @MainActor
 final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegate {
     enum Part: Int { case table, row, agent }
@@ -18,7 +18,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     private let stack = NSStackView()
     static let width: CGFloat = 264
 
-    /// What it shows: set by the tab as its table, selection or runs change.
+    /// What the column shows. The tab sets these as its table, selection or runs change.
     var table: DatabaseSchema.Table?
     var row: (index: Int, columns: [String], values: [String?])?
     var runs: [DatabaseRun] = []
@@ -62,7 +62,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         view.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
     }
 
-    /// The Row part once a row is picked; Table again when none is.
+    /// Switches to the part asked for and redraws: Row once a row is picked, Table again when none is.
     func show(_ wanted: Part? = nil) {
         if let wanted { part.selectedSegment = wanted.rawValue }
         reload()
@@ -126,7 +126,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     }
 
     private func rowField(_ index: Int, _ name: String, _ value: String?, _ column: DatabaseSchema.Column?) -> NSView {
-        // The name gives way in its middle; the type stays whole at the right edge.
+        // A long name truncates in its middle; the type stays whole at the right edge.
         let title = small(name)
         title.lineBreakMode = .byTruncatingMiddle
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -172,12 +172,12 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         return box
     }
 
-    /// An edit in a field goes to the grid's edits, as one typed in its cell.
+    /// An edit in a field goes into the grid's edits, as if it had been typed in the row's cell.
     func controlTextDidEndEditing(_ notification: Notification) {
         guard let text = notification.object as? NSTextField, text !== search, let row else { return }
         let old = row.values.indices.contains(text.tag) ? row.values[text.tag] : nil
         let typed = text.stringValue
-        guard typed != DatabaseDetails.readable(old) else { return }   // shown laid out (JSON): not a change
+        guard typed != DatabaseDetails.readable(old) else { return }   // JSON is shown laid out, so that is no change
         onEdit(text.tag, typed.isEmpty && old == nil ? nil : typed)
     }
 
@@ -249,7 +249,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         return label
     }
 
-    /// JSON indented; the rest as it is.
+    /// Returns JSON indented, and any other value as it is.
     static func readable(_ value: String?) -> String {
         guard let value, value.first == "{" || value.first == "[" else { return value ?? "" }
         do {

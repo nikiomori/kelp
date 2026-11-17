@@ -2,16 +2,16 @@ import AppKit
 import SwiftUI
 
 /// What a panel, a tab or a window shows while what it lists is on its way: a small spinner and one secondary line
-/// beside it (a `detail` under them), where `EmptyStateView` stands and lifted as it is, so one gives way to the other
-/// without a jump. A list's (`rows`) shows the shape of the rows to come instead, a light passing over them. It fades in
-/// and out, so the list it gives way to seems to come out of it.
+/// beside it (with a `detail` under them). It stands where `EmptyStateView` stands, lifted as it is, so one gives way
+/// to the other without a jump. A list's loading view (`rows`) shows the shape of the rows to come instead, with a
+/// light passing over them. It fades in and out, so the list it gives way to seems to come out of it.
 @MainActor
 public final class LoadingView: NSView {
     private let spinner = NSProgressIndicator()
     private let line = NSTextField(labelWithString: "")
     private let detail = NSTextField(wrappingLabelWithString: "")
     private let skeleton: SkeletonRows?
-    /// Fading away: a show meanwhile keeps it, and only the last leave hides it.
+    /// Counts the leaves while the view fades away. A show meanwhile keeps it, and only the last leave hides it.
     private var leaving: Int?
     private var leaves = 0
 
@@ -57,7 +57,8 @@ public final class LoadingView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Shows it with `text` ("Loading…") and what it waits for, if `detail`; nil hides it and stops the spinner.
+    /// Shows the view with `text` ("Loading…") and, with `detail`, what it waits for. Nil hides it and stops the
+    /// spinner.
     public func show(_ text: String?, detail: String? = nil) {
         line.stringValue = text ?? ""
         setAccessibilityLabel(text)
@@ -101,16 +102,16 @@ public final class LoadingView: NSView {
     override public func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
-/// The rows a list will show, as shapes: a mark and two lines a row (`Metrics.rowTwoLine`), as many as fit, with a
+/// The rows a list will show, as shapes: a mark and two lines per row (`Metrics.rowTwoLine`), as many as fit, with a
 /// light passing over them every `Motion.breathe` (still under Reduce Motion).
 @MainActor
 final class SkeletonRows: NSView {
     private let bars = CAShapeLayer()
     private let light = CAGradientLayer()
     private let lightMask = CAShapeLayer()
-    // How long each row's lines are, of the room they have: uneven, as names are.
+    // How long each row's lines are, as a share of the room they have, uneven as names are.
     private static let widths: [CGFloat] = [0.72, 0.55, 0.84, 0.63, 0.78, 0.5, 0.68, 0.6]
-    /// The light's band wholly left of the rows.
+    /// The light's band, wholly left of the rows.
     private static let before: [NSNumber] = [-0.4, -0.2, 0]
 
     override init(frame: NSRect) {
@@ -120,7 +121,7 @@ final class SkeletonRows: NSView {
         light.mask = lightMask
         light.startPoint = CGPoint(x: 0, y: 0.5)
         light.endPoint = CGPoint(x: 1, y: 0.5)
-        light.locations = Self.before   // still (Reduce Motion), it stays off the rows
+        light.locations = Self.before   // so under Reduce Motion, where it's still, it stays off the rows
         layer?.addSublayer(light)
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -145,7 +146,7 @@ final class SkeletonRows: NSView {
             top += Metrics.rowTwoLine
         }
         CATransaction.begin()
-        CATransaction.setDisableActions(true)   // plain sublayers would ease into their new shape
+        CATransaction.setDisableActions(true)   // otherwise plain sublayers would ease into their new shape
         bars.frame = bounds
         bars.path = path
         light.frame = bounds
@@ -172,20 +173,20 @@ final class SkeletonRows: NSView {
     func shimmer(_ on: Bool) {
         light.removeAnimation(forKey: "shimmer")
         guard on, !Motion.reduced else { return }
-        // A band a third as wide as the rows, from wholly left of them to wholly right.
+        // A band a third as wide as the rows, moving from wholly left of them to wholly right.
         let sweep = CABasicAnimation(keyPath: "locations")
         sweep.fromValue = Self.before
         sweep.toValue = [1, 1.2, 1.4]
         sweep.duration = Motion.breathe
         sweep.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         sweep.repeatCount = .infinity
-        sweep.beginTime = Motion.beat(Motion.breathe)   // every list's light in step
+        sweep.beginTime = Motion.beat(Motion.breathe)   // so every list's light moves in step
         light.add(sweep, forKey: "shimmer")
     }
 }
 
-/// The same view for SwiftUI: the spinner and its line, as a form's row or, with `.frame(maxHeight: .infinity)`, in the
-/// middle of a page.
+/// The same view for SwiftUI: the spinner and its line, as a form's row or, with `.frame(maxHeight: .infinity)`, in
+/// the middle of a page.
 public struct LoadingLine: View {
     private let text: String
     public init(_ text: String) { self.text = text }

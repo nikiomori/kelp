@@ -1,17 +1,18 @@
 import AppKit
 
 extension CodeEditor {
-    /// Where a wrapped line goes on (VS Code's `editor.wrappingIndent`).
+    /// Where a wrapped line's next rows start (VS Code's `editor.wrappingIndent`).
     public enum WrappingIndent: String, Sendable {
         case none, same, indent
     }
 }
 
-/// A wrapped line's next rows start at the line's own indentation. Told here, row by row as lines are laid out, rather than as
-/// a paragraph style per line: those would cost every line of a 5 MB file on opening, and on every edit that re-indents one.
+/// A wrapped line's next rows start at the line's own indentation. The container says so row by row as lines are laid
+/// out, rather than as a paragraph style per line, because those would cost every line of a 5 MB file on opening, and
+/// on every edit that re-indents one.
 final class WrappingContainer: NSTextContainer {
-    /// What's on: the editor's say. While it's `none` or nothing wraps, the container is a plain rectangle, and the layout
-    /// manager keeps its faster ways.
+    /// The wrapping indent the editor chose. While it's `none` or nothing wraps, the container is a plain rectangle,
+    /// and the layout manager keeps its faster ways.
     var hanging = CodeEditor.WrappingIndent.none
     /// One space of the editor's font.
     var space: CGFloat = 8
@@ -29,14 +30,15 @@ final class WrappingContainer: NSTextContainer {
             string.character(at: index - 1) != 10
         else { return rect }
         let line = lineStart(in: string, at: index - 1)
-        let moved = min(indent(of: string, line: line), rect.width / 2)   // a deep line keeps some room
+        let moved = min(indent(of: string, line: line), rect.width / 2)   // so a deeply indented line keeps some room
         rect.origin.x += moved
         rect.size.width -= moved
         return rect
     }
 
-    /// A line's start and how far from it no line break was seen. Its rows are laid out one after another, and looking
-    /// back to the start for each row of a 95k-character line was 79 ms a key; the editor forgets it on every edit (`edited`).
+    /// A line's start, and how far from it no line break was seen. A line's rows are laid out one after another, and
+    /// looking back to the start for each row of a 95k-character line was 79 ms a key. The editor forgets this on
+    /// every edit (`edited`).
     private var known: (start: Int, through: Int)?
     func edited() { known = nil }
 

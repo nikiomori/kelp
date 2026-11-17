@@ -1,9 +1,10 @@
 import AppKit
 @preconcurrency import SwiftTreeSitter
 
-/// What a fold hides: a section someone marked, else what the parse tree says the line opens, else what's indented under it.
+/// What a fold hides: a section someone marked, else what the parse tree says the line opens, else what's indented
+/// under it.
 extension CodeEditor {
-    /// Past this many lines Fold All goes by the first ones only: a file that long isn't read by folding it.
+    /// Past this many lines, Fold All goes by the first ones only, because a file that long isn't read by folding it.
     private static let mostLinesFolded = 20_000
 
     func foldRegion(_ line: NSRange, in string: NSString) -> NSRange? {
@@ -11,8 +12,8 @@ extension CodeEditor {
             ?? Folds.region(of: line, in: string)
     }
 
-    /// The biggest node starting on `line` and ending on a later one, the file's own root aside. A closing bracket alone on
-    /// its line stays out, as with indentation.
+    /// The biggest node starting on `line` and ending on a later one, leaving aside the file's own root. A closing
+    /// bracket alone on its line stays out, as with indentation.
     private func syntaxRegion(_ line: NSRange, in string: NSString) -> NSRange? {
         var at = line.location
         while at < NSMaxRange(line), [32, 9].contains(string.character(at: at)) { at += 1 }
@@ -23,7 +24,8 @@ extension CodeEditor {
         while let up = node.parent {
             let nodeRange = node.range
             if nodeRange.location < line.location { break }
-            // A run of statements starts here too, but the next one is under this line, not opened by it.
+        // A run of statements starts here too, but when the next statement is under this line, the line didn't open
+        // it.
             let next = node.child(at: 1)?.range.location ?? nodeRange.location
             let list =
                 next >= NSMaxRange(line)
@@ -44,7 +46,7 @@ extension CodeEditor {
         return end > start ? NSRange(location: start, length: end - start) : nil
     }
 
-    /// Fold All, or (`level` 2, 3) what's that deep and leaves the rest open.
+    /// Fold All, or with `level` 2 or 3, folds only what's that deep and leaves the rest open.
     public func foldAll(level: Int = 1) {
         let string = textView.string as NSString
         var ends: [Int] = [], at = 0, lines = 0, found: [NSRange] = []
@@ -63,8 +65,8 @@ extension CodeEditor {
 }
 
 extension Folds {
-    /// A section marked in the text: `// MARK:` to the next, `#region` to its `#endregion`, a Markdown heading to the next
-    /// that isn't under it.
+    /// A section marked in the text: `// MARK:` to the next one, `#region` to its `#endregion`, or a Markdown heading
+    /// to the next heading that isn't under it.
     static func section(_ line: NSRange, in string: NSString, markdown: Bool) -> NSRange? {
         let text = string.substring(with: line).trimmingCharacters(in: .whitespacesAndNewlines)
         let isMark = { (lineText: String) in lineText.hasPrefix("// MARK:") || lineText.hasPrefix("#pragma mark") }
@@ -79,7 +81,8 @@ extension Folds {
             ends = { trimmed($0).contains("#endregion") }
             includesEnd = true
         } else if markdown, let level = headingLevel(line, in: string) {
-            // Read character by character: a top heading's section runs to the end of the file, line after line.
+            // A heading is read character by character, because a top heading's section runs to the end of the file,
+            // line after line.
             ends = { (headingLevel($0, in: string) ?? 7) <= level }
         } else {
             return nil
@@ -105,7 +108,8 @@ extension Folds {
         return end > start ? NSRange(location: start, length: end - start) : nil
     }
 
-    /// A Markdown heading's level (1–6): hashes after the line's indent, a space, then something; nil for any other line.
+    /// A Markdown heading's level (1–6): hashes after the line's indent, a space, then something. Nil for any other
+    /// line.
     static func headingLevel(_ line: NSRange, in string: NSString) -> Int? {
         let end = NSMaxRange(line)
         var at = line.location

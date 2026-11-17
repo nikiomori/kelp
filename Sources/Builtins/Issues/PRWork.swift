@@ -10,8 +10,8 @@ import WorkbenchKit
 struct PRWork {
     let app: AppModel, repoId: String, pr: GitHub.PullRequest
 
-    /// The PR's folder: on its own branch, or on `pr-<n>` when that name was taken by another branch
-    /// (`Git.fetchPullRequest`); the project's own checkout only while it has the PR's branch out.
+    /// The PR's folder: on its own branch, or on `pr-<n>` when another branch took that name
+    /// (`Git.fetchPullRequest`). It is the project's own checkout only while that checkout has the PR's branch out.
     var worktree: Worktree? {
         let main = app.repo(repoId)?.path, base = app.repo(repoId)?.baseBranch
         return app.worktrees.first {
@@ -21,11 +21,11 @@ struct PRWork {
         }
     }
 
-    /// Its folder, made on the PR's head when it has none (as New Group on Branch… › Pull Request makes it), its
-    /// .kelp.yaml setup asked about there too.
+    /// The PR's folder, made on the PR's head when it has none (as New Group on Branch… › Pull Request makes it). The
+    /// .kelp.yaml setup is asked about there too.
     func folder() async -> Worktree? {
         if let worktree { return worktree }
-        // The list marks it once the workspace comes (it follows the project's workspaces).
+        // The list marks the PR once the workspace comes, because it follows the project's workspaces.
         guard let made = await app.call(WorktreeCreate(repoId: repoId, branch: pr.headRefName, pr: pr.number)) else {
             return nil
         }
@@ -39,7 +39,7 @@ struct PRWork {
         Task { if let wt = await folder() { app.workbench.show(workspace: wt.id) } }
     }
 
-    /// Its changes against its base, in its folder: the diff with Viewed, comments and Review with.
+    /// Shows the PR's changes against its base in its folder: the diff with Viewed, comments and Review with.
     func showFiles() {
         Task {
             guard let wt = await folder() else { return }
@@ -64,7 +64,7 @@ struct PRWork {
         }
     }
 
-    /// The first failing check's log, for the agent in the PR's folder to fix.
+    /// Hands the first failing check's log to the agent in the PR's folder to fix.
     func fixChecks() {
         Task {
             guard let wt = await folder() else { return }
@@ -79,7 +79,7 @@ struct PRWork {
         }
     }
 
-    /// What reviewers asked for, for the agent in the PR's folder to address.
+    /// Hands what reviewers asked for to the agent in the PR's folder to address.
     func answerReviews() {
         Task {
             guard let comments = await app.call(GitHubReviewComments(repoId: repoId, pr: pr.number)) else { return }
@@ -92,8 +92,8 @@ struct PRWork {
         }
     }
 
-    /// A recipe with someone else's words in it (a log, comments): typed into the folder's agent for the user to send
-    /// (`FileActions.pickAgent`), or a new agent started with it as a draft when the folder has none.
+    /// Renders a recipe with someone else's words in it (a log, comments). It is typed into the folder's agent for the
+    /// user to send (`FileActions.pickAgent`), or, when the folder has no agent, a new agent starts with it as a draft.
     private func hand(_ recipe: String, _ vars: [String: String], to wt: Worktree) async {
         guard let text = await app.call(RecipeRender(id: wt.id, name: recipe, vars: vars)) else { return }
         guard !FileActions(app).agents(in: wt.id).isEmpty else {
@@ -117,7 +117,7 @@ struct PRWork {
         app.workbench.focus(session: session.id)
     }
 
-    /// GitHub's three ways, as a menu: the commit on screen is the one that lands (`--match-head-commit`).
+    /// GitHub's three ways to merge, as a menu. The commit on screen is the one that lands (`--match-head-commit`).
     func mergeMenu(done: @escaping () -> Void) -> NSMenu {
         let menu = NSMenu()
         for (title, method) in [
@@ -142,13 +142,13 @@ struct PRWork {
             let merge = GitHubPRMerge(worktreeId: wid, pr: pr.number, method: method, head: pr.headRefOid)
             if await app.call(merge) != nil {
                 Banner.show(String(localized: "Merged #\(pr.number)"))
-                app.watchAgain(.prs, repoId)   // the open PRs read again: the list follows them
+                app.watchAgain(.prs, repoId)   // the open PRs are read again, and the list follows them
                 done()
             }
         }
     }
 
-    /// Why GitHub won't merge it yet, in words; nil when nothing stands in the way (or GitHub hasn't said).
+    /// Why GitHub won't merge the PR yet, in words; nil when nothing stands in the way (or GitHub hasn't said).
     static func mergeBlock(_ pull: GitHub.PullRequest) -> String? {
         switch pull.mergeState {
         case "DIRTY": String(localized: "It conflicts with the base branch: resolve the conflicts first.")
@@ -160,7 +160,7 @@ struct PRWork {
         }
     }
 
-    /// GitHub says only BLOCKED: the review or the checks, when they are what it waits for.
+    /// GitHub says only BLOCKED, so this names the review or the checks when they are what it waits for.
     private static func blocked(_ pull: GitHub.PullRequest) -> String {
         if pull.reviewDecision == "CHANGES_REQUESTED" { return String(localized: "A reviewer asked for changes.") }
         if pull.reviewDecision == "REVIEW_REQUIRED" { return String(localized: "It needs an approving review.") }
@@ -169,7 +169,7 @@ struct PRWork {
         return String(localized: "The repository's rules block it.")
     }
 
-    /// The one thing to do next, by what stands in its way and whose it is.
+    /// The one thing to do next, by what stands in the PR's way and whose PR it is.
     enum Next: Equatable { case fix, answer, review, merge, wait }
     static func next(_ pr: GitHub.PullRequest, mine: Bool) -> Next {
         if pr.state != "OPEN" { return .wait }
@@ -181,13 +181,14 @@ struct PRWork {
     }
 }
 
-/// Who `gh` is signed in as: whose PRs are "yours" and whose review is asked for. Asked once a run.
+/// Who `gh` is signed in as, which says whose PRs are "yours" and whose review is asked for. It is asked once a run.
 @MainActor
 enum Viewer {
     private static var login: String?
     static func get(_ app: AppModel) async -> String? {
         if let login { return login }
-        login = await app.quiet(GitHubStatus())?.user   // not signed in: asked again next time; the list says why
+        // When not signed in, it's asked again next time, and the list says why.
+        login = await app.quiet(GitHubStatus())?.user
         return login
     }
 }

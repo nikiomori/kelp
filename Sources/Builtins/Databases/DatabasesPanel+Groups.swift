@@ -4,28 +4,29 @@ import DesignKit
 import KelpKit
 
 extension NSPasteboard.PasteboardType {
-    /// One of All My Databases dragged in the Databases panel: its name.
+    /// One of All My Databases dragged in the Databases panel. The pasteboard holds its name.
     static let kelpDatabase = NSPasteboard.PasteboardType("app.kelp.database")
-    /// A group of All My Databases dragged: its name. Only the project's part takes it, all of it at once.
+    /// A group of All My Databases dragged, holding the group's name. Only the project's part of the panel takes
+    /// it, with all the group's databases at once.
     static let kelpDatabaseGroup = NSPasteboard.PasteboardType("app.kelp.database-group")
 }
 
 extension DatabaseInfo {
-    /// Its group in All My Databases; nil: none (a blank one is none).
+    /// The database's group in All My Databases, or nil for none (a blank name counts as none).
     var groupName: String? {
         let name = group?.trimmingCharacters(in: .whitespaces) ?? ""
         return name.isEmpty ? nil : name
     }
 }
 
-/// All My Databases' groups. A database dragged onto a group goes into it; dropped on the section's title it leaves
-/// every group; dropped on the project's part it is used here (as a copy: it stays in All My Databases). A group
-/// dragged there brings all of its databases. A group lasts while it has a database. Several databases picked with ⌘ or
-/// ⇧ share one menu.
+/// The groups of All My Databases. A database dragged onto a group goes into it, and one dropped on the section's
+/// title leaves every group. A database dropped on the project's part is used here, as a copy, so it stays in All My
+/// Databases. A group dragged there brings all of its databases. A group lasts while it has a database. Several
+/// databases picked with ⌘ or ⇧ share one menu.
 extension DatabasesPanel {
     enum DropTarget: Equatable { case group(String), noGroup, project }
 
-    /// The groups in name order ("Dev 2" before "Dev 10"), each with its databases, and the ones in none.
+    /// The groups in name order ("Dev 2" before "Dev 10"), each with its databases, and the databases in none.
     static func grouped(_ library: [DatabaseInfo]) -> (groups: [(String, [DatabaseInfo])], loose: [DatabaseInfo]) {
         let groups = Dictionary(grouping: library.filter { $0.groupName != nil }) { $0.groupName ?? "" }
         let named = groups.sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }.map {
@@ -40,7 +41,7 @@ extension DatabasesPanel {
     // MARK: Dragging
 
     /// A database from All My Databases isn't any agent's yet, so only this panel accepts it. A project's database
-    /// dropped on an agent's terminal becomes its name and where to read it.
+    /// dropped on an agent's terminal becomes its name and how to read it.
     func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> (any NSPasteboardWriting)? {
         let item = NSPasteboardItem()
         if case .group(let name, _) = rows[row] {
@@ -70,7 +71,8 @@ extension DatabasesPanel {
             }
         dropOnProject = target == .project && changes
         guard changes else { return [] }
-        // The project's card lights as a whole (dropOnProject): the table's own outline round one row would say less.
+        // The project's card lights up as a whole (dropOnProject), because the table's own outline round one row
+        // would say less.
         table.draggingDestinationFeedbackStyle = target == .project ? .none : .regular
         table.setDropRow(lit, dropOperation: .on)
         return target == .project ? .copy : .move
@@ -102,15 +104,15 @@ extension DatabasesPanel {
     }
 
     private var projectDatabases: [DatabaseInfo] { app.latest(DatabasesEvent.self, workspace)?.databases ?? [] }
-    /// The project's databases by name: one of All My Databases among them is used here.
+    /// The names of the project's databases. One of All My Databases whose name is among them is used here.
     var projectNames: Set<String> { Set(projectDatabases.map(\.name)) }
 
-    /// What the row under the pointer stands for, and which row lights: a group's own row for any database in it, the
-    /// section's title for a database in no group, and the project's card for the project's part. Between two rows, the
-    /// row above decides.
+    /// What the row under the pointer stands for, and which row lights up. Any database in a group lights the
+    /// group's own row, a database in no group lights the section's title, and the project's part lights the
+    /// project's card. Between two rows, the row above decides.
     private func dropTarget(row: Int, op: NSTableView.DropOperation) -> (DropTarget, Int)? {
         var index = op == .on ? row : row - 1
-        while rows.indices.contains(index), case .problem = rows[index] { index -= 1 }   // a line under its database
+        while rows.indices.contains(index), case .problem = rows[index] { index -= 1 }   // up past problem lines
         guard rows.indices.contains(index) else { return nil }
         let libraryTitle = rows.firstIndex { if case .heading(.library) = $0 { true } else { false } }
         switch rows[index] {
@@ -126,8 +128,8 @@ extension DatabasesPanel {
         }
     }
 
-    /// A folded group the drag rests on opens after a moment, as a folder does in Finder (validate is asked again and
-    /// again while the pointer stays).
+    /// A folded group the drag rests on opens after a moment, as a folder does in Finder. This works because AppKit
+    /// asks validate again and again while the pointer stays.
     private func springOpen(_ target: DropTarget) {
         guard case .group(let name) = target, folded.contains(name) else {
             springGroup = nil
@@ -140,7 +142,7 @@ extension DatabasesPanel {
         guard Date().timeIntervalSince(spring.since) > Motion.hoverOpen else { return }
         springGroup = nil
         folded.remove(name)
-        Task { [weak self] in self?.reload() }   // not inside the table's own drag callback
+        Task { [weak self] in self?.reload() }   // later, not inside the table's own drag callback
     }
 
     // MARK: Changes
@@ -155,7 +157,8 @@ extension DatabasesPanel {
         }
     }
 
-    /// Use a Database…: All My Databases by group, a check on each one used here; picking one uses it or lets it go.
+    /// Use a Database…: a menu of All My Databases by group, with a check on each one used here. Picking a database
+    /// uses it here, or lets it go.
     func showUseMenu(at row: Int) {
         let menu = NSMenu(), here = projectNames, (groups, loose) = Self.grouped(library)
         for (name, members) in groups {
@@ -184,7 +187,7 @@ extension DatabasesPanel {
         if #available(macOS 14.4, *) { item.subtitle = DatabasePanelRows.place(db) }
     }
 
-    /// Used in this project, the ones it hasn't yet: its agents reach them from now on.
+    /// Uses in this project the databases it doesn't use yet, so its agents reach them from now on.
     func use(_ dbs: [DatabaseInfo]) {
         let wid = workspace, app = app, here = Set(projectDatabases.map(\.name))
         Task {
@@ -223,7 +226,7 @@ extension DatabasesPanel {
 
     // MARK: Menus
 
-    /// The databases of All My Databases picked, when the clicked one is among them.
+    /// The picked databases of All My Databases, when the clicked one is among them.
     func pickedLibrary(around row: Int) -> [DatabaseInfo] {
         guard table.selectedRowIndexes.contains(row) else { return [] }
         return table.selectedRowIndexes.compactMap { index in
@@ -231,7 +234,7 @@ extension DatabasesPanel {
         }
     }
 
-    /// Several picked: what can be done to all of them at once.
+    /// The menu for several picked databases: what can be done to all of them at once.
     func fillMany(_ menu: NSMenu, _ dbs: [DatabaseInfo]) {
         let app = app, wid = workspace
         menu.add(String(localized: "Open \(dbs.count) Databases")) {
@@ -247,7 +250,8 @@ extension DatabasesPanel {
         menu.add(String(localized: "Forget \(dbs.count) Databases…")) { [weak self] in self?.forget(dbs) }
     }
 
-    /// Move to Group ▸ (the groups there are, New Group…) and Remove from Group when one of them is in one.
+    /// Adds Move to Group ▸ (the groups there are, and New Group…), and Remove from Group when any of the databases
+    /// is in one.
     func addGroupItems(_ menu: NSMenu, _ dbs: [DatabaseInfo]) {
         let groups = Set(library.compactMap(\.groupName)).sorted {
             $0.localizedStandardCompare($1) == .orderedAscending
@@ -265,7 +269,7 @@ extension DatabasesPanel {
         }
     }
 
-    /// A group's row: rename it, let its databases go, use them all here.
+    /// The menu on a group's row: rename it, let its databases go, or use them all here.
     func fillGroup(_ menu: NSMenu, _ name: String) {
         let members = library.filter { $0.groupName == name }
         menu.add(String(localized: "Rename…")) { [weak self] in
@@ -291,11 +295,11 @@ extension DatabasesPanel {
 
     // MARK: Colors
 
-    /// The colours picked in a row's menu, as for a project in the sidebar: for databases and groups, by name, kept in
-    /// UIState.
+    /// The colours picked in a row's menu, as for a project in the sidebar. Databases and groups each have their
+    /// own, by name, kept in UIState.
     private static func colorsKey(group: Bool) -> String { group ? "databases.groupColors" : "databases.colors" }
 
-    /// Its colour, or the one previewed under the pointer in its menu.
+    /// The colour of a database or group, or the one previewed under the pointer in its menu.
     func color(of name: String, group: Bool) -> ProjectColor? {
         if let preview = colorPreview, preview.name == name, preview.group == group { return preview.color }
         return ProjectColor.read(app.uiState[Self.colorsKey(group: group)])[name]
@@ -324,7 +328,7 @@ extension DatabasesPanel.Row {
     func isGroup(_ name: String) -> Bool { if case .group(name, _) = self { true } else { false } }
 }
 
-/// The Databases panel's list: it says when a drag leaves it, so the project's card stops lighting up.
+/// The Databases panel's list. It says when a drag leaves it, so the project's card stops lighting up.
 final class DropTable: NSTableView {
     var dragLeft: () -> Void = {}
     override func draggingExited(_ sender: (any NSDraggingInfo)?) {

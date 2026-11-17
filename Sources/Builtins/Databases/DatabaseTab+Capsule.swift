@@ -3,8 +3,8 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Where you are, over the rows: the environment's tag, then the server, the database and what's shown; a click, the
-/// database's menu.
+/// Where you are, over the rows: the environment's tag, then the server, the database and what's shown. A click opens
+/// the database's menu.
 extension DatabaseTab {
     // MARK: The capsule
 
@@ -29,7 +29,8 @@ extension DatabaseTab {
             db?.ssh.map { String(localized: "via \($0)") }, place
         ]
         capsule.stringValue = parts.compactMap { $0 }.joined(separator: " · ")
-        // The environment as the databases list shows it, a tag; the rest quiet. A whole red line read as an error.
+        // The environment shows as a tag, as in the databases list, and the rest stays quiet, because a whole red line
+        // read as an error.
         capsuleBox.setViews([db.flatMap(DatabaseLook.stageChip), capsule, NSView()].compactMap { $0 }, in: .leading)
     }
 
@@ -50,7 +51,7 @@ extension DatabaseTab {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: capsuleBox.bounds.height + 4), in: capsuleBox)
     }
 
-    /// "orders · shop", "Query · shop", or the database alone for an agent's run: what the tab shows now.
+    /// What the tab shows now: "orders · shop", "Query · shop", or the database alone for an agent's run.
     static func title(_ database: String, showing mode: Mode) -> String {
         switch mode {
         case .table(let table): "\(table) · \(database)"
@@ -60,7 +61,8 @@ extension DatabaseTab {
     }
 }
 
-/// What the strip calls a database's tab. Observed: the shell follows it as the tab shows another table or a query.
+/// What the tab strip calls a database's tab. It is observed, so the shell follows it as the tab shows another
+/// table or a query.
 @MainActor @Observable
 final class DatabaseTabName {
     var title: String

@@ -3,10 +3,11 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Beside the branch, as every panel header: two quiet actions and ⋯ (DS PanelHeader). Pull and Push, with how many
-/// commits each moves (Push in the accent colour while there's something to push, Publish for a branch with no
-/// upstream); Commit is the panel's own button, and Fetch, Stash and Refresh are in ⋯. Seven icons there (two down
-/// arrows among them, "56" between them) read as a toolbar, not a header. The keys in the tooltips are the Git commands'.
+/// The buttons beside the branch, as in every panel header: two quiet actions and ⋯ (DS PanelHeader). They are Pull
+/// and Push, with how many commits each moves; Push is in the accent colour while there's something to push, and
+/// says Publish for a branch with no upstream. Commit is the panel's own button, and Fetch, Stash and Refresh are in
+/// ⋯, because seven icons there (two down arrows among them, with "56" between) read as a toolbar, not a header. The
+/// keys in the tooltips are the Git commands' keys.
 @MainActor
 final class SourceControlBar {
     let pull: NSButton, push: NSButton, more: NSButton
@@ -21,7 +22,7 @@ final class SourceControlBar {
         more = b("ellipsis.circle", String(localized: "More Actions")) { $0.showMoreMenu() }
     }
 
-    /// A count changes in a fade: it reads as the number moving on, not as a jump.
+    /// A count changes with a fade, so it reads as the number moving on, not as a jump.
     private func show(_ count: String, _ any: Bool, on button: NSButton) {
         let words = any ? count : ""
         guard button.title != words else { return }

@@ -1,23 +1,25 @@
 import AppKit
 import DesignKit
 
-/// What the language server says about the code under the pointer or around the cursor: a card with a symbol's signature
-/// and documentation, and the signature of the call being typed. Each asked for when it's wanted, by the tab's providers.
+/// What the language server says about the code under the pointer or around the cursor: a card with a symbol's
+/// signature and documentation, and the signature of the call being typed. Each is asked for, by the tab's providers,
+/// when it's wanted.
 extension CodeEditor {
     private static let rest = 0.5
     private static let cardWidth: CGFloat = 440, cardHeight: CGFloat = 260
 
-    /// The pointer moved: if it rests on text, what's there is asked for.
+    /// Called when the pointer moved. If it rests on text, what's there is asked for.
     func pointerMoved(_ event: NSEvent) {
         hover.wait?.cancel()
         guard hoverProvider != nil else { return }
         let location = textView.characterIndexForInsertion(at: textView.convert(event.locationInWindow, from: nil))
-        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.showHover(at: location) } }   // queued on main below
+        // Queued on the main queue below.
+        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.showHover(at: location) } }
         hover.wait = work
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.rest, execute: work)
     }
 
-    /// The key's: what's at the cursor.
+    /// For the key: shows what's at the cursor.
     public func showHoverAtCursor() { showHover(at: textView.selectedRange().location) }
 
     private func showHover(at location: Int) {
@@ -44,7 +46,8 @@ extension CodeEditor {
         hover.card = popover
     }
 
-    /// A key went in. `(` and `,` ask for the call's signature, `)` ends it; the card goes, its text is out of date.
+    /// Called when a key went in. `(` and `,` ask for the call's signature, and `)` ends it. The card goes, because its
+    /// text is out of date.
     func typed(_ key: String) {
         hover.card?.close()
         hover.shownAt = nil
@@ -54,7 +57,8 @@ extension CodeEditor {
         {
             showCompletions()
         }
-        // A word begun, with a language server to ask: once per word, the list narrows by itself after.
+        // A word was begun and there's a language server to ask: ask once per word, and the list narrows by itself
+        // after that.
         if completionProvider != nil, completion.completing == nil, key.count == 1,
             key.unicodeScalars.allSatisfy({ CharacterSet.letters.contains($0) || $0 == "_" }),
             Self.word(at: cursor, in: before).location == cursor - 1
@@ -68,8 +72,8 @@ extension CodeEditor {
         }
     }
 
-    /// Once keys pause: each ask first sends the language server the whole file, and every key asked twice (the key, the
-    /// cursor moving), past the edits' own pause.
+    /// Asks for the signature once keys pause, because each ask first sends the language server the whole file, and
+    /// every key asked twice (the key, the cursor moving), past the edits' own pause.
     func askSignature() {
         guard let signatureProvider else { return }
         hover.signatureAsk?.cancel()
@@ -110,7 +114,7 @@ extension CodeEditor {
     }
 }
 
-/// A server's Markdown as text: code fences in the code font, the rest with its inline marks.
+/// A server's Markdown as text: code fences in the code font, and the rest with its inline marks.
 @MainActor
 enum HoverText {
     static func attributed(_ markdown: String) -> NSAttributedString {
@@ -176,13 +180,13 @@ final class HoverCard: NSViewController {
     }
 }
 
-/// The hover and signature cards, and the waits before them; only this file changes it.
+/// The hover and signature cards, and the waits before them. Only this file changes it.
 struct HoverState {
     fileprivate var wait: DispatchWorkItem?
-    /// Where the card was asked for: a later answer for another place is dropped.
+    /// Where the card was asked for, so a later answer for another place is dropped.
     fileprivate var shownAt: Int?
     fileprivate var card: NSPopover?
     fileprivate(set) var signatureCard: NSPopover?
-    /// The signature asked once typing pauses (`askSignature`).
+    /// The signature ask that runs once typing pauses (`askSignature`).
     fileprivate var signatureAsk: Task<Void, Never>?
 }

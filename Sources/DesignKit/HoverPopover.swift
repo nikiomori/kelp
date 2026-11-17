@@ -19,18 +19,19 @@ public final class HoverPopover {
 
     public var isShown: Bool { popover.isShown }
 
-    /// `show` runs after the wait, in a task a later `open`, `closeSoon`, `cancel` or `close` cancels.
+    /// Runs `show` after the wait, in a task that a later `open`, `closeSoon`, `cancel` or `close` cancels.
     public func open(_ show: @escaping @MainActor () async -> Void) {
         let warm = popover.isShown || Date() < warmUntil
         after(warm ? Motion.hoverOpenWarm : Motion.hoverOpen, show)
     }
 
-    /// The pointer left: the card goes in a moment, `unlessInside` as `closeUnlessInside` says.
+    /// Called when the pointer left. The card goes in a moment, or with `unlessInside`, as `closeUnlessInside` says.
     public func closeSoon(unlessInside: Bool = false) {
         after(Motion.hoverClose) { [weak self] in if unlessInside { self?.closeUnlessInside() } else { self?.close() } }
     }
 
-    /// Not while the pointer is in the card (its buttons are for clicking): then looked at again until it leaves.
+    /// Closes the card, but not while the pointer is in it (its buttons are for clicking); then it looks again until
+    /// the pointer leaves.
     public func closeUnlessInside() {
         guard popover.contentViewController?.view.window?.frame.contains(NSEvent.mouseLocation) == true else {
             close()
@@ -39,7 +40,7 @@ public final class HoverPopover {
         closeSoon(unlessInside: true)
     }
 
-    /// What was to happen next, an open or a close, won't.
+    /// Cancels what was to happen next, an open or a close.
     public func cancel() { pending?.cancel() }
 
     public func close() {
@@ -55,7 +56,7 @@ public final class HoverPopover {
         onClose()
     }
 
-    /// Shown already, the card moves to this row.
+    /// Shows the card at this row; when it's shown already, it moves here.
     public func show(_ content: NSViewController, relativeTo rect: NSRect, of view: NSView, edge: NSRectEdge) {
         popover.contentViewController = content
         popover.show(relativeTo: rect, of: view, preferredEdge: edge)

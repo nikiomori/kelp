@@ -2,12 +2,14 @@ import AppKit
 @preconcurrency import CodeEditLanguages
 @preconcurrency import SwiftTreeSitter
 
-/// A file's tree-sitter grammar for code drawn outside the editor (a diff's lines), so it colours as the editor does: a
-/// text parsed on any thread, its captures coloured by the theme (`CodeEditor.syntaxColors`) on the main one.
+/// A file's tree-sitter grammar for code drawn outside the editor (a diff's lines), so it colours as the editor does.
+/// The text is parsed on any thread, and its captures are coloured by the theme (`CodeEditor.syntaxColors`) on the
+/// main thread.
 public struct CodeGrammar: Sendable {
     private let language: Language, query: Query
 
-    /// The grammar for a file by its name; nil for a language without one. On the main thread: the queries are made there.
+    /// The grammar for a file by its name, or nil for a language without one. It runs on the main thread, because the
+    /// queries are made there.
     @MainActor public init?(fileName: String) {
         let lang = CodeLanguage.detectLanguageFrom(url: URL(fileURLWithPath: fileName))
         guard let treeLanguage = lang.language, let highlightQuery = TreeSitterModel.shared.query(for: lang.id) else {
@@ -17,11 +19,11 @@ public struct CodeGrammar: Sendable {
         query = highlightQuery
     }
 
-    /// The capture names in `text` by UTF-16 range, the less specific first (a later, narrower one wins).
+    /// The capture names in `text` by UTF-16 range, the less specific first, so a later, narrower one wins.
     public func highlights(_ text: String) -> [(range: NSRange, name: String)] {
         let parser = Parser(), string = text as NSString
         guard parser.reads(language), let tree = parser.parse(text) else { return [] }
-        // Predicates read pieces by UTF-16 range, as the editor's do: NSString's are O(1) to cut.
+        // Predicates read pieces by UTF-16 range, as the editor's do, because an NSString is O(1) to cut.
         let piece: SwiftTreeSitter.Predicate.TextProvider = { range, _ in
             NSMaxRange(range) <= string.length ? string.substring(with: range) : nil
         }
@@ -32,6 +34,6 @@ public struct CodeGrammar: Sendable {
 }
 
 extension CodeEditor {
-    /// The theme's colour for each capture name, as the editor colours it; a name missing here goes by its first part.
+    /// The theme's colour for each capture name, as the editor colours it. A name missing here goes by its first part.
     public static var syntaxColors: [String: NSColor] { captureColors(colors) }
 }

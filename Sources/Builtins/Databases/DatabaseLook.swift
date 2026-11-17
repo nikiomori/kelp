@@ -6,14 +6,14 @@ import DesignKit
 enum DatabaseLook {
     static let symbol = "cylinder.split.1x2"
 
-    /// The engine's mark, as Add Database draws it (`EnginePreset.badge`), the size of a row's icon.
+    /// The engine's mark as Add Database draws it (`EnginePreset.badge`), at the size of a row's icon.
     @MainActor static func badge(_ engine: DatabaseInfo.Engine, size: CGFloat = 12) -> NSImage {
         let image = EnginePreset.of(engine).badge(size)
         image.accessibilityDescription = engine.displayName
         return image
     }
 
-    /// The app's own icon where the app is installed, else a symbol; for Import's rows.
+    /// The app's own icon when the app is installed, else a symbol. Import's rows show it.
     @MainActor static func appIcon(_ source: String) -> NSImage {
         let bundles = [
             "tableplus": "com.tinyapp.TablePlus", "dbeaver": "org.jkiss.dbeaver.core.product",
@@ -27,7 +27,7 @@ enum DatabaseLook {
         return .symbol(source.hasPrefix("pg") || source == "mycnf" ? "doc.text" : symbol)
     }
 
-    /// The environment's word, as a menu and a segment say it.
+    /// The environment's name, as a menu and a segment show it.
     static func title(_ stage: DatabaseInfo.Stage) -> String {
         switch stage {
         case .local: String(localized: "Local")
@@ -37,7 +37,7 @@ enum DatabaseLook {
         }
     }
 
-    /// What the environment changes, in a line: shown under its name wherever it's picked.
+    /// One line on what the environment changes, shown under its name wherever it is picked.
     static func meaning(_ stage: DatabaseInfo.Stage) -> String {
         switch stage {
         case .local: String(localized: "On this Mac. Agents do what Agents says; your saves go straight in.")
@@ -47,7 +47,7 @@ enum DatabaseLook {
         }
     }
 
-    /// What agents may do with it, in a line.
+    /// One line on what agents may do with the database.
     static func meaning(_ access: DatabaseInfo.Access) -> String {
         switch access {
         case .hidden: String(localized: "Agents don't see it.")
@@ -57,7 +57,7 @@ enum DatabaseLook {
         }
     }
 
-    /// Green, blue, orange, red: as TablePlus and TablePro colour theirs.
+    /// Green, blue, orange and red, the way TablePlus and TablePro colour their environments.
     static func color(_ stage: DatabaseInfo.Stage) -> NSColor {
         switch stage {
         case .local: .systemGreen
@@ -67,8 +67,9 @@ enum DatabaseLook {
         }
     }
 
-    /// The environment a list shows: what the user said, else Local for a file or this Mac's server. A server elsewhere
-    /// nobody tagged shows none (Production is only ever the user's word; Local there would be wrong).
+    /// The environment a list shows: the one the user set, else Local for a file or a server on this Mac. A server
+    /// elsewhere that nobody tagged shows none, because Production is only ever the user's word and Local would be
+    /// wrong there.
     static func shownStage(_ db: DatabaseInfo) -> DatabaseInfo.Stage? {
         if db.production { return .production }
         if let said = db.environment { return said }
@@ -78,7 +79,7 @@ enum DatabaseLook {
         return nil
     }
 
-    /// "LOCAL", "DEV", "STAGING", "PROD" on a tinted capsule, wherever a database is listed; none when nobody said.
+    /// "LOCAL", "DEV", "STAGING" or "PROD" on a tinted capsule, wherever a database is listed; nil when it shows none.
     @MainActor static func stageChip(_ db: DatabaseInfo) -> NSView? {
         guard let stage = shownStage(db) else { return nil }
         let word: String =
@@ -109,7 +110,8 @@ enum DatabaseLook {
         return chip
     }
 
-    /// What agents may do, as the panel's icon: not see it, read it, ask to change it, change it.
+    /// The symbol for what agents may do, as the panel's icon shows it: not see the database, read it, ask to change
+    /// it, or change it.
     static func accessSymbol(_ access: DatabaseInfo.Access) -> String {
         switch access {
         case .hidden: "eye.slash"
@@ -119,7 +121,7 @@ enum DatabaseLook {
         }
     }
 
-    /// The same as a menu or a segment says it.
+    /// What agents may do, worded as a menu or a segment shows it.
     static func title(_ access: DatabaseInfo.Access) -> String {
         switch access {
         case .hidden: String(localized: "Can't See")

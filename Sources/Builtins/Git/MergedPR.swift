@@ -2,11 +2,13 @@ import AppKit
 import Core
 import KelpKit
 
-/// A folder left on a branch whose PR merged: the next agent would start on finished work. Said once, as it happens (one
-/// already merged when Kelp opened is no news), and at the top of the project's menu for as long as it's so.
+/// A folder left on a branch whose PR merged, where the next agent would start on finished work. Kelp says so once,
+/// as it happens (a PR already merged when Kelp opened is no news), and at the top of the project's menu for as long
+/// as it stays so.
 @MainActor
 struct MergedPR {
-    /// What can be done now. All of a project's workspaces share the folder, so any agent at work in it holds the switch.
+    /// What can be done now. All of a project's workspaces share the folder, so any agent at work in it holds back the
+    /// switch.
     enum Next: Equatable {
         case switchTo(String), agentWorking, uncommitted(Int)
     }
@@ -24,7 +26,7 @@ struct MergedPR {
 
     let app: AppModel
 
-    /// Nil unless `worktree`'s folder still stands on a merged PR's branch and isn't on the base branch already.
+    /// Nil unless the folder of `worktree` still stands on a merged PR's branch and isn't on the base branch already.
     func next(_ worktree: Worktree) -> (pr: GitHub.PullRequest, next: Next)? {
         guard let pr = app.latest(PREvent.self, worktree.id)?.pr, pr.state == "MERGED",
             pr.headRefName == worktree.branch,
@@ -64,19 +66,19 @@ struct MergedPR {
         }
     }
 
-    /// At the top of the project's menu: on, or off saying why.
+    /// Adds the switch at the top of the project's menu, enabled or disabled with the reason.
     func addItems(to menu: NSMenu, _ worktree: Worktree) {
         guard let (_, next) = next(worktree) else { return }
         let base = app.repo(worktree.repoId)?.baseBranch ?? ""
         let item = menu.add(String(localized: "Switch to \(base) and Pull")) { [self] in start(worktree, base) }
-        if next != .switchTo(base) { item.action = nil }   // the menu greys an item with nothing to do
+        if next != .switchTo(base) { item.action = nil }   // the menu greys out an item with nothing to do
         if case .uncommitted(let count) = next { item.toolTip = String(localized: "\(count) files not committed") }
         if next == .agentWorking { item.toolTip = String(localized: "An agent is at work in this folder") }
         menu.addItem(.separator())
     }
 
-    /// Asked again as it starts: a banner can wait a while. A failed step says why, the folder stays where it was. The old
-    /// branch stays too: deleting it is another decision.
+    /// Checks again as it starts, because a banner can wait a while. A failed step says why, and the folder stays where
+    /// it was. The old branch stays too, because deleting it is another decision.
     private func start(_ worktree: Worktree, _ base: String) {
         guard next(worktree)?.next == .switchTo(base) else {
             tell(worktree)

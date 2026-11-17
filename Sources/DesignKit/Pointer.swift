@@ -1,8 +1,9 @@
 import AppKit
 
-/// A borderless button that answers the pointer as Kelp's controls do: under it a grey fill fades in (`fillHover`),
-/// held it darkens (`fillSelected`), and a click dips and springs it back. For chips, badges, words and glyphs that act
-/// (the branch chip, "+12 −3", Fetch, a tab's ✕); an icon alone is `IconButton`, which is one of these.
+/// A borderless button that answers the pointer as Kelp's controls do. Under the pointer a grey fill fades in
+/// (`fillHover`), when held it darkens (`fillSelected`), and a click dips it and springs it back. It is for chips,
+/// badges, words and glyphs that act (the branch chip, "+12 −3", Fetch, a tab's ✕); an icon alone is `IconButton`,
+/// which is one of these.
 @MainActor
 open class PointerButton: NSButton {
     private var area: NSTrackingArea?
@@ -14,7 +15,8 @@ open class PointerButton: NSButton {
         }
     }
     private var pressed = false { didSet { if pressed != oldValue { showFill() } } }
-    /// The pointer came onto it (true) or left (false): a badge that says more under the pointer.
+    /// Called when the pointer came onto the button (true) or left (false), for a badge that says more under the
+    /// pointer.
     public var onHover: ((Bool) -> Void)?
     /// What a click does, in place of a target and action.
     public var onClick: (() -> Void)? {
@@ -23,15 +25,17 @@ open class PointerButton: NSButton {
             action = #selector(runClick)
         }
     }
-    /// The fill's corner; nil: a capsule (half the height).
+    /// The fill's corner radius; nil makes a capsule (half the height).
     public var radius: CGFloat? = Metrics.radiusSM { didSet { needsLayout = true } }
     /// Room left and right of the title or image, inside the fill.
     public var padding: CGFloat = 0 { didSet { invalidateIntrinsicContentSize() } }
-    /// The fill it rests on (nil: none); hover and press go a step past it.
+    /// The fill the button rests on (nil for none); hover and press go a step past it.
     public var restFill: NSColor? { didSet { showFill() } }
-    /// A link (a port, "Open Source Control"): no fill; under the pointer its words are underlined, as links are.
+    /// Makes the button a link (a port, "Open Source Control"), with no fill; under the pointer its words are
+    /// underlined, as links are.
     public var underlinesOnHover = false { didSet { showFill() } }
-    /// A quiet glyph that brightens under the pointer (the sidebar row's "+"): its tint at rest and there; nil keeps `contentTintColor`.
+    /// For a quiet glyph that brightens under the pointer (the sidebar row's "+"): its tint at rest and under the
+    /// pointer. Nil keeps `contentTintColor`.
     public var tints: (rest: NSColor, hover: NSColor)? { didSet { showFill() } }
 
     override public init(frame: NSRect) {
@@ -50,14 +54,15 @@ open class PointerButton: NSButton {
         self.image = image
         imagePosition = image == nil ? .noImage : title.isEmpty ? .imageOnly : .imageLeading
         onClick = action
-        target = self   // a class's own initializer doesn't run its observers: onClick's didSet won't wire it here
+        // A class's own initializer doesn't run its observers, so onClick's didSet won't wire the target here.
+        target = self
         self.action = #selector(runClick)
     }
 
     @objc private func runClick() { onClick?() }
 
-    /// The frame is the button: AppKit's alignment insets made it taller than its constraints (a 22 pt square drew its
-    /// hover fill 22 × 26, the "+" of a sidebar row standing taller than the row's other marks).
+    /// The frame is the button, because AppKit's alignment insets made it taller than its constraints (a 22 pt square
+    /// drew its hover fill 22 × 26, and the "+" of a sidebar row stood taller than the row's other marks).
     override open var alignmentRectInsets: NSEdgeInsets { NSEdgeInsetsZero }
 
     override open var intrinsicContentSize: NSSize {
@@ -108,7 +113,8 @@ open class PointerButton: NSButton {
             return
         }
         if let tints { contentTintColor = hovering || pressed ? tints.hover : tints.rest }
-        // A step past what it rests on: a pill on the hover grey darkens under the pointer instead of staying as it was.
+        // The hover fill goes a step past what the button rests on, so a pill on the hover grey darkens under the
+        // pointer instead of staying as it was.
         let hover: NSColor = restFill == nil || restFill === NSColor.fillRest ? .fillHover : .fillSelected
         fadeBackground(to: !isEnabled ? restFill : pressed ? .fillSelected : hovering ? hover : restFill, held: pressed)
     }
@@ -118,8 +124,8 @@ open class PointerButton: NSButton {
     }
 }
 
-/// A borderless pop-up (a panel's title words that pick what it lists): the hover grey fades in under the pointer, as a
-/// `PointerButton`'s does; its menu answers the press.
+/// A borderless pop-up (a panel's title words that pick what it lists). The hover grey fades in under the pointer, as
+/// a `PointerButton`'s does, and its menu answers the press.
 @MainActor
 open class PointerPopUpButton: NSPopUpButton {
     private var area: NSTrackingArea?
@@ -149,15 +155,15 @@ open class PointerPopUpButton: NSPopUpButton {
     }
 }
 
-/// A custom clickable view (a pill, a capsule, a row drawn by hand) that answers the pointer like `PointerButton`:
-/// `showPointer(hovering:pressed:)` fades a grey fill by default (override it for glass), and a click — down and up
-/// inside — springs the view and calls `clicked()` (`onClick`), as a button fires on mouse-up.
+/// A custom clickable view (a pill, a capsule, a row drawn by hand) that answers the pointer like `PointerButton`.
+/// `showPointer(hovering:pressed:)` fades a grey fill by default (override it for glass), and a click, down and up
+/// inside, springs the view and calls `clicked()` (`onClick`), as a button fires on mouse-up.
 @MainActor
 open class PointerControl: NSControl {
     private var area: NSTrackingArea?
     public private(set) var hovering = false { didSet { if hovering != oldValue { refreshPointer() } } }
     public private(set) var pressed = false { didSet { if pressed != oldValue { refreshPointer() } } }
-    /// The fill it rests on (nil: none); hover and press go a step past it.
+    /// The fill the control rests on (nil for none); hover and press go a step past it.
     public var restFill: NSColor? { didSet { refreshPointer() } }
 
     override public init(frame: NSRect) {
@@ -170,10 +176,10 @@ open class PointerControl: NSControl {
     /// What a click does, unless `clicked()` is overridden.
     public var onClick: (() -> Void)?
 
-    /// What a click does: `onClick`, by default.
+    /// What a click does: by default, it calls `onClick`.
     open func clicked() { onClick?() }
 
-    /// How it shows the pointer: a fill that fades, by default.
+    /// How the control shows the pointer: by default, a fill that fades.
     open func showPointer(hovering: Bool, pressed: Bool) {
         fadeBackground(to: pressed ? .fillSelected : hovering ? .fillHover : restFill, held: pressed)
     }
@@ -196,7 +202,7 @@ open class PointerControl: NSControl {
     }
     override open var mouseDownCanMoveWindow: Bool { false }
 
-    /// Held, it darkens; let go inside, it springs and acts; dragged off and let go, nothing happens.
+    /// When held, the control darkens; let go inside, it springs and acts; dragged off and let go, nothing happens.
     override open func mouseDown(with event: NSEvent) {
         guard isEnabled else { return }
         pressed = true

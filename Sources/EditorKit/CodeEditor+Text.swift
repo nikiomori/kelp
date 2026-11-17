@@ -1,6 +1,7 @@
 import AppKit
 
-// Reads of a text that need no view: whether it can be edited, its line breaks, its indent, what two versions don't share.
+// Reads of a text that need no view: whether it can be edited, its line breaks, its indent, and what two versions
+// don't share.
 
 extension CodeEditor {
     /// Whether editing `text` keeps the window responsive.
@@ -18,7 +19,8 @@ extension CodeEditor {
         }
     }
 
-    /// Line breaks in `contents`, by memchr over its UTF-8 (a Swift loop over 5 MB took 150 ms in a debug build).
+    /// Counts the line breaks in `contents` with memchr over its UTF-8, because a Swift loop over 5 MB took 150 ms in a
+    /// debug build.
     static func breaks(in contents: String) -> Int {
         var contents = contents
         return contents.withUTF8 { buffer in
@@ -33,8 +35,9 @@ extension CodeEditor {
         }
     }
 
-    /// The middle two texts don't share: what's in `before`, what's in `after`. Never between a surrogate pair's halves.
-    /// Compared a piece at a time with memcmp: two copies of a 5 MB text, one per tab following the disk, took their time.
+    /// The middle part two texts don't share: what's in `before`, and what's in `after`. It never splits a surrogate
+    /// pair. The texts are compared a piece at a time with memcmp, because two copies of a 5 MB text, one per tab
+    /// following the disk, took their time.
     static func changed(_ before: NSString, _ after: NSString) -> (old: NSRange, new: NSRange) {
         let oldCount = before.length, newCount = after.length, shorter = min(oldCount, newCount)
         let piece = 4096
@@ -74,7 +77,8 @@ extension CodeEditor {
         return parts.isEmpty ? nil : parts.joined(separator: "\n")
     }
 
-    /// 1-based lines of the first selection; a line selected with its line break (a triple-click) is that line alone.
+    /// The 1-based lines of the first selection. A line selected with its line break (a triple-click) is that line
+    /// alone.
     public var selectedLines: ClosedRange<Int>? {
         let selection = textView.selectedRange(), string = textView.string as NSString
         let end =
@@ -91,8 +95,8 @@ extension CodeEditor {
     /// Primary selection in UTF-16 units.
     public var selectedRange: NSRange { textView.selectedRange() }
 
-    /// Where the one selection's first line is on screen, in `view`'s coordinates; nil with no selection, several, or
-    /// one scrolled out of sight.
+    /// Where the one selection's first line is on screen, in `view`'s coordinates. Nil with no selection, with several,
+    /// or with one scrolled out of sight.
     public var selectionRect: NSRect? {
         let selection = textView.selectedRange(), string = textView.string as NSString
         guard textView.cursors.count == 1, selection.length > 0, let lm = textView.layoutManager,

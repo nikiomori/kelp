@@ -1,10 +1,11 @@
 import AppKit
 import DesignKit
 
-/// What a language server says is wrong: underlined in the text, told apart in the line numbers, a tooltip on each.
+/// What a language server says is wrong: underlined in the text, told apart in the line numbers, with a tooltip on
+/// each.
 extension CodeEditor {
     public struct Problem: Equatable, Sendable {
-        /// 0-based, UTF-16 units, as the server counts.
+        /// 0-based, in UTF-16 units, as the server counts.
         public let line: Int, column: Int, endLine: Int, endColumn: Int, isError: Bool, message: String
         public init(line: Int, column: Int, endLine: Int, endColumn: Int, isError: Bool, message: String) {
             self.line = line
@@ -21,7 +22,7 @@ extension CodeEditor {
         textView.problemMarks = problems.compactMap { problem -> EditorTextView.ProblemMark? in
             let start = lineIndex.offset(line: problem.line, column: problem.column, in: string)
             guard let from = start else { return nil }
-            // A server may name a point: the mark takes the character there.
+            // A server may name a point, so the mark takes the character there.
             let end = lineIndex.offset(line: problem.endLine, column: problem.endColumn, in: string)
             let to = max(end ?? from, min(from + 1, string.length))
             return .init(
@@ -49,7 +50,7 @@ extension CodeEditor {
         return problems.first { $0.message == mark.message }
     }
 
-    /// F8: the next one past the cursor, or the last before it, going round the file.
+    /// F8 goes to the next problem past the cursor, or the last before it, going round the file.
     public func goToProblem(forward: Bool) {
         let marks = textView.problemMarks, cursor = textView.selectedRange().location
         guard
@@ -65,7 +66,7 @@ extension CodeEditor {
         focus()
     }
 
-    /// Tooltips on what's on screen, made again as it scrolls: a view takes them per rectangle.
+    /// Sets tooltips on what's on screen, made again as it scrolls, because a view takes them per rectangle.
     func showProblemTips() {
         let tv = textView
         tv.removeAllToolTips()
@@ -96,7 +97,7 @@ extension EditorTextView: NSViewToolTipOwner {
         return problemMarks.indices.contains(index) ? problemMarks[index].message : ""
     }
 
-    /// A wavy line under each mark in what's drawn: a font's underline has no such style.
+    /// Draws a wavy line under each mark in what's drawn, because a font's underline has no such style.
     func drawProblems(in rect: NSRect) {
         guard !problemMarks.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
         let shown = lm.characterRange(

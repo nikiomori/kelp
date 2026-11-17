@@ -7,7 +7,7 @@ import WebKit
 import WorkbenchKit
 
 /// "pr:<project>/<n>", "issue:<project>/<n>": a pull request or an issue in a tab of its own, with the room its
-/// description and conversation need; its bar holds the one thing to do next, the rest under ⋯.
+/// description and conversation need. Its bar holds the one thing to do next, and the rest goes under ⋯.
 @MainActor @Observable
 final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
     enum Kind: String { case pr, issue }
@@ -41,7 +41,7 @@ final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
         }
         return (kind, String(rest[..<slash]), number)
     }
-    /// "#49" until it's read.
+    /// The title, "#49", until the item is read.
     static func title(_ uri: String) -> String { parse(uri).map { "#\($0.number)" } ?? uri }
 
     init?(uri: String, app: AppModel) {
@@ -63,7 +63,7 @@ final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
 
     func focus() { view.window?.makeFirstResponder(web) }
 
-    /// Read it again: on opening, after an action, from ⋯.
+    /// Reads the item again: on opening, after an action, and from ⋯.
     func reload() {
         let slow = whileSlow { [weak self] in self?.loading.show(String(localized: "Loading…")) }
         Task { [weak self] in
@@ -77,7 +77,8 @@ final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
                 prView = view
                 title = "#\(number) \(view.pr.title)"
                 show(ForgePage.pr(view, checks: nil, block: PRWork.mergeBlock(view.pr)))
-                let checks = await app.quiet(GitHubChecks(repoId: repoId, pr: number))   // the page says none were read
+                // When the checks can't be read, the page says none were read.
+                let checks = await app.quiet(GitHubChecks(repoId: repoId, pr: number))
                 show(ForgePage.pr(view, checks: checks ?? [], block: PRWork.mergeBlock(view.pr)))
             case .issue:
                 let read = await app.tryCall(GitHubIssueView(repoId: repoId, issue: number))
@@ -113,7 +114,7 @@ final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
         barSlot.pin(kind == .pr ? prBar() : issueBar())
     }
 
-    /// The forge's page of it, in the default browser.
+    /// Opens the forge's page of the item in the default browser.
     func openInBrowser() {
         if let url = prView?.pr.url ?? issueView?.issue.url { Forge.open(url) }
     }

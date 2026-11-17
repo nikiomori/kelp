@@ -1,21 +1,21 @@
 import Core
 import Foundation
 
-/// Flat rows for a diff table: one place builds them so inline and side-by-side stay consistent.
+/// Flat rows for a diff table. One place builds them, so the inline and side-by-side layouts stay consistent.
 enum DiffRow: Equatable, Sendable {
     case file(path: String, additions: Int, deletions: Int)
     case hunk(file: Int, index: Int, header: String)
-    /// Unchanged lines between hunks, collapsed: the new file's `from..<from+lines`; `context` is the function git names
-    /// in the next hunk's header.
+    /// Unchanged lines between hunks, collapsed: the new file's `from..<from+lines`. `context` is the function git
+    /// names in the next hunk's header.
     case gap(file: Int, from: Int, lines: Int, context: String)
     case line(file: Int, DiffLine)   // inline
     case pair(file: Int, left: DiffLine?, right: DiffLine?)   // side-by-side
     case binary(path: String)
-    case tooLarge(path: String)   // past what one diff reply carries (`FileDiff.tooLarge`)
+    case tooLarge(path: String)   // a file past what one diff reply carries (`FileDiff.tooLarge`)
 }
 
 enum DiffRows {
-    /// Pair deletions with the additions that follow them; context lines appear on both sides.
+    /// Pairs deletions with the additions that follow them; context lines appear on both sides.
     static func pairs(_ lines: [DiffLine]) -> [(DiffLine?, DiffLine?)] {
         var out: [(DiffLine?, DiffLine?)] = []
         var index = 0
@@ -41,7 +41,7 @@ enum DiffRows {
         return out
     }
 
-    /// What opens a gap: its file and where it starts, for the lines `build` shows in its place.
+    /// The key of a gap the user opened: its file and where it starts, for the lines `build` shows in its place.
     static func gapKey(_ path: String, _ from: Int) -> String { "\(path):\(from)" }
 
     /// The text after a hunk header's "@@ … @@": the function or type git found above it ("" when none).
@@ -52,7 +52,7 @@ enum DiffRows {
         return header[range.upperBound...].trimmingCharacters(in: .whitespaces)
     }
 
-    /// `opened`: the unchanged lines of gaps the user opened, by `gapKey`, shown in their place.
+    /// `opened` holds the unchanged lines of the gaps the user opened, by `gapKey`, shown in the gaps' place.
     static func build(_ files: [FileDiff], sideBySide: Bool, opened: [String: [DiffLine]] = [:]) -> [DiffRow] {
         var rows: [DiffRow] = []
         for (fi, f) in files.enumerated() {
@@ -92,7 +92,7 @@ enum DiffRows {
 enum ReviewRow: Equatable, Sendable {
     case diff(DiffRow)
     case comment(DiffComment)
-    /// A comment being written, in a card under its line (placed by the view, not built here).
+    /// A comment being written, in a card under its line. The view places it; it isn't built here.
     case draft
 }
 
@@ -134,10 +134,10 @@ extension DiffRows {
         return out
     }
 
-    /// The table's rows. A comment that isn't resolved goes under its last line, once: a comment on a removed line
-    /// (`side` "old") under that removed line, any other under the new file's line. A comment from before comments had
-    /// sides keeps only a line number: a line of the new file takes it, and a deleted line takes it only when the new
-    /// file has no such line.
+    /// The table's rows. A comment that isn't resolved goes under its last line, once. A comment on a removed line
+    /// (`side` "old") goes under that removed line, and any other under the new file's line. A comment from before
+    /// comments had sides keeps only a line number, so a line of the new file takes it, and a deleted line takes it
+    /// only when the new file has no such line.
     /// `hideFileRows` is one-file mode, where the bar already names the file.
     static func reviewRows(
         _ diffs: [FileDiff], comments: [DiffComment], sideBySide: Bool, hideFileRows: Bool,
@@ -166,7 +166,7 @@ extension DiffRows {
             case .line(let file, let line): out += under(file, line)
             case .pair(let file, let left, let right):
                 if let line = right ?? left { out += under(file, line) }
-                // the removed line beside an added one
+                // the removed line beside an added one takes its own comments
                 if let left, right != nil, left.kind == .del { out += under(file, left) }
             default: break
             }

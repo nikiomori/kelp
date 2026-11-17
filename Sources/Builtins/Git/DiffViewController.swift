@@ -7,7 +7,8 @@ import KelpKit
 final class DiffTable: NSTableView {
     var onKey: ((NSEvent) -> Bool)?
     override func keyDown(with event: NSEvent) { if onKey?(event) != true { super.keyDown(with: event) } }
-    /// The columns changed width during a live resize: rows are measured again once it ends (`onResized`).
+    /// True when the columns changed width during a live resize, so the rows are measured again once it ends
+    /// (`onResized`).
     var resizedLive = false
     var onResized: (() -> Void)?
     override func viewDidEndLiveResize() {
@@ -18,8 +19,9 @@ final class DiffTable: NSTableView {
     }
 }
 
-/// Diffs the way VS Code shows them: side by side (or inline), whole-line red / green, the changed words darker,
-/// hatching where one side has no line. One file (from Source Control) or every change with review comments for the agent.
+/// Diffs the way VS Code shows them: side by side (or inline), whole lines red or green, the changed words darker,
+/// and hatching where one side has no line. It shows one file (from Source Control), or every change with review
+/// comments for the agent.
 @MainActor
 final class DiffViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     let app: AppModel
@@ -38,7 +40,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     private let spaceToggle = NSSegmentedControl(
         images: [.symbol("text.word.spacing", String(localized: "Hide Whitespace Changes"))],
         trackingMode: .selectAny, target: nil, action: nil)
-    /// Whitespace-only changes left out: what's shown is then no patch git can stage or discard as it is.
+    /// Whether whitespace-only changes are left out. What's shown is then no patch git can stage or discard as it is.
     var hidesSpace: Bool { spaceToggle.isSelected(forSegment: 0) }
     var find = DiffFinding()
     /// The files marked as read (`DiffViewed`).
@@ -52,7 +54,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     let turnPop = NSPopUpButton()
     /// The turn picker and Undo Turn…, shown with "Agent's Last Turn" when the agent has turns kept.
     lazy var turnBar = NSStackView(views: [turnPop, undoTurnButton()])
-    /// "Change 3 of 17" after a step; a comment's place after a step between comments.
+    /// "Change 3 of 17" after a step between changes, or the comment's place after a step between comments.
     let position = NSTextField(labelWithString: "")
     private lazy var steps = NSSegmentedControl.steps(
         previous: String(localized: "Previous Change (⌥↑)"), next: String(localized: "Next Change (⌥↓)"),
@@ -62,36 +64,36 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     let status = NSTextField(labelWithString: "")
     private let pathLabel = NSTextField(labelWithString: "")
     var diffs: [FileDiff] = []
-    /// A line being fixed in place: its field, and what it was (`DiffLineEdit`).
+    /// A line being fixed in place: its field, and what the line was (`DiffLineEdit`).
     var lineEdit: (field: NSTextField, path: String, line: Int, text: String)?
-    /// A hunk was discarded: what's left fades in rather than the lines jumping up.
+    /// True after a hunk was discarded, so what's left fades in rather than the lines jumping up.
     var fadesNextLoad = false
     var rows: [ReviewRow] = []
     /// How many lines each line of code wraps to (`height(of:)`).
     var wraps = WrapCounts()
     var notes = ReviewNotes()
     var changes: [FileChange] = []
-    /// Changed character range of a line that has a counterpart on the other side, by "file:kind:line".
+    /// The changed character range of each line that has a counterpart on the other side, by "file:kind:line".
     var words: [String: NSRange] = [:]
     /// Each line's tree-sitter captures, by `DiffColors.key`, and the theme's colours for them.
     var syntax: [String: [DiffColors.Span]] = [:]
     var syntaxColors = CodeEditor.syntaxColors
     var worktreeId: String?
     var commitHash: String?
-    /// One-file mode: (path, what it's read from, commit).
+    /// One-file mode: the path, what it's read from, and the commit.
     var single: (file: String, source: DiffSource, commit: String?)?
     /// What the source menu has picked.
     var sourcePicked: DiffSource {
         get { DiffSource(rawValue: source.indexOfSelectedItem) ?? .uncommitted }
         set { source.selectItem(at: newValue.rawValue) }
     }
-    /// The editor's font and size, since the code shown is the editor's code; a row is one line of it plus 4 pt.
+    /// The editor's font and size, because the code shown is the editor's code. A row is one line of it plus 4 pt.
     var font: NSFont { CodeEditor.font }
     static var lineHeight: CGFloat {
         let editorFont = CodeEditor.font
         return (editorFont.ascender - editorFont.descender + editorFont.leading).rounded(.up) + 4
     }
-    /// Side by side when chosen and there's room for two columns; a narrow pane shows it inline (like VS Code).
+    /// Side by side when chosen and there's room for two columns. A narrow pane shows the diff inline (like VS Code).
     var sideBySide: Bool { layoutToggle.selectedSegment == 0 && !narrow }
     private var narrow = false
 
@@ -138,7 +140,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         files.delegate = self
         files.rowHeight = TextSize.of(Metrics.row)
         files.style = .sourceList
-        files.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle   // rows as wide as the pane
+        files.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle   // rows are as wide as the pane
         files.menu = NSMenu()
         files.menu?.delegate = self
 
@@ -170,7 +172,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         split.dividerStyle = .thin
         split.addArrangedSubview(fs)
         split.addArrangedSubview(ts)
-        // Wished for, not required: in a pane narrower than both the diff is narrower, not cut at its right.
+        // These widths are wished for, not required, so in a pane narrower than both the diff is narrower, not cut
+        // at its right.
         for (pane, least) in [(fs, 160.0), (ts, 300.0)] {
             let room = pane.widthAnchor.constraint(greaterThanOrEqualToConstant: least)
             room.priority = .init(999)
@@ -200,11 +203,11 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         followReviewer()
     }
 
-    /// The editor's theme or font changed: the code here follows.
+    /// Called when the editor's theme or font changed, so the code here follows.
     private func themeChanged() {
         table.backgroundColor = CodeEditor.page.background
         table.rowHeight = Self.lineHeight
-        wraps = WrapCounts()   // another font wraps elsewhere
+        wraps = WrapCounts()   // another font wraps at other places
         syntaxColors = CodeEditor.syntaxColors
         rebuildRows()
     }
@@ -275,13 +278,13 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         Task { await load() }
     }
 
-    /// Every file of a commit, the same as picking it under Commit…
+    /// Shows every file of a commit, the same as picking the commit under Commit…
     func showCommit(_ hash: String) {
         commitHash = hash
         sourcePicked = .commit
     }
 
-    /// One file, VS Code's diff editor: no file list, just this file's changes.
+    /// Shows one file, like VS Code's diff editor: no file list, just this file's changes.
     func showFile(_ path: String, source: DiffSource, commit: String?) {
         single = (path, source, commit)
         placeFileList()
@@ -299,7 +302,8 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     }
 
     @objc func reload() { Task { await load() } }
-    /// Git changed while the tab was in the background: it reads the diff again when shown, not on every save meanwhile.
+    /// True when git changed while the tab was in the background. The diff is read again when the tab shows, not on
+    /// every save meanwhile.
     var stale = false
     override func viewDidAppear() {
         super.viewDidAppear()
@@ -308,13 +312,14 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
             reload()
         }
     }
-    /// Its workspace's git as pushed: the diff is read again only when what it's read from changed (`GitDiff.basis`).
+    /// Takes the workspace's git status as pushed. The diff is read again only when what it's read from changed
+    /// (`GitDiff.basis`).
     func gitChanged(_ gitEvent: GitEvent?) {
         guard diffRequest().basis(gitEvent) != loads.basis else { return }
         if view.window == nil { stale = true } else { reload() }
     }
     func showLastTurn() { sourcePicked = .turn }
-    /// Tidy Up's review: its item, hidden from the menu otherwise, shows while it's picked.
+    /// Tidy Up's review. Its item in the source menu is hidden otherwise, and shows while it's picked.
     func showTidy() {
         source.item(at: DiffSource.tidy.rawValue)?.isHidden = false
         sourcePicked = .tidy
@@ -337,17 +342,17 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         reload()
     }
 
-    /// The order reads and row builds come in (`DiffLoads`).
+    /// Keeps the order that reads and row builds come in (`DiffLoads`).
     var loads = DiffLoads()
 
 }
 
-/// What a review's diff is read from: the source menu's items in their order, each with the name the daemon knows it by
-/// (`GitDiff.source`, a diff tab's `source=`).
+/// What a review's diff is read from. These are the source menu's items in their order, each with the name the daemon
+/// knows it by (`GitDiff.source`, a diff tab's `source=`).
 enum DiffSource: Int, CaseIterable {
     case uncommitted, unstaged, staged, branch, commit, turn
-    /// Tidy Up's copies of the instruction files against the files now (Skills & MCP › Review): only in a tab opened
-    /// for it, not in the menu.
+    /// Tidy Up's copies of the instruction files against the files now (Skills & MCP › Review). It shows only in a
+    /// tab opened for it, not in the menu.
     case tidy
 
     var wire: GitDiff.Source {
@@ -379,6 +384,6 @@ enum DiffSource: Int, CaseIterable {
         }
     }
 
-    /// The working tree's own changes, against the index or HEAD: what can be staged, unstaged or discarded.
+    /// The working tree's own changes, against the index or HEAD, which are what can be staged, unstaged or discarded.
     var isLive: Bool { self == .uncommitted || self == .unstaged || self == .staged }
 }

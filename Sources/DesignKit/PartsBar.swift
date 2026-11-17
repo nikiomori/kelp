@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Parts of a whole side by side in a fixed order, the free rest hatched, as Storage in System Settings draws a disk;
-/// `end`, a part kept at the far end (room held back). The legend under it marks each part with `Swatch`. Its parts grow
-/// and shrink when they change.
+/// Parts of a whole side by side in a fixed order, with the free rest hatched, as Storage in System Settings draws a
+/// disk. `end` is a part kept at the far end (room held back). The legend under it marks each part with `Swatch`. The
+/// parts grow and shrink when they change.
 public struct PartsBar: View {
     public struct Part: Identifiable, Equatable {
         public let id: String, value: Double, color: Color
@@ -23,7 +23,8 @@ public struct PartsBar: View {
 
     public var body: some View {
         GeometryReader { geometry in
-            let room = geometry.size.width - CGFloat(parts.count + (end == nil ? 0 : 1))   // a point between parts
+            // One point goes between parts.
+            let room = geometry.size.width - CGFloat(parts.count + (end == nil ? 0 : 1))
             let width = { (part: Part) in max(1, room * min(1, part.value / max(1, total))) }
             HStack(spacing: 1) {
                 ForEach(parts) { p in Rectangle().fill(p.color).frame(width: width(p)) }
@@ -52,7 +53,7 @@ public struct PartsBar: View {
         }
     }
 
-    /// A part's colour in the legend, a square as tall as the bar; nil: the free rest's hatching.
+    /// A part's colour in the legend, a square as tall as the bar; nil stands for the free rest's hatching.
     public struct Swatch: View {
         let color: Color?
         public init(_ color: Color?) { self.color = color }
@@ -64,7 +65,8 @@ public struct PartsBar: View {
     }
 }
 
-/// How full one thing is: a thin capsule track filled from the left in `tint`; empty, a dot as wide as the bar is high.
+/// How full one thing is: a thin capsule track filled from the left in `tint`. When empty, it shows a dot as wide as
+/// the bar is high.
 public struct MeterBar: View {
     let share: Double, tint: Color, height: CGFloat
     public init(share: Double, tint: Color, height: CGFloat = 4) {
@@ -80,6 +82,6 @@ public struct MeterBar: View {
             }
         }
         .frame(height: height)
-        .animation(Motion.reduced ? nil : .easeOut(duration: Motion.base), value: share)   // as PartsBar's parts
+        .animation(Motion.reduced ? nil : .easeOut(duration: Motion.base), value: share)   // as PartsBar's parts move
     }
 }

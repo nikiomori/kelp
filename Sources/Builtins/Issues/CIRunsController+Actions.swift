@@ -5,7 +5,7 @@ import DesignKit
 import KelpKit
 
 extension CIRunsController {
-    /// Right-click: what can be done to this run, job or step now.
+    /// The right-click menu: what can be done to this run, job or step now.
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         guard let item = outline.item(atRow: outline.clickedRow) as? Item, let worktree else { return }
@@ -56,7 +56,7 @@ extension CIRunsController {
             copyText(url)
         }
     }
-    /// The run's failure typed into the workspace's agent, for the user to send.
+    /// Types the run's failure into the workspace's agent, for the user to send.
     private func fix(_ run: CIRuns.Run, in worktree: String) {
         let app = app
         guard let repo = app.worktree(worktree)?.repoId else { return }
@@ -83,7 +83,7 @@ extension CIRunsController {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: workflowsButton.bounds.height + 4), in: workflowsButton)
     }
 
-    /// The workflow's inputs as a form, then `gh workflow run` on this branch.
+    /// Asks for the workflow's inputs in a form, then runs `gh workflow run` on this branch.
     private func dispatch(_ wf: CIRuns.Workflow) {
         guard let worktree else { return }
         let alert = NSAlert()

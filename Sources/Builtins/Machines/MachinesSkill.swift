@@ -2,8 +2,8 @@ import Core
 import KelpKit
 
 extension Builtins {
-    /// `kelp vm`, for agents. Written whenever it's on; the daemon gives it only to chats in a home with a machine
-    /// (`SessionSetup.skillArgs`).
+    /// The `kelp vm` skill, for agents. It is written whenever the built-in is on, and the daemon gives it only to
+    /// chats in a home with a machine (`SessionSetup.skillArgs`).
     static let machinesSkill = SkillSpec(
         name: "kelp-vm",
         description:

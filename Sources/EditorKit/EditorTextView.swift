@@ -4,22 +4,23 @@ import AppKit
 /// and spelling come with it), with the current line marked and more than one cursor.
 public final class EditorTextView: NSTextView {
     var lineHighlight = NSColor.clear
-    /// Whole lines filled behind the text, the window's width (a merge conflict's sides): set by `CodeEditor.tint`.
+    /// Whole lines filled behind the text, the window's width (a merge conflict's sides). `CodeEditor.tint` sets them.
     var lineTints: [(range: NSRange, color: NSColor)] = [] { didSet { needsDisplay = true } }
     /// What Tab inserts and indenting adds: the file's own (a tab, or its spaces), else four spaces.
     var indentUnit = "    "
-    /// Python and YAML: a line ending in `:` opens a block, the next one goes in a level.
+    /// Python and YAML: a line ending in `:` opens a block, so the next line goes in a level.
     var colonOpensBlock = false
     /// What Return and the line commands put between lines: the file's own (\r\n in a Windows file).
     var lineBreak = "\n"
-    /// Cursors NSTextView can't hold: it keeps one empty selection at most, so the other carets' places are here.
+    /// The cursors NSTextView can't hold. It keeps one empty selection at most, so the other carets' places are here.
     private(set) var extraCarets: [Int] = []
     private var settingCursors = false
     /// Where each cursor's selection started while ⇧ extends them all (MultiCursor), so each knows which end moves.
     var anchors: [Int] = []
     /// What's folded away (Folding).
     nonisolated let folds = Folds()
-    /// The folded block whose ⋯ is under the pointer: it brightens, and the pointer is an arrow there (it's a button).
+    /// The folded block whose ⋯ is under the pointer. It brightens, and the pointer is an arrow there, because it's a
+    /// button.
     var hoveredFold: NSRange? {
         didSet {
             guard hoveredFold != oldValue else { return }
@@ -28,27 +29,28 @@ public final class EditorTextView: NSTextView {
             }
         }
     }
-    /// Told of every edit before it's made, while the old text is there (CodeEditor: the parse tree, the line count).
+    /// Told of every edit before it's made, while the old text is there (CodeEditor updates the parse tree and the line
+    /// count).
     var willReplace: (([NSRange], [String]) -> Void)?
     /// Asks the app for completion items.
     var onComplete: (() -> Void)?
     var indentGuides = false { didSet { needsDisplay = true } }
-    /// Columns between two guides: the file's indent.
+    /// The columns between two guides, which is the file's indent.
     var guideColumns = 4
-    /// Where thin lines stand across the text.
+    /// The columns where thin lines stand across the text.
     var rulerColumns: [Int] = [] { didSet { needsDisplay = true } }
     var whitespaceMarks = WhitespaceMarks.selection { didSet { needsDisplay = true } }
-    /// What the list or a snippet takes before the text does.
+    /// Takes keys for the completion list or a snippet before the text does.
     var onCommand: ((Selector) -> Bool)?
-    /// A key that went in as text, and the pointer moving.
+    /// Called with a key that went in as text, and (`onPointer`) with the pointer moving.
     var onTyped: ((String) -> Void)?
     var onPointer: ((NSEvent) -> Void)?
-    /// The menu's Find items.
+    /// Called for the menu's Find items.
     var onFind: ((NSFindPanelAction) -> Void)?
-    /// What the find bar found, top to bottom, and the one it's on.
+    /// What the find bar found, top to bottom, and the match it's on.
     var findMarks: [NSRange] = [] { didSet { needsDisplay = true } }
     var findCurrent: NSRange? { didSet { needsDisplay = true } }
-    /// What `CodeEditor.problems` comes to in the text, top to bottom.
+    /// The marks `CodeEditor.problems` comes to in the text, top to bottom.
     var problemMarks: [ProblemMark] = []
 
     public var length: Int { (string as NSString).length }
@@ -62,7 +64,7 @@ public final class EditorTextView: NSTextView {
         }
     }
 
-    /// Sets them all, kept inside the text; overlapping ones merge.
+    /// Sets all the cursors, kept inside the text; overlapping ones merge.
     public func setCursors(_ ranges: [NSRange]) {
         let end = length
         let all = Self.merged(
@@ -71,7 +73,7 @@ public final class EditorTextView: NSTextView {
                 return NSRange(location: start, length: min(max(0, range.length), end - start))
             })
         let wide = all.filter { $0.length > 0 }
-        anchors = []   // ⇧ moves set them again after this
+        anchors = []   // the next ⇧ move sets them again
         settingCursors = true
         if all.count <= 1 || wide.isEmpty {
             setSelectedRange(all.first ?? NSRange(location: min(selectedRange().location, length), length: 0))
@@ -88,10 +90,10 @@ public final class EditorTextView: NSTextView {
         if !settingCursors {
             extraCarets = []
             anchors = []
-        }   // a click or an arrow: one cursor again
+        }   // a click or an arrow leaves one cursor again
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
         needsDisplay = true   // the current line's mark and the carets move
-        // A cursor or a found match inside a fold opens it.
+        // A cursor or a found match inside a fold opens the fold.
         for range in ranges.map(\.rangeValue) {
             for edge in [range.location, NSMaxRange(range)] {
                 if let fold = folds.fold(at: edge), edge != fold.location { setFolded(fold, false) }
@@ -111,8 +113,8 @@ public final class EditorTextView: NSTextView {
 
     // MARK: Editing
 
-    /// Each range (top to bottom, apart) replaced by its text as one undoable change. The cursors land after each new
-    /// text, at `caret` within it, or (`keep`) stay where they were, moved along by the change.
+    /// Replaces each range (top to bottom, not overlapping) with its text as one undoable change. The cursors land
+    /// after each new text, at `caret` within it, or (`keep`) stay where they were, moved along by the change.
     public func replace(_ ranges: [NSRange], with texts: [String], caret: [Int]? = nil, keep: Bool = false) {
         guard isEditable, !ranges.isEmpty,
             shouldChangeText(inRanges: ranges.map { NSValue(range: $0) }, replacementStrings: texts)
@@ -140,10 +142,11 @@ public final class EditorTextView: NSTextView {
                 defer { shift += edit.1 - edit.0.length }
                 return NSRange(location: edit.0.location + shift + (caret?[index] ?? edit.1), length: 0)
             })
-        scrollRangeToVisible(selectedRange())   // a Return on the last line shown brings the new line in
+        scrollRangeToVisible(selectedRange())   // a Return on the last line shown brings the new line into view
     }
 
-    /// Where `offset` is after the edits (old range, new length; top to bottom): one in a replaced range goes to its start.
+    /// Where `offset` is after the edits (old range and new length, top to bottom). An offset inside a replaced range
+    /// goes to its start.
     static func map(_ offset: Int, through edits: [(NSRange, Int)]) -> Int {
         var shift = 0
         for (range, newLength) in edits {
@@ -158,7 +161,8 @@ public final class EditorTextView: NSTextView {
         guard super.shouldChangeText(inRanges: ranges, replacementStrings: strings) else { return false }
         if let strings {
             willReplace?(ranges.map(\.rangeValue), strings)
-            // An edit into a fold opens it; the others move along. Laid out again once the edit is in.
+            // An edit into a fold opens it, and the other folds move along. They are laid out again once the edit is
+            // in.
             let edits = zip(ranges.map(\.rangeValue), strings.map { ($0 as NSString).length }).sorted {
                 $0.0.location < $1.0.location
             }
@@ -185,10 +189,12 @@ public final class EditorTextView: NSTextView {
         replace(cs, with: Array(repeating: text, count: cs.count))
     }
 
-    /// Where a paste with several cursors reads from: tests give their own, so they leave the user's clipboard alone.
+    /// The pasteboard a paste with several cursors reads from. Tests give their own, so they leave the user's
+    /// clipboard alone.
     var pasteboard = NSPasteboard.general
 
-    /// With several cursors: a line each when the clipboard has as many lines as there are cursors, else all of it at each.
+    /// With several cursors, pastes a line at each when the clipboard has as many lines as there are cursors, and else
+    /// all of it at each.
     public override func paste(_ sender: Any?) {
         let cs = cursors
         guard cs.count > 1, let text = pasteboard.string(forType: .string) else { return super.paste(sender) }
@@ -219,7 +225,7 @@ public final class EditorTextView: NSTextView {
         }
     }
 
-    /// ⌫ ⌦ ⌥⌫ ⌘⌫ at every cursor: its selection, or from the cursor to where `to` says.
+    /// ⌫ ⌦ ⌥⌫ ⌘⌫ at every cursor: deletes its selection, or from the cursor to where `to` says.
     private func deleteAround(to: (Int, NSString) -> Int) {
         let text = string as NSString
         let ranges = cursors.compactMap { cursor -> NSRange? in
@@ -235,14 +241,15 @@ public final class EditorTextView: NSTextView {
 
     // MARK: Completion
 
-    /// The identifier left of the cursor: NSTextView's own word would take `obj.na` whole, and no label starts with that.
+    /// The identifier left of the cursor. NSTextView's own word would take `obj.na` whole, and no label starts with
+    /// that.
     public override var rangeForUserCompletion: NSRange {
         let caret = selectedRange().location
         let start = CodeEditor.word(at: caret, in: string as NSString).location
         return NSRange(location: min(start, caret), length: caret - min(start, caret))
     }
 
-    /// Esc (NSTextView's key for it) and ⌥Esc ask the app; the list opens when its items come.
+    /// Esc (NSTextView's key for it) and ⌥Esc ask the app, and the list opens when its items come.
     public override func complete(_ sender: Any?) { onComplete?() }
 
     // MARK: Context menu
@@ -259,7 +266,7 @@ public final class EditorTextView: NSTextView {
             (String(localized: "Cut"), #selector(cut(_:))), (String(localized: "Copy"), #selector(copy(_:))),
             (String(localized: "Paste"), #selector(paste(_:)))
         ] {
-            menu.addItem(withTitle: title, action: action, keyEquivalent: "")   // the keys are the Edit menu's to show
+            menu.addItem(withTitle: title, action: action, keyEquivalent: "")   // the Edit menu shows the keys
         }
         if let contextMenu {
             menu.addItem(.separator())
@@ -281,10 +288,11 @@ public final class EditorTextView: NSTextView {
         super.mouseExited(with: event)
     }
 
-    /// ⌥-click (VS Code) or ⌃⇧-click (Xcode) adds a cursor; ⌥-drag still selects columns, NSTextView's own way.
+    /// ⌥-click (VS Code) or ⌃⇧-click (Xcode) adds a cursor; ⌥-drag still selects columns, in NSTextView's own way.
     public override func mouseDown(with event: NSEvent) {
         let at = convert(event.locationInWindow, from: nil)
-        if let fold = folds.hidden.first(where: { capsule(for: $0).contains(at) }) { return setFolded(fold, false) }   // a ⋯ opens
+        // A click on a fold's ⋯ opens the fold.
+        if let fold = folds.hidden.first(where: { capsule(for: $0).contains(at) }) { return setFolded(fold, false) }
         let mods = event.modifierFlags.intersection([.command, .option, .shift, .control])
         guard event.clickCount == 1, isEditable, mods == .option || mods == [.control, .shift] else {
             return super.mouseDown(with: event)
@@ -292,7 +300,7 @@ public final class EditorTextView: NSTextView {
         let before = cursors
         if mods == .option {
             super.mouseDown(with: event)   // tracks until the button is up
-            guard selectedRanges.count == 1, selectedRange().length == 0 else { return }   // dragged: the columns stay
+            guard selectedRanges.count == 1, selectedRange().length == 0 else { return }   // a drag keeps the columns
         }
         setCursors(
             before + [
@@ -319,7 +327,8 @@ public final class EditorTextView: NSTextView {
         guard !lineTints.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
         let text = string as NSString
         for tint in lineTints where tint.range.length > 0 && NSMaxRange(tint.range) <= text.length {
-            // Its last line break left out: at the end of the file it would fill the empty line after it too.
+            // The tint leaves out its last line break, because at the end of the file it would fill the empty line
+            // after it too.
             var range = tint.range
             if text.character(at: NSMaxRange(range) - 1) == 10 { range.length -= 1 }
             let glyphs = lm.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
@@ -348,7 +357,7 @@ public final class EditorTextView: NSTextView {
         drawProblems(in: dirtyRect)
         drawWhitespace(in: dirtyRect)
         guard !extraCarets.isEmpty, let lm = layoutManager, let tc = textContainer else { return }
-        // Only the carets in what's drawn: ⇧⌘L on a common word in a big file makes thousands.
+        // Only the carets in what's drawn are drawn, because ⇧⌘L on a common word in a big file makes thousands.
         let shown = lm.characterRange(
             forGlyphRange: lm.glyphRange(forBoundingRect: dirtyRect.insetBy(dx: 0, dy: -20), in: tc),
             actualGlyphRange: nil)
@@ -358,7 +367,7 @@ public final class EditorTextView: NSTextView {
         }
     }
 
-    /// Where a caret at `location` stands, in the view: one point wide, a line high.
+    /// Where a caret at `location` stands in the view: one point wide and a line high.
     func caretRect(at location: Int) -> NSRect {
         guard let lm = layoutManager, let tc = textContainer else { return .zero }
         var rect: NSRect
@@ -368,7 +377,7 @@ public final class EditorTextView: NSTextView {
             rect.origin.x += lm.location(forGlyphAt: glyph).x
         } else if length == 0 || !lm.extraLineFragmentRect.isEmpty {   // after a final newline
             rect = lm.extraLineFragmentRect
-        } else {   // after the last character of a last line without one
+        } else {   // after the last character of a last line without a final newline
             let glyph = lm.glyphIndexForCharacter(at: length - 1)
             rect = lm.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
             rect.origin.x = lm.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: tc).maxX

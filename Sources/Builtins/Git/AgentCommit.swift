@@ -5,31 +5,32 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// An agent writes the commit: its logo in the Message field asks it (the chevron beside picks another, and a model).
-/// It runs as a session with no tab, reads the changes and proposes commits with `kelp commit add` (the `commitPlan`
-/// recipe); it never stages or commits. One commit that takes every file fills the Message field; anything else is a
-/// plan over the button, edited before Kelp makes its commits one by one.
+/// An agent writes the commit. The agent's logo in the Message field asks it, and the chevron beside the logo picks
+/// another agent and a model. The agent runs as a session with no tab, reads the changes and proposes commits with
+/// `kelp commit add` (the `commitPlan` recipe); it never stages or commits. One commit that takes every file fills the
+/// Message field. Anything else becomes a plan over the button, which the user edits before Kelp makes its commits
+/// one by one.
 struct AgentCommit {
     let agentId: String, agent: String
-    /// What the user had written: it goes to the agent as a note.
+    /// What the user had written in the field, which goes to the agent as a note.
     let hint: String
-    /// How many files it reads, for the words in the field.
+    /// How many files the agent reads, for the words in the field.
     let files: Int
     var session: String?
     var status: AgentStatus?
     var sawWork = false
-    /// Its tab was asked for (Show): no longer kept out of sight.
+    /// True once the user asked for the agent's tab (Show), so the session is no longer kept out of sight.
     var shown = false
 }
 
-/// The words under the field when it proposed nothing; a message it wrote needs none, being in the field (⌘Z takes it
-/// back, the logo asks again).
+/// The words under the field when the agent proposed nothing. A message the agent wrote needs no words, because it is
+/// in the field (⌘Z takes it back, and the logo asks again).
 struct AgentNote {
     let agentId: String, text: String
 }
 
 extension SourceControlController {
-    /// Claude Code's quickest model, when the user hasn't picked one: a commit message needs no more.
+    /// Claude Code's quickest model, used when the user hasn't picked one, because a commit message needs no more.
     static let quickModels: Set<String> = ["haiku"]
 
     var lastAgent: AgentManifest? {
@@ -52,7 +53,7 @@ extension SourceControlController {
         ask(agent, model: model(for: agent))
     }
 
-    /// The installed agents, each with its models; the one asked last ticked.
+    /// The menu of installed agents, each with its models, with the one asked last ticked.
     @objc func agentMenu() {
         let menu = NSMenu()
         let header = NSMenuItem(title: String(localized: "Write the Message With"), action: nil, keyEquivalent: "")
@@ -80,7 +81,8 @@ extension SourceControlController {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: at.bounds.height + 4), in: at)
     }
 
-    /// `a` reads what a commit would take now (the staged files, else every change) and proposes its commits.
+    /// Asks the agent `manifest` to read what a commit would take now (the staged files, else every change) and to
+    /// propose its commits.
     func ask(_ manifest: AgentManifest, model: String?) {
         guard let wid = worktreeId, agentCommits[wid] == nil, !busy, !changes.isEmpty else { return NSSound.beep() }
         guard !changes.contains(where: \.conflicted) else {
@@ -96,8 +98,8 @@ extension SourceControlController {
         plans[wid] = nil
         notes[wid] = nil
         showAgentCommit()
-        // A remote project's agent runs here, where `kelp` is, and reads the changes on the host over Kelp's own
-        // connection to it (no login asked).
+        // A remote project's agent runs here, where `kelp` is. It reads the changes on the host over Kelp's own
+        // connection to it, so no login is asked.
         let remote = app.worktree(wid).flatMap { RemoteHost.of($0.path) }
         var command = all ? "git status --short; git diff HEAD" : "git diff --cached"
         if let remote {
@@ -123,21 +125,22 @@ extension SourceControlController {
                 agentCommits[wid] = nil
                 return showAgentCommit(in: wid)
             }
-            guard agentCommits[wid] != nil else {   // stopped while it started
+            guard agentCommits[wid] != nil else {   // the user stopped it while it started
                 await app.call(SessionKill(id: session.id))
                 return
             }
             agentCommits[wid]?.session = session.id
             app.upsert(session)
-            app.workbench.hideTab(uri: TabURI.session(session.id))   // put on screen before its id came back
+            app.workbench.hideTab(uri: TabURI.session(session.id))   // the tab showed before the session's id came back
             showAgentCommit(in: wid)
         }
     }
 
-    /// The agents' statuses as they move, whichever workspace is on screen: one that has worked and stopped is done.
+    /// Follows the agents' statuses as they move, whichever workspace is on screen. An agent that has worked and then
+    /// stopped is done.
     func followAgentCommits() {
         track(owner: self) { [weak self, app] in
-            let sessions = app.sessions   // read even with no agent asked: what's observed is what was read
+            let sessions = app.sessions   // read even with no agent asked, because only what was read is observed
             return (self?.agentCommits ?? [:]).compactMapValues { run in
                 run.session.map { sid in sessions.first { $0.id == sid }?.status ?? .exited }
             }
@@ -162,12 +165,12 @@ extension SourceControlController {
         guard let wid = worktreeId, let run = agentCommits.removeValue(forKey: wid) else { return }
         Task {
             if let sid = run.session { await app.call(SessionKill(id: sid)) }
-            _ = await app.quiet(CommitPlanTake(worktreeId: wid))   // what it proposed before the stop goes too
+            _ = await app.quiet(CommitPlanTake(worktreeId: wid))   // what it proposed before the stop is dropped too
         }
         showAgentCommit()
     }
 
-    /// The agents writing commits that keep out of sight: no tab, no row in the sidebar, until Show.
+    /// The sessions of agents writing commits that are kept out of sight: no tab and no row in the sidebar, until Show.
     var hiddenAgentSessions: Set<String> {
         Set(agentCommits.values.filter { !$0.shown }.compactMap(\.session))
     }
@@ -178,15 +181,16 @@ extension SourceControlController {
         app.workbench.open(TabURI.session(sid), split: .right)
     }
 
-    /// The agent stopped: what it proposed becomes the message or the plan, and its session ends; when it proposed
-    /// nothing, its tab opens beside instead, to see why. Its work, for a test to wait on.
+    /// Called when the agent stopped. What it proposed becomes the message or the plan, and its session ends; when it
+    /// proposed nothing, its tab opens beside instead, so the user can see
+    /// why. Returns the work, for a test to wait on.
     @discardableResult
     func finishAgent(_ wid: String) -> Task<Void, Never>? {
         guard let run = agentCommits.removeValue(forKey: wid) else { return nil }
         return Task {
-            // The files first and the plan last: the daemon forgets a plan as it hands it over, so nothing that can
-            // fail comes after. A read that failed says so (a banner), and never passes for an agent that proposed
-            // nothing; its session stays, and a plan not taken yet comes with the next ask's.
+            // The files are read first and the plan last, because the daemon forgets a plan as it hands it over, so
+            // nothing that can fail may come after. A read that failed says so in a banner and never passes for an
+            // agent that proposed nothing. The session then stays, and a plan not taken yet comes with the next ask's.
             guard let status = await app.call(GitStatus(id: wid)),
                 let proposed = await app.call(CommitPlanTake(worktreeId: wid))
             else { return showAgentCommit(in: wid) }
@@ -212,7 +216,7 @@ extension SourceControlController {
                 drafts[wid] = only.message
                 return
             }
-            showAgentCommit()   // the field back on screen first: measured hidden, it kept one line
+            showAgentCommit()   // put the field back on screen first, because measured while hidden it kept one line
             write(only.message)
             return
         } else {
@@ -221,18 +225,18 @@ extension SourceControlController {
         showAgentCommit(in: wid)
     }
 
-    /// The message in the field as if typed over what was there: ⌘Z brings the user's words back.
+    /// Writes the message into the field as if typed over what was there, so ⌘Z brings the user's words back.
     private func write(_ text: String) {
         let all = NSRange(location: 0, length: (message.string as NSString).length)
         guard message.shouldChangeText(in: all, replacementString: text) else { return }
         message.replaceCharacters(in: all, with: text)
-        message.didChangeText()   // the field grows to it (onChange)
+        message.didChangeText()   // the field grows to fit the text (onChange)
         message.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
         message.window?.makeFirstResponder(message)
-        DispatchQueue.main.async { [weak self] in self?.messageChanged() }   // once the field has its width again
+        DispatchQueue.main.async { [weak self] in self?.messageChanged() }   // once the field has its width back
     }
 
-    /// The same agent once more, from what the field says now.
+    /// Asks the same agent once more, from what the field says now.
     @objc func askAgainForCommits() {
         guard let wid = worktreeId else { return }
         notes[wid] = nil
@@ -252,8 +256,9 @@ extension SourceControlController {
         showAgentCommit()
     }
 
-    /// The plan's commits, one by one from the top, each taking only its files: a failure stops at that one (the banner
-    /// offers the agent's fix), what went in stays, and the rest wait for the button again.
+    /// Makes the plan's commits one by one from the top, each taking only its own files. A failure stops at that
+    /// commit (the banner offers the agent's fix), the commits made so far stay, and the rest wait for the button
+    /// again.
     func makeCommits(push: Bool) {
         guard let wid = worktreeId, let plan = plans[wid], !busy else { return NSSound.beep() }
         if plan.commits.contains(where: { $0.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
@@ -294,7 +299,8 @@ extension SourceControlController {
         }
     }
 
-    /// The commits just made, undone: their changes staged again and their part of the plan back over what's left.
+    /// Undoes the commits just made: their changes are staged again, and their part of the plan goes back over what's
+    /// left.
     private func undoCommits(_ wid: String, head: String, _ done: [CommitPlan.Commit]) {
         Task {
             guard await app.call(GitUndoCommits(worktreeId: wid, head: head, count: done.count)) != nil else { return }
@@ -306,7 +312,8 @@ extension SourceControlController {
         }
     }
 
-    /// A file row's menu while there's a plan: which commit it goes into, another, a new one, or none.
+    /// The items a file row's menu gets while there's a plan: which commit the file goes into, another commit, a new
+    /// one, or none.
     func planItems(_ menu: NSMenu, _ file: String, _ plan: CommitPlan) {
         menu.addItem(.separator())
         let now = plan.number(of: file)

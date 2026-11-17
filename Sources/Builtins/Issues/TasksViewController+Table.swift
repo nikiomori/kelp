@@ -52,7 +52,8 @@ extension TasksViewController {
         t2.font = .ui(TextSize.caption)
         t2.textColor = .secondaryLabelColor
         t2.lineBreakMode = .byTruncatingTail
-        // Give way to the stack's insets: a title that doesn't fit is cut there, not pushed out past the line under it.
+        // The fields give way to the stack's insets, so a title that doesn't fit is cut there, not pushed out past the
+        // line under it.
         for field in [t1, t2] { field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
         let stack = NSStackView(views: [t1, t2])
         stack.orientation = .vertical
@@ -79,6 +80,4 @@ extension TasksViewController {
         showDetailPane(tracker)
         showDetail(tracker ? picked : nil)
     }
-
-    /// In a tab where the last click's was, unless that one was kept (a double-click) or closed since.
 }

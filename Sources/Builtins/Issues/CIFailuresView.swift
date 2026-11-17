@@ -3,8 +3,8 @@ import Core
 import DesignKit
 import KelpKit
 
-/// What broke in a job: each test or compiler error with its file and message, a click opening the file at that line. A log
-/// in no known format says how it ended instead.
+/// What broke in a job: each test or compiler error with its file and message, where a click opens the file at that
+/// line. For a log in no known format, the view says how the job ended instead.
 @MainActor
 final class CIFailuresView: NSView {
     var onOpen: ((CIRuns.Failure) -> Void)?
@@ -32,7 +32,7 @@ final class CIFailuresView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// False: the log said nothing to show here. `note`: what the run's earlier try says of this.
+    /// Returns false when the log said nothing to show here. `note` is what the run's earlier try says of this.
     @discardableResult func show(_ report: CIRuns.Report, note: String? = nil) -> Bool {
         let rows: [NSView] =
             report.failures.map { failure in
@@ -49,17 +49,17 @@ final class CIFailuresView: NSView {
         return !list.arrangedSubviews.isEmpty
     }
 
-    /// "2 of 814 tests failed", when the log counts them.
+    /// "2 of 814 tests failed", when the log counts the tests.
     private static func count(_ report: CIRuns.Report) -> [NSView] {
         let failed = report.failures.filter { $0.test != nil }.count + report.more
         guard failed > 0, let tests = report.tests else { return [] }
         return [caption(String(localized: "\(failed) of \(tests) tests failed"))]
     }
 
-    /// "Exit 137", then what it printed last.
+    /// "Exit 137", then what the job printed last.
     private static func ending(_ report: CIRuns.Report) -> [NSView] {
         guard report.exitCode != nil || !report.lastLines.isEmpty else { return [] }
-        // Past 128 a shell counts the signal that stopped the process.
+        // Past 128, a shell's exit code counts the signal that stopped the process.
         let head = report.exitCode.map {
             $0 > 128 ? String(localized: "Exit \($0): stopped by signal \($0 - 128)") : String(localized: "Exit \($0)")
         }
@@ -86,7 +86,7 @@ final class CIFailuresView: NSView {
     }
 }
 
-/// One failure, one target: the name, where, what it said. Its menu has the rest.
+/// One failure as one click target: the name, where it happened, and what it said. Its menu has the rest.
 @MainActor
 private final class FailureRow: PointerControl {
     private let failure: CIRuns.Failure, open: @MainActor @Sendable () -> Void, fix: @MainActor @Sendable () -> Void
@@ -100,7 +100,7 @@ private final class FailureRow: PointerControl {
         self.fix = fix
         super.init(frame: .zero)
         layer?.cornerRadius = Metrics.radiusSM
-        // A test's name is what tells failures apart: two lines before it gives way.
+        // A test's name is what tells failures apart, so it gets two lines before it truncates.
         let name = NSTextField(wrappingLabelWithString: failure.test ?? failure.place ?? "")
         name.font = .ui(TextSize.row, weight: .medium)
         name.isSelectable = false
@@ -110,7 +110,7 @@ private final class FailureRow: PointerControl {
         let head = NSStackView(views: [CIRunLook.mark("completed", "failure"), name])
         head.spacing = Metrics.gap
         head.alignment = .top
-        // A panel is narrow: the file's own name and line. The tooltip has its folder, and the class.
+        // A panel is narrow, so this shows the file's own name and line. The tooltip has its folder, and the class.
         let place =
             failure.test == nil
             ? nil
@@ -141,7 +141,7 @@ private final class FailureRow: PointerControl {
     required init?(coder: NSCoder) { fatalError() }
 
     override func clicked() { open() }
-    // one target, labels included
+    // The row is one click target, labels included.
     override func hitTest(_ point: NSPoint) -> NSView? { super.hitTest(point) == nil ? nil : self }
 
     override func menu(for event: NSEvent) -> NSMenu? {

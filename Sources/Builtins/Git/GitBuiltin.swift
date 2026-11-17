@@ -13,7 +13,7 @@ extension Builtins {
         icon: "arrow.triangle.branch"
     ) { app in
         let changed = ChangedFiles(app: app)
-        let panel: LivePanel = app.part { LivePanel() }   // the one the panel on screen was built with, every reload
+        let panel: LivePanel = app.part { LivePanel() }   // the one the panel on screen was built with, at every reload
         return Contributions(
             panels: [
                 PanelSpec(
@@ -38,7 +38,8 @@ extension Builtins {
                 CommandSpec(id: "git.pullRequest", title: "Git: Create Pull Request") { _ in
                     if let workspace = app.workbench.workspaceId { PRActions(app).create(worktree: workspace) }
                 },
-                // The panel's quick actions, with their keys: through the panel when it's built (its message, its progress).
+                // The panel's quick actions, with their keys. They go through the panel when it's built (for its
+                // message and its progress).
                 CommandSpec(id: "git.commit", title: "Git: Commit", key: "opt+cmd+c") { _ in
                     if let controller = panel.controller, controller.worktreeId == app.workbench.workspaceId {
                         controller.commitPressed()
@@ -47,7 +48,8 @@ extension Builtins {
                     }
                 },
                 CommandSpec(id: "git.commitWithAgent", title: "Git: Write Commit with Agent") { _ in
-                    // Its words show in the panel's Message field: with the panel not on screen, the panel comes first.
+                    // The agent's words show in the panel's Message field, so when the panel isn't on screen it is
+                    // shown first.
                     guard let controller = panel.controller, controller.worktreeId == app.workbench.workspaceId
                     else { return app.workbench.showPanel("git.changes") }
                     controller.askLastAgent()
@@ -75,7 +77,8 @@ extension Builtins {
                             help:
                                 "Each project's branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp's own folder.",
                             placeholder: "~/worktrees"),
-                        // Where a branch's CI shows (RowMarks keeps it; gh / glab are asked only for what one of these shows).
+                        // Where a branch's CI shows. RowMarks keeps it, and gh / glab are asked only for what one of
+                        // these places shows.
                         s(
                             SettingKeys.ciBranchChip, "CI on the branch chip", .enum,
                             "A ring while it runs, a red dot when it fails.",
@@ -108,9 +111,9 @@ extension Builtins {
                         return (CommitMessageTab.title(amend: amend), .symbol("square.and.pencil"), nil)
                     })
             ],
-            // The switch for a merged PR, in its project's menu.
-            // An agent writing a commit has no tab and no row until the user picks Show.
-            // An agent's tile in the Dock strip shows its workspace's CI, as the folder's sidebar row does.
+            // `rowMarks`: an agent's tile in the Dock strip shows its workspace's CI, as the folder's sidebar row does.
+            // `sessionHidden`: an agent writing a commit has no tab and no row until the user picks Show.
+            // `rowMenu`: the switch for a merged PR, in its project's menu.
             rowMarks: [{ row in RowMarks.of(app).tile(row).map { [$0] } ?? [] }],
             sessionHidden: [{ panel.controller?.hiddenAgentSessions ?? [] }],
             rowMenu: [
@@ -119,7 +122,7 @@ extension Builtins {
                     MergedPR(app: app).addItems(to: menu, folder)
                 }
             ],
-            // The window bar's branch chip: what runs, its popover.
+            // The window bar's branch chip: what runs on the branch, and its popover.
             branch: BranchActions(
                 running: { GitSync.state(app).running[$0]?.title },
                 popover: { worktree, popover in
@@ -143,10 +146,9 @@ extension Builtins {
     }
 }
 
-/// The Source Control panel once it's built (it's built when first shown).
 @MainActor
-/// The Source Control panel on screen, for the commands that go through it: one per app, since `contribute` runs again
-/// on every registry reload while the panel built first stays.
+/// The Source Control panel on screen (built when first shown), for the commands that go through it. There is one per
+/// app, because `contribute` runs again on every registry reload while the panel built first stays.
 private final class LivePanel { weak var controller: SourceControlController? }
 
 @MainActor
@@ -168,14 +170,14 @@ private func remote(
     }
 }
 
-/// Where a branch's CI shows, read only here (the branch chip's setting is in Core, for its labels in Settings).
+/// Where a branch's CI shows, read only here. The branch chip's setting is in Core, for its labels in Settings.
 extension SettingKeys {
     static let ciSidebar = Setting("workbench.ci.sidebar", true)
     static let ciPopover = Setting("workbench.ci.popover", true)
 }
 
-// How the app keeps what the daemon pushes about pull requests: these are the Git built-in's own kinds, not the
-// shell's.
+// How the app keeps what the daemon pushes about pull requests. These event kinds belong to the Git built-in, not to
+// the shell.
 extension PREvent: Pushed {
     package var key: String { worktree }
     package static var forgottenWith: WatchTopic? { .pr }

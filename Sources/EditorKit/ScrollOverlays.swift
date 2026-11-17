@@ -1,11 +1,12 @@
 import AppKit
 import DesignKit
 
-/// The editor's scroll view, with views that stay over the text however it scrolls: its clip view would draw over any other.
+/// The editor's scroll view, with views that stay over the text however it scrolls, because its clip view would draw
+/// over any other.
 final class EditorScrollView: NSScrollView {
     let marks = ScrollMarks()
     let sticky = StickyLines()
-    /// Told when it comes into a window: a look given while it was off screen is applied then.
+    /// Called when the view comes into a window, so a look given while it was off screen is applied then.
     var onWindow: (() -> Void)?
 
     override func viewDidMoveToWindow() {
@@ -32,30 +33,30 @@ final class EditorScrollView: NSScrollView {
     }
 }
 
-/// Beside the scroller: where the problems, changes, matches and the cursor are in the whole file.
+/// The marks beside the scroller: where the problems, changes, matches and the cursor are in the whole file.
 final class ScrollMarks: NSView {
     static let width: CGFloat = 6
     private static let mark: CGFloat = 2
-    /// The file's lines, and what's on them, 0-based.
+    /// The file's line count, and what's on its lines, 0-based.
     var lines = 1
     var ticks: [(line: Int, color: NSColor)] = [] { didSet { needsDisplay = true } }
 
     override var isFlipped: Bool { true }
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }   // the scroller's under it
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }   // the scroller is under it
 
     override func draw(_ dirtyRect: NSRect) {
         guard lines > 0 else { return }
         var seen = Set<Int>()
         for tick in ticks {
             let row = Int(CGFloat(tick.line) / CGFloat(lines) * bounds.height)
-            guard seen.insert(row).inserted else { continue }   // a thousand matches, a pixel each
+            guard seen.insert(row).inserted else { continue }   // a thousand matches get a pixel each
             tick.color.setFill()
             NSRect(x: 0, y: CGFloat(row), width: bounds.width, height: Self.mark).fill()
         }
     }
 }
 
-/// The lines that open the scopes around the top of what's on screen: a click goes to one.
+/// The lines that open the scopes around the top of what's on screen. A click goes to one.
 final class StickyLines: NSView {
     static let most = 5
     var onLine: ((Int) -> Void)?
@@ -124,10 +125,10 @@ final class StickyLines: NSView {
 }
 
 extension CodeEditor {
-    /// Past how many lines up a scope isn't looked for.
+    /// How many lines up a scope is looked for, at most.
     private static let stickyReach = 600
 
-    /// The ticks beside the scroller, all there is to mark as of now.
+    /// Sets the ticks beside the scroller to all there is to mark as of now.
     func refreshScrollMarks() {
         let string = textView.string as NSString
         var ticks: [(line: Int, color: NSColor)] = changeMarks.map { mark in
@@ -136,7 +137,8 @@ extension CodeEditor {
         ticks += textView.findMarks.prefix(2000).map {
             (lineIndex.line(at: $0.location, in: string), NSColor.findHighlightColor)
         }
-        ticks += problems.map { ($0.line, $0.isError ? NSColor.textRed : NSColor.textOrange) }   // over what they share a pixel with
+        // Problems go last, over what they share a pixel with.
+        ticks += problems.map { ($0.line, $0.isError ? NSColor.textRed : NSColor.textOrange) }
         ticks.reverse()
         ticks.append((lineIndex.line(at: textView.selectedRange().location, in: string), .tertiaryLabelColor))
         (scroll as? EditorScrollView)?.marks.lines = lineCount
@@ -150,7 +152,8 @@ extension CodeEditor {
         return lineIndex.line(at: lm.characterIndexForGlyph(at: glyph), in: textView.string as NSString) + 1
     }
 
-    /// An edit that starts below the top line on screen, which is the one the scopes were found for: they stay.
+    /// Whether the sticky scopes stay for an edit, which they do when it starts below the top line on screen, the one
+    /// they were found for.
     func stickyHolds(after edit: Int?) -> Bool {
         guard let edit, let stickyTop, stickyTop == topLine else { return false }
         let string = textView.string as NSString
@@ -162,8 +165,9 @@ extension CodeEditor {
     /// The scopes around the cursor, outermost first, as `(0-based line, its text)`.
     public var scopesAtCursor: [(line: Int, text: String)] { scopeRows(scopeLines(around: (cursor?.line ?? 1) - 1)) }
 
-    /// The scopes beside the one opened on `line` (0-based), itself among them: as far in, in the same scope around it (the
-    /// file, at the top), or a Markdown heading's of its level. Limit: 5000 lines of it are looked through.
+    /// The scopes beside the one opened on `line` (0-based), itself among them. They are the scopes as far in, in the
+    /// same scope around it (the file, at the top), or Markdown headings of its level. Limit: 5000 lines of it are
+    /// looked through.
     public func siblingScopes(ofLine line: Int) -> [(line: Int, text: String)] {
         let string = textView.string as NSString
         guard let start = lineIndex.start(ofLine: line, in: string) else { return [] }
@@ -204,7 +208,8 @@ extension CodeEditor {
         }
     }
 
-    /// The scopes around `top`, outermost first: lines above it less indented, or headings, whose fold reaches it.
+    /// The scopes around `top`, outermost first: the lines above it that are less indented, or headings, whose fold
+    /// reaches it.
     private func scopeLines(around top: Int) -> [Int] {
         let string = textView.string as NSString
         guard top > 0, let at = lineIndex.start(ofLine: top, in: string) else { return [] }

@@ -4,7 +4,7 @@ import DesignKit
 import KelpKit
 import SwiftUI
 
-/// The chosen routine under the week: what it tells the agent, when it repeats (changed here at once), where it runs,
+/// The chosen routine, under the week: what it tells the agent, when it repeats (changed here at once), where it runs,
 /// and how the chosen run (else the last one) went.
 struct RoutineDetail: View {
     let app: AppModel, routine: Routine, runs: [Routine.Run], picked: String?, week: RoutineWeek
@@ -37,7 +37,7 @@ struct RoutineDetail: View {
         .padding(Metrics.inset + 4)
     }
 
-    /// Next run, where it runs, what a missed one does.
+    /// The next run, where the routine runs, and what a missed run does.
     private var facts: some View {
         let next =
             routine.enabled
@@ -96,7 +96,7 @@ struct RoutineActions {
     }
 }
 
-/// "Done · Thu 9:00 · 3 min" and the agent's first line; Open Run shows its tab (Answer, when it asks).
+/// "Done · Thu 9:00 · 3 min" and the agent's first line. Open Run shows the run's tab (Answer, when it asks).
 struct RunResult: View {
     let app: AppModel, run: Routine.Run
 
@@ -152,6 +152,6 @@ struct RunResult: View {
 }
 
 extension Routine.Run {
-    /// Still going: running, or waiting on a question.
+    /// Whether the run is still going: running, or waiting on a question.
     var isOpen: Bool { [.running, .asked].contains(outcome) }
 }

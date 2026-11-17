@@ -3,17 +3,18 @@ import Core
 import DesignKit
 import KelpKit
 
-/// What Add Database offers to start from: the engines Kelp speaks, and services it opens with one of them (Supabase is
-/// Postgres with SSL on 5432 or its pooler's 6543…). Each fills the form's port, SSL and a word on where its address is.
+/// What Add Database offers to start from: the engines Kelp speaks, and services it opens with one of them (Supabase
+/// is Postgres with SSL on 5432, or on its pooler's 6543…). Each preset fills the form's port and SSL, and a word on
+/// where to find its address.
 struct EnginePreset {
     var name: String, letters: String, color: String, dark = false
     var engine: DatabaseInfo.Engine
-    /// Its own port, where it isn't the engine's (`DatabaseInfo.Engine.defaultPort`).
+    /// The preset's own port, where it isn't the engine's (`DatabaseInfo.Engine.defaultPort`).
     var port: Int?
     var ssl: String?
-    /// Where its address is, said under the form's fields.
+    /// Where to find the address, said under the form's fields.
     var hint: String?
-    /// "Postgres" under a service's name: what Kelp opens it as.
+    /// What Kelp opens the service as, shown under its name, such as "Postgres".
     var speaks: String?
 
     static let all: [EnginePreset] = [
@@ -53,12 +54,13 @@ struct EnginePreset {
             hint: "A local Turso/libSQL database file: Kelp opens it as SQLite.", speaks: "SQLite")
     ]
 
-    /// The engine's own: the first of its presets that is no service.
+    /// The engine's own preset: the first of its presets that isn't a service.
     static func of(_ engine: DatabaseInfo.Engine) -> EnginePreset {
         all.first { $0.engine == engine && $0.speaks == nil } ?? all[0]
     }
 
-    /// The round mark: its colour with two letters, as TablePlus draws them (too small to read under 16 pt: none).
+    /// The round mark, in the preset's colour with two letters, as TablePlus draws them. Below 16 pt the letters are
+    /// too small to read, so they are left out.
     @MainActor func badge(_ size: CGFloat) -> NSImage {
         nonisolated(unsafe) let text = NSAttributedString(
             string: letters,
@@ -79,7 +81,7 @@ struct EnginePreset {
     }
 }
 
-/// A preset's tile in Add Database's grid: its round mark over its name (and what Kelp opens it as).
+/// A preset's tile in Add Database's grid: its round mark over its name, and what Kelp opens it as.
 @MainActor
 final class EngineTile: PointerControl {
     let preset: EnginePreset

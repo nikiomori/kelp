@@ -4,12 +4,13 @@ import DesignKit
 import EditorKit
 import KelpKit
 
-/// A query of the user's own, in Kelp's editor: SQL colours, the database's tables and columns offered as words are
-/// typed, ⌘↩ runs the statement the cursor is in (one at a time, as an agent's are), and Explain shows the plan. What
-/// is typed is kept for the database (`db.draft/…`), so it is still there when the tab is opened again.
+/// A query of the user's own, in Kelp's editor. It has SQL colours and offers the database's tables and columns as
+/// words are typed. ⌘↩ runs the statement the cursor is in (one at a time, as an agent's statements run), and Explain
+/// shows the plan. What is typed is kept for the database (`db.draft/…`), so it is still there when the tab opens
+/// again.
 extension DatabaseTab {
-    /// The editor above the rows, with the line between them for the user to drag: it stays as tall as they left it
-    /// (kept per Mac, like the tab's other split).
+    /// Builds the editor above the rows, with a divider between them for the user to drag. The editor stays as tall
+    /// as the user left it, kept per Mac like the tab's other split.
     func buildEditor() -> NSView {
         editor.completionProvider = { [weak self] line, column in
             await MainActor.run { self?.completions(line: line, column: column) ?? [] }
@@ -23,15 +24,16 @@ extension DatabaseTab {
         rows.setHoldingPriority(.init(200), forSubviewAt: 1)
         editor.view.heightAnchor.constraint(greaterThanOrEqualToConstant: 60).isActive = true
         grid.area.heightAnchor.constraint(greaterThanOrEqualToConstant: 80).isActive = true
-        // The split starts from its panes' frames (as the tab's own does): the editor 160 tall until it's dragged
+        // The split starts from its panes' frames, as the tab's own split does, so the editor is 160 tall until it's
+        // dragged.
         editor.view.setFrameSize(NSSize(width: 800, height: 160))
         grid.area.setFrameSize(NSSize(width: 800, height: 400))
         rows.autosaveName = "DatabaseQuery"
         return rows
     }
 
-    /// Tables, then the columns of the tables the statement names, then SQL's own words: what starts with the word
-    /// being typed.
+    /// The completions for the word being typed: tables, then the columns of the tables the statement names, then
+    /// SQL's own words, each starting with that word.
     func completions(line: Int, column: Int) -> [CodeEditor.Completion] {
         let text = editor.text
         let lines = text.components(separatedBy: "\n")
@@ -59,7 +61,7 @@ extension DatabaseTab {
     ]
 
     func startedQuery() {
-        // A new query starts from the table just looked at; the list picks none while a query is shown
+        // A new query starts from the table just looked at, and the list selects nothing while a query is shown.
         let from = sidebar.current ?? tables.first?.name
         sidebar.current = nil
         arrange()
@@ -76,7 +78,7 @@ extension DatabaseTab {
         editor.focus()
     }
 
-    /// The statement the cursor is in: between the semicolons around it, quotes respected.
+    /// The statement the cursor is in, between the semicolons around it, with quotes respected.
     func statementAtCursor() -> String {
         let text = editor.text as NSString
         let at = editor.selectedRange
@@ -118,7 +120,7 @@ extension DatabaseTab {
 
     private var queriesKey: String { key("queries") }
 
-    /// "db.<what>/<project>/<database>": the saved queries' and the draft's place in Kelp's state.
+    /// The key under which Kelp's state keeps the saved queries and the draft: "db.<what>/<project>/<database>".
     private func key(_ what: String) -> String {
         let library = app.latest(DatabasesEvent.self, address.worktree)?.library?.contains { $0.name == address.name }
         let project = library == true ? "~" : app.worktree(address.worktree)?.repoId ?? address.worktree
@@ -127,7 +129,7 @@ extension DatabaseTab {
 
     func loadQueries() {
         if case .string(let text)? = app.uiState[key("draft")], editor.text.isEmpty {
-            editor.setText(text)   // what was typed here last
+            editor.setText(text)   // the text typed here last time
         }
         guard case .array(let items)? = app.uiState[queriesKey] else { return }
         sidebar.saved = items.compactMap { item in
@@ -138,7 +140,8 @@ extension DatabaseTab {
         }
     }
 
-    /// The editor's text kept for the database, once the workspace's databases are known (the key names its project).
+    /// Keeps the editor's text for the database once the workspace's databases are known, because the key names the
+    /// project.
     func keepDraft() {
         draft.cancel()
         guard started else { return }
@@ -151,7 +154,7 @@ extension DatabaseTab {
         Task { [app, queriesKey] in await app.uiState.save(queriesKey, value) }
     }
 
-    /// Save Query…: the statement under a name, in the list's Queries.
+    /// Save Query… keeps the statement under a name, in the list's Queries.
     @objc func keepQuery() {
         let sql = editor.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !sql.isEmpty else { return NSSound.beep() }
@@ -174,7 +177,7 @@ extension DatabaseTab {
 
     func forget(_ savedQuery: DatabaseSidebar.SavedQuery) { storeQueries(sidebar.saved.filter { $0 != savedQuery }) }
 
-    /// The plan, as the engine says it.
+    /// Shows the plan, as the engine gives it.
     @objc func explainQuery() {
         let sql = statementAtCursor()
         execute(engine.explain + sql)
@@ -195,7 +198,7 @@ extension DatabaseTab {
             status.stringValue =
                 (result.changed.map { String(localized: "\($0) rows changed") }
                     ?? String(localized: "\(result.total) rows")) + " · " + Self.took(result.ms)
-            await loadTables()   // a CREATE or a DROP changes the list
+            await loadTables()   // a CREATE or a DROP changes the list of tables
         }
     }
 }
