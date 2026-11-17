@@ -60,3 +60,31 @@ import Testing
     let listed = try Git.linkedWorktrees(repo, remotes: .none)
     #expect(listed.count == 1 && listed.first?.path.hasSuffix("-odd\nlocked") == true && listed.first?.locked == false)
 }
+
+/// A worktree whose folder is gone is forgotten: git's record of it and its branch go. A branch with commits no other
+/// branch or remote has is refused (the record stays too) unless the commits may go.
+@Test func aWorktreeWhoseFolderIsGoneIsForgotten() throws {
+    let repo = try tempRepo()
+    func gone(_ branch: String) throws -> String {
+        let p = try Git.addWorktree(
+            repo: repo, branch: branch, base: "main", into: URL(fileURLWithPath: repo + "-" + branch), copyFiles: [],
+            remotes: .none)
+        if branch == "kept" {
+            try "x\n".write(toFile: p + "/x.txt", atomically: true, encoding: .utf8)
+            try Git.run(["add", "."], cwd: p, remotes: .none)
+            try Git.run(["commit", "-qm", "only here"], cwd: p, remotes: .none)
+        }
+        try FileManager.default.removeItem(atPath: p)
+        return p
+    }
+    let plain = try gone("plain"), kept = try gone("kept")
+    try Git.forgetWorktree(repo: repo, path: plain, branch: "plain", remotes: .none)
+    #expect(try Git.linkedWorktrees(repo, remotes: .none).map(\.branch) == ["kept"])
+    #expect(!Git.branchExists(repo, "plain", remotes: .none))
+    #expect(throws: GitError.self) { try Git.forgetWorktree(repo: repo, path: kept, branch: "kept", remotes: .none) }
+    #expect(
+        try Git.linkedWorktrees(repo, remotes: .none).map(\.branch) == ["kept"]
+            && Git.branchExists(repo, "kept", remotes: .none))
+    try Git.forgetWorktree(repo: repo, path: kept, branch: "kept", dropCommits: true, remotes: .none)
+    #expect(try Git.linkedWorktrees(repo, remotes: .none).isEmpty && !Git.branchExists(repo, "kept", remotes: .none))
+}

@@ -185,3 +185,17 @@ private func home() throws -> (files: AddonFiles, cwd: String) {
     #expect(FileManager.default.fileExists(atPath: shared.appendingPathComponent("SKILL.md").path))
     #expect(throws: (any Error).self) { try files.linkSkill("none", cwd: cwd) }
 }
+
+/// Trashing a skill takes a link to it away and nothing the link points at; a skill that isn't there is an error.
+@Test func trashingASkillsLinkLeavesWhatItPointsAt() throws {
+    let (files, cwd) = try home()
+    let elsewhere = tmp().appendingPathComponent("kept")
+    try put("---\nname: kept\n---\n", elsewhere.appendingPathComponent("SKILL.md"))
+    let link = files.claude.appendingPathComponent("skills/kept")
+    try FileManager.default.createDirectory(at: link.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(at: link, withDestinationURL: elsewhere)
+    try files.trashSkill("kept", cwd: cwd)
+    #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: link.path)) == nil)
+    #expect(FileManager.default.fileExists(atPath: elsewhere.appendingPathComponent("SKILL.md").path))
+    #expect(throws: (any Error).self) { try files.trashSkill("kept", cwd: cwd) }
+}
