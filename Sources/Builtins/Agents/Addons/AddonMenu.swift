@@ -188,19 +188,8 @@ struct AddonMenu {
 
     /// Shows the whole error in a sheet, to read and copy.
     static func showError(_ title: String, _ error: String) async {
-        let alert = NSAlert()
-        alert.messageText = title
-        let scroll = NSTextView.scrollableTextView()
-        scroll.frame = NSRect(x: 0, y: 0, width: Metrics.alertAccessory, height: Metrics.alertAccessory / 2)
-        scroll.borderType = .bezelBorder
-        if let text = scroll.documentView as? NSTextView {
-            text.string = error
-            text.font = .uiMono(TextSize.caption)
-            text.isEditable = false
-        }
-        alert.accessoryView = scroll
-        alert.addButton(withTitle: String(localized: "Copy"))
-        alert.addButton(withTitle: String(localized: "Close"))
+        let alert = NSAlert(question: title, action: String(localized: "Copy"), cancel: String(localized: "Close"))
+        alert.accessoryView = NSScrollView.readOnly(error, lines: 12)
         if await runSheet(alert) == .alertFirstButtonReturn { copyText(error) }
     }
 }

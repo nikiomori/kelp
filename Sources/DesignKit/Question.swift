@@ -36,3 +36,20 @@ public func pick(_ question: String, from choices: [(title: String, value: Strin
     alert.accessoryView = pop
     return await runSheet(alert) == .alertFirstButtonReturn ? pop.selectedItem?.representedObject as? String : nil
 }
+
+extension NSScrollView {
+    /// Read-only monospaced text for a question's accessory (the commands a file runs, a whole error), scrollable
+    /// when long. `lines` sizes it, up to 220 pt.
+    public static func readOnly(_ text: String, lines: Int, width: CGFloat = Metrics.alertAccessory) -> NSScrollView {
+        let scroll = NSTextView.scrollableTextView()
+        scroll.frame = NSRect(x: 0, y: 0, width: width, height: min(220, CGFloat(max(lines, 1)) * 16 + 10))
+        scroll.borderType = .bezelBorder
+        if let view = scroll.documentView as? NSTextView {
+            view.string = text
+            view.font = .uiMono(TextSize.caption)
+            view.isEditable = false
+            view.textContainerInset = NSSize(width: 4, height: 4)
+        }
+        return scroll
+    }
+}

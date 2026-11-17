@@ -24,9 +24,9 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     private let path = NSTextField()
     private let table = NSTableView(), scroll = NSScrollView()
     private let grid: NSGridView
-    private let status = NSTextField(wrappingLabelWithString: "")
     private let spinner = NSProgressIndicator()
-    private let go = NSButton(), cancel = NSButton()
+    private lazy var go = NSButton(title: "", target: self, action: #selector(goPressed))
+    private lazy var cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(close))
     private var rows: [RemoteListFolders.Folder] = []
     /// The host and folder listed, and whether the folder is in a repository. It is nil until connected, and again once
     /// the host is edited.
@@ -81,22 +81,13 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
             wrappingLabelWithString: String(
                 localized: "Agents and terminals run there, and git too, over one SSH connection. ")
                 + String(localized: "The agents you use must be installed on that machine."))
-        for t in [note, status] {
-            t.textColor = .secondaryLabelColor
-            t.font = .ui(TextSize.caption)
-        }
+        note.textColor = .secondaryLabelColor
+        note.font = .ui(TextSize.caption)
         spinner.style = .spinning
         spinner.controlSize = .small
         spinner.isDisplayedWhenStopped = false
-        go.bezelStyle = .push
         go.keyEquivalent = "\r"
-        go.target = self
-        go.action = #selector(goPressed)
-        cancel.title = String(localized: "Cancel")
-        cancel.bezelStyle = .push
         cancel.keyEquivalent = "\u{1b}"
-        cancel.target = self
-        cancel.action = #selector(close)
         let buttons = NSStackView(views: [spinner, NSView(), cancel, go])
         buttons.spacing = Metrics.gapWide
         window?.contentView = SheetForm.stack(
@@ -226,12 +217,6 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
 
     private static func join(_ dir: String, _ name: String) -> String {
         dir.hasSuffix("/") ? dir + name : dir + "/" + name
-    }
-
-    private func say(_ text: String?, error: Bool = false) {
-        status.isHidden = text == nil
-        status.stringValue = text ?? ""
-        status.textColor = error ? .textRed : .secondaryLabelColor
     }
 
     private func busy(_ on: Bool) {

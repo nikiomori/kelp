@@ -7,14 +7,15 @@ import DesignKit
 @MainActor
 final class CloneSheet: SheetController, NSTextFieldDelegate {
     private let field = NSTextField()
-    private let dest = NSTextField(), choose = NSButton()
+    private let dest = NSTextField()
+    private lazy var choose = NSButton(title: String(localized: "Choose…"), target: self, action: #selector(pick))
     /// The folder the clone goes in until one is typed. The folder name in the destination follows the URL until it's
     /// typed over.
     private lazy var parent = lastParent
     private var destEdited = false
-    private let status = NSTextField(wrappingLabelWithString: "")
     private let bar = NSProgressIndicator()
-    private let go = NSButton(), cancel = NSButton()
+    private lazy var go = NSButton(title: String(localized: "Clone"), target: self, action: #selector(start))
+    private lazy var cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(stop))
     private var running: String?
     private static var shown: CloneSheet?
 
@@ -61,29 +62,15 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         dest.usesSingleLineMode = true
         dest.lineBreakMode = .byTruncatingHead   // a long path keeps its end, the target folder, in view
         fill()
-        choose.title = String(localized: "Choose…")
-        choose.bezelStyle = .push
-        choose.target = self
-        choose.action = #selector(pick)
         let row = NSStackView(views: [dest, choose])
         row.spacing = Metrics.gapWide
         let grid = SheetForm.grid([(String(localized: "URL"), field), (String(localized: "Clone into"), row)])
         bar.style = .bar
         bar.isIndeterminate = true
         bar.isHidden = true
-        status.textColor = .secondaryLabelColor
-        status.font = .ui(TextSize.caption)
         status.isHidden = true
-        go.title = String(localized: "Clone")
-        go.bezelStyle = .push
         go.keyEquivalent = "\r"
-        go.target = self
-        go.action = #selector(start)
-        cancel.title = String(localized: "Cancel")
-        cancel.bezelStyle = .push
         cancel.keyEquivalent = "\u{1b}"
-        cancel.target = self
-        cancel.action = #selector(stop)
         let buttons = NSStackView(views: [NSView(), cancel, go])
         buttons.spacing = Metrics.gapWide
         window?.contentView = SheetForm.stack(
@@ -140,9 +127,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
     /// Shows a progress line. "Receiving objects:  45% (450/1000)" fills the bar, and the line itself says what's
     /// happening.
     private func progress(_ line: String) {
-        status.isHidden = false
-        status.textColor = .secondaryLabelColor
-        status.stringValue = line
+        say(line)
         if let match = line.firstMatch(of: #/(\d+)%/#), let pct = Double(match.1) {
             bar.isIndeterminate = false
             bar.doubleValue = pct
@@ -170,18 +155,14 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
             return
         }
         guard let path = destination else {
-            status.isHidden = false
-            status.textColor = .textRed
-            status.stringValue = String(localized: "Enter the full path to clone to, like ~/Developer/app.")
+            say(String(localized: "Enter the full path to clone to, like ~/Developer/app."), error: true)
             return
         }
         let parent = (path as NSString).deletingLastPathComponent, folder = (path as NSString).lastPathComponent
         let id = UUID().uuidString
         running = id
         busy(true)
-        status.isHidden = false
-        status.textColor = .secondaryLabelColor
-        status.stringValue = String(localized: "Connecting…")
+        say(String(localized: "Connecting…"))
         Task {
             let result = await app.tryCall(RepoClone(url: text, parent: parent, folder: folder, id: id))
             running = nil
@@ -191,8 +172,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
                     close()
                     return
                 }
-                status.textColor = .textRed
-                status.stringValue = error
+                say(error, error: true)
                 return
             }
             UserDefaults.standard.set(parent, forKey: "newProject.parent")
@@ -203,7 +183,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
 
     @objc private func stop() {
         if let id = running {
-            status.stringValue = String(localized: "Cancelling…")
+            say(String(localized: "Cancelling…"))
             Task { await app.call(RepoCloneCancel(id: id)) }
             return
         }

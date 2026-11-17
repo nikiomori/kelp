@@ -32,17 +32,14 @@ package struct KelpFile {
     /// doesn't cover that code.
     private func runsOnPullRequest(_ number: Int, _ info: ScriptsList.Result) async -> Bool {
         guard !Self.snapshot else { return false }
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Run setup on pull request #\(number)?")
-        alert.informativeText =
-            String(
+        let alert = NSAlert(
+            question: String(localized: "Run setup on pull request #\(number)?"),
+            detail: String(
                 localized:
                     "Its code comes from whoever wrote the pull request: what setup installs or builds can run their scripts as you. "
-            )
-            + String(localized: "Skip it to read the code first.")
+            ) + String(localized: "Skip it to read the code first."),
+            action: String(localized: "Run Setup"), cancel: String(localized: "Skip"))
         alert.accessoryView = Self.trustText(info)
-        alert.addButton(withTitle: String(localized: "Run Setup"))
-        alert.addButton(withTitle: String(localized: "Skip"))
         return await runSheet(alert) == .alertFirstButtonReturn
     }
 
@@ -77,19 +74,16 @@ package struct KelpFile {
     /// Asks the first time a project's commands would run. The question shows everything that trusting the file
     /// allows (commands, the agents and links a new workspace gets, the prompts it gives agents), and whose file it is.
     private func askTrust(_ info: ScriptsList.Result) async -> Bool {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Run this project's commands?")
-        alert.informativeText =
-            String(
-                localized:
-                    "\((info.file as NSString).abbreviatingWithTildeInPath) asks Kelp to run these as you, in this folder. "
-            )
+        let file = (info.file as NSString).abbreviatingWithTildeInPath
+        let detail =
+            String(localized: "\(file) asks Kelp to run these as you, in this folder. ")
             + String(
                 localized:
                     "Trust it only if you know where this project comes from. Kelp asks again if the file changes.")
+        let alert = NSAlert(
+            question: String(localized: "Run this project's commands?"), detail: detail,
+            action: String(localized: "Trust and Run"))
         alert.accessoryView = Self.trustText(info)
-        alert.addButton(withTitle: String(localized: "Trust and Run"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
         return await runSheet(alert) == .alertFirstButtonReturn
     }
 
@@ -102,15 +96,6 @@ package struct KelpFile {
         if !info.shared.isEmpty { lines.append("shared: " + info.shared.joined(separator: ", ")) }
         if let command = info.issueCommand { lines.append("issueCommand: \(command)") }
         for (name, recipe) in info.recipes.sorted(by: { $0.key < $1.key }) { lines.append("recipe.\(name): \(recipe)") }
-        let scroll = NSTextView.scrollableTextView()
-        scroll.frame = NSRect(x: 0, y: 0, width: 360, height: min(220, CGFloat(max(lines.count, 1)) * 16 + 8))
-        scroll.drawsBackground = false
-        if let text = scroll.documentView as? NSTextView {
-            text.string = lines.joined(separator: "\n")
-            text.isEditable = false
-            text.drawsBackground = false
-            text.font = .uiMono(TextSize.caption)
-        }
-        return scroll
+        return NSScrollView.readOnly(lines.joined(separator: "\n"), lines: lines.count, width: 360)
     }
 }

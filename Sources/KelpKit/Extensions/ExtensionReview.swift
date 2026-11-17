@@ -12,32 +12,21 @@ enum ExtensionReview {
         let (commands, pages) = ExtensionFiles.commandsIn(manifest)
         let lines = commands + pages.map { String(localized: "\($0) — a web page, which can run any command") }
         let name = manifest["name"]?.string ?? folder.lastPathComponent
-        let alert = NSAlert()
-        alert.messageText =
-            allowing ? String(localized: "Allow “\(name)” to run commands?") : String(localized: "Install “\(name)”?")
-        alert.informativeText =
-            lines.isEmpty
-            ? String(localized: "It runs no commands.")
-            : allowing
-                ? String(localized: "It's new or changed since it was allowed. It can run these commands on this Mac:")
-                : String(localized: "It can run these commands on this Mac:")
-        alert.addButton(withTitle: allowing ? String(localized: "Allow") : String(localized: "Install"))
-        alert.addButton(withTitle: allowing ? String(localized: "Not Now") : String(localized: "Cancel"))
-        if !lines.isEmpty { alert.accessoryView = list(lines) }
-        return await runSheet(alert) == .alertFirstButtonReturn
-    }
-
-    private static func list(_ lines: [String]) -> NSView {
-        let scroll = NSTextView.scrollableTextView()
-        scroll.frame = NSRect(x: 0, y: 0, width: 420, height: min(220, CGFloat(lines.count) * 17 + 10))
-        scroll.borderType = .bezelBorder
-        if let tv = scroll.documentView as? NSTextView {
-            tv.string = lines.joined(separator: "\n")
-            tv.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
-            tv.isEditable = false
-            tv.textContainerInset = NSSize(width: 4, height: 4)
+        let alert = NSAlert(
+            question: allowing
+                ? String(localized: "Allow “\(name)” to run commands?") : String(localized: "Install “\(name)”?"),
+            detail: lines.isEmpty
+                ? String(localized: "It runs no commands.")
+                : allowing
+                    ? String(
+                        localized: "It's new or changed since it was allowed. It can run these commands on this Mac:")
+                    : String(localized: "It can run these commands on this Mac:"),
+            action: allowing ? String(localized: "Allow") : String(localized: "Install"),
+            cancel: allowing ? String(localized: "Not Now") : nil)
+        if !lines.isEmpty {
+            alert.accessoryView = NSScrollView.readOnly(lines.joined(separator: "\n"), lines: lines.count, width: 420)
         }
-        return scroll
+        return await runSheet(alert) == .alertFirstButtonReturn
     }
 }
 
