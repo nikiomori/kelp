@@ -10,9 +10,9 @@ public enum Metrics {
 
     // Rows
     public static let row: CGFloat = 24   // one line in the inspector
-    public static let rowTwoLine: CGFloat = 38   // a name with a line under it
-    public static let rowSection: CGFloat = 26   // a section's title over its rows
-    public static let rowMenu: CGFloat = 30   // Quick Open, the switcher
+    public static let rowTwoLine: CGFloat = 40   // a name with a line under it
+    public static let rowSection: CGFloat = 28   // a section's title over its rows
+    public static let rowMenu: CGFloat = 32   // Quick Open, the switcher
     public static let rowCard: CGFloat = 36   // a choice in a grouped card (the empty workspace's)
 
     // Spacing
