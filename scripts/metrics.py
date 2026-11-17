@@ -99,15 +99,22 @@ def builtin_modules():
 
 
 def tested_builtins():
-    """A built-in has tests when a test names a type it declares (its `…Builtin` aside): an import alone tests nothing."""
-    tests = "\n".join(l for p in swift_files("Tests") for l in lines(p) if not re.match(r"\s*(@testable )?import ", l))
+    """A built-in has tests when a test that imports it names a type only it declares (its `…Builtin` aside): an import
+    alone tests nothing, and a nested name another module has too (`Line`, `Kind`) isn't its."""
     declared = re.compile(r"^\s*(?:@\w+\s+)*(?:(?:private|fileprivate|package|public|final)\s+)*"
                           r"(?:class|struct|enum|actor|protocol)\s+([A-Z]\w*)", re.M)
+    owners = {}
+    for p in swift_files("Sources"):
+        for t in set(declared.findall(p.read_text(errors="replace"))):
+            owners.setdefault(t, set()).add(p.parts[1] if p.parts[1] != "Builtins" else "Builtins/" + p.parts[2])
 
     def types(m):
-        found = {t for p in swift_files(f"Sources/Builtins/{m}") for t in declared.findall(p.read_text(errors="replace"))}
-        return {t for t in found if not t.endswith("Builtin")}
-    return {m: any(re.search(rf"\b{t}\b", tests) for t in types(m)) for m in builtin_modules()}
+        return {t for t, o in owners.items() if o == {"Builtins/" + m} and not t.endswith("Builtin")}
+
+    def tests(m):
+        importing = [p for p in swift_files("Tests") if re.search(rf"^\s*(@testable )?import Builtin{m}$", p.read_text(errors="replace"), re.M)]
+        return "\n".join(l for p in importing for l in lines(p) if not re.match(r"\s*(@testable )?import ", l))
+    return {m: any(re.search(rf"\b{t}\b", tests(m)) for t in types(m)) for m in builtin_modules()}
 
 
 def fix_share(days=14):
