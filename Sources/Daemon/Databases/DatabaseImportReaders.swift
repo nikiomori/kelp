@@ -111,9 +111,9 @@ enum ImportReaders {
     static func dbeaver(_ home: URL) -> [ImportEntry] {
         let workspace = home.appendingPathComponent("Library/DBeaverData/workspace6")
         var entries: [ImportEntry] = []
-        for project in DatabaseFind.names(in: workspace.path).sorted() where !project.hasPrefix(".") {
+        for project in FileManager.default.names(in: workspace.path).sorted() where !project.hasPrefix(".") {
             let dir = workspace.appendingPathComponent(project + "/.dbeaver")
-            for file in DatabaseFind.names(in: dir.path).sorted()
+            for file in FileManager.default.names(in: dir.path).sorted()
             where file.hasPrefix("data-sources") && file.hasSuffix(".json") {
                 let credentials = dir.appendingPathComponent(
                     file.replacingOccurrences(of: "data-sources", with: "credentials-config"))
@@ -206,17 +206,17 @@ enum ImportReaders {
         let jetbrains = home.appendingPathComponent("Library/Application Support/JetBrains")
         var files: [(xml: URL, group: String?)] = []
         var projects = Set<String>()
-        for product in DatabaseFind.names(in: jetbrains.path).sorted() {
+        for product in FileManager.default.names(in: jetbrains.path).sorted() {
             let options = jetbrains.appendingPathComponent(product + "/options")
             files.append((options.appendingPathComponent("dataSources.xml"), nil))
-            if let recent = text(options.appendingPathComponent("recentProjects.xml")) {
+            if let recent = String(contentsIfAny: options.appendingPathComponent("recentProjects.xml")) {
                 for match in recent.matches(of: #/<entry key="([^"]+)"/#) {
                     projects.insert(String(match.1).replacingOccurrences(of: "$USER_HOME$", with: home.path))
                 }
             }
         }
         let gripProjects = home.appendingPathComponent("DataGripProjects")
-        for name in DatabaseFind.names(in: gripProjects.path) {
+        for name in FileManager.default.names(in: gripProjects.path) {
             projects.insert(gripProjects.appendingPathComponent(name).path)
         }
         for project in projects.sorted() {
@@ -347,7 +347,9 @@ enum ImportReaders {
     }
 
     static func dbGate(_ home: URL) -> [ImportEntry] {
-        guard let lines = text(home.appendingPathComponent(".dbgate/connections.jsonl")) else { return [] }
+        guard let lines = String(contentsIfAny: home.appendingPathComponent(".dbgate/connections.jsonl")) else {
+            return []
+        }
         return lines.split(whereSeparator: \.isNewline).compactMap { line in
             guard
                 let connection = optional({ try JSONSerialization.jsonObject(with: Data(line.utf8)) })

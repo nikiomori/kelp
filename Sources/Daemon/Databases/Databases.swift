@@ -225,11 +225,9 @@ final class Databases: Sendable {
         return try store.worktree(worktreeId).flatMap { remotes.of($0.path) } == nil
     }
 
-    func save(_ worktreeId: String, _ database: DatabaseInfo, password: String?) throws -> DatabaseInfo {
-        try save(worktreeId, database, password: password, library: false)
-    }
-
-    func save(_ worktreeId: String, _ database: DatabaseInfo, password: String?, library: Bool) throws -> DatabaseInfo {
+    func save(_ worktreeId: String, _ database: DatabaseInfo, password: String?, library: Bool = false) throws
+        -> DatabaseInfo
+    {
         if library { return try saveInLibrary(worktreeId, database, password: password) }
         guard let worktree = try store.worktree(worktreeId) else {
             throw RPCError.noWorkspace(worktreeId)

@@ -6,7 +6,7 @@ import Foundation
 enum ImportFiles {
     /// Reads ~/.pgpass, one connection for each line that names a host. The password is in the line.
     static func pgpass(_ home: URL) -> [ImportEntry] {
-        guard let text = ImportReaders.text(home.appendingPathComponent(".pgpass")) else { return [] }
+        guard let text = String(contentsIfAny: home.appendingPathComponent(".pgpass")) else { return [] }
         return text.split(whereSeparator: \.isNewline).enumerated().compactMap { index, line in
             guard !line.hasPrefix("#") else { return nil }
             let parts = PgPass.fields(String(line))
@@ -29,7 +29,7 @@ enum ImportFiles {
     static func pgService(_ home: URL) -> [ImportEntry] {
         let path =
             ProcessInfo.processInfo.environment["PGSERVICEFILE"] ?? home.appendingPathComponent(".pg_service.conf").path
-        guard let text = ImportReaders.text(URL(fileURLWithPath: path)) else { return [] }
+        guard let text = String(contentsIfAny: URL(fileURLWithPath: path)) else { return [] }
         return ini(text).compactMap { name, v in
             guard let host = v["host"] ?? v["hostaddr"] else { return nil }
             var db = DatabaseInfo(
@@ -48,7 +48,7 @@ enum ImportFiles {
     /// Reads MySQL's client settings in ~/.my.cnf. The `[client]` and `[mysql]` sections together make one connection,
     /// and `[mysql]` wins where both set a key.
     static func myCnf(_ home: URL) -> [ImportEntry] {
-        guard let text = ImportReaders.text(home.appendingPathComponent(".my.cnf")) else { return [] }
+        guard let text = String(contentsIfAny: home.appendingPathComponent(".my.cnf")) else { return [] }
         let sections = Dictionary(ini(text), uniquingKeysWith: { a, _ in a })
         let values = (sections["client"] ?? [:]).merging(sections["mysql"] ?? [:]) { _, b in b }
         guard !values.isEmpty else { return [] }

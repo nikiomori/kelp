@@ -31,11 +31,12 @@ enum DatabaseFind {
 
     /// Returns every database the files at `root` name, each name once.
     static func find(in root: String) -> [FoundDatabase] {
-        let envs = names(in: root).filter { $0 == ".env" || $0.hasPrefix(".env.") }.sorted()
+        let envs = FileManager.default.names(in: root).filter { $0 == ".env" || $0.hasPrefix(".env.") }.sorted()
         // The parts of a monorepo (api/, backend/) have their own compose files and .env, one level down.
-        let parts = names(in: root).filter { !$0.hasPrefix(".") && !skipped.contains($0) }.sorted().flatMap { dir in
-            (composeFiles + [".env"]).map { dir + "/" + $0 }
-        }
+        let parts = FileManager.default.names(in: root).filter { !$0.hasPrefix(".") && !skipped.contains($0) }.sorted()
+            .flatMap { dir in
+                (composeFiles + [".env"]).map { dir + "/" + $0 }
+            }
         let files = (composeFiles + envs + ["config/database.yml", "prisma/schema.prisma"] + parts).compactMap { name in
             read(root, name).map { (name, $0) }
         }
@@ -59,11 +60,7 @@ enum DatabaseFind {
     /// Reads `sqltools.connections` from a VS Code settings file (JSON with comments and trailing commas).
     static func sqlTools(_ text: String) -> [FoundDatabase] {
         guard text.contains("sqltools.connections") else { return [] }
-        let plain = text.split(separator: "\n", omittingEmptySubsequences: false)
-            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }.joined(separator: "\n")
-            .replacingOccurrences(of: #",(\s*[}\]])"#, with: "$1", options: .regularExpression)
-        let settings = ImportReaders.optional { try JSONSerialization.jsonObject(with: Data(plain.utf8)) }
-        let list = (settings as? [String: Any])?["sqltools.connections"] as? [[String: Any]] ?? []
+        let list = JSONC.object(text)?["sqltools.connections"] as? [[String: Any]] ?? []
         return list.compactMap { entry in
             guard let engine = ImportReaders.engine(ImportReaders.string(entry["driver"])) else { return nil }
             let name = ImportReaders.nonEmpty(entry["name"]) ?? "sqltools"
@@ -261,7 +258,7 @@ enum DatabaseFind {
         var found: [FoundDatabase] = []
         for folder in [""] + sqliteFolders {
             let dir = folder.isEmpty ? root : (root as NSString).appendingPathComponent(folder)
-            for name in names(in: dir).sorted() {
+            for name in FileManager.default.names(in: dir).sorted() {
                 guard sqliteExtensions.contains((name as NSString).pathExtension.lowercased()) else { continue }
                 let path = (dir as NSString).appendingPathComponent(name)
                 guard let engine = fileEngine(path) else { continue }
@@ -274,11 +271,6 @@ enum DatabaseFind {
             }
         }
         return found
-    }
-
-    /// Lists what a folder holds, or nothing for a folder that isn't there (most of `sqliteFolders` aren't).
-    static func names(in dir: String) -> [String] {
-        do { return try FileManager.default.contentsOfDirectory(atPath: dir) } catch { return [] }
     }
 
     /// Tells what a file is by its first bytes: SQLite's header, or DuckDB's ("DUCK" at byte 8).
