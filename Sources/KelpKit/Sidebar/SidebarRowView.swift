@@ -79,20 +79,8 @@ final class SidebarRowView: NSTableRowView {
     var lit = false { didSet { if lit != oldValue { showHover() } } }
 
     private func showHover() {
-        let to: Float = (hovering || menuTarget || lit) && !isSelected ? 1 : 0
-        let from = hoverLayer.presentation()?.opacity ?? hoverLayer.opacity
-        // Turn off the layer's own 0.25 s change, because it showed again under the fade below once that ended.
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        hoverLayer.opacity = to
-        CATransaction.commit()
-        guard !Motion.reduced, from != to else { return }
-        let fade = CABasicAnimation(keyPath: "opacity")
-        fade.fromValue = from
-        fade.toValue = to
-        fade.duration = Motion.fast
-        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        hoverLayer.add(fade, forKey: "fade")
+        // `animate` turns off the layer's own 0.25 s change, which showed again under the fade once that ended.
+        hoverLayer.animate("opacity", to: Float((hovering || menuTarget || lit) && !isSelected ? 1 : 0))
     }
 
     /// A card takes 6 pt above a project's first row and below its last, 2 pt of it inside, so cards sit 8 pt apart.
@@ -284,18 +272,8 @@ final class ProjectCard: NSView {
     private func showGlow() {
         guard let layer else { return }
         let to: Float = glowing && look.color != nil && look.remote == nil ? Self.glowOpacity : 0
-        let from = layer.presentation()?.shadowOpacity ?? layer.shadowOpacity
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        layer.shadowOpacity = to
-        CATransaction.commit()
-        guard !Motion.reduced, from != to else { return }
-        let animation = CABasicAnimation(keyPath: "shadowOpacity")
-        animation.fromValue = from
-        animation.toValue = to
-        animation.duration = to > 0 ? Motion.glowIn : Motion.glowOut
-        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        layer.add(animation, forKey: "glow")
+        layer.animate(
+            "shadowOpacity", to: to, duration: to > 0 ? Motion.glowIn : Motion.glowOut, timing: .easeInEaseOut)
     }
     required init?(coder: NSCoder) { fatalError() }
 

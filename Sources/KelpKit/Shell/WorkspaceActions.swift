@@ -232,14 +232,9 @@ package struct WorkspaceActions {
         panel.message = String(localized: "Where is “\(repo.name)” now?")
         panel.prompt = String(localized: "Choose")
         panel.directoryURL = URL(fileURLWithPath: (repo.path as NSString).deletingLastPathComponent)
-        let chosen = { (resp: NSApplication.ModalResponse) in
-            guard resp == .OK, let url = panel.url else { return }
-            Task { await app.call(RepoRelocate(id: repo.id, path: url.path)) }
-        }
-        if let host = NSApp.mainWindow {
-            panel.beginSheetModal(for: host, completionHandler: chosen)
-        } else {
-            panel.begin(completionHandler: chosen)
+        Task {
+            guard await runSheet(panel) == .OK, let url = panel.url else { return }
+            await app.call(RepoRelocate(id: repo.id, path: url.path))
         }
     }
 

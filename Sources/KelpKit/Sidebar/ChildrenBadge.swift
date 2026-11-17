@@ -29,14 +29,7 @@ final class ChildrenBadge: PointerControl {
         count.textColor = .secondaryLabelColor
         let row = NSStackView(views: [pips, count])
         row.spacing = Metrics.lineGap
-        row.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(row)
-        NSLayoutConstraint.activate([
-            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
-            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
-            row.topAnchor.constraint(equalTo: topAnchor, constant: 2),
-            row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2)
-        ])
+        pin(row, inset: NSEdgeInsets(top: 2, left: 2, bottom: 2, right: 2))
         setContentCompressionResistancePriority(.required, for: .horizontal)
         setContentHuggingPriority(.required, for: .horizontal)
         setAccessibilityElement(true)

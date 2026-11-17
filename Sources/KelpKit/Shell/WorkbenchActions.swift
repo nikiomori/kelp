@@ -262,15 +262,10 @@ extension Workbench {
         panel.canCreateDirectories = true
         panel.message = String(localized: "Choose a project folder, or make a new one")
         panel.prompt = String(localized: "Add Project")
-        let chosen = { [self] (response: NSApplication.ModalResponse) in
-            guard response == .OK, let url = panel.url else { return }
-            addProject(path: url.path)
-        }
         // A sheet on the window, not an app-modal panel that stops everything else.
-        if let host = NSApp.mainWindow ?? NSApp.keyWindow {
-            panel.beginSheetModal(for: host, completionHandler: chosen)
-        } else {
-            panel.begin(completionHandler: chosen)
+        Task {
+            guard await runSheet(panel) == .OK, let url = panel.url else { return }
+            addProject(path: url.path)
         }
     }
 

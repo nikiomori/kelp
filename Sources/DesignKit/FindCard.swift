@@ -19,7 +19,7 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
     public var onSelectAll: (() -> Void)?
     /// The field's width, which a Replace field below matches.
     public static let fieldWidth: CGFloat = 190
-    private var pending: DispatchWorkItem?
+    private let pending = Debounce()
     /// The match count and the selected match, set by the owner; -1 while it's still counting.
     public var total = -1 { didSet { updateCount() } }
     public var selected = -1 { didSet { updateCount() } }
@@ -98,15 +98,12 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
 
     // One or two letters match half the scrollback, so the search for them waits for a pause.
     public func controlTextDidChange(_ notification: Notification) {
-        pending?.cancel()
+        pending.cancel()
         guard field.stringValue.count < 3, !field.stringValue.isEmpty else {
             search()
             return
         }
-        // Runs on the main queue below.
-        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.search() } }
-        pending = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
+        pending.after(0.3) { [weak self] in self?.search() }
     }
     private func search() {
         total = -1
@@ -137,7 +134,7 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
 
     @objc private func stepped() { onStep?(steps.selectedSegment == 1) }
     @objc public func close() {
-        pending?.cancel()
+        pending.cancel()
         isHidden = true
         onClose?()
     }

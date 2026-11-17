@@ -240,7 +240,7 @@ final class EditorArea: NSViewController {
             return
         }
         if outerHint.superview !== view { view.addSubview(outerHint, positioned: .above, relativeTo: nil) }
-        var frame = view.bounds.insetBy(dx: 6, dy: 6)
+        let frame = view.bounds.insetBy(dx: 6, dy: 6)
         // The new pane's share once added: one more beside the panes already split along that side.
         let vertical = edge == .minX || edge == .maxX
         let count: CGFloat = {
@@ -250,17 +250,7 @@ final class EditorArea: NSViewController {
                 2
             }
         }()
-        switch edge {
-        case .minX: frame.size.width /= count
-        case .maxX:
-            frame.origin.x += frame.width * (count - 1) / count
-            frame.size.width /= count
-        case .minY: frame.size.height /= count
-        default:
-            frame.origin.y += frame.height * (count - 1) / count
-            frame.size.height /= count
-        }
-        outerHint.frame = frame
+        outerHint.frame = frame.share(1 / count, from: edge)
         outerHint.isHidden = false
     }
 

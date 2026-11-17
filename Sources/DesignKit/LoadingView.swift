@@ -19,14 +19,7 @@ public final class LoadingView: NSView {
         skeleton = rows ? SkeletonRows() : nil
         super.init(frame: .zero)
         if let skeleton {
-            skeleton.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(skeleton)
-            NSLayoutConstraint.activate([
-                skeleton.topAnchor.constraint(equalTo: topAnchor),
-                skeleton.bottomAnchor.constraint(equalTo: bottomAnchor),
-                skeleton.leadingAnchor.constraint(equalTo: leadingAnchor),
-                skeleton.trailingAnchor.constraint(equalTo: trailingAnchor)
-            ])
+            pin(skeleton)
             setAccessibilityElement(true)
             setAccessibilityRole(.progressIndicator)
             isHidden = true

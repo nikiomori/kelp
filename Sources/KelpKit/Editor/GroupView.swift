@@ -139,17 +139,7 @@ final class GroupView: NSView {
     }
     private func showHint(_ edge: NSRectEdge?) {
         var hintFrame = container.frame.insetBy(dx: 6, dy: 6)
-        switch edge {
-        case .minX?: hintFrame.size.width /= 2
-        case .maxX?:
-            hintFrame.origin.x += hintFrame.width / 2
-            hintFrame.size.width /= 2
-        case .minY?: hintFrame.size.height /= 2
-        case .maxY?:
-            hintFrame.origin.y += hintFrame.height / 2
-            hintFrame.size.height /= 2
-        default: break
-        }
+        if let edge { hintFrame = hintFrame.share(1 / 2, from: edge) }
         // The hint fades in where it's needed, then glides from half to whole, as the drop's insertion mark does.
         if hint.isHidden {
             hint.frame = hintFrame
@@ -202,4 +192,13 @@ final class GroupView: NSView {
 /// Paints over the content without taking its clicks.
 private class Veil: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+extension NSRect {
+    /// The `fraction` of the rect along `edge`'s side, starting at that edge: where a dropped tab's pane goes.
+    func share(_ fraction: CGFloat, from edge: NSRectEdge) -> NSRect {
+        let across = edge == .minX || edge == .maxX ? width : height
+        return divided(atDistance: across * fraction, from: CGRectEdge(rawValue: UInt32(edge.rawValue)) ?? .minXEdge)
+            .slice
+    }
 }

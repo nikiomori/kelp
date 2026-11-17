@@ -200,8 +200,8 @@ import Testing
     let waits = try matches(#"\.asyncAfter\("#, in: appDirs)
     // +2 that are timers, not waits: a command the user's page holds gives up (`AgentDrive.handedBack`), and the strip
     // asks whether to hand a page back that the user left alone (`BrowserTab.remindAfter`).
-    #expect(waits.count <= 20, "a wait in place of the event that says it's ready: \(waits)")
-    #expect(waits.count >= 20, "\(waits.count) now: lower this")
+    #expect(waits.count <= 19, "a wait in place of the event that says it's ready: \(waits)")
+    #expect(waits.count >= 19, "\(waits.count) now: lower this")
 }
 
 /// A test waits for what it waits on (`waitFor`), not for a time: a sleep guesses how long something takes, too long on

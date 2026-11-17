@@ -15,13 +15,7 @@ final class Chip: NSView {
         count.textColor = .secondaryLabelColor
         let stack = NSStackView(views: [icon, count])
         stack.spacing = 2
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stack.topAnchor.constraint(equalTo: topAnchor), stack.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
+        pin(stack)
         // An NSStackView keeps to the size of its views only with this, and a view around one has no size of its own.
         stack.setHuggingPriority(.required, for: .horizontal)
         stack.setClippingResistancePriority(.required, for: .horizontal)

@@ -201,6 +201,14 @@ import WorkbenchKit
     #expect(Values(1, "a", [true]) != Values(2, "a", [true]))
 }
 
+/// A dropped tab's hint covers its pane's share of the area, from the edge it goes to.
+@Test func aDropHintIsItsPanesShareFromTheEdge() {
+    let area = NSRect(x: 0, y: 0, width: 90, height: 60)
+    #expect(area.share(1 / 3, from: .maxX) == NSRect(x: 60, y: 0, width: 30, height: 60))
+    #expect(area.share(1 / 2, from: .minY) == NSRect(x: 0, y: 0, width: 90, height: 30))
+    #expect(area.share(1 / 2, from: .maxY) == NSRect(x: 0, y: 30, width: 90, height: 30))
+}
+
 /// Past the newest four, editor areas go; one with unsaved files stays listed, and goes on a later switch once saved.
 @MainActor @Test func anAreaKeptForUnsavedFilesGoesOnceSaved() {
     var unsaved: Set<String> = ["e"]
