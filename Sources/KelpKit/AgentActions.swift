@@ -26,7 +26,7 @@ package struct AgentActions {
     /// Same command in the same tab; resumes the conversation when the agent supports it.
     package func restart(_ sid: String) {
         Task {
-            app.restarting.insert(sid)
+            guard app.restarting.insert(sid).inserted else { return }   // a second click while it restarts
             defer { app.restarting.remove(sid) }   // its tab is kept for the new one
             guard let session = await app.call(SessionRestart(id: sid)) else { return }
             app.sessions.removeAll { $0.id == sid }

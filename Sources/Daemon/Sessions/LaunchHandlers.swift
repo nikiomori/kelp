@@ -63,7 +63,11 @@ extension SessionRestart: Handled {
     var fence: Fence { Fence(actsOn: id) }   // it stops the session, and may brief it anew
     func handle(_ sessions: Sessions) throws -> Session {
         guard try sessions.store.session(id) != nil else { throw RPCError.invalidParams("no session") }
-        sessions.reports.restarting(id, true)   // it comes back: its children stay, and its parent hears nothing
+        // It comes back: its children stay, and its parent hears nothing. One restart at a time: a second one meanwhile
+        // would find the old record still there and start a second copy of the conversation.
+        guard sessions.reports.restarting(id, true) else {
+            throw RPCError.invalidParams("It's restarting already: wait for its new tab.")
+        }
         defer { sessions.reports.restarting(id, false) }
         // One copy of the conversation at a time: the resumed agent starts once the old one is gone (SIGKILL after 2 s).
         // Under its wake lock, and a paused one marked ended there: a tab opening it meanwhile can't wake a second copy.

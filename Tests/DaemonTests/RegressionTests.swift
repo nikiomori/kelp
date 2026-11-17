@@ -130,6 +130,24 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     _ = try await w.c.call("session.kill", .obj(["id": .string(r.id)]))
 }
 
+/// Two restarts at once (a double click): one starts the new copy, the other is refused while the old one takes its
+/// 2 s to go, rather than finding the old record still there and starting a second copy of the conversation.
+@Test func twoRestartsAtOnceStartOneCopy() async throws {
+    let stubborn = AgentManifest(
+        id: "stubborn", name: "Stubborn", command: "/bin/bash", args: ["-c", stubbornScript, "x"],
+        resumeArgs: ["--resume"])
+    let w = try await world(agents: [stubborn])
+    defer { w.d.stop() }
+    let wt = try await workspace(w, "restart2")
+    let s = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "stubborn"))
+    #expect(try await waitFor(10) { (try await w.c.call(SessionRead(id: s.id))).contains("up") })
+    async let first = try? w.c.call(SessionRestart(id: s.id))
+    async let second = try? w.c.call(SessionRestart(id: s.id))
+    let made = await [first, second].compactMap { $0 }
+    #expect(made.count == 1, "restarted \(made.count) times")
+    for session in made { _ = try await w.c.call(SessionKill(id: session.id)) }
+}
+
 /// Removing a project ends its programs, stubborn ones too: nothing keeps running out of sight. All at once: each
 /// stubborn one takes the 2 s to SIGKILL, and one after another three would hold the user up for 6. Each notes its
 /// hangup and, while it lasts, whether all three have had theirs: one after another, the first is gone before the

@@ -45,8 +45,10 @@ final class ChildReports: Sendable {
         ended(id)
     }
 
-    func restarting(_ id: String, _ on: Bool) {
-        state.withLock { if on { $0.restarting.insert(id) } else { $0.restarting.remove(id) } }
+    /// Marks it restarting, or unmarks it; false when it already was: a second restart meanwhile would start a second copy.
+    @discardableResult
+    func restarting(_ id: String, _ on: Bool) -> Bool {
+        state.withLock { on ? $0.restarting.insert(id).inserted : $0.restarting.remove(id) != nil }
     }
     func isRestarting(_ id: String) -> Bool { state.withLock { $0.restarting.contains(id) } }
 
