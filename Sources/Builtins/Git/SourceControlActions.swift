@@ -216,31 +216,16 @@ extension SourceControlController {
     @objc func branchMenu() {
         guard let info else { return }
         let menu = NSMenu()
-        for branch in info.local {
-            let item = menu.add(branch) { [weak self] in self?.run { GitSwitch(id: $0, branch: branch) } }
-            item.state = branch == info.current ? .on : .off
-        }
-        if !info.remote.isEmpty {
+        menu.addBranches(info) { [weak self] menu in
+            guard !info.remote.isEmpty else { return }
             let sub = NSMenu()
             for branch in info.remote {
-                sub.add(branch) { [weak self] in self?.run { GitSwitch(id: $0, branch: branch, remote: true) } }
+                sub.add(branch) { self?.run { GitSwitch(id: $0, branch: branch, remote: true) } }
             }
             menu.addItem(.separator())
-            let remoteItem = menu.addItem(
-                withTitle: String(localized: "Remote Branches"), action: nil, keyEquivalent: "")
-            remoteItem.submenu = sub
-        }
-        menu.addItem(.separator())
-        menu.add(String(localized: "Create Branch…")) { [weak self] in
-            Task {
-                guard
-                    let name = await prompt(
-                        String(localized: "Create Branch"),
-                        String(localized: "Starts from \(info.current ?? "HEAD") and switches to it.")),
-                    !name.isEmpty
-                else { return }
-                self?.run { GitSwitch(id: $0, branch: name, create: true) }
-            }
+            menu.add(String(localized: "Remote Branches"), submenu: sub)
+        } pick: { [weak self] branch, create in
+            self?.run { GitSwitch(id: $0, branch: branch, create: create ? true : nil) }
         }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: branchButton.bounds.height + 4), in: branchButton)
     }

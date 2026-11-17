@@ -272,20 +272,7 @@ extension SyncPopover {
         changes.attributedStringValue = NSAttributedString(
             string: String(localized: "Changes") + (changed > 0 ? " · \(changed)" : ""),
             attributes: Self.captionAttributes)
-        let text = NSMutableAttributedString()
-        if changed > 0, let totals = git?.stats {
-            let mono = NSFont.monospacedSystemFont(ofSize: TextSize.of(11), weight: .regular)
-            for (count, sign, color) in [
-                (totals.totalAdded, "+", NSColor.textGreen), (totals.totalRemoved, "−", .textRed)
-            ]
-            where count > 0 {
-                text.append(
-                    NSAttributedString(
-                        string: (text.length > 0 ? "  " : "") + "\(sign)\(count)",
-                        attributes: [.font: mono, .foregroundColor: color]))
-            }
-        }
-        stats.attributedStringValue = text
+        stats.attributedStringValue = (changed > 0 ? GitFolders.changes(git?.stats) : nil) ?? NSAttributedString()
         showFiles(list)
         field.isHidden = changed == 0
         nothing.isHidden = changed > 0

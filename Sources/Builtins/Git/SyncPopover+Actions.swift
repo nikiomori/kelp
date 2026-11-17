@@ -105,17 +105,8 @@ extension SyncPopover {
     @objc func switchMenu() {
         guard let info = app.latest(GitEvent.self, folder)?.branches else { return }
         let menu = NSMenu(), wid = wid
-        for branch in info.local {
-            menu.add(branch) { [weak self] in self?.switchBranch(GitSwitch(id: wid, branch: branch)) }.state =
-                branch == info.current ? .on : .off
-        }
-        menu.addItem(.separator())
-        menu.add(String(localized: "Create Branch…")) { [weak self] in
-            Task {
-                let starts = String(localized: "Starts from \(info.current ?? "HEAD") and switches to it.")
-                guard let name = await prompt(String(localized: "Create Branch"), starts), !name.isEmpty else { return }
-                self?.switchBranch(GitSwitch(id: wid, branch: name, create: true))
-            }
+        menu.addBranches(info) { [weak self] branch, create in
+            self?.switchBranch(GitSwitch(id: wid, branch: branch, create: create ? true : nil))
         }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: name.bounds.height + 4), in: name)
     }
@@ -124,6 +115,26 @@ extension SyncPopover {
         Task {
             await app.call(request)
             app.watchAgain(.git, folder)   // updates the chip now, not on the next file event
+        }
+    }
+}
+
+@MainActor
+extension NSMenu {
+    /// The local branches to switch to, the current one ticked, then `more` (Source Control's remote branches) and
+    /// Create Branch…, which asks for the new branch's name. `pick` gets the branch, and true for one to create.
+    func addBranches(
+        _ info: BranchInfo, more: (NSMenu) -> Void = { _ in }, pick: @escaping @MainActor (String, Bool) -> Void
+    ) {
+        for branch in info.local { add(branch) { pick(branch, false) }.state = branch == info.current ? .on : .off }
+        more(self)
+        addItem(.separator())
+        add(String(localized: "Create Branch…")) {
+            Task {
+                let starts = String(localized: "Starts from \(info.current ?? "HEAD") and switches to it.")
+                guard let name = await prompt(String(localized: "Create Branch"), starts), !name.isEmpty else { return }
+                pick(name, true)
+            }
         }
     }
 }
