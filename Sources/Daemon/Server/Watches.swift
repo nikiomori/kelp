@@ -20,6 +20,7 @@ final class Watches: Sendable {
         var tag: String?   // context: the session's status at the last read
         var quiet = 0   // reads in a row that found nothing new
         var topic: Topic?   // what it is, asked once as it begins
+        var failure: String?   // why its last read failed, as the log said it
     }
     private let entries = OSAllocatedUnfairLock<[Key: Entry]>(initialState: [:])
     private let closed = OSAllocatedUnfairLock(initialState: false)
@@ -134,6 +135,20 @@ final class Watches: Sendable {
     }
 
     /// Something says it may have changed (a session's status, for its context): read again if it did.
+    /// A read of `key` that failed: in the log when its reason is new for this watch, not again at every read.
+    func failed(_ key: Key, _ reason: String) {
+        let new = entries.withLock { byKey -> Bool in
+            guard byKey[key] != nil, byKey[key]?.failure != reason else { return false }
+            byKey[key]?.failure = reason
+            return true
+        }
+        if new {
+            Log.rpc.error(
+                "watching \(key.topic.rawValue, privacy: .public) \(key.key, privacy: .public): \(reason, privacy: .public)"
+            )
+        }
+    }
+
     func touched(_ key: Key, tag: String) {
         let go = entries.withLock { byKey -> Bool in
             guard var entry = byKey[key], entry.tag != tag else { return false }

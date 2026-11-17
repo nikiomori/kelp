@@ -97,13 +97,14 @@ final class Forges: Sendable {
 
     /// Move a linked Linear issue to a workflow state kind; quiet no-op without a key or link.
     func moveLinear(_ worktree: Worktree, to kind: LinearClient.StateKind) async {
-        guard !worktree.linearIssueId.isEmpty, let client = await client("Linear", linearClient),
+        guard !worktree.linearIssueId.isEmpty, let client = await client("Linear", linearClient) else { return }
+        do {
             // Limit: finds the team via my issues; query the issue by id if tasks assigned to others need moving
-            let issue = try? await client.myIssues().first(where: { $0.id == worktree.linearIssueId }) ?? nil,
-            let states = try? await client.workflowStates(teamId: issue.team.id),
-            let st = LinearClient.stateFor(kind: kind, in: states)
-        else { return }
-        do { try await client.setState(issueId: worktree.linearIssueId, stateId: st.id) } catch {
+            guard let issue = try await client.myIssues().first(where: { $0.id == worktree.linearIssueId }),
+                let st = LinearClient.stateFor(kind: kind, in: try await client.workflowStates(teamId: issue.team.id))
+            else { return }
+            try await client.setState(issueId: worktree.linearIssueId, stateId: st.id)
+        } catch {
             Log.rpc.notice("Linear issue \(worktree.linearIssueId, privacy: .public) didn't move: \(error)")
         }
     }

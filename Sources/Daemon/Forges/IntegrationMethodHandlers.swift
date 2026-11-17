@@ -84,11 +84,11 @@ extension GitHubBranchPR: Handled {
         let workspace = try forges.store.worktree(named: worktreeId), branch = forges.checkedOut(workspace),
             key = workspace.path + "@" + branch
         if let hit = forges.prCache.withLock({ $0[key] }), Date().timeIntervalSince(hit.at) < 120 { return hit.value }
-        // nil: no PR, or gh couldn't tell (try? flattens to one optional)
+        // nil: no PR. gh that couldn't tell (offline, signed out) throws and isn't kept: the next read asks again.
         let request: GitHub.PullRequest? =
             switch forges.forge(workspace.path) {
-            case .gitlab: try? GitLab.mergeRequest(cwd: workspace.path, branch: branch)
-            case .github, .bitbucket: try? GitHub.pullRequest(cwd: workspace.path, branch: branch)
+            case .gitlab: try GitLab.mergeRequest(cwd: workspace.path, branch: branch)
+            case .github, .bitbucket: try GitHub.pullRequest(cwd: workspace.path, branch: branch)
             }
         forges.prCache.withLock { cache in
             // what's past its 2 min goes, not kept for the daemon's life

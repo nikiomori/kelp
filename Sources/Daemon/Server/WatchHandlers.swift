@@ -22,7 +22,7 @@ extension Daemon {
     /// A folder's pull request. Merged on the forge (a squash leaves the branch's commits out of the base): its group
     /// may be done with.
     private func prRead(_ key: String) async -> Data? {
-        let pr = (try? await ask(GitHubBranchPR(worktreeId: key))) ?? nil
+        let pr = await logged(.pr, key) { try await ask(GitHubBranchPR(worktreeId: key)) } ?? nil
         if let pr, pr.state == "MERGED" {
             let workspaces = workspaces
             workspaces.headQueue.async { workspaces.tidyBranch(key, merged: pr) }
@@ -96,10 +96,8 @@ extension Daemon {
             return Watches.Topic(backsOffFrom: 10) { [self] _ in
                 // A host is asked over ssh: less often, and as with git only while watched.
                 let remote = sessions.processes.remote(key) != nil
-                return (
-                    (try? await ask(PortsList(worktreeId: key))).flatMap { line(PortsEvent(worktree: key, ports: $0)) },
-                    remote ? 10 : 3
-                )
+                let ports = await logged(.ports, key) { try await ask(PortsList(worktreeId: key)) }
+                return (ports.flatMap { line(PortsEvent(worktree: key, ports: $0)) }, remote ? 10 : 3)
             }
         case .activity:
             return Watches.Topic { [self] _ in
@@ -127,7 +125,7 @@ extension Daemon {
         case .context:
             // A 1 MB transcript tail: while the agent works, and when its status changes (`touched`).
             return Watches.Topic { [self] _ in
-                let usage = try? await ask(SessionContextWindow(id: key))
+                let usage = await logged(.context, key) { try await ask(SessionContextWindow(id: key)) }
                 let working = sessions.existing(key)?.snapshot.status == .working
                 return (line(ContextEvent(session: key, usage: usage ?? nil)), working ? 15 : nil)
             }
@@ -135,9 +133,8 @@ extension Daemon {
         case .subagents:
             // The tail of each one at work: only while a card or a journal is open, and a transcript says nothing of itself.
             return Watches.Topic { [self] _ in
-                do {
-                    return (line(SubagentsEvent(session: key, steps: try await ask(SessionSubagentSteps(id: key)))), 3)
-                } catch { return (nil, 3) }
+                let steps = await logged(.subagents, key) { try await ask(SessionSubagentSteps(id: key)) }
+                return (steps.flatMap { line(SubagentsEvent(session: key, steps: $0)) }, 3)
             }
         case .phone: return Watches.Topic { [self] _ in await phoneRead() }
         case .limits:
@@ -145,7 +142,8 @@ extension Daemon {
             // while Kelp's window is seen: the limits still are, for their notifications and the Dock.
             return Watches.Topic { [self] _ in
                 let away = clients.uiState.away == true ? true : nil
-                return ((try? await ask(UsageGet(cachedTokens: away))).flatMap { line(LimitsEvent(usage: $0)) }, 10)
+                let usage = await logged(.limits, key) { try await ask(UsageGet(cachedTokens: away)) }
+                return (usage.flatMap { line(LimitsEvent(usage: $0)) }, 10)
             }
         case .file:
             guard key.hasPrefix("/") else { return Watches.Topic { _ in (nil, nil) } }
@@ -371,6 +369,14 @@ extension Daemon {
             }
             let last = sessions.existing(key)?.lastEdit
             return (line(EditsEvent(session: key, path: last?.path, count: last?.count ?? 0)), nil)
+        }
+    }
+
+    /// What `read` gives, or nil when it fails: the watch says nothing new then, and the log why (`Watches.failed`).
+    private func logged<T>(_ topic: WatchTopic, _ key: String, _ read: () async throws -> T) async -> T? {
+        do { return try await read() } catch {
+            watches.failed(.init(topic: topic, key: key), error.rpcMessage)
+            return nil
         }
     }
 

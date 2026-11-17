@@ -13,7 +13,8 @@ private let fakeGh: (log: String, script: String) = {
         echo "$@" >> '\(log)'
         [ -n "$GH_REPO" ] && echo "GH_REPO=$GH_REPO in $(pwd -P): $*" >> '\(log)'
         case "$1 $2" in
-          "pr list") echo '[{"author":{"login":"ada"},"headRefName":"feat/x","isDraft":false,"number":7,"reviewDecision":"APPROVED","state":"OPEN","title":"Add login","url":"https://github.com/o/r/pull/7","statusCheckRollup":[]}]';;
+          "pr list") case "$*" in *"--head gh/down"*) echo "error connecting to api.github.com" >&2; exit 1;; esac
+                     echo '[{"author":{"login":"ada"},"headRefName":"feat/x","isDraft":false,"number":7,"reviewDecision":"APPROVED","state":"OPEN","title":"Add login","url":"https://github.com/o/r/pull/7","statusCheckRollup":[]}]';;
           "issue list") echo '[{"assignees":[{"login":"ada"}],"body":"Steps","labels":[{"name":"bug"}],"number":3,"state":"OPEN","title":"Crash","url":"https://github.com/o/r/issues/3"}]';;
           "pr checks") if [ "$3" = "404" ]; then echo "no checks reported on the 'x' branch" >&2; exit 1; fi
                        echo '[{"bucket":"fail","link":"https://github.com/o/r/actions/runs/99/job/1","name":"test","state":"FAILURE","workflow":"CI"}]';;
@@ -142,6 +143,14 @@ private func rig() async throws -> World {
     #expect(first["number"]?.int == 7)
     _ = try await r.c.call("github.branchPR", .obj(["worktreeId": .string(wt.id)]))
     #expect(calls().filter { $0.contains("--head feat/x") }.count == n0 + 1)   // the second answer didn't ask gh again
+    // gh that couldn't tell isn't "no pull request" for two minutes: it says so, and the next read asks again.
+    let down = try await workspace(r, "gh/down")
+    for _ in 0..<2 {
+        await #expect(throws: (any Error).self) {
+            _ = try await r.c.call("github.branchPR", .obj(["worktreeId": .string(down.id)]))
+        }
+    }
+    #expect(calls().filter { $0.contains("--head gh/down") }.count == 2)
 }
 
 @Test func theForgeIsGithubForAPlainRepo() async throws {
