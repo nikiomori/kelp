@@ -181,7 +181,7 @@ private struct SettingsTitle: ToolbarContent {
         }
     }
     private var label: some View {
-        Text(text).font(.ui(TextSize.title, weight: .bold)).lineLimit(1).accessibilityAddTraits(.isHeader)
+        Text(text).font(.ui(TextSize.title, weight: .semibold)).lineLimit(1).accessibilityAddTraits(.isHeader)
     }
 }
 

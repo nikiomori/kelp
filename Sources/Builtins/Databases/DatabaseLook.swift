@@ -90,7 +90,7 @@ enum DatabaseLook {
             case .production: String(localized: "PROD")
             }
         let label = NSTextField(labelWithString: word)
-        label.font = .ui(9, weight: .bold)
+        label.font = .ui(TextSize.micro, weight: .bold)
         label.textColor = color(stage)
         let chip = NSView()
         chip.wantsLayer = true

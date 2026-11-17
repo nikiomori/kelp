@@ -285,9 +285,9 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         return mark
     }
 
-    /// A section's title, in capitals.
+    /// A section's title, as every section's: 11 semibold, secondary.
     static func section(_ title: String) -> NSTextField {
-        .label(title.uppercased(), font: .ui(TextSize.caption, weight: .semibold), color: .tertiaryLabelColor)
+        .label(title, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
     }
 
     static func small(_ text: String) -> NSTextField {

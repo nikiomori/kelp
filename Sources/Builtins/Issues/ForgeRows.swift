@@ -34,7 +34,7 @@ enum ForgeRows {
 
     static func heading(_ text: String) -> NSView {
         let title = NSTextField.label(
-            text.uppercased(), font: .ui(TextSize.caption, weight: .semibold), color: .tertiaryLabelColor)
+            text, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
         let row = NSStackView(views: [title, NSView()])
         row.alignment = .bottom
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 4, right: Metrics.insetTrailing)

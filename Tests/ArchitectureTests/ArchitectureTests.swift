@@ -882,7 +882,7 @@ func codeOnly(_ s: String) -> String {
     exactly(try matches(#"systemFont\(ofSize"#, in: chromeDirs), 4, "system fonts at a size")   // a tile's letters
     exactly(try matches(#"xRadius: *[0-9]"#, in: chromeDirs), 5, "drawn radii")   // icon tiles
     exactly(
-        try matches(#"\.ui(Mono|Digits)?\(\d"#, in: chromeDirs + ["Sources/DesignKit", "Sources/EditorKit"]), 4,
+        try matches(#"\.ui(Mono|Digits)?\(\d"#, in: chromeDirs + ["Sources/DesignKit", "Sources/EditorKit"]), 3,
         "text sizes")
     exactly(try matches(#"NSImage\(systemSymbolName"#, in: chromeDirs), 1, "symbols made by hand")
     // The system's text styles stay at their size whatever Text size says: SwiftUI text takes `Font.ui` too.
