@@ -35,7 +35,8 @@ import Testing
 
 /// Every method is called by a test, by its type or its name: one no test calls can break unseen. The ones no test calls
 /// yet are listed; the list only shrinks (a new method comes with its test, and one that gets a test comes off it). A
-/// call is made in code: `Name(` (not `Name.self` in a list, nor a mention in a comment) or its wire name as a string.
+/// call is made in code: `Name(` (not `Name.self` in a list, nor a mention in a comment), `Name.name` or its wire name as
+/// a string. One built only for the agent rules' tables (AgentRules*Tests.swift) or to read its `.fence` runs no handler.
 @Test func everyMethodIsCalledByATest() throws {
     let untested: Set<String> = []
     let declaration = try NSRegularExpression(
@@ -49,11 +50,16 @@ import Testing
         }
     }
     #expect(methods.count > 150, "the methods weren't found: \(methods.count)")
-    let tests = sources(["Tests"]).filter { !$0.path.hasPrefix("Tests/ArchitectureTests/") }
-    let made = try NSRegularExpression(pattern: #"\b([A-Z]\w*)\("#)
+    let tests = sources(["Tests"]).filter {
+        !$0.path.hasPrefix("Tests/ArchitectureTests/") && !$0.path.hasPrefix("Tests/DaemonTests/AgentRules")
+    }
+    let made = try NSRegularExpression(pattern: #"\b([A-Z]\w*)(?:\(|\.name\b)"#)
+    let fenceOnly = try NSRegularExpression(pattern: #"\b[A-Z]\w*\((?:[^()]|\([^()]*\))*\)\.fence\b"#)
     let names = Set(
         tests.flatMap { f in
-            let code = codeOnly(f.text)
+            let all = codeOnly(f.text)
+            let code = fenceOnly.stringByReplacingMatches(
+                in: all, range: NSRange(all.startIndex..., in: all), withTemplate: "")
             return made.matches(in: code, range: NSRange(code.startIndex..., in: code)).compactMap {
                 Range($0.range(at: 1), in: code).map { String(code[$0]) }
             }
@@ -205,5 +211,25 @@ import Testing
         let code = codeOnly(f.text)
         return sleep.numberOfMatches(in: code, range: NSRange(code.startIndex..., in: code))
     }.reduce(0, +)
-    #expect(count == 29, "sleeps in the tests: wait for the event instead (`waitFor`), or lower the count")
+    #expect(count == 28, "sleeps in the tests: wait for the event instead (`waitFor`), or lower the count")
+}
+
+/// What `try?` drops, spelled out: a `catch {}` or `catch { return nil }` (`failuresAreNotSwallowed` counts the `try?`s).
+/// Each module's count is a ceiling that holds both ways.
+@Test func emptyCatchesAreCounted() throws {
+    let ceilings = [
+        "Daemon": 19, "Core": 10, "Builtins": 7, "kelp": 1, "KelpVM": 1, "Agents": 1, "LSPKit": 1, "AgentData": 1
+    ]
+    let modules = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Sources").path)
+        .filter { !$0.hasPrefix(".") }
+    let emptyCatch = try NSRegularExpression(pattern: #"catch\s*\{\s*(?:return nil\s*)?\}"#)
+    for module in modules {
+        let ceiling = ceilings[module] ?? 0
+        let n = sources(["Sources/" + module]).map { f in
+            let code = codeOnly(f.text)
+            return emptyCatch.numberOfMatches(in: code, range: NSRange(code.startIndex..., in: code))
+        }.reduce(0, +)
+        #expect(n <= ceiling, "empty catches in \(module): \(n), over its ceiling")
+        #expect(n >= ceiling, "empty catches in \(module): \(n), under its ceiling \(ceiling): lower it")
+    }
 }

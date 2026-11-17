@@ -429,10 +429,18 @@ let wrappedRows = [
     #expect(try await waitFor(15) { v.visibleText.contains("300") })
     var shown: [String] = []
     v.onHoverWord = { texts, _ in shown += texts }
-    let move = try #require(
-        NSEvent.mouseEvent(
-            with: .mouseMoved, location: v.convert(NSPoint(x: 16, y: 40), to: nil), modifierFlags: [], timestamp: 0,
-            windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0))
+    func moved(to point: NSPoint) throws -> NSEvent {
+        try #require(
+            NSEvent.mouseEvent(
+                with: .mouseMoved, location: v.convert(point, to: nil), modifierFlags: [], timestamp: 0,
+                windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0))
+    }
+    let move = try moved(to: NSPoint(x: 16, y: 40))
+    // Left at rest there, the word's preview comes: what the scroll below takes away is there to take.
+    v.mouseMoved(with: move)
+    #expect(try await waitFor(5) { !shown.isEmpty })
+    v.mouseMoved(with: try moved(to: NSPoint(x: 390, y: 190)))   // off it: that preview ends
+    shown = []
     v.mouseMoved(with: move)
     let scroll = try #require(
         CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: 1, wheel2: 0, wheel3: 0)

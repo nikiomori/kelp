@@ -473,6 +473,7 @@ import os
     try Data("tar: broken".utf8).write(to: folder.appendingPathComponent("failed"))
     await #expect(throws: (any Error).self) { _ = try await c.call(VMConnect(name: "deb", cwd: nil)) }
     await #expect(throws: (any Error).self) { _ = try await c.call(VMConnect(name: "none", cwd: nil)) }
+    await #expect(throws: (any Error).self) { _ = try await c.call(VMControl(name: "none", action: .sleep)) }
 }
 
 /// An agent's vm.create asks the user on its row first (as a database change does): Deny refuses it, Allow goes on to

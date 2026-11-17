@@ -43,12 +43,24 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
 
 /// One way to the daemon, through AppModel: `call` (a banner), `tryCall` / `get` (the panel's error state) or `quiet`
 /// (decorations, which say so). `try?` around a call turned a failure into an empty list; the raw client skipped all of it.
-/// AppModel.swift itself is the way, and DaemonLink.swift manages the connection, so they aren't counted.
+/// AppModel.swift itself is the way, DaemonLink.swift manages the connection and Watching.swift tells each connection
+/// its watches, so they aren't counted. A call on anything but the app (`app.`, `model.`, AppModel's `self`) is the raw
+/// client, whatever its name.
 @Test func daemonErrorsAreNotSwallowed() throws {
-    let way = ["Sources/KelpKit/Model/AppModel.swift:", "Sources/KelpKit/Model/DaemonLink.swift:"]
+    let way = [
+        "Sources/KelpKit/Model/AppModel.swift:", "Sources/KelpKit/Model/DaemonLink.swift:",
+        "Sources/KelpKit/Model/Watching.swift:"
+    ]
     func outside(_ found: [String]) -> [String] { found.filter { f in !way.contains { f.hasPrefix($0) } } }
     let swallowed = outside(try matches(#"try\? await (?:[^=\n]*\.)?(call|get|tryCall)\("#, in: appDirs))
-    let raw = outside(try matches(#"\bclient\??\.(?:call|notify)\(|\bc\??\.call\("#, in: appDirs))
+    let receiver = try NSRegularExpression(pattern: #"(?<![\w.?])(?!(?:app|model|self)\b)\w+\??\.(?:call|notify)\("#)
+    let raw = outside(
+        sources(appDirs).flatMap { f in
+            let code = codeOnly(f.text)
+            return receiver.matches(in: code, range: NSRange(code.startIndex..., in: code)).map { m in
+                "\(f.path):\(code[..<(Range(m.range, in: code)?.lowerBound ?? code.startIndex)].filter { $0 == "\n" }.count + 1)"
+            }
+        })
     #expect(swallowed == [], "try? around a call: \(swallowed)")
     #expect(raw == [], "the client called directly: \(raw)")
 }

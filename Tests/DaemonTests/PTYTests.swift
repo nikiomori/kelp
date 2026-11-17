@@ -382,8 +382,11 @@ final class Box: @unchecked Sendable {
         cols: parts[1], rows: parts[0], trampoline: kelp)
     term.start()
     defer { term.kill() }
-    // Its shell reads the size after each 0.1 s sleep, so it may see the two changes as one, at the size it had.
-    #expect(try await waitFor(10) { try await sizes() > before })
-    try await Task.sleep(for: .milliseconds(300))
-    #expect(try await read().components(separatedBy: "SIZE=").last?.hasPrefix(String(size)) == true)
+    // Its shell reads the size after each 0.1 s sleep, so it may see the two changes as one, at the size it had: either
+    // way the last it says is that size (left a row short, it never would be).
+    #expect(
+        try await waitFor(10) {
+            let said = try await read().components(separatedBy: "SIZE=")
+            return said.count > before && said.last?.hasPrefix(String(size)) == true
+        })
 }

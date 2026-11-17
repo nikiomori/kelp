@@ -162,3 +162,13 @@ private func folder(_ files: [String: String]) throws -> URL {
     #expect(LiveSession.browsing("click e12", [asking, quoted], all) == "desktop")
     #expect(LiveSession.browsing("info", [asking, opening], all) == nil)   // two run it, neither said so: the agent's
 }
+
+/// `kelp browser ask` asks on a session's row: from outside any session, it says where it runs instead of asking nobody.
+@Test func aBrowserAskOutsideASessionSaysWhereItRuns() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let wt = try await firstWorkspace(w)
+    await #expect {
+        _ = try await w.c.call(UIBrowserAsk(question: "Sign in", worktreeId: wt.id))
+    } throws: { ($0 as? RPCError)?.message.contains("runs in a session of Kelp's") == true }
+}

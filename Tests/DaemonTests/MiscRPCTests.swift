@@ -194,9 +194,12 @@ func trustQuestionStandIn() -> String {
     try Git.run(["commit", "-qm", "only here"], cwd: wt.path, remotes: .none)
     #expect(try await w.c.call("worktree.unmerged", .obj(["id": .string(wt.id)])).int == 1)
     await #expect(throws: (any Error).self) { _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id)])) }
-    #expect(FileManager.default.fileExists(atPath: wt.path + "/n.txt") && Git.branchExists(w.repo.path, "feat/work", remotes: .none))   // nothing was removed
+    #expect(
+        FileManager.default.fileExists(atPath: wt.path + "/n.txt")
+            && Git.branchExists(w.repo.path, "feat/work", remotes: .none))   // nothing was removed
     _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id), "dropCommits": true]))   // the user said so
-    #expect(!FileManager.default.fileExists(atPath: wt.path) && !Git.branchExists(w.repo.path, "feat/work", remotes: .none))
+    #expect(
+        !FileManager.default.fileExists(atPath: wt.path) && !Git.branchExists(w.repo.path, "feat/work", remotes: .none))
 }
 
 @Test func aBranchWhoseCommitsArePushedIsSafeToDelete() async throws {
@@ -442,17 +445,20 @@ func trustQuestionStandIn() -> String {
     var tv = timeval(tv_sec: 1, tv_usec: 0)
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
     Unix.writeAll(fd, try Wire.line(RPCRequest(id: nil, method: "session.stream", params: .obj(["id": .string(s.id)]))))
-    var buf = [UInt8](repeating: 0, count: 65536)
-    func readsUntilEnd(_ seconds: Double) -> Bool {   // true: the daemon closed the stream
+    var buf = [UInt8](repeating: 0, count: 65536), streamed = ""
+    // true: the daemon closed the stream; `screen`: until the agent's screen came, as it does once attached
+    func readsUntilEnd(_ seconds: Double, screen: Bool = false) -> Bool {
         let end = Date().addingTimeInterval(seconds)
         while Date() < end {
             let n = read(fd, &buf, buf.count)
             if n == 0 { return true }
+            if n > 0 { streamed += String(decoding: buf[0..<n], as: UTF8.self) }
             if n < 0, errno != EAGAIN, errno != EINTR { return true }
+            if screen, streamed.contains("up") { return false }
         }
         return false
     }
-    #expect(!readsUntilEnd(1.5))   // attached: it streams
+    #expect(!readsUntilEnd(5, screen: true) && streamed.contains("up"))   // attached: it streams
     _ = try await w.c.call("worktree.archive", .obj(["id": .string(wt.id)]))
     #expect(readsUntilEnd(5))
     #expect(
@@ -562,7 +568,9 @@ func trustQuestionStandIn() -> String {
     let shown = try #require(try Git.diff(wt.path, source: .unstaged, file: "a.txt", remotes: .none).first?.hunks.first)
     // An agent rewrites the line a moment later: same counts, so the same "@@" header.
     try "hello\nwritten by the agent\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
-    #expect(try Git.diff(wt.path, source: .unstaged, file: "a.txt", remotes: .none).first?.hunks.first?.header == shown.header)
+    #expect(
+        try Git.diff(wt.path, source: .unstaged, file: "a.txt", remotes: .none).first?.hunks.first?.header
+            == shown.header)
     await #expect(throws: (any Error).self) {
         _ = try await w.c.call(
             GitDiscardHunk(id: wt.id, file: "a.txt", hunk: 0, header: shown.header, fingerprint: shown.fingerprint))
