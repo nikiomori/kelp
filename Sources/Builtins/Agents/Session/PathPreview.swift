@@ -16,12 +16,8 @@ enum TerminalPaths {
     /// file, since an agent may name another project's files.
     static func resolve(_ token: String, cwd: String, elsewhere: [String] = []) -> (path: String, line: Int?)? {
         guard !token.contains("://") || token.hasPrefix("file://") else { return nil }   // Ghostty opens URLs itself
-        var text = token.hasPrefix("file://") ? (URL(string: token)?.path ?? token) : token
-        while let trailing = text.last, ".:;!?".contains(trailing) { text.removeLast() }   // Ghostty's links take the "." that ends a sentence
-        if text.hasPrefix("@") { text.removeFirst() }   // "@src/x.ts" (an agent's mention)
-        let parts = text.split(separator: ":", omittingEmptySubsequences: false)
-        let line = parts.count > 1 ? Int(parts[1]) : nil
-        let raw = (String(parts[0]) as NSString).expandingTildeInPath
+        let (named, line) = split(token)
+        let raw = (named as NSString).expandingTildeInPath
         guard raw.contains("/") || raw.contains(".") else { return nil }   // a word, not a path
         for candidate in [raw, raw.hasPrefix("a/") || raw.hasPrefix("b/") ? String(raw.dropFirst(2)) : nil].compactMap({
             $0
@@ -54,8 +50,18 @@ enum TerminalPaths {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: found.path)])
             return true
         }
-        app.workbench.open(TabURI.file(found.path) + (found.line.map { "#L\($0)" } ?? ""))
+        app.workbench.open(TabURI.file(found.path, line: found.line))
         return true
+    }
+
+    /// Splits a printed path into the path and its line: "file://" taken off, then the "." that ends a sentence
+    /// (Ghostty's links take it) and the "@" of an agent's mention ("@src/x.ts"), then ":12:5" after the path.
+    private static func split(_ token: String) -> (path: String, line: Int?) {
+        var text = token.hasPrefix("file://") ? (URL(string: token)?.path ?? token) : token
+        while let trailing = text.last, ".:;!?".contains(trailing) { text.removeLast() }
+        if text.hasPrefix("@") { text.removeFirst() }
+        let parts = text.split(separator: ":", omittingEmptySubsequences: false)
+        return (String(parts.first ?? ""), parts.count > 1 ? Int(parts[1]) : nil)
     }
 }
 
@@ -67,7 +73,7 @@ extension TerminalPaths {
     static func openOnHost(_ token: String, cwd: String, workspace: String?, in app: AppModel) -> Bool {
         guard let workspace, let remote = RemoteHost.of(cwd), let (path, line) = onHost(token, root: remote.path)
         else { return false }
-        let uri = TabURI.file(cwd + "/" + path) + (line.map { "#L\($0)" } ?? "")
+        let uri = TabURI.file(cwd + "/" + path, line: line)
         Task {
             guard await app.quiet(FilesList(id: workspace))?.contains(path) == true else {
                 return Banner.show(String(localized: "No file “\(path)” in \(remote.host):\(remote.path)."))
@@ -81,12 +87,8 @@ extension TerminalPaths {
     /// that folder (a diff's "a/…" too) or a full path under it. Returns nil for a word, a path elsewhere, or a path
     /// that climbs out of the folder.
     static func onHost(_ token: String, root: String) -> (path: String, line: Int?)? {
-        var text = token.hasPrefix("file://") ? (URL(string: token)?.path ?? token) : token
-        while let trailing = text.last, ".:;!?".contains(trailing) { text.removeLast() }
-        if text.hasPrefix("@") { text.removeFirst() }
-        let parts = text.split(separator: ":", omittingEmptySubsequences: false)
-        let line = parts.count > 1 ? Int(parts[1]) : nil
-        var path = String(parts.first ?? "")
+        let (named, line) = split(token)
+        var path = named
         if let inRoot = Paths.relative(path, to: root) {
             path = inRoot
         } else if path.hasPrefix("/") || path.hasPrefix("~") {

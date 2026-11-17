@@ -54,7 +54,7 @@ struct KelpLinks {
     private func openFile(_ path: String, line: Int?) {
         let worktree = app.worktree(holding: path)
         whenAllowed(path) {
-            app.workbench.open(TabURI.file(path) + (line.map { "#L\($0)" } ?? ""), workspace: worktree?.id)
+            app.workbench.open(TabURI.file(path, line: line), workspace: worktree?.id)
         }
     }
 
