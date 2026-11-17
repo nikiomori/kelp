@@ -304,7 +304,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             app.settings[SettingKeys.recap],
             !Presence.here(),
             tells(session, turn: turn),
-            let line = await app.quiet(SessionRecap(id: session.id)) ?? nil
+            let line = await app.quiet(SessionRecap(id: session.id), timeout: SessionRecap.timeout ?? 30) ?? nil
         {
             // Up to a minute and a half later: a turn begun meanwhile isn't done, and gets no "Done" banner.
             guard app.session(session.id)?.status == .done else { return }
