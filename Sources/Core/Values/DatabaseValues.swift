@@ -1,14 +1,16 @@
 import Foundation
 
-// A project's databases as values: what kelpd finds, runs and keeps, and the app shows (`db.*` in DatabaseMethods).
+// Value types for a project's databases. kelpd finds, runs and keeps them, and the app shows them (the `db.*` methods
+// are in DatabaseMethods).
 
-/// A database tab's address: `db:<workspace>/<name>`, showing one run (`?run=`) or table (`?table=`), with the name and
-/// the table percent-encoded (an imported name may hold a "?" or "/"). This is the only place that builds the address
-/// (for the tab, the agent's row and `kelp db`), and the only place that reads it (`parts`): the daemon decides whether
-/// an agent may open a tab by the workspace and database the tab will show, so both sides must read an address the same
-/// way.
+/// Builds and reads the address of a database tab, `db:<workspace>/<name>`. The tab can show one run (`?run=`) or one
+/// table (`?table=`). The name and the table are percent-encoded, because an imported name may hold a "?" or "/". This
+/// is the only place that builds the address (for the tab, the agent's row and `kelp db`) and the only place that reads
+/// it (`parts`). The daemon decides whether an agent may open a tab by the workspace and database the tab will show, so
+/// both sides must read an address the same way.
 public enum DatabaseTabURI {
-    /// The workspace and database `uri` names, and what follows its "?"; nil when it isn't a database tab's.
+    /// Returns the workspace and database that `uri` names, and the text after its "?". Returns nil when `uri` isn't a
+    /// database tab's address.
     public static func parts(_ uri: String) -> (worktree: String, name: String, query: String?)? {
         guard let colon = uri.firstIndex(of: ":"), uri[..<colon].lowercased() == "db" else { return nil }
         let body = uri[uri.index(after: colon)...].split(separator: "?", maxSplits: 1)
@@ -26,18 +28,20 @@ public enum DatabaseTabURI {
     }
 }
 
-/// A database of a project: found in its files (compose, .env, database.yml, a SQLite file) or added by hand.
+/// A project's database, either found in the project's files (compose, .env, database.yml, a SQLite file) or added by
+/// hand.
 public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     public enum Engine: String, Codable, Sendable, CaseIterable {
-        /// Appwrite: a project's database reached over its REST API (host is the endpoint, user is the project's ID,
-        /// password is an API key). Its rows are read and changed through a narrow SQL that Kelp translates.
+        /// Appwrite is a database reached over its REST API. The host is the endpoint, the user is the Appwrite
+        /// project's ID, and the password is an API key. Kelp reads and changes its rows through a narrow SQL that it
+        /// translates.
         case sqlite, postgres, mysql, duckdb, appwrite
 
         /// A file on disk rather than a server.
         public var isFile: Bool { self == .sqlite || self == .duckdb }
 
-        /// The port the engine's server uses unless told otherwise: nil for a file, and for Appwrite (whose endpoint is
-        /// a URL).
+        /// The port the engine's server uses unless told otherwise. nil for a file, and for Appwrite, whose endpoint is
+        /// a URL.
         public var defaultPort: Int? {
             switch self {
             case .postgres: 5432
@@ -46,7 +50,7 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
             }
         }
 
-        /// Its name wherever Kelp says it: "Postgres · compose.yaml", a check's "SQLite".
+        /// The engine's name wherever Kelp shows it, as in "Postgres · compose.yaml" or a check's "SQLite".
         public var displayName: String {
             switch self {
             case .sqlite: "SQLite"
@@ -57,11 +61,11 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
             }
         }
 
-        /// What its SQL quotes a name in: "orders", `orders` in MySQL.
+        /// The character the engine's SQL quotes a name in: "orders", or `orders` in MySQL.
         public var identifierQuote: Character { self == .mysql ? "`" : "\"" }
 
-        /// The engine a container image runs, judged by the image's name (not its registry or owner): postgres:16,
-        /// bitnami/postgresql, timescale/timescaledb-ha, mariadb, percona-server. nil for other images.
+        /// The engine a container image runs, judged by the image's name and not its registry or owner. Examples are
+        /// postgres:16, bitnami/postgresql, timescale/timescaledb-ha, mariadb and percona-server. nil for other images.
         public init?(image: String) {
             let last = image.lowercased().split(separator: "/").last ?? ""
             let name = last.split(whereSeparator: { $0 == ":" || $0 == "@" }).first ?? ""
@@ -75,64 +79,71 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
         }
     }
 
-    /// Whether a host is this Mac (or its Docker): a loopback address, or this Mac's own name. A `.local` name doesn't
-    /// count (whoever answers for it on the network could be another machine), and neither does a name without a dot (a
-    /// compose service, or a host in a search domain).
+    /// Whether a host is this Mac (or its Docker), meaning a loopback address or this Mac's own name. A `.local` name
+    /// doesn't count, because whoever answers for it on the network could be another machine. A name without a dot
+    /// doesn't count either, because it may be a compose service or a host in a search domain.
     public static func isLocal(_ host: String) -> Bool {
         let host = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
         return ["localhost", "::1", "0.0.0.0", "host.docker.internal", thisMac].contains(host)
             || host.hasPrefix("127.") || host.hasSuffix(".localhost")
     }
 
-    /// gethostname, not ProcessInfo.hostName: no DNS lookup.
+    /// Read with gethostname rather than ProcessInfo.hostName, because gethostname does no DNS lookup.
     private static let thisMac: String = {
         var name = [CChar](repeating: 0, count: 256)
         guard gethostname(&name, name.count) == 0 else { return "localhost" }
         return String(decoding: name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self).lowercased()
     }()
 
-    /// Where it is, as one key: the same file, or the same server (this Mac's under any of its names), port, database
-    /// and SSH host. Two entries with one place are one database: what the user said of one holds for the other.
+    /// A single key for where the database lives. It is the file for a file database. For a server it is the host (with
+    /// this Mac under any of its names counting as one), the port, the database and the SSH host. Two entries with the
+    /// same place are one database, so what the user set for one holds for the other.
     public var place: String {
         if engine.isFile { return [engine.rawValue, path ?? ""].joined(separator: "\u{1F}") }
         let at = host.map { Self.isLocal($0) ? "localhost" : $0.lowercased() } ?? ""
         return [engine.rawValue, at, port.map(String.init) ?? "", database ?? "", ssh ?? ""].joined(separator: "\u{1F}")
     }
-    /// What agents may do with it: not see it, read it, change it once the user allows each change, change it freely.
+    /// What agents may do with the database: not see it, read it, change it once the user allows each change, or change
+    /// it freely.
     public enum Access: String, Codable, Sendable, CaseIterable {
         case hidden, read, ask, free
     }
-    /// Which kind of database it is, as TablePlus and TablePro tag theirs: its colour everywhere it shows (green, blue,
-    /// orange, red). Production is the one agents only read.
+    /// The database's environment, tagged the way TablePlus and TablePro tag theirs. It sets the database's colour
+    /// everywhere it shows (green, blue, orange, red). Agents may only read a Production database.
     public enum Stage: String, Codable, Sendable, CaseIterable {
         case local, development, staging, production
     }
 
-    /// Its name in the project: what `kelp db --db` and the tab's address use.
+    /// The database's name in the project, which `kelp db --db` and the tab's address use.
     public var name: String
     public var engine: Engine
-    /// The file it was found in, relative to the project ("compose.yaml", ".env.production"); nil: added by hand.
+    /// The file the database was found in, relative to the project ("compose.yaml", ".env.production"). nil when the
+    /// user added it by hand.
     public var source: String?
     public var host: String?, port: Int?, database: String?, user: String?
-    /// A SQLite database's file, absolute.
+    /// The absolute path of a SQLite database's file.
     public var path: String?
-    /// TLS to the server, in libpq's words: "disable" or "require"; nil or "prefer" means TLS when the server offers
-    /// it.
+    /// Whether to use TLS to the server, in libpq's words: "disable" or "require". nil or "prefer" means TLS is used
+    /// when the server offers it.
     public var ssl: String?
-    /// A host of ~/.ssh/config the server is reached through (a port forwarded over Kelp's shared connection).
+    /// A host from ~/.ssh/config that the server is reached through, by a port forwarded over Kelp's shared connection.
     public var ssh: String?
-    /// The group it was kept in where it came from (TablePlus' group, DBeaver's folder), for "All my projects".
+    /// The group the database was kept in by the app it was imported from (a TablePlus group, a DBeaver folder). It is
+    /// used for "All my projects".
     public var group: String?
-    /// Where its password still is, outside Kelp: another app's keychain item ("<service>\u{1F}<account>"), read the
-    /// first time the database is opened (macOS asks then, once) and kept in Kelp's own from there.
+    /// Where the password is kept outside Kelp, as another app's keychain item ("<service>\u{1F}<account>"). Kelp reads
+    /// it the first time the database is opened (macOS asks once, then) and keeps it in Kelp's own keychain from then
+    /// on.
     public var passwordIn: String?
     public var access: Access
-    /// Agents only read it, whatever `access` says: on a host that isn't this Mac, or named so.
+    /// True when agents may only read the database, whatever `access` says. It is set for a host that isn't this Mac,
+    /// or when the user marked the database Production.
     public var production: Bool
-    /// Its environment as the user (or the app it came from) said; nil: Production when `production`, else Local.
+    /// The environment the user (or the app the database came from) set. nil means Production when `production` is
+    /// true, and Local otherwise.
     public var environment: Stage?
-    /// A branch's own copy of another database (`db.copy`): listed in that branch's workspace only, where agents use
-    /// it before the one it was copied from; it goes with the workspace.
+    /// Set when this is a branch's own copy of another database (`db.copy`). The copy is listed only in that branch's
+    /// workspace, where agents use it instead of the original. It is removed along with the workspace.
     public var copy: BranchCopy?
 
     public var id: String { name }
@@ -157,17 +168,19 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
 
     public var stage: Stage { production ? .production : environment ?? .local }
 
-    /// Tagged `stage`: Production is read only for agents; Staging asks before a change at most.
+    /// Tags the database with `stage`. Production makes it read only for agents, and Staging lowers free access to
+    /// asking before each change.
     public mutating func set(stage: Stage) {
         environment = stage
         production = stage == .production
         if stage == .staging, access == .free { access = .ask }
     }
 
-    /// What agents get: a production database is read at most.
+    /// The access agents actually get, because a production database can at most be read.
     public var agentAccess: Access { production && access != .hidden ? .read : access }
 
-    /// "postgres://app@localhost:5432/app_dev", or the SQLite file: never a password.
+    /// The address shown to people, such as "postgres://app@localhost:5432/app_dev" or the SQLite file's path. It never
+    /// holds a password.
     public var address: String {
         if engine.isFile { return path ?? "" }
         let who = user.map { $0 + "@" } ?? "", at = (host ?? "localhost") + (port.map { ":\($0)" } ?? "")
@@ -175,7 +188,8 @@ public struct DatabaseInfo: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// Whose copy a database is: the database it was copied from, by name, the workspace it's for, and when.
+/// Says what a database copy is a copy of: the original database's name, the workspace the copy is for, and when it
+/// was made.
 public struct BranchCopy: Codable, Sendable, Equatable {
     public var of: String, worktreeId: String
     public var at: Date
@@ -186,26 +200,28 @@ public struct BranchCopy: Codable, Sendable, Equatable {
     }
 }
 
-/// What a statement gave: its columns and rows (text, nil for NULL), cut at the asked limit.
+/// The result of a statement: its columns and rows (as text, with nil for NULL), cut at the requested limit.
 public struct QueryResult: Codable, Sendable, Equatable {
-    /// Its entry in the database's history (`db.result`).
+    /// The id of this result's entry in the database's history (`db.result`).
     public var id: String
     public var columns: [String]
     public var rows: [[String?]]
-    /// The rows it gave, `rows` or more: past the limit they're counted only up to what Kelp keeps.
+    /// How many rows the statement returned, which can be more than `rows` holds. Past the limit, rows are counted only
+    /// up to `counted`.
     public var total: Int
-    /// Rows a change touched; nil for a read.
+    /// The number of rows a change touched. nil for a read.
     public var changed: Int?
     public var ms: Int
-    /// Rows left out for their size (past what Kelp keeps of a result's cells, 1 MB): a larger `limit` gives no more.
+    /// True when rows were left out for their size, because Kelp keeps at most 1 MB of a result's cells. A larger
+    /// `limit` gives no more rows.
     public var cut: Bool?
-    /// What an agent's change does to these rows, when Kelp holds every one of them whole: shown where it's asked,
-    /// and what Undo puts back. Never sent to the agent.
+    /// What an agent's change does to these rows, set when Kelp holds every row whole. The app shows it where the user
+    /// is asked about the change, and Undo uses it to put the rows back. It is never sent to the agent.
     public var change: RowChange?
-    /// Several statements run in one transaction (`kelp db query "a; b"`), each with the rows it changed: all of
-    /// them were kept, or none. nil: one statement.
+    /// The statements run in one transaction (`kelp db query "a; b"`), each with the number of rows it changed. Either
+    /// all of them were kept or none was. nil for a single statement.
     public var statements: [StatementResult]?
-    /// Rows kept of a result, and how far they're counted past that: `total` stops there.
+    /// How many rows of a result Kelp keeps, and how far it counts rows beyond that. `total` stops at `counted`.
     public static let kept = 1000, counted = 100_000
     public init(id: String, columns: [String], rows: [[String?]], total: Int, changed: Int? = nil, ms: Int) {
         self.id = id
@@ -216,8 +232,8 @@ public struct QueryResult: Codable, Sendable, Equatable {
         self.ms = ms
     }
 
-    /// The columns an update changed in any of its rows, by index: none for another change, or one whose rows as
-    /// they were aren't known.
+    /// The indexes of the columns that an update changed in any of its rows. Empty for any other kind of change, and
+    /// for an update whose earlier rows aren't known.
     public var changedColumns: [Int] {
         guard let before = change?.before, change?.kind == .update else { return [] }
         return columns.indices.filter { column in
@@ -231,7 +247,7 @@ public struct QueryResult: Codable, Sendable, Equatable {
 /// One of several statements run in one transaction.
 public struct StatementResult: Codable, Sendable, Equatable {
     public var sql: String
-    /// Rows it changed; nil: it doesn't say (a read).
+    /// The number of rows the statement changed. nil when it doesn't say, as for a read.
     public var changed: Int?
     public init(sql: String, changed: Int?) {
         self.sql = sql
@@ -239,19 +255,21 @@ public struct StatementResult: Codable, Sendable, Equatable {
     }
 }
 
-/// What one table's UPDATE, DELETE or INSERT does to the rows it returned.
+/// What an UPDATE, DELETE or INSERT on one table does to the rows it returned.
 public struct RowChange: Codable, Sendable, Equatable {
     public enum Kind: String, Codable, Sendable, CaseIterable {
-        /// The rows are as the change leaves them (`before`: as they were); the rows it removes; the rows it adds.
+        /// For an update, the rows are as the change leaves them and `before` holds them as they were. For a delete,
+        /// they are the rows it removes, and for an insert the rows it adds.
         case update, delete, insert
     }
     public var kind: Kind
-    /// The table, as the statement names it, its quotes and all: it goes into SQL as it is.
+    /// The table as the statement names it, quotes included, so it can go back into SQL unchanged.
     public var table: String
-    /// Its primary key's columns, when the rows have them all: what finds a row again. Empty: none.
+    /// The table's primary key columns, when the rows include all of them, so a row can be found again. Empty when
+    /// there is no usable key.
     public var key: [String]
-    /// An update's rows as they were, one per row of the result in its order; nil: not read (no key, or the change
-    /// moves it).
+    /// For an update, the rows as they were before it, one for each row of the result and in the same order. nil when
+    /// they weren't read, because there is no key or the change modifies the key.
     public var before: [[String?]]?
     public init(kind: Kind, table: String, key: [String] = [], before: [[String?]]? = nil) {
         self.kind = kind
@@ -260,25 +278,25 @@ public struct RowChange: Codable, Sendable, Equatable {
         self.before = before
     }
 
-    /// The table's name without its quotes, for words: "orders", "Order Items".
+    /// The table's name without its quotes, for use in sentences: "orders", "Order Items".
     public var tableName: String { table.filter { !"\"`".contains($0) } }
 }
 
-/// A statement run on a project's database, by an agent (`session`) or the user.
+/// A statement run on a project's database, either by an agent (`session`) or by the user.
 public struct DatabaseRun: Codable, Sendable, Equatable, Identifiable {
     public enum State: String, Codable, Sendable, CaseIterable {
-        /// It ran. Asks: a change waits for the user (`session`'s row asks). Denied: the user said no, or nobody
-        /// answered.
-        /// Refused: the database is read only for agents. Failed: the database's error.
+        /// Done means the statement ran. Asks means a change waits for the user, and the row of the agent's session
+        /// asks. Denied means the user said no, or nobody answered.
+        /// Refused means the database is read only for agents. Failed means the database returned an error.
         case done, asks, denied, refused, failed
     }
     public var id: String, database: String, sql: String
-    /// The agent's session that ran it; nil when the user ran it.
+    /// The session of the agent that ran the statement. nil when the user ran it.
     public var session: String?
     public var at: Date
     public var state: State
     public var rows: Int?, changed: Int?, ms: Int?
-    /// The database's error, or why it didn't run.
+    /// The database's error, or the reason the statement didn't run.
     public var error: String?
     public init(
         id: String, database: String, sql: String, session: String?, at: Date, state: State, rows: Int? = nil,
@@ -300,7 +318,8 @@ public struct DatabaseRun: Codable, Sendable, Equatable, Identifiable {
 /// A database's tables, as an agent reads them before it writes a query.
 public struct DatabaseSchema: Codable, Sendable, Equatable {
     public var tables: [Table]
-    /// The database's own functions, by name ("schema.name" outside the default schema); nil where Kelp doesn't read them.
+    /// The names of the database's own functions ("schema.name" outside the default schema). nil for engines where Kelp
+    /// doesn't read functions.
     public var functions: [String]?
     public init(tables: [Table], functions: [String]? = nil) {
         self.tables = tables
@@ -309,13 +328,13 @@ public struct DatabaseSchema: Codable, Sendable, Equatable {
 
     public struct Table: Codable, Sendable, Equatable {
         public var name: String
-        /// Its rows: counted for SQLite, the planner's estimate elsewhere.
+        /// The table's row count: an exact count for SQLite, and the planner's estimate for other engines.
         public var rows: Int?
         public var columns: [Column]
         public var indexes: [String]
-        /// "view" for a view (or a materialized one); nil: a table.
+        /// "view" for a view (or a materialized view). nil for a table.
         public var kind: String?
-        /// Its size on disk with its indexes, and its comment, where the database says them.
+        /// The table's size on disk including its indexes, and its comment, when the database reports them.
         public var bytes: Int?, comment: String?
         public init(
             name: String, rows: Int? = nil, columns: [Column] = [], indexes: [String] = [], kind: String? = nil,

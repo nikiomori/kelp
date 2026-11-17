@@ -1,13 +1,13 @@
 import Foundation
 
-/// What a publishing tool sent of the page itself: Kelp keeps a copy of it beside the link, for the panel's preview
-/// (Kelp's tabs can't sign in to the service, so they can't show the page there).
+/// The page content that a publishing tool sent. Kelp keeps a copy of it beside the link, for the panel's preview,
+/// because Kelp's tabs can't sign in to the service and so can't show the page there.
 public struct PublishedPage: Codable, Equatable, Sendable {
     /// The whole page (`publish_version`).
     public var html: String?
-    /// A file on this Mac that holds it (`publish_files`: its index.html, or a canvas's first board).
+    /// A file on this Mac that holds the page (for `publish_files`, its index.html or a canvas's first board).
     public var file: String?
-    /// Changes to the last version (`edit_version`), applied to the copy.
+    /// Changes to the last version (`edit_version`), which are applied to the copy.
     public var edits: [Edit]?
 
     public static func html(_ html: String) -> PublishedPage { PublishedPage(html: html) }
@@ -27,7 +27,8 @@ extension Artifacts {
     /// Kelp's copy of a page that lives on a service, kept in the artifact's folder.
     public static let pageCopy = "page.html"
 
-    /// The page in a publishing tool's input, and whether it's a Design canvas (its files under `project/`).
+    /// Returns the page in a publishing tool's input, and whether it is a Design canvas (with its files under
+    /// `project/`).
     package static func sentPage(tool: String, input: JSONValue?) -> (page: PublishedPage?, canvas: Bool) {
         if tool.hasSuffix("__publish_version"), let html = input?["content"]?.string { return (.html(html), false) }
         if tool.hasSuffix("__publish_files") {

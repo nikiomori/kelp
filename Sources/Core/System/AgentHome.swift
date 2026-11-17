@@ -1,9 +1,11 @@
 import Foundation
 
-/// Where each agent keeps its own files, as its own environment moves them: the one place that knows (usage logs,
-/// conversations, trusted folders, account profiles). Read only; Kelp never writes there.
+/// Where each agent keeps its own files (usage logs, conversations, trusted folders, account profiles), taking into
+/// account the variables that move them. This is the only place that knows. Kelp only reads these folders and never
+/// writes there.
 public enum AgentHome {
-    /// By agent id: the variable that moves its folder, the folder under the home dir without it, and the folder inside.
+    /// For each agent id: the variable that moves the agent's folder, the folder under the home dir when that variable
+    /// isn't set, and the subfolder inside.
     private static let known: [String: (variable: String?, fallback: String, inside: String)] = [
         Session.claudeAgent: ("CLAUDE_CONFIG_DIR", ".claude", ""), Session.codexAgent: ("CODEX_HOME", ".codex", ""),
         "grok": ("GROK_HOME", ".grok", ""), "kimi": ("KIMI_CODE_HOME", ".kimi-code", ""),
@@ -13,8 +15,8 @@ public enum AgentHome {
         "gemini": ("GEMINI_CLI_HOME", "", ".gemini"), "antigravity": (nil, "", ".gemini/antigravity-cli")
     ]
 
-    /// The folder of `agent` under `env` (the session's environment or this process's); nil for an agent whose folder
-    /// Kelp doesn't know.
+    /// Returns the folder of `agent` under `env` (the session's environment or this process's). nil for an agent whose
+    /// folder Kelp doesn't know.
     public static func dir(
         _ agent: String, env: [String: String] = ProcessInfo.processInfo.environment,
         home: String = NSHomeDirectory()
@@ -25,11 +27,11 @@ public enum AgentHome {
         return entry.inside.isEmpty ? url : url.appendingPathComponent(entry.inside)
     }
 
-    /// `dir` of an agent Kelp knows, under this process's environment.
+    /// Returns `dir` for an agent Kelp knows, under this process's environment.
     public static func root(_ agent: String) -> URL {
         dir(agent) ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("." + agent)
     }
 
-    /// The variable that points `agent` at a folder of its own: an account profile sets it.
+    /// The variable that points `agent` at a folder of its own. An account profile sets it.
     public static func variable(_ agent: String) -> String? { known[agent]?.variable }
 }

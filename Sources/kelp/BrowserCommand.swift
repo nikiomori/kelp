@@ -13,8 +13,8 @@ extension Main {
                 [--json] · no action: one a line from stdin (kelp browser <<'EOF' … EOF)
         """
 
-    /// `browser <action>`: a page tab in the app, beside the agent's terminal, driven from here (`UIBrowser`). With no
-    /// action, the actions come from stdin, one a line, each answered under its own line, until one fails.
+    /// `browser <action>` drives a page tab in the app, beside the agent's terminal (`UIBrowser`). With no action, the
+    /// actions come from stdin, one per line, each answered under its own line, until one fails.
     static func browser(_ sub: String?, _ c: RPCClient) async throws {
         var sub = sub
         let json = sub == "--json" || has("--json")
@@ -26,8 +26,8 @@ extension Main {
                 let line = read.trimmingCharacters(in: .whitespaces)
                 if line.isEmpty || line.hasPrefix("#") { continue }
                 print("› " + line)
-                fflush(stdout)   // before an error, which goes to stderr unbuffered
-                // The rest of an eval's line is its script as written: no quoting to get through.
+                fflush(stdout)   // Flush before an error, which goes to stderr unbuffered.
+                // The rest of an eval line is its script as written, so there is no quoting to get through.
                 if let js = line.firstMatch(of: /^eval\s+(.+)$/)?.1 {
                     args = []
                     try await browse("eval", js: String(js), c, workspace, json: json)
@@ -41,7 +41,7 @@ extension Main {
         try await browse(sub, c, workspace, json: json)
     }
 
-    /// One action, its answer printed: as lines (`browserText`), or as the JSON it came as.
+    /// Runs one action and prints its answer, as lines (`browserText`) or as the JSON it came as.
     static func browse(_ sub: String, js: String? = nil, _ client: RPCClient, _ workspace: String?, json: Bool)
         async throws
     {
@@ -49,7 +49,7 @@ extension Main {
         if action == .ask, args.isEmpty { fail("browser ask <what the user should do on the page, then hand it back>") }
         var params = js.map { ["js": .string($0)] } ?? browserParams(action)
         if action == .ask { params["text"] = .string(args.joined(separator: " ")) }
-        // Whose pointer the user sees on the page: the agent's name and colour.
+        // The session sets whose pointer the user sees on the page, with the agent's name and colour.
         if let session = ProcessInfo.processInfo.environment["KELP_SESSION"] { params["session"] = .string(session) }
         let answer =
             action == .ask
@@ -65,7 +65,7 @@ extension Main {
         fflush(stdout)
     }
 
-    /// An action's parameters, from the words after it (`args`).
+    /// Returns an action's parameters, read from the words after it (`args`).
     static func browserParams(_ action: BrowserAction) -> [String: JSONValue] {
         var params: [String: JSONValue] = [:]
         switch action {
@@ -93,7 +93,7 @@ extension Main {
             params["ref"] = .string(args[0])
             params["text"] = .string(args.dropFirst().joined(separator: " "))
         case .eval:
-            // `eval -`: the script from stdin, as written (a heredoc keeps the shell off its quotes).
+            // `eval -` reads the script from stdin as written, because a heredoc keeps the shell off its quotes.
             if args == ["-"] {
                 params["js"] = .string(String(decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self))
             } else {
@@ -138,11 +138,12 @@ extension Main {
         return params
     }
 
-    /// An answer as an agent reads it at a glance: what was done to what and what came of it (`click e2 button "Idle" →
-    /// nothing changed`), or where the page is; then the page's questions, downloads, and the lines it brought. Nil for
-    /// what has no such shape (a snapshot's text, eval's value): printed as it came.
+    /// Returns an answer as an agent reads it at a glance: what was done to what and what came of it
+    /// (`click e2 button "Idle" → nothing changed`), or where the page is, followed by the page's questions, downloads,
+    /// and the lines it brought. Nil for an answer without that shape (a snapshot's text, eval's value), which is
+    /// printed as it came.
     static func browserText(_ action: BrowserAction, _ what: String, _ answer: JSONValue) -> String? {
-        guard action != .eval, case .object(let fields) = answer else { return nil }   // eval's value is the page's
+        guard action != .eval, case .object(let fields) = answer else { return nil }   // Eval's value is the page's.
         if action == .screenshot { return fields["path"]?.string }
         if action == .record, let path = fields["path"]?.string {
             return fields["recording"]?.bool == true ? "recording → \(path) · kelp browser record stop ends it" : path
@@ -180,8 +181,8 @@ extension Main {
         return lines.joined(separator: "\n")
     }
 
-    /// A file for `browser upload`: its name, type and bytes in base64, read here, where the agent's files are.
-    /// Up to 10 MB: it crosses the socket and into the page as text.
+    /// Reads a file for `browser upload` here, where the agent's files are, as its name, type and bytes in base64.
+    /// It allows up to 10 MB, because the file crosses the socket and goes into the page as text.
     static func uploaded(_ path: String) -> JSONValue {
         let url = URL(fileURLWithPath: path).standardizedFileURL
         guard let data = FileManager.default.contents(atPath: url.path) else { fail("Can't read \(path)") }
@@ -192,7 +193,8 @@ extension Main {
         ])
     }
 
-    /// An address as typed: `localhost:3000` and `127.0.0.1:8080` are http, a bare host is https.
+    /// Returns the URL for an address as typed. `localhost:3000` and `127.0.0.1:8080` become http, and a bare host
+    /// becomes https.
     static func address(_ typed: String) -> String {
         if typed.contains("://") || typed.hasPrefix("about:") || typed.hasPrefix("preview:") { return typed }
         return (typed.hasPrefix("localhost") || typed.first?.isNumber == true ? "http://" : "https://") + typed

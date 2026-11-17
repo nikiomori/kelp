@@ -2,7 +2,8 @@ import Core
 import Foundation
 
 extension Main {
-    /// `artifact guide|new|list|open|add`: pages agents make for the user, kept in the project's `.kelp/artifacts`.
+    /// `artifact guide|new|list|open|add` handles pages agents make for the user, kept in the project's
+    /// `.kelp/artifacts`.
     static func artifacts(_ sub: String?, _ c: RPCClient) async throws {
         let cwd = FileManager.default.currentDirectoryPath
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
@@ -33,7 +34,7 @@ extension Main {
                 do {
                     _ = try await IDE.open(file, split: nil, cwd: cwd, client: c)
                     opened = true
-                } catch {   // the page is made all the same
+                } catch {   // The page is made all the same.
                     print(
                         "Not opened (\((error as? RPCError)?.message ?? error.localizedDescription)): the user finds it in Kelp's list later."
                     )
@@ -69,7 +70,7 @@ extension Main {
             }
             if let url = artifact.record.url {
                 openInBrowser(url)
-            }   // Kelp's tabs aren't signed in to the service
+            }   // Opened in the browser, because Kelp's tabs aren't signed in to the service.
             else {
                 _ = try await IDE.open(
                     Artifacts.target(artifact.slug, artifact.record, root: root), split: nil, cwd: cwd, client: c)
@@ -82,7 +83,7 @@ extension Main {
                 fail("artifact check <name of a design> (names: kelp artifact list)")
             }
             let target = Artifacts.target(artifact.slug, artifact.record, root: root)
-            _ = try await IDE.open(target, split: nil, cwd: cwd, client: c)   // the window checks what it draws
+            _ = try await IDE.open(target, split: nil, cwd: cwd, client: c)   // The window checks what it draws.
             let issues = try await c.call(ArtifactCheck(path: target))
             print(issues.isEmpty ? "No issues." : issues.map { "- " + $0 }.joined(separator: "\n"))
         case "add":
@@ -95,14 +96,16 @@ extension Main {
         }
     }
 
-    /// The folder of the workspace `cwd` is in (artifacts belong to it), else `cwd` itself: a chat outside any project.
+    /// Returns the folder of the workspace that holds `cwd`, because artifacts belong to the workspace. For a chat
+    /// outside any project, it returns `cwd` itself.
     static func projectRoot(_ cwd: String, _ c: RPCClient) async throws -> String {
         try await IDE.workspace(cwd: cwd, client: c)?.path ?? cwd
     }
 
-    /// From `kelp hook command`: a page the agent's own tool just published joins the project's list. It isn't opened:
-    /// Kelp's tabs can't sign in to claude.ai (Google refuses embedded views), and the user's browser, which is signed
-    /// in, would take the focus; the agent gives its link. Never fails the hook: the agent's tool already did its work.
+    /// Called from `kelp hook command`: adds a page that the agent's own tool just published to the project's list. The
+    /// page isn't opened, because Kelp's tabs can't sign in to claude.ai (Google refuses embedded views), and the
+    /// user's signed-in browser would take the focus. The agent gives the link instead. This never fails the hook,
+    /// because the agent's tool already did its work.
     static func notePublished(
         _ p: (url: String, title: String, type: String, page: PublishedPage?), cwd: String, session: String
     ) async {
@@ -115,7 +118,7 @@ extension Main {
         }
     }
 
-    /// The user's default browser, which is signed in to the service the page is on.
+    /// Opens `url` in the user's default browser, which is signed in to the service the page is on.
     static func openInBrowser(_ url: String) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/open")

@@ -2,7 +2,7 @@ import Core
 import Foundation
 
 extension Main {
-    /// `status`, `repo …`, `worktree …`.
+    /// Runs `status`, `repo …` and `worktree …`.
     static func projects(_ cmd: String, _ sub: String?, _ client: RPCClient) async throws {
         switch (cmd, sub) {
         case ("status", _):
@@ -37,7 +37,7 @@ extension Main {
             _ = try await client.call(
                 WorktreeNote(id: try await currentWorktreeID(client), note: args.joined(separator: " ")))
         case ("worktree", "remove"), ("worktree", "archive"):
-            let force = has("--force"), drop = has("--drop-commits")   // two separate losses, each asked for by name
+            let force = has("--force"), drop = has("--drop-commits")   // Two separate losses, each named by its flag.
             let id = try await workspace(client, args.first ?? "")
             if sub == "remove" {
                 show(try await client.call(WorktreeRemove(id: id, force: force, dropCommits: drop)))

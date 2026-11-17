@@ -1,16 +1,16 @@
 import Foundation
 
-// GitHub / GitLab (through gh / glab), CI runs, Linear, Jira and Bitbucket. Where a method takes a project, it is the
-// workspace's (`worktreeId`) or the project's (`repoId`).
+// GitHub and GitLab (through gh and glab), CI runs, Linear, Jira and Bitbucket. Where a method takes a project, it is
+// the workspace's project (`worktreeId`) or the project itself (`repoId`).
 
-/// The PR of the branch checked out in the workspace, or null (cached for two minutes).
+/// Returns the PR of the branch checked out in the workspace, or null. The answer is cached for two minutes.
 public struct GitHubBranchPR: RPCMethod {
     public static let name = "github.branchPR"
     public typealias Result = GitHub.PullRequest?
     public var worktreeId: String
     public init(worktreeId: String) { self.worktreeId = worktreeId }
 }
-/// "github" | "gitlab" | "bitbucket": what the panels call things.
+/// Returns "github", "gitlab" or "bitbucket", which sets what the panels call things.
 public struct GitHubForge: RPCMethod {
     public static let name = "github.forge"
     public typealias Result = String
@@ -20,7 +20,7 @@ public struct GitHubForge: RPCMethod {
         self.repoId = repoId
     }
 }
-/// Whether gh is installed and who is signed in (no user: not signed in, or no network to ask).
+/// Returns whether gh is installed and who is signed in. No user means not signed in, or no network to ask.
 public struct GitHubStatus: RPCMethod {
     public static let name = "github.status"
     public struct Result: Codable, Sendable, Equatable {
@@ -32,13 +32,13 @@ public struct GitHubStatus: RPCMethod {
     }
     public init() {}
 }
-/// The same for glab; `user` names each host it's signed in to ("ada on gitlab.com").
+/// The same for glab. `user` names each host glab is signed in to ("ada on gitlab.com").
 public struct GitLabStatus: RPCMethod {
     public static let name = "gitlab.status"
     public typealias Result = GitHubStatus.Result
     public init() {}
 }
-/// `filter`: mine, else open.
+/// Lists issues: mine with `filter`, or else the open ones.
 public struct GitHubIssues: RPCMethod {
     public static let name = "github.issues"
     public typealias Result = [GitHub.Issue]
@@ -49,7 +49,7 @@ public struct GitHubIssues: RPCMethod {
         self.filter = filter
     }
 }
-/// The checks of `pr`, else of the workspace's own PR.
+/// Returns the checks of `pr`, or else of the workspace's own PR.
 public struct GitHubChecks: RPCMethod {
     public static let name = "github.checks"
     public typealias Result = [GitHub.Check]
@@ -60,7 +60,7 @@ public struct GitHubChecks: RPCMethod {
         self.pr = pr
     }
 }
-/// The failed jobs' log of a run.
+/// Returns the log of a run's failed jobs.
 public struct GitHubFailedLog: RPCMethod {
     public static let name = "github.failedLog"
     public typealias Result = String
@@ -71,7 +71,7 @@ public struct GitHubFailedLog: RPCMethod {
         self.runId = runId
     }
 }
-/// The review comments of `pr`, else of the workspace's own PR.
+/// Returns the review comments of `pr`, or else of the workspace's own PR.
 public struct GitHubReviewComments: RPCMethod {
     public static let name = "github.reviewComments"
     public typealias Result = [GitHub.ReviewComment]
@@ -82,7 +82,7 @@ public struct GitHubReviewComments: RPCMethod {
         self.pr = pr
     }
 }
-/// The GitHub projects of the repository.
+/// Lists the GitHub projects of the repository.
 public struct GitHubProjects: RPCMethod {
     public static let name = "github.projects"
     public typealias Result = [GitHub.Project]
@@ -92,7 +92,7 @@ public struct GitHubProjects: RPCMethod {
         self.repoId = repoId
     }
 }
-/// Project `number` of `owner`: its items.
+/// Lists the items of project `number` of `owner`.
 public struct GitHubProjectItems: RPCMethod {
     public static let name = "github.projectItems"
     public typealias Result = [GitHub.ProjectItem]
@@ -102,7 +102,7 @@ public struct GitHubProjectItems: RPCMethod {
         self.number = number
     }
 }
-/// `filter`: mine | review | closed (the latest closed or merged), else open.
+/// Lists pull requests. `filter` is mine, review or closed (the latest closed or merged), and open by default.
 public struct GitHubPRs: RPCMethod {
     public static let name = "github.prs"
     public typealias Result = [GitHub.PullRequest]
@@ -113,7 +113,7 @@ public struct GitHubPRs: RPCMethod {
         self.filter = filter
     }
 }
-/// Pull request `pr` with its description, changed files and conversation (GitHub).
+/// Returns pull request `pr` with its description, changed files and conversation (GitHub).
 public struct GitHubPRView: RPCMethod {
     public static let name = "github.prView"
     public typealias Result = GitHub.PRView
@@ -123,7 +123,7 @@ public struct GitHubPRView: RPCMethod {
         self.pr = pr
     }
 }
-/// Issue `issue` with its conversation (GitHub).
+/// Returns issue `issue` with its conversation (GitHub).
 public struct GitHubIssueView: RPCMethod {
     public static let name = "github.issueView"
     public typealias Result = GitHub.IssueView
@@ -133,7 +133,8 @@ public struct GitHubIssueView: RPCMethod {
         self.issue = issue
     }
 }
-/// Push, title and body from the commits if not given, open the PR (a draft with `draft`), link it → {url, title}.
+/// Pushes, takes the title and body from the commits if they aren't given, opens the PR (a draft with `draft`), and
+/// links it. Returns {url, title}.
 public struct GitHubPRCreate: RPCMethod {
     public static let name = "github.pr-create"
     public struct Result: Codable, Sendable, Equatable {
@@ -151,8 +152,8 @@ public struct GitHubPRCreate: RPCMethod {
         self.draft = draft
     }
 }
-/// `method` is squash (the default), merge or rebase. `pr` defaults to the workspace's linked PR. `head` is the commit
-/// that was on screen: GitHub merges only while it is still the PR's head.
+/// Merges a PR. `method` is squash (the default), merge or rebase. `pr` defaults to the workspace's linked PR. `head`
+/// is the commit that was on screen, and GitHub merges only while it is still the PR's head.
 public struct GitHubPRMerge: RPCMethod {
     public static let name = "github.pr-merge"
     public typealias Result = Done
@@ -165,7 +166,7 @@ public struct GitHubPRMerge: RPCMethod {
     }
 }
 
-/// CI runs of the branch checked out in the workspace → {branch, runs, workflows}.
+/// Returns the CI runs of the branch checked out in the workspace, as {branch, runs, workflows}.
 public struct CIRunsList: RPCMethod {
     public static let name = "ci.runs"
     public struct Result: Codable, Sendable, Equatable {
@@ -179,7 +180,7 @@ public struct CIRunsList: RPCMethod {
     public var worktreeId: String
     public init(worktreeId: String) { self.worktreeId = worktreeId }
 }
-/// The jobs of `run`.
+/// Lists the jobs of `run`.
 public struct CIJobs: RPCMethod {
     public static let name = "ci.jobs"
     public typealias Result = [CIRuns.Job]
@@ -189,7 +190,7 @@ public struct CIJobs: RPCMethod {
         self.run = run
     }
 }
-/// The log of `job`, as text.
+/// Returns the log of `job`, as text.
 public struct CILog: RPCMethod {
     public static let name = "ci.log"
     public typealias Result = String
@@ -199,7 +200,7 @@ public struct CILog: RPCMethod {
         self.job = job
     }
 }
-/// The whole log of `job`, every step of it, as text.
+/// Returns the whole log of `job`, every step of it, as text.
 public struct CIFullLog: RPCMethod {
     public static let name = "ci.fullLog"
     public typealias Result = String
@@ -209,8 +210,8 @@ public struct CIFullLog: RPCMethod {
         self.job = job
     }
 }
-/// What broke in `job`, or in `run` (its `attempt`, if not the latest), read from the failed log: the tests or compiler
-/// errors with their files and lines, and the log's tail.
+/// Returns what broke in `job`, or in `run` (at `attempt`, if not the latest), read from the failed log. That is the
+/// tests or compiler errors with their files and lines, plus the log's tail.
 public struct CIFailures: RPCMethod {
     public static let name = "ci.failures"
     public typealias Result = CIRuns.Report
@@ -275,14 +276,15 @@ public struct CIDispatch: RPCMethod {
     }
 }
 
-/// An empty `key` disconnects (null); else the key's user, checked before it's saved.
+/// Saves a Linear key. An empty `key` disconnects and returns null. Otherwise the key is checked before it is saved,
+/// and the key's user is returned.
 public struct LinearSetKey: RPCMethod {
     public static let name = "linear.setKey"
     public typealias Result = LinearUser?
     public var key: String
     public init(key: String) { self.key = key }
 }
-/// `name` only when a key is saved.
+/// Returns Linear's status. `name` is set only when a key is saved.
 public struct LinearStatus: RPCMethod {
     public static let name = "linear.status"
     public struct Result: Codable, Sendable, Equatable {
@@ -294,7 +296,7 @@ public struct LinearStatus: RPCMethod {
     }
     public init() {}
 }
-/// A team's issues, else mine.
+/// Lists a team's issues, or else mine.
 public struct LinearIssues: RPCMethod {
     public static let name = "linear.issues"
     public typealias Result = [LinearIssue]
@@ -307,7 +309,7 @@ public struct LinearTeams: RPCMethod {
     public typealias Result = [LinearTeam]
     public init() {}
 }
-/// Team `teamId`'s workflow states.
+/// Lists the workflow states of team `teamId`.
 public struct LinearStates: RPCMethod {
     public static let name = "linear.states"
     public typealias Result = [LinearState]
@@ -325,7 +327,8 @@ public struct LinearSetState: RPCMethod {
     }
 }
 
-/// An empty `token` disconnects (null); else the account's name, checked before it's saved.
+/// Saves Jira credentials. An empty `token` disconnects and returns null. Otherwise the credentials are checked before
+/// they are saved, and the account's name is returned.
 public struct JiraSetCredentials: RPCMethod {
     public static let name = "jira.setCredentials"
     public struct Account: Codable, Sendable, Equatable {
@@ -340,7 +343,7 @@ public struct JiraSetCredentials: RPCMethod {
         self.token = token
     }
 }
-/// `name` and `site` only when credentials are saved.
+/// Returns Jira's status. `name` and `site` are set only when credentials are saved.
 public struct JiraStatus: RPCMethod {
     public static let name = "jira.status"
     public struct Result: Codable, Sendable, Equatable {
@@ -353,14 +356,14 @@ public struct JiraStatus: RPCMethod {
     }
     public init() {}
 }
-/// `jql`, else my open issues.
+/// Lists the issues `jql` finds, or else my open issues.
 public struct JiraIssues: RPCMethod {
     public static let name = "jira.issues"
     public typealias Result = [JiraIssue]
     public var jql: String?
     public init(jql: String? = nil) { self.jql = jql }
 }
-/// The transitions issue `key` can take now.
+/// Lists the transitions issue `key` can take now.
 public struct JiraTransitions: RPCMethod {
     public static let name = "jira.transitions"
     public typealias Result = [JiraTransition]
@@ -378,7 +381,7 @@ public struct JiraTransitionIssue: RPCMethod {
     }
 }
 
-/// An empty `token` disconnects.
+/// Saves Bitbucket credentials. An empty `token` disconnects.
 public struct BitbucketSetCredentials: RPCMethod {
     public static let name = "bitbucket.setCredentials"
     public typealias Result = Done

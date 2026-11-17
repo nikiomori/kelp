@@ -9,7 +9,7 @@ public struct AgentSessionInfo: Codable, Sendable, Equatable, Identifiable {
     public var title: String
     public var started: Date
     public var updated: Date
-    /// Exact for small files; extrapolated from the head and tail for large ones.
+    /// The message count: exact for small files, and estimated from the head and tail for large ones.
     public var messageCount: Int
     public var path: URL
     public init(

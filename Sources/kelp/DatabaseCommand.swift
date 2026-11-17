@@ -7,7 +7,7 @@ extension Main {
            | open [name] | copy [name]
         """
 
-    /// `db <action>`: the project's databases through kelpd, which holds their passwords (`db.*`).
+    /// `db <action>` works with the project's databases through kelpd, which holds their passwords (`db.*`).
     static func db(_ sub: String?, _ client: RPCClient) async throws {
         let worktree = try await currentWorktree(client)
         let named = flag("--db")
@@ -34,19 +34,20 @@ extension Main {
             let sql = args.joined(separator: " ")
             let result = try await client.call(
                 DatabaseQuery(worktreeId: worktree.id, database: name, sql: sql, limit: limit))
-            if let parts = result.statements {   // several, in one transaction: what each changed
+            if let parts = result.statements {   // Several statements in one transaction: what each changed.
                 let said = batch(parts, changed: result.changed, ms: result.ms, json: json)
                 print(said.rows)
                 if json { FileHandle.standardError.write(Data((said.footer + "\n").utf8)) } else { print(said.footer) }
             } else if json {
-                // One object a line (`jq` reads them as they come); the footer goes to stderr, out of the rows' way
+                // Print one object per line (`jq` reads them as they come). The footer goes to stderr, out of the
+                // rows' way.
                 for row in result.rows { print(line(Self.object(result.columns, row))) }
                 FileHandle.standardError.write(Data((footer(result, sql: sql, limit: limit) + "\n").utf8))
             } else {
                 if !result.columns.isEmpty { print(table(result.columns, result.rows.map { $0.map { cell($0) } })) }
                 print(footer(result, sql: sql, limit: limit))
             }
-        case "copy":   // only the user may copy a database for this workspace's branch (`db.copy` isn't open to agents)
+        case "copy":   // Only the user may copy a database for this branch (`db.copy` isn't open to agents).
             let name = try await database(args.first ?? named, worktree.id, client)
             let copy = try await client.call(DatabaseCopy(worktreeId: worktree.id, database: name))
             print("\(copy.name): \(copy.address)")
@@ -60,7 +61,7 @@ extension Main {
         }
     }
 
-    /// The one named, or the only one; with several, the user's choice is asked for.
+    /// Returns the database named, or the only one. When there are several, it asks the user to choose.
     static func database(_ named: String?, _ worktreeId: String, _ client: RPCClient) async throws -> String {
         if let named { return named }
         let all = try await client.call(DatabaseList(worktreeId: worktreeId))
@@ -69,8 +70,8 @@ extension Main {
         fail("Which one? --db " + all.map(\.name).joined(separator: " | "))
     }
 
-    /// The database meant when none is named: the only one there, this branch's copy standing for the database it's
-    /// of. nil: none, or several to pick from.
+    /// Returns the database meant when none is named: the only one there, counting this branch's copy in place of its
+    /// original. nil when there is none, or several to pick from.
     static func unnamed(_ all: [DatabaseInfo]) -> String? {
         let own = all.filter { db in !all.contains { $0.copy?.of == db.name && $0.name != db.name } }
         return own.count == 1 ? own[0].name : nil
@@ -95,8 +96,8 @@ extension Main {
         return db.production ? access + " (production)" : access
     }
 
-    /// Several statements run as one: a line each with the rows it changed (`json`: an object each), and what they
-    /// changed in all.
+    /// Formats several statements run as one: a line for each with the rows it changed (an object for each with
+    /// `json`), and the total they changed.
     static func batch(_ parts: [StatementResult], changed: Int?, ms: Int, json: Bool) -> (rows: String, footer: String)
     {
         let counts = parts.map { $0.changed.map(String.init) }
@@ -108,14 +109,14 @@ extension Main {
         return (rows, "\(all) changed by \(parts.count) statements in one transaction · \(ms) ms")
     }
 
-    /// A cell as one short line: NULL spelled out, newlines shown, past 200 characters cut.
+    /// Formats a cell as one short line, with NULL spelled out, newlines shown, and anything past 200 characters cut.
     static func cell(_ value: String?) -> String {
         guard let value else { return "NULL" }
         let line = value.replacingOccurrences(of: "\n", with: "⏎").replacingOccurrences(of: "\t", with: " ")
         return line.count > 200 ? String(line.prefix(199)) + "…" : line
     }
 
-    /// Columns padded to their widest cell (up to 40), two spaces apart.
+    /// Formats a table with columns padded to their widest cell (up to 40), two spaces apart.
     static func table(_ header: [String], _ rows: [[String]]) -> String {
         let widths = header.indices.map { column in
             min(40, ([header[column]] + rows.map { column < $0.count ? $0[column] : "" }).map(\.count).max() ?? 0)
@@ -129,14 +130,15 @@ extension Main {
         return ([line(header)] + rows.map(line)).joined(separator: "\n")
     }
 
-    /// `--limit`: a count, or the command fails rather than read it as the default.
+    /// Reads `--limit` as a count. A value that isn't a count fails the command rather than being read as the
+    /// default.
     static func limitFlag() -> Int? {
         guard let text = flag("--limit") else { return nil }
         guard let limit = Int(text), limit >= 0 else { fail("--limit takes a count of rows: --limit 500") }
         return limit
     }
 
-    /// A row as a JSON object: a column named twice (`a.id, b.id`) keeps both, the second as `id_2`.
+    /// Returns a row as a JSON object. A column named twice (`a.id, b.id`) keeps both, the second as `id_2`.
     static func object(_ columns: [String], _ row: [String?]) -> JSONValue {
         var object: [String: JSONValue] = [:]
         for (column, value) in zip(columns, row) {
@@ -150,20 +152,20 @@ extension Main {
         return .object(object)
     }
 
-    /// Compact JSON on one line.
+    /// Encodes a value as compact JSON on one line.
     static func line(_ value: JSONValue) -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         do { return String(decoding: try encoder.encode(value), as: UTF8.self) } catch { return "null" }
     }
 
-    /// What it did: the rows a change touched (with the rows it returned, when it says them), else the rows read and
-    /// how many of them are shown, and how to see more.
+    /// Returns what the statement did: the rows a change touched (with the rows it returned, when it gives them), or
+    /// else the rows read, how many of them are shown, and how to see more.
     static func footer(_ queryResult: QueryResult, sql: String, limit: Int?) -> String {
         if let changed = queryResult.changed {
             let verb = sql.trimmingCharacters(in: .whitespacesAndNewlines).prefix { $0.isLetter }.uppercased()
             guard changed > 0 || ["UPDATE", "DELETE", "INSERT", "MERGE", "REPLACE", "WITH"].contains(verb) else {
-                return "Done · \(queryResult.ms) ms"   // DDL: it changed what the database is, no rows
+                return "Done · \(queryResult.ms) ms"   // DDL changed the schema, not rows.
             }
             let rows = changed == 1 ? "1 row" : "\(changed) rows"
             return "\(rows) changed" + (queryResult.columns.isEmpty ? "" : " (those rows above)")
@@ -184,7 +186,7 @@ extension Main {
         return "\(counted), the first \(queryResult.rows.count) shown (\(more)) · \(queryResult.ms) ms"
     }
 
-    /// Tables a line each with their rows; with `columns`, each column under its table.
+    /// Formats the tables, one per line with their rows, and with `columns`, each column under its table.
     static func text(_ schema: DatabaseSchema, columns: Bool) -> String {
         schema.tables.map { table in
             let head = table.name + (table.rows.map { "  \($0) rows" } ?? "")

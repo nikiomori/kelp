@@ -1,60 +1,65 @@
 import Foundation
 
-// Watching instead of asking again and again: a client says what it shows (`watch.start`), the daemon reads it while
-// anyone watches — once for all of them — and pushes it as an event when it changed.
+// Watching replaces asking again and again. A client says what it shows (`watch.start`). While anyone watches, the
+// daemon reads it once for all watchers and pushes it as an event when it changes.
 
-/// What can be watched, and what its key names.
+/// The things that can be watched, and what each one's key names.
 public enum WatchTopic: String, Codable, Sendable, CaseIterable {
-    /// A workspace's status, branches and line counts (`GitEvent`): read when its files change. Key: worktree id.
+    /// A workspace's status, branches and line counts (`GitEvent`), read when its files change. Key: worktree id.
     case git
-    /// What a workspace's terminals and agents listen on (`PortsEvent`). Key: worktree id.
+    /// The ports a workspace's terminals and agents listen on (`PortsEvent`). Key: worktree id.
     case ports
-    /// CPU and memory of every live session (`ActivityEvent`). No key.
+    /// The CPU and memory of every live session (`ActivityEvent`). No key.
     case activity
-    /// The branch's CI runs (`CIEvent`): read again while one runs. Key: worktree id.
+    /// The branch's CI runs (`CIEvent`), read again while a run is going. Key: worktree id.
     case ci
     /// The branch's pull request (`PREvent`). Key: worktree id.
     case pr
-    /// How full an agent's conversation is (`ContextEvent`): read while it works and when its status changes. Key: session id.
+    /// How full an agent's conversation is (`ContextEvent`), read while the agent works and when its status changes.
+    /// Key: session id.
     case context
     /// The agents' plan limits and token use (`LimitsEvent`). No key.
     case limits
-    /// The commands an agent ran (`CommandsEvent`): read when one starts or ends. Key: session id.
+    /// The commands an agent ran (`CommandsEvent`), read when a command starts or ends. Key: session id.
     case commands
-    /// What an agent's subagents at work did last (`SubagentsEvent`): read every few seconds while someone looks. Key: session id.
+    /// What an agent's working subagents did last (`SubagentsEvent`), read every few seconds while someone looks. Key:
+    /// session id.
     case subagents
-    /// The file an agent's tools changed last (`EditsEvent`): told as each edit ends. Key: session id.
+    /// The file an agent's tools changed last (`EditsEvent`), pushed as each edit ends. Key: session id.
     case edits
     /// A file's version (`FileEvent`), read when the files in its folder change. The key is its absolute path. A file
     /// in a remote project isn't watched (nothing is pushed).
     case file
-    /// A workspace's files (`FilesEvent`, `files.list` and `files.ignored`'s answers): read when its files change, a remote one's every 10 s.
-    /// Key: worktree id.
+    /// A workspace's files (`FilesEvent`, the answers of `files.list` and `files.ignored`), read when its files change,
+    /// or every 10 s for a remote workspace. Key: worktree id.
     case files
     /// How a remote host is doing (`HostEvent`), read every 10 s while watched (by the sidebar's heading). It never
-    /// dials: without an open connection it only says that the host is off. The key is the host.
+    /// dials, so without an open connection it only says that the host is off. The key is the host.
     case host
-    /// The same every 2 s, for the server tab on screen. Key: the host.
+    /// The same as `host`, read every 2 s, for the server tab on screen. Key: the host.
     case hostDetail
-    /// Kelp's virtual machines (`MachinesEvent`): read every 5 s while watched, every second while one starts or is made.
-    /// No key.
+    /// Kelp's virtual machines (`MachinesEvent`), read every 5 s while watched, and every second while a machine starts
+    /// or is being made. No key.
     case machines
-    /// What runs in one machine (`MachineEvent`): every 2 s, for its tab on screen. Reading never wakes it. Key: its name.
+    /// What runs in one machine (`MachineEvent`), read every 2 s for its tab on screen. Reading never wakes the
+    /// machine. Key: the machine's name.
     case machineDetail
-    /// The pages agents made in a workspace (`ArtifactsEvent`): read when its `.kelp/artifacts` changes. Nothing for a
-    /// remote project. Key: worktree id.
+    /// The pages agents made in a workspace (`ArtifactsEvent`), read when its `.kelp/artifacts` changes. Nothing is
+    /// pushed for a remote project. Key: worktree id.
     case artifacts
-    /// A workspace's databases and what was run on them (`DatabasesEvent`): read when one runs, or when a file that
-    /// names one changes. Key: worktree id.
+    /// A workspace's databases and what was run on them (`DatabasesEvent`), read when a statement runs, or when a file
+    /// that names a database changes. Key: worktree id.
     case databases
-    /// The bridge to phones (`PhoneEvent`): read every 2 s while Settings › Phone shows. No key. Not for agents.
+    /// The bridge to phones (`PhoneEvent`), read every 2 s while Settings › Phone is shown. No key. Agents may not
+    /// watch it.
     case phone
-    /// A project's open pull requests (`PRsEvent`): read every 2 minutes while watched. Key: repo id.
+    /// A project's open pull requests (`PRsEvent`), read every 2 minutes while watched. Key: repo id.
     case prs
 }
 
-/// Starts watching for this connection: the last value comes at once (the first when it's read), then each change. Watching
-/// what this connection watches already reads it again now (after a push: the CI run it started shows within seconds).
+/// Starts watching for this connection. The last value comes at once (or the first one, once it is read), then each
+/// change. Watching something this connection already watches reads it again now, so after a push the CI run it started
+/// shows within seconds.
 public struct WatchStart: InternalMethod, Hashable {
     public static let name = "watch.start"
     public typealias Result = Done
@@ -65,7 +70,7 @@ public struct WatchStart: InternalMethod, Hashable {
     }
 }
 
-/// Stops it; a connection that goes away stops all of its own.
+/// Stops a watch. A connection that goes away stops all of its own watches.
 public struct WatchStop: InternalMethod {
     public static let name = "watch.stop"
     public typealias Result = Done
@@ -76,16 +81,18 @@ public struct WatchStop: InternalMethod {
     }
 }
 
-/// A watched workspace's git, read again after its files changed. `error`: git couldn't say (not a repository…).
+/// A watched workspace's git state, read again after its files changed. `error` is set when git couldn't answer (not a
+/// repository…).
 public struct GitEvent: RPCEvent, Equatable {
     public static let name = "event.git"
     public var worktree: String
     public var changes: [FileChange]?, branches: BranchInfo?, stats: LineStats?, error: String?
-    /// What its branch committed since it left the project's base branch (nil on the base itself): with `changes`,
-    /// every file it would bring in, which another folder of the project may be changing too.
+    /// The files the branch committed since it left the project's base branch (nil on the base itself). Together with
+    /// `changes`, these are all the files it would bring in, which another folder of the project may be changing too.
     public var branchFiles: [String]?
-    /// A branch group's folder only (nil elsewhere): what closing it would lose. `only`: its branch's commits that no
-    /// other branch or remote has; `dirty`: files not committed, by the rule its removal goes by (a new link isn't one).
+    /// What closing a branch group's folder would lose (nil for other folders). `only` counts the branch's commits that
+    /// no other branch or remote has. `dirty` means files aren't committed, by the rule its removal follows (a new link
+    /// doesn't count).
     public var only: Int?, dirty: Bool?
     public init(
         worktree: String, changes: [FileChange]? = nil, branches: BranchInfo? = nil, stats: LineStats? = nil,
@@ -147,7 +154,8 @@ public struct PREvent: RPCEvent, Equatable {
     }
 }
 
-/// Nil usage: not known (not Claude Code, ended, just compacted).
+/// How full a session's conversation is. Nil usage means it isn't known (not Claude Code, ended, or just
+/// compacted).
 public struct ContextEvent: RPCEvent, Equatable {
     public static let name = "event.context"
     public var session: String, usage: SessionContextWindow.Usage?
@@ -166,7 +174,8 @@ public struct CommandsEvent: RPCEvent, Equatable {
     }
 }
 
-/// The file an agent's tools changed last; `count` counts its edits, so the same file again is news too.
+/// The file an agent's tools changed last. `count` counts the agent's edits, so the same file edited again is news
+/// too.
 public struct EditsEvent: RPCEvent, Equatable {
     public static let name = "event.edits"
     public var session: String, path: String?, count: Int
@@ -198,7 +207,7 @@ public struct MachinesEvent: RPCEvent, Equatable {
     public init(machines: [VMInfo]) { self.machines = machines }
 }
 
-/// What runs in a machine; nil while it isn't running.
+/// What runs in a machine. nil while the machine isn't running.
 public struct MachineEvent: RPCEvent, Equatable {
     public static let name = "event.machine"
     public var name: String, detail: VMDetail?
@@ -214,9 +223,10 @@ public struct LimitsEvent: RPCEvent, Equatable {
     public init(usage: UsageGet.Result) { self.usage = usage }
 }
 
-/// A watched file's version now: the stamp `files.read` and `files.write` give (nil: it's gone, or isn't a file). Only
-/// the stamp: whoever holds that version (the app's own save) has nothing to read. A touch is a new version too.
-/// `problems`: what its language server says is wrong with it, pushed as the server says it.
+/// A watched file's current version, as the stamp that `files.read` and `files.write` give (nil when the file is gone,
+/// or isn't a file). Only the stamp is sent, so whoever already holds that version (the app's own save) has nothing to
+/// read. A touch is a new version too. `problems` is what the file's language server says is wrong with it, pushed as
+/// the server reports it.
 public struct FileEvent: RPCEvent, Equatable {
     public static let name = "event.file"
     public var path: String, stamp: FileStamp?, problems: [CodeProblem]?
@@ -227,8 +237,8 @@ public struct FileEvent: RPCEvent, Equatable {
     }
 }
 
-/// A watched workspace's files as `files.list` gives them, and what git ignores (`files.ignored`), pushed when that
-/// changed. `error`: they couldn't be listed.
+/// A watched workspace's files as `files.list` gives them, and what git ignores (`files.ignored`), pushed when they
+/// changed. `error` is set when the files couldn't be listed.
 public struct FilesEvent: RPCEvent, Equatable {
     public static let name = "event.files"
     public var worktree: String, paths: [String]?, ignored: [String]?, error: String?
@@ -240,7 +250,7 @@ public struct FilesEvent: RPCEvent, Equatable {
     }
 }
 
-/// A watched workspace's artifacts (`.kelp/artifacts`), latest change first, pushed when that folder changed.
+/// A watched workspace's artifacts (`.kelp/artifacts`), most recently changed first, pushed when that folder changed.
 public struct ArtifactsEvent: RPCEvent, Equatable {
     public static let name = "event.artifacts"
     public var worktree: String, items: [ArtifactItem]
@@ -254,8 +264,8 @@ public struct ArtifactsEvent: RPCEvent, Equatable {
 extension Repo: RPCEvent { public static let name = "event.repo" }
 extension Worktree: RPCEvent { public static let name = "event.worktree" }
 
-/// A branch group done with by itself (`Workspaces.tidyBranch`): its work is in the base branch now. `archived`: chats
-/// were left on it, so it was put away with them (Window › Archived Groups) rather than removed.
+/// A branch group that closed by itself (`Workspaces.tidyBranch`) because its work is in the base branch now.
+/// `archived` means chats were left on it, so it was put away with them (Window › Archived Groups) rather than removed.
 public struct LandedEvent: RPCEvent, Equatable {
     public static let name = "event.landed"
     public var worktree: String, name: String, base: String, archived: Bool
@@ -267,7 +277,8 @@ public struct LandedEvent: RPCEvent, Equatable {
     }
 }
 
-/// A project, workspace or session record that's gone (a project takes its workspaces with it; their sessions each say so).
+/// A project, workspace or session record that is gone. A project takes its workspaces with it, and their sessions each
+/// send their own event.
 public struct RemovedEvent: RPCEvent, Equatable {
     public static let name = "event.removed"
     public var repo: String?, worktree: String?, session: String?

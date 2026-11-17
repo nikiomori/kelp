@@ -23,8 +23,8 @@ public enum Unix {
         return address
     }
 
-    /// `patience`: how long a full queue (a burst of clients while a new kelpd takes over, ECONNREFUSED / EAGAIN) is
-    /// tried again before it counts as nobody answering.
+    /// `patience` is how long to keep retrying a full queue (ECONNREFUSED or EAGAIN, from a burst of clients while a
+    /// new kelpd takes over) before it counts as nobody answering.
     public static func connect(_ path: String, patience: TimeInterval) throws -> Int32 {
         let end = Date().addingTimeInterval(patience)
         while true {
@@ -54,14 +54,15 @@ public enum Unix {
         return fd
     }
 
-    /// Writing to a peer that hung up fails with EPIPE instead of killing the process (the app and the tests don't
-    /// ignore SIGPIPE the way kelpd does; a daemon that went away mid-write must not take the app down with it).
+    /// Makes writing to a peer that hung up fail with EPIPE instead of killing the process. The app and the tests don't
+    /// ignore SIGPIPE the way kelpd does, and a daemon that went away mid-write must not take the app down with it.
     public static func noSigPipe(_ fd: Int32) {
         var one: Int32 = 1
         _ = setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
     }
 
-    /// A socket file someone still answers on is theirs: only a stale one (its owner gone) is replaced.
+    /// Listens on `path`. A socket file that something still answers on belongs to that process, so only a stale file
+    /// (whose owner is gone) is replaced.
     public static func listen(_ path: String) throws -> Int32 {
         if let other = try? connect(path) {
             close(other)
@@ -82,12 +83,13 @@ public enum Unix {
             close(fd)
             throw SocketError.bind(code)
         }
-        chmod(path, 0o600)   // the socket is the auth boundary locally
+        chmod(path, 0o600)   // The socket is the local auth boundary.
         return fd
     }
 
-    /// Nobody else can reach the socket between bind and chmod (umask is process-wide, so not that): its folder is ours alone.
-    /// A folder that isn't ours, or is shared (sticky, like /tmp), is left as it is; the socket's own mode still holds.
+    /// Makes the socket's folder ours alone, so nobody else can reach the socket between bind and chmod. umask can't do
+    /// it, because umask is process-wide. A folder that isn't ours, or is shared (sticky, like /tmp), is left as it is,
+    /// and the socket's own mode still holds.
     private static func closeOffDirectory(_ dir: String) {
         var st = stat()
         guard stat(dir, &st) == 0, st.st_uid == getuid(), st.st_mode & S_ISVTX == 0 else { return }
@@ -95,45 +97,48 @@ public enum Unix {
     }
 
     /// Whether the process on the other end of an accepted connection runs as this user (or root).
-    /// The socket's own 0600 mode already says so; this holds even if someone loosens it.
+    /// The socket's own 0600 mode already ensures that, and this check holds even if someone loosens the mode.
     public static func peerIsUs(_ fd: Int32) -> Bool {
         var uid: uid_t = 0, gid: gid_t = 0
         guard getpeereid(fd, &uid, &gid) == 0 else { return false }
         return uid == getuid() || uid == 0
     }
 
-    /// The program on the other end of a connection (`peerPID`'s, as it is now), resolved: who is asking.
+    /// Returns the resolved path of the program on the other end of a connection (the program of `peerPID` as it is
+    /// now), which says who is asking.
     public static func peerExecutable(_ fd: Int32) -> String? {
         guard let pid = peerPID(fd) else { return nil }
         return executable(pid)
     }
 
-    /// The pid of the process on the other end: the last one that sent on it (the one that connected, until another
-    /// sharing the socket writes), as of this call. A program it exec'd since reads as that program.
+    /// Returns the pid of the process on the other end, as of this call. That is the last process that sent on the
+    /// socket: the one that connected, until another process sharing the socket writes. If that process has exec'd a
+    /// new program since, the pid reads as that program.
     public static func peerPID(_ fd: Int32) -> pid_t? {
         var pid: pid_t = 0, len = socklen_t(MemoryLayout<pid_t>.size)
         return getsockopt(fd, SOL_LOCAL, LOCAL_PEERPID, &pid, &len) == 0 && pid > 0 ? pid : nil
     }
 
-    /// A running process's program, resolved.
+    /// Returns the resolved path of a running process's program.
     public static func executable(_ pid: pid_t) -> String? {
         var buf = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
         guard proc_pidpath(pid, &buf, UInt32(buf.count)) > 0 else { return nil }
         return URL(fileURLWithPath: String(cBuffer: buf)).resolvingSymlinksInPath().path
     }
 
-    /// Write all bytes, retrying on partial writes. Returns false if the peer is gone: it took nothing for `wait` seconds.
+    /// Writes all bytes, retrying on partial writes. Returns false if the peer is gone, meaning it took nothing for
+    /// `wait` seconds.
     @discardableResult
     public static func writeAll(_ fd: Int32, _ data: Data, wait: TimeInterval = 5) -> Bool {
         data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
-            guard let base = bytes.baseAddress else { return true }   // nothing to write
+            guard let base = bytes.baseAddress else { return true }   // Nothing to write.
             var off = 0
             while off < bytes.count {
                 let written = Darwin.write(fd, base + off, bytes.count - off)
                 if written < 0, errno == EINTR { continue }
-                if written < 0, errno == EAGAIN {   // full: wait until it can take more, rather than spin
+                if written < 0, errno == EAGAIN {   // The socket is full: wait for room rather than spin.
                     var pfd = pollfd(fd: fd, events: Int16(POLLOUT), revents: 0)
-                    if poll(&pfd, 1, Int32(wait * 1000)) <= 0 { return false }   // nobody reading for so long: gone
+                    if poll(&pfd, 1, Int32(wait * 1000)) <= 0 { return false }   // Nobody read for that long.
                     continue
                 }
                 if written < 0 { return false }
@@ -145,7 +150,8 @@ public enum Unix {
 }
 
 extension String {
-    /// The text a C call wrote into `buffer`, up to its NUL (`String(cString:)` on an array is deprecated).
+    /// Reads the text a C call wrote into `buffer`, up to its NUL, because `String(cString:)` on an array is
+    /// deprecated.
     package init(cBuffer buffer: [CChar]) {
         self.init(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }

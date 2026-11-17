@@ -1,8 +1,8 @@
 import Foundation
 
-/// Errors Kelp recognizes, with the exact command that fixes them: an error banner offers "Copy Fix" instead of
-/// leaving you to search. `blocking`: git itself doesn't work (Xcode's license, no developer tools), so nothing
-/// git-related will until it's fixed; that banner stays until it's closed.
+/// Errors Kelp recognizes, each with the exact command that fixes it, so an error banner offers "Copy Fix" instead of
+/// leaving you to search. `blocking` means git itself doesn't work (Xcode's license, no developer tools), so nothing
+/// git-related works until it's fixed. A blocking banner stays until the user closes it.
 public enum FixRecipes {
     public struct Fix: Equatable, Sendable {
         public var command: String

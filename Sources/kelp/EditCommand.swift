@@ -2,8 +2,9 @@ import Core
 import Foundation
 
 extension Main {
-    /// `edit [--wait] <file>`: an agent's external editor (VISUAL), a tab in Kelp. Ends when the tab closes; the agent then
-    /// reads the file. With no terminal it fails at once: a tool running `git commit` must not hang on a tab nobody sees.
+    /// `edit [--wait] <file>` is an agent's external editor (VISUAL), which opens a tab in Kelp. It ends when the tab
+    /// closes, and the agent then reads the file. With no terminal it fails at once, because a tool running
+    /// `git commit` must not hang on a tab nobody sees.
     static func edit(_ sub: String?, _ client: RPCClient) async throws {
         _ = has("--wait")
         guard let name = sub.flatMap({ $0 == "--wait" ? nil : $0 }) ?? args.first else { fail("edit [--wait] <file>") }
@@ -21,7 +22,7 @@ extension Main {
         while !fm.fileExists(atPath: done) {
             try await Task.sleep(for: .milliseconds(200))
             beats += 1
-            // The window went: nobody will close the tab. The agent goes on with the text it had.
+            // The window is gone, so nobody will close the tab. The agent goes on with the text it had.
             if beats % 10 == 0, try await client.call(UIStateGet()) == ShownUI() { return }
         }
         try fm.removeItem(atPath: done)

@@ -1,13 +1,14 @@
 import Foundation
 
-// session.turn*: what an agent's turns changed, and undoing or redoing one.
+// The session.turn* methods: what an agent's turns changed, and undoing or redoing a turn.
 
-/// → {turn, hasBase}: the files its last turn changed and how long it took; null when the session isn't running.
+/// Returns {turn, hasBase}: the files the session's last turn changed and how long it took. null when the session
+/// isn't running.
 public struct SessionTurn: RPCMethod {
     public static let name = "session.turn"
     public var id: String
     public init(id: String) { self.id = id }
-    /// One turn of the agent: what it changed by the time it stopped, and how long it worked.
+    /// One turn of the agent: what it had changed by the time it stopped, and how long it worked.
     public struct Turn: Codable, Sendable, Equatable {
         public struct File: Codable, Sendable, Equatable {
             public var path: String, added: Int, removed: Int
@@ -32,15 +33,15 @@ public struct SessionTurn: RPCMethod {
     }
     public typealias Result = Info?
 }
-/// The session's turns, the newest first (the last 20): how its folder was as each began, with the prompt that started
-/// it. None for a remote project's, where no snapshots are taken.
+/// Returns the session's last 20 turns, newest first, each with how the folder was when the turn began and the prompt
+/// that started it. Empty for a remote project, where no snapshots are taken.
 public struct SessionTurns: RPCMethod {
     public static let name = "session.turns"
     public typealias Result = [Mark]
     public var id: String
     public init(id: String) { self.id = id }
-    /// A turn's start: `tree` is the folder as it was then (a snapshot in the project's git, which git's cleanup may
-    /// remove after two weeks), and `head` is its HEAD then.
+    /// The start of a turn. `tree` is the folder as it was then (a snapshot in the project's git, which git's cleanup
+    /// may remove after two weeks), and `head` is the folder's HEAD then.
     public struct Mark: Codable, Sendable, Equatable, Identifiable {
         public var id: String, session: String, tree: String, head: String?, folder: String, prompt: String, at: Date
         public init(
@@ -59,10 +60,10 @@ public struct SessionTurns: RPCMethod {
     }
 }
 
-/// A turn of the agent's undone: its folder put back as it was when `turn` began. Without `apply`, what would go back
-/// and the folder's state now; with it, done only while the folder is still that `state`, answering with the state after
-/// (for `session.turnRedo`). Refused while the agent works,
-/// after commits since the turn began, and with another agent in the folder. `.env` files stay as they are.
+/// Undoes one of the agent's turns by putting the folder back as it was when `turn` began. Without `apply`, it returns
+/// what would go back and the folder's state now. With `apply`, it undoes only while the folder is still at that
+/// `state`, and returns the state afterwards (for `session.turnRedo`). It is refused while the agent works, when there
+/// are commits since the turn began, and when another agent is in the folder. `.env` files stay as they are.
 public struct SessionTurnUndo: RPCMethod {
     public static let name = "session.turnUndo"
     public typealias Result = Plan
@@ -82,8 +83,8 @@ public struct SessionTurnUndo: RPCMethod {
     }
 }
 
-/// The last `session.turnUndo` taken back: the folder as it was before it, while it is still `state` (the Plan that
-/// undo answered with). `turn` is the one that was undone.
+/// Takes back the last `session.turnUndo`, putting the folder back as it was before the undo. It works only while the
+/// folder is still at `state` (from the Plan the undo answered with). `turn` is the turn that was undone.
 public struct SessionTurnRedo: RPCMethod {
     public static let name = "session.turnRedo"
     public typealias Result = Done

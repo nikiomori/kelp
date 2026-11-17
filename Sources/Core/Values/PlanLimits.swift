@@ -1,13 +1,15 @@
 import Foundation
 
-/// A reset as the agents print it: "in 1h 30m", "in 3d", "3pm", "7:40am", "Oct 20 at 5am", "Oct 30, 2026 3:40 PM", "November 7, 19:36"; nil for anything else.
+/// Reads a reset time as the agents print it: "in 1h 30m", "in 3d", "3pm", "7:40am", "Oct 20 at 5am",
+/// "Oct 30, 2026 3:40 PM", "November 7, 19:36". `parse` returns nil for anything else.
 public enum ResetTime {
     public static func parse(_ text: String, now: Date = Date(), calendar: Calendar = .current) -> Date? {
         read(text, now: now, calendar: calendar)?.date
     }
 
-    /// One way of saying it, whichever agent said it (each CLI has its own): the time within half a day, the weekday and
-    /// time within the week, else the date and time. Text it can't read stays as the agent wrote it.
+    /// Writes a reset time one way, whichever agent printed it, because each CLI has its own format. Within half a day
+    /// it shows the time, within the week the weekday and time, and otherwise the date and time. Text that can't be
+    /// read stays as the agent wrote it.
     public static func shown(_ text: String, now: Date = Date(), calendar: Calendar = .current) -> String {
         guard let reading = read(text, now: now, calendar: calendar) else { return text }
         return reading.timed
@@ -23,7 +25,7 @@ public enum ResetTime {
                 : date.formatted(.dateTime.month(.abbreviated).day().hour().minute())
     }
 
-    /// `timed`: it said a time of day as well as a date.
+    /// `timed` is true when the text gave a time of day as well as a date.
     private static func read(_ text: String, now: Date, calendar: Calendar) -> (date: Date, timed: Bool)? {
         let lowered = text.trimmingCharacters(in: .whitespaces).lowercased()
         if lowered.hasPrefix("in ") {
@@ -38,11 +40,11 @@ public enum ResetTime {
             (?: (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec) [a-z]* \s+ (\d{1,2}) (?: ,\s+\d{4}\s+ | ,\s+ | \s+at\s+ | $ ) )?
             (?: (\d{1,2}) (?: :(\d{2}) )? \s* (am|pm)? )?
             /#
-        // a date, a time, or both
+        // The text is a date, a time, or both.
         guard let match = lowered.wholeMatch(of: clock), match.1 != nil || match.3 != nil else { return nil }
         var hour = 0
         if let clockHour = match.3.flatMap({ Int($0) }) {
-            if match.5 == nil {   // "19:36": a 24-hour clock has its minutes
+            if match.5 == nil {   // Without am/pm ("19:36") it is a 24-hour time and needs minutes
                 guard match.4 != nil, (0...23).contains(clockHour) else { return nil }
                 hour = clockHour
             } else {
@@ -71,7 +73,8 @@ public enum ResetTime {
 }
 
 extension UsageGet {
-    /// A window's length by its kind; a month is taken as 30 days (Codex's free plan says 43 200 minutes itself).
+    /// Returns a limit window's length from its kind. A month counts as 30 days, which is the 43 200 minutes Codex's
+    /// free plan states itself.
     public static func window(_ kind: String) -> TimeInterval? {
         let lowered = kind.lowercased()
         return kind == "session"
@@ -80,14 +83,14 @@ extension UsageGet {
 }
 
 extension UsageGet.Result {
-    /// One plan limit, from whichever source has it: when it resets, if that can be told, how long its window is, and
-    /// when the agent last showed it (nil: not known).
+    /// One plan limit, from whichever source has it. It holds when the limit resets (if that can be told), how long its
+    /// window is, and when the agent last showed it (nil when not known).
     public struct Reading: Sendable, Equatable {
         public var agent: String, limit: UsageGet.Limit, resetAt: Date?, window: TimeInterval?, readAt: Date?
     }
 
-    /// Every limit the agents report, as the sidebar's rings show them: from the /usage screens, from Claude's printed
-    /// percentages when its screen wasn't read, and from Codex's own log.
+    /// Returns every limit the agents report, as the sidebar's rings show them. The readings come from the /usage
+    /// screens, from Claude's printed percentages when its screen wasn't read, and from Codex's own log.
     public func readings(now: Date = Date()) -> [Reading] {
         let readAt = { (agent: String) in plansReadAt?[agent].map { Date(timeIntervalSince1970: $0) } }
         var out: [Reading] = []
@@ -121,7 +124,8 @@ extension UsageGet.Result {
         return out
     }
 
-    /// The readings that say something about now: not the ones the sidebar dims, read more than half an hour ago.
+    /// Returns the readings that still say something about now. It leaves out the ones the sidebar dims, which were
+    /// read more than half an hour ago.
     public func fresh(now: Date = Date()) -> [Reading] {
         readings(now: now).filter { $0.readAt.map { now.timeIntervalSince($0) <= 1800 } ?? true }
     }

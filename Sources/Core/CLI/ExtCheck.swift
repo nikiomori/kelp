@@ -1,9 +1,9 @@
 import Foundation
 
-/// `kelp ext check <folder>`: what's wrong with an extension, each with where it is ("contributes.panels[0]: …"), before
-/// Kelp loads it. The window keeps the last manifest that worked while one with a mistake is fixed.
+/// `kelp ext check <folder>` lists what is wrong with an extension before Kelp loads it, each problem with its place
+/// ("contributes.panels[0]: …"). The window keeps the last manifest that worked while a broken one is being fixed.
 public enum ExtCheck {
-    /// Empty: nothing found wrong.
+    /// Returns the problems found, or an empty list when nothing is wrong.
     public static func problems(in folder: URL) -> [String] {
         let file = folder.appendingPathComponent("extension.json")
         guard let data = FileManager.default.contents(atPath: file.path) else {

@@ -1,13 +1,13 @@
 import Foundation
 
-/// `window.kelp` in an extension's web page: the script Kelp puts in it, and the TypeScript that says what it has
-/// (`kelp ext types > kelp.d.ts`). Both come from here, so the types can't fall behind the bridge (a test reads them side
-/// by side).
+/// `window.kelp` in an extension's web page: the script Kelp puts in the page, and the TypeScript that declares what
+/// the bridge offers (`kelp ext types > kelp.d.ts`). Both come from here, so the types can't fall behind the bridge,
+/// and a test compares them side by side.
 public enum ExtBridge {
-    /// The bridge, with what the page's `ext:` link carried as `kelp.props`.
+    /// Returns the bridge script, with the values the page's `ext:` link carried available as `kelp.props`.
     public static func script(props: [String: String]) -> String {
         var propsJSON = "{}"
-        // strings always encode
+        // A dictionary of strings always encodes, so the catch never runs.
         do { propsJSON = String(decoding: try JSONEncoder().encode(props), as: UTF8.self) } catch {}
         return """
             (() => {
@@ -34,7 +34,7 @@ public enum ExtBridge {
             """
     }
 
-    /// What the bridge has, for an extension's editor: `kelp ext types > kelp.d.ts`.
+    /// The TypeScript declarations of the bridge, for an extension's editor (`kelp ext types > kelp.d.ts`).
     public static let declarations = """
         // window.kelp in a Kelp extension's web page. From `kelp ext types`; docs/extensions.md says more.
         interface KelpWorkspace { name: string; path: string; branch: string; project: string }
@@ -69,18 +69,20 @@ public enum ExtBridge {
         declare const kelp: Kelp;
         """
 
-    /// `json` from a page as a `T`; nil for what doesn't parse (a page's own mistake, nothing to report).
+    /// Decodes `json` from a page as a `T`. Returns nil when it doesn't parse, which is the page's own mistake and
+    /// nothing to report.
     public static func decode<T: Decodable>(_ json: Any?, as: T.Type) -> T? {
         guard let text = json as? String, let data = text.data(using: .utf8) else { return nil }
         do { return try JSONDecoder().decode(T.self, from: data) } catch { return nil }
     }
 
-    /// `value` as JSON for a page's script; "null" in the one case it can't be (it always can).
+    /// Encodes `value` as JSON for a page's script. It returns "null" if encoding fails, which never happens in
+    /// practice.
     public static func json(_ value: JSONValue) -> String {
         do { return String(decoding: try JSONEncoder().encode(value), as: UTF8.self) } catch { return "null" }
     }
 
-    /// `ext:<extension>/<view>?a=1&b=2` → ("<extension>/<view>", ["a": "1", "b": "2"]).
+    /// Splits `ext:<extension>/<view>?a=1&b=2` into ("<extension>/<view>", ["a": "1", "b": "2"]).
     public static func split(_ body: String) -> (view: String, props: [String: String]) {
         guard let mark = body.firstIndex(of: "?") else { return (body, [:]) }
         let items = URLComponents(string: "x:?" + body[body.index(after: mark)...])?.queryItems ?? []

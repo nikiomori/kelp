@@ -1,8 +1,10 @@
 import Foundation
 
-/// `kelp schema`: Resources/rpc.json, which Tests/DaemonTests/RPCSchemaTests.swift keeps in step with the types, as text.
+/// `kelp schema` prints Resources/rpc.json as text. Tests/DaemonTests/RPCSchemaTests.swift keeps that file in step with
+/// the types.
 public enum RPCSchema {
-    /// All the methods, or what `query` names: a method, an event or a type, exactly or as the only name holding it.
+    /// Returns all the methods, or what `query` names: a method, an event or a type. The query matches a name exactly,
+    /// or as part of the only name that holds it.
     public static func text(_ doc: JSONValue, _ query: String? = nil) -> String {
         let methods = doc["methods"]?.array ?? [], events = doc["x-events"]?.array ?? []
         var types: [String: JSONValue] = [:]
@@ -88,7 +90,7 @@ public enum RPCSchema {
         }
     }
 
-    /// A shape as it reads in a table: a type's name, `[X]` for a list, `{string: X}` for a map.
+    /// Returns a shape as it reads in a table: a type's name, `[X]` for a list, or `{string: X}` for a map.
     private static func kind(_ schema: JSONValue?) -> String {
         guard let schema else { return "any" }
         if let ref = schema["$ref"]?.string { return ref.components(separatedBy: "/").last ?? ref }

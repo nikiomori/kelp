@@ -1,7 +1,7 @@
 import Foundation
 
-/// The Android SDK an Android machine runs from: the user's own SDK (Android Studio's), found through ANDROID_HOME,
-/// ANDROID_SDK_ROOT or its usual place. Kelp downloads none of it.
+/// The Android SDK that an Android machine runs from. It is the user's own SDK (Android Studio's), found through
+/// ANDROID_HOME, ANDROID_SDK_ROOT or its usual place. Kelp downloads none of it.
 public enum AndroidSDK {
     public static var root: URL? {
         let env = ProcessInfo.processInfo.environment
@@ -21,14 +21,15 @@ public enum AndroidSDK {
     /// The newest arm64 system image installed, such as "system-images;android-36.1;google_apis_playstore;arm64-v8a".
     public static func newestImage() -> String? {
         guard let dir = root?.appendingPathComponent("system-images") else { return nil }
-        func names(_ folder: URL) -> [String] {   // one level, not the images' files
+        func names(_ folder: URL) -> [String] {   // One level only, not the images' files.
             do { return try FileManager.default.contentsOfDirectory(atPath: folder.path) } catch { return [] }
         }
         let apis = names(dir)
         func api(_ name: String) -> Double { Double(name.replacingOccurrences(of: "android-", with: "")) ?? 0 }
         for level in apis.sorted(by: { api($0) > api($1) }) {
             let tags = names(dir.appendingPathComponent(level))
-            // The plain images are lighter than Play Store's (no Google services updating themselves at every boot).
+            // The plain images are lighter than the Play Store ones, which have Google services that update
+            // themselves at every boot.
             for tag in tags.sorted(by: { rank($0) < rank($1) })
             where FileManager.default.fileExists(atPath: dir.appendingPathComponent("\(level)/\(tag)/arm64-v8a").path) {
                 return "system-images;\(level);\(tag);arm64-v8a"
@@ -40,8 +41,9 @@ public enum AndroidSDK {
         ["default": 0, "google_apis": 1, "google_apis_playstore": 2][tag] ?? 3
     }
 
-    /// What an app's screen holds, from `uiautomator dump`: a line each for the controls worth naming, indented by depth,
-    /// with a ref to press and where it is: `- button "Sign in" [ref=e3] (96,1180 888×132)`. `centers` by ref, for taps.
+    /// Describes what an app's screen holds, read from `uiautomator dump`. Each control worth naming gets a line,
+    /// indented by depth, with a ref to press and its position: `- button "Sign in" [ref=e3] (96,1180 888×132)`.
+    /// `centers` maps each ref to its center point, for taps.
     public static func ui(_ xml: String) -> (text: String, centers: [String: (x: Int, y: Int)]) {
         let reader = UIReader()
         let parser = XMLParser(data: Data(xml.utf8))
@@ -81,14 +83,15 @@ public enum AndroidSDK {
         func parser(_ parser: XMLParser, didEndElement name: String, namespaceURI: String?, qualifiedName: String?) {
             if name == "node" { _ = shown.popLast() }
         }
-        /// "[0,63][1080,210]" → (0, 63, 1080, 210).
+        /// Parses bounds like "[0,63][1080,210]" into (0, 63, 1080, 210).
         static func bounds(_ text: String?) -> (Int, Int, Int, Int)? {
             let numbers = (text ?? "").split(whereSeparator: { "[],".contains($0) }).compactMap { Int($0) }
             return numbers.count == 4 ? (numbers[0], numbers[1], numbers[2], numbers[3]) : nil
         }
     }
 
-    /// `input text` takes no spaces or shell characters as they are: %s for a space, the rest escaped.
+    /// Escapes text for `adb shell input text`, which can't take spaces or shell characters as they are. A space
+    /// becomes %s, and the other characters are escaped.
     public static func inputText(_ text: String) -> String {
         var out = ""
         for char in text {
@@ -103,7 +106,7 @@ public enum AndroidSDK {
         return out
     }
 
-    /// Key names agents use, as Android keycodes.
+    /// The key names agents use, mapped to Android keycodes.
     public static let keys: [String: Int] = [
         "home": 3, "back": 4, "up": 19, "down": 20, "left": 21, "right": 22, "enter": 66, "return": 66, "tab": 61,
         "space": 62,

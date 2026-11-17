@@ -1,13 +1,14 @@
 import Foundation
 
-/// Minimal JSON tree used for JSON-RPC params/results.
+/// A minimal JSON tree, used for JSON-RPC params and results.
 public enum JSONValue: Codable, Sendable, Hashable {
     case null, bool(Bool), int(Int), double(Double), string(String)
     case array([JSONValue]), object([String: JSONValue])
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        // Most common first: every miss throws (and builds) a DecodingError. Int stays before Double, so 3 stays an int.
+        // The most common cases go first, because every miss builds and throws a DecodingError. Int stays before
+        // Double, so 3 stays an int.
         if container.decodeNil() {
             self = .null
         } else if let value = try? container.decode(String.self) {
@@ -58,7 +59,7 @@ public enum JSONValue: Codable, Sendable, Hashable {
         if case .array(let value) = self { return value }
         return nil
     }
-    /// An int or a double (JSON doesn't tell 3 from 3.0).
+    /// The value as a number, whether it is an int or a double, because JSON doesn't tell 3 from 3.0.
     public var number: Double? {
         switch self {
         case .int(let value): Double(value)
@@ -67,7 +68,7 @@ public enum JSONValue: Codable, Sendable, Hashable {
         }
     }
 
-    /// Encode any Encodable into a JSONValue.
+    /// Encodes any Encodable into a JSONValue.
     public static func from<T: Encodable>(_ value: T) throws -> JSONValue {
         try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(value))
     }

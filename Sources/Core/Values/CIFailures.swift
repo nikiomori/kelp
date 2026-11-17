@@ -1,11 +1,11 @@
 import Foundation
 
 extension CIRuns {
-    /// One thing that broke, read from a job's log: a test, or a compiler's error (with no `test`), with where it is
-    /// and what it says.
+    /// One thing that broke, read from a job's log. It is a test, or a compiler error (with no `test`), along with its
+    /// location and its messages.
     public struct Failure: Codable, Sendable, Equatable {
         public var test: String?, suite: String?
-        /// Relative to the project where the log says enough to tell.
+        /// The file is relative to the project when the log says enough to tell.
         public var file: String?, line: Int?
         public var messages: [String]
         public init(
@@ -17,18 +17,18 @@ extension CIRuns {
             self.line = line
             self.messages = messages
         }
-        /// "Tests/AppTests.swift:12".
+        /// The location as "file:line", such as "Tests/AppTests.swift:12".
         public var place: String? { file.map { f in line.map { "\(f):\($0)" } ?? f } }
     }
 
-    /// What a failed log says. `failures` comes from the whole log, before `log` keeps only its tail.
+    /// What a failed log says. `failures` is read from the whole log, and `log` keeps only its tail.
     public struct Report: Codable, Sendable, Equatable {
         public var failures: [Failure]
-        /// Failures left out past the cap.
+        /// The number of failures left out because of the cap.
         public var more: Int
-        /// Tests that ran, when the log counts them.
+        /// The number of tests that ran, when the log counts them.
         public var tests: Int?
-        /// For a log in no known format: how it ended, and the lines before that.
+        /// For a log in no known format, its exit code and its last lines.
         public var exitCode: Int?, lastLines: [String]
         /// The log's tail.
         public var log: String
@@ -47,7 +47,7 @@ extension CIRuns {
         /// The failures alone, to copy or to read at a glance.
         public var summary: String { Report.text(of: failures, more: more) }
 
-        /// What an agent gets: everything that broke, wherever it sits in the log, then the log's tail.
+        /// The text an agent gets: everything that broke, wherever it was in the log, then the log's tail.
         public var forAgent: String { summary.isEmpty ? log : summary + "\n\n" + log }
 
         public static func text(of failures: [Failure], more: Int = 0) -> String {

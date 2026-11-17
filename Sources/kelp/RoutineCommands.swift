@@ -2,7 +2,7 @@ import Core
 import Foundation
 
 extension Main {
-    /// `routine add|list|run|rm`.
+    /// Runs `routine add|list|run|rm`.
     static func routines(_ sub: String?, _ client: RPCClient) async throws {
         func id() async throws -> String {
             let prefix = args.first ?? "",
@@ -20,7 +20,8 @@ extension Main {
             let every = Routine.Every(rawValue: flag("--every") ?? "weekdays")
             let at = flag("--at") ?? (every == .hourly ? ":00" : "9:00"), day = flag("--day") ?? "mon",
                 skip = has("--skip-missed")
-            // A word that isn't a time or a schedule is refused, not taken for midnight or weekdays; so is --help.
+            // A word that isn't a time or a schedule is refused rather than taken for midnight or weekdays, and so is
+            // --help.
             let parts = at.split(separator: ":", omittingEmptySubsequences: false),
                 hm = parts.compactMap { $0.isEmpty ? 0 : Int($0) }
             let days = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]

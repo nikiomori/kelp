@@ -1,9 +1,9 @@
 import Foundation
 
-// Commits an agent proposes for a workspace's changes (`kelp commit add`), which the user edits and Kelp makes: the
-// agent never stages or commits itself.
+// Commits that an agent proposes for a workspace's changes (`kelp commit add`). The user edits them and Kelp makes
+// them, so the agent never stages or commits by itself.
 
-/// One commit of a plan: the files it takes, whole, and its message (subject, a blank line, the body).
+/// One commit of a plan: the files it takes, whole, and its message (the subject, a blank line, then the body).
 public struct PlannedCommit: Codable, Sendable, Equatable {
     public var files: [String]
     public var message: String
@@ -13,12 +13,12 @@ public struct PlannedCommit: Codable, Sendable, Equatable {
     }
 }
 
-/// An agent proposes one more commit for `worktreeId`'s changes → how many it has proposed so far.
+/// Proposes one more commit for the changes in `worktreeId`. Returns how many commits the agent has proposed so far.
 public struct CommitPlanAdd: RPCMethod {
     public static let name = "commit.plan.add"
     public typealias Result = Int
     public var worktreeId: String, files: [String], message: String
-    /// The session it comes from (`KELP_SESSION`), whose agent the panel names.
+    /// The session the proposal comes from (`KELP_SESSION`). The panel names that session's agent.
     public var session: String?
     public init(worktreeId: String, files: [String], message: String, session: String? = nil) {
         self.worktreeId = worktreeId
@@ -28,7 +28,7 @@ public struct CommitPlanAdd: RPCMethod {
     }
 }
 
-/// The commits proposed for `worktreeId` since the last take, oldest first; the daemon forgets them.
+/// Returns the commits proposed for `worktreeId` since the last take, oldest first, and the daemon forgets them.
 public struct CommitPlanTake: InternalMethod {
     public static let name = "commit.plan.take"
     public typealias Result = [PlannedCommit]
@@ -36,8 +36,8 @@ public struct CommitPlanTake: InternalMethod {
     public init(worktreeId: String) { self.worktreeId = worktreeId }
 }
 
-/// A commit of exactly `files` as they are on disk (new and deleted ones too), whatever else is staged, which stays
-/// staged → the new commit's short hash.
+/// Commits exactly `files` as they are on disk (new and deleted files too), whatever else is staged, and leaves the
+/// rest staged. Returns the new commit's short hash.
 public struct GitCommitPaths: RPCMethod {
     public static let name = "git.commitPaths"
     public typealias Result = String
@@ -49,7 +49,8 @@ public struct GitCommitPaths: RPCMethod {
     }
 }
 
-/// The last `count` commits undone, their changes kept staged (`git reset --soft`): only while HEAD is still `head`.
+/// Undoes the last `count` commits and keeps their changes staged (`git reset --soft`). It does so only while HEAD is
+/// still `head`.
 public struct GitUndoCommits: RPCMethod {
     public static let name = "git.undoCommits"
     public typealias Result = Done

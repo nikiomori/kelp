@@ -1,10 +1,10 @@
 import Foundation
 
-/// An agent on a schedule: at its time the daemon starts `agent` with `prompt` in the routine's own workspace (in the
-/// project's folder, made at its first run), and keeps how each run went.
+/// An agent on a schedule. At the scheduled time, the daemon starts `agent` with `prompt` in the routine's own
+/// workspace (in the project's folder, made at its first run), and records how each run went.
 public struct Routine: Codable, Sendable, Equatable, Identifiable {
     public enum Every: String, Codable, Sendable, CaseIterable { case hourly, daily, weekdays, weekly }
-    /// Empty: a new one (routine.set gives it an id).
+    /// Empty for a new routine, which routine.set gives an id.
     public var id: String
     public var name: String
     public var repoId: String
@@ -12,16 +12,17 @@ public struct Routine: Codable, Sendable, Equatable, Identifiable {
     public var model: String?
     public var prompt: String
     public var every: Every
-    /// Minutes after midnight; hourly: minutes past the hour.
+    /// Minutes after midnight, or for an hourly routine, minutes past the hour.
     public var time: Int
-    /// Weekly: 1 Sunday … 7 Saturday, as Calendar counts.
+    /// For a weekly routine, 1 (Sunday) to 7 (Saturday), as Calendar counts.
     public var weekday: Int
     public var enabled: Bool
-    /// A run missed while the Mac slept or Kelp wasn't running: once when it's back (true), or skipped.
+    /// What happens to a run missed while the Mac slept or Kelp wasn't running. True runs it once when Kelp is back,
+    /// and false skips it.
     public var onWake: Bool
-    /// Its workspace, once it ran.
+    /// The routine's workspace, once it has run.
     public var worktreeId: String?
-    /// Due times up to here are handled: run, missed, or before the routine was on.
+    /// Due times up to this date are handled: run, missed, or from before the routine was on.
     public var checked: Date
     public var createdAt: Date
 
@@ -47,25 +48,25 @@ public struct Routine: Codable, Sendable, Equatable, Identifiable {
         self.createdAt = createdAt
     }
 
-    /// One run: its agent's session, and how it went.
+    /// One run: the agent's session, and how it went.
     public struct Run: Codable, Sendable, Equatable, Identifiable {
         public enum Outcome: String, Codable, Sendable, CaseIterable {
             case running
-            /// The agent waits for an answer (a permission, a question): `summary` is what it asks.
+            /// The agent waits for an answer (a permission, a question), and `summary` is what it asks.
             case asked
             case done, failed
-            /// Due while the Mac slept or Kelp wasn't running, and the routine skips those.
+            /// The run was due while the Mac slept or Kelp wasn't running, and the routine skips such runs.
             case missed
         }
         public var id: String
         public var routineId: String
         public var sessionId: String?
-        /// When it was due; Run Now: when it was asked for.
+        /// When the run was due, or for Run Now, when it was asked for.
         public var due: Date
         public var started: Date
         public var ended: Date?
         public var outcome: Outcome
-        /// The agent's first line when done, what it asks, why it failed.
+        /// The agent's first line when done, what it asks, or why it failed.
         public var summary: String
         public init(
             id: String = UUID().uuidString, routineId: String, sessionId: String? = nil, due: Date,
@@ -81,19 +82,20 @@ public struct Routine: Codable, Sendable, Equatable, Identifiable {
             self.outcome = outcome
             self.summary = summary
         }
-        /// Started well after it was due: the Mac slept, or Kelp wasn't running.
+        /// True when the run started well after it was due, because the Mac slept or Kelp wasn't running.
         public var late: Bool { started.timeIntervalSince(due) > Routine.lateAfter }
     }
 
-    /// A due time this long gone was missed, not just reached.
+    /// A due time this long past counts as missed, not just reached.
     public static let lateAfter: TimeInterval = 120
 
-    /// The first time it's due after `date`. The same function plans the runs and draws the week ahead.
+    /// Returns the first time the routine is due after `date`. The same function plans the runs and draws the week
+    /// ahead.
     public func next(after date: Date, calendar: Calendar = .current) -> Date? {
         let at = DateComponents(
             hour: every == .hourly ? nil : time / 60, minute: time % 60, weekday: every == .weekly ? weekday : nil)
         var cursor = date
-        for _ in 0..<7 {   // weekdays: past a Saturday and a Sunday at most
+        for _ in 0..<7 {   // For weekdays, this skips at most a Saturday and a Sunday.
             guard let due = calendar.nextDate(after: cursor, matching: at, matchingPolicy: .nextTime) else {
                 return nil
             }
@@ -104,7 +106,7 @@ public struct Routine: Codable, Sendable, Equatable, Identifiable {
         return nil
     }
 
-    /// The due times after `from`, up to and including `to`.
+    /// Returns the due times after `from`, up to and including `to`.
     public func times(after from: Date, through to: Date, calendar: Calendar = .current) -> [Date] {
         var out: [Date] = [], cursor = from
         while out.count < 400, let due = next(after: cursor, calendar: calendar), due <= to {
@@ -115,8 +117,8 @@ public struct Routine: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// Every routine and their runs of the last two weeks, newest run first: routine.list's answer, and `event.routines`,
-/// sent whenever one of them changes.
+/// Every routine and its runs of the last two weeks, newest run first. It is routine.list's answer, and is sent as
+/// `event.routines` whenever a routine changes.
 public struct RoutinesEvent: RPCEvent, Equatable {
     public static let name = "event.routines"
     public var routines: [Routine], runs: [Routine.Run]
@@ -126,15 +128,15 @@ public struct RoutinesEvent: RPCEvent, Equatable {
     }
 }
 
-/// All routines and their recent runs.
+/// Lists all routines and their recent runs.
 public struct RoutineList: InternalMethod {
     public static let name = "routine.list"
     public typealias Result = RoutinesEvent
     public init() {}
 }
 
-/// Adds the routine (no id) or changes it. A new one, one switched on and one with a new schedule count from now:
-/// nothing before is run.
+/// Adds the routine (when it has no id) or changes it. A new routine, one switched on, and one with a new schedule all
+/// count from now, so nothing due before is run.
 public struct RoutineSet: InternalMethod {
     public static let name = "routine.set"
     public typealias Result = Routine
@@ -146,7 +148,7 @@ public struct RoutineSet: InternalMethod {
     public init(routine: Routine) { self.routine = routine }
 }
 
-/// The routine and its runs; its workspace and their sessions stay.
+/// Deletes the routine and its runs. Its workspace and the runs' sessions stay.
 public struct RoutineDelete: InternalMethod {
     public static let name = "routine.delete"
     public typealias Result = Done
@@ -154,7 +156,7 @@ public struct RoutineDelete: InternalMethod {
     public init(id: String) { self.id = id }
 }
 
-/// Runs it now, off schedule (Run Now).
+/// Runs the routine now, off schedule (Run Now).
 public struct RoutineRun: InternalMethod {
     public static let name = "routine.run"
     public typealias Result = Routine.Run

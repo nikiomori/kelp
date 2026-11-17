@@ -1,15 +1,17 @@
 import Foundation
 
 extension SessionHook {
-    /// How long an agent waits for its hook's reply. A kelpd that doesn't answer by then is stopped or being replaced, and
-    /// what was sent is in the socket, for it or the next one to read: the agent has work to go on with.
+    /// How long an agent waits for its hook's reply. A kelpd that hasn't answered by then is stopped or being replaced.
+    /// The hook's message is already in the socket for that kelpd or the next one to read, and the agent has work to go
+    /// on with.
     public static let replyWait: TimeInterval = 3
 
-    /// Sends it, from the agent's side. An update refuses every call for seconds, then hangs up on what it hadn't answered,
-    /// and a hook gets no second chance from its agent: so it goes again on a new connection, which waits in the socket's
-    /// queue for the next kelpd. Sent twice, it only says the same thing twice.
-    /// Limit: that queue (128 connections) is the only buffer, and no file behind it: a hook is for a running session, and
-    /// one outlives its daemon only by being handed over, which keeps the socket open.
+    /// Sends the hook from the agent's side. During an update, kelpd refuses every call for a few seconds and then
+    /// hangs up on calls it hadn't answered. The agent never runs a hook a second time, so the hook retries on a new
+    /// connection, which waits in the socket's queue for the next kelpd. A hook sent twice only says the same thing
+    /// twice. Limit: that queue (128 connections) is the only buffer, with no file behind it. That is enough because a
+    /// hook is for a running session, and a session outlives its daemon only by being handed over, which keeps the
+    /// socket open.
     public func send(socket: String, within seconds: TimeInterval = 10) async throws {
         let end = Date().addingTimeInterval(seconds)
         while true {
@@ -26,7 +28,7 @@ extension SessionHook {
         }
     }
 
-    /// The file a file tool changed, from its PostToolUse: nil for any other tool or event.
+    /// Returns the file that a file tool changed, read from its PostToolUse hook. nil for any other tool or event.
     public static func edited(of payload: JSONValue) -> String? {
         guard payload["hook_event_name"]?.string == "PostToolUse",
             ["Edit", "Write", "MultiEdit", "NotebookEdit"].contains(payload["tool_name"]?.string)
@@ -35,7 +37,7 @@ extension SessionHook {
         return (input?["file_path"]?.string ?? input?["notebook_path"]?.string).flatMap { $0.isEmpty ? nil : $0 }
     }
 
-    /// What a prompt sets as a /goal. `/goal` alone shows the one set and `/goal clear` ends it.
+    /// Returns what a prompt sets as the /goal. `/goal` alone shows the current goal, and `/goal clear` ends it.
     public static func goal(of payload: JSONValue) -> String? {
         guard payload["hook_event_name"]?.string == "UserPromptSubmit", let prompt = payload["prompt"]?.string,
             prompt.hasPrefix("/goal ")
@@ -44,8 +46,9 @@ extension SessionHook {
         return condition.isEmpty || condition == "clear" ? nil : condition
     }
 
-    /// The ids in a prompt that says background work ended: Claude Code wakes the agent with a `<task-notification>`, whether
-    /// it sits at its prompt or works on. The only sign of a background shell's end: no hook says so.
+    /// Returns the ids in a prompt that says background work ended. Claude Code wakes the agent with a
+    /// `<task-notification>` prompt, whether the agent sits at its prompt or keeps working. This prompt is the only
+    /// sign that a background shell ended, because no hook reports it.
     public static func endedTasks(of payload: JSONValue) -> [String]? {
         guard payload["hook_event_name"]?.string == "UserPromptSubmit", let prompt = payload["prompt"]?.string,
             prompt.hasPrefix("<task-notification>")
@@ -53,15 +56,16 @@ extension SessionHook {
         return prompt.matches(of: /<(?:task|tool-use)-id>([^<]+)</).map { String($0.1) }
     }
 
-    /// What a Claude Code hook's JSON says beyond its event, for the row or for how the turn ended.
+    /// Returns what a Claude Code hook's JSON says beyond its event name, for the session's row or for how the turn
+    /// ended.
     public static func notification(of payload: JSONValue) -> JSONValue? {
         switch payload["hook_event_name"]?.string {
-        case "PermissionRequest":   // the dialog: what it would run says more than any notice
+        case "PermissionRequest":   // The dialog's tool input says more than any notice text.
             .obj([
                 "notification_type": "permission_request", "tool_name": payload["tool_name"] ?? .null,
                 "tool_input": payload["tool_input"] ?? .null, "cwd": payload["cwd"] ?? .null
             ])
-        case "StopFailure":   // the turn died on an API error: its text says which, `error` its kind
+        case "StopFailure":   // An API error ended the turn: the text names it, and `error` is its kind.
             .obj([
                 "notification_type": "stop_failure", "message": payload["last_assistant_message"] ?? .null,
                 "error": payload["error"] ?? .null

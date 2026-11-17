@@ -1,9 +1,10 @@
 import Foundation
 
-/// Words for a shell, or for an agent's prompt, that come out as written.
+/// Quotes words for a shell or for an agent's prompt so they come out as written.
 public enum ShellQuote {
-    /// A path dropped into an agent's prompt: backslash escapes, which shells and agents (Claude Code, Codex) all read;
-    /// Claude strips only one pair of quotes, so the POSIX `'…'\''…'` form leaks into the path (Ghostty does the same).
+    /// Escapes a path dropped into an agent's prompt with backslashes, which shells and agents (Claude Code, Codex) all
+    /// read. Claude strips only one pair of quotes, so the POSIX `'…'\''…'` form would leak into the path. Ghostty does
+    /// the same.
     public static func escapedPath(_ path: String) -> String {
         var out = ""
         for char in path {
@@ -13,18 +14,19 @@ public enum ShellQuote {
         return out
     }
 
-    /// One shell word, single-quoted (`'…'\''…'`): commands Kelp writes itself. The shell expands nothing inside.
+    /// Quotes one shell word in single quotes (`'…'\''…'`), for commands Kelp writes itself. The shell expands nothing
+    /// inside.
     public static func word(_ word: String) -> String {
         "'" + word.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
-    /// A basic string, as both TOML and JSON write one (for text with no control characters).
+    /// Writes a basic string the way both TOML and JSON write one, for text with no control characters.
     public static func doubleQuoted(_ text: String) -> String {
         "\"" + text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }
 
-    /// A command line split as a shell would: whitespace apart, '…' as it is, "…" with \" and \\ inside, \ before
-    /// one char.
+    /// Splits a command line the way a shell would. Whitespace separates words, '…' is taken as it is, "…" allows \"
+    /// and \\ inside, and \ escapes the one character after it.
     public static func words(_ text: String) -> [String] {
         var words: [String] = [], word = "", quote: Character?, escaped = false, started = false
         for c in text {

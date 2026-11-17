@@ -7,9 +7,9 @@ extension Main {
         skill list | on|off <name>
         """
 
-    /// `mcp <action>` and `skill <action>`: what this workspace's agents get besides the prompt (`addons.*`). `list`
-    /// with KELP_SESSION says what that chat loaded. Adding, removing and switching are the user's: Kelp refuses an
-    /// agent that tries (it would be handing itself tools).
+    /// `mcp <action>` and `skill <action>` manage what this workspace's agents get besides the prompt (`addons.*`).
+    /// `list` with KELP_SESSION says what that chat loaded. Only the user may add, remove or switch items, so Kelp
+    /// refuses an agent that tries, because it would be handing itself tools.
     static func addons(_ kind: Addon.Kind, _ sub: String?, _ client: RPCClient) async throws {
         let worktree = try await currentWorktree(client)
         let word = kind == .server ? "server" : "skill"
@@ -40,7 +40,7 @@ extension Main {
         case "on", "off":
             guard let name = args.first else { fail("kelp \(kind == .server ? "mcp" : "skill") \(sub ?? "") <name>") }
             let all = try await client.call(AddonsList(worktreeId: worktree.id)).items
-            // By the name the list shows, or by the key itself ("plugin:sales").
+            // Find the item by the name the list shows, or by the key itself ("plugin:sales").
             let key = all.first { $0.kind == kind && $0.name == name }?.key ?? (name.contains(":") ? name : nil)
             guard let key else { fail("No \(word) named \(name) here: kelp \(kind == .server ? "mcp" : "skill") list") }
             _ = try await client.call(AddonsSet(worktreeId: worktree.id, key: key, on: sub == "on"))

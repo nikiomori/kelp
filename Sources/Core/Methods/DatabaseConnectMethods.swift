@@ -1,11 +1,12 @@
 import Foundation
 
-// Add Database's sheet: an address checked as it is typed, the servers running in Docker, and "All my projects"
-// databases used in a project. Only the user may call these; no agent reaches them.
+// The methods behind the Add Database sheet: checking an address as it is typed, listing the servers running in Docker,
+// and using "All my projects" databases in a project. Only the user may call these, and no agent reaches them.
 
-/// Connects with what the sheet says and tells what's there: the server's version, its tables, its other databases.
-/// Throws the server's own words when it can't. `password` nil: the one kept for `database.name`, if any.
-/// `versionOnly`: only the version (a tab's capsule), on one connection: no tables counted, no databases listed.
+/// Connects with what the sheet says and reports what is there: the server's version, its tables and its other
+/// databases. It throws the server's own words when it can't connect. A nil `password` uses the one kept for
+/// `database.name`, if any. `versionOnly` reads only the version (for a tab's capsule) on one connection, without
+/// counting tables or listing databases.
 public struct DatabaseCheck: InternalMethod {
     public static let name = "db.check"
     public typealias Result = DatabaseCheckResult
@@ -21,10 +22,10 @@ public struct DatabaseCheck: InternalMethod {
 }
 
 public struct DatabaseCheckResult: Codable, Sendable, Equatable {
-    /// "Postgres 16.4", "MariaDB 10.11.9", "SQLite", "DuckDB".
+    /// The engine and version, such as "Postgres 16.4", "MariaDB 10.11.9", "SQLite" or "DuckDB".
     public var version: String
     public var tables: Int
-    /// The databases on the server, for the sheet's pop-up menu; empty for a file database.
+    /// The databases on the server, for the sheet's pop-up menu. Empty for a file database.
     public var databases: [String]
     public var ms: Int
     public init(version: String, tables: Int, databases: [String], ms: Int) {
@@ -35,7 +36,8 @@ public struct DatabaseCheckResult: Codable, Sendable, Equatable {
     }
 }
 
-/// Postgres, MySQL and MariaDB containers running in Docker that publish their port: what the sheet offers to use.
+/// Lists the Postgres, MySQL and MariaDB containers running in Docker that publish their port, which the sheet offers
+/// to use.
 public struct DatabaseContainers: InternalMethod {
     public static let name = "db.containers"
     public typealias Result = [RunningDatabase]
@@ -43,9 +45,9 @@ public struct DatabaseContainers: InternalMethod {
 }
 
 public struct RunningDatabase: Codable, Sendable, Equatable {
-    /// Docker's id and name for it ("shop-db-1"), and its image ("postgres:16").
+    /// Docker's id and name for the container ("shop-db-1"), and its image ("postgres:16").
     public var container: String, name: String, image: String
-    /// Its address as this Mac reaches it, the user and database its environment names.
+    /// The container's address as this Mac reaches it, with the user and database its environment names.
     public var database: DatabaseInfo
     public init(container: String, name: String, image: String, database: DatabaseInfo) {
         self.container = container
@@ -55,7 +57,8 @@ public struct RunningDatabase: Codable, Sendable, Equatable {
     }
 }
 
-/// One of "All my projects" used in the workspace's project: its agents see it from now on, as `access` says.
+/// Uses one of the "All my projects" databases in the workspace's project. The project's agents see it from now on, as
+/// `access` allows.
 public struct DatabaseUse: InternalMethod {
     public static let name = "db.use"
     public typealias Result = DatabaseInfo
@@ -69,15 +72,15 @@ public struct DatabaseUse: InternalMethod {
 
 // MARK: Import
 
-/// An app (or a file of a standard's) on this Mac that keeps database connections Kelp can bring in.
+/// An app (or a standard file) on this Mac that keeps database connections Kelp can bring in.
 public struct ImportSource: Codable, Sendable, Equatable, Identifiable {
-    /// "tableplus", "dbeaver", "datagrip", "sequelace", "beekeeper", "dbgate", "pgpass", "pgservice", "mycnf";
+    /// "tableplus", "dbeaver", "datagrip", "sequelace", "beekeeper", "dbgate", "pgpass", "pgservice" or "mycnf".
     /// "pgadmin" and "navicat" are read from a file the user picks (their export).
     public var id: String, name: String
     public var count: Int
     public var engines: [DatabaseInfo.Engine]
     /// Where the app keeps its passwords: "keychain" (macOS asks for each one), "file" (readable without asking, so
-    /// Kelp asks first), or "none" (typed when first used).
+    /// Kelp asks first), or "none" (the password is typed when first used).
     public var passwords: String
     public init(id: String, name: String, count: Int, engines: [DatabaseInfo.Engine], passwords: String) {
         self.id = id
@@ -88,12 +91,12 @@ public struct ImportSource: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// What an import did: the databases it kept, how many came with their passwords, how many will ask for theirs when
-/// first opened, and the ones it couldn't keep (with why).
+/// What an import did: the databases it kept, how many came with their passwords, how many will ask for their password
+/// when first opened, and the ones it couldn't keep (with the reason).
 public struct ImportOutcome: Codable, Sendable, Equatable {
     public var imported: [DatabaseInfo]
     public var withPasswords: Int, later: Int
-    /// The user said Don't Allow to macOS: the rest came without their passwords.
+    /// True when the user answered macOS with Don't Allow, so the rest came without their passwords.
     public var denied: Bool
     public var skipped: [String]
     public init(imported: [DatabaseInfo], withPasswords: Int, later: Int, denied: Bool, skipped: [String]) {
@@ -105,21 +108,21 @@ public struct ImportOutcome: Codable, Sendable, Equatable {
     }
 }
 
-/// The sources found on this Mac, those with something to bring in.
+/// Lists the import sources found on this Mac that have something to bring in.
 public struct DatabaseImportSources: InternalMethod {
     public static let name = "db.importSources"
     public typealias Result = [ImportSource]
     public init() {}
 }
 
-/// One connection as another app keeps it, read as Kelp would keep it.
+/// One connection that another app keeps, read into the form Kelp would keep it in.
 public struct ImportedDatabase: Codable, Sendable, Equatable, Identifiable {
-    /// Its id where it comes from.
+    /// The connection's id in the app it comes from.
     public var id: String
     public var database: DatabaseInfo
-    /// What Kelp can't do the same way ("SSH through a password: set SSH by hand"), or why it's Production.
+    /// What Kelp can't do the same way ("SSH through a password: set SSH by hand"), or why the database is Production.
     public var note: String?
-    /// Kelp has one at the same address already: off in the list.
+    /// True when Kelp already has a database at the same address, so it is unchecked in the list.
     public var known: Bool
     public init(id: String, database: DatabaseInfo, note: String? = nil, known: Bool = false) {
         self.id = id
@@ -129,7 +132,7 @@ public struct ImportedDatabase: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// What `source` keeps (`file`: the export picked for pgadmin, navicat), without passwords.
+/// Reads the connections that `source` keeps, without passwords. `file` is the export picked for pgadmin or navicat.
 public struct DatabaseImportRead: InternalMethod {
     public static let name = "db.importRead"
     public typealias Result = [ImportedDatabase]
@@ -141,13 +144,14 @@ public struct DatabaseImportRead: InternalMethod {
     }
 }
 
-/// Brings `ids` of `source` into All my projects: a copy, read again with Import Again. `passwords`: taken now (from
-/// the app's file; or its keychain, macOS asking for each). Without: one in another app's keychain is read when the
-/// database is first opened (`DatabaseInfo.passwordIn`). `useHere`: also used in the workspace's project.
+/// Brings the connections `ids` of `source` into All my projects as copies, which Import Again reads again. With
+/// `passwords`, the passwords are taken now, from the app's file or its keychain (macOS asks for each). Without it, a
+/// password in another app's keychain is read when the database is first opened (`DatabaseInfo.passwordIn`). With
+/// `useHere`, the databases are also used in the workspace's project.
 public struct DatabaseImport: InternalMethod {
     public static let name = "db.import"
     public typealias Result = ImportOutcome
-    /// macOS asks the user for each password in the keychain.
+    /// The long timeout is because macOS asks the user for each password in the keychain.
     public static var timeout: TimeInterval? { 600 }
     public var worktreeId: String, source: String, file: String?, ids: [String]
     public var passwords: Bool, useHere: Bool
@@ -165,13 +169,14 @@ public struct DatabaseImport: InternalMethod {
 
 // MARK: The panel's dots
 
-/// Whether each of the workspace's databases answers, tried once with a short limit. It never dials a remote host: a
-/// database behind an SSH host, or a remote project's with no open connection, says so instead.
+/// Checks whether each of the workspace's databases answers, trying each once with a short limit. It never dials a
+/// remote host, so a database behind an SSH host, or one in a remote project with no open connection, reports that
+/// instead.
 public struct DatabaseStatus: InternalMethod {
     public static let name = "db.status"
     public typealias Result = [DatabaseHealth]
     public static var timeout: TimeInterval? { 30 }
-    /// `library` uses All My Projects' databases instead of the project's.
+    /// `library` checks the All My Projects databases instead of the project's.
     public var worktreeId: String, library: Bool?
     public init(worktreeId: String, library: Bool? = nil) {
         self.worktreeId = worktreeId
@@ -181,8 +186,9 @@ public struct DatabaseStatus: InternalMethod {
 
 public struct DatabaseHealth: Codable, Sendable, Equatable {
     public enum State: String, Codable, Sendable, CaseIterable {
-        /// It answered. Stopped: its compose service isn't running (`db.start` starts it). Down: it didn't answer, or
-        /// refused (`reason`). Unknown: not tried (a host over SSH with no connection open).
+        /// Ok means the database answered. Stopped means its compose service isn't running (`db.start` starts it). Down
+        /// means it didn't answer, or refused (`reason`). Unknown means it wasn't tried (a host over SSH with no
+        /// connection open).
         case ok, stopped, down, unknown
     }
     public var name: String, state: State
@@ -208,14 +214,15 @@ public struct DatabaseStart: InternalMethod {
 
 // MARK: The tab's edits
 
-/// The user's edits to a table (UPDATE, INSERT, DELETE by its key), all in one transaction: every one or none. The
-/// user's only: an agent changes a database through `db.query`, asking.
+/// Applies the user's edits to a table (UPDATE, INSERT, DELETE by its key) in one transaction, so either every edit is
+/// kept or none is. Only the user may call it. An agent changes a database through `db.query`, which asks first.
 public struct DatabaseApply: InternalMethod {
     public static let name = "db.apply"
     public typealias Result = QueryResult
     public static var timeout: TimeInterval? { DatabaseTimes.apply + DatabaseTimes.slack }
     public var worktreeId: String, database: String, statements: [String]
-    /// Rows each statement must change (Undo This Change: 1, its rows found as they were checked), else none is kept.
+    /// How many rows each statement must change, or else none of the edits is kept. Undo This Change sets 1, so each
+    /// row must still be as it was when checked.
     public var each: Int?
     public init(worktreeId: String, database: String, statements: [String], each: Int? = nil) {
         self.worktreeId = worktreeId

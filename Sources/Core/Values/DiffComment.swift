@@ -12,13 +12,14 @@ public struct DiffComment: Codable, Sendable, Equatable, Identifiable {
     public var quote: String
     public var text: String
     public var state: State
-    /// "old": the lines are removed ones, numbered in the old file; nil: the new file's (or a comment from before sides).
+    /// "old" means the lines are removed ones, numbered as in the old file. nil means the new file's lines, or a
+    /// comment written before comments had sides.
     public var side: String?
-    /// HEAD when it was written: what the old file's line numbers are counted in.
+    /// HEAD at the time the comment was written, which the old file's line numbers are counted in.
     public var commit: String?
-    /// The agent that wrote it (a reviewer's finding); nil: the user.
+    /// The agent that wrote the comment (a reviewer's finding). nil when the user wrote it.
     public var author: String?
-    /// The past commit whose diff it's on (full hash); nil: on the folder's changes.
+    /// The full hash of the past commit whose diff the comment is on. nil when it is on the folder's changes.
     public var onCommit: String?
     public init(
         id: String = UUID().uuidString, worktreeId: String, file: String, startLine: Int, endLine: Int, quote: String,
@@ -39,7 +40,8 @@ public struct DiffComment: Codable, Sendable, Equatable, Identifiable {
         self.onCommit = onCommit
     }
 
-    /// Whether it belongs on the diff of `commit` (nil: the folder's changes); a hash matches either way it's cut short.
+    /// Whether the comment belongs on the diff of `commit` (nil for the folder's changes). A hash matches even when
+    /// either side is cut short.
     public func isOn(_ commit: String?) -> Bool {
         guard let on = onCommit, let commit else { return onCommit == nil && commit == nil }
         return on.hasPrefix(commit) || commit.hasPrefix(on)

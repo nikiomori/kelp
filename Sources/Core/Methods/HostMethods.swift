@@ -1,8 +1,8 @@
 import Foundation
 
-/// How a remote projects' host is doing, read in one call over its shared connection: what htop shows, plus which of its
-/// processes are Kelp's agents. `connect` false (the sidebar's look every few seconds) never dials: without an open
-/// connection the answer is only `connected` false and why the last try failed.
+/// Returns how a remote project's host is doing, read in one call over its shared connection: what htop shows, plus
+/// which of its processes are Kelp's agents. With `connect` false (the sidebar's check every few seconds), it never
+/// dials. Without an open connection, the answer is then only `connected` false and why the last try failed.
 public struct HostStatsRead: InternalMethod {
     public static let name = "host.stats"
     public typealias Result = HostStats
@@ -13,8 +13,8 @@ public struct HostStatsRead: InternalMethod {
     }
 }
 
-/// The host's readings of the last hour, oldest first: what the daemon read while its server was listed (every 10 s)
-/// or on screen (every 2 s). Empty for a host it hasn't read since it started.
+/// Returns the host's readings of the last hour, oldest first. The daemon reads a host every 10 s while its server is
+/// listed and every 2 s while it is on screen. Empty for a host the daemon hasn't read since it started.
 public struct HostHistoryRead: InternalMethod {
     public static let name = "host.history"
     public typealias Result = [HostStats.Sample]
@@ -22,7 +22,7 @@ public struct HostHistoryRead: InternalMethod {
     public init(host: String) { self.host = host }
 }
 
-/// Closes the host's shared connection (`ssh -O exit`): agents in tmux there go on.
+/// Closes the host's shared connection (`ssh -O exit`). Agents in tmux on the host go on.
 public struct HostDisconnect: InternalMethod {
     public static let name = "host.disconnect"
     public typealias Result = Done
@@ -33,35 +33,35 @@ public struct HostDisconnect: InternalMethod {
 public struct HostStats: Codable, Sendable, Equatable {
     public var host: String
     public var connected: Bool
-    /// Why the last connection failed, in ssh's words; nil once one worked.
+    /// Why the last connection failed, in ssh's words. nil once a connection worked.
     public var error: String?
-    /// "Ubuntu 24.04.5 LTS", else `uname -sr`.
+    /// The OS name, such as "Ubuntu 24.04.5 LTS", or else what `uname -sr` prints.
     public var os: String?
     public var cores: Int?
-    /// Seconds since boot, and the 1, 5 and 15 minute load averages. The uptime is read on Linux only; the load also on
-    /// macOS and BSD.
+    /// The seconds since boot, and the 1, 5 and 15 minute load averages. The uptime is read on Linux only, and the load
+    /// on macOS and BSD as well.
     public var uptime: Double?, load: [Double]?
-    /// Busy share of all cores, 0–100, over a moment of the read. Linux only.
+    /// The busy share of all cores, 0–100, over a short moment during the read. Linux only.
     public var cpu: Double?
-    /// Of that moment, the share spent waiting on the disk, and the share the machine under a VM took (steal), 0–100.
-    /// Linux only.
+    /// During that moment, the share spent waiting on the disk, and the share the machine under a VM took (steal),
+    /// 0–100. Linux only.
     public var iowait: Double?, steal: Double?
-    /// Bytes a second in and out on the interface the default route takes, over the same moment. Linux only.
+    /// Bytes per second in and out on the interface the default route uses, over the same moment. Linux only.
     public var network: Network?
-    /// Bytes used and in all. Memory and swap: Linux only.
+    /// Bytes used and bytes in total. Memory and swap are read on Linux only.
     public var memory: Int?, memoryTotal: Int?, swap: Int?, swapTotal: Int?, disk: Int?, diskTotal: Int?
     public var processCount: Int?
-    /// The busiest processes, and every one of Kelp's agents, by CPU.
+    /// The busiest processes plus every one of Kelp's agents, sorted by CPU.
     public var processes: [Process]?
-    /// TCP ports something listens on.
+    /// The TCP ports something listens on.
     public var ports: [Port]?
-    /// Kelp's tmux sessions there (`Tmux.isOwn`), with the Kelp session each belongs to, if one does.
+    /// Kelp's tmux sessions on the host (`Tmux.isOwn`), each with the Kelp session it belongs to, if any.
     public var tmux: [TmuxSession]?
-    /// The Docker containers running, when the user may ask docker.
+    /// The running Docker containers, when the user is allowed to ask docker.
     public var containers: [Container]?
-    /// systemd units that failed ("nginx.service"). Linux with systemd only.
+    /// The systemd units that failed ("nginx.service"). Linux with systemd only.
     public var failedUnits: [String]?
-    /// The system asks for a restart (Debian and Ubuntu, after an update that needs one).
+    /// True when the system asks for a restart (Debian and Ubuntu, after an update that needs one).
     public var rebootRequired: Bool?
 
     public init(host: String, connected: Bool, error: String? = nil) {
@@ -72,13 +72,14 @@ public struct HostStats: Codable, Sendable, Equatable {
 
     public struct Process: Codable, Sendable, Equatable {
         public var pid: Int, user: String, cpu: Double
-        /// Resident bytes; seconds it has run.
+        /// The process's resident bytes, and the seconds it has run.
         public var memory: Int, seconds: Int
         /// The program's name, and its whole command line.
         public var command: String, args: String
-        /// The Kelp session it runs under (its tmux pane's), if any.
+        /// The Kelp session the process runs under (through its tmux pane), if any.
         public var session: String?
-        /// The systemd unit it runs in ("nginx.service", "session-4.scope"), and the Docker container, by name. Linux only.
+        /// The systemd unit the process runs in ("nginx.service", "session-4.scope"), and the Docker container, by
+        /// name. Linux only.
         public var unit: String?, container: String?
         public init(
             pid: Int, user: String, cpu: Double, memory: Int, seconds: Int, command: String, args: String,
@@ -101,7 +102,8 @@ public struct HostStats: Codable, Sendable, Equatable {
         public var port: Int
         /// The port can be reached only from the server itself (127.0.0.1, ::1), so forward it to use it here.
         public var local: Bool
-        /// What listens: the program (`ss` tells only for the user's own), and the Docker container it's published from.
+        /// What listens: the program (`ss` names it only for the user's own processes), and the Docker container the
+        /// port is published from.
         public var process: String?, container: String?
         public init(port: Int, local: Bool, process: String? = nil, container: String? = nil) {
             self.port = port
@@ -113,7 +115,7 @@ public struct HostStats: Codable, Sendable, Equatable {
 
     public struct Network: Codable, Sendable, Equatable {
         public var interface: String
-        /// Bytes a second.
+        /// Bytes per second.
         public var received: Double, sent: Double
         public init(interface: String, received: Double, sent: Double) {
             self.interface = interface
@@ -124,9 +126,10 @@ public struct HostStats: Codable, Sendable, Equatable {
 
     public struct Container: Codable, Sendable, Equatable {
         public var name: String
-        /// The host's ports it's published on.
+        /// The host ports the container is published on.
         public var ports: [Int]
-        /// What its processes take together, and how long its oldest has run; nil when ps can't tell whose they are.
+        /// The CPU and memory the container's processes take together, and how long the oldest has run. nil when ps
+        /// can't tell which processes are the container's.
         public var cpu: Double?, memory: Int?, seconds: Int?
         public init(name: String, ports: [Int], cpu: Double? = nil, memory: Int? = nil, seconds: Int? = nil) {
             self.name = name
@@ -137,7 +140,8 @@ public struct HostStats: Codable, Sendable, Equatable {
         }
     }
 
-    /// One reading, for the history: when (seconds since 1970), the CPU and memory shares 0–1, the network's bytes a second.
+    /// One reading for the history: when it was taken (seconds since 1970), the CPU and memory shares (0–1), and the
+    /// network's bytes per second.
     public struct Sample: Codable, Sendable, Equatable {
         public var at: Double
         public var cpu: Double?, memory: Double?, received: Double?, sent: Double?
@@ -159,8 +163,9 @@ public struct HostStats: Codable, Sendable, Equatable {
     }
 
     public enum Strain: String, Sendable { case disk, memory, cpu }
-    /// What wants you now (the app says "Disk 92%"), nil while all's well: a disk or memory over 90 %, or every core busy for
-    /// about a minute (the CPU now and the minute's load both high), worst first.
+    /// The problem that needs attention now (the app says "Disk 92%"), or nil while all is well. A problem is a disk or
+    /// memory over 90 %, or every core busy for about a minute (the CPU now and the minute's load both high). The worst
+    /// problem comes first.
     public var alert: (Strain, percent: Int)? {
         if let diskPercent = Self.percent(disk, diskTotal), diskPercent >= 90 { return (.disk, diskPercent) }
         if let memoryPercent = Self.percent(memory, memoryTotal), memoryPercent >= 90 {
@@ -177,8 +182,9 @@ public struct HostStats: Codable, Sendable, Equatable {
     }
 }
 
-/// Which of `commands` a remote workspace's host has, as its login shell finds them (where its agents start): what
-/// its agent menus offer. Asked over ssh, which connects if it must (someone opened the menu).
+/// Returns which of `commands` a remote workspace's host has, as its login shell finds them, because agents start in
+/// that shell. The agent menus offer these. It asks over ssh, which connects if it must, because someone opened the
+/// menu.
 public struct HostCommands: InternalMethod {
     public static let name = "host.commands"
     public typealias Result = [String]
@@ -189,9 +195,9 @@ public struct HostCommands: InternalMethod {
     }
 }
 
-/// The key a host Kelp hasn't connected to before presents (ssh refused it: "Host key verification failed"), as ssh
-/// shows one: "SHA256:…" and its kind (ED25519). Asked of the host where ~/.ssh/config sends `host`; nil when it can't
-/// be (a jump host in between, no answer).
+/// Returns the key presented by a host Kelp hasn't connected to before (ssh refused it with "Host key verification
+/// failed"), as ssh shows it: "SHA256:…" and its kind (ED25519). It asks the host that ~/.ssh/config sends `host` to.
+/// nil when that isn't possible (a jump host in between, no answer).
 public struct RemoteHostKey: InternalMethod {
     public static let name = "remote.hostKey"
     public struct Key: Codable, Sendable, Equatable {
@@ -206,8 +212,8 @@ public struct RemoteHostKey: InternalMethod {
     public init(host: String) { self.host = host }
 }
 
-/// Trusts `host`'s key, as answering ssh's "yes" does: asked of it again, and kept in ~/.ssh/known_hosts only when it's
-/// still the one shown (`fingerprint`).
+/// Trusts the key of `host`, as answering ssh's "yes" does. It reads the key again and keeps it in ~/.ssh/known_hosts
+/// only when it is still the one shown (`fingerprint`).
 public struct RemoteTrustHost: InternalMethod {
     public static let name = "remote.trustHost"
     public typealias Result = Done
@@ -218,9 +224,9 @@ public struct RemoteTrustHost: InternalMethod {
     }
 }
 
-/// The folders in `path` on `host` (~ is the host's home), read over the host's shared SSH connection: the folder's
-/// full path there, whether it is in a git repository, and its subfolders (without hidden ones), each marked when it is
-/// a repository. A host Kelp can't reach fails here, with ssh's reason.
+/// Lists the folders in `path` on `host` (~ is the host's home), read over the host's shared SSH connection. It returns
+/// the folder's full path there, whether it is in a git repository, and its subfolders (without hidden ones), each
+/// marked when it is a repository. A host Kelp can't reach makes this fail with ssh's reason.
 public struct RemoteListFolders: InternalMethod {
     public static let name = "remote.listFolders"
     public struct Folder: Codable, Sendable, Equatable {

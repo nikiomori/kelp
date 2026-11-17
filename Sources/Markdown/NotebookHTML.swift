@@ -51,7 +51,7 @@ public enum NotebookHTML {
         case "execute_result", "display_data":
             let data = out["data"] as? [String: Any] ?? [:]
             for (mime, tag) in [("image/png", "png"), ("image/jpeg", "jpeg")] {
-                // Decoded and encoded again: only base64 reaches the attribute, whatever the file holds.
+                // Decode and encode again, so only base64 reaches the attribute, whatever the file holds.
                 if let encoded = data[mime] {
                     return
                         "<img class=\"nb-img\" src=\"data:image/\(tag);base64,\(Data(base64Encoded: text(encoded), options: .ignoreUnknownCharacters)?.base64EncodedString() ?? "")\">"
@@ -62,7 +62,7 @@ public enum NotebookHTML {
                 return "<img class=\"nb-img\" src=\"data:image/svg+xml;base64,\(b64)\">"
             }
             if let md = data["text/markdown"] { return "<div class=\"nb-md\">\(MarkdownHTML.render(text(md)))</div>" }
-            if let tex = data["text/latex"] {   // `$…$`, as SymPy writes it
+            if let tex = data["text/latex"] {   // `$…$`, as SymPy writes it.
                 return "<div class=\"nb-md\">\(MarkdownHTML.render(text(tex)))</div>"
             }
             if let plain = data["text/plain"] { return "<pre class=\"nb-out\">\(MarkdownHTML.esc(text(plain)))</pre>" }

@@ -10,12 +10,13 @@ public struct SubagentStep: Codable, Sendable, Equatable {
     }
 }
 
-/// What an agent's subagents at work did last, by id. Empty for an agent that keeps no transcript of them: only Claude Code does.
+/// Returns what each of an agent's working subagents did last, by id. Empty for an agent that keeps no transcript of
+/// its subagents, because only Claude Code does.
 public struct SessionSubagentSteps: InternalMethod {
     public static let name = "session.subagentSteps"
     public struct Last: Codable, Sendable, Equatable {
         public var step: SubagentStep
-        /// When its transcript last changed: a long quiet is a long command, or a subagent that hangs.
+        /// When the subagent's transcript last changed. A long quiet means a long command, or a subagent that hangs.
         public var touched: Date
         public init(step: SubagentStep, touched: Date) {
             self.step = step
@@ -27,12 +28,12 @@ public struct SessionSubagentSteps: InternalMethod {
     public init(id: String) { self.id = id }
 }
 
-/// All a subagent did and what it reported, read from its transcript; nil when there is none.
+/// Returns everything a subagent did and what it reported, read from its transcript. nil when there is no transcript.
 public struct SessionSubagentJournal: InternalMethod {
     public static let name = "session.subagentJournal"
     public struct Journal: Codable, Sendable, Equatable {
         public var kind: String, task: String?, model: String?
-        /// Tokens in its last request.
+        /// The tokens in the subagent's last request.
         public var context: Int?
         public var steps: [SubagentStep] = []
         public var report: String?

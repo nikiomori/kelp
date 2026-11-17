@@ -10,7 +10,7 @@ public enum CIRuns {
         public var name: String
         public var status: String
         public var conclusion: String?
-        /// Its place in the job, which a link to the step names.
+        /// The step's position in the job, which a link to the step uses.
         public var number: Int?, startedAt: String?, completedAt: String?
         public init(
             name: String, status: String, conclusion: String?, number: Int? = nil, startedAt: String? = nil,
@@ -47,7 +47,8 @@ public enum CIRuns {
     public struct Run: Codable, Sendable, Equatable {
         public var id: Int, title: String, workflow: String, status: String, conclusion: String?, event: String,
             url: String, createdAt: String
-        /// The forge's count of the workflow's runs, the commit, which try this is; when this try began and last changed.
+        /// The forge's run number for the workflow, the commit, and which attempt this is. Then when this attempt began
+        /// and when it last changed.
         public var number: Int?, sha: String?, attempt: Int?, startedAt: String?, updatedAt: String?
         public init(
             id: Int, title: String, workflow: String, status: String, conclusion: String?, event: String, url: String,
@@ -70,14 +71,14 @@ public enum CIRuns {
             self.updatedAt = updatedAt
         }
         public var failed: Bool { CIRuns.failed(status, conclusion) }
-        /// When this try began: `createdAt` stays at the first one, however much later a re-run comes.
+        /// When this attempt began. `createdAt` stays at the first attempt, however much later a re-run comes.
         public var began: String { startedAt ?? createdAt }
         public var finished: Bool { status == "completed" }
-        /// Seconds this try took, or has taken so far.
+        /// The seconds this attempt took, or has taken so far.
         public func seconds(now: Date = Date()) -> Double? {
             CIRuns.seconds(from: began, to: finished ? updatedAt : nil, now: now)
         }
-        /// The commit's page on the forge, from the run's own: ".../actions/runs/1" → ".../commit/<sha>".
+        /// The commit's page on the forge, built from the run's page: ".../actions/runs/1" becomes ".../commit/<sha>".
         public var commitURL: String? {
             guard let sha, let cut = url.range(of: "/actions/runs/") ?? url.range(of: "/-/pipelines/") else {
                 return nil
@@ -85,37 +86,38 @@ public enum CIRuns {
             return url[..<cut.lowerBound]
                 + (cut.lowerBound < url.endIndex && url[cut].hasPrefix("/-/") ? "/-/commit/" : "/commit/") + sha
         }
-        /// Seven characters, as git shows it.
+        /// The first seven characters of the commit hash, as git shows it.
         public var shortSHA: String? { sha.map { String($0.prefix(7)) } }
     }
 
-    /// ISO-8601, with or without fractional seconds. Transcripts' parsing calls it for every line too.
+    /// Parses an ISO-8601 date, with or without fractional seconds. Transcript parsing also calls it for every line.
     public static func date(_ iso: String) -> Date? {
         (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(iso))
             ?? (try? Date.ISO8601FormatStyle().parse(iso))
     }
 
-    /// From `from` to `to`, or to now for what is still going.
+    /// Returns the seconds from `from` to `to`, or to now when `to` is nil because the run is still going.
     public static func seconds(from: String?, to: String?, now: Date = Date()) -> Double? {
         guard let from, let start = date(from) else { return nil }
         guard let to else { return now.timeIntervalSince(start) }
         return date(to).map { $0.timeIntervalSince(start) }
     }
-    /// The newest run of each workflow (runs come newest first): what the branch's CI says now.
+    /// Returns the newest run of each workflow (runs come newest first), which is what the branch's CI says now.
     public static func latest(_ runs: [Run]) -> [Run] {
         var seen = Set<String>()
         return runs.filter { seen.insert($0.workflow).inserted }
     }
 
-    /// A branch's CI in one mark, least to most pressing: of two sources (its runs, its PR's checks) the greater wins.
+    /// A branch's CI state as one mark, ordered from least to most pressing. When two sources disagree (the branch's
+    /// runs and its PR's checks), the greater state wins.
     public enum State: Int, Sendable, Comparable {
         case passed, running, waiting, failed
         public static func < (lhs: State, rhs: State) -> Bool { lhs.rawValue < rhs.rawValue }
     }
-    /// The state to show, from the newest run of each workflow: failed if one failed; else waiting if one waits for
-    /// someone's approval (a deploy to a protected environment, a fork's first run); else running if one hasn't
-    /// finished; else succeeded. Nil when there are no runs, or only skipped or cancelled ones (someone stopped them,
-    /// so there is nothing to fix).
+    /// Returns the state to show, judged from the newest run of each workflow. It is failed if any run failed.
+    /// Otherwise it is waiting if a run waits for someone's approval (a deploy to a protected environment, a fork's
+    /// first run). Otherwise it is running if a run hasn't finished, and else passed. Nil when there are no runs, or
+    /// only skipped or cancelled ones, because someone stopped those and there is nothing to fix.
     public static func state(_ runs: [Run]) -> State? {
         let now = latest(runs)
         if now.contains(where: { $0.failed && !["cancelled", "action_required"].contains($0.conclusion) }) {
@@ -125,7 +127,8 @@ public enum CIRuns {
         if now.contains(where: { $0.status != "completed" }) { return .running }
         return now.contains { $0.conclusion == "success" } ? .passed : nil
     }
-    /// A pull request's checks, which also count what runs outside the forge's CI (a deploy preview, a review bot).
+    /// Returns the state of a pull request's checks, which also count what runs outside the forge's CI (a deploy
+    /// preview, a review bot).
     public static func state(_ checks: GitHub.PullRequest.Checks) -> State? {
         checks.failed > 0 ? .failed : checks.pending > 0 ? .running : checks.passed > 0 ? .passed : nil
     }
@@ -151,20 +154,21 @@ public enum CIRuns {
 }
 
 extension CIRuns {
-    /// The line (from 1) where a step begins in a job's readable log, which marks each with "▸ step".
+    /// Returns the line (counted from 1) where a step begins in a job's readable log. The log marks each step with
+    /// "▸ step".
     public static func line(ofStep step: String, in log: String) -> Int? {
         log.split(separator: "\n", omittingEmptySubsequences: false).firstIndex { $0 == "▸ " + step }.map { $0 + 1 }
     }
 }
 
 extension CIRuns.Step {
-    /// Seconds it took, or has taken so far.
+    /// The seconds the step took, or has taken so far.
     public func seconds(now: Date = Date()) -> Double? {
         CIRuns.seconds(from: startedAt, to: status == "completed" ? completedAt : nil, now: now)
     }
 
-    /// A step's name without what GitHub adds to it: "Run actions/checkout@11d5960" reads "checkout". A step named in
-    /// its workflow stays as written.
+    /// The step's name without what GitHub adds to it, so "Run actions/checkout@11d5960" reads "checkout". A step that
+    /// has a name in its workflow keeps it as written.
     public var shortName: String {
         let post = name.hasPrefix("Post Run ")
         guard post || name.hasPrefix("Run ") else { return name }
@@ -181,7 +185,8 @@ extension CIRuns.Job {
 }
 
 extension CIRuns {
-    /// A job's steps as a list reads them: what failed or is running on its own, the rest folded by how it went.
+    /// The rows a list shows for a job's steps. A step that failed or is running gets a row of its own, and the rest
+    /// are folded into rows by how they went.
     public enum StepRow: Equatable, Sendable {
         case one(Step), passed([Step]), skipped([Step]), upcoming([Step])
         public var steps: [Step] {
@@ -207,8 +212,8 @@ extension CIRuns {
 }
 
 extension CIRuns {
-    /// How long this workflow usually takes: the middle of its green runs, the newest five. Failed runs stop early and say
-    /// nothing about it. Nil under three.
+    /// Returns how long this workflow usually takes: the median of its five newest green runs. Failed runs stop early,
+    /// so they say nothing about it. Nil with fewer than three green runs.
     public static func typicalSeconds(_ runs: [Run], workflow: String) -> Double? {
         let green = runs.filter { $0.workflow == workflow && $0.conclusion == "success" }.prefix(5).compactMap {
             $0.seconds()
@@ -217,12 +222,13 @@ extension CIRuns {
         return green.count % 2 == 1 ? green[green.count / 2] : (green[green.count / 2 - 1] + green[green.count / 2]) / 2
     }
 
-    /// A workflow's last dozen runs, oldest first, and the newest green one when the latest isn't.
+    /// A workflow's last dozen runs, oldest first, plus the newest green run when the latest run isn't green.
     public struct History: Equatable, Sendable {
         public var runs: [Run], lastGreen: Run?, greenInARow: Int
     }
 
-    /// Of the workflow that matters now: the one that failed, else the newest. Nil with one run: no history to show.
+    /// Returns the history of the workflow that matters now: the one that failed, or else the newest. Nil when that
+    /// workflow has only one run, because there is no history to show.
     public static func history(_ runs: [Run]) -> History? {
         let now = latest(runs)
         guard let workflow = (now.first(where: \.failed) ?? now.first)?.workflow else { return nil }
@@ -236,7 +242,7 @@ extension CIRuns {
 }
 
 extension CIRuns.Report {
-    /// Whether an earlier try broke the same way: then it's the code, not a fluke of the runner.
+    /// Whether an earlier attempt broke in the same way. If it did, the code is at fault and not a fluke of the runner.
     public func failsLike(_ other: CIRuns.Report) -> Bool {
         func names(_ report: CIRuns.Report) -> Set<String> {
             Set(

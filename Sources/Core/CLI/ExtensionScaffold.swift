@@ -1,8 +1,9 @@
 import Foundation
 
-/// `kelp ext list|enable|disable|new`: the extensions as the app shows them, the setting that turns one off, a starter.
+/// `kelp ext list|enable|disable|new`: the extensions as the app shows them, the setting that turns one off, and a
+/// starter extension.
 extension ExtensionFiles {
-    /// What the app shows (`ui.state`) when it runs, else the folders in `dir`.
+    /// Returns the extensions the app shows (`ui.state`) when the app runs, or else the folders in `dir`.
     public static func extensions(client: RPCClient, dir: URL) async throws -> [ShownUI.Extension] {
         if let shown = try await client.call(UIStateGet()).extensions { return shown }
         let disabled = try await disabledExtensions(client: client)
@@ -16,7 +17,7 @@ extension ExtensionFiles {
         }
     }
 
-    /// Enabling/disabling is the `extensions.disabled` setting; the app applies it.
+    /// Enables or disables an extension through the `extensions.disabled` setting, which the app applies.
     public static func setExtension(_ id: String, enabled: Bool, client: RPCClient) async throws {
         guard isValidExtensionID(id) else { throw invalidID(id) }
         let rest = try await disabledExtensions(client: client).filter { $0 != id }
@@ -33,7 +34,8 @@ extension ExtensionFiles {
         .invalidParams("invalid extension id \"\(id)\": use lowercase letters, digits, dots and dashes")
     }
 
-    /// `<dir>/<id>/` with a working starter (extension.json + README.md), and the authoring guide next to it. Returns the folder.
+    /// Makes `<dir>/<id>/` with a working starter (extension.json and README.md), with the authoring guide next to it.
+    /// Returns the folder.
     @discardableResult
     public static func scaffoldExtension(id: String, name: String?, description: String?, in dir: URL) throws -> URL {
         guard isValidExtensionID(id) else { throw invalidID(id) }
@@ -57,7 +59,8 @@ extension ExtensionFiles {
         return (try? encoder.encode(text)).flatMap { String(bytes: $0, encoding: .utf8) } ?? "\"\""
     }
 
-    /// A list panel of the workspace's top-level files; the command prints JSON lines with nothing but find + stat.
+    /// Returns a starter manifest with a list panel of the workspace's top-level files. Its command prints JSON lines
+    /// using nothing but find and stat.
     static func starterManifest(id: String, name: String, description: String) -> String {
         #"""
         {

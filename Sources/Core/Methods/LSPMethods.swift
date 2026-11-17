@@ -1,8 +1,9 @@
 import Foundation
 
-// Language servers live in the daemon: one per (project, server command), shared by every client, started for the first
-// file a trusted project opens and stopped once none is open. The app says which servers a file gets (its extensions'
-// `languages`: a language's own and, beside it, a linter's); the daemon decides whether one may run.
+// Language servers live in the daemon, one per (project, server command), shared by every client. A server starts for
+// the first file a trusted project opens and stops once no file is open. The app says which servers a file gets (from
+// the `languages` of its extensions: a language's own server and, beside it, a linter's). The daemon decides whether a
+// server may run.
 
 /// Where a symbol is defined.
 public struct CodeLocation: Codable, Sendable, Equatable {
@@ -14,7 +15,8 @@ public struct CodeLocation: Codable, Sendable, Equatable {
     }
 }
 
-/// An error or warning a language server found: from `line`, `column` to `endLine`, `endColumn`, all 0-based, in UTF-16 units.
+/// An error or warning a language server found, from `line`, `column` to `endLine`, `endColumn`, all 0-based and in
+/// UTF-16 units.
 public struct CodeProblem: Codable, Sendable, Equatable {
     public var line: Int, column: Int, endLine: Int, endColumn: Int, isError: Bool, message: String
     public init(line: Int, column: Int, endLine: Int, endColumn: Int, isError: Bool, message: String) {
@@ -27,8 +29,8 @@ public struct CodeProblem: Codable, Sendable, Equatable {
     }
 }
 
-/// A name a file defines: what it's called, what it is ("class", "function"…) and its 1-based line.
-/// `path`: the file, in a project-wide list.
+/// A name a file defines: what it is called, what it is ("class", "function"…) and its 1-based line.
+/// `path` is the file, set in a project-wide list.
 public struct CodeSymbol: Codable, Sendable, Equatable {
     public var name: String, kind: String, line: Int, path: String?
     public init(name: String, kind: String, line: Int, path: String? = nil) {
@@ -39,7 +41,8 @@ public struct CodeSymbol: Codable, Sendable, Equatable {
     }
 }
 
-/// A call's signature as the cursor stands in it: `label`, with the argument being typed at `active` (UTF-16 offsets in it).
+/// A call's signature at the cursor: `label`, with the argument being typed at `activeStart`…`activeEnd` (UTF-16
+/// offsets in the label).
 public struct CodeSignature: Codable, Sendable, Equatable {
     public var label: String, activeStart: Int?, activeEnd: Int?
     public init(label: String, activeStart: Int? = nil, activeEnd: Int? = nil) {
@@ -49,7 +52,7 @@ public struct CodeSignature: Codable, Sendable, Equatable {
     }
 }
 
-/// One completion: what the list shows and what goes in.
+/// One completion: what the list shows and what gets inserted.
 public struct CodeCompletion: Codable, Sendable, Equatable {
     public var label: String, detail: String?, insert: String
     /// The completion's kind ("method", "keyword"…), its documentation, whether `insert` has tab stops, what it
@@ -71,7 +74,7 @@ public struct CodeCompletion: Codable, Sendable, Equatable {
     }
 }
 
-/// A server's edit: `text` from `line`, `column` to `endLine`, `endColumn`, all 0-based, in UTF-16 units.
+/// A server's edit, which puts `text` from `line`, `column` to `endLine`, `endColumn`, all 0-based and in UTF-16 units.
 public struct CodeEdit: Codable, Sendable, Equatable {
     public var line: Int, column: Int, endLine: Int, endColumn: Int, text: String
     public init(line: Int, column: Int, endLine: Int, endColumn: Int, text: String) {
@@ -83,7 +86,7 @@ public struct CodeEdit: Codable, Sendable, Equatable {
     }
 }
 
-/// One file's part of a server's change, `edits` as it gave them.
+/// One file's part of a server's change, with `edits` as the server gave them.
 public struct CodeFileEdit: Codable, Sendable, Equatable {
     public var path: String, edits: [CodeEdit]
     public init(path: String, edits: [CodeEdit]) {
@@ -92,7 +95,7 @@ public struct CodeFileEdit: Codable, Sendable, Equatable {
     }
 }
 
-/// A fix or refactoring a server offers at a place, with what it changes.
+/// A fix or refactoring a server offers at a place, with the edits it makes.
 public struct CodeAction: Codable, Sendable, Equatable {
     public var title: String, files: [CodeFileEdit]
     public init(title: String, files: [CodeFileEdit]) {
@@ -101,10 +104,10 @@ public struct CodeAction: Codable, Sendable, Equatable {
     }
 }
 
-/// Why no server runs for a file: what the app asks or offers (trust the project, install the server).
+/// Why no server runs for a file, which decides what the app asks or offers (trust the project, install the server).
 public enum LSPRefusal: Codable, Sendable, Equatable {
-    /// A project's language servers run its own code (build scripts, Package.swift, its node_modules): not before the
-    /// user trusts it in Kelp's window (`lsp.trusted`).
+    /// A project's language servers run the project's own code (build scripts, Package.swift, its node_modules), so
+    /// they don't run before the user trusts the project in Kelp's window (`lsp.trusted`).
     case untrusted
     /// The server command isn't on the login shell's PATH.
     case notInstalled(String)
@@ -117,26 +120,27 @@ public enum LSPRefusal: Codable, Sendable, Equatable {
             }
         return RPCError(code: -32002, message: message, data: try? JSONValue.from(self))
     }
-    /// The refusal a daemon's error carries, when it's this kind of error.
+    /// Reads the refusal a daemon's error carries, when it is this kind of error.
     public init?(_ error: Error) {
         guard let data = (error as? RPCError)?.data, let refusal = try? data.decode(LSPRefusal.self) else { return nil }
         self = refusal
     }
 }
 
-/// A file a tab shows, given to one of its servers (started now when it isn't running). Fails with an `LSPRefusal` when no server
-/// may run there. Each open is matched by an `LSPClose`; a connection that goes closes what it opened.
+/// Gives a file that a tab shows to one of its servers, starting the server when it isn't running. It fails with an
+/// `LSPRefusal` when no server may run there. Each open is matched by an `LSPClose`, and a connection that ends closes
+/// what it opened.
 public struct LSPOpen: InternalMethod {
     public static let name = "lsp.open"
     public typealias Result = Done
-    /// The UI state key listing the projects the user trusted for language servers and formatters (only Kelp's window
-    /// writes it).
+    /// The UI state key that lists the projects the user trusted for language servers and formatters. Only Kelp's
+    /// window writes it.
     public static let trustKey = "lsp.trusted"
     public var root: String, path: String, languageId: String, command: String, args: [String]?, text: String
-    /// A file of several servers is opened at each: `rank` is this one's place among them (the first that can answers a
-    /// question; problems and fixes come from all).
+    /// A file with several servers is opened at each one, and `rank` is this server's place among them. The first
+    /// server that can answer a question answers it, while problems and fixes come from all of them.
     public var rank: Int?
-    /// The server's `initializationOptions`, and its settings: what it gets for `workspace/configuration`, by section.
+    /// The server's `initializationOptions`, and its settings, which it gets for `workspace/configuration` by section.
     public var options: JSONValue?, settings: JSONValue?
     public init(
         root: String, path: String, languageId: String, command: String, args: [String]? = nil, text: String,
@@ -153,8 +157,8 @@ public struct LSPOpen: InternalMethod {
         self.settings = settings
     }
 }
-/// A language server command on this Mac: whether it's there to run, and for the project asked about whether it runs
-/// (or is starting), how many open files it has, and whether it didn't start or died.
+/// A language server command on this Mac: whether it is installed, and, for the project asked about, whether it runs
+/// (or is starting), how many open files it has, and whether it failed to start or died.
 public struct LSPServerState: Codable, Sendable, Equatable {
     public var command: String, installed: Bool, running: Bool, files: Int, failed: Bool
     public init(command: String, installed: Bool, running: Bool = false, files: Int = 0, failed: Bool = false) {
@@ -165,8 +169,8 @@ public struct LSPServerState: Codable, Sendable, Equatable {
         self.failed = failed
     }
 }
-/// What is known about each of `commands`, named as the languages name them, for Settings › Languages and a file's own
-/// list. `root` is the project whose servers count as running; with nil, every project's servers count.
+/// Returns what is known about each of `commands`, named as the languages name them, for Settings › Languages and a
+/// file's own list. `root` is the project whose servers count as running. With nil, every project's servers count.
 public struct LSPServers: InternalMethod {
     public static let name = "lsp.servers"
     public typealias Result = [LSPServerState]
@@ -176,7 +180,8 @@ public struct LSPServers: InternalMethod {
         self.commands = commands
     }
 }
-/// Stops the project's servers of `command` and starts them again with the files open at them, as last sent.
+/// Stops the project's servers of `command` and starts them again with the files that were open at them, as last
+/// sent.
 public struct LSPRestart: InternalMethod {
     public static let name = "lsp.restart"
     public typealias Result = Done
@@ -186,7 +191,7 @@ public struct LSPRestart: InternalMethod {
         self.command = command
     }
 }
-/// The file's whole text now (sent as a notification while typing).
+/// Sends the file's whole text as it is now, as a notification while typing.
 public struct LSPChange: InternalMethod {
     public static let name = "lsp.change"
     public typealias Result = Done
@@ -197,7 +202,7 @@ public struct LSPChange: InternalMethod {
         self.text = text
     }
 }
-/// A tab showing the file closed.
+/// Tells the server that a tab showing the file closed.
 public struct LSPClose: InternalMethod {
     public static let name = "lsp.close"
     public typealias Result = Done
@@ -207,7 +212,7 @@ public struct LSPClose: InternalMethod {
         self.path = path
     }
 }
-/// Positions are 1-based lines and columns.
+/// Returns where the symbol at a position is defined. Positions are 1-based lines and columns.
 public struct LSPDefinition: InternalMethod {
     public static let name = "lsp.definition"
     public typealias Result = CodeLocation?
@@ -219,7 +224,7 @@ public struct LSPDefinition: InternalMethod {
         self.column = column
     }
 }
-/// Completions at a position, 1-based.
+/// Returns the completions at a 1-based position.
 public struct LSPCompletion: InternalMethod {
     public static let name = "lsp.completion"
     public typealias Result = [CodeCompletion]
@@ -231,7 +236,7 @@ public struct LSPCompletion: InternalMethod {
         self.column = column
     }
 }
-/// The innermost function, method, class or module around a line (Test at Cursor's `${symbol}`).
+/// Returns the innermost function, method, class or module around a line (the `${symbol}` of Test at Cursor).
 public struct LSPSymbol: InternalMethod {
     public static let name = "lsp.symbol"
     public typealias Result = String?
@@ -243,7 +248,8 @@ public struct LSPSymbol: InternalMethod {
     }
 }
 
-/// What the language server last said is wrong with the file at `path`. They reach a tab with its `FileEvent`.
+/// Returns what the language server last said is wrong with the file at `path`. Problems also reach a tab with its
+/// `FileEvent`.
 public struct LSPProblems: InternalMethod {
     public static let name = "lsp.problems"
     public typealias Result = [CodeProblem]
@@ -251,7 +257,7 @@ public struct LSPProblems: InternalMethod {
     public init(path: String) { self.path = path }
 }
 
-/// The names the file at `path` defines, as its language server lists them, top to bottom.
+/// Returns the names the file at `path` defines, as its language server lists them, from top to bottom.
 public struct LSPSymbols: InternalMethod {
     public static let name = "lsp.symbols"
     public typealias Result = [CodeSymbol]
@@ -262,7 +268,8 @@ public struct LSPSymbols: InternalMethod {
     }
 }
 
-/// The names matching `query` in every file of the project, as the server of the file at `path` knows them (its index).
+/// Returns the names matching `query` in every file of the project, as the server of the file at `path` knows them
+/// from its index.
 public struct LSPWorkspaceSymbols: InternalMethod {
     public static let name = "lsp.workspaceSymbols"
     public typealias Result = [CodeSymbol]
@@ -274,7 +281,8 @@ public struct LSPWorkspaceSymbols: InternalMethod {
     }
 }
 
-/// What the server says of the symbol at a 1-based position: its signature and documentation, as Markdown.
+/// Returns what the server says about the symbol at a 1-based position: its signature and documentation, as
+/// Markdown.
 public struct LSPHover: InternalMethod {
     public static let name = "lsp.hover"
     public typealias Result = String?
@@ -287,7 +295,7 @@ public struct LSPHover: InternalMethod {
     }
 }
 
-/// The signature of the call around a 1-based position.
+/// Returns the signature of the call around a 1-based position.
 public struct LSPSignature: InternalMethod {
     public static let name = "lsp.signature"
     public typealias Result = CodeSignature?
@@ -300,7 +308,8 @@ public struct LSPSignature: InternalMethod {
     }
 }
 
-/// Where the symbol at a 1-based position is used, in files under `root`: each with its line's text, `path` from `root`.
+/// Returns where the symbol at a 1-based position is used in files under `root`. Each use has its line's text, and
+/// `path` is relative to `root`.
 public struct LSPReferences: InternalMethod {
     public static let name = "lsp.references"
     public typealias Result = [SearchMatch]
@@ -313,7 +322,8 @@ public struct LSPReferences: InternalMethod {
     }
 }
 
-/// What renaming the symbol at a 1-based position to `name` changes. Nothing is written: the app applies it.
+/// Returns what renaming the symbol at a 1-based position to `name` changes. Nothing is written, because the app
+/// applies the edits.
 public struct LSPRename: InternalMethod {
     public static let name = "lsp.rename"
     public typealias Result = [CodeFileEdit]
@@ -327,7 +337,8 @@ public struct LSPRename: InternalMethod {
     }
 }
 
-/// The fixes and refactorings a server offers on a 1-based line and column, those it can say the edits of.
+/// Returns the fixes and refactorings a server offers at a 1-based line and column, keeping only those whose edits the
+/// server can give.
 public struct LSPActions: InternalMethod {
     public static let name = "lsp.actions"
     public typealias Result = [CodeAction]

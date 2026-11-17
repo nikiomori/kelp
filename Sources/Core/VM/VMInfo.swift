@@ -4,29 +4,32 @@ public struct VMInfo: Codable, Sendable, Equatable, Identifiable {
     public var id: String { machine.name }
     public var machine: VMMachine
     public var state: VMState
-    /// While creating, how far ("Downloading Debian 13: 43%"); after an error, what went wrong.
+    /// While the machine is being made, how far it got ("Downloading Debian 13: 43%"). After an error, what went
+    /// wrong.
     public var detail: String?
-    /// Commands and shells open in it now.
+    /// The number of commands and shells open in the machine now.
     public var connections: Int?
-    /// How much of the Mac's memory the machine holds while it runs, in MiB (its process's footprint, else its
-    /// balloon's target).
+    /// How much of the Mac's memory the machine holds while it runs, in MiB. It is the process's footprint, or else the
+    /// balloon's target.
     public var memoryMiB: Int?
-    /// While it runs: the Mac's CPU it took over the last 5 s, % of one core, as Activity Monitor counts it.
+    /// While the machine runs, the Mac CPU it used over the last 5 s, as a percentage of one core, the way Activity
+    /// Monitor counts it.
     public var cpu: Double?
     /// How much of the Mac's disk the machine's disk takes, in MiB.
     public var diskMiB: Int?
-    /// The Kelp sessions working in it now: a command running there (`kelp vm run` from an agent or a terminal), or the
-    /// turn of a macOS machine's screen.
+    /// The Kelp sessions working in the machine now. A session counts when it runs a command there (`kelp vm run` from
+    /// an agent or a terminal), or when it has the turn on a macOS machine's screen.
     public var sessions: [String]?
-    /// While the machine is being made: the step it is at, and how far that step got (0…1) when that is known. `detail`
-    /// names what it is made from at that step ("macOS 27.2").
+    /// While the machine is being made, the step it is at, and how far that step got (0…1) when that is known. `detail`
+    /// names what the machine is made from at that step ("macOS 27.2").
     public var step: VMStep?, progress: Double?
-    /// A Linux or macOS machine's exchange folder on the Mac, `~/Kelp` inside it (`VMs.filesSetup`).
+    /// A Linux or macOS machine's exchange folder on the Mac, which is `~/Kelp` inside the machine (`VMs.filesSetup`).
     public var files: String?
-    /// In `error`: true when making it failed (nothing to start: made again or deleted), nil when it was made and its
-    /// last start failed (starting it again tries again).
+    /// In the `error` state, true when making the machine failed, so there is nothing to start and it must be made
+    /// again or deleted. nil when it was made and its last start failed, so starting it again tries again.
     public var notMade: Bool?
-    /// Its kelp-vm's log on the Mac, once there is one: what went wrong in more words than `detail` has.
+    /// The path of the machine's kelp-vm log on the Mac, once there is one. It says what went wrong in more words than
+    /// `detail` has.
     public var log: String?
 
     public init(
@@ -42,11 +45,11 @@ public struct VMInfo: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// A step of making a machine, as its `creating` file says (`VMMaking`).
+/// A step in making a machine, as the machine's `creating` file reports it (`VMMaking`).
 public enum VMStep: String, Codable, Sendable, CaseIterable {
     case asking, downloading, checking, unpacking, disk, installing, firstBoot, lettingIn, device, building, starting
 
-    /// In English, for the CLI and logs (the app says it in the user's language).
+    /// Returns the step in English, for the CLI and logs. The app shows it in the user's language.
     public func text(_ detail: String?) -> String {
         let what = detail ?? ""
         switch self {
@@ -65,8 +68,8 @@ public enum VMStep: String, Codable, Sendable, CaseIterable {
     }
 }
 
-/// What a machine's `creating` file holds while the machine is being made: its step, how far it got, and what it is
-/// made from.
+/// What a machine's `creating` file holds while the machine is being made: the step, how far it got, and what the
+/// machine is made from.
 public struct VMMaking: Codable, Sendable, Equatable {
     public var step: VMStep, progress: Double?, detail: String?
     public init(step: VMStep, progress: Double? = nil, detail: String? = nil) {
@@ -77,15 +80,16 @@ public struct VMMaking: Codable, Sendable, Equatable {
     public var data: Data { do { return try JSONEncoder().encode(self) } catch { return Data() } }
 }
 
-/// What runs in a machine, read from inside (`VMs.detailScript`), with the folders shared with it.
+/// What runs in a machine, read from inside it (`VMs.detailScript`), along with the folders shared with it.
 public struct VMDetail: Codable, Sendable, Equatable {
-    /// Its address on the Mac's NAT network: where its ports open from here.
+    /// The machine's address on the Mac's NAT network, where its ports can be opened from the Mac.
     public var address: String?
     public var ports: [Int]
     public var runs: [Run]
     public var folders: [String]
-    /// A macOS machine's Kelp Guest: whether it may read controls (Accessibility), and whose turn the screen is (kelp-vm
-    /// says). Nil: not a macOS machine, or Kelp Guest isn't in it. `screenRecording` is no longer asked for: always false.
+    /// The state of Kelp Guest in a macOS machine: whether it may read controls (Accessibility), and whose turn it is
+    /// on the screen (kelp-vm reports that). Nil when this isn't a macOS machine, or Kelp Guest isn't in it.
+    /// `screenRecording` is no longer asked for, so it is always false.
     public var guest: Guest?
 
     public init(
@@ -99,9 +103,9 @@ public struct VMDetail: Codable, Sendable, Equatable {
     }
 
     public struct Guest: Codable, Sendable, Equatable {
-        /// False too while Kelp Guest isn't running (its permissions can't be told then).
+        /// The permissions are also false while Kelp Guest isn't running, because they can't be read then.
         public var running: Bool, screenRecording: Bool, accessibility: Bool
-        /// The session whose turn the screen is, while it lasts.
+        /// The session whose turn it is to use the screen, while the turn lasts.
         public var screen: String?
         public init(running: Bool, screenRecording: Bool = false, accessibility: Bool = false, screen: String? = nil) {
             self.running = running
@@ -111,7 +115,8 @@ public struct VMDetail: Codable, Sendable, Equatable {
         }
     }
 
-    /// A `kelp vm run`: its command ("" for a shell), how long it has run, and the Kelp session that ran it.
+    /// A `kelp vm run` in progress: its command ("" for a shell), how long it has run, and the Kelp session that ran
+    /// it.
     public struct Run: Codable, Sendable, Equatable {
         public var pid: Int, seconds: Int
         public var session: String?
@@ -128,8 +133,9 @@ public struct VMDetail: Codable, Sendable, Equatable {
 /// An image a machine can start from: a distribution's own cloud image, checked against its published checksums.
 public struct VMImage: Sendable, Equatable {
     public var id: String, title: String
-    /// The archive and the checksum file that lists it (SHA-512). macOS has neither: Apple's latest restore image for this
-    /// Mac is asked for when it's made (`kelp-vm --latest`), and the installer checks Apple's signature on it.
+    /// The archive and the checksum file that lists it (SHA-512). macOS has neither, because Kelp asks for Apple's
+    /// latest restore image for this Mac when the machine is made (`kelp-vm --latest`), and the installer checks
+    /// Apple's signature on it.
     public var url: String, sums: String
     /// The raw disk inside the archive.
     public var member: String
@@ -141,7 +147,7 @@ public struct VMImage: Sendable, Equatable {
             id: "debian-13", title: "Debian 13",
             url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-arm64.tar.xz",
             sums: "https://cloud.debian.org/images/cloud/trixie/latest/SHA512SUMS", member: "disk.raw"),
-        VMImage(id: "linux", title: "Linux", url: "", sums: "", member: ""),   // from a raw disk of the user's (--file)
+        VMImage(id: "linux", title: "Linux", url: "", sums: "", member: ""),   // From the user's raw disk (--file).
         VMImage(id: "macos", title: "macOS", url: "", sums: "", member: "", os: "macos"),
         VMImage(id: "android", title: "Android", url: "", sums: "", member: "", os: "android"),
         VMImage(id: "ios", title: "iOS", url: "", sums: "", member: "", os: "ios")

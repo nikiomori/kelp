@@ -1,6 +1,6 @@
 import Foundation
 
-/// JSON-RPC 2.0 messages, newline-delimited over a Unix socket.
+/// JSON-RPC 2.0 messages, sent one per line over a Unix socket.
 public struct RPCRequest: Codable, Sendable {
     public var jsonrpc = "2.0"
     public var id: Int?
@@ -14,14 +14,15 @@ public struct RPCRequest: Codable, Sendable {
 }
 
 extension Error {
-    /// An RPC refusal's own words, else the error as Swift prints it (for logs and terminals, not `localizedDescription`).
+    /// The message of an RPC error, or else the error as Swift prints it. It is for logs and terminals, unlike
+    /// `localizedDescription`.
     public var rpcMessage: String { (self as? RPCError)?.message ?? "\(self)" }
 }
 
 public struct RPCError: Codable, Error, Sendable, Equatable {
     public var code: Int
     public var message: String
-    /// What a program reads where `message` is for people (JSON-RPC's `data`), e.g. an `Unopenable`.
+    /// Data for programs to read, while `message` is for people (JSON-RPC's `data`). An example is an `Unopenable`.
     public var data: JSONValue?
     public init(code: Int, message: String, data: JSONValue? = nil) {
         self.code = code
@@ -30,15 +31,16 @@ public struct RPCError: Codable, Error, Sendable, Equatable {
     }
     public static func invalidParams(_ message: String) -> RPCError { .init(code: -32602, message: message) }
     public static func internalError(_ message: String) -> RPCError { .init(code: -32603, message: message) }
-    /// Not the caller's to do (`Daemon.allow`): told apart from a bad call by `data` "refused", for tests and tools.
+    /// The error for a call the caller isn't allowed to make (`Daemon.allow`). Its `data` is "refused", which tells it
+    /// apart from a bad call for tests and tools.
     public static func refused(_ message: String) -> RPCError {
         .init(code: -32602, message: message, data: .string("refused"))
     }
     public var isRefusal: Bool { data == .string("refused") }
     public static let methodNotFound = RPCError(code: -32601, message: "method not found")
-    /// From a kelpd that is being replaced: the next one will answer.
+    /// The error from a kelpd that is being replaced. The next kelpd will answer.
     public static let updating = internalError("Kelp's background service is updating; try again in a moment.")
-    /// The connection ended with no reply, or was over already.
+    /// The error when the connection ended with no reply, or had already ended.
     public static let connectionClosed = internalError("connection closed")
     public static func noReply(_ method: String, in seconds: TimeInterval) -> RPCError {
         internalError("no reply to \(method) in \(Int(seconds)) s")
@@ -46,31 +48,34 @@ public struct RPCError: Codable, Error, Sendable, Equatable {
     public var isNoReply: Bool { message.hasPrefix("no reply to ") }
 }
 
-/// A method declared as a type (Methods.swift), shared by the app, the CLI and the daemon like Zed's proto messages:
-/// a misspelled key or a wrong result shape doesn't compile. Its fields are the request's params, exactly the JSON
-/// the method takes when written by hand, so untyped callers (older apps, scripts) keep working.
+/// A method declared as a type (Methods.swift) and shared by the app, the CLI and the daemon, like Zed's proto
+/// messages. A misspelled key or a wrong result shape doesn't compile. The type's fields are the request's params,
+/// exactly the JSON the method takes when written by hand, so untyped callers (older apps, scripts) keep working.
 public protocol RPCMethod: Codable, Sendable {
     associatedtype Result: Codable & Sendable
     static var name: String { get }
-    /// How long a call waits for the reply before it fails: nil waits for good (a method that takes as long as it takes).
+    /// How long a call waits for the reply before it fails. nil waits forever, for a method that takes as long as it
+    /// takes.
     static var timeout: TimeInterval? { get }
 }
 
 extension RPCMethod {
-    /// Past the daemon's own limit on any git, gh or ssh run (300 s, `Git.run`): only a reply that never comes ends here.
+    /// The default is longer than the daemon's own limit on any git, gh or ssh run (300 s, `Git.run`), so only a reply
+    /// that never comes ends here.
     public static var timeout: TimeInterval? { 330 }
 }
 
 extension RPCMethod {
-    /// The request's params: the fields, or none for a method without any (as hand-written calls send it).
+    /// Returns the request's params: the type's fields, or nil for a method without fields (as hand-written calls send
+    /// it).
     public func params() throws -> JSONValue? {
         let fields = try JSONValue.from(self)
         return fields == .object([:]) ? nil : fields
     }
 }
 
-/// A method for Kelp's own window and tools: `kelp schema` lists it as such, and a client of someone else's gets no promise
-/// about it. Its name and shape still stay, for an older app (rpc.json).
+/// A method for Kelp's own window and tools. `kelp schema` lists it as internal, and other people's clients get no
+/// promise about it. Its name and shape still don't change, for the sake of older apps (rpc.json).
 public protocol InternalMethod: RPCMethod {}
 
 /// The result of a method that answers null.
@@ -95,11 +100,12 @@ public enum Wire {
 public struct LineBuffer: Sendable {
     private var buf = Data()
     public init() {}
-    /// Only the new bytes are searched and the consumed lines dropped once: a multi-MB reply arrives in 8 KB reads,
-    /// and rescanning (and shifting) the whole buffer on each one was quadratic. Searched with memchr: `firstIndex(of:)`
-    /// went byte by byte through Data's indices, 36 ms for a 5 MB line in a debug build.
+    /// Only the new bytes are searched, and the consumed lines are dropped in one go. A multi-MB reply arrives in 8 KB
+    /// reads, and rescanning (and shifting) the whole buffer on each read was quadratic. The search uses memchr,
+    /// because `firstIndex(of:)` went byte by byte through Data's indices and took 36 ms for a 5 MB line in a debug
+    /// build.
     public mutating func append(_ data: Data) -> [Data] {
-        let from = buf.count   // the bytes already here hold no newline
+        let from = buf.count   // The bytes already in the buffer hold no newline.
         buf.append(data)
         var ends: [Int] = []
         buf.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
@@ -120,9 +126,9 @@ public struct LineBuffer: Sendable {
         buf = Data(buf[(origin + start)...])
         return out
     }
-    /// Bytes waiting for their line's end.
+    /// The number of bytes still waiting for the end of their line.
     public var pending: Int { buf.count }
-    /// Bytes received after the last complete line (a connection switching to a raw stream keeps them).
+    /// Returns the bytes received after the last complete line, which a connection switching to a raw stream keeps.
     public mutating func takeRemainder() -> Data {
         defer { buf = Data() }
         return buf

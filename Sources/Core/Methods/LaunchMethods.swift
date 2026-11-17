@@ -1,30 +1,31 @@
 import Foundation
 
-/// How a session starts: the same optional fields on every method that starts one.
-/// A method that starts a terminal, asked at the size it will be shown at (the app's `workbench.sized`), so its first
-/// screen isn't drawn for another width; nil: 120 × 32.
+/// A method that starts a terminal at the size it will be shown at (the app's `workbench.sized`), so its first screen
+/// isn't drawn for another width. nil means 120 × 32.
 public protocol StartsSized {
     var cols: Int? { get set }
     var rows: Int? { get set }
 }
 
+/// How a session starts: the same optional fields on every method that starts one.
 public protocol LaunchOptions {
     var model: String? { get }
     var effort: String? { get }
     var prompt: String? { get }
     var title: String? { get }
     var profile: String? { get }
-    /// Type the prompt, don't send it.
+    /// Types the prompt without sending it.
     var draft: Bool? { get }
-    /// The first local URL it prints opens in the workspace's browser (event.devserver).
+    /// Opens the first local URL the session prints in the workspace's browser (event.devserver).
     var openURLs: Bool? { get }
     var cols: Int? { get }
     var rows: Int? { get }
 }
 
-/// A session in `worktreeId`'s folder, or in `cwd` (which wins): agent `agent`, else the shell command `command`;
-/// `tmux`: a terminal attached to that tmux session, started if there is none (see `Tmux`). `parent`: the agent session that
-/// started this agent, or this command (see `Session.parent`, `Session.startedBy`), if it is an agent.
+/// Starts a session in the folder of `worktreeId`, or in `cwd`, which wins. It runs the agent `agent`, or else the
+/// shell command `command`. `tmux` makes a terminal attached to that tmux session, started if there is none (see
+/// `Tmux`). `parent` is the agent session that started this agent or this command (see `Session.parent`,
+/// `Session.startedBy`), when that is an agent.
 public struct SessionCreate: RPCMethod, LaunchOptions, StartsSized {
     public static let name = "session.create"
     public typealias Result = Session
@@ -56,8 +57,8 @@ public struct SessionCreate: RPCMethod, LaunchOptions, StartsSized {
     }
 }
 
-/// The tmux sessions on the workspace's machine (a remote project's host), the last used first; none while tmux runs
-/// no server there.
+/// Lists the tmux sessions on the workspace's machine (a remote project's host), most recently used first. The list is
+/// empty while no tmux server runs there.
 public struct TmuxList: InternalMethod {
     public static let name = "tmux.list"
     public typealias Result = [Tmux.Session]
@@ -65,7 +66,7 @@ public struct TmuxList: InternalMethod {
     public init(worktreeId: String) { self.worktreeId = worktreeId }
 }
 
-/// The same command in the same folder, resuming its conversation unless `resume` is false.
+/// Restarts the same command in the same folder, resuming its conversation unless `resume` is false.
 public struct SessionRestart: RPCMethod, LaunchOptions {
     public static let name = "session.restart"
     public typealias Result = Session
@@ -91,8 +92,9 @@ public struct SessionRestart: RPCMethod, LaunchOptions {
     }
 }
 
-/// A new chat beside this one, in the same folder, going on from a copy of its conversation: this one goes on as it
-/// was. Claude Code and Codex fork their own (`--fork-session`, `codex fork`); other agents can't, and are refused.
+/// Starts a new chat beside this one, in the same folder, going on from a copy of its conversation, while this chat
+/// goes on as it was. Claude Code and Codex fork their own conversations (`--fork-session`, `codex fork`). Other agents
+/// can't, so the call is refused for them.
 public struct SessionFork: RPCMethod {
     public static let name = "session.fork"
     public typealias Result = Session
@@ -104,7 +106,8 @@ public struct SessionFork: RPCMethod {
     }
 }
 
-/// A new agent (`agent`, else the same) in the same workspace, briefed with this one's transcript (`full`: all of it).
+/// Starts a new agent (`agent`, or else the same agent) in the same workspace, briefed with this session's transcript.
+/// With `full`, the brief holds the whole transcript.
 public struct SessionHandoff: RPCMethod, LaunchOptions {
     public static let name = "session.handoff"
     public typealias Result = Session
@@ -132,9 +135,9 @@ public struct SessionHandoff: RPCMethod, LaunchOptions {
     }
 }
 
-/// A chat moved to another copy of its project, one on a server or one on this Mac, as a new chat there: its branch's
-/// commits and its uncommitted changes go into a new worktree of that copy, and an agent there goes on from a brief of
-/// the conversation, as Hand Off does. The chat here is paused, its folder left as it is. → the new chat.
+/// Moves a chat to another copy of its project, on a server or on this Mac, as a new chat there. The branch's commits
+/// and uncommitted changes go into a new worktree of that copy, and an agent there goes on from a brief of the
+/// conversation, as Hand Off does. The chat here is paused, and its folder is left as it is. Returns the new chat.
 public struct SessionMoveAcross: InternalMethod {
     public static let name = "session.moveAcross"
     public typealias Result = Session
@@ -145,14 +148,14 @@ public struct SessionMoveAcross: InternalMethod {
     }
 }
 
-/// Starts work on an issue or task: a branch with its number, a worktree and an agent briefed with its text. `title` is
-/// the issue's (the session's is "ref title"). The brief is typed but not sent unless `draft` is false, since whoever
-/// filed the issue wrote its text.
+/// Starts work on an issue or task: a branch with its number, a worktree, and an agent briefed with the issue's text.
+/// `title` is the issue's title, and the session's title becomes "ref title". The brief is typed but not sent unless
+/// `draft` is false, because whoever filed the issue wrote its text.
 public struct TaskFromIssue: RPCMethod {
     public static let name = "task.fromIssue"
     public struct Result: Codable, Sendable, Equatable {
         public var worktree: Worktree, session: Session
-        /// The project's .kelp.yaml has a setup that didn't run: it isn't trusted yet.
+        /// True when the project's .kelp.yaml has a setup that didn't run, because it isn't trusted yet.
         public var setupNeedsTrust: Bool
         public init(worktree: Worktree, session: Session, setupNeedsTrust: Bool) {
             self.worktree = worktree
@@ -179,7 +182,8 @@ public struct TaskFromIssue: RPCMethod {
     }
 }
 
-/// A past conversation (`session`, as history.list gives it) as a live session, in `worktreeId` or its own folder.
+/// Resumes a past conversation (`session`, as history.list gives it) as a live session, in `worktreeId` or in the
+/// conversation's own folder.
 public struct HistoryResume: RPCMethod, LaunchOptions {
     public static let name = "history.resume"
     public typealias Result = Session
@@ -206,32 +210,33 @@ public struct HistoryResume: RPCMethod, LaunchOptions {
     }
 }
 
-/// From a running agent's hooks (`kelp hook`): `event`, and what Claude Code's hook payload says.
+/// Sent by a running agent's hooks (`kelp hook`): `event`, plus what Claude Code's hook payload says.
 public struct SessionHook: InternalMethod {
     public static let name = "session.hook"
     public typealias Result = Done
     public var id: String, event: String?, transcript: String?, cwd: String?, trigger: String?, notification: JSONValue?
     public var backgroundTasks: [JSONValue]?
-    /// Stop: its timers (CronCreate, ScheduleWakeup, /loop) that will wake it later.
+    /// For Stop, the agent's timers (CronCreate, ScheduleWakeup, /loop) that will wake it later.
     public var sessionCrons: [JSONValue]?
-    /// `command`: what its shell tool started or finished.
+    /// For `command`, what the agent's shell tool started or finished.
     public var command: AgentCommand?
-    /// Which of the agent's hooks it is; `event` is what Kelp's hooks file makes of it.
+    /// The name of the agent's hook that sent this. `event` is what Kelp's hooks file makes of it.
     public var hookName: String?
-    /// The subagent it comes from; nil: the agent's main thread.
+    /// The subagent the hook comes from. nil means the agent's main thread.
     public var agentId: String?
-    /// `subagent`: what kind it is, when it starts.
+    /// For `subagent`, the subagent's kind, when it starts.
     public var agentType: String?
-    /// Stop: the words the turn ended with.
+    /// For Stop, the words the turn ended with.
     public var reply: String?
     /// What the prompt set as a /goal.
     public var goal: String?
-    /// Background shells a `<task-notification>` prompt says ended, by task and tool call id.
+    /// The background shells that a `<task-notification>` prompt says ended, by task id and tool call id.
     public var endedTasks: [String]?
-    /// The file a tool of the agent's just changed (Claude Code's Edit, Write, MultiEdit, NotebookEdit; PostToolUse).
+    /// The file one of the agent's tools just changed (Claude Code's Edit, Write, MultiEdit or NotebookEdit, read from
+    /// PostToolUse).
     public var edited: String?
-    /// When the hook ran, on the clock of this boot: hooks arrive out of order when one isn't waited for (a Notification)
-    /// or a kelpd was away, and a late one says nothing about now.
+    /// When the hook ran, on the clock of this boot. Hooks arrive out of order when the agent doesn't wait for one (a
+    /// Notification) or when kelpd was away, and a late hook says nothing about now.
     public var at: TimeInterval?
     enum CodingKeys: String, CodingKey {
         case id, event, transcript, cwd, trigger, notification, command, goal, at, reply, edited
@@ -260,8 +265,9 @@ public struct SessionHook: InternalMethod {
     }
 }
 
-/// A summary from the UI (the agent's own last reply), and optionally a better status guess. `ifStatus`: only while the
-/// session still has this status: the summary is of a turn that ended a moment ago, and the row may have moved on to a question.
+/// Sets a summary from the UI (the agent's own last reply), and optionally a better status guess. With `ifStatus`, it
+/// applies only while the session still has that status, because the summary is of a turn that ended a moment ago and
+/// the row may have moved on to a question.
 public struct SessionAnnotate: InternalMethod {
     public static let name = "session.annotate"
     public typealias Result = Done
@@ -273,7 +279,7 @@ public struct SessionAnnotate: InternalMethod {
         self.ifStatus = ifStatus
     }
 }
-/// The prompt for action `name` in workspace `id`, the project's own wording if it has one (and is trusted).
+/// Returns the prompt for action `name` in workspace `id`, in the project's own wording if it has one and is trusted.
 public struct RecipeRender: InternalMethod {
     public static let name = "recipe.render"
     public typealias Result = String
@@ -284,12 +290,13 @@ public struct RecipeRender: InternalMethod {
         self.vars = vars
     }
 }
-/// The agents on this Mac and their versions.
+/// Lists the agents on this Mac and their versions.
 public struct AgentsVersions: InternalMethod {
     public static let name = "agents.versions"
     public typealias Result = [Item]
     public struct Item: Codable, Sendable, Equatable {
-        /// nil: not found, or it printed no version (`latest`: not on npm, or npm isn't installed).
+        /// `version` is nil when the agent wasn't found or printed no version. `latest` is nil when it isn't on npm, or
+        /// npm isn't installed.
         public var id: String, version: String?, latest: String?
         public init(id: String, version: String?, latest: String?) {
             self.id = id
@@ -299,14 +306,15 @@ public struct AgentsVersions: InternalMethod {
     }
     public init() {}
 }
-/// A program run for the app, answered with what it printed: an extension's command (`/bin/zsh -lc …`, values already
-/// in as variables by `ShellTemplate`), a formatter, a notebook run, an agent's `--version`. The daemon starts every
-/// process; the app starts none. Login-shell PATH, `cwd` (the home folder when it's gone), `stdin`, and `timeLimit`
-/// after which it's stopped with everything it started. `extensionId`: an extension's folder in ~/.kelp/extensions —
-/// refused once that extension is off or gone.
+/// Runs a program for the app and answers with what it printed. Examples are an extension's command (`/bin/zsh -lc …`,
+/// with values passed as variables by `ShellTemplate`), a formatter, a notebook run, or an agent's `--version`. The
+/// daemon starts every process, and the app starts none. The program gets the login-shell PATH, `cwd` (the home folder
+/// when `cwd` is gone) and `stdin`. After `timeLimit` it is stopped with everything it started. `extensionId` names an
+/// extension's folder in ~/.kelp/extensions, and the call is refused once that extension is off or gone.
 public struct ProcessRun: InternalMethod {
     public static let name = "process.run"
-    /// The run's own limit ends it, and the daemon answers then: a notebook may compute for hours.
+    /// No call timeout, because the run's own limit ends it and the daemon answers then. A notebook may compute for
+    /// hours.
     public static var timeout: TimeInterval? { nil }
     public struct Result: Codable, Sendable, Equatable {
         public var code: Int32, stdout: String, stderr: String, timedOut: Bool
@@ -328,22 +336,24 @@ public struct ProcessRun: InternalMethod {
         self.extensionId = extensionId
     }
 }
-/// Where each command is on the login-shell PATH the daemon gives programs (`process.run`, sessions): command → absolute
-/// path, the ones not found left out. The app asks instead of reading that PATH itself, which starts the user's shell.
+/// Finds each command on the login-shell PATH that the daemon gives programs (`process.run`, sessions), as command →
+/// absolute path, leaving out the ones not found. The app asks the daemon instead of reading that PATH itself, which
+/// would start the user's shell.
 public struct ProcessWhich: InternalMethod {
     public static let name = "process.which"
     public typealias Result = [String: String]
     public var commands: [String]
     public init(commands: [String]) { self.commands = commands }
 }
-/// The login shell's PATH read again, after an installer changed the shell profile: `process.which` and new sessions
-/// then find what it installed. Answered once the shell has been asked (seconds, with a slow profile).
+/// Reads the login shell's PATH again after an installer changed the shell profile, so `process.which` and new sessions
+/// find what it installed. The daemon answers once the shell has been asked, which can take seconds with a slow
+/// profile.
 public struct ProcessRefreshPath: InternalMethod {
     public static let name = "process.refreshPath"
     public typealias Result = Done
     public init() {}
 }
-/// "pong".
+/// Answers "pong".
 public struct Ping: RPCMethod {
     public static let name = "ping"
     public typealias Result = String
@@ -355,22 +365,22 @@ public struct DaemonShutdown: InternalMethod {
     public typealias Result = Done
     public init() {}
 }
-/// The kelpd binary now at the running one's path (an update put it there) takes over in the same process: running
-/// sessions carry on, their programs never stop. Answered first; then every connection drops, and the socket answers
-/// again once the new one is up.
+/// Makes the kelpd binary now at the running daemon's path (an update put it there) take over in the same process.
+/// Running sessions carry on, and their programs never stop. The daemon answers first, then every connection drops, and
+/// the socket answers again once the new kelpd is up.
 public struct DaemonUpgrade: InternalMethod {
     public static let name = "daemon.upgrade"
     public typealias Result = Done
     public init() {}
 }
 
-/// The running daemon: the app compares it with the kelpd it ships to spot a stale one after an update.
+/// Describes the running daemon. The app compares it with the kelpd it ships, to spot a stale daemon after an update.
 public struct DaemonInfo: InternalMethod {
     public static let name = "daemon.info"
-    /// The first thing asked of a kelpd: one that's stuck is told apart here, not after minutes of an empty window.
+    /// This is the first call made to a kelpd, so a stuck one is noticed here and not after minutes of an empty window.
     public static var timeout: TimeInterval? { 10 }
     public struct Result: Codable, Sendable {
-        public var path: String, binaryMTime: Double?, pid: Int, liveSessions: Int   // no binaryMTime before 2026-10-19
+        public var path: String, binaryMTime: Double?, pid: Int, liveSessions: Int   // binaryMTime since 2026-10-19
         public init(path: String, binaryMTime: Double?, pid: Int, liveSessions: Int) {
             self.path = path
             self.binaryMTime = binaryMTime
@@ -381,16 +391,17 @@ public struct DaemonInfo: InternalMethod {
     public init() {}
 }
 
-/// False when Kelp's switch in Login Items is off: macOS then ends the daemon and its agents with the app. Asked here, not
-/// in the CLI: a `kelp` linked onto the PATH can't tell which app it belongs to, and kelpd runs from inside it.
+/// Returns false when Kelp's switch in Login Items is off, because macOS then ends the daemon and its agents with the
+/// app. The daemon answers this rather than the CLI, because a `kelp` linked onto the PATH can't tell which app it
+/// belongs to, while kelpd runs from inside the app.
 public struct DaemonBackgroundAllowed: InternalMethod {
     public static let name = "daemon.backgroundAllowed"
     public typealias Result = Bool
     public init() {}
 }
 
-/// Whether this connection wants the daemon's broadcast events. `kelp attach`'s control connection only sends sizes:
-/// without this, every open terminal would be one more reader of every event.
+/// Sets whether this connection wants the daemon's broadcast events. The control connection of `kelp attach` only sends
+/// sizes, and without this every open terminal would be one more reader of every event.
 public struct ClientEvents: InternalMethod {
     public static let name = "client.events"
     public typealias Result = Done

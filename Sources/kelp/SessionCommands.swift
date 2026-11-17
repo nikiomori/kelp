@@ -2,7 +2,7 @@ import Core
 import Foundation
 
 extension Main {
-    /// `session …`, `terminal …`, `wait`, `why`, `report`.
+    /// Runs `session …`, `terminal …`, `wait`, `why` and `report`.
     static func sessions(_ cmd: String, _ sub: String?, _ c: RPCClient) async throws {
         switch (cmd, sub) {
         case ("session", "new"):
@@ -10,8 +10,9 @@ extension Main {
             var request = SessionCreate(
                 agent: flag("--agent"), command: flag("--cmd"), model: flag("--model"), prompt: flag("--prompt"),
                 title: flag("--title"))
-            // Inside an agent, an agent it starts is its child and a command goes on its line, split or not: agents keep
-            // asking for a split out of habit, and a pane is what the line is there to spare. The daemon ignores this for anything else.
+            // Inside an agent, an agent it starts becomes its child, and a command goes on its line, split or not.
+            // Agents keep asking for a split out of habit, and the line exists to spare a pane. The daemon ignores this
+            // for anything else.
             if !outlive { request.parent = ProcessInfo.processInfo.environment["KELP_SESSION"] }
             // A session outside every workspace would run where no tab or sidebar row shows it.
             if let ref = flag("--worktree") {
@@ -24,7 +25,8 @@ extension Main {
                 )
             }
             let session = try await c.call(request), id = session.id
-            // Its tab beside yours; without the app it runs all the same (its row shows once the app opens).
+            // Open the session's tab beside yours. Without the app it runs all the same, and its row shows once the app
+            // opens.
             if let split, session.startedBy == nil {
                 _ = try? await IDE.open(
                     "session:\(id)", split: split, cwd: FileManager.default.currentDirectoryPath, client: c)
@@ -33,10 +35,10 @@ extension Main {
                 show(try .from(session))
                 return
             }
-            print(id)   // for `kelp terminal read`, once it ends
+            print(id)   // For `kelp terminal read`, once it ends.
             exit(Int32(try await waitFor(c, id, timeout: nil) { $0.status == .exited }?.exitCode ?? 1))
         case ("session", "list"), ("terminal", "list"): show(try await c.call(SessionList()))
-        case ("wait", let target?):   // until the session stops working, or reaches one of --for; prints the state it reached
+        case ("wait", let target?):   // Waits for the session to stop working or reach a --for state; prints it.
             let want = flag("--for").map { Set($0.split(separator: ",").map(String.init)) },
                 timeout = flag("--timeout").map(duration)
             let id = try await session(c, target)
@@ -45,7 +47,7 @@ extension Main {
                     c, id, timeout: timeout, until: { want?.contains($0.status.rawValue) ?? ($0.status != .working) })
             else { fail("timed out") }
             print(session.status.rawValue)
-            if session.status == .exited { exit(Int32(session.exitCode ?? 0)) }   // its command's exit code
+            if session.status == .exited { exit(Int32(session.exitCode ?? 0)) }   // The command's exit code.
         case ("wait", nil):
             guard let how = flag("--children"), ["all", "any"].contains(how),
                 let me = ProcessInfo.processInfo.environment["KELP_SESSION"]
@@ -61,7 +63,7 @@ extension Main {
             guard why != nil || !trail.isEmpty else { fail("session \(id) isn't running") }
             print(why ?? "not running")
             trail.suffix(has("--all") ? trail.count : 30).forEach { print($0) }
-        case ("report", let state?):   // inside a session: what this program is doing, on its row and tab
+        case ("report", let state?):   // Inside a session: what this program does, shown on its row and tab.
             guard let id = ProcessInfo.processInfo.environment["KELP_SESSION"] else {
                 fail("report: run it inside a Kelp session")
             }
@@ -100,8 +102,8 @@ extension Main {
         }
     }
 
-    /// Looks at the session twice a second until `done` says so, or it ended or was paused (it can't change then);
-    /// nil when `timeout` ran out first.
+    /// Checks the session twice a second until `done` returns true, or the session ended or was paused, because it
+    /// can't change then. Returns nil when `timeout` ran out first.
     static func waitFor(_ client: RPCClient, _ id: String, timeout: TimeInterval?, until done: (Session) -> Bool)
         async throws -> Session?
     {
@@ -116,8 +118,9 @@ extension Main {
         }
     }
 
-    /// Until all of this agent's working children stopped, or (`all` false) one of them. Fails with none to wait for: only
-    /// children that haven't stopped yet count, so a report read earlier doesn't end the wait at once.
+    /// Waits until all of this agent's working children have stopped, or with `all` false, until one of them has. It
+    /// fails when there are none to wait for. Only children that haven't stopped yet count, so a report read earlier
+    /// doesn't end the wait at once.
     static func waitChildren(_ client: RPCClient, of me: String, all: Bool, timeout: TimeInterval?) async throws
         -> [Session]
     {
@@ -135,7 +138,7 @@ extension Main {
         }
     }
 
-    /// "90", "30s", "10m", "1h" → seconds.
+    /// Converts "90", "30s", "10m" or "1h" into seconds.
     static func duration(_ text: String) -> TimeInterval {
         let unit = ["s": 1.0, "m": 60, "h": 3600][String(text.suffix(1))]
         guard let amount = Double(unit == nil ? text : String(text.dropLast())) else {

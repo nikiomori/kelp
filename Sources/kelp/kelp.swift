@@ -1,7 +1,7 @@
 import Core
 import Foundation
 
-// kelp: every action in the UI is available here, so agents can drive the app too.
+// kelp: every action in the UI is available here too, so agents can drive the app.
 let usage = """
     usage: kelp <command>
       status                               repos, worktrees and sessions at a glance
@@ -109,7 +109,8 @@ func has(_ name: String) -> Bool {
     return false
 }
 
-/// Beside this binary, wherever it was started from: argv[0] is a bare "kelp" when it came off the PATH (Homebrew's link).
+/// Returns the daemon binary beside this binary, wherever it was started from. argv[0] is a bare "kelp" when it came
+/// off the PATH (Homebrew's link), so the path is resolved instead.
 func daemonBinary() -> String {
     let me = (Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])).resolvingSymlinksInPath()
     return me.deletingLastPathComponent().appendingPathComponent("kelpd").path
@@ -142,25 +143,28 @@ func show(_ value: JSONValue) {
         print(text)
     }
 }
-/// A typed result, printed as the JSON it came as.
+/// Prints a typed result as the JSON it came as.
 func show<T: Encodable>(_ v: T) { show((try? JSONValue.from(v)) ?? .null) }
 
-/// A CLI value: JSON when it parses (3, true, [1], "x"), else the text itself.
+/// Reads a CLI value as JSON when it parses (3, true, [1], "x"), or else as the text itself.
 func jsonOrText(_ text: String) -> JSONValue {
     (try? JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))) ?? .string(text)
 }
 
-/// The workspace the current directory is in; an agent's own one (KELP_SESSION) when several share the folder.
+/// Returns the workspace the current directory is in. When several share the folder, it is the agent's own workspace
+/// (KELP_SESSION).
 func currentWorktree(_ client: RPCClient) async throws -> Worktree {
     guard let worktree = try await worktreeHere(client) else {
         throw RPCError.invalidParams("not inside a kelp worktree")
     }
     return worktree
 }
-/// nil outside every workspace: for a command with somewhere else to go then. A daemon that didn't answer is an error.
+/// Returns nil outside every workspace, for a command that has somewhere else to go then. A daemon that didn't answer
+/// is an error.
 func worktreeHere(_ c: RPCClient) async throws -> Worktree? {
     if let here = try await IDE.workspace(cwd: FileManager.default.currentDirectoryPath, client: c) { return here }
-    // A chat started outside its workspace's folder (a remote project's commit agent, which runs here) is still its.
+    // A chat started outside its workspace's folder (a remote project's commit agent, which runs here) still belongs
+    // to that workspace.
     guard let own = ProcessInfo.processInfo.environment["KELP_SESSION"],
         let id = try await c.call(SessionList()).first(where: { $0.id == own })?.worktreeId
     else { return nil }
@@ -170,7 +174,7 @@ func currentWorktreeID(_ client: RPCClient) async throws -> String { try await c
 func currentRepoID(_ client: RPCClient) async throws -> String {
     if let repo = flag("--repo") { return repo }
     let cwd = FileManager.default.currentDirectoryPath
-    // The nearest: a project inside another (~/code/app in ~/code) is the one its folder is in.
+    // Take the nearest project, so for a project inside another (~/code/app in ~/code), the inner one wins.
     if let id = try await client.call(RepoList()).filter({ Paths.inside(cwd, $0.path) }).max(by: {
         $0.path.count < $1.path.count
     })?.id {
@@ -195,13 +199,13 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
                 let detachKey = has("--detach")
                 guard let id = args.first else { fail("kelp attach <session>") }
                 Attach.run(id, detachKey: detachKey)
-            case "schema":   // no daemon: the file ships with this binary
+            case "schema":   // No daemon needed, because the file ships with this binary.
                 guard let file = Paths.resource("rpc", "json") else { fail("this build has no schema") }
                 print(
                     has("--openrpc")
                         ? file
                         : RPCSchema.text(try JSONDecoder().decode(JSONValue.self, from: Data(file.utf8)), args.first))
-            case "ext" where ["types", "check"].contains(args.first ?? ""):   // no daemon: they read files
+            case "ext" where ["types", "check"].contains(args.first ?? ""):   // No daemon: these read files.
                 if args.first == "types" {
                     print(ExtBridge.declarations)
                     break
@@ -214,7 +218,7 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
                 }
                 found.forEach { print($0) }
                 exit(1)
-            case "hook":   // inside an agent session: report status to the daemon
+            case "hook":   // Inside an agent session: report the status to the daemon.
                 guard let id = ProcessInfo.processInfo.environment["KELP_SESSION"], let ev = args.first else {
                     fail("hook: needs KELP_SESSION and an event")
                 }
@@ -229,11 +233,11 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
                     hook.agentId = payload["agent_id"]?.string
                     hook.agentType = payload["agent_type"]?.string
                     hook.transcript = payload["transcript_path"]?.string
-                    hook.cwd = payload["cwd"]?.string   // where it works now: its own worktree, maybe
+                    hook.cwd = payload["cwd"]?.string   // Where the agent works now, maybe its own worktree.
                     hook.trigger = payload["trigger"]?.string   // PreCompact: manual (/compact) or auto
-                    hook.backgroundTasks = payload["background_tasks"]?.array   // Stop: subagents still running
-                    hook.sessionCrons = payload["session_crons"]?.array   // Stop: timers that will wake it
-                    // a Bash command started or ended
+                    hook.backgroundTasks = payload["background_tasks"]?.array   // Stop: subagents still running.
+                    hook.sessionCrons = payload["session_crons"]?.array   // Stop: timers that will wake the agent.
+                    // A Bash command started or ended.
                     if ev == "command" { hook.command = AgentCommand(hook: payload) }
                     hook.notification = SessionHook.notification(of: payload)
                     hook.goal = SessionHook.goal(of: payload)
@@ -242,9 +246,10 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
                     if hook.hookName == "Stop" { hook.reply = payload["last_assistant_message"]?.string }
                 }
                 try await hook.send(socket: ProcessInfo.processInfo.environment["KELP_SOCKET"] ?? Paths.socket.path)
-                // A permission question: Allow or Deny given in Kelp comes back as this hook's decision, not as keys typed
-                // into the menu, which stays on screen meanwhile (Claude Code shows it while its hook runs).
-                // `--no-answer`: one whose agent shows its menu only after the hook (Codex), answered in that menu.
+                // For a permission question, Allow or Deny given in Kelp comes back as this hook's decision, not as
+                // keys typed into the menu, which stays on screen meanwhile (Claude Code shows it while its hook runs).
+                // `--no-answer` is for an agent that shows its menu only after the hook (Codex), which is answered in
+                // that menu.
                 if hook.hookName == "PermissionRequest", !args.contains("--no-answer"),
                     let answer = try await connect().call(SessionPermissionWait(id: id))
                 {
@@ -291,13 +296,13 @@ func currentRepoID(_ client: RPCClient) async throws -> String {
         }
     }
 
-    /// A session's full id from it or a unique prefix of it (what `kelp status` prints).
+    /// Returns a session's full id, given the id or a unique prefix of it (as `kelp status` prints it).
     static func session(_ client: RPCClient, _ prefix: String) async throws -> String {
         guard !prefix.isEmpty else { fail("id required") }
         return unique(prefix, among: try await client.call(SessionList()).map(\.id))
     }
 
-    /// A workspace's full id from it or a unique prefix of it.
+    /// Returns a workspace's full id, given the id or a unique prefix of it.
     static func workspace(_ client: RPCClient, _ prefix: String) async throws -> String {
         guard !prefix.isEmpty else { fail("id required") }
         return unique(prefix, among: try await client.call(WorktreeList()).map(\.id))

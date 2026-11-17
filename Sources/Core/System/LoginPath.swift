@@ -1,20 +1,21 @@
 import Foundation
 import os
 
-/// The PATH agents need. A daemon started from Finder only has /usr/bin:/bin, while agent CLIs live where the
-/// user's shell profile points (~/.local/bin, Homebrew, npm…). Read once from a login shell, plus well-known dirs.
-/// Only the daemon reads it (it starts at launch, in the background): the app asks the daemon (`process.which`).
+/// The PATH agents need. A daemon started from Finder only has /usr/bin:/bin, while agent CLIs live where the user's
+/// shell profile points (~/.local/bin, Homebrew, npm…). It is read once from a login shell, plus well-known dirs.
+/// Only the daemon reads it, starting at launch in the background, and the app asks the daemon (`process.which`).
 public enum LoginPath {
-    /// Given outright (KELP_LOGIN_PATH: tests, where the user's profile must not run), it is the PATH and no shell runs.
+    /// When KELP_LOGIN_PATH is set (in tests, where the user's profile must not run), it is the PATH and no shell runs.
     static let shared = Once { ProcessInfo.processInfo.environment["KELP_LOGIN_PATH"] ?? shellPath().map(path) }
 
-    /// The PATH, waiting for the login shell the first time (seconds, with a slow profile).
+    /// The PATH. The first read waits for the login shell, which can take seconds with a slow profile.
     public static var value: String { shared.value }
 
-    /// The login shell asked again, for an installer that has just added its folder to the profile (opencode, Grok and
-    /// Kimi do): the PATH read at launch doesn't have it. A read that fails or comes back empty keeps the old PATH.
+    /// Asks the login shell for the PATH again, after an installer has just added its folder to the profile (opencode,
+    /// Grok and Kimi do), because the PATH read at launch doesn't have that folder. A read that fails or comes back
+    /// empty keeps the old PATH.
     public static func reread(shell: String = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh") {
-        guard ProcessInfo.processInfo.environment["KELP_LOGIN_PATH"] == nil else { return }   // given outright: nothing to read
+        guard ProcessInfo.processInfo.environment["KELP_LOGIN_PATH"] == nil else { return }   // Set: nothing to read.
         reread(shared, from: shellPath(shell: shell))
     }
 
@@ -23,16 +24,17 @@ public enum LoginPath {
         once.replace(path(shell))
     }
 
-    /// Absolute path of `command`, or a message the UI can show as is.
+    /// Returns the absolute path of `command`, or throws a message the UI can show as it is.
     public static func resolve(_ command: String) throws -> String { try resolve(command, in: value) }
 
-    /// `resolve` for a caller that must stay quick (an in-order call): nil while the login shell is still being read,
-    /// instead of waiting for it.
+    /// The same as `resolve`, for a caller that must stay quick (an in-order call). It returns nil while the login
+    /// shell is still being read, instead of waiting for it.
     public static func resolveNow(_ command: String) throws -> String? {
         try shared.ifRead.map { try resolve(command, in: $0) }
     }
 
-    /// Absolute path of `command`, or nil when it isn't there: for asking whether it's installed, where no is an answer.
+    /// Returns the absolute path of `command`, or nil when it isn't there. It is for asking whether a command is
+    /// installed, where no is a normal answer.
     public static func find(_ command: String) -> String? { find(command, in: value) }
 
     static func find(_ command: String, in path: String) -> String? {
@@ -48,7 +50,7 @@ public enum LoginPath {
             "Couldn't find `\(command)`. Install it, or make sure your shell profile adds it to PATH.")
     }
 
-    /// The shell's PATH, then the daemon's own, then well-known folders that exist.
+    /// Returns the shell's PATH, then the daemon's own, then the well-known folders that exist.
     static func path(_ shell: String) -> String {
         let home = NSHomeDirectory()
         let known = [
@@ -63,16 +65,17 @@ public enum LoginPath {
         return dirs.filter { !$0.isEmpty && seen.insert($0).inserted }.joined(separator: ":")
     }
 
-    /// `$SHELL -ilc` prints the PATH the user's terminal would have (interactive too: many put PATH in .zshrc); "" when it
-    /// fails or takes over 8 s (a slow or prompting profile must not hold up agents). nil when it couldn't start here (an
-    /// in-order call, `Subprocess.quickOnly`): not an answer to keep.
+    /// Returns the PATH the user's terminal would have, printed by `$SHELL -ilc`. The shell is interactive too, because
+    /// many people set PATH in .zshrc. Returns "" when the shell fails or takes over 8 s, because a slow or prompting
+    /// profile must not hold up agents. Returns nil when it couldn't start here (an in-order call,
+    /// `Subprocess.quickOnly`), which is not an answer to keep.
     static func shellPath(shell: String = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh") -> String? {
         let result: Subprocess.Output
         do {
             result = try Subprocess.run(
                 [shell, "-ilc", "printf '__KELP__%s__KELP__' \"$PATH\""], cwd: NSHomeDirectory(),
                 env: ProcessInfo.processInfo.environment, timeLimit: 8)
-        } catch is RPCError { return nil } catch { return "" }   // refused here; no such shell
+        } catch is RPCError { return nil } catch { return "" }   // Refused here, or no such shell.
         let output = String(decoding: result.stdout, as: UTF8.self)
         guard !result.timedOut, let start = output.range(of: "__KELP__"),
             let end = output.range(of: "__KELP__", range: start.upperBound..<output.endIndex)
@@ -80,8 +83,9 @@ public enum LoginPath {
         return String(output[start.upperBound..<end.lowerBound])
     }
 
-    /// A value read once, by the first caller that needs it; the callers meanwhile wait for that read, except through
-    /// `ifRead`. A read that gives nil isn't kept: the next caller reads again (the PATH without the shell's until then).
+    /// A value read once, by the first caller that needs it. Other callers wait for that read meanwhile, unless they
+    /// use `ifRead`. A read that gives nil isn't kept, so the next caller reads again, and until then the PATH lacks
+    /// the shell's part.
     final class Once: Sendable {
         private let known = OSAllocatedUnfairLock<String?>(initialState: nil)
         private let reading = NSLock()
@@ -96,7 +100,7 @@ public enum LoginPath {
             if let found = ifRead { return found }
             reading.lock()
             defer { reading.unlock() }
-            if let found = ifRead { return found }   // read by the caller this one waited for
+            if let found = ifRead { return found }   // The caller this one waited for has read it.
             guard let found = read() else { return LoginPath.path("") }
             known.withLock { $0 = found }
             return found

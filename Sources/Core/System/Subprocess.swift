@@ -1,21 +1,23 @@
 import Foundation
 import os
 
-/// Runs a program to its end and collects what it printed: git, gh, ssh, `ps`, an extension's command. One way for all
-/// of them, so each gets the same care:
-/// - the pipes are read on threads of their own as data arrives (never a thread of the cooperative pool, which a blocked
-///   read could starve, and never a full pipe that stops the program);
-/// - stdin is written alongside, and a program that exits unread fails that write instead of raising SIGPIPE;
-/// - past `timeLimit` the program is stopped with everything it started (`stopTree`): its children hold the pipes too;
-/// - a child that outlives it holding the pipes (a daemon it started) doesn't hold up the result.
-/// A program `Subprocess.checked` ran that didn't succeed: its exit status (the signal's, stopped at its time limit) and
-/// what it said on stderr, or why its output wasn't read.
+/// `Subprocess` runs a program to its end and collects what it printed, whether git, gh, ssh, `ps` or an extension's
+/// command. All of them go through it, so each gets the same care:
+/// - The pipes are read on their own threads as data arrives. A blocked read never takes a thread of the cooperative
+///   pool, and a full pipe never stops the program.
+/// - stdin is written alongside. When a program exits without reading it, that write fails instead of raising SIGPIPE.
+/// - After `timeLimit`, the program is stopped along with everything it started (`stopTree`), because its children hold
+///   the pipes too.
+/// - A child that outlives the program and holds the pipes (a daemon it started) doesn't hold up the result.
+/// `ProgramError` is a program that `Subprocess.checked` ran and that didn't succeed. It holds the exit status (the
+/// signal's, when the time limit stopped it) and what the program said on stderr, or why its output wasn't read.
 public struct ProgramError: Error, CustomStringConvertible, Sendable {
     public var program: String
     public var status: Int32
     public var stderr: String
     public var description: String { "\(program) failed (\(status)): \(stderr)" }
-    /// The error for people: its first sentence without "fatal:" ("…overwritten by checkout:" keeps its next line).
+    /// The error as people read it: the first sentence of stderr without "fatal:". A line ending in "…overwritten by
+    /// checkout:" keeps the line after it.
     public var message: String { Self.firstSentence(stderr) ?? description }
 
     public init(program: String, status: Int32, stderr: String) {
@@ -24,7 +26,7 @@ public struct ProgramError: Error, CustomStringConvertible, Sendable {
         self.stderr = stderr
     }
 
-    /// What a program said on stderr, as one sentence for people; nil when it said nothing.
+    /// Returns what a program said on stderr as one sentence for people, or nil when it said nothing.
     public static func firstSentence(_ stderr: String) -> String? {
         let lines = stderr.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter {
             !$0.isEmpty
@@ -41,19 +43,21 @@ public enum Subprocess {
         public var status: Int32
         public var stdout: Data
         public var stderr: Data
-        /// Stopped at the time limit (its status is then the signal's).
+        /// True when the time limit stopped the program. Its status is then the signal's.
         public var timedOut: Bool
-        /// It printed more than the run's `limit` on stdout or stderr: that stream here is only its first `limit` bytes.
+        /// True when the program printed more than the run's `limit` on stdout or stderr. That stream then holds only
+        /// its first `limit` bytes.
         public var truncated: Bool
     }
 
-    /// What `run` keeps of each stream unless told otherwise: far past any answer git, gh or ssh give Kelp, short of a
-    /// runaway (a diff of a regenerated dataset, a `cat` of a log) taking the daemon's memory.
+    /// How much of each stream `run` keeps unless told otherwise. It is far more than any answer git, gh or ssh give
+    /// Kelp, but it stops a runaway (a diff of a regenerated dataset, a `cat` of a log) from taking the daemon's
+    /// memory.
     public static let outputLimit = 64 << 20
 
-    /// The daemon's connection reader while it applies an in-order call (`Handled.inOrder`), and a quick one
-    /// (`Handled.quick`), which takes no turn behind slow programs: no program runs there. `run` refuses inside `body`, and
-    /// the call fails instead of stalling.
+    /// Runs `body` where no program may run: the daemon's connection reader while it applies an in-order call
+    /// (`Handled.inOrder`) or a quick call (`Handled.quick`), which doesn't wait its turn behind slow programs. `run`
+    /// refuses inside `body`, so the call fails instead of stalling.
     public static func quickOnly<T>(_ body: () throws -> T) rethrows -> T {
         let threadState = Thread.current.threadDictionary
         threadState[quickOnlyKey] = true
@@ -62,8 +66,9 @@ public enum Subprocess {
     }
     private static let quickOnlyKey = "dev.kelp.subprocess.quickOnly"
 
-    /// `body` may start programs although it runs in a quick or in-order call: only for a caller that has to answer
-    /// after one and holds up nobody else meanwhile (daemon.upgrade's check of the new kelpd, which the app waits for).
+    /// Lets `body` start programs even though it runs in a quick or in-order call. It is only for a caller that has to
+    /// answer after a program and holds up nobody else meanwhile, such as daemon.upgrade's check of the new kelpd,
+    /// which the app waits for.
     public static func allowingPrograms<T>(_ body: () throws -> T) rethrows -> T {
         let threadState = Thread.current.threadDictionary, was = threadState[quickOnlyKey]
         threadState[quickOnlyKey] = nil
@@ -71,10 +76,10 @@ public enum Subprocess {
         return try body()
     }
 
-    /// `argv[0]` is a path. `env` is the whole environment. Past `limit` bytes a stream is still read to its end, so the
-    /// program ends as it would have (its exit status, whatever it does besides printing), but the rest is dropped and
-    /// the output is `truncated`: a caller that needs all of it fails then, one that can show a part says so. `started`
-    /// hears its pid once it runs (a caller that may stop it: `stopTree`).
+    /// `argv[0]` is a path, and `env` is the whole environment. After `limit` bytes a stream is still read to its end,
+    /// so the program ends as it would have (its exit status, whatever it does besides printing). The rest is dropped
+    /// and the output is marked `truncated`. A caller that needs all of it then fails, and one that can show a part
+    /// says so. `started` gets the pid once the program runs, for a caller that may stop it with `stopTree`.
     public static func run(
         _ argv: [String], cwd: String, env: [String: String], stdin: Data? = nil, timeLimit: TimeInterval,
         limit: Int = outputLimit, started: ((pid_t) -> Void)? = nil
@@ -93,7 +98,7 @@ public enum Subprocess {
         process.standardError = err.pipe
         process.standardInput = inp ?? FileHandle.nullDevice
         let exited = DispatchSemaphore(value: 0)
-        // set before it starts: one that exits at once isn't missed
+        // Set before the program starts, so a program that exits at once isn't missed.
         process.terminationHandler = { _ in exited.signal() }
         try process.run()
         let pid = process.processIdentifier
@@ -114,19 +119,23 @@ public enum Subprocess {
         if exited.wait(timeout: .now() + timeLimit) == .timedOut {
             timedOut = true
             stopTree(process.processIdentifier)
-            // SIGKILL comes 2 s after SIGTERM; one stuck in the kernel (a hung network mount) may outlast even that.
+            // SIGKILL comes 2 s after SIGTERM. A process stuck in the kernel (a hung network mount) may outlast even
+            // that.
             ended = exited.wait(timeout: .now() + 5) == .success
         }
-        // What's still in the pipes arrives at once; only a child holding them open would make this wait run out. Then
-        // they're let go, or a reader thread and a pipe would stay as long as that child (an ssh master, a daemon).
+        // Whatever is still in the pipes arrives at once, so only a child holding them open makes this wait run out.
+        // The readers are then let go, or a reader thread and a pipe would stay as long as that child (an ssh master,
+        // a daemon).
         for reader in [out, err] where reader.done.wait(timeout: .now() + 2) == .timedOut { reader.abandon() }
-        // Its status only once it has exited: asking a Process still running raises, and would take the daemon down.
+        // The status is read only once the program has exited. Asking a Process that still runs raises an exception,
+        // which would take the daemon down.
         return Output(
             status: ended ? process.terminationStatus : -1, stdout: out.data, stderr: err.data, timedOut: timedOut,
             truncated: out.truncated || err.truncated)
     }
 
-    /// `run` without holding the caller's thread (for async callers: the app's main actor, the cooperative pool).
+    /// The same as `run`, without holding the caller's thread. It is for async callers on the app's main actor or the
+    /// cooperative pool.
     public static func run(
         _ argv: [String], cwd: String, env: [String: String], stdin: Data? = nil, timeLimit: TimeInterval,
         limit: Int = outputLimit
@@ -140,9 +149,10 @@ public enum Subprocess {
         }
     }
 
-    /// `run` for a program that has to succeed (exit with one of `ok` before `timeLimit`): ssh, gh, `du`, a script.
-    /// It runs in this process's environment with `env` over it, and `LC_ALL=C`, so what it prints reads the same in
-    /// every locale. Failing, it's a `ProgramError` with what it said. Of each stream, the first `limit` bytes are kept.
+    /// Runs a program that has to succeed, meaning it exits with a code in `ok` before `timeLimit`: ssh, gh, `du`, a
+    /// script. It runs in this process's environment with `env` laid over it, plus `LC_ALL=C`, so its output reads the
+    /// same in every locale. A failure throws a `ProgramError` with what the program said. The first `limit` bytes of
+    /// each stream are kept.
     public static func checked(
         _ argv: [String], cwd: String, env extra: [String: String] = [:], stdin: Data? = nil, ok: Set<Int32> = [0],
         timeLimit: TimeInterval = 300, limit: Int = outputLimit, started: ((pid_t) -> Void)? = nil
@@ -160,7 +170,8 @@ public enum Subprocess {
         return result
     }
 
-    /// `checked`'s output, all of it: more than `outputLimit` is an error, never a part taken for the whole.
+    /// Returns all the output of `checked`. Output longer than `outputLimit` is an error, so a part is never taken for
+    /// the whole.
     @discardableResult
     public static func output(
         _ argv: [String], cwd: String, env: [String: String] = [:], stdin: Data? = nil, ok: Set<Int32> = [0],
@@ -175,25 +186,29 @@ public enum Subprocess {
         return result.stdout
     }
 
-    /// Whether `pid` is a program `run` started in this process and still waits for: what that one starts in turn (a repo's
-    /// git hook, an extension's command) is this process's doing, not a terminal's (`Callers.caller`).
+    /// Whether `pid` is a program that `run` started in this process and still waits for. What that program starts in
+    /// turn (a repo's git hook, an extension's command) is then this process's doing, not a terminal's
+    /// (`Callers.caller`).
     public static func isRunning(_ pid: pid_t) -> Bool { running.withLock { $0.contains(pid) } }
     private static let running = OSAllocatedUnfairLock<Set<pid_t>>(initialState: [])
 
-    /// SIGTERM to `pid` and everything it started, children first (found before the parent goes, while they're still its),
-    /// then SIGKILL to whatever is left after 2 s: one that ignores SIGTERM would hold the pipes for good.
+    /// Sends SIGTERM to `pid` and everything it started, children first. The children are found before the parent goes,
+    /// while they are still its children. After 2 s it sends SIGKILL to whatever is left, because a process that
+    /// ignores SIGTERM would hold the pipes forever.
     public static func stopTree(_ pid: pid_t) {
         let all = tree(pid)
         for child in all.reversed() { kill(child, SIGTERM) }
         killLater(all, after: 2)
     }
 
-    /// `stopTree`, waiting: SIGTERM, up to `grace` for them to go, then SIGKILL to whatever is left, all before it returns.
-    /// For a process about to exec or exit, which a later SIGKILL (`killLater`) would never come from.
+    /// Like `stopTree`, but it waits. It sends SIGTERM, waits up to `grace` for the processes to go, then sends SIGKILL
+    /// to whatever is left, all before it returns. It is for a process about to exec or exit, which could never send a
+    /// later SIGKILL (`killLater`).
     public static func stopTreeNow(_ pid: pid_t, grace: TimeInterval = 2) {
         let born = tree(pid).map { ($0, started($0)) }
         for (child, _) in born.reversed() { kill(child, SIGTERM) }
-        // One on its way out no longer reads its start time, but still answers kill(0) until it's a zombie: not gone yet.
+        // A process on its way out no longer reports its start time, but it still answers kill(0) until it is a
+        // zombie, so it isn't gone yet.
         func left() -> [pid_t] {
             born.compactMap { child, start in
                 guard start != nil, !isZombie(child) else { return nil }
@@ -204,12 +219,12 @@ public enum Subprocess {
         let end = Date().addingTimeInterval(grace)
         while !left().isEmpty, Date() < end { usleep(50_000) }
         for child in left() { kill(child, SIGKILL) }
-        let killed = Date().addingTimeInterval(1)   // SIGKILL lands a moment later
+        let killed = Date().addingTimeInterval(1)   // SIGKILL takes effect a moment later.
         while !left().isEmpty, Date() < killed { usleep(10_000) }
     }
 
-    /// SIGKILL after `delay` to those of `pids` still running: the same processes, by their start time, not ones that
-    /// were given a pid of theirs since.
+    /// Sends SIGKILL after `delay` to the processes in `pids` that still run. They are matched by start time, so a new
+    /// process that has since been given one of those pids is left alone.
     public static func killLater(_ pids: [pid_t], after delay: TimeInterval) {
         let born = pids.map { ($0, started($0)) }
         DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
@@ -217,7 +232,7 @@ public enum Subprocess {
         }
     }
 
-    /// When `pid` started (µs since 1970); nil once there's no such process.
+    /// Returns when `pid` started, in µs since 1970, or nil once there is no such process.
     public static func started(_ pid: pid_t) -> UInt64? {
         bsdinfo(pid).map { $0.pbi_start_tvsec * 1_000_000 + $0.pbi_start_tvusec }
     }
@@ -228,8 +243,8 @@ public enum Subprocess {
         return proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size ? info : nil
     }
 
-    /// Its parent's pid; nil once there's no such process. By sysctl, which reads another account's process too
-    /// (proc_pidinfo doesn't): a line walked up through root's `login` goes on to the app above it.
+    /// Returns the parent's pid, or nil once there is no such process. It uses sysctl, which also reads another
+    /// account's process (proc_pidinfo doesn't), so a walk up through root's `login` goes on to the app above it.
     public static func parent(_ pid: pid_t) -> pid_t? {
         kinfo(pid).map { $0.kp_eproc.e_ppid }
     }
@@ -241,20 +256,23 @@ public enum Subprocess {
         return info
     }
 
-    /// Its controlling terminal's device; nil for none (a program started by launchd, or `setsid`), or no such process.
+    /// Returns the device of the process's controlling terminal. nil when it has none (a program started by launchd, or
+    /// `setsid`), or when there is no such process.
     public static func terminal(_ pid: pid_t) -> UInt32? {
         bsdinfo(pid).map(\.e_tdev).flatMap { $0 == UInt32.max ? nil : $0 }
     }
 
-    /// The user it runs as; nil once there's no such process. By sysctl: proc_pidinfo refuses another account's process.
+    /// Returns the user the process runs as, or nil once there is no such process. It uses sysctl, because proc_pidinfo
+    /// refuses another account's process.
     public static func owner(_ pid: pid_t) -> uid_t? { kinfo(pid).map { $0.kp_eproc.e_ucred.cr_uid } }
 
-    /// The process's arguments (its argv, program first), for a process of the same user; nil for another user's
-    /// process, or when there is none.
+    /// Returns the process's arguments (its argv, program first) for a process of the same user. nil for another user's
+    /// process, or when there is no such process.
     public static func arguments(_ pid: pid_t) -> [String]? {
-        // 16 KB holds most programs' arguments and environment; the system's most only when it doesn't (asked of every
-        // program on a caller's line, it shouldn't take a megabyte each). A buffer too small isn't refused: it's filled
-        // with the area's tail, argc and all, so a full one is read again whole.
+        // 16 KB holds most programs' arguments and environment, and the system's maximum is used only when it doesn't.
+        // This runs for every program in a caller's ancestry, so it shouldn't take a megabyte each. A buffer that is
+        // too small isn't refused but filled with the tail of the area, argc and all, so a full buffer is read again
+        // whole.
         var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid], size = 16384
         var buf = [UInt8](repeating: 0, count: size)
         guard sysctl(&mib, 3, &buf, &size, nil, 0) == 0 else { return nil }
@@ -265,7 +283,7 @@ public enum Subprocess {
         }
         guard size > 4 else { return nil }
         let argc = Int(buf.withUnsafeBytes { $0.load(as: Int32.self) })
-        // argc, then the program's path, NULs, then argv: argc strings, NUL-ended.
+        // The layout is argc, then the program's path, then NULs, then argv as argc NUL-ended strings.
         var index = 4
         while index < size, buf[index] != 0 { index += 1 }
         while index < size, buf[index] == 0 { index += 1 }
@@ -279,18 +297,18 @@ public enum Subprocess {
         return args
     }
 
-    /// Ended, not reaped yet: nothing left to stop. Asked of sysctl: `proc_pidinfo` has no answer for a zombie, so it
-    /// never said yes, and `stopTreeNow` waited out its grace for one.
+    /// Whether the process has ended but isn't reaped yet, so there is nothing left to stop. It asks sysctl, because
+    /// `proc_pidinfo` has no answer for a zombie, so it never said yes and `stopTreeNow` waited out its grace for one.
     public static func isZombie(_ pid: pid_t) -> Bool { kinfo(pid).map { $0.kp_proc.p_stat == SZOMB } ?? false }
 
-    /// `pid` and its descendants, parents before children.
+    /// Returns `pid` and its descendants, parents before children.
     public static func tree(_ pid: pid_t) -> [pid_t] {
         var kids = [pid_t](repeating: 0, count: 256)
         let count = Int(proc_listchildpids(pid, &kids, Int32(kids.count * MemoryLayout<pid_t>.size)))
         return [pid] + kids.prefix(max(0, count)).filter { $0 > 0 }.flatMap(tree)
     }
 
-    /// One pipe, read to its end on a thread of its own; its first `limit` bytes kept.
+    /// Reads one pipe to its end on a thread of its own, and keeps the first `limit` bytes.
     private final class Reader: Sendable {
         let pipe = Pipe()
         let done = DispatchSemaphore(value: 0)
@@ -299,21 +317,23 @@ public enum Subprocess {
         private let kept = OSAllocatedUnfairLock(initialState: Kept())
         private let abandoned = OSAllocatedUnfairLock(initialState: false)
         init(_ limit: Int) { self.limit = limit }
-        /// Stop reading within half a second and close the pipe (on the reader's thread: never under a read, so no fd is reused).
+        /// Stops reading within half a second and closes the pipe. The close happens on the reader's thread, never
+        /// during a read, so no fd is reused under it.
         func abandon() { abandoned.withLock { $0 = true } }
         var data: Data { kept.withLock { $0.data } }
         var truncated: Bool { kept.withLock { $0.truncated } }
         func start() {
             let fd = pipe.fileHandleForReading.fileDescriptor
             Thread.detachNewThread { [pipe, kept, done, limit, abandoned] in
-                // read(2), not FileHandle.read(upToCount:): that one waits for the whole count, so output a lingering
-                // child keeps the pipe open behind would never arrive.
+                // This uses read(2), not FileHandle.read(upToCount:), because that one waits for the whole count.
+                // Output would then never arrive while a lingering child keeps the pipe open.
                 var buf = [UInt8](repeating: 0, count: 1 << 16), room = limit
                 var ready = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
                 while true {
                     let polled = poll(&ready, 1, 500)
-                    // Closed here, after the last read: the Process holds the pipe too, so it wouldn't close with this.
-                    // Checked on every turn: a child that keeps writing would otherwise keep the thread for its life.
+                    // The pipe is closed here, after the last read, because the Process holds the pipe too and it
+                    // wouldn't close otherwise. It is checked on every turn, or a child that keeps writing would keep
+                    // the thread for its whole life.
                     if abandoned.withLock({ $0 }) {
                         pipe.fileHandleForReading.closeQuietly()
                         break
@@ -321,7 +341,8 @@ public enum Subprocess {
                     if polled == 0 || (polled < 0 && errno == EINTR) { continue }
                     let count = read(fd, &buf, buf.count)
                     if count > 0 {
-                        // Past the limit it's still read (a full pipe would stop the program) and dropped.
+                        // Past the limit, output is still read and then dropped, because a full pipe would stop the
+                        // program.
                         let keep = min(count, room)
                         room -= keep
                         if keep > 0 {

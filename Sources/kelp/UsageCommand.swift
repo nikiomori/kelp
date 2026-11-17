@@ -2,7 +2,8 @@ import Core
 import Foundation
 
 extension Main {
-    /// `kelp usage`: each agent's plan limits as Kelp last read them, for an agent to weigh before it hands work on.
+    /// `kelp usage` prints each agent's plan limits as Kelp last read them, for an agent to weigh before it hands work
+    /// on.
     static func usageLimits(_ client: RPCClient) async throws {
         struct Limit: Encodable {
             var agent: String, kind: String, percent: Double, resetsAt: String?, resets: String?, windowSeconds: Int?,

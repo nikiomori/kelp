@@ -1,22 +1,23 @@
 import Foundation
 
-/// What an agent made for the user to read: a page in `.kelp/artifacts/<slug>/` of the project (its file and
-/// `artifact.json`), or a page the agent published on its own service (claude.ai), of which Kelp keeps the link.
+/// Something an agent made for the user to read. It is either a page in the project's `.kelp/artifacts/<slug>/` (its
+/// file and `artifact.json`), or a page the agent published on its own service (claude.ai), whose link Kelp keeps.
 public struct ArtifactRecord: Codable, Equatable, Sendable {
     public var type: String
     public var title: String
     public var created: Date
-    /// The chat that made it (its KELP_SESSION), for answers and questions to go back to.
+    /// The chat that made the artifact (its KELP_SESSION), so answers and questions can go back to it.
     public var session: String?
-    /// The page's file in the folder; nil for one on a service.
+    /// The page's file in the folder. nil for a page on a service.
     public var file: String?
     /// The page on the agent's own service.
     public var url: String?
-    /// Its file as each turn of its agent left it, oldest first (`Artifacts.keepVersions`).
+    /// The page's file as each of the agent's turns left it, oldest first (`Artifacts.keepVersions`).
     public var versions: [ArtifactVersion]?
-    /// A page on a service: when its agent last published it again (nil: only once).
+    /// For a page on a service, when the agent last published it again. nil when it was published only once.
     public var updated: Date?
-    /// A page on a service published before Kelp kept copies: its chat's transcript was read for it (`recoverPages`).
+    /// True for a page on a service that was published before Kelp kept copies. Kelp read the chat's transcript to
+    /// recover it (`recoverPages`).
     public var recovered: Bool?
 
     public init(
@@ -33,21 +34,24 @@ public struct ArtifactRecord: Codable, Equatable, Sendable {
     }
 }
 
-/// An artifact as the Artifacts panel shows it (`ArtifactsEvent`): its record, what opens it, and what its file says now.
+/// An artifact as the Artifacts panel shows it (`ArtifactsEvent`): its record, what opens it, and what its file says
+/// now.
 public struct ArtifactItem: Codable, Equatable, Sendable {
     public var slug: String, type: String, title: String
-    /// Seconds since 1970, as `modified`.
+    /// Seconds since 1970, like `modified`.
     public var created: Double
     public var session: String?, url: String?
-    /// Its file, or its page on the service (`Artifacts.target`).
+    /// The artifact's file, or its page on the service (`Artifacts.target`).
     public var target: String
-    /// A review's points, and how many have a pick.
+    /// A review's number of points, and how many of them have a pick.
     public var points: Int?, answered: Int?
-    /// When its file was last saved; nil for a page on a service.
+    /// When the artifact's file was last saved. nil for a page on a service.
     public var modified: Double?
-    /// Its kept versions, oldest first; `changed`: the file differs from the last of them (written since, or none kept yet).
+    /// The kept versions, oldest first. `changed` is true when the file differs from the last kept version, because it
+    /// was written since or no version is kept yet.
     public var versions: [ArtifactVersion]?, changed: Bool?
-    /// What its preview shows: its file, or Kelp's copy of a page on a service (`Artifacts.pageCopy`); nil for none.
+    /// The file the preview shows: the artifact's file, or Kelp's copy of a page on a service (`Artifacts.pageCopy`).
+    /// nil when there is nothing to show.
     public var preview: String?
 
     public init(
@@ -69,29 +73,30 @@ public struct ArtifactItem: Codable, Equatable, Sendable {
 }
 
 public enum Artifacts {
-    /// The kinds Kelp makes on this Mac, and the file each one is: Markdown, or a canvas of boards.
+    /// The kinds of artifact Kelp makes on this Mac, each either a Markdown file or a canvas of boards.
     public enum Kind: String, Codable, CaseIterable, Sendable {
         case doc, review, slides, design, dashboard, proof
         public var file: String { isCanvas ? "canvas.json" : "\(rawValue).md" }
-        /// A canvas of boards Kelp draws (`ArtifactCanvas`), not a Markdown page.
+        /// True for a canvas of boards that Kelp draws (`ArtifactCanvas`), and false for a Markdown page.
         public var isCanvas: Bool { self == .design || self == .dashboard }
     }
 
-    /// Files pages were once made as, which still open as pages: a design and a dashboard were one page of HTML before
-    /// their canvas.
+    /// Older page files that still open as pages. A design and a dashboard were a single HTML page before canvases
+    /// existed.
     public static let olderFiles = ["design.html", "dashboard.html"]
 
-    /// Every kind a guide speaks of.
+    /// Every kind that has a guide.
     public static let guides = Kind.allCases.map(\.rawValue)
 
     public static let folder = ".kelp/artifacts"
 
-    /// The pages an agent's own tools publish. Limit: one service; a field in the agent manifest once a second has one.
+    /// The links of pages that an agent's own tools publish. Limit: one service is known. Make it a field in the agent
+    /// manifest once a second service exists.
     static var nativePage: Regex<Substring> { /https:\/\/claude\.ai\/artifact\/[A-Za-z0-9_-]+/ }
 
     public static func dir(root: String) -> URL { URL(fileURLWithPath: root).appendingPathComponent(folder) }
 
-    /// The project's artifacts, newest first (by when each was made).
+    /// Returns the project's artifacts, newest first by when each was made.
     public static func list(root: String) -> [(slug: String, record: ArtifactRecord)] {
         let base = dir(root: root), fm = FileManager.default
         let names =
@@ -101,8 +106,9 @@ public enum Artifacts {
             .sorted { $0.record.created > $1.record.created }
     }
 
-    /// The record in an artifact's folder; nil for a folder that isn't one (or a record half-written). A repository can
-    /// commit one, so it holds only what Kelp writes: a link to a web page, a file in its own folder.
+    /// Reads the record in an artifact's folder, or returns nil for a folder that isn't one (or a half-written record).
+    /// A repository can commit a record, so only what Kelp writes is accepted: a link to a web page, or a file in the
+    /// artifact's own folder.
     public static func record(in folder: URL) -> ArtifactRecord? {
         guard let data = small(folder.appendingPathComponent("artifact.json").path, limit: 1 << 20),
             let record = try? decoder.decode(ArtifactRecord.self, from: data)
@@ -118,35 +124,38 @@ public enum Artifacts {
             (mtime.tv_sec, mtime.tv_nsec) > (other.mtime.tv_sec, other.mtime.tv_nsec)
         }
     }
-    /// A regular file's size and time of its last write; nil for anything else.
+    /// Returns a regular file's size and the time of its last write, or nil for anything other than a regular file.
     package static func fileStat(_ path: String) -> FileStat? {
         var st = stat()
         guard lstat(path, &st) == 0, st.st_mode & S_IFMT == S_IFREG else { return nil }
         return FileStat(size: st.st_size, mtime: st.st_mtimespec)
     }
 
-    /// A regular file's bytes, up to `limit`: nil for a link, a device (`/dev/zero` never ends), a folder, or more.
+    /// Returns a regular file's bytes, up to `limit`. nil for a link, a device (`/dev/zero` never ends), a folder, or a
+    /// file larger than `limit`.
     package static func small(_ path: String, limit: Int = 32 << 20) -> Data? {
         var st = stat()
         guard lstat(path, &st) == 0, st.st_mode & S_IFMT == S_IFREG, st.st_size <= limit else { return nil }
         return FileManager.default.contents(atPath: path)
     }
 
-    /// The file as the project names it (`.kelp/artifacts/<name>/review.md`): what an agent in it reads.
+    /// Returns the path relative to the project (`.kelp/artifacts/<name>/review.md`), which is what an agent in the
+    /// project reads.
     public static func projectPath(_ path: String) -> String {
         path.range(of: "/\(folder)/").map { String(path[path.index(after: $0.lowerBound)...]) } ?? path
     }
 
-    /// What opens it: its file, or its page on the service.
+    /// Returns what opens the artifact: its file, or its page on the service.
     public static func target(_ slug: String, _ record: ArtifactRecord, root: String) -> String {
         record.url ?? dir(root: root).appendingPathComponent(slug).appendingPathComponent(record.file ?? "").path
     }
 
     // MARK: pages agents publish themselves
 
-    /// A page an agent's own tool published (claude-artifacts, Claude Docs), from a PostToolUse hook's payload:
-    /// its link, and the title the tool was given. nil for any other tool or event: tools that only read or list
-    /// (list_types, list_artifacts, read_artifact) name pages too, the types' own and other people's.
+    /// Reads a page that an agent's own tool published (claude-artifacts, Claude Docs) from a PostToolUse hook's
+    /// payload. It returns the page's link and the title the tool was given. nil for any other tool or event, because
+    /// tools that only read or list (list_types, list_artifacts, read_artifact) name pages too, including the types'
+    /// own pages and other people's.
     public static func published(hook payload: JSONValue) -> (
         url: String, title: String, type: String, page: PublishedPage?
     )? {
@@ -160,25 +169,26 @@ public enum Artifacts {
         let title =
             input?["title"]?.string ?? input?["container"]?["create"]?["name"]?.string
             ?? unescaped.firstMatch(of: /\\?"title\\?"\s*:\s*\\?"([^"\\]+)/).map { String($0.output.1) } ?? url
-        // The answer doesn't say which of claude.ai's types the artifact is: a doc belongs to the Docs connector, and a
+        // The answer doesn't say which of claude.ai's types the artifact is. A doc comes from the Docs connector, and a
         // canvas has its files under project/ (the Design type).
         let sent = sentPage(tool: tool, input: input)
         let type = tool.contains("Claude_Docs") ? "doc" : sent.canvas ? Kind.design.rawValue : "page"
         return (url, title, type, sent.page)
     }
 
-    /// The tools that make or change a page: claude-artifacts' and Claude Docs'.
+    /// The tools that make or change a page, from claude-artifacts and Claude Docs.
     package static let publishers = [
         "__publish_version", "__publish_files", "__edit_version", "Claude_Docs__batch", "Claude_Docs__create",
         "Claude_Docs__update"
     ]
 
-    /// An MCP server those tools come from: claude.ai's artifacts, or its docs ("claude_ai_Claude_Docs").
+    /// Whether `server` is an MCP server those tools come from: claude.ai's artifacts, or its docs
+    /// ("claude_ai_Claude_Docs").
     package static func publishes(server: String) -> Bool {
         server == "claude-artifacts" || server.hasSuffix("Claude_Docs")
     }
 
-    /// Every string in a value: an MCP answer is text holding JSON, or JSON itself.
+    /// Returns every string in a value, because an MCP answer is either text holding JSON or JSON itself.
     package static func strings(in value: JSONValue) -> [String] {
         switch value {
         case .string(let text): return [text]
@@ -190,9 +200,9 @@ public enum Artifacts {
 
     // MARK: the guide an agent reads
 
-    /// What `kelp artifact guide <kind> [part]` prints. `whereTo` is "local" when Settings give Claude Code Kelp's
-    /// pages too, else "agent". `system` says whether the project has its design system (a design's guide says to make
-    /// it first if not).
+    /// Returns what `kelp artifact guide <kind> [part]` prints. `whereTo` is "local" when Settings give Claude Code
+    /// Kelp's pages too, and "agent" otherwise. `system` says whether the project has its design system. If it doesn't,
+    /// a design's guide says to make it first.
     public static func guide(_ kind: String, whereTo: String, part: String? = nil, system: Bool = false) -> String? {
         let canvas = Kind(rawValue: kind).flatMap { $0.isCanvas ? $0 : nil }
         if let part { return canvas != nil ? designPart(part) : nil }
@@ -218,7 +228,7 @@ public enum Artifacts {
         return out + "\nRules for \(article(kind)):\n" + rules
     }
 
-    /// The rules alone, as `kelp artifact new` prints them after the file.
+    /// Returns only the rules, as `kelp artifact new` prints them after the file.
     public static func rules(_ kind: Kind) -> String { rules[kind.rawValue] ?? "" }
 
     private static let rules: [String: String] = [

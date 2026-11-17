@@ -2,11 +2,11 @@ import Foundation
 
 /// Kelp's runner for iOS machines: a tiny Xcode project (a host app and a UI-testing bundle) whose files are in
 /// Resources/ (runner-*.txt, which aren't Kelp's own code). It is written into the machine's folder and built there
-/// with the user's Xcode (`xcodebuild build-for-testing`). Its one test never ends: through XCUITest it answers, on the
-/// Mac's loopback, what agents ask of the simulator's screen (`kelp vm click`, `ui`, `press`…), so it needs no
+/// with the user's Xcode (`xcodebuild build-for-testing`). Its one test never ends. Through XCUITest, it answers on the
+/// Mac's loopback what agents ask of the simulator's screen (`kelp vm click`, `ui`, `press`…). So it needs no
 /// permission on this Mac and never moves the user's pointer.
 public enum IOSRunner {
-    /// Path in the project → contents; nil when this build lacks them.
+    /// The runner's files, as path in the project → contents. nil when this build lacks them.
     public static var files: [String: String]? {
         let names = [
             "KelpRunner.xcodeproj/project.pbxproj": "runner-pbxproj",
@@ -22,8 +22,8 @@ public enum IOSRunner {
     }
 }
 
-/// One request to an iOS machine's runner on the Mac's loopback (no Local Network permission needed there): a JSON line
-/// out, the JSON answer back; nil when it doesn't answer.
+/// Sends one request to an iOS machine's runner on the Mac's loopback, where no Local Network permission is needed. It
+/// sends a JSON line and gets the JSON answer back, or nil when the runner doesn't answer.
 public enum IOSRunnerClient {
     public static func ask(port: Int, _ request: [String: Any], wait: Int32 = 120_000) -> [String: Any]? {
         let fd = socket(AF_INET, SOCK_STREAM, 0)

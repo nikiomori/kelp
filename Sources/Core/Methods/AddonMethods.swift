@@ -1,59 +1,64 @@
 import Foundation
 
-// addons.*: what agents get besides the prompt (skills, MCP servers, instruction files): read from the agents' own
-// files and from what a chat reported at its start. Kelp writes none of the agents' files.
+// The addons.* methods: what agents get besides the prompt (skills, MCP servers, instruction files). It is read from
+// the agents' own files and from what a chat reported at its start. Kelp writes none of the agents' files.
 
 /// A skill, an MCP server or an instruction file an agent gets.
 public struct Addon: Codable, Sendable, Equatable, Identifiable {
     public enum Kind: String, Codable, Sendable, CaseIterable {
         case skill, server, instructions
-        /// A plugin of the agent's, as a whole. It is listed only while it is off; while it is on, its skills and
-        /// servers are the rows.
+        /// One of the agent's plugins, as a whole. It is listed only while it is off. While it is on, its skills and
+        /// servers are listed as rows instead.
         case plugin
     }
-    /// Who brought the item: Kelp (its own skills), the person (their folders and settings), the project (its files), a
-    /// plugin of the agent's, the agent's account (claude.ai's skills and connectors), or the agent itself (built in).
+    /// Who brought the item: Kelp (its own skills), the person (their folders and settings), the project (its files),
+    /// one of the agent's plugins, the agent's account (claude.ai's skills and connectors), or the agent itself (built
+    /// in).
     public enum Source: String, Codable, Sendable, CaseIterable {
         case kelp, yours, project, plugin, account, agent
     }
 
-    /// `origin` of a server Kelp keeps in its own file: one `addons.remove` takes away.
+    /// The `origin` of a server that Kelp keeps in its own file, which `addons.remove` can take away.
     public static let kept = "Kelp"
 
     public var kind: Kind, name: String, source: Source
     public var id: String { "\(kind.rawValue):\(name)" }
-    /// Its own line about itself (a skill's description).
+    /// The item's own one-line description of itself (a skill's description).
     public var about: String?
-    /// Where it comes from, as the person would name it: a folder ("~/.agents/skills"), a file, a plugin, "claude.ai".
+    /// Where the item comes from, as the person would name it: a folder ("~/.agents/skills"), a file, a plugin, or
+    /// "claude.ai".
     public var origin: String?
-    /// The ids of the agents that get it.
+    /// The ids of the agents that get the item.
     public var agents: [String]
-    /// In the chat asked about: true when it loaded there; nil when no chat's own record says.
+    /// True when the item loaded in the chat that was asked about. nil when no chat's own record says.
     public var loaded: Bool?
-    /// Why it doesn't work, in a few words ("Doesn't start: no such file").
+    /// Why the item doesn't work, in a few words ("Doesn't start: no such file").
     public var problem: String?
-    /// A server that waits for a sign-in: it offers nothing else until then.
+    /// True for a server that waits for a sign-in. It offers nothing else until then.
     public var signIn: Bool
-    /// What it adds to every request of the chat, estimated from the chat's own record; nil when unknown.
+    /// The tokens the item adds to every request of the chat, estimated from the chat's own record. nil when unknown.
     public var tokens: Int?
-    /// Other places the same one sits in (a second copy of a skill's folder).
+    /// Other places where the same item also sits (a second copy of a skill's folder).
     public var copies: [String]
-    /// What `addons.set` takes to switch this item for the project: the item's own key ("skill:tabbit",
+    /// The key that `addons.set` takes to switch this item for the project. It is the item's own key ("skill:tabbit",
     /// "server:claude_ai_Gmail", "kelp:kelp-vm") or its plugin's key ("plugin:sales", which switches everything in that
     /// plugin). nil when nothing can switch it.
     public var key: String?
-    /// Off for this project: a chat started from now on doesn't get it.
+    /// True when the item is off for this project, so a chat started from now on doesn't get it.
     public var off: Bool
-    /// The agents among `agents` that get it whatever the switch says: they have no way to leave it out of one chat.
+    /// The agents among `agents` that get the item whatever the switch says, because they have no way to leave it out
+    /// of one chat.
     public var fixed: [String]
-    /// The file to open for it: a skill's SKILL.md, an instruction file, the settings file a server is named in.
+    /// The file to open for the item: a skill's SKILL.md, an instruction file, or the settings file a server is named
+    /// in.
     public var path: String?
-    /// The whole of what went wrong, as the agent reported it (`problem` is its short form).
+    /// The full error as the agent reported it. `problem` is its short form.
     public var error: String?
-    /// The plugin it came with, by the id the agent installed it under ("sales@synced"): what its own
-    /// `plugin uninstall` takes.
+    /// The plugin the item came with, by the id the agent installed it under ("sales@synced"). This is the id that the
+    /// agent's own `plugin uninstall` takes.
     public var plugin: String?
-    /// An instruction file's size against what its agents read of it, and what it names that's gone.
+    /// For an instruction file, its size compared with how much its agents read, and the things it names that are
+    /// gone.
     public var check: InstructionCheck?
 
     public init(
@@ -83,22 +88,26 @@ public struct Addon: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// How an instruction file holds up. Agents read it before every chat: what's stale there is paid for in every request,
-/// and what's past their limit they never see.
+/// How an instruction file holds up. Agents read it before every chat, so anything stale in it is paid for in every
+/// request, and anything past their limit they never see.
 public struct InstructionCheck: Codable, Sendable, Equatable {
     public var lines: Int, bytes: Int
-    /// Where the agents stop reading the file (Claude Code reads MEMORY.md's first 200 lines or 25 000 bytes; Codex
-    /// reads 32 KiB of AGENTS.md), or the length their makers advise (200 lines); nil when there is no such limit.
+    /// Where the agents stop reading the file (Claude Code reads the first 200 lines or 25 000 bytes of MEMORY.md, and
+    /// Codex reads 32 KiB of AGENTS.md), or the length their makers advise (200 lines). nil when there is no such
+    /// limit.
     public var maxLines: Int?, maxBytes: Int?
-    /// Lines past where its agents stop reading: never seen.
+    /// The number of lines past the point where the agents stop reading, which they never see.
     public var cut: Int
-    /// Paths it names, in folders of the project that exist, that aren't there (a memory index: its memories' too).
+    /// Paths the file names, in folders of the project that exist, that aren't there. For a memory index, the paths in
+    /// its memories count too.
     public var dead: [String]
-    /// A memory index: its lines whose memory file is missing, and memory files no line of it names.
+    /// For a memory index, the number of lines whose memory file is missing, and of memory files that no line names.
     public var missing: Int, unlisted: Int
-    /// Its copy from before the last Tidy Up (a memory index: its whole folder), while Kelp keeps one.
+    /// Kelp's copy of the file from before the last Tidy Up (for a memory index, its whole folder), while Kelp keeps
+    /// one.
     public var before: String?
-    /// What an agent reads of it now, in tokens: a chat that started before it changed still holds what it read then.
+    /// How many tokens an agent reads of the file now. A chat that started before the file changed still holds what it
+    /// read then.
     public var tokens: Int?
 
     public init(
@@ -117,27 +126,30 @@ public struct InstructionCheck: Codable, Sendable, Equatable {
         self.tokens = tokens
     }
 
-    /// How full it is against its limit, the fuller measure (1 = at the limit); nil without one.
+    /// How full the file is against its limit, by whichever measure is fuller (1 means at the limit). nil when there is
+    /// no limit.
     public var share: Double? {
         let parts = [maxLines.map { Double(lines) / Double($0) }, maxBytes.map { Double(bytes) / Double($0) }]
         return parts.compactMap { $0 }.max()
     }
-    /// Worth a look: lines not read, near its limit, or naming what's gone.
+    /// True when the file is worth a look: it has lines that aren't read, it is near its limit, or it names things that
+    /// are gone.
     public var needsLook: Bool {
         cut > 0 || (share ?? 0) >= Self.near || !dead.isEmpty || missing > 0 || unlisted > 0
     }
-    /// From here on a file is near its limit: tidied before agents start losing lines.
+    /// The share at which a file counts as near its limit, so it is tidied before agents start losing lines.
     public static let near = 0.8
 }
 
-/// What `addons.list` answers. `chat`: the list is what that chat reported at its start (Claude Code writes it down);
-/// false when it's only what the files say a new chat would get.
+/// The answer to `addons.list`. `chat` is true when the list is what that chat reported at its start (Claude Code
+/// writes it down), and false when it is only what the files say a new chat would get.
 public struct Addons: Codable, Sendable, Equatable {
     public var items: [Addon], chat: Bool
-    /// What the chat started with that isn't there any more (a skill deleted, a server taken out of the settings): it
-    /// keeps them until it restarts.
+    /// What the chat started with that isn't there any more (a skill deleted, a server taken out of the settings). The
+    /// chat keeps these until it restarts.
     public var gone: [String]?
-    /// The workspace's Tidy Up waiting for review: kept or undone (`addons.tidyEnd`), or a day old, it's gone.
+    /// The workspace's Tidy Up that waits for review. It goes away once it is kept or undone (`addons.tidyEnd`), or
+    /// when it is a day old.
     public var tidied: Tidied?
     public init(items: [Addon], chat: Bool, gone: [String]? = nil, tidied: Tidied? = nil) {
         self.items = items
@@ -147,8 +159,8 @@ public struct Addons: Codable, Sendable, Equatable {
     }
 }
 
-/// A Tidy Up's result: what every chat read of the files before it and reads now, in tokens, and how many of the
-/// files differ from Kelp's copies.
+/// A Tidy Up's result: how many tokens of the files every chat read before it and reads now, and how many of the files
+/// differ from Kelp's copies.
 public struct Tidied: Codable, Sendable, Equatable {
     public var tokensBefore: Int, tokensNow: Int, changed: Int
     public init(tokensBefore: Int, tokensNow: Int, changed: Int) {
@@ -158,7 +170,8 @@ public struct Tidied: Codable, Sendable, Equatable {
     }
 }
 
-/// The skills, MCP servers and instruction files of the workspace's agents; with `session`, what that chat loaded.
+/// Lists the skills, MCP servers and instruction files of the workspace's agents. With `session`, it lists what that
+/// chat loaded.
 public struct AddonsList: RPCMethod {
     public static let name = "addons.list"
     public typealias Result = Addons
@@ -169,9 +182,9 @@ public struct AddonsList: RPCMethod {
     }
 }
 
-/// Switches a skill, a server or a plugin (`Addon.key`) for the workspace's project. Chats started from then on get
-/// it or don't; one that runs keeps what it started with. Nothing of the agents' own is written: the choice is Kelp's
-/// (UI state `addons.off.<repo>`) and reaches an agent on its command line.
+/// Switches a skill, a server or a plugin (`Addon.key`) on or off for the workspace's project. Chats started from then
+/// on follow the switch, and a chat that runs keeps what it started with. None of the agents' own files is written,
+/// because the choice is Kelp's (UI state `addons.off.<repo>`) and reaches an agent on its command line.
 public struct AddonsSet: InternalMethod {
     public static let name = "addons.set"
     public typealias Result = Done
@@ -183,8 +196,8 @@ public struct AddonsSet: InternalMethod {
     }
 }
 
-/// An MCP server as Kelp keeps it and as the agents' own files spell it (`mcpServers`): a program it starts
-/// (`command`, `args`, `env`) or an address it calls (`url`, `headers`).
+/// An MCP server as Kelp keeps it and as the agents' own files spell it (`mcpServers`). It is either a program the
+/// agent starts (`command`, `args`, `env`) or an address it calls (`url`, `headers`).
 public struct ServerEntry: Codable, Sendable, Equatable {
     public var command: String?, args: [String]?, env: [String: String]?
     public var url: String?, headers: [String: String]?
@@ -199,8 +212,9 @@ public struct ServerEntry: Codable, Sendable, Equatable {
         self.headers = headers
     }
 
-    /// What someone pasted, read: a JSON entry (bare, under its name, or a whole `{"mcpServers": {…}}`), an address,
-    /// or a command line ("npx -y pkg", with `KEY=value` words before it as its environment). nil when it's none.
+    /// Reads what someone pasted: a JSON entry (bare, under its name, or a whole `{"mcpServers": {…}}`), an address, or
+    /// a command line ("npx -y pkg", with `KEY=value` words before it as its environment). nil when it is none of
+    /// these.
     public static func parse(_ pasted: String) -> (name: String, entry: ServerEntry)? {
         let text = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return nil }
@@ -217,14 +231,14 @@ public struct ServerEntry: Codable, Sendable, Equatable {
             words.removeFirst()
         }
         guard let command = words.first else { return nil }
-        // Named by its package: the last word that isn't a flag ("@upstash/context7-mcp" → "context7").
+        // Name the server after its package, the last word that isn't a flag ("@upstash/context7-mcp" → "context7").
         let package = words.dropFirst().last { !$0.hasPrefix("-") } ?? command
         let entry = ServerEntry(command: command, args: Array(words.dropFirst()), env: env.isEmpty ? nil : env)
         return (name(package), entry)
     }
 
     private static func json(_ text: String) -> (name: String, entry: ServerEntry)? {
-        // Typed half-way it isn't JSON yet: no server, and nothing to report.
+        // Text typed half-way isn't JSON yet, so there is no server and nothing to report.
         func read<T: Decodable>(_ body: () throws -> T) -> T? {
             do { return try body() } catch { return nil }
         }
@@ -242,7 +256,8 @@ public struct ServerEntry: Codable, Sendable, Equatable {
         return (first, named)
     }
 
-    /// "@upstash/context7-mcp@latest" → "context7": a short name the agents take (letters, digits, - and _).
+    /// Turns "@upstash/context7-mcp@latest" into "context7", a short name the agents accept (letters, digits, - and
+    /// _).
     static func name(_ from: String) -> String {
         var base = (from.split(separator: "/").last.map(String.init) ?? from)
         if let at = base.firstIndex(of: "@"), at != base.startIndex { base = String(base[..<at]) }
@@ -253,9 +268,9 @@ public struct ServerEntry: Codable, Sendable, Equatable {
     }
 }
 
-/// Adds an MCP server for every agent Kelp can hand one to: kept in Kelp's own `mcp.json` (all projects) or, with
-/// `project`, in the project's `.mcp.json`, which goes to the team with the repository. One of the same name is
-/// replaced. With `from`, the entry is the one that agent's own file has under `name` ("claude", "codex").
+/// Adds an MCP server for every agent Kelp can hand one to. It is kept in Kelp's own `mcp.json` (for all projects) or,
+/// with `project`, in the project's `.mcp.json`, which goes to the team with the repository. A server of the same name
+/// is replaced. With `from`, the entry is copied from what that agent's own file has under `name` ("claude", "codex").
 public struct AddonsAdd: InternalMethod {
     public static let name = "addons.add"
     public typealias Result = Done
@@ -269,7 +284,7 @@ public struct AddonsAdd: InternalMethod {
     }
 }
 
-/// Takes a server added through Kelp away again (`Addon.key`): from Kelp's own file, or from the project's `.mcp.json`.
+/// Removes a server that was added through Kelp (`Addon.key`), from Kelp's own file or from the project's `.mcp.json`.
 public struct AddonsRemove: InternalMethod {
     public static let name = "addons.remove"
     public typealias Result = Done
@@ -280,8 +295,9 @@ public struct AddonsRemove: InternalMethod {
     }
 }
 
-/// A server's entry as its file has it (`Addon.key`): Kelp's own file, the project's, or the agent's own settings. Used
-/// for editing the entry and copying it out. It may hold what the server signs in with, so only the user may read it.
+/// Returns a server's entry as its file has it (`Addon.key`), whether Kelp's own file, the project's, or the agent's
+/// own settings. It is used for editing the entry and copying it out. The entry may hold the server's sign-in secrets,
+/// so only the user may read it.
 public struct AddonsEntry: InternalMethod {
     public static let name = "addons.entry"
     public typealias Result = ServerEntry
@@ -292,9 +308,9 @@ public struct AddonsEntry: InternalMethod {
     }
 }
 
-/// Tidy Up: copies the instruction files at `paths` (a memory index: its whole folder) into Kelp's home, puts the
-/// `tidyInstructions` recipe beside them, and answers the one-line prompt that sends an agent to it. Kelp writes none
-/// of the files themselves: the agent does, and reports before it changes anything.
+/// Tidy Up: copies the instruction files at `paths` (for a memory index, its whole folder) into Kelp's home, puts the
+/// `tidyInstructions` recipe beside them, and answers with the one-line prompt that sends an agent to the recipe. Kelp
+/// writes none of the files themselves. The agent does, and it reports before it changes anything.
 public struct AddonsTidy: InternalMethod {
     public static let name = "addons.tidy"
     public typealias Result = String
@@ -305,8 +321,8 @@ public struct AddonsTidy: InternalMethod {
     }
 }
 
-/// Ends the workspace's Tidy Up: `undo` puts every file back from Kelp's copies (what was there is kept beside them),
-/// else the changes stay. Either way the result leaves the panel.
+/// Ends the workspace's Tidy Up. With `undo`, every file is put back from Kelp's copies, and the files as they were are
+/// kept beside them. Without it, the changes stay. Either way the result leaves the panel.
 public struct AddonsTidyEnd: InternalMethod {
     public static let name = "addons.tidyEnd"
     public typealias Result = Done
@@ -329,8 +345,9 @@ public struct AddonsTrash: InternalMethod {
     }
 }
 
-/// Gives a skill only some agents read (`Addon.key`) to the rest: a link to its folder in the folder the others read
-/// (`~/.agents/skills` and Claude Code's own; the project's two for a project's skill).
+/// Gives a skill that only some agents read (`Addon.key`) to the other agents too. It puts a link to the skill's folder
+/// in the folder the others read (`~/.agents/skills` and Claude Code's own, or the project's two for a project's
+/// skill).
 public struct AddonsLink: InternalMethod {
     public static let name = "addons.link"
     public typealias Result = Done
@@ -341,7 +358,7 @@ public struct AddonsLink: InternalMethod {
     }
 }
 
-/// Adds skills: a new one named `name` (a SKILL.md to fill in), or, with `source`, the skills of a folder or a git
+/// Adds skills: a new skill named `name` (a SKILL.md to fill in), or, with `source`, the skills of a folder or a git
 /// repository (every folder in it that holds a SKILL.md). They go into the shared folder (`~/.agents/skills`, or the
 /// project's `.agents/skills` with `project`), with a link in Claude Code's folder. Returns the SKILL.md files, new
 /// ones first.

@@ -3,11 +3,13 @@ import Security
 
 /// Secrets (API keys) live in the login keychain, never in config files.
 public enum Keychain {
-    /// "dev.krill" is from when the app was called Krill; kept so saved keys stay readable. `KELP_KEYCHAIN_SERVICE` names
-    /// another, so tests never touch the real keys. Read at each call: nothing caches the first answer.
+    /// "dev.krill" is from when the app was called Krill, and it is kept so saved keys stay readable.
+    /// `KELP_KEYCHAIN_SERVICE` names another service, so tests never touch the real keys. It is read at each call, so
+    /// nothing caches the first answer.
     static var service: String { ProcessInfo.processInfo.environment["KELP_KEYCHAIN_SERVICE"] ?? "dev.krill" }
 
-    /// Updates in place, so a failure never leaves the account without its old value (delete-then-add would).
+    /// Stores `value`, updating in place, so a failure never leaves the account without its old value (as
+    /// delete-then-add would).
     public static func set(_ value: String, account: String) throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
@@ -31,15 +33,16 @@ public enum Keychain {
         do { return try read(account) } catch { return nil }
     }
 
-    /// The value, or nil when there's none; any other failure (a locked keychain, access refused) is thrown, not read as
-    /// "none" (which would ask for credentials that are there).
+    /// Returns the value, or nil when there is none. Any other failure (a locked keychain, access refused) is thrown
+    /// rather than read as "none", which would ask for credentials that are already there.
     public static func find(_ account: String) throws -> String? {
         do { return try read(account) } catch let error as NSError where error.code == Int(errSecItemNotFound) {
             return nil
         }
     }
 
-    /// The value, or the keychain's reason it can't be had (its OSStatus: -25300 not there, -25308 not allowed now…).
+    /// Returns the value, or throws the keychain's reason it can't be read as an OSStatus (-25300 means not there,
+    /// -25308 means not allowed now…).
     public static func read(_ account: String) throws -> String {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,

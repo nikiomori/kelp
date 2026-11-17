@@ -1,9 +1,9 @@
 import Foundation
 import SwiftMarkdown
 
-/// What GitHub adds to cmark-gfm that READMEs use: alerts (`> [!NOTE]`), footnotes (`[^1]`), bare links and the safe
-/// part of HTML (`<details>`, `<kbd>`, `<img width>`, `<picture>`…), tag by tag and attribute by attribute from a list:
-/// no script, no style, no event handler, no `javascript:` link.
+/// The parts GitHub adds to cmark-gfm that READMEs use: alerts (`> [!NOTE]`), footnotes (`[^1]`), bare links, and the
+/// safe part of HTML (`<details>`, `<kbd>`, `<img width>`, `<picture>`…). HTML is allowed tag by tag and attribute by
+/// attribute from a list, so there is no script, no style, no event handler and no `javascript:` link.
 extension HTMLWriter {
     // MARK: HTML
 
@@ -23,7 +23,8 @@ extension HTMLWriter {
     private static let everywhere: Set<String> = ["align", "title", "dir", "lang"]
     private static let urls: Set<String> = ["href", "src", "srcset"]
 
-    /// A whole tag at `c[i]` whose name is on the list, written back with only the attributes on the list.
+    /// Reads a whole tag at `chars[start]` whose name is on the list, and writes it back with only the attributes on
+    /// the list.
     func htmlTag(_ chars: [Character], _ start: Int) -> (String, Int)? {
         guard let gt = chars[start...].prefix(1000).firstIndex(of: ">") else { return nil }
         let raw = String(chars[start...gt])
@@ -49,7 +50,8 @@ extension HTMLWriter {
         return (out + ">", gt + 1)
     }
 
-    /// Raw HTML (a block, or a tag in a paragraph), its tags through the list, the rest as text.
+    /// Cleans raw HTML (a block, or a tag in a paragraph). Its tags go through the list, and the rest is written as
+    /// text.
     func sanitize(_ raw: String) -> String {
         let chars = Array(raw)
         var out = "", pos = 0
@@ -92,7 +94,8 @@ extension HTMLWriter {
 
     // MARK: Alerts
 
-    /// `> [!NOTE]` (TIP, IMPORTANT, WARNING, CAUTION) on a quote's first line: GitHub's colored box with its title.
+    /// Writes GitHub's colored box with its title for a quote whose first line is `> [!NOTE]` (or TIP, IMPORTANT,
+    /// WARNING, CAUTION).
     mutating func alert(_ quote: BlockQuote) -> String? {
         guard let first = quote.child(at: 0) as? Paragraph else { return nil }
         let line = Array(first.children.prefix { !($0 is SoftBreak || $0 is LineBreak) })
@@ -110,8 +113,9 @@ extension HTMLWriter {
 
     // MARK: Footnotes
 
-    /// Takes the footnote definitions (`[^label]: text` and the lines indented under it) out of the source into `notes`,
-    /// blank lines in their place so the rest keeps its line numbers. Leading tabs are expanded on the way.
+    /// Moves the footnote definitions (`[^label]: text` and the lines indented under it) out of the source into
+    /// `notes`, leaving blank lines in their place so the rest keeps its line numbers. Leading tabs are expanded on the
+    /// way.
     mutating func takeNotes(_ md: String) -> String {
         var lines = md.split(separator: "\n", omittingEmptySubsequences: false).map { MarkdownHTML.detab(String($0)) }
         func indent(_ line: String) -> Int { line.prefix { $0 == " " }.count }
@@ -148,7 +152,7 @@ extension HTMLWriter {
         return lines.joined(separator: "\n")
     }
 
-    /// `[^label]` with a definition: its number, linked to the note.
+    /// Writes a `[^label]` that has a definition as its number, linked to the note.
     mutating func footnoteRef(_ label: String) -> String? {
         let label = norm(label)
         guard notes[label] != nil else { return nil }
@@ -157,13 +161,13 @@ extension HTMLWriter {
         return "<sup class=\"footnote-ref\"><a href=\"#fn-\(number)\" id=\"fnref-\(number)\">\(number)</a></sup>"
     }
 
-    /// The notes referred to, numbered in the order of their first reference, each with a link back.
+    /// Writes the notes that were referred to, numbered in the order of their first reference, each with a link back.
     mutating func footnotes() -> String {
         guard !noteOrder.isEmpty else { return "" }
         var html = "\n<section class=\"footnotes\">\n<ol>\n"
         var index = 0
         inNote = true
-        while index < noteOrder.count {   // a note may refer to another, which joins the list
+        while index < noteOrder.count {   // A note may refer to another note, which then joins the list.
             let number = index + 1
             var body = blocks(Document(parsing: notes[noteOrder[index]] ?? "", options: .disableSmartOpts))
             let back = " <a href=\"#fnref-\(number)\" class=\"footnote-backref\">↩</a>"
@@ -180,7 +184,8 @@ extension HTMLWriter {
 
     // MARK: Text
 
-    /// Plain text, escaped, its footnote references and bare links (`https://…`, `www.…` at a word's start) made links.
+    /// Writes plain text, escaped, with its footnote references and bare links (`https://…`, `www.…` at a word's start)
+    /// turned into links.
     mutating func text(_ text: String) -> String {
         guard !inLink else { return MarkdownHTML.esc(text) }
         var html = "", rest = text[...]
@@ -201,7 +206,8 @@ extension HTMLWriter {
         return html + MarkdownHTML.esc(String(rest))
     }
 
-    /// The link in a bare `https://…` / `www.…` without the punctuation that ends a sentence; nil inside a word.
+    /// Returns the link in a bare `https://…` or `www.…`, without the punctuation that ends a sentence. nil inside a
+    /// word.
     private func bareLink(_ found: Substring, after previous: Character?) -> Substring? {
         guard previous.map({ $0.isWhitespace || "(*_~\"'".contains($0) }) ?? true else { return nil }
         var url = found
@@ -214,7 +220,7 @@ extension HTMLWriter {
         return url.count > (head.hasPrefix("https://") ? 8 : head.hasPrefix("http://") ? 7 : 4) ? url : nil
     }
 
-    /// Neutralises script-capable URL schemes.
+    /// Neutralises URL schemes that can run scripts.
     func safe(_ url: String, image: Bool = false) -> String {
         let lower = url.lowercased().filter { !$0.isWhitespace && !($0.asciiValue.map { $0 < 32 } ?? false) }
         if lower.hasPrefix("javascript:") || lower.hasPrefix("vbscript:")

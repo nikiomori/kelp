@@ -1,7 +1,8 @@
 import Foundation
 
-/// A review page (`review.md`): numbered points, each with lettered options to pick one of, and a note. The file is
-/// the record: a pick is `[x]` on its option, a note a `> Note:` line in its point, so the agent reads the answers there.
+/// A review page (`review.md`): numbered points, each with lettered options to pick from, and a note. The file itself
+/// is the record. A pick is `[x]` on its option, and a note is a `> Note:` line in its point, so the agent reads the
+/// answers in the file.
 ///
 ///     ## 1. Records that lose their implicit defaults
 ///     - [x] A. Write defaults into each init(from:) *recommended*
@@ -9,23 +10,24 @@ import Foundation
 ///     - [ ] B. A migration that fills the columns once
 ///     > Note: keep the old backups readable
 ///
-/// Once sent, a last line says when (`<!-- sent: 12:04 -->`); a point the agent has done ends its heading with ✓.
+/// Once the answers are sent, a last line says when (`<!-- sent: 12:04 -->`). A point the agent has done ends its
+/// heading with ✓.
 public struct Review: Equatable, Sendable {
     public struct Option: Equatable, Sendable {
         public var key: String, text: String, detail: String, recommended: Bool, picked: Bool
     }
     public struct Point: Equatable, Sendable {
         public var number: String, question: String, options: [Option], note: String
-        /// The agent says it has done it: ✓ at the end of its heading.
+        /// True when the agent says it has done the point, shown as ✓ at the end of its heading.
         public var done = false
         public var pick: String? { options.first { $0.picked }?.key }
     }
 
     public var title: String
-    /// What comes between the title and the first point.
+    /// The text between the title and the first point.
     public var intro: String
     public var points: [Point]
-    /// When the answers went to the agent (`<!-- sent: … -->`); nil until then, and again once a pick changes.
+    /// When the answers went to the agent (`<!-- sent: … -->`). nil until then, and again once a pick changes.
     public var sent: String?
 
     public init(_ text: String) {
@@ -72,7 +74,8 @@ public struct Review: Equatable, Sendable {
         intro = introLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// `text` with `key` picked in point `number` (and its other options not): answers not sent yet.
+    /// Returns `text` with option `key` picked in point `number` and the point's other options unpicked. The answers
+    /// are marked as not sent yet.
     public static func pick(_ text: String, point number: String, option key: String) -> String {
         edit(unsent(text), point: number) { lines, range in
             for index in range {
@@ -83,7 +86,7 @@ public struct Review: Equatable, Sendable {
         }
     }
 
-    /// `text` with point `number`'s note set to `note` (one line; empty takes it away).
+    /// Returns `text` with the note of point `number` set to `note`, on one line. An empty note removes it.
     public static func note(_ text: String, point number: String, note: String) -> String {
         let one = note.split(whereSeparator: \.isNewline).joined(separator: " ").trimmingCharacters(in: .whitespaces)
         return edit(unsent(text), point: number) { lines, range in
@@ -93,7 +96,8 @@ public struct Review: Equatable, Sendable {
                 range = range.lowerBound..<range.upperBound - 1
             }
             guard !one.isEmpty else { return }
-            // After the point's last option (and its detail), before any blank line that ends the point.
+            // The note goes after the point's last option (and its detail), before any blank line that ends the
+            // point.
             var at = range.lowerBound + 1
             for index in range
             where lines[index].wholeMatch(of: optionLine) != nil
@@ -105,7 +109,7 @@ public struct Review: Equatable, Sendable {
         }
     }
 
-    /// `text` with the recommended option picked in each point that has no pick yet.
+    /// Returns `text` with the recommended option picked in each point that has no pick yet.
     public static func pickRecommended(_ text: String) -> String {
         Review(text).points.reduce(text) { text, point in
             guard point.pick == nil, let key = point.options.first(where: \.recommended)?.key else { return text }
@@ -113,21 +117,21 @@ public struct Review: Equatable, Sendable {
         }
     }
 
-    /// `text` saying its answers went to the agent at `time`.
+    /// Returns `text` with a line saying its answers went to the agent at `time`.
     public static func markSent(_ text: String, at time: String) -> String {
         var out = unsent(text)
         while out.hasSuffix("\n\n") { out.removeLast() }
         return out + (out.hasSuffix("\n") ? "" : "\n") + "\n<!-- sent: \(time) -->\n"
     }
 
-    /// `text` without the line saying when its answers were sent.
+    /// Returns `text` without the line saying when its answers were sent.
     public static func unsent(_ text: String) -> String {
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
         guard lines.contains(where: { $0.wholeMatch(of: sentLine) != nil }) else { return text }
         return lines.filter { $0.wholeMatch(of: sentLine) == nil }.joined(separator: "\n")
     }
 
-    /// The line that goes to the agent, such as "My answers in <file>: 1A 2B. Note on 2: …".
+    /// Returns the line that goes to the agent, such as "My answers in <file>: 1A 2B. Note on 2: …".
     public func answer(file: String) -> String {
         let picks = points.compactMap { p in p.pick.map { p.number + $0 } }
         let notes = points.filter { !$0.note.isEmpty }.map { "Note on \($0.number): \($0.note)" }

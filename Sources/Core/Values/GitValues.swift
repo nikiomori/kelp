@@ -1,12 +1,14 @@
 import Foundation
 
-// git's output as values: what the daemon sends and the app shows. Running git belongs to GitKit (in the daemon).
+// Value types for git's output, which the daemon sends and the app shows. Running git itself is GitKit's job, in the
+// daemon.
 
-/// Thin wrapper over the system git: reading its output here, running it in GitKit.
+/// A thin wrapper over the system git. Its output is read here, and git is run in GitKit.
 public enum Git {
-    /// Whether file events can change what `git status` says: anything outside `.git/`, and inside it only what moves the
-    /// index, HEAD or a branch (lock and object files churn during every git command, a status of ours included). Kelp's
-    /// own refs (refs/kelp/: a turn's snapshot, a pull request's head) move neither.
+    /// Whether file events can change what `git status` says. Any path outside `.git/` can. Inside `.git/`, only paths
+    /// that move the index, HEAD or a branch count, because lock and object files churn during every git command,
+    /// including Kelp's own status calls. Kelp's own refs under refs/kelp/ (a turn's snapshot, a pull request's head)
+    /// change neither.
     public static func touchesStatus(_ paths: [String]) -> Bool {
         paths.contains { path in
             guard let range = path.range(of: "/.git/") else { return true }
@@ -16,12 +18,12 @@ public enum Git {
         }
     }
 
-    /// Whether one of `changes` can change a workspace's file list (`files.list`) or what it shows. Outside .git, that
-    /// is a file or folder made, removed or moved (`reshapes`: a save writes a file, and the list stays the same), or a
-    /// change to the rules of what is ignored; inside .git, only the index (`git rm --cached`, staging), HEAD (a
-    /// checkout) and info/exclude. Otherwise git's own churn would list the files again several times a second, and
-    /// once for every save.
-    /// Limit: FSEvents adds up a path's flags for a few seconds, so a file written just after it was made, and every
+    /// Whether any of `changes` can change a workspace's file list (`files.list`) or what it shows. Outside .git, that
+    /// means a file or folder that was made, removed or moved (`reshapes`), because a save writes a file and leaves the
+    /// list as it was. A change to the ignore rules counts too. Inside .git, only the index (`git rm --cached`,
+    /// staging), HEAD (a checkout) and info/exclude count. Without this filter, git's own churn would list the files
+    /// again several times a second, and once for every save.
+    /// Limit: FSEvents adds up a path's flags for a few seconds. So a file written just after it was made, and every
     /// atomic save (a rename), still lists the files again.
     public static func touchesFileList(_ changes: [FileWatcher.Change]) -> Bool {
         changes.contains { change in
@@ -34,8 +36,9 @@ public enum Git {
         }
     }
 
-    /// Commits no remote branch has. Topological order lists a commit before its ancestors, so one pass down from the
-    /// remote branches' tips marks everything they reach; what's left is local only. No remotes: nothing to mark.
+    /// Returns the commits that no remote branch has. Topological order lists a commit before its ancestors, so one
+    /// pass down from the tips of the remote branches marks everything they reach, and whatever is left is local only.
+    /// With no remotes, nothing is marked.
     public static func unpushed(_ commits: [GraphCommit], remotes: Set<String>) -> Set<String> {
         guard !remotes.isEmpty else { return [] }
         var pushed = Set<String>(), out = Set<String>()
@@ -52,7 +55,7 @@ public enum Git {
 
 public struct FileChange: Codable, Sendable, Equatable {
     public var path: String
-    public var index: String   // staged status column
+    public var index: String   // The staged status column.
     public var worktree: String
     public init(path: String, index: String, worktree: String) {
         self.path = path
@@ -66,13 +69,14 @@ public struct FileChange: Codable, Sendable, Equatable {
         index == "U" || worktree == "U" || (index == "A" && worktree == "A") || (index == "D" && worktree == "D")
     }
 
-    /// A status lists at most this many (VS Code's limit too): a folder that should be ignored (node_modules) can hold
-    /// hundreds of thousands, and the list goes to the app on each change. A status this long may be missing some.
+    /// The most files a status lists, which is VS Code's limit too. A folder that should be ignored (node_modules) can
+    /// hold hundreds of thousands of files, and the list goes to the app on each change. A status this long may be
+    /// missing some files.
     public static let limit = 10_000
 }
 
-/// What Source Control lists, in the order it lists it: conflicts, then what's staged, then the rest.
-/// A file with both staged and unstaged edits is in two sections; a conflicted one only in the first.
+/// The sections Source Control lists, in order: conflicts, then staged changes, then the rest.
+/// A file with both staged and unstaged edits is in two sections. A conflicted file is only in the first.
 public struct ChangeGroups: Equatable, Sendable {
     public var merge: [FileChange], staged: [FileChange], changes: [FileChange]
     public init(merge: [FileChange], staged: [FileChange], changes: [FileChange]) {
@@ -92,8 +96,8 @@ extension Array where Element == FileChange {
 }
 
 extension FileChange {
-    /// The status letter VS Code shows: `inWorktree` picks which column it comes from (the unstaged list shows the
-    /// worktree's column).
+    /// Returns the status letter VS Code shows. `inWorktree` picks which status column the letter comes from, and the
+    /// unstaged list shows the worktree's column.
     public func letter(inWorktree: Bool, merging: Bool = false) -> String {
         if merging || conflicted { return "!" }
         if untracked { return "U" }
@@ -137,8 +141,8 @@ public struct Hunk: Codable, Sendable, Equatable {
 }
 
 extension Hunk {
-    /// The hunk as shown, header and every line: an edit inside it that keeps the counts (a line rewritten in place) changes
-    /// this, where the "@@" header alone stays the same.
+    /// The hunk as shown, with its header and every line. An edit inside the hunk that keeps the line counts (a line
+    /// rewritten in place) changes this fingerprint, while the "@@" header alone stays the same.
     public var fingerprint: String {
         ([header] + lines.map { "\($0.kind.rawValue)|\($0.text)" }).joined(separator: "\n")
     }
@@ -146,13 +150,15 @@ extension Hunk {
 
 public struct FileDiff: Codable, Sendable, Equatable {
     public var path: String
-    /// Raw `diff --git` / `---` / `+++` lines, needed to rebuild patches for hunk staging.
+    /// The raw `diff --git`, `---` and `+++` lines, which are needed to rebuild patches for hunk staging.
     public var header: String
     public var hunks: [Hunk]
     public var binary: Bool
-    /// The file isn't UTF-8: its text was read byte for byte (Latin-1), and patches go back the same way.
+    /// True when the file isn't UTF-8. Its text was then read byte for byte as Latin-1, and patches are written back
+    /// the same way.
     public var latin1: Bool?
-    /// Its changes are past what one reply carries (`Git.diffBudget`): no hunks, only the header. Asked for alone, it may fit.
+    /// True when the file's changes are more than one reply carries (`Git.diffBudget`), so only the header is sent and
+    /// no hunks. When the file is asked for on its own, it may fit.
     public var tooLarge: Bool?
     public init(path: String, header: String, hunks: [Hunk], binary: Bool, latin1: Bool? = nil, tooLarge: Bool? = nil) {
         self.path = path
@@ -165,7 +171,7 @@ public struct FileDiff: Codable, Sendable, Equatable {
     public var additions: Int { hunks.reduce(0) { $0 + $1.lines.filter { $0.kind == .add }.count } }
     public var deletions: Int { hunks.reduce(0) { $0 + $1.lines.filter { $0.kind == .del }.count } }
 
-    /// Patch containing only the given hunk, for `git apply --cached [-R]`, in the file's own bytes.
+    /// Returns a patch with only the given hunk, in the file's own encoding, for `git apply --cached [-R]`.
     public func patch(hunk index: Int) -> Data {
         var patch = header + "\n" + hunks[index].header + "\n"
         for line in hunks[index].lines {
@@ -177,7 +183,8 @@ public struct FileDiff: Codable, Sendable, Equatable {
     }
 }
 
-/// A commit's message body (the graph shows the subject), its author's email, and its size against its first parent.
+/// The details of a commit: its message body (the graph shows the subject), its author's email, and its size compared
+/// with its first parent.
 public struct CommitDetails: Codable, Sendable, Equatable {
     public var body: String
     public var email: String
@@ -226,7 +233,8 @@ public struct BranchInfo: Codable, Sendable, Equatable {
     public var local: [String]
     public var remote: [String]
     public var upstream: String?
-    /// Commits to push: past the upstream, or with none, on no remote branch (what the graph marks "not pushed yet").
+    /// The number of commits to push. These are the commits past the upstream, or, when there is no upstream, the
+    /// commits on no remote branch (which the graph marks "not pushed yet").
     public var ahead: Int?
     public var behind: Int?
     public var merging: Bool
@@ -243,13 +251,15 @@ public struct BranchInfo: Codable, Sendable, Equatable {
         self.behind = behind
         self.merging = merging
     }
-    /// The same branch with fewer commits to push, or newly on a remote: a push (or a publish) went out, which starts CI.
+    /// Returns true when a push or a publish went out since `old`, which starts CI. That is when the same branch now
+    /// has fewer commits to push, or has just appeared on a remote.
     public func pushed(since old: BranchInfo) -> Bool {
         upstream != nil && current == old.current && (old.upstream == nil || (ahead ?? 0) < (old.ahead ?? 0))
     }
 }
 
-/// The newest commits a sync would move: `outgoing` is what a push sends, `incoming` what a pull brings (none without an upstream).
+/// The newest commits a sync would move. `outgoing` is what a push sends, and `incoming` is what a pull brings (none
+/// without an upstream).
 public struct Unsynced: Codable, Sendable, Equatable {
     public struct Commit: Codable, Sendable, Equatable {
         public var hash: String, subject: String, author: String
@@ -263,7 +273,8 @@ public struct Unsynced: Codable, Sendable, Equatable {
         }
     }
     public var outgoing: [Commit], incoming: [Commit]
-    /// When the last fetch was (seconds since 1970); nil: never, or a remote project's (not read over ssh).
+    /// When the last fetch was, in seconds since 1970. nil when there was none, and for a remote project, because it
+    /// isn't read over ssh.
     public var fetched: Double?
     public init(outgoing: [Commit], incoming: [Commit], fetched: Double? = nil) {
         self.outgoing = outgoing
@@ -272,7 +283,8 @@ public struct Unsynced: Codable, Sendable, Equatable {
     }
 }
 
-/// Lines added / removed in the working tree (staged, unstaged and new files) against HEAD, split by what kind of file.
+/// Lines added and removed in the working tree (staged, unstaged and new files) compared with HEAD, split by the kind
+/// of file.
 public struct LineStats: Codable, Sendable, Equatable {
     public enum Kind: String, Codable, Sendable, CaseIterable { case code, tests, generated }
     public var added: [Kind: Int] = [:], removed: [Kind: Int] = [:]
@@ -283,7 +295,8 @@ public struct LineStats: Codable, Sendable, Equatable {
         self.removed = removed
     }
 
-    /// Lock files, build output and codegen count as generated; test folders and `*.test.*` / `*Tests.swift` as tests.
+    /// Returns the kind of a file. Lock files, build output and codegen count as generated. Test folders and files
+    /// named `*.test.*` or `*Tests.swift` count as tests.
     public static func kind(_ path: String) -> Kind {
         let lowered = path.lowercased(), name = (lowered as NSString).lastPathComponent
         let locks: Set<String> = [
@@ -322,17 +335,18 @@ public struct SearchMatch: Codable, Sendable, Equatable {
     }
 }
 
-/// Project files: Quick Open's fuzzy match here, listing and search (git, rg) in GitKit.
+/// Project files. Quick Open's fuzzy match lives here, while listing and searching (with git and rg) live in GitKit.
 public enum ProjectFiles {
-    /// `files.list` gives at most this many (a list this long may be missing some): more than nearly any checkout has,
-    /// and a folder that should be ignored can't make a list Quick Open and the tree choke on.
+    /// The most files `files.list` returns, so a list this long may be missing some. It is more than nearly any
+    /// checkout has, and it stops a folder that should be ignored from making a list that Quick Open and the tree choke
+    /// on.
     public static let listLimit = 200_000
-    /// `files.search` gives at most this many matches (a list this long may be missing some).
+    /// The most matches `files.search` returns, so a list this long may be missing some.
     public static let searchLimit = 2000
 
-    /// A path made ready for fuzzyScore once: Quick Open scores every file of the project on each keystroke.
-    /// Unicode scalars of the composed form, so "é" is one letter however the name was stored and "日" can't be matched
-    /// from pieces of other characters (as UTF-8 bytes could).
+    /// A path prepared once for fuzzyScore, because Quick Open scores every file of the project on each keystroke.
+    /// It holds the Unicode scalars of the composed form. So "é" is one letter however the name was stored, and "日"
+    /// can't be matched from pieces of other characters, as it could with UTF-8 bytes.
     public struct FuzzyPath: Sendable {
         let scalars: [Unicode.Scalar], name: Int, length: Int   // lowercased, where the file name starts, length in characters
         public init(_ path: String) {
@@ -341,12 +355,13 @@ public enum ProjectFiles {
             length = path.count
         }
     }
-    /// The query (or a path) as fuzzyScore compares it.
+    /// Returns the query (or a path) in the form fuzzyScore compares.
     public static func fuzzyQuery(_ query: String) -> [Unicode.Scalar] {
         Array(query.precomposedStringWithCanonicalMapping.lowercased().unicodeScalars)
     }
 
-    /// Fuzzy subsequence score for quick open (higher is better, nil = no match). Matches inside the file name win.
+    /// Returns the fuzzy subsequence score for Quick Open, where higher is better and nil means no match. Matches
+    /// inside the file name score higher.
     public static func fuzzyScore(_ path: FuzzyPath, _ query: [Unicode.Scalar]) -> Int? {
         if query.isEmpty { return 0 }
         let full = subsequenceScore(path.scalars[...], query),

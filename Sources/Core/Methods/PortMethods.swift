@@ -1,19 +1,21 @@
 import Foundation
 
-// ports.*: what a workspace's sessions listen on, stopping one, and a remote host's ports brought here.
+// The ports.* methods: the ports a workspace's sessions listen on, stopping a listener, and forwarding a remote host's
+// ports to this Mac.
 
-/// The ports the workspace's sessions listen on.
+/// Lists the ports the workspace's sessions listen on.
 public struct PortsList: RPCMethod {
     public static let name = "ports.list"
     public var worktreeId: String
     public init(worktreeId: String) { self.worktreeId = worktreeId }
-    /// A port that a process of one of the workspace's sessions listens on; on a remote project's host, a process in
-    /// the project's folder.
+    /// A port that a process of one of the workspace's sessions listens on. On a remote project's host, it is a process
+    /// in the project's folder.
     public struct Port: Codable, Sendable, Equatable {
-        /// `session`: "" when it can't be told. `pid` 0: none, a forwarding asked for by hand.
+        /// `session` is "" when it can't be told. `pid` is 0 when there is no process, for a forwarding asked for by
+        /// hand.
         public var port: Int, pid: Int32, command: String, session: String
-        /// On a remote project: its host, the port on this Mac once forwarded, and true when the host can't be asked
-        /// (this is its last answer).
+        /// For a remote project, the host, the port on this Mac once forwarded, and true when the host can't be asked
+        /// (so this is its last answer).
         public var host: String?, here: Int?, offline: Bool?
         public init(
             port: Int, pid: Int32, command: String, session: String, host: String? = nil, here: Int? = nil,
@@ -30,7 +32,8 @@ public struct PortsList: RPCMethod {
     }
     public typealias Result = [Port]
 }
-/// Only a process one of the workspace's sessions started.
+/// Stops the process listening on a port. Only a process that one of the workspace's sessions started can be
+/// stopped.
 public struct PortsStop: RPCMethod {
     public static let name = "ports.stop"
     public typealias Result = Done
@@ -40,8 +43,8 @@ public struct PortsStop: RPCMethod {
         self.pid = pid
     }
 }
-/// A port of a remote project's host brought to this Mac: `port` as listed, or `target` ("5432", "db.internal:5432").
-/// Connects when the connection is gone.
+/// Forwards a port of a remote project's host to this Mac: `port` as listed, or `target` ("5432",
+/// "db.internal:5432"). It connects when the connection is gone.
 public struct PortsForward: InternalMethod {
     public static let name = "ports.forward"
     public var worktreeId: String, port: Int?, target: String?
@@ -51,7 +54,7 @@ public struct PortsForward: InternalMethod {
         self.target = target
     }
     public struct Forwarded: Codable, Sendable, Equatable {
-        /// On this Mac.
+        /// The port on this Mac.
         public var port: Int
         public init(port: Int) { self.port = port }
     }

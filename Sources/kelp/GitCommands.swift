@@ -2,7 +2,7 @@ import Core
 import Foundation
 
 extension Main {
-    /// `diff`, `commit`, `merge`, `push`, `comment …` in the current workspace.
+    /// Runs `diff`, `commit`, `merge`, `push` and `comment …` in the current workspace.
     static func git(_ cmd: String, _ sub: String?, _ client: RPCClient) async throws {
         switch (cmd, sub) {
         case ("diff", _):
@@ -16,7 +16,8 @@ extension Main {
                     "\(f.path)  "
                         + (f.tooLarge == true ? "(too large to count here)" : "+\(f.additions) -\(f.deletions)"))
             }
-        // Asking how a command works never runs it: "kelp commit --help" once committed everything as "--help".
+        // Asking how a command works never runs it. "kelp commit --help" once committed everything with the message
+        // "--help".
         case ("commit", _) where has("--help") || has("-h"):
             print(
                 """
@@ -59,7 +60,8 @@ extension Main {
         }
     }
 
-    /// `kelp commit add <file>… -m <subject> [-m <body>]`: the files, and the message's paragraphs as git joins them.
+    /// Parses `kelp commit add <file>… -m <subject> [-m <body>]` into the files, and the message with its paragraphs
+    /// joined the way git joins them.
     static func planned(_ args: [String]) -> (files: [String], message: String) {
         var files: [String] = [], parts: [String] = []
         var it = args.makeIterator()
@@ -73,7 +75,7 @@ extension Main {
         return (files, parts.joined(separator: "\n\n"))
     }
 
-    /// `github …`, `linear …`.
+    /// Runs `github …` and `linear …`.
     static func forge(_ cmd: String, _ sub: String?, _ client: RPCClient) async throws {
         switch (cmd, sub) {
         case ("github", "prs"):

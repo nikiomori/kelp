@@ -12,7 +12,7 @@ extension Main {
               | set <name> [--cpus N] [--memory GB] [--disk GB]   (Linux, macOS; shut down; a disk only grows, Linux's)
         """
 
-    /// `vm <action>`: Kelp's virtual machines (Core/VM/VMs.swift).
+    /// `vm <action>` manages Kelp's virtual machines (Core/VM/VMs.swift).
     static func vm(_ sub: String?, _ client: RPCClient) async throws {
         switch sub {
         case "list":
@@ -39,7 +39,7 @@ extension Main {
             }
             var last = said(try await client.call(request))
             if let last { print(last) }
-            while true {   // it answers at once; its progress is in the list
+            while true {   // The call answers at once, and its progress shows in the list.
                 try await Task.sleep(nanoseconds: 1_000_000_000)
                 guard let info = try await client.call(VMList()).first(where: { $0.machine.name == name }) else {
                     fail("\(name) is gone")
@@ -78,17 +78,17 @@ extension Main {
                     .path
             if args.first == "--" { args.removeFirst() }
             let os = try await client.call(VMList()).first(where: { $0.machine.name == name })?.machine.kind
-            if os == .ios {   // a process in the simulator (no shell there to read a line)
+            if os == .ios {   // A process in the simulator, which has no shell to read a line.
                 let to = try await client.call(VMConnect(name: name, cwd: nil))
                 exec(to.ssh + ["spawn", to.device ?? ""] + args)
             }
             if os == .android {
-                let adb = try await client.call(VMConnect(name: name, cwd: nil)).ssh   // Android's shell, through adb
+                let adb = try await client.call(VMConnect(name: name, cwd: nil)).ssh   // Android's shell, through adb.
                 exec(adb + ["shell"] + (args.isEmpty ? [] : [args.joined(separator: " ")]))
             }
             let to = try await client.call(VMConnect(name: name, cwd: cwd))
-            // A terminal on both ends gets one inside (an editor, htop); an agent's pipes don't. The session it comes from goes
-            // with it: the machine's tab and the sidebar say whose command runs there.
+            // A terminal on both ends gets a terminal inside (for an editor, htop), and an agent's pipes don't. The
+            // calling session goes along, so the machine's tab and the sidebar say whose command runs there.
             let tty = isatty(0) == 1 && isatty(1) == 1
             let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
             exec(
@@ -99,14 +99,14 @@ extension Main {
         }
     }
 
-    /// Reads and drives a machine's screen through the daemon (`vm.screen`, `vm.ui`): a macOS machine's from the Mac's
-    /// side and through Kelp Guest inside it, an Android one's through adb, an iOS one's through Kelp's runner. A
-    /// screenshot goes to a file, and its path is printed.
+    /// Reads and drives a machine's screen through the daemon (`vm.screen`, `vm.ui`). A macOS machine is driven from
+    /// the Mac's side and through Kelp Guest inside it, an Android machine through adb, and an iOS machine through
+    /// Kelp's runner. A screenshot goes to a file, and its path is printed.
     private static func screen(_ action: String, _ client: RPCClient) async throws {
         guard let name = args.first else { fail("vm \(action) <name> …") }
         args.removeFirst()
         if action == "ui" { return print(try await client.call(VMUI(name: name, app: flag("--app")))) }
-        // Files as the daemon finds them, from its own folder.
+        // Make file paths absolute, so the daemon finds them from its own folder.
         func file(_ path: String) -> String { URL(fileURLWithPath: path).standardizedFileURL.path }
         let session = ProcessInfo.processInfo.environment["KELP_SESSION"]
         switch action {

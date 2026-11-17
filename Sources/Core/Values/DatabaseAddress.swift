@@ -1,8 +1,8 @@
 import Foundation
 
-/// Reads what is pasted into Add Database as a database: a URL (postgres://, mysql://, jdbc:…, sqlite:, duckdb:),
-/// libpq's `host=… dbname=…` words, a `psql` or `mysql` command line, an .env line (`DATABASE_URL=…`), or a file's
-/// path. The password is split off from the rest: it goes to the keychain and is never shown.
+/// Reads text pasted into Add Database as a database. The text can be a URL (postgres://, mysql://, jdbc:…, sqlite:,
+/// duckdb:), libpq's `host=… dbname=…` form, a `psql` or `mysql` command line, an .env line (`DATABASE_URL=…`), or a
+/// file's path. The password is split off from the rest, because it goes to the keychain and is never shown.
 public struct DatabaseAddress: Equatable, Sendable {
     public var database: DatabaseInfo
     public var password: String?
@@ -12,7 +12,7 @@ public struct DatabaseAddress: Equatable, Sendable {
         self.password = password
     }
 
-    /// Why the text isn't a database, said so the user can fix it.
+    /// Why the text isn't a database, worded so the user can fix it.
     public struct Problem: Error, Equatable {
         public var message: String
         public init(message: String) { self.message = message }
@@ -70,7 +70,7 @@ public struct DatabaseAddress: Equatable, Sendable {
                 message: "Kelp doesn't speak \(scheme):// yet: Postgres, MySQL, SQLite and DuckDB.")
         }
         guard let parts = URLComponents(string: text) else { throw Problem(message: "The address can't be read.") }
-        let host = parts.host.flatMap { $0.isEmpty ? nil : $0 } ?? "localhost"   // postgres:///app: libpq's default
+        let host = parts.host.flatMap { $0.isEmpty ? nil : $0 } ?? "localhost"   // postgres:///app uses libpq's default
         let query = Dictionary(
             (parts.queryItems ?? []).map { ($0.name.lowercased(), $0.value ?? "") }, uniquingKeysWith: { a, _ in a })
         let database = parts.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")).removingPercentEncoding
@@ -105,7 +105,8 @@ public struct DatabaseAddress: Equatable, Sendable {
         return DatabaseAddress(database: db, password: values["password"])
     }
 
-    /// `psql -h db -p 5432 -U app app_dev`, `psql postgres://…`, `mysql -h db -P 3306 -u app -psecret shop`.
+    /// Reads a command line, such as `psql -h db -p 5432 -U app app_dev`, `psql postgres://…` or
+    /// `mysql -h db -P 3306 -u app -psecret shop`.
     static func command(_ words: [String]) throws(Problem) -> DatabaseAddress {
         let mysql = (words[0] as NSString).lastPathComponent != "psql"
         if let address = words.dropFirst().first(where: { $0.contains("://") || $0.contains("=") && !$0.hasPrefix("-") }
@@ -120,7 +121,7 @@ public struct DatabaseAddress: Equatable, Sendable {
             if arg.hasPrefix("--"), let eq = arg.firstIndex(of: "=") {
                 flags[String(arg[arg.index(arg.startIndex, offsetBy: 2)..<eq])] = String(arg[arg.index(after: eq)...])
             } else if mysql, arg.hasPrefix("-p") {
-                flags["password"] = String(arg.dropFirst(2))   // -psecret: attached, or none (asked for)
+                flags["password"] = String(arg.dropFirst(2))   // -psecret has it attached; a bare -p asks for it.
             } else if arg.hasPrefix("-"), arg.count == 2 {
                 if index < words.count { flags[String(arg.dropFirst())] = words[index] }
                 index += 1
@@ -146,7 +147,8 @@ public struct DatabaseAddress: Equatable, Sendable {
 
     // MARK: Pieces
 
-    /// libpq's sslmode as Kelp keeps it: "disable", "require" (verify-* too: the server must offer TLS), or nil.
+    /// Returns libpq's sslmode as Kelp keeps it: "disable", "require" or nil. The verify-* modes also become "require",
+    /// because the server must offer TLS for them.
     public static func ssl(_ mode: String?) -> String? {
         switch mode?.lowercased() {
         case "disable", "disabled", "false", "0": "disable"
@@ -155,12 +157,13 @@ public struct DatabaseAddress: Equatable, Sendable {
         }
     }
 
-    /// `DATABASE_URL=…` or `export DATABASE_URL="…"`: the value.
+    /// Returns the value of a line like `DATABASE_URL=…` or `export DATABASE_URL="…"`.
     static func envValue(_ text: String) -> String? {
         guard let match = text.firstMatch(of: #/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/#) else {
             return nil
         }
-        // libpq's words (host=db dbname=app) look alike: one of their names isn't a variable
+        // libpq's key=value form (host=db dbname=app) looks the same, so a line that starts with one of its keys isn't
+        // a variable.
         let libpq = ["host", "hostaddr", "dbname", "user", "port", "password", "sslmode"]
         return libpq.contains(match.1.lowercased()) ? nil : String(match.2)
     }

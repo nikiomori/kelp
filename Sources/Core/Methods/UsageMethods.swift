@@ -1,12 +1,12 @@
 import Foundation
 
-// usage.*: plan limits per account, and what the agents used, by day, model and project.
+// The usage.* methods: plan limits per account, and what the agents used, by day, model and project.
 
-/// Usage per account: Claude's 5-hour block, today and the week; Codex's limits (cached for a minute unless `force`);
-/// and the plan limits that the agents' own /usage screens show.
+/// Returns usage per account: Claude's 5-hour block, today and the week, Codex's limits (cached for a minute unless
+/// `force`), and the plan limits that the agents' own /usage screens show.
 public struct UsageGet: InternalMethod {
     public static let name = "usage.get"
-    /// Tokens and their API price over a span (dates as seconds since 1970).
+    /// The tokens and their API price over a span, with dates as seconds since 1970.
     public struct Block: Codable, Sendable, Equatable {
         public var start: Double, end: Double, input: Int, output: Int, cacheWrite: Int, cacheRead: Int, cost: Double,
             models: [String]
@@ -26,7 +26,7 @@ public struct UsageGet: InternalMethod {
     }
     public struct Claude: Codable, Sendable, Equatable {
         public var account: String, today: Block, week: Block
-        /// The 5-hour block now, if one is running.
+        /// The current 5-hour block, if one is running.
         public var block: Block?
         public init(account: String, today: Block, week: Block, block: Block?) {
             self.account = account
@@ -35,11 +35,12 @@ public struct UsageGet: InternalMethod {
             self.block = block
         }
     }
-    /// Codex's own limits from its latest log line (percent used, resets as seconds since 1970).
+    /// Codex's own limits from its latest log line: the percent used, and the resets as seconds since 1970.
     public struct Codex: Codable, Sendable, Equatable {
         public var observedAt: Double, primaryUsedPercent: Double?, primaryResetsAt: Double?,
             secondaryUsedPercent: Double?, secondaryResetsAt: Double?
-        /// Each window's length as Codex says it (nil from an older Codex: then the first is 5 hours, the second a week).
+        /// Each window's length as Codex states it. An older Codex gives nil, and then the first window is 5 hours
+        /// and the second a week.
         public var primaryWindowMinutes: Double?, secondaryWindowMinutes: Double?
         public init(
             observedAt: Double, primaryUsedPercent: Double?, primaryResetsAt: Double?, secondaryUsedPercent: Double?,
@@ -54,16 +55,18 @@ public struct UsageGet: InternalMethod {
             self.primaryWindowMinutes = primaryWindowMinutes
             self.secondaryWindowMinutes = secondaryWindowMinutes
         }
-        /// The kind of limit a window is, as the other agents name theirs: "session" (5 hours), "week" or "month" (the free plan's one window).
+        /// Returns the kind of limit a window is, named as the other agents name theirs: "session" (5 hours), "week",
+        /// or "month" (the free plan's single window).
         public static func kind(minutes: Double?, primary: Bool) -> String {
             guard let minutes else { return primary ? "session" : "week" }
             return minutes <= 24 * 60 ? "session" : minutes <= 8 * 24 * 60 ? "week" : "month"
         }
     }
-    /// One limit as an agent shows it: kind ("session", "week", "week · Fable"…), percent used, when it resets.
+    /// One limit as an agent shows it: the kind ("session", "week", "week · Fable"…), the percent used, and when it
+    /// resets.
     public struct Limit: Codable, Sendable, Equatable {
         public var kind: String, percent: Double, resets: String?
-        /// When a session printed it (Claude's percentages from the last 12 hours); nil for a /usage reading.
+        /// When a session printed the limit (Claude's percentages from the last 12 hours). nil for a /usage reading.
         public var observedAt: Double?
         public init(kind: String, percent: Double, resets: String?, observedAt: Double? = nil) {
             self.kind = kind
@@ -74,7 +77,7 @@ public struct UsageGet: InternalMethod {
     }
     public struct Result: Codable, Sendable, Equatable {
         public var claude: [Claude], codex: [Codex]
-        /// By agent id: the latest /usage readings, and when they were read.
+        /// The latest /usage readings and when they were read, keyed by agent id.
         public var plans: [String: [Limit]]?, plansReadAt: [String: Double]?
         public var claudeLimits: [Limit]?
         public init(
@@ -89,16 +92,17 @@ public struct UsageGet: InternalMethod {
         }
     }
     public var force: Bool?
-    /// The token totals as last read, not read again (a scan reads every transcript): Kelp's window isn't seen.
+    /// Returns the token totals as last read instead of reading them again, because a scan reads every transcript. It
+    /// is set while Kelp's window can't be seen.
     public var cachedTokens: Bool?
     public init(force: Bool? = nil, cachedTokens: Bool? = nil) {
         self.force = force
         self.cachedTokens = cachedTokens
     }
 }
-/// What each agent used over `days`, read from its own logs on this Mac (Claude Code, Codex, Grok, Kimi Code, Copilot): by
-/// day and agent, and by agent, model and project, priced as the API would (Grok as it says itself; 0 for a model with no
-/// list price).
+/// Returns what each agent used over `days`, read from its own logs on this Mac (Claude Code, Codex, Grok, Kimi Code,
+/// Copilot). It is split by day and agent, and by agent, model and project, and priced as the API would price it. Grok
+/// is priced as it states itself, and a model with no list price costs 0.
 public struct UsageAgents: InternalMethod {
     public static let name = "usage.agents"
     /// The cost and tokens of one model, project or agent (`name`) over the span.
@@ -119,12 +123,12 @@ public struct UsageAgents: InternalMethod {
             self.tokens = tokens
         }
     }
-    /// One agent over the span: its tokens by kind (`input` leaves the cache out) and its own models and projects.
+    /// One agent over the span: its tokens by kind (`input` leaves out the cache) and its own models and projects.
     public struct Agent: Codable, Sendable, Equatable {
         public var id: String, cost: Double, tokens: Int
         public var input: Int, output: Int, cacheWrite: Int, cacheRead: Int
         public var models: [Group], projects: [Group]
-        /// Its cost by kind of token, over the models with a list price (nil: none had one).
+        /// The agent's cost by kind of token, over the models with a list price. nil when none had one.
         public var costs: Costs?
         public init(
             id: String, cost: Double, tokens: Int, input: Int, output: Int, cacheWrite: Int, cacheRead: Int,
@@ -159,13 +163,16 @@ public struct UsageAgents: InternalMethod {
         }
     }
     public struct Result: Codable, Sendable, Equatable {
-        /// `days` by day ("yyyy-MM-dd") and agent id; agents and groups most expensive first; `since` is the first day's start.
+        /// `days` is by day ("yyyy-MM-dd") and agent id. Agents and groups are sorted most expensive first. `since`
+        /// is the start of the first day.
         public var days: [Day], agents: [Agent], models: [Group], projects: [Group],
             since: Double
-        /// The agents whose logs are read, in a fixed order (one not here keeps no counts on this Mac), and those whose
-        /// own figure is the cost (the rest are priced from list prices). Nil from a kelpd before they were said.
+        /// The agents whose logs are read, in a fixed order (an agent not listed keeps no counts on this Mac), and the
+        /// agents whose own figure is used as the cost (the rest are priced from list prices). Nil from a kelpd older
+        /// than these fields.
         public var counted: [String]?, ownPrice: [String]?
-        /// The same number of days before `since`, by agent (`name` is its id); nil past the year the logs are read for.
+        /// The same number of days before `since`, by agent (`name` is the agent id). nil beyond the year the logs are
+        /// read for.
         public var previous: [Group]?
         public init(
             days: [Day], agents: [Agent], models: [Group], projects: [Group], since: Double,
@@ -182,7 +189,7 @@ public struct UsageAgents: InternalMethod {
         }
     }
     public var days: Int?
-    /// Only what was used in this project (a name from `projects`).
+    /// Limits the answer to what was used in this project (a name from `projects`).
     public var project: String?
     public init(days: Int? = nil, project: String? = nil) {
         self.days = days

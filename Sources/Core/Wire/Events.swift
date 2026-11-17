@@ -1,9 +1,9 @@
 import Foundation
 
-// What the daemon tells its clients without being asked: JSON-RPC notifications whose params are the event's fields.
-// The names are wire contract like the methods' (rpc.json).
+// Events the daemon sends its clients without being asked. Each is a JSON-RPC notification whose params are the
+// event's fields. Event names are part of the wire contract, like method names (rpc.json).
 
-/// A notification from the daemon: `name` is its method, the type's fields its params.
+/// A notification from the daemon. `name` is the notification's method, and the type's fields are its params.
 public protocol RPCEvent: Codable, Sendable {
     static var name: String { get }
 }
@@ -20,13 +20,13 @@ public let rpcEvents: [any RPCEvent.Type] = [
     ArtifactCheckEvent.self, PhoneEvent.self, PRsEvent.self
 ]
 
-/// A session's record changed: the record is the event.
+/// Sent when a session's record changed. The record itself is the event.
 extension Session: RPCEvent { public static let name = "event.session" }
 
-/// What a session printed, to a client attached with JSON (`session.attach`), not as a byte pipe.
+/// What a session printed, sent to a client that attached with JSON (`session.attach`) rather than as a byte pipe.
 public struct OutputEvent: RPCEvent {
     public static let name = "event.output"
-    public var session: String, data: String   // data: base64
+    public var session: String, data: String   // `data` is base64.
     public init(session: String, data: Data) {
         self.session = session
         self.data = data.base64EncodedString()
@@ -44,7 +44,7 @@ public struct DevServerEvent: RPCEvent {
     }
 }
 
-/// A run couldn't start: what it printed says `port` is taken.
+/// Sent when a run couldn't start because its output says `port` is taken.
 public struct PortBusyEvent: RPCEvent {
     public static let name = "event.portBusy"
     public var worktree: String, port: Int, session: String
@@ -55,14 +55,15 @@ public struct PortBusyEvent: RPCEvent {
     }
 }
 
-/// Projects or workspaces changed: read the lists again. The params are just the word. Still sent for clients that read
-/// lists; the changed records themselves come as `event.repo` / `event.worktree` / `event.removed`.
+/// Sent when projects or workspaces changed, so clients read the lists again. The params are just the word. It is still
+/// sent for clients that read lists, while the changed records themselves come as `event.repo`, `event.worktree` and
+/// `event.removed`.
 public enum ChangedEvent: String, RPCEvent, CaseIterable {
     public static let name = "event.changed"
     case repo, worktree
 }
 
-/// A line of `git clone`'s progress, to the connection that started the clone.
+/// A line of `git clone` progress, sent to the connection that started the clone.
 public struct CloneEvent: RPCEvent {
     public static let name = "event.clone"
     public var id: String, line: String
@@ -72,19 +73,20 @@ public struct CloneEvent: RPCEvent {
     }
 }
 
-/// settings.json changed (a set, or the file edited by hand): all of it now.
+/// Sent when settings.json changed, by a set call or by hand. It carries the whole file as it is now.
 public struct SettingsEvent: RPCEvent {
     public static let name = "event.settings"
     public var settings: [String: JSONValue]
     public init(settings: [String: JSONValue]) { self.settings = settings }
 }
 
-/// An agent's `ui.open` / `ui.command`, relayed to the app: the request's fields and which it was.
+/// An agent's `ui.open` or `ui.command` request, relayed to the app. It carries the request's fields and which of the
+/// two it was.
 public struct UIEvent: RPCEvent {
     public static let name = "event.ui"
     public var action: String
-    public var uri: String?, split: String?, focus: Bool?, worktreeId: String?   // open
-    public var id: String?, args: JSONValue?   // command
+    public var uri: String?, split: String?, focus: Bool?, worktreeId: String?   // For `open`.
+    public var id: String?, args: JSONValue?   // For `command`.
     public init(_ method: UIOpen) {
         action = "open"
         uri = method.uri
@@ -99,7 +101,8 @@ public struct UIEvent: RPCEvent {
     }
 }
 
-/// An agent's `ui.browser`, relayed to the app: it answers with `ui.browser.reply` and the same `request`.
+/// An agent's `ui.browser` request, relayed to the app. The app answers with `ui.browser.reply` and the same
+/// `request`.
 public struct UIBrowserEvent: RPCEvent {
     public static let name = "event.ui.browser"
     public var request: String, action: BrowserAction, args: JSONValue?, worktreeId: String?
@@ -111,7 +114,8 @@ public struct UIBrowserEvent: RPCEvent {
     }
 }
 
-/// `artifact.check` to the window: draw the canvas at `path` again and answer `request` with `ui.browser.reply`.
+/// Relays `artifact.check` to the window, which draws the canvas at `path` again and answers `request` with
+/// `ui.browser.reply`.
 public struct ArtifactCheckEvent: RPCEvent, Equatable {
     public static let name = "event.artifact.check"
     public var request: String, path: String
@@ -121,7 +125,8 @@ public struct ArtifactCheckEvent: RPCEvent, Equatable {
     }
 }
 
-/// The wire form of an event: one encode, no JSONValue in between (output events are many).
+/// The wire form of an event. It is encoded in one pass with no JSONValue in between, because output events are
+/// many.
 public struct RPCNotification<E: RPCEvent>: Encodable {
     public var jsonrpc = "2.0"
     public let method = E.name

@@ -2,7 +2,7 @@ import Foundation
 
 // Methods for a project's .kelp.yaml commands, remote projects, settings, usage and past conversations.
 
-/// Everything trusting the project's .kelp.yaml would allow.
+/// Lists everything that trusting the project's .kelp.yaml would allow.
 public struct ScriptsList: RPCMethod {
     public static let name = "scripts.list"
     public struct Script: Codable, Sendable, Equatable {
@@ -15,10 +15,10 @@ public struct ScriptsList: RPCMethod {
     public struct Result: Codable, Sendable, Equatable {
         public var scripts: [Script], setup: String?, tabs: [String], shared: [String], recipes: [String: String],
             issueCommand: String?
-        /// Its `layout.<name>` lines in the file's order, each as written ("claude | page / run"): the project's group
-        /// templates.
+        /// The file's `layout.<name>` lines in order, each as written ("claude | page / run"). They are the project's
+        /// group templates.
         public var layouts: [Script]?
-        /// Of exactly the text read: `scripts.trust` trusts what was shown, not a later version.
+        /// The digest of exactly the text read, so `scripts.trust` trusts what was shown and not a later version.
         public var digest: String
         public var trusted: Bool, file: String
         public init(
@@ -41,7 +41,7 @@ public struct ScriptsList: RPCMethod {
     public var worktreeId: String
     public init(worktreeId: String) { self.worktreeId = worktreeId }
 }
-/// Says the project's .kelp.yaml, as it was shown (`digest` from scripts.list), may run. Only Kelp's window may call
+/// Allows the project's .kelp.yaml to run, as it was shown (`digest` from scripts.list). Only Kelp's window may call
 /// it.
 public struct ScriptsTrust: RPCMethod {
     public static let name = "scripts.trust"
@@ -52,7 +52,7 @@ public struct ScriptsTrust: RPCMethod {
         self.digest = digest
     }
 }
-/// Runs command `name` (or "setup") in the workspace's folder → the session.
+/// Runs command `name` (or "setup") in the workspace's folder and returns the session.
 public struct ScriptsRun: RPCMethod, StartsSized {
     public static let name = "scripts.run"
     public typealias Result = Session
@@ -66,20 +66,21 @@ public struct ScriptsRun: RPCMethod, StartsSized {
 }
 
 /// Something the project's own files say can be run: a package.json script, a Makefile target, a compose service, a
-/// Python app… (`run.detect`). It runs only when someone picks it (`run.start`), never because a project was opened.
+/// Python app… (`run.detect`). It runs only when someone picks it (`run.start`), never just because a project was
+/// opened.
 public struct RunOption: Codable, Sendable, Equatable {
-    /// "folder|file|name": the same while the file keeps the entry, so a choice can be remembered.
+    /// "folder|file|name", which stays the same while the file keeps the entry, so a choice can be remembered.
     public var id: String
     public var name: String, command: String
-    /// Where it runs, inside the workspace ("" is its own folder).
+    /// Where the option runs inside the workspace ("" is the workspace's own folder).
     public var folder: String
-    /// The file it comes from ("package.json", "Makefile", "compose.yaml"…).
+    /// The file the option comes from ("package.json", "Makefile", "compose.yaml"…).
     public var source: String
     /// "run", "test", "build", "lint", "install" (the dependencies), or "other".
     public var kind: String
-    /// What the entry says, when that isn't the command (a script's body, a service's port).
+    /// What the entry says, when that isn't the command itself (a script's body, a service's port).
     public var detail: String?
-    /// The program it needs that isn't on that machine's PATH.
+    /// A program the option needs that isn't on the PATH of the machine it runs on.
     public var missing: String?
     public init(
         id: String, name: String, command: String, folder: String, source: String, kind: String, detail: String? = nil,
@@ -95,7 +96,8 @@ public struct RunOption: Codable, Sendable, Equatable {
         self.missing = missing
     }
 }
-/// What the workspace's project files offer to run (on the host, for a remote project), and the likeliest dev server.
+/// Returns what the workspace's project files offer to run (on the host, for a remote project), and the likeliest dev
+/// server.
 public struct RunDetect: RPCMethod {
     public static let name = "run.detect"
     public struct Result: Codable, Sendable, Equatable {
@@ -108,8 +110,9 @@ public struct RunDetect: RPCMethod {
     public var worktreeId: String
     public init(worktreeId: String) { self.worktreeId = worktreeId }
 }
-/// Runs option `id` (as run.detect gives it, read again now) in the workspace → the session. The first local URL it prints
-/// comes as event.devserver; a remote project's runs go in tmux on the host, their port forwarded to this Mac.
+/// Runs option `id` (as run.detect gives it, read again now) in the workspace and returns the session. The first local
+/// URL it prints comes as event.devserver. A remote project's runs go in tmux on the host, with their port forwarded to
+/// this Mac.
 public struct RunStart: RPCMethod, StartsSized {
     public static let name = "run.start"
     public typealias Result = Session
@@ -122,8 +125,9 @@ public struct RunStart: RPCMethod, StartsSized {
     }
 }
 
-/// Whether a new Claude Code chat in this workspace gets Kelp's browser skill, and why: `agents.skills.browser`
-/// (auto / on / off), laid under the project's own choice (UI state `browser.choice.<repo>`: "on" / "off").
+/// Returns whether a new Claude Code chat in this workspace gets Kelp's browser skill, and why. It follows
+/// `agents.skills.browser` (auto, on or off), unless the project has its own choice (UI state `browser.choice.<repo>`,
+/// "on" or "off").
 public struct SkillsBrowser: InternalMethod {
     public static let name = "skills.browser"
     public typealias Result = BrowserSkill
@@ -139,13 +143,14 @@ public struct BrowserSkill: Codable, Sendable, Equatable {
     }
     /// The project's own choice (UI state `browser.choice.<repo>`).
     public enum Choice: String, Codable, CaseIterable, Sendable { case on, off }
-    /// `why`: a `Reason`'s words, or the web app found ("Vite in package.json"). `choice`: the project's own, nil when it
-    /// follows Settings. `hint`: off, but the agent is told where the guide is (not when Settings says Never).
+    /// `why` is a `Reason`'s words, or the web app found ("Vite in package.json"). `choice` is the project's own
+    /// choice, nil when it follows Settings. `hint` means the skill is off but the agent is told where the guide is
+    /// (never when Settings says Never).
     public var on: Bool, why: String, choice: Choice?, hint: Bool
     public init(on: Bool, _ reason: Reason, choice: Choice? = nil, hint: Bool = false) {
         self.init(on: on, why: reason.rawValue, choice: choice, hint: hint)
     }
-    /// On because of a web app it found: `framework` says which ("Vite in package.json").
+    /// The skill is on because Kelp found a web app, and `framework` says which ("Vite in package.json").
     public init(framework: String) { self.init(on: true, why: framework) }
     private init(on: Bool, why: String, choice: Choice? = nil, hint: Bool = false) {
         self.on = on
@@ -154,20 +159,21 @@ public struct BrowserSkill: Codable, Sendable, Equatable {
         self.hint = hint
     }
     public var reason: Reason? { Reason(rawValue: why) }
-    /// The web app found, when that's why.
+    /// The web app found, when that is the reason.
     public var framework: String? { reason == nil ? why : nil }
-    /// The hover card's line, as a session keeps it (`Session.browser`); `parse` reads it back.
+    /// The hover card's line, as a session keeps it (`Session.browser`). `parse` reads it back.
     public var line: String { (on ? "on · " : "off · ") + why }
     public static func parse(_ line: String) -> BrowserSkill? {
         let parts = line.components(separatedBy: " · ")
         guard parts.count == 2, ["on", "off"].contains(parts[0]) else { return nil }
         return BrowserSkill(on: parts[0] == "on", why: parts[1])
     }
-    /// The project's choice in UI state.
+    /// The UI state key for the project's choice.
     public static func choiceKey(_ repo: String) -> String { "browser.choice.\(repo)" }
 }
 
-/// A project on `host` at `path` (its local folder stands for the one there); `init` makes a plain folder a repository.
+/// Adds a project on `host` at `path`, with a local folder that stands for the one there. `init` makes a plain folder a
+/// repository.
 public struct RepoAddRemote: RPCMethod {
     public static let name = "repo.addRemote"
     public typealias Result = Repo
@@ -178,16 +184,16 @@ public struct RepoAddRemote: RPCMethod {
         self.`init` = `init`
     }
 }
-/// Why a tab shows a reason instead of a file's text: one rule for a file on this Mac and for one on a remote project's
-/// host (`files.read` fails with it as its error's `data`).
+/// Why a tab shows a reason instead of a file's text. The same rule applies to a file on this Mac and to one on a
+/// remote project's host, and `files.read` fails with it as its error's `data`.
 public enum Unopenable: Codable, Sendable, Equatable {
-    /// A pipe or a device (/dev/zero): reading it would block or never end.
+    /// A pipe or a device (/dev/zero), which would block or never end when read.
     case special
-    /// Past `openLimit` (a 300 MB log would hang the window); its size in bytes.
+    /// A file past `openLimit` (a 300 MB log would hang the window), with its size in bytes.
     case tooBig(Int)
-    /// Not UTF-8 text: decoded anyway, U+FFFD would stand for bytes that a save then writes back.
+    /// Not UTF-8 text. If it were decoded anyway, U+FFFD would stand for the bytes, and a save would write that back.
     case binary
-    /// Bigger than this isn't opened (read only from 5 MB, `CodeEditor.readOnlyLimit`).
+    /// A file bigger than this isn't opened. From 5 MB a file opens read only (`CodeEditor.readOnlyLimit`).
     public static let openLimit = 50 << 20
 
     public var error: RPCError {
@@ -199,16 +205,16 @@ public enum Unopenable: Codable, Sendable, Equatable {
             }
         return RPCError(code: -32001, message: message, data: try? JSONValue.from(self))
     }
-    /// The reason a daemon's error carries, when it's this kind of error.
+    /// Reads the reason a daemon's error carries, when it is this kind of error.
     public init?(_ error: Error) {
         guard let data = (error as? RPCError)?.data, let reason = try? data.decode(Unopenable.self) else { return nil }
         self = reason
     }
 }
 
-/// A remote project's own icon, looked for on its host where `IconSearch` looks → the path of its copy in the project's
-/// folder here (it shows without the host), or null when it has none. A copy kept from before is answered at once and
-/// looked for again in the background.
+/// Finds a remote project's own icon on its host, where `IconSearch` looks, and returns the path of its copy in the
+/// project's local folder, so it shows without the host. Returns null when there is none. A copy kept from before is
+/// returned at once, and the icon is looked for again in the background.
 public struct RepoIcon: InternalMethod {
     public static let name = "repo.icon"
     public typealias Result = String?
@@ -216,13 +222,13 @@ public struct RepoIcon: InternalMethod {
     public init(path: String) { self.path = path }
 }
 
-/// All settings (settings.json's keys, flat and dotted).
+/// Returns all settings (the keys of settings.json, flat and dotted).
 public struct SettingsGet: InternalMethod {
     public static let name = "settings.get"
     public typealias Result = [String: JSONValue]
     public init() {}
 }
-/// A null `value` resets the key → all settings.
+/// Sets a setting and returns all settings. A null `value` resets the key.
 public struct SettingsSet: InternalMethod {
     public static let name = "settings.set"
     public typealias Result = [String: JSONValue]
@@ -233,7 +239,8 @@ public struct SettingsSet: InternalMethod {
     }
 }
 
-/// Past conversations, newest first; `query` (in `fullText` too), `cwd`, at most `limit`.
+/// Lists past conversations, newest first, filtered by `query` (searched in `fullText` too) and `cwd`, at most
+/// `limit`.
 public struct HistoryList: RPCMethod {
     public static let name = "history.list"
     public typealias Result = [AgentSessionInfo]

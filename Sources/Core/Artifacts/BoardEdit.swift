@@ -1,12 +1,12 @@
 import Foundation
 
-/// What the user changes on a board by hand (Edit on the canvas): an element's text, typed over it, and its style, from
-/// the properties panel. Each finds the element in the board's source by its `data-id`, and changes only that: the
-/// rest of the file stays as the agent wrote it. nil when the element can't be found for sure (then nothing is
-/// written).
+/// The changes the user makes to a board by hand (Edit on the canvas): an element's text, typed over it, and its style,
+/// from the properties panel. Each edit finds the element in the board's source by its `data-id` and changes only that
+/// element, so the rest of the file stays as the agent wrote it. Each returns nil when the element can't be found for
+/// sure, and then nothing is written.
 public enum BoardEdit {
-    /// `id`'s text, `old` as the page showed it, made `new`. The element holds only text (no child elements); without a
-    /// `data-id`, `old` must appear as an element's whole text exactly once in the file.
+    /// Replaces the text of element `id`, which the page showed as `old`, with `new`. The element must hold only text
+    /// (no child elements). Without a `data-id`, `old` must appear as an element's whole text exactly once in the file.
     public static func setText(_ source: String, id: String?, old: String, new: String) -> String? {
         let typed = escape(new)
         if let id {
@@ -25,8 +25,9 @@ public enum BoardEdit {
         return out
     }
 
-    /// `id`'s inline style with `property` set to `value`, or taken away for nil. Only what can't end the attribute or
-    /// the declaration passes: the value comes from the panel's lists, the property from its rows.
+    /// Sets `property` to `value` in the inline style of element `id`, or removes it when `value` is nil. Only text
+    /// that can't end the attribute or the declaration is accepted. The value comes from the panel's lists, and the
+    /// property from its rows.
     public static func setStyle(_ source: String, id: String, property: String, value: String?) -> String? {
         guard property.allSatisfy({ $0.isLetter || $0 == "-" }),
             value.map({ !$0.contains(where: { ";\"<>{}".contains($0) }) }) ?? true,
@@ -51,7 +52,8 @@ public enum BoardEdit {
         return out
     }
 
-    /// The opening tag of the one element with `data-id="id"`, from `<` to `>`; nil for none or more than one.
+    /// Returns the range of the opening tag, from `<` to `>`, of the one element with `data-id="id"`. nil when there is
+    /// no such element or more than one.
     static func openingTag(_ source: String, id: String) -> Range<String.Index>? {
         let attribute = "data-id=\"\(id)\""
         let found = source.ranges(of: attribute)
@@ -74,8 +76,8 @@ public enum BoardEdit {
 }
 
 extension DesignSystem {
-    /// The token names in each group of `tokens.json` (`color`, `size`, `space`, `radius`…), in order: the choices the
-    /// properties panel offers, so a hand edit stays inside the system.
+    /// Returns the token names in each group of `tokens.json` (`color`, `size`, `space`, `radius`…), in order. They are
+    /// the choices the properties panel offers, so a hand edit stays inside the design system.
     public static func names(tokens json: String) -> [String: [String]] {
         let object: JSONValue
         do { object = try JSONDecoder().decode(JSONValue.self, from: Data(json.utf8)) } catch { return [:] }

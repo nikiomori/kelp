@@ -1,6 +1,7 @@
 import Foundation
 
-/// Pure toolbar edits for a Markdown editor. Ranges are UTF-16 (NSTextView); each returns the new text and selection.
+/// Pure toolbar edits for a Markdown editor. Ranges are in UTF-16 units (NSTextView), and each edit returns the new
+/// text and selection.
 public enum MarkdownFormat {
     public typealias Edit = (text: String, selection: NSRange)
 
@@ -13,7 +14,8 @@ public enum MarkdownFormat {
             ? wrap(text, range, "```\n", "\n```") : wrap(text, range, "`", "`")
     }
 
-    /// `[sel](url)` with the url placeholder selected; a selected URL becomes the target. A selected link is unwrapped.
+    /// Wraps the selection as `[sel](url)` and selects the url placeholder. A selected URL becomes the target instead,
+    /// and a selected link is unwrapped.
     public static func makeLink(_ text: String, _ range: NSRange, url: String = "url") -> Edit {
         let ns = text as NSString, sel = ns.substring(with: range)
         if let match = sel.wholeMatch(of: /\[([^\]]*)\]\([^)]*\)/) {
@@ -35,7 +37,7 @@ public enum MarkdownFormat {
         )
     }
 
-    /// Sets `#`×level on the selected lines; same level again (or level 0) removes it.
+    /// Puts `level` `#` marks on the selected lines. The same level again, or level 0, removes them.
     public static func heading(_ text: String, _ range: NSRange, level: Int) -> Edit {
         lines(text, range) { ls in
             let ts = targets(ls)
@@ -120,7 +122,7 @@ public enum MarkdownFormat {
         return (match.1.count, String(line[match.range.upperBound...]))
     }
 
-    /// Lines to act on: the single line, or every non-blank line of a multi-line selection.
+    /// Returns the lines to act on: the single line, or every non-blank line of a multi-line selection.
     private static func targets(_ ls: [String]) -> [Int] {
         ls.count == 1 ? [0] : ls.indices.filter { !ls[$0].allSatisfy(\.isWhitespace) }
     }
@@ -144,8 +146,8 @@ public enum MarkdownFormat {
         }
     }
 
-    /// Rewrites the full lines touched by `range`. A caret keeps its place; a selection grows to cover the rewritten
-    /// lines.
+    /// Rewrites the full lines touched by `range`. A caret keeps its place, and a selection grows to cover the
+    /// rewritten lines.
     private static func lines(_ text: String, _ range: NSRange, _ rewrite: ([String]) -> [String]) -> Edit {
         let ns = text as NSString
         var probe = range

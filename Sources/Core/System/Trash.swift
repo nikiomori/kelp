@@ -1,9 +1,9 @@
 import Foundation
 
-/// The Trash, where Kelp puts what it removes from the user's disk: put back with the Finder's "Put Back" or ⌘Z.
-/// `KELP_TRASH` (the tests') is a folder in its place, so no test leaves anything in the user's own.
+/// The Trash, where Kelp puts what it removes from the user's disk, so it can come back with the Finder's "Put Back" or
+/// ⌘Z. Tests set `KELP_TRASH` to a folder used in its place, so no test leaves anything in the user's own Trash.
 public enum Trash {
-    /// Where `url` went.
+    /// Moves `url` to the Trash and returns where it went.
     @discardableResult
     public static func move(_ url: URL) throws -> URL {
         if let dir = ProcessInfo.processInfo.environment["KELP_TRASH"] {

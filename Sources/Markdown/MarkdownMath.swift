@@ -1,14 +1,15 @@
 import Foundation
 
 /// TeX math in Markdown, as GitHub reads it: `$…$` inline, `$$…$$` displayed, `` $`…`$ `` and ```` ```math ```` blocks.
-/// Taken out before cmark parses (its emphasis and escapes would eat `_`, `*` and `\`), each left as a mark of
-/// private-use characters cmark keeps as they are, and put back as `<span class='kelp-math'>` with its TeX as text;
-/// `MarkdownHTML.math` draws them in the page with the bundled KaTeX.
+/// Formulas are taken out before cmark parses, because its emphasis and escapes would eat `_`, `*` and `\`. Each is
+/// left as a mark of private-use characters that cmark keeps as they are, and is put back as `<span class='kelp-math'>`
+/// with its TeX as text. `MarkdownHTML.math` draws them in the page with the bundled KaTeX.
 /// ponytail: code is skipped when fenced or in backticks, not when indented by four spaces.
 struct MarkdownMath {
     private(set) var formulas: [(tex: String, display: Bool)] = []
 
-    /// `md` with each formula a mark; a `$$` block keeps its lines (blank ones after its mark), for `marking`.
+    /// Returns `md` with each formula replaced by a mark. A `$$` block keeps its line count (blank lines after its
+    /// mark) for `marking`.
     mutating func takeOut(_ md: String) -> String {
         guard md.contains("$") else { return md }
         var out = "", fence: Substring?
@@ -40,8 +41,8 @@ struct MarkdownMath {
         return String(out.dropLast())
     }
 
-    /// The line a `$$` block that opens on `start` closes on: one that ends with `$$` (the same line, past the opening,
-    /// or one before a blank line). A `$$` mid-line is inline.
+    /// Returns the line on which a `$$` block opened on `start` closes. That is a line ending with `$$`, either the
+    /// same line past the opening, or a line before a blank line. A `$$` mid-line is inline.
     private func blockEnd(_ lines: [Substring], from start: Int) -> Int? {
         let first = lines[start].drop { $0 == " " }.dropFirst(2).trimmingCharacters(in: .whitespaces)
         if first.contains("$$") { return first.count > 2 && first.hasSuffix("$$") ? start : nil }
@@ -53,7 +54,7 @@ struct MarkdownMath {
         return nil
     }
 
-    /// One line's inline formulas; code spans and `\$` stay as they are.
+    /// Takes out one line's inline formulas. Code spans and `\$` stay as they are.
     private mutating func inline(_ line: Substring) -> String {
         guard line.contains("$") else { return String(line) }
         let chars = Array(line)
@@ -79,7 +80,7 @@ struct MarkdownMath {
         return out
     }
 
-    /// Past the backtick run of `run` that closes a code span opened before `start`.
+    /// Returns the index just past the run of `run` backticks that closes a code span opened before `start`.
     private func codeEnd(_ chars: [Character], from start: Int, run: Int) -> Int? {
         var index = start
         while index < chars.count {
@@ -94,8 +95,8 @@ struct MarkdownMath {
         return nil
     }
 
-    /// A formula opening at `chars[at]` (a `$`): its TeX, whether it's `$$`, and where the text goes on.
-    /// `$…$` opens before a non-space and closes after one, not before a digit: "$5 and $6" stays money.
+    /// Reads a formula opening at `chars[start]` (a `$`): its TeX, whether it is `$$`, and where the text goes on.
+    /// `$…$` opens before a non-space and closes after a non-space, not before a digit, so "$5 and $6" stays money.
     private func formula(_ chars: [Character], at start: Int) -> (String, Bool, Int)? {
         let text = String(chars[start...])
         if let match = text.prefixMatch(of: /\$`([^`]+)`\$/) { return (String(match.1), false, start + match.0.count) }
@@ -111,8 +112,8 @@ struct MarkdownMath {
         return "\u{E000}\(formulas.count - 1)\u{E001}"
     }
 
-    /// `html` with each mark its formula, TeX as text. Single quotes: a mark in an attribute (an image's alt) stays
-    /// text.
+    /// Returns `html` with each mark replaced by its formula, with the TeX as text. The span uses single quotes, so a
+    /// mark in an attribute (an image's alt) stays text.
     func putBack(_ html: String) -> String {
         guard !formulas.isEmpty else { return html }
         return html.replacing(/\x{E000}(\d+)\x{E001}/) { match in

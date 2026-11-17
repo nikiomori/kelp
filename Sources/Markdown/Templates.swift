@@ -2,7 +2,8 @@ import Foundation
 
 /// Markdown note templates (`<repo>/.kelp/templates`, `~/.kelp/templates`) with `{{placeholder}}` expansion.
 public enum Templates {
-    /// Built-ins `date` (yyyy-MM-dd), `time` (HH:mm), `datetime`; `vars` (branch, title, repo, …) override them.
+    /// Expands the built-ins `date` (yyyy-MM-dd), `time` (HH:mm) and `datetime`. `vars` (branch, title, repo, …)
+    /// override them.
     /// Unknown placeholders are left untouched.
     public static func expand(_ text: String, vars: [String: String], now: Date = Date()) -> String {
         let formatter = DateFormatter()
@@ -17,7 +18,7 @@ public enum Templates {
         return text.replacing(/\{\{\s*([\w.\-]+)\s*\}\}/) { m in all[String(m.1)] ?? String(m.0) }
     }
 
-    /// `*.md` files in `dir`, sorted by name; empty if the directory is missing.
+    /// Returns the `*.md` files in `dir`, sorted by name, or none if the directory is missing.
     public static func list(in dir: URL) -> [URL] {
         let urls = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
         return urls.filter { $0.pathExtension.lowercased() == "md" }

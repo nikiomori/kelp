@@ -1,8 +1,9 @@
 import Foundation
 
-/// Where a project keeps its own icon: where web, desktop, Android and Xcode projects keep theirs, at the top or in one of
-/// its folders (a monorepo's `frontend/public/`, an app's `Resources/`, an Android module's `src/main/res/`). Looked for
-/// the same way in a project here (`ProjectIcon`) and on a host (`repo.icon`).
+/// Finds a project's own icon in the places web, desktop, Android and Xcode projects keep theirs, at the top or in one
+/// of the project's folders (a monorepo's `frontend/public/`, an app's `Resources/`, an Android module's
+/// `src/main/res/`). The search works the same way in a project on this Mac (`ProjectIcon`) and on a host
+/// (`repo.icon`).
 public enum IconSearch {
     /// Where icons are kept, relative to the project or one of its top folders.
     public static let places = [
@@ -10,8 +11,8 @@ public enum IconSearch {
         "img/", "images/", "icons/", "build/", "src-tauri/icons/", "docs/", ".github/",
         "src/main/res/mipmap-xxxhdpi/", "src/main/res/mipmap-xxhdpi/"
     ]
-    /// What they're called, best first; any other `.icns`, then an Xcode AppIcon set, then an image named after the
-    /// project come after these.
+    /// The usual icon file names, best first. After these come any other `.icns`, then an Xcode AppIcon set, then an
+    /// image named after the project.
     public static let names = [
         "AppIcon.icns", "icon.icns", "apple-touch-icon.png", "favicon.svg", "icon.svg", "icon.png",
         "favicon.png", "favicon.ico", "ic_launcher.png", "ic_launcher.webp", "logo.svg", "logo.png"
@@ -29,8 +30,8 @@ public enum IconSearch {
     ) -> String? {
         let words = (name ?? (repo as NSString).lastPathComponent).lowercased()
             .split { !$0.isLetter && !$0.isNumber }.map(String.init).filter { $0.count >= 3 }
-        // A folder that is a repository of its own is another project, so its icon isn't this project's (a home folder
-        // holding projects used to take the first project's icon).
+        // A folder that is a repository of its own is another project, so its icon isn't this project's. A home folder
+        // holding projects used to take the first project's icon.
         let tops = (list(repo) ?? []).filter { !$0.hasPrefix(".") && $0 != "node_modules" }.sorted().prefix(40)
             .filter { list(repo + "/" + $0 + "/")?.contains(".git") != true }
         for base in [""] + tops.map({ $0 + "/" }) {
@@ -43,7 +44,7 @@ public enum IconSearch {
                 if let icns = files.sorted().first(where: { $0.hasSuffix(".icns") }) { return dir + icns }
             }
             for (dir, files) in dirs where files.contains("Assets.xcassets") {
-                // An Xcode AppIcon set: its largest PNG.
+                // For an Xcode AppIcon set, take its largest PNG.
                 let set = dir + "Assets.xcassets/AppIcon.appiconset"
                 if let png = (list(set) ?? []).filter({ $0.hasSuffix(".png") }).max(by: {
                     size(set + "/" + $0) < size(set + "/" + $1)
@@ -51,7 +52,8 @@ public enum IconSearch {
                     return set + "/" + png
                 }
             }
-            // A site's favicon under its own name (`pretype-icon.svg`), never another brand's (`github-icon.svg`).
+            // Take a site's icon named after the project (`pretype-icon.svg`), never another brand's
+            // (`github-icon.svg`).
             for kind in ["icon", "logo"] {
                 for (dir, files) in dirs {
                     if let file = files.sorted().first(where: { ownImage($0, kind, words) }) { return dir + file }

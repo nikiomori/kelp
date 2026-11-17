@@ -1,12 +1,13 @@
 import Foundation
 
-/// What `kelp artifact guide design|dashboard` prints: a short core every canvas needs, and the parts read only when
-/// one is needed (`kelp artifact guide design <part>`). Each is fixed text, so it stays in the agent's prompt cache.
+/// What `kelp artifact guide design|dashboard` prints: a short core that every canvas needs, plus parts that the agent
+/// reads only when it needs them (`kelp artifact guide design <part>`). Each part is fixed text, so it stays in the
+/// agent's prompt cache.
 extension Artifacts {
     public static let designParts = ["system", "craft", "deck"]
 
-    /// The core for a canvas of `kind` (a design or a dashboard). `system`: whether the project has its design system
-    /// yet (`.kelp/design/`).
+    /// Returns the core guide for a canvas of `kind` (a design or a dashboard). `system` says whether the project has
+    /// its design system yet (`.kelp/design/`).
     static func canvasCore(_ kind: Kind, system: Bool) -> String {
         let systemLine =
             system

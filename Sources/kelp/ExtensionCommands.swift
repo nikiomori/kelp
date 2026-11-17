@@ -40,7 +40,8 @@ extension Main {
                 guard let entry = try await c.call(ExtensionLibrary()).first(where: { $0.id == what }) else {
                     fail("no \(what) in the library (kelp ext search)")
                 }
-                // Found by its topic, never reviewed: shown first, as any repository is.
+                // An extension found by its topic was never reviewed, so what it runs is shown first, as for any
+                // repository.
                 installed(
                     try await fetch(
                         entry.source, as: nil, c, review: entry.reviewed == false && !args.contains("--yes"),
@@ -54,15 +55,16 @@ extension Main {
                     args.first.map({ $0 == id }) ?? true
                 else { continue }
                 found = true
-                // One from elsewhere on GitHub may have moved on its branch: it's fetched again.
+                // An extension from elsewhere on GitHub may have moved on its branch, so it is fetched again.
                 let entry = library.first { $0.id == id }, latest = entry?.source
-                // A pinned commit (reviewed) says whether it changed; a repository found by its topic is a branch: fetched again.
+                // A pinned (reviewed) commit says whether the extension changed. A repository found by its topic is a
+                // branch, so it is fetched again.
                 if latest == source, entry?.reviewed != false {
                     print("\(id) is up to date")
                     continue
                 }
-                // The library's pinned commit was reviewed; a branch elsewhere may hold anything its owner pushed since. Either
-                // way, commands it didn't run before are asked about.
+                // The library's pinned commit was reviewed, while a branch elsewhere may hold anything its owner pushed
+                // since. Either way, the user is asked about commands the extension didn't run before.
                 installed(
                     try await fetch(
                         latest ?? source, as: f.lastPathComponent, c,
@@ -77,10 +79,11 @@ extension Main {
         }
     }
 
-    /// Downloads it through the daemon and moves it in, as `name` (else its id). `review`: what it can run is shown
-    /// first and asked about in a terminal; with no terminal to ask in, it's refused (`--yes` says yes).
-    /// `files`: the library's SHA-256 of each, which the download must match. `before`: the version installed now; commands
-    /// the new one runs that it didn't are asked about even when the rest needs no review.
+    /// Downloads an extension through the daemon and moves it in as `name` (or else its id). With `review`, what it can
+    /// run is shown first and asked about in a terminal. With no terminal to ask in, it is refused (`--yes` says yes).
+    /// `files` holds the library's SHA-256 of each file, which the download must match. `before` is the version
+    /// installed now. Commands the new version runs that the old one didn't are asked about, even when the rest needs
+    /// no review.
     static func fetch(
         _ source: String, as name: String?, _ client: RPCClient, review: Bool = false, files: [String: String]? = nil,
         before: URL? = nil
@@ -88,7 +91,7 @@ extension Main {
         let folder = URL(fileURLWithPath: try await client.call(ExtensionFetch(source: source, files: files)).folder)
         let had = before.map { ExtensionFiles.commandsIn(manifest($0)) }
         var (commands, pages) = ExtensionFiles.commandsIn(manifest(folder))
-        if !review, let had {   // an update: only what's new needs a yes
+        if !review, let had {   // An update: only what is new needs a yes.
             commands = commands.filter { !had.commands.contains($0) }
             pages = pages.filter { !had.pages.contains($0) }
         }
@@ -113,7 +116,8 @@ extension Main {
             JSONValue.self, from: Data(contentsOf: folder.appendingPathComponent("extension.json")))) ?? .null
     }
 
-    /// What was installed and what it can run: the CLI's version of the app's look before installing.
+    /// Prints what was installed and what it can run, the CLI's version of the review the app shows before
+    /// installing.
     static func installed(_ dest: URL) {
         let info = manifest(dest), (commands, pages) = ExtensionFiles.commandsIn(info)
         print(

@@ -1,18 +1,19 @@
 import Foundation
 
-// Review comments on a workspace's diff (`id` is its worktree id), from the user and from reviewer agents, kept until
-// they are sent to an agent or resolved.
+// Review comments on a workspace's diff (`id` is its worktree id), from the user and from reviewer agents. They are
+// kept until they are sent to an agent or resolved.
 
-/// A review comment on lines `start`…`end` of `file` in workspace `id`.
+/// Adds a review comment on lines `start`…`end` of `file` in workspace `id`.
 public struct CommentAdd: RPCMethod {
     public static let name = "comment.add"
     public typealias Result = DiffComment
     public var id: String, file: String, start: Int?, end: Int?, quote: String?, text: String
-    /// "old": on removed lines, numbered in the old file.
+    /// "old" puts the comment on removed lines, numbered as in the old file.
     public var side: String?
-    /// The session it comes from (`kelp comment add` in an agent's terminal): its agent is named as the comment's author.
+    /// The session the comment comes from (`kelp comment add` in an agent's terminal). That session's agent is named as
+    /// the comment's author.
     public var session: String?
-    /// The commit whose diff it's on, when that isn't the folder's HEAD (a past commit on screen).
+    /// The commit whose diff the comment is on, when that isn't the folder's HEAD (a past commit on screen).
     public var commit: String?
     public init(
         id: String, file: String, start: Int? = nil, end: Int? = nil, quote: String? = nil, text: String,
@@ -30,14 +31,14 @@ public struct CommentAdd: RPCMethod {
         self.commit = commit
     }
 }
-/// The workspace's review comments.
+/// Lists the workspace's review comments.
 public struct CommentList: RPCMethod {
     public static let name = "comment.list"
     public typealias Result = [DiffComment]
     public var id: String
     public init(id: String) { self.id = id }
 }
-/// `id`: the comment's. `state`: open | sent | resolved.
+/// Sets the state of comment `id` to open, sent or resolved.
 public struct CommentSetState: RPCMethod {
     public static let name = "comment.setState"
     public typealias Result = Done
@@ -47,7 +48,8 @@ public struct CommentSetState: RPCMethod {
         self.state = state
     }
 }
-/// The workspace's open comments (`only` those, when given) as one message into `session` → how many went.
+/// Sends the workspace's open comments (only those in `only`, when given) as one message into `session`. Returns how
+/// many were sent.
 public struct CommentSend: RPCMethod {
     public static let name = "comment.send"
     public typealias Result = Int

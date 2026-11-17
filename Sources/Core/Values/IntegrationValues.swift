@@ -1,13 +1,13 @@
 import Foundation
 
-// What GitHub / GitLab / Bitbucket, Linear and Jira answer, as the daemon sends it and the app shows it. Asking them
-// (gh, glab, their web APIs) is Integrations' job.
+// Value types for what GitHub, GitLab, Bitbucket, Linear and Jira answer, as the daemon sends them and the app shows
+// them. Asking those services (with gh, glab or their web APIs) is the job of Integrations.
 
 /// Pull requests, issues, checks and projects. GitLab merge requests and Bitbucket pull requests are read into the same
 /// shapes.
 public enum GitHub {
-    /// What gh's error comes back as when the project's git has no remote on GitHub: a state the panels show quietly,
-    /// not a failure.
+    /// The error text gh's failure is turned into when the project's git has no remote on GitHub. The panels show it
+    /// quietly as a state, not as a failure.
     public static let noRemote = "This project has no GitHub remote."
     /// Which pull requests `github.prs` lists: open, mine, those asking for my review, or the latest closed or merged.
     public enum PRFilter: String, Codable, CaseIterable, Sendable {
@@ -27,13 +27,15 @@ public enum GitHub {
         public var isDraft: Bool, state: String
         public var reviewDecision: String?
         public var checks: Checks
-        /// The head commit when the list was read (GitHub's): a merge goes ahead only while it is still the head.
+        /// GitHub's head commit when the list was read. A merge goes ahead only while this commit is still the head.
         public var headRefOid: String?
-        /// GitHub's word for whether it can merge: CLEAN, BLOCKED, BEHIND, DIRTY (conflicts), UNSTABLE, DRAFT, UNKNOWN.
+        /// GitHub's word for whether the pull request can merge: CLEAN, BLOCKED, BEHIND, DIRTY (conflicts), UNSTABLE,
+        /// DRAFT or UNKNOWN.
         public var mergeState: String?
-        /// ISO 8601, when anything on it last changed (a commit, a check, a comment): the list's age and "new since".
+        /// When anything on the pull request last changed (a commit, a check, a comment), in ISO 8601. The list uses it
+        /// for its age and for "new since".
         public var updatedAt: String?
-        /// The people asked for a review who haven't given one yet (logins; a team request names the team).
+        /// The logins of the people asked for a review who haven't given one yet. A request to a team names the team.
         public var reviewRequests: [String]?
         public init(
             number: Int, title: String, url: String, author: String, headRefName: String, isDraft: Bool, state: String,
@@ -81,7 +83,7 @@ public enum GitHub {
         }
     }
     public struct ReviewComment: Codable, Sendable, Equatable {
-        /// path/line are nil for top-level review bodies.
+        /// `path` and `line` are nil for top-level review bodies.
         public var path: String?, line: Int?
         public var body: String, author: String
         public var url: String?
@@ -121,7 +123,7 @@ public enum GitHub {
             self.deletions = deletions
         }
     }
-    /// A pull request as its own tab reads it: the list's line, and what is said and changed on it.
+    /// A pull request as its own tab shows it: the list's row, plus the comments and changes on it.
     public struct PRView: Codable, Sendable, Equatable {
         public var pr: PullRequest, body: String, baseRefName: String
         public var files: [ChangedFile], comments: [Comment]
@@ -202,7 +204,7 @@ public struct LinearIssue: Codable, Sendable, Equatable {
 
 public struct JiraIssue: Codable, Sendable, Equatable {
     public var key: String, title: String, description: String, url: String
-    public var status: String, statusCategory: String   // statusCategory: new | indeterminate | done
+    public var status: String, statusCategory: String   // statusCategory is new, indeterminate or done.
     public var type: String, project: String
     public init(
         key: String, title: String, description: String, url: String, status: String, statusCategory: String,

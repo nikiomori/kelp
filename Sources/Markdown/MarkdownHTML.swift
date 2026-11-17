@@ -1,10 +1,10 @@
 import Foundation
 import SwiftMarkdown
 
-/// GitHub-flavoured Markdown → HTML: cmark-gfm parses (swift-markdown), `HTMLWriter` writes.
-/// Raw HTML is escaped, but for the tags and attributes on a list (MarkdownGFM): safety over fidelity.
+/// Turns GitHub-flavoured Markdown into HTML. cmark-gfm parses it (through swift-markdown), and `HTMLWriter` writes it.
+/// Raw HTML is escaped, except for the tags and attributes on a list (MarkdownGFM), because safety wins over fidelity.
 public enum MarkdownHTML {
-    /// `marking`: each top-level block goes after an invisible mark of its source line, for `scrollSync` to go by.
+    /// With `marking`, each top-level block follows an invisible mark of its source line, which `scrollSync` goes by.
     public static func render(_ md: String, marking: Bool = false) -> String {
         var writer = HTMLWriter(), math = MarkdownMath()
         let source = writer.takeNotes(math.takeOut(md.replacingOccurrences(of: "\r\n", with: "\n")))
@@ -12,9 +12,10 @@ public enum MarkdownHTML {
             writer.blocks(Document(parsing: source, options: .disableSmartOpts), marking: marking) + writer.footnotes())
     }
 
-    /// Keeps a preview with its source: `kelpToLine(n)` scrolls to source line `n`, between the marks around it; scrolling
-    /// and double-clicking post the line to the `kelpSync` handler. A scroll it did itself doesn't echo back. JavaScript, run
-    /// beside the page (`MarkdownTab.world`), as all of Kelp's scripts for a preview are.
+    /// JavaScript that keeps a preview in step with its source. `kelpToLine(n)` scrolls to source line `n`, between the
+    /// marks around it, and scrolling or double-clicking posts the line to the `kelpSync` handler. A scroll the script
+    /// made itself doesn't echo back. It runs beside the page (`MarkdownTab.world`), as all of Kelp's preview scripts
+    /// do.
     public static let scrollSync = """
         (function () {
           const marks = () => [...document.querySelectorAll('[data-line]')].map(e => ({ l: +e.dataset.line, y: e.getBoundingClientRect().top + scrollY }));
@@ -41,8 +42,8 @@ public enum MarkdownHTML {
         })();
         """
 
-    /// The JavaScript that draws the ```mermaid blocks in the page with the bundled mermaid (no network), or nil when
-    /// there are none. It runs beside the page, as `scrollSync` does; `dark` picks mermaid's dark theme.
+    /// Returns the JavaScript that draws the ```mermaid blocks in the page with the bundled mermaid (no network), or
+    /// nil when there are none. It runs beside the page, as `scrollSync` does, and `dark` picks mermaid's dark theme.
     public static func mermaid(for md: String, dark: Bool) -> String? {
         guard md.contains("```mermaid") || md.contains("~~~mermaid"), let js = mermaidJS else { return nil }
         return js + """
@@ -52,7 +53,8 @@ public enum MarkdownHTML {
             """ + mermaidRun
     }
 
-    /// The page's mermaid blocks drawn, its script in the page already: again after the page's body is replaced.
+    /// Draws the page's mermaid blocks again after the page's body is replaced, with the mermaid script already in the
+    /// page.
     public static let mermaidRun = """
         document.querySelectorAll('pre > code.language-mermaid').forEach(c => {
           const d = document.createElement('div'); d.className = 'mermaid'; d.textContent = c.textContent;
@@ -63,9 +65,9 @@ public enum MarkdownHTML {
 
     static let mermaidJS = resource("mermaid.min", "js")
 
-    /// Formulas (`MarkdownMath`'s spans in a rendered `body`) drawn with the bundled KaTeX, its fonts inside its CSS
-    /// (no network); nil when there are none. JavaScript, as `scrollSync`. A formula KaTeX can't read shows its error in
-    /// red.
+    /// Returns JavaScript that draws the formulas (`MarkdownMath`'s spans in a rendered `body`) with the bundled KaTeX,
+    /// whose fonts are inside its CSS (no network). nil when there are none. It runs like `scrollSync`. A formula KaTeX
+    /// can't read shows its error in red.
     public static func math(for body: String) -> String? {
         guard body.contains("kelp-math"), let js = katexJS, let css = katexCSS else { return nil }
         return js + """
@@ -77,14 +79,14 @@ public enum MarkdownHTML {
             """ + mathRun
     }
 
-    /// The page's formulas drawn, KaTeX in the page already: again after the page's body is replaced.
+    /// Draws the page's formulas again after the page's body is replaced, with KaTeX already in the page.
     public static let mathRun = """
         document.querySelectorAll('.kelp-math').forEach(e => katex.render(e.textContent, e,
           { displayMode: e.classList.contains('kelp-math-display'), throwOnError: false }));
         """
 
     static let katexJS = resource("katex.min", "js")
-    /// In base64 (all ASCII, so `atob` gives it back as it was).
+    /// KaTeX's CSS in base64, which is all ASCII, so `atob` gives it back as it was.
     static let katexCSS = resource("katex.min", "css").map { Data($0.utf8).base64EncodedString() }
     private static func resource(_ name: String, _ ext: String) -> String? {
         Bundle.module.url(forResource: name, withExtension: ext).flatMap {
@@ -169,7 +171,7 @@ public enum MarkdownHTML {
         .kelp-math-display{display:block;margin:0 0 16px;overflow-x:auto;overflow-y:hidden}
         """
 
-    /// Safe in text and in double-quoted attributes (the only kind Kelp's pages write).
+    /// Escapes text so it is safe in text and in double-quoted attributes (the only kind Kelp's pages write).
     public static func esc(_ text: String) -> String {
         var out = ""
         for char in text {
@@ -203,16 +205,16 @@ public enum MarkdownHTML {
     }
 }
 
-/// swift-markdown's tree as HTML, as GitHub writes it. What GitHub adds (alerts, footnotes, bare links, safe HTML) is in
-/// MarkdownGFM.
+/// Writes swift-markdown's tree as HTML, the way GitHub writes it. What GitHub adds (alerts, footnotes, bare links,
+/// safe HTML) is in MarkdownGFM.
 struct HTMLWriter: MarkupVisitor {
     var slugs: [String: Int] = [:]
-    /// Footnotes by label, and the order they're first referred to in (their numbers).
+    /// Footnotes by label, and the order in which they are first referred to, which gives their numbers.
     var notes: [String: String] = [:]
     var noteOrder: [String] = []
-    /// The list being written is tight: its items' paragraphs go without `<p>`, as do a footnote's.
+    /// True while a tight list is being written, so its items' paragraphs go without `<p>`, as a footnote's do.
     var tight = false, inNote = false
-    /// In a link's text: no link in a link, no footnote reference.
+    /// True inside a link's text, where no nested link and no footnote reference is written.
     var inLink = false
 
     mutating func blocks(_ doc: Markup, marking: Bool = false) -> String {
@@ -282,7 +284,8 @@ struct HTMLWriter: MarkupVisitor {
         return list.children.map { visit($0) + "\n" }.joined()
     }
 
-    /// CommonMark's loose list: a blank line between its items, or between two blocks in one of them.
+    /// Whether a list is loose in CommonMark's sense: a blank line between its items, or between two blocks in one of
+    /// them.
     private func loose(_ list: Markup) -> Bool {
         func lastLine(_ markup: Markup) -> Int {
             markup.childCount > 0
@@ -319,7 +322,7 @@ struct HTMLWriter: MarkupVisitor {
         return html + "</table>"
     }
 
-    /// A row with a cell for each column: one it lacks is empty.
+    /// Writes a row with a cell for each column. A cell the row lacks is written empty.
     private mutating func row(_ row: Markup, _ tag: String, _ aligns: [String]) -> String {
         let cells = Array(row.children)
         let html = aligns.indices.map { column in
@@ -330,7 +333,8 @@ struct HTMLWriter: MarkupVisitor {
 
     // MARK: inline
 
-    /// Inline nodes, a run of text as one string (cmark splits it at `[`, `*`…) for footnote references and bare links.
+    /// Writes inline nodes, joining a run of text into one string (cmark splits it at `[`, `*`…) so footnote references
+    /// and bare links can be found.
     mutating func inlines(_ nodes: some Sequence<Markup>) -> String {
         var html = "", run = ""
         for node in nodes {
@@ -370,7 +374,8 @@ struct HTMLWriter: MarkupVisitor {
 
     mutating func visitInlineHTML(_ inlineHTML: InlineHTML) -> String { sanitize(inlineHTML.rawHTML) }
 
-    /// An HTML block that doesn't start with a tag on the list is the text it shows, in a paragraph.
+    /// Writes an HTML block. A block that doesn't start with a tag on the list is written as the text it shows, in a
+    /// paragraph.
     mutating func visitHTMLBlock(_ html: HTMLBlock) -> String {
         let out = sanitize(html.rawHTML.trimmingCharacters(in: .newlines))
         return out.hasPrefix("&lt;") ? "<p>\(out)</p>" : out

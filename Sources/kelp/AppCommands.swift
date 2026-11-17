@@ -2,7 +2,7 @@ import Core
 import Foundation
 
 extension Main {
-    /// `open <path|url> [--split right|down] [--focus]`: a tab in the app.
+    /// `open <path|url> [--split right|down] [--focus]` opens a tab in the app.
     static func open(_ sub: String?, _ c: RPCClient) async throws {
         let split = flag("--split")
         let focus = has("--focus") || sub == "--focus"
@@ -13,7 +13,8 @@ extension Main {
         show(try await IDE.open(target, split: split, cwd: cwd, focus: focus, client: c))
     }
 
-    /// `shot [file]`: the open window as a PNG, for an agent to look at. The app writes it, so this waits for the file.
+    /// `shot [file]` saves the open window as a PNG for an agent to look at. The app writes the file, so this waits for
+    /// it.
     static func shot(_ file: String?, _ client: RPCClient) async throws {
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(
             "kelp-shot-\(UUID().uuidString.prefix(8)).png")

@@ -1,14 +1,14 @@
 import Foundation
 
 // A file's text and the operations the Files panel makes, for a file on this Mac or in a remote project (on its host).
-// Paths are absolute; the project's list and search (`files.list`, `files.ignored`, `files.search`) name a workspace
-// (`id`, its worktree id) and answer paths relative to it.
+// Paths are absolute. The project's list and search (`files.list`, `files.ignored`, `files.search`) name a workspace
+// (`id`, its worktree id) and answer with paths relative to it.
 
-/// A version of a file: the same stamp means the same bytes. It is opaque: here it is the file's size, modification
-/// time and inode (through symlinks); on a host it is the SHA-256 of its bytes.
+/// A version of a file, where the same stamp means the same bytes. It is opaque. On this Mac it is the file's size,
+/// modification time and inode (through symlinks), and on a host it is the SHA-256 of its bytes.
 public typealias FileStamp = String
 
-/// One move: `from` → `to`.
+/// One move, from `from` to `to`.
 public struct FileMove: Codable, Sendable, Equatable {
     public var from: String, to: String
     public init(from: String, to: String) {
@@ -17,8 +17,8 @@ public struct FileMove: Codable, Sendable, Equatable {
     }
 }
 
-/// The file's text and its stamp. Fails with an `Unopenable` error where a tab would refuse it (a pipe, past the size
-/// limit, not UTF-8), or saying it was moved or deleted.
+/// Returns the file's text and its stamp. It fails with an `Unopenable` error where a tab would refuse the file (a
+/// pipe, past the size limit, not UTF-8), or with an error saying the file was moved or deleted.
 public struct FilesRead: RPCMethod {
     public static let name = "files.read"
     public struct Result: Codable, Sendable, Equatable {
@@ -32,13 +32,14 @@ public struct FilesRead: RPCMethod {
     public init(path: String) { self.path = path }
 }
 
-/// Writes `text` (UTF-8, atomically, through a symlink to the file it points at) when the file is still `base`, the
-/// stamp it was read or last written as; with no `base`, whatever is there (Save Here, Keep Mine, a new file).
-/// → {stamp}: written. → {conflict}: unwritten, it changed since (an agent's edit). → {missing: true}: unwritten, it's gone.
+/// Writes `text` (UTF-8, atomically, and through a symlink to the file it points at) when the file is still at `base`,
+/// the stamp it was read or last written with. With no `base`, it writes over whatever is there (Save Here, Keep Mine,
+/// a new file). It answers {stamp} when written, {conflict} when not written because the file changed since (an agent's
+/// edit), and {missing: true} when not written because the file is gone.
 public struct FilesWrite: RPCMethod {
     public static let name = "files.write"
     public struct Conflict: Codable, Sendable, Equatable {
-        /// What's there now; its text nil when that isn't UTF-8.
+        /// What is in the file now. The text is nil when it isn't UTF-8.
         public var stamp: FileStamp, text: String?
         public init(stamp: FileStamp, text: String?) {
             self.stamp = stamp
@@ -61,8 +62,8 @@ public struct FilesWrite: RPCMethod {
     }
 }
 
-/// Moves each pair in order, stopping at the first that fails. `unique`: a `to` that's taken becomes Finder's
-/// "name copy.ext", "name copy 2.ext"… → the moves made (as made), and why the next one failed.
+/// Moves each pair in order, stopping at the first that fails. With `unique`, a `to` that is taken becomes Finder's
+/// "name copy.ext", "name copy 2.ext"… It returns the moves as they were made, and why the next one failed.
 public struct FilesMove: RPCMethod {
     public static let name = "files.move"
     public struct Result: Codable, Sendable, Equatable {
@@ -79,7 +80,8 @@ public struct FilesMove: RPCMethod {
     }
 }
 
-/// Moves each path to the Trash, stopping at the first that fails → where each went (`to`, for ⌘Z to move it back).
+/// Moves each path to the Trash, stopping at the first that fails. It returns where each went (`to`), so ⌘Z can move
+/// it back.
 public struct FilesTrash: RPCMethod {
     public static let name = "files.trash"
     public typealias Result = FilesMove.Result
@@ -87,8 +89,8 @@ public struct FilesTrash: RPCMethod {
     public init(paths: [String]) { self.paths = paths }
 }
 
-/// Copies each path into folder `into`, as Finder's "name copy.ext" when the name is taken → the copies made, and why
-/// the next one failed.
+/// Copies each path into folder `into`, as Finder's "name copy.ext" when the name is taken. It returns the copies made,
+/// and why the next one failed.
 public struct FilesCopy: RPCMethod {
     public static let name = "files.copy"
     public struct Result: Codable, Sendable, Equatable {
@@ -103,12 +105,13 @@ public struct FilesCopy: RPCMethod {
         self.paths = paths
         self.into = into
     }
-    /// Copying a folder dropped from Finder takes as long as it takes.
+    /// No timeout, because copying a folder dropped from Finder takes as long as it takes.
     public static var timeout: TimeInterval? { nil }
 }
 
-/// A file with `text` (empty by default), or a folder, with the folders above it → its path. `unique`: when the name is
-/// taken, the first free one of "name 2.ext", "name 3.ext"… (Finder's "untitled 2"); otherwise a taken name fails.
+/// Creates a file with `text` (empty by default), or a folder, along with the folders above it, and returns its path.
+/// With `unique`, a taken name becomes the first free one of "name 2.ext", "name 3.ext"… (like Finder's "untitled 2").
+/// Without it, a taken name fails.
 public struct FilesCreate: RPCMethod {
     public static let name = "files.create"
     public typealias Result = String
@@ -121,8 +124,9 @@ public struct FilesCreate: RPCMethod {
     }
 }
 
-/// A remote project's file copied to this Mac for a viewer that reads a file (an image, a PDF, what Quick Look shows) →
-/// the copy's path; a file here → its own path. Refused like `files.read` (a pipe, past the size limit), text or not.
+/// Copies a remote project's file to this Mac for a viewer that reads files (an image, a PDF, what Quick Look shows),
+/// and returns the copy's path. For a file on this Mac, it returns the file's own path. It refuses files the way
+/// `files.read` does (a pipe, past the size limit), whether they are text or not.
 public struct FilesFetch: InternalMethod {
     public static let name = "files.fetch"
     public typealias Result = String
@@ -130,15 +134,16 @@ public struct FilesFetch: InternalMethod {
     public init(path: String) { self.path = path }
 }
 
-/// The project's files, relative paths.
+/// Lists the project's files as relative paths.
 public struct FilesList: RPCMethod {
     public static let name = "files.list"
     public typealias Result = [String]
     public var id: String
     public init(id: String) { self.id = id }
 }
-/// What git ignores in the project (.build/, .env…), relative paths; a folder ignored whole ends with "/" and isn't
-/// opened. `folder` (one of those): what's in it, one level, its folders ending with "/".
+/// Lists what git ignores in the project (.build/, .env…) as relative paths. A folder ignored as a whole ends with "/"
+/// and isn't opened. With `folder` (one of those folders), it lists what is in it, one level deep, with its folders
+/// ending in "/".
 public struct FilesIgnored: RPCMethod {
     public static let name = "files.ignored"
     public typealias Result = [String]
@@ -148,12 +153,14 @@ public struct FilesIgnored: RPCMethod {
         self.folder = folder
     }
 }
-/// Searches the workspace's files for `query`, as a `regex` if set, matching `case` if set, whole words only if `word` is.
+/// Searches the workspace's files for `query`, as a regex if `regex` is set, matching case if `case` is set, and whole
+/// words only if `word` is set.
 public struct FilesSearch: RPCMethod {
     public static let name = "files.search"
     public typealias Result = [SearchMatch]
     public var id: String, query: String, regex: Bool?, `case`: Bool?, word: Bool?
-    /// Kelp's search box: a newer search with it in the same folder stops this one (one is asked per pause in the typing).
+    /// Set by Kelp's search box. A newer search with this flag in the same folder stops this one, because the box asks
+    /// once per pause in the typing.
     public var replaces: Bool?
     public init(
         id: String, query: String, regex: Bool? = nil, case: Bool? = nil, word: Bool? = nil, replaces: Bool? = nil

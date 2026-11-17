@@ -3,8 +3,8 @@ import Foundation
 // A machine's keyboard: characters and key names as US key codes, for typing into its screen from the Mac's side.
 
 extension VMs {
-    /// The key code on a US keyboard for a character, and whether it needs Shift: what a machine's screen types from
-    /// the Mac's side. Nil when there is no key for it (`kelp vm type` pastes such text instead).
+    /// Returns the US keyboard key code for a character and whether it needs Shift, for typing into a machine's screen
+    /// from the Mac's side. Nil when no key types the character (`kelp vm type` pastes such text instead).
     public static func usKey(_ char: Character) -> (code: UInt16, shift: Bool)? {
         if let code = keyCodes[String(char)], char.isASCII, !char.isUppercase { return (code, false) }
         if char.isUppercase, char.isASCII, let code = keyCodes[char.lowercased()] { return (code, true) }
