@@ -53,7 +53,7 @@ struct ScratchChats {
     func sweep(keeping cwds: Set<String>, now: Date = Date()) {
         let used = Set(cwds.map { Paths.real($0) ?? $0 })
         let fm = FileManager.default
-        for name in Self.names(real) {
+        for name in FileManager.default.names(in: real) {
             let path = real + "/" + name
             var dir: ObjCBool = false
             guard fm.fileExists(atPath: path, isDirectory: &dir), dir.boolValue, !used.contains(path),
@@ -73,7 +73,7 @@ struct ScratchChats {
         let fm = FileManager.default
         // `rev-parse --verify -q` prints nothing and exits 1 when there's no commit.
         guard fm.fileExists(atPath: folder.appendingPathComponent(".git").path),
-            Self.names(folder.path).allSatisfy({ [".git", ".DS_Store"].contains($0) }),
+            FileManager.default.names(in: folder.path).allSatisfy({ [".git", ".DS_Store"].contains($0) }),
             Log.store.attempt(
                 "reading scratch's git",
                 {
@@ -87,14 +87,7 @@ struct ScratchChats {
     }
 
     private static func isEmpty(_ path: String) -> Bool {
-        FileManager.default.fileExists(atPath: path) && names(path).allSatisfy { $0 == ".DS_Store" }
-    }
-
-    /// Returns the names directly inside a folder, or none when the path isn't a folder.
-    private static func names(_ path: String) -> [String] {
-        let enumerator = FileManager.default.enumerator(
-            at: URL(fileURLWithPath: path), includingPropertiesForKeys: nil,
-            options: [.skipsSubdirectoryDescendants])
-        return (enumerator?.allObjects as? [URL] ?? []).map(\.lastPathComponent)
+        FileManager.default.fileExists(atPath: path)
+            && FileManager.default.names(in: path).allSatisfy { $0 == ".DS_Store" }
     }
 }

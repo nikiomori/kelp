@@ -107,9 +107,7 @@ struct DiskUsage: Sendable {
 
     /// The DerivedData folders Xcode keeps for a workspace or package in one of `roots`.
     static func builtFor(_ roots: [String], in derived: URL) -> [String] {
-        let dirs = FileManager.default.enumerator(
-            at: derived, includingPropertiesForKeys: nil, options: [.skipsSubdirectoryDescendants])
-        return (dirs?.allObjects as? [URL] ?? []).filter { dir in
+        FileManager.default.items(in: derived).filter { dir in
             guard
                 let workspace = NSDictionary(contentsOf: dir.appendingPathComponent("info.plist"))?["WorkspacePath"]
                     as? String

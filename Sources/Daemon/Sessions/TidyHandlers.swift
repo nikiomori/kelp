@@ -33,9 +33,7 @@ enum TidyRuns {
 
     /// The runs, newest first.
     static func runs(_ root: URL) -> [URL] {
-        let names: [String]
-        do { names = try FileManager.default.contentsOfDirectory(atPath: folder(root).path) } catch { return [] }
-        return names.sorted(by: >).map { folder(root).appendingPathComponent($0) }
+        FileManager.default.names(in: folder(root).path).sorted(by: >).map { folder(root).appendingPathComponent($0) }
     }
 
     /// The workspace's newest run that's neither ended nor older than a day.

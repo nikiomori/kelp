@@ -107,9 +107,7 @@ final class ExtensionEvents: Sendable {
         }
         let dir = Paths.extensions(in: root),
             off = Set(settings[SettingKeys.disabledExtensions] ?? [])
-        let found = FileManager.default.enumerator(
-            at: dir, includingPropertiesForKeys: nil, options: [.skipsSubdirectoryDescendants])
-        let folders = found?.allObjects as? [URL] ?? []
+        let folders = FileManager.default.items(in: dir)
         func manifest(_ data: Data?, _ folder: URL) -> Manifest? {
             guard let data else { return nil }
             return Log.session.attempt("reading \(folder.path)/extension.json") {
