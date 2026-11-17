@@ -62,7 +62,7 @@ public struct LinearClient: Sendable {
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         // GraphQL errors come back as 400 with an `errors` body; let parse() report those.
         if code != 200, (try? JSONDecoder().decode(JSONValue.self, from: data))?["errors"] == nil {
-            throw IntegrationError(description: "Linear HTTP \(code)")
+            throw IntegrationError(description: "Linear HTTP \(code)", code: code)
         }
         return data
     }

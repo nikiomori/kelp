@@ -4,6 +4,13 @@ import Integrations
 
 // Linear and Jira: their keys, issues, teams, states and transitions.
 
+extension Forges {
+    /// What `read` answers, nil when the service turned the credentials down; any other failure is thrown, its reason said.
+    static func unlessRefused<T>(_ read: () async throws -> T) async throws -> T? {
+        do { return try await read() } catch let error as IntegrationError where error.refused { return nil }
+    }
+}
+
 extension LinearSetKey: AsyncHandled {
     func handle(_ forges: Forges) async throws -> LinearUser? {
         if key.isEmpty {
@@ -18,8 +25,11 @@ extension LinearSetKey: AsyncHandled {
 extension LinearStatus: AsyncHandled {
     func handle(_ forges: Forges) async throws -> Result {
         guard let linear = try await forges.linearClient() else { return Result(connected: false) }
-        let me = try? await linear.viewer()
-        return Result(connected: me != nil, name: me?.name ?? "")
+        // A key Linear turns down is no connection; Linear not answering (offline, a 5xx) is said, not read as one.
+        guard let me = try await Forges.unlessRefused({ try await linear.viewer() }) else {
+            return Result(connected: false)
+        }
+        return Result(connected: true, name: me.name)
     }
 }
 extension LinearIssues: AsyncHandled {
@@ -69,8 +79,10 @@ extension JiraSetCredentials: AsyncHandled {
 extension JiraStatus: AsyncHandled {
     func handle(_ forges: Forges) async throws -> Result {
         guard let jira = try await forges.jiraClient() else { return Result(connected: false) }
-        let name = try? await jira.myself()
-        return Result(connected: name != nil, name: name ?? "", site: jira.site)
+        guard let name = try await Forges.unlessRefused({ try await jira.myself() }) else {
+            return Result(connected: false, site: jira.site)
+        }
+        return Result(connected: true, name: name, site: jira.site)
     }
 }
 extension JiraIssues: AsyncHandled {

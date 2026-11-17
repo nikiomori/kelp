@@ -30,6 +30,10 @@ private let viewer = #"{"data":{"viewer":{"id":"u1","name":"Ada","email":"ada@x.
         #expect(try await c.call("linear.setKey", .obj(["key": "good"]))["name"]?.string == "Ada")
         let s = try await c.call("linear.status")
         #expect(s["connected"]?.bool == true && s["name"]?.string == "Ada")
+        StubURL.serve("api.linear.app") { _ in (503, "down") }   // not answering isn't "not connected": it says why
+        await #expect(throws: (any Error).self) { _ = try await c.call("linear.status") }
+        StubURL.serve("api.linear.app") { _ in (401, "revoked") }   // a key turned down is
+        #expect(try await c.call("linear.status")["connected"]?.bool == false)
         _ = try await c.call("linear.setKey", .obj(["key": ""]))   // an empty key disconnects
         #expect(try await c.call("linear.status")["connected"]?.bool == false)
     }

@@ -11,8 +11,14 @@ public enum IssueRef {
     }
 }
 
-/// What Jira, Linear and Bitbucket say went wrong.
-public struct IntegrationError: Error, CustomStringConvertible, Sendable { public var description: String }
+/// What Jira, Linear and Bitbucket say went wrong; `refused` when they turned the credentials down (401, 403).
+public struct IntegrationError: Error, CustomStringConvertible, Sendable {
+    public var description: String, refused = false
+    init(description: String, code: Int = 0) {
+        self.description = description
+        refused = code == 401 || code == 403
+    }
+}
 
 /// Jira's and Bitbucket's REST calls: Basic auth (`login` is "user:token"), a JSON body, a 2xx answer (else
 /// "<service> <code>: <start of the reply>").
@@ -30,7 +36,8 @@ func basicAuthRequest(_ service: String, _ method: String, _ url: URL, login: St
     let (data, resp) = try await URLSession.shared.data(for: request)
     let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
     guard (200..<300).contains(code) else {
-        throw IntegrationError(description: "\(service) \(code): \(String(decoding: data.prefix(300), as: UTF8.self))")
+        throw IntegrationError(
+            description: "\(service) \(code): \(String(decoding: data.prefix(300), as: UTF8.self))", code: code)
     }
     return data
 }
