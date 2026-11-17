@@ -102,7 +102,8 @@ enum TidyRuns {
         }
     }
 
-    /// Puts back every kept path from the run's copies; what was there goes to `after/`, so nothing is lost.
+    /// Puts back every kept path from the run's copies; what was there goes to `after/`, so nothing is lost. An Undo that
+    /// stopped midway can be tried again: what it already put back is left, and `after/` never written over.
     static func undo(_ run: URL, _ info: Info) throws {
         let manager = FileManager.default
         for kept in info.kept {
@@ -110,7 +111,10 @@ enum TidyRuns {
             guard manager.fileExists(atPath: copy) else { continue }
             try manager.createDirectory(
                 atPath: (after as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
-            if manager.fileExists(atPath: kept) { try manager.moveItem(atPath: kept, toPath: after) }
+            if manager.fileExists(atPath: kept) {
+                if manager.contentsEqual(atPath: kept, andPath: copy) { continue }
+                try manager.moveItem(atPath: kept, toPath: FileService.free(after, word: nil))
+            }
             try manager.copyItem(atPath: copy, toPath: kept)
         }
     }

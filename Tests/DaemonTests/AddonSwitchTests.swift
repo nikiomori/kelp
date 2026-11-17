@@ -202,3 +202,19 @@ import Testing
     #expect(try await w.c.call(AddonsList(worktreeId: wt.id)).tidied == nil)
     await #expect(throws: (any Error).self) { _ = try await w.c.call(AddonsTidyEnd(worktreeId: wt.id, undo: false)) }
 }
+
+/// An Undo that stopped midway (a file it couldn't put back) can be tried again: what it put back stays, and what the
+/// agent wrote is still kept in `after/`.
+@Test func aTidyUndoThatStoppedMidwayCanBeTriedAgain() throws {
+    let dir = tmp(), run = dir.appendingPathComponent("run"), kept = dir.appendingPathComponent("AGENTS.md").path
+    let copy = run.path + "/before" + kept
+    try FileManager.default.createDirectory(
+        atPath: (copy as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+    try "long\n".write(toFile: copy, atomically: true, encoding: .utf8)
+    try "short\n".write(toFile: kept, atomically: true, encoding: .utf8)
+    let info = TidyRuns.Info(worktreeId: "w", kept: [kept])
+    try TidyRuns.undo(run, info)
+    try TidyRuns.undo(run, info)   // tried again
+    #expect(try String(contentsOfFile: kept, encoding: .utf8) == "long\n")
+    #expect(try String(contentsOfFile: run.path + "/after" + kept, encoding: .utf8) == "short\n")
+}
