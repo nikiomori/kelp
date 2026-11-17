@@ -24,6 +24,8 @@ extension OneAtATime {
         #expect(try await waitFor(4) { !(e.changeMarks.isEmpty) })
         #expect(e.changeMarks.map(\.kind) == [.changed, .added, .removed])
         #expect(e.changeMarks.map(\.line) == [1, 3, 5])
+        try rig.git("commit", "-qam", "agent's change")
+        #expect(try await waitFor(10) { e.changeMarks.isEmpty })
     }
 }
 
