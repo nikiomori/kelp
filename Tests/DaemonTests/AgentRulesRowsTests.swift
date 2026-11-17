@@ -20,13 +20,33 @@ import Testing
     var theirs = Session(worktreeId: wt.id, cwd: "/tmp", command: "cat", argv: ["cat"])
     theirs.origin = term.id
     let elsewhere = Worktree(repoId: w.repo.id, branch: "o", path: "/tmp/o")
-    try w.d.sessions.store.save(mine)
-    try w.d.sessions.store.save(theirs)
+    // A workspace of the agent's alone (its own session is all that runs there), and a session it started.
+    let solo = Worktree(repoId: w.repo.id, branch: "solo", path: "/tmp/solo")
+    var alone = Session(worktreeId: solo.id, cwd: "/tmp", command: "claude", argv: ["claude"])
+    alone.agent = "claude"
+    var child = Session(worktreeId: wt.id, cwd: "/tmp", command: "cat", argv: ["cat"])
+    child.parent = mine.id
+    for record in [mine, theirs, alone, child] { try w.d.sessions.store.save(record) }
     try w.d.sessions.store.save(elsewhere)
+    try w.d.sessions.store.save(solo)
     let typed = Caller.typedAgent(term.id)
     let table: [(Caller, any Answered, Bool, String)] = [
+        (.session(alone.id), WorktreeRemove(id: solo.id), true, "it removes a workspace of its own"),
+        (.session(alone.id), WorktreeArchive(id: solo.id), true, "or archives it"),
+        (.session(alone.id), WorktreeRemove(id: solo.id, force: true), false, "but not with changes in it"),
+        (.session(alone.id), WorktreeRemove(id: solo.id, dropCommits: true), false, "nor with commits only there"),
         (.session(mine.id), WorktreeRemove(id: elsewhere.id), false, "it doesn't remove another's workspace"),
         (.session(mine.id), WorktreeArchive(id: elsewhere.id), false, "nor archive it"),
+        (
+            .session(mine.id), SessionCreate(worktreeId: wt.id, command: "cat", tmux: "work"), false,
+            "nor starts a tmux session, which would attach to the user's of that name"
+        ),
+        (.session(mine.id), SessionRename(id: mine.id, title: "x"), true, "it names its own session"),
+        (.session(mine.id), SessionMarkRead(id: mine.id), true, "and marks it read"),
+        (.session(mine.id), SessionPermissionWait(id: mine.id), true, "and waits on its own question"),
+        (.session(mine.id), SessionSend(id: child.id, text: "go"), true, "it sends into a session it started"),
+        (.session(mine.id), CommentSend(id: wt.id, session: child.id), true, "and its comments there"),
+        (.session(mine.id), UIBrowserAsk(question: "Sign in", worktreeId: wt.id), true, "it hands its page over"),
         (.session(mine.id), GitRemoteOp(id: elsewhere.id, op: .fetch), false, "nor fetch there"),
         (.session(mine.id), GitRemoteOp(id: wt.id, op: .fetch), true, "in its own it fetches"),
         (.session(mine.id), GitRemoteOp(id: wt.id, op: .push), false, "but never pushes"),
@@ -113,16 +133,25 @@ func expectRows(_ daemon: Daemon, _ table: [(Caller, any Answered, Bool, String)
     }
 }
 
-/// Each method agents may call has a row in a rules table (AgentRules*Tests.swift), so taking it off the list fails
-/// one: none is without.
+/// Each method agents may call has a row in a rules table (AgentRules*Tests.swift) that allows it, so taking it off the
+/// list fails one: a row that refuses it passes either way. Allowed is `(caller, Name(…), true, …)`, or a `calls` list,
+/// which each of those tests allows its agent.
 @Test func eachMethodAgentsMayCallHasARow() throws {
     let folder = (#filePath as NSString).deletingLastPathComponent
     let text = try FileManager.default.contentsOfDirectory(atPath: folder)
         .filter { $0.hasPrefix("AgentRules") && $0.hasSuffix("Tests.swift") }
         .map { try String(contentsOfFile: folder + "/" + $0, encoding: .utf8) }.joined()
-    // Calls in code only: a name in a comment, or one ending another's (`Status(` in `GitStatus(`), isn't a row.
-    let code = text.split(separator: "\n").map { $0.components(separatedBy: "//")[0] }.joined(separator: "\n")
+    // Calls in code only: a name in a comment, or one ending another's (`Status(` in `GitStatus(`), isn't a row. A
+    // comment starts at `//` after a space (a URL's `://` isn't one).
+    let code = text.replacing(/(^|\s)\/\/.*/.anchorsMatchLineEndings(), with: "")
+    let lists = code.matches(of: /let calls[^=]*=\s*\[([\s\S]*?)\n    \]/).map { String($0.1) }.joined()
+    func allowed(_ name: String) -> Bool {
+        // Its arguments, two calls deep (`UIOpen(uri: DatabaseTabURI.uri(…))`), then `, true`.
+        let row = #"\b"# + name + #"\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)\s*,\s*true\b"#
+        return code.range(of: row, options: .regularExpression) != nil
+            || lists.range(of: #"\b"# + name + #"\("#, options: .regularExpression) != nil
+    }
     let untested = AgentRules.methods.compactMap { Daemon.methods[$0] }.map { String(describing: $0) }
-        .filter { code.range(of: #"\b"# + $0 + #"\("#, options: .regularExpression) == nil }.sorted()
-    #expect(untested.isEmpty, "\(untested.count) without a row: \(untested.joined(separator: ", "))")
+        .filter { !allowed($0) }.sorted()
+    #expect(untested.isEmpty, "\(untested.count) without a row that allows it: \(untested.joined(separator: ", "))")
 }
