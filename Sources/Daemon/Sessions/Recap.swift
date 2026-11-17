@@ -52,7 +52,6 @@ extension SessionRecap: AsyncHandled {
         var env = ProcessInfo.processInfo.environment.filter {
             !$0.key.hasPrefix("KELP_") && $0.key != "CLAUDE_CODE_CHILD_SESSION"
         }
-        env["PATH"] = Sessions.childPath
         if let name = rec.profile, let profile = sessions.setup.profile(name, agent: manifest.id) {
             env[profile.key] = profile.dir
         }   // its own account
@@ -61,12 +60,16 @@ extension SessionRecap: AsyncHandled {
             let run = remote.command(Self.arguments(manifest.command, conversation: conversation))
             let argv = [remote.ssh] + remote.sshArgs(tty: false) + ["sh -c " + ShellQuote.word(run)]
             out = try await sessions.offloads.run { [env] in
-                try Subprocess.run(argv, cwd: NSHomeDirectory(), env: env, stdin: Data(), timeLimit: 90)
+                var env = env
+                env["PATH"] = Sessions.childPath   // the login PATH's first read runs the login shell: in the slot
+                return try Subprocess.run(argv, cwd: NSHomeDirectory(), env: env, stdin: Data(), timeLimit: 90)
             }
         } else {
             let command = manifest.command
             out = try await sessions.offloads.run { [env] in
                 // found in the slot too: the login PATH's first read runs the login shell
+                var env = env
+                env["PATH"] = Sessions.childPath
                 let argv = Self.arguments(try LoginPath.resolve(command), conversation: conversation)
                 // stdin given: -p waits 3 s for it otherwise
                 return try Subprocess.run(argv, cwd: cwd, env: env, stdin: Data(), timeLimit: 90)

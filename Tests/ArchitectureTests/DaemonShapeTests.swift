@@ -4,8 +4,9 @@ import Testing
 /// The daemon runs programs in its slots (`theDaemonRunsProgramsThroughItsSlots`), its async functions too.
 @Test func theDaemonsAsyncFunctionsRunNoProgramOnThePool() throws {
     // Straight in an async function, a program runs on one of Swift's few pool threads (a sync handler is offloaded
-    // whole). Finding a program on the login PATH may run the login shell, for seconds.
-    let blocking = try NSRegularExpression(pattern: #"LoginPath\.resolve\(|(?<!await )Subprocess\.run\("#)
+    // whole). Finding a program on the login PATH, or reading that PATH (`childPath`), may run the login shell, for seconds.
+    let blocking = try NSRegularExpression(
+        pattern: #"LoginPath\.(resolve\(|value\b)|\bchildPath\b|(?<!await )Subprocess\.run\("#)
     let off = try NSRegularExpression(
         pattern: #"(offloads?\.run|\boffload|\bblocking|Task\.detached|detachNewThread)\s*(\([^)]*\))?\s*\{"#)
     let asyncFunc = try NSRegularExpression(pattern: #"\bfunc\b[^{]*?\basync\b[^{]*\{"#)
