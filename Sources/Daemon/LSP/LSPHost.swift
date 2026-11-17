@@ -43,7 +43,7 @@ final class LSPHost: Sendable {
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
 
-    /// A broken server isn't started again on every open.
+    /// How long a server that broke waits before it is started again, so it isn't restarted on every open.
     let retryDelay: TimeInterval
     /// How long a server with no open file keeps running (a tab closed and opened again doesn't restart it).
     let idleDelay: TimeInterval

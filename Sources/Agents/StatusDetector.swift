@@ -69,7 +69,8 @@ public struct StatusDetector: Sendable {
         source = "screen: it printed words"
     }
 
-    /// Splits `text` into the part before an escape sequence that it ends inside of, and that unfinished sequence.
+    /// Splits `text` where an escape sequence starts but isn't finished yet. `whole` is everything before that
+    /// sequence and `rest` is the unfinished sequence, kept for the next read. `rest` is empty when nothing is cut off.
     static func wholeSequences(_ text: String) -> (whole: String, rest: String) {
         guard let esc = text.lastIndex(of: "\u{1B}") else { return (text, "") }
         let seq = Array(text[esc...].unicodeScalars)

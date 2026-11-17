@@ -63,7 +63,8 @@ public struct Pricing: Sendable, Equatable {
         return table.first { id.contains($0.match) }?.price
     }
 
-    /// One call's cost, 0 for unknown models. A write kept for an hour costs twice the input rate.
+    /// Returns one call's cost, or 0 for a model with no price. A cache write kept for an hour (`hourWrites`) costs
+    /// twice the input rate, not the five-minute cache write's rate.
     public static func cost(model: String, tokens: TokenCounts, hourWrites: Int = 0) -> Double {
         guard let price = of(model) else { return 0 }
         let cost = price.cost(tokens) + Double(hourWrites) * (2 * price.input - price.cacheWrite) / 1_000_000

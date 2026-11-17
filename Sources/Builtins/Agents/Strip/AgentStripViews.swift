@@ -222,7 +222,7 @@ final class StripButton: PointerControl {
 
     func update(_ item: StripItem, open: Bool, app: AppModel) {
         if let repo = item.repo { ProjectIcon.show(repo, in: icon, app: app) }
-        // A clear icon keeps the tile's shape.
+        // The fill behind the icon keeps the tile's shape when a project's icon has a clear background.
         effectiveAppearance.performAsCurrentDrawingAppearance {
             icon.layer?.backgroundColor = NSColor.fillHover.cgColor
         }
