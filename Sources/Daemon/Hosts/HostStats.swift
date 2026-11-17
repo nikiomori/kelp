@@ -328,6 +328,7 @@ enum HostStatsReader {
 }
 
 extension HostStatsRead: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ processes: SessionProcesses) throws -> HostStats {
         let host = host.trimmingCharacters(in: .whitespaces)
         guard RemoteHost.isHost(host) else {

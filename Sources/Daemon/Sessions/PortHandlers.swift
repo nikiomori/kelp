@@ -4,13 +4,16 @@ import Foundation
 // ports.* and session.usage: what the sessions' processes listen on and use, stopping one, forwarding a host's port.
 
 extension PortsList: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ processes: SessionProcesses) throws -> [Port] { processes.ports(worktree: worktreeId) }
 }
 extension SessionUsage: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ processes: SessionProcesses) throws -> [Usage] { processes.usage() }
 }
 
 extension PortsStop: Handled {
+    static let agents = AgentAccess.acts
     // said, not left to the walk: it stops a process, and an id of no workspace finds none
     var fence: Fence { Fence(inWorkspace: worktreeId) }
     func handle(_ processes: SessionProcesses) throws -> Done {

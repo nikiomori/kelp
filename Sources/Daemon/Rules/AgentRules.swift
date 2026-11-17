@@ -2,71 +2,22 @@ import Core
 import Foundation
 import GRDB
 
-/// What an agent's program may reach: the methods it may call, and the rules every call is held to (`allow`, which
-/// `Daemon.allow` asks for every call).
-enum AgentRules {
-    /// The methods an agent's program, or one kelpd runs (an extension's, a git hook), may call at all; each still has its
-    /// own rules (`actsOn`, `inWorkspace`, …). What agents use (their skills, hooks and `kelp` commands) and what reads.
-    /// Everything else is the user's (commits, pushes, PRs, CI, trackers, credentials, projects, scripts, the daemon
-    /// itself): a new method is closed to agents until it's put here. By type, so a renamed one stays named.
-    static let methods: Set<String> = Set((reading + acting).map { $0.name })
-    /// What only reads: a workspace it names may be any (a review of another branch, a status); what acts is held to the
-    /// agent's own workspaces, every one it names, whatever the field (`Store.workspaces(namedBy:)`).
-    static let reads: Set<String> = Set(reading.map { $0.name })
-    private static let reading: [any RPCMethod.Type] = [
-        AgentsVersions.self, CIFailures.self, CIFullLog.self, CIJobs.self, CILog.self, CIRunsList.self,
-        AddonsList.self, ArtifactCheck.self,
-        CommentList.self, DaemonInfo.self, Ping.self, ExtensionLibrary.self, FilesFetch.self, FilesIgnored.self,
-        FilesList.self, FilesRead.self, FilesSearch.self, GitAuthorAvatar.self, GitBranches.self,
-        GitCommitDetails.self, GitCommitFiles.self, GitDiff.self, GitGraph.self, GitLineStats.self,
-        GitLog.self, GitRemoteOp.self, GitStatus.self, GitUnsynced.self, GitWebPages.self, GitWebURL.self,
-        GitHubBranchPR.self, GitHubChecks.self, GitHubFailedLog.self, GitHubForge.self, GitHubIssues.self,
-        GitHubProjectItems.self, GitHubProjects.self, GitHubPRs.self, GitHubReviewComments.self, GitHubStatus.self,
-        GitHubPRView.self, GitHubIssueView.self, GitLabStatus.self, BitbucketStatus.self,
-        // whether Jira and Linear are connected, not what's in them: their issues, teams and transitions are read with
-        // the user's keys, which an agent's own shell can't read, and a query (`jql`) reaches the whole site
-        JiraStatus.self, LinearStatus.self, HistoryList.self,
-        HostStatsRead.self, PortsList.self, ProcessWhich.self, RecipeRender.self, RemoteListFolders.self,
-        RepoIcon.self, RepoList.self, RepoWorktreeSizes.self, RoutineList.self, RunDetect.self, ScriptsList.self,
-        SessionBusy.self, SessionCommands.self, SessionContext.self, SessionContextParts.self,
-        SessionContextWindow.self, SessionLastReply.self, SessionList.self, SessionRead.self,
-        SessionSubagentJournal.self, SessionSubagentSteps.self, SessionTrail.self, SessionTurns.self,
-        SessionUsage.self, SessionWhy.self, SettingsGet.self, SkillsBrowser.self, StateGet.self, TmuxList.self,
-        UIStateGet.self, UsageAgents.self, UsageGet.self, VMDetailRead.self, VMList.self, WorktreeDirty.self,
-        WorktreeList.self, WorktreeUnmerged.self, ClientEvents.self, WatchStart.self, WatchStop.self
-    ]
-    private static let acting: [any RPCMethod.Type] = [
-        // its own sessions and those it started (`actsOn`, named ids), its hooks and reports
-        SessionAttach.self, SessionDetach.self, SessionResize.self, SessionCreate.self, SessionSend.self,
-        SessionWrite.self, SessionStream.self, SessionKill.self, SessionRestart.self, SessionRename.self,
-        SessionMarkRead.self,
-        SessionMarkUnread.self, SessionRecap.self, SessionHandoff.self, SessionContinueAt.self, SessionTurn.self,
-        SessionHook.self, SessionReport.self, SessionPermissionWait.self,
-        // the pages it makes for the user (`kelp artifact new|add`, its hook after a tool published one)
-        ArtifactNew.self, ArtifactAdd.self,
-        PaneReportAgent.self, CommentAdd.self, CommentSend.self,
-        // the commits it proposes (`kelp commit add`): the user edits them and Kelp makes them, never the agent
-        CommitPlanAdd.self,
-        // staging or unstaging a hunk writes the index: in its own workspaces only
-        GitHunk.self,
-        // the IDE: what it shows anywhere (`ui.command`'s `forAgents`), what it opens or changes in its own workspaces
-        // (`inWorkspace`), settings but the user's own (`SettingsSet.usersOnly`), and what its skills do
-        UIOpen.self, UICommand.self, UIBrowser.self, UIBrowserAsk.self, PortsStop.self, SettingsSet.self,
-        ExtensionFetch.self,
-        WorkspaceCreate.self, WorktreeCreate.self, WorktreeNote.self, WorktreeArchive.self, WorktreeRemove.self,
-        VMConnect.self, VMScreen.self, VMUI.self, VMType.self, VMControl.self,
-        // a machine it needs, made only once the user allows it on its row (`VMCreate`'s handler)
-        VMCreate.self,
-        // a routine the user asked it for: a new one in its project, added only once they allow it on its row
-        // (`RoutineSet`'s handler); changing, running and deleting one stay theirs
-        RoutineSet.self,
-        // its own workspaces' databases: which, their tables, and a statement (read-only, or a change as the database's
-        // `agentAccess` says, `Databases.query`); another project's aren't its to look at, production ones included
-        DatabaseList.self, DatabaseSchemaRead.self, DatabaseQuery.self
-    ]
+/// What an agent's program may do with a method, as its handler says once (`Answered.agents`, beside its `fence`).
+/// Anything else is the user's (commits, pushes, PRs, CI, trackers, credentials, projects, scripts, the daemon itself):
+/// a method that says nothing is closed to agents.
+enum AgentAccess {
+    /// The user's alone.
+    case none
+    /// Only reads: a workspace it names may be any (a review of another branch, a status).
+    case reads
+    /// Acts: every session and workspace it names, whatever the field, is held to the agent's own
+    /// (`Store.named(by:)`, `Store.workspaces(namedBy:)`), and each still has its own rules (`actsOn`, `inWorkspace`, …).
+    case acts
 }
 
-extension AgentRules {
+/// What an agent's program may reach: the methods it may call (`methods`, beside the daemon's table of them), and the
+/// rules every call is held to (`allow`, which `Daemon.allow` asks for every call).
+enum AgentRules {
     /// What `caller` may reach with this call (`Daemon.allow`, which every path asks).
     /// A report comes from inside a session for that session only, by its process tree. A program an agent runs, or runs in
     /// a terminal it started (`parent`, `startedBy`, `origin`: all the daemon's, from the caller's process), reads, types

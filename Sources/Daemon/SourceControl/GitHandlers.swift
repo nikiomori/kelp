@@ -6,16 +6,19 @@ import GitKit
 // Source control, files and review comments: everything runs here, off the UI.
 
 extension GitStatus: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
         try Git.status(scm.folder(id), limit: FileChange.limit, remotes: scm.remotes)
     }
 }
 extension GitBranches: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
         try Git.branches(scm.folder(id), remotes: scm.remotes)
     }
 }
 extension GitLineStats: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
         try Git.lineStats(scm.folder(id), remotes: scm.remotes)
     }
@@ -28,6 +31,7 @@ extension GitPush: Handled {
 }
 
 extension GitDiff: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
         let workspace = try scm.store.worktree(named: id)
         var dir = workspace.path
@@ -77,6 +81,7 @@ extension GitLineOrigin: Handled {
 }
 
 extension GitLog: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
         let workspace = try scm.store.worktree(named: id)
         let base = all == true ? nil : try scm.store.repo(workspace.repoId)?.baseBranch
@@ -87,6 +92,7 @@ extension GitLog: Handled {
 }
 
 extension GitUnsynced: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
         try Git.unsynced(scm.folder(id), limit: limit ?? 5, remotes: scm.remotes)
     }
@@ -106,6 +112,8 @@ extension GitUnstage: Handled {
 }
 
 extension GitHunk: Handled {
+    // staging or unstaging a hunk writes the index: in the agent's own workspaces only
+    static let agents = AgentAccess.acts
     func handle(_ scm: SourceControl) throws -> Done {
         let workspace = try scm.store.worktree(named: id), rev = reverse == true
         let diff = try Git.diff(
@@ -157,6 +165,7 @@ extension GitSwitch: Handled {
 }
 
 extension GitGraph: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
         let graph = try Git.graph(scm.folder(id), limit: max(1, limit ?? 200), remotes: scm.remotes)
         return Result(commits: graph.commits, more: graph.more)
@@ -164,11 +173,13 @@ extension GitGraph: Handled {
 }
 
 extension GitCommitFiles: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
         try Git.commitFiles(scm.folder(id), commit: clientRef(commit) ?? "", remotes: scm.remotes)
     }
 }
 extension GitCommitDetails: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
         try Git.commitDetails(scm.folder(id), commit: clientRef(commit) ?? "", remotes: scm.remotes)
     }
@@ -221,6 +232,7 @@ extension GitUndoDiscard: Handled {
 }
 
 extension GitRemoteOp: Handled {
+    static let agents = AgentAccess.reads
     /// A fetch, in an agent's own workspace. A pull merges into a tree and a push publishes a branch: the user's, as
     /// commits are (`AgentRules`).
     var fence: Fence {
@@ -244,6 +256,7 @@ extension GitStash: Handled {
 }
 
 extension GitWebURL: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> String {
         let last = end ?? start
         return try Git.webURL(
@@ -252,6 +265,7 @@ extension GitWebURL: Handled {
 }
 
 extension GitWebPages: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Pages? {
         let path = try scm.store.repoPath(worktreeId: worktreeId, repoId: repoId).1
         // no origin: nothing to link to
@@ -261,16 +275,19 @@ extension GitWebPages: Handled {
 }
 
 extension FilesList: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
         try ProjectFiles.list(scm.folder(id), remotes: scm.remotes)
     }
 }
 extension FilesIgnored: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
         try ProjectFiles.ignored(scm.folder(id), folder: folder, remotes: scm.remotes)
     }
 }
 extension FilesSearch: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
         try ProjectFiles.search(
             scm.folder(id), query: query, regex: regex == true, caseSensitive: `case` == true,

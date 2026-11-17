@@ -4,12 +4,14 @@ import Foundation
 // vm.*: the RPCs, each answered by VMService.
 
 extension VMList: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ vms: VMService) throws -> [VMInfo] { vms.list(sessions: true) }
 }
 
 // Whose turn the screen is: the caller's session as its process says (`Sessions.asker`), what was sent only from outside
 // every session (the user's own terminal or window).
 extension VMType: Handled {
+    static let agents = AgentAccess.acts
     /// No text types the machine's password (Type Password): into whatever has its focus, which the user looks at first.
     var fence: Fence {
         Fence(
@@ -24,6 +26,7 @@ extension VMType: Handled {
 }
 
 extension VMScreen: Handled {
+    static let agents = AgentAccess.acts
     func handle(_ vms: VMService) throws -> Done {
         _ = try vms.screen(name, args, session: Sessions.asker ?? session)
         return Done()
@@ -31,18 +34,22 @@ extension VMScreen: Handled {
 }
 
 extension VMUI: Handled {
+    static let agents = AgentAccess.acts
     func handle(_ vms: VMService) throws -> String {
         try vms.screen(name, ["ui"] + (app.map { ["--app", $0] } ?? []), session: Sessions.asker)
     }
 }
 
 extension VMDetailRead: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ vms: VMService) throws -> VMDetail? { vms.detail(name) }
 }
 
 /// It downloads gigabytes and takes memory from every chat's budget: the user's to decide. An agent's asks them on its
 /// row (Allow / Deny), as a database change does; the user's own (Kelp's window, their terminal) makes it at once.
 extension VMCreate: AsyncHandled {
+    // a machine an agent needs, made only once the user allows it on its row
+    static let agents = AgentAccess.acts
     func handle(_ asking: VMAsking, conn: Int) async throws -> VMInfo {
         if case .some(let session) = asking.asks.store.agent(origin: Sessions.asker) {
             guard let session, let ls = asking.asks.existing(session) else {
@@ -87,6 +94,7 @@ struct VMAsking: Sendable {
 }
 
 extension VMControl: Handled {
+    static let agents = AgentAccess.acts
     /// Other chats run commands in it: shutting it down or deleting it is the user's (sleeping is fine: the next command wakes it).
     var fence: Fence {
         Fence(
@@ -97,6 +105,7 @@ extension VMControl: Handled {
 }
 
 extension VMConnect: Handled {
+    static let agents = AgentAccess.acts
     // the folder a command runs in on the machine, the project's own on the Mac
     var fence: Fence { Fence(writesInFolder: cwd) }
     func handle(_ vms: VMService) throws -> VMConnection { try vms.connect(name, cwd: cwd) }

@@ -5,6 +5,7 @@ import ServiceManagement
 // daemon.*: ping, shutdown, upgrade, and whether it may run in the background: the daemon's own lifetime.
 
 extension Ping: Handled {
+    static let agents = AgentAccess.reads
     static var quick: Bool { true }
     func handle(_: NoService) throws -> String { "pong" }
 }

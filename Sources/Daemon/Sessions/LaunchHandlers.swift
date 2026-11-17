@@ -6,6 +6,7 @@ import GitKit
 import Integrations
 
 extension SessionCreate: Handled {
+    static let agents = AgentAccess.acts
     /// Its workspace said, not left to the walk: a session made there would let an agent into it. Where it runs (`cwd`)
     /// wins over `worktreeId`: held to the workspace that holds it. A tmux session by name would attach to one of the
     /// user's (`new-session -A`), and type in it as the agent.
@@ -60,6 +61,7 @@ extension SessionCreate: Handled {
 }
 
 extension SessionRestart: Handled {
+    static let agents = AgentAccess.acts
     var fence: Fence { Fence(actsOn: id) }   // it stops the session, and may brief it anew
     func handle(_ sessions: Sessions) throws -> Session {
         guard try sessions.store.session(id) != nil else { throw RPCError.noSession(id) }
@@ -195,6 +197,7 @@ extension SessionSetup {
 }
 
 extension RecipeRender: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ workspaces: Workspaces) throws -> String {
         let worktree = try workspaces.store.worktree(named: id)
         // the repo's own prompts only once trusted
@@ -215,6 +218,7 @@ extension RecipeRender: Handled {
 
 /// The agents on this Mac, side by side, each through `offload`; latest from npm where they publish there.
 extension AgentsVersions: AsyncHandled {
+    static let agents = AgentAccess.reads
     func handle(_ sessions: Sessions) async throws -> [Item] {
         let manifests = AgentManifest.load(dir: Paths.agents(in: sessions.root))
         return await withTaskGroup(of: Item?.self) { group in

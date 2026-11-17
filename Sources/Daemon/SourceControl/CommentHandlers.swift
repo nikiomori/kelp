@@ -6,6 +6,7 @@ import GitKit
 // comment.*: review comments on a diff, kept, marked and sent to the agent as one message.
 
 extension CommentAdd: Handled {
+    static let agents = AgentAccess.acts
     var fence: Fence { Fence(reportsFor: session, signs: true) }   // it names its own session's agent as author
     func handle(_ scm: SourceControl) throws -> DiffComment {
         // A path is one line: one with a break in it would be drawn under no file, and sent as lines of its own.
@@ -39,6 +40,7 @@ extension CommentAdd: Handled {
     }
 }
 extension CommentList: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ scm: SourceControl) throws -> Result {
         let workspace = try scm.store.worktree(named: id)
         return try CommentPlaces.follow(try scm.store.comments(worktree: workspace.id), in: workspace.path, scm)
@@ -101,6 +103,7 @@ extension CommentSetState: Handled {
 }
 /// All open comments → one message into the agent's terminal.
 extension CommentSend: Handled {
+    static let agents = AgentAccess.acts
     /// It types, with Enter: an agent sends only to itself and the sessions it started; a send (`SessionSend`, whose
     /// handler it calls past `allow`), so not into a question.
     var fence: Fence { Fence(actsOn: session, typesInto: session) }

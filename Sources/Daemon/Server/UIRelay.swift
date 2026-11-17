@@ -14,9 +14,13 @@ extension UIPublish: Handled {
     }
 }
 
-extension UIStateGet: Handled { func handle(_ clients: Clients) throws -> ShownUI { clients.uiState } }
+extension UIStateGet: Handled {
+    static let agents = AgentAccess.reads
+    func handle(_ clients: Clients) throws -> ShownUI { clients.uiState }
+}
 
 extension UIOpen: Handled {
+    static let agents = AgentAccess.acts
     /// A terminal or an agent the app starts is nobody's: one an agent asks for comes from `kelp session new`, which makes it its own.
     /// Its scheme as the app reads it (`TabURI.scheme`: any case), not as it's spelled: `TERMINAL:` runs a command too.
     private var scheme: String { uri.firstIndex(of: ":").map { uri[..<$0].lowercased() } ?? "file" }
@@ -64,6 +68,7 @@ extension UIOpen: Handled {
 }
 
 extension UICommand: Handled {
+    static let agents = AgentAccess.acts
     var fence: Fence {
         Fence(
             notForAgents: Self.forAgents.contains(id)
@@ -77,6 +82,7 @@ extension UICommand: Handled {
 /// To the app, which does it in a browser tab and answers with `ui.browser.reply`; this waits for that answer.
 /// A subagent's command says whose it is (`args.subagent`): Claude Code's hook told which subagent runs it.
 extension UIBrowser: AsyncHandled {
+    static let agents = AgentAccess.acts
     // none named: the one on screen, which needn't be the agent's
     var fence: Fence { Fence(inWorkspace: worktreeId ?? "") }
     func handle(_ relay: BrowserRelay) async throws -> JSONValue {
@@ -115,6 +121,7 @@ extension UIBrowser: AsyncHandled {
 /// The page goes to the user with the question, and the agent's row asks it, as Kelp's own questions are asked
 /// (`askForKelp`): Done on the page answers Allow. Then the page leaves the question, and the answer is where it is.
 extension UIBrowserAsk: AsyncHandled {
+    static let agents = AgentAccess.acts
     var fence: Fence { Fence(inWorkspace: worktreeId ?? "") }
     func handle(_ relay: BrowserRelay, conn: Int) async throws -> JSONValue {
         // An agent asks on its own row, never one it names; the user's script, on the row of the session it runs in.
@@ -176,6 +183,7 @@ struct UIStore {
 }
 
 extension StateGet: Handled {
+    static let agents = AgentAccess.reads
     static var quick: Bool { true }
     func handle(_ ui: UIStore) throws -> JSONValue {
         if let prefix {
@@ -218,6 +226,7 @@ extension StateSet: Handled {
 }
 
 extension ClientEvents: Handled {
+    static let agents = AgentAccess.reads
     static var inOrder: Bool { true }   // before whatever is broadcast after it
     func handle(_ clients: Clients, conn: Int) throws -> Done {
         clients.setMuted(conn, !events)

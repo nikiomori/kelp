@@ -21,6 +21,7 @@ extension Workspaces {
 }
 
 extension RunDetect: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ workspaces: Workspaces) throws -> Result {
         let options = try workspaces.runOptions(try workspaces.store.worktree(named: worktreeId))
         return Result(options: options, guess: Runnables.guess(options))

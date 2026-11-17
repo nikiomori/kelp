@@ -68,6 +68,7 @@ extension Workspaces {
 }
 
 extension ScriptsList: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ workspaces: Workspaces) throws -> Result {
         let (_, repo) = try workspaces.configRepo(worktreeId)
         let read = workspaces.configAndTrust(repo), cfg = read.config

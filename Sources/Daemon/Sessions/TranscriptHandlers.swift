@@ -5,6 +5,7 @@ import Foundation
 // What an agent's transcript says: its context window and what fills it, its subagents' steps.
 
 extension SessionContextWindow: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ sessions: Sessions) throws -> Usage? {
         // A remote one's: the end of its conversation on the host, where its last turn's usage is.
         let conversations = sessions.agentUsage.conversations, ls = sessions.existing(id)
@@ -20,6 +21,7 @@ extension SessionContextWindow: Handled {
 }
 
 extension SessionContextParts: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ sessions: Sessions) throws -> Parts? {
         guard let ls = sessions.existing(id), let transcript = sessions.agentUsage.conversations.transcript(of: ls),
             let context = ClaudeContext.usage(transcript: transcript),
@@ -32,6 +34,7 @@ extension SessionContextParts: Handled {
 }
 
 extension SessionSubagentSteps: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ sessions: Sessions) throws -> Result {
         guard let ls = sessions.existing(id), let parent = sessions.agentUsage.conversations.transcript(of: ls) else {
             return [:]
@@ -56,6 +59,7 @@ extension SessionSubagentSteps: Handled {
 }
 
 extension SessionSubagentJournal: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ sessions: Sessions) throws -> Result {
         let usage = sessions.agentUsage.conversations
         guard

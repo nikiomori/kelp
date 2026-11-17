@@ -6,6 +6,7 @@ import GitKit
 import Integrations
 
 extension SessionHandoff: Handled {
+    static let agents = AgentAccess.acts
     func handle(_ sessions: Sessions) throws -> Session {
         guard let old = try sessions.store.session(id) else { throw RPCError.noSession(id) }
         return try start(from: old, in: old.cwd, worktreeId: old.worktreeId, sessions)

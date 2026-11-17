@@ -186,9 +186,11 @@ final class SettingsEvents: Sendable {
 }
 
 extension SettingsGet: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ settings: SettingsStore) throws -> [String: JSONValue] { settings.values }
 }
 extension SettingsSet: Handled {
+    static let agents = AgentAccess.acts
     /// A colour dragged or a stepper held sends these quickly: the last one sent is the one that stays.
     static var inOrder: Bool { true }
     /// What an agent may not set (`kelp settings set`, its settings skill): where Kelp sends what agents did off this Mac

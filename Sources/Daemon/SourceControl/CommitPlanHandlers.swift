@@ -12,6 +12,8 @@ final class CommitPlans: Sendable {
 }
 
 extension CommitPlanAdd: Handled {
+    // the commits an agent proposes (`kelp commit add`): the user edits them and Kelp makes them, never the agent
+    static let agents = AgentAccess.acts
     static var quick: Bool { true }
     var fence: Fence { Fence(reportsFor: session) }   // a plan names its own session's agent, not another's
     func handle(_ commits: CommitPlans) throws -> Int {

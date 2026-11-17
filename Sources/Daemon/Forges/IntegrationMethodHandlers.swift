@@ -79,6 +79,7 @@ struct ForgeWork {
 // MARK: gh / glab / git only
 
 extension GitHubBranchPR: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .quiet }
     func handle(_ forges: Forges) throws -> GitHub.PullRequest? {
         let workspace = try forges.store.worktree(named: worktreeId), branch = forges.checkedOut(workspace),
@@ -100,6 +101,7 @@ extension GitHubBranchPR: Handled {
 }
 
 extension GitHubForge: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .quiet }
     func handle(_ forges: Forges) throws -> String {
         let (_, path) = try forges.store.repoPath(worktreeId: worktreeId, repoId: repoId)
@@ -108,6 +110,7 @@ extension GitHubForge: Handled {
 }
 
 extension CIRunsList: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> Result {
         let workspace = try forges.store.worktree(named: worktreeId), branch = forges.checkedOut(workspace)
@@ -117,24 +120,28 @@ extension CIRunsList: Handled {
     }
 }
 extension CIJobs: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> [CIRuns.Job] {
         try CIRuns.jobs(cwd: forges.store.worktree(named: worktreeId).path, run: run ?? 0)
     }
 }
 extension CILog: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> String {
         try CIRuns.log(cwd: forges.store.worktree(named: worktreeId).path, job: job ?? 0)
     }
 }
 extension CIFullLog: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> String {
         try CIRuns.fullLog(cwd: forges.store.worktree(named: worktreeId).path, job: job ?? 0)
     }
 }
 extension CIFailures: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> CIRuns.Report {
         let path = try forges.store.worktree(named: worktreeId).path
@@ -181,6 +188,7 @@ extension CIDispatch: Handled {
 }
 
 extension GitHubStatus: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_: NoService) throws -> Result {
         let account = GitHub.account()
@@ -188,12 +196,14 @@ extension GitHubStatus: Handled {
     }
 }
 extension GitLabStatus: Handled {
+    static let agents = AgentAccess.reads
     func handle(_: NoService) throws -> Result {
         let account = GitLab.account()
         return Result(installed: account.installed, user: account.user)
     }
 }
 extension GitHubIssues: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> [GitHub.Issue] {
         let (_, path) = try forges.store.repoPath(worktreeId: worktreeId, repoId: repoId)
@@ -204,12 +214,14 @@ extension GitHubIssues: Handled {
     }
 }
 extension GitHubChecks: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> [GitHub.Check] {
         try GitHub.checks(cwd: forges.store.repoPath(worktreeId: worktreeId, repoId: repoId).1, pr: pr ?? 0)
     }
 }
 extension GitHubFailedLog: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> String {
         try CIRuns.report(
@@ -218,30 +230,35 @@ extension GitHubFailedLog: Handled {
     }
 }
 extension GitHubReviewComments: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> [GitHub.ReviewComment] {
         try GitHub.reviewComments(cwd: forges.store.repoPath(worktreeId: worktreeId, repoId: repoId).1, pr: pr ?? 0)
     }
 }
 extension GitHubPRView: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ work: ForgeWork) throws -> GitHub.PRView {
         try GitHub.pullRequestView(cwd: work.workspaces.store.repoPath(worktreeId: nil, repoId: repoId).1, number: pr)
     }
 }
 extension GitHubIssueView: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ work: ForgeWork) throws -> GitHub.IssueView {
         try GitHub.issueView(cwd: work.workspaces.store.repoPath(worktreeId: nil, repoId: repoId).1, number: issue)
     }
 }
 extension GitHubProjects: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) throws -> [GitHub.Project] {
         try GitHub.projects(cwd: forges.store.repoPath(worktreeId: worktreeId, repoId: repoId).1)
     }
 }
 extension GitHubProjectItems: Handled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_: NoService) throws -> [GitHub.ProjectItem] {
         try GitHub.projectItems(owner: owner, number: number ?? 0)
@@ -251,6 +268,7 @@ extension GitHubProjectItems: Handled {
 // MARK: also a web API
 
 extension GitAuthorAvatar: AsyncHandled {
+    static let agents = AgentAccess.reads
     func handle(_ forges: Forges) async throws -> Data? {
         let key = email.lowercased()
         if let hit = forges.avatars.withLock({ $0[key] }), hit.value != nil || Date().timeIntervalSince(hit.at) < 600 {
@@ -283,6 +301,7 @@ extension GitAuthorAvatar: AsyncHandled {
 }
 
 extension GitHubPRs: AsyncHandled {
+    static let agents = AgentAccess.reads
     static var onRemote: RemoteForge? { .refused }
     func handle(_ forges: Forges) async throws -> [GitHub.PullRequest] {
         let (_, path) = try forges.store.repoPath(worktreeId: worktreeId, repoId: repoId), filter = filter
@@ -355,6 +374,7 @@ extension BitbucketSetCredentials: AsyncHandled {
     }
 }
 extension BitbucketStatus: AsyncHandled {
+    static let agents = AgentAccess.reads
     func handle(_ forges: Forges) async throws -> Result {
         Result(connected: try await forges.bitbucketClient() != nil)
     }

@@ -16,6 +16,7 @@ struct AgentAddons {
 }
 
 extension AddonsList: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ addons: AgentAddons) throws -> Addons {
         let worktree = try addons.store.worktree(named: worktreeId)
         // A remote project's agents and their files are on its host: nothing to read here.

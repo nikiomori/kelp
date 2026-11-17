@@ -234,6 +234,10 @@ else a `NotificationCenter` name.
   and in `Workspaces`, `Databases` (a project's databases, found in its files or added by hand, and what ran on them).
   A method's handler is handed one service (`Handled.Service`: `handle(_ sessions: Sessions)`), never the daemon, so it
   reaches only what that service holds; each service's projection from the daemon is in one place (`DaemonService`).
+  A service that needs only part of `Sessions` keeps that part (`WorkspaceSessions`, `AgentAsks`, the live table:
+  `Sessions/SessionParts.swift`); one that keeps all of `Sessions` answers for it, and its handlers count as Sessions'
+  (`DaemonShapeTests`). A new method takes three files: its type in Core (`*Methods.swift`), its handler beside its
+  service (its `fence`, and `agents` if an agent's program may call it), and rpc.json (written by the schema test).
   Its home (`Daemon(root:)`) is all the daemon takes from outside: its paths, which project folders are remote ones
   (`Remotes`) and how their ssh connections are shared come from it, never from the environment or a static
   (`theDaemonKeepsNoProcessGlobals`).
@@ -378,10 +382,11 @@ only while it's the one shown there, so an agent that types into the user's tmux
 and a script of the user's in a pane out of sight is held to an agent's rules. An agent another app runs (an editor's
 assistant) is that app's, and so the user's; so is an app an agent builds and opens (`open build/Foo.app`): what that
 app runs calls Kelp as the user. Agents, `kelpd`, `unknown` and
-`detached` are held to `Daemon.allow`'s rules: they call only the methods agents use (`AgentRules.methods`, by type:
-reading, their own sessions and hooks, the IDE in their workspaces, what their skills use), act on their own session and
+`detached` are held to `Daemon.allow`'s rules: they call only the methods agents use (`AgentRules.methods`, read off each
+handler's `agents`, `.reads` or `.acts`; a method that says nothing is the user's: reading, their own sessions and hooks,
+the IDE in their workspaces, what their skills use), act on their own session and
 the ones they started (any session id a call names counts), work in their own workspaces (and the ones they made,
-`Worktree.madeBy`; any workspace id a call that acts names in a field of its own counts, `AgentRules.reads` aside,
+`Worktree.madeBy`; any workspace id a call that acts names in a field of its own counts, what only reads (`.reads`) aside,
 and one named another way, by the window, a path or a tab's address (`db:<workspace>/…`, `diff:<workspace>`), says so
 with `inWorkspace`), open web pages only with cookies of their own (`kelp browser open`; a plain page tab is the
 user's, logged in, and `kelp shot` would see it, so neither `ui.open`, ⇧⌘O (`scripts.openPage`, not one of `UICommand.forAgents`) nor a session started with

@@ -8,6 +8,7 @@ import os
 // Sessions: listing, attaching, typing into, stopping, reading.
 
 extension SessionList: Handled {
+    static let agents = AgentAccess.reads
     static var quick: Bool { true }
     func handle(_ sessions: Sessions) throws -> [Session] {
         let all = try sessions.store.sessions().map { s -> Session in sessions.existing(s.id)?.snapshot ?? s }
@@ -16,6 +17,7 @@ extension SessionList: Handled {
 }
 
 extension SessionAttach: Handled {
+    static let agents = AgentAccess.acts
     func handle(_ sessions: Sessions, conn: Int) throws -> Result {
         // Ended: what it last printed, from its log. One whose host dropped is attached to it again (`wake`).
         if sessions.existing(id) == nil, let rec = try sessions.store.session(id), rec.status == .exited,
@@ -70,6 +72,7 @@ extension SessionAttach: Handled {
 
 /// Answered by the connection itself (`Daemon.serve`), which it makes a terminal's byte pipe: never a call's reply.
 extension SessionStream: Handled {
+    static let agents = AgentAccess.acts
     var fence: Fence { Fence(actsOn: id, typesInto: id) }   // what comes after is typing: held to session.write's rules
     func handle(_: NoService) throws -> Done {
         throw RPCError.invalidParams(
@@ -78,6 +81,7 @@ extension SessionStream: Handled {
 }
 
 extension SessionDetach: Handled {
+    static let agents = AgentAccess.acts
     func handle(_ sessions: Sessions, conn: Int) throws -> Done {
         sessions.existing(id)?.detach(conn)
         return Done()
@@ -85,6 +89,7 @@ extension SessionDetach: Handled {
 }
 
 extension SessionWrite: SessionInput {
+    static let agents = AgentAccess.acts
     static var inOrder: Bool { true }   // keystrokes
     var fence: Fence { Fence(actsOn: id, typesInto: id) }
     func apply(to session: LiveSession) throws -> Done {
@@ -103,6 +108,7 @@ extension SessionWrite: SessionInput {
 }
 
 extension SessionSend: SessionInput {
+    static let agents = AgentAccess.acts
     /// Two sends in a row reach the session in that order (`submit` only queues: nothing here waits on the agent).
     static var inOrder: Bool { true }
     /// An agent's send to a session that asks something (a hookless agent's "(y/n)" read off its screen included) is
@@ -120,6 +126,7 @@ extension SessionSend: SessionInput {
 
 /// A running one only: a size never wakes a paused agent (a wake gets the size it's shown at anyway).
 extension SessionResize: Handled {
+    static let agents = AgentAccess.acts
     static var inOrder: Bool { true }
     func handle(_ sessions: Sessions) throws -> Done {
         let (width, height) = Sessions.Launch.size(cols: cols, rows: rows)
@@ -131,6 +138,7 @@ extension SessionResize: Handled {
 /// Under its wake lock, as waking is: a paused session marked ended here can't be woken halfway through, nor this kill land
 /// on the old copy while a wake starts a new one.
 extension SessionKill: Handled {
+    static let agents = AgentAccess.acts
     var fence: Fence { Fence(actsOn: id) }
     func handle(_ sessions: Sessions) throws -> Done {
         // A remote agent's tmux session ends with it, and its record then names none: it reads as ended, not as an agent
@@ -179,6 +187,7 @@ extension SessionChoose: Handled {
 }
 
 extension SessionPermissionWait: AsyncHandled {
+    static let agents = AgentAccess.acts
     var fence: Fence { Fence(reportsFor: id) }   // only the session's own hook waits for its answer
     func handle(_ permissions: PermissionWaits) async throws -> String? {
         await permissions.waitForPermission(id, within: 600)
@@ -306,6 +315,7 @@ extension AgentSave: Handled {
 }
 
 extension SessionBusy: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ sessions: Sessions) throws -> String? {
         guard let ls = sessions.existing(id) else { return nil }
         // In a terminal's own tmux session tmux is always in front: what runs is in its panes (closing ends them).
@@ -317,28 +327,34 @@ extension SessionBusy: Handled {
 }
 
 extension SessionCommands: Handled {
+    static let agents = AgentAccess.reads
     static var quick: Bool { true }
     func handle(_ sessions: Sessions) throws -> [AgentCommand] { sessions.existing(id)?.commands ?? [] }
 }
 extension SessionWhy: Handled {
+    static let agents = AgentAccess.reads
     static var quick: Bool { true }
     func handle(_ sessions: Sessions) throws -> String? { sessions.existing(id)?.statusWhy }
 }
 extension SessionTrail: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ sessions: Sessions) throws -> String {
         guard let trail = try sessions.trail(id) else { throw RPCError.noSession(id) }
         return trail.read()
     }
 }
 extension SessionRead: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ sessions: Sessions) throws -> String { try sessions.printed(id, bytes: bytes ?? 8192) }
 }
 extension SessionContext: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ sessions: Sessions) throws -> String { try sessions.printed(id, bytes: bytes ?? 24_000) }
 }
 
 /// Never re-inserts a deleted one (publish and edit only update).
 extension SessionMarkRead: Handled {
+    static let agents = AgentAccess.acts
     // Not `quick`: they wait for a wake of the same session (`Sessions.setUnread`), as long as a locked keychain can take.
     func handle(_ sessions: Sessions) throws -> Done {
         try sessions.setUnread(id, false)
@@ -346,6 +362,7 @@ extension SessionMarkRead: Handled {
     }
 }
 extension SessionMarkUnread: Handled {
+    static let agents = AgentAccess.acts
     func handle(_ sessions: Sessions) throws -> Done {
         try sessions.setUnread(id, true)
         return Done()
@@ -353,6 +370,7 @@ extension SessionMarkUnread: Handled {
 }
 
 extension SessionContinueAt: Handled {
+    static let agents = AgentAccess.acts
     var fence: Fence { Fence(actsOn: id) }   // it types "continue" into the session later
     func handle(_ sessions: Sessions) throws -> Done {
         guard let ls = sessions.existing(id) else { throw RPCError.notRunning(id) }
@@ -362,6 +380,7 @@ extension SessionContinueAt: Handled {
 }
 
 extension SessionLastReply: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ sessions: Sessions) throws -> String? {
         sessions.existing(id).flatMap(sessions.agentUsage.conversations.lastReply(of:))
     }

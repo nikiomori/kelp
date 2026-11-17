@@ -6,6 +6,7 @@ import os
 
 /// Per account: Claude 5h block / today / week, Codex limits.
 extension UsageGet: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ usage: AgentUsage) throws -> Result {
         // Limit: one cached answer for 60 s (a scan reads GBs of transcripts); per-file incremental parsing if it gets slow
         let cached = usage.usageCache.withLock { $0 }
@@ -44,6 +45,7 @@ extension UsageGet: Handled {
 
 /// What every agent used, by day and agent, agent, model and project.
 extension UsageAgents: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ usage: AgentUsage) throws -> Result {
         let since = AgentUsage.since(days: self.days), span = max(1, min(371, self.days ?? 30))
         let project = usage.projects()
@@ -130,6 +132,7 @@ extension AgentUsage {
 }
 
 extension HistoryList: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ usage: AgentUsage) throws -> [AgentSessionInfo] {
         let roots = usage.agentRoots(), key = roots.claude + roots.codex
         var all: [AgentSessionInfo]

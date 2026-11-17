@@ -4,6 +4,9 @@ import Foundation
 // db.*: the RPCs, each answered by Databases.
 
 extension DatabaseList: Handled {
+    // its own workspaces' databases (these three): which, their tables, and a statement (read-only, or a change
+    // as the database's `agentAccess` says, `Databases.query`); another project's aren't its to look at
+    static let agents = AgentAccess.acts
     func handle(_ dbs: Databases) throws -> [DatabaseInfo] {
         let agent = dbs.agent(origin: Sessions.asker) != nil
         return try dbs.connections(worktreeId).map(\.database).filter { !agent || $0.agentAccess != .hidden }
@@ -11,12 +14,14 @@ extension DatabaseList: Handled {
 }
 
 extension DatabaseSchemaRead: AsyncHandled {
+    static let agents = AgentAccess.acts
     func handle(_ dbs: Databases) async throws -> DatabaseSchema {
         try await dbs.schema(worktreeId, database, table: table, agent: dbs.agent(origin: Sessions.asker) != nil)
     }
 }
 
 extension DatabaseQuery: AsyncHandled {
+    static let agents = AgentAccess.acts
     func handle(_ dbs: Databases, conn: Int) async throws -> QueryResult {
         try await dbs.query(self, origin: Sessions.asker, asker: dbs.clients.connection(conn)?.peerPID)
     }

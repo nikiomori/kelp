@@ -123,6 +123,21 @@ def fix_share(days=14):
     return len(fixes), len(out)
 
 
+def keeps_sessions(code):
+    """The types whose stored properties hold all of `Sessions`, as DaemonShapeTests' `keepsSessions` finds them."""
+    found = set()
+    for t in re.finditer(r"(?:struct|class|actor) (\w+)\b[^{\n]*\{", code):
+        depth, end = 1, t.end()
+        while depth and end < len(code):
+            depth += {"{": 1, "}": -1}.get(code[end], 0)
+            end += 1
+        keeps = any(re.fullmatch(r"    (?:(?:private|weak|unowned) )*(?:let|var) [^=(]*\b\w+: Sessions\b(?![.?\w])[^=]*", line)
+                    for line in code[t.end():end].split("\n"))
+        if keeps and t.group(1) != "Sessions":
+            found.add(t.group(1))
+    return found
+
+
 def main():
     sources = swift_files("Sources")
     kelpkit, builtins = count_loc("Sources/KelpKit"), count_loc("Sources/Builtins")
@@ -132,8 +147,10 @@ def main():
                if p.name != "AppModel.swift" and re.search(r"^(@\w+ +)*(\w+ +)?extension AppModel\b", p.read_text(errors="replace"), re.M)]
     sessions_ext = grep_count(r"(?m)^extension Sessions\b", swift_files("Sources/Daemon"))
     # As ArchitectureTests counts them: a handler is a `handle(_:)` (or `handle(_:conn:)`) taking the service, counted
-    # for each of the daemon's own (`daemon.sessions`) its service is handed in Handlers.swift.
+    # for each of the daemon's own (`daemon.sessions`) its service is handed in Handlers.swift, and for Sessions when
+    # its service keeps all of `Sessions` (`keepsSessions`).
     daemon = "\n".join(p.read_text(errors="replace") for p in swift_files("Sources/Daemon"))
+    keeping = keeps_sessions(re.sub(r"//[^\n]*", "", daemon))
     handlers = re.findall(r"func handle\(_ \w+: (\w+)(?:, conn: Int)?\)", daemon)
     handing, by_root = Path("Sources/Daemon/Server/Handlers.swift").read_text(), {}
     for m in re.finditer(r"extension (\w+): DaemonService \{", handing):
@@ -141,7 +158,10 @@ def main():
         while depth:
             depth += {"{": 1, "}": -1}.get(handing[end], 0)
             end += 1
-        for root in set(re.findall(r"daemon\??\.(\w+)(?![\w.(])", handing[m.end():end])):
+        roots = set(re.findall(r"daemon\??\.(\w+)(?![\w.(])", handing[m.end():end]))
+        if m.group(1) in keeping:
+            roots.add("sessions")
+        for root in roots:
             by_root[root] = by_root.get(root, 0) + handlers.count(m.group(1))
     workspaces_handlers, sessions_handlers = by_root.get("workspaces", 0), by_root.get("sessions", 0)
     # A key typed as text: read from the settings, or named as what another setting `requires:`.

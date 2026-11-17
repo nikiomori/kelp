@@ -154,10 +154,12 @@ struct Turns: Sendable {
 }
 
 extension SessionTurns: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ turns: Turns) throws -> Result { try turns.store.turns(session: id) }
 }
 
 extension SessionTurn: Handled {
+    static let agents = AgentAccess.acts
     static var quick: Bool { true }
     func handle(_ turns: Turns) throws -> Info? {
         guard let ls = turns.live[id] else { return nil }

@@ -253,9 +253,10 @@ final class Watches: Sendable {
 }
 
 extension WatchStart: Handled {
+    static let agents = AgentAccess.reads
     static var inOrder: Bool { true }   // a start and a stop sent in a row apply in that order
     /// A topic reads as the user (`ask`), so each says whether an agent may watch it: a new one is decided here, not let
-    /// through by default. The ones agents watch read only what they may read themselves (`AgentRules.reading`, a file's
+    /// through by default. The ones agents watch read only what they may read themselves (`AgentAccess.reads`, a file's
     /// problems). Databases are the window's view: hidden ones, All My Projects (hosts, users, keychain items) and the
     /// user's own statements; an agent asks `db.list` and `db.query`, which say what it may see.
     var fence: Fence { Fence(notForAgents: refusal) }
@@ -275,6 +276,7 @@ extension WatchStart: Handled {
 }
 
 extension WatchStop: Handled {
+    static let agents = AgentAccess.reads
     static var inOrder: Bool { true }
     func handle(_ watches: Watches, conn: Int) throws -> Done {
         watches.stop(.init(topic: topic, key: key), conn: conn)

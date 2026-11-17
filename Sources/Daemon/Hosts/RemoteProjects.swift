@@ -14,6 +14,7 @@ extension Workspaces {
 }
 
 extension RemoteListFolders: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ remotes: Remotes) throws -> Result {
         let host = host.trimmingCharacters(in: .whitespaces), path = path.trimmingCharacters(in: .whitespaces)
         guard RemoteHost.isHost(host) else {

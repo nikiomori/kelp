@@ -304,7 +304,10 @@ struct FileService: Sendable {
     }
 }
 
-extension FilesRead: Handled { func handle(_ files: FileService) throws -> Result { try files.read(path) } }
+extension FilesRead: Handled {
+    static let agents = AgentAccess.reads
+    func handle(_ files: FileService) throws -> Result { try files.read(path) }
+}
 extension FilesWrite: Handled {
     func handle(_ files: FileService) throws -> Result { try files.write(path, text, base: base) }
 }
@@ -313,8 +316,14 @@ extension FilesMove: Handled {
 }
 extension FilesTrash: Handled { func handle(_ files: FileService) throws -> Result { files.trash(paths) } }
 extension FilesCopy: Handled { func handle(_ files: FileService) throws -> Result { files.copy(paths, into: into) } }
-extension FilesFetch: Handled { func handle(_ files: FileService) throws -> String { try files.fetch(path) } }
-extension RepoIcon: Handled { func handle(_ files: FileService) throws -> String? { try files.icon(path) } }
+extension FilesFetch: Handled {
+    static let agents = AgentAccess.reads
+    func handle(_ files: FileService) throws -> String { try files.fetch(path) }
+}
+extension RepoIcon: Handled {
+    static let agents = AgentAccess.reads
+    func handle(_ files: FileService) throws -> String? { try files.icon(path) }
+}
 extension FilesCreate: Handled {
     func handle(_ files: FileService) throws -> String {
         try files.create(path, folder: folder == true, text: text, unique: unique == true)

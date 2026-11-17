@@ -11,6 +11,7 @@ extension ProcessRefreshPath: Handled {
 }
 
 extension ProcessWhich: Handled {
+    static let agents = AgentAccess.reads
     func handle(_: NoService) throws -> Result {
         Dictionary(commands.compactMap { c in LoginPath.find(c).map { (c, $0) } }) { a, _ in a }
     }

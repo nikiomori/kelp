@@ -239,6 +239,7 @@ final class Routines: Sendable {
 }
 
 extension RoutineList: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ routines: Routines) throws -> RoutinesEvent { try routines.list() }
 }
 
@@ -246,6 +247,9 @@ extension RoutineList: Handled {
 /// works in, asks them on its row (Allow / Deny), as a machine does, with all of it in the question; changing or
 /// deleting one stays the user's.
 extension RoutineSet: AsyncHandled {
+    // a routine the user asked an agent for: a new one in its project, added only once they allow it on its row;
+    // changing, running and deleting one stay theirs
+    static let agents = AgentAccess.acts
     static let theUsers =
         "A routine is the user's to change or delete: in Kelp's window (Routines), or `kelp routine` in a terminal of theirs."
     /// How long an agent's name and prompt may be: what the card beside Allow shows whole (`StripModel.permission`).

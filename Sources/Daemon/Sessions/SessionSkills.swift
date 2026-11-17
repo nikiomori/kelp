@@ -285,6 +285,7 @@ enum WebApp {
 }
 
 extension SkillsBrowser: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ setup: SessionSetup) throws -> BrowserSkill {
         setup.browserSkill(worktreeId: worktreeId, cwd: try setup.store.worktree(named: worktreeId).path)
     }

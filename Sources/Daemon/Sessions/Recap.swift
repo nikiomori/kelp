@@ -7,6 +7,7 @@ import os
 /// so nothing of it reaches this session's status. Limit: the fork's own transcript stays in Claude Code's history
 /// (Kelp doesn't write in ~/.claude).
 extension SessionRecap: AsyncHandled {
+    static let agents = AgentAccess.acts
     static let prompt =
         "In one line of at most 20 words: what did you just do, and what is left for me? No preamble, no markdown."
 

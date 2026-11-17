@@ -45,7 +45,10 @@ extension RepoAdd: Handled {
     }
 }
 
-extension RepoList: Handled { func handle(_ workspaces: Workspaces) throws -> [Repo] { try workspaces.store.repos() } }
+extension RepoList: Handled {
+    static let agents = AgentAccess.reads
+    func handle(_ workspaces: Workspaces) throws -> [Repo] { try workspaces.store.repos() }
+}
 
 extension ScratchEnsure: Handled {
     func handle(_ workspaces: Workspaces) throws -> Worktree {
@@ -119,6 +122,7 @@ extension RepoRemove: Handled {
 }
 
 extension WorkspaceCreate: Handled {
+    static let agents = AgentAccess.acts
     var fence: Fence { Fence(makesInProject: repoId) }
     func handle(_ workspaces: Workspaces) throws -> Worktree {
         guard let repo = try workspaces.store.repo(repoId) else { throw RPCError.noProject(repoId) }
@@ -133,6 +137,7 @@ extension WorkspaceCreate: Handled {
 }
 
 extension WorktreeCreate: Handled {
+    static let agents = AgentAccess.acts
     var fence: Fence { Fence(makesInProject: repoId) }
     func handle(_ workspaces: Workspaces) throws -> Result {
         guard let repo = try workspaces.store.repo(repoId) else { throw RPCError.noProject(repoId) }
@@ -142,12 +147,14 @@ extension WorktreeCreate: Handled {
 
 /// Only reads: workspaces follow their folders' branches as they change (`watchHeads`), not when someone lists them.
 extension WorktreeList: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ workspaces: Workspaces) throws -> [Worktree] {
         try workspaces.store.worktrees(repo: repoId).filter { archived == true || !$0.archived }
     }
 }
 
 extension WorktreeArchive: Handled {
+    static let agents = AgentAccess.acts
     var fence: Fence { Fence(ends: .workspace(id)) }
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard let workspace = try workspaces.store.worktree(id), let repo = try workspaces.store.repo(workspace.repoId)
@@ -160,6 +167,7 @@ extension WorktreeArchive: Handled {
 }
 
 extension WorktreeRemove: Handled {
+    static let agents = AgentAccess.acts
     var fence: Fence {
         Fence(
             ends: .workspace(id),
@@ -188,6 +196,7 @@ extension WorktreeUnarchive: Handled {
 }
 
 extension WorktreeUnmerged: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ workspaces: Workspaces) throws -> Int {
         let workspace = try workspaces.store.worktree(named: id)
         guard let repo = try workspaces.store.repo(workspace.repoId) else { return 0 }
@@ -198,12 +207,14 @@ extension WorktreeUnmerged: Handled {
 }
 
 extension WorktreeDirty: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ workspaces: Workspaces) throws -> Bool {
         try Git.isDirty(workspaces.folder(id), remotes: workspaces.remotes)
     }
 }
 
 extension WorktreeNote: Handled {
+    static let agents = AgentAccess.acts
     func handle(_ workspaces: Workspaces) throws -> Done {
         guard try workspaces.store.update(Worktree.self, id, { $0.note = note }) != nil else {
             throw RPCError.noWorkspace(id)
@@ -214,6 +225,7 @@ extension WorktreeNote: Handled {
 }
 
 extension RepoWorktreeSizes: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ workspaces: Workspaces) throws -> [Item] {
         guard let repo = try workspaces.store.repo(id) else { throw RPCError.noProject(id) }
         return try Self.sizes(of: repo, workspaces)

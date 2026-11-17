@@ -46,6 +46,7 @@ extension Sessions {
 }
 
 extension TmuxList: Handled {
+    static let agents = AgentAccess.reads
     func handle(_ sessions: Sessions) throws -> Result {
         let output = try sessions.tmux(
             ["list-sessions", "-F", Tmux.format], cwd: sessions.store.worktree(named: worktreeId).path)

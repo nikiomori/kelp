@@ -6,13 +6,6 @@ import GitKit
 import Integrations
 import os
 
-extension JSONValue {
-    func req(_ key: String) throws -> String {
-        guard let value = self[key]?.string else { throw RPCError.invalidParams("missing \(key)") }
-        return value
-    }
-}
-
 /// A method declared in Core (`RPCMethod`) that the daemon answers, sync (`Handled`) or async (`AsyncHandled`), listed
 /// once in `Daemon.methods`. Its result is encoded straight into the reply (`answer`), never through a JSONValue.
 protocol Answered: RPCMethod {
@@ -23,6 +16,8 @@ protocol Answered: RPCMethod {
     static func answer(_ params: JSONValue, _ daemon: Daemon, conn: Int) async throws -> Data
     /// Who may call it, and on what (`Fence`): checked before it runs, for every caller (`Daemon.allow`).
     var fence: Fence { get }
+    /// Whether an agent's program may call it at all, and to read or to act (`AgentRules.methods`): none by default.
+    static var agents: AgentAccess { get }
     /// Whether it runs gh in the project's folder: then, for a remote project with no GitHub origin, what it answers
     /// (`Daemon.refuseRemoteForge`). nil for one that runs nothing there.
     static var onRemote: RemoteForge? { get }
@@ -72,6 +67,7 @@ struct Fence {
 
 extension Answered {
     var fence: Fence { Fence() }
+    static var agents: AgentAccess { .none }
     static var onRemote: RemoteForge? { nil }
 
     /// The method's params as its type, from a client allowed to call it: checked here, for every method.
@@ -384,7 +380,15 @@ extension Daemon {
     static let offloadLimit = 128
 }
 
+extension AgentRules {
+    /// What an agent's program, or one kelpd runs (an extension's, a git hook), may call: each handler's `agents`.
+    static let methods: Set<String> = Set(Daemon.methods.filter { $0.value.agents != .none }.keys)
+    /// What only reads (`AgentAccess.reads`).
+    static let reads: Set<String> = Set(Daemon.methods.filter { $0.value.agents == .reads }.keys)
+}
+
 extension DaemonInfo: Handled {
+    static let agents = AgentAccess.reads
     static var quick: Bool { true }
     func handle(_ sessions: Sessions) throws -> Result {
         Result(

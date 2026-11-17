@@ -28,6 +28,7 @@ extension SessionMove: Handled {
 }
 
 extension SessionRename: Handled {
+    static let agents = AgentAccess.acts
     // its title on the user's row: an agent names only its own and those it started
     var fence: Fence { Fence(actsOn: id) }
     func handle(_ sessions: Sessions) throws -> Done {

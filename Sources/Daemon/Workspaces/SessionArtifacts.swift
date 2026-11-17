@@ -40,6 +40,7 @@ extension Sessions {
 }
 
 extension ArtifactNew: Handled {
+    static let agents = AgentAccess.acts
     static var quick: Bool { true }
     var fence: Fence { Fence(writesInFolder: cwd) }   // the workspace whose panel it lands in
     func handle(_ store: Store) throws -> String {
@@ -49,6 +50,7 @@ extension ArtifactNew: Handled {
 }
 
 extension ArtifactAdd: Handled {
+    static let agents = AgentAccess.acts
     /// An agent's hook waits for it.
     static var quick: Bool { true }
     var fence: Fence { Fence(writesInFolder: cwd) }
@@ -72,6 +74,7 @@ private func artifactsRoot(_ store: Store, cwd: String, session: String?) throws
 
 /// To the window, which draws the canvas again and answers with `ui.browser.reply`; this waits for that answer.
 extension ArtifactCheck: AsyncHandled {
+    static let agents = AgentAccess.reads
     func handle(_ ui: UIStore) async throws -> [String] {
         guard path.hasPrefix("/"), path.hasSuffix("/" + Artifacts.Kind.design.file) else {
             throw RPCError.invalidParams("not a design's canvas.json: \(path)")
