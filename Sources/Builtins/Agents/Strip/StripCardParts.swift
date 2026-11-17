@@ -119,14 +119,8 @@ extension StripCard {
         box.effectiveAppearance.performAsCurrentDrawingAppearance {
             box.layer?.backgroundColor = NSColor.fillRest.cgColor
         }
-        box.addSubview(label)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: Metrics.gapWide),
-            label.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -Metrics.gapWide),
-            label.topAnchor.constraint(equalTo: box.topAnchor, constant: Metrics.gap),
-            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -Metrics.gap)
-        ])
+        let (gap, wide) = (Metrics.gap, Metrics.gapWide)
+        box.pin(label, inset: NSEdgeInsets(top: gap, left: wide, bottom: gap, right: wide))
         return box
     }
 

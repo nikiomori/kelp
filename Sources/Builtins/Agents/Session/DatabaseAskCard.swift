@@ -48,14 +48,7 @@ final class DatabaseAskCard: NSView {
         for view in [sql, buttons] {
             view.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * Metrics.inset).isActive = true
         }
-        let card = FloatingCard(stack)
-        card.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(card)
-        NSLayoutConstraint.activate([
-            card.topAnchor.constraint(equalTo: topAnchor), card.bottomAnchor.constraint(equalTo: bottomAnchor),
-            card.leadingAnchor.constraint(equalTo: leadingAnchor),
-            card.trailingAnchor.constraint(equalTo: trailingAnchor)
-        ])
+        pin(FloatingCard(stack))
         isHidden = true
         // While the agent's row asks for Allow or Deny, the card reads once the change the agent waits on, and shows
         // it if the question is about a database.

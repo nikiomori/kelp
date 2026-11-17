@@ -110,14 +110,7 @@ final class LimitStrip: NSView {
         // any button hides.
         row.setVisibilityPriority(.init(rawValue: 300), for: later)
         row.setVisibilityPriority(.init(rawValue: 400), for: handOff)
-        let card = FloatingCard(row)
-        card.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(card)
-        NSLayoutConstraint.activate([
-            card.topAnchor.constraint(equalTo: topAnchor), card.bottomAnchor.constraint(equalTo: bottomAnchor),
-            card.leadingAnchor.constraint(equalTo: leadingAnchor),
-            card.trailingAnchor.constraint(equalTo: trailingAnchor)
-        ])
+        pin(FloatingCard(row))
     }
 
     override func viewDidMoveToWindow() {
