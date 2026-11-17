@@ -5,8 +5,8 @@ import WorkbenchKit
 import os
 
 /// A project's group templates (`LayoutTemplate`), kept with the daemon's state under the project (`templates/<repo>`).
-/// A template is saved from a group's row and listed on a group's empty screen, which a click arranges as the template
-/// says.
+/// A template is saved from a group's row and listed on a group's empty screen. A click on it there arranges the group
+/// as the template says.
 @MainActor
 struct LayoutTemplates {
     let app: AppModel
@@ -16,8 +16,8 @@ struct LayoutTemplates {
         return Self.log.attempt("reading templates") { try saved.decode([LayoutTemplate].self) } ?? []
     }
 
-    /// The project's own, from its .kelp.yaml's `layout.<name>` lines, listed by name before the file is trusted: using
-    /// one asks for that trust first (`use`), as running one of its commands does.
+    /// The project's own templates, from the `layout.<name>` lines of its .kelp.yaml. They are listed by name before
+    /// the file is trusted, and using one asks for that trust first (`use`), as running one of its commands does.
     func fromFile(_ worktree: Worktree) async -> [LayoutTemplate] {
         guard let config = await app.quiet(ScriptsList(worktreeId: worktree.id)) else { return [] }
         let agents = Set(app.catalog.all.map(\.id)).subtracting([Session.shellAgent])
@@ -27,8 +27,9 @@ struct LayoutTemplates {
         }
     }
 
-    /// Save Layout as Template… on a group's row: its panes and what runs in them, under a name; one of that name is
-    /// replaced (how one is changed: arrange a group, save it again). In its own window now, it opens in one.
+    /// Save Layout as Template… on a group's row. It saves the group's panes and what runs in them, under a name, and
+    /// replaces a template of that name (which is how a template is changed: arrange a group, save it again). A group
+    /// in its own window now makes a template that opens in its own window.
     func save(from id: String) async {
         guard let worktree = app.worktree(id) else { return }
         let layout = app.workbench.layouts[id]
@@ -40,7 +41,7 @@ struct LayoutTemplates {
             !name.trimmingCharacters(in: .whitespaces).isEmpty
         else { return }
         let place = LayoutTemplate.Place(workspace: id, folder: worktree.path)
-        // The page a run serves is kept as that run's page: the new group's run gets a port of its own.
+        // The page a run serves is kept as that run's page, because the new group's run gets a port of its own.
         var ports: [String: Int] = [:]
         for tab in layout.allTabs where TabURI.scheme(tab.uri) == "session" {
             ports[tab.uri] = app.session(TabURI.body(tab.uri)).flatMap { app.extensions.all.runs?.port($0) }
@@ -58,7 +59,7 @@ struct LayoutTemplates {
     /// command of the project's (from a .kelp.yaml template) first asks for trust in the file, as Run does, and then
     /// runs by name.
     func use(_ template: LayoutTemplate, in id: String) async {
-        // Once: a double click, or a second click while the first one's sessions start, leaves it be.
+        // Run once only. A double click, or a second click while the first click's sessions start, does nothing.
         guard let worktree = app.worktree(id), app.workbench.layouts[id].allTabs.isEmpty, Self.using.insert(id).inserted
         else { return }
         defer { Self.using.remove(id) }
@@ -79,7 +80,7 @@ struct LayoutTemplates {
             }
             if let session {
                 app.upsert(session)
-                // Put away in the Run menu (its last copy was): it stays there, with no tab.
+                // When its last copy was put away in the Run menu, the run stays there, with no tab.
                 if !app.workbench.isHidden(session.id) { started[tab.id] = TabURI.session(session.id) }
             }
         }
@@ -96,8 +97,9 @@ struct LayoutTemplates {
         if template.ownWindow, !app.workbench.inOwnWindow(id) { app.workbench.moveToOwnWindow(id) }
     }
 
-    /// A run's page into the blank tab kept for it, once the run serves (it printed its address, or listens): the
-    /// template was the click that asked for it. Given up when the run ends or the tab was closed meanwhile.
+    /// Opens a run's page in the blank tab kept for it, once the run serves (it printed its address, or listens),
+    /// because the template was the click that asked for it. It gives up when the run ends or the tab was closed
+    /// meanwhile.
     private func openWhenServed(_ tab: TabRef, path: String, by session: String, in id: String) {
         let app = app, blank = LayoutTemplate.waiting(tab), wait = NSObject()
         Self.waits[tab.id] = wait
@@ -116,7 +118,7 @@ struct LayoutTemplates {
     }
     private static var waits: [String: NSObject] = [:]
 
-    /// What its names say on the empty screen: "Claude · npm run dev · localhost:3000".
+    /// The template's summary on the empty screen: "Claude · npm run dev · localhost:3000".
     func summary(_ template: LayoutTemplate) -> String {
         template.layout.allTabs.compactMap { tab -> String? in
             let uri = tab.uri, c = URLComponents(string: uri)
@@ -135,8 +137,8 @@ struct LayoutTemplates {
         }.joined(separator: " · ")
     }
 
-    /// What runs again for a session's tab: its agent started anew, its command (for a Run command), or a shell where
-    /// it was.
+    /// What runs again for a session's tab: its agent started anew, its command (for a Run command), or a shell in the
+    /// same folder.
     static func running(_ session: Session) -> String {
         if session.isAgent, let agent = session.agent { return TabURI.agent(agent) }
         if let line = session.customCommand { return TabURI.terminal(["cmd": line, "title": session.title]) }
@@ -144,7 +146,7 @@ struct LayoutTemplates {
         return TabURI.terminal()
     }
 
-    /// What a run URI starts (as `EditorArea.runURI` reads one); `script`: one of the project's commands, by name.
+    /// What a run URI starts (as `EditorArea.runURI` reads it). `script` is one of the project's commands, by name.
     static func run(_ uri: String) -> (agent: String?, command: String?, title: String?, tmux: String?, script: String?)
     {
         let components = URLComponents(string: uri)

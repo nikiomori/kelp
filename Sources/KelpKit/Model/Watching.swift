@@ -1,8 +1,9 @@
 import AppKit
 import Core
 
-/// What the views watch (`WatchTopic`), counted here so the daemon hears once per topic and key: on the first watcher
-/// and after the last. What it pushes lands in one store per kind (`latest(CIEvent.self, key)`), which views `track`.
+/// Counts what the views watch (`WatchTopic`), so the daemon hears once per topic and key: when the first watcher
+/// starts and after the last one stops. What the daemon pushes lands in one store per kind
+/// (`latest(CIEvent.self, key)`), which views `track`.
 extension AppModel {
     package func watch(_ topic: WatchTopic, _ key: String = "") {
         let start = WatchStart(topic, key)
@@ -10,15 +11,17 @@ extension AppModel {
         if watching[start] == 1, let client, !paused(start) { tell(start, client) }
     }
 
-    /// What only the window shows, polled for it alone (ports, CPU, machines, hosts, subagents' steps): not read while the
-    /// window isn't seen. CI, git, sessions and the limits go on (the Dock, notifications and parked agents follow them).
+    /// Topics that only the window shows and that are polled for it alone (ports, CPU, machines, hosts, subagents'
+    /// steps). They aren't read while the window can't be seen. CI, git, sessions and the limits go on, because the
+    /// Dock, notifications and parked agents follow them.
     static let seenOnly: Set<WatchTopic> = [
         .ports, .activity, .machines, .machineDetail, .host, .hostDetail, .subagents
     ]
     private func paused(_ start: WatchStart) -> Bool { away && Self.seenOnly.contains(start.topic) }
 
-    /// Kelp's windows are all hidden, minimized or covered (`away`: `Workbench.sightChanged`), or one is seen again: what
-    /// only they show stops or starts again, and the daemon hears it (its token scan waits too).
+    /// Called when Kelp's windows are all hidden, minimized or covered, or one is seen again (`away`, set by
+    /// `Workbench.sightChanged`). The topics only the windows show stop or start again, and the daemon hears it (its
+    /// token scan waits too).
     func setAway(_ now: Bool) {
         guard now != away else { return }
         away = now
@@ -33,7 +36,7 @@ extension AppModel {
         publishUIState()
     }
 
-    /// `start` sent on `connection`, unless that connection heard it already.
+    /// Sends `start` on `connection`, unless that connection heard it already.
     private func tell(_ start: WatchStart, _ connection: RPCClient) {
         if toldTo !== connection {
             toldTo = connection
@@ -42,16 +45,17 @@ extension AppModel {
         if told.insert(start).inserted { connection.notify(start) }
     }
 
-    /// What the views watch, told to a connection that hasn't heard it: all of it for a new daemon, and nothing twice for
-    /// the first one, whose lists' refresh and first views watched over it already. Returns what it sent.
+    /// Tells a connection what the views watch that it hasn't heard yet. A new daemon hears all of it. The first
+    /// connection hears nothing twice, because its list refresh and its first views already watched over it. Returns
+    /// what it sent.
     @discardableResult func tellWatches(_ connection: RPCClient) -> [WatchStart] {
         let unheard = watching.keys.filter { (toldTo !== connection || !told.contains($0)) && !paused($0) }
         for start in unheard { tell(start, connection) }
         return unheard
     }
 
-    /// The last watcher gone: the daemon stops, and what it pushed is let go of unless `forgetting` is false (shown
-    /// again soon, it's there at once).
+    /// Stops one watcher. When the last one is gone, the daemon stops, and what it pushed is dropped unless
+    /// `forgetting` is false (then a view shown again soon has the value at once).
     package func unwatch(_ topic: WatchTopic, _ key: String = "", forgetting: Bool = true) {
         let start = WatchStart(topic, key)
         guard let count = watching[start] else { return }
@@ -62,16 +66,18 @@ extension AppModel {
         watching[start] = nil
         told.remove(start)
         notify { WatchStop(topic, key) }
-        if forgetting { forget(topic, key) }   // not shown anywhere now: no stale value when it's watched again
+        if forgetting { forget(topic, key) }   // shown nowhere now, so no stale value shows when it's watched again
     }
 
-    /// Read it again now, and (CI) keep looking for a while: after a push, its run shows up within seconds.
+    /// Asks the daemon to read a topic again now. For CI it also keeps looking for a while, because a run shows up
+    /// within seconds of a push.
     package func watchAgain(_ topic: WatchTopic, _ key: String = "") {
         let start = WatchStart(topic, key)
         if watching[start] != nil { notify { start } }
     }
 
-    /// The latest pushed `E` by key (`Pushed`): one observable box per kind, so a view reading CI re-renders for CI only.
+    /// Returns the latest pushed `E` by key (`Pushed`). There is one observable box per kind, so a view reading CI
+    /// re-renders for CI only.
     package func latest<E: Pushed>(_: E.Type) -> Latest<E> {
         part {
             let box = Latest<E>()
@@ -81,12 +87,12 @@ extension AppModel {
             return box
         }
     }
-    /// The latest pushed `E` for `key` (a workspace, a session, a path; "" for one of a kind).
+    /// Returns the latest pushed `E` for `key` (a workspace, a session or a path, or "" for a kind with one value).
     package func latest<E: Pushed>(_ type: E.Type, _ key: String = "") -> E? { latest(type).byKey[key] }
 
-    /// Kept as the latest of its kind, if it differs (each change re-renders its readers): whether it did.
-    /// Only what the daemon pushed (`watched`) and the shell's own refresh: a built-in asks again (`watchAgain`) rather than
-    /// writing its own copy, so the store holds one source.
+    /// Keeps `e` as the latest of its kind if it differs (each change re-renders its readers), and returns whether it
+    /// did. Only what the daemon pushed (`watched`) and the shell's own refresh land here. A built-in asks again
+    /// (`watchAgain`) rather than writing its own copy, so the store holds one source.
     @discardableResult func land<E: Pushed>(_ e: E) -> Bool {
         let box = latest(E.self)
         guard e.replaces(box.byKey[e.key]) else { return false }
@@ -97,14 +103,14 @@ extension AppModel {
 
     private func forget(_ topic: WatchTopic, _ key: String) { forgetters[topic]?.forEach { $0(key) } }
 
-    /// What the daemon pushed for a watched topic.
+    /// Takes what the daemon pushed for a watched topic.
     func watched(_ event: any RPCEvent) {
         guard let pushed = event as? any Pushed else { return }
         func open<E: Pushed>(_ pushed: E) { land(pushed) }
         open(pushed)
     }
 
-    /// A project or workspace as it is now: the lists follow the daemon's records without reading them again.
+    /// Stores a project or workspace as it is now, so the lists follow the daemon's records without reading them again.
     func record<R: Revised & Equatable>(_ r: R, in list: ReferenceWritableKeyPath<AppModel, [R]>) {
         recordEvents[r.id, default: 0] += 1
         if let index = self[keyPath: list].firstIndex(where: { $0.id == r.id }) {
@@ -115,7 +121,7 @@ extension AppModel {
         }
     }
 
-    /// A project, workspace or session that's gone.
+    /// Removes a project, workspace or session that's gone.
     func removed(_ removedEvent: RemovedEvent) {
         if let id = removedEvent.repo {
             for x in [id] + worktrees.filter({ $0.repoId == id }).map(\.id) { recordEvents[x, default: 0] += 1 }
@@ -132,15 +138,16 @@ extension AppModel {
     }
 }
 
-/// The latest pushed of one kind, by key (`AppModel.latest`).
+/// The latest pushed values of one kind, by key (`AppModel.latest`).
 @MainActor
 @Observable
 package final class Latest<E: Pushed> {
-    /// Written only where it lands (`AppModel.land`): a built-in reads it.
+    /// Written only by `AppModel.land`. A built-in only reads it.
     package internal(set) var byKey: [String: E] = [:]
 }
 
-/// One key of a topic watched at a time (the workspace a panel shows): set `key`, nil lets go; so does the owner going.
+/// Watches one key of a topic at a time, such as the workspace a panel shows. Setting `key` watches it, and nil stops
+/// watching, as does the owner going away.
 @MainActor
 package final class Watched {
     let topic: WatchTopic, app: AppModel

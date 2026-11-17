@@ -2,15 +2,15 @@ import AppKit
 import DesignKit
 import Sparkle
 
-/// An update Sparkle downloaded by itself and has ready to go. Nothing interrupts: `UpdatePill` and the Kelp menu offer it,
-/// a click installs it and relaunches, and an ordinary quit installs it too.
+/// An update that Sparkle downloaded by itself and has ready to go. Nothing interrupts the user: `UpdatePill` and the
+/// Kelp menu offer it, a click installs it and relaunches, and an ordinary quit installs it too.
 @MainActor
 @Observable
 final class Updates: NSObject {
     struct Ready: Equatable { var version: String, notes: URL? }
 
     private(set) var ready: Ready?
-    /// Sparkle's, made by the app delegate; nil in a build without a feed (a debug one, Kelp Dev).
+    /// Sparkle's controller, made by the app delegate. It is nil in a build without a feed (a debug build, Kelp Dev).
     @ObservationIgnored weak var controller: SPUStandardUpdaterController?
     @ObservationIgnored private var installNow: (() -> Void)?
     @ObservationIgnored private let defaults: UserDefaults
@@ -18,7 +18,8 @@ final class Updates: NSObject {
 
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
-    /// Kept for the next launch, which may be this update's: however it got installed, that launch says so.
+    /// Keeps the ready update, and records it for the next launch, which may be this update's. However the update got
+    /// installed, that launch then says so.
     func arrived(_ update: Ready, install: @escaping () -> Void) {
         ready = update
         installNow = install
@@ -26,7 +27,8 @@ final class Updates: NSObject {
         defaults.set(update.notes?.absoluteString, forKey: Self.notesKey)
     }
 
-    /// The update this launch is, once. A newer download than the one that got installed waits for its own launch.
+    /// Returns the update this launch installed, only once. A newer download than the one that got installed waits for
+    /// its own launch.
     func installed(current: String) -> Ready? {
         guard defaults.string(forKey: Self.versionKey) == current else { return nil }
         defer {
@@ -47,8 +49,8 @@ final class Updates: NSObject {
             })
     }
 
-    /// Relaunches into the update; unsaved files ask first, as for any quit. Without leave to run in the background macOS
-    /// ends the agents with the app, so that takes a yes.
+    /// Relaunches into the update, and unsaved files ask first, as for any quit. Without permission to run in the
+    /// background, macOS ends the agents with the app, so the user must agree to that first.
     func install(_ app: AppModel) async {
         if app.sessions.contains(where: { $0.status != .exited }), await BackgroundItem.blocked, await !agentsMayEnd() {
             return
@@ -76,8 +78,8 @@ final class Updates: NSObject {
 }
 
 extension Updates: SPUUpdaterDelegate {
-    /// Downloaded and unpacked. Answering true holds the update here until the block runs, and Sparkle looks for no newer
-    /// one meanwhile; the block may run again after a quit that unsaved files cancelled.
+    /// Called when an update is downloaded and unpacked. Answering true holds the update here until the block runs,
+    /// and Sparkle looks for no newer one meanwhile. The block may run again after a quit that unsaved files cancelled.
     nonisolated func updater(
         _ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem,
         immediateInstallationBlock install: @escaping () -> Void

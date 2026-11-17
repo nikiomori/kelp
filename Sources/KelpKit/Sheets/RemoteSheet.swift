@@ -2,22 +2,25 @@ import AppKit
 import Core
 import DesignKit
 
-/// Remote projects as this app's home keeps them (KELP_HOME/remote): which folders stand for one on a host.
+/// Remote projects as this app's home keeps them (KELP_HOME/remote), which says which folders stand for a project on a
+/// host.
 extension RemoteHost {
-    /// Asked for every row of the sidebar: a folder outside remote/ is answered without looking.
+    /// Returns the host a folder stands for. Every sidebar row asks, so a folder outside remote/ is answered without
+    /// looking.
     package static func of(_ dir: String) -> RemoteHost? {
         dir.contains("/remote/") ? Remotes(home: Paths.root).of(dir) : nil
     }
 }
 
-/// Open a project over SSH in two steps: connect to the host (ssh's own reason if Kelp can't), then pick the folder
-/// there from a list, as an open panel does (double-click goes in, repositories are marked). Open takes the selected
-/// folder, else the one listed; one that isn't in a repository yet gets `git init` first, and the button says so.
+/// Opens a project over SSH in two steps. First it connects to the host (showing ssh's own reason if Kelp can't), then
+/// the user picks the folder there from a list, as in an open panel (double-click goes in, repositories are marked).
+/// Open takes the selected folder, else the one listed. A folder that isn't in a repository yet gets `git init` first,
+/// and the button says so.
 @MainActor
 final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSource, NSTableViewDelegate {
-    /// The host, as after `ssh` (the hosts in ~/.ssh/config to pick from).
+    /// The host, written as after `ssh`, with the hosts in ~/.ssh/config to pick from.
     private let host = NSComboBox()
-    /// The folder listed; a path typed here is gone to on Return.
+    /// The folder listed. Return goes to a path typed here.
     private let path = NSTextField()
     private let table = NSTableView(), scroll = NSScrollView()
     private let grid: NSGridView
@@ -25,11 +28,13 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     private let spinner = NSProgressIndicator()
     private let go = NSButton(), cancel = NSButton()
     private var rows: [RemoteListFolders.Folder] = []
-    /// The host and folder listed (and whether it's in a repository): nil until connected, and again once the host is edited.
+    /// The host and folder listed, and whether the folder is in a repository. It is nil until connected, and again once
+    /// the host is edited.
     private var listed: (host: String, path: String, repo: Bool)?
     private static var shown: RemoteSheet?
 
-    /// `start`: "host" or "host:/path", connected to at once (the snapshot dev aid; a background app's sheet gets no keys).
+    /// Shows the sheet. With `start` ("host" or "host:/path"), it connects at once (for the snapshot dev aid, because a
+    /// background app's sheet gets no keys).
     static func show(_ app: AppModel, start text: String? = nil) {
         let sheet = RemoteSheet(app: app)
         guard sheet.begin(ended: { shown = nil }) else { return }
@@ -51,7 +56,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
     private func build() {
         let title = NSTextField(labelWithString: String(localized: "Open a Project over SSH"))
         title.font = .ui(TextSize.body, weight: .semibold)
-        Task { [host] in   // ~/.ssh/config read off the main thread
+        Task { [host] in   // reads ~/.ssh/config off the main thread
             host.addItems(withObjectValues: await Task.detached { RemoteHost.configHosts() }.value)
         }
         host.placeholderString = String(localized: "user@server or a Host from ~/.ssh/config")
@@ -102,7 +107,8 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         update()
     }
 
-    /// Before connecting only the host shows, and the button connects; after, the folder and its list, and it opens.
+    /// Before connecting, only the host shows and the button connects. After connecting, the folder and its list show,
+    /// and the button opens.
     private func update() {
         let on = listed != nil
         grid.row(at: 1).isHidden = !on
@@ -113,7 +119,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
             : target?.repo == false ? String(localized: "Initialize Git and Open") : String(localized: "Open")
     }
 
-    /// What Open opens: the selected folder, else the one listed.
+    /// The folder Open opens: the selected one, else the one listed.
     private var target: (path: String, repo: Bool)? {
         guard let current = listed else { return nil }
         let row = table.selectedRow
@@ -149,7 +155,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         if !typed.isEmpty, typed != current.path {
             list(hostName, typed)
             return
-        }   // a path typed: go there first
+        }   // a path was typed, so go there first
         if let chosen = target { open(hostName, chosen.path, init: !chosen.repo) }
     }
 
@@ -169,7 +175,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
             let result = await app.tryCall(RemoteListFolders(host: hostName, path: folderPath))
             busy(false)
             guard let listing = result.value else {
-                // A host never connected to: its key, to trust as ssh's "yes" does, then connected again.
+                // For a host never connected to, ask to trust its key, as ssh's "yes" does, then connect again.
                 if result.error?.contains("Host key verification failed") == true, await trust(hostName) {
                     return list(hostName, folderPath)
                 }
@@ -186,7 +192,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         }
     }
 
-    /// Asks whether to trust the key `hostName` presents, showing it; trusted, true.
+    /// Asks whether to trust the key `hostName` presents, showing the key. Returns true when it is trusted.
     private func trust(_ hostName: String) async -> Bool {
         guard let key = await app.quiet(RemoteHostKey(host: hostName)) ?? nil,
             await confirm(

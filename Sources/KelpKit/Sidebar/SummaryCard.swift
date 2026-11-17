@@ -3,15 +3,16 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// Under a count in the row over the projects, when the pointer rests on it: the chats it counts, each with its
-/// project, what it does now and for how long. A row opens its chat. It comes and goes as a row's hover card does.
+/// The card under a count in the row above the projects, shown when the pointer rests on the count. It lists the chats
+/// the count counts, each with its project, what it does now and for how long. A row opens its chat. The card comes
+/// and goes as a row's hover card does.
 @MainActor
 final class SummaryCard {
     private let app: AppModel
     private let card = HoverPopover()
     /// The count whose card is up.
     private(set) var kind: SummaryKind?
-    /// It opened or closed: the rows it lists light up while it's there.
+    /// Called when the card opened or closed, so the rows it lists light up while it's there.
     var changed: () -> Void = {}
 
     init(app: AppModel) {
@@ -23,8 +24,8 @@ final class SummaryCard {
         }
     }
 
-    /// The pointer came onto a count (`segment`) or left it (nil): the card stays while the pointer is in it, its rows are
-    /// for clicking.
+    /// Called when the pointer came onto a count (`segment`) or left it (nil). The card stays while the pointer is in
+    /// it, because its rows are for clicking.
     func hover(_ segment: SummarySegment?, _ counts: SummaryCounts) {
         guard let segment else { return card.closeSoon(unlessInside: true) }
         card.open { [weak self, weak segment] in
@@ -32,7 +33,7 @@ final class SummaryCard {
         }
     }
 
-    /// What it lists changed while it's up.
+    /// Updates the card when what it lists changed while it's up.
     func refresh(_ counts: SummaryCounts) {
         guard let kind, card.isShown else { return }
         guard !counts[kind].isEmpty else { return close() }

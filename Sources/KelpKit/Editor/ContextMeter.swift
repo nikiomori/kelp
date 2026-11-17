@@ -3,11 +3,12 @@ import Core
 import DesignKit
 
 @MainActor
-/// How full an agent's conversation is, on its tab: nothing while there's room, then a pie that fills, yellow where answers
-/// may start to slip, orange where it's time to compact or hand off, red just before the agent compacts by itself. A pie,
-/// not an arc: an arc in the same place as the working ring read as a second spinner. Past half a 200k window, or 200k tokens of a bigger one: long-context benchmarks slip by absolute tokens, so a 1M
-/// window turns yellow at 200k, orange at 400k and red at 600k (a 200k one at 100k, 130k and 150k, under Claude Code's
-/// own compaction).
+/// Shows on an agent's tab how full its conversation is. It shows nothing while there's room, then a pie that fills:
+/// yellow where answers may start to slip, orange where it's time to compact or hand off, and red just before the agent
+/// compacts by itself. It is a pie, not an arc, because an arc in the same place as the working ring read as a second
+/// spinner. Yellow starts past half a 200k window, or past 200k tokens of a bigger one, because long-context benchmarks
+/// slip by absolute tokens. So a 1M window turns yellow at 200k, orange at 400k and red at 600k, and a 200k window at
+/// 100k, 130k and 150k (under Claude Code's own compaction).
 final class ContextMeter: NSView {
     private let track = CAShapeLayer(), fill = CAShapeLayer()
     var usage: SessionContextWindow.Usage? {
@@ -16,21 +17,21 @@ final class ContextMeter: NSView {
             update()
         }
     }
-    /// 0 room, 1 yellow, 2 orange, 3 red.
+    /// Returns the level: 0 room, 1 yellow, 2 orange, 3 red.
     static func level(_ usage: SessionContextWindow.Usage?) -> Int {
         guard let usage, usage.window > 0 else { return 0 }
         let window = Double(usage.window), used = Double(usage.used)
         return used >= min(0.75 * window, 600_000)
             ? 3 : used >= min(0.65 * window, 400_000) ? 2 : used >= min(0.5 * window, 200_000) ? 1 : 0
     }
-    /// On a tab from yellow on.
+    /// Whether the meter shows on a tab, which it does from yellow on.
     static func shows(_ usage: SessionContextWindow.Usage?) -> Bool { level(usage) >= 1 }
     init() {
         super.init(frame: .zero)
         wantsLayer = true
         isHidden = true
-        // A circle's edge, and inside it a stroke as wide as half its radius around a quarter of it, so strokeEnd fills
-        // the pie from the top, clockwise (the layer's y goes up): StatusMark's progress pie.
+        // Draw the circle's edge, and inside it a 4 pt stroke along a circle of radius 2, so the stroke covers the pie
+        // and strokeEnd fills it from the top, clockwise (the layer's y goes up). This is StatusMark's progress pie.
         track.path = CGPath(ellipseIn: CGRect(x: 1, y: 1, width: 10, height: 10), transform: nil)
         track.lineWidth = 1
         let pie = CGMutablePath()

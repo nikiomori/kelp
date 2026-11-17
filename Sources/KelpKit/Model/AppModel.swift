@@ -4,14 +4,15 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// UI-side mirror of daemon state (observable: views follow what they read with `track`, and redraw only on its change).
+/// The UI's mirror of the daemon's state. It is observable, so views follow what they read with `track` and redraw
+/// only when that changes.
 /// The app talks to the daemon only through JSON-RPC.
 @MainActor
 @Observable
 package final class AppModel {
-    /// What is on screen, settings.json and the extensions: this app's own, handed down with it (`app.workbench`…) to
-    /// the window, the built-ins' contributions and their views. The built-in extensions the app was made with come
-    /// from the app's target, which lists them; KelpKit names none.
+    /// The app's own state: what is on screen, settings.json and the extensions. The model is handed down
+    /// (`app.workbench`…) to the window, to the built-ins' contributions and to their views. The built-in extensions
+    /// come from the app's target, which lists them, so KelpKit names none of them.
     @ObservationIgnored let builtins: [Builtin]
     init(builtins: [Builtin] = []) {
         self.builtins = builtins
@@ -21,7 +22,8 @@ package final class AppModel {
             MainActor.assumeIsolated { self?.lookForFolders() }   // queue: .main
         }
     }
-    /// Kelp coming forward: its projects' folders are looked for again. Ends with the app (a test's makes many).
+    /// Observes Kelp coming to the front, which looks for the projects' folders again. The observer is removed when
+    /// the model ends, because a test makes many models.
     @ObservationIgnored private var activated: NSObjectProtocol?
     isolated deinit { activated.map(NotificationCenter.default.removeObserver) }
 
@@ -40,8 +42,8 @@ package final class AppModel {
         }
     }
 
-    /// What the shell does with each new reading it lands, beside showing it: that one reading, as it arrives (a parked
-    /// agent comes back on its own workspace's failed run, not on every run stored), and the built-ins hear it too.
+    /// Handles each new pushed reading as it arrives, besides showing it. A CI run can bring a parked agent back (only
+    /// a new failed run in the agent's own workspace, not every stored run), and the built-ins hear every reading too.
     func landed(_ pushed: any Pushed) {
         if let ci = pushed as? CIEvent { arrangement.followParked(ci) }
         for hear in extensions.all.pushed { hear(pushed) }
@@ -56,19 +58,20 @@ package final class AppModel {
     @ObservationIgnored private(set) package lazy var themes = ThemeManager(app: self)
     @ObservationIgnored private(set) package lazy var availability = AgentAvailability(app: self)
     @ObservationIgnored private(set) lazy var agentIcons = AgentIcons()
-    /// The agents it offers (see `AgentCatalog`), and file icons in the theme it's set to: views over the parts above.
+    /// The agents the app offers (see `AgentCatalog`) and the file icons in the chosen icon theme. Both are views
+    /// over the parts above.
     package var catalog: AgentCatalog { AgentCatalog(app: self) }
     package var fileIcons: FileIcon { FileIcon(app: self) }
     @ObservationIgnored private(set) lazy var quickOpen = QuickOpen(app: self)
     @ObservationIgnored private(set) lazy var noProject = NoProject(app: self)
     @ObservationIgnored private(set) lazy var switcher = WorkspaceSwitcher(app: self)
-    /// What a built-in keeps once per app (its windows, what it asked about), made when first asked for: the app holds
-    /// them by type without naming them (see `part`).
+    /// The objects a built-in keeps once per app, such as its windows or what it asked about. Each is made when first
+    /// asked for, and the app holds them by type without naming them (see `part`).
     @ObservationIgnored private var parts: [ObjectIdentifier: AnyObject] = [:]
-    /// Banners and the dock badge: the running app's (its delegate sets it), none in tests.
+    /// Shows banners and the dock badge. The app delegate sets it in the running app; tests have none.
     @ObservationIgnored var notifier: Notifier?
     @ObservationIgnored let updates = Updates()
-    /// The app's one `T`, made by `make` the first time.
+    /// Returns the app's one `T`, made by `make` the first time it is asked for.
     package func part<T: AnyObject>(_ make: () -> T) -> T {
         if let existing = parts[ObjectIdentifier(T.self)] as? T { return existing }
         let made = make()
@@ -76,20 +79,22 @@ package final class AppModel {
         return made
     }
 
-    /// The connection to kelpd: opened, watched and restarted there.
+    /// The connection to kelpd. `DaemonLink` opens it, watches it and restarts it.
     @ObservationIgnored private(set) lazy var daemon = DaemonLink(app: self)
-    /// The connection calls go through (`daemon`'s); nil while there's none.
+    /// The connection that calls go through (from `daemon`), or nil while there is none.
     var client: RPCClient? { daemon.client }
     /// Whether there's a connection to the daemon now (calls fail at once without one).
     var hasDaemon: Bool { client != nil }
     package var connected = false
-    /// A new connection's state and settings are being read (`opened`): what they change loads the extensions once, at its end.
+    /// True while a new connection's state and settings are read (`opened`). The extensions they change load once, at
+    /// the end.
     @ObservationIgnored private(set) var opening = false
-    /// Connections made so far: each new one may be a new daemon, whose streams (`kelp attach`) start over.
+    /// The number of connections made so far. Each new one may be to a new daemon, whose streams (`kelp attach`)
+    /// start over.
     private(set) package var connections = 0
     package var repos: [Repo] = [] { didSet { reposChanged() } }
-    /// The projects' folders that aren't there (moved, deleted, a disk unplugged), by path: looked for off the main thread
-    /// when the projects change and when Kelp comes to the front, not by each row on each update.
+    /// The paths of project folders that are missing (moved, deleted, or on an unplugged disk). They are looked for off
+    /// the main thread when the projects change and when Kelp comes to the front, not by each row on each update.
     private(set) var missingFolders: Set<String> = []
     package var worktrees: [Worktree] = [] { didSet { worktreeBy = nil } }
     package var sessions: [Session] = [] {
@@ -101,67 +106,74 @@ package final class AppModel {
             untitled = nil
         }
     }
-    /// Where each session is in `sessions`, made on the first lookup after a change: `session(_:)` is asked for every row
-    /// and tab on every session event, and a scan per lookup (copying each 45-field record) took half the main thread.
+    /// The index of each session in `sessions`, built on the first lookup after a change. `session(_:)` is called for
+    /// every row and tab on every session event, and a scan per lookup (copying each 45-field record) took half the
+    /// main thread.
     @ObservationIgnored private var sessionAt: [String: Int]?
-    /// Each workspace's sessions, made the same way: every workspace row asks on every update.
+    /// The sessions in each workspace, built the same way, because every workspace row asks on every update.
     @ObservationIgnored private var sessionsIn: [String: [Session]]?
-    /// The agents each agent started that haven't ended, made the same way: every agent's row asks for its own.
+    /// The unfinished agents that each agent started, built the same way, because every agent's row asks for them.
     @ObservationIgnored private var startedBy: [String: [Session]]?
-    /// The sessions each agent started from its line (`Session.startedBy`), made the same way: each agent's bar asks.
+    /// The sessions each agent started from its command line (`Session.startedBy`), built the same way, because each
+    /// agent's bar asks for them.
     @ObservationIgnored private var commandsOf: [String: [Session]]?
-    /// Each untitled chat's number among its agent's untitled chats in a workspace (`AgentCatalog.displayName`).
+    /// The number of each untitled chat among the untitled chats of the same agent in a workspace
+    /// (`AgentCatalog.displayName`).
     @ObservationIgnored private var untitled: [String: Int]?
-    /// Projects and workspaces by id, made the same way: asked for inside loops over every session and workspace.
+    /// Projects and workspaces by id, built the same way, because loops over every session and workspace ask for them.
     @ObservationIgnored private var repoBy: [String: Repo]?
     @ObservationIgnored private var worktreeBy: [String: Worktree]?
-    /// What the connection in use has been told to watch (`tell`): the daemon reads a topic again, and CI often for 45 s,
-    /// when one connection starts it twice, so a connection hears each once.
+    /// The watches the current connection has been told about (`tell`). A connection hears each watch only once,
+    /// because the daemon reads a topic again when one connection starts it twice, and for CI that often takes 45 s.
     @ObservationIgnored weak var toldTo: RPCClient?
     @ObservationIgnored var told: Set<WatchStart> = []
-    /// How many of the app's views watch each topic and key: the daemon is told on the first and after the last.
+    /// How many of the app's views watch each topic and key. The daemon is told when the first view starts watching
+    /// and after the last one stops.
     @ObservationIgnored var watching: [WatchStart: Int] = [:]
-    /// What lets go of each topic's latest values once nothing watches a key (`latest`, `Pushed.forgottenWith`).
+    /// Closures that drop a topic's latest values once nothing watches a key (`latest`, `Pushed.forgottenWith`).
     @ObservationIgnored var forgetters: [WatchTopic: [(String) -> Void]] = [:]
-    /// `event.repo` / `event.worktree` / `event.removed` handled since the last refresh, per id: a list asked for before
-    /// one may be older. Emptied as each refresh ends (nothing compares with them until the next begins), or they'd keep
-    /// every record that ever was.
+    /// Counts, per id, the `event.repo` / `event.worktree` / `event.removed` events handled since the last refresh,
+    /// because a list asked for before such an event may be older than it. Emptied as each refresh ends (nothing
+    /// compares with them until the next one begins), or they would keep every record that ever existed.
     @ObservationIgnored var recordEvents: [String: Int] = [:]
     @ObservationIgnored package var agents: [AgentManifest] = AgentManifest.load(dir: Paths.agents)
 
-    /// `event.session`s handled since the last refresh, per session, the same way.
+    /// Counts the `event.session` events handled since the last refresh, per session, for the same reason.
     @ObservationIgnored private(set) var sessionEvents: [String: Int] = [:]
-    /// Sessions a restart is replacing: their removal waits for the new one, which takes their tab.
+    /// Sessions that a restart is replacing. Their removal waits for the new session, which takes over their tab.
     @ObservationIgnored var restarting: Set<String> = []
-    /// The refresh under way, and whether another was asked for meanwhile (a burst of `event.changed` makes one more).
+    /// The refresh under way, and whether another was asked for meanwhile (a burst of `event.changed` asks for one
+    /// more).
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var refreshAgain = false
 
-    /// Workspaces of a project in the order they were opened: Workspace 1, 2, 3… (older ones on their own branch
-    /// included), unless dragged into another in the sidebar.
+    /// Returns a project's workspaces in the order they were opened (Workspace 1, 2, 3…, including older ones on their
+    /// own branch), unless the user dragged them into another order in the sidebar.
     func workspaces(of repo: Repo) -> [Worktree] {
         ordered(worktrees.filter { $0.repoId == repo.id && !$0.archived }.sorted { $0.createdAt < $1.createdAt })
     }
 
-    /// Projects as the sidebar lists them: by name, unless dragged into another order, and No Project last.
+    /// The projects as the sidebar lists them: by name unless dragged into another order, with No Project last.
     var projects: [Repo] { ordered(repos.filter { !NoProject.holds($0) }) + repos.filter(NoProject.holds) }
 
-    /// How the user arranged the sidebar: its own observed model, not the daemon's mirror (`Arrangement`).
+    /// How the user arranged the sidebar. It is its own observed model (`Arrangement`), not part of the daemon's
+    /// mirror.
     @ObservationIgnored private(set) lazy var arrangement = Arrangement(app: self)
-    /// Puts these (siblings) in this order.
+    /// Puts the given sibling ids in the given order.
     func reorder(_ ids: [String]) { arrangement.order = ids + arrangement.order.filter { !ids.contains($0) } }
     private func ordered<T: Identifiable>(_ xs: [T]) -> [T] where T.ID == String {
         let rank = arrangement.rank
         return xs.enumerated().sorted { (rank[$0.1.id] ?? .max, $0.0) < (rank[$1.1.id] ?? .max, $1.0) }.map(\.1)
     }
 
-    /// A session as a reply or an event has it; an older copy than the one here (a reply that an event overtook) is dropped.
+    /// Stores a session from a reply or an event. A copy older than the one already here (a reply that an event
+    /// overtook) is dropped.
     package func upsert(_ session: Session) {
         if let index = sessionIndex(session.id) {
             if !session.isOlder(than: sessions[index]) {
                 let places = sessionAt
                 sessions[index] = session
-                sessionAt = places   // replaced where it was: every session's place holds
+                sessionAt = places   // replaced in place, so every session's index still holds
             }
         } else {
             sessions.append(session)
@@ -201,8 +213,8 @@ package final class AppModel {
             panels: reg.all.panels.map { ShownUI.Item(id: $0.id, title: $0.title) }, away: away ? true : nil)
         guard state != published else { return }
         published = state
-        // A call (applied in order all the same): a daemon that isn't this app's own copy refuses it, and agents' `kelp open`
-        // would then say Kelp isn't running. Said once per connection.
+        // This is a call, not a notification, though it is still applied in order. A daemon that isn't this app's own
+        // copy refuses it, and agents' `kelp open` would then say Kelp isn't running. That is said once per connection.
         Task {
             guard let error = await tryCall(UIPublish(state: state)).error, !publishRefused, client === connection
             else {
@@ -214,17 +226,17 @@ package final class AppModel {
     }
     @ObservationIgnored private var publishRefused = false
 
-    /// Up to ~5 s for the first connection (and the lists it brings), for things asked for at launch.
+    /// Waits up to ~5 s for the first connection (and the lists it brings), for things asked for at launch.
     func waitForConnection() async {
         for _ in 0..<50 where !connected { try? await Task.sleep(for: .milliseconds(100)) }
     }
 
-    /// A new connection (`DaemonLink`), maybe to a new daemon: its state, settings and lists read anew, then what the
-    /// views watch told to it.
+    /// Handles a new connection from `DaemonLink`, which may be to a new daemon. It reads the state, settings and lists
+    /// anew, then tells the daemon what the views watch.
     func opened(_ connection: RPCClient) async {
         opening = true
         defer { opening = false }
-        // Both at once: neither reads the other, and launch waited for the sum.
+        // Both are read at once, because neither depends on the other and launch waited for the sum.
         async let stateRead: Void = uiState.load()
         async let settingsRead: Void = settings.load()
         _ = await (stateRead, settingsRead)
@@ -238,22 +250,24 @@ package final class AppModel {
         let colors = ProjectColor.read(uiState[ProjectColor.key])
         if colors != arrangement.projectColors { arrangement.projectColors = colors }
         await refresh()
-        connected = client === connection   // after the lists: what waits for the connection finds the projects in
+        connected = client === connection   // set after the lists, so whoever waits for it finds the projects loaded
         if connected {
             connections += 1
-            // Again, as the daemon's state is read anew: an extension changed meanwhile waits to be allowed (`ExtensionTrust`),
-            // and one that waited for the state to be known (a first connection that failed) doesn't any more. Once, for
-            // that and the extensions settings.json switched on or off (`ExtensionRegistry.follow` waits for this).
+            // Reload the extensions, because the daemon's state was read anew. An extension changed meanwhile must
+            // wait to be allowed (`ExtensionTrust`), and one that waited for the state (after a failed first
+            // connection) no longer has to. This runs once for that and for any extensions settings.json switched on
+            // or off (`ExtensionRegistry.follow` waits for this).
             let switched = extensions.disabled != extensions.disabledLoaded
             if connections > 1 || extensions.loadedWithoutState || switched { extensions.reload() }
         }
         published = nil
-        publishRefused = false   // a new daemon knows nothing yet
+        publishRefused = false   // a new daemon hasn't refused anything yet
         publishUIState()
-        tellWatches(connection)   // what the views watch and this connection hasn't heard yet (a new daemon: all of it)
+        tellWatches(connection)   // tells what the views watch that this connection hasn't heard (all of it, if new)
     }
 
-    /// One at a time: two lists asked for together could come back the older last. A caller gets a list read after it asked.
+    /// Reads the lists again, one refresh at a time, because two lists asked for together could come back with the
+    /// older one last. A caller always gets lists read after it asked.
     func refresh() async {
         if let running = refreshTask {
             refreshAgain = true
@@ -265,16 +279,17 @@ package final class AppModel {
                 refreshAgain = false
                 await refreshOnce()
             } while refreshAgain
-            refreshTask = nil   // with the last check: no await between, so a later caller starts a new one
+            refreshTask = nil   // no await since the last check, so a later caller starts a new refresh
         }
         refreshTask = task
         await task.value
     }
 
     private func refreshOnce() async {
-        // Assign only what changed: every assignment re-renders the views that read it. Quiet: a failed read keeps the
-        // lists on screen, and a dropped connection says so itself (and refreshes again once it's back).
-        // The four lists asked at once (one after another, launch waited for the sum), applied in the same order.
+        // Assign only what changed, because every assignment re-renders the views that read it. The reads are quiet,
+        // so a failed read keeps the lists on screen, and a dropped connection reports itself (and refreshes again
+        // once it's back). The four lists are asked for at once, because one after another made launch wait for the
+        // sum. They are applied in the same order.
         let records = recordEvents, before = sessionEvents
         func newer() -> Set<String> { Set(recordEvents.keys.filter { recordEvents[$0] != records[$0] }) }
         async let repoList = quiet(RepoList()), worktreeList = quiet(WorktreeList())
@@ -300,9 +315,9 @@ package final class AppModel {
         sessionEvents = [:]
     }
 
-    /// The daemon's list, except records in `newer`: an event about them came while the list was on its way (on the
-    /// same connection, so after the list was read, or as it was), and what it said stays; one removed meanwhile stays out.
-    /// Of a record in both, the newer by revision.
+    /// Returns the daemon's list, except for records in `newer`. An event about those came while the list was on its
+    /// way (on the same connection, so after the list was read, or while it was), and the event's version stays. A
+    /// record removed meanwhile stays out. When a record is in both, the newer revision wins.
     static func merge<T: Revised & Equatable>(list: [T], local: [T], newer: Set<T.ID>) -> [T] {
         let here = Dictionary(local.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let kept = here.filter { newer.contains($0.key) }
@@ -311,17 +326,18 @@ package final class AppModel {
             + local.filter { kept[$0.id] != nil && !listed.contains($0.id) }
     }
 
-    /// Sessions whose status the list knows and no event told: it changed while the connection was down, during an update
-    /// say, and a turn that finished then must still be heard of. One this window has never shown isn't news.
+    /// Returns the sessions whose status changed in the list without an event saying so. That happens while the
+    /// connection was down (during an update, say), and a turn that finished then must still be announced. A session
+    /// this window has never shown isn't news.
     static func caughtUp(_ merged: [Session], local: [Session]) -> [(now: Session, was: Session)] {
         let here = Dictionary(local.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         return merged.compactMap { s in here[s.id].flatMap { $0.status != s.status ? (s, $0) : nil } }
     }
 
-    /// The daemon's events, decoded as their types on the client's reader thread, handled on the main actor.
-    /// One stream and one reader: events are handled in the order the daemon sent them, by construction (a task each
-    /// would rely on the main queue running tasks in the order they were made).
-    /// Returns what ends the reader once the connection is gone.
+    /// Listens to the daemon's events, decoded as their types on the client's reader thread and handled on the main
+    /// actor. With one stream and one reader, events are handled in the order the daemon sent them by construction
+    /// (a task per event would rely on the main queue running tasks in the order they were made).
+    /// Returns a closure that ends the reader once the connection is gone.
     @discardableResult
     func listen(_ client: RPCClient) -> @Sendable () -> Void {
         let (events, feed) = AsyncStream<any RPCEvent>.makeStream()
@@ -332,9 +348,10 @@ package final class AppModel {
         return stop
     }
 
-    /// An agent's session changes a few times a second while it works (each command, each subagent), and every view that
-    /// reads `sessions` looks again after each: what comes within 50 ms is applied in one turn, so they look once. Any
-    /// other event applies what's held first, so everything still lands in the order it was sent.
+    /// Takes one daemon event. An agent's session changes a few times a second while it works (each command, each
+    /// subagent), and every view that reads `sessions` looks again after each change. So session events that come
+    /// within 50 ms are applied in one turn, and the views look once. Any other event applies the held sessions first,
+    /// so everything still lands in the order it was sent.
     func arrived(_ rpcEvent: any RPCEvent) {
         guard let session = rpcEvent as? Session else {
             applyHeld()
@@ -350,16 +367,17 @@ package final class AppModel {
         sessions.forEach(handle)
     }
     @ObservationIgnored private(set) var held: [Session] = []
-    /// Kelp's window isn't seen (`setAway`).
+    /// True while Kelp's window can't be seen (`setAway`).
     @ObservationIgnored var away = false
-    /// How long session news is gathered: well under what a row's change is seen in, a burst's worth.
+    /// How long session events are gathered before they apply: enough for a burst, and well under the time it takes to
+    /// see a row change.
     static let gathers: TimeInterval = 0.05
 
     /// Ends the reader of the connection last listened to (`listen`).
     @ObservationIgnored private var stopListening: (@Sendable () -> Void)?
 
-    /// A connection this model stops hearing, before a restart that reconnects itself (a second client would hear every
-    /// event twice): its close does nothing more, and its events' reader ends.
+    /// Stops hearing a connection, before a restart that reconnects by itself (a second client would hear every event
+    /// twice). Closing the connection then does nothing more, and its event reader ends.
     func stopHearing(_ client: RPCClient?) {
         client?.onClose = nil
         stopListening?()
@@ -372,13 +390,13 @@ package final class AppModel {
             sessionEvents[session.id, default: 0] += 1
             let old = self.session(session.id)
             if session.isOlder(than: old) { return }
-            if old != session { upsert(session) }   // views follow `sessions`
+            if old != session { upsert(session) }   // the views follow `sessions`
             notifier?.statusChanged(session, old)
             if old?.status != session.status { arrangement.followParked(session) }
         case let repo as Repo: record(repo, in: \.repos)
         case let worktree as Worktree: record(worktree, in: \.worktrees)
         case let removal as RemovedEvent: removed(removal)
-        // Said where the row was: it went with nobody asking.
+        // The banner says where the row was, because the row went away without the user asking.
         case let landed as LandedEvent:
             Banner.show(
                 landed.archived
@@ -393,16 +411,17 @@ package final class AppModel {
         case let request as UIEvent: UIRequests(self).handle(request)
         default:
             if extensions.all.events.contains(where: { $0(event) }) { return }
-            if let request = event as? UIBrowserEvent {   // no built-in has pages: the agent waits for nobody
+            if let request = event as? UIBrowserEvent {   // the Browser built-in is off, so tell the agent now
                 let off = "Kelp's Browser is turned off: the user turns it on in Settings › Extensions."
                 Task { _ = await quiet(UIBrowserReply(request: request.request, error: off)) }
             }
-            watched(event)   // event.changed is left: the records themselves follow (event.repo / .worktree / .removed)
+            watched(event)   // event.changed is ignored: event.repo / .worktree / .removed bring the records
         }
     }
 
-    /// A session gone for good (deleted, its workspace removed, pruned): its tab and row go with it. One being restarted
-    /// is replaced in its tab by `AgentActions(app).restart` when the new one comes back.
+    /// Removes a session that is gone for good (deleted, pruned, or its workspace removed), with its tab and row. A
+    /// session being restarted stays, and `AgentActions(app).restart` replaces it in its tab when the new one comes
+    /// back.
     func removed(session id: String) {
         sessionEvents[id, default: 0] += 1
         guard !restarting.contains(id), let index = sessionIndex(id) else { return }
@@ -411,7 +430,8 @@ package final class AppModel {
 
     // MARK: calls
 
-    /// Errors show as a banner, never a blocking alert. Only typed methods: a renamed field must not compile.
+    /// Calls a daemon method and shows an error as a banner, never a blocking alert. It takes only typed methods, so a
+    /// renamed field fails to compile.
     @discardableResult
     package func call<M: RPCMethod>(_ m: M) async -> M.Result? { Self.banner(await tryCall(m)) }
     private static func banner<T>(_ r: (value: T?, error: String?)) -> T? {
@@ -419,14 +439,14 @@ package final class AppModel {
         return r.value
     }
 
-    /// Like `call`, but a failure comes back as its message (for actions that offer a way out) instead of a banner. A
-    /// cancelled caller isn't waiting for an answer: nil, and no message.
+    /// Like `call`, but a failure comes back as its message instead of a banner, for actions that offer a way out. A
+    /// cancelled caller isn't waiting for an answer, so it gets nil and no message.
     package func tryCall<M: RPCMethod>(_ m: M) async -> (value: M.Result?, error: String?) {
         do { return (try await get(m), nil) } catch is CancellationError { return (nil, nil) } catch {
             return (nil, Self.message(error))
         }
     }
-    /// `tryCall` for a chain of calls that one `catch` turns into the panel's error state.
+    /// A throwing `tryCall`, for a chain of calls that one `catch` turns into the panel's error state.
     package func get<M: RPCMethod>(_ m: M) async throws -> M.Result {
         guard let client else { throw RPCError.internalError(DaemonLink.noService) }
         return try await client.call(m)
@@ -435,19 +455,19 @@ package final class AppModel {
         (error as? RPCError)?.message ?? error.localizedDescription
     }
 
-    /// For what decorates rather than answers the user: a badge, a hover card's extras, a notification's summary, a poll
-    /// that asks again in a few seconds. Its failure says nothing (nil), since an error there would be noise about
-    /// something nobody asked for, and the next read tries again. `timeout`: a reply that never comes ends this read,
-    /// not the loop that makes it.
+    /// Calls a method for something that decorates rather than answers the user: a badge, the extras on a hover card,
+    /// a notification's summary, or a poll that asks again in a few seconds. A failure returns nil and says nothing,
+    /// because an error there would be noise about something nobody asked for, and the next read tries again. With
+    /// `timeout`, a reply that never comes ends this read, not the loop that makes it.
     @discardableResult
     package func quiet<M: RPCMethod>(_ m: M, timeout: TimeInterval = 30) async -> M.Result? {
         try? await client?.call(m, timeout: timeout)
     }
 
-    /// Fire-and-forget, for what streams (an editor's text, a state write): nothing comes back, so there is nothing to
-    /// report. Without a daemon the message is made and dropped; the next connection reads it again. With `queue`, the
-    /// message is made and written from that queue, in the order sent, for messages too big to encode on the main
-    /// thread; a nil `message` sends nothing.
+    /// Sends a fire-and-forget message, for things that stream (an editor's text, a state write). Nothing comes back,
+    /// so there is nothing to report. Without a daemon the message is made and dropped, and the next connection reads
+    /// the state again. With `queue`, the message is made and written from that queue in the order sent, for messages
+    /// too big to encode on the main thread. A nil `message` sends nothing.
     package func notify<M: RPCMethod>(on queue: DispatchQueue? = nil, _ message: @escaping @Sendable () -> M?) {
         let client = client
         guard let queue else {
@@ -457,7 +477,7 @@ package final class AppModel {
         queue.async { if let made = message() { client?.notify(made) } }
     }
 
-    /// What `notify` queued goes out now: before the process ends, the last layout or state set written.
+    /// Sends what `notify` queued right now, so the last layout or state write goes out before the process ends.
     func flush() { client?.flush() }
 
     package func worktree(_ id: String?) -> Worktree? {
@@ -465,7 +485,8 @@ package final class AppModel {
         if worktreeBy == nil { worktreeBy = Dictionary(all.map { ($0.id, $0) }) { first, _ in first } }
         return id.flatMap { worktreeBy?[$0] }
     }
-    /// The workspace whose folder holds `path`: the innermost one, for a branch's folder inside its project's folder.
+    /// Returns the workspace whose folder holds `path`. It picks the innermost one, because a branch's folder can sit
+    /// inside its project's folder.
     package func worktree(holding path: String) -> Worktree? {
         worktrees.filter { Paths.inside(path, $0.path) }.max { $0.path.count < $1.path.count }
     }
@@ -476,7 +497,7 @@ package final class AppModel {
     }
     package func session(_ id: String) -> Session? { sessionIndex(id).map { sessions[$0] } }
     private func sessionIndex(_ id: String) -> Int? {
-        let all = sessions   // read through the observed property: a `track` that asks follows `sessions`
+        let all = sessions   // read through the observed property, so a `track` that asks follows `sessions`
         if sessionAt == nil { sessionAt = Dictionary(all.indices.map { (all[$0].id, $0) }) { first, _ in first } }
         return sessionAt?[id]
     }
@@ -488,8 +509,8 @@ package final class AppModel {
         return (sessionsIn?[worktreeId] ?? []).filter { $0.status != .exited && $0.isChat }
     }
 
-    /// The agent that stands for a workspace in its sidebar row and its ⌃Tab row: of its live chats, those whose state
-    /// matters most (asks before works before done), the one that changed last.
+    /// Returns the agent that stands for a workspace in its sidebar row and its ⌃Tab row. Among the workspace's live
+    /// chats with the most urgent state (asking, then working, then done), it is the one that changed last.
     func lead(in worktreeId: String) -> Session? {
         let agents = liveChats(in: worktreeId)
         let top = AgentStatus.mostUrgent(agents.map(\.shownStatus))
@@ -498,40 +519,42 @@ package final class AppModel {
         }
     }
 
-    /// The project's name, wherever it is shown. A remote project gets its machine after its name while another project
-    /// has the same name ("infra · beet"), so the two can be told apart; a project on this Mac and every unique name
-    /// stay as they are.
-    /// A group's name, or nil for a project's own screen, which goes by its project's name.
+    /// Returns a group's name, or nil for a project's own screen, which goes by the project's name.
     package func groupName(_ worktree: Worktree?) -> String? {
         guard let worktree else { return nil }
         return repo(worktree.repoId).flatMap { mainWorkspace(of: $0, among: worktrees) }?.id == worktree.id
             ? nil : worktree.displayName
     }
 
+    /// Returns the project's name, wherever it is shown. While another project has the same name, a remote project
+    /// gets its machine after its name ("infra · beet"), so the two can be told apart. A project on this Mac and every
+    /// unique name stay as they are.
     package func projectName(_ id: String?) -> String? {
         guard let project = repo(id) else { return nil }
-        // what the row holds: chats outside any project
+        // The No Project row holds the chats that are outside any project.
         if NoProject.holds(project) { return String(localized: "Chats") }
         guard repos.contains(where: { $0.id != project.id && $0.name == project.name }),
             let host = RemoteHost.of(project.path)?.host
         else { return project.name }
         return "\(project.name) · \(host)"
     }
-    /// Where the project is: "host:path" for a remote one (not the local folder that stands for it), else its path.
+    /// Returns where the project is: "host:path" for a remote one (not the local folder that stands for it), else its
+    /// path.
     func projectPlace(_ repo: Repo) -> String {
         RemoteHost.of(repo.path).map { "\($0.host):\($0.path)" } ?? (repo.path as NSString).abbreviatingWithTildeInPath
     }
 }
 
 extension AppModel {
-    /// The agent whose line shows the command `s`: nil for any other session, and once that agent ended or went away.
+    /// Returns the agent whose command line shows the command session `s`. It is nil for any other session, and once
+    /// that agent has ended or gone away.
     func owner(of s: Session) -> Session? {
         guard let id = s.startedBy, let agent = session(id), agent.status != .exited, agent.worktreeId == s.worktreeId
         else { return nil }
         return agent
     }
 
-    /// The sessions agent `id` started from its line, ended or not, in `sessions`' order.
+    /// Returns the sessions that agent `id` started from its command line, ended or not, in the order of `sessions`.
     func started(by id: String) -> [Session] {
         let all = sessions   // read through the observed property, as `session(_:)` does
         if commandsOf == nil {
@@ -540,8 +563,8 @@ extension AppModel {
         return commandsOf?[id] ?? []
     }
 
-    /// The number of a live untitled chat among its agent's chats in its workspace, oldest first; nil for the first or
-    /// only one.
+    /// Returns the number of a live untitled chat among the same agent's chats in its workspace, counting the oldest
+    /// first. It is nil for the first or only one.
     func untitledNumber(_ id: String) -> Int? {
         let all = sessions   // read through the observed property, as `session(_:)` does
         if untitled == nil {
@@ -557,7 +580,8 @@ extension AppModel {
         return untitled?[id]
     }
 
-    /// The agents `id` started that haven't ended, and those they started (`[Session].children(of:)`, from an index).
+    /// Returns the unfinished agents that `id` started, and the ones they started in turn (`[Session].children(of:)`,
+    /// read from an index).
     func children(of id: String) -> [Session] {
         let all = sessions   // read through the observed property, as `session(_:)` does
         if startedBy == nil {

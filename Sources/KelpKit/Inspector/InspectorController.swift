@@ -3,11 +3,11 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// The right side of the window: a row of panel icons (from extensions) above the selected panel. It is a scope bar
-/// like Mail's and Finder's: plain icons, the selected one on the grey of a chosen row, in a glass capsule on macOS 26.
-/// The row is the inspector's part of the window's second row, under the panel's name, or a bar under the panel. Icons
-/// can be dragged into order; a right-click on the row hides icons and moves the row. Icons that don't fit go into a »
-/// menu, as a toolbar's do.
+/// The right side of the window: a row of panel icons (from extensions) above the selected panel. The row is a scope
+/// bar like Mail's and Finder's: plain icons, with the selected icon on the same grey as a chosen row, in a glass
+/// capsule on macOS 26. The row sits in the window's second row (level with the tabs, under the panel's name), or in a
+/// bar under the panel. Icons can be dragged into order, and a right-click on the row hides icons and moves the row.
+/// Icons that don't fit go into a » menu, as a toolbar's do.
 @MainActor
 final class InspectorController: NSViewController {
     let app: AppModel
@@ -17,34 +17,38 @@ final class InspectorController: NSViewController {
     }
     required init?(coder: NSCoder) { fatalError() }
     let selector = CapsuleStack()
-    /// What the row's constraints hold: the glass around `selector` on macOS 26, else `selector` itself.
+    /// The view the row's constraints place: the glass around `selector` on macOS 26, or `selector` itself before that.
     private lazy var bar: NSView = Self.glass(around: selector)
     var buttons: [NSButton] = []
     private var counts: [CountBadge] = []   // one per button
     let more = PanelIcon("chevron.right.2", String(localized: "More Panels"))
     private let moreBadge = CountBadge()
-    /// Panels whose icon went into the » menu (not the ones hidden from the row's menu).
+    /// The panels whose icons went into the » menu because they didn't fit (panels hidden through the row's menu aren't
+    /// in this list).
     var folded: [Int] = []
-    /// A dot's key once its panel was shown with it: the dot stays off until the key changes.
+    /// For each panel, the key of the dot it had when the user saw the panel. The dot stays off until that key changes.
     private var seen: [String: String] = [:]
     private var polls: [Task<Void, Never>] = []
-    private let host = NSView()   // clips: see showSelected
+    private let host = NSView()   // clips the panel (see showSelected)
     var panels: [PanelSpec] = []
     private var made: [String: NSViewController] = [:]
-    /// Settings › Appearance › Inspector icons: one of these holds the row (left, centered, right).
+    /// One constraint for each choice of Settings › Appearance › Inspector icons (left, centered, right); the active
+    /// one holds the row in place.
     private var align: [String: NSLayoutConstraint] = [:]
-    /// Settings › Appearance › Inspector icons position: the row level with the tabs, a bar under the panel, or a
-    /// column down the inspector's right edge (room for every icon).
+    /// The constraints for each choice of Settings › Appearance › Inspector icons position: the row level with the
+    /// tabs, a bar under the panel, or a column down the inspector's right edge (which has room for every icon).
     private var top: [NSLayoutConstraint] = [], bottom: [NSLayoutConstraint] = [], side: [NSLayoutConstraint] = []
-    private let rowSep = NSBox()   // over the bar at the bottom
-    /// The panel's name in the inspector's top band, level with the traffic lights: the icons alone don't say where you are.
+    private let rowSep = NSBox()   // the line over the bar at the bottom
+    /// The panel's name in the inspector's top band, level with the traffic lights, because the icons alone don't say
+    /// which panel is open.
     private let panelTitle = NSTextField(labelWithString: "")
     private let empty = EmptyStateView()
 
     override func loadView() {
         let root = InspectorView()
         root.rowMenu = { [weak self] in self?.rowMenu($0) }
-        // A segmented capsule, like the system's scope bars on macOS 26: the shown panel's icon on a soft fill.
+        // The row is a segmented capsule, like the system's scope bars on macOS 26, with the shown panel's icon on a
+        // soft fill.
         let pad = Metrics.iconGap
         selector.spacing = pad
         selector.edgeInsets = NSEdgeInsets(top: pad, left: pad, bottom: pad, right: pad)
@@ -64,8 +68,9 @@ final class InspectorController: NSViewController {
             x.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(x)
         }
-        // Like the sidebar, the inspector runs the window's full height: the top band (as tall as the title bar) holds the
-        // panel's name and, in the corner, the window's inspector toggle; its rows start under it.
+        // Like the sidebar, the inspector runs the window's full height. Its top band, as tall as the title bar, holds
+        // the panel's name and, in the corner, the window's inspector toggle. The inspector's rows start under the
+        // band.
         let under = NSLayoutGuide()
         root.addLayoutGuide(under)
         under.topAnchor.constraint(equalTo: root.topAnchor, constant: WindowBar.height).isActive = true
@@ -75,14 +80,14 @@ final class InspectorController: NSViewController {
             "right": bar.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -Metrics.insetTrailing)
         ]
         align.values.forEach { $0.priority = .defaultHigh }
-        // Level with the tabs, the full height of their strip; or as tall, under the panel.
+        // The bar is either level with the tabs and as tall as their strip, or just as tall and under the panel.
         let band = [
             bar.centerYAnchor.constraint(equalTo: under.topAnchor),
             bar.centerYAnchor.constraint(equalTo: root.bottomAnchor),
             rowSep.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             sep.bottomAnchor.constraint(equalTo: under.topAnchor)
         ]
-        // As tall as the tab strips beside it (Settings › Appearance › Tab height).
+        // The band is as tall as the tab strips beside it (Settings › Appearance › Tab height).
         track(owner: self) { [app] in
             TabStrip.height(app.settings)
         } changed: { height in
@@ -133,10 +138,12 @@ final class InspectorController: NSViewController {
         followModel(sep)
     }
 
-    /// What the panels follow: the text size, the registry, the workspace on screen, where the icons sit (`sep`: the line
-    /// over the panel, hidden when the icons are at the bottom).
+    /// Updates the inspector when what it follows changes: the text size, the registry, the workspace on screen, the
+    /// shown panel, the badges and where the icons sit. `sep` is the line over the panel, hidden when the icons are at
+    /// the bottom.
     private func followModel(_ sep: NSBox) {
-        // Panels are built with the text size of the moment: rebuilt when it changes (first, while none are built).
+        // Panels are built with the current text size, so they are rebuilt when it changes. The first call comes while
+        // none are built yet.
         track(owner: self) { [app] in
             app.themes.chromeText
         } changed: { [weak self] _ in
@@ -182,8 +189,8 @@ final class InspectorController: NSViewController {
         }
     }
 
-    /// The row level with the tabs (`top`), under the panel (`bottom`) or a column at the right edge (`side`), which
-    /// has no alignment.
+    /// Places the icons in a row level with the tabs (`top`), in a row under the panel (`bottom`), or in a column at
+    /// the right edge (`side`). A column takes no alignment.
     private func place(at position: String, align side: String, _ sep: NSBox) {
         let column = position == "side"
         NSLayoutConstraint.deactivate(top + bottom + self.side + align.values)
@@ -196,7 +203,8 @@ final class InspectorController: NSViewController {
     }
 
     private func rebuild() {
-        // In the order the row was dragged into; panels it doesn't name yet follow in the registry's order.
+        // Panels go in the order the user dragged the row into. Panels the saved order doesn't name yet follow in the
+        // registry's order.
         let order = app.settings[SettingKeys.panelOrder], hidden = Set(app.settings[SettingKeys.hiddenPanels] ?? [])
         func rank(_ entry: (offset: Int, element: PanelSpec)) -> (Int, Int) {
             (order.firstIndex(of: entry.element.id) ?? .max, entry.offset)
@@ -263,29 +271,30 @@ final class InspectorController: NSViewController {
         ])
     }
 
-    /// A badge past the glyph's top-right corner, clear of its strokes: placed over them, it hid the branch symbol's
-    /// node.
+    /// Pins a count badge past the top-right corner of the icon's glyph, clear of its strokes. Placed over the strokes,
+    /// the badge hid a node of the branch symbol.
     private func pin(_ countBadge: CountBadge, on button: NSButton) {
         countBadge.translatesAutoresizingMaskIntoConstraints = false
         button.addSubview(countBadge)
         let half = Metrics.segmentPoint / 2
-        // 3 pt past the glyph's half: 1 pt left the branch's right node touching the number. A wider one ("19") moves
-        // left rather than onto the next icon: it ends 3 pt before that glyph.
+        // The badge starts 3 pt past half the glyph's width, because at 1 pt the branch's right node touched the
+        // number. A wider badge ("19") moves left rather than onto the next icon, and ends 3 pt before that icon's
+        // glyph.
         let start = countBadge.leadingAnchor.constraint(equalTo: button.centerXAnchor, constant: half + 3)
         start.priority = .defaultHigh
         let nextGlyph = Metrics.iconGap + (Metrics.segment.width - Metrics.segmentPoint) / 2
         NSLayoutConstraint.activate([
             start,
             countBadge.trailingAnchor.constraint(lessThanOrEqualTo: button.trailingAnchor, constant: nextGlyph - 3),
-            // In a column it hangs past the capsule's edge into the inset, stopping short of the window's edge.
+            // In a column, the badge hangs past the capsule's edge into the inset, stopping short of the window's edge.
             countBadge.trailingAnchor.constraint(
                 lessThanOrEqualTo: button.trailingAnchor, constant: Metrics.iconGap + Metrics.insetTrailing - 2),
             countBadge.centerYAnchor.constraint(equalTo: button.centerYAnchor, constant: Metrics.iconGap - half - 1)
         ])
     }
 
-    /// A reload may have changed what a folder extension's panel shows (an agent edits it, then `kelp ext reload`):
-    /// those are made again. Built-in panels stay as they are.
+    /// Drops the built panels of folder extensions so they are made again, because a reload may have changed what they
+    /// show (an agent edits one, then runs `kelp ext reload`). Built-in panels stay as they are.
     private func forgetFolderPanels() {
         let builtin = Set(app.extensions.extensions.filter(\.builtin).map(\.id))
         for p in panels where !builtin.contains(p.extensionId) {
@@ -309,7 +318,7 @@ final class InspectorController: NSViewController {
             buttons[i].toolTip =
                 badge.map { $0.count > 0 ? "\(loc(p.title)) (\($0.count))" : "\(loc(p.title)) •" } ?? loc(p.title)
         }
-        // The » carries a dot for what's behind it: red if any of it is.
+        // The » shows a dot when a folded panel has a badge, and the dot is red if any of those badges is an alert.
         moreBadge.badge = folds.isEmpty ? nil : PanelBadge(alert: folds.contains(where: \.alert))
     }
 
@@ -318,10 +327,11 @@ final class InspectorController: NSViewController {
             return
         }
         app.workbench.inspectorPanel = panels[tag].id
-        showSelected()   // the shown panel's icon again: its state stays on
+        showSelected()   // a click on the shown panel's icon keeps its state on
     }
 
-    /// A dragged icon takes the slot under the pointer (`p` in the row or column); the others slide aside.
+    /// Moves a dragged icon into the slot under the pointer (`p`, in the row's or column's coordinates); the other
+    /// icons slide aside.
     private func move(_ button: NSButton, to p: NSPoint) {
         var views = selector.arrangedSubviews
         views.removeAll { $0 === button || $0 === more }   // the » stays last
@@ -347,7 +357,7 @@ final class InspectorController: NSViewController {
 
     /// Shows a panel by id (menus and commands use this too).
     func show(panel id: String) { app.workbench.inspectorPanel = id }
-    /// A panel already built (they're built when first shown).
+    /// Returns the panel's view controller if it was already built (panels are built when first shown).
     func built(_ id: String) -> NSViewController? { made[id] }
 
     func showSelected() {
@@ -362,8 +372,9 @@ final class InspectorController: NSViewController {
         if panelTitle.stringValue != loc(panel.title), view.window != nil { panelTitle.crossfade() }   // as the panel
         panelTitle.stringValue = loc(panel.title)
         fold()
-        showCounts()   // the shown panel's icon into the row, its dot seen
-        // A collapsed inspector builds nothing: the panel is made when it shows (a hidden Source Control runs no git).
+        showCounts()   // marks the shown panel's dot seen (fold put its icon in the row)
+        // A collapsed inspector builds nothing. The panel is made when it shows, so a hidden Source Control runs no
+        // git.
         guard view.window != nil, !view.isHiddenOrHasHiddenAncestor else { return }
         let vc = made[panel.id] ?? panel.make()
         if made[panel.id] == nil {
@@ -375,9 +386,10 @@ final class InspectorController: NSViewController {
         host.subviews.forEach { $0.removeFromSuperview() }
         vc.view.translatesAutoresizingMaskIntoConstraints = false
         host.addSubview(vc.view)
-        // The panel follows the inspector's width but can't push it: a panel wider than its minimum is clipped instead
-        // of shrinking the editor (extension panels with long lines included). Just under required: at 750, a label's
-        // own, a bar that didn't fit widened the whole panel instead of cutting its words, and the rows' ends went.
+        // The panel follows the inspector's width but can't push it. A panel wider than its minimum is clipped instead
+        // of shrinking the editor (extension panels with long lines included). The priority is just under required:
+        // at 750, the same as a label's own, a bar that didn't fit widened the whole panel instead of cutting its
+        // words, and the ends of the rows were cut off.
         let follow = vc.view.widthAnchor.constraint(equalTo: host.widthAnchor)
         follow.priority = .init(999)
         NSLayoutConstraint.activate([

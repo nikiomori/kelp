@@ -1,4 +1,4 @@
-// The palette's keys and table: up, down, return and escape, the rows drawn, and the fade away.
+// The palette's keys and table: up, down, return and escape, drawing the rows, and fading away.
 import AppKit
 import Core
 import DesignKit
@@ -14,7 +14,7 @@ extension QuickOpen {
             return true
         case #selector(NSResponder.insertNewline(_:)):
             let split = NSApp.currentEvent?.modifierFlags.contains(.shift) == true
-            // ↩ right after typing picks from what was typed, once it's scored.
+            // ↩ right after typing picks from what was typed, once that is scored.
             if let pending = scoring {
                 Task {
                     await pending.value
@@ -26,17 +26,17 @@ extension QuickOpen {
             return true
         case #selector(NSResponder.deleteBackward(_:))
         where commandsOnly && choosing == nil && field.stringValue.isEmpty:
-            commandsOnly = false   // ⌫ past the start: back to everything, as deleting VS Code's ">"
+            commandsOnly = false   // ⌫ past the start goes back to everything, like deleting VS Code's ">"
             list(query: "")
             return true
         case #selector(NSResponder.cancelOperation(_:)):
             if let setting = choosing {
                 list(query: setting.query)
                 return true
-            }   // a setting's choices: back to the list, the old value back
+            }   // in a setting's choices, go back to the list and put the old value back
             hide()
             NSApp.mainWindow?.makeKeyAndOrderFront(nil)
-            return true   // back to the terminal
+            return true   // and the keys go back to the terminal
         default: return false
         }
     }
@@ -56,8 +56,8 @@ extension QuickOpen {
         if it.value != nil {
             it.action()
             return
-        }   // a setting with choices lists them; the palette stays
-        choosing = nil   // the choice is kept: closing mustn't put the old value back
+        }   // a setting with choices lists them, and the palette stays
+        choosing = nil   // the choice is kept, so closing mustn't put the old value back
         hide()
         NSApp.mainWindow?.makeKeyAndOrderFront(nil)
         if split, let openSplit = it.split { openSplit() } else { it.action() }
@@ -99,12 +99,12 @@ extension QuickOpen {
         cell.title.attributedStringValue = Self.highlighted(it.title, field.stringValue)
         cell.detail.stringValue = it.detail
         cell.detail.lineBreakMode = it.kind == "Setting" ? .byTruncatingTail : .byTruncatingMiddle   // paths keep both ends, prose its start
-        // Empty field: the agents on ⌘1–⌘6 say so (counted past the heading).
+        // With the field empty, the agents on ⌘1–⌘6 show their shortcut (counted past the heading).
         let index = itemIndex.indices.contains(row) ? itemIndex[row] : 0
         let shortcut = showingRecents && index < 6 && it.kind != "Group" ? "⌘\(index + 1)  " : ""
         cell.kind.stringValue = shortcut + (showingRecents ? loc(it.kind) : it.value.map { $0 + "  ›" } ?? "")
-        cell.tick.isHidden = !it.checked   // the choice in effect: a tick at the end, as in a menu
-        cell.key.stringValue = it.key   // a command's shortcut: at the end of the title's line, as in a menu
+        cell.tick.isHidden = !it.checked   // the choice in effect gets a tick at the end, as in a menu
+        cell.key.stringValue = it.key   // a command's shortcut sits at the end of the title's line, as in a menu
         cell.key.isHidden = it.key.isEmpty
         cell.show(accessory: it.accessory?())
         return cell
@@ -112,7 +112,7 @@ extension QuickOpen {
 }
 
 extension QuickOpen {
-    /// Away, a little quicker than it came; what was chosen happens at once, without waiting for this.
+    /// Fades the panel away, a little quicker than it came. What was chosen happens at once, without waiting for this.
     func hide() {
         guard panel.isVisible, !hiding else { return }
         guard !Motion.reduced else { return panel.orderOut(nil) }
@@ -122,8 +122,8 @@ extension QuickOpen {
             ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panel.animator().alphaValue = 0
         } completionHandler: { [weak self] in
-            MainActor.assumeIsolated {   // AppKit runs it on the main thread
-                guard let self, self.hiding else { return }   // opened again meanwhile
+            MainActor.assumeIsolated {   // AppKit runs the completion handler on the main thread
+                guard let self, self.hiding else { return }   // unless it was opened again meanwhile
                 self.hiding = false
                 self.panel.orderOut(nil)
                 self.panel.alphaValue = 1

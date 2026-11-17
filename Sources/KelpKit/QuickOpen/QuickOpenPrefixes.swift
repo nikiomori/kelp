@@ -3,9 +3,9 @@ import Core
 import EditorKit
 import WorkbenchKit
 
-/// What the first character in ⌘P's field asks for: ":120" a line, "/name" (or "file:name") files only, "@name" the
-/// symbols of the file on screen, "@@name" the project's symbols. ">" lists the commands. A built-in may add a
-/// character of its own ("#": Issues' pull requests, `Contributions.quickPrefixes`).
+/// What the first character in ⌘P's field asks for. ":120" asks for a line, "/name" (or "file:name") for files only,
+/// "@name" for the symbols of the file on screen, and "@@name" for the project's symbols. ">" lists the commands. A
+/// built-in may add a character of its own (such as "#" for Issues' pull requests, `Contributions.quickPrefixes`).
 extension QuickOpen {
     enum Prefix: Equatable {
         case line(Int?, column: Int? = nil), files(String), symbols(String), everywhere(String)
@@ -28,7 +28,7 @@ extension QuickOpen {
         }
     }
 
-    /// True when the prefix took it. `/` goes on through the usual scoring, with files alone.
+    /// Returns true when the prefix handled the query. `/` goes on through the usual scoring, with only files.
     func filterPrefix(_ prefix: Prefix) -> Bool {
         switch prefix {
         case .files: return false
@@ -39,7 +39,7 @@ extension QuickOpen {
         return true
     }
 
-    /// The editor goes there as you type, as it would on ↩.
+    /// Moves the editor to the line as you type, as it would on ↩.
     private func listLine(_ line: Int?, column: Int?) {
         let tab = app.workbench.editor?.focusedContent
         guard let line, line > 0, tab?.fileURL != nil else {
@@ -97,8 +97,8 @@ extension QuickOpen {
         }
     }
 
-    /// As you type, from the server of the file on screen: it knows the project through its index. An answer to what was typed
-    /// before is dropped.
+    /// Lists the project's symbols as you type, from the language server of the file on screen, which knows the
+    /// project through its index. An answer to what was typed before is dropped.
     private func listEverywhere(_ q: String) {
         guard let url = app.workbench.editor?.focusedContent?.fileURL else {
             setRows([], grouped: false, heading: String(localized: "Open a file of the project first"))
@@ -131,7 +131,7 @@ extension QuickOpen {
         setRows(found, grouped: false, heading: found.isEmpty ? String(localized: "No symbols") : nil)
     }
 
-    /// A Markdown file's headings, which no language server lists. `#` inside a code block isn't one.
+    /// Returns a Markdown file's headings, which no language server lists. A `#` inside a code block isn't a heading.
     nonisolated static func headings(_ text: String) -> [CodeSymbol] {
         var out: [CodeSymbol] = [], fenced = false
         for (i, line) in text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
@@ -144,8 +144,9 @@ extension QuickOpen {
         return out
     }
 
-    /// What a built-in lists for what's typed after its character (`Contributions.quickPrefixes`: "#123" or "#login",
-    /// Issues' pull requests), each row opened as it says; what's typed by the time they come is what they're for.
+    /// Lists what a built-in gives for what's typed after its character (`Contributions.quickPrefixes`, such as "#123"
+    /// or "#login" for Issues' pull requests). Each row opens as the built-in says. The rows are only shown if the
+    /// field still holds what they were asked for.
     func listPrefixed(_ term: String, _ rows: @escaping @MainActor (String) async -> [QuickItem]) {
         prefixedLoad?.cancel()
         let asked = field.stringValue
@@ -161,7 +162,7 @@ extension QuickOpen {
         }
     }
 
-    /// A title matches when it contains the query, or each query word starts a word of the title.
+    /// Scores a title. It matches when it contains the query, or when each query word starts a word of the title.
     nonisolated static func wordScore(_ title: String, _ query: String) -> Int? {
         let name = title.lowercased(), typed = query.lowercased().trimmingCharacters(in: .whitespaces)
         guard !typed.isEmpty else { return 0 }

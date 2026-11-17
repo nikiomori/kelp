@@ -17,8 +17,8 @@ final class HostedTab: NSHostingView<AnyView> {
     required init?(coder: NSCoder) { fatalError() }
 }
 
-/// A tab that is SwiftUI content alone, with a fixed title and icon; what it names in `watching` is watched for as long
-/// as the tab is open.
+/// A tab that is only SwiftUI content, with a fixed title and icon. What the tab names in `watching` is watched for as
+/// long as the tab is open.
 @MainActor
 package final class HostedTabContent: TabContent {
     package let uri: String

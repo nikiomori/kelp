@@ -2,19 +2,20 @@ import Core
 import DesignKit
 import Foundation
 
-/// What the row over the projects counts beside who needs you, each a button of its own (`SummarySegment`), in the
-/// order they stand.
+/// What the row above the projects counts beside who needs you, in the order the counts stand. Each count is a button
+/// of its own (`SummarySegment`).
 enum SummaryKind: CaseIterable {
-    /// At work, news coming.
+    /// At work, with news coming.
     case working
-    /// Stopped at a plan limit, or set to go on at its reset (`continueAt`): nobody has to do anything yet.
+    /// Stopped at a plan limit, or set to go on at the limit's reset (`continueAt`). Nobody has to do anything yet.
     case limit
-    /// Working, but nothing heard from it for minutes (`quietSince`).
+    /// Working, but with nothing heard from it for minutes (`quietSince`).
     case quiet
     /// Finished and not looked at.
     case done
 
-    /// Which of them a chat is: nil for one that asks or failed (the capsule counts those), finished or resting.
+    /// Returns the count a chat belongs to. It is nil for a chat that asks or failed (the capsule counts those), and
+    /// for one that is finished or resting.
     static func of(_ session: Session) -> SummaryKind? {
         guard session.isChat, ![.waiting, .error].contains(session.shownStatus),
             ![.paused, .exited].contains(session.status)
@@ -26,28 +27,28 @@ enum SummaryKind: CaseIterable {
         return session.quietSince == nil ? .working : .quiet
     }
 
-    /// Which goes first when the row is short of room: what asks for nothing.
+    /// The counts that go first when the row is short of room, in order. They are the ones that ask for nothing.
     static let dropOrder: [SummaryKind] = [.done, .quiet, .limit]
 }
 
-/// The chats each segment stands for, longest in their state first: the order a click walks them in.
+/// The chats each segment stands for, with the longest in their state first, which is the order a click walks them in.
 struct SummaryCounts {
     private var lists: [SummaryKind: [Session]] = [:]
     subscript(kind: SummaryKind) -> [Session] { lists[kind] ?? [] }
 
-    /// `done`: the finished ones that wait to be read (`AttentionQueue`), so the count agrees with ⇧⌘U.
+    /// `done` holds the finished chats that wait to be read (`AttentionQueue`), so the count agrees with ⇧⌘U.
     init(chats: [Session], done: [Session]) {
         for s in chats { if let kind = SummaryKind.of(s) { lists[kind, default: []].append(s) } }
         lists[.done] = done.filter { $0.shownStatus == .done && SummaryKind.of($0) == nil }
         for kind in lists.keys { lists[kind]?.sort { Self.since($0, kind) < Self.since($1, kind) } }
     }
 
-    /// When it got into this state: a quiet one from its last news.
+    /// When the chat got into this state. For a quiet chat, it is the time of its last news.
     static func since(_ session: Session, _ kind: SummaryKind) -> Date {
         (kind == .quiet ? session.quietSince : nil) ?? session.statusAt ?? session.createdAt
     }
 
-    /// What its segment says as room runs out: all of it, then without the time, then the number (or the clock) alone.
+    /// What a segment says as room runs out: all of it, then without the time, then the number (or the clock) alone.
     func words(_ kind: SummaryKind, now: Date = Date()) -> [String] {
         let list = self[kind], n = list.count
         switch kind {

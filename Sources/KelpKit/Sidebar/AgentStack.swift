@@ -2,23 +2,24 @@ import AppKit
 import Core
 import DesignKit
 
-/// A folded project's or group's chats on its row: a logo for each one at work or waiting for you (asking, failed,
-/// working, done and not looked at), the most pressing first, its state in a corner cut out of the logo, as macOS marks a
-/// person's status on their picture. Two at most, then "+N" for the rest; with none of them, the chats' count alone
-/// (four ready logos said less than a number). The tooltip names each and what it does. A logo opens its chat; the
-/// number unfolds the row (`onMore`).
+/// The chats of a folded project or group, shown on its row. Each chat that is at work or waiting for you (asking,
+/// failed, working, done and not looked at) gets a logo, the most pressing first, with its state in a corner cut out of
+/// the logo, as macOS marks a person's status on their picture. There are two logos at most, then "+N" for the rest.
+/// When no chat qualifies, only the chats' count shows (four ready logos said less than a number). The tooltip names
+/// each chat and what it does. A logo opens its chat, and the number unfolds the row (`onMore`).
 @MainActor
 final class AgentStack: NSView {
     private static let side = AgentFace.side, step: CGFloat = 17, most = 2
     private let more = PointerButton(frame: .zero)
     private var faces: [PointerButton] = []
-    /// "+N" clicked: the row opens to show the rest.
+    /// Called when "+N" is clicked, so the row opens to show the rest.
     var onMore: (() -> Void)?
-    /// All its chats, logo or not.
+    /// The number of all the chats, with a logo or not.
     private(set) var total = 0
-    /// How many logos the row has room for (SidebarCell.fitBadges): the rest are counted in "+N".
+    /// How many logos the row has room for (SidebarCell.fitBadges). The rest are counted in "+N".
     var cap = 4 { didSet { if cap != oldValue { place() } } }
-    /// What was drawn last: a status change re-reads the row, and the marks keep spinning rather than being made again.
+    /// What was drawn last. A status change re-reads the row, and when nothing changed the marks keep spinning instead
+    /// of being made again.
     private var shown: [String] = []
 
     init() {
@@ -28,11 +29,11 @@ final class AgentStack: NSView {
         more.onClick = { [weak self] in self?.onMore?() }
         addSubview(more)
         setAccessibilityElement(true)
-        setAccessibilityRole(.group)   // its logos are buttons of their own
+        setAccessibilityRole(.group)   // the logos are buttons of their own
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// The chats under `node`: its own screen's, then its groups'.
+    /// The chats under `node`: those of its own screen first, then those of its groups.
     static func chats(under node: SidebarController.Node, _ app: AppModel) -> [Session] {
         node.children.flatMap { $0.children.isEmpty ? [$0] : $0.children }
             .compactMap { if case .agent(let id) = $0.kind { app.session(id) } else { nil } }
@@ -57,20 +58,21 @@ final class AgentStack: NSView {
         place()
     }
 
-    /// The width `logos` logos take, "+N" after them for the rest; no logo: the count alone.
+    /// The width that `logos` logos take, with "+N" after them for the rest. With no logo, it is the width of the
+    /// count alone.
     func width(showing logos: Int) -> CGFloat {
         guard total > 0 else { return 0 }
         let logos = min(logos, faces.count), rest = total - logos
         guard logos > 0 else { return labelWidth(Self.words(logos: 0, total: total)) }
         return Self.side + CGFloat(logos - 1) * Self.step + (rest > 0 ? Self.gap + labelWidth("+\(rest)") : 0)
     }
-    /// After the logos, the rest: "+4"; with none shown, all of them: "5".
+    /// The words after the logos: the rest ("+4"), or all of them ("5") when no logo is shown.
     private static func words(logos: Int, total: Int) -> String {
         total <= logos ? "" : logos > 0 ? "+\(total - logos)" : "\(total)"
     }
-    /// Between the last logo and "+N".
+    /// The gap between the last logo and "+N".
     private static let gap: CGFloat = 4
-    /// The room "+N" takes: its words and the 2 pt a label keeps on each side of them. Asked of the field, it came out
+    /// The room "+N" takes: its words and the 2 pt a label keeps on each side of them. The field's own measure came out
     /// as the words alone, and the last digit lost its right edge.
     private func labelWidth(_ words: String) -> CGFloat {
         ceil(NSAttributedString(string: words, attributes: [.font: more.font as Any]).size().width) + 4
@@ -89,13 +91,14 @@ final class AgentStack: NSView {
         needsLayout = true
     }
 
-    /// Asking, failed, working, or done and not looked at: what earns a mark in the corner.
+    /// The state that earns a mark in the corner: asking, failed, working, or done and not looked at.
     private static func badge(_ session: Session) -> AgentStatus? {
         let st = session.shownStatus
         return [.waiting, .error, .working].contains(st) || (st == .done && session.unread) ? st : nil
     }
 
-    /// A logo that opens its chat, as picking its row would; a round grey under the pointer, a little wider than the logo.
+    /// Makes a logo that opens its chat, as selecting its row would. Under the pointer it shows a round grey, a little
+    /// wider than the logo.
     private func face(_ session: Session, _ app: AppModel) -> PointerButton {
         let face = AgentFace()
         let image = app.catalog.icon(session.agent, size: Self.side)
@@ -106,10 +109,10 @@ final class AgentStack: NSView {
         let id = session.id
         let button = PointerButton { [weak app] in
             app?.workbench.focus(session: id)
-            app?.arrangement.parkedBack[id] = nil   // opened: its "Back:" line has been read
+            app?.arrangement.parkedBack[id] = nil   // once opened, its "Back:" line has been read
         }
-        // Round, and not clipped to that circle: it cut the state mark in the logo's corner. AppKit turns clipping back on
-        // whenever the radius changes, so the radius is set for good first.
+        // The button is round but not clipped to that circle, because clipping cut the state mark in the logo's
+        // corner. AppKit turns clipping back on whenever the radius changes, so the radius is set for good first.
         button.radius = Self.hit / 2
         button.layer?.cornerRadius = Self.hit / 2
         button.clipsToBounds = false
@@ -120,7 +123,7 @@ final class AgentStack: NSView {
         button.setAccessibilityLabel(button.toolTip)
         return button
     }
-    /// A logo's button: its fill shows around the logo, and the logos still sit `step` apart.
+    /// The size of a logo's button. Its fill shows around the logo, and the logos still sit `step` apart.
     private static let hit: CGFloat = 18
 
     override var intrinsicContentSize: NSSize { NSSize(width: width(showing: cap), height: Self.side) }

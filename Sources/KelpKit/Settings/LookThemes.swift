@@ -1,7 +1,7 @@
 import Foundation
 
 extension Theme {
-    /// A palette as in `popular`, with the window it comes with.
+    /// A palette as in `popular`, with the window look it comes with.
     private init(
         look id: String, _ name: String, _ appearance: String, c: [String], ansi: [String], code: [String],
         terminalOpacity: Double? = nil, editorOpacity: Double? = nil, shader: String? = nil, window: Window
@@ -18,8 +18,8 @@ extension Theme {
             window: window)
     }
 
-    /// Themes that rebuild the window, not only recolour it: each differs from the others in what it is made of (glass, light
-    /// moving behind the text, a phosphor screen, drafting paper, printed paper), not in hue.
+    /// Themes that rebuild the window, not only recolour it. Each differs from the others in what it is made of (glass,
+    /// light moving behind the text, a phosphor screen, drafting paper, printed paper), not in hue.
     static let looks: [Theme] = [
         Theme(
             look: "kelp.glass", "Glass", "dark", c: ["#0b0e14", "#e8ecf4", "", "#2f4a6d"],

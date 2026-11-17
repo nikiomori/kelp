@@ -3,11 +3,13 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// Settings: every section comes from an extension's settings schema (plus custom views), searchable, like VS Code.
+/// The Settings window. Every section comes from an extension's settings schema (plus custom views), and all of it is
+/// searchable, like VS Code.
 @MainActor
 enum SettingsWindow {
     private(set) static var window: NSWindow?
-    /// Workbench language as the window first opened, which is what this launch runs in unless it changed before that.
+    /// The workbench language when the window first opened, which is what this launch runs in unless it changed before
+    /// that.
     private(set) static var language: String?
     static func show(_ app: AppModel, section: String? = nil, group: String? = nil) {
         if let section { UserDefaults.standard.set(section, forKey: "settings.section") }
@@ -25,7 +27,7 @@ enum SettingsWindow {
             created.toolbarStyle = .unified
             // The section's name is the toolbar's own big title (SettingsView), as in Dia's settings.
             created.titleVisibility = .hidden
-            // ⌘, brings it back, so no minimize or zoom (HIG › Settings)
+            // ⌘, brings the window back, so it has no minimize or zoom (HIG › Settings)
             created.standardWindowButton(.zoomButton)?.isEnabled = false
             let host = NSHostingController(rootView: SettingsView().environment(app))
             host.sizingOptions = [.minSize]
@@ -36,7 +38,8 @@ enum SettingsWindow {
             window = created
         }
         window?.makeKeyAndOrderFront(nil)
-        // AppKit hands a new window's first text field the focus: Font size opened with its value selected, so typing changed it.
+        // AppKit gives a new window's first text field the focus, so Font size opened with its value selected and
+        // typing changed it.
         if fresh { DispatchQueue.main.async { window?.makeFirstResponder(nil) } }
     }
 }
@@ -44,7 +47,7 @@ enum SettingsWindow {
 struct SettingsView: View {
     @AppStorage("settings.section") private var selection = "appearance"
     @State private var query = ""
-    /// The sections opened before and after this one this time the window is open: ‹ and › (⌘[ ⌘]) walk them.
+    /// The sections opened before and after this one while the window is open. ‹ and › (⌘[ ⌘]) walk through them.
     @State private var back: [String] = []
     @State private var forward: [String] = []
     @Environment(AppModel.self) private var app
@@ -63,14 +66,15 @@ struct SettingsView: View {
                     }
                 }
                 Section {
-                    // A row of a ForEach, as the sections are: the list picks a row by the id that gives it, and a row
-                    // standing alone with only a tag couldn't be picked.
+                    // A row of a ForEach, as the sections are, because the list picks a row by the ForEach's id, and a
+                    // row standing alone with only a tag couldn't be picked.
                     ForEach(["extensions"], id: \.self) { id in
                         SectionRow(icon: "puzzlepiece.extension", title: Text("Extensions")).tag(Optional(id))
                     }
                 }
             }
-            // Plain symbols in the text's colour, as Dia's settings: the list is found by its words, not by tiles.
+            // Plain symbols in the text's colour, as in Dia's settings, because the list is read by its words, not by
+            // tiles.
             .listItemTint(.monochrome)
             .toolbar(removing: .sidebarToggle)   // a settings window keeps its sections in view (HIG › Settings)
             .navigationSplitViewColumnWidth(min: 190, ideal: 210)
@@ -118,7 +122,8 @@ struct SettingsView: View {
     }
 
     private var sections: [SettingsSection] { registry.all.settings.sorted { $0.order < $1.order } }
-    /// The section remembered, or the first when it's gone (its extension turned off, an old name): never a blank pane.
+    /// The section remembered, or the first one when it's gone (its extension turned off, an old name), so the pane is
+    /// never blank.
     private var current: String {
         selection == "extensions" || sections.contains { $0.id == selection }
             ? selection : sections.first?.id ?? selection
@@ -140,7 +145,7 @@ struct SettingsView: View {
         query = ""
     }
 
-    /// One step back (or forward): this section goes on the other list.
+    /// Walks one step back (or forward), putting this section on the other list.
     private func walk(_ from: inout [String], _ to: inout [String]) {
         guard let section = from.popLast() else { return }
         to.append(current)
@@ -180,10 +185,10 @@ private struct SettingsTitle: ToolbarContent {
     }
 }
 
-/// A row's symbol on a coloured tile (`SettingSpec.icon`), as Dia's and System Settings' rows show it where a card's
-/// rows are about different things: a white glyph (filled where the symbol has a `.fill` variant, named so) on a
-/// top-lit gradient. The tiles use Apple's light-mode system colours in both modes, as System Settings does (the
-/// dark-mode colours look neon on a tile).
+/// A row's symbol on a coloured tile (`SettingSpec.icon`), as Dia and System Settings show it where a card's rows are
+/// about different things. It is a white glyph (filled where the symbol has a `.fill` variant, named so) on a top-lit
+/// gradient. The tiles use Apple's light-mode system colours in both modes, as System Settings does, because the
+/// dark-mode colours look neon on a tile.
 struct SettingsIcon: View {
     let symbol: String, tint: NSColor
     var body: some View {
@@ -197,7 +202,7 @@ struct SettingsIcon: View {
 
 private struct SectionForm: View {
     let section: SettingsSection
-    /// A group a menu sent us to (`SettingsWindow.show`): scrolled to, then forgotten.
+    /// A group a menu sent us to (`SettingsWindow.show`). The form scrolls to it, then forgets it.
     @AppStorage("settings.group") private var target = ""
     /// The Editor's rows for one language's files ("" for all files), stored in settings.json as `"[markdown]": { … }`.
     @State private var language = ""
@@ -243,7 +248,7 @@ private struct SectionForm: View {
         guard !target.isEmpty else { return }
         let group = target
         target = ""
-        DispatchQueue.main.async { scroller.scrollTo(group, anchor: .top) }   // once the form has its rows
+        DispatchQueue.main.async { scroller.scrollTo(group, anchor: .top) }   // after the form has its rows
     }
 }
 
@@ -260,7 +265,8 @@ private struct SearchResults: View {
                 Section(result.title) {
                     ForEach(result.specs) { spec in SettingRow(spec: spec) { open(result.section.id) } }
                     ForEach(result.screens, id: \.self) { word in
-                        // The word goes along: the Agent Catalog opens on the agent it names (it has no search of its own).
+                        // The word goes along, so the Agent Catalog opens on the agent it names (it has no search of
+                        // its own).
                         LabeledContent(word) {
                             Button("Open") {
                                 UserDefaults.standard.set(word, forKey: "settings.group")
@@ -275,7 +281,7 @@ private struct SearchResults: View {
         .formStyle(.grouped)
     }
 
-    /// The window's own page, not a section an extension gave.
+    /// The Extensions page, which is the window's own and not a section an extension gave.
     private static let extensions = SettingsSection(
         id: "extensions", title: "Extensions", icon: "puzzlepiece.extension", specs: [],
         keywords: ["Extensions", "Library"])

@@ -3,11 +3,11 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// ⌃Tab, like ⌘Tab for apps: hold ⌃ and press Tab to walk the screens you used last (⇧ goes back, ↑↓ and the pointer
-/// too, 1–9 picks a row at once), let go or click to switch; Esc stays. A quick ⌃Tab flips to the previous screen
-/// without showing it. The screen you're on is the first row, dimmed, so the next one is where you were before. Its
-/// rows are the sidebar's: the status, the project's icon, the name, and one line of what's there (what the agent says,
-/// or a server's load). Servers' pages are screens too.
+/// The ⌃Tab switcher, like ⌘Tab for apps. Hold ⌃ and press Tab to walk the screens you used last (⇧ goes back, ↑↓ and
+/// the pointer work too, and 1–9 picks a row at once). Let go or click to switch, or press Esc to stay. A quick ⌃Tab
+/// flips to the previous screen without showing the switcher. The screen you're on is the first row, dimmed, so the
+/// next row is where you were before. The rows look like the sidebar's: the status, the project's icon, the name, and
+/// one line of what's there (what the agent says, or a server's load). Servers' pages are screens too.
 @MainActor
 final class WorkspaceSwitcher {
     let app: AppModel
@@ -15,30 +15,30 @@ final class WorkspaceSwitcher {
     private var panel: NSPanel?
     private var monitor: Any?
     private var resigned: NSObjectProtocol?
-    /// Workspace ids and servers' pages ("host:<name>"), as `RecentScreens` orders them.
+    /// Workspace ids and server pages ("host:<name>"), in the order `RecentScreens` gives them.
     private var items: [String] = []
     private var index = 0
     private var rows: [NSView] = []
     private var pointerFrom: NSPoint?
     var isOpen: Bool { panel != nil }
-    /// The keys under the list, for the first few times it's opened on this Mac.
+    /// The key hints under the list, shown the first few times the switcher opens on this Mac.
     private static let hintsKey = "switcherHintsShown"
 
-    /// The menu's ⌃Tab / ⌃⇧Tab: opens it. While it's open its key monitor steps, and the menu, which still gets the
-    /// key, would step a second time.
+    /// Opens the switcher from the menu's ⌃Tab / ⌃⇧Tab. While the switcher is open its key monitor does the stepping,
+    /// because the menu, which still gets the key, would step a second time.
     func step(_ by: Int) {
         guard panel == nil else { return }
-        // ⌃⇧Tab can reach ⌃Tab's item (a menu matches Tab with ⇧ too), and the command runs after the key's event:
-        // ⇧ still held says which way.
+        // ⌃⇧Tab can reach ⌃Tab's item (a menu matches Tab with ⇧ too), and the command runs after the key's event, so
+        // whether ⇧ is still held says which way to go.
         let by = NSEvent.modifierFlags.contains(.shift) ? -1 : by
         let first = open()
         guard items.count > first else { return close(beep: true) }
         index = by > 0 ? first : items.count - 1   // ⌃Tab lands on where you were before, ⌃⇧Tab on the last row
         highlight()
-        if !NSEvent.modifierFlags.contains(.control) { commit() }   // already let go: a quick flip
+        if !NSEvent.modifierFlags.contains(.control) { commit() }   // ⌃ already let go, so this is a quick flip
     }
 
-    /// 1–9 while it's open (⌃1–9 too, when the menu gets the key first): that row.
+    /// Picks row `number` when 1–9 is pressed while the switcher is open (⌃1–9 too, when the menu gets the key first).
     func pick(_ number: Int) {
         guard items.indices.contains(number) else { return NSSound.beep() }
         index = number
@@ -51,14 +51,14 @@ final class WorkspaceSwitcher {
         highlight()
     }
 
-    /// Lists the screens and puts the panel up; the first row that isn't the one on screen.
+    /// Lists the screens and puts the panel up. Returns the first row that isn't the screen you're on.
     private func open() -> Int {
         let model = app, wb = app.workbench
         let current = wb.page ?? wb.workspaceId
         let workspaces = wb.workspacesInOrder
         let servers = app.extensions.all.servers == nil ? [] : app.remoteHosts.map(TabURI.server)
-        // Ones not on screen since Kelp started keeping the order: by their agents' last stir, else when they were
-        // made.
+        // Screens not shown since Kelp started keeping the order are sorted by when their agents last did something,
+        // or else by when they were made.
         let stirred = workspaces.map { worktree in
             (
                 id: worktree.id,
@@ -84,7 +84,7 @@ final class WorkspaceSwitcher {
         card.layoutSubtreeIfNeeded()
         floating.setFrame(Self.frame(card.fittingSize, over: window), display: true)
         panel = floating
-        // On screen once ⌃ is held a moment, as ⌘Tab: a quick ⌃Tab flips without the panel flashing up.
+        // The panel shows once ⌃ is held a moment, as with ⌘Tab, so a quick ⌃Tab flips without the panel flashing up.
         _ = Task { [weak self] in
             try await Task.sleep(for: .seconds(Motion.fast))
             guard self?.panel === floating else { return }
@@ -94,7 +94,7 @@ final class WorkspaceSwitcher {
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) {
             [weak self] event in self?.handle(event) ?? event
         }
-        // ⌘Tab away with ⌃ held: letting go of ⌃ never reaches Kelp, and the panel would keep every key.
+        // After ⌘Tab away with ⌃ held, letting go of ⌃ never reaches Kelp, and the panel would keep every key.
         resigned = NotificationCenter.default.addObserver(
             forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -103,7 +103,7 @@ final class WorkspaceSwitcher {
         return first
     }
 
-    /// On screen as Quick Open comes: faint and a little up, and down into place.
+    /// Brings the panel on screen the way Quick Open comes: faint and a little high, then down into place.
     private static func comeIn(_ floating: NSPanel, over window: NSWindow) {
         let end = floating.frame
         guard !Motion.reduced else { return window.addChildWindow(floating, ordered: .above) }
@@ -118,7 +118,7 @@ final class WorkspaceSwitcher {
         }
     }
 
-    /// Away a little quicker than it came; where it went happens at once, without waiting for this.
+    /// Takes the panel away a little quicker than it came. The switch itself happens at once, without waiting for this.
     private static func goAway(_ shown: NSPanel) {
         guard shown.isVisible, !Motion.reduced else {
             shown.parent?.removeChildWindow(shown)
@@ -129,14 +129,14 @@ final class WorkspaceSwitcher {
             ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
             shown.animator().alphaValue = 0
         } completionHandler: {
-            MainActor.assumeIsolated {   // AppKit runs it on the main thread
+            MainActor.assumeIsolated {   // AppKit runs the completion handler on the main thread
                 shown.parent?.removeChildWindow(shown)
                 shown.orderOut(nil)
             }
         }
     }
 
-    /// Over the window's middle, a little high, and on screen when the window is partly off it.
+    /// The panel's frame: over the window's middle, a little high, and kept on screen when the window is partly off it.
     private static func frame(_ size: NSSize, over window: NSWindow) -> NSRect {
         let windowFrame = window.frame
         var frame = NSRect(
@@ -149,7 +149,7 @@ final class WorkspaceSwitcher {
         return frame
     }
 
-    /// The keys, the first five times it shows: after that the hand knows them.
+    /// The key hints, for the first five times the switcher shows. After that the hand knows them.
     private static func hint() -> String? {
         UserDefaults.standard.integer(forKey: hintsKey) >= 5
             ? nil : String(localized: "⇥ next · ⇧⇥ back · 1–9 go there · esc stay")
@@ -173,17 +173,18 @@ final class WorkspaceSwitcher {
         case 53: close()   // Esc
         default: break
         }
-        return nil   // while it's open, keys belong to it
+        return nil   // while the switcher is open, keys belong to it
     }
 
-    /// Pointing at a row selects it, a click opens it; a click outside closes, as Esc, and goes on where it was meant.
+    /// Pointing at a row selects it, and a click opens it. A click outside closes the switcher, as Esc does, and goes
+    /// on to where it was aimed.
     private func mouse(_ event: NSEvent) -> NSEvent? {
         guard let shown = panel, event.window === shown else {
             if event.type == .leftMouseDown { close() }
             return event
         }
-        // A move picks once it's a real one: the panel opens under the pointer, and brushing the trackpad shouldn't
-        // take the pick.
+        // A move picks a row only once it's a real move, because the panel opens under the pointer and brushing the
+        // trackpad shouldn't take the pick.
         if event.type == .mouseMoved, let from = pointerFrom {
             guard hypot(NSEvent.mouseLocation.x - from.x, NSEvent.mouseLocation.y - from.y) > 10 else { return nil }
             pointerFrom = nil
@@ -228,15 +229,16 @@ final class WorkspaceSwitcher {
     private func highlight() {
         if rows.indices.contains(index) {
             let row = rows[index]
-            row.scrollToVisible(row.bounds.insetBy(dx: 0, dy: -8))   // in view, with the list's margin
-            // VoiceOver says the row: the panel never takes focus, so moving through it would go unheard.
+            row.scrollToVisible(row.bounds.insetBy(dx: 0, dy: -8))   // scrolls into view, with the list's margin
+            // VoiceOver announces the row, because the panel never takes focus, so moving through it would go unheard.
             NSAccessibility.post(
                 element: row, notification: .announcementRequested,
                 userInfo: [
                     .announcement: row.accessibilityLabel() ?? "", .priority: NSAccessibilityPriorityLevel.high.rawValue
                 ])
         }
-        // Grey, as ⌘Tab's: the status marks and the changes' colours stay readable on it. Faded, not switched.
+        // The selection is grey, as in ⌘Tab, so the status marks and the colours of the changes stay readable on it.
+        // It fades instead of switching.
         for (offset, row) in rows.enumerated() { row.fadeBackground(to: offset == index ? .fillSelected : nil) }
     }
 

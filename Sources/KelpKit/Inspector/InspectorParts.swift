@@ -8,9 +8,9 @@ import SwiftUI
 /// The inspector's view; a right-click on the band of the icon row opens the row's menu.
 final class InspectorView: NSView {
     var rowMenu: ((NSEvent) -> NSMenu?)?
-    /// On screen: in a window and not collapsed (a collapsed split view item is hidden).
+    /// Runs when the view comes on screen: in a window and not collapsed (a collapsed split view item is hidden).
     var onShow: (() -> Void)?
-    /// After a resize: how many icons fit.
+    /// Runs after each layout, to work out how many icons fit.
     var onLayout: (() -> Void)?
     override func layout() {
         super.layout()
@@ -28,8 +28,9 @@ final class InspectorView: NSView {
 }
 
 extension InspectorController {
-    /// macOS 26: the row on a glass capsule (the capsule's own fill off); earlier, the row's soft fill alone. The glass
-    /// sits behind the row, not around it: as its content, the row was clipped to it, and a column's count badges with it.
+    /// On macOS 26, puts the row on a glass capsule (with the capsule's own fill off); before that, the row has only
+    /// its soft fill. The glass sits behind the row, not around it, because as the glass's content the row was clipped
+    /// to the glass, and a column's count badges were clipped with it.
     static func glass(around row: CapsuleStack) -> NSView {
         guard #available(macOS 26, *) else { return row }
         let bar = NSView(), capsule = NSGlassEffectView()
@@ -51,15 +52,16 @@ extension InspectorController {
 
 /// A soft capsule behind a row of icons: the inspector's panel icons, or a pane's new-agent and "+" buttons.
 final class CapsuleStack: NSStackView {
-    /// Off inside glass, which is the capsule then.
+    /// Whether the capsule draws its fill. It is off inside glass, because the glass is then the capsule.
     var filled = true { didSet { needsDisplay = true } }
-    /// The icon on the chosen grey: one pill under the icons, moving from one to the next on `soft` as a segmented
-    /// control's does on macOS 26. nil: none (a pane's buttons).
+    /// The icon shown on the chosen grey. One pill sits under the icons and moves from one to the next (with the
+    /// `Motion.soft` curve), as a segmented control's pill does on macOS 26. nil means none is chosen (a pane's
+    /// buttons).
     var chosen: NSView? {
         didSet {
             guard chosen !== oldValue else { return }
-            // The pill is a layer of its own. Asked for here, never in layout: a pane's capsule (nothing chosen) lost its
-            // round ends when layout gave it a new layer after rounding the old one.
+            // The pill is a layer of its own. The layer is asked for here, never in layout, because a pane's capsule
+            // (nothing chosen) lost its round ends when layout gave it a new layer after rounding the old one.
             wantsLayer = true
             place(moving: oldValue?.superview === self && window != nil)
         }
@@ -71,14 +73,14 @@ final class CapsuleStack: NSStackView {
         pill.backgroundColor = NSColor.fillSelected.cgColor   // drawing runs in the view's appearance
     }
     private func place(moving: Bool) {
-        guard let layer, chosen != nil || pill.superlayer != nil else { return }   // a pane's buttons: no pill
+        guard let layer, chosen != nil || pill.superlayer != nil else { return }   // a pane's buttons have no pill
         if pill.superlayer !== layer { layer.insertSublayer(pill, at: 0) }
         let frame = chosen.flatMap { $0.superview === self && !$0.isHidden ? $0.frame : nil }
         let from = pill.isHidden ? nil : pill.presentation()?.frame ?? pill.frame
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         pill.isHidden = frame == nil
-        if let frame, pill.frame != frame {   // a layout mid-move leaves the move going
+        if let frame, pill.frame != frame {   // a layout during a move lets the move go on
             pill.frame = frame
             pill.cornerRadius = min(frame.width, frame.height) / 2
         }
@@ -96,7 +98,8 @@ final class CapsuleStack: NSStackView {
             pill.add(move, forKey: key)
         }
     }
-    /// A column's count badges hang past its edge (`PanelIcon` lets them out of the icon).
+    /// The capsule doesn't clip, so a column's count badges can hang past its edge (`PanelIcon` lets them out of the
+    /// icon).
     override var clipsToBounds: Bool {
         get { false }
         set {}
@@ -108,8 +111,9 @@ final class CapsuleStack: NSStackView {
     }
 }
 
-/// A panel's icon, a segment of the capsule: a click shows the panel, a drag moves the icon along the row (`moved`
-/// with the pointer's x in the row, `dropped` on release). The shown panel's icon sits on the grey of a chosen row.
+/// A panel's icon, one segment of the capsule. A click shows the panel, and a drag moves the icon along the row
+/// (`moved` gets the pointer's point in the row, `dropped` runs on release). The shown panel's icon sits on the same
+/// grey as a chosen row.
 final class PanelIcon: NSButton {
     var moved: ((NSPoint) -> Void)?
     var dropped: (() -> Void)?
@@ -141,8 +145,9 @@ final class PanelIcon: NSButton {
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
         let on = state == .on
-        // Chosen is one grey everywhere (sidebar rows, tabs, Settings), in glass too: a white bubble said it a second way.
-        // The capsule draws it under the chosen icon (`CapsuleStack.chosen`), so it can move; held, an icon darkens.
+        // Chosen is one grey everywhere (sidebar rows, tabs, Settings), in glass too, because a white bubble said it a
+        // second way. The capsule draws that grey under the chosen icon (`CapsuleStack.chosen`) so it can move. A held
+        // icon darkens.
         fadeBackground(to: isHighlighted ? .fillSelected : hover && !on ? .fillHover : nil, held: isHighlighted)
         contentTintColor = on ? .labelColor : .secondaryLabelColor
     }
@@ -150,9 +155,11 @@ final class PanelIcon: NSButton {
         super.layout()
         layer?.cornerRadius = bounds.height / 2
     }
-    /// The frame is the pill: AppKit's alignment insets made Files' 29 pt tall where the others are 24 (as PointerButton).
+    /// The frame is the pill, with no alignment insets. AppKit's insets made the Files icon 29 pt tall where the others
+    /// are 24 (PointerButton does the same).
     override var alignmentRectInsets: NSEdgeInsets { NSEdgeInsetsZero }
-    /// The count badge sits over the pill's corner; a button clips to its rounded layer (and sets this back to true on display).
+    /// The count badge sits over the pill's corner, so the icon doesn't clip. A button clips to its rounded layer (and
+    /// sets this back to true on display).
     override var clipsToBounds: Bool {
         get { false }
         set {}
@@ -171,8 +178,9 @@ final class PanelIcon: NSButton {
 
     override func menu(for event: NSEvent) -> NSMenu? { contextMenu?(event) }
 
-    /// Pops `menu` up under the icon. `closingWhenLeft`: it closes a moment after the pointer is off both the icon and
-    /// the menu (menu tracking delivers no mouse-exited, so a clock on the tracking run loop looks while it's open).
+    /// Pops `menu` up under the icon. With `closingWhenLeft`, the menu closes a moment after the pointer is off both
+    /// the icon and the menu. Menu tracking delivers no mouse-exited, so a timer on the tracking run loop checks while
+    /// the menu is open.
     func popUp(_ menu: NSMenu, closingWhenLeft: Bool) {
         let at = NSPoint(x: 0, y: bounds.height + 4)
         guard closingWhenLeft, let window else {
@@ -195,7 +203,7 @@ final class PanelIcon: NSButton {
 
     private func checkHeld() {
         guard let view = held else { return }
-        // A menu macOS moved to fit the screen is still "on it" while one of its items is lit.
+        // When macOS moved the menu to fit the screen, the pointer still counts as on it while one of its items is lit.
         if view.area.contains(NSEvent.mouseLocation) || view.menu.highlightedItem != nil {
             held?.leftAt = nil
         } else if let left = view.leftAt {
@@ -205,7 +213,7 @@ final class PanelIcon: NSButton {
         }
     }
 
-    /// The menu's tracking swallowed mouse-exited: the grey of hover goes by where the pointer is now.
+    /// Sets the hover grey from where the pointer is now, because the menu's tracking swallowed mouse-exited.
     private func refreshHover() {
         guard let window else { return }
         hover = bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
@@ -239,8 +247,8 @@ final class PanelIcon: NSButton {
     }
 }
 
-/// A panel's mark on its icon (`PanelBadge`): a grey capsule with the number, or a dot; red for a failure. A new number
-/// rolls in (`roll`) over the capsule, which stays.
+/// A panel's mark on its icon (`PanelBadge`): a grey capsule with the number, or a dot, and red for a failure. A new
+/// number rolls in (`roll`) while the capsule stays in place.
 final class CountBadge: NSView {
     private let digits = NSTextField(labelWithString: "")
     var badge: PanelBadge? {
@@ -271,7 +279,7 @@ final class CountBadge: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
     override var intrinsicContentSize: NSSize {
-        // No number: a dot, centred where the number's capsule would be.
+        // With no number, the badge is a dot, centred where the number's capsule would be.
         guard Self.number(badge) != nil else { return NSSize(width: 7, height: 14) }
         return NSSize(width: max(14, ceil(digits.attributedStringValue.size().width) + 7), height: 14)
     }
@@ -285,10 +293,11 @@ final class CountBadge: NSView {
     }
 }
 
-/// SwiftUI panel in an AppKit host.
+/// Hosts a SwiftUI panel in an AppKit view controller.
 @MainActor
 func hosting<V: View>(_ view: V) -> NSViewController {
-    // Filling the panel from the top: content shorter than the panel would otherwise float in its middle.
+    // The view fills the panel from the top, because content shorter than the panel would otherwise float in its
+    // middle.
     let host = NSHostingController(rootView: view.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top))
     host.sizingOptions = []   // a panel fills the space it's given; it must never resize the window to its ideal size
     return host

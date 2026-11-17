@@ -2,10 +2,10 @@ import AppKit
 import Core
 import DesignKit
 
-/// The folders whose git status Kelp shows, with their uncommitted lines: beside the sidebar's rows, in the ⌃Tab
-/// switcher and on the window bar (their PR and CI come from the Git built-in: `FolderCI`). Workspaces share their
-/// project's folder; a workspace on its own branch (a worktree) has its own. Every such folder is watched, and the
-/// daemon pushes its git status when its files change.
+/// The folders whose git status Kelp shows, with their uncommitted lines. They show beside the sidebar's rows, in the
+/// ⌃Tab switcher and on the window bar (their PR and CI come from the Git built-in's `FolderCI`). Workspaces share
+/// their project's folder, but a workspace on its own branch (a worktree) has its own. Every such folder is watched,
+/// and the daemon pushes its git status when its files change.
 @MainActor @Observable
 package final class GitFolders {
     private let app: AppModel
@@ -22,7 +22,8 @@ package final class GitFolders {
         }
     }
 
-    /// Settings › Appearance › Changes and pull requests off: no git is watched for the badges.
+    /// The folders to watch. With Settings › Appearance › Changes and pull requests off, no git is watched for the
+    /// badges.
     private func wanted() -> Set<String> { app.settings[SettingKeys.gitBadges] ? folders : [] }
 
     /// Every folder the sidebar lists: each project's own folder, and the folder of each workspace on a branch of its
@@ -39,8 +40,9 @@ package final class GitFolders {
         following = now
     }
 
-    /// What only a branch group's folder holds, as the daemon read it (`GitEvent.only`, `dirty`): commits no other
-    /// branch or remote has, files not committed. Nil: not a branch's folder, or not read yet.
+    /// Returns the work that only a branch group's folder holds, as the daemon read it (`GitEvent.only`, `dirty`):
+    /// commits that no other branch or remote has, and files not committed. It is nil when the folder isn't a branch's
+    /// folder or hasn't been read yet.
     func ownWork(_ id: String) -> (commits: Int, files: Int)? {
         guard let git = app.latest(GitEvent.self).byKey[id], let only = git.only, let dirty = git.dirty else {
             return nil
@@ -48,10 +50,10 @@ package final class GitFolders {
         return (only, dirty ? max(1, git.changes?.count ?? 1) : 0)
     }
 
-    /// Files folder `id` changes (not committed yet, or on its branch since it left the base) that another folder of
-    /// its project changes too, each with those folders' branches: two chats building one thing two ways meet here,
-    /// before their merge does. Only folders the sidebar watches count (Settings › Appearance › Changes and pull
-    /// requests).
+    /// Returns the files that folder `id` changes (not committed yet, or on its branch since it left the base) that
+    /// another folder of the same project changes too, each with the other folders' branches. This shows two chats
+    /// building one thing two ways before their merge does. Only folders the sidebar watches count (Settings ›
+    /// Appearance › Changes and pull requests).
     func shared(_ id: String) -> [String: [String]] {
         let events = app.latest(GitEvent.self).byKey
         func touched(_ gitEvent: GitEvent?) -> Set<String> {
@@ -72,7 +74,7 @@ package final class GitFolders {
         return out
     }
 
-    /// "Also changed on fix-login: App.swift, Login.swift and 2 more", a line a branch.
+    /// Returns a tip such as "Also changed on fix-login: App.swift, Login.swift and 2 more", one line per branch.
     static func sharedTip(_ shared: [String: [String]]) -> String? {
         guard !shared.isEmpty else { return nil }
         var byBranch: [String: [String]] = [:]
@@ -84,8 +86,9 @@ package final class GitFolders {
         }.joined(separator: "\n")
     }
 
-    /// "+6 −2" in green and red (text shades: NSColor.textGreen); a side with nothing changed is left out ("+6", not "+6 −0").
-    /// `compact`, for a row: "+21.7k" from ten thousand lines (generated files), the exact count left to its tooltip.
+    /// Returns "+6 −2" in green and red (text shades such as NSColor.textGreen). A side with nothing changed is left
+    /// out ("+6", not "+6 −0"). With `compact`, used on a row, ten thousand lines and more (generated files) show as
+    /// "+21.7k", and the exact count is left to the tooltip.
     package static func changes(_ stats: LineStats?, compact: Bool = false) -> NSAttributedString? {
         guard let stats, stats.totalAdded + stats.totalRemoved > 0 else { return nil }
         return changes(added: stats.totalAdded, removed: stats.totalRemoved, compact: compact)
@@ -109,9 +112,9 @@ package final class GitFolders {
 }
 
 extension AppModel {
-    /// The folder whose git status, PR and CI a workspace shows: its own worktree, or, for a workspace in the project's
-    /// own folder, the project's folder. It reads only the lists, so asking doesn't start the sidebar's watches
-    /// (`gitState`).
+    /// Returns the folder whose git status, PR and CI a workspace shows. That is the workspace's own worktree, or the
+    /// project's folder for a workspace that sits in it. It reads only the lists, so asking doesn't start the
+    /// sidebar's watches (`gitState`).
     package func gitFolder(of workspace: String?) -> Worktree? {
         worktree(workspace).flatMap { gitFolder(workspace: $0.id) ?? gitFolder(project: $0.repoId) }
     }
@@ -119,7 +122,8 @@ extension AppModel {
     /// `latest(GitEvent.self, …)`). It is the key of the workspace's git folder, so workspaces that share a folder
     /// share one watch, as the sidebar does; a workspace with no folder of its own uses its own key.
     package func gitKey(_ workspace: String?) -> String { gitFolder(of: workspace)?.id ?? workspace ?? "" }
-    /// The folder a project's row stands for: its own worktree (nil for a project that isn't a git folder).
+    /// Returns the folder that a project's row stands for, which is the project's own worktree (nil for a project that
+    /// isn't a git folder).
     package func gitFolder(project id: String) -> Worktree? {
         guard let repo = repo(id) else { return nil }
         return worktrees.first { $0.repoId == id && $0.path == repo.path && !$0.archived }
@@ -131,8 +135,9 @@ extension AppModel {
         }
         return worktree
     }
-    /// Every folder the sidebar lists, whose git, PR and CI its rows show.
+    /// Every folder the sidebar lists. The sidebar's rows show their git status, PR and CI.
     package var gitFolders: Set<String> { gitState.folders }
-    /// Its files that another folder of the project changes too, with that folder's branch (`GitFolders.shared`).
+    /// Returns the files of folder `id` that another folder of the project changes too, with that folder's branch
+    /// (`GitFolders.shared`).
     package func sharedFiles(_ id: String?) -> [String: [String]] { id.map(gitState.shared) ?? [:] }
 }

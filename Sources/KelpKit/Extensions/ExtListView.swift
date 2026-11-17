@@ -107,7 +107,8 @@ struct ExtListView: View {
         let actions = ExtActions(app)
         let subtitle = def.subtitle.map { actions.expand($0, item: item, quote: false) } ?? ""
         return HStack(spacing: 8) {
-            // An icon that's the same on every row is the panel's own (its tab shows it): only one that names a field tells rows apart.
+            // An icon that's the same on every row is the panel's own icon, which its tab already shows. Only an icon
+            // that names a field tells rows apart, so only that one shows on the row.
             if let icon = def.icon, icon.contains("${") {
                 let name = actions.expand(icon, item: item, quote: false)
                 if let image = Self.image(name) {

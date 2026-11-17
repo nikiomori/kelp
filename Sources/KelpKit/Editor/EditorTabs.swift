@@ -8,7 +8,7 @@ import WorkbenchKit
 extension EditorArea {
     // MARK: tabs
 
-    /// `focus: false` shows the tab but leaves the keys where they are (a click in the Files tree).
+    /// Selects a tab. `focus: false` shows the tab but leaves the keys where they are (a click in the Files tree).
     func select(_ tab: String, focus: Bool = true) {
         let old = layout.focused
         layout.select(tab)
@@ -17,8 +17,8 @@ extension EditorArea {
         if focus { focusSelected() }
     }
 
-    /// A `terminal:` or `agent:` URI: what it says is run. Kelp's own callers only (`ArchitectureTests`), never a URL that came
-    /// from elsewhere: those go through `open`, which only shows things.
+    /// Runs what a `terminal:` or `agent:` URI says. Only Kelp's own code calls this (`ArchitectureTests`), never with
+    /// a URL that came from elsewhere; those go through `open`, which only shows things.
     func runURI(_ uri: String, split: SplitDirection? = nil, focus: Bool = true) {
         let components = URLComponents(string: uri)
         func value(_ name: String) -> String? { components?.queryItems?.first { $0.name == name }?.value }
@@ -33,20 +33,23 @@ extension EditorArea {
         }
     }
 
-    /// A path as the disk has it (/tmp/x is /private/tmp/x), so one file has one tab however it was reached; what isn't
-    /// there (yet) as given.
+    /// Returns a path as the disk has it (/tmp/x is /private/tmp/x), so one file has one tab however it was reached. A
+    /// path that isn't there (yet) comes back as given.
     static func realPath(_ path: String) -> String { Paths.real(path) ?? path }
 
-    /// Opens a URI in the focused group (or a new group to the right / below). Reuses a tab already showing it. Only shows:
-    /// callers hand it links from a forge or a tracker, and one saying `terminal:?cmd=…` starts nothing.
+    /// Opens a URI in the focused group (or a new group to the right / below), reusing a tab already showing it. It
+    /// only shows things, because callers hand it links from a forge or a tracker, and one saying `terminal:?cmd=…`
+    /// must start nothing.
     func open(_ uri: String, split: SplitDirection? = nil, focus: Bool = true) {
         guard !TabURI.runs(uri) else { return }
-        // A page already open stays where it is, even when asked for beside you: a second click must not move it.
+        // A page already open stays where it is, even when asked for beside you, because a second click must not move
+        // it.
         if let tab = layout.pageTab(for: uri) {
             select(tab.id, focus: focus)
             return
         }
-        // A file already open (at another line, or by another path to it): that tab, moved to the line asked for.
+        // For a file already open (at another line, or by another path to it), use that tab and move it to the line
+        // asked for.
         if layout.tab(uri: uri) == nil, let tab = layout.fileTab(sameFileAs: uri, real: Self.realPath) {
             select(tab.id, focus: focus)
             if let line = TabURI.filePath(uri).line { contents[tab.id]?.goTo(line: line) }
@@ -78,8 +81,9 @@ extension EditorArea {
         select(tab.id, focus: focus)
     }
 
-    /// What an agent or a script asks to show (`kelp open` without `--focus`): the pane you're in stays yours, its keys
-    /// too. Only a tab that lands on top of what you were looking at takes them, with nothing else left to type in.
+    /// Shows what an agent or a script asks for (`kelp open` without `--focus`). The pane you're in stays yours, and so
+    /// do the keys. Only a tab that lands on top of what you were looking at takes the keys, because nothing else is
+    /// left to type in.
     func showAside(_ uri: String, split: SplitDirection? = nil) {
         let typing = (view.window?.firstResponder as? NSView)?.isDescendant(of: view) == true
         let yours = layout.focusedGroup?.selectedTab?.id
@@ -95,15 +99,17 @@ extension EditorArea {
 
     func closeTab(_ id: String, remember: Bool = true) { Task { await closeTabAsking(id, remember: remember) } }
 
-    /// Closes the tab once it agrees (its questions are sheets, awaited); false when it stays. `remember`: ⇧⌘T can bring it
-    /// back, unless Kelp itself took it away (a finished commit's tab, a run started over).
+    /// Closes the tab once the tab agrees (its questions are awaited sheets), and returns false when it stays. With
+    /// `remember`, ⇧⌘T can bring it back; pass false when Kelp itself took it away (a finished commit's tab, a run
+    /// started over).
     @discardableResult
     func closeTabAsking(_ id: String, remember: Bool = true) async -> Bool {
         guard closing.insert(id).inserted else { return false }
         defer { closing.remove(id) }
         let uri = layout.allTabs.first { $0.id == id }?.uri ?? ""
         let sid = TabURI.scheme(uri) == "session" ? TabURI.body(uri) : nil
-        // A tab not built yet (in the background since launch) closes all the same: an agent's ends its session.
+        // A tab not built yet (in the background since launch) closes all the same; closing an agent's tab ends its
+        // session.
         if let content = contents[id] {
             guard await content.close() else { return false }
         } else if let close = app.extensions.tabProvider(for: uri)?.closeUnbuilt, await !close(uri) {
@@ -116,8 +122,8 @@ extension EditorArea {
         return true
     }
 
-    /// The tab leaves the layout; what it showed isn't asked (closing asked already, hiding keeps it running). A session's
-    /// tab doesn't come back with the daemon's next update.
+    /// Removes the tab from the layout without asking what it showed (closing asked already, and hiding keeps it
+    /// running). A session's tab doesn't come back with the daemon's next update.
     func drop(_ id: String, session sid: String? = nil) {
         let sid =
             sid
@@ -137,7 +143,7 @@ extension EditorArea {
         focusSelected()
     }
 
-    /// Sessions being looked at, which a finished agent's second on screen counts for (`Glances`).
+    /// The sessions being looked at. A finished agent counts as read after a second on screen among these (`Glances`).
     var attendedSessions: [String] {
         layout.attendedTabs(zoomed: zoomed).map(\.uri).filter { TabURI.scheme($0) == "session" }.map(TabURI.body)
     }
@@ -151,7 +157,8 @@ extension EditorArea {
         select(group.tabs[index].id)
     }
     func cycleTab(_ offset: Int) { if let id = layout.tab(cycling: offset) { select(id) } }
-    /// ⇧⌘↩: the focused group fills the editor area, or every pane comes back (like zooming a split in Terminal or Ghostty).
+    /// ⇧⌘↩: the focused group fills the editor area, or every pane comes back (like zooming a split in Terminal or
+    /// Ghostty).
     func toggleZoom() {
         guard let group = layout.focusedGroup, (layout.root?.sessions.count ?? 0) > 1 else {
             NSSound.beep()
@@ -166,7 +173,7 @@ extension EditorArea {
         zoomed = nil
         if let id = layout.tabInGroup(cycling: offset) { select(id) }
     }
-    /// ⌥⌘ arrows: the pane on that side of the focused one, the nearest by center (Ghostty's goto_split).
+    /// ⌥⌘ arrows: focuses the pane on that side of the focused one, the nearest by center (Ghostty's goto_split).
     func focusGroup(toward edge: NSRectEdge) {
         guard let cur = layout.focusedGroup?.id, let from = groupViews[cur], from.window != nil else { return }
         var others: [String: CGRect] = [:]
@@ -192,14 +199,15 @@ extension EditorArea {
         if group.tabs.count == 1 {
             starter.newTerminal(split: dir)
             return
-        }   // nothing to move: open a terminal there, like a terminal app
+        }   // with nothing to move, open a terminal there, like a terminal app
         layout.split(tab.id, from: group.id, vertical: dir == .right, before: false)
         render()
         focusSelected()
     }
 
-    /// Agents side by side, the default: each running agent in a pane of its own; terminals, commands, files and paused
-    /// or ended agents share one more (a paused agent shown would wake). Done as tabs come and go; true if panes moved.
+    /// Arranges agents side by side, the default: each running agent gets a pane of its own, and terminals, commands,
+    /// files and paused or ended agents share one more pane (a paused agent that is shown would wake). It runs as tabs
+    /// come and go, and returns true if panes moved.
     @discardableResult
     func arrange() -> Bool {
         guard layout.manual != true else { return false }
@@ -214,7 +222,8 @@ extension EditorArea {
         return layout != old
     }
 
-    /// The title bar's button and ⌃⌘T: agents side by side, or every tab back in one pane, arranged by hand from then on.
+    /// The title bar's button and ⌃⌘T: puts agents side by side, or every tab back in one pane, which is then arranged
+    /// by hand.
     func toggleSideBySide() {
         zoomed = nil
         layout.manual = layout.manual == true ? nil : true
@@ -223,7 +232,8 @@ extension EditorArea {
         focusSelected()
     }
 
-    /// A split or a tab dragged to another pane: the panes stay as the user puts them, agents no longer tile.
+    /// Called after a split or a tab dragged to another pane. From then on the panes stay as the user puts them, and
+    /// agents no longer tile.
     func arrangedByHand() {
         guard layout.manual != true else { return }
         layout.manual = true
@@ -246,7 +256,7 @@ extension EditorArea {
             self?.splitFocused(.down)
         }
         menu.addItem(.separator())
-        // A run's tab can go into the Run menu: the run keeps going, the menu brings its output back.
+        // A run's tab can go into the Run menu, where the run keeps going and the menu brings its output back.
         if let uri = layout.allTabs.first(where: { $0.id == id })?.uri, TabURI.scheme(uri) == "session",
             let session = app.session(TabURI.body(uri)), session.status != .exited
         {
@@ -266,7 +276,8 @@ extension EditorArea {
         return menu
     }
 
-    /// "+" menu, in the empty workspace's order (`NewTabChoices`): the agents, what opens, what runs, then Make.
+    /// Builds the "+" menu in the empty workspace's order (`NewTabChoices`): the agents, what opens, what runs, then
+    /// Make.
     func newTabMenu(group: String?) -> NSMenu {
         let app = self.app
         let focus: @MainActor () -> Void = { [weak self] in if let group { self?.layout.focused = group } }

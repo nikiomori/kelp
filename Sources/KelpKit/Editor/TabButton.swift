@@ -2,8 +2,9 @@ import AppKit
 import Core
 import DesignKit
 
-/// An NSControl, not a plain view: under a transparent title bar the window server moves the window on a drag over
-/// anything but controls, whatever `mouseDownCanMoveWindow` says, so a dragged tab would take the window with it.
+/// One tab in a strip. It is an NSControl, not a plain view, because under a transparent title bar the window server
+/// moves the window on a drag over anything but controls, whatever `mouseDownCanMoveWindow` says, so a dragged tab
+/// would take the window with it.
 @MainActor
 final class TabButton: NSControl, NSDraggingSource {
     weak var strip: TabStrip?
@@ -11,15 +12,16 @@ final class TabButton: NSControl, NSDraggingSource {
     private(set) var selected = false
     var groupFocused = false { didSet { if groupFocused != oldValue { updateLook() } } }
     var stripDimmed = false { didSet { if stripDimmed != oldValue { updateLook() } } }
-    /// The row of what it shows, which fades in a dimmed strip; the fill and the glow stay as they are.
+    /// The row of the tab's parts, which fades in a dimmed strip; the fill and the glow stay as they are.
     private weak var content: NSView?
     private let icon = NSImageView(), title = NSTextField(labelWithString: ""), close = PointerButton(frame: .zero),
         editedDot = NSImageView()
     private let mark = StatusMark(size: 12)
     private let meter = ContextMeter()
-    /// Next to the ring once it's red: how full. Before that the ring and its tooltip say it, the strip stays quiet.
+    /// How full the context is, shown next to the ring once the ring is red. Before that the ring and its tooltip say
+    /// it, and the strip stays quiet.
     private let full = NSTextField(labelWithString: "")
-    /// What runs beside its agent, whatever it's doing (a dev server): by name in the tooltip.
+    /// What runs beside the tab's agent, whatever it's doing (a dev server), with the names in the tooltip.
     private let chip = Chip()
     private let edgeGlow = EdgeGlow(radius: Metrics.radiusSM, spread: 3, strength: 0.5)
     private var hover = false {
@@ -31,8 +33,8 @@ final class TabButton: NSControl, NSDraggingSource {
     private let slot = NSView()
     private var shownSlot: (edited: Bool, state: Bool)?
     private let row = NSStackView()
-    /// The title keeps about twelve letters however many tabs there are (six when compact); the rest scroll and are in
-    /// the ▾ menu.
+    /// The title keeps about twelve letters however many tabs there are (six when compact); the tabs that don't fit
+    /// scroll and are in the ▾ menu.
     private lazy var titleMin = title.widthAnchor.constraint(greaterThanOrEqualToConstant: 0)
     private lazy var tall = heightAnchor.constraint(equalToConstant: 28)
     /// Settings › Appearance › Tab height: Compact.
@@ -40,7 +42,8 @@ final class TabButton: NSControl, NSDraggingSource {
     private lazy var widest = widthAnchor.constraint(lessThanOrEqualToConstant: 300)
     private lazy var narrowest = widthAnchor.constraint(greaterThanOrEqualToConstant: 76)
     private lazy var comfortable = widthAnchor.constraint(greaterThanOrEqualToConstant: 110)
-    /// Settings › Appearance › Tab width: 60–160 pt, tighter insets, six letters kept; its marks and meter stay.
+    /// Settings › Appearance › Tab width, compact: tabs of 60–160 pt with tighter insets that keep six letters; the
+    /// marks and meter stay.
     var compact = false {
         didSet {
             guard compact != oldValue else { return }
@@ -64,15 +67,15 @@ final class TabButton: NSControl, NSDraggingSource {
         close.wantsLayer = true
         close.contentTintColor = .secondaryLabelColor
         close.imagePosition = .imageOnly
-        close.radius = nil   // a round fill under the pointer, the slot's 16 pt
+        close.radius = nil   // a round 16 pt fill (the slot's size) under the pointer
         close.target = self
         close.action = #selector(closeTapped)
         // Unsaved changes: a dot where the close button goes (as in TextEdit's tabs); hovering shows the close button.
         editedDot.image = .symbol("circle.fill", String(localized: "Edited"))
         editedDot.symbolConfiguration = .chrome(Metrics.iconTiny)
         editedDot.contentTintColor = .labelColor
-        // One slot at the start: the agent's state while there is something to see, else the tab's icon; on hover, the
-        // close button.
+        // One slot at the start shows the agent's state while there is something to see, otherwise the tab's icon,
+        // and on hover the close button.
         for part in [icon, mark, close, editedDot] as [NSView] {
             part.translatesAutoresizingMaskIntoConstraints = false
             slot.addSubview(part)
@@ -94,17 +97,19 @@ final class TabButton: NSControl, NSDraggingSource {
             tall, widest, narrowest,
             slot.widthAnchor.constraint(equalToConstant: 16), slot.heightAnchor.constraint(equalToConstant: 16)
         ])
-        // Below the strip's `fit` (245): a squeezed tab truncates its title with "…" (the row never clips it). Under that
-        // again its comfortable width: a short title gives up its air before a long one loses letters.
+        // The title's priority is below the strip's `fit` (245), so a squeezed tab truncates its title with "…" (the
+        // row never clips it). The comfortable width sits lower still, so a short title gives up its spare room before
+        // a long one loses letters.
         title.setContentCompressionResistancePriority(.init(240), for: .horizontal)
         comfortable.priority = .init(239)
         comfortable.isActive = true
-        titleMin.priority = .init(999)   // over the strip's `fit`: a tab at it widens the strip, which scrolls
+        titleMin.priority = .init(999)   // over `fit`, so a tab at its minimum widens the strip, which scrolls
         titleMin.isActive = true
         addTrackingArea(
             NSTrackingArea(
                 rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
-        // VoiceOver: a tab like NSTabView's (radio button, tab subrole); the close button only exists on hover, so it's an action.
+        // VoiceOver hears a tab like NSTabView's (radio button, tab subrole). The close button only exists on hover, so
+        // it is an action.
         setAccessibilityElement(true)
         setAccessibilityRole(.radioButton)
         setAccessibilitySubrole(.init(rawValue: "AXTabButton"))   // kAXTabButtonSubrole
@@ -119,7 +124,7 @@ final class TabButton: NSControl, NSDraggingSource {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Shows `it`; true when its width may have changed (the strip measures again).
+    /// Shows item `it`, and returns true when the tab's width may have changed (then the strip measures again).
     @discardableResult func set(_ it: TabStrip.Item, selected: Bool, groupFocused: Bool) -> Bool {
         let before = sizeKey
         item = it
@@ -142,7 +147,8 @@ final class TabButton: NSControl, NSDraggingSource {
         chip.toolTip = it.card == nil ? it.badge?.backgroundTip : nil   // the card lists them
         chip.setAccessibilityLabel(it.badge?.backgroundTip)
         toolTip = it.card == nil ? it.toolTip ?? it.title : nil   // not both at once
-        // VoiceOver hears the agent's state too ("Claude Code, Needs your input"): on screen it replaces the icon.
+        // VoiceOver hears the agent's state too ("Claude Code, Needs your input"), because on screen the state replaces
+        // the icon.
         setAccessibilityLabel((it.badge?.status).map { "\(it.title), \($0.words)" } ?? it.title)
         setAccessibilityValue(selected)
         updateLook()
@@ -159,17 +165,18 @@ final class TabButton: NSControl, NSDraggingSource {
         let title: String, font: NSFont?, chip: Int, meter: Bool, full: String
     }
 
-    /// Working, asking, failed, or finished and not looked at: the state says more than the agent's icon.
+    /// Whether the slot shows the agent's state: working, asking, failed, or finished and not looked at. Then the state
+    /// says more than the agent's icon.
     private var showsState: Bool {
         guard let status = item?.badge?.status else { return false }
         return [.working, .waiting, .error].contains(status) || (status == .done && item?.badge?.unread == true)
     }
 
-    /// There's something here for you: it stays bright when its pane fades.
+    /// Whether the tab has something for you, so it stays bright when its pane fades.
     private var news: Bool { showsState && item?.badge?.status != .working }
 
-    /// It asks, or it failed and wasn't looked at: its title takes the colour (and the tab glows, `glow`), so the pane
-    /// that calls for you reads across the window, not only by its 12 pt mark.
+    /// The title's colour when the agent asks, or failed and wasn't looked at. The tab also glows (`glow`), so the pane
+    /// that calls for you stands out across the window, not only by its 12 pt mark.
     private var callText: NSColor? {
         switch item?.badge?.status {
         case .waiting?: .textOrange
@@ -190,15 +197,16 @@ final class TabButton: NSControl, NSDraggingSource {
         mark.alphaValue = hover || edited || !showsState ? 0 : 1   // StatusMark hides itself when there's no state
         let active = selected && groupFocused, call = callText
         title.textColor = call ?? (selected ? .labelColor : .secondaryLabelColor)
-        // Finished and not looked at: told by its title's weight alone, as unread mail is.
+        // A tab finished and not looked at is marked by the weight of its title alone, as unread mail is.
         title.font = .ui(TextSize.row, weight: doneUnread ? .semibold : active || call != nil ? .medium : .regular)
         titleMin.constant = Self.minTitle(
             title.stringValue, font: title.font ?? .ui(TextSize.row), letters: compact ? 6 : 12)
         icon.contentTintColor = active ? .themeAccent : .secondaryLabelColor
-        // One plate in the window, on the tab you're in; a pane's chosen tab elsewhere is told by its brighter title.
+        // The window has one plate, on the tab you're in; another pane's chosen tab stands out by its brighter title.
         let fill = active ? NSColor.fillSelected : hover ? .fillHover : nil
         fadeBackground(to: fill)   // the state's colour is in the glow and the title, not a fill under them
-        // Increase Contrast: the capsule gets an edge, as the system's controls do; its state is in the mark's shape already.
+        // With Increase Contrast the capsule gets an edge, as the system's controls do; its state is in the mark's
+        // shape already.
         layer?.borderWidth = NSColor.increaseContrast ? 1 : 0
         effectiveAppearance.performAsCurrentDrawingAppearance { layer?.borderColor = NSColor.separatorColor.cgColor }
         fadeContent(to: stripDimmed && !hover && !news ? Metrics.tabDim : 1)
@@ -224,8 +232,8 @@ final class TabButton: NSControl, NSDraggingSource {
         default: item?.run
         }
     }
-    /// Light along the inside of the capsule, the pane's anatomy at a tab's size: nothing outside it is tinted, and the
-    /// selected fill under it stays as it is.
+    /// Shows light along the inside of the capsule, like the pane's ring at a tab's size. Nothing outside the capsule
+    /// is tinted, and the selected fill under the light stays as it is.
     private func showGlow() {
         edgeGlow.show(glow, breathing: item?.badge?.status == .waiting, faint: item?.badge?.status == .done)
     }
@@ -240,14 +248,16 @@ final class TabButton: NSControl, NSDraggingSource {
         row.edgeInsets = NSEdgeInsets(top: 0, left: compact ? 6 : 8, bottom: 0, right: compact ? 8 : 10)
     }
 
-    /// How narrow it gets at the regular width: Automatic turns the strip compact once these no longer fit.
+    /// How narrow the tab gets at the regular width. Automatic turns the strip compact once tabs this narrow no longer
+    /// fit.
     var regularMinimum: CGFloat {
         let others = [chip, meter, full].filter { !$0.isHidden }.reduce(0) { $0 + $1.fittingSize.width + 6 }
         let text = Self.minTitle(title.stringValue, font: title.font ?? .ui(TextSize.row), letters: 12)
         return max(76, 8 + 16 + 6 + text + others + 10)
     }
 
-    /// Up to `letters` letters of `text` (all of a shorter one), so many tabs don't leave four letters of each.
+    /// Returns the width of up to `letters` letters of `text` (all of a shorter text), so many tabs don't leave four
+    /// letters of each.
     static func minTitle(_ text: String, font: NSFont, letters: Int = 12) -> CGFloat {
         let most = NSAttributedString(string: String(repeating: "n", count: letters), attributes: [.font: font]).size()
             .width
@@ -270,8 +280,9 @@ final class TabButton: NSControl, NSDraggingSource {
         edgeGlow.radius = layer?.cornerRadius ?? Metrics.radiusSM   // the glow follows the capsule
     }
     override func mouseEntered(with event: NSEvent) {
-        // A peeking sidebar or inspector lies over the tabs in the same window, and the tab's tracking area still fires:
-        // its card would hang off that panel's row, its Continue typing into this tab's agent.
+        // A peeking sidebar or inspector lies over the tabs in the same window, and the tab's tracking area still
+        // fires. The tab's card would then hang off that panel's row, and its Continue would type into this tab's
+        // agent.
         guard window?.contentView?.hitTest(event.locationInWindow)?.isDescendant(of: self) == true else { return }
         hover = true
         if let key = item?.card { strip?.hoverCard?.hover(key, rect: bounds, in: self) }
@@ -280,7 +291,8 @@ final class TabButton: NSControl, NSDraggingSource {
         hover = false
         if item?.card != nil { strip?.hoverCard?.hover(nil, rect: .zero, in: self) }
     }
-    /// Moved under or from under a pointer that stayed still: AppKit says so only when it next moves.
+    /// Updates the hover after the tab moved under, or out from under, a pointer that stayed still, because AppKit only
+    /// notices when the pointer next moves.
     func followPointer() {
         guard let window else { return }
         hover = bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))

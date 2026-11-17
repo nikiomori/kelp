@@ -6,8 +6,8 @@ import Observation
 import SwiftUI
 import TerminalKit
 
-/// A color theme: terminal and editor colors, optionally tied to light or dark appearance, and how the window around them
-/// is built (docs/extensions.md).
+/// A color theme: terminal and editor colors, optionally tied to light or dark appearance, and how the window around
+/// them is built (docs/extensions.md).
 struct Theme: Codable, Identifiable, Equatable {
     struct TerminalColors: Codable, Equatable {
         var background: String, foreground: String
@@ -21,10 +21,10 @@ struct Theme: Codable, Identifiable, Equatable {
         var selection: String?, lineHighlight: String?
         var opacity: Double?
     }
-    /// The panels and the gap round the editor area ("surface"), the editor area ("card") and the chrome's accent and face.
-    /// A theme without one gets a window in its own colours.
+    /// The window's look: the panels and the gap round the editor area ("surface"), the editor area ("card"), and the
+    /// chrome's accent and font. A theme without one gets a window in its own colours.
     struct Window: Codable, Equatable {
-        var surface: String?   // a colour, or "material": macOS's own, the desktop showing through
+        var surface: String?   // a colour, or "material" for macOS's own, with the desktop showing through
         var surfaceOpacity: Double?
         var card: String?, border: String?
         var borderWidth: Double?, radius: Double?
@@ -33,8 +33,9 @@ struct Theme: Codable, Identifiable, Equatable {
         var ambient: String?   // "aurora", "motes", "grid"
         var ambientColors: [String]?
     }
-    /// A colour for the terminal's config file, which is read line by line. A theme is someone else's, and more than one word
-    /// could add a line of its own there ("#000\nkeybind = …") past the review that says it runs no commands.
+    /// Returns a colour safe for the terminal's config file, which is read line by line. A theme comes from someone
+    /// else, and a value of more than one word could add a line of its own there ("#000\nkeybind = …"), getting past
+    /// the review that says the theme runs no commands.
     static func terminalColor(_ value: String?) -> String? {
         value.flatMap { $0.range(of: #"\A#?[0-9A-Za-z]+\z"#, options: .regularExpression) == nil ? nil : $0 }
     }
@@ -47,7 +48,7 @@ struct Theme: Codable, Identifiable, Equatable {
     var window: Window?
 }
 
-/// The window as the chosen theme has it; nil is the system's.
+/// The window as the chosen theme draws it. A nil part means the system's.
 struct WindowLook: Equatable {
     struct Ambient: Equatable {
         enum Kind: String { case aurora, motes, grid }
@@ -56,9 +57,10 @@ struct WindowLook: Equatable {
     var surface: NSColor?, card: NSColor?, border: NSColor?
     var borderWidth: CGFloat = 1, radius = Metrics.radiusLG
     var ambient: Ambient?
-    /// The terminals show what's under them.
+    /// Whether the terminals show what's under them.
     var seeThrough = false
-    /// A surface nothing shows through: macOS needn't blur the desktop for it, on every frame of a moving backdrop too.
+    /// Whether nothing shows through the surface, so macOS needn't blur the desktop for it, even on every frame of a
+    /// moving backdrop.
     var solid: Bool { surface?.alphaComponent == 1 }
 }
 
@@ -70,11 +72,11 @@ package final class ThemeManager {
     init(app: AppModel) { self.app = app }
     @ObservationIgnored private var lastTerminal: TerminalAppearance?
     @ObservationIgnored private var appearanceObserver: NSKeyValueObservation?
-    /// Counts the changes of the editors' look (`CodeEditor.apply(look:)`, which Observation can't see), for code shown
-    /// outside an editor in it (a diff, a page's preview): the editors themselves follow on their own.
+    /// Counts the changes of the editors' look (`CodeEditor.apply(look:)`, which Observation can't see), for code
+    /// shown in that look outside an editor (a diff, a page's preview). The editors themselves follow on their own.
     private(set) package var editorRevision = 0
     private(set) var look = WindowLook()
-    /// The font of the chrome's text, which panels rebuild for: Text Size's size and the theme's face.
+    /// The font of the chrome's text, which panels rebuild for: the size from Text Size and the theme's font.
     private(set) var chromeText = " "
     private(set) package var chromeDesign = Font.Design.default
 
@@ -101,7 +103,7 @@ package final class ThemeManager {
         editor: .init(
             background: "#1e1e22", text: "#e5e5ea", keyword: "#ff7ab2", string: "#ff8170", comment: "#7f8c98",
             type: "#5dd8ff", number: "#d9c97c", function: "#67b7a4"), window: .system)
-    /// Kelp Dark on black: its backgrounds, the selection and the first palette colour go darker.
+    /// Kelp Dark on black. Its backgrounds, the selection and the first palette colour are darker.
     private static let kelpBlack = {
         var black = kelpDark
         black.id = "kelp.black"
@@ -113,10 +115,11 @@ package final class ThemeManager {
         return black
     }()
 
-    /// "auto" follows macOS light/dark; "ghostty" leaves the terminal to ~/.config/ghostty.
+    /// Every theme there is: built-in, looks, popular palettes and the extensions' themes. Besides these ids, "auto"
+    /// follows macOS light/dark, and "ghostty" leaves the terminal to ~/.config/ghostty.
     var themes: [Theme] { Self.builtin + Theme.looks + Theme.popular + app.extensions.all.themes }
 
-    /// What terminals are painted with now (Ghostty's own config when the theme leaves it to Ghostty).
+    /// The colour terminals are painted with now (from Ghostty's own config when the theme leaves it to Ghostty).
     var terminalBackground: NSColor {
         let hex =
             lastTerminal?.background
@@ -124,7 +127,8 @@ package final class ThemeManager {
         return hex.flatMap { NSColor(hex: $0) } ?? .textBackgroundColor
     }
 
-    /// The theme painting the window now: Match System's light or dark one; nil for Ghostty's own colors.
+    /// The theme painting the window now, which for Match System is its light or dark one. It is nil for Ghostty's own
+    /// colors.
     var shown: Theme? {
         let id = app.settings[SettingKeys.theme]
         return id == "ghostty"
@@ -136,7 +140,7 @@ package final class ThemeManager {
 
     var isDark: Bool { NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }
 
-    /// Paints again whenever settings.json or the themes the extensions bring change; once, at launch.
+    /// Paints once at launch, and again whenever settings.json or the themes the extensions bring change.
     func follow() {
         track(owner: self) { [weak self] in
             self.map { Painted(settings: $0.app.settings.values, themes: $0.app.extensions.all.themes) }
@@ -149,14 +153,14 @@ package final class ThemeManager {
         let themes: [Theme]
     }
 
-    /// Starts libghostty (its config and fonts, on the main thread) before the first terminal asks for it, with the look
-    /// settings.json gives terminals already applied.
+    /// Starts libghostty (loading its config and fonts on the main thread) before the first terminal asks for it, with
+    /// the terminal look from settings.json already applied.
     static func warmTerminals() { _ = GhosttyRuntime.shared }
 
     func apply() {
         let settings = app.settings
-        // One choice, as in VS Code: a theme with its own look (Kelp Light, Dracula…) sets the whole window's look;
-        // Match System and Ghostty follow macOS.
+        // One choice, as in VS Code. A theme with its own appearance (Kelp Light, Dracula…) sets the whole window's
+        // appearance, and Match System and Ghostty follow macOS.
         let want: NSAppearance.Name? =
             switch themes.first(where: { $0.id == settings[SettingKeys.theme] })?.appearance {
             case "light": .aqua
@@ -165,7 +169,8 @@ package final class ThemeManager {
             }
         if NSApp.appearance?.name != want { NSApp.appearance = want.flatMap { NSAppearance(named: $0) } }
         if appearanceObserver == nil {
-            // macOS switched light/dark: "auto" themes follow (colors only; setting the appearance here would loop).
+            // When macOS switches light/dark, "auto" themes follow (colors only, because setting the appearance here
+            // would loop).
             appearanceObserver = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
                 DispatchQueue.main.async { self?.applyColors() }
             }
@@ -182,7 +187,7 @@ package final class ThemeManager {
         if let colors = theme?.terminal {
             terminal.background = Theme.terminalColor(colors.background)
             terminal.foreground = Theme.terminalColor(colors.foreground)
-            // the system's accent, by name
+            // without a theme cursor, use the system's accent colour
             terminal.cursor = Theme.terminalColor(colors.cursor) ?? NSColor.controlAccentColor.hexString
             terminal.selection = Theme.terminalColor(colors.selection)
             terminal.palette = (colors.palette ?? []).compactMap(Theme.terminalColor)
@@ -191,7 +196,7 @@ package final class ThemeManager {
         terminal.fontSize = settings[SettingKeys.terminalFontSize]
         terminal.cursorStyle = settings[SettingKeys.cursorStyle]
         terminal.optionAsAlt = settings[SettingKeys.optionAsAlt]
-        // Settings › Appearance › Terminal opacity, over any theme: the window opens up with it.
+        // Settings › Appearance › Terminal opacity wins over any theme, and the window opens up with it.
         let opacity = Double(settings[SettingKeys.terminalOpacity]).map { $0 / 100 }
         terminal.opacity = opacity ?? theme?.terminal?.opacity
         terminal.shader = theme?.terminal?.shader
@@ -217,16 +222,17 @@ package final class ThemeManager {
             ["mono": .monospaced, "serif": .serif, "rounded": .rounded][theme?.window?.font ?? ""] ?? .default
         NSColor.setThemeAccent(Self.accent(theme))
         look = Self.windowLook(theme, terminalOpacity: terminal.opacity ?? 1, forced: opacity)
-        // Read by Foundation at launch, so a change shows the next time Kelp opens.
+        // Foundation reads the language at launch, so a change shows the next time Kelp opens.
         let chosen = settings[SettingKeys.language], language = chosen == "system" ? nil : [chosen]
         UserDefaults.standard.set(language, forKey: "AppleLanguages")
-        // Every editor follows at once; the revision is for what shows code outside one (a diff, a page's preview).
+        // Every editor follows at once. The revision is for views that show code outside an editor (a diff, a page's
+        // preview).
         let code = CodeEditor.Look(
             palette: palette, fontSize: size, fontName: font, wrapLines: wrap, wrappingIndent: hang)
         if CodeEditor.apply(look: code) { editorRevision += 1 }
     }
 
-    /// "#rrggbb" takes two more digits for alpha.
+    /// Returns the two hex digits for alpha that follow "#rrggbb".
     private static func alpha(_ opacity: Double?) -> String {
         opacity.map { String(format: "%02x", Int(($0 * 255).rounded())) } ?? ""
     }
@@ -236,7 +242,8 @@ package final class ThemeManager {
         return theme?.terminal?.palette.flatMap { $0.count > 4 ? NSColor(hex: $0[4]) : nil }   // ANSI blue, as near as a palette has to one
     }
 
-    /// `forced`: the terminal's opacity from Settings, which opens up a theme that doesn't.
+    /// Returns the window look for a theme. `forced` is the terminal's opacity from Settings, which opens up a theme
+    /// that isn't see-through itself.
     static func windowLook(_ theme: Theme?, terminalOpacity: Double, forced: Double?) -> WindowLook {
         guard let theme, let background = theme.terminal.flatMap({ NSColor(hex: $0.background) }) else {
             return terminalOpacity < 1 ? WindowLook(card: .clear, seeThrough: true) : WindowLook()
@@ -262,13 +269,14 @@ package final class ThemeManager {
 }
 
 extension Theme.Window {
-    /// A window in the theme's colours: the card its background, the surface round it a shade further from its text.
+    /// A window in the theme's colours. The card is the theme's background, and the surface round it is a shade
+    /// darker.
     static func own(_ theme: Theme) -> Self {
         let dark = theme.appearance != "light"
         let shade = (theme.terminal?.background).flatMap { NSColor(hex: $0) }?.blended(
             withFraction: dark ? 0.18 : 0.04, of: .black)
         return Self(surface: shade?.hexString, card: theme.terminal?.background)
     }
-    /// macOS's own window: the Kelp themes'.
+    /// macOS's own window, which the Kelp themes use.
     static let system = Self(surface: "material")
 }

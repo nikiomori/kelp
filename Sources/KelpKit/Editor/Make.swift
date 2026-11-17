@@ -26,10 +26,12 @@ enum Make {
             help: String(localized: "Numbers at a glance"))
     ]
 
-    /// What the agent gets; the user writes what it's about after it. In English: it's the agent's instruction.
+    /// The line the agent gets; the user writes what the page is about after it. It stays in English, because it's the
+    /// agent's instruction.
     static func line(_ kind: Kind) -> String { "Make a \(kind.id) (kelp artifact guide \(kind.id)): " }
 
-    /// The kinds as menu items, after a "Make" heading unless they're its submenu: each starts `start` with its line.
+    /// Adds the kinds as menu items, after a "Make" heading unless they're its submenu. Each item calls `start` with
+    /// its line.
     @MainActor static func addItems(to menu: NSMenu, heading: Bool = true, start: @escaping @MainActor (String) -> Void)
     {
         if heading { menu.addItem(.sectionHeader(title: String(localized: "Make"))) }
@@ -41,8 +43,8 @@ enum Make {
     }
 }
 
-/// Make's choices for a built-in (Artifacts' empty state): the default agent starts in the focused pane with the line
-/// typed in, for the user to finish, as from "+".
+/// Make's choices for a built-in (the empty state of Artifacts). The default agent starts in the focused pane with the
+/// line typed in, for the user to finish, as from "+".
 @MainActor package func makeMenu(_ app: AppModel) -> NSMenu {
     let menu = NSMenu()
     Make.addItems(to: menu) { line in
@@ -55,8 +57,8 @@ enum Make {
     return menu
 }
 
-/// Make on the start page, in the foot of the field it fills: a small grey chip per kind. Each only puts a line in the
-/// field, so it weighs no more than the words it adds.
+/// Make on the start page, in the foot of the field it fills: a small grey chip for each kind. A chip only puts a line
+/// in the field, so it weighs no more than the words it adds.
 @MainActor
 final class MakeChips: NSStackView {
     init(pick: @escaping (Make.Kind) -> Void) {

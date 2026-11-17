@@ -1,6 +1,6 @@
 import AppKit
 
-/// A sheet on the main window (clone, SSH, first launch); `close()` ends it.
+/// A sheet on the main window (clone, SSH, first launch). `close()` ends it.
 @MainActor
 class SheetController: NSWindowController {
     let app: AppModel
@@ -13,7 +13,7 @@ class SheetController: NSWindowController {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// False when there's no window to put it on. `ended` runs once it's gone.
+    /// Begins the sheet, and returns false when there's no window to put it on. `ended` runs once the sheet is gone.
     func begin(ended: @escaping () -> Void) -> Bool {
         guard let parent = app.workbench.activeWindow ?? NSApp.mainWindow, let sheet = window else { return false }
         parent.beginSheet(sheet) { _ in ended() }

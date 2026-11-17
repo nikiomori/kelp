@@ -1,9 +1,9 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// ⌘-shortcuts on a non-Latin layout (Russian, Greek, Hebrew…): a ⌘ key that comes in with a non-Latin letter goes on
-/// as the letter that key types on the user's Latin layout — ⌘Ц is ⌘W, ⌘С is ⌘C — so menus, the terminal's own
-/// bindings and text views all see the shortcut they know, like in most Mac apps.
+/// ⌘-shortcuts on a non-Latin layout (Russian, Greek, Hebrew…). A ⌘ key that comes in with a non-Latin letter is passed
+/// on as the letter that key types on the user's Latin layout (⌘Ц is ⌘W, ⌘С is ⌘C), so menus, the terminal's own
+/// bindings and text views all see the shortcut they know, as in most Mac apps.
 @MainActor
 enum LatinShortcuts {
     static func install() {
@@ -21,7 +21,8 @@ enum LatinShortcuts {
         }
     }
 
-    /// ⌘Ц yes; ⌘↓ no: arrows and other function keys come as private-use characters (NSUpArrowFunctionKey…).
+    /// Whether the key's character is a letter of another script: true for ⌘Ц, false for ⌘↓, because arrows and other
+    /// function keys come as private-use characters (NSUpArrowFunctionKey…).
     static func isLetterOfAnotherScript(_ scalar: Unicode.Scalar) -> Bool {
         !scalar.isASCII && !(0xF700...0xF8FF).contains(scalar.value)
     }

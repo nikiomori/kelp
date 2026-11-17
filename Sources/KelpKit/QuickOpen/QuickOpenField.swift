@@ -12,7 +12,7 @@ final class PaletteField: NSSearchField {
     }
     private let token = Token()
 
-    /// The token's word; nil: none.
+    /// The word on the token, or nil for no token.
     var scope: String? {
         didSet {
             guard scope != oldValue else { return }
@@ -20,7 +20,8 @@ final class PaletteField: NSSearchField {
             token.isHidden = scope == nil
             (cell as? Cell)?.leading = scope == nil ? 0 : token.intrinsicContentSize.width + 6
             needsLayout = true
-            // The open editor keeps the old text frame: open it again where the text starts now, the caret at the end.
+            // The open editor keeps the old text frame, so open it again where the text starts now, with the caret at
+            // the end.
             guard currentEditor() != nil else { return }
             window?.makeFirstResponder(nil)
             window?.makeFirstResponder(self)
@@ -47,7 +48,7 @@ final class PaletteField: NSSearchField {
             x: after, y: ((bounds.height - size.height) / 2).rounded(), width: size.width, height: size.height)
     }
 
-    /// Its text starts after the token.
+    /// The field's cell, whose text starts after the token.
     final class Cell: NSSearchFieldCell {
         var leading: CGFloat = 0
         override func drawingRect(forBounds r: NSRect) -> NSRect {   // the placeholder's and the field editor's frame
@@ -56,8 +57,8 @@ final class PaletteField: NSSearchField {
             rect.size.width -= leading
             return rect
         }
-        // The editor goes where the search field's text is, after the magnifier. A field without a bezel was handed its
-        // whole frame, so what's typed sat over the magnifier until a resize put it right.
+        // The editor goes where the search field's text is, after the magnifier. A field without a bezel got its whole
+        // frame, so what was typed sat over the magnifier until a resize put it right.
         private func textRect(in controlView: NSView) -> NSRect {
             var rect = searchTextRect(forBounds: controlView.bounds)
             rect.origin.x += leading
@@ -80,7 +81,7 @@ final class PaletteField: NSSearchField {
         }
     }
 
-    /// A word on a faint purple capsule: the one colour in the palette, for the palette you're in.
+    /// A word on a faint purple capsule. It is the one colour in the palette, and it says which palette you're in.
     private final class Token: NSView {
         var text = "" {
             didSet {
@@ -103,23 +104,23 @@ final class PaletteField: NSSearchField {
     }
 }
 
-/// The palette's list. Its rows are Spotlight's: the accent under the chosen one (the palette's list is chosen from even
-/// while the field has the keyboard), the hover grey under the pointer, both on an 8 pt rounded rect inset from the
-/// sides. Asked of the table (NSTableView loads a row view by `rowViewIdentifier` when its delegate doesn't give one),
-/// not of the delegate: that method would be one more of the shell's `package` declarations.
+/// The palette's list. Its rows look like Spotlight's: the accent under the chosen row (the list is chosen from even
+/// while the field has the keyboard), and the hover grey under the pointer, both on an 8 pt rounded rect inset from
+/// the sides. The row view comes from the table (NSTableView loads one by `rowViewIdentifier` when its delegate doesn't
+/// give one), not from the delegate, because that method would be one more of the shell's `package` declarations.
 @MainActor
 final class PaletteTable: NSTableView {
     override func makeView(withIdentifier id: NSUserInterfaceItemIdentifier, owner: Any?) -> NSView? {
         guard id == NSTableView.rowViewIdentifier else { return super.makeView(withIdentifier: id, owner: owner) }
-        // The selection colour turns grey in a panel that isn't key; Spotlight's stays blue. A heading's row holds no
-        // PaletteCell: it chooses nothing, so it doesn't light up either.
+        // The selection colour turns grey in a panel that isn't key, but Spotlight's stays blue. A heading's row holds
+        // no PaletteCell, because it chooses nothing, so it doesn't light up either.
         return ListRowView(inset: 2, radius: Metrics.radiusMD, selection: .themeAccent, tracking: .activeAlways) {
             $0.subviews.contains { $0 is PaletteCell }
         }
     }
 }
 
-/// A palette row's content: on the accent its words and glyphs turn light, as a menu's do (the row says when).
+/// A palette row's content. On the accent its words and glyphs turn light, as a menu's do (the row says when).
 @MainActor
 class PaletteCell: NSTableCellView {
     override var backgroundStyle: NSView.BackgroundStyle {
@@ -137,8 +138,9 @@ class PaletteCell: NSTableCellView {
     }
 }
 
-/// The keys a palette knows, under its list, each key on a small cap: "↩ Run    ⌫ Everything". Given as one line,
-/// segments four spaces apart, the key before the first space of each (so a translation keeps the shape).
+/// The keys a palette knows, shown under its list with each key on a small cap: "↩ Run    ⌫ Everything". It is given
+/// as one line, with segments four spaces apart and the key before the first space of each, so a translation keeps the
+/// shape.
 @MainActor
 final class Keycaps: NSStackView {
     var stringValue = "" { didSet { if stringValue != oldValue { rebuild() } } }

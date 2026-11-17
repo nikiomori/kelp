@@ -54,8 +54,8 @@ final class StartPrompt: NSView, NSTextViewDelegate {
     }
     required init?(coder: NSCoder) { fatalError("not from a nib") }
 
-    /// The text's width said outright: left to follow the view, its container can stay at the zero it was made with, and
-    /// then every character takes a row.
+    /// Sets the text's width outright. Left to follow the view, the text container can stay at the zero width it was
+    /// made with, and then every character takes a row.
     override func layout() {
         super.layout()
         text.frame.size.width = bounds.width
@@ -63,7 +63,7 @@ final class StartPrompt: NSView, NSTextViewDelegate {
         fit()
     }
 
-    /// The caret at the end, after what's there.
+    /// Focuses the field with the caret at the end, after what's there.
     func focus() {
         window?.makeFirstResponder(text)
         text.setSelectedRange(NSRange(location: (text.string as NSString).length, length: 0))
@@ -91,7 +91,7 @@ final class StartPrompt: NSView, NSTextViewDelegate {
         return true
     }
 
-    /// Return and ⇧Return reach the delegate as one command: the key says which.
+    /// Return and ⇧Return reach the delegate as the same command, so the text view notes whether Shift was held.
     private final class Text: NSTextView {
         var shiftHeld = false
         override func keyDown(with event: NSEvent) {

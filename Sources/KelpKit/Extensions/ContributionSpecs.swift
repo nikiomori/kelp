@@ -1,4 +1,5 @@
-// What a contribution is: the IDE's context, a panel, an editor, a command, a setting and its section, an icon theme.
+// The kinds of contribution: the IDE's context, a panel, an editor, a command, a setting and its section, an icon
+// theme.
 import AppKit
 import Core
 import SwiftUI
@@ -10,7 +11,7 @@ package struct IDEContext {
     var project: Repo?
     var focusedFile: String?
 
-    /// What's on screen in `app`.
+    /// Returns the context of what is on screen in `app`.
     static func of(_ app: AppModel) -> IDEContext {
         let worktree = app.worktree(app.workbench.workspaceId)
         return IDEContext(
@@ -18,8 +19,9 @@ package struct IDEContext {
     }
 }
 
-/// What the shell may ask a panel for by what it shows, not by whose it is: "show the changes" after a pull, "show
-/// the checks" from a row's CI mark. A built-in says which of its panels is which; none, and nothing is shown.
+/// A role the shell uses to find a panel by what it shows, not by which extension owns it: "show the changes" after a
+/// pull, "show the checks" from a row's CI mark. A built-in says which of its panels has which role; when no panel has
+/// the role, nothing is shown.
 package enum PanelRole: Sendable { case changes, checks }
 
 /// A right-inspector panel.
@@ -40,21 +42,23 @@ package struct PanelSpec: Identifiable {
     }
     package let id: String, title: String, icon: String, extensionId: String
     package let role: PanelRole?
-    /// What the panel's icon says (nil: nothing). Read under observation, so it must not build the panel.
+    /// The mark on the panel's icon (nil for none). It is read under observation, so it must not build the panel.
     var badge: (@MainActor () -> PanelBadge?)?
-    /// Keeps `badge` current while the inspector lists the panel (an extension's badge command); cancelled on a rebuild.
+    /// Keeps `badge` current while the inspector lists the panel (an extension's badge command). A rebuild cancels it.
     var poll: (@MainActor () async -> Void)?
     let make: @MainActor () -> NSViewController
 }
 
-/// A panel icon's mark: a number for what is left to go through (changed files), or a dot for something that happened
-/// (a failed run), in grey, or red for a failure. A dot goes away once its panel has been shown with the same `key`.
+/// The mark on a panel's icon: a number for what is left to go through (changed files), or a dot for something that
+/// happened (a failed run). It is grey, or red for a failure. A dot goes away once its panel has been shown while the
+/// dot had the same `key`.
 package struct PanelBadge: Equatable {
     var count = 0, alert = false
     var key = ""
 
-    /// What an extension's badge command prints (or a page's `kelp.badge`): a number; any other text for a dot (the
-    /// text is the dot's key), with "!" first for red; nothing or 0 for no badge.
+    /// Reads what an extension's badge command prints (or what a page passes to `kelp.badge`). A number gives a count,
+    /// and any other text gives a dot whose key is that text; a leading "!" makes the badge red. Nothing or 0 gives no
+    /// badge.
     package init?(_ text: String) {
         var trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         alert = trimmed.hasPrefix("!")
@@ -92,9 +96,11 @@ package struct EditorSpec: Identifiable {
     package let id: String, title: String, icon: String
     /// The title as shown: `title` is English data, translated where it appears.
     var label: String { loc(title) }
-    /// The tab it opens (nil: none here, as for a workspace that has no changes to review).
+    /// The URI of the tab the entry opens, or nil when there is none here (as for a workspace that has no changes to
+    /// review).
     let uri: @MainActor (IDEContext) -> String?
-    /// Whether "+" and the empty workspace offer it here (nil: everywhere), as Database only where there is one.
+    /// Whether "+" and the empty workspace offer the entry here (nil means everywhere). Database, for example, is
+    /// offered only where there is a database.
     let available: (@MainActor (IDEContext) -> Bool)?
 
     @MainActor func open(_ ctx: IDEContext, in app: AppModel) {
@@ -122,9 +128,10 @@ package struct CommandSpec: Identifiable {
     }
     package let id: String, title: String
     var key: String?
-    /// The menu bar menu it goes in when Kelp's own layout (`AppDelegate.buildMenu`) doesn't place it; nil: Tools.
+    /// The menu bar menu the command goes in when Kelp's own layout (`AppDelegate.buildMenu`) doesn't place it; nil
+    /// means Tools.
     var menu: String?
-    /// Whether its menu item can be chosen now (Stop: something runs); nil: always.
+    /// Whether the command's menu item can be chosen now (Stop only while something runs); nil means always.
     let enabled: (@MainActor () -> Bool)?
     let run: @MainActor ([String: JSONValue]) -> Void
 }
@@ -135,34 +142,39 @@ package struct SettingSpec: Codable, Identifiable {
     var title: String
     var type: SettingType
     var `default`: JSONValue?
-    /// What the name doesn't say, in a line: behind the ⓘ beside the title when there's no `help`, so a row is one line.
+    /// One line on what the name doesn't say. It sits behind the ⓘ beside the title when there's no `help`, so each row
+    /// stays one line.
     var description: String?
-    /// The longer say, behind the ⓘ in place of the description (and found by search).
+    /// A longer explanation, behind the ⓘ in place of the description (search finds it too).
     var help: String?
     var options: [String]?
-    /// What each option is called where it's chosen ("needed" → "When Needed"), said where the setting is declared; an
-    /// option not named here shows as its value, capitalized.
+    /// The name each option shows where it's chosen ("needed" → "When Needed"), given where the setting is declared.
+    /// An option not named here shows as its value, capitalized.
     var labels: [String: String]?
-    /// How its options show (`SettingLook`); nil: a menu.
+    /// How the options show (`SettingLook`); nil means a menu.
     var look: SettingLook?
-    /// `[lowest, highest]` a number can be: the stepper stops there, and a value out of it in settings.json counts as the nearest end.
+    /// The `[lowest, highest]` a number can be. The stepper stops at these, and a value outside them in settings.json
+    /// counts as the nearest end.
     var range: [Double]?
-    /// A heading over this row and the ones after it that share it ("Sidebar"); nil: the section's first, untitled group.
+    /// A heading over this row and the rows after it that share it ("Sidebar"); nil puts the row in the section's
+    /// first, untitled group.
     var group: String?
-    /// Left out of the window: it's set on the thing itself (a menu), and stays in settings.json and Quick Open.
+    /// Whether the row is left out of the Settings window, because it's set on the thing itself (a menu). It stays in
+    /// settings.json and Quick Open.
     var hidden: Bool?
-    /// Shown only while another setting allows it: "key" (on), "key=value" or "key!=value". A row that does nothing until
-    /// its parent is on stays out of the way; search still finds it.
+    /// The row shows only while another setting allows it: "key" (on), "key=value" or "key!=value". A row that does
+    /// nothing until its parent is on stays out of the way, but search still finds it.
     var requires: String?
-    /// What an empty text field shows: an example of what goes in it.
+    /// What an empty text field shows, as an example of what goes in it.
     var placeholder: String?
-    /// Read for each language's own files, so Settings' language picker shows it; the rest (the font, autosave,
-    /// servers) is one value for every file. Limit: said by the row; a setting that starts reading its language says so.
+    /// Whether the setting is read for each language's own files, so Settings' language picker shows it. Other settings
+    /// (the font, autosave, servers) have one value for every file. Limit: said by the row; a setting that starts
+    /// reading its language says so.
     var perLanguage: Bool?
-    /// What the code declaring it knows of its choices (`SettingChoices`); never in a manifest.
+    /// What the code that declares the setting knows about its choices (`SettingChoices`). A manifest never sets it.
     var choices: SettingChoices?
-    /// A tile before the title, only where a card's rows are about different things (General, the alerts, the skills);
-    /// never in a manifest. Orange and red only for "asks" and "failed", as everywhere in Kelp.
+    /// A tile before the title, used only where a card's rows are about different things (General, the alerts, the
+    /// skills). A manifest never sets it. Orange and red are only for "asks" and "failed", as everywhere in Kelp.
     var icon: (symbol: String, tint: NSColor)?
     package var id: String { key }
 
@@ -178,9 +190,9 @@ package struct SettingSpec: Codable, Identifiable {
     func clamped(_ v: Double) -> Double { bounds.map { min(max(v, $0.lowerBound), $0.upperBound) } ?? v }
 }
 
-/// What a row is. An extension.json names one of the first six; `panels` and `theme` are Kelp's own rows (the
-/// inspector's panels, the theme gallery). A name a manifest gives that isn't one of the six reads as `unknown` and shows
-/// as a text field, its extension saying why (`problem`).
+/// The kind of a settings row. An extension.json names one of the first six; `panels` and `theme` are Kelp's own rows
+/// (the inspector's panels, the theme gallery). A name in a manifest that isn't one of the six reads as `unknown` and
+/// shows as a text field, and the extension's error says why (`problem`).
 package enum SettingType: Codable, Equatable {
     case boolean, number, string, `enum`, color, font
     case panels, theme
@@ -189,7 +201,7 @@ package enum SettingType: Codable, Equatable {
     private static let named: [String: SettingType] = [
         "boolean": .boolean, "number": .number, "string": .string, "enum": .enum, "color": .color, "font": .font
     ]
-    /// As settings.json's schema and the settings guide call it.
+    /// The type's name as settings.json's schema and the settings guide write it.
     var name: String {
         if case .unknown(let name) = self { return name }
         return "\(self)"   // each case is named as it's written
@@ -204,9 +216,9 @@ package enum SettingType: Codable, Equatable {
     }
 }
 
-/// How an `enum` row's options are shown: side by side (for two or three short ones), or as a drawing each (the shell's
-/// drawing, or the setting's own: `SettingChoices.picture`). A look named by a manifest that Kelp doesn't have reads as
-/// `unknown`, shown as a menu.
+/// How an `enum` row's options are shown: side by side (for two or three short ones), or each as a drawing (the
+/// shell's drawing, or the setting's own from `SettingChoices.picture`). A look a manifest names that Kelp doesn't have
+/// reads as `unknown` and shows as a menu.
 package enum SettingLook: Codable, Equatable {
     case segments, pictures
     case unknown(String)
@@ -226,7 +238,8 @@ package enum SettingLook: Codable, Equatable {
 }
 
 extension SettingSpec {
-    /// What a manifest's row asked for that Kelp doesn't have, said as its extension's error; nil when nothing.
+    /// What a manifest's row asked for that Kelp doesn't have, reported as the extension's error; nil when there is
+    /// nothing.
     var problem: String? {
         if case .unknown(let name) = type {
             return String(localized: "Setting “\(key)”: Kelp has no type “\(name)”, so it shows as a text field.")
@@ -238,9 +251,9 @@ extension SettingSpec {
     }
 }
 
-/// A setting's choices as only the code that declares it knows them: those there are now (the agents installed), what
-/// each is called when that isn't known where it's declared (`SettingSpec.labels` otherwise), and how each is drawn
-/// (`look` "pictures"). Asked when shown.
+/// A setting's choices as only the code that declares the setting knows them: the choices there are now (the agents
+/// installed), what each is called when that isn't known where it's declared (otherwise `SettingSpec.labels`), and how
+/// each is drawn (`look` "pictures"). They are asked for when shown.
 package struct SettingChoices {
     package init(
         options: (@MainActor () -> [String])? = nil, name: (@MainActor (_ option: String) -> String)? = nil,
@@ -281,13 +294,16 @@ package struct SettingsSection: Identifiable {
     var specs: [SettingSpec]
     /// What Settings' search finds a custom page by.
     var keywords: [String]
-    /// `custom` is the whole page, as tall as the window, not rows in a form: a list with its details beside it.
+    /// Whether `custom` is the whole page, as tall as the window, rather than rows in a form (a list with its details
+    /// beside it).
     var fillsPane: Bool
     /// The section's place in Settings' list; an extension's sections come after Kelp's.
     var order: Int
-    /// Settings' language picker shows over it: some of its rows are read for each language's own files.
+    /// Whether Settings shows its language picker over the section, because some of its rows are read for each
+    /// language's own files.
     var perLanguage: Bool { specs.contains { $0.perLanguage == true } }
-    /// Rows keep their order; each run of a group under its heading, as System Settings groups its panes.
+    /// The shown rows under their headings. Rows keep their order, and each run of rows in one group goes under the
+    /// group's heading, as System Settings groups its panes.
     var groups: [(String?, [SettingSpec])] {
         specs.filter { $0.hidden != true }.reduce(into: []) { runs, spec in
             if let last = runs.indices.last, runs[last].0 == spec.group {
@@ -297,15 +313,15 @@ package struct SettingsSection: Identifiable {
             }
         }
     }
-    /// Sections of its own under the generated rows (accounts, integrations…), or the whole page (`fillsPane`).
+    /// The section's own views under the generated rows (accounts, integrations…), or the whole page (`fillsPane`).
     var custom: (@MainActor () -> AnyView)?
-    /// Over a group of rows (by its heading; `""` the first, untitled one), what they change, as it is now
-    /// (`SettingSamples`).
+    /// Previews shown over a group of rows, keyed by the group's heading (`""` for the first, untitled group). Each
+    /// shows what the rows change, as it is now (`SettingSamples`).
     var previews: [String: @MainActor () -> AnyView]
 }
 
-/// A skill Kelp gives agents, from the built-in whose feature it explains: written as a Claude Code plugin in Kelp's
-/// home (`AgentSkills`), which the daemon hands each session it fits.
+/// A skill Kelp gives agents, from the built-in whose feature the skill explains. It is written as a Claude Code plugin
+/// in Kelp's home (`AgentSkills`), and the daemon hands it to each session it fits.
 package struct SkillSpec {
     package init(name: String, description: String, setting: Setting<Bool>? = nil, body: String) {
         self.name = name
@@ -315,9 +331,10 @@ package struct SkillSpec {
     }
     /// The name of the plugin and of its skill ("kelp-vm"); the daemon picks skills by this name.
     let name: String
-    /// When an agent should use it: what Claude Code reads to choose it.
+    /// When an agent should use the skill; Claude Code reads this to choose it.
     let description: String
-    /// Its switch in Settings › Agents; nil: always written (which sessions get it is the daemon's choice).
+    /// The skill's switch in Settings › Agents. With nil the skill is always written (the daemon chooses which sessions
+    /// get it).
     let setting: Setting<Bool>?
     /// The skill itself, Markdown.
     let body: String

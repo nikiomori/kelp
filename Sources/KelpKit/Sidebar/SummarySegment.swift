@@ -1,23 +1,23 @@
 import AppKit
 import DesignKit
 
-/// One count in the row over the projects ("2 working · 12m"): a button that goes to the next chat it counts, and under
-/// the pointer shows them (`SummaryCard`) and lights their rows. Its words shorten as room runs out (`level`); for a
-/// few seconds after a chat gets here it names that chat instead (`peek`).
+/// One count in the row above the projects ("2 working · 12m"). It is a button that goes to the next chat it counts,
+/// and under the pointer it shows those chats (`SummaryCard`) and lights their rows. Its words shorten as room runs out
+/// (`level`). For a few seconds after a chat gets into the count, it names that chat instead (`peek`).
 @MainActor
 final class SummarySegment: PointerControl {
     let kind: SummaryKind
     private let mark = StatusMark(size: 12)
     private let label = NSTextField(labelWithString: "")
-    /// After a peek's name, kept whole while the name gives way: "done".
+    /// The word after a peek's name, such as "done". It stays whole while the name gives way.
     private let verb = NSTextField(labelWithString: "")
     private var words = [""]
-    /// The number its words start with, as shown (nil while it peeks): a new one rolls in.
+    /// The number the words start with, as shown (nil while it peeks). A new number rolls in.
     private var counted: Int?
     /// How much to shorten the text: 0 keeps all of it, 1 leaves out the time, and 2 keeps only the number (or the
     /// clock).
     var level = 0 { didSet { if level != oldValue { show() } } }
-    /// The chat that just got here, named for a moment: its name and what it did ("fix flaky test", "done").
+    /// The chat that just got into the count, named for a moment: its name and what it did ("fix flaky test", "done").
     var peek: (name: String, verb: String)? {
         didSet { if peek?.name != oldValue?.name || peek?.verb != oldValue?.verb { show() } }
     }
@@ -67,7 +67,7 @@ final class SummarySegment: PointerControl {
         show()
     }
 
-    /// Its width at `level` (the name it peeks at, whole), for the row to pick what fits.
+    /// The segment's width at `level` (with a peeked name whole), so the row can pick what fits.
     func width(at level: Int) -> CGFloat {
         func wide(_ text: String, _ font: NSFont) -> CGFloat {
             ceil((text as NSString).size(withAttributes: [.font: font]).width) + 2
@@ -79,7 +79,7 @@ final class SummarySegment: PointerControl {
         return 2 * Metrics.gap + 12 + 4 + text
     }
 
-    /// At most this wide (a peek's long name); nil: as wide as its words.
+    /// Keeps the segment at most `room` wide, for a peek's long name. With nil it is as wide as its words.
     func fit(within room: CGFloat?) {
         widest.constant = room ?? 0
         widest.isActive = room != nil
@@ -100,7 +100,7 @@ final class SummarySegment: PointerControl {
         setAccessibilityLabel(String(localized: "\(said). Show the next one."))
     }
 
-    /// A chat just got here: a brief glow, as the capsule's for a new question.
+    /// Glows briefly when a chat just got into the count, as the capsule glows for a new question.
     func flash() {
         guard !Motion.reduced else { return }
         alphaValue = 0.4

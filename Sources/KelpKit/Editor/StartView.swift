@@ -4,16 +4,16 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// An empty workspace: where it is, a field for the default agent's first task with Make at its foot, then what can be
-/// opened here, one click each, in the "+" menu's order (`NewTabChoices`): the agents as tiles with their plans, a
-/// terminal and what extensions open, and what to run.
+/// The empty workspace. It shows where the workspace is, a field for the default agent's first task with Make at its
+/// foot, and then what can be opened here, one click each, in the "+" menu's order (`NewTabChoices`): the agents as
+/// tiles with their plans, a terminal and what extensions open, and what to run.
 @MainActor
 final class StartView: NSView {
     var onAgent: ((String) -> Void)?
-    /// The default agent, started with what was typed (the workspace takes its name from it).
+    /// Starts the default agent with what was typed (the workspace takes its name from the text).
     var onPrompt: ((String, String) -> Void)?
     var onOpen: ((String) -> Void)?
-    /// No agent on this Mac: one of the suggested ones, installed in a terminal tab here.
+    /// When no agent is on this Mac, installs one of the suggested agents in a terminal tab here.
     var onInstall: ((AgentManifest) -> Void)?
     private lazy var prompt: StartPrompt = {
         let name = app.catalog.name(def)
@@ -22,7 +22,7 @@ final class StartView: NSView {
             accessibilityLabel: String(localized: "First task for \(name)"))
     }()
     private let def: String
-    /// What's typed, kept by the area: this view is made again whenever the workspace's agents change.
+    /// What's typed, kept by the editor area, because this view is made again whenever the workspace's agents change.
     var draft: String {
         get { prompt.value }
         set { prompt.value = newValue }
@@ -31,9 +31,10 @@ final class StartView: NSView {
         get { prompt.onChange }
         set { prompt.onChange = newValue }
     }
-    /// The tiles of the agents on show, whose plan limits follow the daemon: the view isn't made again, what's typed stays.
+    /// The tiles of the agents on show, by agent id. Their plan limits follow the daemon without making the view again,
+    /// so what's typed stays.
     private var tilesById: [String: AgentTile] = [:]
-    /// All the tiles, the one for the rest too: they keep room for a plan together, or none does.
+    /// All the tiles, including the one for the remaining agents. Either they all keep room for a plan, or none does.
     private var allTiles: [AgentTile] = []
     private let planLine = NSTextField(wrappingLabelWithString: "")
     private let planSwitch = PointerButton()
@@ -54,8 +55,8 @@ final class StartView: NSView {
         title.font = .ui(TextSize.title, weight: .semibold)
         title.lineBreakMode = .byTruncatingTail
         title.alignment = .center
-        // The window bar shows the folder; a remote project's host and path are said here, the bar has the local stand-in.
-        // A group on a branch says so: its code isn't the project's.
+        // The window bar shows the folder. For a remote project the bar has the local stand-in, so the host and path
+        // are given here. A group on a branch says so, because its code isn't the project's.
         let onBranch =
             repo.map { $0.path != w.path } == true
             ? String(
@@ -82,7 +83,7 @@ final class StartView: NSView {
         views.append(templates)
         let agentsHead = Self.heading(String(localized: "Agents")), openHead = Self.heading(String(localized: "Open"))
         let agentList = agents.isEmpty ? StartCard(rows: installRows()) : tiles(agents)
-        // Made again when what it offers changes (Database, once the workspace's databases are read).
+        // The card is made again when what it offers changes (Database, once the workspace's databases are read).
         let openCard = NSStackView()
         let choices = { [weak self] in NewTabChoices.open(app, w) { self?.onOpen?(TabURI.terminal()) } }
         track(owner: openCard) {
@@ -110,7 +111,7 @@ final class StartView: NSView {
         stack.setCustomSpacing(18, after: agentList)
         stack.setCustomSpacing(18, after: templates)
         stack.setCustomSpacing(14, after: run)
-        // In a scroll view: a low window scrolls the list rather than growing to hold it.
+        // The page sits in a scroll view, so a low window scrolls the list rather than growing to hold it.
         let page = FlippedView()
         page.translatesAutoresizingMaskIntoConstraints = false
         let scroll = NSScrollView()
@@ -122,7 +123,7 @@ final class StartView: NSView {
         page.addSubview(stack)
         let width = stack.widthAnchor.constraint(equalToConstant: 460)
         width.priority = .defaultHigh
-        // A little above the middle; in a low window it starts at the top instead of going under it.
+        // The stack sits a little above the middle; in a low window it starts at the top instead of going under it.
         let middle = stack.centerYAnchor.constraint(equalTo: page.centerYAnchor, constant: -30)
         middle.priority = .defaultHigh
         NSLayoutConstraint.activate([
@@ -138,7 +139,8 @@ final class StartView: NSView {
             title.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor),
             folder.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor)
         ])
-        // The groups' headings over their rows' icons; the field, the tiles and the cards as wide as the page.
+        // Each group's heading starts over its rows' icons, and the field, the tiles and the cards are as wide as the
+        // page.
         for head in [agentsHead, openHead, run.head] {
             head.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: Self.headInset).isActive = true
         }
@@ -149,10 +151,11 @@ final class StartView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// A group in the project's folder, with nothing on it yet: where its code is. The folder, shared with the project
-    /// (a group splits the screen), or a branch of its own in its own folder (a branch splits the code), which is made
-    /// when picked: this empty group goes as the screen moves to that one. Beside it, a branch that's there or a pull
-    /// request. Nil for the project's own screen, a group on a branch already, and a project on a host.
+    /// For a group in the project's folder with nothing on it yet, the choice of where its code lives. It can share the
+    /// project's folder (a group splits the screen), or get a branch of its own in its own folder (a branch splits the
+    /// code). The branch is made when picked, and this empty group goes as the screen moves to the branch's group.
+    /// Beside the choice is a branch that's already there, or a pull request. Returns nil for the project's own screen,
+    /// a group already on a branch, and a project on a host.
     private func codeChoice(_ worktree: Worktree, _ repo: Repo?) -> NSView? {
         guard let repo, app.groupName(worktree) != nil, worktree.path == repo.path, RemoteHost.of(repo.path) == nil
         else {
@@ -171,7 +174,7 @@ final class StartView: NSView {
         place.setToolTip(String(localized: "Shares the project’s files with its other chats"), forSegment: 0)
         place.setToolTip(
             String(localized: "A new branch from \(repo.baseBranch) in a folder of its own"), forSegment: 1)
-        // Picked once: the screen moves to the branch's group.
+        // Once Own Branch is picked, the screen moves to the branch's group.
         let pick = ClosureTarget { [weak place] in
             guard place?.selectedSegment == 1 else { return }
             place?.isEnabled = false
@@ -188,7 +191,7 @@ final class StartView: NSView {
         row.spacing = Metrics.gapWide
         return row
     }
-    private var codePick: ClosureTarget?   // a control doesn't keep its target
+    private var codePick: ClosureTarget?   // kept here because a control doesn't retain its target
 
     /// Where a group's heading starts: over the icons of its rows.
     static let headInset = StartCard.inset + StartRow.inset
@@ -200,8 +203,8 @@ final class StartView: NSView {
         return label
     }
 
-    /// The first six agents as tiles, four to a row, then one for the rest (a menu, the catalog at its foot) or, when
-    /// there's no rest, the catalog.
+    /// Lays out the first six agents as tiles, four to a row, then one tile for the rest (a menu with the catalog at
+    /// its foot), or the catalog when there are no others.
     private func tiles(_ agents: [AgentManifest]) -> NSView {
         let app = self.app
         var all: [AgentTile] = agents.prefix(NewTabChoices.shown).map { agent in
@@ -255,7 +258,7 @@ final class StartView: NSView {
     }
     private static let perRow = 4
 
-    /// No agent on this Mac: what to install, then the catalog.
+    /// The rows shown when no agent is on this Mac: what to install, then the catalog.
     private func installRows() -> [NSView] {
         let app = self.app
         let none = NSTextField(
@@ -281,7 +284,8 @@ final class StartView: NSView {
         return rows
     }
 
-    /// `under`: what the warning sits under (the field); nil when the default agent isn't installed.
+    /// Sets up the plan warning and keeps the plans current as the limits change. `under` is the view the warning sits
+    /// under (the field), or nil when the default agent isn't installed.
     private func followPlans(in stack: NSStackView, after under: NSView?) {
         if under != nil {
             planBar.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
@@ -301,7 +305,7 @@ final class StartView: NSView {
         }
     }
 
-    /// Each agent's plan on its tile; under the field, what to know when the default agent is nearly out.
+    /// Shows each agent's plan on its tile, and under the field what to know when the default agent is nearly out.
     private func showPlans(in stack: NSStackView, after under: NSView?) {
         let plans = app.extensions.all.plans
         let notes = plans?.notes() ?? [:]
@@ -321,14 +325,14 @@ final class StartView: NSView {
         if let under { stack.setCustomSpacing(planBar.isHidden ? 22 : Metrics.gapWide, after: under) }
     }
 
-    /// With what was typed, if anything.
+    /// Starts the agent with what was typed, if anything.
     private func start(_ agent: String) {
         let text = prompt.value.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty { onAgent?(agent) } else { onPrompt?(agent, text) }
     }
 
-    /// The default agent's icon and a field: Return starts the agent with the text. Make in its foot, under a line:
-    /// each chip fills the field.
+    /// Builds the field: the default agent's icon and the text, where Return starts the agent with the text. Make sits
+    /// in the field's foot, under a line, and each chip fills the field.
     private func promptField() -> NSView {
         prompt.onReturn = { [weak self] typed in
             let text = typed.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -358,7 +362,7 @@ final class StartView: NSView {
 
     func focus() { if prompt.superview != nil { prompt.focus() } }
 
-    /// The Make line in the field, the caret after it: what to make is the user's to say.
+    /// Puts the Make line in the field with the caret after it, because what to make is the user's to say.
     private func draftMake(_ kind: Make.Kind) {
         prompt.value = Make.line(kind)
         prompt.focus()

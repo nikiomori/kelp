@@ -20,10 +20,10 @@ extension AppDelegate {
         return nil
     }
 
-    /// The window as the window server composites it: the macOS 26 materials (sidebar, inspector, glass) and web
-    /// content included, which the layer render draws white or not at all. An app may read its own windows without
-    /// screen-recording permission. The call is unavailable to Swift since macOS 15, hence dlsym; the layer render
-    /// stays as the fallback.
+    /// Saves the window as the window server composites it, including the macOS 26 materials (sidebar, inspector,
+    /// glass) and web content, which the layer render draws white or not at all. An app may read its own windows
+    /// without screen-recording permission. The call is unavailable to Swift since macOS 15, hence dlsym, and the
+    /// layer render stays as the fallback.
     static func snap(_ window: NSWindow, to path: String) {
         guard !composited(window, to: path), let view = window.contentView?.superview ?? window.contentView else {
             return
@@ -32,7 +32,7 @@ extension AppDelegate {
     }
     private static func composited(_ window: NSWindow, to path: String) -> Bool {
         typealias Capture = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
-        // A sleeping (or locked) display: the window server hands back white, so the layers are drawn instead.
+        // On a sleeping (or locked) display the window server hands back white, so the layers are drawn instead.
         guard CGDisplayIsAsleep(CGMainDisplayID()) == 0,
             let sym = dlsym(dlopen(nil, RTLD_NOW), "CGWindowListCreateImage"),
             let img = unsafeBitCast(sym, to: Capture.self)(.null, 1 << 3, UInt32(window.windowNumber), 1)?
@@ -42,7 +42,7 @@ extension AppDelegate {
         return (try? png.write(to: URL(fileURLWithPath: path), options: .atomic)) != nil
     }
 
-    /// Render the layer tree (what the compositor shows); cacheDisplay misses layer-only content.
+    /// Renders the layer tree (what the compositor shows), because cacheDisplay misses layer-only content.
     static func render(_ view: NSView, scale: CGFloat, to path: String) {
         view.layoutSubtreeIfNeeded()
         view.displayIfNeeded()
@@ -71,10 +71,11 @@ extension AppDelegate {
     }
 
     #if DEBUG
-        /// A visible label's text or a button's title or tooltip (in a sheet over the window first), or "@x,y": a point in the
-        /// window, from its top-left corner (SwiftUI content has no labels). "2:" first double-clicks (a row's rename in place).
+        /// Clicks a visible label's text or a button's title or tooltip (looking in a sheet over the window first), or
+        /// "@x,y", a point in the window from its top-left corner (SwiftUI content has no labels). A "2:" prefix
+        /// double-clicks (to rename a row in place).
         func click(text spec: String) {
-            // With KELP_SNAPSHOT_WINDOW=settings the clicks are for that window: "@x,y" from its top left.
+            // With KELP_SNAPSHOT_WINDOW=settings the clicks go to that window, and "@x,y" counts from its top left.
             let inSettings = ProcessInfo.processInfo.environment["KELP_SNAPSHOT_WINDOW"] == "settings"
             guard let main = (inSettings ? SettingsWindow.window : nil) ?? main.window else { return }
             let label = spec.hasPrefix("2:") ? String(spec.dropFirst(2)) : spec
@@ -87,20 +88,20 @@ extension AppDelegate {
                     return named ? sheet : nil
                 } ?? main
             guard let root = window.contentView?.superview else { return }
-            // An app in the background: its sheet's first click would only make it key.
+            // In an app in the background, the sheet's first click would only make it key, so make it key first.
             if window !== main { window.makeKey() }
             let point: NSPoint
             var queued = false   // a button tracks the mouse until its mouse-up, which has to be in the queue already
             let double = spec.hasPrefix("2:")
             var text = double ? String(spec.dropFirst(2)) : spec
-            // "r@x,y", "r:label": a right click (context menus)
+            // "r@x,y" and "r:label" are right clicks (for context menus)
             let right = text.hasPrefix("r@") || text.hasPrefix("r:")
             if right { text = String(text.dropFirst(text.hasPrefix("r:") ? 2 : 1)) }
             if text.hasPrefix("@"), case let xy = text.dropFirst().split(separator: ",").compactMap({ Double($0) }),
                 xy.count == 2
             {
                 point = NSPoint(x: xy[0], y: window.frame.height - xy[1])
-                queued = inSettings   // its list is a table, which waits for its mouse-up
+                queued = inSettings   // the Settings list is a table, which waits for its mouse-up
             } else if let field = root.allSubviews(of: NSTextField.self)
                 .first(where: { $0.stringValue == text && $0.window != nil && !$0.isHiddenOrHasHiddenAncestor })
             {
@@ -108,7 +109,8 @@ extension AppDelegate {
             } else if let button = root.allSubviews(of: NSButton.self).first(where: {
                 ($0.title == text || $0.toolTip == text) && $0.window != nil && !$0.isHiddenOrHasHiddenAncestor
             }) {
-                // Near its left edge: a checkbox stretched over a form has only its box and title there.
+                // Click near the button's left edge, because a checkbox stretched over a form has only its box and
+                // title there.
                 let left = button.bounds.minX + min(10, button.bounds.width / 2)
                 point = button.convert(NSPoint(x: left, y: button.bounds.midY), to: nil)
                 queued = true
@@ -116,12 +118,14 @@ extension AppDelegate {
                 print("CLICK no \(text)")
                 return
             }
-            // A real click makes what it hits first responder; a window in the background (launched from a shell) doesn't.
+            // A real click makes what it hits the first responder, but a window in the background (launched from a
+            // shell) doesn't, so do it here.
             var hit = root.hitTest(root.convert(point, from: nil))
             while let view = hit, !view.acceptsFirstResponder { hit = view.superview }
             if let hit { window.makeFirstResponder(hit) }
-            // KELP_MENU with a right click: the menu the view under it gives that click (a table notes its row), built by
-            // its delegate, and the item chosen; a synthesized right click shows no menu in an app in the background.
+            // KELP_MENU with a right click asks the view under the point for its menu (a table notes the row), lets the
+            // menu's delegate build it, and chooses the item. A synthesized right click shows no menu in an app in the
+            // background.
             if right, let title = ProcessInfo.processInfo.environment["KELP_MENU"], let view = hit,
                 let event = NSEvent.mouseEvent(
                     with: .rightMouseDown, location: point, modifierFlags: [],

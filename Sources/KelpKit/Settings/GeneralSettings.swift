@@ -1,15 +1,16 @@
 import DesignKit
 import SwiftUI
 
-/// Settings › General under Language: how Kelp updates itself, and whether its agents outlive a quit (the background
-/// service, which macOS allows in Login Items). What the Kelp menu and a banner said, kept where settings are.
+/// Settings › General, under Language: how Kelp updates itself, and whether its agents outlive a quit (through the
+/// background service, which macOS allows in Login Items). It keeps what the Kelp menu and a banner say where the
+/// settings are.
 struct GeneralSettings: View {
     @Environment(AppModel.self) private var app
     @State private var checks = false
     @State private var downloads = false
     @State private var blocked: Bool?
 
-    /// "Kelp 0.9.0 (10)"; a build run from .build has no version, only its name.
+    /// The app's name and version, such as "Kelp 0.9.0 (10)". A build run from .build has no version, only its name.
     private static let name: String = {
         let info = Bundle.main.infoDictionary ?? [:]
         guard let version = info["CFBundleShortVersionString"] as? String else { return "Kelp" }
@@ -65,7 +66,7 @@ struct GeneralSettings: View {
                     Self.row(
                         "moon.fill", 0x5856D6, Text("Agents keep running when Kelp quits"),
                         help: String(localized: "Kelp's background service runs them; macOS allows it in Login Items."))
-                    // Only when it's off: the one state that needs doing something about stays in view.
+                    // Shown only when it's off, so the one state that needs action stays in view.
                     if blocked == true {
                         Text("Off in Login Items: quitting or updating Kelp ends them.").foregroundStyle(
                             Color.textOrange)
@@ -83,7 +84,7 @@ struct GeneralSettings: View {
         }
     }
 
-    /// A row's title as the generated rows show it (`SettingRow`): its tile, and what it doesn't say behind a ⓘ.
+    /// A row's title as the generated rows show it (`SettingRow`), with its tile and the rest of the help behind a ⓘ.
     private static func row(_ symbol: String, _ tint: Int, _ title: Text, help: String? = nil) -> some View {
         HStack(spacing: Metrics.gap) {
             SettingsIcon(symbol: symbol, tint: NSColor(hex: tint))

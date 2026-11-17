@@ -4,13 +4,13 @@ import Foundation
 import Observation
 import WorkbenchKit
 
-/// Each workspace's tabs in their split tree, by workspace id (`app.workbench.layouts`): read from `UIState` the first
-/// time one is asked for, saved there half a second after it last changed. The one owner of a layout: an editor area
-/// draws its workspace's from here and follows it (`track`), and a tab opened, closed or replaced in a workspace that
-/// isn't on screen lands in the same place, loaded or not.
+/// Each workspace's tabs in their split tree, by workspace id (`app.workbench.layouts`). A layout is read from
+/// `UIState` the first time it is asked for, and saved there half a second after it last changed. This is the one owner
+/// of every layout: an editor area draws its workspace's layout from here and follows it (`track`), and a tab opened,
+/// closed or replaced in a workspace that isn't on screen lands here too, whether that workspace is loaded or not.
 @MainActor
 final class WorkspaceLayouts {
-    /// One workspace's layout, observed on its own: a change to one wakes only what shows that one.
+    /// One workspace's layout, observed on its own, so a change to it wakes only what shows that workspace.
     @MainActor @Observable
     final class Entry {
         var layout: WorkspaceLayout
@@ -42,14 +42,14 @@ final class WorkspaceLayouts {
         return entry
     }
 
-    /// What waits out the pause is saved now: quitting (a tab moved in the last half second).
+    /// Saves now what is waiting out the pause, for quitting (a tab moved in the last half second).
     func save() {
         saveWork.cancel()
         for id in unsaved { entries[id]?.layout.save(id, to: state) }
         unsaved = []
     }
 
-    /// The workspace is gone, and its layout with it (the daemon removes the saved one).
+    /// Forgets the layout of a workspace that is gone (the daemon removes the saved one).
     func forget(_ id: String) {
         entries[id] = nil
         unsaved.remove(id)

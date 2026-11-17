@@ -9,7 +9,8 @@ extension EditorArea {
     static let keptHidden = 2
     static let releaseAfter: TimeInterval = 300
 
-    /// `shown` was just on screen in its group: it moves to the front, and terminals hidden longest are released.
+    /// Notes that tab `shown` was just on screen in its group. It moves to the front of `recent`, and the terminals
+    /// hidden longest are released.
     func noteShown(_ shown: String?, now: Date = Date()) {
         if let shown {
             recent.removeAll { $0 == shown }

@@ -3,8 +3,8 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// The window's split: its dividers aren't drawn (the panels and the gap round the card are one surface), and each can
-/// be dragged across that gap too, not only at the panel's edge.
+/// The window's split view. Its dividers aren't drawn, because the panels and the gap round the card are one surface,
+/// and each divider can be dragged across that gap too, not only at the panel's edge.
 @MainActor
 final class ShellSplit: NSSplitViewController {
     init() {
@@ -20,7 +20,7 @@ final class ShellSplit: NSSplitViewController {
     ) -> NSRect {
         var rect = super.splitView(split, effectiveRect: proposed, forDrawnRect: drawn, ofDividerAt: index)
         rect.size.width += Card.gap
-        if index > 0 { rect.origin.x -= Card.gap }   // into the gap, which is on the editor area's side
+        if index > 0 { rect.origin.x -= Card.gap }   // reaches into the gap, which is on the editor area's side
         return rect
     }
     private final class Seamless: NSSplitView { override var dividerColor: NSColor { .clear } }
@@ -29,7 +29,7 @@ final class ShellSplit: NSSplitViewController {
 /// The place that holds a hiding panel (auto-hide, focus mode). It keeps the panel while the panel is away and, when
 /// the pointer reaches the window's edge, brings it in over the editor area with rounded corners and a shadow, as Arc's
 /// sidebar does. The panel sits `inset` from the window's edges, or flush with them for the sidebar, where the traffic
-/// lights are (inset 6 pt, the lights sat on its corner with a strip of window around them).
+/// lights are (at a 6 pt inset, the lights sat on its corner with a strip of window around them).
 @MainActor
 final class Floater: NSView {
     private static let radius: CGFloat = 12
@@ -37,9 +37,10 @@ final class Floater: NSView {
     /// What holds the panel, with the theme's colour (`tint`) under it.
     let box = NSView()
     let tint = NSView()
-    /// Under `box`: the material the window's surface is or, in a theme on macOS's own material, Liquid Glass (macOS 26),
-    /// which blurs the code and terminals the panel slides over rather than the desktop behind the window. A theme with a
-    /// colour of its own keeps that colour; Reduce Transparency makes both opaque.
+    /// The material under `box`. It is the material of the window's surface or, in a theme that uses macOS's own
+    /// material, Liquid Glass (macOS 26), which blurs the code and terminals the panel slides over instead of the
+    /// desktop behind the window. A theme with a colour of its own keeps that colour. Reduce Transparency makes both
+    /// opaque.
     private let material = NSVisualEffectView()
     private var glass: NSView?
     private var glassy: Bool?
@@ -47,7 +48,8 @@ final class Floater: NSView {
     private var leading = true
     private var shown = false
     private var slides = 0
-    /// Where its width is kept between launches: the column it took it from starts collapsed when the panel hides.
+    /// Where the floater's width is kept between launches. The column it took the width from starts collapsed when the
+    /// panel hides.
     private let autosave: String
     var width: CGFloat {
         didSet {
@@ -85,7 +87,7 @@ final class Floater: NSView {
     func show(_ look: WindowLook) {
         tint.layer?.backgroundColor = look.surface?.cgColor
         let on = look.surface == nil
-        guard on != glassy else { return }   // moving `box` would take the focus from the panel in it
+        guard on != glassy else { return }   // moving `box` needlessly would take the focus from the panel in it
         glassy = on
         box.removeFromSuperview()
         if on, #available(macOS 26, *) {
@@ -105,7 +107,8 @@ final class Floater: NSView {
         needsDisplay = true
     }
 
-    /// Against the window's leading or trailing edge, its full height; out of sight until it slides in.
+    /// Attaches the floater to the window's leading or trailing edge, at full height. It is out of sight until it
+    /// slides in.
     func attach(leading: Bool) {
         guard let parent = superview else { return }
         self.leading = leading
@@ -121,15 +124,15 @@ final class Floater: NSView {
         widthC = sized
     }
 
-    /// It stands where it shows and only its layer travels, from past the window's edge and back: moved by its
-    /// constraint, the window was laid out again for every frame of the way. It goes in two thirds of the time it
-    /// took to come in.
+    /// Slides the floater in or out. The view stands where it shows and only its layer travels, from past the window's
+    /// edge and back, because when its constraint moved it, the window was laid out again for every frame of the way.
+    /// It goes out in two thirds of the time it took to come in.
     func slide(in on: Bool, animated: Bool = true) {
         guard let layer, widthC != nil, on != shown else { return }
         shown = on
         slides += 1
-        let turn = slides   // a slide cut short ends too, later: only the last one hides the panel
-        let away = (leading ? -1 : 1) * (width + 2 * inset + 20)   // the shadow out of sight too
+        let turn = slides   // a slide cut short still ends later, so only the last one hides the panel
+        let away = (leading ? -1 : 1) * (width + 2 * inset + 20)   // far enough that the shadow is out of sight too
         let key = "transform.translation.x"
         let now = isHidden ? away : layer.presentation()?.value(forKeyPath: key) as? CGFloat ?? (on ? away : 0)
         layer.removeAnimation(forKey: "slide")
@@ -143,13 +146,13 @@ final class Floater: NSView {
         move.toValue = on ? 0 : away
         move.duration = on ? Motion.base : Motion.fast
         move.timingFunction = CAMediaTimingFunction(name: on ? .easeOut : .easeIn)
-        if !on {   // it stays out of sight until it's hidden
+        if !on {   // the floater stays out of sight until it's hidden
             move.fillMode = .forwards
             move.isRemovedOnCompletion = false
         }
         CATransaction.begin()
         CATransaction.setCompletionBlock { [weak self] in
-            MainActor.assumeIsolated {   // Core Animation runs it on the main thread
+            MainActor.assumeIsolated {   // Core Animation runs the completion block on the main thread
                 guard let self, !self.shown, turn == self.slides else { return }
                 self.isHidden = true
                 self.layer?.removeAnimation(forKey: "slide")
@@ -163,7 +166,7 @@ final class Floater: NSView {
     override func updateLayer() {
         material.layer?.borderColor = NSColor.separatorColor.cgColor
         layer?.shadowColor = NSColor.shadowColor.cgColor
-        layer?.shadowOpacity = material.isHidden ? 0 : 0.3   // glass draws its own
+        layer?.shadowOpacity = material.isHidden ? 0 : 0.3   // glass draws its own shadow
         layer?.shadowRadius = 14
         layer?.shadowOffset = .zero
     }
@@ -174,8 +177,8 @@ final class Floater: NSView {
     }
 }
 
-/// The editor area's card: rounded, a hairline round it, in from the panels and the window's edges, so the panels and
-/// the window bar read as one surface round it.
+/// The editor area's card. It is rounded, with a hairline round it, and set in from the panels and the window's edges,
+/// so the panels and the window bar read as one surface round it.
 @MainActor
 final class Card: NSView {
     static let gap: CGFloat = 6
@@ -223,9 +226,9 @@ final class EdgeTrigger: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }   // clicks go to whatever is under it
 }
 
-/// The window's surface, in the sidebar's material: the panels and the gap round the editor area are this.
-/// Files and folders dropped where nothing else takes them (the empty workspace, the window bar, the inspector): as if
-/// dropped on the Dock icon.
+/// The window's surface, in the sidebar's material. The panels and the gap round the editor area are this view.
+/// Files and folders dropped where nothing else takes them (the empty workspace, the window bar, the inspector) are
+/// handled as if dropped on the Dock icon.
 @MainActor
 final class DropRoot: NSVisualEffectView {
     private let app: AppModel
@@ -242,7 +245,7 @@ final class DropRoot: NSVisualEffectView {
     required init?(coder: NSCoder) { fatalError() }
     func show(_ look: WindowLook) {
         backdrop.show(look)
-        // What the desktop shows through stays clear with the window in the background too.
+        // Where the desktop shows through, it stays clear while the window is in the background too.
         state = look.solid ? .inactive : look.seeThrough ? .active : .followsWindowActiveState
     }
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {

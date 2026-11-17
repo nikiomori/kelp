@@ -1,4 +1,4 @@
-// Developer aids, debug builds: the keys KELP_TYPE sends, the hovers KELP_HOVER sends, and the snapshot's end.
+// Developer aids for debug builds: the keys KELP_TYPE sends, the hovers KELP_HOVER sends, and the end of a snapshot.
 import AppKit
 import Core
 import WebKit
@@ -7,12 +7,12 @@ import WebKit
 
     extension AppDelegate {
         static var hovered = false
-        /// `{f2}`, `{shift+f12}`.
+        /// The function keys KELP_TYPE knows, written as `{f2}` or `{shift+f12}`.
         static let functionKeys: [String: (char: String, code: UInt16)] = [
             "f2": ("\u{F705}", 120), "f8": ("\u{F70B}", 100), "f12": ("\u{F70F}", 111)
         ]
-        /// Quits, and takes along the daemon the app started in a KELP_HOME of the snapshot's own: each one would stay behind.
-        /// Never one under ~/.kelp*, a home someone lives in.
+        /// Quits, and also stops the daemon the app started when the snapshot has a KELP_HOME of its own, because each
+        /// such daemon would stay behind. It never stops a daemon under ~/.kelp*, a home someone lives in.
         func finishSnapshot() {
             let home = Paths.root.path
             guard getenv("KELP_HOME") != nil, !home.hasPrefix(NSHomeDirectory() + "/.kelp") else { exit(0) }
@@ -43,8 +43,9 @@ import WebKit
             print("HOVER", text, "→", type(of: target))
         }
 
-        /// Dev aid: real key events through NSApp (menus, key equivalents, the terminal's keyDown/IME path).
-        /// "echo hi\r" types text; "{cmd+t}" / "{cmd+\\}" press shortcuts; "{wait}" pauses a second (async UI); "{ok}" presses a sheet's default button.
+        /// Sends real key events through NSApp (reaching menus, key equivalents, and the terminal's keyDown/IME path).
+        /// "echo hi\r" types text, "{cmd+t}" / "{cmd+\\}" press shortcuts, "{wait}" pauses a second (for async UI),
+        /// and "{ok}" presses a sheet's default button.
         func typeKeys(_ spec: String) {
             let app = self.app
             let codes: [Character: UInt16] = [
@@ -54,7 +55,7 @@ import WebKit
                 "7": 26, "8": 28, "0": 29, "o": 31,
                 "u": 32, "i": 34, "p": 35, "l": 37, "j": 38, "k": 40, "n": 45, "m": 46, " ": 49, "\r": 36, "-": 27,
                 "=": 24, "\\": 42, "/": 44, "?": 44,
-                // ЙЦУКЕН on the same keys, to press ⌘Ц the way a Russian layout sends it
+                // ЙЦУКЕН letters on the same keys, to press ⌘Ц the way a Russian layout sends it
                 "й": 12, "ц": 13, "у": 14, "к": 15, "е": 17, "н": 16, "г": 32, "ш": 34, "щ": 31, "з": 35, "ф": 0,
                 "ы": 1, "в": 2, "а": 3,
                 "п": 5, "р": 4, "о": 38, "л": 40, "д": 37, "я": 6, "ч": 7, "с": 8, "м": 9, "и": 11, "т": 45, "ь": 46
@@ -92,7 +93,7 @@ import WebKit
                     continue
                 }
                 at += 0.05
-                if ch == "ok", mods.isEmpty {   // The sheet's default button: a window in the background doesn't get ↩ to it.
+                if ch == "ok", mods.isEmpty {   // a window in the background doesn't pass ↩ to the sheet's button
                     DispatchQueue.main.asyncAfter(deadline: .now() + at) { [self] in
                         let sheet = main.window?.attachedSheet,
                             buttons = sheet?.contentView?.allSubviews(of: NSButton.self) ?? []
@@ -121,14 +122,14 @@ import WebKit
                         }
                     }
                     // In the background (launched from a shell) there's no key window, so menu items that go to the
-                    // responder chain (Find…, Copy) are disabled: send their action along the window's chain instead.
+                    // responder chain (Find…, Copy) are disabled. Send their action along the window's chain instead.
                     if !NSApp.isActive, mods.contains(.command), let item = Self.menuItem(ch, mods), item.target == nil,
                         let action = item.action,
                         main.window?.firstResponder?.tryToPerform(action, with: item) == true
                     {
                         return
                     }
-                    // As a keyboard's do.
+                    // Set the flags a real keyboard's events have.
                     let flags =
                         (123...126).contains(code)
                         ? mods.union([.numericPad, .function]) : function != nil ? mods.union(.function) : mods
@@ -141,7 +142,8 @@ import WebKit
                                 characters: ch, charactersIgnoringModifiers: ch,
                                 isARepeat: false, keyCode: code)
                         else { continue }
-                        // Without a key window AppKit offers a shortcut to the menu only; a user's goes to the window's views first.
+                        // Without a key window AppKit offers a shortcut only to the menu, but a user's shortcut goes to
+                        // the window's views first.
                         if type == .keyDown, !mods.isEmpty, NSApp.keyWindow == nil,
                             main.window?.performKeyEquivalent(with: event) == true
                         {

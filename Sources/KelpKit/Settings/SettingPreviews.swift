@@ -3,9 +3,9 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// What the settings change, drawn with them as they are and with the shell's themes, for the sections that show them
-/// over their rows (`SettingsSection.previews`) or as a choice's picture (`SettingChoices.picture`). Each follows a
-/// change at once, so a row is tried by looking up.
+/// Samples of what the settings change, drawn with the current settings and the shell's themes. They are for sections
+/// that show them over their rows (`SettingsSection.previews`) or as a choice's picture (`SettingChoices.picture`).
+/// Each sample follows a change at once, so you try a row by looking up at the sample.
 @MainActor
 package enum SettingSamples {
     /// A prompt and a command in the terminal's font, size, colours and cursor.
@@ -14,8 +14,8 @@ package enum SettingSamples {
     package static func cursor(_ option: String) -> AnyView { AnyView(CursorPicture(option: option)) }
 }
 
-/// A prompt and a command in the terminal's font, size, colors and cursor. Ghostty draws the real one; this is text in the
-/// same font, so its cell spacing can differ a little.
+/// A prompt and a command in the terminal's font, size, colors and cursor. Ghostty draws the real terminal, and this is
+/// text in the same font, so its cell spacing can differ a little.
 private struct TerminalSample: View {
     @Environment(AppModel.self) private var app
 
@@ -44,7 +44,7 @@ private struct TerminalSample: View {
             Color(nsColor: app.themes.terminalBackground),
             in: RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
         )
-        // Its edge: a light theme's terminal is as white as the card it sits on.
+        // Draw an edge, because a light theme's terminal is as white as the card it sits on.
         .overlay(
             RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).strokeBorder(
                 Color.primary.opacity(0.12))

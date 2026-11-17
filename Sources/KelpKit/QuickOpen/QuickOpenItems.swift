@@ -54,25 +54,26 @@ extension QuickOpen {
             filesLoad?.cancel()
             if let wid = app.workbench.workspaceId, let root = app.worktree(wid)?.path {
                 if files.root != root { files = Files() }
-                // As the Files panel was last told them, while it's watching; else listed now.
+                // Use the files the Files panel was last told while it's watching, or else list them now.
                 let pushed = app.latest(FilesEvent.self, wid)?.paths, known = files
                 filesLoad = Task {
                     var paths = pushed ?? []
-                    // Failing, it says why there are none.
+                    // If the list fails, a banner says why there are none.
                     if pushed == nil { paths = await app.call(FilesList(id: wid)) ?? [] }
                     let listed = paths
                     let fuzzy =
                         known.paths == listed
                         ? known.fuzzy : await Task.detached { listed.map(ProjectFiles.FuzzyPath.init) }.value
-                    // Listed again meanwhile, or a setting's choices are on screen.
+                    // Stop if the files were listed again meanwhile, or a setting's choices are on screen.
                     guard !Task.isCancelled, choosing == nil else { return }
                     files = Files(root: root, paths: listed, fuzzy: fuzzy)
                     filter()
                 }
             }
         }
-        // After what's open: the empty field without agents to list starts with tabs and workspaces, not the Kelp menu.
-        // Commands: every enabled menu item with an action. The app menu's say no menu ("Kelp" beside each said nothing).
+        // Commands come after what's open, so the empty field without agents to list starts with tabs and workspaces,
+        // not the Kelp menu. The commands are every enabled menu item with an action. The app menu's items name no
+        // menu, because "Kelp" beside each said nothing.
         let appMenu = NSApp.mainMenu?.items.first?.submenu
         func walk(_ menu: NSMenu, path: String) {
             for i in menu.items {
@@ -85,11 +86,12 @@ extension QuickOpen {
                     continue
                 }
                 guard let action = i.action, !i.isSeparatorItem, !i.isHidden, !i.title.isEmpty else { continue }
-                // Only what the menu would offer now: someone handles it and it's enabled (Run File needs a file…).
+                // Take only what the menu would offer now: something handles it and it's enabled (Run File needs a
+                // file…).
                 guard let target = NSApp.target(forAction: action, to: i.target, from: i),
                     (target as? NSMenuItemValidation)?.validateMenuItem(i) ?? true
                 else { continue }
-                // No icon unless the menu item has one: the same ⌘ on every row said nothing.
+                // No icon unless the menu item has one, because the same ⌘ on every row said nothing.
                 items.append(
                     Item(
                         kind: "Command", icon: "", title: i.title, detail: path,
@@ -98,7 +100,7 @@ extension QuickOpen {
             }
         }
         if let menu = NSApp.mainMenu { walk(menu, path: "") }   // extension commands are in the menus (Tools) already
-        // Every setting: one with choices (Color Theme…) lists them here, the others open their page.
+        // Every setting is listed. One with choices (Color Theme…) lists them here, and the others open their page.
         for section in app.extensions.all.settings {
             for spec in section.specs {
                 let title = "\(loc(section.title)): \(loc(spec.title))", choices = self.choices(spec)
@@ -120,7 +122,7 @@ extension QuickOpen {
         all = items
     }
 
-    /// The row for the `index`th of `files`.
+    /// Returns the item for the file at `index` in `files`.
     func fileItem(_ index: Int) -> Item {
         let app = self.app, path = files.paths[index], full = files.root + "/" + path
         return Item(
@@ -129,8 +131,8 @@ extension QuickOpen {
             split: { app.workbench.open(TabURI.file(full), split: .right) })
     }
 
-    /// A tab's icon and where it is, in words: a file's path in its workspace (from ~ when outside it), a page's
-    /// address, or "changes"; never the tab's own `diff:` or `file:` address.
+    /// Returns a tab's icon and where the tab is, in words. That is a file's path in its workspace (from ~ when outside
+    /// it), a page's address, or "changes", and never the tab's own `diff:` or `file:` address.
     static func place(_ uri: String, root: String?) -> (icon: String, detail: String) {
         switch TabURI.scheme(uri) {
         case "file":
@@ -143,8 +145,8 @@ extension QuickOpen {
         }
     }
 
-    /// Agents to get back to: asking or failed first, then finished and unseen, then the latest others; then the
-    /// workspaces visited last. The first six get ⌘1–⌘6.
+    /// Collects the agents to get back to: asking or failed first, then finished and unseen, then the latest others.
+    /// After them come the workspaces visited last. The first six get ⌘1–⌘6.
     func collectRecents() {
         let app = self.app
         let model = app
@@ -161,7 +163,7 @@ extension QuickOpen {
                 split: { app.workbench.open(TabURI.session(s.id), split: .right, workspace: s.worktreeId) },
                 session: s)
         }
-        var seen: Set<String> = []   // each workspace once, at its last visit
+        var seen: Set<String> = []   // lists each workspace once, at its last visit
         for id in app.workbench.history.visits.reversed()
         where id != app.workbench.workspaceId && seen.insert(id).inserted {
             guard let worktree = model.worktree(id) else { continue }

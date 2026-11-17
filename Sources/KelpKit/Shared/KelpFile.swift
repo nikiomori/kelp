@@ -12,23 +12,24 @@ package struct KelpFile {
     let app: AppModel
     package init(app: AppModel) { self.app = app }
 
-    /// Whether the workspace's .kelp.yaml is trusted now, asked first if it isn't.
+    /// Whether the workspace's .kelp.yaml is trusted now, asking the user first if it isn't.
     func trusted(_ wid: String) async -> Bool {
         guard let info = await app.call(ScriptsList(worktreeId: wid)) else { return false }
         return await trusted(wid, info)
     }
 
-    /// Trusted as `info` shows it: the digest of the text shown, so a file changed since (an agent, a pull) isn't
-    /// trusted unseen.
+    /// Trusts the file as `info` shows it, by the digest of the text shown, so a file changed since (by an agent or a
+    /// pull) isn't trusted unseen.
     package func trusted(_ wid: String, _ info: ScriptsList.Result) async -> Bool {
         guard !info.trusted else { return true }
-        // A snapshot run takes clicks and keys from its environment (DevAids): anyone could start one that presses
-        // Trust, so that window never trusts anything.
+        // A snapshot run takes clicks and keys from its environment (DevAids), so anyone could start one that presses
+        // Trust. That is why a snapshot window never trusts anything.
         guard !Self.snapshot, await askTrust(info) else { return false }
         return await app.call(ScriptsTrust(worktreeId: wid, digest: info.digest)) != nil
     }
 
-    /// The folder holds pull request `number`'s code, which the file's trust doesn't cover: asked every time.
+    /// Asks every time before running in a folder that holds pull request `number`'s code, because the file's trust
+    /// doesn't cover that code.
     private func runsOnPullRequest(_ number: Int, _ info: ScriptsList.Result) async -> Bool {
         guard !Self.snapshot else { return false }
         let alert = NSAlert()
@@ -45,8 +46,9 @@ package struct KelpFile {
         return await runSheet(alert) == .alertFirstButtonReturn
     }
 
-    /// A command of the file by name, its trust asked already, its tab left to the caller: Run's run when Run is there
-    /// (an earlier copy ended, kept as the workspace's run), else a session of its own.
+    /// Runs one of the file's commands by name, once the file is trusted, and leaves showing the tab to the caller.
+    /// When Run is there, Run runs it (ending an earlier copy, and keeping it as the workspace's run). Otherwise the
+    /// command gets a session of its own.
     func run(_ wid: String, _ name: String) async -> Session? {
         if let runs = app.extensions.all.runs { return await runs.run(wid, name) }
         guard let session = await app.call(app.workbench.sized(ScriptsRun(worktreeId: wid, name: name))) else {
@@ -56,8 +58,8 @@ package struct KelpFile {
         return session
     }
 
-    /// A new workspace's setup, when its .kelp.yaml has one that waits for the file's trust (asked here first): in a
-    /// tab below, as Run shows a run.
+    /// Runs a new workspace's setup when its .kelp.yaml has one. The setup waits for the file's trust (asked here
+    /// first) and runs in a tab below, as Run shows a run.
     package func setup(_ wid: String, pullRequest: Int?) async {
         guard let info = await app.quiet(ScriptsList(worktreeId: wid)), info.setup != nil else { return }
         if let pullRequest { guard await runsOnPullRequest(pullRequest, info) else { return } }
@@ -72,8 +74,8 @@ package struct KelpFile {
 
     private static var snapshot: Bool { ProcessInfo.processInfo.environment["KELP_SNAPSHOT"] != nil }
 
-    /// The first time a project's commands would run: everything trusting the file allows (commands, the agents and links
-    /// a new workspace gets, the prompts it puts in agents' mouths), and whose it is.
+    /// Asks the first time a project's commands would run. The question shows everything that trusting the file
+    /// allows (commands, the agents and links a new workspace gets, the prompts it gives agents), and whose file it is.
     private func askTrust(_ info: ScriptsList.Result) async -> Bool {
         let alert = NSAlert()
         alert.messageText = String(localized: "Run this project's commands?")
@@ -91,7 +93,7 @@ package struct KelpFile {
         return await runSheet(alert) == .alertFirstButtonReturn
     }
 
-    /// The file's effects as the file spells them, scrollable when long.
+    /// Shows the file's effects as the file spells them, scrollable when long.
     static func trustText(_ info: ScriptsList.Result) -> NSView {
         var lines: [String] = []
         if let setup = info.setup { lines.append("setup: \(setup)") }

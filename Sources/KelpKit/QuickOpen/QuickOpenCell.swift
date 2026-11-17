@@ -3,8 +3,9 @@ import AppKit
 import Core
 import DesignKit
 
-/// The row for one item: its icon (or an agent's state), the title, where it is in grey, a command's shortcut, what
-/// goes on the right (⌘1–⌘6, a setting's value), a built-in's view, and a tick on the choice in effect.
+/// The row for one item. It shows the item's icon (or an agent's state), the title, where the item is in grey, a
+/// command's shortcut, what goes on the right (⌘1–⌘6, a setting's value), a built-in's view, and a tick on the choice
+/// in effect.
 @MainActor
 final class QuickOpenCell: PaletteCell {
     static let id = NSUserInterfaceItemIdentifier("quickOpen.item")
@@ -35,7 +36,7 @@ final class QuickOpenCell: PaletteCell {
         key.textColor = .secondaryLabelColor
         key.setContentCompressionResistancePriority(.required, for: .horizontal)
         key.setContentHuggingPriority(.required, for: .horizontal)
-        // One line, as Xcode's Open Quickly: the name, then where it is in grey, which gives way first.
+        // One line, as in Xcode's Open Quickly: the name, then where it is in grey, which is cut first.
         title.setContentCompressionResistancePriority(.init(260), for: .horizontal)
         title.setContentHuggingPriority(.required, for: .horizontal)
         detail.setContentCompressionResistancePriority(.init(250), for: .horizontal)
@@ -56,7 +57,7 @@ final class QuickOpenCell: PaletteCell {
     }
     required init?(coder: NSCoder) { fatalError("not from a nib") }
 
-    /// Its icon, or an agent's state while there's something to see (as on its tab).
+    /// Shows the item's icon, or an agent's state while there's something to see (as on the agent's tab).
     func show(lead icon: NSImage?, session: Session?) {
         let state =
             session.map { [.working, .waiting, .error].contains($0.status) || ($0.status == .done && $0.unread) }
@@ -70,7 +71,7 @@ final class QuickOpenCell: PaletteCell {
         mark.waitsForCommand = session.waitsForCommand
     }
 
-    /// A built-in's view at the end, before the tick; the last row's goes.
+    /// Shows a built-in's view at the end, before the tick, and removes the view the reused row had.
     func show(accessory view: NSView?) {
         accessory?.removeFromSuperview()
         accessory = view

@@ -3,7 +3,7 @@ import Core
 import DesignKit
 
 /// A ⌃Tab row, drawn like the sidebar's rows in a card: status | icon | name · where, with one line of what is there
-/// under it; then when, and the number that picks it. With nothing to say under the name, it takes one line.
+/// under it, and then when, and the number that picks it. With nothing to say under the name, it takes one line.
 @MainActor
 struct SwitcherRow {
     var mark: StatusMark?
@@ -14,18 +14,18 @@ struct SwitcherRow {
     var when = ""
     var spoken: [String] = []
 
-    /// A workspace: its agent that matters most (what it asks, does or did), with the folder's changes and pull
-    /// request.
+    /// The row for a workspace. It shows the workspace's agent that matters most (what it asks, does or did), with the
+    /// folder's changes and pull request.
     static func workspace(_ worktree: Worktree, app: AppModel) -> SwitcherRow {
         let lead = app.lead(in: worktree.id)
-        // A chat with no project goes by the chat's name, as its sidebar row does; its folder has no branch worth
-        // saying.
+        // A chat with no project goes by the chat's name, as its sidebar row does, because its folder has no branch
+        // worth saying.
         let loose = NoProject.holds(app.repo(worktree.repoId))
         let title =
             loose
             ? lead.map(app.catalog.displayName) ?? worktree.displayName
             : app.groupName(worktree) ?? app.projectName(worktree.repoId) ?? worktree.displayName
-        // The project for a group, the branch for a branch's folder: never the name again.
+        // The place is the project for a group, and the branch for a branch's folder, but never the name again.
         var place: [String] = []
         for part in [app.projectName(worktree.repoId), loose ? nil : worktree.branch]
         where part.map({ $0 != title && $0 != worktree.displayName && !place.contains($0) }) == true {
@@ -58,7 +58,7 @@ struct SwitcherRow {
         return row
     }
 
-    /// A server's page: its load, as the server's header in the sidebar reads it.
+    /// The row for a server's page. It shows the server's load, as the server's header in the sidebar reads it.
     static func server(_ host: String, app: AppModel) -> SwitcherRow {
         let stats = app.latest(HostEvent.self, host)?.stats
         let load: String? =
@@ -114,9 +114,10 @@ struct SwitcherRow {
         return text
     }
 
-    /// The row: `number` 1–9 is the key that picks it; `here` is the screen you're on, dimmed, saying so.
+    /// Makes the row's view. `number` 1–9 is the key that picks it. `here` marks the screen you're on, which is dimmed
+    /// and says so.
     func view(number: Int, here: Bool) -> NSView {
-        let slot = NSView()   // no agent hides the mark; its column stays, so the icons line up
+        let slot = NSView()   // with no agent there's no mark, but its column stays, so the icons line up
         if let mark { slot.pin(mark) }
         let side = Metrics.iconLarge
         let fixed = [
@@ -136,7 +137,7 @@ struct SwitcherRow {
         time.setContentCompressionResistancePriority(.required, for: .horizontal)
         let key = Self.label(Self.quiet((1...9).contains(number) && !here ? "\(number)" : ""))
         key.alignment = .center
-        key.widthAnchor.constraint(equalToConstant: side).isActive = true   // the numbers line up, and the times
+        key.widthAnchor.constraint(equalToConstant: side).isActive = true   // so the numbers line up, and the times
         let line = NSStackView(views: [slot, icon, text] + (ci.map { [$0] } ?? []) + [time, key])
         line.distribution = .fill
         line.spacing = Metrics.gapWide
@@ -161,7 +162,8 @@ struct SwitcherRow {
 
     private static func label(_ text: NSAttributedString) -> NSTextField {
         let styled = NSMutableAttributedString(attributedString: text)
-        // Its own: an attributed string without one is cut off at the edge, not ended with "…".
+        // The string gets its own paragraph style, because without one it is cut off at the edge instead of ending
+        // with "…".
         let tail = NSMutableParagraphStyle()
         tail.lineBreakMode = .byTruncatingTail
         styled.addAttribute(.paragraphStyle, value: tail, range: NSRange(location: 0, length: styled.length))
@@ -172,12 +174,12 @@ struct SwitcherRow {
     }
 }
 
-/// The switcher's card: its rows, at most nine before they scroll, and the keys under them while they're new.
+/// The switcher's card: its rows (at most nine before they scroll), and the key hints under them while they're new.
 @MainActor
 final class SwitcherCard: NSVisualEffectView {
     init(rows: [NSView], hint: String?, maxHeight: CGFloat) {
         super.init(frame: .zero)
-        material = .popover   // as Quick Open's
+        material = .popover   // the same as Quick Open
         state = .active
         wantsLayer = true
         layer?.cornerRadius = Metrics.radiusXL
@@ -198,7 +200,7 @@ final class SwitcherCard: NSVisualEffectView {
         list.widthAnchor.constraint(equalToConstant: Metrics.switcherWidth).isActive = true
         let doc = FlippedView()
         doc.pin(list)
-        // The pointer selects (its moves reach the monitor even though the panel never becomes key).
+        // The pointer selects rows (its moves reach the monitor even though the panel never becomes key).
         doc.addTrackingArea(
             NSTrackingArea(rect: .zero, options: [.mouseMoved, .activeAlways, .inVisibleRect], owner: doc))
         let scroll = NSScrollView()

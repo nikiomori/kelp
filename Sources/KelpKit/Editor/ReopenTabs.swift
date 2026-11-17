@@ -3,16 +3,16 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// ⇧⌘T: a tab closed by hand comes back in its place. A file at its line; an agent resuming its conversation; a terminal
-/// as a new shell in its folder, since what it ran isn't run again.
+/// ⇧⌘T: a tab closed by hand comes back in its place. A file comes back at its line, an agent resumes its conversation,
+/// and a terminal comes back as a new shell in its folder, since what it ran isn't run again.
 extension EditorArea {
-    /// Before the tab leaves the layout, while it still has a place.
+    /// Remembers a closing tab. Call it before the tab leaves the layout, while it still has a place.
     func rememberClosing(_ id: String) {
         guard let tab = layout.allTabs.first(where: { $0.id == id }),
             !["untitled", "prompt"].contains(TabURI.scheme(tab.uri))
         else { return }
         let uri = (contents[id] as? SavableTab).map(\.reopenURI) ?? tab.uri
-        guard let uri else { return }   // nothing left of it
+        guard let uri else { return }   // nothing is left to reopen
         let session = TabURI.scheme(tab.uri) == "session" ? app.session(TabURI.body(tab.uri)) : nil
         let group = layout.group(of: id)
         app.workbench.closedTabs.remember(
@@ -23,7 +23,7 @@ extension EditorArea {
                 group: group, index: group.flatMap { layout.groups[$0]?.tabs.firstIndex { $0.id == id } }))
     }
 
-    /// Already on screen: the same file or page, opened again since.
+    /// Whether the closed tab is already on screen again: the same file or page, opened again since.
     func shows(_ closedTab: ClosedTab) -> Bool {
         layout.tab(uri: closedTab.uri) != nil
             || (TabURI.scheme(closedTab.uri) == "file" && layout.fileTab(sameFileAs: closedTab.uri) != nil)
@@ -38,7 +38,8 @@ extension EditorArea {
             }
             return
         }
-        // Its tab first: the new session takes it. Otherwise the daemon's update puts the new one in whatever pane is focused.
+        // Place the tab first so the new session takes it. Otherwise the daemon's update puts the new session in
+        // whatever pane is focused.
         let sid = TabURI.body(closedTab.uri)
         guard let session = app.session(sid) else { return }
         closed.remove(sid)
@@ -50,7 +51,7 @@ extension EditorArea {
         }
     }
 
-    /// Its pane may have closed with its last tab.
+    /// Puts the closed tab back in its old pane and slot, unless that pane closed with its last tab.
     private func place(_ closedTab: ClosedTab) {
         let group = closedTab.group.flatMap { layout.groups[$0] == nil ? nil : $0 }
         let tab = layout.add(closedTab.uri, to: group, at: group == nil ? nil : closedTab.index)
@@ -61,7 +62,8 @@ extension EditorArea {
 }
 
 extension Workbench {
-    /// What can still come back, latest first: its row is there and, for a session, its record (a restart replaces it).
+    /// The closed tabs that can still come back, latest first: their workspace's row is still there and, for a session,
+    /// its record too (a restart replaces it).
     var reopenableTabs: [ClosedTab] {
         closedTabs.all.filter { closedTab in
             guard let worktree = app.worktree(closedTab.workspace), !worktree.archived else { return false }
@@ -69,7 +71,7 @@ extension Workbench {
         }
     }
 
-    /// What ⇧⌘T brings back: the last one closed on this screen.
+    /// The tab ⇧⌘T brings back: the last one closed in the workspace on screen.
     var nextClosedTab: ClosedTab? { reopenableTabs.first { $0.workspace == workspaceId && editor?.shows($0) != true } }
 
     func reopenClosedTab() {
@@ -86,15 +88,16 @@ extension Workbench {
         editor?.reopen(closedTab)
     }
 
-    /// `worktree` is going with its last tab, and its sessions' records with it: those closed by hand move to `next`, with the same
-    /// folder, where ⇧⌘T finds them. A folder of its own goes too, and nothing could resume there. False (said on a
-    /// banner) when a session there couldn't move: then `worktree` must stay, or that session's record goes with it.
+    /// Keeps the closed tabs of `worktree`, which is going with its last tab and takes its sessions' records with it.
+    /// When `next` has the same folder, the sessions closed by hand move to `next`, where ⇧⌘T finds them. When
+    /// `worktree` has a folder of its own, that folder goes too and nothing could resume there. Returns false (said on
+    /// a banner) when a session couldn't move; then `worktree` must stay, or that session's record goes with it.
     func keepClosedTabs(of worktree: Worktree, on next: Worktree) async -> Bool {
         if worktree.path == next.path {
             for closedTab in closedTabs.all
             where closedTab.workspace == worktree.id && TabURI.scheme(closedTab.uri) == "session" {
                 let sid = TabURI.body(closedTab.uri)
-                if workspaceId == next.id { editor?.closed.insert(sid) }   // it may still be ending: no tab for it there
+                if workspaceId == next.id { editor?.closed.insert(sid) }   // it may still be ending, so no tab there
                 let moved = await app.tryCall(SessionMove(id: sid, worktreeId: next.id))
                 // A record already gone has nothing left to keep.
                 if moved.value == nil, app.session(sid) != nil {

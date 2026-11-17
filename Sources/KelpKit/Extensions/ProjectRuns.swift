@@ -9,24 +9,28 @@ import WorkbenchKit
 /// `tabsFollow`, `choices`) is read under observation, so it must not do work. The runs put away in the Run menu are
 /// reported through `Contributions.sessionHidden`.
 package struct ProjectRuns {
-    /// Right of the search in the window bar, before the cup.
+    /// The items to the right of the search in the window bar, before the cup.
     let bar: @MainActor () -> [any WindowBarItem]
-    /// The Run menu's delegate: the project's other commands go between its separators as it opens.
+    /// The Run menu's delegate, which puts the project's other commands between the menu's separators as it opens.
     let menu: any NSMenuDelegate
-    /// A run's tab among the terminals: its purpose's symbol in colour and a glow of that colour; nil for any other.
+    /// How a run's tab looks among the terminals: the symbol of its purpose in colour, and a glow of that colour. nil
+    /// for any other session.
     let look: @MainActor (Session) -> (icon: NSImage?, glow: NSColor?)?
     /// The port after a tab's name.
     let port: @MainActor (Session) -> Int?
-    /// What the tabs' looks and ports follow: the tab strips are drawn again when it changes.
+    /// What the tabs' looks and ports depend on; the tab strips are drawn again when it changes.
     let tabsFollow: @MainActor () -> [String]
     /// A live session's tab menu, before Close Tab.
     let tabMenu: @MainActor (NSMenu, Session) -> Void
-    /// The Run rows of the "+" menu and the empty workspace, for a workspace; none while it offers nothing to run.
+    /// The Run rows of the "+" menu and the empty workspace for a workspace; none while the workspace has nothing to
+    /// run.
     let choices: @MainActor (_ workspace: String) -> [NewTabChoices.Action]
-    /// A page the hover card lists, opened beside you (one that isn't a web page has its address copied).
+    /// Opens a page that the hover card lists, in a pane to the right, without taking the keys. For a page that isn't
+    /// a web page, its address is copied instead.
     let open: @MainActor (ServedPage, _ workspace: String) -> Void
-    /// A .kelp.yaml command started as Run starts one (an earlier copy ended, kept as the workspace's run, put away in
-    /// the Run menu if its last copy was), its trust asked already (`KelpFile`), its tab left to the caller.
+    /// Starts a .kelp.yaml command the way Run starts one: an earlier copy is ended, the new one is kept as the
+    /// workspace's run, and it is put away in the Run menu if its last copy was. Its trust has been asked already
+    /// (`KelpFile`), and opening its tab is left to the caller.
     let run: @MainActor (_ workspace: String, _ name: String) async -> Session?
     package init(
         bar: @escaping @MainActor () -> [any WindowBarItem],
@@ -51,8 +55,8 @@ package struct ProjectRuns {
     }
 }
 
-/// A part a built-in puts in the window bar (Run's chip, the page it serves): told the bar's width each time the bar
-/// lays out, so it can shorten itself without its own size feeding back on the choice.
+/// A part a built-in puts in the window bar (Run's chip, the page it serves). It is told the bar's width each time the
+/// bar lays out, so it can shorten itself without its own size feeding back on the choice.
 @MainActor
 package protocol WindowBarItem: NSView {
     func fit(barWidth: CGFloat)

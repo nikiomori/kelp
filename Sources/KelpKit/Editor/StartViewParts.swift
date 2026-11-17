@@ -24,10 +24,11 @@ final class StartBox: NSView {
     }
 }
 
-/// Choices in one grouped box, like a Settings list, a line between rows; in `columns: 2`, two to a row.
+/// Choices in one grouped box, like a Settings list, with a line between rows. With `columns: 2`, there are two to a
+/// row.
 @MainActor
 final class StartCard: NSView {
-    /// The card's edge to its rows' highlight.
+    /// The distance from the card's edge to its rows' highlight.
     static let inset: CGFloat = 4
 
     init(rows: [NSView], columns: Int = 1) {
@@ -69,8 +70,8 @@ final class StartCard: NSView {
     required init?(coder: NSCoder) { fatalError() }
 }
 
-/// What the run chip runs and its list, under a heading of their own; gone while the project offers nothing to run.
-/// Follows the files as they're read.
+/// What the run chip runs, and its list, under a heading of their own. The group is hidden while the project offers
+/// nothing to run, and it follows the files as they're read.
 @MainActor
 final class RunGroup: NSStackView {
     let head = StartView.heading(String(localized: "Run"))
@@ -81,7 +82,7 @@ final class RunGroup: NSStackView {
         alignment = .leading
         spacing = 6
         edgeInsets = NSEdgeInsets(top: 18, left: 0, bottom: 0, right: 0)
-        // The rows again when what they say changes.
+        // Rebuild the rows when what they say changes.
         track(owner: self) {
             (app.extensions.all.runs?.choices(wid) ?? []).map { [$0.title, $0.help ?? "", $0.key?.description ?? ""] }
         } changed: { [weak self] _ in
@@ -103,7 +104,7 @@ final class RunGroup: NSStackView {
 @MainActor
 final class StartRow: PointerControl {
 
-    /// The edge of the row's highlight to its icon.
+    /// The distance from the edge of the row's highlight to its icon.
     static let inset: CGFloat = 10
 
     convenience init(_ a: NewTabChoices.Action) {

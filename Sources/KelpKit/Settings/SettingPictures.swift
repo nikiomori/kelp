@@ -2,24 +2,24 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// Choices about how something looks, shown as what they look like: a small drawing per option, picked like a theme,
+/// Shows choices about how something looks as what they look like: a small drawing per option, picked like a theme,
 /// instead of its name in a menu (`SettingSpec.look`). The value written is the option, as from the menu.
-/// A setting's options as tiles: its drawing, its name under it, the chosen one ringed in the accent colour. Five to a
-/// row whatever their number, so tiles are one size across the page (the agents in the welcome too); two or three sit
-/// beside the row's title (`inline`), as Dia's Tab layout does.
+/// Each option is a tile with its drawing and its name under it, and the chosen one is ringed in the accent colour.
+/// Tiles are five to a row whatever their number, so they are one size across the page (the agents in the welcome
+/// too). Two or three sit beside the row's title (`inline`), as Dia's Tab layout does.
 struct PictureGrid: View {
     let key: String
     let options: [String]
     @Binding var selection: String
     let label: (String) -> String
-    /// An option drawn by whoever shows the grid (the welcome's agents); nil: the setting's own drawing.
+    /// Draws an option for whoever shows the grid (the welcome's agents). With nil, the setting's own drawing is used.
     var art: ((String) -> AnyView)?
-    /// Side by side at one tile's width, beside the title, in place of a grid under it.
+    /// Whether the tiles sit side by side at one tile's width beside the title, in place of a grid under it.
     var inline = false
     @Environment(AppModel.self) private var app
-    /// Also used by the theme gallery: Kelp's five themes fill one row.
+    /// The tiles per row, also used by the theme gallery, where Kelp's five themes fill one row.
     static let columns = 5
-    /// As many as fit beside a title.
+    /// How many tiles fit beside a title.
     static let inRow = 3
 
     var body: some View {
@@ -53,15 +53,15 @@ struct TileGrid<Content: View>: View {
     }
 }
 
-/// One choice: its picture at the one tile height, its name under it in the system font, picked by a click.
+/// One choice, with its picture at the shared tile height and its name under it in the system font. A click picks it.
 struct PictureTile<Art: View>: View {
     let name: String
     let on: Bool
     let pick: () -> Void
     @ViewBuilder let art: Art
-    /// Themes and pictures alike, so a page of them is one grid.
+    /// The tile height, the same for themes and pictures, so a page of them is one grid.
     static var height: CGFloat { 64 }
-    /// The width of a picture beside a row's title; a grid of pictures uses the window's own width.
+    /// The width of a picture beside a row's title. A grid of pictures uses the window's own width.
     static var width: CGFloat { 120 }
 
     var body: some View {
@@ -80,8 +80,8 @@ struct PictureTile<Art: View>: View {
     }
 }
 
-/// One option drawn: a sidebar row, the Dock, a cursor. Schematic on purpose: lines stand for text, so the picture says the
-/// same in every language.
+/// The drawing of one option, such as a sidebar row, the Dock, or a cursor. It is schematic on purpose: lines stand for
+/// text, so the picture says the same in every language.
 struct PictureArt: View {
     let key: String, option: String
     @Environment(AppModel.self) private var app
@@ -107,7 +107,8 @@ struct PictureArt: View {
     ]
 
     private static let pink = Color(nsColor: .systemPink)
-    /// Text drawn into a picture at a fixed size: the Text size picture shows each size itself, so it mustn't follow the setting.
+    /// Returns a font for text drawn into a picture at a fixed size. The Text size picture shows each size itself, so
+    /// it mustn't follow the setting.
     static func drawn(_ size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> Font {
         .system(size: size, weight: weight, design: design)
     }
@@ -124,7 +125,7 @@ struct PictureArt: View {
         Capsule().fill(color).frame(width: width, height: 3)
     }
 
-    /// Two rows with their text scaled as Text size scales the chrome's (1, 1.15, 1.3).
+    /// Two rows with their text scaled as Text size scales the chrome's text (1, 1.15, 1.3).
     private var textSize: some View {
         let scale: CGFloat = ["large": 1.15, "larger": 1.3][option] ?? 1
         return VStack(spacing: 3) {
@@ -155,7 +156,7 @@ struct PictureArt: View {
         .padding(.horizontal, 12).frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The strip at its height, halved, over a pane's first lines: a lower one leaves the pane more.
+    /// The tab strip at half its height over a pane's first lines, showing that a lower strip leaves the pane more.
     private func tabBand(_ band: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 2) {
@@ -184,7 +185,7 @@ struct PictureArt: View {
         .padding(.horizontal, 12)
     }
 
-    /// An agent's row and, as the option says, its second line: the question (amber) or what it's doing.
+    /// An agent's row and, when the option shows one, its second line: the question (amber) or what it's doing.
     private var agentRow: some View {
         row(height: option == "never" ? 18 : 28) {
             Circle().fill(Color.textOrange).frame(width: 5, height: 5)
@@ -217,7 +218,8 @@ struct PictureArt: View {
         .padding(.horizontal, 12)
     }
 
-    /// A server's row as its card marks it: stripes under it all, sparser in an outline, by the icon only, or on its plate.
+    /// A server's row as its card marks it: stripes under the whole row, sparser stripes in an outline, stripes by the
+    /// icon only, or stripes on its plate.
     private var serverRow: some View {
         let stripes = Stripes(side: option == "sparse" ? 7 : 5)
         let shape = RoundedRectangle(cornerRadius: Metrics.radiusXS, style: .continuous)
@@ -251,7 +253,7 @@ struct PictureArt: View {
     }
 }
 
-/// A cursor style, in the terminal's own colors, as the sample above it.
+/// A cursor style, drawn in the terminal's own colors like the sample above it.
 struct CursorPicture: View {
     let option: String
     @Environment(AppModel.self) private var app
@@ -274,8 +276,9 @@ struct CursorPicture: View {
     }
 }
 
-/// Settings › Appearance › Inspector › Panels: each panel's icon with a switch, in the inspector's order. It is the
-/// same list as the icons' right-click menu; settings.json keeps the hidden ones (`workbench.inspector.hiddenPanels`).
+/// Settings › Appearance › Inspector › Panels. It shows each panel's icon with a switch, in the inspector's order. It
+/// is the same list as the icons' right-click menu, and settings.json keeps the hidden ones
+/// (`workbench.inspector.hiddenPanels`).
 struct InspectorPanelsRow: View {
     let title: AnyView
     @Environment(AppModel.self) private var app
@@ -300,7 +303,7 @@ struct InspectorPanelsRow: View {
                         set: { on in
                             var next = hidden
                             if on { next.remove(panel.id) } else { next.insert(panel.id) }
-                            // At least one stays: an inspector without icons has no way back but here.
+                            // At least one icon stays, because an inspector without icons has no way back but here.
                             guard next.count < panels.count else { return }
                             let kept = panels.map(\.id).filter(next.contains)
                             settings.set(SettingKeys.hiddenPanels, kept.isEmpty ? nil : kept)

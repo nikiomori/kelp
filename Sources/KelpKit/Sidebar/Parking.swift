@@ -2,13 +2,14 @@ import AppKit
 import Core
 import DesignKit
 
-/// Agents put out of the way: a "Parked" section at the bottom of the sidebar, no Done notifications, until a date or
-/// until it needs you. One comes back by itself, with a "Back:" line saying why, when it asks, fails, or CI fails in its
-/// folder. Kept in the daemon's UI state as `Mutes` keeps mutes (seconds since 1970; "until it needs me" is the far future).
+/// Agents put out of the way, until a date or until they need you. They sit in a "Parked" section at the bottom of the
+/// sidebar and send no Done notifications. A parked agent comes back by itself, with a "Back:" line saying why, when it
+/// asks, fails, or CI fails in its folder. Parks are kept in the daemon's UI state the way `Mutes` keeps mutes (seconds
+/// since 1970, and "until it needs me" is the far future).
 enum Parking {
     static let key = "sessions.parked"
 
-    /// Park ▸ …
+    /// The choices in the Park ▸ menu: each title and the date the park lasts until.
     static func choices(now: Date = Date(), calendar: Calendar = .current) -> [(title: String, until: Date)] {
         let morning =
             calendar.date(bySettingHour: 9, minute: 0, second: 0, of: now.addingTimeInterval(86400))
@@ -20,7 +21,7 @@ enum Parking {
         ]
     }
 
-    /// The parked row's time: how long it stays out of the way.
+    /// The time on a parked row, which says how long the agent stays out of the way.
     static func until(_ d: Date) -> String {
         d == Mutes.forever
             ? String(localized: "until it calls")
@@ -29,7 +30,7 @@ enum Parking {
 }
 
 extension Arrangement {
-    /// Parked now: what ran out counts no more.
+    /// The agents parked now. A park that ran out no longer counts.
     var parkedIds: Set<String> { Set(parked.filter { $0.value > Date() }.keys) }
     func isParked(_ id: String) -> Bool { parked[id].map { $0 > Date() } ?? false }
 
@@ -50,7 +51,7 @@ extension Arrangement {
         }
     }
 
-    /// Back in its project; `back` says why on its row until it's opened.
+    /// Puts an agent back in its project. `back` says why, on the agent's row, until the agent is opened.
     func unpark(_ id: String, back: String? = nil) {
         guard parked[id] != nil else { return }
         parked[id] = nil
@@ -64,8 +65,8 @@ extension Arrangement {
         if session.status == .error { unpark(session.id, back: String(localized: "it failed")) }
     }
 
-    /// CI that failed in a folder brings its parked agents back: the newest run of any of its workflows, as the daemon
-    /// and the marks read the branch's CI (`CIRuns.latest`), not only the newest run of them all.
+    /// Brings back the parked agents of a folder whose CI failed. It looks at the newest run of each workflow, as the
+    /// daemon and the marks read the branch's CI (`CIRuns.latest`), not only at the newest run overall.
     func followParked(_ ciEvent: CIEvent) {
         guard CIRuns.latest(ciEvent.result?.runs ?? []).contains(where: { $0.conclusion == "failure" }) else { return }
         for s in app.sessions where app.gitKey(s.worktreeId) == ciEvent.worktree && isParked(s.id) {
@@ -74,7 +75,7 @@ extension Arrangement {
     }
 }
 
-/// The "Parked" heading over the parked agents.
+/// The "Parked" heading above the parked agents.
 final class ParkedHeader: NSView {
     init(count: Int) {
         super.init(frame: .zero)

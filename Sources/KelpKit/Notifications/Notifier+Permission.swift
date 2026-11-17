@@ -1,10 +1,12 @@
-// Whether macOS lets Kelp post notifications: said once when it doesn't, and Settings' test notification.
+// Whether macOS lets Kelp post notifications (Kelp says so once when it doesn't), and the test notification in
+// Settings.
 import AppKit
 import Core
-@preconcurrency import UserNotifications   // its center and settings aren't marked Sendable
+@preconcurrency import UserNotifications   // the notification center and its settings aren't marked Sendable
 
 extension Notifier {
-    /// macOS can switch Kelp's banners off (System Settings › Notifications): say so once, instead of failing silently.
+    /// Checks whether macOS switched Kelp's banners off (System Settings › Notifications), and says so once instead of
+    /// failing silently.
     /// Called at launch and when Kelp comes to the front.
     func checkAllowed() {
         center?.getNotificationSettings { settings in
@@ -38,7 +40,8 @@ extension Notifier {
         }
     }
 
-    /// Settings › Notifications' "Send Test Notification": a banner now, or `false` when macOS has them turned off for Kelp.
+    /// Sends the banner for "Send Test Notification" in Settings › Notifications, or calls back `false` when macOS has
+    /// notifications turned off for Kelp.
     func sendTest(_ done: @escaping @MainActor (Bool) -> Void) {
         guard let center else {
             done(false)

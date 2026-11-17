@@ -2,16 +2,16 @@ import AppKit
 import Core
 import WorkbenchKit
 
-/// Starting agents and terminals in a workspace's editor area, each in a tab there: the session asked of the daemon at
-/// the size its terminal will have, then its tab in front of you, or beside what you're doing. Built-ins get one for the
-/// workspace on screen (`Workbench.starter`), never the editor area itself.
+/// Starts agents and terminals in a workspace's editor area, each in a tab there. It asks the daemon for the session at
+/// the size its terminal will have, then shows the tab in front of you or beside what you're doing. Built-ins get a
+/// starter for the workspace on screen (`Workbench.starter`), never the editor area itself.
 @MainActor
 package struct SessionStarter {
     let area: EditorArea
     private var app: AppModel { area.app }
     private var workspaceId: String { area.workspaceId }
 
-    /// `draft`: the prompt is typed for the user to send, not sent.
+    /// Starts an agent. With `draft`, the prompt is typed in for the user to send, not sent.
     package func newAgent(
         _ agent: String? = nil, prompt: String? = nil, draft: Bool = false, split: SplitDirection? = nil,
         focus: Bool = true
@@ -25,7 +25,8 @@ package struct SessionStarter {
     package func newTerminal(split: SplitDirection? = nil, focus: Bool = true) {
         createSession(SessionCreate(worktreeId: workspaceId, agent: Session.shellAgent), split: split, focus: focus)
     }
-    /// A terminal attached to tmux session `name` (started if tmux has none); the tab already attached to it, if there is one.
+    /// Opens a terminal attached to tmux session `name`, which is started if tmux has none. If a tab is already
+    /// attached to it, that tab is shown instead.
     func newTmux(_ name: String, split: SplitDirection? = nil, focus: Bool = true) {
         let name = Tmux.name(name)
         if let session = app.sessions.first(where: {
@@ -36,7 +37,8 @@ package struct SessionStarter {
         }
         createSession(SessionCreate(worktreeId: workspaceId, tmux: name), split: split, focus: focus)
     }
-    /// `cwd`: run it in another folder (a remote project's runs on its host), as a tab here. `created`: its session.
+    /// Runs a command in a tab here. `cwd` runs it in another folder (a remote project's command runs on its host).
+    /// `created` receives the new session.
     package func run(
         command: String?, title: String? = nil, cwd: String? = nil, split: SplitDirection? = nil, focus: Bool = true,
         created: ((Session) -> Void)? = nil
@@ -50,7 +52,7 @@ package struct SessionStarter {
             focus: focus, created: created)
     }
 
-    /// A new shell where `old` was, in the tab left for it; attached again when `old` was tmux's.
+    /// Starts a new shell in the tab `old` left behind. When `old` was attached to tmux, the shell attaches again.
     func newShell(like old: Session, inTabOf uri: String) {
         let create = sized(
             SessionCreate(
@@ -63,7 +65,7 @@ package struct SessionStarter {
         }
     }
 
-    /// In front of you, or (`focus` false, an agent or a script asked) beside what you're doing.
+    /// Shows the tab in front of you, or with `focus` false (an agent or a script asked), beside what you're doing.
     private func show(_ uri: String, split: SplitDirection?, focus: Bool) {
         if focus { area.open(uri, split: split) } else { area.showAside(uri, split: split) }
     }
@@ -81,7 +83,7 @@ package struct SessionStarter {
         }
     }
 
-    /// `create` asked at the size its terminal will have (`split`: in a new pane beside or below).
+    /// Returns `create` set to the size its terminal will have. `split` says it opens in a new pane beside or below.
     func sized<M: StartsSized>(_ create: M, split: SplitDirection? = nil) -> M {
         var create = create
         if let (cols, rows) = terminalSize(split: split) {
@@ -91,9 +93,9 @@ package struct SessionStarter {
         return create
     }
 
-    /// The size the new terminal will have, so the shell's first screen isn't drawn for another width (which leaves
-    /// zsh's stray "%" line, or an agent's banner wrapped twice). A split gets half the room; a guess on the small side
-    /// only leaves spare room.
+    /// Returns the size the new terminal will have, so the shell's first screen isn't drawn for another width (which
+    /// leaves zsh's stray "%" line, or an agent's banner wrapped twice). A split gets half the room, and a guess on the
+    /// small side only leaves spare room.
     private func terminalSize(split: SplitDirection?) -> (Int, Int)? {
         guard
             let grid = area.focusedContent?.terminalGrid ?? area.contents.values.lazy.compactMap(\.terminalGrid).first
@@ -108,6 +110,6 @@ package struct SessionStarter {
 }
 
 extension EditorArea {
-    /// What starts agents and terminals in this area.
+    /// The starter for agents and terminals in this area.
     var starter: SessionStarter { SessionStarter(area: self) }
 }

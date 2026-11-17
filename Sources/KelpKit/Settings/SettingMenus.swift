@@ -2,31 +2,31 @@ import AppKit
 import Core
 import DesignKit
 
-/// A setting as menu items, worded as Settings words it: how a part of the window looks, changed on the part itself.
-/// Pointing at a choice shows it (`tryOn`), a click keeps it, leaving goes back; what starts work (a check that asks
-/// GitHub) only acts on the click.
+/// A setting as menu items, worded as Settings words it, so how a part of the window looks can be changed on the part
+/// itself. Pointing at a choice shows it (`tryOn`), a click keeps it, and leaving goes back. A choice that starts work
+/// (a check that asks GitHub) only acts on the click.
 @MainActor
 extension NSMenu {
-    /// The choices in place, under `heading`.
+    /// Adds the choices in this menu, under `heading`.
     package func addChoices(_ setting: Setting<String>, _ app: AppModel, heading: String, tryOn: Bool = true) {
         addItem(.sectionHeader(title: heading))
         addChoiceItems(setting, app, tryOn: tryOn)
     }
 
-    /// The choices in a submenu of their own.
+    /// Adds the choices in a submenu of their own.
     package func addChoiceMenu(_ setting: Setting<String>, _ app: AppModel, title: String, tryOn: Bool = true) {
         let list = NSMenu()
         list.addChoiceItems(setting, app, tryOn: tryOn)
         add(title, submenu: list)
     }
 
-    /// A switch: a check mark, and a click changes it.
+    /// Adds a switch, shown as a check mark that a click changes.
     package func addToggle(_ setting: Setting<Bool>, _ app: AppModel, title: String) {
         let on = app.settings[setting]
         add(title) { app.settings.set(setting, !on) }.state = on ? .on : .off
     }
 
-    /// The last item: the section of Settings this part's settings are in, and the group in it.
+    /// Adds the last item, which opens the section of Settings this part's settings are in, at their group.
     package func addSettingsLink(_ title: String, section: String, group: String? = nil, _ app: AppModel) {
         add(title) {
             app.extensions.run(
@@ -52,7 +52,7 @@ extension NSMenu {
     }
 }
 
-/// One choice of a setting; holds the preview, as a menu only keeps its delegate weakly.
+/// One choice of a setting. It holds the preview, because a menu only keeps its delegate weakly.
 private final class ChoiceItem: NSMenuItem {
     let key: String, value: JSONValue, preview: ChoicePreview
     init(key: String, value: JSONValue, preview: ChoicePreview, title: String) {

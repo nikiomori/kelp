@@ -1,9 +1,9 @@
 import Core
 import Foundation
 
-/// Banners that wait while you type in Kelp: a finished or failed agent (and a limit warning) waits while a key was pressed
-/// in the last 20 s, and goes out after 20 s without one, when Kelp goes to the back or another workspace comes up.
-/// A question (Needs you) never waits; the sidebar and the Dock badge never wait either.
+/// Holds banners back while you type in Kelp. A finished or failed agent (and a limit warning) waits while a key was
+/// pressed in the last 20 s. It goes out after 20 s without a key, when Kelp goes to the back, or when another
+/// workspace comes up. A question (Needs you) never waits, and neither do the sidebar and the Dock badge.
 enum TypingHold {
     static let quiet: TimeInterval = 20
 
@@ -12,7 +12,8 @@ enum TypingHold {
         return now.timeIntervalSince(lastKey) < quiet
     }
 
-    /// "2 agents finished while you typed", a line each ("docs — Updated README", "perf — Failed: missing module"), up to 4.
+    /// Builds the held banner: the title "2 agents finished while you typed" and a line for each agent, up to 4
+    /// ("docs — Updated README", "perf — Failed: missing module").
     static func summary(_ lines: [(who: String, failed: Bool, text: String)]) -> (title: String, body: String) {
         let shown = lines.prefix(4).map { line in
             let text =

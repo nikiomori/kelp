@@ -47,7 +47,8 @@ final class TabStrip: NSView {
     }
     private let unzoom = PointerButton(frame: .zero)
     var focused = false { didSet { if focused != oldValue { buttons.forEach { $0.groupFocused = focused } } } }
-    /// A pane without focus among several: its tabs fade with its content, all but those with news (`TabButton.news`).
+    /// Whether this is a pane without focus among several. Its tabs then fade with its content, except those with news
+    /// (`TabButton.news`).
     var dimmed = false {
         didSet {
             guard dimmed != oldValue else { return }
@@ -78,8 +79,8 @@ final class TabStrip: NSView {
     /// "+" follows the last tab (set in layout); with the strip full, it stays at the right end.
     private var addLead: NSLayoutConstraint?
     private var laidOutWidth: CGFloat = 0
-    /// How wide the tabs and the buttons beside them want to be: the same at any width of the strip, and asking takes a
-    /// layout pass, for each step of a panel sliding by.
+    /// How wide the tabs and the buttons beside them want to be. It is kept because the answer is the same at any width
+    /// of the strip, and asking takes a layout pass for each step of a panel sliding by.
     private(set) var measured: (tabs: CGFloat, others: CGFloat, regular: CGFloat)?
     /// Settings › Appearance › Tab width: "regular", "compact", or "auto": regular while the tabs fit at their
     /// narrowest, compact once they would scroll.
@@ -160,8 +161,9 @@ final class TabStrip: NSView {
             addSubview(part)
         }
         addSubview(insertion)
-        // Below the split view's holding (250), like `fit`: measured before the overflow button shows, it asked for 18 pt
-        // more than the strip had, and the window widened to give them; now "+" gives way instead.
+        // The priority is below the split view's holding priority (250), like `fit`. Measured before the overflow
+        // button showed, "+" asked for 18 pt more than the strip had and the window widened to give them; now "+"
+        // gives way instead.
         let lead = adds.leadingAnchor.constraint(equalTo: leadingAnchor)
         lead.priority = .init(249)
         addLead = lead
@@ -190,8 +192,9 @@ final class TabStrip: NSView {
         let fit = stack.widthAnchor.constraint(lessThanOrEqualTo: scroll.widthAnchor)
         fit.priority = .init(245)
         fit.isActive = true
-        // The stack's own hugging would beat `fit` and keep every title whole. Its clipping resistance stays above `fit`:
-        // tabs at their minimum widen the stack (the strip scrolls) instead of running past its end, clipped.
+        // The stack's own hugging would beat `fit` and keep every title whole. Its clipping resistance stays above
+        // `fit`, so tabs at their minimum widen the stack (and the strip scrolls) instead of running past its end,
+        // clipped.
         stack.setHuggingPriority(.init(200), for: .horizontal)
         stack.setClippingResistancePriority(.init(246), for: .horizontal)
         registerForDraggedTypes([.kelpTab])
@@ -210,12 +213,13 @@ final class TabStrip: NSView {
         let kept = Dictionary(zip(self.items.map(\.id), buttons)) { first, _ in first }
         let next = items.map { kept[$0.id] ?? newButton() }
         let moved = next != buttons
-        // Nothing in common: another workspace's tabs, which simply show.
+        // When the old and new tabs have nothing in common, they are another workspace's tabs, which simply show.
         let places =
             moved && window != nil && items.contains { kept[$0.id] != nil }
             ? Dictionary(uniqueKeysWithValues: buttons.map { (ObjectIdentifier($0), $0.placeInWindow) }) : [:]
         for button in buttons where !next.contains(button) {
-            // Gone before the others close over it: two thirds of their `Motion.base`.
+            // A closed tab is gone before the others close over it, in `Motion.fast`, two thirds of their
+            // `Motion.base`.
             if !places.isEmpty { button.leaveGhost(in: self, duration: Motion.fast) }
             button.removeFromSuperview()
         }
@@ -224,7 +228,7 @@ final class TabStrip: NSView {
             stack.insertArrangedSubview(button, at: index)
         }
         buttons = next
-        // Only the tabs that changed take it, and only a change of size measures the strip again.
+        // Only the tabs that changed are updated, and only a change of size measures the strip again.
         var resized = moved
         for (button, item) in zip(buttons, items) {
             button.stripDimmed = dimmed
@@ -242,14 +246,14 @@ final class TabStrip: NSView {
         if reveal { revealSoon() }
     }
 
-    /// The titles' font changed: the tabs take it, and their widths with it.
+    /// Called when the titles' font changed, so the tabs take the new font and their widths change with it.
     func restyle() {
         buttons.forEach { $0.updateLook() }
         measured = nil
         needsLayout = true
     }
 
-    /// Next turn of the run loop, once however often it's asked.
+    /// Reveals the selected tab on the next turn of the run loop, once, however often it's asked.
     private func revealSoon() {
         guard !revealing else { return }
         revealing = true
@@ -267,8 +271,8 @@ final class TabStrip: NSView {
         return button
     }
 
-    /// The tabs travel from where they stood, a new one fades in at its place. The next tab can come to rest under a
-    /// pointer that closed the last: its ✕ is there for the next click, as in a browser.
+    /// The tabs travel from where they stood, and a new tab fades in at its place. The next tab can come to rest under
+    /// a pointer that closed the last one, so its ✕ is there for the next click, as in a browser.
     private func settle(from places: [ObjectIdentifier: NSPoint]) {
         layoutSubtreeIfNeeded()
         for button in buttons {
@@ -288,11 +292,11 @@ final class TabStrip: NSView {
 
     override func layout() {
         // "+" right after the tabs while they fit (as in Safari), else at the end of the room they have.
-        // Before super.layout(): set after it, the constant only took effect on the next pass, so a tab whose title
-        // grew (a page finishing loading) stayed clipped until something else laid the strip out.
+        // This runs before super.layout(), because when set after it the constant only took effect on the next pass,
+        // so a tab whose title grew (a page finishing loading) stayed clipped until something else laid the strip out.
         var sizes = measured ?? measure()
         var room = bounds.width - 6 - sizes.others - 2
-        // The chevron's room counts as the tabs': showing it mustn't turn them back to regular.
+        // The chevron's room counts as the tabs' room, so showing the chevron mustn't turn the tabs back to regular.
         let squeezed = sizes.regular > room + (overflow.isHidden ? 0 : overflow.fittingSize.width + 6)
         let compact = tabWidth == "compact" || tabWidth == "auto" && squeezed
         if compact != self.compact {
@@ -312,7 +316,8 @@ final class TabStrip: NSView {
         }
         super.layout()
         fadeEdges()
-        // Squeezed (a narrower window, the inspector opening): the chosen tab is scrolled back into view.
+        // When the strip is squeezed (a narrower window, the inspector opening), the chosen tab is scrolled back into
+        // view.
         if bounds.width != laidOutWidth {
             laidOutWidth = bounds.width
             revealSoon()
@@ -359,8 +364,9 @@ final class TabStrip: NSView {
 
     @objc private func unzoomTapped() { onUnzoom?() }
     @objc private func stripScrolled() { fadeEdges() }
-    /// The agent "+" would start first (nil: no agent CLI found, the button hides). Grey and faint at rest, no heavier than
-    /// the "+" beside it, as a mark that isn't a state must be here; its colour comes under the pointer.
+    /// Sets the agent that the button beside "+" starts (nil when no agent CLI was found, and the button hides). Its
+    /// icon is grey and faint at rest, no heavier than the "+" beside it, as a mark that isn't a state must be here;
+    /// its colour comes under the pointer.
     func setNewAgent(icon: NSImage?, grey: NSImage?, name: String) {
         if newAgent.isHidden != (icon == nil) { measured = nil }
         newAgent.isHidden = icon == nil
@@ -394,7 +400,7 @@ final class TabStrip: NSView {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: overflow.bounds.height + 4), in: overflow)
     }
 
-    /// The empty strip: what the + offers.
+    /// A right-click on the empty strip shows what the + offers.
     override func menu(for event: NSEvent) -> NSMenu? { addMenu?() }
 
     /// Double-click on the empty strip: new tab, like Safari's tab bar.

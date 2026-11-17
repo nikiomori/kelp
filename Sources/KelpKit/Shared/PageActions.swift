@@ -1,25 +1,25 @@
-// What can be done with a page a workspace serves, alike wherever it shows.
+// What can be done with a page a workspace serves, the same wherever the page shows.
 import AppKit
 import Core
 import DesignKit
 import WorkbenchKit
 
-/// A page a workspace serves, from the run chip, the Run menu, a blank browser tab and a server's tab alike: reached
-/// from this Mac, its address copied, what serves it stopped, a host's port forwarded here.
+/// Actions on a page a workspace serves, shared by the run chip, the Run menu, a blank browser tab and a server's tab.
+/// They reach the page from this Mac, copy its address, stop what serves it, and forward a host's port here.
 @MainActor
 package struct PageActions {
     let app: AppModel
     package init(_ app: AppModel) { self.app = app }
 
-    /// The page as this Mac reaches it (a host's port forwarded here first), the ports read again when that moved it; nil
-    /// when it can't be, and a banner says why.
+    /// Returns the page as this Mac reaches it (forwarding a host's port here first), and reads the ports again when
+    /// that moved the page. Returns nil when the page can't be reached, and a banner says why.
     package func reach(_ page: ServedPage, in wid: String) async -> ServedPage? {
         let here = await page.reached(in: wid) { await app.call($0) }
         if here != page { app.watchAgain(.ports, wid) }
         return here
     }
 
-    /// Its address as this Mac reaches it, on the pasteboard.
+    /// Copies the page's address, as this Mac reaches it, to the pasteboard.
     package func copy(_ page: ServedPage, in wid: String) async {
         guard let here = await reach(page, in: wid) else { return }
         copyText(here.address)
@@ -31,7 +31,8 @@ package struct PageActions {
         if await app.call(PortsStop(worktreeId: wid, pid: Int(pid))) != nil { app.watchAgain(.ports, wid) }
     }
 
-    /// A host's `port` brought to this Mac: the port it has here; nil when it couldn't be (a banner says why).
+    /// Forwards a host's `port` to this Mac and returns the port it has here. Returns nil when that fails, and a banner
+    /// says why.
     package func forward(_ port: Int, in wid: String) async -> Int? {
         await app.call(PortsForward(worktreeId: wid, port: port))?.port
     }

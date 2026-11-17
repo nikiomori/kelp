@@ -2,13 +2,14 @@ import AppKit
 import Core
 import DesignKit
 
-/// Clone a repository by URL, in a sheet that does the work in place: git's progress, its error in the sheet, and
-/// Cancel stops it and removes the half-made folder.
+/// Clones a repository by URL in a sheet that does the work in place. The sheet shows git's progress and its error,
+/// and Cancel stops the clone and removes the half-made folder.
 @MainActor
 final class CloneSheet: SheetController, NSTextFieldDelegate {
     private let field = NSTextField()
     private let dest = NSTextField(), choose = NSButton()
-    /// The folder the destination goes in until one is typed; the name in it follows the URL until it's typed over.
+    /// The folder the clone goes in until one is typed. The folder name in the destination follows the URL until it's
+    /// typed over.
     private lazy var parent = lastParent
     private var destEdited = false
     private let status = NSTextField(wrappingLabelWithString: "")
@@ -17,7 +18,8 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
     private var running: String?
     private static var shown: CloneSheet?
 
-    /// `start`: filled in and begun at once (the snapshot dev aid; a background app's sheet gets no keys).
+    /// Shows the sheet. With `start`, it is filled in and begun at once (for the snapshot dev aid, because a background
+    /// app's sheet gets no keys).
     static func show(_ app: AppModel, start text: String? = nil) {
         let sheet = CloneSheet(app: app)
         guard sheet.begin(ended: { shown = nil }) else { return }
@@ -35,7 +37,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Where clones go: the last place used, else next to the newest project, else ~/Developer or home.
+    /// The folder clones go in: the last one used, else the one next to the newest project, else ~/Developer or home.
     private var lastParent: URL {
         if let saved = UserDefaults.standard.string(forKey: "newProject.parent"),
             FileManager.default.fileExists(atPath: saved)
@@ -57,7 +59,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         dest.delegate = self
         dest.setContentHuggingPriority(.defaultLow, for: .horizontal)
         dest.usesSingleLineMode = true
-        dest.lineBreakMode = .byTruncatingHead   // a long path keeps its end in view: the folder it goes into
+        dest.lineBreakMode = .byTruncatingHead   // a long path keeps its end, the target folder, in view
         fill()
         choose.title = String(localized: "Choose…")
         choose.bezelStyle = .push
@@ -95,7 +97,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         if notification.object as? NSTextField === dest { destEdited = !dest.stringValue.isEmpty } else { fill() }
     }
 
-    /// "~/Developer/" + the URL's repository name, unless the destination was typed.
+    /// Fills in "~/Developer/" plus the URL's repository name, unless the destination was typed.
     private func fill() {
         guard !destEdited else { return }
         let name = RepoClone.folderName(field.stringValue)
@@ -104,7 +106,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
             + (name.isEmpty ? "/" : "")
     }
 
-    /// A folder to clone into, in an open panel: anywhere up or down from the last one, or a new one.
+    /// Picks a folder to clone into in an open panel: anywhere above or below the last one, or a new one.
     @objc private func pick() {
         guard let window else { return }
         let panel = NSOpenPanel()
@@ -121,22 +123,24 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         }
     }
 
-    /// The typed destination as a full path; one ending in "/" is the folder to go in, named after the repository.
+    /// The typed destination as a full path. A path ending in "/" is the folder to go in, and the clone is named after
+    /// the repository.
     private var destination: String? {
         let typed = dest.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        var path = (typed as NSString).expandingTildeInPath   // drops a trailing "/": checked on what was typed
+        var path = (typed as NSString).expandingTildeInPath   // this drops a trailing "/", so check what was typed
         if typed.hasSuffix("/") {
             path = (path as NSString).appendingPathComponent(RepoClone.folderName(field.stringValue))
         }
         return path.hasPrefix("/") ? (path as NSString).standardizingPath : nil
     }
 
-    /// A line git printed while cloning (`event.clone`): shown if it's this sheet's clone.
+    /// Shows a line git printed while cloning (`event.clone`), if it's this sheet's clone.
     static func cloneProgress(id: String?, line: String?) {
         if let sheet = shown, let id, id == sheet.running, let line { sheet.progress(line) }
     }
 
-    /// "Receiving objects:  45% (450/1000)" fills the bar; the line itself says what's happening.
+    /// Shows a progress line. "Receiving objects:  45% (450/1000)" fills the bar, and the line itself says what's
+    /// happening.
     private func progress(_ line: String) {
         status.isHidden = false
         status.textColor = .secondaryLabelColor
@@ -195,7 +199,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
             }
             UserDefaults.standard.set(parent, forKey: "newProject.parent")
             close()
-            if let path = result.value?.path { app.workbench.addProject(path: path) }   // on screen
+            if let path = result.value?.path { app.workbench.addProject(path: path) }   // and shows it
         }
     }
 

@@ -2,8 +2,9 @@ import AppKit
 import Core
 import DesignKit
 
-/// ⌥⌃⌘N, "New Group on Branch…": a new branch with a name of your choosing, a branch that's there already, or a pull
-/// request, each in a folder of its own, and the agent to start there. ⌃⌘N stays one keystroke, named by the first prompt.
+/// The sheet for ⌥⌃⌘N, "New Group on Branch…". It picks a new branch with a name of your choosing, a branch that's
+/// there already, or a pull request, each in a folder of its own, and the agent to start there. ⌃⌘N stays one
+/// keystroke, and its branch is named by the first prompt.
 @MainActor
 final class NewChatSheet: NSObject {
     enum Mode: Int { case new, existing, pullRequest }
@@ -21,7 +22,7 @@ final class NewChatSheet: NSObject {
     private var rows: [Mode: [NSView]] = [:]
     private var prs: [GitHub.PullRequest] = []
 
-    /// The sheet's fields for these branches (local, then remote) and pull requests; `base` picked in From.
+    /// The sheet's fields for these branches (local, then remote) and pull requests, with `base` picked in From.
     init(
         local: [String], remote: [String], base: String, prs: [GitHub.PullRequest],
         agents: [(id: String, name: String)], picked: String
@@ -64,7 +65,7 @@ final class NewChatSheet: NSObject {
         return line
     }
 
-    /// The fields: the mode on top, its own rows, the agent last.
+    /// The fields: the mode on top, then the mode's own rows, and the agent last.
     var view: NSView {
         let all = [Mode.new, .existing, .pullRequest].flatMap { rows[$0] ?? [] }
         let stack = NSStackView(views: [mode] + all + [row(String(localized: "Agent"), agent)])

@@ -3,12 +3,12 @@ import AppKit
 /// What Kelp's Dock icon shows. Only what is drawn is in here, so the icon is redrawn when the drawing changes,
 /// not at every status.
 package enum DockFace: Equatable {
-    /// One agent's mark. In the order they are drawn: what wants you first.
+    /// One agent's mark. The cases are in the order they are drawn, with what wants you first.
     package enum Cell: Int, Comparable {
-        case asks, failed, done, working   // finished work is news; work going on is not
+        case asks, failed, done, working   // finished work is news, and work going on is not
         package static func < (lhs: Cell, rhs: Cell) -> Bool { lhs.rawValue < rhs.rawValue }
     }
-    /// What fits in the pill.
+    /// How many marks fit in the pill.
     static let marks = 4
 
     case icon
@@ -41,7 +41,8 @@ final class DockFaceView: NSView {
         }
     }
 
-    /// As many marks as fit, what wants you first; the rest as a number, which takes the room of two.
+    /// Draws as many marks as fit, with what wants you first, and the rest as a number, which takes the room of two
+    /// marks.
     private func draw(_ cells: [DockFace.Cell]) {
         let marks = cells.prefix(cells.count > DockFace.marks ? DockFace.marks - 2 : DockFace.marks)
         let rest = cells.count - marks.count
@@ -56,7 +57,7 @@ final class DockFaceView: NSView {
         more?.draw(at: NSPoint(x: left, y: inner.midY - (more?.size().height ?? 0) / 2))
     }
 
-    /// Lays the pill, and says where its content goes.
+    /// Draws the pill, and returns where its content goes.
     private func pill(width: CGFloat) -> NSRect {
         let wide = width + 2 * Self.inset
         let shape = NSRect(x: bounds.midX - wide / 2, y: Self.foot, width: wide, height: Self.pillHeight)
@@ -80,7 +81,7 @@ final class DockFaceView: NSView {
         case .working:
             NSColor.white.setFill()
             dot.fill()
-        case .done:   // a ring: done is told from working by form, as on every other mark
+        case .done:   // a ring, so done differs from working by shape, as on every other mark
             let ring = NSBezierPath(ovalIn: box.insetBy(dx: 1.5, dy: 1.5))
             ring.lineWidth = 3
             NSColor.white.setStroke()

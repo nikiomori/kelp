@@ -14,7 +14,8 @@ struct ExtActions {
     let app: AppModel
     init(_ app: AppModel) { self.app = app }
 
-    /// `${Field}`, `${a.b}`, `${setting:key}`, `${workspace.path|branch|name}`, `${project.path}`, `${file}`. `quote` shell-quotes values.
+    /// Fills in a template's `${Field}`, `${a.b}`, `${setting:key}`, `${workspace.path|branch|name}`, `${project.path}`
+    /// and `${file}`. With `quote`, the values are shell-quoted.
     func expand(_ template: String, item: JSONValue?, quote: Bool) -> String {
         let ctx = IDEContext.of(app)
         let value: (String) -> String? = { key in
@@ -31,10 +32,11 @@ struct ExtActions {
                 return key.split(separator: ".").reduce(item) { $0?[String($1)] }.map(Self.text) ?? ""
             }
         }
-        // A command gets the values as shell variables, never as text in it: $(…) or a newline in a title can't run.
+        // A command gets the values as shell variables, never as text inside it, so $(…) or a newline in a title can't
+        // run.
         guard quote else { return ShellTemplate.substitute(template) { value($0) ?? "" } }
-        // Each value is also given as KELP_<name>, for a command that reads them that way: the item's fields and the
-        // workspace's.
+        // Each value (the item's fields and the workspace's) is also given as KELP_<name>, for a command that reads
+        // them that way.
         guard template.contains("KELP_") else { return ShellTemplate.fill(template, value) }
         var named = ["workspace.path", "workspace.branch", "workspace.name", "project.path", "file"].reduce(
             into: [String: String]()
@@ -43,10 +45,10 @@ struct ExtActions {
         return ShellTemplate.fill(template, named: named, value)
     }
 
-    /// The URI an `open` action opens: the extension's template with the item's values filled in, for an action that
-    /// opens something. A URI that runs something (terminal:, agent:) is never accepted when it comes from a value,
-    /// because a value is someone else's text (an issue's link field set to terminal://…?cmd=…); the answer is nil
-    /// then. The extension's own terminal: or agent: template is handled by `runAction`.
+    /// Returns the URI an `open` action opens: the extension's template with the item's values filled in. A URI that
+    /// runs something (terminal:, agent:) is never accepted when it comes from a value, because a value is someone
+    /// else's text (an issue's link field set to terminal://…?cmd=…); then this returns nil. `runAction` handles the
+    /// extension's own terminal: or agent: template.
     func openURI(_ template: String, item: JSONValue?) -> String? {
         Self.openableURI(
             TabURI.normalize(expand(template, item: item, quote: false), cwd: IDEContext.of(app).workspace?.path))
@@ -83,7 +85,8 @@ struct ExtActions {
             title: query["title"].map { expand($0, item: item, quote: false) })
     }
 
-    /// A URI that opens something (a page, a file, a diff, a tab) rather than running a command or an agent; nil else.
+    /// Returns the URI if it opens something (a page, a file, a diff, a tab) rather than running a command or an agent,
+    /// or nil otherwise.
     static func openableURI(_ uri: String) -> String? { TabURI.runs(uri) ? nil : uri }
 
     static func text(_ value: JSONValue) -> String {
@@ -132,7 +135,8 @@ struct ExtActions {
                     ))
             }
         }
-        // Typed, not sent: `item` is a command's output (an issue's title, a PR's body), which is someone else's words.
+        // The prompt is typed, not sent, because `item` is a command's output (an issue's title, a PR's body), which is
+        // someone else's words.
         else if let prompt = spec.agent {
             app.workbench.starterForNewTab?.newAgent(nil, prompt: expand(prompt, item: item, quote: false), draft: true)
         } else if let script = spec.run {

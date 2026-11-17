@@ -1,18 +1,20 @@
 import AppKit
 import Core
 
-/// Groups in windows of their own (`OwnWindow`). The window with the keyboard decides which workspace is on screen (the
-/// main window's, or the group's whose window has it), and the sidebar, the inspector and every command follow it.
+/// Groups in windows of their own (`OwnWindow`). The window with the keyboard decides which workspace is on screen
+/// (the main window's, or the group whose own window has the keyboard), and the sidebar, the inspector and every
+/// command follow it.
 @MainActor
 extension Workbench {
     func inOwnWindow(_ id: String?) -> Bool { window?.editors.ownWindow(id) != nil }
 
-    /// Shown somewhere: in the main window (not under a page) or in a window of its own.
+    /// Whether the workspace is shown somewhere: in the main window (not under a page) or in a window of its own.
     func isOnScreen(_ id: String) -> Bool {
         id == workspaceId || id == mainWorkspaceId && page == nil || inOwnWindow(id)
     }
 
-    /// The group's row: into a window of its own, or back into the main window. Kept across launches.
+    /// Moves a group into a window of its own, or back into the main window, from the group's row. This is kept across
+    /// launches.
     func toggleOwnWindow(_ id: String) {
         if inOwnWindow(id) { returnToMain(id) } else { moveToOwnWindow(id) }
     }
@@ -31,17 +33,18 @@ extension Workbench {
 
     func moveToOwnWindow(_ id: String) {
         guard let editors = window?.editors, app.worktree(id) != nil else { return }
-        // The main window shows what was there before, rather than nothing.
+        // The main window shows what was there before, instead of nothing.
         let next = recentWorkspaces.first { $0 != id && !inOwnWindow($0) && app.worktree($0) != nil }
         let fromMain = mainWorkspaceId == id
         editors.moveToOwnWindow(id, next: fromMain ? next : nil)
-        // A server's page over it went with it (the main window shows `next`): its row opens it again.
+        // A server's page shown over the group is dropped (the main window shows `next`), and the server's row opens
+        // it again.
         if fromMain { page = nil }
         saveOwnWindows()
         ownWindowBecameKey(id)
     }
 
-    /// The group's own window closed: the group, with all its tabs, is in the main window, in front.
+    /// Called when the group's own window closed. The group, with all its tabs, moves into the main window, in front.
     func returnToMain(_ id: String) {
         window?.editors.leaveOwnWindow(id)
         saveOwnWindows()
@@ -58,7 +61,8 @@ extension Workbench {
     }
 
     /// Called when the main window got the keyboard back from a group's own window, or when that group went away with
-    /// its window (removed elsewhere: `EditorHost.refresh`). The main window's workspace is then the one on screen.
+    /// its window (because it was removed elsewhere, see `EditorHost.refresh`). The main window's workspace is then the
+    /// one on screen.
     func mainWindowBecameKey() {
         guard inOwnWindow(workspaceId) || app.worktree(workspaceId) == nil else { return }
         window?.editors.becameKey(nil)
@@ -68,7 +72,8 @@ extension Workbench {
         history.visit(main)
     }
 
-    /// At launch, after the main window shows its workspace: the groups that were in windows of their own.
+    /// Reopens the groups that were in windows of their own. It runs at launch, after the main window shows its
+    /// workspace.
     func reopenOwnWindows() {
         for id in app.uiState.strings(Self.ownWindowsKey) where app.worktree(id) != nil { moveToOwnWindow(id) }
         for uri in app.uiState.strings(Self.pageWindowsKey) { openInOwnWindow(uri) }
@@ -95,14 +100,15 @@ extension Workbench {
         page.focus()
     }
 
-    /// What's asked for is in a window of its own: that window comes to the front instead.
+    /// When what's asked for is in a window of its own, brings that window to the front instead and returns true.
     func raiseOwnWindow(_ uri: String) -> Bool {
         guard let made = pageWindows[uri] else { return false }
         made.showWindow(nil)
         return true
     }
 
-    /// The page's own window that has the keys: no editor area has the keyboard then (`editor`), and ⌘W closes it.
+    /// The page window that has the keys. While there is one, no editor area has the keyboard (`editor`), and ⌘W closes
+    /// the page window.
     var keyPageWindow: OwnWindow? { pageWindows.values.first(where: \.hasKeys) }
 
     /// Called when one of Kelp's windows was covered, minimized or seen again. Kelp counts as away (`AppModel.setAway`)
@@ -115,8 +121,9 @@ extension Workbench {
         app.setAway(!places.contains { $0.map(seen) ?? false })
     }
 
-    /// The editor area someone can be reading: the one with the keyboard, while the window it's in (the main one, or
-    /// its group's own) is the key window and seen. `front`: a test's own (its windows never are).
+    /// The editor area someone can be reading: the one with the keyboard, while its window (the main one, or the
+    /// group's own) is the key window and seen. `front` lets a test say which window is in front (its windows never
+    /// are).
     func editorInFront(
         _ front: (NSWindow) -> Bool = { $0.isKeyWindow && $0.occlusionState.contains(.visible) }
     ) -> EditorArea? {

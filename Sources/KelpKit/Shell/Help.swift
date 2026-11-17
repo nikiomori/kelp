@@ -74,8 +74,8 @@ package enum Help {
 
     package static var location: URL { Paths.root.appendingPathComponent("HELP.md") }
 
-    /// Written next to the user's settings when opened, so it always matches this version; one that can't be written
-    /// opens as it was, with a banner saying why.
+    /// The guide's file. It is written next to the user's settings when opened, so it always matches this version. When
+    /// it can't be written, the old file opens as it was, with a banner saying why.
     @MainActor static var file: URL {
         do { try guide.write(to: location, atomically: true, encoding: .utf8) } catch {
             let why = error.localizedDescription

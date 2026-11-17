@@ -3,15 +3,15 @@ import Core
 import SwiftUI
 import WorkbenchKit
 
-/// Dragging rows among their own and folders from Finder.
+/// Dragging rows among their siblings, and folders in from Finder.
 extension SidebarController {
     // MARK: dragging: rows among their own, folders from Finder
 
     static let rowType = NSPasteboard.PasteboardType("dev.kelp.sidebar-row")
 
-    /// Projects and a project's groups move.
+    /// Lets projects and a project's groups be dragged.
     func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
-        // A group under the chat that made it stays there: its place is that chat's.
+        // A group under the chat that made it stays there, because its place is that chat's place.
         guard let node = item as? Node, node.id != nil, node.under == nil else { return nil }
         if case .project(let id) = node.kind, NoProject.holds(app.repo(id)) { return nil }   // always last
         let pasteboardItem = NSPasteboardItem()
@@ -23,8 +23,8 @@ extension SidebarController {
         forItems items: [Any]
     ) { card.close() }
 
-    /// The dragged row and where it lands among its siblings: before the block (the row and what's under it) the
-    /// pointer is over, or after it past its middle. A workspace stays in its project.
+    /// The dragged row and where it lands among its siblings. It lands before the block the pointer is over (the row
+    /// and what's under it), or after that block once the pointer is past its middle. A workspace stays in its project.
     private func move(_ info: NSDraggingInfo) -> (node: Node, parent: Node?, index: Int)? {
         let pb = info.draggingPasteboard
         guard info.draggingSource as? NSOutlineView === outline, pb.pasteboardItems?.count == 1,

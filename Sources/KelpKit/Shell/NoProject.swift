@@ -3,9 +3,9 @@ import Carbon.HIToolbox
 import Core
 import DesignKit
 
-/// Chats outside any project: "Chats", the last row of the sidebar, over a folder of Kelp's own (~/.kelp/scratch)
-/// where each agent gets a folder of its own for its task. A quick question, a one-off script, something in Downloads.
-/// ⌃⌥⌘K from any app starts one in the main window.
+/// Chats outside any project. They sit under "Chats", the last row of the sidebar, over a folder of Kelp's own
+/// (~/.kelp/scratch) where each agent gets a folder of its own for its task: a quick question, a one-off script,
+/// something in Downloads. ⌃⌥⌘K from any app starts one in the main window.
 @MainActor
 final class NoProject: NSObject {
     let app: AppModel
@@ -15,12 +15,12 @@ final class NoProject: NSObject {
     }
     private var hotKey: EventHotKeyRef?
 
-    /// Its project's path, so lists of projects can tell it apart.
+    /// The path of the No Project project, so lists of projects can tell it apart.
     static var path: String { resolved(Paths.scratch.path) }
     static func holds(_ repo: Repo?) -> Bool { repo.map { holds(path: $0.path) } ?? false }
     static func holds(path candidate: String) -> Bool { resolved(candidate) == path }
-    /// A path without its symlinks, asked of the disk once: every project's name asks whether it's this one, for every
-    /// row and tile drawn, and two walks of the disk each time held the main thread through a sidebar's pass.
+    /// Each path without its symlinks, asked of the disk once. Every project's name asks whether it's this project, for
+    /// every row and tile drawn, and two walks of the disk each time held the main thread through a sidebar's pass.
     private static var resolvedPaths: [String: String] = [:]
     private static func resolved(_ path: String) -> String {
         if let known = resolvedPaths[path] { return known }
@@ -29,12 +29,12 @@ final class NoProject: NSObject {
         return real
     }
 
-    /// Made the first time (the daemon's), so the row is there before anyone asks.
+    /// Makes the daemon's No Project project the first time, so the row is there before anyone asks.
     func ensure() async {
         if !app.repos.contains(where: Self.holds) { _ = await app.quiet(ScratchEnsure()) }
     }
 
-    /// A new chat on it, in the main window, from wherever you are.
+    /// Starts a new chat with no project, in the main window, from wherever you are.
     func newChat() {
         NSApp.activate()
         app.workbench.bringToFront()
@@ -44,7 +44,8 @@ final class NoProject: NSObject {
         }
     }
 
-    /// One already working in a folder you pick (Downloads, a game, photos): the folder stays as it is, not a project.
+    /// Starts a chat already working in a folder you pick (Downloads, a game, photos). The folder stays as it is and
+    /// doesn't become a project.
     func newChat(inFolderOf repo: Repo) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -57,10 +58,11 @@ final class NoProject: NSObject {
         }
     }
 
-    /// ⌃⌥⌘K from anywhere (a Carbon hot key: no Accessibility permission needed).
+    /// Registers ⌃⌥⌘K from anywhere (a Carbon hot key, so no Accessibility permission is needed).
     func registerHotKey() {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        // The handler is a C function: it finds this object through the pointer it's handed (the app keeps it).
+        // The handler is a C function, so it finds this object through the pointer it's handed (the app keeps the
+        // object alive).
         InstallEventHandler(
             GetApplicationEventTarget(),
             { _, _, me in

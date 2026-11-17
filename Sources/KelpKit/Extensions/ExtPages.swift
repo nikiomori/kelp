@@ -2,9 +2,10 @@ import Foundation
 import UniformTypeIdentifiers
 import WebKit
 
-/// An extension's own files, served to its web view with a policy a file URL can't carry. A page may show other people's
-/// text (an issue's title) and `kelp.exec` runs commands: markup that text slips in (`<img onerror=…>`) runs no script.
-/// The page's own scripts, inline or from a site, still do. `kelp-ext://page/<path in the folder>`.
+/// Serves an extension's own files to its web view, with a policy a file URL can't carry. A page may show other
+/// people's text (an issue's title), and `kelp.exec` runs commands, so markup slipped into that text (`<img
+/// onerror=…>`) runs no script. The page's own scripts, inline or from a site, still run. Addresses look like
+/// `kelp-ext://page/<path in the folder>`.
 @MainActor
 final class ExtPages: NSObject, WKURLSchemeHandler {
     static let scheme = "kelp-ext"
@@ -12,7 +13,7 @@ final class ExtPages: NSObject, WKURLSchemeHandler {
     let folder: URL
     init(folder: URL) { self.folder = folder }
 
-    /// The address of `file`, one in the folder.
+    /// Returns the address of `file`, which must be in the folder.
     func url(of file: URL) -> URL? {
         let base = folder.resolvingSymlinksInPath().path, path = file.resolvingSymlinksInPath().path
         guard path.hasPrefix(base + "/") else { return nil }
@@ -23,7 +24,7 @@ final class ExtPages: NSObject, WKURLSchemeHandler {
         return components.url
     }
 
-    /// The folder's file an address names; nil for one outside it (`..`, a link out).
+    /// Returns the file in the folder that an address names, or nil for one outside it (`..`, a link out).
     func file(_ url: URL) -> URL? {
         guard url.scheme == Self.scheme else { return nil }
         let resolved = folder.appendingPathComponent(url.path).resolvingSymlinksInPath()

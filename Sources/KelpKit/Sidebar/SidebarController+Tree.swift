@@ -1,4 +1,5 @@
-// The sidebar's model → tree: nodes from projects, workspaces and sessions, refreshed, selected, folded.
+// Builds the sidebar's tree from the model: nodes made from projects, workspaces and sessions, and how the tree is
+// refreshed, selected and folded.
 import AppKit
 import Core
 import DesignKit
@@ -37,7 +38,7 @@ extension SidebarController {
         return tree.build().map(node)
     }
 
-    /// The ways in, as File shows them: a folder (new or existing), a clone, a project over SSH.
+    /// The ways to add a project, as the File menu shows them: a folder (new or existing), a clone, a project over SSH.
     @objc func addMenu(_ button: NSButton) {
         let menu = NSMenu(), app = app
         for id in ["workspace.addProject", "workspace.cloneRepository", "workspace.addRemote"] {
@@ -54,8 +55,9 @@ extension SidebarController {
     /// Same shape → refresh the visible cells; new shape → reload, keeping expansion and selection.
     func refresh() {
         let next = build()
-        // A project's row also stands for its one workspace: when that arrives after the project (or changes), the nodes
-        // must be new, or the row the workspace on screen is looked up by (workspaceNode) isn't found and nothing is picked.
+        // A project's row also stands for its one workspace. When that workspace arrives after the project (or
+        // changes), the nodes must be new. Otherwise `workspaceNode` doesn't find the row for the workspace on screen,
+        // and nothing is selected.
         func flat(_ ns: [Node]) -> [String] {
             ns.flatMap {
                 [$0.key + ($0.workspace.map { "=" + $0 } ?? "") + ($0.under.map { "<" + $0 } ?? "")] + flat($0.children)
@@ -74,33 +76,36 @@ extension SidebarController {
         outline.reloadData()
         for root in roots where !collapsed.contains(root.key) { expand(root) }
         syncing = false
-        rowHeights = []   // as with the cells: a row's height was taken before its rows opened, as its card's end
-        instantly { updateVisibleCells() }   // cells were made before their rows expanded; the cards go where the rows are now
+        // As with the cells, a row's height was taken before the rows under it opened, as the end of its card.
+        rowHeights = []
+        // The cells were made before their rows expanded. The cards go where the rows are now.
+        instantly { updateVisibleCells() }
         syncSelection()
         settle(from: before)
         closeUp(after: before, rows: places, cards: cardFrames)
     }
 
-    /// A project and the workspaces in it that weren't folded (their children wait until the project opens).
+    /// Expands a project and the workspaces in it that weren't folded (their children wait until the project opens).
     func expand(_ node: Node) {
         outline.expandItem(node)
         for child in node.children where !collapsed.contains(child.key) { outline.expandItem(child) }
     }
 
-    /// The row of what's on screen: the agent whose tab has focus, else its workspace. Several rows picked stay picked.
+    /// Selects the row of what's on screen: the agent whose tab has focus, or else its workspace. When several rows are
+    /// selected, they stay selected.
     func syncSelection() {
         if let page = app.workbench.page { return select(page: page) }
         guard let id = app.workbench.workspaceId, let workspace = workspaceNode(id),
             outline.selectedRowIndexes.count <= 1
         else { return }
-        // Gone to from elsewhere (⌃1, the line over the list) while its project is folded: open the project. Only on the
-        // way in: a project folded while you're in it stays folded.
+        // When you reach a workspace from elsewhere (⌃1, the line above the list) while its project is folded, the
+        // project opens. This happens only on the way in, so a project you fold while you're in it stays folded.
         if id != revealed, let project = outline.parent(forItem: workspace) as? Node, isCollapsed(project) {
             open(project)
         }
         revealed = id
         let tab = app.workbench.focusedTab ?? ""
-        // A child has no row: its parent's stands for it.
+        // A child agent has no row, so its parent's row stands for it.
         let on = TabURI.body(tab), parent = app.session(on)?.parent ?? ""
         let agent =
             TabURI.scheme(tab) == "session"
@@ -116,7 +121,7 @@ extension SidebarController {
         keepOpenInView()
     }
 
-    /// A server's page goes with its last project: back to the workspace behind it.
+    /// Closes a server's page when its last project goes, and goes back to the workspace behind it.
     private func leavePage(unless hosts: Set<String>) {
         guard let page = app.workbench.page, TabURI.scheme(page) == "host", !hosts.contains(TabURI.body(page)),
             let id = app.workbench.workspaceId ?? app.worktrees.first?.id
@@ -124,7 +129,7 @@ extension SidebarController {
         app.workbench.show(workspace: id)
     }
 
-    /// A server's page, opened from its header's row.
+    /// Selects the header row of a server whose page is open.
     private func select(page: String) {
         guard TabURI.scheme(page) == "host", let header = node("h:" + TabURI.body(page)) else { return }
         let row = outline.row(forItem: header)
@@ -134,14 +139,14 @@ extension SidebarController {
         syncing = false
     }
 
-    /// In the window's second row, beside Add Project: who needs you and who's working. The row is always there, so the
-    /// list under it doesn't move when the first agent starts.
+    /// Places the summary of who needs you and who's working in the window's second row, beside Add Project. The row is
+    /// always there, so the list under it doesn't move when the first agent starts.
     func placeSummary(over list: NSScrollView, beside add: NSView) {
         let summary = AgentSummary(app: app)
         summary.light = { [weak self] ids in self?.light(sessions: ids) }
         summary.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(summary)
-        NSLayoutConstraint.activate([   // in line with the projects' cards (SidebarRowView.band): 8 pt to the window's edge
+        NSLayoutConstraint.activate([   // in line with the project cards (SidebarRowView.band), 8 pt from the edge
             summary.centerYAnchor.constraint(equalTo: add.centerYAnchor),
             summary.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
             summary.trailingAnchor.constraint(equalTo: add.leadingAnchor),
@@ -149,14 +154,15 @@ extension SidebarController {
         ])
     }
 
-    /// The rows of these chats lit as if the pointer were on them; one in a folded project or group lights that row.
+    /// Lights the rows of these chats as if the pointer were on them. A chat in a folded project or group lights that
+    /// project's or group's row.
     func light(sessions ids: Set<String>) {
         var rows = IndexSet()
         for id in ids { if let row = shownRow("a:" + id) { rows.insert(row) } }
         outline.enumerateAvailableRowViews { view, row in (view as? SidebarRowView)?.lit = rows.contains(row) }
     }
 
-    /// The row a node shows in: its own, or the nearest folded one over it.
+    /// The row a node shows in: its own row, or the nearest folded row above it.
     private func shownRow(_ key: String) -> Int? {
         func path(_ nodes: [Node]) -> [Node]? {
             for node in nodes {
@@ -168,7 +174,8 @@ extension SidebarController {
         return path(roots)?.reversed().lazy.map { self.outline.row(forItem: $0) }.first { $0 >= 0 }
     }
 
-    /// The built-ins' sidebar blocks as the registry has them now: each made afresh, in their order, the feet last.
+    /// Makes the built-ins' sidebar blocks as the registry has them now. Each block is made afresh, in the registry's
+    /// order, with the foot blocks last.
     func makeSections() {
         guard let sections else { return }
         sections.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -180,7 +187,7 @@ extension SidebarController {
         }
     }
 
-    /// The workspace on screen stays in view with its agents under it (they can show up after it was selected).
+    /// Keeps the workspace on screen in view, with its agents under it (they can show up after it was selected).
     func keepOpenInView() {
         guard let id = app.workbench.workspaceId, let workspace = workspaceNode(id) else { return }
         let row = outline.row(forItem: workspace)

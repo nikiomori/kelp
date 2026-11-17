@@ -1,28 +1,30 @@
 import AppKit
 import Core
 
-/// The shell's own settings: Appearance and General, read where the window, sidebar and inspector draw them. Their rows
-/// in Settings follow, below.
+/// The shell's own settings in Appearance and General, read where the window, sidebar and inspector draw them. Their
+/// rows in Settings follow below.
 extension SettingKeys {
     static let theme = Setting("workbench.theme", "auto")
     static let textSize = Setting("workbench.textSize", "normal")
     static let terminalOpacity = Setting("terminal.opacity", "theme")
     /// "regular", "compact", or "auto" (compact once the tabs no longer fit).
     static let tabWidth = Setting("workbench.tabWidth", "auto")
-    /// "regular" (28 pt tabs in a 40 pt strip) or "compact" (24 pt in 32 pt); the band of the sidebar and the inspector
-    /// follows it.
+    /// "regular" (28 pt tabs in a 40 pt strip) or "compact" (24 pt in 32 pt). The band at the top of the sidebar and
+    /// the inspector follows it.
     static let tabHeight = Setting("workbench.tabHeight", "regular")
     static let sideBySideButton = Setting("workbench.sideBySideButton", true)
     static let awakeButton = Setting("workbench.awakeButton", true)
     @MainActor static let iconTheme = Setting("workbench.iconTheme", FileIcon.standard)
     static let language = Setting("workbench.language", "system")
     static let confirmQuit = Setting("workbench.confirmQuit", false)
-    /// Keyboard shortcuts set by hand, command id → key ("" none): Settings › Keyboard, its own page. Not a row.
+    /// Keyboard shortcuts set by hand, as command id → key ("" for none). They are set on their own page, Settings ›
+    /// Keyboard, not in a row.
     static let keys = Setting<JSONValue?>("keys", nil)
 
-    /// nil: every panel's icon shows.
+    /// The panels whose icons are hidden. With nil, every panel's icon shows.
     static let hiddenPanels = Setting<[String]?>("workbench.inspector.hiddenPanels", nil)
-    /// The inspector's icons as they were dragged; panels it doesn't name follow in the registry's order. Not a row.
+    /// The order of the inspector's icons as they were dragged. Panels it doesn't name follow in the registry's order.
+    /// This isn't a row.
     static let panelOrder = Setting<[String]>("workbench.inspector.panelOrder", [])
     static let inspectorIconsPosition = Setting("workbench.inspectorIconsPosition", "top")
     static let inspectorIcons = Setting("workbench.inspectorIcons", "center")
@@ -37,9 +39,9 @@ extension SettingKeys {
     static let sidebarOrder = Setting("workbench.sidebar.order", "manual")
 }
 
-/// The shell's rows in Settings, beside its keys: what each is called, its choices and its help.
+/// The shell's rows in Settings, beside its keys: what each row is called, its choices and its help.
 extension Builtins {
-    /// Appearance: the theme and text first, then how the sidebar, the inspector and the window look.
+    /// The Appearance rows: the theme and text first, then how the sidebar, the inspector and the window look.
     static func appearanceRows(_ app: AppModel) -> [SettingSpec] {
         [
             s(
@@ -123,7 +125,8 @@ extension Builtins {
             "⌘Q and closing the window ask “Quit Kelp?” first.", icon: ("power", NSColor(hex: 0x5856D6)))
     ]
 
-    /// Appearance › Inspector: its panels and where their icons sit, here and in the icons' own right-click menu.
+    /// The rows of Appearance › Inspector: its panels and where their icons sit. They show here and in the icons' own
+    /// right-click menu.
     static let inspectorRows = [
         s(
             SettingKeys.hiddenPanels, "Panels", .panels, "Drag an icon in the inspector to move it.",
@@ -144,7 +147,8 @@ extension Builtins {
             group: "Inspector")
     ]
 
-    /// Appearance › Sidebar: what people see differently in the list, each read where the sidebar draws it.
+    /// The rows of Appearance › Sidebar: choices that change what people see in the list. The sidebar reads each one
+    /// where it draws that part.
     static let sidebarRows = [
         s(
             SettingKeys.sidebarAutoHide, "Auto-hide sidebar", .boolean,

@@ -2,9 +2,11 @@ import AppKit
 import Core
 import WorkbenchKit
 
-/// Following the sessions: tabs for those started elsewhere, gone for those that ended, a restarted one in its old tab.
+/// How the editor area follows the sessions: it opens tabs for sessions started elsewhere, removes tabs of sessions
+/// that ended, and puts a restarted session in its old tab.
 extension EditorArea {
-    /// Daemon state changed: sessions started elsewhere (CLI, agents, scripts) get a tab; deleted ones go.
+    /// Runs when the daemon's state changed. Sessions started elsewhere (CLI, agents, scripts) get a tab, and the tabs
+    /// of deleted sessions go.
     func reconcile() {
         let mine = app.sessions.filter { $0.worktreeId == workspaceId }
         let known = Set(app.sessions.map(\.id))
@@ -12,15 +14,16 @@ extension EditorArea {
         for tab in layout.allTabs where TabURI.scheme(tab.uri) == "session" {
             let sid = TabURI.body(tab.uri)
             let session = app.session(sid)
-            if let other = session?.worktreeId, other != workspaceId {   // gone to another screen: its tab goes with it
+            if let other = session?.worktreeId, other != workspaceId {   // moved to another workspace, so its tab goes
                 contents[tab.id] = nil
                 layout.remove(tab.id)
                 changed = true
                 movedOut = true
                 continue
             }
-            // Ended while Kelp was closed (or deleted): nothing to show. Ended now: keep it, the tab offers Restart.
-            // A lost connection stays too: its agent still runs on the host, reached by Reconnect, ended by closing the tab.
+            // A session that ended while Kelp was closed (or was deleted) has nothing to show. One that ends now keeps
+            // its tab, which offers Restart. A lost connection keeps its tab too, because its agent still runs on the
+            // host; Reconnect reaches it, and closing the tab ends it.
             if !known.contains(sid)
                 || (!reconciledOnce && session?.status == .exited && session?.connectionLost != true)
             {
@@ -46,9 +49,10 @@ extension EditorArea {
             changed = true
         }
         reconciledOnce = true
-        if arrange() { changed = true }   // an agent started, paused, woke or ended: the panes follow
+        if arrange() { changed = true }   // when an agent started, paused, woke or ended, the panes follow
         if changed || (start == nil && layout.allTabs.isEmpty) || view.subviews.isEmpty {
-            // Rebuilding the panes takes the keys from the terminal being typed in: they go back to the focused tab.
+            // Rebuilding the panes takes the keys from the terminal being typed in, so give them back to the focused
+            // tab.
             let typing = (view.window?.firstResponder as? NSView)?.isDescendant(of: view) == true
             render()
             if typing { focusSelected() }
@@ -57,8 +61,8 @@ extension EditorArea {
         }
     }
 
-    /// `new` in the tab that showed `old`, in its place (a restarted session, a new file saved under a name).
-    /// `focus: false` for a workspace that isn't on screen.
+    /// Shows `new` in the tab that showed `old`, in the same place (a restarted session, a new file saved under a
+    /// name). Pass `focus: false` for a workspace that isn't on screen.
     func replace(_ old: String, with new: String, focus: Bool = true) {
         let dup = layout.tab(uri: new)
         guard let tab = layout.replace(old, with: new) else {
@@ -71,8 +75,9 @@ extension EditorArea {
         select(tab.id, focus: focus)
     }
 
-    /// Follow Edits: `uri` shown beside `owner`'s tab, the keys left where they are. It takes the place of `last`, the
-    /// file shown before for the same agent, while that's open and unedited: following leaves one tab, not one a file.
+    /// Follow Edits: shows `uri` beside the tab of `owner` and leaves the keys where they are. The file takes the place
+    /// of `last`, the file shown before for the same agent, while that one is open and unedited, so following leaves
+    /// one tab rather than one tab per file.
     func showBeside(_ uri: String, of owner: String, replacing last: String?) {
         let typing = (view.window?.firstResponder as? NSView)?.isDescendant(of: view) == true
         let keep = layout.focused
@@ -84,10 +89,10 @@ extension EditorArea {
             let target = layout.groups.keys.sorted().first { $0 != gid } ?? layout.newGroup(beside: gid, vertical: true)
             layout.add(uri, to: target)
         } else {
-            return showAside(uri)   // open already: brought forward where it is
+            return showAside(uri)   // already open, so it is brought forward where it is
         }
         layout.focused = keep
-        arrange()   // side by side, files go to the pane the agents share
+        arrange()   // with agents side by side, files go to the pane the agents share
         render()
         if typing { focusSelected() }
     }

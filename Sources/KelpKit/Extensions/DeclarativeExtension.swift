@@ -13,7 +13,7 @@ struct ExtManifest: Decodable {
         var settings: [SettingSpec]?, themes: [Theme]?, iconThemes: [IconThemeRef]?, agents: [AgentManifest]?
         var languages: [LanguageSpec]?
     }
-    /// VS Code's own shape: the theme file is in VS Code's file icon theme format.
+    /// An icon theme entry in VS Code's own shape; the theme file uses VS Code's file icon theme format.
     struct IconThemeRef: Decodable {
         var id: String
         var label: String?
@@ -27,7 +27,8 @@ struct ExtManifest: Decodable {
         var web: String?
         var badge: BadgeDef?
     }
-    /// A panel's icon badge: what `command` prints (`PanelBadge(_:)`), read every `refresh` seconds (60 by default).
+    /// The badge on a panel's icon: what `command` prints (`PanelBadge(_:)`), run again every `refresh` seconds (60 by
+    /// default).
     struct BadgeDef: Decodable {
         var command: String
         var refresh: Double?
@@ -51,7 +52,7 @@ struct ExtManifest: Decodable {
         var id: String?
         var title: String
         var icon: String?, key: String?, confirm: String?
-        /// Commands only: the menu bar menu it's listed in (Tools when left out).
+        /// For commands only: the menu bar menu the command is listed in (Tools when left out).
         var menu: String?
         var terminal: String?, run: String?, open: String?, agent: String?
     }
@@ -79,11 +80,12 @@ struct VSCodePackage: Decodable {
     }
 }
 
-/// A folder's extension.json (or a VS Code package.json) turned into contributions. What it keeps between reloads, the
-/// views that `ext:` tabs open and each folder's last manifest that worked, is kept in `app`'s registry.
+/// Turns a folder's extension.json (or a VS Code package.json) into contributions. What it keeps between reloads (the
+/// views that `ext:` tabs open, and each folder's last manifest that worked) is stored in the registry of `app`.
 @MainActor
 enum DeclarativeExtension {
-    /// `tools`: required tools known to be there or not (`ExtensionRegistry.tools`); one not in it counts as there.
+    /// Loads one folder. `tools` says which required tools are known to be there or not (`ExtensionRegistry.tools`); a
+    /// tool not in it counts as there.
     static func load(_ folder: URL, tools: [String: Bool] = [:], app: AppModel) -> (
         info: ExtensionInfo, contributions: Contributions
     ) {
@@ -101,7 +103,7 @@ enum DeclarativeExtension {
                 app.extensions.lastGood[folder.path] = manifest
                 problem = nil
             } catch {
-                // nothing worked before: the error alone
+                // when no manifest of this folder worked before, only the error is shown
                 guard let kept = app.extensions.lastGood[folder.path] else { throw error }
                 manifest = kept
                 problem = (error as? DecodingError).map(describe) ?? error.localizedDescription
@@ -252,18 +254,20 @@ final class ExtViewTab: TabContent {
     func focus() {}
 }
 
-/// An extension panel's badge: its manifest's command, read while the inspector lists the panel, or `kelp.badge` from its page.
+/// The badge of an extension's panel. It comes from the manifest's command, run while the inspector lists the panel, or
+/// from `kelp.badge` on the panel's page.
 @MainActor @Observable
 final class ExtBadge {
     var value: PanelBadge?
 
     func poll(_ def: ExtManifest.BadgeDef, folder: URL, app: AppModel) async {
         while !Task.isCancelled {
-            if !app.away {   // nobody sees the badge while the window isn't: its command waits
+            if !app.away {   // nobody sees the badge while the window is away, so the command waits
                 let cmd = ExtActions(app).expand(def.command, item: nil, quote: true)
                 let cwd = IDEContext.of(app).workspace?.path ?? folder.path
                 let result = await Shell.run(app, cmd, cwd: cwd, extension: folder.lastPathComponent)
-                // A command that fails is a red dot, its error the key: looked at once, it stays quiet until the error changes.
+                // A command that fails gives a red dot keyed by its error. Once the user has looked at it, the dot
+                // stays off until the error changes.
                 let next =
                     result.code == 0
                     ? PanelBadge(result.stdout) : PanelBadge(alert: true, key: String(result.stderr.prefix(200)))

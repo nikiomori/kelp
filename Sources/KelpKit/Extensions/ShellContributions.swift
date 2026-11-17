@@ -1,4 +1,5 @@
-// What extensions hand the shell besides panels and commands: tabs, branch and CI hooks, sidebar parts, Contributions.
+// What extensions give the shell besides panels and commands: tabs, branch and CI hooks, sidebar parts, and the
+// `Contributions` struct that holds them all.
 import Agents
 import AppKit
 import Core
@@ -30,15 +31,17 @@ package struct TabProvider {
     }
     let schemes: [String]
     let make: @MainActor (String) -> TabContent?
-    /// What its tab shows before it's built (a tab in the background since launch), from the URI alone: it must not do
-    /// work. None: the URI and a puzzle piece.
+    /// What the provider's tab shows before the tab is built (a tab left in the background since launch). It works from
+    /// the URI alone and must not do work. Without it, the tab shows the URI and a puzzle piece.
     var placeholder: (@MainActor (_ uri: String) -> (title: String, icon: NSImage?, toolTip: String?))?
-    /// Its marks while it isn't built, as its tab's `badge` would say them (a session's state and context ring).
+    /// The marks a tab shows while it isn't built, as the tab's own `badge` would show them (a session's state and
+    /// context ring).
     var badge: (@MainActor (_ uri: String) -> TabBadge?)?
-    /// A tab of its hidden a while lets go of what it holds (a terminal's surface, ~25 MB) and is built again when shown
-    /// (`EditorRelease`); meanwhile `placeholder` and `badge` stand in.
+    /// Whether this provider's tabs, once hidden for a while, let go of what they hold (a terminal's surface, ~25 MB)
+    /// and are built again when shown (`EditorRelease`). Meanwhile `placeholder` and `badge` stand in.
     let releasable: Bool
-    /// Closing a tab of its URI that was never built (in the background since launch); false keeps it.
+    /// Closes a tab of this provider that was never built (in the background since launch). Returning false keeps the
+    /// tab.
     var closeUnbuilt: (@MainActor (_ uri: String) async -> Bool)?
     /// Items added to the tab's context menu, above Close Tab: `workspace` is the editor area's workspace, and
     /// `openBeside` opens a URI in a pane to the right.
@@ -48,14 +51,14 @@ package struct TabProvider {
                 _ menu: NSMenu, _ uri: String, _ workspace: String, _ openBeside: @escaping @MainActor (String) -> Void
             ) -> Void
         )?
-    /// The built-in's tabs in `workspace` that an agent drives (a page `kelp browser` acts in), by tab id: which agent
-    /// drives each, and the glow while it acts. Such a tab wears the agent's logo and card. It is read under
-    /// observation, so it must not do work.
+    /// The built-in's tabs in `workspace` that an agent drives (a page that `kelp browser` acts in), keyed by tab id.
+    /// Each entry names the agent's session and the glow while it acts. Such a tab wears the agent's logo and card.
+    /// This is read under observation, so it must not do work.
     var driven: (@MainActor (_ workspace: String) -> [String: (session: String, glow: NSColor?)])?
 }
 
-/// What the window bar's branch chip does, from the built-in that knows git (Git): what runs on a workspace's branch now
-/// ("Pushing…") and the popover a click opens.
+/// What the branch chip on the window bar does, supplied by the built-in that knows git (Git): what is running on a
+/// workspace's branch now ("Pushing…"), and the popover a click opens.
 package struct BranchActions {
     let running: @MainActor (_ worktree: String) -> String?
     let popover: @MainActor (_ worktree: String, _ popover: NSPopover) -> NSViewController
@@ -68,29 +71,34 @@ package struct BranchActions {
     }
 }
 
-/// A folder's CI and pull request shown as marks, from the built-in that watches them (Git): beside the folder's
-/// sidebar row, in the ⌃Tab switcher and on the window bar's chips. It says what the marks say and where a click goes,
-/// gives the PR for the folder's hover card, and fills the branch chip's menu. It is read under observation, so it must
-/// not do work.
+/// A folder's CI and pull request shown as marks, supplied by the built-in that watches them (Git). The marks show
+/// beside the folder's sidebar row, in the ⌃Tab switcher and on the chips of the window bar. This struct says what the
+/// marks say and where a click goes, gives the PR for the folder's hover card, and fills the branch chip's menu. It is
+/// read under observation, so it must not do work.
 package struct FolderCI {
-    /// Every folder's CI mark beside its row: the rows follow this, not each CI read.
+    /// The CI mark of every folder, shown beside its row. The rows follow this map rather than each CI read.
     let rows: @MainActor () -> [String: CIRuns.State]
     let row: @MainActor (_ folder: String) -> CIRuns.State?
-    /// On the branch chip: the mark, and whether it sits at the title's end (else in the branch glyph's place).
+    /// The mark on the branch chip, and whether it sits at the end of the title (otherwise in place of the branch
+    /// glyph).
     let chip: @MainActor (_ folder: String) -> (state: CIRuns.State, atEnd: Bool)?
     /// "CI: Failed · Tests, Deploy", for tooltips and VoiceOver.
     let line: @MainActor (_ folder: String) -> String?
     let open: @MainActor (_ folder: String) -> Void
-    /// The branch chip's menu for the workspace on screen: Create Pull Request while its branch has none, the CI items.
+    /// Fills the branch chip's menu for the workspace on screen: Create Pull Request while its branch has none, and the
+    /// CI items.
     let menu: @MainActor (_ menu: NSMenu, _ worktree: String?) -> Void
-    /// The branch's pull request beside the folder: "#12" in its state's colour, what it says, the tab a click opens.
+    /// The pull request of the folder's branch, shown beside the folder: "#12" in the colour of its state, its tooltip,
+    /// and the tab a click opens.
     let pr: @MainActor (_ folder: String) -> (title: NSAttributedString, tip: String, uri: String)?
-    /// A CI mark in the built-in's look (12 pt), for a row, the branch chip or a tile: the view, and what shows a
-    /// state in it (`spelled`: the row is under the pointer), answering how much wider than 12 pt it then is.
+    /// Makes a CI mark in the built-in's look (12 pt) for a row, the branch chip or a tile. It returns the view and a
+    /// function that shows a state in it. `spelled` means the row is under the pointer, and the function returns how
+    /// much wider than 12 pt the mark then is.
     let mark: @MainActor () -> (view: NSView, show: @MainActor (CIRuns.State?, _ spelled: Bool) -> CGFloat)
-    /// The pull request in full, in the folder's hover card (nil: none).
+    /// The pull request in full, for the folder's hover card (nil when there is none).
     let card: @MainActor (_ folder: String) -> AnyView?
-    /// The folder whose hover card is open, nil once it closes: its pull request is read meanwhile.
+    /// Tells the built-in which folder's hover card is open (nil once it closes), so that folder's pull request is read
+    /// while the card is open.
     let carded: @MainActor (_ folder: String?) -> Void
     package init(
         rows: @escaping @MainActor () -> [String: CIRuns.State],
@@ -117,24 +125,26 @@ package struct FolderCI {
     }
 }
 
-/// A mark a built-in puts on a row, read under observation (it must not do work): the machine an agent runs a command
-/// in, the page it drives, its workspace's CI on its tile in the Dock strip. Each reader shows the places it has.
+/// A mark a built-in puts on a row: the machine an agent runs a command in, the page it drives, or the CI of its
+/// workspace on its tile in the Dock strip. It is read under observation, so it must not do work. Each reader shows
+/// only the places it has.
 package struct RowMark: Equatable {
-    /// Where a mark shows. On an agent's sidebar row: in the chip's place, when the row has no goal or command of its
-    /// own to show (`chip`), or as a button of its own beside the dots, in `tint`, glowing in `glow`, a click doing
-    /// `open` (`button`). On the tile of an agent of its workspace in the Dock strip: in the tile's corner, with the
-    /// menu offering `open` under `tip` (`tile`).
+    /// Where a mark shows. `chip`: on an agent's sidebar row, in place of the chip, when the row has no goal or command
+    /// of its own to show. `button`: on an agent's sidebar row, as a button of its own beside the dots, in `tint` and
+    /// glowing in `glow`, where a click runs `open`. `tile`: in the corner of the Dock strip's tile for an agent in the
+    /// workspace, with a menu that offers `open` under `tip`.
     package enum Place: Sendable { case chip, button, tile }
     package let place: Place
-    /// An SF Symbol, else `view`: a mark the built-in draws itself (Git's CI mark), made when it's shown.
+    /// An SF Symbol name. When it is nil, `view` makes a mark the built-in draws itself (Git's CI mark) when the mark
+    /// is shown.
     let symbol: String?
     package let view: (@MainActor () -> NSView)?
     let tint: NSColor?, glow: NSColor?
     package let tip: String
-    /// The subagents whose dots it lights on the agent's row, and in what colour (the ones acting on a page).
+    /// The subagents whose dots the mark lights on the agent's row (those acting on a page), and the colour it uses.
     let lights: Set<String>, lightColor: NSColor?
     package let open: (@MainActor () -> Void)?
-    /// What a `view` shows, for a reader to tell it changed (CI's state).
+    /// A key for what a `view` shows (CI's state), so a reader can tell when it changed.
     package let key: String
     package init(
         _ place: Place, symbol: String? = nil, view: (@MainActor () -> NSView)? = nil, tint: NSColor? = nil,
@@ -152,15 +162,15 @@ package struct RowMark: Equatable {
         self.key = key
         self.open = open
     }
-    /// What shows: the closures aside.
+    /// Compares what shows, leaving the closures aside.
     package static func == (a: RowMark, b: RowMark) -> Bool {
         (a.place, a.symbol, a.tint, a.glow, a.tip) == (b.place, b.symbol, b.tint, b.glow, b.tip)
             && (a.lights, a.lightColor, a.key) == (b.lights, b.lightColor, b.key)
     }
 }
 
-/// A block of a built-in's own in the sidebar, under the projects (Machines): its view, made when the sidebar is.
-/// `foot`: at the very bottom, under every other block (the plan limits).
+/// A block a built-in adds to the sidebar under the projects (Machines). Its view is made when the sidebar is made.
+/// `foot` puts the block at the very bottom, under every other block (the plan limits).
 package struct SidebarSection {
     let id: String
     let foot: Bool
@@ -172,15 +182,15 @@ package struct SidebarSection {
     }
 }
 
-/// The sidebar's server cards, from the built-in that knows SSH servers (Servers): the header over the projects on one
-/// host and what a remote project's hover card adds (their menus are its `rowMenu`). None, and a remote project is a row
-/// like any other.
+/// The sidebar's server cards, supplied by the built-in that knows SSH servers (Servers): the header over the projects
+/// on one host, and what a remote project's hover card adds. Their menus come from the built-in's `rowMenu`. Without
+/// server cards, a remote project is a row like any other.
 package struct ServerCards {
-    /// The header's row, brought up to date by the sidebar as its rows and its card's look change.
+    /// Makes the header's row. The sidebar brings it up to date as the server's rows and the card's look change.
     let header: @MainActor (_ host: String, _ row: ServerRow) -> SidebarRow
-    /// In a remote project's hover card, under its title; `close` puts the card away.
+    /// The part a remote project's hover card shows under its title; `close` puts the card away.
     let section: @MainActor (_ host: String, _ close: @escaping () -> Void) -> AnyView
-    /// The hosts the sidebar lists, each time it builds its rows.
+    /// Tells the built-in which hosts the sidebar lists, each time the sidebar builds its rows.
     let listed: @MainActor (_ hosts: Set<String>) -> Void
     package init(
         header: @escaping @MainActor (String, ServerRow) -> SidebarRow,
@@ -193,23 +203,25 @@ package struct ServerCards {
     }
 }
 
-/// What a server's header asks the sidebar: whether its projects are folded away, to fold or open them, and the striped
-/// plate under its icon when that is how its card is marked (Settings › Appearance › Servers; nil: none).
+/// What a server's header asks of the sidebar: whether the server's projects are folded away, a way to fold or open
+/// them, and the striped plate under its icon when that is how its card is marked (Settings › Appearance › Servers; nil
+/// when it isn't).
 package struct ServerRow {
     package let folded: @MainActor () -> Bool
     package let fold: @MainActor () -> Void
     package let plate: @MainActor () -> NSColor?
 }
 
-/// A row a built-in makes for the sidebar (a server's header): `update` shows what it stands for now.
+/// A row a built-in makes for the sidebar (a server's header). `update` makes the row show the current state of what it
+/// stands for.
 @MainActor
 package protocol SidebarRow: NSView {
     func update()
 }
 
-/// Everything one extension adds. Built-ins fill it in Swift; folders from extension.json.
+/// Everything one extension adds. Built-ins fill it in Swift; folder extensions fill it from extension.json.
 package struct Contributions {
-    /// What a built-in hands over, once (a folder extension's are read from its manifest).
+    /// What a built-in hands over, once. A folder extension's contributions are read from its manifest instead.
     package init(
         panels: [PanelSpec] = [], editors: [EditorSpec] = [], commands: [CommandSpec] = [],
         settings: [SettingsSection] = [], tabs: [TabProvider] = [], sidebarSections: [SidebarSection] = [],
@@ -258,58 +270,65 @@ package struct Contributions {
     var iconThemes: [IconThemeSpec] = []
     var agents: [AgentManifest] = []
     var tabs: [TabProvider] = []
-    /// Blocks of its own in the sidebar, under the projects (Machines), made when the sidebar is and only while it's on.
+    /// The extension's own blocks in the sidebar under the projects (Machines), made when the sidebar is made and only
+    /// while the extension is on.
     var sidebarSections: [SidebarSection] = []
-    /// Marks on rows (`RowMark`): an agent's row, its tile in the Dock strip. Read under observation: no work.
+    /// Marks on rows (`RowMark`), such as an agent's row and its tile in the Dock strip. They are read under
+    /// observation, so they must not do work.
     var rowMarks: [@MainActor (SidebarItem.Kind) -> [RowMark]] = []
-    /// Sessions it keeps running with no tab and no sidebar row (Run's runs put away in the Run menu). Read under
-    /// observation: it must not do work.
+    /// Sessions the extension keeps running with no tab and no sidebar row (runs that Run put away in the Run menu).
+    /// This is read under observation, so it must not do work.
     var sessionHidden: [@MainActor () -> Set<String>] = []
     /// Items added at the top of a sidebar row's menu (a project's, a server's header…), each ending with its
     /// separator: for example a merged PR's "Switch to main and Pull", or a server's own items.
     var rowMenu: [@MainActor (_ row: SidebarItem.Kind, _ menu: NSMenu) -> Void] = []
-    /// The branch chip's actions: one built-in's (the first that has them); none, and the chip only shows the branch.
+    /// The branch chip's actions, from one built-in (the first that has them). Without them, the chip only shows the
+    /// branch.
     var branch: BranchActions?
-    /// The CI and PR marks on folders' rows and the window bar: one built-in's (the first that has them); none, and no
-    /// CI or pull request shows.
+    /// The CI and PR marks on folders' rows and the window bar, from one built-in (the first that has them). Without
+    /// them, no CI or pull request shows.
     package var ci: FolderCI?
-    /// Each reading the daemon pushes, as it lands (not only the latest: a limit's pace takes every one).
+    /// Hears each reading the daemon pushes as it lands, not only the latest, because a limit's pace needs every
+    /// reading.
     var pushed: [@MainActor (any Pushed) -> Void] = []
-    /// What the plan limits say beside each agent where agents are chosen, under the first-task field and of a session one
-    /// stopped: one built-in's; none, and nothing of plans shows.
+    /// What the plan limits say beside each agent where agents are chosen, under the first-task field, and about a
+    /// session that a limit stopped. It comes from one built-in; without it, nothing about plans shows.
     var plans: PlanWords?
-    /// The sidebar's server cards: one built-in's (the first that has them); none, and remote projects are plain rows.
+    /// The sidebar's server cards, from one built-in (the first that has them). Without them, remote projects are plain
+    /// rows.
     var servers: ServerCards?
-    /// Run once when Kelp has started, its window up: what a built-in keeps going by itself (the agent strip).
+    /// Runs once when Kelp has started and its window is up, to start what a built-in keeps going by itself (the agent
+    /// strip).
     var launched: [@MainActor () -> Void] = []
-    /// Items of its own in the Dock icon's menu, under New Chat.
+    /// The extension's own items in the Dock icon's menu, under New Chat.
     var dockMenu: [@MainActor (NSMenu) -> Void] = []
     /// The Dock icon's face when it shows Plan Usage (nil when there is nothing to show). One built-in provides it;
     /// with none, the Dock shows the plain icon.
     var dockUsage: (@MainActor () -> DockFace?)?
-    /// What runs in a workspace: its chip, the Run menu, its tabs and pages: one built-in's (the first that has it).
+    /// What runs in a workspace (its chip, the Run menu, its tabs and pages), from one built-in (the first that has
+    /// it).
     var runs: ProjectRuns?
-    /// In load order: `LanguageSpec.find` lets a later one replace an earlier one with the same id.
+    /// Languages in load order, so `LanguageSpec.find` lets a later language replace an earlier one with the same id.
     package var languages: [LanguageSpec] = []
-    /// What it teaches agents (`AgentSkills`).
+    /// The skills the extension teaches agents (`AgentSkills`).
     var skills: [SkillSpec] = []
-    /// Its part of an agent's hover card, under what the card says of the agent (the page it drives); `close` puts the
-    /// card away. Made while the card is up.
+    /// The extension's part of an agent's hover card (such as the page the agent drives), shown under what the card
+    /// says about the agent. `close` puts the card away. The part is made while the card is up.
     var agentCards: [@MainActor (_ session: Session, _ close: @escaping @MainActor () -> Void) -> AnyView?] = []
     /// What a subagent's last command did, in the built-in's own words, for the agent's card (for a `kelp browser`
     /// command, the page's last step). Nil shows the command as it ran.
     var subagentSteps: [@MainActor (_ session: String, _ subagent: String, _ command: String) -> String?] = []
-    /// A daemon event the shell keeps nothing of (a page a session printed, a port another program holds, an agent's
-    /// `kelp browser` command), heard as it comes: true when it took it, and the next ones aren't asked. None takes
-    /// an agent's browser command, and it is told the Browser is off.
+    /// Hears daemon events the shell keeps no record of (a page a session printed, a port another program holds, an
+    /// agent's `kelp browser` command) as they come. A handler returns true when it took the event, and the later
+    /// handlers aren't asked. When no handler takes an agent's browser command, the agent is told the Browser is off.
     var events: [@MainActor (any RPCEvent) -> Bool] = []
-    /// ⌘P's lists for what is typed after a character the built-in claims ("#": Issues' pull requests); when two
-    /// built-ins claim one character, the first wins.
+    /// Lists for ⌘P, keyed by a character the built-in claims, for what is typed after that character ("#" gives the
+    /// pull requests of Issues). When two built-ins claim the same character, the first wins.
     var quickPrefixes: [String: @MainActor (_ typed: String) async -> [QuickItem]] = [:]
 
     /// Merges another extension's contributions after this one's (the registry merges them in load order): a list gets
-    /// the other's items after these, and a single hook keeps the first extension's. A new field gets its line here,
-    /// next to the fields.
+    /// the other's items after these, and a single hook keeps the first extension's. A new field needs its own line
+    /// here too.
     mutating func add(_ contributions: Contributions) {
         panels += contributions.panels
         editors += contributions.editors

@@ -3,8 +3,9 @@ import Core
 import CoreImage
 import DesignKit
 
-/// The small rounded tiles agents and projects show as (sidebar, tabs, menus), so every row's icon has the same size
-/// and shape: an app's icon filling its tile without the margin macOS draws around it, or the name's initial on a colour.
+/// The small rounded tiles that agents and projects show as (sidebar, tabs, menus), so every row's icon has the same
+/// size and shape. A tile is an app's icon filling it without the margin macOS draws around it, or the name's initial
+/// on a colour.
 @MainActor
 enum IconTile {
     nonisolated static let side: CGFloat = 32
@@ -21,12 +22,12 @@ enum IconTile {
             edge(rect)
             return true
         }
-        img.cacheMode = .never   // its edge is drawn for each appearance
+        img.cacheMode = .never   // the edge is drawn again for each appearance
         return img
     }
 
-    /// A hairline just inside each tile's edge, so every tile has one: then a black logo on a dark row and a white logo
-    /// on a light row read as tiles of the same shape, not as loose marks next to bright squares.
+    /// Draws a hairline just inside each tile's edge. With it, a black logo on a dark row and a white logo on a light
+    /// row read as tiles of the same shape, not as loose marks next to bright squares.
     static func edge(_ rect: NSRect) {
         NSColor.labelColor.withAlphaComponent(0.14).setStroke()
         let line = NSBezierPath(roundedRect: rect.insetBy(dx: 0.25, dy: 0.25), xRadius: 6.75, yRadius: 6.75)
@@ -34,9 +35,10 @@ enum IconTile {
         line.stroke()
     }
 
-    /// A tile for a name: with `color`, its initial in white on that colour (an agent's brand); otherwise its initials
-    /// ("AS" for AgroStorage) in a quiet hue on a tint of it, `hue` or one picked from the name (the same name, the same
-    /// hue). The hues leave out orange, red and green: next to a row's status marks those mean asking, failed and done.
+    /// A tile for a name. With `color`, it shows the initial in white on that colour (an agent's brand). Otherwise it
+    /// shows the initials ("AS" for AgroStorage) in a quiet hue on a tint of that hue, using `hue` or a hue picked from
+    /// the name (the same name always gets the same hue). The hues leave out orange, red and green, because next to a
+    /// row's status marks those mean asking, failed and done.
     static func letter(_ name: String, color: NSColor? = nil, hue chosen: Hue? = nil, size: CGFloat = side) -> NSImage {
         let text =
             color == nil
@@ -56,12 +58,12 @@ enum IconTile {
             label.draw(at: NSPoint(x: rect.midX - extent.width / 2, y: rect.midY - extent.height / 2))
             return true
         }
-        img.cacheMode = .never   // drawn again for each appearance: one cached tile serves light and dark rows
+        img.cacheMode = .never   // drawn again for each appearance, so one tile serves light and dark rows
         img.accessibilityDescription = name
         return img
     }
 
-    /// The first letters of the first two words: "AgroStorage" AS, "kelp-extensions" KE, "vangersert" V.
+    /// The first letters of the first two words: "AgroStorage" gives AS, "kelp-extensions" KE, "vangersert" V.
     static func initials(_ name: String) -> String {
         var words: [String] = [], word = ""
         for character in name {
@@ -79,7 +81,7 @@ enum IconTile {
         return out.isEmpty ? "?" : out
     }
 
-    /// A tile's colours in both appearances: its letter (at least 4.5:1 against its tint) and the tint under it.
+    /// A tile's colours in both appearances: the letter (at least 4.5:1 against the tint) and the tint under it.
     struct Hue {
         let dark: Int, light: Int, gray: Bool
         func ink(_ dark: Bool) -> NSColor {
@@ -98,8 +100,8 @@ enum IconTile {
 }
 
 extension NSImage {
-    /// The same picture without its colour, at the same size (a paused agent's icon), rendered once: an `NSCIImageRep`
-    /// makes a new CIContext (Metal libraries loaded and hashed) each time it's drawn.
+    /// The same picture without its colour, at the same size (for a paused agent's icon). It is rendered once, because
+    /// an `NSCIImageRep` makes a new CIContext (Metal libraries loaded and hashed) each time it's drawn.
     @MainActor var grayscale: NSImage {
         guard let cg = cgImage(forProposedRect: nil, context: nil, hints: nil),
             let gray = IconTile.ci.createCGImage(
@@ -120,7 +122,8 @@ extension NSImage {
 }
 
 extension FileChange {
-    /// VS Code's status letter and colour, as Files and the diff's file list show it (text shades: they colour names too).
+    /// VS Code's status letter and colour, as Files and the diff's file list show it. The colours are text shades,
+    /// because they colour names too.
     package var badge: (String, NSColor) {
         let letter =
             conflicted

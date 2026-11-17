@@ -6,8 +6,9 @@ import DesignKit
 import WorkbenchKit
 
 extension EditorArea {
-    /// A run's tab (started from the Run menu) among the terminals: its purpose's symbol in colour, with a glow of that
-    /// colour. Any session's tab shows the port it serves as a plain label; the title bar's capsule is what opens it.
+    /// Gives a run's tab (started from the Run menu) its look among the terminals: the symbol of its purpose in colour,
+    /// with a glow of that colour. Any session's tab shows the port it serves as a plain label; the capsule in the
+    /// title bar is what opens it.
     func runLook(_ item: TabStrip.Item, _ tab: TabRef) -> TabStrip.Item {
         if let driven = app.extensions.tabProvider(for: tab.uri)?.driven { return drivenLook(item, tab, driven) }
         guard TabURI.scheme(tab.uri) == "session", let session = app.session(TabURI.body(tab.uri)),
@@ -26,8 +27,8 @@ extension EditorArea {
         return item
     }
 
-    /// A tab an agent drives (a page, `TabProvider.driven`): the agent's logo for its icon, its card under the pointer,
-    /// and a glow in its colour while it acts there.
+    /// Gives a tab an agent drives (a page, `TabProvider.driven`) the agent's logo as its icon, the agent's card under
+    /// the pointer, and a glow in the agent's colour while it acts there.
     func drivenLook(
         _ item: TabStrip.Item, _ tab: TabRef,
         _ driven: @MainActor (String) -> [String: (session: String, glow: NSColor?)]
@@ -40,8 +41,8 @@ extension EditorArea {
         return item
     }
 
-    /// Strip entry for a tab not built yet, from its URI alone.
-    /// Two files with one name (README.md twice): each tab adds its folder, "README.md — docs", as Xcode does.
+    /// Tells apart the tabs of two files with one name (README.md twice): each such tab adds its folder,
+    /// "README.md — docs", as Xcode does.
     static func disambiguated(_ items: [TabStrip.Item], _ tabs: [TabRef]) -> [TabStrip.Item] {
         let paths = tabs.map { TabURI.scheme($0.uri) == "file" ? TabURI.filePath($0.uri).path as NSString : nil }
         let names = paths.map { $0?.lastPathComponent }
@@ -57,7 +58,8 @@ extension EditorArea {
         }
     }
 
-    /// A tab not built yet, as its provider says it will look; an extension's view by its manifest, else its URI.
+    /// The strip entry for a tab not built yet, as its provider says it will look. Without a provider's placeholder,
+    /// an extension's view shows as its manifest says, and any other tab shows its URI.
     func placeholder(_ tab: TabRef) -> TabStrip.Item {
         if let look = app.extensions.tabProvider(for: tab.uri)?.placeholder?(tab.uri) {
             return .init(id: tab.id, title: look.title, icon: look.icon, toolTip: look.toolTip)

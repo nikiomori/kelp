@@ -5,9 +5,10 @@ import DesignKit
 import WorkbenchKit
 
 extension SidebarCell {
-    /// The agent's icon: before its name when Agent icons is Always, a grey glyph after it for an agent other than the
-    /// default one (Other Agents Only), none for Never. In colour while the agent is loaded; paused, the same icon without
-    /// its colour (not see-through: a faded tile read wider than the others), so what's unloaded reads at a glance.
+    /// Shows the agent's icon. It goes before the name when Agent icons is Always, as a grey glyph after the name for
+    /// an agent other than the default one (Other Agents Only), and not at all for Never. The icon is in colour while
+    /// the agent is loaded. A paused agent gets the same icon without its colour (not see-through, because a faded tile
+    /// read wider than the others), so what's unloaded reads at a glance.
     func showIcon(_ session: Session) {
         let mode = app.settings[SettingKeys.agentIcons],
             image = app.catalog.icon(session.agent, size: 16)
@@ -22,7 +23,7 @@ extension SidebarCell {
         glyph.setAccessibilityLabel(glyph.toolTip)
     }
 
-    /// The slot's two looks, one shown (`showIcon`): the mark, or the logo with the mark in its corner.
+    /// Makes the slot's two looks, of which `showIcon` shows one: the mark, or the logo with the mark in its corner.
     func lead() -> NSView {
         let view = NSView()
         markBox.addSubview(mark)
@@ -44,7 +45,7 @@ extension SidebarCell {
         return view
     }
 
-    /// The face's corner says what the row's mark would.
+    /// Sets the mark in the face's corner to say what the row's mark would.
     func showFace(_ session: Session) {
         let faceMark = face.mark
         faceMark.status = mark.status
@@ -74,21 +75,23 @@ extension SidebarCell {
         for part in [title, ask, trailing] as [NSView] { part.setAccessibilityElement(false) }
     }
 
-    /// One line, as Mail lists mailboxes: an agent asking for you or done unseen is bold (isNews) and its mark says which;
-    /// the colour stays on the mark (orange text on a light sidebar is 2:1). What it asks or did is on the hover card.
+    /// Styles the row as one line, as Mail lists mailboxes. An agent asking for you, or done and unseen, is bold
+    /// (isNews), and its mark says which. The colour stays on the mark, because orange text on a light sidebar is 2:1.
+    /// What the agent asks or did is on the hover card.
     func showState(_ session: Session) {
         title.textColor = session.status == .paused ? .secondaryLabelColor : .labelColor
         trailing.textColor = selected ? Self.onPill : .secondaryLabelColor
         toolTip = nil
     }
 
-    /// A mark for the goal it works toward, else for what runs beside it, as on its tab, else for the machine it runs a
-    /// command in (`kelp vm run`). Words have no room here: a name and a chip shared the same points, and a command mostly
-    /// ended before it could be read. The tooltip and the card say them.
+    /// Shows a chip for the goal the agent works toward, or else for what runs beside it (as on its tab), or else for
+    /// the machine it runs a command in (`kelp vm run`). The chip has no words, because a name and a chip shared the
+    /// same points, and a command mostly ended before it could be read. The tooltip and the card say them.
     func showChip(_ session: Session) {
         let beside = session.aside.count,
             mark = beside == 0 ? app.extensions.rowMarks(.agent(session.id)).first(where: { $0.place == .chip }) : nil
-        // Beside the dots there's no room for both it and the name: the card lists what it says.
+        // Beside the dots there's no room for both the chip and the name, so the chip hides and the card lists what it
+        // says.
         chip.isHidden = !family.isHidden || (session.goal == nil && beside == 0 && mark == nil)
         if let goal = session.goal {
             chip.show("scope")
@@ -150,8 +153,8 @@ extension SidebarCell {
         hasBadge = (changeCounts != nil || sharedTip != nil, prBadge != nil, state != nil)
         fitBadges()
     }
-    /// A quiet dot at rest; under the pointer, the counts on a pill, as the PR's number is shown (bare, they read as
-    /// part of the name).
+    /// Shows the changes as a quiet dot at rest. Under the pointer it shows the counts on a pill, as the PR's number is
+    /// shown, because bare counts read as part of the name.
     func showChanges() {
         let full = spelling === changes ? counts : nil,
             title = full ?? Self.dot(shares ? .textOrange : .secondaryLabelColor)
@@ -164,13 +167,13 @@ extension SidebarCell {
             string: "•", attributes: [.font: NSFont.ui(TextSize.row, weight: .semibold), .foregroundColor: color])
     }
 
-    /// Badges show while the name fits beside them: they step aside before it truncates (left to itself the stack
-    /// squeezes the name instead: "kdrde…  +2 −1").
+    /// Shows the badges only while the name fits beside them, so they step aside before the name truncates. Left to
+    /// itself, the stack squeezes the name instead ("kdrde…  +2 −1").
     func fitBadges() {
         guard let rowStack = changes.superview as? NSStackView else { return }
         let others = rowStack.views.filter { $0 !== changes && $0 !== pr && $0 !== ci && $0 !== stack && !$0.isHidden }
-        // Fitting, not intrinsic, size: the slot and the "+" are sized by constraints and have no intrinsic width, so the
-        // name lost their room to the marks ("K…").
+        // Use the fitting size, not the intrinsic size. The slot and the "+" are sized by constraints and have no
+        // intrinsic width, so with the intrinsic size the name lost their room to the marks ("K…").
         var room = bounds.width - 2 - others.reduce(0) { $0 + $1.fittingSize.width + rowStack.spacing }
         let gap = rowStack.spacing
         func take(_ badge: NSView, _ has: Bool, _ need: CGFloat) {
@@ -178,8 +181,8 @@ extension SidebarCell {
             if show { room -= need + gap }
             rowStack.setVisibilityPriority(show ? .mustHold : .notVisible, for: badge)
         }
-        // What stays longest goes first: a failed CI, the chats (one logo, else their count; the tooltip names all), the
-        // changes, the PR, then the second logo.
+        // Room goes first to what stays longest: a failed CI, then the chats (one logo, or else their count, with all
+        // of them named in the tooltip), the changes, the PR, and last the second logo.
         take(ci, hasBadge.ci, ci.intrinsicContentSize.width + ciMark.overhang)
         var logos = stack.total == 0 ? nil : [min(1, stack.count), 0].first { stack.width(showing: $0) + gap <= room }
         if let least = logos { room -= stack.width(showing: least) + gap }

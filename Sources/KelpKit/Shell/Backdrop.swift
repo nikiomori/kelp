@@ -2,14 +2,15 @@ import AppKit
 import DesignKit
 import QuartzCore
 
-/// What a theme paints on the window's surface, under the panels and, in a theme whose card is clear, the terminals. The
-/// layers move on the render server at a few frames a second and stop while Kelp isn't the active app or under Reduce Motion (switched while it's open too).
+/// What a theme paints on the window's surface, under the panels and, in a theme whose card is clear, the terminals.
+/// The layers move on the render server at a few frames a second. They stop while Kelp isn't the active app, and under
+/// Reduce Motion (also when it is switched on while the window is open).
 @MainActor
 final class Backdrop: NSView {
     private var ambient: WindowLook.Ambient?
     private let stage = CALayer()
     private var built = NSSize.zero
-    /// Kelp coming to the front and going behind: let go of with the view.
+    /// Watches Kelp coming to the front and going behind. The observers are removed with the view.
     private var observers: [NSObjectProtocol] = []
 
     init() {
@@ -38,7 +39,8 @@ final class Backdrop: NSView {
 
     override func layout() {
         super.layout()
-        // Dragging the window's edge, the scene just stretches: built anew at every step, its motes jumped about.
+        // While the window's edge is dragged, the scene just stretches, because when it was built anew at every step,
+        // its motes jumped about.
         if inLiveResize { stage.frame = bounds } else if bounds.size != built { build() }
     }
     override func viewDidEndLiveResize() {
@@ -60,7 +62,7 @@ final class Backdrop: NSView {
         run(NSApp.isActive)
     }
 
-    /// Stopped or going again from where it was.
+    /// Stops the scene, or starts it again from where it was.
     private func run(_ on: Bool) {
         guard on != (stage.speed != 0) else { return }
         if on {
@@ -102,8 +104,8 @@ final class Backdrop: NSView {
         }
     }
 
-    /// Specks of light rising through dark water, over the colour of the depth. Each is at its own point of its rise, so
-    /// the water is full from the start.
+    /// Specks of light rising through dark water, over the colour of the depth. Each speck starts at its own point of
+    /// its rise, so the water is full from the start.
     private static func motes(_ colors: [NSColor], in rect: NSRect) -> [CALayer] {
         let depth = CAGradientLayer()
         depth.frame = rect

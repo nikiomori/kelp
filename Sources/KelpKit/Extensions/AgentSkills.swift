@@ -8,11 +8,13 @@ import os
 /// it, and so does turning off the built-in that provides it. Nothing is written to the agent's own config.
 @MainActor
 enum AgentSkills {
-    /// What couldn't be written or removed: an agent would go on with an old skill, or none, unseen.
+    /// Logs each skill that couldn't be written or removed, because otherwise an agent would go on with an old skill,
+    /// or none, and nobody would see why.
     private nonisolated static let log = Logger.kelp("skills")
 
     static func write(_ app: AppModel) {
-        // Nothing before the extensions are loaded: most skills are theirs, and the settings guide lists their rows.
+        // Write nothing before the extensions are loaded, because most skills come from them and the settings guide
+        // lists their rows.
         guard !app.extensions.extensions.isEmpty else { return }
         let settings = app.settings
         let skills =
@@ -36,14 +38,15 @@ enum AgentSkills {
             (name: $0.name, on: $0.setting.map { settings[$0] } ?? true, description: $0.description, body: $0.body)
         }
         let guideDir = ExtensionRegistry.userDir
-        // Off the main thread, one write after another in the order asked.
+        // The writes run off the main thread, one after another in the order they were asked for.
         files.async {
             for skill in wanted { put(skill.name, on: skill.on, description: skill.description, body: skill.body) }
-            // One no extension gives now (its built-in turned off, the app's old name's `krill-`): its folder goes.
+            // Remove the folder of each skill that no extension gives now (its built-in was turned off, or it has the
+            // `krill-` prefix of the app's old name).
             let given = Set(wanted.map(\.name))
             let folders = FileManager.default.enumerator(atPath: Paths.agentSkills.path)
             while let old = folders?.nextObject() as? String {
-                folders?.skipDescendants()   // the plugins' own folders only
+                folders?.skipDescendants()   // look at the plugins' own folders only
                 guard old.hasPrefix("kelp-") || old.hasPrefix("krill-"), !given.contains(old) else { continue }
                 put(old, on: false, description: "", body: "")
             }
@@ -53,7 +56,8 @@ enum AgentSkills {
     }
     private nonisolated static let files = DispatchQueue(label: "kelp.agent-skills")
 
-    /// The exact folder this Kelp loads extensions from (the guide below says ~/.kelp, which a custom KELP_HOME changes).
+    /// The steps with the exact folder this Kelp loads extensions from, because the guide below says ~/.kelp and a
+    /// custom KELP_HOME changes that.
     private static func extensionsSteps(_ folder: String) -> String {
         """
         # Adding something to Kelp

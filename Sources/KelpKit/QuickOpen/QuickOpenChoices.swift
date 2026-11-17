@@ -3,7 +3,7 @@ import Core
 import DesignKit
 
 extension QuickOpen {
-    /// What a setting can be set to: the values and their names.
+    /// Returns what a setting can be set to: the values and their names.
     func choices(_ spec: SettingSpec) -> [(JSONValue, String)] {
         switch spec.type {
         case .boolean: return [(.bool(true), String(localized: "On")), (.bool(false), String(localized: "Off"))]
@@ -19,7 +19,8 @@ extension QuickOpen {
         }
     }
 
-    /// A color theme's row: light or dark, and a tile of its colors (Match System shows both of its themes).
+    /// Returns a color theme's row detail (light or dark) and a tile of its colors (Match System shows both of its
+    /// themes).
     func themeLook(_ id: String) -> (String, NSImage?) {
         let themes = app.themes.themes
         switch id {
@@ -38,7 +39,8 @@ extension QuickOpen {
         }
     }
 
-    /// Themes side by side in an 18 pt tile: each its background with two lines of "text" in its foreground and blue.
+    /// Draws themes side by side in an 18 pt tile. Each shows its background with two lines of "text" in its foreground
+    /// and blue.
     static func swatch(_ themes: [Theme]) -> NSImage {
         func color(_ hex: String?) -> NSColor { hex.flatMap { NSColor(hex: $0) } ?? .gray }
         return NSImage(size: NSSize(width: 18, height: 18), flipped: true) { rect in

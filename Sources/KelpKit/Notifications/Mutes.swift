@@ -1,14 +1,14 @@
 import Core
 import Foundation
 
-/// Rows told to keep quiet, each until a date: a project, a workspace or an agent. A session is muted by its own entry or
-/// by what holds it. Only its banners, their sound and the Dock's bounce stop: its row and the Dock's badge go on as ever.
-/// A date that passed just stops counting.
+/// The sidebar rows the user muted (a project, a workspace or an agent), each until a date. A session is muted by its
+/// own entry or by the entry of its workspace or project. Muting stops only the session's banners, their sound and the
+/// Dock's bounce; its row and the Dock's badge still update. An entry whose date has passed no longer counts.
 package enum Mutes {
     static let key = "notifications.muted"
     package static let forever = Date.distantFuture
 
-    /// Mute Notifications ▸ …
+    /// The choices in the Mute Notifications ▸ submenu, each with the date its mute ends.
     package static func choices(now: Date = Date(), calendar: Calendar = .current) -> [(title: String, until: Date)] {
         let midnight =
             calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now.addingTimeInterval(86400)
@@ -22,21 +22,21 @@ package enum Mutes {
         ids.contains { id in id.flatMap { muted[$0] }.map { $0 > now } ?? false }
     }
 
-    /// As `uiState` keeps them: seconds since 1970.
+    /// The mutes as `uiState` stores them, each date as seconds since 1970.
     static func value(_ m: [String: Date]) -> JSONValue { .object(m.mapValues { .double($0.timeIntervalSince1970) }) }
     static func read(_ v: JSONValue?) -> [String: Date] {
         guard case .object(let saved)? = v else { return [:] }
         return saved.compactMapValues { $0.number.map(Date.init(timeIntervalSince1970:)) }
     }
 
-    /// The hover card's line.
+    /// The line the hover card shows for a muted row.
     static func line(until: Date) -> String {
         until == forever
             ? String(localized: "Notifications muted")
             : String(localized: "Notifications muted until \(until.formatted(date: .omitted, time: .shortened))")
     }
 
-    /// Mutes these rows until then, as their row's menu does (the Dock strip's tile has one too).
+    /// Mutes these rows until `until`, as the row's menu does (the tile on the Dock strip has the same menu).
     @MainActor package static func mute(_ ids: [String], until: Date, in app: AppModel) {
         app.arrangement.mute(ids, until: until)
     }
@@ -47,10 +47,11 @@ package enum Mutes {
 }
 
 extension Arrangement {
-    /// When these rows' own mute ends; nil: they aren't.
+    /// Returns when the rows' own mute ends, or nil when they aren't muted.
     func mutedUntil(_ ids: [String]) -> Date? { ids.compactMap { mutes[$0] }.filter { $0 > Date() }.max() }
 
-    /// nil unmutes. What ran out, and rows that are gone (a closed workspace, an ended agent), leave with each change.
+    /// Mutes the rows until `until`, and nil unmutes them. Each change also drops mutes that ran out and mutes of rows
+    /// that are gone (a closed workspace, an ended agent).
     func mute(_ ids: [String], until: Date?) {
         var kept = mutes.filter { id, end in
             end > Date() && (app.session(id) != nil || app.worktree(id) != nil || app.repo(id) != nil)

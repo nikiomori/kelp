@@ -4,8 +4,9 @@ import DesignKit
 import WorkbenchKit
 
 extension Builtins {
-    /// The shell's own actions (sidebar and inspector, panes, tabs, workspaces, text size, the Run menu, help) as commands,
-    /// so the menu bar, Settings › Keyboard, the palette and agents (`kelp run <id>`) reach them the same way.
+    /// The shell's own actions (sidebar and inspector, panes, tabs, workspaces, text size, the Run menu, help) as
+    /// commands, so the menu bar, Settings › Keyboard, the palette and agents (`kelp run <id>`) reach them the same
+    /// way.
     package static let workbench = Builtin(
         "kelp.workbench", "Window & Workbench",
         "Panes, tabs, groups, the sidebar and inspector: the commands of the window.",
@@ -23,7 +24,7 @@ extension Builtins {
                 app.workbench.window?.toggleInspectorPanel()
             },
             cmd("workbench.toggleFocusMode", "Focus Mode", "ctrl+cmd+z") { app.workbench.window?.toggleFocusMode() },
-            // The screen you're on, into a window of its own; its close button puts it back.
+            // Moves the screen you're on into a window of its own. The window's close button puts it back.
             CommandSpec(
                 id: "workbench.ownWindow", title: "Open in Own Window",
                 enabled: { app.workbench.workspaceId != nil && !app.workbench.inOwnWindow(app.workbench.workspaceId) }
@@ -43,7 +44,8 @@ extension Builtins {
                 app.quickOpen.show(commandsOnly: true)
             },
             cmd("workbench.scratch", "New Chat Without Project", "ctrl+opt+cmd+k") { app.noProject.newChat() },
-            // Settings › Notifications' button: macOS shows the banner, or Kelp says where they're turned off.
+            // The button in Settings › Notifications. macOS shows the banner, or Kelp says where notifications are
+            // turned off.
             cmd("notifications.test", "Send Test Notification") {
                 app.notifier?.sendTest { ok in
                     if !ok {
@@ -66,8 +68,8 @@ extension Builtins {
             cmd("view.paneBelow", "Pane Below", "opt+cmd+down") { editor(app)?.focusGroup(toward: .minY) },
             cmd("editor.nextTab", "Next Tab", "shift+cmd+]") { editor(app)?.cycleTab(1) },
             cmd("editor.previousTab", "Previous Tab", "shift+cmd+[") { editor(app)?.cycleTab(-1) },
-            // ⌘W closes the focused tab; in a workspace with nothing open, the workspace itself; in a server's or
-            // machine's own window, that window, as its close button does.
+            // ⌘W closes the focused tab. In a workspace with nothing open, it closes the workspace itself. In a
+            // server's or machine's own window, it closes that window, as the window's close button does.
             cmd("editor.closeTab", "Close Tab", "cmd+w") {
                 if let page = app.workbench.keyPageWindow { return page.closed() }
                 guard let area = editor(app) else { return }
@@ -111,7 +113,8 @@ extension Builtins {
         }
         contributions.commands += (1...9).map { number in
             cmd("workspace.select.\(number)", "Group \(number)", "ctrl+\(number)") {
-                // With ⌃Tab's list open, its rows' numbers: the menu may get ⌃1–9 before the list's own keys do.
+                // With ⌃Tab's list open, the number picks a row of the list, because the menu may get ⌃1–9 before
+                // the list's own keys do.
                 if app.switcher.isOpen {
                     app.switcher.pick(number)
                 } else {
@@ -122,7 +125,7 @@ extension Builtins {
         return contributions
     }
 
-    /// Terminal and editor text zoom together, like a browser; the settings stay the one source.
+    /// Zooms terminal and editor text together, like a browser. The settings stay the one source of the sizes.
     private static func zoomText(_ app: AppModel, _ step: Double?) {
         let settings = app.settings
         for setting in [SettingKeys.terminalFontSize, SettingKeys.editorFontSize] {
@@ -130,7 +133,8 @@ extension Builtins {
         }
     }
 
-    /// A kelpd that runs itself again in place keeps every agent running, so nothing is asked; an older one ends them.
+    /// Restarts the service. A kelpd that runs itself again in place keeps every agent running, so nothing is asked. An
+    /// older kelpd ends them.
     private static func restartService(_ app: AppModel) {
         Task {
             let refusal: String
@@ -138,7 +142,7 @@ extension Builtins {
                 try await app.daemon.upgrade()
                 return
             } catch { refusal = AppModel.message(error) }
-            // Why it can't keep them (an older kelpd, one session it can't hand over) comes first.
+            // The reason it can't keep the agents (an older kelpd, a session it can't hand over) comes first.
             let detail =
                 refusal + "\n\n"
                 + String(localized: "Running agent sessions end. Projects, history and settings are kept.")

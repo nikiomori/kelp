@@ -5,16 +5,18 @@ import SwiftUI
 import UniformTypeIdentifiers
 import WorkbenchKit
 
-/// Installed extensions: turn them on or off, remove, create (by hand or with an agent); or the library's, to install.
+/// Settings › Extensions. It lists installed extensions to turn on or off, remove or create (by hand or with an agent),
+/// or the library's extensions to install.
 struct ExtensionsSettings: View {
     @Environment(AppModel.self) private var app
     private var registry: ExtensionRegistry { app.extensions }
     @State private var picking = false
-    /// Opened on the library when asked for (`SettingsWindow.show(section: "extensions", group: "library")`).
+    /// Whether the library shows, which it does when asked for (`SettingsWindow.show(section: "extensions",
+    /// group: "library")`).
     @State private var library = UserDefaults.standard.string(forKey: "settings.group") == "library"
     var body: some View {
-        // Placed over the list on the content's left edge, as the Agent Catalog's filter is: in a card of its own it
-        // was a box around one control, and in the title bar it read as the window's own.
+        // The switch sits over the list on the content's left edge, as the Agent Catalog's filter does. In a card of
+        // its own it was a box around one control, and in the title bar it read as the window's own.
         VStack(alignment: .leading, spacing: 0) {
             Segments(
                 labels: [String(localized: "Installed"), String(localized: "Library")],
@@ -41,8 +43,8 @@ struct ExtensionsSettings: View {
         }
     }
 
-    /// What can be turned off, then what was installed (with its version). The parts Kelp can't run without are named under
-    /// the list: as rows they were a third of it and did nothing.
+    /// Lists what can be turned off, then what was installed (with its version). The parts Kelp can't run without are
+    /// named under the list, because as rows they were a third of it and did nothing.
     @ViewBuilder private var installed: some View {
         Section {
             ForEach(registry.extensions.filter { $0.builtin && !$0.essential }) { row($0) }
@@ -118,7 +120,7 @@ struct ExtensionsSettings: View {
             .labelsHidden()
     }
 
-    /// What can be done to one that was installed; Kelp's own only turn off.
+    /// The actions for an installed extension. Kelp's own extensions can only be turned off.
     @ViewBuilder private func more(_ info: ExtensionInfo) -> some View {
         if let folder = info.path, !info.builtin {
             Menu {
@@ -138,7 +140,8 @@ struct ExtensionsSettings: View {
 }
 
 extension Workbench {
-    /// In a tab of the main window, brought up over Settings: left behind it, the click seemed to do nothing.
+    /// Opens a file in a tab of the main window and brings the window up over Settings, because left behind Settings,
+    /// the click seemed to do nothing.
     func showFile(_ url: URL) {
         open(TabURI.file(url.path))
         bringToFront()

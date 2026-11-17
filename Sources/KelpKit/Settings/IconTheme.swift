@@ -2,7 +2,7 @@ import AppKit
 
 /// A file icon theme in VS Code's format (what `contributes.iconThemes` points at): icon definitions, then associations
 /// by file name, extension, language and folder name, with an optional `light` section. Icons given by `iconPath`
-/// (SVG, PNG) are drawn; font glyphs (`fontCharacter`, as in Seti) aren't, and those files keep the system icon.
+/// (SVG, PNG) are drawn. Font glyphs (`fontCharacter`, as in Seti) aren't, so those files keep the system icon.
 @MainActor
 final class IconTheme {
     private struct Associations: Decodable {
@@ -52,7 +52,7 @@ final class IconTheme {
         light = doc.light?.lowercased()
     }
 
-    /// nil when the theme has no picture for it.
+    /// Returns the theme's icon for a file or folder name, or nil when the theme has no picture for it.
     func image(_ name: String, folder: Bool, expanded: Bool) -> NSImage? {
         let lowercased = name.lowercased()
         let dark = definition(lowercased, folder, expanded, [base]).flatMap(picture)
@@ -71,7 +71,8 @@ final class IconTheme {
         return pair
     }
 
-    /// VS Code's order: file name, then extensions longest first ("d.ts" before "ts"), language, the default file icon.
+    /// Finds the icon definition in VS Code's order: file name, then extensions longest first ("d.ts" before "ts"),
+    /// then language, then the default file icon.
     private func definition(_ name: String, _ folder: Bool, _ expanded: Bool, _ sections: [Associations]) -> String? {
         func first(_ pick: (Associations) -> String?) -> String? { sections.lazy.compactMap(pick).first }
         if folder {

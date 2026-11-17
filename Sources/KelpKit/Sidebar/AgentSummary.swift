@@ -3,16 +3,17 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// The row over the projects, beside Add Project. Who needs you is a glass capsule, which goes to the next one, as ⇧⌘U
-/// does. Beside it each other count is a button of its own (`SummarySegment`): working, at a limit, quiet, done. A
-/// click goes to the next chat it counts; the pointer resting on it shows them (`SummaryCard`) and lights their rows in
-/// the list. A chat that just finished or hit its limit is named in its count for a few seconds. With nothing to count
-/// (no project yet too) the row names the list under it. It keeps its place whatever it says: nothing in the list
-/// moves.
+/// The row above the projects, beside Add Project. The count of agents that need you is a glass capsule, and a click
+/// on it goes to the next one, as ⇧⌘U does. Beside it, each other count is a button of its own (`SummarySegment`):
+/// working, at a limit, quiet, done. A click on a count goes to the next chat it counts. Resting the pointer on a count
+/// shows its chats (`SummaryCard`) and lights their rows in the list. A chat that just finished or hit its limit is
+/// named in its count for a few seconds. With nothing to count (or no project yet), the row shows the name of the list
+/// under it. The row keeps its place whatever it says, so nothing in the list moves.
 @MainActor
 final class AgentSummary: NSView {
     private let capsule = Pressable()
-    /// Liquid Glass where there is (macOS 26): the one custom glass in the sidebar, over the list it floats above.
+    /// Liquid Glass where the system has it (macOS 26). It is the only custom glass in the sidebar, floating over the
+    /// list.
     private let glass: NSView = {
         if #available(macOS 26, *) {
             let glass = NSGlassEffectView()
@@ -28,11 +29,12 @@ final class AgentSummary: NSView {
         effect.layer?.masksToBounds = true
         return effect
     }()
-    /// Over the glass, under the words: the grey the pointer brings (a fill behind the glass wouldn't show).
+    /// The grey the pointer brings. It sits over the glass and under the words, because a fill behind the glass
+    /// wouldn't show.
     private let sheen = NSView()
     private let mark = StatusMark(size: 12)
     private let title = NSTextField(labelWithString: "")
-    /// Alone in the row: the list's name.
+    /// The list's name, shown when nothing else is in the row.
     private let heading = NSTextField(labelWithString: String(localized: "Projects"))
     private let segments = SummaryKind.allCases.map { SummarySegment($0) }
     private let row = NSStackView()
@@ -40,19 +42,20 @@ final class AgentSummary: NSView {
     private let app: AppModel
     private var asking = false
     private var counts = SummaryCounts(chats: [], done: [])
-    /// Questions already shown or looked at: one that isn't lights the capsule as it comes in.
+    /// Questions already shown or looked at. A question that isn't in this set lights the capsule as it comes in.
     private var seen: Set<String>?
     private var settleTimer: Timer?
-    /// The times in the counts move on by the minute.
+    /// Moves the times in the counts forward by the minute.
     private(set) var tick: Timer?
     /// The rows to light in the list (SidebarController.light).
     var light: (Set<String>) -> Void = { _ in }
     private var lit = Set<String>()
     /// The count under the pointer.
     private var pointed: SummaryKind?
-    /// Who was in each count at the last look; nil before the first (what's there at launch is no news).
+    /// The chats in each count at the last look. It is nil before the first look, because what's there at launch is no
+    /// news.
     private var known: [SummaryKind: Set<String>]?
-    /// Chats that just got to a count, waiting their turn to be named, and the one named now.
+    /// Chats that just got into a count and wait their turn to be named. `peeking` is the chat named now.
     private var peeks: [(kind: SummaryKind, id: String)] = []
     private var peeking: (kind: SummaryKind, id: String)?
     private let peekEnd = Debounce()
@@ -98,13 +101,15 @@ final class AgentSummary: NSView {
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: TextSize.of(24)),
             row.leadingAnchor.constraint(equalTo: leadingAnchor), row.centerYAnchor.constraint(equalTo: centerYAnchor),
-            row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -Metrics.gap),   // a gap short of Add Project
+            // The row stops a gap short of Add Project.
+            row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -Metrics.gap),
             capsule.heightAnchor.constraint(equalToConstant: TextSize.of(24)),
             content.centerYAnchor.constraint(equalTo: capsule.centerYAnchor),
             content.leadingAnchor.constraint(equalTo: capsule.leadingAnchor, constant: 10),
             content.trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: -12)
         ])
-        // Only what the row shows: an agent's progress or title, a few a second while it works, draws nothing again.
+        // Follow only what the row shows, so an agent's progress or title, which change a few times a second while it
+        // works, don't redraw anything.
         track(owner: self) { [weak self, app] in
             SummaryShown(app, card: self?.card.kind)
         } changed: { [weak self] _ in
@@ -123,9 +128,10 @@ final class AgentSummary: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// What doesn't fit goes in steps: the time, then the words (a count keeps its number), then whole counts, what
-    /// asks for nothing first (`SummaryKind.dropOrder`). Who needs you and who works stay. While a count names a chat,
-    /// the others stand as numbers beside it. All a gap short of Add Project.
+    /// Lays out the row and drops what doesn't fit, in steps: first the time, then the words (a count keeps its
+    /// number), then whole counts, starting with those that ask for nothing (`SummaryKind.dropOrder`). The counts for
+    /// who needs you and who is working always stay. While a count names a chat, the other counts show only as numbers
+    /// beside it. Everything stays a gap short of Add Project.
     override func layout() {
         super.layout()
         let capsuleWidth = asking ? title.intrinsicContentSize.width + 12 + Metrics.gap + 22 + Metrics.gap : 0
@@ -152,7 +158,7 @@ final class AgentSummary: NSView {
         }
     }
 
-    /// The last question answered: the capsule fades before it gives the counts its room.
+    /// Hides the capsule once the last question is answered. It fades out before it gives its room to the counts.
     private func dismissCapsule() {
         guard window != nil, !Motion.reduced else { return capsule.isHidden = true }
         NSAnimationContext.runAnimationGroup { ctx in
@@ -176,16 +182,17 @@ final class AgentSummary: NSView {
         let questions = Set(inbox.queue.map(\.id)), new = shown.map(\.id).filter { !(seen ?? questions).contains($0) }
         seen = (seen ?? questions).union(shown.map(\.id)).union(inbox.viewing).intersection(questions)
 
-        // The agent on screen still counts while it asks; with only it asking the capsule loses its glass, not its number.
+        // The agent on screen still counts while it asks. When it is the only one asking, the capsule loses its glass
+        // but keeps its number.
         let counted = inbox.counted, wasShown = !capsule.isHidden
         asking = !counted.isEmpty
         if asking, capsule.isHidden || capsule.alphaValue < 1 {
-            capsule.fadeIn(Motion.base)   // in, or back from going
+            capsule.fadeIn(Motion.base)   // fades in, or comes back while it was fading out
         } else if !asking, wasShown {
             dismissCapsule()
         }
         glass.isHidden = shown.isEmpty
-        capsule.refreshPointer()   // no longer asking: no grey left over from the pointer
+        capsule.refreshPointer()   // after asking ends, no hover grey is left over
         mark.status = AgentStatus.mostUrgent(counted.map(\.shownStatus))
         mark.unread = true
         let said = String(localized: "\(counted.count) need you")
@@ -211,8 +218,8 @@ final class AgentSummary: NSView {
             segment.peek = peekWords(segment.kind)
         }
         heading.isHidden = asking || any
-        // Alone in the row the words stand in the icons' column (a count's mark has its own padding); beside the
-        // capsule, a step from it.
+        // When the counts are alone in the row, their words line up with the icons' column (a count's mark has its
+        // own padding). Beside the capsule, they stand a step from it.
         row.edgeInsets.left = asking ? 0 : any ? Metrics.gapWide - Metrics.gap : Metrics.gapWide
         card.refresh(counts)
         relight()
@@ -222,13 +229,14 @@ final class AgentSummary: NSView {
         needsLayout = true
     }
 
-    /// A timer that calls `update` at `date` (none for nil): `timer` itself while it's still to come then.
+    /// Returns a timer that calls `update` at `date`, or none for a nil date. It returns `timer` itself when that timer
+    /// is still set for the same time, in the future.
     private func again(_ timer: Timer?, at date: Date?) -> Timer? {
         if let timer, timer.isValid, timer.fireDate == date, timer.fireDate > Date() { return timer }
         timer?.invalidate()
         guard let date else { return nil }
         let next = Timer(fire: date, interval: 0, repeats: false) { [weak self] _ in
-            MainActor.assumeIsolated { self?.update() }   // the main run loop's
+            MainActor.assumeIsolated { self?.update() }   // the timer runs on the main run loop
         }
         RunLoop.main.add(next, forMode: .default)
         return next
@@ -236,7 +244,8 @@ final class AgentSummary: NSView {
 
     private func segment(_ kind: SummaryKind) -> SummarySegment? { segments.first { $0.kind == kind } }
 
-    /// A click on a count: the chat it names now, else the next one it counts after the one on screen.
+    /// Handles a click on a count. It goes to the chat the count names now, or else to the next chat it counts after
+    /// the one on screen.
     private func pressed(_ kind: SummaryKind) {
         card.close()
         if let peeking, peeking.kind == kind {
@@ -259,7 +268,7 @@ final class AgentSummary: NSView {
         relight()
     }
 
-    /// The rows of the count under the pointer, or whose card is up.
+    /// Lights the rows of the count under the pointer, or of the count whose card is up.
     private func relight() {
         let ids = (pointed ?? card.kind).map { Set(counts[$0].map(\.id)) } ?? []
         guard ids != lit else { return }
@@ -267,12 +276,13 @@ final class AgentSummary: NSView {
         light(ids)
     }
 
-    /// Chats that got to a count since the last look wait their turn to be named in it: finished, or at a limit.
+    /// Queues the chats that got into a count since the last look, to be named in it. Only the finished and at-a-limit
+    /// counts name chats.
     private func notice() {
         let named: [SummaryKind] = [.done, .limit]
         let now = Dictionary(uniqueKeysWithValues: named.map { ($0, Set(counts[$0].map(\.id))) })
         defer { known = now }
-        if let peeking, now[peeking.kind]?.contains(peeking.id) != true { nextPeek() }   // looked at, or went on
+        if let peeking, now[peeking.kind]?.contains(peeking.id) != true { nextPeek() }   // seen, or it moved on
         guard let known else { return }
         for kind in named {
             let new = (now[kind] ?? []).filter { id in
@@ -296,7 +306,7 @@ final class AgentSummary: NSView {
         }
     }
 
-    /// Its time is up, unless the pointer is on it: then it waits for the pointer to go.
+    /// Ends the current peek when its time is up. If the pointer is on the count, it waits for the pointer to leave.
     private func endPeek() {
         if let peeking, segment(peeking.kind)?.hovering == true {
             peekEnd.after(1) { [weak self] in self?.endPeek() }
@@ -312,7 +322,7 @@ final class AgentSummary: NSView {
         return (app.catalog.displayName(session), verb)
     }
 
-    /// The capsule's: where who waits for you is, and what their rows say.
+    /// The capsule's menu: go to the agent that needs you, and pick what the second line on the rows says.
     static func viewMenu(_ app: AppModel) -> NSMenu {
         let menu = NSMenu()
         menu.add(String(localized: "Show Agent Needing You")) { app.workbench.showNextNeedingAttention() }
@@ -324,7 +334,8 @@ final class AgentSummary: NSView {
     }
 }
 
-/// What the row over the projects shows of the sessions: who is in each count, since when, and the open card's chats.
+/// What the row above the projects shows of the sessions: who is in each count and since when, and the chats on the
+/// open card.
 struct SummaryShown: Equatable {
     struct Entry: Equatable {
         let id: String, status: AgentStatus, since: Date, until: Date?
@@ -344,7 +355,8 @@ struct SummaryShown: Equatable {
 }
 
 extension Inbox {
-    /// Who needs you now; `shown` leaves out the agent on screen (the capsule goes to the others), `counted` keeps it.
+    /// Returns who needs you now. `shown` leaves out the agent on screen, because the capsule goes to the others, and
+    /// `counted` keeps it.
     @MainActor static func current(_ app: AppModel, queue: [Session]) -> Inbox {
         // A finished agent keeps its mark in the row: it asks for nothing, so it isn't counted as needing you.
         var inbox = Inbox(queue: queue.filter { $0.shownStatus != .done })
@@ -354,8 +366,8 @@ extension Inbox {
     }
 }
 
-/// The capsule a click or VoiceOver presses: under the pointer its glass greys a step (`look`), held a step more, and a
-/// click springs it (`PointerControl`).
+/// The capsule that a click or VoiceOver presses. Under the pointer its glass greys a step (`look`), and one more step
+/// while pressed, and a click makes it spring (`PointerControl`).
 @MainActor
 private final class Pressable: PointerControl {
     var press: () -> Void = {}

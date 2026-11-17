@@ -20,20 +20,20 @@ package protocol TabContent: AnyObject {
     func close() async -> Bool
 
     // What the shell asks of a tab without knowing its kind (built-ins answer; the defaults say "not this one").
-    /// Columns × rows of the terminal on screen, which sizes the next one before it's shown.
+    /// The columns × rows of the terminal on screen, used to size the next terminal before it's shown.
     var terminalGrid: (cols: Int, rows: Int)? { get }
-    /// The file it shows (Reveal in Finder).
+    /// The file the tab shows (for Reveal in Finder).
     var fileURL: URL? { get }
-    /// Its language, when ⌘R / ⌘U can run it without a project command.
+    /// The tab's language, when ⌘R / ⌘U can run it without a project command.
     var language: LanguageSpec? { get }
     /// The command that runs it ("run") or its test at the cursor ("test"); nil when there is none.
     func command(_ name: String) async -> String?
-    /// Shows that line (a link to a file that's already open at another line).
+    /// Shows that line (for a link to a file that's already open at another line).
     func goTo(line: Int)
 }
 
-/// What a tab shows of itself. Its parts are observed state (`@Observable` tabs, or the app's models they read): the shell
-/// follows them with `track`, so a tab says nothing when they change.
+/// What a tab shows of itself. Its parts are observed state (`@Observable` tabs, or the app's models they read), and
+/// the shell follows them with `track`, so a tab doesn't have to report a change.
 struct TabLook: Equatable {
     let uri: String, title: String, toolTip: String?, isEdited: Bool, badge: TabBadge?, icon: NSImage?
     @MainActor init(_ tabContent: TabContent) {
@@ -65,7 +65,8 @@ package struct TabBadge: Equatable {
         backgroundTip = session?.backgroundTip
         waitsFor = session?.waitsForCommand ?? false
     }
-    /// A session's tab, built or not (a hidden terminal lets go of its surface, its tab keeps saying all this).
+    /// Makes the badge of a session's tab, built or not (a hidden terminal lets go of its surface, and its tab still
+    /// shows all of this).
     package static func of(_ session: Session?, meter: SessionContextWindow.Usage?) -> TabBadge {
         // A terminal shows a state only while a program in it says how far it got (a build).
         TabBadge(
@@ -77,41 +78,44 @@ package struct TabBadge: Equatable {
             attention: session.flatMap(attention),
             backgroundOf: session)
     }
-    /// The ring around its pane: it asks (orange) or failed (red). Finished is quiet, as its mark in the sidebar: the
-    /// unread dot and the bold name say it's new.
+    /// The ring around the session's pane: orange when it asks, red when it failed and is unread. Finished is quiet, as
+    /// its mark in the sidebar is, because the unread dot and the bold name say it's new.
     private static func attention(_ session: Session) -> NSColor? {
         guard !session.isTerminal else { return nil }
         if session.status == .waiting { return .systemOrange }
         return (session.status == .error || session.endedWithError) && session.unread ? .systemRed : nil
     }
 
-    /// Its state mark (nil: a terminal whose program doesn't say how far it got).
+    /// The state mark (nil for a terminal whose program doesn't say how far it got).
     var status: AgentStatus?
     /// Finished and not looked at yet (the filled ✓).
     var unread = false
     /// How full an agent's conversation is; the tab shows a ring once answers may start to slip (`ContextMeter.level`).
     var meter: SessionContextWindow.Usage?
-    /// How far what runs in it got (0…1), when it says: its status mark fills.
+    /// How far the program running in the session got (0…1), when it says; the status mark fills to match.
     var progress: Double?
-    /// The colored ring around its pane: an agent asking (orange), failed (red), finished unseen (accent).
+    /// The coloured ring around the pane: an agent asking (orange), or one that failed and is unread (red).
     var attention: NSColor?
-    /// How many commands run beside its agent, whatever it's doing (`Session.aside`), and them by name.
+    /// How many commands run beside the agent, whatever it's doing (`Session.aside`), and their names in
+    /// `backgroundTip`.
     var background = 0
     var backgroundTip: String?
-    /// It works on only to see its command end: its mark is the ring of dots.
+    /// The agent works on only to see its command end, so its mark is the ring of dots.
     var waitsFor = false
 }
 
 /// A tab holding work that can be unsaved: ⌘S, Save All and quitting save it.
 @MainActor
 package protocol SavableTab: TabContent {
-    /// False when nothing was written (the user cancelled, or it failed and said why).
+    /// Returns false when nothing was written (the user cancelled, or the save failed and said why).
     @discardableResult func save() async -> Bool
-    /// The user chose Don't Save for a tab that's going away: it isn't edited any more, and nothing writes it later.
+    /// Called when the user chose Don't Save for a tab that's going away. The tab isn't edited any more, and nothing
+    /// writes it later.
     func discard()
-    /// A save still on its way (a remote file's, to its host): what closing or quitting waits for.
+    /// A save still on its way (a remote file's, to its host), which closing or quitting waits for.
     var pendingSave: Task<Void, Never>? { get }
-    /// What brings it back once closed: a file at the line it was on. Nil: nothing can (an untitled text).
+    /// The URI that brings the tab back once closed: a file at the line it was on. Nil when nothing can (an untitled
+    /// text).
     var reopenURI: String? { get }
 }
 

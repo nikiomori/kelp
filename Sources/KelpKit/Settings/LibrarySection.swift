@@ -2,18 +2,18 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// Settings › Extensions › Library: what github.com/nikiomori/kelp-extensions holds, read when the pane shows,
-/// to install or bring up to date.
+/// Settings › Extensions › Library. It lists what github.com/nikiomori/kelp-extensions holds, read when the pane
+/// shows, to install or bring up to date.
 struct LibrarySection: View {
     @Environment(AppModel.self) private var app
     private var registry: ExtensionRegistry { app.extensions }
     @State private var entries: [ExtensionLibrary.Entry]?
     @State private var error: String?
-    /// The first required command each one lacks on this Mac.
+    /// The first required command each extension lacks on this Mac.
     @State private var missing: [String: String] = [:]
     @State private var installing: String?
     @State private var query = ""
-    /// The category shown; nil: all of them.
+    /// The category shown, or nil for all of them.
     @State private var category: String?
 
     var body: some View {
@@ -55,7 +55,7 @@ struct LibrarySection: View {
         .task { await load() }
     }
 
-    /// The search, and the categories once the library has more than one.
+    /// The search field, and the categories once the library has more than one.
     private func filters(_ entries: [ExtensionLibrary.Entry]) -> some View {
         let kinds = Self.categories.filter { c in entries.contains { Self.category($0) == c } }
         return HStack {
@@ -70,7 +70,8 @@ struct LibrarySection: View {
             }
         }
     }
-    /// The library's categories in the order the menu lists them; an index from before them files everything as tools.
+    /// The library's categories in the order the menu lists them. An index from before categories existed files
+    /// everything as tools.
     static let categories = ["tools", "integrations", "languages", "agents", "themes", "icons"]
     static func category(_ entry: ExtensionLibrary.Entry) -> String {
         entry.category.map { categories.contains($0) ? $0 : "tools" } ?? "tools"
@@ -86,7 +87,8 @@ struct LibrarySection: View {
         }
     }
 
-    /// The reviewed ones by name; those found on GitHub by their topic apart, fastest growing first.
+    /// Splits the entries into the reviewed ones, by name, and those found on GitHub by their topic, fastest growing
+    /// first.
     static func split(_ entries: [ExtensionLibrary.Entry]) -> (
         reviewed: [ExtensionLibrary.Entry], found: [ExtensionLibrary.Entry]
     ) {
@@ -98,7 +100,7 @@ struct LibrarySection: View {
         )
     }
 
-    /// GitHub's repositories under the `kelp-extension` topic: nobody reviewed them, and the list says so first.
+    /// Lists GitHub's repositories under the `kelp-extension` topic. Nobody reviewed them, and the list says so first.
     private func unreviewed(_ found: [ExtensionLibrary.Entry]) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -144,7 +146,7 @@ struct LibrarySection: View {
             } else if have == nil {
                 Button(entry.reviewed == false ? "Install…" : "Install") { install(entry) }
             } else if let source = have?.source, source != entry.source || entry.reviewed == false {
-                // found by its topic: its branch may have moved
+                // always offered for one found by its topic, whose branch may have moved
                 Button(entry.reviewed == false ? "Update…" : "Update") { install(entry) }
             } else {
                 Text("Already installed").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
@@ -165,7 +167,7 @@ struct LibrarySection: View {
         error = nil
         do {
             let all = try await app.get(ExtensionLibrary())
-            // Where the daemon finds the tools they need; not said when it can't tell.
+            // Ask where the daemon finds the tools the extensions need. Nothing is shown when it can't tell.
             if let found = await app.quiet(ProcessWhich(commands: Array(Set(all.flatMap { $0.requires ?? [] })))) {
                 missing = Dictionary(
                     uniqueKeysWithValues: all.compactMap { entry in

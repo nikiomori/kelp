@@ -4,9 +4,9 @@ import Foundation
 
 /// Installing and removing extensions: from a .vsix or a folder, from GitHub, to the Trash. Each ends in a reload.
 extension ExtensionRegistry {
-    /// Like VS Code's "Install from VSIX…": a .vsix (a zip with the extension in `extension/`) or an extension folder,
-    /// copied into ~/.kelp/extensions. A version already there goes to the Trash. One with a Kelp manifest (it can run
-    /// commands) is installed once the user has seen what it runs, as one from GitHub.
+    /// Installs a .vsix (a zip with the extension in `extension/`) or an extension folder into ~/.kelp/extensions, like
+    /// VS Code's "Install from VSIX…". A version already there goes to the Trash. An extension with a Kelp manifest
+    /// (which can run commands) is installed only once the user has seen what it runs, as for one from GitHub.
     func install(_ src: URL) async throws {
         let app = self.app, dir = Self.userDir, fm = FileManager.default
         let tmp = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -32,9 +32,9 @@ extension ExtensionRegistry {
         reload()
     }
 
-    /// From GitHub (the library's `source`, or any GitHub folder): downloaded, then installed once the user has seen what
-    /// it runs. False when they said no or it failed (a banner says why).
-    /// `files`: the library's SHA-256 of each, which the download must match.
+    /// Installs an extension from GitHub (the library's `source`, or any GitHub folder). It downloads the extension,
+    /// then installs it once the user has seen what it runs. Returns false when the user said no or it failed (a banner
+    /// says why). `files` holds the library's SHA-256 of each file, which the download must match.
     func install(source: String, files: [String: String]? = nil) async -> Bool {
         guard let fetched = await app.call(ExtensionFetch(source: source, files: files)) else { return false }
         let folder = URL(fileURLWithPath: fetched.folder), dir = Self.userDir,

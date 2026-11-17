@@ -1,13 +1,13 @@
 import AppKit
 
-/// A view keeping the width it has while what holds it slides (a panel's column, the editor card): the constraint
-/// pinning its `edge` to the holder lets go for a fixed width until `release()`. Laid out for every width on the way,
-/// rows dropped their badges, lines rewrapped and terminals redrew, frame after frame.
+/// Keeps a view at the width it has while its holder slides (a panel's column, the editor card). The constraint that
+/// pins the view's `edge` to the holder gives way to a fixed width until `release()`. When the view was laid out for
+/// every width on the way, rows dropped their badges, lines rewrapped and terminals redrew, frame after frame.
 @MainActor
 struct WidthHold {
     private let inner: NSLayoutConstraint, width: NSLayoutConstraint
 
-    /// nil when nothing pins that edge (the view isn't laid out in `holder`).
+    /// Returns nil when nothing pins that edge (the view isn't laid out in `holder`).
     init?(_ view: NSView, in holder: NSView, edge: NSLayoutConstraint.Attribute, width wide: CGFloat) {
         guard
             let inner = holder.constraints.first(where: {
@@ -20,7 +20,7 @@ struct WidthHold {
         width.isActive = true
     }
 
-    /// The edge pins the view again, unless it went elsewhere meanwhile (its floater, another workspace).
+    /// Pins the view's edge again, unless the view went elsewhere meanwhile (its floater, another workspace).
     func release() {
         width.isActive = false
         if let view = inner.firstItem as? NSView, view.superview === inner.secondItem as? NSView {

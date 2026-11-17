@@ -4,8 +4,8 @@ import AppKit
 import DesignKit
 
 extension SidebarCell {
-    /// The button a built-in's mark shows as: its symbol in its tint, glowing in its glow; hidden without one. A click
-    /// does what the mark says (brings the page up).
+    /// Makes the button that a built-in's mark shows as: the mark's symbol in its tint, glowing in its glow colour. It
+    /// is hidden when there is no mark. A click does what the mark says (brings the page up).
     static func markButton(_ cell: SidebarCell) -> PointerButton {
         let button = PointerButton(image: .symbol("safari")) { [weak cell] in cell?.buttonMark?.open?() }
         button.radius = nil
@@ -17,7 +17,8 @@ extension SidebarCell {
         return button
     }
 
-    /// The first button mark built-ins have for the agent, and the subagents' dots its marks light.
+    /// Shows the first button mark that built-ins have for the agent, and lights the dots of the subagents its marks
+    /// name.
     func showMarkButton(_ sid: String) {
         let marks = app.extensions.rowMarks(.agent(sid)), mark = marks.first { $0.place == .button }
         family.browsing = marks.reduce(into: Set()) { $0.formUnion($1.lights) }

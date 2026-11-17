@@ -1,10 +1,10 @@
 import AppKit
 import DesignKit
 
-/// The branch at the head of a panel (Source Control, CI): one chip, so the branch stays where it was when the panel
-/// changes. Put first in a panel's `Bar`, it moves the bar's inset so its glyph sits on `Metrics.inset`, where the rows
-/// under the bar start, its hover fill reaching `padding` past it. Without an action it's a label: it doesn't grey in
-/// under the pointer.
+/// The branch chip at the head of a panel (Source Control, CI). Every panel uses this one chip, so the branch stays in
+/// place when the panel changes. Put first in a panel's `Bar`, the chip moves the bar's inset so its glyph sits on
+/// `Metrics.inset`, where the rows under the bar start, and its hover fill reaches `padding` past the glyph. Without an
+/// action the chip is a label, so it doesn't grey in under the pointer.
 @MainActor
 package final class BranchChip: PointerButton {
     override init(frame: NSRect) {
@@ -23,7 +23,8 @@ package final class BranchChip: PointerButton {
         super.viewDidMoveToSuperview()
         guard let row = superview as? NSStackView, row.superview is Bar, (row.arrangedSubviews.first ?? self) === self
         else { return }
-        // Measured with a name: the branch comes later, and with no title the cell puts the glyph elsewhere.
+        // Measure with a stand-in name, because the branch comes later and with no title the cell puts the glyph
+        // elsewhere.
         var glyph: CGFloat = 0
         if let measure = cell?.copy() as? NSButtonCell {
             measure.title = "main"

@@ -1,4 +1,4 @@
-// What an editor area tells and keeps: the focused tab, its dividers, its tabs for the palette and ui.state.
+// What an editor area reports and keeps: the focused tab, its dividers, and its tabs for the palette and ui.state.
 import AppKit
 import Core
 import DesignKit
@@ -43,7 +43,7 @@ extension EditorArea: NSSplitViewDelegate {
     func splitViewDidResizeSubviews(_ notification: Notification) {
         guard let sv = notification.object as? NSSplitView, sv.window != nil, let key = sv.identifier?.rawValue,
             sv.arrangedSubviews.count == key.split(separator: ",").count
-        else { return }   // being taken apart: not the user
+        else { return }   // the split view is being taken apart, not resized by the user
         let lengths = sv.arrangedSubviews.map { Double(sv.isVertical ? $0.frame.width : $0.frame.height) }
         let total = lengths.reduce(0, +)
         guard total > 20 else { return }

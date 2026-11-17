@@ -11,7 +11,7 @@ final class GroupView: NSView {
     private weak var shown: NSView?
     private let veil = Veil()
     private let ring = EdgeGlow(radius: Metrics.radiusSM, spread: 14)
-    /// A glow inside the content's edges when its agent calls for you (it clears once you've looked or answered).
+    /// A glow inside the content's edges when the tab's agent calls for you (it clears once you've looked or answered).
     var attention: NSColor? {
         didSet { if attention != oldValue { ring.show(attention, breathing: breathing) } }
     }
@@ -22,12 +22,13 @@ final class GroupView: NSView {
     var onDropTab: ((String, NSRectEdge?) -> Void)?   // nil edge = into this group
     /// Files from Finder or the Files panel, dropped on a tab that isn't a terminal (a terminal types their paths).
     var onDropFiles: (([URL]) -> Void)?
-    /// Dropped right at an outer side of the whole editor area: a split along all of it.
+    /// Handles a tab dropped right at an outer side of the whole editor area, which splits along all of it.
     var onDropOuter: ((String, NSRectEdge) -> Void)?
-    /// The editor area's frame in window coordinates, and a hint drawn across it (nil: none).
+    /// The editor area's frame in window coordinates (nil when there is none), and a hint drawn across it.
     var editorFrame: (() -> NSRect?)?
     var showOuterHint: ((NSRectEdge?) -> Void)?
-    /// A pane without focus, among several: it fades toward the terminal's background (Ghostty does the same).
+    /// Whether this is a pane without focus, among several. Such a pane fades toward the terminal's background (Ghostty
+    /// does the same).
     var dimmed = false {
         didSet {
             guard dimmed != oldValue else { return }
@@ -101,7 +102,7 @@ final class GroupView: NSView {
 
     func show(_ content: NSView?) {
         guard content !== shown || content?.superview !== container else { return }
-        // Only if it's still here: a tab moved to another group took its view along.
+        // Remove the old view only if it's still here, because a tab moved to another group took its view along.
         if shown?.superview === container {
             if content != nil { container.crossfade() }   // one tab's content fades into the next
             shown?.removeFromSuperview()
@@ -114,7 +115,7 @@ final class GroupView: NSView {
 
     // MARK: tab dropped on the content: an edge splits, the middle moves the tab here
 
-    /// Within 18 pt of a side of this group that is also a side of the editor area.
+    /// Returns the side of this group that is also a side of the editor area, when the drop is within 18 pt of it.
     private func outerEdge(_ sender: NSDraggingInfo) -> NSRectEdge? {
         guard let area = editorFrame?() else { return nil }
         let me = convert(bounds, to: nil), point = sender.draggingLocation, near: CGFloat = 18
@@ -149,7 +150,7 @@ final class GroupView: NSView {
             hintFrame.size.height /= 2
         default: break
         }
-        // It fades in where it's needed, then glides from half to whole as the drop's insertion mark does.
+        // The hint fades in where it's needed, then glides from half to whole, as the drop's insertion mark does.
         if hint.isHidden {
             hint.frame = hintFrame
             hint.fadeIn()

@@ -8,26 +8,28 @@ import WorkbenchKit
 struct ExtensionInfo: Identifiable {
     let id: String, name: String, description: String, version: String, icon: String
     let builtin: Bool
-    /// Can't be turned off (the IDE needs it).
+    /// Whether the extension can't be turned off (because the IDE needs it).
     var essential = false
     var path: URL?
-    /// The GitHub folder it was installed from (the library's, or another), for updates.
+    /// The GitHub folder the extension was installed from (the library's or another one), used for updates.
     var source: String?
     var error: String?
-    /// A required tool is missing; shown, but contributes nothing.
+    /// Set when a required tool is missing. Such an extension is listed but contributes nothing.
     var unavailable: String?
-    /// It runs commands and is new or changed since the user allowed it (`ExtensionTrust`); shown, but contributes nothing.
+    /// Whether the extension runs commands and is new or changed since the user allowed it (`ExtensionTrust`). Such an
+    /// extension is listed but contributes nothing.
     var waitsToBeAllowed = false
     var enabled: Bool
     /// The tools it needs (its manifest's `requires`).
     var requires: [String] = []
 }
 
-/// The IDE is a shell around this: everything visible comes from an extension, built-in or a folder in ~/.kelp/extensions.
+/// The registry of extensions. The IDE is a shell around it: everything visible comes from an extension, either built
+/// in or a folder in ~/.kelp/extensions.
 @MainActor
 @Observable
 package final class ExtensionRegistry {
-    /// The app whose extensions these are: built-ins contribute with it.
+    /// The app these extensions belong to; built-ins use it to make their contributions.
     let app: AppModel
     init(app: AppModel) {
         self.app = app
@@ -35,8 +37,8 @@ package final class ExtensionRegistry {
     }
     private(set) var extensions: [ExtensionInfo] = []
     private(set) package var all = Contributions()
-    /// Every setting's row by its key (the first section's row, when two sections declare one). Whatever reads a
-    /// setting's default, range, names or choices reads it here.
+    /// Every setting's row, by its key (when two sections declare a setting, the first section's row). Anything that
+    /// needs a setting's default, range, names or choices reads it here.
     private(set) var specs: [String: SettingSpec] = [:]
     /// Bumped on every reload so views can refresh.
     private(set) var revision = 0
@@ -44,27 +46,30 @@ package final class ExtensionRegistry {
     @ObservationIgnored private var watcher: FileWatcher?
 
     static var userDir: URL { Paths.extensions }
-    /// Required tools (`requires`) the daemon found on its login-shell PATH, or didn't: command → found. One not asked yet
-    /// counts as there (the daemon may still be reading that PATH, which takes seconds); each reload asks again, so a
-    /// tool installed meanwhile counts, and an answer that changes anything reloads.
+    /// Whether the daemon found each required tool (`requires`) on its login-shell PATH, as command → found. A tool not
+    /// asked about yet counts as there, because the daemon may still be reading that PATH, which takes seconds. Each
+    /// reload asks again, so a tool installed meanwhile counts, and an answer that changes anything reloads.
     @ObservationIgnored private(set) var tools: [String: Bool] = [:]
     @ObservationIgnored private var askingTools = false
-    /// The versions asked about this run (`extensionDigest`), and the wait before asking.
+    /// The extension versions (`extensionDigest`) already asked about since Kelp started, and the wait before asking.
     @ObservationIgnored private var asked: Set<String> = []
     @ObservationIgnored private let trustAsk = Debounce()
-    /// View definitions by "extension/view", for `ext:` tabs: only enabled extensions' (a reload starts over).
+    /// View definitions keyed by "extension/view", for `ext:` tabs. Only enabled extensions have entries, and a reload
+    /// starts the map over.
     @ObservationIgnored var views: [String: (ExtManifest, ExtManifest.ViewDef, URL)] = [:]
-    /// The last manifest of each folder that loaded: a mistake while it's edited keeps this one working, the error beside it.
+    /// The last manifest of each folder that loaded. While a manifest is being edited, a mistake keeps this one
+    /// working, with the error shown beside it.
     @ObservationIgnored var lastGood: [String: ExtManifest] = [:]
 
-    /// Built-ins a clean install starts with switched off (`Builtin.offByDefault`); once settings.json has its own list,
-    /// that list decides.
+    /// Returns the switched-off extensions. A clean install starts with the `Builtin.offByDefault` built-ins off; once
+    /// settings.json has its own list, that list decides.
     func disabled(_ list: [String]?) -> Set<String> {
         list.map(Set.init) ?? Set(app.builtins.filter(\.offByDefault).map(\.info.id))
     }
     var disabled: Set<String> { disabled(app.settings[SettingKeys.disabledExtensions]) }
 
-    /// Loaded before the daemon's state was read: what was allowed wasn't known, so all that runs commands waited.
+    /// Whether the extensions loaded before the daemon's state was read. Then what was allowed wasn't known, so every
+    /// extension that runs commands waited.
     private(set) var loadedWithoutState = false
 
     func reload() {
@@ -73,7 +78,7 @@ package final class ExtensionRegistry {
         var merged = Contributions()
         let off = disabled
         disabledLoaded = off
-        views = [:]   // uninstalled ones go
+        views = [:]   // this drops the views of uninstalled extensions
         func take(_ info: ExtensionInfo, _ contributions: Contributions) {
             var info = info
             info.enabled = info.essential || !off.contains(info.id)
@@ -102,13 +107,13 @@ package final class ExtensionRegistry {
         askTrust(infos)
     }
 
-    /// What follows settings.json: a built-in or an extension switched on or off loads them again, and the skills are
-    /// written again when one of their switches or the extensions change.
+    /// Follows settings.json. Switching a built-in or an extension on or off loads the extensions again, and the skills
+    /// are written again when one of their switches or the extensions change.
     private func follow() {
         track(owner: self, now: false) { [weak self] in
             self?.disabled ?? []
         } changed: { [weak self] off in
-            // While a connection is read, its end loads them once (`AppModel.opened`).
+            // While a connection is being read, `AppModel.opened` loads the extensions once when it ends.
             guard let self, !extensions.isEmpty, off != disabledLoaded, !app.opening else { return }
             reload()
         }
@@ -120,7 +125,8 @@ package final class ExtensionRegistry {
         }
     }
 
-    /// What the skills written depend on: the extensions loaded (their skills, settings and themes) and each switch.
+    /// What the written skills depend on: the loaded extensions (their skills, settings and themes) and each skill
+    /// switch.
     private var skillsRead: SkillsRead {
         let settings = app.settings
         let switches = [SettingKeys.skillExtensions, SettingKeys.skillSettings] + all.skills.compactMap(\.setting)
@@ -131,8 +137,9 @@ package final class ExtensionRegistry {
         let on: [Bool]
     }
 
-    /// Extensions that wait to be allowed are asked about once each version, after the folder has been still a moment (an
-    /// agent writing one saves it many times). "Not Now" leaves it in Settings › Extensions, with Allow there.
+    /// Asks the user about each extension that waits to be allowed, once per version, after its folder has been still
+    /// for a moment (an agent writing an extension saves it many times). "Not Now" leaves the extension in Settings ›
+    /// Extensions, with Allow there.
     private func askTrust(_ infos: [ExtensionInfo]) {
         let users = infos.compactMap { $0.builtin ? nil : $0.path }
         Task { [weak self] in
@@ -141,7 +148,7 @@ package final class ExtensionRegistry {
                 reload()
                 return
             }
-            guard app.uiState.loaded else { return }   // nothing's asked before what was allowed is known
+            guard app.uiState.loaded else { return }   // nothing is asked until Kelp knows what was allowed
             let waiting = infos.filter(\.waitsToBeAllowed).compactMap(\.path).filter {
                 asked.insert(ExtensionFiles.extensionDigest($0)).inserted
             }
@@ -158,14 +165,14 @@ package final class ExtensionRegistry {
         }
     }
 
-    /// Allowed in Settings › Extensions, after the same look.
+    /// Allows an extension from Settings › Extensions, after the same review the prompt shows.
     func allow(_ extensionInfo: ExtensionInfo) async {
         guard let folder = extensionInfo.path, await ExtensionTrust.review(folder, app) else { return }
         reload()
     }
 
-    /// Asks the daemon where `commands` are; reloads when that changes what's missing. Without a daemon, nothing: the
-    /// reload after it connects asks.
+    /// Asks the daemon where `commands` are, and reloads when the answer changes what's missing. Without a daemon it
+    /// does nothing, because the reload after the daemon connects asks.
     private func askTools(_ commands: Set<String>) {
         guard !commands.isEmpty, !askingTools else { return }
         askingTools = true
@@ -183,13 +190,14 @@ package final class ExtensionRegistry {
     func watch() {
         try? FileManager.default.createDirectory(at: Self.userDir, withIntermediateDirectories: true)
         let pending = Debounce()
-        // delivered on main
+        // FileWatcher delivers on the main thread
         watcher = FileWatcher(root: Self.userDir.path) { [weak self] _ in
             MainActor.assumeIsolated { pending.after(0.3) { self?.reload() } }
         }
     }
 
-    /// Follows symlinks: a VS Code extension can be linked in rather than copied.
+    /// Whether the URL is a folder, following symlinks, because a VS Code extension can be linked in rather than
+    /// copied.
     private static func isFolder(_ url: URL) -> Bool {
         var dir: ObjCBool = false
         return FileManager.default.fileExists(atPath: url.path, isDirectory: &dir) && dir.boolValue
@@ -210,8 +218,9 @@ package final class ExtensionRegistry {
         return all.tabs.first { $0.schemes.contains(scheme) }
     }
 
-    /// Built-ins come first, so their ids win (`command`). An id agents may run (`UICommand.forAgents`) is never an
-    /// extension's, even with the built-in that has it turned off: it would hand agents whatever that command runs.
+    /// Whether a command's id is one agents may run (`UICommand.forAgents`). Built-ins come first, so their ids win
+    /// (`command`). Such an id never goes to a folder extension, even when the built-in that has it is turned off,
+    /// because that would hand agents whatever the extension's command runs.
     static func isAgentsOwn(_ command: CommandSpec) -> Bool { UICommand.forAgents.contains(command.id) }
 
     /// An `ext:` tab's view: its title and icon; nil when its extension is off or gone.
@@ -222,8 +231,9 @@ package final class ExtensionRegistry {
     }
 
     func command(_ id: String) -> CommandSpec? { all.commands.first { $0.id == id } }
-    /// The key command `id` has: settings.json's `keys` over its own (`""`: none), `fallback` for one that isn't a
-    /// registered command (the menus' own). What every menu and list that shows a key reads, so a rebound one reads the same.
+    /// Returns the key for command `id`. settings.json's `keys` override the command's own (`""` means no key), and
+    /// `fallback` serves an id that isn't a registered command (the menus' own items). Every menu and list that shows a
+    /// key reads it here, so a rebound key shows the same everywhere.
     func key(_ id: String, fallback: String? = nil) -> KeySpec? {
         if let over = KeyBindings.overrides(app.settings)[id] { return over.isEmpty ? nil : KeySpec(over) }
         return (command(id)?.key ?? fallback).flatMap(KeySpec.init)

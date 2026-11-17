@@ -4,14 +4,16 @@ import DesignKit
 import SwiftUI
 import WorkbenchKit
 
-/// What runs under an agent, in a hover card: who asks, who works, its commands, then who finished. Agents it started,
-/// subagents and commands are one row's drawing and differ in their mark and in what a click opens.
+/// What runs under an agent, in a hover card: who asks, who works, the agent's commands, then who finished. Agents it
+/// started, subagents and commands are drawn as the same kind of row, and differ in their mark and in what a click
+/// opens.
 struct AgentWork: View {
     let model: CardModel, id: String
     @State private var everyone = false
     @State private var finishedShown = false
     private static let atOnce = 5
-    /// How long a transcript stands still before its row says so: a long command, or a subagent that hangs.
+    /// How long a transcript stands still before its row says so, which catches a long command or a subagent that
+    /// hangs.
     private static let quietAfter: TimeInterval = 300
 
     var body: some View {
@@ -100,7 +102,8 @@ struct AgentWork: View {
 
     private func step(of run: Subagent) -> String? {
         guard let last = model.app.latest(SubagentsEvent.self, id)?.steps[run.id] else { return nil }
-        // What a built-in says it did, in words, not the command that did it (on a page: its last step there).
+        // Show what a built-in says the subagent did, in words, not the command that did it (for a page, its last
+        // step there).
         let steps = model.app.extensions.all.subagentSteps
         if let said = steps.lazy.compactMap({ $0(id, run.id, last.step.detail) }).first { return said }
         let text = last.step.tool + "  " + last.step.detail, quiet = Date().timeIntervalSince(last.touched)
@@ -115,7 +118,7 @@ struct AgentWork: View {
         }
     }
 
-    /// A subagent's journal, where its agent keeps one.
+    /// Returns what opens a subagent's journal, when its agent keeps one.
     private func opener(_ run: Subagent, in session: Session) -> (@MainActor () -> Void)? {
         guard model.app.catalog.manifest(session.agent)?.transcript == .claude else { return nil }
         let app = model.app, uri = TabURI.subagent(session: session.id, id: run.id), workspace = session.worktreeId
@@ -128,12 +131,13 @@ struct AgentWorkRow: View {
         enum Mark: Equatable { case status(AgentStatus), command, none }
         var id: String, mark: Mark, title: String
         var kind: String?
-        /// Running: its time counts up from here. Else `time`.
+        /// For a running row, the time its clock counts up from. Otherwise the row shows `time`.
         var since: Date?
         var time: String?
         var detail: String?
         var warns = false
-        /// Text from the agent's world: `title` for a command, `detail` for a step.
+        /// True when the text comes from the agent's world and is shown as code: `title` for a command, `detail` for
+        /// a step.
         var code = false
         var chevron: Double?
         var open: (@MainActor () -> Void)?

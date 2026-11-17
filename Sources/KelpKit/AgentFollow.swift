@@ -12,13 +12,13 @@ import WorkbenchKit
 final class AgentFollow {
     private let app: AppModel
     private var following: [String: Watched] = [:]
-    /// The file last shown for each agent: the next one takes its tab.
+    /// The file last shown for each agent. The agent's next file takes over its tab.
     private var shown: [String: String] = [:]
 
     static func of(_ app: AppModel) -> AgentFollow { app.part { AgentFollow(app) } }
     private init(_ app: AppModel) { self.app = app }
 
-    /// Whether the agent's hooks tell its edits.
+    /// Whether the agent's hooks report its edits.
     static func can(_ app: AppModel, _ sid: String) -> Bool {
         switch app.catalog.manifest(app.session(sid)?.agent)?.hooks {
         case .settingsFlag?, .settingsFile?: return true
@@ -36,7 +36,7 @@ final class AgentFollow {
         let watched = Watched(.edits, in: app)
         watched.key = sid
         following[sid] = watched
-        var seen: Int?   // the first count is what it changed before: not shown
+        var seen: Int?   // the first count covers edits made before following started, so it isn't shown
         track(owner: watched) { [app] in
             app.latest(EditsEvent.self, sid)
         } changed: { [weak self] event in

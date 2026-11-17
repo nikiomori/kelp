@@ -13,7 +13,7 @@ import WorkbenchKit
 @MainActor
 final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNavigationDelegate {
     private let page: URL, folder: URL, app: AppModel
-    /// The panel icon's badge `kelp.badge` sets (nil in a tab).
+    /// The badge on the panel's icon that `kelp.badge` sets (nil when the page is in a tab).
     private let badge: ExtBadge?
     /// What the `ext:` link that opened the page carried (`ext:my.ext/view?file=a.txt`), given to the page as
     /// `kelp.props`.
@@ -54,7 +54,7 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         } changed: { [weak self] _ in
             self?.push()
         }
-        // Only what the page is told: output and meters change sessions all the time.
+        // Track only what the page is told, because output and meters change sessions all the time.
         track(owner: self) {
             app.sessions.filter(\.isChat).map {
                 "\($0.id) \($0.title) \($0.agent ?? "") \($0.status.rawValue) \($0.worktreeId ?? "") \($0.unread)"
@@ -82,11 +82,12 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         sentSessions = list
         web.evaluateJavaScript("window.kelp && window.kelp.__sessions(\(list))")
     }
-    /// What the page last got: the same list isn't sent again.
+    /// The list the page last got, so the same list isn't sent again.
     private var sentSessions = ""
 
-    /// The window stays on the extension's own pages: the bridge is in every page it shows, and `push` hands it the
-    /// settings and the workspace's path. A link elsewhere opens as a preview's do (`PreviewLinks`); its frames load anything.
+    /// Keeps the web view on the extension's own pages, because the bridge is in every page it shows and `push` hands
+    /// that page the settings and the workspace's path. A link elsewhere opens as a preview's links do
+    /// (`PreviewLinks`). The page's frames may load anything.
     func webView(
         _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
@@ -135,7 +136,8 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         let ctx = IDEContext.of(app)
         switch op {
         case "exec":
-            // An array is one program and its words, each passed as it is (no shell reads them): `kelp.exec(["git", "log"])`.
+            // An array is one program and its arguments, each passed as it is with no shell reading them:
+            // `kelp.exec(["git", "log"])`.
             let argv = ExtBridge.decode(body["argv"], as: [String].self)
             let line = argv.map { $0.map(ShellQuote.word).joined(separator: " ") } ?? arg
             Task {
@@ -151,8 +153,9 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         case "terminal":
             app.workbench.starterForNewTab?.run(command: arg, title: body["title"] as? String)
             reply(id, .null)
-        // What a page opens or hands an agent is often data it shows (an issue's link, its body): `open` doesn't run
-        // commands or agents (kelp.terminal / kelp.agent do, by name), and an agent's prompt is typed for the user to send.
+        // What a page opens or hands an agent is often data it shows (an issue's link, its body). So `open` doesn't run
+        // commands or agents (kelp.terminal and kelp.agent do, by name), and an agent's prompt is typed for the user to
+        // send.
         case "open":
             if let uri = ExtActions.openableURI(TabURI.normalize(arg, cwd: ctx.workspace?.path)) {
                 app.workbench.open(uri)

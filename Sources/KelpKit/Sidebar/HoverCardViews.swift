@@ -114,16 +114,18 @@ struct CardView: View {
         .frame(width: 300, alignment: .leading)
     }
 
-    /// An agent's summary often ends with a Markdown link ("Plan ready: [Plan](https://…)"): its words, clickable.
+    /// An agent's summary often ends with a Markdown link ("Plan ready: [Plan](https://…)"). This makes the link's
+    /// words clickable.
     static func linked(_ text: String) -> AttributedString {
         do {
             return try AttributedString(
                 markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))
-        } catch { return AttributedString(text) }   // not Markdown: as written
+        } catch { return AttributedString(text) }   // not Markdown, so shown as written
     }
 }
 
-/// "Worktrees 20.1 GB" over the biggest ones, named inside the project when they're in it (`.claude/worktrees/…`).
+/// "Worktrees 20.1 GB" above the biggest worktrees. Worktrees inside the project are named by their path in it
+/// (`.claude/worktrees/…`).
 struct WorktreeSizes: View {
     let items: [RepoWorktreeSizes.Item]?, root: String
     var body: some View {
@@ -158,8 +160,8 @@ struct WorktreeSizes: View {
     }
 }
 
-/// How full the agent's conversation is, and what filled it under a click, remembered: it's a long table, so it stays out
-/// of the way until someone wants it, or until Compact Now, which stands in it, is an answer.
+/// How full the agent's conversation is, and, under a click that is remembered, what filled it. That is a long table,
+/// so it stays out of the way until someone wants it, or until Compact Now, which stands in it, is an answer.
 struct ContextBlock: View {
     let model: CardModel, used: Int, window: Int
     @AppStorage("sidebar.card.contextOpen") private var opened = false
@@ -184,7 +186,7 @@ struct ContextBlock: View {
     }
 }
 
-/// How full the agent's conversation is; amber from three quarters, red from nine tenths.
+/// How full the agent's conversation is. It is amber from three quarters and red from nine tenths.
 struct ContextLine: View {
     let used: Int, window: Int
     var body: some View {

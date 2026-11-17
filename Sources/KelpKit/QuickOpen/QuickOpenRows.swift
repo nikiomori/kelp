@@ -1,4 +1,4 @@
-// What the palette lists: its items, rows and a setting's choices, the commands run lately, a title's bold.
+// What the palette lists: its items, rows and a setting's choices, the commands run lately, and the bold in a title.
 import AppKit
 import Core
 import DesignKit
@@ -10,24 +10,26 @@ extension QuickOpen {
         let title: String
         let detail: String
         let action: () -> Void
-        /// ⇧↩: the same thing in a split to the right (files, agents, tabs).
+        /// What ⇧↩ does: the same thing in a split to the right (files, agents, tabs).
         var split: (() -> Void)?
-        /// An agent's: its state where the icon goes, as on its tab.
+        /// The agent's session, whose state shows where the icon goes, as on its tab.
         var session: Session?
-        /// A setting with choices: its value now, on the right; choosing it lists the choices here.
+        /// For a setting with choices, its current value, shown on the right. Choosing the setting lists the choices
+        /// here.
         var value: String?
-        /// One of those choices: the value it sets, whether it is in effect, and its theme's colors.
+        /// For one of those choices: the value it sets, whether it is in effect, and its theme's colors.
         var choice: JSONValue?
         var checked = false
         var image: NSImage?
-        /// A command's shortcut, at the end of its title's line as in a menu.
+        /// A command's shortcut, shown at the end of its title's line as in a menu.
         var key = ""
-        /// Run from here lately: on top of ⇧⌘P's empty list, under Recently Used.
+        /// Whether it was run from here lately, which puts it on top of ⇧⌘P's empty list, under Recently Used.
         var recent = false
-        /// A built-in's row: a view at its end (`QuickItem`).
+        /// For a built-in's row, a view at its end (`QuickItem`).
         var accessory: (@MainActor () -> NSView?)?
     }
-    /// A setting's choices on screen: the key, the value to go back to, whether moving tries them on, the query to return to.
+    /// A setting's choices on screen: the setting's key, the saved value to go back to, whether moving the selection
+    /// tries each choice on, and the query to return to.
     struct Choosing {
         let key: String
         let saved: JSONValue?
@@ -50,10 +52,10 @@ extension QuickOpen {
             ?? it.kind
     }
 
-    /// The commands and settings run from the palette last, newest first; kept per Mac, five of them.
+    /// The commands and settings run from the palette last, newest first. Five are kept, per Mac.
     static let usedKey = "quickOpen.recentCommands"
     static func usedID(_ it: Item) -> String { [it.kind, it.detail, it.title].joined(separator: " › ") }
-    /// Of `pool`, the ones run lately that the menus still offer, in the order they were run.
+    /// Returns the items of `pool` run lately that the menus still offer, in the order they were run.
     static func recentlyUsed(_ pool: [Item]) -> [Item] {
         (UserDefaults.standard.stringArray(forKey: usedKey) ?? []).compactMap { id in
             guard var it = pool.first(where: { usedID($0) == id }) else { return nil }
@@ -71,7 +73,7 @@ extension QuickOpen {
 }
 
 extension QuickOpen {
-    /// The title with what was typed in bold: each word of the query where it first occurs.
+    /// Returns the title with what was typed in bold, each word of the query where it first occurs.
     static func highlighted(_ title: String, _ query: String) -> NSAttributedString {
         let text = NSMutableAttributedString(string: title, attributes: [.font: NSFont.ui(TextSize.body)])
         for word in query.split(separator: " ") where !word.isEmpty {

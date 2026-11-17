@@ -1,8 +1,9 @@
 import AppKit
 import DesignKit
 
-/// The "Colorful" file icon theme: icons picked by name and extension, the way VS Code icon themes do, drawn with SF Symbols
-/// (or a short monogram where no symbol fits). Images draw on demand, so system colors follow light and dark.
+/// The "Colorful" file icon theme. It picks icons by name and extension, the way VS Code icon themes do, and draws them
+/// with SF Symbols (or a short monogram where no symbol fits). Images draw on demand, so system colors follow light and
+/// dark mode.
 @MainActor
 enum ColorfulIcons {
     static func image(_ name: String, folder: Bool) -> NSImage {
@@ -27,7 +28,8 @@ enum ColorfulIcons {
     private static var cache: [String: NSImage] = [:]
 
     private static let plainFile = sym("doc", .secondaryLabelColor)
-    /// systemYellow is too pale on white; folders are a lighter blue in dark mode, like Finder's.
+    /// A darker yellow for light mode, because systemYellow is too pale on white. Folders are a lighter blue in dark
+    /// mode, like Finder's.
     private static let yellow = NSColor.dynamic(
         light: NSColor(srgbRed: 0.85, green: 0.6, blue: 0, alpha: 1), dark: .systemYellow)
     private static let folderColor = NSColor.dynamic(
@@ -135,7 +137,7 @@ enum ColorfulIcons {
         (["agents.md", "gemini.md", ".cursorrules"], sym("sparkles", .systemPurple))
     ])
 
-    /// Checked in order, after exact names.
+    /// Name prefixes, checked in order after exact names.
     private static let byPrefix: [(String, Style)] = [
         ("readme", sym("info.circle.fill", .systemBlue)),
         ("license", sym("checkmark.seal.fill", yellow)), ("licence", sym("checkmark.seal.fill", yellow)),
@@ -145,7 +147,7 @@ enum ColorfulIcons {
         (".env", sym("key.fill", yellow))
     ]
 
-    /// Build output and dependency caches: a dimmed folder.
+    /// Build output and dependency cache folders, drawn as a dimmed folder.
     private static let generated: Set<String> = [
         "node_modules", ".build", "build", "dist", "out", "target", "deriveddata", ".venv", "venv",
         "__pycache__", ".next", ".cache", "coverage", ".swiftpm", ".gradle"
@@ -192,7 +194,8 @@ enum ColorfulIcons {
         }
     }
 
-    /// Monochrome, tinted in a layer of its own: cut-outs (the "i" in info.circle.fill) stay transparent.
+    /// Draws a monochrome symbol tinted in a layer of its own, so cut-outs (the "i" in info.circle.fill) stay
+    /// transparent.
     private static func drawSymbol(
         _ name: String, _ color: NSColor, pointSize: CGFloat, weight: NSFont.Weight = .medium, in box: NSRect
     ) {
@@ -214,7 +217,7 @@ enum ColorfulIcons {
 
     private static func drawText(_ text: String, _ color: NSColor, in rect: NSRect) {
         var size: CGFloat = 12, attrs: [NSAttributedString.Key: Any] = [:]
-        repeat {   // shrink until it fits the width
+        repeat {   // shrink the monogram until it fits the width
             let base = NSFont.systemFont(ofSize: size, weight: .heavy)
             let font = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: size) } ?? base
             attrs = [.font: font, .foregroundColor: color, .kern: -0.4]

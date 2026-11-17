@@ -3,8 +3,8 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// A group's grey line beside its name: its branch when the name isn't it, what only that branch holds, and with no
-/// agent on it, what's open there (a row with nothing under it read as an empty one).
+/// A group's grey line beside its name. It shows the branch when the name isn't the branch, what only that branch
+/// holds, and, when no agent is on the group, what's open there (a row with nothing under it read as an empty one).
 extension SidebarCell {
     func showGroupLine(_ worktree: Worktree, onBranch: Bool) {
         var parts: [String] = []
@@ -21,12 +21,12 @@ extension SidebarCell {
                 localized:
                     "Only on \(worktree.branch): commits no other branch or remote has, and files not committed. Closing it asks first."
             ) : nil
-        // Not the one on screen: an empty one goes by itself when the screen moves on.
+        // Remove doesn't show on the group on screen, because an empty group goes by itself when the screen moves on.
         remove.isHidden =
             !(work != nil && held == 0 && node.children.isEmpty && app.workbench.workspaceId != worktree.id)
     }
 
-    /// "Terminal · 2 files · 1 more": the tabs of a group that has no agent's row to show.
+    /// The tabs of a group that has no agent's row to show, as in "Terminal · 2 files · 1 more".
     private func openWords(_ id: String) -> [String] {
         var terminals = 0, files = 0, other = 0
         for tab in app.workbench.layouts[id].allTabs {
@@ -45,7 +45,8 @@ extension SidebarCell {
 }
 
 extension SidebarController {
-    /// The rows follow what a group's line says: what only its branch holds, and with no agent on it, what's open there.
+    /// Makes the rows follow what a group's line says: what only its branch holds, and, when no agent is on it, what's
+    /// open there.
     func followGroupLines() {
         track(owner: self) { [app] in
             app.worktrees.map {

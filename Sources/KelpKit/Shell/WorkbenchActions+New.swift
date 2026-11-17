@@ -3,7 +3,8 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// A new chat, group or branch: where it goes (the project asked, else the one shown) and its agent's start.
+/// Making a new chat, group or branch: where it goes (the project asked for, or else the one shown), and starting its
+/// agent.
 @MainActor
 extension Workbench {
     /// A new isolated workspace in the project on screen (or the first project). ⌘N and New Chat on a project's row
@@ -11,7 +12,7 @@ extension Workbench {
     /// With nothing on screen, it is a chat with no project. `cwd` starts it in that folder (New Chat in Folder…).
     func newChat(repo: String? = nil, cwd: String? = nil) {
         Task {
-            // Right after launch the project list may not be in yet: ⌘N must not turn into "Add Project".
+            // Right after launch the project list may not have arrived yet, and ⌘N must not turn into "Add Project".
             let model = app
             await model.waitForConnection()
             let here = model.worktree(workspaceId)
@@ -29,8 +30,9 @@ extension Workbench {
         }
     }
 
-    /// ⇧⌘N: a screen of its own under a heading, with nothing on it yet: its empty screen offers an agent, a terminal,
-    /// a file, as "+" does. It lives while it's on screen (`WorkspaceActions.left`); its first prompt names it.
+    /// ⇧⌘N makes a group: a screen of its own under a heading, with nothing on it yet. Its empty screen offers an
+    /// agent, a terminal or a file, as "+" does. The group lives while it's on screen (`WorkspaceActions.left`), and
+    /// its first prompt names it.
     func newGroup(repo: String? = nil) {
         Task {
             guard let rid = await project(repo) else { return }
@@ -38,9 +40,9 @@ extension Workbench {
         }
     }
 
-    /// ⌃⌘N, and Own Branch on a group's empty screen: the same with code of its own, a new branch from the
-    /// project's base in its own folder. The first prompt names both. A .kelp.yaml not yet trusted asks once the screen
-    /// is there, so its setup waits for nobody.
+    /// ⌃⌘N, and Own Branch on a group's empty screen, make the same with code of its own: a new branch from the
+    /// project's base, in its own folder. The first prompt names both. A .kelp.yaml not yet trusted asks once the
+    /// screen is there, so its setup waits for nobody.
     func newBranch(repo: String? = nil) {
         Task {
             guard let rid = await project(repo), let made = await app.call(WorktreeCreate(repoId: rid)) else { return }
@@ -50,16 +52,16 @@ extension Workbench {
         }
     }
 
-    /// ⌥⌃⌘N, "New Group on Branch…": the sheet (`NewChatSheet`) for a branch with a name, one that's there, or a pull
-    /// request, and the agent to start on it.
+    /// ⌥⌃⌘N, "New Group on Branch…", shows the sheet (`NewChatSheet`) that picks a new branch by name, an existing
+    /// branch, or a pull request, and the agent to start on it.
     func newBranchAsking(repo: String? = nil) {
         Task {
             guard let rid = await project(repo) else { return }
             let worktree = app.worktrees.first { $0.repoId == rid }, base = app.repo(rid)?.baseBranch ?? "main"
             var branches: BranchInfo?
             if let worktree { branches = await app.quiet(GitBranches(id: worktree.id)) }
-            // The open PRs from the project's watch, else read once; with none (gh missing, or not read yet), a branch
-            // or a name still works.
+            // The open PRs come from the project's watch, or else are read once. With none (gh missing, or not read
+            // yet), a branch or a name still works.
             let prs: [GitHub.PullRequest]
             do { prs = try await PRsEvent.open(rid, in: app) } catch { prs = [] }
             let agents = app.catalog.installed(app.catalog.all).filter { $0.id != Session.shellAgent }.map {
@@ -83,7 +85,8 @@ extension Workbench {
         }
     }
 
-    /// The project a new screen goes to: the one asked for, the one on screen, or the first; with none, adding one.
+    /// The project a new screen goes to: the one asked for, the one on screen, or the first. With no project, this
+    /// starts adding one.
     private func project(_ repo: String?) async -> String? {
         let model = app
         await model.waitForConnection()
@@ -94,8 +97,8 @@ extension Workbench {
         return id
     }
 
-    /// A new agent of the default kind, started before anything shows: it comes as a row of its own. With no agent on this
-    /// Mac the empty screen offers to install one.
+    /// Starts a new agent of the default kind before anything shows, so it comes as a row of its own. With no agent on
+    /// this Mac, the empty screen offers to install one.
     private func startChat(on id: String, cwd: String? = nil, agent: String? = nil) async {
         var chat: Session?
         if let kind = agent ?? app.catalog.startable {

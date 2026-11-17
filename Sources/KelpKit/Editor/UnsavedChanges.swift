@@ -4,7 +4,8 @@ import DesignKit
 /// Unsaved files ask before what would drop them: quitting, or closing, archiving or removing their workspace.
 @MainActor
 enum UnsavedChanges {
-    /// Save (All), Cancel when `canCancel` (not once the workspace is already gone), Don't Save.
+    /// The alert that asks: Save (or Save All), Cancel when `canCancel` (not once the workspace is already gone), and
+    /// Don't Save.
     static func alert(_ edited: [SavableTab], quitting: Bool, canCancel: Bool = true) -> NSAlert {
         let alert = NSAlert()
         alert.messageText =
@@ -20,8 +21,8 @@ enum UnsavedChanges {
         return alert
     }
 
-    /// True to go on: every file saved, or the user chose to lose them. A save still on its way counts as saved here:
-    /// await `written` before what would end it.
+    /// Returns true to go on: every file was saved, or the user chose to lose the changes. A save still on its way
+    /// counts as saved here, so await `written` before whatever would end it.
     static func settle(_ edited: [SavableTab], _ answer: NSApplication.ModalResponse, canCancel: Bool = true) async
         -> Bool
     {
@@ -34,7 +35,7 @@ enum UnsavedChanges {
         return true
     }
 
-    /// Before workspaces close, archive or leave with their project: true to go on.
+    /// Asks before workspaces close, are archived, or leave with their project; returns true to go on.
     static func confirm(closing ids: [String], in app: AppModel) async -> Bool {
         let edited = app.workbench.editors?.editedFiles(in: ids) ?? []
         guard !edited.isEmpty else { return true }
@@ -42,7 +43,7 @@ enum UnsavedChanges {
         return await written(edited)
     }
 
-    /// Saves still on their way (remote files) are answered; true when nothing is left unsaved.
+    /// Waits for saves still on their way (remote files), and returns true when nothing is left unsaved.
     static func written(_ tabs: [SavableTab]) async -> Bool {
         for tab in tabs { await tab.pendingSave?.value }
         return tabs.allSatisfy { !$0.isEdited }

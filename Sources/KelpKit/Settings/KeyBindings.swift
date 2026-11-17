@@ -14,10 +14,10 @@ extension KeySpec.Modifiers {
     var flags: NSEvent.ModifierFlags { NSEvent.ModifierFlags(Self.appKit.filter { contains($0.0) }.map(\.1)) }
 }
 
-/// Settings › Keyboard: any menu command's shortcut, set by pressing it. The menu is built with Kelp's defaults, and
-/// then the overrides in settings.json are laid over it: `"keys": {"editor.saveAll": "opt+cmd+s"}` ("" means none).
-/// Kelp's commands are named by their id; the menu's other items (Copy, Minimize, the agents in New Tab) by their
-/// English path.
+/// Settings › Keyboard, where any menu command's shortcut is set by pressing it. The menu is built with Kelp's
+/// defaults, and then the overrides in settings.json are laid over it: `"keys": {"editor.saveAll": "opt+cmd+s"}` (""
+/// means none). Kelp's commands are named by their id, and the menu's other items (Copy, Minimize, the agents in New
+/// Tab) by their English path.
 @MainActor
 enum KeyBindings {
     struct Entry: Identifiable {
@@ -50,7 +50,7 @@ enum KeyBindings {
                 // A command's item goes by the command id, the others by their English path ("Edit › Copy").
                 let command = action == #selector(AppDelegate.runCommand(_:)),
                     name = item.identifier?.rawValue ?? item.title
-                // English: the same in every language
+                // in English, so the id is the same in every language
                 let id = command ? name : (path + [item.title]).joined(separator: " › ")
                 item.identifier = NSUserInterfaceItemIdentifier(id)
                 defaults[id] =
@@ -65,7 +65,8 @@ enum KeyBindings {
         walk(menu, [])
     }
 
-    /// macOS's own app-menu commands (About, Hide, Hide Others, Show All, Quit): System Settings › Keyboard rebinds those.
+    /// macOS's own app-menu commands (About, Hide, Hide Others, Show All, Quit), which System Settings › Keyboard
+    /// rebinds.
     private static let systemActions: Set<Selector> = [
         #selector(NSApplication.orderFrontStandardAboutPanel(_:)), #selector(NSApplication.hide(_:)),
         #selector(NSApplication.hideOtherApplications(_:)), #selector(NSApplication.unhideAllApplications(_:)),
@@ -106,14 +107,14 @@ enum KeyBindings {
             }
     }
 
-    /// nil goes back to Kelp's default key; a key with no key text means no shortcut.
+    /// Sets a command's shortcut. nil goes back to Kelp's default key, and a key with no key text means no shortcut.
     static func set(_ id: String, _ key: KeySpec?, in settings: SettingsStore) {
         var keys = overrides(settings)
         if let key { keys[id] = key.key.isEmpty ? "" : key.description } else { keys[id] = nil }
         settings.set(SettingKeys.keys, keys.isEmpty ? nil : .object(keys.mapValues { .string($0) }))
     }
 
-    /// "⇧⌘K", as menus show it.
+    /// Returns the shortcut as menus show it, such as "⇧⌘K".
     static func display(_ key: KeySpec) -> String {
         var text = ""
         if key.mods.contains(.control) { text += "⌃" }
@@ -128,7 +129,7 @@ enum KeyBindings {
         return text + (named[key.key] ?? key.key.uppercased())
     }
 
-    /// What else answers to this combination: another of Kelp's commands, or macOS (which gets it first).
+    /// Returns what else answers to this combination: another of Kelp's commands, or macOS (which gets it first).
     static func conflict(_ key: KeySpec, keyCode: UInt16?, except id: String) -> String? {
         let norm = KeySpec(key: key.key.lowercased(), mods: key.mods)
         if let other = entries().first(where: {
@@ -185,8 +186,9 @@ enum KeyBindings {
     }()
 }
 
-/// The Keyboard page: every command, its shortcut, click to record a new one. Menus start folded but the first, what you
-/// changed above them; Settings' own search lists what it finds by menu (`query`), so the page has no second search field.
+/// The Keyboard page, listing every command with its shortcut, which you click to record a new one. Menus start folded
+/// except the first, and what you changed is listed above them. Settings' own search lists what it finds by menu
+/// (`query`), so the page has no second search field.
 struct KeyboardSettings: View {
     var query = ""
     @Environment(AppModel.self) private var app
@@ -208,7 +210,7 @@ struct KeyboardSettings: View {
         }
         .onAppear {
             entries = KeyBindings.entries()
-            // The first menu open, so "click a shortcut" has shortcuts to click.
+            // Open the first menu, so "click a shortcut" has shortcuts to click.
             if open.isEmpty, let first = entries.first?.menu { open = [first] }
         }
         .onDisappear { stop() }
@@ -233,8 +235,8 @@ struct KeyboardSettings: View {
         }
     }
 
-    /// A menu's line, folding its shortcuts under it. A row of the form's own height: a DisclosureGroup in a grouped form
-    /// stood each folded menu half again as tall as a row.
+    /// A menu's line, which folds its shortcuts under it. It is a row of the form's own height, because a
+    /// DisclosureGroup in a grouped form made each folded menu half again as tall as a row.
     private func fold(_ menu: String, count: Int) -> some View {
         let shown = open.contains(menu)
         return Button {
@@ -293,8 +295,8 @@ struct KeyboardSettings: View {
                             entry.defaultKey.map { String(localized: "Kelp's default: \(KeyBindings.display($0))") }
                                 ?? String(localized: "Kelp's default: none"))
                 }
-                // The keys as text at the row's end, greying in under the pointer; outlined while it takes new ones. A grey
-                // plate on every row, "—" ones too, was a column of empty boxes.
+                // The keys show as text at the row's end, greying in under the pointer, and outlined while recording.
+                // A grey plate on every row, the "—" ones too, made a column of empty boxes.
                 Button {
                     record(entry.id)
                 } label: {
@@ -327,8 +329,8 @@ struct KeyboardSettings: View {
             let mods = ev.modifierFlags.intersection([.command, .shift, .option, .control])
             let chars = ev.charactersIgnoringModifiers ?? ""
             switch ev.keyCode {
-            case 53 where mods.isEmpty: stop()   // Esc: keep it
-            case 51 where mods.isEmpty:   // ⌫: none
+            case 53 where mods.isEmpty: stop()   // Esc keeps the shortcut
+            case 51 where mods.isEmpty:   // ⌫ removes the shortcut
                 KeyBindings.set(id, .init(key: "", mods: []), in: app.settings)
                 warning[id] = nil
                 stop()
@@ -338,7 +340,7 @@ struct KeyboardSettings: View {
                 guard !mods.subtracting(.shift).isEmpty || fKey else {
                     NSSound.beep()
                     return nil
-                }   // a plain letter would type
+                }   // a plain letter would type, so it needs a modifier or an F key
                 let key = KeySpec(
                     key: mods.contains(.shift) && chars.count == 1 ? chars.uppercased() : chars, mods: .init(mods))
                 warning[id] = KeyBindings.conflict(key, keyCode: ev.keyCode, except: id)
@@ -356,6 +358,6 @@ struct KeyboardSettings: View {
         recording = nil
     }
 
-    /// The menu is rebuilt from the setting a moment later; read it back then.
+    /// Reads the entries back a moment later, once the menu is rebuilt from the setting.
     private func later() { DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { entries = KeyBindings.entries() } }
 }

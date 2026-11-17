@@ -2,28 +2,30 @@ import AppKit
 import Core
 import Observation
 
-/// Agents' icons: the logo Kelp ships (`logo`), else the vendor's Mac app when it's installed, else the icon its website
-/// serves, fetched once and kept in ~/.kelp/icons. Fetched monochrome logos sit on a small tile so they show in light and
-/// dark. Until (or unless) one is found, the agent's SF Symbol stands in.
+/// Finds agents' icons. Each is the logo Kelp ships (`logo`), else the vendor's Mac app when it's installed, else the
+/// icon the agent's website serves, fetched once and kept in ~/.kelp/icons. Fetched monochrome logos sit on a small
+/// tile so they show in light and dark mode. Until an icon is found (or if none is), the agent's SF Symbol stands in.
 @MainActor
 @Observable
 final class AgentIcons {
     private(set) var images: [String: NSImage] = [:]
     @ObservationIgnored private var asked = Set<String>()
 
-    /// What `AgentCatalog.icon` made, by agent and size, with the icon it came from.
+    /// The images `AgentCatalog.icon` made, by agent and size, each with the icon it came from.
     @ObservationIgnored var made: [String: (source: NSImage?, image: NSImage)] = [:]
-    /// A made image without its colour: rendering one takes a millisecond and more, for each paused row on each sidebar pass.
+    /// Grey copies of made images, kept because rendering one takes a millisecond or more, for each paused row on
+    /// each sidebar pass.
     @ObservationIgnored private var greys: [ObjectIdentifier: (image: NSImage, grey: NSImage)] = [:]
 
     func grey(_ image: NSImage) -> NSImage {
         if let known = greys[ObjectIdentifier(image)] { return known.grey }
         let grey = image.grayscale
-        greys[ObjectIdentifier(image)] = (image, grey)   // the image is held: its identifier stays its own
+        greys[ObjectIdentifier(image)] = (image, grey)   // holding the image keeps its identifier from being reused
         return grey
     }
 
-    /// `apps`, `site`: where its manifest says the icon comes from when Kelp ships none.
+    /// Returns the agent's icon. `apps` and `site` are where the agent's manifest says the icon comes from when Kelp
+    /// ships none.
     func image(_ id: String, apps: [String], site: String?) -> NSImage? {
         if !asked.contains(id) {
             asked.insert(id)
@@ -73,14 +75,14 @@ final class AgentIcons {
         return data
     }
 
-    /// An image, not the HTML page some sites send for any path.
+    /// Whether the data is an image, and not the HTML page some sites send for any path.
     nonisolated static func isImage(_ d: Data) -> Bool {
         // swiftlint:disable:next optional_data_string_conversion
-        let head = String(decoding: d.prefix(256), as: UTF8.self).lowercased()   // lossy on purpose: sniffing bytes
+        let head = String(decoding: d.prefix(256), as: UTF8.self).lowercased()   // lossy on purpose, to sniff bytes
         return !head.contains("<!doctype html") && !head.contains("<html") && NSImage(data: d) != nil
     }
 
-    /// The site's touch icon or favicon; failing that, the icons its home page links to.
+    /// Fetches the site's touch icon or favicon, or failing that, the icons its home page links to.
     nonisolated static func fetchIcon(_ site: String) async -> Data? {
         guard let base = URL(string: "https://\(site)/") else { return nil }
         for path in ["apple-touch-icon.png", "favicon.ico"] {
@@ -92,7 +94,7 @@ final class AgentIcons {
         }
         let ordered = links.filter { $0.contains("apple-touch") } + links.filter { !$0.contains("apple-touch") }
         for tag in ordered {
-            // Quoted or not: charm.land writes href=/touchicon_180w.png.
+            // The href may be quoted or not, because charm.land writes href=/touchicon_180w.png.
             guard let href = tag.firstMatch(of: #/href=["']?([^"'\s>]+)/#)?.output.1,
                 let url = URL(string: String(href).replacingOccurrences(of: "&amp;", with: "&"), relativeTo: base)
             else { continue }
@@ -103,28 +105,30 @@ final class AgentIcons {
 
     // MARK: drawing
 
-    /// The logo Kelp ships for the agent (Resources/AgentLogos, from Lobe Icons): one mark everywhere, in its own colours
-    /// and on no tile. A one-colour logo (`<id>-mono.svg`) is drawn in the text's colour of the appearance it's drawn in.
+    /// Returns the logo Kelp ships for the agent (Resources/AgentLogos, from Lobe Icons). It is the same mark
+    /// everywhere, in its own colours and on no tile. A one-colour logo (`<id>-mono.svg`) is drawn in the text colour
+    /// of the current appearance.
     static func logo(_ id: String) -> NSImage? {
         let mono = Bundle.module.image(forResource: "\(id)-mono")
         guard let svg = mono ?? Bundle.module.image(forResource: id) else { return nil }
         let img = NSImage(size: NSSize(width: 32, height: 32), flipped: false) { rect in
-            // AppKit asks an image view's picture with no context to draw in at times (a view a stack has set aside):
-            // nothing can be drawn then, and `fill(using:)` traps without one.
+            // AppKit sometimes asks an image view to draw with no context (for a view a stack has set aside). Nothing
+            // can be drawn then, and `fill(using:)` traps without a context.
             guard NSGraphicsContext.current != nil else { return false }
-            svg.draw(in: rect.insetBy(dx: 2, dy: 2))   // the marks fill their square; a tile's art doesn't
+            svg.draw(in: rect.insetBy(dx: 2, dy: 2))   // the marks fill their square, unlike a tile's art
             if mono != nil {
                 NSColor.labelColor.set()
                 rect.fill(using: .sourceAtop)
             }
             return true
         }
-        img.cacheMode = .never   // drawn for each appearance
+        img.cacheMode = .never   // drawn again for each appearance
         return img
     }
 
-    /// App-like rounded icon, the same tile every agent shows as. A logo on transparency sits on a tile: of the opposite
-    /// tone when it's monochrome, white when it's in colour; artwork that fills its square is clipped to the tile.
+    /// Returns an app-like rounded icon, the same tile shape for every agent. A logo on a transparent background sits
+    /// on a tile, which is the opposite tone when the logo is monochrome and white when it's in colour. Artwork that
+    /// fills its square is clipped to the tile.
     static func tile(_ data: Data) -> NSImage? {
         guard let logo = NSImage(data: data) else { return nil }
         let side: CGFloat = 32
@@ -145,11 +149,11 @@ final class AgentIcons {
             IconTile.edge(rect)
             return true
         }
-        img.cacheMode = .never   // its edge is drawn for each appearance
+        img.cacheMode = .never   // the tile's edge is drawn again for each appearance
         return img
     }
 
-    /// More than a fifth of the logo is see-through: it's a mark, not an app icon's square.
+    /// Whether more than a fifth of the logo is see-through, which makes it a mark rather than a square app icon.
     private static func transparent(_ img: NSImage) -> Bool {
         pixels(img).filter { $0.alphaComponent < 0.3 }.count > 16 * 16 / 5
     }
@@ -168,7 +172,7 @@ final class AgentIcons {
                 max(c.redComponent, c.greenComponent, c.blueComponent)
                 - min(c.redComponent, c.greenComponent, c.blueComponent)
         }
-        // A logo on transparency and without much color is monochrome: it needs contrast behind it.
+        // A logo on transparency without much color is monochrome, so it needs contrast behind it.
         guard count > 0, transparent > 16 * 16 / 5, saturated / count < 0.25 else { return nil }
         return sum / count
     }

@@ -6,8 +6,9 @@ import WorkbenchKit
 // MARK: tmux and built-ins' lists
 
 extension QuickOpen {
-    /// File › Attach to tmux Session, the "+" menu: the sessions tmux has on this workspace's machine, the last used first.
-    /// Typing filters them by name, and a name that isn't one starts that session. Each opens as a terminal attached to it.
+    /// Lists the sessions tmux has on this workspace's machine, the last used first (File › Attach to tmux Session, and
+    /// the "+" menu). Typing filters them by name, and a name that matches none starts that session. Each opens as a
+    /// terminal attached to it.
     func showTmux() {
         guard let wid = app.workbench.workspaceId else {
             NSSound.beep()
@@ -25,7 +26,7 @@ extension QuickOpen {
         }
     }
 
-    /// A built-in's list where the palette shows (Open Database): `rows` makes its rows from what's typed.
+    /// Shows a built-in's list where the palette shows (Open Database). `rows` makes the rows from what's typed.
     func showList(_ placeholder: String, keys: String, rows: @escaping @MainActor (String) async -> [QuickItem]) {
         showOwn(placeholder, keys: keys) { typed in
             await rows(typed).map { row in
@@ -36,7 +37,7 @@ extension QuickOpen {
         }
     }
 
-    /// The palette's panel listing `rows` instead of its own items.
+    /// Shows the palette's panel listing `rows` instead of its own items.
     private func showOwn(_ placeholder: String, keys: String, rows: @escaping @MainActor (String) async -> [Item]) {
         if panel == nil { build() }
         stopChoosing()
@@ -55,8 +56,8 @@ extension QuickOpen {
         present()
     }
 
-    /// The tmux sessions matching what is typed, an exact name first; then a new session with that name, or with the
-    /// project's name.
+    /// Returns the tmux sessions matching what is typed, an exact name first. After them comes a new session with that
+    /// name, or with the project's name.
     func tmuxItems(_ sessions: [Tmux.Session], _ q: String) -> [Item] {
         func item(_ name: String, icon: String, detail: String) -> Item {
             let app = self.app
@@ -65,7 +66,7 @@ extension QuickOpen {
                 kind: "tmux", icon: icon, title: name, detail: detail, action: { app.workbench.runURI(uri) },
                 split: { app.workbench.runURI(uri, split: .right) })
         }
-        // Kelp's own (terminal.tmux) are terminals already, and end with their tab: not offered.
+        // Kelp's own sessions (terminal.tmux) are terminals already and end with their tab, so they aren't offered.
         let found = sessions.filter { !Tmux.isOwn($0.name) }.compactMap { s -> (Item, Int)? in
             guard let score = s.name == q ? 1000 : Self.wordScore(s.name, q) else { return nil }
             let detail = [
@@ -75,7 +76,7 @@ extension QuickOpen {
             return (item(s.name, icon: "terminal", detail: detail), score)
         }.sorted { $0.1 > $1.1 }.map(\.0)
         var new = Tmux.name(q)
-        if new.isEmpty {   // the project's name, numbered while tmux has a session by it
+        if new.isEmpty {   // use the project's name, numbered while tmux has a session by that name
             let worktree = app.worktree(app.workbench.workspaceId)
             let base = Tmux.name(app.repo(worktree?.repoId)?.name ?? "kelp").lowercased().replacingOccurrences(
                 of: " ", with: "-")
@@ -94,7 +95,7 @@ extension QuickOpen {
 /// A row of a built-in's list in Open Quickly (`Workbench.showList`).
 package struct QuickItem {
     let title: String, detail: String, icon: String, image: NSImage?
-    /// At the row's end, as a database's stage.
+    /// A view at the row's end, such as a database's stage.
     let accessory: (@MainActor () -> NSView?)?
     let open: () -> Void, split: (() -> Void)?
 
@@ -112,7 +113,7 @@ package struct QuickItem {
     }
 }
 
-/// The palette's window: ⌘1–⌘6 pick from the agents it lists before the main menu sees them (they select tabs there).
+/// The palette's window. ⌘1–⌘6 pick from the agents it lists before the main menu sees them (there they select tabs).
 final class QuickPanel: NSPanel {
     var onNumber: ((Int) -> Bool)?
     override func performKeyEquivalent(with event: NSEvent) -> Bool {

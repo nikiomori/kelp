@@ -8,9 +8,10 @@ package struct WorkspaceActions {
     let app: AppModel
     init(_ app: AppModel) { self.app = app }
 
-    /// The file in the focused tab, else the workspace's folder (Xcode's "Show in Finder" works on the selection).
+    /// Reveals the file in the focused tab, or else the workspace's folder (Xcode's "Show in Finder" works on the
+    /// selection).
     func revealCurrent() {
-        // A remote project's: nothing of it is in the Finder (its folder here holds only its marker).
+        // Nothing of a remote project is in the Finder (its folder here holds only its marker).
         let path = app.workbench.editor?.focusedContent?.fileURL?.path ?? app.worktree(app.workbench.workspaceId)?.path
         guard let path, Self.onHost(path) == nil else {
             NSSound.beep()
@@ -19,7 +20,7 @@ package struct WorkspaceActions {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
     }
 
-    /// What exists only in a branch's folder: nothing about it may go without being asked.
+    /// What exists only in a branch's folder. None of it may go without the user being asked.
     struct Work {
         var dirty: Bool, commits: Int
         var isAny: Bool { dirty || commits > 0 }
@@ -35,7 +36,7 @@ package struct WorkspaceActions {
         }
     }
 
-    /// Nil: can't tell (its folder is gone, say).
+    /// The work on a branch's folder, or nil when it can't be told (for example, the folder is gone).
     private func work(on id: String) async -> Work? {
         guard let dirty = await app.quiet(WorktreeDirty(id: id)),
             let commits = await app.quiet(WorktreeUnmerged(id: id))
@@ -53,14 +54,14 @@ package struct WorkspaceActions {
         }
     }
 
-    /// Nil when what it would lose can't be told: the failed call's banner says why, rather than a question that reads
-    /// as if nothing would be lost.
+    /// The question to ask before deleting. It is nil when what would be lost can't be told, so the failed call's
+    /// banner says why, instead of a question that reads as if nothing would be lost.
     func deleteQuestion(_ worktree: Worktree) async -> (NSAlert, Work)? {
         guard let dirty = await app.call(WorktreeDirty(id: worktree.id)),
             let commits = await app.call(WorktreeUnmerged(id: worktree.id))
         else { return nil }
         let work = Work(dirty: dirty, commits: commits)
-        // Its own copies of the project's databases that aren't files in its folder: dropped with it
+        // The workspace's own copies of the project's databases that aren't files in its folder are dropped with it
         let copies = (await app.quiet(DatabaseList(worktreeId: worktree.id)) ?? [])
             .filter { $0.copy != nil && !$0.engine.isFile }.map(\.name).joined(separator: ", ")
         let alert = NSAlert()
@@ -91,8 +92,9 @@ package struct WorkspaceActions {
         await app.call(WorktreeRemove(id: worktree.id, force: work.dirty, dropCommits: work.commits > 0))
     }
 
-    /// The project's other git worktrees with nothing uncommitted (agents leave them in `.claude/worktrees`), after one
-    /// question; git itself keeps any that changed meanwhile. Kelp's own workspaces aren't among them.
+    /// Removes the project's other git worktrees that have nothing uncommitted (agents leave them in
+    /// `.claude/worktrees`), after one question. Git itself keeps any that changed meanwhile. Kelp's own workspaces
+    /// aren't among them.
     func removeCleanWorktrees(_ repo: Repo) {
         Task {
             guard let all = await app.call(RepoWorktreeSizes(id: repo.id)) else { return }
@@ -145,8 +147,9 @@ package struct WorkspaceActions {
         }
     }
 
-    /// A group: its agents end, the project's files stay. Asks only when agents are running there. One on a branch goes with
-    /// its folder and branch, and first asks if they hold the only copy of something. A project's own screen stays.
+    /// Closes a group. Its agents end, and the project's files stay. It asks only when agents are running there. A
+    /// group on a branch goes with its folder and branch, and first asks if they hold the only copy of something. A
+    /// project's own screen stays.
     func close(_ worktree: Worktree) {
         guard let repo = app.repo(worktree.repoId),
             worktree.id != mainWorkspace(of: repo, among: app.workspaces(of: repo))?.id
@@ -189,12 +192,12 @@ package struct WorkspaceActions {
             {
                 app.workbench.show(workspace: other.id)
             }
-            // Refused (an agent wrote something at the last moment): back to what's still there.
+            // If the removal is refused (an agent wrote something at the last moment), go back to what's still there.
             if await app.call(WorktreeRemove(id: worktree.id)) == nil { app.workbench.show(workspace: worktree.id) }
         }
     }
 
-    /// Closing takes a paused agent's tab and its history too: it can't be opened from Kelp again.
+    /// The warning that closing takes a paused agent's tab and its history too, so it can't be opened from Kelp again.
     private func pausedGo(_ count: Int) -> String {
         count == 0
             ? ""
@@ -203,7 +206,8 @@ package struct WorkspaceActions {
                 : String(localized: "\(count) paused agents close for good. "))
     }
 
-    /// A branch with work of its own: kept unless told otherwise, as it can't be got back.
+    /// Closes a group whose branch has work of its own. The branch is kept unless the user says otherwise, because it
+    /// can't be got back.
     private func closeKeeping(_ worktree: Worktree, _ work: Work) async {
         let alert = NSAlert()
         alert.messageText = String(localized: "“\(worktree.displayName)” has work that's nowhere else")
@@ -222,7 +226,7 @@ package struct WorkspaceActions {
         }
     }
 
-    /// The project's folder was moved or renamed: pick it again; its workspaces follow.
+    /// Lets the user pick the project's folder again after it was moved or renamed. Its workspaces follow.
     func relocate(_ repo: Repo) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -241,7 +245,7 @@ package struct WorkspaceActions {
         }
     }
 
-    /// Chats off to a group of their own, named after the first. Their agents go on where they are.
+    /// Moves chats into a group of their own, named after the first chat. Their agents go on where they are.
     func newGroup(from chats: [String]) async {
         guard let first = chats.first.flatMap(app.session), let worktree = app.worktree(first.worktreeId),
             let made = await app.call(WorkspaceCreate(repoId: worktree.repoId))
@@ -257,17 +261,20 @@ package struct WorkspaceActions {
         for wid in from { app.workbench.editors?.chatsLeft(wid) }
     }
 
-    /// The screen moved on from a group: one with nothing open lived only while it was on screen.
+    /// Called when the screen moved on from a group. A group with nothing open lived only while it was on screen, so it
+    /// closes.
     func left(_ id: String) {
         if app.workbench.layouts[id].allTabs.isEmpty { closeEmpty(id, ended: nil) }
     }
 
-    /// Its last tab was closed: its row goes too, with nothing to ask, unless it's the one on screen, which then offers
-    /// what to open next and goes when the screen moves on (`left`). One on a branch with work of its own stays, and says
-    /// so: nothing there is decided by closing a tab. `ended`: that tab's session, still on its way out.
+    /// Called when a group's last tab was closed. The group's row goes too, with nothing to ask, unless the group is on
+    /// screen. Then it offers what to open next, and goes when the screen moves on (`left`). A group on a branch with
+    /// work of its own stays, and says so, because closing a tab decides nothing there. `ended` is that tab's session,
+    /// still on its way out.
     func closeEmpty(_ id: String, ended: String?) {
         guard !app.workbench.isOnScreen(id) else { return }
-        // Its children end with it, a moment later: they have no tab, and nothing would come back to close this.
+        // The session's children end with it a moment later. They have no tab, and nothing would come back to close
+        // this group.
         var ending = Set([ended].compactMap { $0 })
         while case let more = Set(app.sessions.filter { $0.parent.map(ending.contains) == true }.map(\.id)).subtracting(
             ending), !more.isEmpty
@@ -291,14 +298,16 @@ package struct WorkspaceActions {
                 }
             }
             if app.workbench.workspaceId == id { app.workbench.show(workspace: next.id) }
-            // A closed chat that couldn't move, or something the agent that just ended left after all: then it stays.
+            // The group stays when a closed chat couldn't move, or when the agent that just ended left something after
+            // all.
             guard await app.workbench.keepClosedTabs(of: group, on: next), await app.call(WorktreeRemove(id: id)) != nil
             else { return app.workbench.show(workspace: id) }
         }
     }
 
-    /// Several at once (sidebar multi-selection): one question; each project keeps at least one workspace.
-    /// Workspaces close; one on its own branch goes if nothing is only there, else it's archived (nothing is lost).
+    /// Closes several workspaces at once (sidebar multi-selection) with one question. Each project keeps at least one
+    /// workspace. A workspace on its own branch goes if nothing is only there, or else it is archived, so nothing is
+    /// lost.
     func close(_ ws: [Worktree]) {
         let model = app
         let plan = WorkspaceClosing(picked: ws, open: model.worktrees.filter { !$0.archived }, repos: model.repos),
@@ -350,7 +359,8 @@ package struct WorkspaceActions {
         }
     }
 
-    /// Out of the sidebar, nothing lost: its agents pause and its tabs stay until it comes back (Window › Archived Workspaces).
+    /// Takes a workspace out of the sidebar with nothing lost. Its agents pause and its tabs stay until it comes back
+    /// (Window › Archived Workspaces).
     func archive(_ worktree: Worktree) {
         Task {
             guard await UnsavedChanges.confirm(closing: [worktree.id], in: app) else { return }

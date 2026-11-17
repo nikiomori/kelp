@@ -2,8 +2,9 @@ import AppKit
 import Core
 import DesignKit
 
-/// The colours a project can be given in its row's menu: `IconTile`'s own hues and two more, none of them orange or red,
-/// which beside a row's marks mean asking and failed. Kept by name in UIState; one a later build dropped reads as none.
+/// The colours a project can be given in the menu on its row: `IconTile`'s own hues and two more. None is orange or
+/// red, because beside a row's marks those mean asking and failed. They are kept by name in UIState, and a colour a
+/// later build dropped reads as none.
 package enum ProjectColor: String, CaseIterable {
     case blue, indigo, purple, pink, teal, yellow, brown
 
@@ -21,11 +22,12 @@ package enum ProjectColor: String, CaseIterable {
         }
     }
 
-    /// The colour as text or a mark: at least 4.5:1 against the sidebar's window background in light mode, and
-    /// 3.5–4.7:1 in dark mode, as the tiles' letters are.
+    /// The colour for text or a mark. It is at least 4.5:1 against the sidebar's window background in light mode, and
+    /// 3.5–4.7:1 in dark mode, like the tiles' letters.
     package var color: NSColor { .dynamic(light: hue.ink(false), dark: hue.ink(true)) }
 
-    /// One shade for both appearances, between the two: a view's shadow keeps the colour it was set with.
+    /// One shade between the light and dark ones, for both appearances, because a view's shadow keeps the colour it
+    /// was set with.
     var glow: NSColor { hue.ink(true).blended(withFraction: 0.5, of: hue.ink(false)) ?? hue.ink(true) }
 
     var title: String {
@@ -40,7 +42,7 @@ package enum ProjectColor: String, CaseIterable {
         }
     }
 
-    /// Its dot, in the submenu.
+    /// The colour's dot, shown in the submenu.
     var dot: NSImage {
         let img = NSImage(size: NSSize(width: 8, height: 8), flipped: false) { [color] r in
             color.setFill()
@@ -52,7 +54,7 @@ package enum ProjectColor: String, CaseIterable {
         return img
     }
 
-    /// As `uiState` keeps them: id → name.
+    /// Returns the colours as `uiState` keeps them, as id → name.
     package static func value(_ colors: [String: ProjectColor]) -> JSONValue {
         .object(colors.mapValues { .string($0.rawValue) })
     }
@@ -67,7 +69,7 @@ enum ProjectColorStyle: String {
     case icon, card
 }
 
-/// What the views showing a project follow.
+/// The colour settings that the views showing a project follow.
 struct ProjectLook: Equatable {
     var style: ProjectColorStyle
     var colors: [String: ProjectColor]
@@ -82,7 +84,8 @@ extension Arrangement {
             colors: colors)
     }
 
-    /// The colour the icon of the project in this folder takes, wherever it shows: only in the Icon style.
+    /// Returns the colour the icon of the project in this folder takes, wherever it shows. It has one only in the Icon
+    /// style.
     func iconColor(folder: String) -> ProjectColor? {
         let look = projectLook
         guard look.style == .icon, let id = app.repos.first(where: { $0.path == folder })?.id else { return nil }

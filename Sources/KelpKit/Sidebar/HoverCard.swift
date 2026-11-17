@@ -5,13 +5,14 @@ import DesignKit
 import SwiftUI
 import WorkbenchKit
 
-/// What a sidebar row or an agent's tab holds, in full, when the pointer rests on it: the row itself stays one line.
-/// After half a second the card appears; while one is open, moving to another row shows that row's card at once.
-/// Typing, ⌘W included, puts it away.
+/// A card that shows in full what a sidebar row or an agent's tab holds when the pointer rests on it, so the row
+/// itself can stay one line. The card appears after half a second. While a card is open, moving to another row shows
+/// that row's card at once. Typing, ⌘W included, puts it away.
 @MainActor
 final class HoverCard {
     private let app: AppModel
-    /// Under a tab: the card hangs below it and leaves out the place (the tab is in this workspace).
+    /// True for a card under a tab. The card then hangs below the tab and leaves out the place, because the tab is in
+    /// this workspace.
     private let underTabs: Bool
     private let card = HoverPopover()
     private(set) var shownKind: SidebarItem.Kind?
@@ -25,8 +26,9 @@ final class HoverCard {
             self?.shown?.stop()
             self?.shownKind = nil
         }
-        // The rows' pointer events stop when the window loses focus, so the one that would close the card may never come:
-        // a card left open costs a core's tenth for as long as it stays, SwiftUI laying it out over and over.
+        // The rows' pointer events stop when the window loses focus, so the event that would close the card may never
+        // come. A card left open costs a tenth of a core for as long as it stays, because SwiftUI lays it out over and
+        // over.
         resignWatch = NotificationCenter.default.addObserver(
             forName: NSWindow.didResignKeyNotification, object: nil, queue: .main
         ) { [weak self] notification in
@@ -34,7 +36,7 @@ final class HoverCard {
             MainActor.assumeIsolated { if window === self?.anchor { self?.card.closeUnlessInside() } }   // queue: .main
         }
     }
-    /// The window losing focus, watched while the card's owner (a sidebar, a tab strip) is there.
+    /// Watches for the window losing focus, for as long as the card's owner (a sidebar, a tab strip) is there.
     private var resignWatch: NSObjectProtocol?
     isolated deinit { resignWatch.map(NotificationCenter.default.removeObserver) }
 
@@ -52,7 +54,7 @@ final class HoverCard {
 
     func close() { card.close() }
 
-    /// A row's card without the wait: a click asked for it.
+    /// Opens a row's card without the wait, because a click asked for it.
     func open(_ kind: SidebarItem.Kind, rect: NSRect, in view: NSView) {
         card.cancel()
         if kind != shownKind || !card.isShown { show(kind, rect: rect, in: view) }
@@ -90,26 +92,27 @@ final class CardModel {
     let workspaceId: String
     let agentOnly: Bool
     let app: AppModel
-    /// A project's card: the disk its other worktrees take (nil while `du` runs).
+    /// On a project's card, the project. `worktrees` holds the disk its other worktrees take (nil while `du` runs).
     let repo: Repo?
-    /// Whose mute the card shows: the row's. A workspace alone in its project is that project's row too.
+    /// The ids whose mute the card shows, which are the row's. A workspace alone in its project is also that
+    /// project's row.
     let muteIds: [String]
     var worktrees: [RepoWorktreeSizes.Item]?
-    /// A workspace's card: the folder whose git and PR it shows (`gitFolder`), read while the card is up.
+    /// On a workspace's card, the folder whose git and PR the card shows (`gitFolder`), read while the card is up.
     let folder: String?
     var changes: LineStats? { folder.flatMap { app.latest(GitEvent.self, $0)?.stats } }
     var turn: String?
     var context: SessionContextWindow.Usage?
     var parts: SessionContextParts.Parts?
     var pages: [ServedPage] = []
-    /// The host a remote project's card shows how it's doing.
+    /// On a remote project's card, the host whose state the card shows.
     let server: String?
     /// Puts the card away (a button in it opened something else).
     @ObservationIgnored var closeCard: () -> Void = {}
-    /// What its subagents did last and its folder's git, read while the card is up.
+    /// Watches what the agent's subagents did last and the folder's git, while the card is up.
     private var watches: [Watched] = []
 
-    /// `placed`: the subtitle says where the agent is (group · project); a tab's card leaves it out.
+    /// With `placed`, the subtitle says where the agent is (group · project). A tab's card leaves it out.
     init?(_ kind: SidebarItem.Kind, app: AppModel, placed: Bool = true) {
         self.app = app
         switch kind {
@@ -142,7 +145,7 @@ final class CardModel {
         case .workspace(let id):
             guard let worktree = app.worktree(id) else { return nil }
             let project = app.repo(worktree.repoId)
-            // A project's own screen has no name of its own: the row stands for the project.
+            // A project's own screen has no name of its own, because the row stands for the project.
             let group = app.groupName(worktree)
             title = group ?? app.projectName(project?.id) ?? worktree.displayName
             let branch = worktree.path == project?.path ? nil : String(localized: "branch \(worktree.branch)")
@@ -205,7 +208,7 @@ final class CardModel {
         }
     }
 
-    /// What filled the context reads all of the transcript: only once someone opens it.
+    /// Loads what filled the context. That reads the whole transcript, so it runs only once someone opens it.
     func loadParts() async {
         if parts == nil, let agent = agents.first { parts = await app.quiet(SessionContextParts(id: agent.id)) ?? nil }
     }
@@ -215,13 +218,15 @@ final class CardModel {
         if folder != nil { app.extensions.all.ci?.carded(nil) }
     }
 
-    /// Typed and sent, as a reply from the banner is; refused (a half-typed line in its prompt), a banner says why.
+    /// Types `text` into the agent and sends it, as a reply from the banner does. When the agent refuses it (a
+    /// half-typed line in its prompt), a banner says why.
     func reply(_ text: String, to id: String) {
         let app = self.app
         Task { await app.call(SessionSend(id: id, text: text, enter: true)) }
     }
 
-    /// Compact Now, once the ring turns orange, while the agent is at its prompt (a question's menu would take the text).
+    /// The Compact Now action. It is offered once the ring turns orange, while the agent is at its prompt (a question's
+    /// menu would take the text).
     var compact: (() -> Void)? {
         guard let usage = context, ContextMeter.level(usage) >= 2, let agent = agents.first,
             [.done, .idle, .error].contains(app.session(agent.id)?.status)
@@ -232,7 +237,7 @@ final class CardModel {
 }
 
 extension CardModel {
-    /// What the next message will pay for, while the agent rests: said from 15 minutes before the cache goes cold.
+    /// What the next message will pay for while the agent rests. It shows from 15 minutes before the cache goes cold.
     var coldCache: String? {
         guard let usage = context, let until = usage.cacheUntil, let agent = agents.first,
             [.done, .idle, .error].contains(app.session(agent.id)?.status)

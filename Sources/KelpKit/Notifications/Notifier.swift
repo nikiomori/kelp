@@ -2,16 +2,17 @@ import Agents
 import AppKit
 import Core
 import DesignKit
-@preconcurrency import UserNotifications   // its center and settings aren't marked Sendable
+@preconcurrency import UserNotifications   // the notification center and its settings aren't marked Sendable
 
-/// Banner + dock badge when an agent finishes or waits; clicking opens the right pane.
+/// Posts a banner and sets the Dock badge when an agent finishes or waits; clicking the banner opens the agent's pane.
 @MainActor
 final class Notifier: NSObject, UNUserNotificationCenterDelegate {
-    /// macOS lets Kelp show banners (false: they're off in System Settings).
+    /// Whether macOS lets Kelp show banners (false when they're turned off in System Settings).
     var allowed = true
     let center: UNUserNotificationCenter? = Bundle.main.bundleIdentifier != nil ? .current() : nil   // needs an app bundle
     let app: AppModel
-    /// A notification's about sessions whose Continue tells them to go on (`Notifications.notifyUser`'s `goingOn`).
+    /// The category of a notification about several sessions, whose Continue tells each of them to go on (the
+    /// `goingOn` of `Notifications.notifyUser`).
     static let goOnCategory = "continueAll"
     init(app: AppModel) {
         self.app = app
@@ -20,7 +21,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     func start() {
         center?.delegate = self
-        // A permission request can be answered from the banner itself, and an agent at its prompt told what to do next.
+        // The user can answer a permission request from the banner itself, and tell an agent at its prompt what to do.
         center?.setNotificationCategories([
             UNNotificationCategory(
                 identifier: "permission",
@@ -51,10 +52,12 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         } changed: { [weak self] _ in
             self?.updateBadge()
         }
-        // For as long as Kelp runs: what shows the limits comes and goes (a hidden sidebar), and their warnings mustn't
-        // (the built-in that gives them hears each reading, `Contributions.pushed`), nor the Dock's usage face.
+        // Watch the limits for as long as Kelp runs. The views that show them come and go (the sidebar can be hidden),
+        // but the limit warnings must not stop, and neither must the usage face on the Dock icon. The built-in that
+        // posts the warnings hears each reading through `Contributions.pushed`.
         app.watch(.limits)
-        // Typing: a key in one of Kelp's windows while it is the key one (a bare modifier isn't a keyDown).
+        // Typing means a key pressed in one of Kelp's windows while that window is key (a bare modifier isn't a
+        // keyDown).
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             if e.window?.isKeyWindow == true { self?.lastKey = Date() }
             return e
@@ -81,12 +84,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    /// Kelp coming forward: what's on screen counts as looked at. Ends with this notifier (a test's app makes its own).
+    /// Observes Kelp coming forward, when what is on screen counts as looked at. The observer ends with this notifier,
+    /// because a test's app makes its own notifier.
     private var activated: NSObjectProtocol?
     isolated deinit { activated.map(NotificationCenter.default.removeObserver) }
 
-    /// A routine that didn't run (the Mac slept or Kelp was off, and it skips those): a banner that opens its routines.
-    /// The ones already there when Kelp opened aren't news.
+    /// Posts a banner for each routine run that didn't happen because the Mac slept or Kelp was off (routines skip such
+    /// runs). The banner opens the project's routines. Missed runs already listed when Kelp opened aren't news.
     private var missedTold: Set<String>?
     private func missedRuns() {
         guard let event = app.latest(RoutinesEvent.self) else { return }
@@ -108,8 +112,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     // MARK: Held while you type (TypingHold)
 
     private var lastKey: Date?
-    private var held: [Session] = []   // finished / failed agents, latest status each
-    private var heldAlerts: [() -> Void] = []   // limit warnings, posted as they were
+    private var held: [Session] = []   // finished or failed agents, each with its latest status
+    private var heldAlerts: [() -> Void] = []   // limit warnings, posted as they were made
     private var quietWait: Task<Void, Never>?
 
     private func holds(question: Bool) -> Bool {
@@ -117,7 +121,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             && TypingHold.holds(question: question, lastKey: lastKey, active: NSApp.isActive)
     }
 
-    /// A limit warning now, or once typing stops.
+    /// Posts a limit warning now, or once typing stops.
     private func alert(_ post: @escaping () -> Void) {
         guard holds(question: false) else {
             post()
@@ -137,14 +141,16 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    /// 20 s without a key, Kelp went to the back, or another workspace came up: what waited goes out, the agents in one banner.
+    /// Posts what was held, with the agents in one banner. It runs after 20 s without a key, when Kelp goes to the
+    /// back, or when another workspace comes up.
     func releaseHeld() {
         quietWait?.cancel()
         quietWait = nil
         let alerts = heldAlerts
         heldAlerts = []
         alerts.forEach { $0() }
-        // As each is now: one looked at, or that moved on (answered, at work again), has nothing left to say.
+        // Check each held agent as it is now. One the user looked at, or one that moved on (answered, working again),
+        // needs no banner.
         let ready = held.filter { session in
             app.session(session.id)?.status == session.status
                 && !(NSApp.isActive && app.workbench.isViewing(session: session.id))
@@ -154,7 +160,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         if ready.count == 1 { post(ready[0], holding: false) } else if ready.count > 1 { postHeld(ready) }
     }
 
-    /// "2 agents finished while you typed": a line each; a click shows the first, the rest are marked in the sidebar.
+    /// Posts one banner for the held agents ("2 agents finished while you typed") with a line for each. A click shows
+    /// the first agent; the others stay marked in the sidebar.
     private func postHeld(_ ss: [Session]) {
         let app = self.app
         let (title, body) = TypingHold.summary(
@@ -169,22 +176,23 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         content.body = body
         content.subtitle = ss.compactMap { app.projectName(app.worktree($0.worktreeId)?.repoId) }
             .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.joined(separator: ", ")
-        content.sound = sound(ss.contains { $0.status == .error } ? .error : .done)   // the failure's, if one failed
+        content.sound = sound(ss.contains { $0.status == .error } ? .error : .done)   // the failure sound if one failed
         content.userInfo = ["session": ss[0].id, "sessions": ss.map(\.id)]
         let first = ss[0].id
         deliver("held-\(first)", content, action: (String(localized: "Show"), { app.workbench.focus(session: first) }))
         NSApp.requestUserAttention(.informationalRequest)
     }
 
-    /// A built-in's notification (`Notifications.notifyUser`): now, or once typing stops; a banner in Kelp when
-    /// they're off.
+    /// Posts a built-in's notification (`Notifications.notifyUser`) now, or once typing stops. When macOS notifications
+    /// are off, it shows as a banner inside Kelp.
     func postAlert(
         _ id: String, _ content: UNNotificationContent, action: (title: String, run: @MainActor () -> Void)?
     ) {
         alert { [self] in deliver(id, content, action: action) }
     }
 
-    /// To Notification Center; with Kelp's notifications off there and Kelp in front, in a banner inside it instead.
+    /// Sends the notification to Notification Center. When Kelp's notifications are off there and Kelp is in front, it
+    /// also shows a banner inside Kelp.
     private func deliver(
         _ id: String, _ content: UNNotificationContent, action: (title: String, run: @MainActor () -> Void)? = nil,
         icon: NSImage? = nil
@@ -196,7 +204,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func updateBadge() {
-        // Who waits for an answer, as Needs You's marks say: finished work you haven't opened is no question.
+        // Count the agents that wait for an answer, as the Needs You marks do. Finished work the user hasn't opened
+        // isn't a question, so it doesn't count.
         let count = app.sessions.filter { $0.wantsYou && $0.shownStatus != .done }.count
         let label = count > 0 ? "\(count)" : nil
         if NSApp.dockTile.badgeLabel != label { NSApp.dockTile.badgeLabel = label }
@@ -205,9 +214,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     // MARK: Reminders
 
-    private var reminders: [String: Task<Void, Never>] = [:]   // session → the wait for its question's one reminder
+    private var reminders: [String: Task<Void, Never>] = [:]   // session id → wait for its one reminder
 
-    /// `.continuous`: the Mac's sleep counts, and a question an hour old on waking is reminded of at once.
+    /// Schedules the one reminder of a session's question. The `.continuous` clock counts the Mac's sleep, so a
+    /// question that is an hour old on waking is reminded of at once.
     private func remind(of session: Session) {
         reminders[session.id]?.cancel()
         reminders[session.id] = nil
@@ -228,7 +238,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         post(current, holding: false, again: true)
     }
 
-    /// Seen with Kelp in front, it needs no reminder: what the question asks stays marked on its row.
+    /// Cancels the reminder of each question the user is looking at with Kelp in front. That question needs no
+    /// reminder, because it stays marked on its row.
     private func lookedAt() {
         guard NSApp.isActive else { return }
         for sid in reminders.keys where app.workbench.isViewing(session: sid) {
@@ -236,7 +247,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    /// Banners already answered (the agent was looked at, or moved on) leave Notification Center, like Messages does.
+    /// Banners already answered (the user looked at the agent, or it moved on) are removed from Notification Center, as
+    /// Messages does.
     private var posted: [String: String] = [:]   // session → request id
     private func clearSeen() {
         let stale = posted.filter { sid, rid in
@@ -248,18 +260,20 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         stale.keys.forEach { posted[$0] = nil }
     }
 
-    /// Each `event.session`, as it comes: a status that changes back within a moment still gets its banner.
+    /// Called for each `event.session` as it arrives, so a status that changes back within a moment still gets its
+    /// banner.
     func statusChanged(_ session: Session, _ old: Session?) {
         guard old?.status != session.status, [.done, .waiting, .error].contains(session.status), session.isChat else {
             return
         }
         if Self.leftToItsParent(session) { return }
-        // Kelp goes on from it by itself
+        // Kelp continues this failed session by itself, so it gets no banner.
         if session.status == .error, session.continueAt != nil, session.limitHit == nil { return }
-        // A guess off the screen (the row says so; a banner would claim it), or a parked one, out of the way till it calls.
+        // No banner for a done status guessed from the screen (the row says it's a guess; a banner would claim it), or
+        // for a parked session, which stays out of the way until it asks for something.
         if session.status == .done, session.guessed == true || app.arrangement.isParked(session.id) { return }
         let turn = NotifyRule.turn(session, after: old)
-        // What the agent itself said with this change (a permission request, an error) beats its last reply.
+        // What the agent said with this change (a permission request, an error) is shown instead of its last reply.
         if session.status != .done, !session.summary.isEmpty, session.summary != old?.summary {
             tell(session, turn: turn)
             return
@@ -267,8 +281,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         Task { await summarizeThenNotify(session, turn: turn) }
     }
 
-    /// A child that finished: its parent reads it and goes on, and that's the one to tell you. One a plan limit stopped
-    /// hasn't finished, and only you can decide what's next.
+    /// Whether a finished subagent is left to its parent, which reads the result and goes on; the parent is the one
+    /// that tells you. A subagent that a plan limit stopped hasn't finished, and only you can decide what's next.
     static func leftToItsParent(_ session: Session) -> Bool {
         session.parent != nil && session.status == .done && session.limitHit == nil
     }
@@ -286,35 +300,40 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         if tells(session, turn: turn) { post(session) }
     }
 
-    /// A banner comes for this change: the rule for its status and length, and the row isn't muted.
+    /// Whether this change gets a banner: the rule allows it for the status and the turn's length, and the row isn't
+    /// muted.
     private func tells(_ session: Session, turn: TimeInterval?) -> Bool {
-        // A limit stops the turn with a question in it, what next: it comes as one, however short the turn.
+        // A limit stops the turn with a question (what next?), so it is told as a question, however short the turn.
         rule.level(session.limitHit == nil ? session.status : .waiting, turn: turn) != .off
             && !Mutes.isMuted(session, in: app)
     }
 
-    /// On the notification itself, not NSSound: Focus and Kelp's "Play sound" switch in System Settings silence it.
+    /// The sound goes on the notification itself, not through NSSound, so Focus and Kelp's "Play sound" switch in
+    /// System Settings silence it.
     private func sound(_ status: AgentStatus) -> UNNotificationSound? {
         guard rule.level(status, turn: nil) == .sound else { return nil }
         return UNNotificationSound(
             named: UNNotificationSoundName(status == .waiting ? "Ping" : status == .error ? "Basso" : "Glass"))
     }
 
-    /// One-line summary for the banner and sidebar from the agent's own last reply, then the notification.
+    /// Makes a one-line summary for the banner and sidebar from the agent's own last reply, then posts the
+    /// notification.
     private func summarizeThenNotify(_ session: Session, turn: TimeInterval?) async {
         var session = session
-        // Claude Code: its own last reply (the terminal around it — spinners, mode lines — reads as nonsense when summarized).
-        // The Stop hook can come a moment before the transcript has the final message.
+        // For Claude Code, use its own last reply, because the terminal text around it (spinners, mode lines) reads as
+        // nonsense when summarized. Wait first: the Stop hook can come before the transcript has the final message.
         try? await Task.sleep(for: .milliseconds(1200))
-        // Nobody at the Mac: a recap from a fork of its conversation (what it did, what's left) waits for whoever comes back.
-        // Only for a banner that will show: a recap is a run of Claude, not worth it for a muted row or a short turn.
+        // When nobody is at the Mac, a recap made from a fork of the conversation (what it did, what's left) waits for
+        // whoever comes back. It is made only for a banner that will show, because a recap is a run of Claude and isn't
+        // worth it for a muted row or a short turn.
         if session.status == .done, app.catalog.manifest(session.agent)?.transcript == .claude,
             app.settings[SettingKeys.recap],
             !Presence.here(),
             tells(session, turn: turn),
             let line = await app.quiet(SessionRecap(id: session.id), timeout: SessionRecap.timeout ?? 30) ?? nil
         {
-            // Up to a minute and a half later: a turn begun meanwhile isn't done, and gets no "Done" banner.
+            // The recap can come up to a minute and a half later. A turn that began meanwhile isn't done, so it gets
+            // no "Done" banner.
             guard app.session(session.id)?.status == .done else { return }
             session.summary = line
         } else if let reply = await app.quiet(SessionLastReply(id: session.id)) ?? nil {
@@ -322,7 +341,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             session.summary = line
             _ = await app.quiet(SessionAnnotate(id: session.id, summary: line, ifStatus: session.status.rawValue))
         }
-        tell(session, turn: turn)   // other agents: no summary; the state says enough
+        tell(session, turn: turn)   // an agent with no reply to read gets no summary; its status says enough
     }
 
     /// "I added `mul(a, b)` to `calc.py`. It returns…" → "Added mul(a, b) to calc.py".
@@ -345,7 +364,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         return sentence.count > 90 ? String(sentence.prefix(89)) + "…" : sentence
     }
 
-    /// `again`: the one reminder of a question, in place of its banner.
+    /// Posts the banner for a session's new status. With `again`, it posts the one reminder of a question in place of
+    /// the first banner.
     private func post(_ s: Session, holding: Bool = true, again: Bool = false) {
         let app = self.app
         // No banner if the user is already looking at that pane (what it asks stays marked until it's answered).
@@ -368,7 +388,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                     ? String(localized: " needs you")
                     : s.status == .error ? String(localized: " ran into an error") : String(localized: " finished"))
         content.subtitle = [model.groupName(wt), model.projectName(wt?.repoId)].compactMap { $0 }.joined(
-            separator: " · ")   // as its Needs You row
+            separator: " · ")   // as on the agent's Needs You row
         content.body =
             s.limitHit.flatMap { plans?.banner($0) }
             ?? (s.summary.isEmpty
@@ -378,7 +398,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         content.sound = sound(s.limitHit == nil ? s.status : .waiting)
         content.userInfo = ["session": s.id, "question": s.summary]
         if let cat = Self.category(s) { content.categoryIdentifier = cat }
-        // Under an id of its own: macOS may show one added again under the same id silently.
+        // Each banner gets an id of its own, because macOS may show a notification added again under the same id
+        // silently.
         let rid = again ? "\(s.id)-again-\(s.status.rawValue)" : "\(s.id)-\(s.status.rawValue)"
         if again, let first = posted[s.id] { center?.removeDeliveredNotifications(withIdentifiers: [first]) }
         deliver(

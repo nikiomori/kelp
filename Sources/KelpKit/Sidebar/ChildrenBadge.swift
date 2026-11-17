@@ -2,19 +2,21 @@ import AppKit
 import Core
 import DesignKit
 
-/// On an agent's row, the agents it started and its own subagents: a dot for each, so they take no rows of their own and
-/// don't compete with the name. Up to four; past that one dot, the most urgent, and how many are at work. Over it the hover
-/// card lists them; a click brings the card up at once.
+/// On an agent's row, a dot for each agent it started and each of its own subagents, so they take no rows of their own
+/// and don't compete with the name. It shows up to four dots. Past that, it shows one dot for the most urgent and how
+/// many are at work. With the pointer over it the hover card lists them, and a click brings the card up at once.
 @MainActor
 final class ChildrenBadge: PointerControl {
-    /// Filled works, hollow finished; the two that want someone are coloured. In the order they stand.
+    /// The kinds of dot, in the order they stand. A filled dot is working and a hollow one is finished. The two that
+    /// want someone are coloured.
     enum Pip: Int, Comparable {
         case failed, asks, browses, works, finished
         static func < (lhs: Pip, rhs: Pip) -> Bool { lhs.rawValue < rhs.rawValue }
     }
     static let mostPips = 4
     private let pips = PipsView(), count = NSTextField(labelWithString: "")
-    /// The subagents a built-in's mark lights (`RowMark.lights`: they acted on a page lately), in `browsingColor`.
+    /// The subagents that a built-in's mark lights in `browsingColor`, because they acted on a page lately
+    /// (`RowMark.lights`).
     var browsing: Set<String> = []
     var browsingColor: NSColor {
         get { pips.lit }
@@ -45,15 +47,16 @@ final class ChildrenBadge: PointerControl {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    /// What it shows for an agent: one a plan limit stopped hasn't finished, whatever its status says, and Kelp isn't
-    /// continuing it by itself: someone has to decide.
+    /// The status the badge shows for an agent. An agent that a plan limit stopped hasn't finished, whatever its status
+    /// says, when Kelp isn't continuing it by itself, because someone has to decide.
     static func status(_ session: Session) -> AgentStatus {
         session.status == .done && session.limitHit != nil && session.continueAt == nil
             ? .waiting : session.shownStatus
     }
 
-    /// The dots for what runs under an agent, and the number beside them when they don't fit. A turn's finished subagents
-    /// stand only beside one still at work: a started agent lives on until its parent ends, so it always shows.
+    /// The dots for what runs under an agent, and the number beside them when they don't fit. A turn's finished
+    /// subagents show only beside one still at work. A started agent lives on until its parent ends, so it always
+    /// shows.
     static func marks(kids: [Session], running: [Subagent], finished: [Subagent], browsing: Set<String> = []) -> (
         pips: [Pip], count: Int?
     ) {
@@ -89,7 +92,7 @@ final class ChildrenBadge: PointerControl {
 
 }
 
-/// The dots themselves: layers, so a fill goes as it comes (`Motion.appear`) instead of switching.
+/// The dots themselves. They are layers, so a fill fades in and out (`Motion.appear`) instead of switching.
 @MainActor
 final class PipsView: NSView {
     private static let side: CGFloat = 5, gap: CGFloat = 2
@@ -101,7 +104,7 @@ final class PipsView: NSView {
         }
     }
     private var dots: [CALayer] = []
-    /// The colour of a lit dot (`Pip.browses`): the agent's colour.
+    /// The colour of a lit dot (`Pip.browses`), which is the agent's colour.
     var lit: NSColor = .systemPurple { didSet { if lit != oldValue { needsDisplay = true } } }
 
     override init(frame: NSRect) {
@@ -111,8 +114,8 @@ final class PipsView: NSView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    /// Two to a line, so four dots make a square of 12 pt and leave the name its width: column and line of dot `index`
-    /// among `count`, the first line on top.
+    /// Returns the column and line of dot `index` among `count`, with the first line on top. Dots go two to a line, so
+    /// four dots make a 12 pt square and leave the name its width.
     static func cell(_ index: Int, of count: Int) -> (column: Int, line: Int) {
         count <= 2 ? (index, 0) : (index % 2, index / 2)
     }
@@ -143,7 +146,7 @@ final class PipsView: NSView {
         CATransaction.commit()
     }
 
-    /// Each dot in its cell; the layer's origin is at the bottom, so the first line is the top one.
+    /// Puts each dot in its cell. The layer's origin is at the bottom, so the first line is the top one.
     private func place() {
         let lines = Self.grid(pips.count).lines, step = Self.side + Self.gap
         for (index, dot) in dots.enumerated() where index < pips.count {
@@ -165,7 +168,7 @@ final class PipsView: NSView {
             layer?.addSublayer(dot)
             dots.append(dot)
         }
-        place()   // the count changes the grid: dots move without sliding
+        place()   // the count changes the grid, and the dots move without sliding
         CATransaction.commit()
     }
 

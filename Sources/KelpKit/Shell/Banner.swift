@@ -5,19 +5,20 @@ import DesignKit
 /// A short message in the top right corner of the editor area, under its tabs and the tab's own bar: errors,
 /// confirmations and (when macOS notifications are off) what an agent did. It blocks nothing: it never covers the
 /// sidebar, the inspector, a tab's buttons or the line being typed at the bottom of a terminal. It is drawn on Liquid
-/// Glass (macOS 26; the popover material before). Up to three show at once, the newest on top; one under the pointer
-/// stays (and shows its ✕) until the pointer leaves.
+/// Glass (macOS 26, and the popover material before). Up to three show at once, the newest on top. A banner under the
+/// pointer stays (and shows its ✕) until the pointer leaves.
 @MainActor
 package enum Banner {
     package enum Style { case info, error }
-    /// The editor area's card, which banners sit in the corner of (EditorHost names it).
+    /// The identifier of the editor area's card, in whose corner banners sit (EditorHost sets it).
     static let anchor = NSUserInterfaceItemIdentifier("kelp.editorCard")
     private static var stack: NSStackView?
     private static let most = 3
 
-    /// `action`: one button beside the text (e.g. "Open Settings"); the banner stays a little longer. `title`, `subtitle`
-    /// and `icon`: what an agent's banner leads with (its name and what it did, where, its icon), the text under them.
-    /// `lasts`: seconds on screen, when its action holds for a known time (an Undo the daemon keeps a minute).
+    /// Shows a banner. `action` adds one button beside the text (e.g. "Open Settings"), and the banner then stays a
+    /// little longer. `title`, `subtitle` and `icon` are what an agent's banner leads with (its name and what it did,
+    /// where, and its icon), with the text under them. `lasts` is the seconds on screen, when the action holds for a
+    /// known time (an Undo the daemon keeps for a minute).
     package static func show(
         _ text: String, style: Style = .info, action: (title: String, run: @MainActor () -> Void)? = nil,
         title: String? = nil, subtitle: String? = nil, icon: NSImage? = nil, lasts: TimeInterval? = nil
@@ -25,7 +26,7 @@ package enum Banner {
         guard let window = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible }),
             let stack = stack(in: window)
         else { return }
-        // A known error carries its fix: the command, and a button that copies it.
+        // A known error carries its fix, which is the command and a button that copies it.
         let fix = style == .error ? FixRecipes.fix(for: text) : nil
         var text = text, action = action
         if let fix {
@@ -41,7 +42,7 @@ package enum Banner {
         }
         let card = BannerCard(
             text: text, style: style, title: title, subtitle: subtitle, icon: icon, action: action,
-            stays: fix?.blocking == true)   // git can't run at all: stays until it's closed
+            stays: fix?.blocking == true)   // when git can't run at all, it stays until closed
         stack.rearrange {
             stack.insertArrangedSubview(card, at: 0)
             while stack.arrangedSubviews.count > most, let oldest = stack.arrangedSubviews.last {
@@ -49,7 +50,7 @@ package enum Banner {
             }
         }
         card.appear()
-        // VoiceOver says it too: the banner is out of the keyboard's way, so it would go unheard.
+        // VoiceOver announces it too, because the banner is out of the keyboard's way and would go unheard.
         NSAccessibility.post(
             element: window, notification: .announcementRequested,
             userInfo: [
@@ -59,7 +60,8 @@ package enum Banner {
         if !card.stays { card.leave(after: lasts ?? (action != nil ? 10 : style == .error ? 6 : 4)) }
     }
 
-    /// The column banners stack in, made once per window in the corner of the editor area (or of the window, without one).
+    /// The column banners stack in. It is made once per window, in the corner of the editor area (or of the window,
+    /// when there is no editor area).
     private static func stack(in window: NSWindow) -> NSStackView? {
         guard let content = window.contentView else { return nil }
         if let existing = stack, existing.window === window { return existing }
@@ -71,8 +73,8 @@ package enum Banner {
         content.addSubview(column)
         let card = find(anchor, in: content) ?? content
         NSLayoutConstraint.activate([
-            // Under the tab strip and the tab's bar (its Stage, Send to Agent…), clear of the card's edge; never wider than
-            // the area leaves room for.
+            // The column sits under the tab strip and the tab's bar (its Stage, Send to Agent…), clear of the card's
+            // edge, and never wider than the area leaves room for.
             column.topAnchor.constraint(
                 equalTo: card.topAnchor,
                 constant: (card === content
@@ -116,7 +118,7 @@ private final class BannerCard: NSView {
         ])
         var lines: [NSView] = []
         if let title {
-            // two lines: an agent's long name keeps the "finished" at its end
+            // two lines, so an agent's long name keeps the "finished" at its end
             let heading = NSTextField(wrappingLabelWithString: title)
             heading.font = .ui(TextSize.body, weight: .semibold)
             heading.maximumNumberOfLines = 2
@@ -137,7 +139,7 @@ private final class BannerCard: NSView {
         body.isSelectable = true
         body.maximumNumberOfLines = title == nil ? 0 : 3
         body.preferredMaxLayoutWidth = 252   // the card's 340 less its insets, the icon, the ✕ and the gaps between them
-        body.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)   // its words, not a sliver of them
+        body.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)   // keeps the words, not a sliver
         lines.append(body)
         let words = NSStackView(views: lines)
         words.orientation = .vertical
@@ -165,15 +167,16 @@ private final class BannerCard: NSView {
         column.orientation = .vertical
         column.alignment = .leading
         column.spacing = Metrics.gapWide
-        // Pinned, not the stack's edgeInsets: those give way to a long line, which then pushes the icon and the
-        // button to the card's very edges.
+        // The column is pinned with insets instead of using the stack's edgeInsets, because those give way to a long
+        // line, which then pushes the icon and the button to the card's very edges.
         let padded = NSView()
         padded.pin(column, inset: NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 10))
-        // One width for every banner, given up only to a narrower editor area: else a stack could squeeze one to its icon.
+        // Every banner has one width, given up only to a narrower editor area. Otherwise a stack could squeeze a
+        // banner down to its icon.
         let width = padded.widthAnchor.constraint(equalToConstant: 340)
         width.priority = .init(NSLayoutConstraint.Priority.required.rawValue - 1)
         NSLayoutConstraint.activate([width, padded.widthAnchor.constraint(lessThanOrEqualToConstant: 340)])
-        buttons?.widthAnchor.constraint(equalTo: top.widthAnchor).isActive = true   // the button at the right edge
+        buttons?.widthAnchor.constraint(equalTo: top.widthAnchor).isActive = true   // puts the button at the right edge
         pin(FloatingCard.ground(padded, radius: Metrics.radiusLG, glassRadius: Metrics.radiusXL + 2))
         addTrackingArea(
             NSTrackingArea(
@@ -184,11 +187,12 @@ private final class BannerCard: NSView {
     override func mouseEntered(with event: NSEvent) { hovering = true }
     override func mouseExited(with event: NSEvent) {
         hovering = false
-        if let at = leaveAt, at < Date() { leave(after: Motion.linger) }   // its time came while it was read: a moment more, then away
+        // When the banner's time came while it was being read, it stays a moment more, then goes.
+        if let at = leaveAt, at < Date() { leave(after: Motion.linger) }
     }
 
-    /// In from the right as it fades in, on the weight of whatever else comes over content (`Motion.appear`): at 120 ms
-    /// it came quicker than it went and read as a flash.
+    /// Slides the banner in from the right as it fades in, at the pace of whatever else comes over content
+    /// (`Motion.appear`). At 120 ms it came quicker than it went and read as a flash.
     func appear() {
         alphaValue = 0
         wantsLayer = true
@@ -202,7 +206,7 @@ private final class BannerCard: NSView {
         }
         NSAnimationContext.runAnimationGroup {
             $0.duration = Motion.duration(Motion.appear)
-            $0.timingFunction = CAMediaTimingFunction(name: .easeOut)   // as its slide
+            $0.timingFunction = CAMediaTimingFunction(name: .easeOut)   // the same curve as the slide
             animator().alphaValue = 1
         }
     }
@@ -223,7 +227,7 @@ private final class BannerCard: NSView {
             $0.duration = Motion.duration(Motion.slow)
             animator().alphaValue = 0
         }) { [weak self] in
-            MainActor.assumeIsolated {   // AppKit: on main
+            MainActor.assumeIsolated {   // AppKit calls this on the main thread
                 guard let self else { return }
                 guard let stack = self.superview as? NSStackView else { return self.removeFromSuperview() }
                 stack.rearrange { self.removeFromSuperview() }
@@ -233,7 +237,7 @@ private final class BannerCard: NSView {
 }
 
 extension NSStackView {
-    /// `change` adds or removes banners; the others slide to their new places rather than jumping there.
+    /// Runs `change`, which adds or removes banners. The other banners slide to their new places instead of jumping.
     fileprivate func rearrange(_ change: () -> Void) {
         let places = arrangedSubviews.map { ($0, $0.placeInWindow) }
         change()

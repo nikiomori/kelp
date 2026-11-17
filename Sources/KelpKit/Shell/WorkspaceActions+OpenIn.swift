@@ -12,7 +12,7 @@ extension WorkspaceActions {
         ("GitHub Desktop", "com.github.GitHubClient"),
         ("Terminal", "com.apple.Terminal"), ("iTerm", "com.googlecode.iterm2"), ("Warp", "dev.warp.Warp-Stable")
     ]
-    /// Terminals and git clients get a folder: Terminal would run a file as a script.
+    /// Terminals and git clients get a folder, because Terminal would run a file as a script.
     private static let folderOnly: Set = [
         "com.apple.Terminal", "com.googlecode.iterm2", "dev.warp.Warp-Stable", "com.DanPristupov.Fork",
         "com.fournova.Tower3", "com.github.GitHubClient"
@@ -24,14 +24,15 @@ extension WorkspaceActions {
         "com.exafunction.windsurf": "windsurf"
     ]
 
-    /// A remote project's file or folder: its host and its path there; nil for one on this Mac.
+    /// The host and the path there of a remote project's file or folder. It is nil for a path on this Mac.
     static func onHost(_ path: String) -> (host: String, path: String)? {
         let remotes = Remotes(home: Paths.root)
         if let remote = remotes.of(path) { return (remote.host, remote.path) }
         return remotes.containing(path).map { ($0.remote.host, $0.remotePath) }
     }
 
-    /// The editors this Mac has that can open `path`: on a host, those that reach it over SSH.
+    /// The editors this Mac has that can open `path`. For a path on a host, these are the editors that reach it over
+    /// SSH.
     static func editors(for path: String?) -> [(name: String, bundle: String, app: URL)] {
         guard let path, onHost(path) != nil else { return installedEditors }
         return installedEditors.filter { overSSH[$0.bundle] != nil }
@@ -48,7 +49,7 @@ extension WorkspaceActions {
             NSSound.beep()
             return
         }
-        // On a host: the editor's own remote window, over SSH (`overSSH`).
+        // On a host, the editor opens its own remote window over SSH (`overSSH`).
         if let (host, there) = onHost(path) {
             var link = URLComponents()
             link.scheme = overSSH[bundle]
@@ -69,7 +70,7 @@ extension WorkspaceActions {
             [URL(fileURLWithPath: target)], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
     }
 
-    /// "Open in VS Code"… for whatever editors this Mac has, like "Open With" in Finder.
+    /// Adds "Open in VS Code"… for whatever editors this Mac has, like "Open With" in Finder.
     static func addOpenIn(
         to menu: NSMenu, path: @escaping @MainActor () -> String?, prefix: String = String(localized: "Open in ")
     ) {
@@ -85,13 +86,13 @@ extension WorkspaceActions {
         }
     }
 
-    /// Where a thing is, the same items everywhere: Reveal in Finder, Open In ›, and Copy Path, or Copy › when `copies`
-    /// has more than the path to offer.
+    /// Adds the items that show where a thing is, the same everywhere: Reveal in Finder, Open In ›, and Copy Path, or
+    /// Copy › when `copies` has more than the path to offer.
     package static func addLocate(
         to menu: NSMenu, path: String, copies: [(title: String, run: @MainActor @Sendable () -> Void)] = []
     ) {
         let host = onHost(path)
-        if host == nil {   // a remote project's folder here holds only its marker
+        if host == nil {   // a remote project's local folder holds only its marker, so it has no Finder item
             menu.add(String(localized: "Reveal in Finder")) {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
             }
@@ -102,7 +103,7 @@ extension WorkspaceActions {
             menu.add(String(localized: "Open In"), submenu: editors)
         }
         let copyPath: @MainActor () -> Void = {
-            copyText(host.map { "\($0.host):\($0.path)" } ?? path)   // as scp and rsync name it
+            copyText(host.map { "\($0.host):\($0.path)" } ?? path)   // host:path, as scp and rsync name it
         }
         guard !copies.isEmpty else {
             menu.add(String(localized: "Copy Path"), copyPath)

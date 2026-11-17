@@ -5,8 +5,9 @@ import DesignKit
 import SwiftUI
 
 extension InspectorController {
-    /// As many icons as the inspector's width holds, in the row's order; the rest go into the » menu. The shown
-    /// panel's icon stays in the row, in the last slot, so the row always says where you are.
+    /// Keeps as many icons in the row as the inspector's width holds, in the row's order, and puts the rest into the »
+    /// menu. The shown panel's icon stays in the row (taking the last slot if it would have folded), so the row always
+    /// shows which panel is open.
     func fold() {
         let hidden = Set(app.settings[SettingKeys.hiddenPanels] ?? [])
         let current = panels.firstIndex { $0.id == app.workbench.inspectorPanel } ?? 0   // as showSelected picks it
@@ -18,7 +19,7 @@ extension InspectorController {
         let fits = max(1, Int(room / ((column ? Metrics.segment.height : Metrics.segment.width) + Metrics.iconGap)))
         var shown = order
         if order.count > fits {
-            shown = Array(order.prefix(fits - 1))   // and the »
+            shown = Array(order.prefix(fits - 1))   // the last slot goes to the »
             if !shown.contains(current) {
                 if shown.isEmpty { shown = [current] } else { shown[shown.count - 1] = current }
             }
@@ -40,7 +41,8 @@ extension InspectorController {
 
     @objc func showMore(_ button: NSButton) { showMore(byHover: false) }
 
-    /// Opened by a click, the menu stays until a click; opened by the pointer resting, it goes when the pointer leaves.
+    /// Shows the » menu of folded panels. Opened by a click, the menu stays until the next click; opened by the pointer
+    /// resting on the », it closes when the pointer leaves.
     func showMore(byHover: Bool) {
         let menu = NSMenu()
         for i in folded {
@@ -55,7 +57,8 @@ extension InspectorController {
         more.popUp(menu, closingWhenLeft: byHover)
     }
 
-    /// The row's right-click menu (on an icon or the band around it): which icons show, where the row sits, auto-hide.
+    /// Builds the row's right-click menu (on an icon or the band around it). It sets which icons show, where the row
+    /// sits, and auto-hide.
     func rowMenu(_ event: NSEvent) -> NSMenu? {
         let point = view.convert(event.locationInWindow, from: nil)
         let band = view.bounds.height - WindowBar.height
@@ -80,7 +83,7 @@ extension InspectorController {
         let side =
             ["left", "right"].contains(settings[SettingKeys.inspectorIcons])
             ? settings[SettingKeys.inspectorIcons] : "center"
-        if !column {   // a column has none
+        if !column {   // a column has no alignment
             menu.addItem(.sectionHeader(title: String(localized: "Alignment")))
             for v in ["left", "center", "right"] {
                 let choice = (SettingKeys.inspectorIcons.key, v)

@@ -3,12 +3,12 @@ import Core
 import DesignKit
 import Sparkle
 
-/// The menu bar under construction: what's placed so far, and adding commands by id.
+/// Builds the menu bar. It holds what's placed so far and adds commands by id.
 @MainActor
 final class MenuBuilder {
     let bar = NSMenu()
     let reg: ExtensionRegistry
-    /// Commands given a place; the rest go in the menu they name (Tools by default).
+    /// Commands already given a place. The rest go in the menu they name (Tools by default).
     var placed: Set<String> = []
     private let item: (CommandSpec) -> NSMenuItem
     init(reg: ExtensionRegistry, item: @escaping (CommandSpec) -> NSMenuItem) {
@@ -23,7 +23,7 @@ final class MenuBuilder {
         return menu
     }
 
-    /// These commands, in order ("-" is a separator); one whose extension is off is left out.
+    /// Adds these commands in order ("-" is a separator). A command whose extension is off is left out.
     @discardableResult func add(_ menu: NSMenu, _ ids: String...) -> [NSMenuItem] {
         ids.compactMap { id in
             if id == "-" {
@@ -38,13 +38,14 @@ final class MenuBuilder {
         }
     }
 
-    /// Only its key: in the menu so the shortcut works, not shown.
+    /// Hides a menu item but keeps its key, so the shortcut works without the item showing.
     func hide(_ menuItem: NSMenuItem) {
         menuItem.isHidden = true
         menuItem.allowsKeyEquivalentWhenHidden = true
     }
 
-    /// Every command nothing placed, in the menu it names (after a separator) or in `tools`; Tools goes if it's empty.
+    /// Puts every command not yet placed in the menu it names (after a separator) or in `tools`. Tools is removed if
+    /// it ends up empty.
     func placeTheRest(in tools: NSMenu) {
         var extended: Set<NSMenu> = []
         for c in reg.all.commands where !placed.contains(c.id) {
@@ -57,8 +58,8 @@ final class MenuBuilder {
 }
 
 extension AppDelegate {
-    /// The menu bar is laid out here by command id, like Zed's app menus; titles, keys and actions come from the
-    /// registry. Commands it doesn't place (extensions', the other built-ins') go in the menu they name, Tools by default.
+    /// Lays out the menu bar by command id, like Zed's app menus. Titles, keys and actions come from the registry.
+    /// Commands not placed here (extensions', the other built-ins') go in the menu they name, Tools by default.
     func buildMenu() {
         let builder = MenuBuilder(reg: app.extensions, item: item)
         appMenu(builder)
@@ -66,17 +67,17 @@ extension AppDelegate {
         editMenu(builder)
         viewMenu(builder)
         selectionMenu(builder)
-        let tools = builder.sub("Tools")   // filled last, with what nothing else placed
+        let tools = builder.sub("Tools")   // filled last, with the commands nothing else placed
         runMenu(builder)
         windowMenu(builder)
         helpMenu(builder)
         builder.placeTheRest(in: tools)
-        KeyBindings.apply(to: builder.bar, app.settings)   // Settings › Keyboard's changes over the defaults (on the English titles)
+        KeyBindings.apply(to: builder.bar, app.settings)   // Settings › Keyboard changes, matched on English titles
         Localize.menu(builder.bar)   // shown in the user's language
         NSApp.mainMenu = builder.bar
     }
 
-    /// Kelp: About, updates, settings, and the standard Services / Hide / Quit.
+    /// Builds the Kelp menu: About, updates, settings, and the standard Services / Hide / Quit.
     private func appMenu(_ menuBuilder: MenuBuilder) {
         let app = menuBuilder.sub("Kelp")
         app.addItem(
@@ -110,7 +111,7 @@ extension AppDelegate {
         app.addItem(withTitle: "Quit Kelp", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }
 
-    /// File: new workspaces, agents and tabs, projects, saving and closing.
+    /// Builds the File menu: new workspaces, agents and tabs, projects, saving and closing.
     private func fileMenu(_ menuBuilder: MenuBuilder) {
         let app = self.app
         let file = menuBuilder.sub("File")
@@ -141,7 +142,7 @@ extension AppDelegate {
         menuBuilder.add(file, "-", "editor.save", "editor.saveAll", "-", "editor.closeTab", "workspace.close")
     }
 
-    /// Edit: undo, the clipboard, Find, and the editor's commands.
+    /// Builds the Edit menu: undo, the clipboard, Find, and the editor's commands.
     private func editMenu(_ menuBuilder: MenuBuilder) {
         let edit = menuBuilder.sub("Edit")
         edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
@@ -152,7 +153,7 @@ extension AppDelegate {
         edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         edit.addItem(.separator())
-        // Find, as in every Mac editor: the panel, next / previous, use selection.
+        // Find, as in every Mac editor, has the panel, next / previous, and use selection.
         let find = NSMenu(title: "Find")
         for (title, key, mods, action) in [
             ("Find…", "f", NSEvent.ModifierFlags.command, NSFindPanelAction.showFindPanel),
@@ -166,7 +167,7 @@ extension AppDelegate {
         }
         menuBuilder.add(find, "files.findInWorkspace", "files.findByName")
         menuBuilder.add(find, "files.search.matchCase", "files.search.wholeWord", "files.search.regex").forEach(
-            menuBuilder.hide)   // their keys, not more rows
+            menuBuilder.hide)   // only their keys, not more rows
         edit.add("Find", submenu: find)
         menuBuilder.add(
             edit, "editor.goToLine", "editor.nextProblem", "editor.previousProblem", "editor.showCompletions",
@@ -184,9 +185,9 @@ extension AppDelegate {
         edit.add("Markdown", submenu: markdown)
     }
 
-    /// The Selection menu: the code editor's commands, as in VS Code. It comes after View, because a key goes to the
-    /// first menu item that has it, whether that item is enabled or not: ⌘D, ⌘[ and ⌘] are Split Right and the moves
-    /// between panes outside the editor (inside it, the editor takes them first: EditorBox).
+    /// Builds the Selection menu, with the code editor's commands as in VS Code. It comes after View, because a key
+    /// goes to the first menu item that has it, whether that item is enabled or not. Outside the editor, ⌘D, ⌘[ and ⌘]
+    /// are Split Right and the moves between panes (inside it, the editor takes them first, in EditorBox).
     private func selectionMenu(_ menuBuilder: MenuBuilder) {
         menuBuilder.add(
             menuBuilder.sub("Selection"), "editor.addNextOccurrence", "editor.selectAllOccurrences",
@@ -198,7 +199,7 @@ extension AppDelegate {
             "editor.indent", "editor.outdent")
     }
 
-    /// View: the sidebar and inspector, panels, text size, panes and tabs.
+    /// Builds the View menu: the sidebar and inspector, panels, text size, panes and tabs.
     private func viewMenu(_ menuBuilder: MenuBuilder) {
         let app = self.app
         let view = menuBuilder.sub("View")
@@ -211,7 +212,7 @@ extension AppDelegate {
         }
         menuBuilder.placed.insert("workbench.showPanel")
         menuBuilder.add(view, "-", "editor.toggleWordWrap", "-", "view.biggerText")
-        // ⌘= enlarges too, as in Ghostty, VS Code and Safari (+ is the shifted =).
+        // ⌘= enlarges the text too, as in Ghostty, VS Code and Safari (+ is the shifted =).
         menuBuilder.hide(view.add("Bigger Text", key: "=") { app.extensions.run("view.biggerText") })
         menuBuilder.add(
             view, "view.smallerText", "view.defaultTextSize", "-", "terminal.splitRight", "terminal.splitDown",
@@ -229,7 +230,7 @@ extension AppDelegate {
                 $0.allowsKeyEquivalentWhenHidden = true
             }
         }
-        // ⌃Tab / ⌃⇧Tab: the workspace switcher (Window menu); tabs keep ⇧⌘] / ⇧⌘[.
+        // ⌃Tab / ⌃⇧Tab open the workspace switcher (in the Window menu), and tabs keep ⇧⌘] / ⇧⌘[.
         menuBuilder.add(view, "-", "workbench.commandPalette", "files.quickOpen", "agents.history", "-")
         view.addItem(
             withTitle: "Enter Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f"
@@ -237,7 +238,8 @@ extension AppDelegate {
         .keyEquivalentModifierMask = [.command, .control]
     }
 
-    /// Run: the project's commands (the built-in that runs them fills in the rest) and the editor's run, test, format.
+    /// Builds the Run menu: the project's commands (the built-in that runs them fills in the rest) and the editor's
+    /// run, test and format.
     private func runMenu(_ menuBuilder: MenuBuilder) {
         let runs = menuBuilder.sub("Run")
         runs.delegate = app.extensions.all.runs?.menu   // the project's other commands go between the separators
@@ -246,7 +248,7 @@ extension AppDelegate {
             "editor.runFile", "editor.testAtCursor", "editor.format", "-", "scripts.edit")
     }
 
-    /// Window: workspaces, the agent needing you, archived workspaces.
+    /// Builds the Window menu: workspaces, the agent needing you, and archived workspaces.
     private func windowMenu(_ menuBuilder: MenuBuilder) {
         let app = self.app
         let win = menuBuilder.sub("Window")
@@ -276,7 +278,7 @@ extension AppDelegate {
         NSApp.windowsMenu = win
     }
 
-    /// Help: macOS puts its menu search here.
+    /// Builds the Help menu, where macOS puts its menu search.
     private func helpMenu(_ menuBuilder: MenuBuilder) {
         let help = menuBuilder.sub("Help")
         menuBuilder.add(help, "help.guide", "help.extensionGuide")

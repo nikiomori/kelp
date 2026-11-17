@@ -9,7 +9,7 @@ package struct FileActions {
     let app: AppModel
     package init(_ app: AppModel) { self.app = app }
 
-    /// "Sources/App.swift:12-30": workspace-relative, the way agents read a reference.
+    /// Returns a reference such as "Sources/App.swift:12-30", relative to the workspace, the way agents read one.
     func reference(_ path: String, lines: ClosedRange<Int>?) -> String {
         let root = app.worktree(app.workbench.workspaceId)?.path ?? ""
         let rel = (root.isEmpty ? nil : Paths.relative(path, to: root)) ?? path
@@ -17,9 +17,9 @@ package struct FileActions {
         return ShellQuote.escapedPath(rel) + suffix
     }
 
-    /// The agents text for "the agent" may go to in a workspace (the one on screen when nil): running, an agent (not a
-    /// terminal, whose shell would run the text's lines, nor a plain command), and not a reviewer (`SessionRole`), which
-    /// reports on others' work rather than changing it.
+    /// Returns the sessions in a workspace (the one on screen when nil) that text for "the agent" may go to. Each one
+    /// is running and is an agent, not a terminal (whose shell would run the text's lines) or a plain command. It is
+    /// also not a reviewer (`SessionRole`), because a reviewer reports on others' work rather than changing it.
     package func agents(in workspace: String? = nil) -> [Session] {
         let wid = workspace ?? app.workbench.workspaceId
         return app.sessions.filter {
@@ -27,16 +27,16 @@ package struct FileActions {
         }
     }
 
-    /// The one of them it goes to without asking: the one the user was last with, else the only one. Nil when there's
-    /// none, or several and the user was with none of them.
+    /// Returns the agent that text goes to without asking: the one the user was last with, else the only one. It is
+    /// nil when there's none, or when there are several and the user was last with none of them.
     package func agent(in workspace: String? = nil) -> Session? {
         let live = agents(in: workspace)
         if let last = app.workbench.lastSession, let session = live.first(where: { $0.id == last }) { return session }
         return live.count == 1 ? live[0] : nil
     }
 
-    /// `agent(in:)`, else asked which of several: findings sent to the wrong one would have it change code it didn't
-    /// write. Nil when there's none or the user picked none.
+    /// Returns `agent(in:)`, or else asks the user which of several agents to use, because findings sent to the wrong
+    /// agent would have it change code it didn't write. Returns nil when there's none or the user picked none.
     package func pickAgent(in workspace: String? = nil) async -> Session? {
         if let sure = agent(in: workspace) { return sure }
         let live = agents(in: workspace)
@@ -53,7 +53,7 @@ package struct FileActions {
         sendToAgent(text: reference(path, lines: lines))
     }
 
-    /// Words into the agent's prompt, not sent: the user adds what to do with them.
+    /// Types words into the agent's prompt without sending them, so the user adds what to do with them.
     package func sendToAgent(text: String) {
         guard !agents().isEmpty else {
             Banner.show(
@@ -72,8 +72,8 @@ package struct FileActions {
     }
 }
 
-/// A git step that failed for a reason an agent can fix (hooks, a rejected push, conflicts): the error banner
-/// offers to hand it to the workspace's agent, with the error, as a prompt waiting for Return.
+/// Handles a git step that failed for a reason an agent can fix (hooks, a rejected push, conflicts). The error banner
+/// offers to hand the step to the workspace's agent, with the error, as a prompt waiting for Return.
 @MainActor
 package struct GitFix {
     let app: AppModel
@@ -101,7 +101,8 @@ package struct GitFix {
         }
     }
 
-    /// The recipe typed into the session, not sent: other people's text (errors, CI logs, review comments) waits for Return.
+    /// Types the recipe into the session without sending it, because other people's text (errors, CI logs, review
+    /// comments) should wait for Return.
     func type(_ recipe: String, worktree wid: String, vars: [String: String], into sid: String) async -> Bool {
         guard let text = await app.call(RecipeRender(id: wid, name: recipe, vars: vars)) else { return false }
         await app.call(SessionSend(id: sid, text: text, enter: false))

@@ -2,19 +2,21 @@ import AppKit
 import Core
 import DesignKit
 
-/// The app's connection to kelpd: opens it (starting kelpd when it isn't running), notices one that ended or hung, takes
-/// an update of kelpd over and restarts it. What a new connection reads is the model's (`AppModel.opened`).
+/// The app's connection to kelpd. It opens the connection (starting kelpd when it isn't running), notices when kelpd
+/// ended or hung, and handles a kelpd update and restart. What a new connection reads is up to the model
+/// (`AppModel.opened`).
 @MainActor
 final class DaemonLink {
     unowned let app: AppModel
     init(app: AppModel) { self.app = app }
 
-    /// The connection calls go through; nil while there's none.
+    /// The connection that calls go through, or nil while there is none.
     private(set) var client: RPCClient?
-    /// Uses a connection opened elsewhere (a test's), or none, instead of opening one here.
+    /// Uses a connection opened elsewhere (by a test), or none, instead of opening one here.
     func use(_ c: RPCClient?) { client = c }
 
-    /// One connection at a time: launch, a dropped connection and Restart Background Service all come through here.
+    /// Connects to kelpd, one connection at a time. Launch, a dropped connection and Restart Background Service all
+    /// come through here.
     func connect() async {
         if client != nil { return }
         if let running = connecting { return await running.value }
@@ -28,10 +30,10 @@ final class DaemonLink {
     private var failing = false
 
     private func open() async {
-        BackgroundItem.register()   // before the first quit: what the app started is ended then unless it has the item
-        // Launched again on each try: a daemon that's stopping (a restart, an update) closes its socket first and holds
-        // its home's lock until its agents are gone (up to 3 s), so the kelpd started meanwhile finds it taken and exits.
-        // One that's already running takes no harm: a second kelpd exits at once.
+        BackgroundItem.register()   // before the first quit, which ends what the app started unless it has the item
+        // kelpd is launched again on each try. A daemon that's stopping (for a restart or an update) closes its socket
+        // first and holds its home's lock until its agents are gone (up to 3 s), so a kelpd started meanwhile finds
+        // the lock taken and exits. A kelpd that's already running takes no harm, because a second one exits at once.
         for _ in 0..<3 {
             if let opened = try? RPCClient(socket: Paths.socket.path) {
                 client = opened
@@ -48,7 +50,7 @@ final class DaemonLink {
             if client != nil { break }
         }
         guard let connection = client else {
-            // Keeps trying (less and less often); every action meanwhile says why it does nothing.
+            // It keeps trying, less and less often, and every action meanwhile says why it does nothing.
             if !failing {
                 failing = true
                 Banner.show(
@@ -60,12 +62,13 @@ final class DaemonLink {
         }
         retryDelay = 1
         failing = false
-        // Before anything that waits (the version check can show a sheet): a daemon that drops meanwhile is still noticed.
+        // Listen before anything that waits (the version check can show a sheet), so a daemon that drops meanwhile is
+        // still noticed.
         let stopListening = app.listen(connection)
         connection.onClose = { [weak self] in
             stopListening()
             Task { @MainActor in
-                // a newer connection took over: nothing to undo
+                // when a newer connection took over, there is nothing to undo
                 guard let self, self.client === connection else { return }
                 self.client = nil
                 self.app.connected = false
@@ -73,16 +76,17 @@ final class DaemonLink {
             }
         }
         if await checkDaemonVersion(connection) { return }
-        // Dropped while the update's question waited for an answer: the reconnect that noticed waited for this, so this one
-        // tries again rather than load lists over a connection that's gone.
+        // The connection may have dropped while the update question waited for an answer. The reconnect that noticed it
+        // waited for this call, so this call tries again rather than load lists over a connection that's gone.
         guard client === connection else { return reconnectSoon() }
         await app.opened(connection)
         if client === connection { watchLife(connection) }
     }
 
     static let noService = String(localized: "Kelp's background service isn't running.")
-    /// What the banner says when kelpd doesn't answer: why it didn't start (`kelpd.err`, which it leaves for this), and the
-    /// command that fixes it when one is known; without one, only that it isn't running.
+    /// Returns what the banner says when kelpd doesn't answer. That is why kelpd didn't start (from `kelpd.err`, which
+    /// kelpd leaves for this) and the command that fixes it when one is known. Without a reason, it says only that the
+    /// service isn't running.
     static func whyNoService(root: URL = Paths.root) -> String {
         let why =
             (try? String(contentsOf: Paths.daemonError(in: root), encoding: .utf8))?.trimmingCharacters(
@@ -105,8 +109,9 @@ final class DaemonLink {
             action: (String(localized: "Restart It"), { Task { await self.restart() } }))
     }
 
-    /// A kelpd that's connected and hung never says so: what's quiet stays quiet, and a person's action waits for minutes.
-    /// Two looks in a row without an answer say so, with the way out. A connection that ended is `onClose`'s.
+    /// Watches for a hung kelpd. A connected kelpd that hangs never says so: quiet reads stay quiet, and a person's
+    /// action waits for minutes. Two checks in a row without an answer show a banner with the way out. A connection
+    /// that ended is handled by `onClose`.
     private func watchLife(_ c: RPCClient) {
         Task { [weak self] in
             var missed = 0
@@ -126,9 +131,10 @@ final class DaemonLink {
         } catch { return (error as? RPCError)?.isNoReply != true }
     }
 
-    /// After an app update the running daemon may be older. It takes the update over in place when it can (`daemon.upgrade`:
-    /// agents keep running); else it restarts right away when no agent is running, and otherwise asks, because restarting
-    /// ends running sessions. Returns true when an upgrade or a restart is in progress.
+    /// Checks the daemon's version, because after an app update the running daemon may be older. The daemon takes the
+    /// update in place when it can (`daemon.upgrade`, so agents keep running). Otherwise it restarts right away when no
+    /// agent is running, and else Kelp asks first, because restarting ends running sessions. Returns true when an
+    /// upgrade or a restart is in progress.
     private func checkDaemonVersion(_ c: RPCClient) async -> Bool {
         guard
             let mine =
@@ -137,17 +143,19 @@ final class DaemonLink {
         else { return false }
         let info: DaemonInfo.Result
         do { info = try await c.call(DaemonInfo()) } catch {
-            // Connected, and it doesn't answer: the lists asked for next would leave an empty window for minutes, with no word why.
+            // It is connected but doesn't answer. The lists asked for next would leave an empty window for minutes,
+            // with no word why, so say so now.
             if (error as? RPCError)?.isNoReply == true { sayNotAnswering() }
             return false
         }
-        // Older daemons don't report binaryMTime (and their "mtime" was read from disk, i.e. already the new file): restart them.
+        // Older daemons don't report binaryMTime (their "mtime" was read from disk, so it is already the new file's),
+        // so they are restarted.
         let samePath = info.path == bundledDaemon.resolvingSymlinksInPath().path
         guard !(samePath && abs((info.binaryMTime ?? 0) - mine) < 1), !restartAttempted else { return false }
-        restartAttempted = true   // one try per launch: a daemon too old to shut down is left running rather than looping
-        // One that runs the new binary at its path in place keeps every agent running; an older one (or another copy of
-        // Kelp's) has to restart.
-        // A refusal says why (the new kelpd can't take the sessions over): the user hears it with the question.
+        restartAttempted = true   // one try per launch, so a daemon too old to shut down is left running, not looped on
+        // A daemon that can run the new binary at its own path, in place, keeps every agent running. An older one (or
+        // one from another copy of Kelp) has to restart.
+        // A refusal says why (the new kelpd can't take the sessions over), and the user hears it with the question.
         var upgrading = false, refusal: String?
         if samePath {
             do {
@@ -167,13 +175,13 @@ final class DaemonLink {
                     )
                 alert.addButton(withTitle: String(localized: "Restart Service"))
                 alert.addButton(withTitle: String(localized: "Later"))
-                // Return keeps the agents running: ending them takes a deliberate click.
+                // Return keeps the agents running, so ending them takes a deliberate click.
                 alert.buttons[0].hasDestructiveAction = true
                 alert.buttons[0].keyEquivalent = ""
                 alert.buttons[1].keyEquivalent = "\r"
                 guard await runSheet(alert) == .alertFirstButtonReturn else { return false }
             }
-            // One too old to take daemon.shutdown is stopped, else the reconnect finds it again.
+            // A daemon too old to take daemon.shutdown is stopped by signal, or else the reconnect finds it again.
             do { _ = try await c.call(DaemonShutdown()) } catch { if let pid = c.daemonPID { await Self.stop(pid) } }
         }
         c.close()
@@ -183,18 +191,19 @@ final class DaemonLink {
         return true
     }
 
-    /// Restart Background Service, every agent still running: kelpd runs itself again in place (`daemon.upgrade`). One that
-    /// can't throws why, and nothing happened.
+    /// Restarts the background service with every agent still running, by having kelpd run itself again in place
+    /// (`daemon.upgrade`). When kelpd can't, this throws the reason and nothing has changed.
     func upgrade() async throws {
         guard let old = client else { throw RPCError.internalError(Self.noService) }
         _ = try await old.call(DaemonUpgrade())
         await reconnect(after: detach())
     }
 
-    /// Restart Background Service: it stops and starts again, ending the agents.
+    /// Restarts the background service by stopping and starting it, which ends the agents.
     func restart() async {
         let old = detach()
-        // One that doesn't answer (hung) is stopped: else the reconnect finds it again, still holding the socket.
+        // A hung daemon that doesn't answer is stopped by signal, or else the reconnect finds it again, still holding
+        // the socket.
         if let old {
             let pid = old.daemonPID
             do { _ = try await old.call(DaemonShutdown(), timeout: 5) } catch { if let pid { await Self.stop(pid) } }
@@ -216,8 +225,8 @@ final class DaemonLink {
         await connect()
     }
 
-    /// A kelpd that didn't take daemon.shutdown: SIGTERM, then SIGKILL after 2 s. Only a process still running kelpd (a
-    /// pid reused meanwhile is left alone).
+    /// Stops a kelpd that didn't take daemon.shutdown, with SIGTERM and then SIGKILL after 2 s. It signals only a
+    /// process that still runs kelpd, so a pid reused meanwhile is left alone.
     static func stop(_ pid: pid_t) async {
         guard Unix.executable(pid)?.hasSuffix("/kelpd") == true else { return }
         kill(pid, SIGTERM)
@@ -245,6 +254,7 @@ final class DaemonLink {
             launchFailure = nil
         } catch { launchFailure = error.localizedDescription }
     }
-    /// Why kelpd couldn't be started at all (not there, not allowed to run): it leaves no kelpd.err to say so itself.
+    /// Why kelpd couldn't be started at all (it isn't there, or isn't allowed to run). In that case kelpd leaves no
+    /// kelpd.err to say so itself.
     private var launchFailure: String?
 }

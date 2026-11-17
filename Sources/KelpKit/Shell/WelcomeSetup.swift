@@ -2,8 +2,8 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// The first-run welcome's three choices: the theme, the text size and the agent a new chat starts. Each applies as it's
-/// picked and is the same tiles as in Settings, where it can be changed later; the welcome's buttons are the way on.
+/// The first-run welcome's three choices: the theme, the text size and the agent a new chat starts. Each applies as
+/// it's picked and uses the same tiles as Settings, where it can be changed later. The welcome's buttons lead on.
 struct WelcomeSetup: View {
     @Environment(AppModel.self) private var app
 
@@ -38,7 +38,8 @@ struct WelcomeSetup: View {
         .frame(width: 560)   // the five theme cards in one row
     }
 
-    /// One row at most, the chosen one first: not a wall of every agent installed (Settings has them all).
+    /// The agents to offer: one row at most, with the chosen one first, instead of a wall of every agent installed
+    /// (Settings has them all).
     static func firstAgents(_ installed: [String], current: String?) -> [String] {
         let known = [Session.claudeAgent, Session.codexAgent, "gemini", "cursor", "copilot", "opencode"]
         var picked = known.filter(installed.contains) + installed.filter { !known.contains($0) }

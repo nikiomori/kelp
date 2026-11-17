@@ -3,10 +3,10 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// One look for agent state everywhere (sidebar, tabs, panes): a spinning ring while it works, a slow ring of dots once
-/// it only waits for its command, an orange ◎ when it needs you, an outlined ✓ in the text's colour when it finished and
-/// you haven't looked (filled and coloured marks are for what needs you: asking, failed), nothing after (as an agent that
-/// did nothing), a moon when paused.
+/// One look for agent state everywhere (sidebar, tabs, panes). An agent shows a spinning ring while it works, a slow
+/// ring of dots once it only waits for its command, and an orange ◎ when it needs you. When it finished and you haven't
+/// looked, it shows an outlined ✓ in the text's colour (filled and coloured marks are for what needs you: asking,
+/// failed). After that it shows nothing (like an agent that did nothing), and a moon when paused.
 extension AgentStatus {
     var symbol: String {
         switch self {
@@ -23,15 +23,15 @@ extension AgentStatus {
         switch self {
         case .working: .secondaryLabelColor
         case .waiting: .systemOrange
-        case .done: .labelColor   // no state colour, and brighter than a working ring: it's what's new among the greys
-        case .idle: .tertiaryLabelColor   // nothing to look at: it stays quiet
+        case .done: .labelColor   // no state colour, but brighter than a working ring, as what's new among the greys
+        case .idle: .tertiaryLabelColor   // nothing to look at, so it stays quiet
         case .paused: .secondaryLabelColor   // quiet, but a mark must still read (tertiary is about 2:1)
         case .exited: .secondaryLabelColor
         case .error: .systemRed
         }
     }
     var color: Color { Color(nsColor: nsColor) }
-    /// Short, for rows: "Working", "Needs input"…
+    /// Short words for rows: "Working", "Needs input"…
     package var words: String {
         switch self {
         case .working: String(localized: "Working")
@@ -43,7 +43,7 @@ extension AgentStatus {
         case .error: String(localized: "Failed")
         }
     }
-    /// Most urgent first: what a workspace shows when it has several agents.
+    /// The states, most urgent first. A workspace with several agents shows the most urgent one.
     static let urgency: [AgentStatus] = [.waiting, .error, .working, .done, .idle, .paused, .exited]
     static func mostUrgent(_ statuses: [AgentStatus]) -> AgentStatus? {
         statuses.min { (urgency.firstIndex(of: $0) ?? 9) < (urgency.firstIndex(of: $1) ?? 9) }
@@ -56,23 +56,26 @@ package final class StatusMark: NSView {
     private let image = NSImageView()
     private let ring = CAShapeLayer()
     private let size: CGFloat
-    // A change of state fades from one mark to the next (not in `update`, which a theme or a window change runs too).
+    // A change of state fades from one mark to the next. That isn't done in `update`, which a theme or window change
+    // runs too.
     package var status: AgentStatus? { didSet { if status != oldValue { changed() } } }
-    /// Done and not looked at yet: the filled ✓; seen: no mark.
+    /// True while a done agent hasn't been looked at, which shows the outlined ✓. Once it is seen, there is no mark.
     var unread = true { didSet { if unread != oldValue { changed() } } }
-    /// Working on shrinking its conversation (Claude's compaction): a slow pulse, not the spin.
+    /// True while the agent shrinks its conversation (Claude's compaction), shown as a slow pulse instead of the spin.
     var compacting = false { didSet { if compacting != oldValue { update() } } }
-    /// Its turn is over and it waits for its command to end (`Session.waitsForCommand`): a slow ring of dots, a shape of its
-    /// own, so it still says so where nothing moves.
+    /// True when the agent's turn is over and it waits for its command to end (`Session.waitsForCommand`). It shows a
+    /// slow ring of dots, a shape of its own, so it still says so where nothing moves.
     var waitsForCommand = false { didSet { if waitsForCommand != oldValue { update() } } }
-    /// Stopped by a plan limit, read or not: a clock, until it does something else.
+    /// True when a plan limit stopped the agent, read or not. It shows a clock until the agent does something else.
     var limited = false { didSet { if limited != oldValue { changed() } } }
-    /// Its status is read off the screen (`Session.guessed`): a whole ring of dashes, a guess that looks like one.
+    /// True when the status is read off the screen (`Session.guessed`). It shows a whole ring of dashes, so the guess
+    /// looks like one.
     var guessed = false { didSet { if guessed != oldValue { update() } } }
-    /// How far it got (0…1), when the agent says so: a pie filling a circle, as in Finder's and Safari's progress,
-    /// instead of the spinning ring.
+    /// How far the agent got (0…1), when it says so. It shows as a pie filling a circle, as in Finder's and Safari's
+    /// progress, instead of the spinning ring.
     var progress: Double? { didSet { if progress != oldValue { update() } } }
-    /// Read by VoiceOver on its own; off where its row says the state in its own label (a sidebar agent).
+    /// Whether VoiceOver reads the mark on its own. It is off where the row says the state in its own label (a sidebar
+    /// agent).
     var announces = true { didSet { if announces != oldValue { update() } } }
     private let track = CAShapeLayer(), bar = CAShapeLayer()
 
@@ -127,8 +130,8 @@ package final class StatusMark: NSView {
     }   // animations stop when a view leaves a window
 
     private func changed() {
-        // A reused cell being filled shows at once. A mark going (a done one read) fades where it stood: a fade on its
-        // own layer, hidden at once, never showed.
+        // A reused cell that is being filled shows at once. A mark that goes away (a done one that was read) fades
+        // where it stood as a ghost, because a fade on its own layer, hidden at once, never showed.
         if window != nil, !isHidden, shown == nil, let parent = superview {
             leaveGhost(in: parent, duration: Motion.slow)
         } else if window != nil {
@@ -137,7 +140,7 @@ package final class StatusMark: NSView {
         update()
     }
 
-    /// What it shows: nothing for an idle agent or a done one already looked at.
+    /// The state the mark shows. It shows nothing for an idle agent or for a done one already looked at.
     private var shown: AgentStatus? { !limited && (status == .idle || (status == .done && !unread)) ? nil : status }
 
     private func update() {
@@ -150,7 +153,7 @@ package final class StatusMark: NSView {
             ?? (dotted
                 ? String(localized: "Waits for its command")
                 : dashed ? String(localized: "Working, as far as the screen shows") : shown?.words)
-        // VoiceOver reads the state (the spinning ring is only a layer): the same words as the tooltip.
+        // VoiceOver reads the state with the same words as the tooltip, because the spinning ring is only a layer.
         setAccessibilityElement(shown != nil && announces)
         setAccessibilityRole(.image)
         setAccessibilityLabel(
@@ -169,7 +172,7 @@ package final class StatusMark: NSView {
             return
         }
         // Motion means state: spinning = working, pulsing = compacting, filled = waiting for you. With Reduce Motion a
-        // still symbol says "working" instead: a ring that stopped spinning looks stuck.
+        // still symbol says "working" instead, because a ring that stopped spinning looks stuck.
         let still = Motion.reduced
         let spinning = shown == .working && !compacting && !still
         ring.isHidden = !spinning && !dotted
@@ -184,8 +187,9 @@ package final class StatusMark: NSView {
             ring.anchorPoint = CGPoint(x: 0.5, y: 0.5)
             ring.position = CGPoint(x: size / 2, y: size / 2)
             CATransaction.begin()
-            CATransaction.setDisableActions(true)   // a layer of its own: it would ease over 0.25 s
-            // Eight round dots: a dash of nothing, drawn by its caps, wider than the arc's line to weigh as much as it does.
+            CATransaction.setDisableActions(true)   // a layer of its own would ease over 0.25 s
+            // Eight round dots, each a zero-length dash drawn by its round caps. The line is wider than the arc's, so
+            // the dots weigh as much as the arc.
             ring.lineDashPattern = dotted ? [0, NSNumber(value: Double.pi * (size - 3) / 8)] : dashed ? [2, 2.4] : nil
             ring.lineWidth = dotted ? 2 : 1.5
             ring.strokeEnd = dotted || dashed ? 1 : 0.75
@@ -197,7 +201,8 @@ package final class StatusMark: NSView {
             spin.duration = dotted ? Motion.wait : Motion.spin
             spin.repeatCount = .infinity
             spin.beginTime = Motion.beat(spin.duration)
-            // As EdgeGlow: one per working agent in its row, tab and summary kept the window drawing at 120 Hz for hours.
+            // Capped as in EdgeGlow, because one ring per working agent in its row, tab and summary kept the window
+            // drawing at 120 Hz for hours.
             spin.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)
             ring.add(spin, forKey: "spin")
             return
@@ -229,13 +234,13 @@ package final class StatusMark: NSView {
             return
         }
         image.image = .symbol(shown.symbol, shown.words)
-        // The moon is wider than the circles: a size smaller, it takes the same room.
+        // The moon is wider than the circles, so it is drawn a size smaller to take the same room.
         image.symbolConfiguration = .chrome(shown == .paused ? size - 3 : size - 1)
         image.contentTintColor = shown.nsColor
     }
 }
 
-/// `StatusMark` in SwiftUI (a hover card, an extension's list): one look for a state, Reduce Motion included.
+/// `StatusMark` in SwiftUI (for a hover card or an extension's list), so a state has one look, Reduce Motion included.
 package struct StatusIcon: NSViewRepresentable {
     let status: AgentStatus
     var waitsForCommand = false

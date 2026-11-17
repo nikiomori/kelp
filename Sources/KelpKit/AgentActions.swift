@@ -23,11 +23,11 @@ package struct AgentActions {
         }
     }
 
-    /// Same command in the same tab; resumes the conversation when the agent supports it.
+    /// Runs the same command again in the same tab, and resumes the conversation when the agent supports it.
     package func restart(_ sid: String) {
         Task {
-            guard app.restarting.insert(sid).inserted else { return }   // a second click while it restarts
-            defer { app.restarting.remove(sid) }   // its tab is kept for the new one
+            guard app.restarting.insert(sid).inserted else { return }   // ignores a second click while it restarts
+            defer { app.restarting.remove(sid) }   // the old session's tab is kept for the new one
             guard let session = await app.call(SessionRestart(id: sid)) else { return }
             app.sessions.removeAll { $0.id == sid }
             app.upsert(session)
@@ -42,7 +42,7 @@ package struct AgentActions {
             (one ? String(localized: "Its session ends") : String(localized: "Their sessions end"))
             + ". " + String(localized: "Conversations can be resumed from Session History.")
             + app.sessions.childrenWords(of: ids)
-        // The button says what it stops (destructive: red).
+        // The button says what it stops, and it is red because the action is destructive.
         let action = one ? String(localized: "Stop Agent") : String(localized: "Stop \(ids.count) Agents")
         Task {
             guard await confirm(question, detail: detail, action: action, destructive: true) else { return }
@@ -50,8 +50,9 @@ package struct AgentActions {
         }
     }
 
-    /// What a session's row offers wherever it shows outside its project's list (Activity); with `lastTurn`, its tab's
-    /// menu: the changes of its last turn after Copy Context, Restart last and no Stop.
+    /// Adds the items a session's row offers wherever it shows outside its project's list (Activity). With `lastTurn`
+    /// it builds the menu of the session's tab instead, which has the changes of its last turn after Copy Context,
+    /// Restart last, and no Stop.
     package func addSessionItems(to menu: NSMenu, _ sid: String, lastTurn: (@MainActor () -> Void)? = nil) {
         menu.add(String(localized: "Rename…")) { rename(sid) }
         if app.session(sid)?.isTerminal != true {   // a terminal has no conversation to copy or hand over
@@ -74,8 +75,9 @@ package struct AgentActions {
         menu.add(String(localized: "Stop…")) { stop([sid]) }
     }
 
-    /// "Hand Off to ▸ Codex": a new agent in the same workspace gets what this one did (its conversation, or the
-    /// terminal's text) as a brief typed into its prompt, not sent. ⌥ hands over the full transcript instead of the latest part.
+    /// Builds the "Hand Off to ▸ Codex" menu. A new agent in the same workspace gets what this one did (its
+    /// conversation, or the terminal's text) as a brief typed into its prompt but not sent. ⌥ hands over the full
+    /// transcript instead of the latest part.
     func handoffMenu(_ sid: String) -> NSMenu {
         let menu = NSMenu()
         for a in app.catalog.installed(app.catalog.all) {
@@ -88,7 +90,8 @@ package struct AgentActions {
         return menu
     }
 
-    /// `send`: the brief goes straight in, nobody needs to read it first (an agent out of plan handing its work over).
+    /// Hands the session's work to `agent`. With `send`, the brief is sent straight away because nobody needs to read
+    /// it first (an agent out of plan handing its work over).
     package func handoff(_ sid: String, to agent: String, full: Bool, send: Bool = false) {
         Task {
             let request = SessionHandoff(
@@ -101,15 +104,16 @@ package struct AgentActions {
         }
     }
 
-    /// "Fork Chat", for an agent that can: a new chat beside it going on from a copy of its conversation.
+    /// Adds "Fork Chat" for an agent that can fork. It opens a new chat beside this one that goes on from a copy of its
+    /// conversation.
     func addFork(to menu: NSMenu, _ sid: String) {
         guard app.catalog.manifest(app.session(sid)?.agent)?.forks == true else { return }
         menu.add(String(localized: "Fork Chat")) { fork(sid) }
     }
 
-    /// "Continue On ▸ box": the chat goes on in its project's copy on another machine (a server, or this Mac), a branch
-    /// worktree there with its commits and uncommitted changes, briefed as Hand Off does; the one here pauses. The
-    /// copies are the projects of the same name; the daemon checks they share their first commit.
+    /// Adds "Continue On ▸ box". The chat goes on in a copy of its project on another machine (a server, or this Mac),
+    /// in a branch worktree there with its commits and uncommitted changes, briefed as Hand Off does. The chat here
+    /// pauses. The copies are the projects with the same name, and the daemon checks they share their first commit.
     func addMove(to m: NSMenu, _ sid: String) {
         guard let worktree = app.worktree(app.session(sid)?.worktreeId), let mine = app.repo(worktree.repoId) else {
             return

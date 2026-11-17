@@ -14,7 +14,7 @@ final class SearchPill: PointerControl {
     init(app: AppModel) {
         self.app = app
         super.init(frame: .zero)
-        restFill = .fillRest   // a field's ground; under the pointer a step darker, held darker still
+        restFill = .fillRest   // a field's fill; a step darker under the pointer, and darker still while pressed
         glass.symbolConfiguration = .chrome(Metrics.iconSmall)
         glass.contentTintColor = .secondaryLabelColor
         label.textColor = .secondaryLabelColor
@@ -42,7 +42,7 @@ final class SearchPill: PointerControl {
     override func layout() {
         super.layout()
         layer?.cornerRadius = bounds.height / 2
-        // When room is short, show "Search" rather than "Files, a…". The room measured is the pill's own, so the choice
+        // When room is short, show "Search" instead of "Files, a…". The room measured is the pill's own, so the choice
         // doesn't feed back on itself.
         let room = bounds.width - 19 - glass.frame.width - key.frame.width - 18
         let text =
@@ -50,9 +50,9 @@ final class SearchPill: PointerControl {
             ? full : short
         if label.stringValue != text { label.stringValue = text }
     }
-    /// The whole pill takes the click; in the title bar its label would move the window instead.
+    /// The whole pill takes the click, because in the title bar its label would move the window instead.
     override func hitTest(_ point: NSPoint) -> NSView? { super.hitTest(point) == nil ? nil : self }
-    /// The palettes grow out of it (QuickOpen.present).
+    /// The palettes grow out of the pill (QuickOpen.present).
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if window != nil { app.quickOpen.anchor = self }

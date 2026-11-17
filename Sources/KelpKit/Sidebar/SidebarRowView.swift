@@ -2,29 +2,33 @@ import AppKit
 import Core
 import DesignKit
 
-/// A project, then its chats and groups in the same two columns (the slot under the project's icon, the name under its
-/// name: the card says what's in it), then a group's chats 12 pt further in.
+/// The sidebar's outline. A project comes first, then its chats and groups in the same two columns: the slot lines up
+/// under the project's icon and the name under the project's name, because the card shows what belongs to it. A
+/// group's chats sit 12 pt further in.
 final class SidebarOutline: NSOutlineView {
     static let lead: CGFloat = 14, step: CGFloat = 12
-    /// Steps further in than its level puts a row: a group under the chat that made it, and that group's chats.
+    /// Extra indent steps for a row beyond what its level gives it. A group under the chat that made it gets them, and
+    /// so do that group's chats.
     var steps: (Int) -> Int = { _ in 0 }
-    /// Room over and under a row's content, where its project's card opens and closes (SidebarRowView.group).
+    /// Room above and below a row's content, where the project's card opens and closes (SidebarRowView.group).
     var pads: (Int) -> (top: CGFloat, bottom: CGFloat) = { _ in (0, 0) }
-    /// No disclosure triangles: projects and groups fold from the chevron their slot shows under the pointer (SidebarCell).
+    /// No disclosure triangles. Projects and groups fold from the chevron their slot shows under the pointer
+    /// (SidebarCell).
     override func frameOfOutlineCell(atRow row: Int) -> NSRect { .zero }
     override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
         var cellFrame = padded(super.frameOfCell(atColumn: column, row: row), row)
-        // The content ends as far inside its card on the right as a project's icon starts on the left (SidebarRowView.band).
-        // Under a heading a step further in than the rows beside the heading: the group ends where the indent does.
+        // The content ends as far inside the card on the right as a project's icon starts on the left
+        // (SidebarRowView.band). Rows under a heading sit a step further in than the rows beside the heading, so the
+        // group ends where the indent does.
         let left = Self.lead + Self.step * CGFloat((level(forRow: row) >= 2 ? 1 : 0) + steps(row))
         cellFrame.origin.x = left
         cellFrame.size.width = bounds.width - 8 - left
         return cellFrame
     }
-    /// The row a right-click opened the menu for; `clickedRow` stays -1, see `menu(for:)`.
+    /// The row a right-click opened the menu for. `clickedRow` stays -1, see `menu(for:)`.
     private(set) var menuRow = -1
-    /// The menu, without the outline NSTableView draws around the clicked row (it matched neither the pill nor the
-    /// card): the row keeps its hover pill until the menu closes (`menuClosed`).
+    /// Returns the menu without the outline NSTableView draws around the clicked row, which matched neither the pill
+    /// nor the card. Instead the row keeps its hover pill until the menu closes (`menuClosed`).
     override func menu(for event: NSEvent) -> NSMenu? {
         menuRow = row(at: convert(event.locationInWindow, from: nil))
         (rowView(atRow: menuRow, makeIfNecessary: false) as? SidebarRowView)?.menuTarget = true
@@ -33,7 +37,7 @@ final class SidebarOutline: NSOutlineView {
     func menuClosed() {
         let row = rowView(atRow: menuRow, makeIfNecessary: false) as? SidebarRowView
         row?.menuTarget = false
-        row?.recheckPointer()   // the pointer may have left it while the menu was open
+        row?.recheckPointer()   // the pointer may have left the row while the menu was open
         menuRow = -1
     }
 
@@ -45,44 +49,47 @@ final class SidebarOutline: NSOutlineView {
     }
 }
 
-/// Like Safari's tab groups: a project with rows under it sits on a quiet card (ProjectCard), and the row you're on is a
-/// raised pill (no accent colour, so the text and the status marks keep theirs). A project with nothing under it is a
-/// plain row, on a card only when its colour fills one.
+/// A sidebar row, drawn like Safari's tab groups. A project with rows under it sits on a quiet card (ProjectCard), and
+/// the row you're on is a raised pill. The pill has no accent colour, so the text and the status marks keep theirs. A
+/// project with nothing under it is a plain row, on a card only when its colour fills one.
 @MainActor
 final class SidebarRowView: NSTableRowView {
-    /// Where this row is in its project's card; the outline leaves room for its ends (`pads`), the pill follows its corners.
+    /// Whether this row is first or last in the project's card. The outline leaves room for the card's ends (`pads`),
+    /// and the pill follows the card's corners.
     var group: (first: Bool, last: Bool)? {
         didSet { if group?.first != oldValue?.first || group?.last != oldValue?.last { needsDisplay = true } }
     }
-    /// Room over it that starts a server's card (`SidebarController.serverGap`): no pill there.
+    /// Room above the row where a server's card starts (`SidebarController.serverGap`). The pill doesn't cover it.
     var gap: CGFloat = 0 { didSet { if gap != oldValue { needsDisplay = true } } }
     private var keyWatch: [NSObjectProtocol] = []
-    /// Under the pointer: the pill's shape in the hover grey, faded in and out, so a row answers before it's clicked.
+    /// True while the pointer is over the row. The row then shows the pill's shape in the hover grey, faded in and out,
+    /// so the row answers before it's clicked.
     private var hovering = false { didSet { if hovering != oldValue { showHover() } } }
     private var area: NSTrackingArea?
-    /// The hover pill: over the card the row draws, under the cell (a layer, so it fades rather than switches).
+    /// The hover pill. It sits over the card the row draws and under the cell, and is a layer so it fades instead of
+    /// switching.
     private let hoverLayer = CAShapeLayer()
 
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
-        clipsToBounds = true   // a row closing up (SidebarController.toggle) hides what no longer fits
+        clipsToBounds = true   // a row that is closing up (SidebarController.toggle) hides what no longer fits
         hoverLayer.opacity = 0
         layer?.insertSublayer(hoverLayer, at: 0)
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Its menu is open (right-click): the row keeps the hover pill, as the place the menu is about, instead of the
-    /// table's own outline drawn around it, which matched neither the pill nor the card.
+    /// True while the row's right-click menu is open. The row keeps the hover pill to show what the menu is about,
+    /// instead of the table's own outline around it, which matched neither the pill nor the card.
     var menuTarget = false { didSet { if menuTarget != oldValue { showHover() } } }
-    /// One the summary over the list points at (the count under the pointer): the hover pill, as if the pointer were
-    /// here.
+    /// True when the summary above the list points at this row (its count is under the pointer). The row then shows
+    /// the hover pill, as if the pointer were here.
     var lit = false { didSet { if lit != oldValue { showHover() } } }
 
     private func showHover() {
         let to: Float = (hovering || menuTarget || lit) && !isSelected ? 1 : 0
         let from = hoverLayer.presentation()?.opacity ?? hoverLayer.opacity
-        // Without the layer's own 0.25 s change, which showed again under the fade below once that ended.
+        // Turn off the layer's own 0.25 s change, because it showed again under the fade below once that ended.
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         hoverLayer.opacity = to
@@ -96,15 +103,16 @@ final class SidebarRowView: NSTableRowView {
         hoverLayer.add(fade, forKey: "fade")
     }
 
-    /// A project's card: 6 pt over its first row and under its last, 2 of them inside the card (so 8 between cards).
+    /// The room a project's card takes: 6 pt above its first row and below its last. 2 pt of that is inside the card,
+    /// so cards are 8 pt apart.
     static func pads(_ group: (first: Bool, last: Bool)) -> (top: CGFloat, bottom: CGFloat) {
         (group.first ? 6 : 0, group.last ? 6 : 0)
     }
 
     override func drawBackground(in dirtyRect: NSRect) {
         let pad = group.map(Self.pads) ?? (top: 0, bottom: 0)
-        // In a card the pill is 4 pt inside it on every side, as far as from the next pill, its corners following
-        // the card's (radiusLG − 4); a row on its own gets a pill where its card would be.
+        // In a card, the pill is 4 pt inside the card on every side, as far as from the next pill, and its corners
+        // follow the card's (radiusLG − 4). A row on its own gets a pill where its card would be.
         var pill = group == nil ? band(6).insetBy(dx: 0, dy: 1) : band(10).insetBy(dx: 0, dy: 2)
         pill.origin.y += pad.top + gap
         pill.size.height -= pad.top + pad.bottom + gap
@@ -116,18 +124,18 @@ final class SidebarRowView: NSTableRowView {
         hoverLayer.path = path.cgPath
         hoverLayer.fillColor = NSColor.fillHover.cgColor   // drawing runs in the row's appearance
         CATransaction.commit()
-        guard isSelected else { return }   // the outline draws no selection of its own (selectionHighlightStyle .none)
+        guard isSelected else { return }   // the outline draws no selection itself (selectionHighlightStyle .none)
         let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua,
             key = window?.isKeyWindow ?? true
         NSGraphicsContext.saveGraphicsState()
-        if !dark && key {   // light: white lifted off the grey card by a hairline shadow; dark: lighter is nearer, no shadow
+        if !dark && key {   // light: a hairline shadow lifts the pill off the card. Dark has none: lighter reads nearer
             let shadow = NSShadow()
             shadow.shadowColor = .black.withAlphaComponent(0.12)
             shadow.shadowBlurRadius = 2
             shadow.shadowOffset = .init(width: 0, height: -0.5)
             shadow.set()
         }
-        // Another window in front: the pill stays, quieter, as Finder's selection goes grey.
+        // When another window is in front, the pill stays but quieter, as Finder's selection goes grey.
         NSColor.white.withAlphaComponent(dark ? (key ? 0.12 : 0.055) : (key ? 1 : 0.6)).setFill()
         path.fill()
         NSGraphicsContext.restoreGraphicsState()
@@ -139,27 +147,28 @@ final class SidebarRowView: NSTableRowView {
             edge.stroke()
         }
     }
-    /// A row on its own gets a pill with a card's corners; a row inside a card follows the card's corners, 4 pt in
-    /// (radiusSM).
+    /// Returns the pill's corner radius. A row on its own gets a card's corners. A row inside a card follows the
+    /// card's corners 4 pt in (radiusSM).
     static func pillRadius(inCard: Bool) -> CGFloat { inCard ? Metrics.radiusLG - 4 : Metrics.radiusLG }
-    /// The row inset by `inset` on the left and 8 pt less on the right: past the sidebar's right edge come the divider
-    /// and the editor area's own margin, so a card leaves the same gap to the window's edge and to the editor (8 pt).
+    /// The row inset by `inset` on the left and 8 pt less on the right. Past the sidebar's right edge come the divider
+    /// and the editor area's own margin, so a card leaves the same 8 pt gap to the window's edge and to the editor.
     private func band(_ inset: CGFloat) -> NSRect { Self.band(bounds, inset) }
     static func band(_ rect: NSRect, _ inset: CGFloat) -> NSRect {
         NSRect(x: rect.minX + inset + 2, y: rect.minY, width: rect.width - 2 * inset + 4, height: rect.height)
     }
-    /// The outline sizes a row's cell once; when the row's height changes later (a project's last row gains or loses
-    /// the card's foot), the cell would only stretch with it, and its text would drift off the chevron. So the cell is
-    /// put where the outline says. A row closing up keeps its cell where it was, cut off by the row's edge as it goes.
-    /// The cell's width follows the row's (8 pt short, as `frameOfCell` leaves it): when it was kept from a wider
-    /// sidebar, a long name ran past the card and was cut instead of truncated.
+    /// The outline sizes a row's cell once. When the row's height changes later (a project's last row gains or loses
+    /// the card's foot), the cell would only stretch with it, and its text would drift off the chevron. So this puts
+    /// the cell where the outline says. A row that is closing up keeps its cell where it was, cut off by the row's
+    /// edge as it goes. The cell's width follows the row's, 8 pt short as `frameOfCell` leaves it, because a width
+    /// kept from a wider sidebar let a long name run past the card and get cut instead of truncated.
     override func resizeSubviews(withOldSize old: NSSize) {
         super.resizeSubviews(withOldSize: old)
         guard bounds.height > 1, let outline = superview as? NSOutlineView, case let row = outline.row(for: self),
             row >= 0,
             let cell = subviews.first(where: { $0 is NSTableCellView })
         else { return }
-        let cellFrame = outline.frameOfCell(atColumn: 0, row: row)   // only its height: mid-update a project's row comes back narrower
+        // Only the cell frame's height is used, because mid-update a project's row comes back narrower.
+        let cellFrame = outline.frameOfCell(atColumn: 0, row: row)
         cell.frame = NSRect(
             x: cell.frame.minX, y: cellFrame.minY - outline.rect(ofRow: row).minY,
             width: max(0, bounds.width - 8 - cell.frame.minX), height: cellFrame.height)
@@ -167,10 +176,11 @@ final class SidebarRowView: NSTableRowView {
     override var isSelected: Bool {
         didSet {
             guard isSelected != oldValue else { return }
-            if window != nil { crossfade() }   // the pill goes and comes as the hover grey under it does
+            if window != nil { crossfade() }   // the pill fades in and out, as the hover grey under it does
             needsDisplay = true
             showHover()   // the pill takes over from the hover grey
-            for case let cell as SidebarCell in subviews { cell.selected = isSelected }   // its grey text a step lighter on the pill
+            // The cell's grey text turns a step lighter on the pill.
+            for case let cell as SidebarCell in subviews { cell.selected = isSelected }
         }
     }
     override func updateTrackingAreas() {
@@ -181,12 +191,13 @@ final class SidebarRowView: NSTableRowView {
     override func mouseExited(with event: NSEvent) { hovering = false }
     override func prepareForReuse() {
         super.prepareForReuse()
-        clipsToBounds = true   // a project's row let its icon's glow out (SidebarController.glow)
-        layer?.removeAnimation(forKey: "cascade")   // a row scrolled away while it came in
+        clipsToBounds = true   // a project's row lets the glow of its icon out (SidebarController.glow)
+        layer?.removeAnimation(forKey: "cascade")   // the row may have scrolled away while it was coming in
         hovering = false
         menuTarget = false
     }
-    /// Scrolled under a still pointer, rows leaving it often get no "exited" (several stayed lit): each scroll asks again.
+    /// When rows scroll under a still pointer, the row the pointer leaves often gets no "exited" event, and several
+    /// stayed lit. So each scroll checks the pointer again.
     private var scrollWatch: NSObjectProtocol?
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -222,7 +233,7 @@ final class SidebarRowView: NSTableRowView {
     }
     override func didAddSubview(_ subview: NSView) {
         super.didAddSubview(subview)
-        (subview as? SidebarCell)?.selected = isSelected   // a cell made for a row that was already picked
+        (subview as? SidebarCell)?.selected = isSelected   // for a cell made for a row that was already selected
     }
     /// In the sidebar's vibrant material a dark fill would come out lighter; the card and pill are drawn as they are.
     override var allowsVibrancy: Bool { false }
@@ -230,9 +241,9 @@ final class SidebarRowView: NSTableRowView {
     override var interiorBackgroundStyle: NSView.BackgroundStyle { .normal }
 }
 
-/// How a server's card says its projects run on another machine (Settings › Appearance › Servers): stripes under the
-/// whole card, sparser ones in an outline, stripes by the server's icon that fade before the text, or only a striped plate
-/// under the icon.
+/// How a server's card shows that its projects run on another machine (Settings › Appearance › Servers). The choices
+/// are stripes under the whole card, sparser stripes in an outline, stripes by the server's icon that fade before the
+/// text, or only a striped plate under the icon.
 enum ServerLook: String {
     case stripes, sparse, fade, icon
     @MainActor static func of(_ app: AppModel) -> ServerLook {
@@ -240,13 +251,14 @@ enum ServerLook: String {
     }
 }
 
-/// A project's card: one shape under all of its rows, so it grows and shrinks with them as the project opens or folds
-/// (SidebarController.placeCards). 2 pt round its first and last rows, 4 pt round their pills (SidebarRowView.pads).
+/// A project's card: one shape under all of the project's rows, so it grows and shrinks with them as the project opens
+/// or folds (SidebarController.placeCards). It reaches 2 pt past the first and last rows, and 4 pt past their pills
+/// (SidebarRowView.pads).
 @MainActor
 final class ProjectCard: NSView {
-    /// What the card shows: `color` as a fill; otherwise the quiet grey, unless the card is `plain` (a project's own
-    /// row with nothing under it). `remote` marks a server's card as elsewhere, the way Settings › Appearance › Servers
-    /// says.
+    /// What the card shows. It fills with `color` when there is one, and otherwise with the quiet grey, unless the
+    /// card is `plain` (a project's own row with nothing under it). `remote` marks a server's card as being on another
+    /// machine, in the way Settings › Appearance › Servers picks.
     struct Look: Equatable {
         var color: ProjectColor?
         var plain: Bool
@@ -260,8 +272,8 @@ final class ProjectCard: NSView {
             showGlow()
         }
     }
-    /// The pointer is over the project's group: a card with a colour glows up, brighter and with a soft rim of its
-    /// colour round it (Card style), the way the Icon style's halo does round an icon.
+    /// True while the pointer is over the project's group. A card with a colour then glows brighter, with a soft rim
+    /// of its colour round it (Card style), the way the Icon style's halo glows round an icon.
     var glowing = false { didSet { if glowing != oldValue { showGlow() } } }
     private static let glowOpacity: Float = 0.6, glowRadius: CGFloat = 7   // the rim stays inside the list's 8 pt edges
     private var fill: NSColor? {
@@ -269,12 +281,13 @@ final class ProjectCard: NSView {
         switch look.remote {
         case .stripes?: return Self.stripes(over: base)
         case .sparse?: return Self.stripes(over: base, side: 9)
-        // Stripes of their own that fade (`fading`), or only under the server's icon: a quiet card holds the rest together.
+        // These looks draw their own stripes that fade (`fading`) or sit only under the server's icon, so a quiet card
+        // holds the rest together.
         case .fade?, .icon?: return .fillRest
         case nil: return base
         }
     }
-    /// ServerLook.fade: the stripes by the server's icon, gone before the names and meters.
+    /// For ServerLook.fade, the stripes by the server's icon, which fade out before the names and meters.
     private var fading: CAShapeLayer?
 
     override init(frame: NSRect) {
@@ -282,7 +295,8 @@ final class ProjectCard: NSView {
         wantsLayer = true
     }
 
-    /// The glow under the card: its translucent fill shows it through, so the card lights up and its edge goes soft.
+    /// Shows or hides the glow under the card. The card's translucent fill lets the glow through, so the card lights up
+    /// and its edge goes soft.
     private func showGlow() {
         guard let layer else { return }
         let to: Float = glowing && look.color != nil && look.remote == nil ? Self.glowOpacity : 0
@@ -302,10 +316,10 @@ final class ProjectCard: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() {   // the appearance is current here: the fill follows light and dark
+    override func updateLayer() {   // the appearance is current here, so the fill follows light and dark
         layer?.cornerRadius = Metrics.radiusLG
         layer?.backgroundColor = fill?.cgColor
-        layer?.masksToBounds = look.remote == .fade   // the fading stripes keep to its corners; a glow goes past them
+        layer?.masksToBounds = look.remote == .fade   // fading stripes keep inside the corners; a glow goes past them
         layer?.shadowColor = look.color?.color.cgColor
         layer?.shadowOffset = .zero
         layer?.shadowRadius = Self.glowRadius
@@ -322,7 +336,7 @@ final class ProjectCard: NSView {
             fading = nil
             return
         }
-        // Lines, not the pattern colour: a pattern drew nothing in a layer of its own.
+        // Draw lines, not the pattern colour, because a pattern drew nothing in a layer of its own.
         let stripeLayer = fading ?? CAShapeLayer()
         stripeLayer.frame = bounds
         stripeLayer.path = Self.lines(in: bounds)
@@ -333,11 +347,12 @@ final class ProjectCard: NSView {
             mask.startPoint = CGPoint(x: 0, y: 0.5)
             mask.endPoint = CGPoint(x: 1, y: 0.5)
             mask.colors = [NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
-            // Full over the icon's column, gone by the middle, where the names end and the meters start.
+            // The stripes show fully over the icon's column and are gone by the middle, where the names end and the
+            // meters start.
             mask.locations = [0, 0.12, 0.5]
             stripeLayer.mask = mask
         }
-        // A mask doesn't follow its layer's size: set again as the card grows (setFrameSize).
+        // A mask doesn't follow its layer's size, so it is set again as the card grows (setFrameSize).
         stripeLayer.mask?.frame = stripeLayer.bounds
         if fading == nil {
             layer?.insertSublayer(stripeLayer, at: 0)
@@ -368,9 +383,9 @@ final class ProjectCard: NSView {
         return path
     }
 
-    /// Thin diagonal stripes, a step over `base`: no colour of their own, so a project's colour and the pill keep theirs.
-    /// One pattern with the fill in it, the card's own ground, so it grows with the card (a layer of its own stayed at the
-    /// height of a row that was still arriving).
+    /// Thin diagonal stripes, a step over `base`. They have no colour of their own, so a project's colour and the pill
+    /// keep theirs. The stripes and the fill are one pattern colour, used as the card's own background, so it grows
+    /// with the card (a separate layer stayed at the height of a row that was still arriving).
     private static let stripe = NSColor.dynamic(
         light: .black.withAlphaComponent(0.06), dark: .white.withAlphaComponent(0.07))
     static func stripes(over base: NSColor?, side: CGFloat = 6) -> NSColor {

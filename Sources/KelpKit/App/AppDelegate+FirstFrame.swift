@@ -1,13 +1,15 @@
 import AppKit
 import DesignKit
 
-/// The window's first frame: drawn with settings.json's theme and fonts, and only then the work that can wait.
+/// Draws the window's first frame with settings.json's theme and fonts, and only then does the work that can wait.
 extension AppDelegate {
-    /// How long the window waits for settings.json, so its first frame has their theme and fonts, not the defaults'.
+    /// How long the window waits for settings.json, so its first frame has the user's theme and fonts, not the
+    /// defaults.
     static let settingsWait: TimeInterval = 0.15
 
-    /// Shown the turn after the settings are in (the theme looks at them first), or after `settingsWait`; libghostty starts
-    /// after that frame, with the terminals' look from them, and Sparkle after the first.
+    /// Shows the window on the turn after the settings are in (the theme looks at them first), or after
+    /// `settingsWait`. libghostty starts after that frame, with the terminals' look taken from the settings, and
+    /// Sparkle starts after the first frame.
     func showWhenSettingsArrive() {
         track(owner: self) { [app] in
             app.settings.loaded
@@ -20,16 +22,17 @@ extension AppDelegate {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.settingsWait) { [weak self] in
             self?.showMain()
-            Self.afterFirstPaint { self?.updater?.startUpdater() }   // once, as Sparkle wants
+            Self.afterFirstPaint { self?.updater?.startUpdater() }   // only once, as Sparkle wants
         }
     }
 
     private func showMain() { if main.window?.isVisible != true { main.showWindow(nil) } }
 
-    /// Once Core Animation has committed what's on screen now (its own observer runs before this one), on the next turn.
+    /// Runs `work` on the next turn, once Core Animation has committed what's on screen now (Core Animation's own
+    /// observer runs before this one).
     static func afterFirstPaint(_ work: @escaping @MainActor () -> Void) {
         let observer = CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeWaiting.rawValue, false, .max) {
-            _, _ in DispatchQueue.main.async { MainActor.assumeIsolated(work) }   // the main run loop's observer
+            _, _ in DispatchQueue.main.async { MainActor.assumeIsolated(work) }   // it observes the main run loop
         }
         CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
     }

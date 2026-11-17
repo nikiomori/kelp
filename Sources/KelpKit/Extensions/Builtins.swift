@@ -9,10 +9,11 @@ import WorkbenchKit
 @MainActor
 package struct Builtin {
     let info: ExtensionInfo
-    /// What it adds to `app`: its tabs, panels and commands are made with it.
+    /// Returns what the built-in adds to `app`; its tabs, panels and commands are made with the app.
     let contribute: @MainActor (_ app: AppModel) -> Contributions
 
-    /// Off on a clean install: Settings › Extensions turns it on (once settings.json has its own list, that list decides).
+    /// Whether the built-in is off on a clean install, until Settings › Extensions turns it on. Once settings.json has
+    /// its own list, that list decides.
     let offByDefault: Bool
 
     package init(
@@ -36,7 +37,7 @@ package enum Builtins {
     {
         CommandSpec(id: id, title: title, key: key) { _ in run() }
     }
-    /// The editor area on screen; a beep when there is none.
+    /// Returns the editor area on screen, and beeps when there is none.
     static func editor(_ app: AppModel) -> EditorArea? {
         if app.workbench.editor == nil { NSSound.beep() }
         return app.workbench.editor
@@ -61,8 +62,9 @@ package enum Builtins {
         icon: "paintpalette", essential: true
     ) { app in
         var contributions = Contributions()
-        // Everything you see in one place (`appearanceRows`). General has what's about the app itself: its language,
-        // updates, the background service. The rows are beside their keys, in ShellSettings.swift.
+        // Appearance holds everything you see, in one place (`appearanceRows`). General holds what is about the app
+        // itself: its language, updates and the background service. The rows sit beside their keys, in
+        // ShellSettings.swift.
         contributions.settings = [
             SettingsSection(
                 id: "appearance", title: "Appearance", icon: "paintpalette",

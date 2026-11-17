@@ -1,15 +1,18 @@
 import Core
 import WorkbenchKit
 
-/// What the file tabs' `UnsavedBackup` left in the store, looked at after a launch: [uri, workspace, text] under `prefix`.
+/// The unsaved text that the file tabs' `UnsavedBackup` left in the store, looked at after a launch. Each entry is
+/// [uri, workspace, text] under `prefix`.
 @MainActor
 enum UnsavedBackups {
     static let prefix = "backup."   // BuiltinFiles writes it: `UnsavedBackup.prefix`
 
-    /// After a launch. A crash can come before the layout was saved, and then no tab would ask for what was kept: each gets
-    /// one, in its workspace. Tabs are built when shown, and that's when the text comes back. A workspace gone (by the daemon's
-    /// own list: one that didn't load, a slow daemon, mustn't take the text along) asked its question, but a file whose save
-    /// failed then is still here: it goes to a workspace that holds the file. What no workspace holds goes.
+    /// Reopens the backed-up files after a launch. A crash can come before the layout was saved, and then no tab would
+    /// ask for what was kept, so each backup gets a tab in its workspace. Tabs are built when shown, and that's when
+    /// the text comes back. A workspace counts as gone only by the daemon's own list, because one that didn't load (a
+    /// slow daemon) mustn't take the text along. A gone workspace already asked its question, but a file whose save
+    /// failed then is still here, so it moves to a workspace that holds the file. A backup no workspace holds is
+    /// dropped.
     static func reopen(_ app: AppModel, in host: EditorHost?) async {
         var found = 0
         let known = await app.quiet(WorktreeList()).map { Set($0.map(\.id)) }

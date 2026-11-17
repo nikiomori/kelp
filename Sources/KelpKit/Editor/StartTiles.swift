@@ -1,8 +1,8 @@
 import AppKit
 import DesignKit
 
-/// An agent to start, as a tile: its icon, its name and how full its plan is (a bar and the share, the reset in the
-/// tip). The default agent's has the accent's outline and its shortcut in the corner. Highlights on hover.
+/// A tile that starts an agent: its icon, its name and how full its plan is (a bar and the share, with the reset in
+/// the tooltip). The default agent's tile has an accent outline and its shortcut in the corner. It highlights on hover.
 @MainActor
 final class AgentTile: PointerControl {
     private let isDefault: Bool
@@ -17,7 +17,7 @@ final class AgentTile: PointerControl {
         self.init(icon: icon, title: title, key: key, isDefault: isDefault, action: action)
     }
 
-    /// The tile for the rest: their first icons overlapping.
+    /// The tile for the remaining agents, showing their first icons overlapping.
     convenience init(stack images: [NSImage?], title: String, action: @escaping () -> Void) {
         let icons = NSStackView(views: images.map { NSImageView(image: $0 ?? NSImage()) })
         icons.spacing = -4
@@ -69,7 +69,8 @@ final class AgentTile: PointerControl {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Room under the name for a plan: while no agent on show has one, the tiles are only as tall as their names.
+    /// Whether the tile keeps room under the name for a plan. While no agent on show has a plan, the tiles are only as
+    /// tall as their names.
     var roomForPlan = true {
         didSet {
             bar.isHidden = !roomForPlan
@@ -77,7 +78,7 @@ final class AgentTile: PointerControl {
         }
     }
 
-    /// How full the agent's plan is; nothing for a plan unused or not read.
+    /// Shows how full the agent's plan is, or nothing for a plan that is unused or not read.
     func show(_ note: AgentNote?) {
         bar.show(note)
         amount.stringValue = note?.amount ?? " "

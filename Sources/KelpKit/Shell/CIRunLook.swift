@@ -5,8 +5,8 @@ import DesignKit
 /// How a CI run reads, in CI Runs (Issues) and on the Source Control panel (Git).
 @MainActor
 package enum CIRunLook {
-    /// ✓ green, ✕ red, the agents' spinning ring while it runs, an empty circle while it waits its turn,
-    /// – grey when skipped or cancelled.
+    /// The mark for a run: ✓ green, ✕ red, the agents' spinning ring while it runs, an empty circle while it waits its
+    /// turn, and a grey – when skipped or cancelled.
     package static func mark(_ status: String, _ conclusion: String?) -> NSView {
         let words = Self.words(status, conclusion)
         if status == "in_progress" {
@@ -45,23 +45,23 @@ package enum CIRunLook {
 
     package static func ago(_ iso: String) -> String {
         guard let date = CIRuns.date(iso) else { return "" }
-        // "4m", "2h": one way to say when, as the graph and the sidebar do (it read "1d ago" here)
+        // "4m", "2h": one way to say when, as the graph and the sidebar do (it used to read "1d ago" here)
         return shortAgo(date)
     }
 }
 
-/// The CI built-in's mark (`FolderCI.mark`) where the shell shows one: a sidebar row, the branch chip. Made once a
-/// state is there to show, so a built-in switched on later still marks a row or chip made before.
+/// The CI built-in's mark (`FolderCI.mark`) where the shell shows one: a sidebar row, the branch chip. The mark is made
+/// once there is a state to show, so a built-in switched on later still marks a row or chip made before.
 @MainActor
 final class CIMarkSlot {
-    /// Where the mark sits, 12 pt; clicks go through it to the chip or badge it's on.
+    /// Where the mark sits, 12 pt wide. Clicks go through it to the chip or badge it's on.
     let view: NSView = PassThrough()
     private let app: AppModel
     private var mark: (view: NSView, show: @MainActor (CIRuns.State?, Bool) -> CGFloat)?
     var state: CIRuns.State? { didSet { if state != oldValue { refresh() } } }
-    /// Under the pointer (on a sidebar row's CI badge): a failure says "CI" where its dot was.
+    /// True under the pointer (on a sidebar row's CI badge). A failure then says "CI" where its dot was.
     var spelled = false { didSet { if spelled != oldValue { refresh() } } }
-    /// How much wider than its 12 pt the mark is now: the room a row must keep for it.
+    /// How much wider than 12 pt the mark is now, which is the room a row must keep for it.
     private(set) var overhang: CGFloat = 0
 
     init(_ app: AppModel) {
@@ -84,7 +84,7 @@ final class CIMarkSlot {
         overhang = mark?.show(state, spelled) ?? 0
     }
 
-    /// An empty image: holds the mark's place in a button's title or image slot.
+    /// An empty image that holds the mark's place in a button's title or image slot.
     static func room(_ side: CGFloat) -> NSImage {
         NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in true }
     }

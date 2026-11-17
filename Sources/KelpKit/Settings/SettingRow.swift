@@ -1,14 +1,15 @@
-// One setting's row, typed by its spec, and the controls it's made of.
+// One setting's row, shaped by its spec, and the controls it's made of.
 import AppKit
 import Core
 import DesignKit
 import SwiftUI
 
-/// One row, typed by its spec; reads and writes settings.json through the daemon. One line: the title is the control's own
-/// label, so macOS sets it, keeps it left of the control and reads it out with it; what it doesn't say is behind its ⓘ.
+/// One settings row, shaped by its spec, that reads and writes settings.json through the daemon. It is one line. The
+/// title is the control's own label, so macOS sets it, keeps it left of the control and reads it out with the control.
+/// The rest of the help is behind the row's ⓘ.
 struct SettingRow: View {
     let spec: SettingSpec
-    /// In search results: back to the row's section.
+    /// In search results, goes back to the row's section.
     var reveal: (() -> Void)?
     /// The value for this language's files, kept in its block.
     var language: String?
@@ -55,7 +56,8 @@ struct SettingRow: View {
         case .boolean:
             Toggle(isOn: Binding(get: { bool() ?? false }, set: { put(.bool($0)) })) { title }
         case .number where spec.options?.isEmpty == false:
-            // A number with options is a choice (minutes…): a picker of those values, plus a hand-set one from settings.json.
+            // A number with options is a choice (minutes…), so it is a picker of those values, plus any value set by
+            // hand in settings.json.
             let current = number() ?? 0
             let values: [Double] = (spec.options ?? []).compactMap { Double($0) }
             let shown: [Double] = values.contains(current) ? values : values + [current]
@@ -68,11 +70,13 @@ struct SettingRow: View {
                 title
             }
         case .number:
-            // Bordered, with a stepper: borderless in a grouped form, the number read as a label.
+            // Bordered, with a stepper, because borderless in a grouped form the number read as a label.
             let value = Binding<Double>(get: { number() ?? 0 }, set: { put(number: spec.clamped($0)) })
-            // Centred on each other: by baseline the stepper, taller than the field, left the title riding high.
+            // The title and control are centred on each other. Aligned by baseline, the stepper (taller than the
+            // field) left the title riding high.
             LabeledContent {
-                // The stepper keeps it in bounds; what they are is the field's help, as macOS panels say it.
+                // The stepper keeps the number in bounds, and the field's help says what the bounds are, as macOS
+                // panels do.
                 HStack(spacing: Metrics.gap) {
                     TextField("", value: value, format: .number).textFieldStyle(.roundedBorder).multilineTextAlignment(
                         .trailing
@@ -95,7 +99,7 @@ struct SettingRow: View {
                 selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) }),
                 label: { Self.label(spec.key, $0, app) }, inline: options.count <= PictureGrid.inRow)
             if grid.inline {
-                // Two or three beside the title, as a menu would be; the title at their top edge.
+                // Two or three choices sit beside the title, as a menu would, with the title at their top edge.
                 LabeledContent {
                     grid.alignmentGuide(.firstTextBaseline) { $0[.top] }
                 } label: {
@@ -110,7 +114,8 @@ struct SettingRow: View {
                 .padding(.vertical, Metrics.lineGap)
             }
         case .enum where spec.look == .segments:
-            // Beside its label, as a menu would be: a segmented picker of its own goes under a two-line label.
+            // The segments sit beside the label, as a menu would, because a segmented picker of its own goes under a
+            // two-line label.
             let options = Self.shown(Self.options(spec, app), string() ?? "")
             LabeledContent {
                 Segments(
@@ -142,7 +147,8 @@ struct SettingRow: View {
                     set: { put(.string(NSColor($0).hexString)) })
             ) { title }
         case .font:
-            // A plain picker, like the enum rows: in a fixed-width frame it ended short of the other rows' trailing edge.
+            // A plain picker, like the enum rows, because in a fixed-width frame it ended short of the other rows'
+            // trailing edge.
             Picker(selection: Binding(get: { string() ?? "" }, set: { put(.string($0)) })) {
                 Text("Default").tag("")
                 ForEach(Self.shown(Self.monospaced, string() ?? ""), id: \.self) { Text($0).tag($0) }
@@ -159,19 +165,20 @@ struct SettingRow: View {
         }
     }
 
-    /// What a picker lists: the choices, and a value from outside them (settings.json by hand, an agent that isn't
-    /// installed), which would otherwise leave the picker blank.
+    /// Returns what a picker lists: the choices, plus a value from outside them (set by hand in settings.json, or an
+    /// agent that isn't installed), which would otherwise leave the picker blank.
     static func shown(_ options: [String], _ current: String) -> [String] {
         current.isEmpty || options.contains(current) ? options : options + [current]
     }
 
-    /// Choices that depend on what's installed are computed when shown (`SettingSpec.choices`).
+    /// Returns a setting's options. Choices that depend on what's installed are computed when shown
+    /// (`SettingSpec.choices`).
     static func options(_ spec: SettingSpec, _ app: AppModel) -> [String] {
         spec.choices?.options?() ?? spec.options ?? []
     }
 
-    /// Option values made readable: as the code declaring the setting names them (themes, agents: `SettingChoices`), else
-    /// as its declaration calls them (`SettingSpec.labels`), else the value capitalized.
+    /// Returns an option value made readable. It uses the name the code declaring the setting gives (themes, agents:
+    /// `SettingChoices`), else the label in its declaration (`SettingSpec.labels`), else the value capitalized.
     static func label(_ key: String, _ value: String, _ app: AppModel) -> String {
         let spec = app.extensions.specs[key]
         if let name = spec?.choices?.name { return name(value) }
@@ -183,7 +190,8 @@ struct SettingRow: View {
     }
 }
 
-/// ⓘ beside a row's title: its whole help on hover, or in a popover on a click, so the line under the title stays one line.
+/// The ⓘ beside a row's title. It shows the row's whole help on hover, or in a popover on a click, so the line under
+/// the title stays one line.
 struct HelpMark: View {
     let text: String
     @State private var shown = false
@@ -193,7 +201,7 @@ struct HelpMark: View {
         } label: {
             Image(systemName: "info.circle").font(.symbol()).foregroundStyle(.secondary)
         }
-        .buttonStyle(PointerButtonStyle(flush: true)).padding(.vertical, -3)   // the row stays its height
+        .buttonStyle(PointerButtonStyle(flush: true)).padding(.vertical, -3)   // so the row keeps its height
         .help(text)
         .accessibilityLabel(text)
         .popover(isPresented: $shown, arrowEdge: .bottom) {
@@ -203,7 +211,8 @@ struct HelpMark: View {
     }
 }
 
-/// Language takes effect at launch: once it differs from what this launch read, a button to get there.
+/// A relaunch button for Language, which takes effect at launch. It shows once the setting differs from what this
+/// launch read.
 private struct RelaunchRow: View {
     @Environment(AppModel.self) private var app
     var body: some View {
@@ -221,8 +230,8 @@ private struct RelaunchRow: View {
     }
 }
 
-/// A text setting is saved when the field is done (↩ or leaving it), like a Mac preference, not on every keystroke;
-/// a change arriving from elsewhere (the CLI, an agent) shows unless the field is being edited.
+/// A text setting, saved when editing ends (↩ or leaving the field), like a Mac preference, not on every keystroke.
+/// A change arriving from elsewhere (the CLI, an agent) shows unless the field is being edited.
 private struct SettingTextField: View {
     let key: String
     var language: String?
@@ -238,13 +247,14 @@ private struct SettingTextField: View {
     }
 
     var body: some View {
-        // Bordered, as the number fields: borderless in a grouped form an empty one (Branch prefix) didn't show at all.
+        // Bordered, as the number fields are, because borderless in a grouped form an empty field (Branch prefix)
+        // didn't show at all.
         TextField("", text: $draft, prompt: placeholder.map { Text($0) })
             .textFieldStyle(.roundedBorder)
             .focused($editing)
             .onSubmit(commit)
             .onAppear { draft = store.string(key, language: language) ?? "" }
-            .onDisappear(perform: commit)   // the window closed while typing
+            .onDisappear(perform: commit)   // saves when the window closed while typing
             .onChange(of: editing) { _, now in if !now { commit() } }
             .onChange(of: store.string(key, language: language)) { _, stored in if !editing { draft = stored ?? "" } }
     }

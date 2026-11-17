@@ -23,11 +23,11 @@ package enum NewTabChoices {
         }
     }
 
-    /// Agents shown before the rest go behind one item.
+    /// How many agents show before the rest go behind one item.
     static let shown = 6
 
-    /// The key command `id` has in the menus: settings.json's `keys` over it (`""`: none), else its default, so a key
-    /// rebound in Settings › Keyboard reads the same here.
+    /// Returns the key for command `id` in the menus: settings.json's `keys` override it (`""` means none), otherwise
+    /// its default, so a key rebound in Settings › Keyboard shows the same here.
     package static func key(_ id: String, _ app: AppModel, default def: String) -> KeySpec? {
         app.extensions.key(id, fallback: def)
     }
@@ -67,7 +67,7 @@ package enum NewTabChoices {
 
 @MainActor
 extension NSMenu {
-    /// An action as an item: its symbol shown (macOS 27 hides the rest) and its key beside it.
+    /// Adds an action as an item, with its symbol shown (macOS 27 hides other items' images) and its key beside it.
     @discardableResult
     func add(_ action: NewTabChoices.Action, before: (@MainActor () -> Void)? = nil) -> NSMenuItem {
         let item = add(action.title) {

@@ -2,8 +2,8 @@ import AppKit
 import Core
 import DesignKit
 
-/// Kelp's Dock icon as a small status display, chosen in its Dock menu as in Activity Monitor: the agents, how full the
-/// plan is, or the plain icon. It is drawn when what it shows changes, with no clock running.
+/// Kelp's Dock icon as a small status display, chosen in its Dock menu as in Activity Monitor. It shows the agents, how
+/// full the plan is, or the plain icon. It is drawn when what it shows changes, with no clock running.
 @MainActor
 package final class DockIcon {
     private let app: AppModel
@@ -24,8 +24,8 @@ package final class DockIcon {
         NSApp.dockTile.display()
     }
 
-    /// Right-click on the icon: the agents waiting for you, like Mail's dock menu offers what's new. A permission is
-    /// answered from here without Kelp coming forward, as from its banner.
+    /// Returns the menu shown on a right-click on the icon, which lists the agents waiting for you, as Mail's Dock menu
+    /// offers what's new. A permission can be answered from here without Kelp coming forward, as from its banner.
     func menu() -> NSMenu {
         let menu = NSMenu()
         for s in AttentionQueue(app).sessions { add(s, to: menu) }
@@ -66,8 +66,8 @@ package final class DockIcon {
         menu.add("\(name) — \(s.summary) · \(place)", submenu: answers).show(icon)
     }
 
-    /// With nothing to show the plain icon stands in: no agents, or no plan's numbers (the built-in that reads plan
-    /// limits says them: `Contributions.dockUsage`).
+    /// Returns what the Dock icon shows. With nothing to show (no agents, or no plan numbers), the plain icon stands
+    /// in. The built-in that reads plan limits gives the numbers (`Contributions.dockUsage`).
     static func face(_ app: AppModel) -> DockFace {
         switch app.settings[SettingKeys.dockIcon] {
         case "usage": return app.extensions.all.dockUsage?() ?? .icon
@@ -78,12 +78,12 @@ package final class DockIcon {
         }
     }
 
-    /// In a workspace on the sidebar: an archived one isn't loaded.
+    /// Returns the sessions in workspaces on the sidebar, because an archived workspace isn't loaded.
     private static func onSidebar(_ app: AppModel) -> [Session] {
         app.sessions.filter { app.worktree($0.worktreeId).map { !$0.archived } == true }
     }
 
-    /// The agents in the order to deal with them.
+    /// Returns the agents' marks in the order to deal with them.
     static func cells(_ sessions: [Session]) -> [DockFace.Cell] { sessions.compactMap(cell).sorted() }
 
     package static func cell(_ session: Session) -> DockFace.Cell? {

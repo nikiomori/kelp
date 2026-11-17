@@ -1,8 +1,8 @@
 import AppKit
 import DesignKit
 
-/// Color in a project's row menu: a dot for each colour, as Finder's tags in its menus, so a pick is one click. The dot
-/// under the pointer shows on the project's own row what it would do.
+/// The Color item in the menu on a project's row. It shows a dot for each colour, like Finder's tags in its menus, so a
+/// pick is one click. While the pointer is over a dot, the project's row previews that colour.
 @MainActor
 final class ColorSwatches: NSView {
     private static let side: CGFloat = 18, gap: CGFloat = 4, inset: CGFloat = 12, height: CGFloat = 26   // a dot lines up with the items' text
@@ -11,8 +11,9 @@ final class ColorSwatches: NSView {
     private var swatches: [Swatch] = []
     private let previewing: (ProjectColor?) -> Void, left: () -> Void
     let pick: (ProjectColor?) -> Void
-    /// The dot under the pointer. The row is one area, the nearest dot taking the gaps between: a dot of its own each, the
-    /// preview went back to the saved colour over every gap, and the row flashed it between two dots.
+    /// The dot under the pointer. The row is one area, and the gaps between dots belong to the nearest dot. When each
+    /// dot was an area of its own, the preview went back to the saved colour over every gap, so the row flashed between
+    /// two dots.
     private var under: Int? {
         didSet {
             guard under != oldValue else { return }
@@ -21,7 +22,7 @@ final class ColorSwatches: NSView {
         }
     }
 
-    /// `previewing` is told the colour under the pointer, `left` that the pointer has gone from the dots.
+    /// `previewing` is told the colour under the pointer, and `left` is told when the pointer leaves the dots.
     init(
         chosen: ProjectColor?, previewing: @escaping (ProjectColor?) -> Void, left: @escaping () -> Void,
         pick: @escaping (ProjectColor?) -> Void
@@ -64,13 +65,13 @@ final class ColorSwatches: NSView {
     override func mouseMoved(with event: NSEvent) { under = index(at: event) }
     override func mouseExited(with event: NSEvent) { under = nil }
     override func mouseUp(with event: NSEvent) { choose(index(at: event)) }
-    override func rightMouseUp(with event: NSEvent) { choose(index(at: event)) }   // the menu came with a right-click, held and let go here
+    override func rightMouseUp(with event: NSEvent) { choose(index(at: event)) }   // a right-click held, let go here
 }
 
 @MainActor
 extension NSMenu {
-    /// Color in a menu: this row of dots, or a submenu of names where VoiceOver or Full Keyboard Access is on (a view
-    /// in a menu takes no keys).
+    /// Adds Color to a menu. It is this row of dots, or a submenu of names when VoiceOver or Full Keyboard Access is
+    /// on, because a view in a menu takes no keys.
     package func addColor(
         chosen: ProjectColor?, previewing: @escaping (ProjectColor?) -> Void = { _ in },
         left: @escaping () -> Void = {}, pick: @escaping (ProjectColor?) -> Void
@@ -92,8 +93,8 @@ extension NSMenu {
     }
 }
 
-/// One dot: under the pointer it grows with a little spring and glows in its own colour. nil is None: an empty ring with
-/// a stroke through it. A layer of its own, so it scales about its centre.
+/// One colour dot. Under the pointer it grows with a little spring and glows in its own colour. A nil colour is None,
+/// drawn as an empty ring with a stroke through it. The dot has a layer of its own, so it scales about its centre.
 @MainActor
 private final class Swatch: NSView {
     private static let diameter: CGFloat = 14, grown: CGFloat = 16
@@ -142,7 +143,7 @@ private final class Swatch: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// The row takes the pointer (ColorSwatches.under), the gaps between dots too.
+    /// Returns nil so the row takes the pointer (ColorSwatches.under), including the gaps between dots.
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
     override func accessibilityPerformPress() -> Bool {
         pressed()
@@ -160,12 +161,13 @@ private final class Swatch: NSView {
             dot.fillColor = nil
             dot.strokeColor = NSColor.secondaryLabelColor.cgColor
         }
-        // Dark on the pale dots of a dark menu, pale on the deep ones of a light one.
+        // The tick is dark on the pale dots of a dark menu, and pale on the deep dots of a light menu.
         tick.strokeColor = NSColor.windowBackgroundColor.cgColor
         CATransaction.commit()
     }
 
-    /// 14 → 16 pt with a spring a touch past it, and its glow, over `Motion.fast`; back in two thirds of that.
+    /// Grows the dot from 14 to 16 pt with a spring that goes a touch past it, and adds its glow, over `Motion.fast`.
+    /// Shrinking back takes two thirds of that time.
     private func grow() {
         let back = Motion.fast * 2 / 3
         dot.animate(

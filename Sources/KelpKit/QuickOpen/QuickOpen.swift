@@ -3,11 +3,12 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// ⌘P: files, worktrees, agents, tabs, commands in one fuzzy list; "#123" finds a pull request, ":120" a line, "@" a symbol,
-/// "/" a file and nothing else. ⇧⌘P: commands only.
-/// Empty, it lists the agents to get back to — those that need you first — on ⌘1–⌘6, in an order that holds still
-/// while it's open. ⇧↩ opens the choice in a split. A setting with choices (Color Theme, File Icon Theme, on/off…) lists them
-/// right here, the one in effect ticked; for looks, moving through them tries each on, ↩ keeps it, esc goes back.
+/// The ⌘P palette, which lists files, worktrees, agents, tabs and commands in one fuzzy list. "#123" finds a pull
+/// request, ":120" a line, "@" a symbol, and "/" only files. ⇧⌘P lists commands only.
+/// With the field empty, it lists the agents to get back to (those that need you first) on ⌘1–⌘6, in an order that
+/// holds still while it's open. ⇧↩ opens the choice in a split. A setting with choices (Color Theme, File Icon Theme,
+/// on/off…) lists them right here, with the one in effect ticked. For looks, moving through them tries each one on,
+/// ↩ keeps it, and esc goes back.
 @MainActor
 final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate {
     let app: AppModel
@@ -26,19 +27,19 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
             }
         }
     }
-    /// Each row's place among the items (headings not counted): ⌘1–⌘6 go by it.
+    /// The position of each row among the items, not counting headings. ⌘1–⌘6 go by it.
     private(set) var itemIndex: [Int] = []
     /// The file's symbols while ⌘P is open (`QuickOpenPrefixes`).
     var symbols: (path: String, items: [Item])?
     var symbolLoad: Task<Void, Never>?
 
     var panel: QuickPanel!
-    /// What the empty field shows, made once per opening so rows don't move under the pointer.
+    /// The items the empty field shows, made once per opening so rows don't move under the pointer.
     var recents: [Item] = []
     var showingRecents = false
-    /// Fading away (`hide`).
+    /// True while the panel fades away (`hide`).
     var hiding = false
-    /// A built-in's list for what's typed after its character ("#": the pull requests), being made.
+    /// The task making a built-in's list for what's typed after its character (such as "#" for pull requests).
     var prefixedLoad: Task<Void, Never>?
     var filesLoad: Task<Void, Never>?
     /// The typed query's matches being scored; the next keystroke cancels it.
@@ -49,10 +50,10 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     var all: [Item] = [] {
         didSet { allKeys = all.map(Self.key) }
     }
-    /// What `all` is scored by, made with it rather than on every key.
+    /// The keys `all` is scored by, made along with `all` rather than on every key.
     private(set) var allKeys: [Match] = []
-    /// The workspace's files: their paths and fuzzy-match keys, made once per listing; a row's item is made only once
-    /// it is shown.
+    /// The workspace's files, with their paths and fuzzy-match keys, made once per listing. A file's item is made only
+    /// once its row is shown.
     var files = Files()
     struct Files {
         var root = "", paths: [String] = [], fuzzy: [ProjectFiles.FuzzyPath] = []
@@ -60,12 +61,12 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     var commandsOnly = false
     /// The title bar's Search pill, which the palettes grow out of.
     weak var anchor: NSView?
-    /// A list that replaces the palette's, such as tmux sessions (`showTmux`) or a built-in's list (`showList`): it
-    /// gives the rows for what is typed. Nil while the palette shows its own list.
+    /// A list that replaces the palette's own, such as tmux sessions (`showTmux`) or a built-in's list (`showList`). It
+    /// gives the rows for what is typed, and is nil while the palette shows its own list.
     var own: (@MainActor (String) async -> [Item])?
     var tmuxLoad: Task<Void, Never>?
 
-    /// `text`: what the field starts with (":" for Go to Line).
+    /// Shows the palette. `text` is what the field starts with (":" for Go to Line).
     func show(commandsOnly: Bool, text: String = "") {
         if panel == nil { build() }
         self.commandsOnly = commandsOnly
@@ -78,15 +79,15 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         present()
     }
 
-    /// Out of the title bar's Search pill (`anchor`), as if the pill widened into the field and the list dropped from it;
-    /// without the pill on screen, under the window's top.
+    /// Shows the panel out of the title bar's Search pill (`anchor`), as if the pill widened into the field and the
+    /// list dropped from it. Without the pill on screen, the panel shows under the top of the window.
     func present() {
         if hiding {
             hiding = false
             NSAnimationContext.runAnimationGroup {
                 $0.duration = Motion.fast
                 panel.animator().alphaValue = 1
-            }   // turned back on its way out
+            }   // turned back while it was fading out
         } else {
             panel.alphaValue = 1
         }
@@ -103,8 +104,8 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
             panel.setFrame(end, display: false)
             return show()
         }
-        // At its full size from the start, faint and a little up towards the pill, and down into place: growing from
-        // the pill's size, it was laid out and its glass resized for every frame.
+        // Start at full size, faint and a little up towards the pill, then move down into place. Growing it from the
+        // pill's size laid it out and resized its glass for every frame.
         panel.setFrame(end.offsetBy(dx: 0, dy: Metrics.gapWide), display: false)
         panel.alphaValue = 0
         show()
@@ -120,7 +121,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         }
     }
 
-    /// The palette's own list (not a setting's choices), with `query` typed.
+    /// Shows the palette's own list (not a setting's choices), with `query` typed.
     func list(query: String) {
         stopChoosing()
         tmuxLoad?.cancel()
@@ -132,7 +133,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         field.setAccessibilityLabel(label)
         (field.cell as? NSSearchFieldCell)?.searchButtonCell?.image = .symbol(
             commandsOnly ? "command" : "magnifyingglass", label)
-        // The keys it knows, under the list (they're not written anywhere else).
+        // The keys the palette knows, shown under the list because they're not written anywhere else.
         keys.stringValue =
             commandsOnly
             ? String(localized: "↑↓ Select    ↩ Run    ⌫ Everything")
@@ -143,7 +144,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         filter()
     }
 
-    /// A setting's choices in the list instead, the one in effect ticked and selected. Looks (Appearance) are tried on
+    /// Lists a setting's choices instead, with the one in effect ticked and selected. Looks (Appearance) are tried on
     /// as the selection moves, so you see the theme before keeping it.
     func pick(_ section: SettingsSection, _ spec: SettingSpec) {
         let store = app.settings, now = store.value(spec.key)
@@ -165,13 +166,13 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         filter()
     }
 
-    /// Leaves a setting's choices with the value it had: what was tried on goes away.
+    /// Leaves a setting's choices and puts back the value it had, so what was tried on goes away.
     func stopChoosing() {
         if let setting = choosing { app.settings.preview(setting.key, setting.saved) }
         choosing = nil
     }
 
-    /// The selected choice, on screen while it's selected (looks only).
+    /// Tries the selected choice on while it's selected (looks only).
     private func tryOn() {
         guard let setting = choosing, setting.tries, rows.indices.contains(table.selectedRow),
             case .item(let it) = rows[table.selectedRow]
@@ -185,7 +186,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
             styleMask: [.titled, .fullSizeContentView, .closable],
             backing: .buffered, defer: false)
         panel.onNumber = { [weak self] n in self?.pickRecent(n) ?? false }
-        panel.title = String(localized: "Open Quickly")   // hidden; the Window menu and VoiceOver read it
+        panel.title = String(localized: "Open Quickly")   // hidden, but the Window menu and VoiceOver read it
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
@@ -193,11 +194,13 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
         panel.standardWindowButton(.zoomButton)?.isHidden = true
         panel.hidesOnDeactivate = true
-        // Gone when another window takes the keys; observed rather than delegated, so the shell declares less for built-ins.
+        // The panel goes when another window takes the keys. This is observed rather than delegated, so the shell
+        // declares less for built-ins.
         NotificationCenter.default.addObserver(
             self, selector: #selector(panelResignedKey), name: NSWindow.didResignKeyNotification, object: panel)
         panel.isReleasedWhenClosed = false
-        // Spotlight's ground: Liquid Glass on macOS 26, the popover material before. Its views go in `effect`.
+        // The background is Spotlight's: Liquid Glass on macOS 26, and the popover material before. The panel's views
+        // go in `effect`.
         let effect = NSView()
         if #available(macOS 26, *) {
             let glass = NSGlassEffectView()
@@ -269,7 +272,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         return true
     }
 
-    /// An uppercase key equivalent means ⇧ too.
+    /// Returns the shortcut of a menu item. An uppercase key equivalent means ⇧ too.
     static func shortcut(_ menuItem: NSMenuItem) -> String {
         var mods = KeySpec.Modifiers(menuItem.keyEquivalentModifierMask)
         if menuItem.keyEquivalent != menuItem.keyEquivalent.lowercased() { mods.insert(.shift) }
@@ -278,7 +281,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
 
     @objc private func filterAction() { filter() }
     func controlTextDidChange(_ obj: Notification) {
-        // ">" first, as in VS Code: the commands, with what follows it.
+        // A ">" first lists the commands, as in VS Code, matched against what follows it.
         if !commandsOnly, choosing == nil, own == nil, field.stringValue.hasPrefix(">") {
             commandsOnly = true
             list(query: String(field.stringValue.dropFirst()).trimmingCharacters(in: .whitespaces))
@@ -332,7 +335,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
                 heading: showingRecents ? "Recent" : nil)
         } else {
             showingRecents = false
-            // Off the main thread: a big project's files take a while to score on every keystroke.
+            // Score off the main thread, because a big project's files take a while to score on every keystroke.
             let grouped = !commandsOnly && choosing == nil
             let keys = pool.count == all.count ? allKeys : pool.map(Self.key), fuzzy = grouped ? files.fuzzy : []
             scoring = Task { [weak self] in
@@ -345,8 +348,9 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
 
     struct Match: Sendable { let fuzzy: ProjectFiles.FuzzyPath?, title: String, command: Bool }
     static func key(_ it: Item) -> Match { Match(fuzzy: nil, title: it.title, command: it.kind == "Command") }
-    /// The 200 best matches for `q`, as indices into `items` and then `files` (counted on from `items.count`), best first.
-    /// Files: fuzzy paths. Everything else: the words of its title, so "them" finds Color Theme, not random letters.
+    /// Returns the 200 best matches for `q`, best first, as indices into `items` and then `files` (counted on from
+    /// `items.count`). Files match by fuzzy path. Everything else matches by the words of its title, so "them" finds
+    /// Color Theme, not random letters.
     nonisolated static func best(_ items: [Match], _ q: String, files: [ProjectFiles.FuzzyPath] = []) -> [Int] {
         let fq = ProjectFiles.fuzzyQuery(q)
         var scored = items.indices.compactMap { i -> (Int, Int)? in
@@ -359,7 +363,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         return scored.sorted { $0.1 > $1.1 }.prefix(200).map(\.0)
     }
 
-    /// Searching, the results come in groups under a heading, the group with the best match first.
+    /// Sets the rows. While searching, the results come in groups under a heading, with the best match's group first.
     func setRows(_ items: [Item], grouped: Bool, heading: String? = nil) {
         if grouped {
             var order: [String] = [], byGroup: [String: [Item]] = [:]
@@ -381,7 +385,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
             table.selectRowIndexes([ticked ?? first], byExtendingSelection: false)
             table.scrollRowToVisible(ticked ?? 0)
         }
-        tryOn()   // the same row index can hold another choice now, so no selection-change call comes
+        tryOn()   // the same row index may hold another choice now, and no selection-change call comes
     }
     func tableViewSelectionDidChange(_ notification: Notification) { tryOn() }
 }

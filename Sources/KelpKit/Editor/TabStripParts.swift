@@ -17,7 +17,8 @@ extension TabStrip {
         var run: NSColor?
         /// An agent's tab: under the pointer it shows the sidebar's card for that agent instead of a tooltip.
         var card: SidebarItem.Kind?
-        /// Its title ends with what tells it from a namesake ("README.md — docs"): it gives way in the middle, so that stays.
+        /// Whether the title ends with what tells it apart from a namesake ("README.md — docs"). Such a title truncates
+        /// in the middle, so the end stays.
         var keepsEnd = false
     }
 }
@@ -35,7 +36,7 @@ final class CapsuleSegment: PointerButton {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// `image` under the pointer, `atRest` otherwise.
+    /// Shows `image` under the pointer and `atRest` otherwise.
     func show(_ image: NSImage?, atRest: NSImage?) {
         images = (image, atRest)
         self.image = pointed ? image : atRest
@@ -59,7 +60,7 @@ final class CapsuleSegment: PointerButton {
 }
 
 extension NSView {
-    /// What it shows now, as an image (a dragged tab or pane).
+    /// Returns what the view shows now as an image (for a dragged tab or pane).
     func snapshot() -> NSImage {
         let img = NSImage(size: bounds.size)
         if let rep = bitmapImageRepForCachingDisplay(in: bounds) {

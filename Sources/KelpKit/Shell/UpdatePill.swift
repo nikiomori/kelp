@@ -2,8 +2,8 @@ import AppKit
 import Core
 import DesignKit
 
-/// The update that's ready, in the title bar between the traffic lights and the sidebar's toggle, which moves over for it
-/// while the sidebar is away. Gone the rest of the time; a click relaunches into it.
+/// Shows an update that's ready, in the title bar between the traffic lights and the sidebar's toggle, which moves over
+/// for it while the sidebar is away. It is gone the rest of the time, and a click relaunches into the update.
 @MainActor
 final class UpdatePill: PointerButton {
     private let app: AppModel
@@ -30,7 +30,8 @@ final class UpdatePill: PointerButton {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Medium, in the accent: what has something to do, as the ↑3 on the branch chip.
+    /// Shows the words in medium weight and the accent colour, like other things that have something to do, such as
+    /// the ↑3 on the branch chip.
     private func showWords() {
         attributedTitle = NSAttributedString(
             string: String(localized: "Update Kelp"),

@@ -3,7 +3,8 @@ import Core
 import WorkbenchKit
 
 /// The machines that remote projects are on, as Quick Open and the sidebar's headings see them, and each server's page
-/// ("host:<name>"). What a server shows (its header's meters, its hover card, its tab) is up to the Servers built-in.
+/// ("host:<name>"). What a server shows (the meters in its header, its hover card, its tab) is up to the Servers
+/// built-in.
 extension AppModel {
     /// Each host a project is on, in the projects' order.
     var remoteHosts: [String] {
@@ -16,10 +17,11 @@ extension AppModel {
 }
 
 extension Workbench {
-    /// The server's page, a place of its own like a project's screen (its header in the sidebar stands for it).
+    /// Opens the server's page, a place of its own like a project's screen. The server's header in the sidebar stands
+    /// for it.
     package func openServer(_ host: String) { show(page: TabURI.server(host)) }
 
-    /// The Open over SSH sheet, already connecting to `host`.
+    /// Shows the Open over SSH sheet, already connecting to `host`.
     package func addProject(onServer host: String) { RemoteSheet.show(app, start: host) }
 }
 

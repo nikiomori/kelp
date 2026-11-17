@@ -4,7 +4,7 @@ import TerminalKit
 import WebKit
 import WorkbenchKit
 
-/// Developer aids driven by environment variables; inert in normal use.
+/// Developer aids driven by environment variables. They do nothing in normal use.
 ///   KELP_SNAPSHOT=/x.png  render the window to a PNG and quit (no screen-recording permission needed)
 ///   KELP_SNAPSHOT_WORKTREE / _OPEN / _INSPECTOR / _SIZE / _SHEET / _WINDOW / _DELAY / _UPDATE  set the scene first
 extension AppDelegate {
@@ -16,7 +16,7 @@ extension AppDelegate {
                 let sent = Date()
                 let sem = DispatchSemaphore(value: 0)
                 DispatchQueue.main.async { sem.signal() }
-                if sem.wait(timeout: .now() + 1) == .timedOut {   // stuck: record where the main thread is
+                if sem.wait(timeout: .now() + 1) == .timedOut {   // stuck, so record where the main thread is
                     let out = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-hang-\(getpid()).txt")
                         .path
                     let sampler = Process()
@@ -34,8 +34,8 @@ extension AppDelegate {
         }
     }
 
-    // A debug build's only, not just uncalled in a release: the input it drives (KELP_TYPE, KELP_CLICK) would let any
-    // program start the real app and press its own Allow and Trust.
+    // This is compiled only into a debug build, not just left uncalled in a release, because the input it drives
+    // (KELP_TYPE, KELP_CLICK) would let any program start the real app and press its own Allow and Trust buttons.
     #if DEBUG
         func snapshotLater(_ path: String) {
             let env = ProcessInfo.processInfo.environment
@@ -48,7 +48,7 @@ extension AppDelegate {
                 if let version = env["KELP_SNAPSHOT_UPDATE"] {
                     app.updates.arrived(.init(version: version, notes: nil)) {}
                 }
-                // KELP_SNAPSHOT_SIZE=1000x760: the window's content size (people's windows are rarely 1440 wide).
+                // KELP_SNAPSHOT_SIZE=1000x760 sets the window's content size (people's windows are rarely 1440 wide).
                 if let size = env["KELP_SNAPSHOT_SIZE"]?.split(separator: "x").compactMap({ Double($0) }),
                     size.count == 2
                 {
@@ -59,16 +59,17 @@ extension AppDelegate {
                         if TabURI.runs(x) { app.workbench.runURI(x) } else { app.workbench.open(x) }
                     }
                 }
-                // KELP_SNAPSHOT_SHEET=clone|remote[=text]: the clone and SSH sheets (the open panel itself is another process),
-                // with text: filled in and started. extension=<GitHub folder>: downloaded, and what it runs asked about.
-                // project=<folder>: added as Add Project does (one without git asks first).
+                // KELP_SNAPSHOT_SHEET=clone|remote[=text] shows the clone or SSH sheet (the open panel itself is
+                // another process). With text, the sheet is filled in and started. extension=<GitHub folder> downloads
+                // the extension and asks about what it runs. project=<folder> adds the folder as Add Project does (a
+                // folder without git asks first).
                 if let spec = env["KELP_SNAPSHOT_SHEET"] {
                     let parts = spec.split(separator: "=", maxSplits: 1).map(String.init)
                     if parts[0] == "remote" {
                         RemoteSheet.show(app, start: parts.count > 1 ? parts[1] : nil)
                     } else if parts[0] == "extension", parts.count > 1 {
                         Task { await app.extensions.install(source: parts[1]) }
-                    }   // the look before installing
+                    }   // shows the question before installing
                     else if parts[0] == "project", parts.count > 1 {
                         app.workbench.addProject(path: parts[1])
                     } else {
@@ -82,9 +83,9 @@ extension AppDelegate {
                     SettingsWindow.show(app, section: env["KELP_SNAPSHOT_SECTION"], group: env["KELP_SNAPSHOT_GROUP"])
                 default: break
                 }
-                // A run-loop timer rather than the main queue: it also fires while a modal sheet runs.
+                // A run-loop timer rather than the main queue, because a timer also fires while a modal sheet runs.
                 let delay = env["KELP_SNAPSHOT_DELAY"].flatMap(Double.init) ?? 1.5
-                // main run loop
+                // The timer is on the main run loop.
                 RunLoop.main.add(
                     Timer(timeInterval: delay, repeats: false) { [self] _ in
                         MainActor.assumeIsolated { self.snap(env, to: path) }
@@ -92,12 +93,12 @@ extension AppDelegate {
             }
         }
 
-        /// KELP_TYPE, KELP_CLICK, KELP_SWITCH: real input events, as a user would make them.
+        /// Sends the real input events that KELP_TYPE, KELP_CLICK and KELP_SWITCH ask for, as a user would make them.
         private func driveInput(_ env: [String: String]) {
             let app = self.app
             if let keys = env["KELP_TYPE"] { typeKeys(keys) }
-            // KELP_COMMAND="git.commitWithAgent|git.commit": commands by id, as their menu items run them, from
-            // KELP_CLICK_DELAY on and KELP_COMMAND_GAP seconds apart (0.8).
+            // KELP_COMMAND="git.commitWithAgent|git.commit" runs commands by id, as their menu items run them. They
+            // start after KELP_CLICK_DELAY and run KELP_COMMAND_GAP seconds apart (0.8 by default).
             if let ids = env["KELP_COMMAND"]?.split(separator: "|") {
                 let start = env["KELP_CLICK_DELAY"].flatMap(Double.init) ?? 0.3
                 let gap = env["KELP_COMMAND_GAP"].flatMap(Double.init) ?? 0.8
@@ -108,7 +109,8 @@ extension AppDelegate {
                     }
                 }
             }
-            // KELP_CLICK="Workspace 2|calc.py": real mouse clicks (via NSApp.sendEvent) on visible text, 0.8 s apart.
+            // KELP_CLICK="Workspace 2|calc.py" sends real mouse clicks (via NSApp.sendEvent) on visible text, 0.8 s
+            // apart.
             if let targets = env["KELP_CLICK"]?.split(separator: "|") {
                 let start = env["KELP_CLICK_DELAY"].flatMap(Double.init) ?? 0.3   // panels that load later need longer
                 for (i, t) in targets.enumerated() {
@@ -117,7 +119,7 @@ extension AppDelegate {
                     }
                 }
             }
-            // KELP_SWITCH="a,b,a": switch workspaces (by name or branch) every 0.7 s, timing each switch.
+            // KELP_SWITCH="a,b,a" switches workspaces (by name or branch) every 0.7 s, timing each switch.
             if let names = env["KELP_SWITCH"]?.split(separator: ",") {
                 for (i, n) in names.enumerated() {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2 + Double(i) * 0.7) {
@@ -136,13 +138,14 @@ extension AppDelegate {
             }
         }
 
-        /// The picture, and what it can't show said as text (sheets, alerts, popovers, panes, web content); then quits.
+        /// Takes the picture, prints as text what the picture can't show (sheets, alerts, popovers, panes, web
+        /// content), and then quits.
         private func snap(_ env: [String: String], to path: String) {
             let want = env["KELP_SNAPSHOT_WINDOW"].map {
                 ["history": "Session History", "settings": "Settings"][$0] ?? $0
             }
             // The frame view includes the title bar and toolbar.
-            // "popover": the card a KELP_HOVER opened (taken after the hover, like the rest).
+            // "popover" picks the card a KELP_HOVER opened (taken after the hover, like the rest).
             let picked =
                 env["KELP_SNAPSHOT_WINDOW"] == "settings"
                 ? SettingsWindow.window
@@ -152,13 +155,14 @@ extension AppDelegate {
             guard let window = picked ?? main.window,
                 let root = window.contentView?.superview ?? window.contentView
             else { exit(2) }
-            // KELP_HOVER="calc.py|Changes": a mouse-entered event for the views showing these texts (hover states can't be
-            // reached otherwise without moving the user's pointer). The picture is taken a moment later: a hover card opens
-            // after a pause (a commit's waits half a second; KELP_HOVER_WAIT=3 waits longer for what it draws).
+            // KELP_HOVER="calc.py|Changes" sends a mouse-entered event to the views showing these texts (hover states
+            // can't be reached otherwise without moving the user's pointer). The picture is taken a moment later,
+            // because a hover card opens after a pause (a commit's card waits half a second, and KELP_HOVER_WAIT=3
+            // waits longer for what it draws).
             if !Self.hovered, let texts = env["KELP_HOVER"] {
                 Self.hovered = true
                 for text in texts.split(separator: "|").map(String.init) { Self.hover(text, in: root, window: window) }
-                // main run loop
+                // The timer is on the main run loop.
                 RunLoop.main.add(
                     Timer(timeInterval: Double(env["KELP_HOVER_WAIT"] ?? "") ?? 1.2, repeats: false) { [self] _ in
                         MainActor.assumeIsolated { self.snap(env, to: path) }
@@ -176,12 +180,12 @@ extension AppDelegate {
                     (sheet.contentView?.allSubviews(of: NSTextField.self) ?? []).map(\.stringValue).filter {
                         !$0.isEmpty
                     })
-                // Its own window: drawn next to the snapshot as "<name>-sheet.png".
+                // A sheet is its own window, so it is drawn next to the snapshot as "<name>-sheet.png".
                 Self.snap(sheet, to: path.replacingOccurrences(of: ".png", with: "-sheet.png"))
             }
             Self.snap(window, to: path)
-            // A popover (limits details…) is its own window: next to the snapshot, as "<name>-popover.png".
-            // An alert shown on its own (a background app has no window to put the sheet on): "<name>-alert.png".
+            // A popover (limits details…) is its own window, drawn next to the snapshot as "<name>-popover.png".
+            // An alert shown on its own (a background app has no window to put the sheet on) is "<name>-alert.png".
             for a in NSApp.windows where a.isVisible && a.className.contains("AlertPanel") {
                 print(
                     "ALERT",
@@ -191,7 +195,7 @@ extension AppDelegate {
             for pop in NSApp.windows where pop.isVisible && pop.className.contains("Popover") {
                 Self.snap(pop, to: path.replacingOccurrences(of: ".png", with: "-popover.png"))
             }
-            // In another language: menu items still in English (their text isn't in Localizable.xcstrings yet).
+            // In another language, list the menu items still in English (not in Localizable.xcstrings yet).
             if Bundle.main.preferredLocalizations.first != "en" {
                 func walk(_ menu: NSMenu) {
                     for i in menu.items where !i.isSeparatorItem {
@@ -215,8 +219,8 @@ extension AppDelegate {
                     "PANE", TabURI.body(t.uri).prefix(8),
                     term.visibleText.trimmingCharacters(in: .whitespacesAndNewlines).prefix(600))
             }
-            // Web content is drawn out of process and may be missing from the PNG: report what the page really shows
-            // (not under a sheet: its run loop may not deliver the script's answer).
+            // Web content is drawn out of process and may be missing from the PNG, so report what the page really
+            // shows. Skip that under a sheet, because the sheet's run loop may not deliver the script's answer.
             let webs = root.allSubviews(of: WKWebView.self)
             guard !webs.isEmpty, window.attachedSheet == nil else {
                 finishSnapshot()
@@ -232,7 +236,7 @@ extension AppDelegate {
                     print(
                         "WEB", web.url?.absoluteString ?? "-", "frame", web.frame.size, "visible", visible, "text",
                         counts.first ?? -1, "svg", counts.last ?? 0)
-                    // What the page draws, as "<name>-web<i>.png" (it's out of process, so not in the window's PNG).
+                    // Save what the page draws as "<name>-web<i>.png" (out of process, so not in the window's PNG).
                     guard visible else {
                         left -= 1
                         if left == 0 { self.finishSnapshot() }

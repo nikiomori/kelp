@@ -14,12 +14,12 @@ final class EditorHost: NSViewController {
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
-    /// The editor area (or the welcome) is in this card, under the window bar, which lies over this view's top.
+    /// The card that holds the editor area (or the welcome), under the window bar, which lies over this view's top.
     private let card = Card()
     private var areas: [String: EditorArea] = [:]
-    /// The main window's areas, latest first; one in a window of its own isn't counted (it stays loaded).
+    /// The main window's areas, latest first. An area in a window of its own isn't counted (it stays loaded).
     private var recent: [String] = []
-    /// The editor area that has the keyboard: the main window's, or that of a group in a window of its own.
+    /// The editor area that has the keyboard: the main window's area, or that of a group in a window of its own.
     private(set) var current: EditorArea?
     /// The area the main window's card shows.
     private(set) var mainArea: EditorArea? {
@@ -29,7 +29,7 @@ final class EditorHost: NSViewController {
     private var own: [String: OwnWindow] = [:]
     func ownWindow(_ id: String?) -> NSWindow? { id.flatMap { own[$0]?.window } }
     var ownWindowIds: [String] { Array(own.keys) }
-    /// A workspace's editor area while it's loaded (shown lately), on screen or not.
+    /// A workspace's editor area while it's loaded (because it was shown lately), on screen or not.
     func area(_ id: String) -> EditorArea? { areas[id] }
     var editedFiles: [SavableTab] { areas.values.flatMap(\.editedFiles) }
     func editedFiles(in ids: [String]) -> [SavableTab] { ids.compactMap { areas[$0] }.flatMap(\.editedFiles) }
@@ -40,9 +40,10 @@ final class EditorHost: NSViewController {
         let app = self.app
         view = NSView()
         view.pin(card, inset: NSEdgeInsets(top: WindowBar.height, left: Card.gap, bottom: Card.gap, right: Card.gap))
-        card.identifier = Banner.anchor   // banners sit in its corner
+        card.identifier = Banner.anchor   // banners sit in the card's corner
         showWelcome()
-        // Daemon state: workspaces that are gone leave; sessions' tabs come and show their status and context ring.
+        // Follow the daemon's state: workspaces that are gone leave, and sessions' tabs come and show their status and
+        // context ring.
         track(owner: self) {
             app.repos
         } changed: { [weak self] _ in
@@ -70,9 +71,9 @@ final class EditorHost: NSViewController {
         }
     }
 
-    /// While a panel slides beside it, what the card shows keeps its width and the card uncovers or covers it: laid out
-    /// for every width on the way, each terminal drew itself anew on the main thread, a frame or two each time.
-    /// `trailing`: the edge that stays (the other one's panel is moving).
+    /// While a panel slides beside the card, what the card shows keeps its width, and the card uncovers or covers it.
+    /// When it was laid out for every width on the way, each terminal drew itself anew on the main thread, a frame or
+    /// two each time. `trailing` is the edge that stays (the panel on the other side is moving).
     private var held: [WidthHold] = []
     func holdWidth(trailing: Bool) {
         guard held.isEmpty else { return }
@@ -85,8 +86,8 @@ final class EditorHost: NSViewController {
         held = []
     }
 
-    /// `id` gets the keyboard: a group in a window of its own comes to the front there, any other goes into the main
-    /// window's card (and the main window to the front, if a group's own window had the keys).
+    /// Gives `id` the keyboard. A group in a window of its own comes to the front there. Any other workspace goes into
+    /// the main window's card, and the main window comes to the front if a group's own window had the keys.
     func show(_ id: String?) {
         if let id, let window = own[id], let area = areas[id] {
             current = area
@@ -101,7 +102,7 @@ final class EditorHost: NSViewController {
     }
 
     private func showInMain(_ id: String?) {
-        if let previous = page {   // back from a page: it goes (it reads its server only while it's there)
+        if let previous = page {   // back from a page, the page goes (it reads its server only while it's there)
             previous.view.removeFromSuperview()
             page = nil
             if let shown = mainArea, shown.workspaceId == id {
@@ -125,7 +126,7 @@ final class EditorHost: NSViewController {
         let area = loaded(id)
         recent.removeAll { $0 == id }
         recent.insert(id, at: 0)
-        // Their terminals detach.
+        // The terminals of the evicted areas detach.
         let gone: [String]
         (recent, gone) = Self.evicting(recent, keep: Self.keep) { self.areas[$0]?.editedFiles.isEmpty == false }
         for old in gone {
@@ -146,7 +147,7 @@ final class EditorHost: NSViewController {
         return area
     }
 
-    /// `id` into a window of its own, with the keys; the main window shows `next` if it showed `id`.
+    /// Moves `id` into a window of its own, with the keys. The main window shows `next` if it showed `id`.
     func moveToOwnWindow(_ id: String, next: String?) {
         guard own[id] == nil, app.worktree(id) != nil else { return }
         let area = loaded(id)
@@ -171,7 +172,7 @@ final class EditorHost: NSViewController {
         area.focusSelected()
     }
 
-    /// `id`'s own window closes; its area stays loaded, for the main window to show.
+    /// Called when the own window of `id` closes. The area stays loaded, for the main window to show.
     func leaveOwnWindow(_ id: String) {
         guard let window = own.removeValue(forKey: id) else { return }
         areas[id]?.view.removeFromSuperview()
@@ -180,13 +181,13 @@ final class EditorHost: NSViewController {
         window.close()
     }
 
-    /// A window got the keyboard, so its editor area is the one keys go to (nil means the main window's).
+    /// Called when a window got the keyboard, so its editor area is the one keys go to (nil means the main window).
     func becameKey(_ id: String?) { current = id.flatMap { own[$0] != nil ? areas[$0] : nil } ?? mainArea }
 
     /// What `showPage` shows in place of the workspace's area, which stays loaded behind it.
     private var page: TabContent?
 
-    /// A page made by its extension's tab provider, filling the card; nil when none makes it.
+    /// Shows a page made by its extension's tab provider, filling the card. Returns nil when no provider makes it.
     func showPage(_ uri: String) -> TabContent? {
         guard let made = app.extensions.tabProvider(for: uri)?.make(uri) else { return nil }
         page?.view.removeFromSuperview()
@@ -200,22 +201,24 @@ final class EditorHost: NSViewController {
         return made
     }
 
-    /// The areas past the newest `keep` go, except those with unsaved files: they stay listed, and go on a later switch
-    /// once saved (dropped from the list, one would stay loaded, and its terminal attached, until shown again).
+    /// Evicts the areas past the newest `keep`, except those with unsaved files. Those stay listed, and go on a later
+    /// switch once saved, because an area dropped from the list would stay loaded, with its terminal attached, until
+    /// shown again.
     static func evicting(_ recent: [String], keep: Int, edited: (String) -> Bool) -> (recent: [String], gone: [String])
     {
         let gone = recent.dropFirst(keep).filter { !edited($0) }
         return (recent.filter { !gone.contains($0) }, gone)
     }
 
-    /// A tab for a workspace that isn't on screen, into its layout (`Workbench.layouts`), which its editor area follows
-    /// if it's loaded: one already open there is brought to the front of its pane. What runs starts only in a loaded one.
+    /// Adds a tab to the layout of a workspace that isn't on screen (`Workbench.layouts`), and the workspace's editor
+    /// area follows it if loaded. A tab already open there is brought to the front of its pane. A tab that runs
+    /// something starts only in a loaded area.
     func openInBackground(_ uri: String, workspace id: String) {
         guard !TabURI.runs(uri) else {
             areas[id]?.runURI(uri)
             return
         }
-        // The browser built-in is off: a web page opens outside, as `EditorArea.open` does.
+        // When the browser built-in is off, a web page opens outside Kelp, as `EditorArea.open` does.
         if TabURI.scheme(uri) != "session", app.extensions.tabProvider(for: uri) == nil, let url = URL(string: uri),
             url.scheme?.hasPrefix("http") == true
         {
@@ -226,7 +229,7 @@ final class EditorHost: NSViewController {
             layout.select(tab.id)
         } else if let tab = layout.fileTab(sameFileAs: uri, real: EditorArea.realPath) {
             layout.select(tab.id)
-            // The file at the line asked for: a built tab moves there now, one not built yet opens there.
+            // Show the file at the line asked for. A built tab moves there now, and a tab not built yet opens there.
             if let line = TabURI.filePath(uri).line {
                 if let content = areas[id]?.contents[tab.id] {
                     content.goTo(line: line)
@@ -242,8 +245,8 @@ final class EditorHost: NSViewController {
         app.workbench.layouts[id] = layout
     }
 
-    /// Chats went from a workspace that may not be on screen: their tabs leave its layout, and a group left with no tab
-    /// closes.
+    /// Called when chats left a workspace that may not be on screen. Their tabs leave its layout, and a group left with
+    /// no tab closes.
     func chatsLeft(_ id: String) {
         var layout = app.workbench.layouts[id]
         for tab in layout.allTabs
@@ -254,8 +257,8 @@ final class EditorHost: NSViewController {
         if layout.allTabs.isEmpty { WorkspaceActions(app).closeEmpty(id, ended: nil) }
     }
 
-    /// A chat closed from its row, on any screen, with the questions its tab asks and ⇧⌘T after: its tab closing where
-    /// it's built, else its session ending and its tab leaving the workspace's layout.
+    /// Closes a chat from its row, on any screen, with the questions its tab asks and with ⇧⌘T to reopen it. Where the
+    /// tab is built, it closes. Otherwise the session ends and its tab leaves the workspace's layout.
     func closeChat(_ sid: String, workspace id: String) {
         let uri = TabURI.session(sid)
         if let area = areas[id], let tab = area.layout.tab(uri: uri) {
@@ -267,7 +270,7 @@ final class EditorHost: NSViewController {
             guard await app.extensions.tabProvider(for: uri)?.closeUnbuilt?(uri) ?? true else { return }
             var layout = app.workbench.layouts[id]
             guard let tab = layout.tab(uri: uri) else { return }
-            areas[id]?.closed.insert(sid)   // loaded meanwhile: the daemon's next update mustn't bring the tab back
+            areas[id]?.closed.insert(sid)   // if loaded meanwhile, the daemon's next update mustn't bring the tab back
             app.workbench.closedTabs.remember(
                 ClosedTab(uri: uri, title: title, workspace: id, group: layout.group(of: tab.id), index: nil))
             layout.remove(tab.id)
@@ -276,7 +279,8 @@ final class EditorHost: NSViewController {
         }
     }
 
-    /// A restarted session into its old tab in a workspace that isn't on screen; with no old tab, a tab of its own.
+    /// Puts a restarted session into its old tab in a workspace that isn't on screen, or into a tab of its own when
+    /// there is no old tab.
     func replaceInBackground(_ old: String, with new: String, workspace id: String) {
         var layout = app.workbench.layouts[id]
         guard let tab = layout.replace(old, with: new) else { return openInBackground(new, workspace: id) }
@@ -291,7 +295,8 @@ final class EditorHost: NSViewController {
             areas[id] = nil
             app.workbench.layouts.forget(id)
             recent.removeAll { $0 == id }
-            // Closed from elsewhere (the CLI, an agent): unsaved files still get their question, only without Cancel.
+            // When closed from elsewhere (the CLI, an agent), unsaved files still get their question, only without
+            // Cancel.
             let edited = area.editedFiles
             guard !edited.isEmpty else {
                 area.removeFromParent()
@@ -308,9 +313,9 @@ final class EditorHost: NSViewController {
         if let shown = mainArea, areas[shown.workspaceId] == nil { mainArea = nil }
         if let shown = current, areas[shown.workspaceId] == nil {
             current = mainArea
-            app.workbench.mainWindowBecameKey()   // a group gone with the keys: the main window's is on screen
+            app.workbench.mainWindowBecameKey()   // the group with the keys is gone, so the main window has them
         }
-        // The others reconcile when shown.
+        // Only the areas on screen reconcile now. The others reconcile when shown.
         ([mainArea] + own.keys.map { areas[$0] }).forEach { $0?.reconcile() }
         if mainArea == nil, page == nil { showWelcome() }
     }
@@ -325,7 +330,8 @@ final class EditorHost: NSViewController {
     }
 }
 
-/// No workspace selected: the first run's welcome (the only one: no sheet over it), else where to pick one.
+/// The view shown when no workspace is selected. On the first run it is the welcome (the only one, with no sheet over
+/// it), and otherwise it says where to pick a workspace.
 @MainActor
 final class WelcomeView: NSView {
     let hasRepos: Bool
@@ -347,7 +353,8 @@ final class WelcomeView: NSView {
                 ))
         body.alignment = .center
         body.textColor = .secondaryLabelColor
-        // With no project yet a chat needs none: it's the first thing to do, adding a project the second.
+        // A chat needs no project, so with no project yet a chat is the first thing to do and adding a project the
+        // second.
         let chat = ClosureButton(title: String(localized: "New Chat")) { [app] in app.workbench.newChat() }
         let add = ClosureButton(title: String(localized: "Add Project…")) { [app] in app.workbench.addProject() }
         let buttons = NSStackView(views: hasRepos ? [chat] : [add, chat])
@@ -356,7 +363,8 @@ final class WelcomeView: NSView {
             button.controlSize = .large
         }
         chat.keyEquivalent = "\r"
-        // First run: how it looks and who answers, picked here before anything else (the same tiles as in Settings).
+        // On the first run, the look and the agent a new chat starts are picked here before anything else (the same
+        // tiles as in Settings).
         let setup = hasRepos ? nil : NSHostingView(rootView: WelcomeSetup().environment(app))
         let stack = NSStackView(views: [icon, title, body] + (setup.map { [$0] } ?? []) + [buttons])
         stack.orientation = .vertical

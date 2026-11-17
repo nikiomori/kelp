@@ -30,7 +30,8 @@ struct LanguagePicker: View {
 }
 
 extension SettingRow {
-    /// Set to something other than its default (for a language: set in its block): a dot after its title, Reset on a right-click.
+    /// Whether the setting is set to something other than its default (for a language, whether its block sets it).
+    /// A changed row shows a dot after its title and offers Reset on a right-click.
     var changed: Bool {
         if let language, case .object(let block)? = store.values["[\(language)]"] { return block[spec.key] != nil }
         return language == nil && (store.values[spec.key].map { $0 != spec.default } ?? false)
@@ -39,13 +40,13 @@ extension SettingRow {
     func put(_ value: JSONValue?) {
         if let language { store.setOwn(spec.key, value, language: language) } else { store.set(spec.key, value) }
     }
-    /// A whole number is written as one (5, not 5.0).
+    /// Stores a number, writing a whole number as one (5, not 5.0).
     func put(number value: Double) { put(value == value.rounded() ? .int(Int(value)) : .double(value)) }
     func bool() -> Bool? { store.bool(spec.key, language: language) }
     func number() -> Double? { store.number(spec.key, language: language) }
     func string() -> String? { store.string(spec.key, language: language) }
 
-    /// A language id as people say it.
+    /// Returns a language id as people say it.
     static func languageName(_ id: String) -> String {
         [
             "plaintext": "Plain Text", "javascript": "JavaScript", "typescript": "TypeScript", "tsx": "TSX",

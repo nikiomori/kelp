@@ -5,7 +5,7 @@ import SwiftUI
 import WorkbenchKit
 
 /// Projects → workspaces → agents in a source-list outline (like Finder and Xcode).
-/// Status changes update the visible cells in place; the outline reloads only when the tree's shape changes.
+/// Status changes update the visible cells in place. The outline reloads only when the shape of the tree changes.
 @MainActor
 final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate,
     NSTextFieldDelegate
@@ -19,9 +19,10 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     final class Node: NSObject {
         let kind: SidebarItem.Kind
         var children: [Node] = []
-        /// A project's own screen, which its row stands for (SidebarItem.workspace).
+        /// The project's own screen, which the project's row stands for (SidebarItem.workspace).
         var workspace: String?
-        /// A group under the chat that made it (SidebarItem.under): its row and its chats' stand a step further in.
+        /// The chat that made this group, when the group sits under it (SidebarItem.under). The group's row and the
+        /// rows of its chats then stand a step further in.
         var under: String?
         init(_ kind: SidebarItem.Kind) { self.kind = kind }
         var key: String {
@@ -33,7 +34,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             case .parked: "parked"
             }
         }
-        /// Whose card the row shows: a project with its own screen stands for that screen.
+        /// The item whose card the row shows. A project with its own screen stands for that screen.
         var cardKind: SidebarItem.Kind { workspace.map(SidebarItem.Kind.workspace) ?? kind }
         /// What a dragged row reorders: a project's id or a workspace's id.
         var id: String? {
@@ -47,19 +48,19 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     let outline = SidebarOutline()
     private let scroll = SidebarScrollView()
     private var addTrailing = NSLayoutConstraint(), sectionsTrailing = NSLayoutConstraint()
-    /// The list's frame changing (`keepOpenInView`): let go of with the sidebar.
+    /// Watches the list's frame for changes (`keepOpenInView`). It is removed with the sidebar.
     private var frameWatch: NSObjectProtocol?
-    /// What moves the times on the rows on: ended with the sidebar.
+    /// The timer that moves the times on the rows forward. It stops with the sidebar.
     private(set) var clock: Timer?
     isolated deinit {
         frameWatch.map(NotificationCenter.default.removeObserver)
         clock?.invalidate()
     }
-    /// Where the built-ins' blocks go (`Contributions.sidebarSections`).
+    /// The stack where the built-ins' blocks go (`Contributions.sidebarSections`).
     weak var sections: NSStackView?
-    /// Room on the right that belongs to the sidebar itself: the floating sidebar's margin inside its border (8 pt), or
-    /// 0 when docked (the gap before the editor card lies past the column's edge). The cards, Add Project and the
-    /// limits stop short of it, and the scroller's knob runs in it, off the cards.
+    /// Room on the right that belongs to the sidebar itself. It is the floating sidebar's 8 pt margin inside its
+    /// border, or 0 when docked (the gap before the editor card then lies past the column's edge). The cards, Add
+    /// Project and the limits stop short of it, and the scroller's knob runs in it, off the cards.
     var gutter: CGFloat = 0 {
         didSet {
             guard gutter != oldValue else { return }
@@ -69,11 +70,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             sectionsTrailing.constant = -gutter
         }
     }
-    /// Rows on their way to folded (SidebarFolding): the rows under them have no height and the card ends at them, while
-    /// the outline still shows them. The number tells this fold from a later one of the same row.
+    /// Rows that are on their way to being folded (SidebarFolding). The rows under them have no height and the card
+    /// ends at them, while the outline still shows them. The number tells this fold apart from a later fold of the
+    /// same row.
     var folding: [String: Int] = [:]
     var folds = 0
-    /// Rows that just came, at no height until they open out (`settle`).
+    /// Rows that just arrived. They have no height until they open out (`settle`).
     var arriving: Set<String> = []
     /// Each project's card, under its rows (`placeCards`).
     var cards: [String: ProjectCard] = [:]
@@ -88,9 +90,10 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     }
     var roots: [Node] = []
     var shape: [String] = []
-    /// Project id → the host it's on: a host's header and projects share one hatched card (`placeCards`).
+    /// Project id → the host the project is on. A host's header and its projects share one hatched card
+    /// (`placeCards`).
     var projectHosts: [String: String] = [:]
-    /// Room between one server's card and what's over it.
+    /// The room between a server's card and whatever is above it.
     static let serverGap: CGFloat = 8
     var collapsed: Set<String> {
         get { Set(app.uiState.strings("sidebar.collapsed")) }
@@ -103,13 +106,15 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
     var renaming: (id: String, project: Bool)?
     lazy var card = HoverCard(app: app)
     var rowHeights: [CGFloat] = []
-    /// The row height for one pass over the rows (`updateCard`): settings and UserDefaults read once, not per row.
+    /// The row height for one pass over the rows (`updateCard`), so settings and UserDefaults are read once, not per
+    /// row.
     var passRowBase: CGFloat?
     /// The sessions the rows last showed (`sessionsChanged`).
     var shownBefore: [String: Session] = [:]
-    /// Where those sessions' rows were (`place`): a change there builds the tree again.
+    /// Where the rows of those sessions were (`place`). When that changes, the tree is built again.
     var shownPlaces: [String]?
-    /// A server's header is folding or opening: its projects move, however many (`fewRows`).
+    /// True while a server's header is folding or opening. Its projects then animate, however many there are
+    /// (`fewRows`).
     var foldingHost = false
 
     override func loadView() {
@@ -131,12 +136,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         outline.pads = { [weak self] row in
             (self?.outline.item(atRow: row) as? Node).flatMap { self?.pads($0) } ?? (0, 0)
         }
-        outline.allowsMultipleSelection = true   // ⌘/⇧-click: the menu then acts on all of them
+        outline.allowsMultipleSelection = true   // ⌘/⇧-click picks several rows, and the menu acts on all of them
         outline.dataSource = self
         outline.delegate = self
         outline.target = self
         outline.doubleAction = #selector(doubleClicked)
-        outline.registerForDraggedTypes([.fileURL, Self.rowType])   // a folder from Finder becomes a project; rows move
+        outline.registerForDraggedTypes([.fileURL, Self.rowType])   // a Finder folder becomes a project; rows reorder
         outline.addTrackingArea(
             NSTrackingArea(
                 rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
@@ -146,7 +151,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         outline.menu = menu
         scroll.documentView = outline
         scroll.drawsBackground = false
-        scroll.automaticallyAdjustsContentInsets = false   // it starts under the line over the projects, not under the title bar
+        scroll.automaticallyAdjustsContentInsets = false   // starts under the line above projects, not the title bar
         // When the list gets shorter (the limits below load), the selected workspace stays in view.
         scroll.postsFrameChangedNotifications = true
         frameWatch = NotificationCenter.default.addObserver(
@@ -155,8 +160,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             MainActor.assumeIsolated { self?.keepOpenInView() }   // queue: .main
         }
 
-        // The built-ins' own blocks (Machines, the plan limits at the foot), under the projects; made again when one is
-        // turned on or off.
+        // The built-ins' own blocks (Machines, the plan limits at the foot) go under the projects. They are made again
+        // when a built-in is turned on or off.
         let machines = NSStackView()
         machines.orientation = .vertical
         machines.spacing = 0
@@ -166,14 +171,14 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         } changed: { [weak self] _ in
             self?.makeSections()
         }
-        // Servers' headers and cards come and go with the built-in that makes them.
+        // Server headers and cards come and go with the built-in that makes them.
         track(owner: self, now: false) { [app] in
             app.extensions.all.servers != nil
         } changed: { [weak self] _ in
             self?.refresh()
         }
         let root = NSView()
-        // Over the projects it adds to, where people look for it.
+        // The Add Project button sits above the projects it adds to, where people look for it.
         let add = NSButton.titlebar(
             "folder.badge.plus", String(localized: "Add Project"),
             tip: String(localized: "Add a project: a folder, a clone or one over SSH"))
@@ -192,11 +197,12 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
         sectionsTrailing = machines.trailingAnchor.constraint(equalTo: root.trailingAnchor)
         NSLayoutConstraint.activate([
-            // Under the traffic lights, in the window's second row, level with the tab strips and the inspector's panel
-            // icons.
+            // The button sits under the traffic lights, in the window's second row, level with the tab strips and the
+            // inspector's panel icons.
             addY,
             addTrailing,
-            // In line with the projects' cards (SidebarRowView.band): 8 pt to the window's edge and to the editor area.
+            // The list lines up with the project cards (SidebarRowView.band), 8 pt from the window's edge and from the
+            // editor area.
             scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: machines.topAnchor),
@@ -208,8 +214,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         followModel()
     }
 
-    /// The tree is built again only when a row comes, goes or moves; an agent's news (a few a second while it works)
-    /// updates the rows that show it.
+    /// Builds the tree again only when a row arrives, goes or moves. An agent's news (a few times a second while it
+    /// works) only updates the rows that show it.
     private func followSessions() {
         track(owner: self) { [app] in
             app.workbench.shownSessions
@@ -224,7 +230,8 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         }
     }
 
-    /// What the rows follow: the model's projects, sessions and settings, and the clock that moves their times on.
+    /// Sets up what the rows follow: the model's projects, sessions and settings, and the clock that moves their times
+    /// forward.
     private func followModel() {
         track(owner: self) { [app] in
             app.repos
@@ -283,8 +290,9 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         } changed: { [weak self] _ in
             self?.updateVisibleCells()
         }
-        // Who runs in which machine: their CPU and memory (new every 5 s while one runs) aren't on the rows.
-        // The marks built-ins put on agents' rows (a machine one runs in, the page it drives), as they change.
+        // The rows show which machine an agent runs in, but not the machine's CPU and memory (new every 5 s while
+        // one runs), so only the marks are followed. These are the marks built-ins put on agents' rows (the machine
+        // an agent runs in, the page it drives), followed as they change.
         track(owner: self) { [app] in
             app.sessions.map { app.extensions.rowMarks(.agent($0.id)) }
         } changed: { [weak self] _ in
@@ -323,7 +331,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
             self?.placeCards()
             self?.updateHeaders()
         }
-        // "now" becomes "1m": the times on the right move on their own (a clock: nothing is asked of the daemon).
+        // "now" becomes "1m": a local clock moves the times on the right forward, without asking the daemon.
         clock = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in   // main run loop
             MainActor.assumeIsolated {
                 if self?.view.window?.occlusionState.contains(.visible) == true { self?.updateVisibleCells() }
@@ -357,7 +365,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         card.hover(nil, rect: .zero, in: outline)
         glowing = nil
     }
-    /// A row's card, now: a click asked for it.
+    /// Opens a row's card at once, because a click asked for it.
     func openCard(_ node: Node) {
         let row = outline.row(forItem: node)
         if row >= 0 {

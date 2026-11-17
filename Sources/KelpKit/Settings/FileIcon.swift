@@ -3,9 +3,9 @@ import Core
 import UniformTypeIdentifiers
 
 /// The icon beside a file or folder name (in Files, Source Control, tabs, Quick Open), from the theme picked in
-/// Settings › Appearance: Colorful (symbols tinted by kind, the default: they match the rest of Kelp's symbols and stay
-/// readable on a light theme, where Finder's pale paper icons didn't), System (Finder's icons), or a VS Code icon theme
-/// that an extension adds.
+/// Settings › Appearance. The themes are Colorful, System (Finder's icons), or a VS Code icon theme that an extension
+/// adds. Colorful, the default, tints symbols by kind, because they match the rest of Kelp's symbols and stay readable
+/// on a light theme, where Finder's pale paper icons didn't.
 @MainActor
 package struct FileIcon {
     let app: AppModel
@@ -18,7 +18,7 @@ package struct FileIcon {
         [(Self.colorful, "Colorful"), (Self.system, "System")] + app.extensions.all.iconThemes.map { ($0.id, $0.label) }
     }
 
-    /// Changes with the pick and with installed extensions: views showing icons reload when it does.
+    /// A value that changes with the pick and with installed extensions. Views showing icons reload when it changes.
     package var revision: String {
         "\(app.settings[SettingKeys.iconTheme])#\(app.extensions.revision)"
     }

@@ -4,8 +4,8 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// `kelp://` links (from a browser, a script, another app). Looking things up is free; adding a project, or opening a file
-/// outside them, asks first.
+/// `kelp://` links (from a browser, a script, another app). Looking things up is free; adding a project, or opening a
+/// file outside them, asks first.
 @MainActor
 struct KelpLinks {
     let app: AppModel
@@ -18,7 +18,8 @@ struct KelpLinks {
         case "workspace" where app.worktree(id) != nil: app.workbench.show(workspace: id)
         case "session" where app.session(id) != nil: app.workbench.focus(session: id)
         case "open":
-            // Standardized (`..` resolved) before it's compared with the projects': `proj/../../x` is no project of theirs.
+            // The path is standardized (`..` resolved) before it's compared with the project paths, so that
+            // `proj/../../x` doesn't count as inside a project.
             guard
                 let path = query.first(where: { $0.name == "path" })?.value.map({
                     (($0 as NSString).expandingTildeInPath as NSString).standardizingPath
@@ -33,7 +34,7 @@ struct KelpLinks {
             if !dir.boolValue {
                 openFile(path, line: query.first { $0.name == "line" }?.value.flatMap(Int.init))
             } else if app.repos.contains(where: { Paths.inside(path, $0.path) }) {   // a link out of a project isn't in it
-                app.workbench.addProject(path: path)   // already a project: just shows it
+                app.workbench.addProject(path: path)   // already a project, so this just shows it
             } else {
                 Task {
                     if await confirm(
@@ -57,8 +58,9 @@ struct KelpLinks {
         }
     }
 
-    /// A project's file opens right away; one elsewhere once the user says so (`ask`, a sheet), as a folder does: any web
-    /// page can send a `kelp://` link, and a preview's page may be a cloned repository's (`PreviewLinks`).
+    /// Runs `open` right away for a file in a project, and for a file elsewhere once the user says so (`ask`, a sheet),
+    /// as for a folder. Any web page can send a `kelp://` link, and a preview's page may come from a cloned repository
+    /// (`PreviewLinks`).
     func whenAllowed(
         _ path: String,
         ask: @escaping @MainActor (String) async -> Bool = askToOpen,
@@ -75,14 +77,15 @@ struct KelpLinks {
             action: String(localized: "Open"))
     }
 
-    /// In a project's folder, one of its workspaces' or Kelp's own home, once `..` and links are followed.
+    /// Whether the path is in a project's folder, one of its workspaces' folders, or Kelp's own home, once `..` and
+    /// links are followed.
     func isKnown(_ path: String) -> Bool {
         (app.repos.map(\.path) + app.worktrees.map(\.path) + [Paths.root.path]).contains { Paths.inside(path, $0) }
     }
 }
 
-/// IDE actions agents ask for through the daemon (`kelp open`, `kelp ui`). They never pull Kelp to the front, switch the
-/// workspace on screen or take the keys unless asked (`--focus`): a tab for another workspace waits there.
+/// IDE actions agents ask for through the daemon (`kelp open`, `kelp ui`). They never pull Kelp to the front, switch
+/// the workspace on screen or take the keys unless asked (`--focus`). A tab for another workspace waits there.
 @MainActor
 struct UIRequests {
     let app: AppModel
@@ -116,7 +119,8 @@ struct UIRequests {
             if id == "window.shot", let shotWindow = app.workbench.mainWindow,
                 let path = event.args?["path"]?.string
             {
-                // A picture, by its name: `kelp shot` (an agent's too) writes a .png, never over a source file it was told.
+                // Only a picture, by its name, because `kelp shot` (an agent's too) writes a .png and must never write
+                // over a source file it was told.
                 guard path.lowercased().hasSuffix(".png") else {
                     return Banner.show(String(localized: "A window's picture is a .png file."), style: .error)
                 }

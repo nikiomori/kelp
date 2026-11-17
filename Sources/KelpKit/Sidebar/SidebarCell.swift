@@ -3,14 +3,15 @@ import Core
 import DesignKit
 import WorkbenchKit
 
-/// One row; `update()` re-reads the model, so status changes don't rebuild the outline.
+/// One row of the sidebar. `update()` re-reads the model, so a status change doesn't rebuild the outline.
 @MainActor
 final class SidebarCell: NSTableCellView {
     let node: SidebarController.Node
     weak var owner: SidebarController?
     let app: AppModel
     let icon = NSImageView()
-    /// Behind the slot: the project's colour, lit while the pointer is over its group (Icon style, `glowIcon`).
+    /// A layer behind the slot in the project's colour. It lights up while the pointer is over the project's group
+    /// (in the Icon style, see `glowIcon`).
     private let glow = CALayer()
     private var glowColor: ProjectColor?
     func glowIcon(_ on: Bool) {
@@ -18,13 +19,14 @@ final class SidebarCell: NSTableCellView {
         ProjectIcon.glow(glow, color: glowColor, on)
     }
     let title = RowLabel(labelWithString: "")
-    /// Right side: how long ago the state changed ("4m"), or on a project what needs you.
+    /// The label on the right. It shows how long ago the state changed ("4m"), or, on a project's row, what needs you.
     let trailing = RowLabel(labelWithString: "")
     let mark = StatusMark(size: 12)
-    /// A chat's logo with its state in the corner, in the slot where the mark would be (with Agent icons: Always), so
-    /// the name starts where the project's name does, as it would with the mark alone.
+    /// The logo of the chat's agent, with the chat's state in its corner. It sits in the slot where the status mark
+    /// would be (when Agent icons is set to Always), so the name starts where the project's name does, just as it
+    /// would with the mark alone.
     let face = AgentFace()
-    /// The mark, kept out of sight while the face says the state.
+    /// Holds the status mark. It is hidden while the face shows the state.
     let markBox = NSView()
     /// The first thing in every row, all in one column. At rest it says what the row is: an agent's mark (the column
     /// people scan to see who needs them), a project's icon, or a group's. Under the pointer it becomes the row's own
@@ -38,18 +40,19 @@ final class SidebarCell: NSTableCellView {
         let button = PointerButton(title: "") { [weak self] in self?.acted() }
         button.imagePosition = .imageOnly
         button.isBordered = false
-        button.radius = nil   // a round fill under the pointer, the slot's 16 pt
+        button.radius = nil   // a round fill under the pointer, 16 pt like the slot
         button.contentTintColor = .secondaryLabelColor
         button.symbolConfiguration = .chrome(Metrics.iconTiny)
         button.isHidden = true
         return button
     }()
-    /// Waits a moment after the pointer comes: passing over the list doesn't blink the marks people read.
+    /// Waits a moment after the pointer arrives, so moving across the list doesn't make the marks people read blink.
     let reveal = Debounce()
-    /// An agent's own icon after its name, grey, when it isn't the default agent (Settings › Appearance › Agent icons).
+    /// The agent's own icon in grey after the name. It shows when the agent isn't the default one (Settings ›
+    /// Appearance › Agent icons).
     let glyph = NSImageView()
-    /// A project's colour after its name, in the Dot style. It goes on the row that was muted (`Mutes`), not on the
-    /// rows inside it; a click unmutes the row, as the hover card's Unmute does.
+    /// A crossed-out bell after the name of a muted row. It goes on the row that was muted (`Mutes`), not on the rows
+    /// inside it. A click unmutes the row, as the hover card's Unmute does.
     lazy var muted: PointerButton = {
         let button = PointerButton(image: .symbol("bell.slash", String(localized: "Notifications muted"))) {
             [weak self] in
@@ -63,7 +66,7 @@ final class SidebarCell: NSTableCellView {
         button.isHidden = true
         return button
     }()
-    /// A project whose folder is gone: "Folder missing", in orange, and a click to say where it went.
+    /// Shown on a project whose folder is gone: "Folder missing" in orange. A click asks where the folder went.
     lazy var locate: PointerButton = {
         let button = PointerButton { [weak self] in
             guard let self, case .project(let id) = node.kind, let repo = app.repo(id) else { return }
@@ -78,25 +81,27 @@ final class SidebarCell: NSTableCellView {
         button.isHidden = true
         return button
     }()
-    /// Under an agent that asks or failed: what it asks, or what went wrong (Settings › Appearance › What agents ask).
+    /// The line under an agent that asks or failed. It shows the question or what went wrong (Settings › Appearance ›
+    /// What agents ask).
     let ask = NSTextField(labelWithString: "")
     var rowY: NSLayoutConstraint?
     /// What the second line last showed (`setAsk`).
     var askShown: [String] = []
-    /// What an agent goes on with by itself: its /goal, or a command it started in the background.
+    /// What the agent works on by itself: its /goal, or a command it started in the background.
     let chip = Chip()
-    /// An agent's: the agents it started.
+    /// On an agent's row, a badge for the agents it started.
     lazy var family: ChildrenBadge = {
         let badge = ChildrenBadge()
         badge.onClick = { [weak owner, node] in owner?.openCard(node) }
         return badge
     }()
-    /// On an agent's row: a built-in's button mark (for example, the page it drives), and the mark it shows
-    /// (`showMarkButton`).
+    /// On an agent's row, a button mark that a built-in adds (for example, for the page the agent drives).
+    /// `buttonMark` is the mark it shows (`showMarkButton`).
     lazy var markButton = Self.markButton(self)
     var buttonMark: RowMark?
     var add: NSButton?
-    /// A group on a branch that holds nothing of its own and has nobody on it: it can simply go (`showGroupLine`).
+    /// The Remove button on a group whose branch holds nothing of its own and has no agents on it, so the group can
+    /// simply go (`showGroupLine`).
     lazy var remove: TextButton = {
         let button = TextButton(String(localized: "Remove")) { [weak self] in
             guard let self, case .workspace(let id) = node.kind, let worktree = app.worktree(id) else { return }
@@ -106,32 +111,34 @@ final class SidebarCell: NSTableCellView {
         button.isHidden = true
         return button
     }()
-    /// On a project's row: the name of the one workspace it stands for (in grey), what its agents do while it is
-    /// folded, and the fold button.
-    /// On a heading's row: the branch its folder is on, when it has code of its own.
+    /// On a project's row, this shows in grey the name of the one workspace the row stands for, what the project's
+    /// agents do while it is folded, and the fold button.
+    /// On a heading's row, it shows the branch of the heading's folder, when that folder has code of its own.
     let detail = NSTextField(labelWithString: "")
-    /// When folded, a project's or group's chats, shown by their agents' logos (AgentStack).
+    /// The chats of a folded project or group, shown as their agents' logos (AgentStack).
     let stack = AgentStack()
-    /// What the chevron showed last: when that changes it turns rather than switches.
+    /// Whether the chevron last showed the row folded. When this changes, the chevron turns instead of switching.
     var shownFolded: Bool?
     var hovering = false
-    /// On the selection pill (SidebarRowView): grey text a step lighter there, where secondary label is 3.3:1.
+    /// True when the row is on the selection pill (SidebarRowView). Grey text is a step lighter there, because the
+    /// secondary label colour gives only 3.3:1 on the pill.
     var selected = false { didSet { if selected != oldValue { update() } } }
-    /// Grey text on the pill: on dark, the 12 % white pill gives 5.3:1; on light, the white pill already gives the
-    /// secondary label 6:1.
+    /// The grey for text on the pill. In dark mode, 78 % white on the 12 % white pill gives 5.3:1. In light mode, the
+    /// white pill already gives the secondary label 6:1.
     static let onPill = NSColor.dynamic(light: .secondaryLabelColor, dark: NSColor.white.withAlphaComponent(0.78))
-    /// Changes not committed (a quiet dot, as on the title bar's branch: the counts are in its tooltip), the PR and its CI,
-    /// for rows that stand for a folder (GitFolders; the CI from FolderCI); the dot goes first when the row is short of
-    /// room, the CI mark last.
+    /// Badges on rows that stand for a folder: uncommitted changes, the PR, and the PR's CI. The changes badge is a
+    /// quiet dot, as on the title bar's branch, with the counts in its tooltip (from GitFolders; the CI is from
+    /// FolderCI). When the row is short of room, the dot goes first and the CI mark goes last.
     let changes = PointerButton(frame: .zero), pr = PointerButton(frame: .zero),
         ci = PointerButton(frame: .zero)
     let ciMark: CIMarkSlot
     var hasBadge = (changes: false, pr: false, ci: false)
     /// "+610 −23", shown in place of the dot while the pointer is on it.
     var counts: NSAttributedString?
-    /// The git mark under the pointer, which says itself in words (`spell`).
+    /// The git mark under the pointer, which spells out its meaning in words while hovered (`spell`).
     weak var spelling: NSView?
-    /// Another folder of the project changes some of these files too: the dot is orange (`GitFolders.shared`).
+    /// True when another folder of the project changes some of the same files. The dot is then orange
+    /// (`GitFolders.shared`).
     var shares = false
 
     init(node: SidebarController.Node, owner: SidebarController) {
@@ -149,12 +156,12 @@ final class SidebarCell: NSTableCellView {
         textField = nil
         switch node.kind {
         case .project(let id):
-            // The project's name, not a section label: what is under it belongs to the project. On the right, only what
-            // needs doing.
+            // Styled as the project's name, not as a section label, because what is under it belongs to the project.
+            // The right side shows only what needs doing.
             title.font = .ui(TextSize.body, weight: .semibold)
             title.textColor = .labelColor
             let button = Self.newChatButton { [weak owner] in owner?.newChat(id) }
-            add = button   // on hover, like Finder's sidebar
+            add = button   // shown on hover, like Finder's sidebar
             icon.imageScaling = .scaleProportionallyUpOrDown
             icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
             icon.heightAnchor.constraint(equalToConstant: 16).isActive = true
@@ -165,12 +172,13 @@ final class SidebarCell: NSTableCellView {
             detail.font = .ui(TextSize.row)
             detail.textColor = .secondaryLabelColor
             detail.lineBreakMode = .byTruncatingTail
-            detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // goes before the project's name
-            detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the room, the badges sit at the right
+            detail.setContentCompressionResistancePriority(.init(240), for: .horizontal)   // truncates before the name
+            detail.setContentHuggingPriority(.init(1), for: .horizontal)   // takes the spare room, badges sit at right
             layout(row: [slot, title, muted, detail, stack, changes, pr, ci, locate, button])
             detail.isHidden = true
         case .workspace:
-            // A row like any other, with what's in it a step further in: a heading didn't say where it ended.
+            // A group is a row like any other, with its contents a step further in, because a heading didn't show
+            // where the group ended.
             title.font = .ui(TextSize.body, weight: .medium)
             styleBranch()
             fillSlot(icon)
@@ -188,13 +196,14 @@ final class SidebarCell: NSTableCellView {
             action.toolTip = String(localized: "Close Chat")
             layout(row: [slot, title, muted, glyph, chip, family, markButton, trailing])
             addAsk()
-        case .host, .parked: break   // a server's header (ServerCards), a ParkedHeader
+        case .host, .parked: break   // these are a server's header (ServerCards) and a ParkedHeader
         }
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        // The name takes the room up to what's on the right: no spacer views, whose spacing on both sides read as a gap.
+        // The name takes the room up to what's on the right. There are no spacer views, because their spacing on both
+        // sides read as a gap.
         title.setContentHuggingPriority(.init(2), for: .horizontal)
-        // Grey in under the pointer and spring when clicked, as chips do. "+610 −23" and "#3" on a pill, as counts are
-        // (Source Control's sections): bare, they read as part of the name.
+        // The badges fill grey under the pointer and spring when clicked, as chips do. "+610 −23" and "#3" sit on a
+        // pill, as counts do in Source Control's sections, because bare they read as part of the name.
         for badge in [changes, pr, ci] {
             badge.radius = badge === pr ? nil : Metrics.radiusXS
             badge.padding = badge === pr ? Metrics.gap : 3
@@ -234,7 +243,8 @@ final class SidebarCell: NSTableCellView {
         }
         rowStack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(rowStack)
-        // As tall as the + that comes in on hover: growing to it, the row's content rose and fell back.
+        // The row is as tall as the + that appears on hover. When the row grew to fit the +, its content rose and
+        // fell back.
         rowStack.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.iconButton).isActive = true
         let centerY = rowStack.centerYAnchor.constraint(equalTo: centerYAnchor)
         rowY = centerY
@@ -268,28 +278,32 @@ final class SidebarCell: NSTableCellView {
                 icon.image = missing ? .symbol("questionmark.folder") : nil
             }
             icon.contentTintColor = .secondaryLabelColor
-            // Not under a rename (a status change re-reads the row). A remote one's server heads its card, not its name.
+            // Leave the name alone during a rename, because a status change re-reads the row. A remote project's
+            // server heads its card, so the name leaves the server out.
             if !title.isEditable {
                 title.stringValue = owner?.projectHosts[id] == nil ? app.projectName(id) ?? "" : repo?.name ?? ""
             }
-            // Stronger where agents are: a project with none is a quieter name the eye passes over. Bold is left to news.
+            // The name is stronger when the project has agents, so a project with none is a quieter name the eye
+            // passes over. Bold is kept for news.
             let busy =
                 !missing && node.children.contains { if case .agent = $0.kind { true } else { !$0.children.isEmpty } }
             title.font = .ui(TextSize.body, weight: busy ? .medium : .regular)
-            // Over workspace headings it stays the parent: primary, never greyer than the rows under it.
+            // Above workspace headings the project is their parent, so its name stays primary, never greyer than the
+            // rows under it.
             title.textColor = busy || selected || !node.children.isEmpty ? .labelColor : .secondaryLabelColor
             toolTip =
                 missing
                 ? String(localized: "\(repo?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.")
                 : repo.map(app.projectPlace)
-            // Who needs you is on the agents' own rows and in the line above the projects; folded, the row sums them up.
+            // The agents' own rows and the line above the projects show who needs you. When the project is folded,
+            // its row sums them up.
             locate.isHidden = !missing
             if !detail.isEditable {
                 detail.stringValue = ""
                 detail.isHidden = true
             }
             let folded = owner?.isCollapsed(node) == true
-            if let was = shownFolded, was != folded { stack.crossfade(Motion.base) }   // folding, not a status change
+            if let was = shownFolded, was != folded { stack.crossfade(Motion.base) }   // on a fold, not a status change
             stack.show(folded ? AgentStack.chats(under: node, app) : [], app)
             fitBadges()
             showFold()
@@ -297,12 +311,12 @@ final class SidebarCell: NSTableCellView {
             guard let worktree = app.worktree(id) else { return }
             title.stringValue = worktree.displayName
             title.textColor = .labelColor
-            // A branch splits the code, a group the screen: the slot tells them apart, always.
+            // A branch splits the code and a group splits the screen, so the icon in the slot always tells them apart.
             let onBranch = worktree.path != app.repo(worktree.repoId)?.path
             icon.image = .symbol(onBranch ? "arrow.triangle.branch" : "rectangle.stack")
             showGroupLine(worktree, onBranch: onBranch)
             showFold()
-            // Expanded, its agents show their own state; collapsed, the workspace sums them up.
+            // When the workspace is expanded, its agents show their own state. When collapsed, its row sums them up.
             let collapsed = owner?.isCollapsed(node) ?? false
             let lead = app.lead(in: id)
             trailing.stringValue =
@@ -325,13 +339,15 @@ final class SidebarCell: NSTableCellView {
             mark.guessed = session.guessed == true
             mark.progress = session.progress.map { Double($0) / 100 }
             showFace(session)
-            // How long it has waited for you is worth the room; how long the rest has been at it isn't, the name is.
-            // A chat with no project working in a folder you picked says which (its own folders are just dates).
+            // How long an agent has waited for you is worth the room. How long the others have been working isn't, so
+            // the name gets the room. A chat with no project that works in a folder you picked shows that folder's
+            // name (the chat's own folders are only dates).
             let repo = app.worktree(session.worktreeId).flatMap { app.repo($0.repoId) }
             let picked =
                 NoProject.holds(repo) && (session.cwd as NSString).deletingLastPathComponent != repo?.path
                 ? (session.cwd as NSString).lastPathComponent : ""
-            // Working with no news for minutes says so where the time goes: a ring alone would say it's busy (`quietSince`).
+            // An agent working with no news for minutes says "quiet" where the time goes, because the ring alone would
+            // say it is busy (`quietSince`).
             let quiet =
                 session.shownStatus == .working
                 ? session.quietSince.map { String(localized: "quiet \(shortAgo($0))") } : nil
@@ -340,7 +356,7 @@ final class SidebarCell: NSTableCellView {
                 ? shortAgo(session.statusAt ?? session.createdAt)
                 : app.arrangement.parked[sid].flatMap { app.arrangement.isParked(sid) ? Parking.until($0) : nil }
                     ?? quiet ?? picked
-            alphaValue = app.arrangement.isParked(sid) ? 0.55 : 1   // out of the way, as the canvas draws it
+            alphaValue = app.arrangement.isParked(sid) ? 0.55 : 1   // a parked chat is dimmed, as the canvas draws it
             showMarkButton(sid)
             family.show(
                 app.children(of: sid), running: session.runningSubagents, finished: session.finishedSubagents)
@@ -352,8 +368,8 @@ final class SidebarCell: NSTableCellView {
         }
     }
 
-    /// The workspace's name: its own row's title, or the grey name shown beside its project's name. With `project`, the
-    /// project's own name, without the machine its row may add.
+    /// Starts editing the workspace's name: the title of its own row, or the grey name beside the project's name. With
+    /// `project`, it edits the project's own name, without the machine name the project's row may add.
     func beginEditing(delegate: NSTextFieldDelegate, project: Bool = false) {
         if project, case .project(let id) = node.kind { title.stringValue = app.repo(id)?.name ?? "" }
         title.isEditable = true
@@ -366,14 +382,15 @@ final class SidebarCell: NSTableCellView {
 }
 
 extension SidebarCell {
-    /// A project's "+", hidden until the pointer is on the row. Small and faint there, brighter on the button itself: at
-    /// 13 pt secondary it was the biggest mark in the row.
+    /// Makes a project's "+", hidden until the pointer is on the row. It is small and faint on the row and brighter
+    /// under the pointer, because at 13 pt in secondary grey it was the biggest mark in the row.
     fileprivate static func newChatButton(_ action: @escaping () -> Void) -> IconButton {
         let button = IconButton(.symbol("plus"), tip: String(localized: "New Chat"), action: action)
         button.isHidden = true
         button.symbolConfiguration = .chrome(Metrics.iconSmall)
         button.tints = (.tertiaryLabelColor, .secondaryLabelColor)
-        // Its square, whatever the row's stack had left when it appeared on hover (it came out narrower than tall).
+        // A fixed square, whatever room the row's stack had left when the button appeared on hover (without this it
+        // came out narrower than tall).
         NSLayoutConstraint.activate([
             button.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
             button.heightAnchor.constraint(equalToConstant: Metrics.iconButton)
@@ -381,7 +398,7 @@ extension SidebarCell {
         return button
     }
 
-    /// A group's row: its branch quieter than its name, and what gives way first.
+    /// Styles a group's row: the branch is quieter than the name, and this sets what gives way first.
     fileprivate func styleBranch() {
         icon.contentTintColor = .secondaryLabelColor
         icon.symbolConfiguration = .chrome()
@@ -394,7 +411,7 @@ extension SidebarCell {
 
 /// The second line: what an agent asks, or what went wrong.
 extension SidebarCell {
-    /// The second line, under the name: what an agent asks.
+    /// Adds the second line under the name, for what an agent asks.
     private func addAsk() {
         ask.font = .ui(TextSize.caption)
         ask.lineBreakMode = .byTruncatingTail
@@ -410,7 +427,8 @@ extension SidebarCell {
         ])
     }
 
-    /// The second line, and the name moved up to make room for it; the outline gives the row the height (`hasAsk`).
+    /// Shows the second line and moves the name up to make room for it. The outline gives the row its height
+    /// (`hasAsk`).
     private func showAsk(_ session: Session) {
         let line = session.rowLine(
             mode: app.settings[SettingKeys.agentDetail], children: app.children(of: session.id),
@@ -418,12 +436,12 @@ extension SidebarCell {
         setAsk(line)
     }
 
-    /// Shows `line` under the name, the name moved up to make room for it; nil: one line.
+    /// Shows `line` under the name and moves the name up to make room for it. A nil line leaves one line.
     private func setAsk(_ line: (prefix: (String, NSColor)?, text: String)?) {
         let coming = ask.isHidden && line != nil, flips = ask.isHidden != (line == nil)
         ask.isHidden = line == nil
-        // The name moves up as the row opens (in its animation group, `sessionsChanged`), the line a beat after; a
-        // reused cell being filled shows at once.
+        // The name moves up as the row opens (in the row's animation group, see `sessionsChanged`), and the line comes
+        // a beat after. A reused cell that is being filled shows at once.
         let y = line == nil ? 0 : -TextSize.of(8)
         if flips, window != nil { rowY?.animator().constant = y } else { rowY?.constant = y }
         if coming, window != nil, !Motion.reduced {
@@ -437,18 +455,20 @@ extension SidebarCell {
             ask.layer?.add(fade, forKey: "opacity")
         }
         guard let line else { return }
-        // The same line on the same pill (most news doesn't change it): not styled and measured again.
+        // When the line and the pill are as before (most news doesn't change them), skip styling and measuring again.
         let key = [line.prefix?.0, line.prefix?.1.description, line.text, "\(selected)"].map { $0 ?? "" }
         guard key != askShown else { return }
         askShown = key
         let grey = selected ? Self.onPill : NSColor.secondaryLabelColor, font = NSFont.ui(TextSize.caption)
         let styled = NSMutableAttributedString()
-        // On the pill too: the text shades hold 4.5:1 on it (light 5.5, dark 4.9), and the row it marks is the one you're on.
+        // The prefix keeps its colour on the pill too, because the text shades hold 4.5:1 there (light 5.5, dark 4.9)
+        // and the row it marks is the one you're on.
         if let (word, color) = line.prefix {
             styled.append(NSAttributedString(string: word + " ", attributes: [.font: font, .foregroundColor: color]))
         }
         styled.append(NSAttributedString(string: line.text, attributes: [.font: font, .foregroundColor: grey]))
-        // Its own: an attributed string without one is cut off at the edge, not ended with "…" (the field's mode isn't used).
+        // The string needs its own paragraph style, because without one it is cut off at the edge instead of ending in
+        // "…" (the field's line break mode isn't used).
         let tail = NSMutableParagraphStyle()
         tail.lineBreakMode = .byTruncatingTail
         styled.addAttribute(.paragraphStyle, value: tail, range: NSRange(location: 0, length: styled.length))
@@ -457,8 +477,8 @@ extension SidebarCell {
     }
 }
 
-/// A row's label: told what it shows already, it stays as it is. Set again, a field measures itself and lays its row out
-/// anew, and rows are told again on every agent's news.
+/// A row's label that does nothing when it is set to the text it already shows. A field that is set again measures
+/// itself and lays out its row anew, and rows are set again on every agent's news.
 final class RowLabel: NSTextField {
     override var stringValue: String {
         get { super.stringValue }

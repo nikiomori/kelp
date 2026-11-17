@@ -2,8 +2,9 @@ import AppKit
 import Core
 import DesignKit
 
-/// The look before an extension from GitHub goes in: what it can run on this Mac, in a sheet. And the same look before
-/// one that's there (written by an agent, changed since) runs anything (`ExtensionTrust`).
+/// The review sheet shown before an extension from GitHub is installed, listing what it can run on this Mac. The same
+/// sheet shows before an extension already in the folder (written by an agent, or changed since) runs anything
+/// (`ExtensionTrust`).
 @MainActor
 enum ExtensionReview {
     static func approve(_ folder: URL, manifest shown: JSONValue? = nil, allowing: Bool = false) async -> Bool {
@@ -40,29 +41,31 @@ enum ExtensionReview {
     }
 }
 
-/// An extension in ~/.kelp/extensions runs commands (its own, its events, its pages) only once the user allowed it as its
-/// files are now: an agent writes these folders, and what one wrote shouldn't run as the user without their look. The
-/// daemon checks the same before it runs any (`SessionSetup.trustsExtension`); here it's what's loaded and asked.
+/// An extension in ~/.kelp/extensions runs commands (its own, its events', its pages') only after the user allowed its
+/// files as they are now. Agents write these folders, and what an agent wrote shouldn't run as the user before the user
+/// has looked at it. The daemon checks the same before it runs any command (`SessionSetup.trustsExtension`); this side
+/// decides what is loaded and what the user is asked.
 @MainActor
 enum ExtensionTrust {
     static func manifest(_ folder: URL) -> JSONValue {
         manifest(["/extension.json": FileManager.default.contents(atPath: folder.path + "/extension.json") ?? Data()])
     }
-    /// The manifest of one read of a folder (`ExtensionFiles.extensionFiles`).
+    /// Decodes the manifest from one read of a folder (`ExtensionFiles.extensionFiles`).
     static func manifest(_ files: [String: Data]) -> JSONValue {
         (try? JSONDecoder().decode(JSONValue.self, from: files["/extension.json"] ?? Data())) ?? .null
     }
 
-    /// The folder installed as `name`, allowed as `shown` (the read its look listed): a file swapped between the look and
-    /// the install makes it ask again, not run.
+    /// Allows the folder installed as `name` as it was in `shown`, the read the review sheet listed. A file swapped
+    /// between the review and the install makes Kelp ask again instead of running it.
     static func allow(_ name: String, shown: [String: Data], _ app: AppModel) async -> Bool {
         await record([name: ExtensionFiles.extensionDigest(shown)], app)
     }
 
-    /// Whether `folder`'s extension waits to be allowed: it runs something, and what was allowed isn't what's there, or
-    /// isn't known yet with a daemon there (its state not read, or not readable). Without a daemon nothing of it can run
-    /// (the daemon checks too), and the first connection that reads the state reloads (`loadedWithoutState`). With no
-    /// record at all it waits too, until `adopt` has recorded what was there before Kelp asked.
+    /// Whether `folder`'s extension waits to be allowed. It waits when it runs something and what was allowed isn't
+    /// what's there now, or when a daemon is there but what was allowed isn't known yet (its state not read, or not
+    /// readable). Without a daemon nothing of it can run anyway (the daemon checks too), and the first connection that
+    /// reads the state reloads (`loadedWithoutState`). With no record at all it waits too, until `adopt` has recorded
+    /// what was there before Kelp asked.
     static func waits(_ folder: URL, _ app: AppModel) -> Bool {
         let (commands, pages) = ExtensionFiles.commandsIn(manifest(folder))
         guard !commands.isEmpty || !pages.isEmpty else { return false }
@@ -71,14 +74,15 @@ enum ExtensionTrust {
             != ExtensionFiles.extensionDigest(folder)
     }
 
-    /// Allowed as `folders` are now. False when it couldn't be recorded (a banner says why).
+    /// Allows `folders` as they are now. Returns false when that couldn't be recorded (a banner says why).
     static func allow(_ folders: [URL], _ app: AppModel) async -> Bool {
         await record(
             Dictionary(folders.map { ($0.lastPathComponent, ExtensionFiles.extensionDigest($0)) }) { a, _ in a }, app)
     }
 
-    /// The look, and allowed as it was shown: the sheet lists what the manifest of the same read says (`ExtensionFiles.extensionFiles`),
-    /// so one swapped while it was hashed can't be shown in place of the one allowed.
+    /// Shows the review sheet and allows the extension as it was shown. The sheet lists what the manifest from the same
+    /// read says (`ExtensionFiles.extensionFiles`), so a manifest swapped while the folder was hashed can't be shown in
+    /// place of the one allowed.
     static func review(_ folder: URL, _ app: AppModel) async -> Bool {
         let files = ExtensionFiles.extensionFiles(folder), manifest: JSONValue
         do { manifest = try JSONDecoder().decode(JSONValue.self, from: files["/extension.json"] ?? Data()) } catch {
@@ -100,9 +104,10 @@ enum ExtensionTrust {
         return await app.uiState.save(ExtensionFiles.extensionTrustKey, .object(allowed))
     }
 
-    /// The first time this Kelp sees the daemon's state without the key, once: what was installed before Kelp asked
-    /// (`askedSince`) is allowed as it is, and the record, even an empty one, marks it done. One made since, then or
-    /// later, is asked about. True when one was allowed so (an empty record changes nothing loaded).
+    /// Runs once, the first time this Kelp sees the daemon's state without the trust key. Extensions installed before
+    /// Kelp began to ask (`askedSince`) are allowed as they are, and the record, even an empty one, marks this done. An
+    /// extension made since then is asked about. Returns true when an extension was allowed this way (an empty record
+    /// changes nothing loaded).
     static func adopt(_ folders: [URL], _ app: AppModel) async -> Bool {
         guard app.connected, app.uiState.loaded, app.uiState[ExtensionFiles.extensionTrustKey] == nil else {
             return false
@@ -114,7 +119,7 @@ enum ExtensionTrust {
     /// When Kelp began to ask (0.10, 2026-11-06 UTC).
     static let askedSince = Date(timeIntervalSince1970: 1_793_923_200)
 
-    /// When `folder` was made; one whose date can't be read counts as new, and so is asked about.
+    /// Returns when `folder` was made. A folder whose date can't be read counts as new, so the user is asked about it.
     private static func created(_ folder: URL) -> Date {
         do { return try folder.resourceValues(forKeys: [.creationDateKey]).creationDate ?? .distantFuture } catch {
             return .distantFuture

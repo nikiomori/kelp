@@ -1,12 +1,12 @@
 import AppKit
 import DesignKit
 
-/// An agent's logo with its state in a corner cut out of it, as macOS marks a person's status on their picture. A
-/// folded project's chats (AgentStack) and a chat's own row (Agent icons: Always) draw it the same way.
+/// An agent's logo with its state in a corner cut out of it, as macOS marks a person's status on their picture. The
+/// chats of a folded project (AgentStack) and a chat's own row (when Agent icons is Always) draw it the same way.
 @MainActor
 final class AgentFace: NSView {
     static let side: CGFloat = 14
-    /// The state: the caller sets it as on any StatusMark, then `cut()`.
+    /// The mark for the state. The caller sets it as on any StatusMark, then calls `cut()`.
     let mark = StatusMark(size: 8)
     private let logo = NSImageView()
 
@@ -24,10 +24,11 @@ final class AgentFace: NSView {
 
     var image: NSImage? {
         get { logo.image }
-        set { if logo.image !== newValue { logo.image = newValue } }   // setting it draws it again
+        set { if logo.image !== newValue { logo.image = newValue } }   // setting the image draws it again
     }
 
-    /// The logo gives way around the mark while it shows: a clear ring, whatever the sidebar's material shows through.
+    /// Cuts the logo away around the mark while the mark shows, leaving a clear ring, whatever the sidebar's material
+    /// shows through.
     func cut() {
         guard !mark.isHidden else {
             logo.layer?.mask = nil

@@ -11,7 +11,7 @@ package enum SplitDirection: String { case right, down }
 final class EditorArea: NSViewController {
     let app: AppModel
     let workspaceId: String
-    /// Its workspace's layout, kept by `Workbench.layouts`; what the area changes it draws at once.
+    /// The workspace's layout, kept by `Workbench.layouts`. A change the area makes to it is drawn at once.
     var layout: WorkspaceLayout {
         get { app.workbench.layouts[workspaceId] }
         set {
@@ -19,7 +19,7 @@ final class EditorArea: NSViewController {
             app.workbench.layouts[workspaceId] = newValue
         }
     }
-    /// The layout as this area last made it: one that differs was changed elsewhere (a tab opened off screen).
+    /// The layout as this area last drew it. A layout that differs was changed elsewhere (a tab opened off screen).
     private var drawn: WorkspaceLayout
     var contents: [String: TabContent] = [:]   // by tab id
     var recent: [String] = []   // tab ids by when last shown, newest last (EditorRelease)
@@ -27,7 +27,8 @@ final class EditorArea: NSViewController {
     var groupViews: [String: GroupView] = [:]
     /// Groups whose tabs changed while the area was off screen (`refreshShown`).
     private(set) var unshown: Set<String> = []
-    /// The card under an agent's tab, one for all of this workspace's strips: moving along them goes from card to card.
+    /// The card under an agent's tab, shared by all of this workspace's strips, so moving the pointer along the tabs
+    /// goes from card to card.
     private lazy var tabCard = HoverCard(app: app, underTabs: true)
     private var renders = 0
     var start: StartView?
@@ -57,7 +58,8 @@ final class EditorArea: NSViewController {
         let area = AreaView()
         area.cameBack = { [weak self] in self?.refreshUnshown() }
         view = area
-        // A tab opened, replaced or closed here while another workspace is on screen lands in the layout: drawn here.
+        // A tab opened, replaced or closed in this workspace while another workspace is on screen lands in the layout,
+        // and is drawn here.
         track(owner: self, now: false) { [weak self] in
             self.map { $0.app.workbench.layouts[$0.workspaceId] }
         } changed: { [weak self] layout in
@@ -73,15 +75,15 @@ final class EditorArea: NSViewController {
         } changed: { [weak self] _ in
             self?.groupViews.keys.forEach { self?.refreshGroup($0) }
         }
-        // A run's tab follows the Run menu: its port once it prints one, its look once its files are read. Any session's
-        // follows what it listens on.
+        // A run's tab follows the Run menu: it shows its port once it prints one, and its look once its files are read.
+        // Any session's tab follows the ports it listens on.
         track(owner: self) { [weak self, app] in
             (app.extensions.all.runs?.tabsFollow() ?? [])
                 + (app.latest(PortsEvent.self, self?.workspaceId ?? "")?.ports ?? []).map { "\($0.port) \($0.session)" }
         } changed: { [weak self] _ in
             self?.groupViews.keys.forEach { self?.refreshGroup($0) }
         }
-        // A tab an agent drives (a page): it glows while the agent acts there (`drivenLook`).
+        // A tab an agent drives (a page) glows while the agent acts there (`drivenLook`).
         track(owner: self, now: false) { [weak self, app] in
             app.extensions.all.tabs.compactMap(\.driven).flatMap { driven in
                 driven(self?.workspaceId ?? "").map { "\($0.key) \($0.value.session) \($0.value.glow != nil)" }
@@ -127,7 +129,7 @@ final class EditorArea: NSViewController {
     /// Turning an extension off takes its open tabs' content with it (they say how to turn it back on); turning it on
     /// brings the content back.
     private func extensionsChanged() {
-        // A reloaded extension may have changed its view: its tabs are built again from the new definition.
+        // A reloaded extension may have changed its view, so its tabs are built again from the new definition.
         let stale = contents.filter {
             TabURI.scheme($0.value.uri) == "ext"
                 || (app.extensions.tabProvider(for: $0.value.uri) != nil) == ($0.value is UnavailableTab)
@@ -137,8 +139,8 @@ final class EditorArea: NSViewController {
         render()
     }
 
-    /// Its layout changed elsewhere (`EditorHost`'s ways for a workspace not on screen): a tab whose URI changed under it
-    /// shows the new one, and the panes follow.
+    /// Handles a layout change made elsewhere (through `EditorHost`, for a workspace not on screen). A tab whose URI
+    /// changed shows the new URI, and the panes follow.
     private func changedElsewhere(_ now: WorkspaceLayout) {
         guard now != drawn else { return }
         let before = Dictionary(drawn.allTabs.map { ($0.id, $0.uri) }) { first, _ in first }
@@ -161,7 +163,7 @@ final class EditorArea: NSViewController {
 
     // MARK: rendering
 
-    /// The panes on show, to tell a change of shape from a tab moving.
+    /// The panes on show, kept to tell a change of shape from a tab moving.
     private var shownPanes: Set<String>?
     func render() {
         // A pane opened, closed or zoomed: everything in the area changes place at once, so it fades into its new shape.
@@ -182,8 +184,8 @@ final class EditorArea: NSViewController {
         if zoomed == nil, let sizes = layout.sizes { layout.sizes = sizes.filter { root.splitKeys.contains($0.key) } }
         let rootView = build(root)
         view.pin(rootView)
-        // The focused group now, the others one per run-loop turn: restoring a browser, files and terminals together
-        // would otherwise hold the main thread for 100–200 ms. A newer render takes over the rest.
+        // Build the focused group now and the others one per run-loop turn, because restoring a browser, files and
+        // terminals together would otherwise hold the main thread for 100–200 ms. A newer render takes over the rest.
         renders += 1
         let gen = renders, first = layout.focusedGroup?.id ?? root.sessions.first
         if let first { refreshGroup(first) }
@@ -239,7 +241,7 @@ final class EditorArea: NSViewController {
         }
         if outerHint.superview !== view { view.addSubview(outerHint, positioned: .above, relativeTo: nil) }
         var frame = view.bounds.insetBy(dx: 6, dy: 6)
-        // Its share once added: one more beside the panes already split that way.
+        // The new pane's share once added: one more beside the panes already split along that side.
         let vertical = edge == .minX || edge == .maxX
         let count: CGFloat = {
             if case .split(let isVertical, let kids)? = layout.root, isVertical == vertical {
@@ -324,7 +326,8 @@ final class EditorArea: NSViewController {
         return group
     }
 
-    /// Strip and visible content of one group (cheap: called on every title / status change).
+    /// Refreshes the strip and the visible content of one group. It must stay cheap, because it runs on every title or
+    /// status change.
     func refreshGroup(_ gid: String) {
         guard let group = groupViews[gid], let model = layout.groups[gid] else { return }
         group.strip.focused = layout.focused == gid || (layout.focused == nil && layout.root?.sessions.first == gid)
@@ -339,7 +342,8 @@ final class EditorArea: NSViewController {
             Self.disambiguated(
                 model.tabs.map { tab in
                     guard let content = contents[tab.id] else {
-                        // Not built, or let go of (a hidden terminal): what it stands for still says all this.
+                        // The tab isn't built, or was let go of (a hidden terminal), so what it stands for supplies
+                        // all of this.
                         var item = placeholder(tab)
                         item.badge = app.extensions.tabProvider(for: tab.uri)?.badge?(tab.uri)
                         return runLook(item, tab)
@@ -351,8 +355,8 @@ final class EditorArea: NSViewController {
                 }, model.tabs), selected: model.selectedTab?.id)
         group.show(visible?.view)
         noteShown(model.selectedTab?.id)
-        // With panes side by side, those without focus fade, tabs too: the one you're in is the lit one, whatever it shows.
-        // Never the one that calls for you: it's the pane to look at.
+        // With panes side by side, the panes without focus fade, tabs included, so the one you're in is lit whatever it
+        // shows. A pane that calls for you never fades, because it's the pane to look at.
         group.dimmed =
             !group.strip.focused && zoomed == nil && (layout.root?.sessions.count ?? 0) > 1 && visible != nil
             && visible?.badge?.attention == nil
@@ -362,8 +366,9 @@ final class EditorArea: NSViewController {
         showEdited()
     }
 
-    /// Unsaved files: the dot in the window's close button (and on their tabs), as in any Mac document app.
-    /// In the main window, any loaded workspace's: switching away from one with unsaved files keeps the dot (quitting asks).
+    /// Shows unsaved files as the dot in the window's close button (and on their tabs), as in any Mac document app. In
+    /// the main window the dot counts every loaded workspace, so switching away from one with unsaved files keeps the
+    /// dot (quitting asks).
     func showEdited() {
         let all = app.workbench.mainWindow.flatMap { $0 === view.window ? app.workbench.editedFiles : nil }
         view.window?.isDocumentEdited = !(all ?? editedFiles).isEmpty
@@ -396,7 +401,8 @@ final class EditorArea: NSViewController {
         return content
     }
 
-    /// A workspace kept loaded off screen doesn't redraw its strips at each agent's step: it does on coming back.
+    /// A workspace kept loaded off screen doesn't redraw its strips at each agent's step; it redraws them when it comes
+    /// back.
     private func refreshShown(_ gid: String) {
         guard view.window != nil else {
             unshown.insert(gid)
@@ -435,7 +441,7 @@ final class EditorArea: NSViewController {
     }
 }
 
-/// The area's own view: told when it comes back into a window, where tabs that changed meanwhile are drawn.
+/// The area's own view. It is told when it comes back into a window, so the tabs that changed meanwhile are drawn then.
 private final class AreaView: NSView {
     var cameBack: @MainActor () -> Void = {}
     override func viewDidMoveToWindow() {

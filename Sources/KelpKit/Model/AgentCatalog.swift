@@ -5,7 +5,8 @@ import DesignKit
 import Foundation
 import Observation
 
-/// The agents the UI offers: the ones that actually run on this Mac (see AgentAvailability). The app's (`app.catalog`).
+/// The agents the UI offers, which are the ones that actually run on this Mac (see AgentAvailability). The app reaches
+/// it as `app.catalog`.
 @MainActor
 package struct AgentCatalog {
     let app: AppModel
@@ -14,8 +15,8 @@ package struct AgentCatalog {
         return all.filter { ok.contains($0.id) }
     }
 
-    /// The agents a new tab in workspace `w` can start: for a remote project, the agents its host has (once the host
-    /// has said; this asks), else this Mac's. A terminal is always among them.
+    /// Returns the agents a new tab in `worktree` can start. For a remote project these are the agents its host has
+    /// (once the host has answered, and this call asks it), otherwise this Mac's. A terminal is always among them.
     func startable(in worktree: Worktree?) -> [AgentManifest] {
         guard let worktree, let host = RemoteHost.of(worktree.path)?.host else { return installed(all) }
         app.availability.refreshHost(host, workspace: worktree.id, commands: all.map(\.command))
@@ -30,15 +31,15 @@ package struct AgentCatalog {
         let base = app.agents
         return base + app.extensions.all.agents.filter { a in !base.contains { $0.id == a.id } }
     }
-    /// The agent "New Agent" starts: the setting if it's installed, else the first installed one.
+    /// The agent that "New Agent" starts: the one in the setting if it's installed, else the first installed one.
     package var defaultAgent: String {
         let installed = installed(all)
         let agentId = app.settings[SettingKeys.defaultAgent]
         if installed.contains(where: { $0.id == agentId }) { return agentId }
         return installed.first?.id ?? SettingKeys.defaultAgent.fallback
     }
-    /// Whether to offer tmux sessions in a workspace: tmux is on this Mac, or the project is on a host (which usually has
-    /// it; tmux.list says so when it hasn't).
+    /// Whether to offer tmux sessions in a workspace. That is when tmux is on this Mac, or the project is on a host,
+    /// which usually has tmux (tmux.list says so when it doesn't).
     func hasTmux(_ worktree: Worktree?) -> Bool {
         app.availability.ids.contains("tmux") || worktree.flatMap { RemoteHost.of($0.path) } != nil
     }
@@ -50,12 +51,12 @@ package struct AgentCatalog {
         return all.first { $0.id == id }?.name ?? id.capitalized
     }
 
-    /// Its title, or the agent's name — numbered when the same agent runs twice in one workspace.
+    /// Returns the session's title, or else the agent's name, numbered when the same agent runs twice in one workspace.
     /// Sidebar, tabs, notifications and menus all use this, so they agree.
     package func displayName(_ session: Session) -> String {
         if !session.title.isEmpty { return session.title }
         let base = name(session.agent)
-        // From an index: asked for every row and tab on every session's news.
+        // The number comes from an index, because every row and tab asks on every session event.
         guard let number = app.untitledNumber(session.id) else { return base }
         return "\(base) \(number)"
     }
@@ -64,14 +65,16 @@ package struct AgentCatalog {
     package func color(_ id: String?) -> String? { manifest(id)?.color }
     /// The manifest of agent `id`, whether it is a preset, a file or an extension's.
     func manifest(_ id: String?) -> AgentManifest? { id.flatMap { id in all.first { $0.id == id } } }
-    /// What an agent is, in a few words: the empty workspace and Settings › Agents say it beside the name.
+    /// Says what an agent is in a few words, shown beside its name in the empty workspace and Settings › Agents.
     package func about(_ id: String) -> String? { manifest(id)?.about.map(loc) }
-    /// What the empty workspace offers to install when no agent is on this Mac; the rest are in Settings › Agent Catalog.
+    /// The agents the empty workspace offers to install when no agent is on this Mac. The rest are in Settings ›
+    /// Agent Catalog.
     var suggested: [AgentManifest] {
         all.filter { $0.featured != nil && $0.install != nil }.sorted { ($0.featured ?? 0) < ($1.featured ?? 0) }
     }
-    /// The agent's own install command in a terminal tab of `e`, in plain sight; once it ends, the agent is looked for again.
-    /// An installer that needs npm or Homebrew, on a Mac without it, says so here instead of failing in its tab.
+    /// Runs the agent's own install command in a terminal tab of `e`, in plain sight. Once it ends, the agent is looked
+    /// for again. When the installer needs npm or Homebrew and the Mac lacks it, a banner says so instead of the
+    /// installer failing in its tab.
     package func install(_ agentManifest: AgentManifest, in e: SessionStarter) {
         guard let cmd = agentManifest.install else { return }
         Task { [app] in
@@ -121,16 +124,17 @@ package struct AgentCatalog {
     }
 }
 
-/// Which agent CLIs run on this Mac: found on the login shell's PATH and answering `--version` — a shim whose binary
-/// is gone (a broken npm install) doesn't count. Checked in the background at launch and when Kelp comes back to the
-/// front (at most every few minutes), so newly installed agents show up; the last answer is remembered for the next launch.
+/// Which agent CLIs run on this Mac. An agent counts when it is on the login shell's PATH and answers `--version`, so a
+/// shim whose binary is gone (a broken npm install) doesn't count. It is checked in the background at launch and when
+/// Kelp comes back to the front (at most every few minutes), so newly installed agents show up. The last answer is
+/// remembered for the next launch.
 @MainActor
 @Observable
 package final class AgentAvailability {
     @ObservationIgnored let app: AppModel
     init(app: AppModel) { self.app = app }
     private(set) package var ids = Set(UserDefaults.standard.stringArray(forKey: "agents.available") ?? [])
-    /// By remote host: the agents' commands it has (`HostCommands`), asked again five minutes on.
+    /// The agent commands each remote host has (`HostCommands`), by host. A host is asked again after five minutes.
     private(set) var onHost: [String: Set<String>] = [:]
     @ObservationIgnored private var hostAsked: [String: Date] = [:]
 
@@ -139,7 +143,7 @@ package final class AgentAvailability {
         hostAsked[host] = Date()
         Task {
             guard let found = await app.quiet(HostCommands(worktreeId: workspace, commands: commands)) else {
-                hostAsked[host] = nil   // not reached: asked again next time
+                hostAsked[host] = nil   // the host wasn't reached, so ask again next time
                 return
             }
             onHost[host] = Set(found)
@@ -147,14 +151,17 @@ package final class AgentAvailability {
     }
     @ObservationIgnored private var checkedAt = Date.distantPast
     @ObservationIgnored private var checking = false
-    /// A forced check asked for while one runs: it runs once that one is done (an installer's end isn't dropped).
+    /// A forced check asked for while another check runs. It runs once that one is done, so the end of an installer
+    /// isn't missed.
     @ObservationIgnored private var queued: (rereadPath: Bool, expecting: Set<String>)?
 
-    /// An installer started from Kelp, by agent: running in its tab, ended without the agent found, or ended with it.
+    /// The phase of an installer started from Kelp, kept per agent. It is running in its tab, ended without the agent
+    /// found, or ended with it found.
     package enum InstallPhase: Equatable { case running(tab: String), notFound(tab: String), done }
     private(set) package var phases: [String: InstallPhase] = [:]
 
-    /// `agent`'s installer runs in session `tab`: when it ends, the agents are looked for again (no wait for the next check).
+    /// Records that `agent`'s installer runs in session `tab`. When it ends, the agents are looked for again at once,
+    /// without waiting for the next check.
     func watchInstall(_ tab: String, agent: String) { phases[agent] = .running(tab: tab) }
     func sessionChanged(_ session: Session) {
         guard session.status == .exited, let agent = phases.first(where: { $0.value == .running(tab: session.id) })?.key
@@ -164,8 +171,9 @@ package final class AgentAvailability {
         refresh(force: true, rereadPath: true, expecting: [agent])
     }
 
-    /// `rereadPath`: an installer just ran; the daemon reads the login shell's PATH again first, for the folder it added to the profile.
-    /// `expecting`: agents whose installer ended; one that still isn't found is `.notFound`.
+    /// Checks which agents run. Pass `rereadPath` when an installer just ran, so the daemon first reads the login
+    /// shell's PATH again and finds the folder the installer added to the profile. `expecting` lists agents whose
+    /// installer ended, and one that still isn't found becomes `.notFound`.
     package func refresh(force: Bool = false, rereadPath: Bool = false, expecting: Set<String> = []) {
         let app = self.app
         guard !checking else {
@@ -177,14 +185,16 @@ package final class AgentAvailability {
         let commands = app.catalog.all.filter { $0.id != Session.customAgent }.map { ($0.id, $0.command) }
         let ran = UserDefaults.standard.dictionary(forKey: "agents.ran") as? [String: Double] ?? [:]
         Task.detached(priority: .utility) {
-            // The daemon runs the `--version`s: without it every agent would look missing. Asked again next time.
+            // The daemon runs the `--version` checks, so without it every agent would look missing. Without a
+            // connection nothing is learned, and the next check asks again.
             await app.waitForConnection()
             guard await MainActor.run(body: { app.connected }) else {
                 await self.finish(nil, expecting: expecting)
                 return
             }
-            if rereadPath { _ = await app.quiet(ProcessRefreshPath(), timeout: 20) }   // the shell is asked: up to 8 s
-            // Where the daemon finds them on its login-shell PATH ("tmux" too); not knowing, nothing changes.
+            if rereadPath { _ = await app.quiet(ProcessRefreshPath(), timeout: 20) }   // asking the shell takes ≤ 8 s
+            // Ask where the daemon finds the commands on its login-shell PATH ("tmux" too). If that fails, nothing
+            // changes.
             guard let paths = await app.quiet(ProcessWhich(commands: commands.map(\.1) + ["tmux"])) else {
                 await self.finish(nil, expecting: expecting)
                 return
@@ -199,7 +209,7 @@ package final class AgentAvailability {
                 for await result in group { if let result { all.append(result) } }
                 return all
             }
-            // Not an agent: "tmux" among the ids only says there's a tmux here to attach to (AgentCatalog.hasTmux).
+            // tmux isn't an agent. "tmux" among the ids says there's a tmux here to attach to (AgentCatalog.hasTmux).
             let tmux = paths["tmux"] != nil
             let ok = Set(found.map(\.id) + (tmux ? ["tmux"] : [])), now = Date().timeIntervalSince1970
             let keep = Dictionary(found.map { ($0.binary, ran[$0.binary] ?? now) }) { a, _ in a }
@@ -207,7 +217,8 @@ package final class AgentAvailability {
         }
     }
 
-    /// A check is done: `ok` the agents found (nil: not known). Installers' agents found are `.done`, those expected and not are `.notFound`.
+    /// Ends a check. `ok` holds the agents found, or nil when that isn't known. Agents whose installer ran become
+    /// `.done` when found, and those expected but not found become `.notFound`.
     private func finish(_ ok: Set<String>?, expecting: Set<String>, ran: [String: Double] = [:]) {
         checking = false
         if let ok {
@@ -226,7 +237,7 @@ package final class AgentAvailability {
         }
     }
 
-    /// Runs `<path> --version`: if it exits 0 within a few seconds, returns the binary (its real path and modification
+    /// Runs `<path> --version`. If it exits 0 within a few seconds, returns the binary (its real path and modification
     /// time), else nil. A binary that ran in the last day (`ran`: binary → when) and hasn't changed isn't started
     /// again, because starting a dozen agent CLIs at every launch costs seconds of CPU (one took 2 s). Waits without
     /// holding a thread, since they're all asked at once.
@@ -237,14 +248,15 @@ package final class AgentAvailability {
         else { return nil }
         let binary = "\(real)|\(mtime)"
         if let at = ran[binary], Date().timeIntervalSince1970 - at < 86400 { return binary }
-        return await Shell.exec(app, [path, "--version"], timeout: 8).code == 0 ? binary : nil   // hung: killed, counts as missing
+        return await Shell.exec(app, [path, "--version"], timeout: 8).code == 0 ? binary : nil   // a hung one is killed
     }
 }
 
-/// What a subagent is called where agents are listed (a card, a row's dots).
+/// What a subagent is called where agents are listed (on a card, or in the dots on a row).
 extension Subagent {
-    /// What it does, or else all that's known of it.
+    /// The subagent's task, or else its kind, or else just "Subagent".
     package var title: String { task ?? (kind.isEmpty ? String(localized: "Subagent") : kind) }
-    /// Its kind beside what it does: nine in ten are general-purpose, which tells them apart from nothing.
+    /// The kind shown beside the task. It is nil for general-purpose, because nine in ten subagents are that kind and
+    /// it tells them apart from nothing.
     var shownKind: String? { task == nil || kind.isEmpty || kind == "general-purpose" ? nil : kind }
 }

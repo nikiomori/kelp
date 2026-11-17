@@ -3,14 +3,14 @@ import DesignKit
 import SwiftUI
 
 /// Color themes grouped by what they are: the ones that follow something, Kelp's own, the looks that rebuild the
-/// window, then the classics (folded, since these palettes are well known and differ least from one another) and what
-/// is installed. Each card is a small window drawn in the theme: its surface, its card, and its lines of text.
+/// window, then the classics (folded, since these palettes are well known and differ least from one another) and the
+/// installed ones. Each card is a small window drawn in the theme, with its surface, its card, and its lines of text.
 struct ThemeGallery: View {
     @Binding var selection: String
-    /// Its title and what a theme covers, as every picture row has them: below the gallery it was half a screen from
-    /// anything it could be about.
+    /// The gallery's title and what a theme covers, shown above it as every picture row has them. Below the gallery it
+    /// was half a screen from anything it could be about.
     var heading: AnyView?
-    /// The first row only (Match System, Ghostty, Kelp's own), as the welcome shows it; Settings has the rest.
+    /// Shows the first row only (Match System, Ghostty, Kelp's own), as the welcome does. Settings has the rest.
     var kelpOnly = false
     @Environment(AppModel.self) private var app
     @State private var classics = false
@@ -48,8 +48,8 @@ struct ThemeGallery: View {
         .padding(.vertical, Metrics.lineGap)
     }
 
-    /// Captions use the system font, as on every tile: with each theme's own font (Phosphor's mono) the captions stood
-    /// out of the row.
+    /// Lays out cards in a grid. Captions use the system font, as on every tile, because with each theme's own font
+    /// (Phosphor's mono) the captions stood out of the row.
     private func grid(_ cards: [ThemeCard]) -> some View {
         TileGrid {
             ForEach(cards) { card in
@@ -62,7 +62,7 @@ struct ThemeGallery: View {
 
     private func card(_ theme: Theme) -> ThemeCard { ThemeCard(theme) }
 
-    /// Match System and Ghostty: the themes they stand for just now.
+    /// The Match System and Ghostty cards, drawn as the themes they stand for right now.
     private func following(_ all: [Theme]) -> [ThemeCard] {
         guard let auto = all.first(where: { $0.id == (app.themes.isDark ? "kelp.dark" : "kelp.light") }) else {
             return []
@@ -73,8 +73,8 @@ struct ThemeGallery: View {
         return [system, ghostty(base: ThemeCard(auto))]
     }
 
-    /// The colours of your Ghostty config, as the terminal will show them, with the Kelp theme's colours for what it
-    /// doesn't set. A card without swatches looked like one that failed to load.
+    /// The colours of your Ghostty config, as the terminal will show them, with the Kelp theme's colours for what the
+    /// config doesn't set. A card without swatches looked like one that failed to load.
     private func ghostty(base: ThemeCard) -> ThemeCard {
         let config = GhosttyConfig.load()
         var card = base
@@ -88,7 +88,7 @@ struct ThemeGallery: View {
     }
 }
 
-/// What a card draws of a theme.
+/// The parts of a theme that a card draws.
 @MainActor
 private struct ThemeCard: Identifiable {
     var id: String, name: String
@@ -113,7 +113,8 @@ private struct ThemeCard: Identifiable {
     }
 }
 
-/// A theme's window in small: the sidebar on its surface, the card with a few lines of the terminal on it.
+/// A small picture of a theme's window: the sidebar on its surface, and the card with a few lines of the terminal on
+/// it.
 private struct MiniWindow: View {
     let card: ThemeCard
     private var ink: Color { card.dark ? .white : .black }
@@ -155,7 +156,7 @@ private struct MiniWindow: View {
         }
     }
 
-    /// See-through themes show a desktop behind them; macOS's material a window's plain grey.
+    /// See-through themes show a desktop behind them, and macOS's material shows a window's plain grey.
     @ViewBuilder private var surface: some View {
         if let color = card.look.surface {
             Color(nsColor: color.withAlphaComponent(1))

@@ -2,14 +2,15 @@ import Core
 import DesignKit
 import SwiftUI
 
-/// Under "Context 92% · 184k of 200k": what filled it, as a bar and a legend, biggest first — what every request starts
-/// with (system prompt, tools, MCP, memory files, skills, as Claude Code's /context splits it; else one "Base"), the files
-/// it read, what commands printed, the conversation, what /compact kept; then the room kept for compacting, the free
-/// rest, and the tools loaded only when used. The biggest part is bold. Orange and red stay the line's: they say how full,
-/// the parts' colours say what.
+/// Shown under "Context 92% · 184k of 200k": what filled the context, as a bar and a legend, biggest first. The
+/// parts are what every request starts with (system prompt, tools, MCP, memory files, skills, as Claude Code's
+/// /context splits it, or else one "Base"), the files the agent read, what commands printed, the conversation, and
+/// what /compact kept. After them come the room kept for compacting, the free rest, and the tools loaded only when
+/// used. The biggest part is bold. Orange and red belong to the line above, because they say how full the context is,
+/// and the parts' colours say what is in it.
 struct ContextParts: View {
     let parts: SessionContextParts.Parts, window: Int
-    /// Compact Now: once the ring turns orange, while the agent waits for input.
+    /// The Compact Now action, offered once the ring turns orange, while the agent waits for input.
     let compact: (() -> Void)?
 
     struct Row: Identifiable { let id: String, label: String, tokens: Int, detail: String, color: Color? }
@@ -69,8 +70,8 @@ struct ContextParts: View {
         }
     }
 
-    /// Swatch, name, tokens, share of the window; what's in it on a line under the name. Each part's tokens are an
-    /// estimate (the line above has the exact total).
+    /// One legend row: swatch, name, tokens, and share of the window, with what's in the part on a line under the name.
+    /// Each part's tokens are an estimate (the line above has the exact total).
     @ViewBuilder private func legend(_ row: Row, bold: Bool) -> some View {
         GridRow {
             PartsBar.Swatch(row.color)
