@@ -48,18 +48,11 @@ final class Watches: Sendable {
     /// `Store.Listener`.
     struct Reading: Sendable { var topic: (@Sendable (Key) -> Topic)? }
     let reading = OSAllocatedUnfairLock(initialState: Reading())
-    private let store: Store
     private let clients: Clients
     /// The FSEvents streams the watches' folders share.
     let streams = FileStreams()
 
-    private let remotes: Remotes
-
-    init(store: Store, clients: Clients, remotes: Remotes) {
-        self.store = store
-        self.clients = clients
-        self.remotes = remotes
-    }
+    init(clients: Clients) { self.clients = clients }
 
     func start(_ key: Key, conn: Int) {
         guard !closed.withLock({ $0 }) else { return }   // the daemon stopped them all: a late watch.start starts none

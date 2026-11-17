@@ -132,7 +132,7 @@ final class Sessions: Sendable, WorkspaceSessions {
     }
 
     struct Launch {
-        var model: String?, effort: String?, resume = false
+        var model: String?, effort: String?
         var prompt: String?, title: String?
         var draft = false   // type the prompt, don't send it
         var profile: String?
@@ -173,7 +173,7 @@ final class Sessions: Sendable, WorkspaceSessions {
     @discardableResult
     func spawn(cwd: String, manifest: AgentManifest, worktreeId: String?, _ launch: Launch = Launch()) throws -> Session
     {
-        var argv = launch.argv ?? manifest.argv(model: launch.model, effort: launch.effort, resume: launch.resume)
+        var argv = launch.argv ?? manifest.argv(model: launch.model, effort: launch.effort)
         var rec = Session(
             worktreeId: worktreeId, cwd: cwd, command: argv.joined(separator: " "), agent: manifest.id,
             title: launch.title ?? "", titleManual: launch.title != nil, argv: argv)

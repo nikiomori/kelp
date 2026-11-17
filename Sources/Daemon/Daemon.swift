@@ -80,7 +80,7 @@ public final class Daemon: Sendable {
         self.lsp = LSPHost(
             store: self.store, remotes: remotes, offloads: offloads, retryDelay: lspDelays.retry,
             idleDelay: lspDelays.idle)
-        self.watches = Watches(store: self.store, clients: clients, remotes: remotes)
+        self.watches = Watches(clients: clients)
         lsp.whenProblemsChange { [watches] path in
             watches.touched(.init(topic: .file, key: path), tag: UUID().uuidString)
         }
