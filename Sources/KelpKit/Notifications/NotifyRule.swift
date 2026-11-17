@@ -19,8 +19,8 @@ struct NotifyRule: Equatable {
     }
 
     /// Since it last started working. A question cuts a turn in two: what follows your answer counts from the answer.
-    static func turn(_ s: Session, after old: Session?) -> TimeInterval? {
-        guard let old, old.status == .working, let from = old.statusAt, let to = s.statusAt else { return nil }
+    static func turn(_ session: Session, after old: Session?) -> TimeInterval? {
+        guard let old, old.status == .working, let from = old.statusAt, let to = session.statusAt else { return nil }
         return to.timeIntervalSince(from)
     }
 }

@@ -50,7 +50,7 @@ import Testing
     try await queue.write { try $0.execute(sql: "CREATE TABLE t (code TEXT PRIMARY KEY, note TEXT)") }
     try await queue.write { try $0.execute(sql: "CREATE TABLE u (id INTEGER PRIMARY KEY, note TEXT)") }
     try queue.close()
-    let schema = try await SQLiteRun(c: fileConnection(path, .sqlite), off: Slots(1)).schema()
+    let schema = try await SQLiteRun(connection: fileConnection(path, .sqlite), off: Slots(1)).schema()
     let nullable = Dictionary(uniqueKeysWithValues: schema.tables.map { ($0.name, $0.columns.map(\.nullable)) })
     #expect(nullable["u"] == [false, true])
     #expect(nullable["t"] == [true, true])   // a TEXT key takes NULL in SQLite, unless NOT NULL says otherwise

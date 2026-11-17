@@ -5,18 +5,18 @@ import Foundation
 /// string stays one. A read opens the file read-only, so DuckDB refuses a change; a change counts its rows through
 /// RETURNING (DuckDB prints no count of its own), tried in a transaction it rolls back.
 struct DuckDBRun: DatabaseRunner {
-    let c: DatabaseConnection, off: Slots
+    let connection: DatabaseConnection, off: Slots
     static let marker = "--kelp-7f3e9c--"
 
     func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
-        let path = try DatabaseEngines.path(c)
+        let path = try DatabaseEngines.path(connection)
         return try await off.run {
             Self.section(try Self.run(path, readOnly: true, [sql], timeout: timeout).first ?? "")
         }
     }
 
     func trial(_ sql: String) async throws -> DatabaseRows {
-        let path = try DatabaseEngines.path(c)
+        let path = try DatabaseEngines.path(connection)
         return try await off.run {
             let returning = SQLText.returning(sql)
             let out = try Self.run(
@@ -30,7 +30,7 @@ struct DuckDBRun: DatabaseRunner {
     /// `allowed`: as SQLite's (`SQLiteRun.write`), in one script: the changed rows kept in a temporary table, a check
     /// that fails (`error()`, and -bail stops before COMMIT) when they aren't as many, then the rows and COMMIT.
     func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
-        let path = try DatabaseEngines.path(c)
+        let path = try DatabaseEngines.path(connection)
         return try await off.run {
             let returning = SQLText.returning(sql)
             guard let allowed, let returning else {
@@ -67,7 +67,7 @@ struct DuckDBRun: DatabaseRunner {
     /// The user's edits in one transaction (-bail stops before COMMIT): the rows each changed, as `.changes` prints
     /// them.
     func apply(_ statements: [String]) async throws -> Int {
-        let path = try DatabaseEngines.path(c)
+        let path = try DatabaseEngines.path(connection)
         return try await off.run {
             let out = try Self.run(
                 path, readOnly: false, ["BEGIN"] + statements + ["COMMIT"], timeout: DatabaseEngines.writeTimeout,
@@ -96,7 +96,7 @@ struct DuckDBRun: DatabaseRunner {
         """
 
     func schema() async throws -> DatabaseSchema {
-        let path = try DatabaseEngines.path(c)
+        let path = try DatabaseEngines.path(connection)
         return try await off.run {
             let out = try Self.run(
                 path, readOnly: true, [Self.schemaColumns, Self.schemaCounts, Self.schemaIndexes],

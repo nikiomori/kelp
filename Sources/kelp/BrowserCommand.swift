@@ -142,17 +142,17 @@ extension Main {
     /// nothing changed`), or where the page is; then the page's questions, downloads, and the lines it brought. Nil for
     /// what has no such shape (a snapshot's text, eval's value): printed as it came.
     static func browserText(_ action: BrowserAction, _ what: String, _ answer: JSONValue) -> String? {
-        guard action != .eval, case .object(let f) = answer else { return nil }   // eval's value is the page's
-        if action == .screenshot { return f["path"]?.string }
-        if action == .record, let path = f["path"]?.string {
-            return f["recording"]?.bool == true ? "recording → \(path) · kelp browser record stop ends it" : path
+        guard action != .eval, case .object(let fields) = answer else { return nil }   // eval's value is the page's
+        if action == .screenshot { return fields["path"]?.string }
+        if action == .record, let path = fields["path"]?.string {
+            return fields["recording"]?.bool == true ? "recording → \(path) · kelp browser record stop ends it" : path
         }
-        let page = "page \(ShellQuote.doubleQuoted(f["title"]?.string ?? "")) \(f["url"]?.string ?? "")"
+        let page = "page \(ShellQuote.doubleQuoted(fields["title"]?.string ?? "")) \(fields["url"]?.string ?? "")"
         var lines: [String]
         switch action {
         case .ask:
             let said =
-                switch f["answer"]?.string {
+                switch fields["answer"]?.string {
                 case "allow": "the user is done: the page is yours again"
                 case "deny": "the user won't: the page stays theirs until they hand it back"
                 case "gone": "asked no more: the page stays the user's until they hand it back"
@@ -161,21 +161,22 @@ extension Main {
             lines = [said, page]
         case .open, .reload, .back, .info, .viewport, .wait:
             let found = action == .wait ? "shown · " : ""
-            lines = [found + page + (f["viewport"]?.string.map { " · viewport \($0)" } ?? "")]
+            lines = [found + page + (fields["viewport"]?.string.map { " · viewport \($0)" } ?? "")]
         default:
             let came = [
-                f["upload"]?.string, f["shows"]?.string.map { "shows " + ShellQuote.doubleQuoted($0) },
-                f["scroll"]?.string.map { "at " + $0 },
-                f["change"]?.string.map { $0 == "new page" ? "new " + page : $0 }
+                fields["upload"]?.string, fields["shows"]?.string.map { "shows " + ShellQuote.doubleQuoted($0) },
+                fields["scroll"]?.string.map { "at " + $0 },
+                fields["change"]?.string.map { $0 == "new page" ? "new " + page : $0 }
             ].compactMap { $0 }
-            let head = [action.rawValue, what, f["element"]?.string ?? ""].filter { !$0.isEmpty }.joined(separator: " ")
+            let head = [action.rawValue, what, fields["element"]?.string ?? ""].filter { !$0.isEmpty }.joined(
+                separator: " ")
             lines = [head + " → " + (came.isEmpty ? "done" : came.joined(separator: ", "))]
         }
-        if f["loading"]?.bool == true { lines.append("(still loading)") }
-        if let error = f["error"]?.string { lines.append("failed: " + error) }
-        lines += (f["dialogs"]?.array ?? []).compactMap(\.string).map { "dialog: " + $0 }
-        lines += (f["downloads"]?.array ?? []).compactMap(\.string).map { "download: " + $0 }
-        if let shown = f["page"]?.string ?? f["new"]?.string, !shown.isEmpty { lines.append(shown) }
+        if fields["loading"]?.bool == true { lines.append("(still loading)") }
+        if let error = fields["error"]?.string { lines.append("failed: " + error) }
+        lines += (fields["dialogs"]?.array ?? []).compactMap(\.string).map { "dialog: " + $0 }
+        lines += (fields["downloads"]?.array ?? []).compactMap(\.string).map { "download: " + $0 }
+        if let shown = fields["page"]?.string ?? fields["new"]?.string, !shown.isEmpty { lines.append(shown) }
         return lines.joined(separator: "\n")
     }
 

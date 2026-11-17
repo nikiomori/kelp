@@ -66,8 +66,8 @@ final class ArtifactShots: NSObject, WKNavigationDelegate {
                 return [r.left, r.top, r.width, r.height]
                 """, contentWorld: .defaultClient)
         } catch { return top }
-        guard let r = found as? [Double], r.count == 4, r[2] >= 40, r[3] >= 20 else { return top }
-        return CGRect(x: r[0], y: r[1], width: min(r[2], 4000), height: min(r[3], r[2] * 2))
+        guard let rect = found as? [Double], rect.count == 4, rect[2] >= 40, rect[3] >= 20 else { return top }
+        return CGRect(x: rect[0], y: rect[1], width: min(rect[2], 4000), height: min(rect[3], rect[2] * 2))
     }
 
     private func finish(_ navigation: WKNavigation? = nil) {

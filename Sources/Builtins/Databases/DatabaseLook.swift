@@ -7,9 +7,9 @@ enum DatabaseLook {
     static let symbol = "cylinder.split.1x2"
 
     /// The engine's mark, as Add Database draws it (`EnginePreset.badge`), the size of a row's icon.
-    @MainActor static func badge(_ e: DatabaseInfo.Engine, size: CGFloat = 12) -> NSImage {
-        let image = EnginePreset.of(e).badge(size)
-        image.accessibilityDescription = e.displayName
+    @MainActor static func badge(_ engine: DatabaseInfo.Engine, size: CGFloat = 12) -> NSImage {
+        let image = EnginePreset.of(engine).badge(size)
+        image.accessibilityDescription = engine.displayName
         return image
     }
 

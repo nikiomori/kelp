@@ -61,8 +61,8 @@ private func callPastItsTime(_ engine: DatabaseInfo.Engine) async throws {
         do {
             _ =
                 engine == .postgres
-                ? try await PostgresWire(c: conn, grace: 3).read("SELECT 1", timeout: 0)
-                : try await MySQLWire(c: conn, grace: 3).read("SELECT 1", timeout: 0)
+                ? try await PostgresWire(connection: conn, grace: 3).read("SELECT 1", timeout: 0)
+                : try await MySQLWire(connection: conn, grace: 3).read("SELECT 1", timeout: 0)
             return "an answer"
         } catch { return (error as? DatabaseFailure)?.message ?? "\(error)" }
     }

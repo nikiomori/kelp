@@ -119,8 +119,9 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
 
     func reload() {
         let find = search.stringValue.lowercased()
-        func fits(_ t: DatabaseSchema.Table) -> Bool {
-            find.isEmpty || t.name.lowercased().contains(find) || t.columns.contains { $0.name.lowercased() == find }
+        func fits(_ table: DatabaseSchema.Table) -> Bool {
+            find.isEmpty || table.name.lowercased().contains(find)
+                || table.columns.contains { $0.name.lowercased() == find }
         }
         var out: [Row] = []
         switch part.selectedSegment {
@@ -162,7 +163,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
 
     @objc private func partChanged() { reload() }
     @objc private func schemaPicked() { reload() }
-    func controlTextDidChange(_ n: Notification) { reload() }
+    func controlTextDidChange(_ notification: Notification) { reload() }
 
     // MARK: Rows
 

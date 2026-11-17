@@ -52,26 +52,26 @@ package struct AgentActions {
 
     /// What a session's row offers wherever it shows outside its project's list (Activity); with `lastTurn`, its tab's
     /// menu: the changes of its last turn after Copy Context, Restart last and no Stop.
-    package func addSessionItems(to m: NSMenu, _ sid: String, lastTurn: (@MainActor () -> Void)? = nil) {
-        m.add(String(localized: "Rename…")) { rename(sid) }
+    package func addSessionItems(to menu: NSMenu, _ sid: String, lastTurn: (@MainActor () -> Void)? = nil) {
+        menu.add(String(localized: "Rename…")) { rename(sid) }
         if app.session(sid)?.isTerminal != true {   // a terminal has no conversation to copy or hand over
-            m.add(String(localized: "Hand Off to"), submenu: handoffMenu(sid))
-            addFork(to: m, sid)
-            addMove(to: m, sid)
-            m.add(String(localized: "Copy Context")) { copyContext(sid) }
-            if let lastTurn { m.add(String(localized: "Changes in Its Last Turn"), lastTurn) }
+            menu.add(String(localized: "Hand Off to"), submenu: handoffMenu(sid))
+            addFork(to: menu, sid)
+            addMove(to: menu, sid)
+            menu.add(String(localized: "Copy Context")) { copyContext(sid) }
+            if let lastTurn { menu.add(String(localized: "Changes in Its Last Turn"), lastTurn) }
             if lastTurn != nil, AgentFollow.can(app, sid) {
-                m.add(String(localized: "Follow Edits")) { AgentFollow.of(app).toggle(sid) }.state =
+                menu.add(String(localized: "Follow Edits")) { AgentFollow.of(app).toggle(sid) }.state =
                     AgentFollow.of(app).follows(sid) ? .on : .off
             }
         }
         guard lastTurn == nil else {
-            m.add(String(localized: "Restart")) { restart(sid) }
+            menu.add(String(localized: "Restart")) { restart(sid) }
             return
         }
-        m.addItem(.separator())
-        m.add(String(localized: "Restart")) { restart(sid) }
-        m.add(String(localized: "Stop…")) { stop([sid]) }
+        menu.addItem(.separator())
+        menu.add(String(localized: "Restart")) { restart(sid) }
+        menu.add(String(localized: "Stop…")) { stop([sid]) }
     }
 
     /// "Hand Off to ▸ Codex": a new agent in the same workspace gets what this one did (its conversation, or the
@@ -102,9 +102,9 @@ package struct AgentActions {
     }
 
     /// "Fork Chat", for an agent that can: a new chat beside it going on from a copy of its conversation.
-    func addFork(to m: NSMenu, _ sid: String) {
+    func addFork(to menu: NSMenu, _ sid: String) {
         guard app.catalog.manifest(app.session(sid)?.agent)?.forks == true else { return }
-        m.add(String(localized: "Fork Chat")) { fork(sid) }
+        menu.add(String(localized: "Fork Chat")) { fork(sid) }
     }
 
     /// "Continue On ▸ box": the chat goes on in its project's copy on another machine (a server, or this Mac), a branch

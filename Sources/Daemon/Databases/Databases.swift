@@ -150,8 +150,8 @@ final class Databases: Sendable {
     /// Where this Mac reaches it: a server behind an SSH host (`ssh`), or a remote project's, through a port forwarded
     /// over the shared connection (as a page's port is, `Forwards`), which dials when there's none. Anything else as it
     /// is.
-    func reach(_ c: DatabaseConnection, _ worktreeId: String) throws -> DatabaseConnection {
-        let borrowed = try borrowPassword(c)
+    func reach(_ databaseConnection: DatabaseConnection, _ worktreeId: String) throws -> DatabaseConnection {
+        let borrowed = try borrowPassword(databaseConnection)
         guard !borrowed.database.engine.isFile, let host = borrowed.database.host, let port = borrowed.database.port
         else { return borrowed }
         let through = try borrowed.database.ssh.map { ssh in
@@ -170,16 +170,20 @@ final class Databases: Sendable {
 
     /// A password still in another app's keychain (`passwordIn`), read now that it's needed (macOS asks, once) and
     /// kept in Kelp's own: the next connection doesn't ask.
-    func borrowPassword(_ c: DatabaseConnection) throws -> DatabaseConnection {
-        guard c.password == nil, let item = c.database.passwordIn else { return c }
-        var near = c
+    func borrowPassword(_ databaseConnection: DatabaseConnection) throws -> DatabaseConnection {
+        guard databaseConnection.password == nil, let item = databaseConnection.database.passwordIn else {
+            return databaseConnection
+        }
+        var near = databaseConnection
         do { near.password = try ImportReaders.borrowed(item) } catch is KeychainDenied {
             throw DatabaseFailure.failed(
-                "macOS didn't let Kelp read \(c.database.name)'s password where it was imported from: type it in Edit…."
+                "macOS didn't let Kelp read \(databaseConnection.database.name)'s password where it was imported from: type it in Edit…."
             )
         }
-        if let password = near.password, let account = c.account {
-            Log.store.attempt("keeping \(c.database.name)'s password") { try Keychain.set(password, account: account) }
+        if let password = near.password, let account = databaseConnection.account {
+            Log.store.attempt("keeping \(databaseConnection.database.name)'s password") {
+                try Keychain.set(password, account: account)
+            }
         }
         return near
     }

@@ -136,8 +136,9 @@ extension LayoutTemplate {
 
     /// A page on this Mac: its port, and what follows it in its address.
     static func localPage(_ uri: String) -> (port: Int, rest: String)? {
-        guard let c = URLComponents(string: uri), c.scheme == "http", ["localhost", "127.0.0.1"].contains(c.host),
-            let port = c.port, let at = uri.range(of: ":\(port)")
+        guard let components = URLComponents(string: uri), components.scheme == "http",
+            ["localhost", "127.0.0.1"].contains(components.host),
+            let port = components.port, let at = uri.range(of: ":\(port)")
         else { return nil }
         return (port, String(uri[at.upperBound...]))
     }

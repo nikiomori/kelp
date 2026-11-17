@@ -8,11 +8,13 @@ extension Notifier {
     /// What the banner can answer: a permission (Allow / Deny), or a reply typed to an agent back at its prompt (or its
     /// Continue, `QuickReply.goOn`). A question
     /// with a menu of its own (AskUserQuestion) has neither: typed text would wait behind the menu.
-    static func category(_ s: Session) -> String? {
-        s.asksPermission ? "permission" : QuickReply.fits(s) ? "reply" : nil
+    static func category(_ session: Session) -> String? {
+        session.asksPermission ? "permission" : QuickReply.fits(session) ? "reply" : nil
     }
 
-    nonisolated func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse) async {
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive r: UNNotificationResponse)
+        async
+    {
         if let uri = r.notification.request.content.userInfo["uri"] as? String {
             await MainActor.run {
                 NSApp.activate()
@@ -61,7 +63,7 @@ extension Notifier {
             }
         }
     }
-    nonisolated func userNotificationCenter(_ c: UNUserNotificationCenter, willPresent n: UNNotification) async
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent n: UNNotification) async
         -> UNNotificationPresentationOptions
     {
         [.banner, .sound]

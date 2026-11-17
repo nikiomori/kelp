@@ -289,12 +289,13 @@ extension BrowserTab {
 
     func probe() async -> Probe? {
         do {
-            guard let p = try await run(Self.probeJS) as? [String: Any], let doc = p["doc"] as? Double else {
+            guard let probe = try await run(Self.probeJS) as? [String: Any], let doc = probe["doc"] as? Double else {
                 return nil
             }
             return Probe(
-                doc: doc, url: p["url"] as? String ?? "", changes: p["n"] as? Int ?? 0, idle: p["idle"] as? Double ?? 0,
-                loading: p["ready"] as? String == "loading")
+                doc: doc, url: probe["url"] as? String ?? "", changes: probe["n"] as? Int ?? 0,
+                idle: probe["idle"] as? Double ?? 0,
+                loading: probe["ready"] as? String == "loading")
         } catch {
             return nil   // a navigation going on: the next document answers
         }

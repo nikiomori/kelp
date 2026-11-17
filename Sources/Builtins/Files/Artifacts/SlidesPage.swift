@@ -12,12 +12,12 @@ enum SlidesPage {
         let css = DesignSystem.css(tokens: json)
         func pick(_ vars: String) -> String {
             vars.split(separator: ";").compactMap { part -> String? in
-                let d = part.trimmingCharacters(in: .whitespaces)
+                let trimmed = part.trimmingCharacters(in: .whitespaces)
                 for (from, to) in [
                     ("--accent:", "--deck-accent:"), ("--font-body:", "--deck-font:"),
                     ("--font-display:", "--deck-display:")
-                ] where d.hasPrefix(from) {
-                    return to + d.dropFirst(from.count) + ";"
+                ] where trimmed.hasPrefix(from) {
+                    return to + trimmed.dropFirst(from.count) + ";"
                 }
                 return nil
             }.joined()

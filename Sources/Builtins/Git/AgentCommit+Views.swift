@@ -67,13 +67,13 @@ final class AgentCommitControls {
 
     /// A word that acts, in the link colour, underlined under the pointer.
     private static func link(_ title: String, _ target: AnyObject, _ action: Selector) -> PointerButton {
-        let b = PointerButton(title: title) {}
-        b.target = target
-        b.action = action
-        b.contentTintColor = .linkColor
-        b.font = .ui(TextSize.caption)
-        b.underlinesOnHover = true
-        return b
+        let button = PointerButton(title: title) {}
+        button.target = target
+        button.action = action
+        button.contentTintColor = .linkColor
+        button.font = .ui(TextSize.caption)
+        button.underlinesOnHover = true
+        return button
     }
 }
 

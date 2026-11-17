@@ -39,19 +39,19 @@ extension LiveSession {
         init() {}
 
         init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            let d = Kept()
-            holding = try c.decodeIfPresent(Bool.self, forKey: .holding) ?? d.holding
-            parked = try c.decodeIfPresent(Bool.self, forKey: .parked) ?? d.parked
-            asking = try c.decodeIfPresent([String: Int].self, forKey: .asking) ?? d.asking
-            questionOpen = try c.decodeIfPresent(Bool.self, forKey: .questionOpen) ?? d.questionOpen
-            turnEnd = try c.decodeIfPresent(TurnEnd.self, forKey: .turnEnd) ?? d.turnEnd
-            transcript = try c.decodeIfPresent(String.self, forKey: .transcript)
-            boxEmpty = try c.decodeIfPresent(Bool.self, forKey: .boxEmpty) ?? d.boxEmpty
-            pasteMode = try c.decodeIfPresent(Bool.self, forKey: .pasteMode) ?? d.pasteMode
-            draftWaiting = try c.decodeIfPresent(Bool.self, forKey: .draftWaiting) ?? d.draftWaiting
-            typing = try c.decodeIfPresent(String.self, forKey: .typing) ?? d.typing
-            hooksSpoke = try c.decodeIfPresent(Bool.self, forKey: .hooksSpoke) ?? d.hooksSpoke
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let kept = Kept()
+            holding = try container.decodeIfPresent(Bool.self, forKey: .holding) ?? kept.holding
+            parked = try container.decodeIfPresent(Bool.self, forKey: .parked) ?? kept.parked
+            asking = try container.decodeIfPresent([String: Int].self, forKey: .asking) ?? kept.asking
+            questionOpen = try container.decodeIfPresent(Bool.self, forKey: .questionOpen) ?? kept.questionOpen
+            turnEnd = try container.decodeIfPresent(TurnEnd.self, forKey: .turnEnd) ?? kept.turnEnd
+            transcript = try container.decodeIfPresent(String.self, forKey: .transcript)
+            boxEmpty = try container.decodeIfPresent(Bool.self, forKey: .boxEmpty) ?? kept.boxEmpty
+            pasteMode = try container.decodeIfPresent(Bool.self, forKey: .pasteMode) ?? kept.pasteMode
+            draftWaiting = try container.decodeIfPresent(Bool.self, forKey: .draftWaiting) ?? kept.draftWaiting
+            typing = try container.decodeIfPresent(String.self, forKey: .typing) ?? kept.typing
+            hooksSpoke = try container.decodeIfPresent(Bool.self, forKey: .hooksSpoke) ?? kept.hooksSpoke
         }
     }
 

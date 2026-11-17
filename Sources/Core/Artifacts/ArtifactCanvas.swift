@@ -141,10 +141,10 @@ public struct Tweak: Equatable, Sendable, Encodable {
     /// The board with tweak `name` set to `value`; nil when it has no such tweak or the value could end the comment.
     public static func set(_ name: String, to value: String, in html: String) -> String? {
         guard !value.contains(where: { "<>;()\n".contains($0) }),
-            let m = html.matches(of: line).first(where: { $0.output.1 == name })
+            let match = html.matches(of: line).first(where: { $0.output.1 == name })
         else { return nil }
         var out = html
-        out.replaceSubrange(m.output.2.startIndex..<m.output.2.endIndex, with: value)
+        out.replaceSubrange(match.output.2.startIndex..<match.output.2.endIndex, with: value)
         return out
     }
 

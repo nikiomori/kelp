@@ -79,8 +79,8 @@ struct AgentPageCard: View {
 
     /// `localhost:3000/checkout`.
     static func place(_ url: String) -> String {
-        guard let u = URL(string: url), let host = u.host else { return url }
-        return host + (u.port.map { ":\($0)" } ?? "") + (u.path == "/" ? "" : u.path)
+        guard let parsed = URL(string: url), let host = parsed.host else { return url }
+        return host + (parsed.port.map { ":\($0)" } ?? "") + (parsed.path == "/" ? "" : parsed.path)
     }
 
     @ViewBuilder private func frame(_ id: String, height: CGFloat) -> some View {

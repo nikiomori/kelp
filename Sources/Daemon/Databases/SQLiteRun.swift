@@ -4,7 +4,7 @@ import GRDB
 
 /// A SQLite file in kelpd itself (GRDB).
 struct SQLiteRun: DatabaseRunner {
-    let c: DatabaseConnection, off: Slots
+    let connection: DatabaseConnection, off: Slots
     /// How long the schema's row counts may take in all: past it a table's count is left out (nil), so a file of
     /// many GB still shows its tables.
     var counting: TimeInterval = 3
@@ -20,7 +20,7 @@ struct SQLiteRun: DatabaseRunner {
     /// Each stopped at its time (`interrupt`, from another thread): a runaway join or UPDATE doesn't keep its slot, nor
     /// outlast the call that waits for it. SQLite undoes a statement it stops.
     func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
-        let path = try DatabaseEngines.path(c)
+        let path = try DatabaseEngines.path(connection)
         return try await off.run {
             try Self.run {
                 let queue = try Self.open(path, readOnly: true)
@@ -36,7 +36,7 @@ struct SQLiteRun: DatabaseRunner {
     }
 
     func trial(_ sql: String) async throws -> DatabaseRows {
-        let path = try DatabaseEngines.path(c)
+        let path = try DatabaseEngines.path(connection)
         return try await off.run {
             try Self.run {
                 var result = DatabaseRows()
@@ -58,7 +58,7 @@ struct SQLiteRun: DatabaseRunner {
 
     /// `allowed`: as Postgres' (`PostgresWire.write`).
     func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
-        let path = try DatabaseEngines.path(c)
+        let path = try DatabaseEngines.path(connection)
         return try await off.run {
             try Self.run {
                 let queue = try Self.open(path, readOnly: false)
@@ -84,7 +84,7 @@ struct SQLiteRun: DatabaseRunner {
     }
 
     func apply(_ statements: [String]) async throws -> Int {
-        let path = try DatabaseEngines.path(c)
+        let path = try DatabaseEngines.path(connection)
         return try await off.run {
             try Self.run {
                 var changed = 0
@@ -105,7 +105,7 @@ struct SQLiteRun: DatabaseRunner {
 
     /// A statement that changes nothing (a read) says no count; the rest, the rows they and their triggers changed.
     func batch(_ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool) async throws -> [Int?] {
-        let path = try DatabaseEngines.path(c)
+        let path = try DatabaseEngines.path(connection)
         return try await off.run {
             try Self.run {
                 var changed: [Int?] = []
@@ -160,7 +160,7 @@ struct SQLiteRun: DatabaseRunner {
     }
 
     func schema() async throws -> DatabaseSchema {
-        let path = try DatabaseEngines.path(c)
+        let path = try DatabaseEngines.path(connection)
         return try await off.run {
             try Self.run {
                 let queue = try Self.open(path, readOnly: true)

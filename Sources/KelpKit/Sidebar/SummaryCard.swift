@@ -69,28 +69,29 @@ final class SummaryCard {
         }
     }
 
-    private func row(_ s: Session, _ kind: SummaryKind) -> SummaryCardView.Row {
-        let place = app.worktree(s.worktreeId).flatMap { app.projectName($0.repoId) }
+    private func row(_ session: Session, _ kind: SummaryKind) -> SummaryCardView.Row {
+        let place = app.worktree(session.worktreeId).flatMap { app.projectName($0.repoId) }
         let now: String
         switch kind {
         case .working:
-            let subagents = s.runningSubagents.count
+            let subagents = session.runningSubagents.count
             now =
-                s.running.map { String(localized: "Running \($0)") }
+                session.running.map { String(localized: "Running \($0)") }
                 ?? (subagents > 0 ? String(localized: "\(subagents) subagents") : nil)
-                ?? (s.summary.isEmpty ? s.statusWords : s.summary)
+                ?? (session.summary.isEmpty ? session.statusWords : session.summary)
         case .limit:
-            let line = app.extensions.all.plans?.rowLine(s).map { "\($0.word) \($0.text)" }
+            let line = app.extensions.all.plans?.rowLine(session).map { "\($0.word) \($0.text)" }
             now = line ?? String(localized: "At its limit")
         case .quiet:
-            now = String(localized: "No news for \(shortSpan(Date().timeIntervalSince(SummaryCounts.since(s, kind))))")
+            now = String(
+                localized: "No news for \(shortSpan(Date().timeIntervalSince(SummaryCounts.since(session, kind))))")
         case .done:
-            now = s.summary.isEmpty ? s.statusWords : s.summary
+            now = session.summary.isEmpty ? session.statusWords : session.summary
         }
         return SummaryCardView.Row(
-            id: s.id, icon: app.catalog.icon(s.agent, size: 14), title: app.catalog.displayName(s),
+            id: session.id, icon: app.catalog.icon(session.agent, size: 14), title: app.catalog.displayName(session),
             line: [place, now].compactMap { $0 }.joined(separator: " · "),
-            time: kind == .limit ? "" : shortAgo(SummaryCounts.since(s, kind)))
+            time: kind == .limit ? "" : shortAgo(SummaryCounts.since(session, kind)))
     }
 }
 

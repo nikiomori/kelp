@@ -5,13 +5,14 @@ import Foundation
 
 /// mysql inside a compose container (`docker exec`): its batch output.
 struct MySQLRun: DatabaseRunner {
-    let c: DatabaseConnection, off: Slots
+    let connection: DatabaseConnection, off: Slots
     static let marker = "kelp_7f3e9c"
 
     func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
         return try await off.run {
             // The server stops it too: a client killed in a container (`docker exec`) leaves its query running there
-            let out = try Self.run(c, Self.limit(timeout) + ["START TRANSACTION READ ONLY", sql], timeout: timeout + 5)
+            let out = try Self.run(
+                connection, Self.limit(timeout) + ["START TRANSACTION READ ONLY", sql], timeout: timeout + 5)
             return Self.section(out.last ?? "")
         }
     }
@@ -38,9 +39,9 @@ struct MySQLRun: DatabaseRunner {
 
     func trial(_ sql: String) async throws -> DatabaseRows {
         return try await off.run {
-            let tables = try Self.run(c, [Self.unrollable], timeout: DatabaseEngines.readTimeout + 5)
+            let tables = try Self.run(connection, [Self.unrollable], timeout: DatabaseEngines.readTimeout + 5)
             guard (Self.section(tables.last ?? "").rows.first?.first ?? nil) == "0" else { throw Self.cantRollBack }
-            let out = try Self.run(c, ["START TRANSACTION", Self.counted(sql), "ROLLBACK"], timeout: 60)
+            let out = try Self.run(connection, ["START TRANSACTION", Self.counted(sql), "ROLLBACK"], timeout: 60)
             guard out.count >= 2 else { throw DatabaseFailure.failed("mysql said nothing of the change.") }
             return Self.withCount(out[out.count - 2])
         }
@@ -51,7 +52,7 @@ struct MySQLRun: DatabaseRunner {
     func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
         return try await off.run {
             guard let allowed else {
-                let out = try Self.run(c, [Self.counted(sql)], timeout: DatabaseEngines.writeTimeout + 10)
+                let out = try Self.run(connection, [Self.counted(sql)], timeout: DatabaseEngines.writeTimeout + 10)
                 return out.last.map(Self.withCount) ?? DatabaseRows()
             }
             let decide = [
@@ -60,7 +61,8 @@ struct MySQLRun: DatabaseRunner {
                 "EXECUTE kelp_end", "SELECT @kelp_changed = \(allowed) AS kelp_held"
             ]
             let kept = sql + "\n;\nSET @kelp_changed = ROW_COUNT();\nSELECT @kelp_changed AS " + Self.changedColumn
-            let out = try Self.run(c, ["START TRANSACTION", kept] + decide, timeout: DatabaseEngines.writeTimeout + 10)
+            let out = try Self.run(
+                connection, ["START TRANSACTION", kept] + decide, timeout: DatabaseEngines.writeTimeout + 10)
             guard out.count == 6 else { throw DatabaseFailure.failed("mysql said nothing of the change.") }
             let rows = Self.withCount(out[1])
             guard Self.section(out[5]).rows.first?.first == "1" else {
@@ -74,7 +76,7 @@ struct MySQLRun: DatabaseRunner {
     func apply(_ statements: [String]) async throws -> Int {
         return try await off.run {
             let out = try Self.run(
-                c, ["START TRANSACTION"] + statements.map(Self.counted) + ["COMMIT"],
+                connection, ["START TRANSACTION"] + statements.map(Self.counted) + ["COMMIT"],
                 timeout: DatabaseEngines.writeTimeout + 10)
             return out.dropFirst().dropLast().map { Self.withCount($0).changed ?? 0 }.reduce(0, +)
         }
@@ -117,7 +119,7 @@ struct MySQLRun: DatabaseRunner {
     func schema() async throws -> DatabaseSchema {
         return try await off.run {
             let out = try Self.run(
-                c, [Self.schemaColumns, Self.schemaCounts, Self.schemaIndexes],
+                connection, [Self.schemaColumns, Self.schemaCounts, Self.schemaIndexes],
                 timeout: DatabaseEngines.readTimeout + 10)
             guard out.count >= 3 else { throw DatabaseFailure.failed("mysql said nothing of the tables.") }
             return DatabaseSchemaBuilder.build(

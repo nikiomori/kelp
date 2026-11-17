@@ -74,7 +74,9 @@ extension ContextEvent: Pushed {
     package var shown: SessionContextWindow.Usage? { usage.flatMap { $0.window > 0 ? $0 : nil } }
     /// A percent at a time: a ring redrawn for every token would re-render each reader.
     package func replaces(_ old: ContextEvent?) -> Bool {
-        func share(_ u: SessionContextWindow.Usage?) -> Double { u.map { Double($0.used) / Double($0.window) } ?? -1 }
+        func share(_ usage: SessionContextWindow.Usage?) -> Double {
+            usage.map { Double($0.used) / Double($0.window) } ?? -1
+        }
         return shown?.window != old?.shown?.window || abs(share(shown) - share(old?.shown)) > 0.01
     }
 }

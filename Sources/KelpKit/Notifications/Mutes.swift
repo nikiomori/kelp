@@ -41,8 +41,8 @@ package enum Mutes {
         app.arrangement.mute(ids, until: until)
     }
 
-    @MainActor package static func isMuted(_ s: Session, in app: AppModel) -> Bool {
-        covers(app.arrangement.mutes, [s.id, s.worktreeId, app.worktree(s.worktreeId)?.repoId])
+    @MainActor package static func isMuted(_ session: Session, in app: AppModel) -> Bool {
+        covers(app.arrangement.mutes, [session.id, session.worktreeId, app.worktree(session.worktreeId)?.repoId])
     }
 }
 

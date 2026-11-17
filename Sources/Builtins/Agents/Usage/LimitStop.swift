@@ -16,11 +16,11 @@ enum LimitStop {
     }
 
     /// Its row's second line.
-    static func rowLine(_ s: Session, now: Date = Date()) -> (word: String, text: String)? {
-        if let at = s.continueAt {   // at a limit's reset, or after an API error that passes
+    static func rowLine(_ session: Session, now: Date = Date()) -> (word: String, text: String)? {
+        if let at = session.continueAt {   // at a limit's reset, or after an API error that passes
             return (String(localized: "Continues"), String(localized: "at \(clock(at, now: now))"))
         }
-        guard let hit = s.limitHit else { return nil }
+        guard let hit = session.limitHit else { return nil }
         if let at = hit.resetAt, at <= now { return (String(localized: "Limit:"), String(localized: "has reset")) }
         let resets = hit.resetAt.map { clock($0, now: now) } ?? hit.resets
         return (String(localized: "Limit:"), resets.map { String(localized: "resets \($0)") } ?? hit.kind)
@@ -31,9 +31,9 @@ enum LimitStop {
         hit.resets.map { String(localized: "\(hit.kind) · resets \($0)") } ?? hit.kind
     }
 
-    static func title(_ name: String, _ s: Session, now: Date = Date()) -> String {
-        if let at = s.continueAt { return String(localized: "\(name) will continue at \(clock(at, now: now))") }
-        if let at = s.limitHit?.resetAt, at <= now { return String(localized: "\(name): the limit has reset") }
-        return String(localized: "\(name) hit its \(s.limitHit?.kind ?? "") limit")
+    static func title(_ name: String, _ session: Session, now: Date = Date()) -> String {
+        if let at = session.continueAt { return String(localized: "\(name) will continue at \(clock(at, now: now))") }
+        if let at = session.limitHit?.resetAt, at <= now { return String(localized: "\(name): the limit has reset") }
+        return String(localized: "\(name) hit its \(session.limitHit?.kind ?? "") limit")
     }
 }

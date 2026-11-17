@@ -13,10 +13,10 @@ struct LimitAlerts {
 
     /// The first reading only sets the baseline: what was already full when Kelp opened isn't news. Fresh ones only:
     /// a reading from over half an hour ago says nothing about now.
-    mutating func update(_ u: UsageGet.Result, first: Int? = 80) -> [Alert] {
+    mutating func update(_ result: UsageGet.Result, first: Int? = 80) -> [Alert] {
         let levels = Self.levels(first: first)
         var alerts: [Alert] = []
-        for r in u.fresh() {
+        for r in result.fresh() {
             let agent = r.agent, l = r.limit
             let key = agent + "|" + l.kind
             let level = levels.last { l.percent >= Double($0) } ?? 0

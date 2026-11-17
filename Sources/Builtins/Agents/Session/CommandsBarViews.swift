@@ -54,15 +54,15 @@ final class Grip: NSView {
     var dragged: (CGFloat) -> Void = { _ in }
     private var last: CGFloat = 0
     override func resetCursorRects() { addCursorRect(bounds, cursor: .resizeUpDown) }
-    override func mouseDown(with e: NSEvent) {
+    override func mouseDown(with event: NSEvent) {
         GhosttyTerminalView.holdSize(true)
-        last = e.locationInWindow.y
+        last = event.locationInWindow.y
     }
-    override func mouseDragged(with e: NSEvent) {
-        dragged(e.locationInWindow.y - last)
-        last = e.locationInWindow.y
+    override func mouseDragged(with event: NSEvent) {
+        dragged(event.locationInWindow.y - last)
+        last = event.locationInWindow.y
     }
-    override func mouseUp(with e: NSEvent) { GhosttyTerminalView.holdSize(false) }
+    override func mouseUp(with event: NSEvent) { GhosttyTerminalView.holdSize(false) }
 }
 
 /// One command: its mark, the agent's words for it, what it runs in grey, and how long it took or has been running.
@@ -134,32 +134,34 @@ final class CommandRow: NSTableCellView {
         }
     }
 
-    private static func ending(_ s: Session, tail: String?) -> String {
-        guard status(exit: s.exitCode) != .exited else { return String(localized: "Stopped") }
-        let code = String(localized: "exit code \(s.exitCode ?? 0)")
-        return s.exitCode == 0 ? code : [code, tail].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+    private static func ending(_ session: Session, tail: String?) -> String {
+        guard status(exit: session.exitCode) != .exited else { return String(localized: "Stopped") }
+        let code = String(localized: "exit code \(session.exitCode ?? 0)")
+        return session.exitCode == 0
+            ? code : [code, tail].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     /// `c`, or (none) just `title`.
-    func show(_ c: AgentCommand?, title: String = "", now: Date) {
-        mark.status = c.map(Self.status)
+    func show(_ agentCommand: AgentCommand?, title: String = "", now: Date) {
+        mark.status = agentCommand.map(Self.status)
         server.isHidden = true
-        slot.isHidden = c == nil
+        slot.isHidden = agentCommand == nil
         command.textColor = .secondaryLabelColor
-        let words = c?.description.flatMap { $0.isEmpty ? nil : $0 }
+        let words = agentCommand?.description.flatMap { $0.isEmpty ? nil : $0 }
         lead.font =
-            c == nil
+            agentCommand == nil
             ? .ui(TextSize.caption, weight: .semibold)
             : words == nil ? .uiMono(TextSize.caption) : .ui(TextSize.caption)
-        lead.stringValue = words ?? c?.shortCommand ?? title
-        command.stringValue = words == nil ? "" : c?.shortCommand ?? ""   // empty, it still pushes the time to the right
-        time.stringValue = c.map { Self.time($0, now: now) } ?? ""
-        toolTip = c.map { [$0.description, $0.command].compactMap { $0 }.joined(separator: "\n") }
+        lead.stringValue = words ?? agentCommand?.shortCommand ?? title
+        // empty, it still pushes the time to the right
+        command.stringValue = words == nil ? "" : agentCommand?.shortCommand ?? ""
+        time.stringValue = agentCommand.map { Self.time($0, now: now) } ?? ""
+        toolTip = agentCommand.map { [$0.description, $0.command].compactMap { $0 }.joined(separator: "\n") }
     }
 
     /// Running spins; a fine end is a grey ✓, a failure red, one stopped a grey ✕. One moved to the background started fine.
-    static func status(_ c: AgentCommand) -> AgentStatus {
-        switch c.outcome {
+    static func status(_ agentCommand: AgentCommand) -> AgentStatus {
+        switch agentCommand.outcome {
         case nil: .working
         case .ok?, .background?: .done
         case .failed?: .error
@@ -168,8 +170,9 @@ final class CommandRow: NSTableCellView {
     }
 
     /// "12s", "1m 5s"; "in the background" for one whose end isn't told.
-    static func time(_ c: AgentCommand, now: Date) -> String {
-        if c.outcome == .background { return String(localized: "in the background") }
-        return shortSpan((c.ended ?? now).timeIntervalSince(c.started), units: 2, smallest: .second)
+    static func time(_ agentCommand: AgentCommand, now: Date) -> String {
+        if agentCommand.outcome == .background { return String(localized: "in the background") }
+        return shortSpan(
+            (agentCommand.ended ?? now).timeIntervalSince(agentCommand.started), units: 2, smallest: .second)
     }
 }

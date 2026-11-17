@@ -64,13 +64,14 @@ extension Artifacts {
             .sorted { ($0.modified ?? $0.created) > ($1.modified ?? $1.created) }
     }
 
-    private static func item(_ slug: String, _ r: ArtifactRecord, root: String) -> ArtifactItem {
-        let target = target(slug, r, root: root)
+    private static func item(_ slug: String, _ artifactRecord: ArtifactRecord, root: String) -> ArtifactItem {
+        let target = target(slug, artifactRecord, root: root)
         var item = ArtifactItem(
-            slug: slug, type: r.type, title: r.title, created: r.created.timeIntervalSince1970, session: r.session,
-            url: r.url, target: target)
-        guard r.url == nil else {
-            item.modified = r.updated?.timeIntervalSince1970
+            slug: slug, type: artifactRecord.type, title: artifactRecord.title,
+            created: artifactRecord.created.timeIntervalSince1970, session: artifactRecord.session,
+            url: artifactRecord.url, target: target)
+        guard artifactRecord.url == nil else {
+            item.modified = artifactRecord.updated?.timeIntervalSince1970
             let copy = dir(root: root).appendingPathComponent(slug).appendingPathComponent(pageCopy).path
             item.preview = fileStat(copy) == nil ? nil : copy
             return item
@@ -78,21 +79,24 @@ extension Artifacts {
         item.preview = target
         let page = fileStat(target)
         item.modified =
-            r.file == Kind.design.file ? canvasTime(target, root: root) : page.map { Double($0.mtime.tv_sec) }
-        item.versions = r.versions
+            artifactRecord.file == Kind.design.file
+            ? canvasTime(target, root: root) : page.map { Double($0.mtime.tv_sec) }
+        item.versions = artifactRecord.versions
         // Every event under the folder lists them all again: a page is read only when its size and time can't tell.
-        let last = r.versions?.last.map { versionPath(target: target, $0.n) }.flatMap(fileStat)
-        if r.type != Kind.review.rawValue, let page, let last, page.size != last.size || !page.newer(than: last) {
+        let last = artifactRecord.versions?.last.map { versionPath(target: target, $0.n) }.flatMap(fileStat)
+        if artifactRecord.type != Kind.review.rawValue, let page, let last,
+            page.size != last.size || !page.newer(than: last)
+        {
             item.changed = page.size != last.size
             return item
         }
         let text = small(target).map { String(decoding: $0, as: UTF8.self) }
-        if r.type == Kind.review.rawValue, let text {
+        if artifactRecord.type == Kind.review.rawValue, let text {
             let points = Review(text).points
             item.points = points.count
             item.answered = points.filter { $0.pick != nil }.count
         }
-        item.changed = text != r.versions?.last.flatMap { versionText(target: target, $0.n) }
+        item.changed = text != artifactRecord.versions?.last.flatMap { versionText(target: target, $0.n) }
         return item
     }
 

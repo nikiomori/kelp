@@ -153,7 +153,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         row.widthAnchor.constraint(equalTo: found.widthAnchor).isActive = true
     }
 
-    func controlTextDidChange(_ n: Notification) { read() }
+    func controlTextDidChange(_ notification: Notification) { read() }
 
     /// Return in the field is Continue: the field editor takes it before the default button would.
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {

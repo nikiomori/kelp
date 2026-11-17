@@ -167,12 +167,12 @@ extension DatabaseTab {
         }
     }
 
-    func openSaved(_ q: DatabaseSidebar.SavedQuery) {
-        editor.setText(q.sql)
+    func openSaved(_ savedQuery: DatabaseSidebar.SavedQuery) {
+        editor.setText(savedQuery.sql)
         Task { await leave(to: .query) }
     }
 
-    func forget(_ q: DatabaseSidebar.SavedQuery) { storeQueries(sidebar.saved.filter { $0 != q }) }
+    func forget(_ savedQuery: DatabaseSidebar.SavedQuery) { storeQueries(sidebar.saved.filter { $0 != savedQuery }) }
 
     /// The plan, as the engine says it.
     @objc func explainQuery() {

@@ -16,9 +16,9 @@ package struct AgentCatalog {
 
     /// The agents a new tab in workspace `w` can start: on a remote project's host, those the host has (once it said;
     /// asked as this is), else this Mac's. A terminal is always one.
-    func startable(in w: Worktree?) -> [AgentManifest] {
-        guard let w, let host = RemoteHost.of(w.path)?.host else { return installed(all) }
-        app.availability.refreshHost(host, workspace: w.id, commands: all.map(\.command))
+    func startable(in worktree: Worktree?) -> [AgentManifest] {
+        guard let worktree, let host = RemoteHost.of(worktree.path)?.host else { return installed(all) }
+        app.availability.refreshHost(host, workspace: worktree.id, commands: all.map(\.command))
         guard let there = app.availability.onHost[host] else { return installed(all) }
         return all.filter {
             !Session.isAgent($0.id) || there.contains(($0.command as NSString).lastPathComponent)
@@ -39,8 +39,8 @@ package struct AgentCatalog {
     }
     /// Whether to offer tmux sessions in a workspace: tmux is on this Mac, or the project is on a host (which usually has
     /// it; tmux.list says so when it hasn't).
-    func hasTmux(_ w: Worktree?) -> Bool {
-        app.availability.ids.contains("tmux") || w.flatMap { RemoteHost.of($0.path) } != nil
+    func hasTmux(_ worktree: Worktree?) -> Bool {
+        app.availability.ids.contains("tmux") || worktree.flatMap { RemoteHost.of($0.path) } != nil
     }
     /// The default agent, nil while no agent CLI is found (nothing to start).
     var startable: String? { installed(all).isEmpty ? nil : defaultAgent }
@@ -52,11 +52,11 @@ package struct AgentCatalog {
 
     /// Its title, or the agent's name — numbered when the same agent runs twice in one workspace.
     /// Sidebar, tabs, notifications and menus all use this, so they agree.
-    package func displayName(_ s: Session) -> String {
-        if !s.title.isEmpty { return s.title }
-        let base = name(s.agent)
+    package func displayName(_ session: Session) -> String {
+        if !session.title.isEmpty { return session.title }
+        let base = name(session.agent)
         // From an index: asked for every row and tab on every session's news.
-        guard let number = app.untitledNumber(s.id) else { return base }
+        guard let number = app.untitledNumber(session.id) else { return base }
         return "\(base) \(number)"
     }
 
@@ -72,10 +72,10 @@ package struct AgentCatalog {
     }
     /// The agent's own install command in a terminal tab of `e`, in plain sight; once it ends, the agent is looked for again.
     /// An installer that needs npm or Homebrew, on a Mac without it, says so here instead of failing in its tab.
-    package func install(_ m: AgentManifest, in e: SessionStarter) {
-        guard let cmd = m.install else { return }
+    package func install(_ agentManifest: AgentManifest, in e: SessionStarter) {
+        guard let cmd = agentManifest.install else { return }
         Task { [app] in
-            if let tool = m.installNeeds, let found = await app.quiet(ProcessWhich(commands: [tool])),
+            if let tool = agentManifest.installNeeds, let found = await app.quiet(ProcessWhich(commands: [tool])),
                 found[tool] == nil
             {
                 let first =
@@ -83,12 +83,12 @@ package struct AgentCatalog {
                     ? String(localized: "Install Node.js first (nodejs.org, or brew install node).")
                     : String(localized: "Install Homebrew first (brew.sh).")
                 Banner.show(
-                    String(localized: "\(m.name) installs with \(tool), which isn’t on this Mac. ") + first,
+                    String(localized: "\(agentManifest.name) installs with \(tool), which isn’t on this Mac. ") + first,
                     style: .error)
                 return
             }
-            e.run(command: cmd, title: String(localized: "Install \(m.name)")) { session in
-                app.availability.watchInstall(session.id, agent: m.id)
+            e.run(command: cmd, title: String(localized: "Install \(agentManifest.name)")) { session in
+                app.availability.watchInstall(session.id, agent: agentManifest.id)
             }
         }
     }
@@ -155,8 +155,9 @@ package final class AgentAvailability {
 
     /// `agent`'s installer runs in session `tab`: when it ends, the agents are looked for again (no wait for the next check).
     func watchInstall(_ tab: String, agent: String) { phases[agent] = .running(tab: tab) }
-    func sessionChanged(_ s: Session) {
-        guard s.status == .exited, let agent = phases.first(where: { $0.value == .running(tab: s.id) })?.key else {
+    func sessionChanged(_ session: Session) {
+        guard session.status == .exited, let agent = phases.first(where: { $0.value == .running(tab: session.id) })?.key
+        else {
             return
         }
         refresh(force: true, rereadPath: true, expecting: [agent])

@@ -38,10 +38,10 @@ struct PhoneDevice {
     /// more than `window` behind the newest: refused.
     mutating func admit(_ number: Double) -> Bool {
         guard number == number.rounded(), number > 0, number < 9_007_199_254_740_992 else { return false }
-        let n = Int64(number)
-        guard n > floor, n > last - Self.window, !seen.contains(n) else { return false }
-        seen.insert(n)
-        last = max(last, n)
+        let value = Int64(number)
+        guard value > floor, value > last - Self.window, !seen.contains(value) else { return false }
+        seen.insert(value)
+        last = max(last, value)
         if seen.count > 512 { seen = seen.filter { $0 > last - Self.window } }
         return true
     }

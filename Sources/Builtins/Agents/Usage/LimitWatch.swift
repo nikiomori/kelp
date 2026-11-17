@@ -25,8 +25,8 @@ final class LimitWatch {
     }
 
     /// Each reading as it lands: the forecast takes every one.
-    func landed(_ e: any Pushed) {
-        guard let limits = e as? LimitsEvent else { return }
+    func landed(_ pushed: any Pushed) {
+        guard let limits = pushed as? LimitsEvent else { return }
         forecast.record(limits.usage)
         limitsChanged(limits.usage)
     }
@@ -49,8 +49,8 @@ final class LimitWatch {
 
     private var resets = LimitResets()
     private var resetWaits: [String: Task<Void, Never>] = [:]
-    private func resetsChanged(_ u: UsageGet.Result) {
-        for agent in resets.update(u.fresh()) {
+    private func resetsChanged(_ result: UsageGet.Result) {
+        for agent in resets.update(result.fresh()) {
             guard let until = resets.full[agent]?.until else { continue }
             resetWaits[agent]?.cancel()
             resetWaits[agent] = Task { [weak self] in
@@ -80,10 +80,10 @@ final class LimitWatch {
         Notifications.notifyUser(app, "reset-\(agent)", content, goingOn: ids)
     }
 
-    private func forecastChanged(_ u: UsageGet.Result) {
+    private func forecastChanged(_ result: UsageGet.Result) {
         guard app.settings.usageAlertAt != nil else { return }
         var read = Set<String>()
-        for r in u.fresh() {
+        for r in result.fresh() {
             let agent = r.agent, l = r.limit, resetAt = r.resetAt
             let key = LimitForecast.key(agent, l.kind), window = UsageGet.window(l.kind)
             read.insert(key)
@@ -105,11 +105,13 @@ final class LimitWatch {
 
     /// A week (or month) that resets within a day with over half left, once per window: kept across launches, since the
     /// day it holds is long enough to see Kelp quit and open again.
-    private func unusedNearReset(_ agent: String, _ l: UsageGet.Limit, resetAt: Date?, window: TimeInterval?) {
-        guard LimitForecast.unusedNearReset(percent: l.percent, resetAt: resetAt, window: window), let resetAt else {
+    private func unusedNearReset(_ agent: String, _ limit: UsageGet.Limit, resetAt: Date?, window: TimeInterval?) {
+        guard LimitForecast.unusedNearReset(percent: limit.percent, resetAt: resetAt, window: window), let resetAt
+        else {
             return
         }
-        let defaults = UserDefaults.standard, saved = "notifications.unusedTold", key = LimitForecast.key(agent, l.kind)
+        let defaults = UserDefaults.standard, saved = "notifications.unusedTold",
+            key = LimitForecast.key(agent, limit.kind)
         var told = defaults.dictionary(forKey: saved) as? [String: Double] ?? [:]
         let now = Date().timeIntervalSince1970
         guard (told[key].map { now - $0 > 86400 }) ?? true else { return }
@@ -117,7 +119,8 @@ final class LimitWatch {
         defaults.set(told.filter { now - $0.value <= 86400 }, forKey: saved)
         let name = app.catalog.name(agent)
         let content = UNMutableNotificationContent()
-        content.title = String(localized: "\(name): \(Int((100 - l.percent).rounded())) % of the \(l.kind) limit left")
+        content.title = String(
+            localized: "\(name): \(Int((100 - limit.percent).rounded())) % of the \(limit.kind) limit left")
         content.body = String(localized: "Resets \(ResetTime.shown(resetAt)). What isn't used by then is lost.")
         Notifications.notifyUser(app, "unused-\(key)", content)
     }

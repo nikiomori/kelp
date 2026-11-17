@@ -32,7 +32,7 @@ extension UsageReportView {
     var series: [UsageAgents.Agent] {
         (usage?.agents ?? []).filter { $0.tokens > 0 && (sel == nil || $0.id == sel) }
     }
-    func value(_ d: UsageAgents.Day) -> Double { byCost ? d.cost : Double(d.tokens) }
+    func value(_ day: UsageAgents.Day) -> Double { byCost ? day.cost : Double(day.tokens) }
     func color(_ id: String) -> Color {
         usage?.counted?.firstIndex(of: id).map { Self.palette[$0 % Self.palette.count] } ?? .gray
     }
@@ -98,24 +98,24 @@ extension UsageReportView {
     }
 
     /// A row narrows what's under the table to its agent (again: back to all); one with nothing counted isn't a button.
-    @ViewBuilder private func row(_ l: Line, total: Double) -> some View {
-        let on = sel == l.id
-        let content = cells(l, total: total)
+    @ViewBuilder private func row(_ line: Line, total: Double) -> some View {
+        let on = sel == line.id
+        let content = cells(line, total: total)
             .padding(.horizontal, Metrics.inset).padding(.vertical, Metrics.gap).contentShape(Rectangle())
-        if l.usage == nil {
+        if line.usage == nil {
             content
         } else {
             Button {
-                selected = on ? nil : l.id
+                selected = on ? nil : line.id
             } label: {
                 content
             }
             .buttonStyle(.plain)
             .background(
                 RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous)
-                    .fill(Color(nsColor: on ? .fillSelected : hovered == l.id ? .fillHover : .clear))
+                    .fill(Color(nsColor: on ? .fillSelected : hovered == line.id ? .fillHover : .clear))
             )
-            .onHover { hovered = $0 ? l.id : (hovered == l.id ? nil : hovered) }
+            .onHover { hovered = $0 ? line.id : (hovered == line.id ? nil : hovered) }
             .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovered)
             .accessibilityAddTraits(on ? .isSelected : [])
         }
@@ -158,11 +158,13 @@ extension UsageReportView {
         .accessibilityAddTraits(.isButton)
     }
 
-    @ViewBuilder private func cells(_ l: Line, total: Double) -> some View {
+    @ViewBuilder private func cells(_ line: Line, total: Double) -> some View {
         if usage == nil {   // its logs still being read: grey where the figures will be
-            columns(agentCell(l), Self.reading, Self.reading, Self.reading, Self.reading)
+            columns(agentCell(line), Self.reading, Self.reading, Self.reading, Self.reading)
         } else {
-            columns(agentCell(l), spanCell(l), shareCell(l.usage, total: total), tokensCell(l.usage), costCell(l.usage))
+            columns(
+                agentCell(line), spanCell(line), shareCell(line.usage, total: total), tokensCell(line.usage),
+                costCell(line.usage))
         }
     }
 
@@ -171,12 +173,12 @@ extension UsageReportView {
         Text(verbatim: "0000").font(.ui(TextSize.caption)).redacted(reason: .placeholder)
     }
 
-    private func agentCell(_ l: Line) -> some View {
+    private func agentCell(_ line: Line) -> some View {
         HStack(spacing: 8) {
-            if let icon = app.catalog.icon(l.id) { Image(nsImage: icon) }
+            if let icon = app.catalog.icon(line.id) { Image(nsImage: icon) }
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                Text(app.catalog.name(l.id)).lineLimit(1)
-                if let models = l.usage?.models.prefix(2), !models.isEmpty {
+                Text(app.catalog.name(line.id)).lineLimit(1)
+                if let models = line.usage?.models.prefix(2), !models.isEmpty {
                     Text(models.map { Self.model($0.name) }.joined(separator: " · ")).font(.ui(TextSize.caption))
                         .foregroundStyle(.secondary).lineLimit(1)
                 }
@@ -283,11 +285,11 @@ struct CostSplit: View {
         .frame(minWidth: 240, maxWidth: 380, alignment: .leading)
     }
 
-    static func parts(_ c: UsageAgents.Costs) -> [(name: String, cost: Double, color: Color)] {
+    static func parts(_ costs: UsageAgents.Costs) -> [(name: String, cost: Double, color: Color)] {
         [
-            (String(localized: "Cache reads"), c.cacheRead, .blue),
-            (String(localized: "Cache writes"), c.cacheWrite, .cyan),
-            (String(localized: "Output"), c.output, .purple), (String(localized: "Input"), c.input, .gray)
+            (String(localized: "Cache reads"), costs.cacheRead, .blue),
+            (String(localized: "Cache writes"), costs.cacheWrite, .cyan),
+            (String(localized: "Output"), costs.output, .purple), (String(localized: "Input"), costs.input, .gray)
         ]
         .filter { $0.cost > 0 }
     }

@@ -150,9 +150,9 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
     defer { try? FileManager.default.removeItem(atPath: dir) }
     let path = try ordersDB(in: dir)
     let c = fileConnection(path, .sqlite)
-    let counted = try await SQLiteRun(c: c, off: Slots(1)).schema()
+    let counted = try await SQLiteRun(connection: c, off: Slots(1)).schema()
     #expect(counted.tables.first?.rows == 3)
-    let late = try await SQLiteRun(c: c, off: Slots(1), counting: 0).schema()
+    let late = try await SQLiteRun(connection: c, off: Slots(1), counting: 0).schema()
     #expect(late.tables.first?.rows == nil && late.tables.first?.columns.count == 2)
 }
 

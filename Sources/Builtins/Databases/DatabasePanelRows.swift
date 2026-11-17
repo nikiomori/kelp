@@ -12,9 +12,9 @@ struct DatabasePanelRows {
     let panel: DatabasesPanel
     var app: AppModel { panel.app }
 
-    func heading(_ h: DatabasesPanel.Heading, libraryOpen: Bool, activityOpen: Bool, only: String?) -> NSView {
+    func heading(_ heading: DatabasesPanel.Heading, libraryOpen: Bool, activityOpen: Bool, only: String?) -> NSView {
         var views: [NSView] = []
-        switch h {
+        switch heading {
         case .asks: views = [title(String(localized: "Asks")), NSView()]
         case .library(let count):
             views = [chevron(libraryOpen), title(String(localized: "All My Databases")), NSView(), digits(count)]
@@ -240,16 +240,16 @@ struct DatabasePanelRows {
     }
 
     /// Under a database that doesn't answer: why, and Start when compose can start it.
-    func problem(_ db: DatabaseInfo, _ h: DatabaseHealth) -> NSView {
+    func problem(_ db: DatabaseInfo, _ databaseHealth: DatabaseHealth) -> NSView {
         // "inkover doesn't answer at …": the row says whose, the line only what
-        var said = h.reason ?? String(localized: "It doesn’t answer.")
+        var said = databaseHealth.reason ?? String(localized: "It doesn’t answer.")
         if said.hasPrefix(db.name + " ") { said = String(said.dropFirst(db.name.count + 1)).capitalizedFirst }
         let why = NSTextField.label(
             said, font: .ui(TextSize.caption),
-            color: h.state == .stopped ? .textOrange : .textRed)
-        why.toolTip = h.reason
+            color: databaseHealth.state == .stopped ? .textOrange : .textRed)
+        why.toolTip = databaseHealth.reason
         var views: [NSView] = [why, NSView()]
-        if h.state == .stopped {
+        if databaseHealth.state == .stopped {
             let start = PointerButton(title: String(localized: "Start")) { [weak panel] in panel?.start(db) }
             start.contentTintColor = .linkColor
             start.font = .ui(TextSize.caption)
@@ -275,10 +275,10 @@ struct DatabasePanelRows {
 
     /// The engine's badge with a dot on its corner: green answers, orange stopped, red down, grey not tried. A ring
     /// is cut out around the dot, so it reads on any row (selected, hovered).
-    private func mark(_ engine: DatabaseInfo.Engine, _ h: DatabaseHealth?) -> NSImageView {
+    private func mark(_ engine: DatabaseInfo.Engine, _ databaseHealth: DatabaseHealth?) -> NSImageView {
         let badge = DatabaseLook.badge(engine, size: 16)
         let color: NSColor =
-            switch h?.state {
+            switch databaseHealth?.state {
             case .ok: .systemGreen
             case .stopped: .systemOrange
             case .down: .systemRed
@@ -296,7 +296,9 @@ struct DatabasePanelRows {
         }
         let view = NSImageView(image: image)
         view.toolTip =
-            h.map { [$0.state == .ok ? String(localized: "Answers") : nil, $0.reason].compactMap { $0 }.joined() }
+            databaseHealth.map {
+                [$0.state == .ok ? String(localized: "Answers") : nil, $0.reason].compactMap { $0 }.joined()
+            }
             ?? String(localized: "Not tried yet")
         return view
     }

@@ -22,12 +22,12 @@ extension LimitStop {
         takers.first { ($0.used ?? 100) < 90 } ?? takers.first { $0.used == nil } ?? takers.first
     }
 
-    static func detail(_ s: Session, now: Date = Date()) -> String {
-        if s.continueAt != nil {
+    static func detail(_ session: Session, now: Date = Date()) -> String {
+        if session.continueAt != nil {
             return String(
                 localized: "Kelp types “continue” here a minute after the reset, even with its window closed.")
         }
-        guard let at = s.limitHit?.resetAt, at > now else {
+        guard let at = session.limitHit?.resetAt, at > now else {
             return String(localized: "The work so far stays in this tab.")
         }
         return String(

@@ -307,9 +307,9 @@ final class AgentSummary: NSView {
     }
 
     private func peekWords(_ kind: SummaryKind) -> (name: String, verb: String)? {
-        guard let peeking, peeking.kind == kind, let s = app.session(peeking.id) else { return nil }
+        guard let peeking, peeking.kind == kind, let session = app.session(peeking.id) else { return nil }
         let verb = kind == .done ? String(localized: "done") : String(localized: "at its limit")
-        return (app.catalog.displayName(s), verb)
+        return (app.catalog.displayName(session), verb)
     }
 
     /// The capsule's: where who waits for you is, and what their rows say.
@@ -334,8 +334,8 @@ struct SummaryShown: Equatable {
     @MainActor init(_ app: AppModel, card: SummaryKind?) {
         let attention = AttentionQueue(app).sessions
         let counts = SummaryCounts(chats: app.sessions, done: attention)
-        func entry(_ s: Session, _ since: Date) -> Entry {
-            Entry(id: s.id, status: s.shownStatus, since: since, until: s.continueAt)
+        func entry(_ session: Session, _ since: Date) -> Entry {
+            Entry(id: session.id, status: session.shownStatus, since: since, until: session.continueAt)
         }
         queue = attention.map { entry($0, $0.statusAt ?? $0.createdAt) }
         self.counts = SummaryKind.allCases.map { kind in counts[kind].map { entry($0, SummaryCounts.since($0, kind)) } }

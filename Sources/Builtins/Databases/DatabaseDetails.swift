@@ -69,7 +69,9 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     }
 
     @objc private func partChanged() { reload() }
-    func controlTextDidChange(_ n: Notification) { if n.object as? NSSearchField === search { reload() } }
+    func controlTextDidChange(_ notification: Notification) {
+        if notification.object as? NSSearchField === search { reload() }
+    }
 
     func reload() {
         for v in stack.arrangedSubviews { v.removeFromSuperview() }
@@ -171,8 +173,8 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     }
 
     /// An edit in a field goes to the grid's edits, as one typed in its cell.
-    func controlTextDidEndEditing(_ n: Notification) {
-        guard let text = n.object as? NSTextField, text !== search, let row else { return }
+    func controlTextDidEndEditing(_ notification: Notification) {
+        guard let text = notification.object as? NSTextField, text !== search, let row else { return }
         let old = row.values.indices.contains(text.tag) ? row.values[text.tag] : nil
         let typed = text.stringValue
         guard typed != DatabaseDetails.readable(old) else { return }   // shown laid out (JSON): not a change
@@ -210,7 +212,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
 
     // MARK: Parts
 
-    private func add(_ v: NSView) { stack.addArrangedSubview(v) }
+    private func add(_ view: NSView) { stack.addArrangedSubview(view) }
 
     private func field(_ title: String, _ value: String, mono: Bool = false) -> NSView {
         let text = NSTextField(wrappingLabelWithString: value)
@@ -225,8 +227,8 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
         return box
     }
 
-    private func padded(_ v: NSView) -> NSView {
-        let box = NSStackView(views: [v])
+    private func padded(_ view: NSView) -> NSView {
+        let box = NSStackView(views: [view])
         box.edgeInsets = NSEdgeInsets(
             top: Metrics.gapWide, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
         return box

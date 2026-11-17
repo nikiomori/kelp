@@ -14,7 +14,7 @@ package struct QuickReply: Identifiable {
 
     /// Done or failed, at its prompt: not one a limit stopped (Continue at its reset says when), nor one that asks
     /// (its menu would take the text).
-    package static func fits(_ s: Session) -> Bool {
-        [.done, .error].contains(s.status) && s.limitHit == nil && !s.asksPermission
+    package static func fits(_ session: Session) -> Bool {
+        [.done, .error].contains(session.status) && session.limitHit == nil && !session.asksPermission
     }
 }

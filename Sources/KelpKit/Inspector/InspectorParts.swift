@@ -193,12 +193,12 @@ final class PanelIcon: NSButton {
     }
 
     private func checkHeld() {
-        guard let h = held else { return }
+        guard let view = held else { return }
         // A menu macOS moved to fit the screen is still "on it" while one of its items is lit.
-        if h.area.contains(NSEvent.mouseLocation) || h.menu.highlightedItem != nil {
+        if view.area.contains(NSEvent.mouseLocation) || view.menu.highlightedItem != nil {
             held?.leftAt = nil
-        } else if let left = h.leftAt {
-            if Date().timeIntervalSince(left) >= Motion.hoverClose { h.menu.cancelTracking() }
+        } else if let left = view.leftAt {
+            if Date().timeIntervalSince(left) >= Motion.hoverClose { view.menu.cancelTracking() }
         } else {
             held?.leftAt = Date()
         }

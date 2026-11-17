@@ -119,9 +119,9 @@ final class DaemonLink {
         }
     }
 
-    static func answers(_ c: RPCClient, within seconds: TimeInterval) async -> Bool {
+    static func answers(_ client: RPCClient, within seconds: TimeInterval) async -> Bool {
         do {
-            _ = try await c.call(DaemonInfo(), timeout: seconds)
+            _ = try await client.call(DaemonInfo(), timeout: seconds)
             return true
         } catch { return (error as? RPCError)?.isNoReply != true }
     }

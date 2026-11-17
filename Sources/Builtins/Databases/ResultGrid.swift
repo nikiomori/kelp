@@ -349,8 +349,8 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     func tableViewSelectionDidChange(_ notification: Notification) { onChange() }
 
     /// An edit ends: kept, unless it's the value read (an empty field over NULL is no change).
-    func controlTextDidEndEditing(_ n: Notification) {
-        guard let field = n.object as? NSTextField else { return }
+    func controlTextDidEndEditing(_ notification: Notification) {
+        guard let field = notification.object as? NSTextField else { return }
         let row = table.row(for: field), column = field.tag
         let typed = field.stringValue
         if row >= rows.count {

@@ -231,14 +231,14 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         return db
     }
 
-    func controlTextDidChange(_ n: Notification) {
-        if n.object as? NSTextField === name { nameTyped = !name.stringValue.isEmpty }
+    func controlTextDidChange(_ notification: Notification) {
+        if notification.object as? NSTextField === name { nameTyped = !name.stringValue.isEmpty }
         if !nameTyped { name.stringValue = suggestedName }
         changed()
         check(after: 0.6)
     }
 
-    func comboBoxSelectionDidChange(_ n: Notification) {
+    func comboBoxSelectionDidChange(_ notification: Notification) {
         DispatchQueue.main.async { [weak self] in   // the combo box's text follows the pick after this call
             guard let self else { return }
             if !self.nameTyped { self.name.stringValue = self.suggestedName }

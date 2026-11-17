@@ -306,33 +306,33 @@ package struct Contributions {
 
     /// Another extension's, after this one's (the registry merges them in load order): a list takes its items after
     /// these, a single hook stays the first one's. A new field gets its line here, beside the fields.
-    mutating func add(_ c: Contributions) {
-        panels += c.panels
-        editors += c.editors
-        commands += c.commands
-        settings += c.settings
-        themes += c.themes
-        iconThemes += c.iconThemes
-        agents += c.agents
-        tabs += c.tabs
-        languages += c.languages
-        sidebarSections += c.sidebarSections
-        rowMarks += c.rowMarks
-        sessionHidden += c.sessionHidden
-        rowMenu += c.rowMenu
-        branch = branch ?? c.branch
-        ci = ci ?? c.ci
-        pushed += c.pushed
-        plans = plans ?? c.plans
-        servers = servers ?? c.servers
-        launched += c.launched
-        dockMenu += c.dockMenu
-        dockUsage = dockUsage ?? c.dockUsage
-        runs = runs ?? c.runs
-        skills += c.skills
-        agentCards += c.agentCards
-        subagentSteps += c.subagentSteps
-        events += c.events
-        quickPrefixes.merge(c.quickPrefixes) { first, _ in first }
+    mutating func add(_ contributions: Contributions) {
+        panels += contributions.panels
+        editors += contributions.editors
+        commands += contributions.commands
+        settings += contributions.settings
+        themes += contributions.themes
+        iconThemes += contributions.iconThemes
+        agents += contributions.agents
+        tabs += contributions.tabs
+        languages += contributions.languages
+        sidebarSections += contributions.sidebarSections
+        rowMarks += contributions.rowMarks
+        sessionHidden += contributions.sessionHidden
+        rowMenu += contributions.rowMenu
+        branch = branch ?? contributions.branch
+        ci = ci ?? contributions.ci
+        pushed += contributions.pushed
+        plans = plans ?? contributions.plans
+        servers = servers ?? contributions.servers
+        launched += contributions.launched
+        dockMenu += contributions.dockMenu
+        dockUsage = dockUsage ?? contributions.dockUsage
+        runs = runs ?? contributions.runs
+        skills += contributions.skills
+        agentCards += contributions.agentCards
+        subagentSteps += contributions.subagentSteps
+        events += contributions.events
+        quickPrefixes.merge(contributions.quickPrefixes) { first, _ in first }
     }
 }

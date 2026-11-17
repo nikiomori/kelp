@@ -42,9 +42,9 @@ package final class AppModel {
 
     /// What the shell does with each new reading it lands, beside showing it: that one reading, as it arrives (a parked
     /// agent comes back on its own workspace's failed run, not on every run stored), and the built-ins hear it too.
-    func landed(_ e: any Pushed) {
-        if let ci = e as? CIEvent { arrangement.followParked(ci) }
-        for hear in extensions.all.pushed { hear(e) }
+    func landed(_ pushed: any Pushed) {
+        if let ci = pushed as? CIEvent { arrangement.followParked(ci) }
+        for hear in extensions.all.pushed { hear(pushed) }
     }
 
     @ObservationIgnored private(set) package lazy var workbench = Workbench(app: self)
@@ -139,8 +139,8 @@ package final class AppModel {
 
     /// Workspaces of a project in the order they were opened: Workspace 1, 2, 3… (older ones on their own branch
     /// included), unless dragged into another in the sidebar.
-    func workspaces(of r: Repo) -> [Worktree] {
-        ordered(worktrees.filter { $0.repoId == r.id && !$0.archived }.sorted { $0.createdAt < $1.createdAt })
+    func workspaces(of repo: Repo) -> [Worktree] {
+        ordered(worktrees.filter { $0.repoId == repo.id && !$0.archived }.sorted { $0.createdAt < $1.createdAt })
     }
 
     /// Projects as the sidebar lists them: by name, unless dragged into another order, and No Project last.
@@ -156,17 +156,17 @@ package final class AppModel {
     }
 
     /// A session as a reply or an event has it; an older copy than the one here (a reply that an event overtook) is dropped.
-    package func upsert(_ s: Session) {
-        if let index = sessionIndex(s.id) {
-            if !s.isOlder(than: sessions[index]) {
+    package func upsert(_ session: Session) {
+        if let index = sessionIndex(session.id) {
+            if !session.isOlder(than: sessions[index]) {
                 let places = sessionAt
-                sessions[index] = s
+                sessions[index] = session
                 sessionAt = places   // replaced where it was: every session's place holds
             }
         } else {
-            sessions.append(s)
+            sessions.append(session)
         }
-        availability.sessionChanged(s)
+        availability.sessionChanged(session)
     }
 
     /// Tells the daemon what's on screen, so agents can ask (`kelp ui state`). Every tab and focus change calls it:
@@ -323,9 +323,9 @@ package final class AppModel {
     /// would rely on the main queue running tasks in the order they were made).
     /// Returns what ends the reader once the connection is gone.
     @discardableResult
-    func listen(_ c: RPCClient) -> @Sendable () -> Void {
+    func listen(_ client: RPCClient) -> @Sendable () -> Void {
         let (events, feed) = AsyncStream<any RPCEvent>.makeStream()
-        c.onEvent = { feed.yield($0) }
+        client.onEvent = { feed.yield($0) }
         Task { @MainActor [weak self] in for await e in events { self?.arrived(e) } }
         let stop: @Sendable () -> Void = { feed.finish() }
         stopListening = stop
@@ -335,10 +335,10 @@ package final class AppModel {
     /// An agent's session changes a few times a second while it works (each command, each subagent), and every view that
     /// reads `sessions` looks again after each: what comes within 50 ms is applied in one turn, so they look once. Any
     /// other event applies what's held first, so everything still lands in the order it was sent.
-    func arrived(_ e: any RPCEvent) {
-        guard let session = e as? Session else {
+    func arrived(_ rpcEvent: any RPCEvent) {
+        guard let session = rpcEvent as? Session else {
             applyHeld()
-            return handle(e)
+            return handle(rpcEvent)
         }
         held.append(session)
         guard held.count == 1 else { return }
@@ -360,8 +360,8 @@ package final class AppModel {
 
     /// A connection this model stops hearing, before a restart that reconnects itself (a second client would hear every
     /// event twice): its close does nothing more, and its events' reader ends.
-    func stopHearing(_ c: RPCClient?) {
-        c?.onClose = nil
+    func stopHearing(_ client: RPCClient?) {
+        client?.onClose = nil
         stopListening?()
         stopListening = nil
     }
@@ -431,7 +431,9 @@ package final class AppModel {
         guard let client else { throw RPCError.internalError(DaemonLink.noService) }
         return try await client.call(m)
     }
-    package static func message(_ e: Error) -> String { (e as? RPCError)?.message ?? e.localizedDescription }
+    package static func message(_ error: Error) -> String {
+        (error as? RPCError)?.message ?? error.localizedDescription
+    }
 
     /// For what decorates rather than answers the user: a badge, a hover card's extras, a notification's summary, a poll
     /// that asks again in a few seconds. Its failure says nothing (nil), since an error there would be noise about
@@ -514,8 +516,8 @@ package final class AppModel {
         return "\(project.name) · \(host)"
     }
     /// Where the project is: "host:path" for a remote one (not the local folder that stands for it), else its path.
-    func projectPlace(_ r: Repo) -> String {
-        RemoteHost.of(r.path).map { "\($0.host):\($0.path)" } ?? (r.path as NSString).abbreviatingWithTildeInPath
+    func projectPlace(_ repo: Repo) -> String {
+        RemoteHost.of(repo.path).map { "\($0.host):\($0.path)" } ?? (repo.path as NSString).abbreviatingWithTildeInPath
     }
 }
 

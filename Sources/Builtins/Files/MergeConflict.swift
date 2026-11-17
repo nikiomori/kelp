@@ -12,15 +12,15 @@ struct MergeConflict: Equatable {
     /// Every conflict in `text`, in order. A marker counts only at a line's start, followed by a space or the line's
     /// end, and only in its place: a lone `=======` (a Markdown heading's underline) or an unfinished block is no conflict.
     static func all(in text: String) -> [MergeConflict] {
-        let s = text as NSString
-        guard s.range(of: "<<<<<<<").location != NSNotFound else { return [] }
+        let string = text as NSString
+        guard string.range(of: "<<<<<<<").location != NSNotFound else { return [] }
         var found: [MergeConflict] = []
         var start: Int?, currentStart = 0, currentEnd: Int?, incomingStart: Int?
         var at = 0
-        while at < s.length {
-            let line = s.lineRange(for: NSRange(location: at, length: 0))
+        while at < string.length {
+            let line = string.lineRange(for: NSRange(location: at, length: 0))
             at = NSMaxRange(line)
-            guard let marker = marker(s, line) else { continue }
+            guard let marker = marker(string, line) else { continue }
             switch marker {
             case "<": (start, currentStart, currentEnd, incomingStart) = (line.location, at, nil, nil)
             case "|" where start != nil && currentEnd == nil: currentEnd = line.location
@@ -44,8 +44,8 @@ struct MergeConflict: Equatable {
 
     /// What replaces the whole block when `keep` is picked.
     func resolved(in text: String, keeping keep: Keep) -> String {
-        let s = text as NSString
-        let mine = s.substring(with: current), theirs = s.substring(with: incoming)
+        let string = text as NSString
+        let mine = string.substring(with: current), theirs = string.substring(with: incoming)
         switch keep {
         case .current: return mine
         case .incoming: return theirs

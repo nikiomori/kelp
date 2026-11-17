@@ -41,13 +41,13 @@ extension DatabaseEngines {
     /// inside the compose container (no address: `host` nil).
     static func runner(_ databaseConnection: DatabaseConnection, off: Slots) -> any DatabaseRunner {
         switch (databaseConnection.database.engine, databaseConnection.database.host) {
-        case (.sqlite, _): SQLiteRun(c: databaseConnection, off: off)
-        case (.duckdb, _): DuckDBRun(c: databaseConnection, off: off)
-        case (.appwrite, _): AppwriteWire(c: databaseConnection)
-        case (.postgres, .some): PostgresWire(c: databaseConnection)
-        case (.mysql, .some): MySQLWire(c: databaseConnection)
-        case (.postgres, nil): PostgresRun(c: databaseConnection, off: off)
-        case (.mysql, nil): MySQLRun(c: databaseConnection, off: off)
+        case (.sqlite, _): SQLiteRun(connection: databaseConnection, off: off)
+        case (.duckdb, _): DuckDBRun(connection: databaseConnection, off: off)
+        case (.appwrite, _): AppwriteWire(connection: databaseConnection)
+        case (.postgres, .some): PostgresWire(connection: databaseConnection)
+        case (.mysql, .some): MySQLWire(connection: databaseConnection)
+        case (.postgres, nil): PostgresRun(connection: databaseConnection, off: off)
+        case (.mysql, nil): MySQLRun(connection: databaseConnection, off: off)
         }
     }
 }

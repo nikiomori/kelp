@@ -38,7 +38,9 @@ struct CommitPlan: Equatable {
         switch (index, target) {
         case (nil, _): break
         case (_, .some(let anchor?)):   // the commit it was dropped on, wherever it sits once `file` left another
-            if let i = commits.firstIndex(where: { $0.files.contains(anchor) }) { commits[i].files.append(file) }
+            if let index = commits.firstIndex(where: { $0.files.contains(anchor) }) {
+                commits[index].files.append(file)
+            }
         default: commits.append(Commit(message: "", files: [file]))
         }
         commits.removeAll { $0.files.isEmpty }

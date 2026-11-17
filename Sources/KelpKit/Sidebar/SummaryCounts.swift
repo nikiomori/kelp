@@ -15,13 +15,15 @@ enum SummaryKind: CaseIterable {
     case done
 
     /// Which of them a chat is: nil for one that asks or failed (the capsule counts those), finished or resting.
-    static func of(_ s: Session) -> SummaryKind? {
-        guard s.isChat, ![.waiting, .error].contains(s.shownStatus), ![.paused, .exited].contains(s.status) else {
+    static func of(_ session: Session) -> SummaryKind? {
+        guard session.isChat, ![.waiting, .error].contains(session.shownStatus),
+            ![.paused, .exited].contains(session.status)
+        else {
             return nil
         }
-        if s.continueAt != nil || s.limitHit != nil { return .limit }
-        guard s.status == .working else { return nil }
-        return s.quietSince == nil ? .working : .quiet
+        if session.continueAt != nil || session.limitHit != nil { return .limit }
+        guard session.status == .working else { return nil }
+        return session.quietSince == nil ? .working : .quiet
     }
 
     /// Which goes first when the row is short of room: what asks for nothing.
@@ -41,8 +43,8 @@ struct SummaryCounts {
     }
 
     /// When it got into this state: a quiet one from its last news.
-    static func since(_ s: Session, _ kind: SummaryKind) -> Date {
-        (kind == .quiet ? s.quietSince : nil) ?? s.statusAt ?? s.createdAt
+    static func since(_ session: Session, _ kind: SummaryKind) -> Date {
+        (kind == .quiet ? session.quietSince : nil) ?? session.statusAt ?? session.createdAt
     }
 
     /// What its segment says as room runs out: all of it, then without the time, then the number (or the clock) alone.

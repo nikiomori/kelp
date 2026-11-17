@@ -58,17 +58,17 @@ extension Arrangement {
     }
 
     /// A parked agent that asks or fails comes back by itself.
-    func followParked(_ s: Session) {
-        guard isParked(s.id) else { return }
-        if s.status == .waiting { unpark(s.id, back: String(localized: "it asks you something")) }
-        if s.status == .error { unpark(s.id, back: String(localized: "it failed")) }
+    func followParked(_ session: Session) {
+        guard isParked(session.id) else { return }
+        if session.status == .waiting { unpark(session.id, back: String(localized: "it asks you something")) }
+        if session.status == .error { unpark(session.id, back: String(localized: "it failed")) }
     }
 
     /// CI that failed in a folder brings its parked agents back: the newest run of any of its workflows, as the daemon
     /// and the marks read the branch's CI (`CIRuns.latest`), not only the newest run of them all.
-    func followParked(_ e: CIEvent) {
-        guard CIRuns.latest(e.result?.runs ?? []).contains(where: { $0.conclusion == "failure" }) else { return }
-        for s in app.sessions where app.gitKey(s.worktreeId) == e.worktree && isParked(s.id) {
+    func followParked(_ ciEvent: CIEvent) {
+        guard CIRuns.latest(ciEvent.result?.runs ?? []).contains(where: { $0.conclusion == "failure" }) else { return }
+        for s in app.sessions where app.gitKey(s.worktreeId) == ciEvent.worktree && isParked(s.id) {
             unpark(s.id, back: String(localized: "CI failed"))
         }
     }

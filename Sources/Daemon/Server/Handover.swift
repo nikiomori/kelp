@@ -33,15 +33,15 @@ public struct Handover: Codable, Sendable {
 
         init(from decoder: Decoder) throws {
             kept = try LiveSession.Kept(from: decoder)
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            hooked = try c.decodeIfPresent(Bool.self, forKey: .hooked)
-            saysPasteMode = c.contains(.pasteMode)
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            hooked = try container.decodeIfPresent(Bool.self, forKey: .hooked)
+            saysPasteMode = container.contains(.pasteMode)
         }
 
         func encode(to encoder: Encoder) throws {
             try kept.encode(to: encoder)
-            var c = encoder.container(keyedBy: CodingKeys.self)
-            try c.encodeIfPresent(hooked, forKey: .hooked)
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encodeIfPresent(hooked, forKey: .hooked)
         }
     }
     var socket: Int32, lock: Int32

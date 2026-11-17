@@ -29,14 +29,14 @@ struct LimitResets {
     /// the reset (Claude Code can) changed its status after it, so it isn't told twice, and one the daemon will go on with
     /// (`Session.continueAt`) needs no asking. The limit is read from the screen a moment after the turn stopped: two minutes
     /// of slack.
-    static func stopped(_ sessions: [Session], agent: String, _ f: Full) -> [Session] {
+    static func stopped(_ sessions: [Session], agent: String, _ full: Full) -> [Session] {
         sessions.filter { session in
             guard session.agent == agent, [.done, .error].contains(session.status), session.continueAt == nil,
                 let at = session.statusAt
             else {
                 return false
             }
-            return at >= f.since.addingTimeInterval(-120) && at < f.until
+            return at >= full.since.addingTimeInterval(-120) && at < full.until
         }
     }
 }

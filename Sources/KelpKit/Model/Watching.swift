@@ -82,7 +82,7 @@ extension AppModel {
         }
     }
     /// The latest pushed `E` for `key` (a workspace, a session, a path; "" for one of a kind).
-    package func latest<E: Pushed>(_ t: E.Type, _ key: String = "") -> E? { latest(t).byKey[key] }
+    package func latest<E: Pushed>(_ type: E.Type, _ key: String = "") -> E? { latest(type).byKey[key] }
 
     /// Kept as the latest of its kind, if it differs (each change re-renders its readers): whether it did.
     /// Only what the daemon pushed (`watched`) and the shell's own refresh: a built-in asks again (`watchAgain`) rather than
@@ -116,19 +116,19 @@ extension AppModel {
     }
 
     /// A project, workspace or session that's gone.
-    func removed(_ e: RemovedEvent) {
-        if let id = e.repo {
+    func removed(_ removedEvent: RemovedEvent) {
+        if let id = removedEvent.repo {
             for x in [id] + worktrees.filter({ $0.repoId == id }).map(\.id) { recordEvents[x, default: 0] += 1 }
             arrangement.forget([id] + worktrees.filter { $0.repoId == id }.map(\.id))
             repos.removeAll { $0.id == id }
             worktrees.removeAll { $0.repoId == id }
         }
-        if let id = e.worktree {
+        if let id = removedEvent.worktree {
             recordEvents[id, default: 0] += 1
             arrangement.forget([id])
             worktrees.removeAll { $0.id == id }
         }
-        if let id = e.session { removed(session: id) }
+        if let id = removedEvent.session { removed(session: id) }
     }
 }
 

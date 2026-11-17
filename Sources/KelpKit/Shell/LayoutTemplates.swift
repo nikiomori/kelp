@@ -144,8 +144,8 @@ struct LayoutTemplates {
     /// What a run URI starts (as `EditorArea.runURI` reads one); `script`: one of the project's commands, by name.
     static func run(_ uri: String) -> (agent: String?, command: String?, title: String?, tmux: String?, script: String?)
     {
-        let c = URLComponents(string: uri)
-        func value(_ name: String) -> String? { c?.queryItems?.first { $0.name == name }?.value }
+        let components = URLComponents(string: uri)
+        func value(_ name: String) -> String? { components?.queryItems?.first { $0.name == name }?.value }
         if TabURI.scheme(uri) == "agent" { return (TabURI.body(uri), nil, nil, nil, nil) }
         if let tmux = value("tmux") { return (nil, nil, nil, tmux, nil) }
         if let script = value("script") { return (nil, nil, value("title"), nil, script) }

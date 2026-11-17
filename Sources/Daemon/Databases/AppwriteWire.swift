@@ -8,7 +8,7 @@ import Foundation
 /// UPDATE t SET … WHERE …; DELETE FROM t WHERE …. A WHERE has =, <>, <, <=, >, >=, [NOT] LIKE ('%a%', 'a%', '%a'),
 /// IS [NOT] NULL, [NOT] IN (…), [NOT] BETWEEN, AND, OR and brackets. The user's edits go in one Appwrite transaction.
 struct AppwriteWire: DatabaseRunner {
-    let c: DatabaseConnection
+    let connection: DatabaseConnection
     /// Its change can't be tried and taken back, so its count is only what the rows matched when asked.
     var holdsAllowed: Bool { false }
 
@@ -44,19 +44,19 @@ struct AppwriteWire: DatabaseRunner {
 
     /// "Appwrite 1.8.1": asked without the key.
     func version() async throws -> String? {
-        let answer = try await Self.call(try Self.endpoint(c), "GET", "/health/version", signed: false)
+        let answer = try await Self.call(try Self.endpoint(connection), "GET", "/health/version", signed: false)
         return "Appwrite " + (answer["version"] as? String ?? "")
     }
 
     /// The project's databases, by ID.
     func databases() async throws -> [String] {
         let answer = try await Self.call(
-            try Self.endpoint(c), "GET", "/tablesdb", queries: [["method": "limit", "values": [100]]])
+            try Self.endpoint(connection), "GET", "/tablesdb", queries: [["method": "limit", "values": [100]]])
         return (answer["databases"] as? [[String: Any]] ?? []).compactMap { $0["$id"] as? String }
     }
 
     func schema() async throws -> DatabaseSchema {
-        let server = try await Self.withDatabase(try Self.endpoint(c))
+        let server = try await Self.withDatabase(try Self.endpoint(connection))
         var tables: [DatabaseSchema.Table] = []
         while true {
             let answer = try await Self.call(
@@ -72,10 +72,10 @@ struct AppwriteWire: DatabaseRunner {
     /// One table as Kelp shows it: $id first (its key), its columns, then when it was made and changed.
     static func table(_ t: [String: Any]) -> DatabaseSchema.Table {
         let id = t["$id"] as? String ?? "", name = t["name"] as? String
-        let columns = (t["columns"] as? [[String: Any]] ?? []).compactMap { c -> DatabaseSchema.Column? in
-            guard let key = c["key"] as? String else { return nil }
-            let type = (c["type"] as? String ?? "string") + (c["array"] as? Bool == true ? "[]" : "")
-            return .init(name: key, type: type, nullable: c["required"] as? Bool != true, primary: false)
+        let columns = (t["columns"] as? [[String: Any]] ?? []).compactMap { connection -> DatabaseSchema.Column? in
+            guard let key = connection["key"] as? String else { return nil }
+            let type = (connection["type"] as? String ?? "string") + (connection["array"] as? Bool == true ? "[]" : "")
+            return .init(name: key, type: type, nullable: connection["required"] as? Bool != true, primary: false)
         }
         let indexes = (t["indexes"] as? [[String: Any]] ?? []).map { index in
             let columns = (index["columns"] ?? index["attributes"]) as? [String] ?? []   // TablesDB says columns
@@ -94,11 +94,11 @@ struct AppwriteWire: DatabaseRunner {
     func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
         if sql == "SELECT 1" {   // the panel's "is it there?": the key and the project answer
             _ = try await Self.call(
-                try Self.endpoint(c), "GET", "/tablesdb", queries: [["method": "limit", "values": [1]]])
+                try Self.endpoint(connection), "GET", "/tablesdb", queries: [["method": "limit", "values": [1]]])
             return DatabaseRows(columns: ["?column?"], rows: [["1"]], total: 1)
         }
         guard case .select(let select) = try AppwriteSQL.parse(sql) else { throw DatabaseFailure.change }
-        let server = try await Self.withDatabase(try Self.endpoint(c))
+        let server = try await Self.withDatabase(try Self.endpoint(connection))
         let kinds = try await Self.kinds(server, select.table)
         var queries = select.condition.map { kinds.queries($0) } ?? []
         if select.count {
@@ -125,7 +125,7 @@ struct AppwriteWire: DatabaseRunner {
     /// Not run: what it would touch (Appwrite can't run a change and take it back to show it).
     func trial(_ sql: String) async throws -> DatabaseRows {
         let statement = try AppwriteSQL.parse(sql)
-        let server = try await Self.withDatabase(try Self.endpoint(c))
+        let server = try await Self.withDatabase(try Self.endpoint(connection))
         switch statement {
         case .select: throw DatabaseFailure.failed("It doesn't change anything.")
         case .insert(let insert): return DatabaseRows(changed: insert.rows.count)
@@ -143,7 +143,7 @@ struct AppwriteWire: DatabaseRunner {
     /// All of them in one Appwrite transaction: committed together, or rolled back.
     func apply(_ statements: [String]) async throws -> Int {
         let parsed = try statements.map(AppwriteSQL.parse)
-        let server = try await Self.withDatabase(try Self.endpoint(c))
+        let server = try await Self.withDatabase(try Self.endpoint(connection))
         let started = try await Self.call(server, "POST", "/tablesdb/transactions", body: ["ttl": 300])
         guard let tx = started["$id"] as? String else {
             throw DatabaseFailure.failed("Appwrite didn't start a transaction.")
@@ -278,9 +278,9 @@ struct AppwriteWire: DatabaseRunner {
         let found = self.table(
             try await call(endpoint, "GET", "/tablesdb/\(path(endpoint.database))/tables/\(path(table))"))
         var types: [String: (type: String, array: Bool)] = ["$sequence": ("integer", false)]
-        for c in found.columns {
-            let array = c.type.hasSuffix("[]")
-            types[c.name] = (array ? String(c.type.dropLast(2)) : c.type, array)
+        for connection in found.columns {
+            let array = connection.type.hasSuffix("[]")
+            types[connection.name] = (array ? String(connection.type.dropLast(2)) : connection.type, array)
         }
         return Kinds(columns: found.columns.map(\.name), types: types)
     }

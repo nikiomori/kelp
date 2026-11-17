@@ -117,7 +117,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
 
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
 
-    func tableView(_ t: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
+    func tableView(_ table: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
         let item = rows[row], db = item.database
         let check = NSButton(checkboxWithTitle: "", target: self, action: #selector(toggled(_:)))
         check.tag = row

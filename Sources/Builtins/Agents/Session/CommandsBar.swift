@@ -208,11 +208,11 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         escape = nil
     }
 
-    func stop(_ s: Session) { Task { await app.call(SessionKill(id: s.id)) } }
-    func moveToTab(_ s: Session) {
-        if console?.sessionId == s.id { fold(true) }
-        app.workbench.openInTab(s.id)
-        show(runs: runs.filter { $0.id != s.id })
+    func stop(_ session: Session) { Task { await app.call(SessionKill(id: session.id)) } }
+    func moveToTab(_ session: Session) {
+        if console?.sessionId == session.id { fold(true) }
+        app.workbench.openInTab(session.id)
+        show(runs: runs.filter { $0.id != session.id })
         if items.isEmpty { reload(keeping: false) }
     }
 
@@ -347,10 +347,10 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         }   // no clock for a tab out of sight
     }
 
-    func numberOfRows(in t: NSTableView) -> Int { items.count }
-    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
-    func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
-        let cell = t.makeView(withIdentifier: CommandRow.id, owner: nil) as? CommandRow ?? CommandRow()
+    func numberOfRows(in table: NSTableView) -> Int { items.count }
+    func tableView(_ table: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
+    func tableView(_ table: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
+        let cell = table.makeView(withIdentifier: CommandRow.id, owner: nil) as? CommandRow ?? CommandRow()
         switch items[row] {
         case .run(let run): cell.show(run: run, tail: tails[run.id], page: port(of: run), now: Date())
         case .command(let command): cell.show(command, now: Date())

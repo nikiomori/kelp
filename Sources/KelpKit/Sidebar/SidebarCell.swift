@@ -210,8 +210,8 @@ final class SidebarCell: NSTableCellView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func mouseEntered(with e: NSEvent) { showHoverControls(true) }
-    override func mouseExited(with e: NSEvent) { showHoverControls(false) }
+    override func mouseEntered(with event: NSEvent) { showHoverControls(true) }
+    override func mouseExited(with event: NSEvent) { showHoverControls(false) }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         if !action.isHidden, actionArea.contains(convert(point, from: superview)) { return action }

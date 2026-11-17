@@ -52,7 +52,9 @@ package final class GitFolders {
     /// requests).
     func shared(_ id: String) -> [String: [String]] {
         let events = app.latest(GitEvent.self).byKey
-        func touched(_ e: GitEvent?) -> Set<String> { Set((e?.changes ?? []).map(\.path) + (e?.branchFiles ?? [])) }
+        func touched(_ gitEvent: GitEvent?) -> Set<String> {
+            Set((gitEvent?.changes ?? []).map(\.path) + (gitEvent?.branchFiles ?? []))
+        }
         guard let me = app.worktree(id) else { return [:] }
         let mine = touched(events[id])
         guard !mine.isEmpty else { return [:] }

@@ -297,13 +297,14 @@ final class ArtifactBar: NSObject {
         guard spentAt.map({ time - $0 >= 10 }) ?? true else { return }
         spentAt = time
         Task {
-            guard let s = await app.quiet(ArtifactCost(path: path)), let s else { return }
+            guard let cost = await app.quiet(ArtifactCost(path: path)), let cost else { return }
             _ = view
             spent.isHidden = false
-            spent.stringValue = String(localized: "\(s.calls) steps · \(s.cost, format: .currency(code: "USD"))")
+            spent.stringValue = String(localized: "\(cost.calls) steps · \(cost.cost, format: .currency(code: "USD"))")
             spent.toolTip = String(
                 localized:
-                    "What its chat spent on it: \(s.output) tokens written, \(s.read) read, priced as the API would")
+                    "What its chat spent on it: \(cost.output) tokens written, \(cost.read) read, priced as the API would"
+            )
         }
     }
 

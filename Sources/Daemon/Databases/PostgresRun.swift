@@ -4,7 +4,7 @@ import Foundation
 // Postgres inside a compose container: psql's reads, writes and schema.
 
 struct PostgresRun: DatabaseRunner {
-    let c: DatabaseConnection, off: Slots
+    let connection: DatabaseConnection, off: Slots
     /// Between a command's output and the next: what psql prints for `\echo`.
     static let marker = "--kelp-7f3e9c--"
     /// What psql writes for NULL: its CSV writes an empty string and NULL alike, as an empty field.
@@ -13,7 +13,7 @@ struct PostgresRun: DatabaseRunner {
     func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
         return try await off.run {
             let out = try Self.run(
-                c, ["BEGIN TRANSACTION READ ONLY", "SET LOCAL statement_timeout = '\(Int(timeout))s'", sql],
+                connection, ["BEGIN TRANSACTION READ ONLY", "SET LOCAL statement_timeout = '\(Int(timeout))s'", sql],
                 timeout: timeout + 10)
             return Self.section(out.last ?? "")
         }
@@ -23,7 +23,7 @@ struct PostgresRun: DatabaseRunner {
         return try await off.run {
             func attempt(_ statement: String) throws -> DatabaseRows {
                 let out = try Self.run(
-                    c,
+                    connection,
                     [
                         "BEGIN", "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.readTimeout))s'", statement,
                         "ROLLBACK"
@@ -48,7 +48,7 @@ struct PostgresRun: DatabaseRunner {
         return try await off.run {
             let limit = "statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'"
             guard let allowed else {
-                let out = try Self.run(c, ["SET " + limit, sql], timeout: DatabaseEngines.writeTimeout + 10)
+                let out = try Self.run(connection, ["SET " + limit, sql], timeout: DatabaseEngines.writeTimeout + 10)
                 return Self.section(out.last ?? "")
             }
             let decide = """
@@ -61,7 +61,8 @@ struct PostgresRun: DatabaseRunner {
                 \\endif
                 """
             let out = try Self.run(
-                c, ["BEGIN", "SET LOCAL " + limit, sql], then: decide, timeout: DatabaseEngines.writeTimeout + 10)
+                connection, ["BEGIN", "SET LOCAL " + limit, sql], then: decide,
+                timeout: DatabaseEngines.writeTimeout + 10)
             let rows = Self.section(out.count >= 2 ? out[out.count - 2] : "")
             guard out.last?.hasPrefix("COMMIT") == true else {
                 throw DatabaseEngines.notAsAllowed(rows.changed, allowed)
@@ -73,7 +74,8 @@ struct PostgresRun: DatabaseRunner {
     /// BEGIN, the statements, COMMIT: ON_ERROR_STOP ends psql at the first failure, its session rolling back.
     func apply(_ statements: [String]) async throws -> Int {
         return try await off.run {
-            let out = try Self.run(c, ["BEGIN"] + statements + ["COMMIT"], timeout: DatabaseEngines.writeTimeout + 10)
+            let out = try Self.run(
+                connection, ["BEGIN"] + statements + ["COMMIT"], timeout: DatabaseEngines.writeTimeout + 10)
             return out.dropLast().map { Self.section($0).changed ?? 0 }.reduce(0, +)
         }
     }
@@ -121,7 +123,7 @@ struct PostgresRun: DatabaseRunner {
     func schema() async throws -> DatabaseSchema {
         return try await off.run {
             let out = try Self.run(
-                c, ["BEGIN TRANSACTION READ ONLY", Self.schemaColumns, Self.schemaCounts, Self.schemaIndexes],
+                connection, ["BEGIN TRANSACTION READ ONLY", Self.schemaColumns, Self.schemaCounts, Self.schemaIndexes],
                 timeout: DatabaseEngines.readTimeout + 10)
             guard out.count >= 3 else { throw DatabaseFailure.failed("psql said nothing of the tables.") }
             return DatabaseSchemaBuilder.build(

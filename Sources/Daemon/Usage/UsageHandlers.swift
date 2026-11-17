@@ -107,17 +107,19 @@ extension AgentUsage {
 
     /// A row's cost split by kind of token in the shares its list price gives them (so they add up to its cost, the hour
     /// writes and long prompts included); nil for a model without one.
-    static func costs(_ model: String, _ t: TokenCounts, _ cost: Double) -> UsageAgents.Costs? {
+    static func costs(_ model: String, _ tokenCounts: TokenCounts, _ cost: Double) -> UsageAgents.Costs? {
         guard let price = Pricing.of(model) else { return nil }
         let parts = [
-            Double(t.input) * price.input, Double(t.output) * price.output, Double(t.cacheWrite) * price.cacheWrite,
-            Double(t.cacheRead) * price.cacheRead
+            Double(tokenCounts.input) * price.input, Double(tokenCounts.output) * price.output,
+            Double(tokenCounts.cacheWrite) * price.cacheWrite,
+            Double(tokenCounts.cacheRead) * price.cacheRead
         ]
         let sum = parts.reduce(0, +)
         guard sum > 0 else { return nil }
-        let k = cost / sum
+        let share = cost / sum
         return UsageAgents.Costs(
-            input: parts[0] * k, output: parts[1] * k, cacheWrite: parts[2] * k, cacheRead: parts[3] * k)
+            input: parts[0] * share, output: parts[1] * share, cacheWrite: parts[2] * share, cacheRead: parts[3] * share
+        )
     }
 
     /// Sums `rows` by a key, most expensive first (then most tokens: a model with no list price costs 0).

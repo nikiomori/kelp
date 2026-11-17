@@ -75,13 +75,13 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
             ? parts[0] : parts.map { "(\($0))" }.joined(separator: any.indexOfSelectedItem == 1 ? " OR " : " AND ")
     }
 
-    private func sql(_ r: Rule) -> String? {
-        if r.column == Self.raw { return r.value.trimmingCharacters(in: .whitespaces).isEmpty ? nil : r.value }
-        guard columns.contains(r.column) else { return nil }
-        let name = DatabaseEdits.name(r.column, engine), v = r.value
-        if r.op.takesValue, v.isEmpty { return nil }
+    private func sql(_ rule: Rule) -> String? {
+        if rule.column == Self.raw { return rule.value.trimmingCharacters(in: .whitespaces).isEmpty ? nil : rule.value }
+        guard columns.contains(rule.column) else { return nil }
+        let name = DatabaseEdits.name(rule.column, engine), v = rule.value
+        if rule.op.takesValue, v.isEmpty { return nil }
         let like = engine.likeAnyCase
-        switch r.op {
+        switch rule.op {
         case .equal: return "\(name) = " + engine.literal(v)
         case .notEqual: return "\(name) <> " + engine.literal(v)
         case .contains: return "\(name) \(like) " + engine.literal("%\(v)%")
@@ -180,8 +180,8 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         lay()
         if !rules[sender.tag].op.takesValue { apply() }
     }
-    func controlTextDidChange(_ n: Notification) {
-        guard let field = n.object as? NSTextField, rules.indices.contains(field.tag) else { return }
+    func controlTextDidChange(_ notification: Notification) {
+        guard let field = notification.object as? NSTextField, rules.indices.contains(field.tag) else { return }
         rules[field.tag].value = field.stringValue
     }
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {

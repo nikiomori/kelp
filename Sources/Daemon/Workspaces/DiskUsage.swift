@@ -44,29 +44,31 @@ struct DiskUsage: Sendable {
 
     /// The parts, biggest first: each ignored entry less the worktrees in it, each worktree less its builds, and the
     /// rest of the folder as its files.
-    static func parts(_ g: Gathered) -> [Item] {
-        let inside = { (dir: String) in g.worktrees.filter { $0.path.hasPrefix(dir + "/") } }
-        var items: [Item] = [], outside = g.total - inside(g.root).reduce(0) { $0 + $1.bytes }
-        for (rel, really) in g.ignored {
-            let path = g.root + "/" + rel
-            guard !g.worktrees.contains(where: { $0.path == path }) else { continue }
-            let nested = inside(path), bytes = (g.sizes[path] ?? 0) - nested.reduce(0) { $0 + $1.bytes }
+    static func parts(_ gathered: Gathered) -> [Item] {
+        let inside = { (dir: String) in gathered.worktrees.filter { $0.path.hasPrefix(dir + "/") } }
+        var items: [Item] = [], outside = gathered.total - inside(gathered.root).reduce(0) { $0 + $1.bytes }
+        for (rel, really) in gathered.ignored {
+            let path = gathered.root + "/" + rel
+            guard !gathered.worktrees.contains(where: { $0.path == path }) else { continue }
+            let nested = inside(path), bytes = (gathered.sizes[path] ?? 0) - nested.reduce(0) { $0 + $1.bytes }
             outside -= bytes
-            let what: RepoDiskUsage.What = isBuild(path, here: g.here) ? .build : .ignored
+            let what: RepoDiskUsage.What = isBuild(path, here: gathered.here) ? .build : .ignored
             items.append(Item(path: path, bytes: bytes, what: what, removable: nested.isEmpty && really))
         }
-        items.append(Item(path: g.root, bytes: max(0, outside), what: .files, removable: false))
-        for worktree in g.worktrees {
+        items.append(Item(path: gathered.root, bytes: max(0, outside), what: .files, removable: false))
+        for worktree in gathered.worktrees {
             var rest = worktree.bytes
-            for build in g.builds where build.worktree == worktree.path {
-                let bytes = g.sizes[build.path] ?? 0
+            for build in gathered.builds where build.worktree == worktree.path {
+                let bytes = gathered.sizes[build.path] ?? 0
                 rest -= bytes
                 items.append(
                     Item(path: build.path, bytes: bytes, what: .build, removable: true, worktree: worktree.path))
             }
             items.append(Item(path: worktree.path, bytes: max(0, rest), what: .worktree, removable: worktree.removable))
         }
-        return (items + g.extra).filter { $0.bytes >= smallest || $0.what == .files }.sorted { $0.bytes > $1.bytes }
+        return (items + gathered.extra).filter { $0.bytes >= smallest || $0.what == .files }.sorted {
+            $0.bytes > $1.bytes
+        }
     }
 
     /// On this Mac. `root` is the project's folder as git prints it (links resolved); `worktrees` its other worktrees
@@ -75,21 +77,22 @@ struct DiskUsage: Sendable {
         root: String, worktrees: [RepoWorktreeSizes.Item], remotes: Remotes, chats: URL = ClaudeHistory.defaultRoot,
         derived: URL = derivedData
     ) throws -> [Item] {
-        var g = Gathered(root: root, worktrees: worktrees)
+        var gathered = Gathered(root: root, worktrees: worktrees)
         let listed = try ProjectFiles.ignored(root, remotes: remotes).map(trimmed)
-        g.ignored = kept(listed, really: try Git.ignored(listed, cwd: root, remotes: remotes))
+        gathered.ignored = kept(listed, really: try Git.ignored(listed, cwd: root, remotes: remotes))
         for worktree in worktrees {
-            g.builds += outermost(try ProjectFiles.ignored(worktree.path, remotes: remotes).map(trimmed))
+            gathered.builds += outermost(try ProjectFiles.ignored(worktree.path, remotes: remotes).map(trimmed))
                 .map { worktree.path + "/" + $0 }.filter { isBuild($0) }.map { ($0, worktree.path) }
         }
         let roots = [root] + worktrees.map(\.path), xcode = builtFor(roots, in: derived)
         let talks = roots.map { chats.appendingPathComponent(claudeName($0)).path }.filter(exists)
-        g.sizes = try du(g.ignored.map { root + "/" + $0.rel } + g.builds.map(\.path) + xcode + talks)
-        g.total = try du([root])[root] ?? 0
-        g.extra =
-            xcode.map { Item(path: $0, bytes: g.sizes[$0] ?? 0, what: .build, removable: true) }
-            + talks.map { Item(path: $0, bytes: g.sizes[$0] ?? 0, what: .chats, removable: false) }
-        return parts(g)
+        gathered.sizes = try du(
+            gathered.ignored.map { root + "/" + $0.rel } + gathered.builds.map(\.path) + xcode + talks)
+        gathered.total = try du([root])[root] ?? 0
+        gathered.extra =
+            xcode.map { Item(path: $0, bytes: gathered.sizes[$0] ?? 0, what: .build, removable: true) }
+            + talks.map { Item(path: $0, bytes: gathered.sizes[$0] ?? 0, what: .chats, removable: false) }
+        return parts(gathered)
     }
 
     /// Of what git lists, those it ignores itself or whose contents it doesn't list too (it lists `.kelp/` along with

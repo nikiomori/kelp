@@ -152,12 +152,12 @@ public final class ListRowView: NSTableRowView {
     override public func drawBackground(in dirtyRect: NSRect) {
         super.drawBackground(in: dirtyRect)
         guard let card else { return }
-        let r = Metrics.radiusLG
+        let radius = Metrics.radiusLG
         var shape = bounds.insetBy(dx: inset, dy: 0)
-        shape.origin.y = card.first ? Self.cardPad - 4 : -2 * r
-        shape.size.height = (card.last ? bounds.height - Self.cardPad + 4 : bounds.height + 2 * r) - shape.minY
+        shape.origin.y = card.first ? Self.cardPad - 4 : -2 * radius
+        shape.size.height = (card.last ? bounds.height - Self.cardPad + 4 : bounds.height + 2 * radius) - shape.minY
         card.fill.setFill()
-        NSBezierPath(roundedRect: shape, xRadius: r, yRadius: r).fill()
+        NSBezierPath(roundedRect: shape, xRadius: radius, yRadius: radius).fill()
     }
 }
 

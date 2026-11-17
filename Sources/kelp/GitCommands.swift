@@ -63,11 +63,11 @@ extension Main {
     static func planned(_ args: [String]) -> (files: [String], message: String) {
         var files: [String] = [], parts: [String] = []
         var it = args.makeIterator()
-        while let a = it.next() {
-            if a == "-m" {
+        while let argument = it.next() {
+            if argument == "-m" {
                 if let part = it.next() { parts.append(part) }
             } else {
-                files.append(a)
+                files.append(argument)
             }
         }
         return (files, parts.joined(separator: "\n\n"))

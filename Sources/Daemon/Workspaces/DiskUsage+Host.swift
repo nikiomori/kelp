@@ -8,16 +8,16 @@ import GitKit
 extension DiskUsage {
     func measure(_ repo: Repo, on remote: RemoteHost) throws -> [Item] {
         let remotes = workspaces.remotes, root = try real(on: remote)
-        var g = Gathered(root: root, here: false)
+        var gathered = Gathered(root: root, here: false)
         let listed = try ProjectFiles.ignored(repo.path, remotes: remotes).map(Self.trimmed)
-        g.ignored = Self.kept(listed, really: try Git.ignored(listed, cwd: repo.path, remotes: remotes))
+        gathered.ignored = Self.kept(listed, really: try Git.ignored(listed, cwd: repo.path, remotes: remotes))
         // Limit: a worktree on a host is shown, not removed from here (its branch's menu does that).
         let linked = try Git.linkedWorktrees(repo.path, remotes: remotes).map(\.path)
         for worktree in linked {
             let out = try remote.run(
                 "cd -- \(ShellQuote.word(worktree)) 2>/dev/null || exit 0; "
                     + "git ls-files -z --others --ignored --exclude-standard --directory", timeLimit: 60)
-            g.builds += Self.outermost(
+            gathered.builds += Self.outermost(
                 String(decoding: out, as: UTF8.self).split(separator: "\0").map {
                     Self.trimmed(String($0))
                 }
@@ -25,16 +25,17 @@ extension DiskUsage {
             .map { worktree + "/" + $0 }.filter { Self.isBuild($0, here: false) }.map { ($0, worktree) }
         }
         let totals = try Self.du(linked, on: remote)
-        g.worktrees = linked.map { RepoWorktreeSizes.Item(path: $0, bytes: totals[$0] ?? 0, removable: false) }
-        g.sizes = try Self.du(g.ignored.map { root + "/" + $0.rel } + g.builds.map(\.path), on: remote)
-        g.total = try Self.du([root], on: remote)[root] ?? 0
-        g.extra = try chats(of: [root] + linked, on: remote)
+        gathered.worktrees = linked.map { RepoWorktreeSizes.Item(path: $0, bytes: totals[$0] ?? 0, removable: false) }
+        gathered.sizes = try Self.du(
+            gathered.ignored.map { root + "/" + $0.rel } + gathered.builds.map(\.path), on: remote)
+        gathered.total = try Self.du([root], on: remote)[root] ?? 0
+        gathered.extra = try chats(of: [root] + linked, on: remote)
         // The project's own as its stand-in here names it; the rest as the host does.
         let here = { (path: String) in
             // A host's path, a string to compare (`Paths.inside` looks at this Mac's disk).
             (path + "/").hasPrefix(root + "/") ? repo.path + path.dropFirst(root.count) : path
         }
-        return Self.parts(g).map { item in
+        return Self.parts(gathered).map { item in
             var item = item
             item.path = here(item.path)
             item.worktree = item.worktree.map(here)

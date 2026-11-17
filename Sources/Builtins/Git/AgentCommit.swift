@@ -48,8 +48,8 @@ extension SourceControlController {
     }
 
     @objc func askLastAgent() {
-        guard let a = lastAgent else { return agentMenu() }
-        ask(a, model: model(for: a))
+        guard let agent = lastAgent else { return agentMenu() }
+        ask(agent, model: model(for: agent))
     }
 
     /// The installed agents, each with its models; the one asked last ticked.

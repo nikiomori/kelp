@@ -227,7 +227,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         }
     }
 
-    func controlTextDidChange(_ n: Notification) { reload() }
+    func controlTextDidChange(_ notification: Notification) { reload() }
 
     private lazy var addButton = NSButton(
         title: String(localized: "Add Database…"), target: self, action: #selector(addDatabase))

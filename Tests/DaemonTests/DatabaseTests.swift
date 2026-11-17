@@ -400,7 +400,7 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     }
     // Kelp's own client, at a port nothing listens on, says it the same way
     await #expect(throws: said) {
-        try await DatabaseEngines.explained(c) { try await PostgresWire(c: c).read("SELECT 1", timeout: 5) }
+        try await DatabaseEngines.explained(c) { try await PostgresWire(connection: c).read("SELECT 1", timeout: 5) }
     }
 }
 
@@ -532,7 +532,7 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
         DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "UPDATE orders SET note = 'y' WHERE id > 1"))
     #expect(change.changed == 2)
     // A change allowed for fewer rows than it changes now: none changed; allowed for as many, made, its rows kept.
-    let duck = DuckDBRun(c: fileConnection(path, .duckdb), off: Slots(1))
+    let duck = DuckDBRun(connection: fileConnection(path, .duckdb), off: Slots(1))
     await #expect(throws: DatabaseEngines.notAsAllowed(3, 2)) {
         try await duck.write("UPDATE orders SET note = 'h'", allowed: 2)
     }
@@ -584,7 +584,7 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     let path = try shopDB(in: NSTemporaryDirectory() + "kelp-slow-\(UUID().uuidString)")
     let started = Date()
     await #expect(throws: DatabaseFailure.failed("It took more than 0 s.")) {
-        try await SQLiteRun(c: fileConnection(path, .sqlite), off: Slots(1)).read(
+        try await SQLiteRun(connection: fileConnection(path, .sqlite), off: Slots(1)).read(
             "WITH RECURSIVE r(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM r) SELECT count(*) FROM r",
             timeout: 0.3)
     }
@@ -756,7 +756,7 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     try await DatabaseQueue(path: path).write {
         try $0.execute(sql: "CREATE VIEW paid AS SELECT * FROM orders WHERE status = 'paid'")
     }
-    let schema = try await SQLiteRun(c: fileConnection(path, .sqlite), off: Slots(1)).schema()
+    let schema = try await SQLiteRun(connection: fileConnection(path, .sqlite), off: Slots(1)).schema()
     #expect(schema.tables.first { $0.name == "paid" }?.kind == "view")
     #expect(schema.tables.first { $0.name == "orders" }?.kind == nil)
 }

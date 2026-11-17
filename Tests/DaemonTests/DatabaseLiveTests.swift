@@ -294,7 +294,8 @@ private func heldThroughTheirClients(_ w: World, _ wt: Worktree) async throws {
         let table = name == "shop" ? "t" : "p"
         let c = try w.d.workspaces.databases.connection(wt.id, name, agent: false)
         let run: any DatabaseRunner =
-            c.database.engine == .postgres ? PostgresRun(c: c, off: Slots(1)) : MySQLRun(c: c, off: Slots(1))
+            c.database.engine == .postgres
+            ? PostgresRun(connection: c, off: Slots(1)) : MySQLRun(connection: c, off: Slots(1))
         await #expect(throws: DatabaseEngines.notAsAllowed(2, 1), "\(name)") {
             try await run.write("UPDATE \(table) SET v = 'n'", allowed: 1)
         }
@@ -351,7 +352,7 @@ private func composeDown(_ file: String, in dir: String) {
     let make = "CREATE TABLE IF NOT EXISTS many AS SELECT generate_series(1, 100005) AS i"
     _ = try await w.c.call(DatabaseQuery(worktreeId: wt.id, database: "app_dev", sql: make))
     let c = try w.d.workspaces.databases.connection(wt.id, "app_dev", agent: false)
-    let tried = try await PostgresWire(c: c).trial("DELETE FROM many")
+    let tried = try await PostgresWire(connection: c).trial("DELETE FROM many")
     #expect(tried.changed == 100_005)
     #expect(Databases.question("DELETE FROM many", database: "app_dev", changed: tried.changed).contains("100005 rows"))
 }

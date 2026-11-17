@@ -49,14 +49,14 @@ enum DevContainer {
         _ run: [String], cwd: String, in box: (folder: String, project: String), readOnly: [String], env: [String]
     ) -> [String] {
         let (folder, project) = box
-        let q = ShellQuote.word
+        let quote = ShellQuote.word
         let mounts =
             ([folder, project].reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
             .map { "type=bind,source=\($0),target=\($0)" }
             + readOnly.map { "type=bind,source=\($0),target=\($0),readonly" })
             .flatMap { ["--mount", $0] }
-        let up = (["devcontainer", "up", "--workspace-folder", folder] + mounts).map(q).joined(separator: " ")
-        let names = (env + ["TERM"]).sorted().flatMap { ["-e", $0] }.map(q).joined(separator: " ")
+        let up = (["devcontainer", "up", "--workspace-folder", folder] + mounts).map(quote).joined(separator: " ")
+        let names = (env + ["TERM"]).sorted().flatMap { ["-e", $0] }.map(quote).joined(separator: " ")
         let missing = "Kelp: this project runs in its dev container, and"
         let script = """
             if ! command -v devcontainer >/dev/null 2>&1; then
@@ -67,7 +67,7 @@ enum DevContainer {
               echo "\(missing) docker isn't here: install OrbStack, Colima or Docker Desktop."
               exit 127
             fi
-            if docker ps -q --filter label=devcontainer.local_folder=\(q(folder)) 2>/dev/null | grep -q .; then
+            if docker ps -q --filter label=devcontainer.local_folder=\(quote(folder)) 2>/dev/null | grep -q .; then
               out=$(\(up) 2>/dev/null)
             else
               echo "Starting the dev container…"
@@ -82,7 +82,7 @@ enum DevContainer {
             fi
             t=
             [ -t 0 ] && t=-t
-            exec docker exec -i $t ${user:+-u "$user"} -w \(q(cwd)) \(names) "$id" "$@"
+            exec docker exec -i $t ${user:+-u "$user"} -w \(quote(cwd)) \(names) "$id" "$@"
             """
         return ["/bin/sh", "-c", script, "sh"] + run
     }

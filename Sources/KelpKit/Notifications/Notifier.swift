@@ -208,15 +208,15 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     private var reminders: [String: Task<Void, Never>] = [:]   // session → the wait for its question's one reminder
 
     /// `.continuous`: the Mac's sleep counts, and a question an hour old on waking is reminded of at once.
-    private func remind(of s: Session) {
-        reminders[s.id]?.cancel()
-        reminders[s.id] = nil
-        guard s.status == .waiting, s.limitHit == nil,
+    private func remind(of session: Session) {
+        reminders[session.id]?.cancel()
+        reminders[session.id] = nil
+        guard session.status == .waiting, session.limitHit == nil,
             let minutes = Int(app.settings[SettingKeys.remindAfter])
         else { return }
-        reminders[s.id] = Task { [weak self] in
+        reminders[session.id] = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(minutes * 60), clock: .continuous) } catch { return }
-            self?.reminderDue(s)
+            self?.reminderDue(session)
         }
     }
 
@@ -249,24 +249,29 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// Each `event.session`, as it comes: a status that changes back within a moment still gets its banner.
-    func statusChanged(_ s: Session, _ old: Session?) {
-        guard old?.status != s.status, [.done, .waiting, .error].contains(s.status), s.isChat else { return }
-        if Self.leftToItsParent(s) { return }
-        if s.status == .error, s.continueAt != nil, s.limitHit == nil { return }   // Kelp goes on from it by itself
-        // A guess off the screen (the row says so; a banner would claim it), or a parked one, out of the way till it calls.
-        if s.status == .done, s.guessed == true || app.arrangement.isParked(s.id) { return }
-        let turn = NotifyRule.turn(s, after: old)
-        // What the agent itself said with this change (a permission request, an error) beats its last reply.
-        if s.status != .done, !s.summary.isEmpty, s.summary != old?.summary {
-            tell(s, turn: turn)
+    func statusChanged(_ session: Session, _ old: Session?) {
+        guard old?.status != session.status, [.done, .waiting, .error].contains(session.status), session.isChat else {
             return
         }
-        Task { await summarizeThenNotify(s, turn: turn) }
+        if Self.leftToItsParent(session) { return }
+        // Kelp goes on from it by itself
+        if session.status == .error, session.continueAt != nil, session.limitHit == nil { return }
+        // A guess off the screen (the row says so; a banner would claim it), or a parked one, out of the way till it calls.
+        if session.status == .done, session.guessed == true || app.arrangement.isParked(session.id) { return }
+        let turn = NotifyRule.turn(session, after: old)
+        // What the agent itself said with this change (a permission request, an error) beats its last reply.
+        if session.status != .done, !session.summary.isEmpty, session.summary != old?.summary {
+            tell(session, turn: turn)
+            return
+        }
+        Task { await summarizeThenNotify(session, turn: turn) }
     }
 
     /// A child that finished: its parent reads it and goes on, and that's the one to tell you. One a plan limit stopped
     /// hasn't finished, and only you can decide what's next.
-    static func leftToItsParent(_ s: Session) -> Bool { s.parent != nil && s.status == .done && s.limitHit == nil }
+    static func leftToItsParent(_ session: Session) -> Bool {
+        session.parent != nil && session.status == .done && session.limitHit == nil
+    }
 
     private var rule: NotifyRule {
         func level(_ setting: Setting<String>) -> NotifyRule.Level {
@@ -277,14 +282,15 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             failed: level(SettingKeys.onError), quietUnder: app.settings[SettingKeys.quietUnder])
     }
 
-    private func tell(_ s: Session, turn: TimeInterval?) {
-        if tells(s, turn: turn) { post(s) }
+    private func tell(_ session: Session, turn: TimeInterval?) {
+        if tells(session, turn: turn) { post(session) }
     }
 
     /// A banner comes for this change: the rule for its status and length, and the row isn't muted.
-    private func tells(_ s: Session, turn: TimeInterval?) -> Bool {
+    private func tells(_ session: Session, turn: TimeInterval?) -> Bool {
         // A limit stops the turn with a question in it, what next: it comes as one, however short the turn.
-        rule.level(s.limitHit == nil ? s.status : .waiting, turn: turn) != .off && !Mutes.isMuted(s, in: app)
+        rule.level(session.limitHit == nil ? session.status : .waiting, turn: turn) != .off
+            && !Mutes.isMuted(session, in: app)
     }
 
     /// On the notification itself, not NSSound: Focus and Kelp's "Play sound" switch in System Settings silence it.

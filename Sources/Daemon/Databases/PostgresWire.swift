@@ -7,12 +7,12 @@ import os
 // Postgres spoken by kelpd itself (PostgresNIO): reads, writes, schema, over one connection a call.
 
 struct PostgresWire: DatabaseRunner {
-    let c: DatabaseConnection
+    let connection: DatabaseConnection
     /// How long a read may run past the server's own limit before its connection is closed.
     var grace: TimeInterval = 10
 
     func read(_ sql: String, timeout: TimeInterval) async throws -> DatabaseRows {
-        try await Self.with(c, within: timeout + grace) { conn in
+        try await Self.with(connection, within: timeout + grace) { conn in
             try await Self.run(conn, "BEGIN TRANSACTION READ ONLY")
             try await Self.run(conn, "SET LOCAL statement_timeout = '\(Int(timeout))s'")
             return try await Self.rows(conn, sql)
@@ -22,7 +22,7 @@ struct PostgresWire: DatabaseRunner {
     /// The change made and rolled back; with RETURNING its rows are what it changed. How many it changed is the
     /// command tag's, never the rows counted (they stop at `countLimit`).
     func trial(_ sql: String) async throws -> DatabaseRows {
-        try await Self.with(c, within: 2 * DatabaseEngines.readTimeout + DatabaseTimes.slack) { conn in
+        try await Self.with(connection, within: 2 * DatabaseEngines.readTimeout + DatabaseTimes.slack) { conn in
             func attempt(_ statement: String) async throws -> DatabaseRows {
                 try await Self.run(conn, "BEGIN")
                 try await Self.run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.readTimeout))s'")
@@ -44,7 +44,7 @@ struct PostgresWire: DatabaseRunner {
 
     /// `allowed`: the rows the user allowed it to change; it's committed only if it changes as many.
     func write(_ sql: String, allowed: Int?) async throws -> DatabaseRows {
-        try await Self.with(c, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
+        try await Self.with(connection, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
             guard let allowed else {
                 try await Self.run(conn, "SET statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
                 return try await Self.command(conn, sql)
@@ -64,7 +64,7 @@ struct PostgresWire: DatabaseRunner {
 
     /// Statements in one transaction: a failure leaves nothing done (the connection closes without COMMIT).
     func apply(_ statements: [String]) async throws -> Int {
-        try await Self.with(c, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
+        try await Self.with(connection, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
             try await Self.run(conn, "BEGIN")
             try await Self.run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
             var changed = 0
@@ -75,7 +75,7 @@ struct PostgresWire: DatabaseRunner {
     }
 
     func batch(_ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool) async throws -> [Int?] {
-        try await Self.with(c, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
+        try await Self.with(connection, within: DatabaseEngines.writeTimeout + DatabaseTimes.slack) { conn in
             try await Self.run(conn, "BEGIN")
             try await Self.run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.writeTimeout))s'")
             var changed: [Int?] = []
@@ -90,7 +90,7 @@ struct PostgresWire: DatabaseRunner {
     }
 
     func schema() async throws -> DatabaseSchema {
-        try await Self.with(c) { conn in
+        try await Self.with(connection) { conn in
             try await Self.run(conn, "BEGIN TRANSACTION READ ONLY")
             try await Self.run(conn, "SET LOCAL statement_timeout = '\(Int(DatabaseEngines.readTimeout))s'")
             let columns = try await Self.rows(conn, PostgresRun.schemaColumns)
@@ -106,7 +106,7 @@ struct PostgresWire: DatabaseRunner {
 
     /// The server's databases, for the sheet's pop-up.
     func databases() async throws -> [String] {
-        try await Self.with(c) { conn in
+        try await Self.with(connection) { conn in
             try await Self.rows(
                 conn, "SELECT datname FROM pg_database WHERE NOT datistemplate AND datallowconn ORDER BY datname"
             ).rows.compactMap { $0.first ?? nil }
@@ -115,7 +115,7 @@ struct PostgresWire: DatabaseRunner {
 
     /// "PostgreSQL 16.4" and the like, for the sheet's check.
     func version() async throws -> String? {
-        try await Self.with(c) { conn in
+        try await Self.with(connection) { conn in
             let full = try await Self.rows(conn, "SELECT version()").rows.first?.first ?? nil
             return full?.split(separator: " ").prefix(2).joined(separator: " ") ?? "Postgres"
         }
