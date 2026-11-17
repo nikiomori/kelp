@@ -28,9 +28,7 @@ enum PullRequests {
 
     @MainActor static func badge(_ pr: GitHub.PullRequest) -> (NSAttributedString, String) {
         let number = pr.number, state = pr.isDraft ? "DRAFT" : pr.state
-        let color: NSColor =
-            state == "DRAFT"
-            ? .secondaryLabelColor : state == "MERGED" ? .textPurple : state == "CLOSED" ? .textRed : .textGreen
+        let color = NSColor.pullRequest(state: pr.state, draft: pr.isDraft)
         let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
         let label = NSAttributedString(
             string: "#\(number)",
@@ -69,9 +67,7 @@ struct PRLine: View {
     let pr: GitHub.PullRequest
     var body: some View {
         let state = pr.isDraft ? String(localized: "Draft") : pr.state.capitalized
-        let color: Color =
-            state == String(localized: "Draft")
-            ? .secondary : state == "Merged" ? .textPurple : state == "Closed" ? .textRed : .textGreen
+        let color = Color(nsColor: .pullRequest(state: pr.state, draft: pr.isDraft))
         let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {

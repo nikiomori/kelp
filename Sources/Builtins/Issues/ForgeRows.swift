@@ -41,16 +41,6 @@ enum ForgeRows {
         return row
     }
 
-    /// The glyph's colour, as GitHub colours it: open green, draft grey, merged purple, closed red.
-    static func color(state: String, draft: Bool = false) -> NSColor {
-        if draft { return .secondaryLabelColor }
-        switch state {
-        case "MERGED": return .textPurple
-        case "CLOSED": return .textRed
-        default: return .textGreen
-        }
-    }
-
     static func pr(_ pr: GitHub.PullRequest, worktree: Bool, unseen: Bool) -> ForgeRowCell {
         var said: [(String, NSColor?)] = [("#\(pr.number)", nil), (pr.author, nil)]
         if let updated = pr.updatedAt.map(CIRunLook.ago), !updated.isEmpty { said.append((updated, nil)) }
@@ -72,7 +62,7 @@ enum ForgeRows {
             said.append(("✓", .textGreen))
         }
         return ForgeRowCell(
-            symbol: "arrow.triangle.pull", tint: color(state: pr.state, draft: pr.isDraft), title: pr.title,
+            symbol: "arrow.triangle.pull", tint: .pullRequest(state: pr.state, draft: pr.isDraft), title: pr.title,
             meta: joined(said), branch: worktree, unseen: unseen)
     }
 
