@@ -21,6 +21,8 @@ extension AppOfItsOwn {
         let window = try #require(holder.view.window)
         window.orderFrontRegardless()   // a window never on screen gets no sheet
         defer { window.orderOut(nil) }
+        // A runner without a screen (CI's) puts no window in front: the question has nowhere to be seen there.
+        guard window.isVisible else { return }
         let issue = GitHub.Issue(
             number: 7, title: "Fix it", body: "", url: "", labels: [], assignees: [], state: "OPEN")
         IssueWork(app: rig.app, repoId: rig.project.id).startOnBranch(issue)
