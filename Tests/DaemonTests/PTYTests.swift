@@ -255,6 +255,7 @@ final class Box: @unchecked Sendable {
     _ = try await c.call("daemon.shutdown")
     #expect(try await waitFor(10) { !p.isRunning })
     #expect(p.terminationStatus == 0)   // a clean exit, not a crash
+    #expect(!FileManager.default.fileExists(atPath: sock))   // the next one doesn't find a dead socket
 }
 
 /// A paste into a program that isn't reading (a build in the foreground) holds up nothing: not the caller (a connection's

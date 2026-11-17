@@ -31,6 +31,34 @@ private func finishedTurn(_ w: World, _ name: String, tasks: [JSONValue]? = nil,
     #expect(ls.restartAgent(into: "v3", quiet: 0))
 }
 
+/// On the ticker: with "update while idle" on, an outdated Claude Code is restarted, one session a round (15 s apart),
+/// never another agent's; with it off, none.
+@Test func theTickerRestartsOneOutdatedClaudeCodeARound() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    var turns: [LiveSession] = []
+    for name in ["a", "b", "plain"] { turns.append(try await finishedTurn(w, "round-" + name).1) }
+    for ls in turns.prefix(2) { _ = ls.update { $0.agent = Session.claudeAgent } }
+    for ls in turns { ls.state.withLock { $0.lastOutputAt = .distantPast } }   // quiet long enough
+    let start = Date().addingTimeInterval(3600)   // past whatever the daemon's own ticker took
+    func round(_ at: TimeInterval) {
+        w.d.sessions.updates.restartOutdated(
+            now: start + at, installed: { "/u/claude/versions/2" }, running: { _ in "/u/claude/versions/1" })
+    }
+    func restarted() -> [Bool] { turns.map { ls in ls.state.withLock { $0.updatedTo != nil } } }
+    _ = try await w.c.call(SettingsSet(key: SettingKeys.updateIdle.key, value: .bool(false)))
+    round(0)
+    #expect(restarted() == [false, false, false], "the setting is off")
+    _ = try await w.c.call(SettingsSet(key: SettingKeys.updateIdle.key, value: .bool(true)))
+    round(1)
+    #expect(restarted() == [false, false, false], "the round 1 s ago counts: 15 s apart")
+    round(20)
+    #expect(restarted().filter { $0 }.count == 1 && !restarted()[2], "one Claude Code a round")
+    round(40)
+    round(60)
+    #expect(restarted() == [true, true, false], "the other next, the plain program never")
+}
+
 /// Quiet isn't idle: what runs in the background and the timers of a /loop would be lost with the program.
 @Test func anAgentWithSomethingToWakeItIsLeftAlone() async throws {
     let w = try await world()

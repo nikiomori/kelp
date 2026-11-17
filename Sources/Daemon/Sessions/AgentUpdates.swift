@@ -15,19 +15,21 @@ final class AgentUpdates: Sendable {
     }
 
     /// On the ticker, every 15 s. One session a round: each reads its conversation and starts its servers again.
-    func restartOutdated() {
+    /// `installed`: Claude Code's native launcher, whatever comes first on PATH (that's what /restart runs); `running`:
+    /// the program a session's pid runs.
+    func restartOutdated(
+        now: Date = Date(), installed: () -> String? = { Paths.real(NSHomeDirectory() + "/.local/bin/claude") },
+        running: (pid_t) -> String? = { Unix.executable($0) }
+    ) {
         let due = nextCheck.withLock { next -> Bool in
-            guard Date() >= next else { return false }
-            next = Date().addingTimeInterval(15)
+            guard now >= next else { return false }
+            next = now.addingTimeInterval(15)
             return true
         }
-        // Its native launcher, whatever comes first on PATH: that's what /restart runs.
-        guard due, settings[SettingKeys.updateIdle],
-            let installed = Paths.real(NSHomeDirectory() + "/.local/bin/claude")
-        else { return }
+        guard due, settings[SettingKeys.updateIdle], let installed = installed() else { return }
         for ls in live.all
         where ls.snapshot.agent == Session.claudeAgent
-            && Self.outdated(running: Unix.executable(ls.pty.pid), installed: installed)
+            && Self.outdated(running: running(ls.pty.pid), installed: installed)
         {
             // A tab on screen is being read, and a restart redraws it.
             if ls.restartAgent(into: installed, quiet: ls.isAttached ? 300 : 30) { return }

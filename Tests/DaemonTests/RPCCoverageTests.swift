@@ -409,12 +409,14 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 @Test func relocatingAProjectPointsItsWorkspaceAtTheNewFolder() async throws {
     let r = try await rig()
     defer { r.d.stop() }
-    let moved = try makeRepo()
+    let moved = try makeRepo(), old = r.repo.path
     let repo = try await r.c.call(
         "repo.relocate", .obj(["id": .string(r.repo.id), "path": .string(moved)]), as: Repo.self)
-    #expect(
-        URL(fileURLWithPath: repo.path).resolvingSymlinksInPath().path
-            == URL(fileURLWithPath: moved).resolvingSymlinksInPath().path)
+    let real = { (path: String) in URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
+    #expect(real(repo.path) == real(moved))
+    // The workspace in the project's own folder moves with it; one in a folder of its own stays where it is.
+    let paths = try await r.c.call(WorktreeList(repoId: r.repo.id)).map(\.path)
+    #expect(paths.contains(repo.path) && !paths.contains(old) && paths.contains(r.wt.path), "\(paths)")
     await #expect(throws: (any Error).self) {
         _ = try await r.c.call(
             "repo.relocate",
@@ -434,11 +436,14 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     #expect(back.name == (r.repo.path as NSString).lastPathComponent)
 }
 
+/// A recipe is given its workspace's branch and its project's base without being told them.
 @Test func aRecipeFillsInTheBranchAndBase() async throws {
     let r = try await rig()
     defer { r.d.stop() }
-    let text = try await r.call("recipe.render", ["name": .string("commit")]).string ?? ""
-    #expect(!text.isEmpty && !text.contains("{"))   // every placeholder was filled
+    let pr = try await r.c.call(RecipeRender(id: r.wt.id, name: "pr"))
+    #expect(pr.contains("for branch feat/x with"), "\(pr)")
+    let merge = try await r.c.call(RecipeRender(id: r.wt.id, name: "resolveConflicts"))
+    #expect(merge.hasPrefix("Merge main into this branch"), "\(merge)")
 }
 
 @Test func pushGoesToTheUpstreamAndFailsClearlyWithoutOne() async throws {
