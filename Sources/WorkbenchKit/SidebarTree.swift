@@ -44,15 +44,15 @@ public struct SidebarTree {
     }
 
     public func build() -> [SidebarItem] {
-        func workspace(_ w: Worktree) -> SidebarItem {
+        func workspace(_ worktree: Worktree) -> SidebarItem {
             // Agents only: terminals are tabs, not something to keep an eye on. One on another screen keeps a row there:
             // it's what that screen holds.
             let agents = sessions.filter {
-                $0.worktreeId == w.id && $0.status != .exited && !$0.isTerminal
+                $0.worktreeId == worktree.id && $0.status != .exited && !$0.isTerminal
                     && !parked.contains($0.id)
             }
             let rows = agents.filter { a in !agents.contains { $0.id == a.parent } }
-            return SidebarItem(kind: .workspace(w.id), children: rows.map { SidebarItem(kind: .agent($0.id)) })
+            return SidebarItem(kind: .workspace(worktree.id), children: rows.map { SidebarItem(kind: .agent($0.id)) })
         }
         let live = workspaces.filter { !$0.archived }
         let listed = projects.map { r -> SidebarItem in
@@ -61,7 +61,9 @@ public struct SidebarTree {
             // A group an agent made stands under its chat. Only a chat on the project's own screen: a group can't hold a
             // group, so one made from inside a group stays among the project's groups.
             let makers = Set(chats.compactMap { if case .agent(let id) = $0.kind { id } else { nil } })
-            func maker(_ w: Worktree) -> String? { Self.maker(w).flatMap { makers.contains($0) ? $0 : nil } }
+            func maker(_ worktree: Worktree) -> String? {
+                Self.maker(worktree).flatMap { makers.contains($0) ? $0 : nil }
+            }
             let groups = live.filter { $0.repoId == r.id && $0.id != own?.id }
             let rows = chats.flatMap { chat -> [SidebarItem] in
                 [chat]
@@ -75,11 +77,13 @@ public struct SidebarTree {
                 kind: .project(r.id), children: rows + groups.filter { maker($0) == nil }.map(workspace),
                 workspace: own?.id)
         }
-        func busy(_ i: SidebarItem) -> Bool {
-            i.children.contains { if case .agent = $0.kind { true } else { busy($0) } }
+        func busy(_ sidebarItem: SidebarItem) -> Bool {
+            sidebarItem.children.contains { if case .agent = $0.kind { true } else { busy($0) } }
         }
         let all = sections(activeFirst ? listed.filter(busy) + listed.filter { !busy($0) } : listed)
-        func isPinned(_ i: SidebarItem) -> Bool { pinnedLast != nil && i.kind == .project(pinnedLast ?? "") }
+        func isPinned(_ sidebarItem: SidebarItem) -> Bool {
+            pinnedLast != nil && sidebarItem.kind == .project(pinnedLast ?? "")
+        }
         let away = sessions.filter { parked.contains($0.id) && $0.status != .exited }.map {
             SidebarItem(kind: .agent($0.id))
         }
@@ -88,13 +92,15 @@ public struct SidebarTree {
     }
 
     /// The session that made a workspace: the agent itself, or the terminal an agent was typed into (`typed:<id>`).
-    public static func maker(_ w: Worktree) -> String? {
-        w.madeBy.map { $0.hasPrefix("typed:") ? String($0.dropFirst(6)) : $0 }
+    public static func maker(_ worktree: Worktree) -> String? {
+        worktree.madeBy.map { $0.hasPrefix("typed:") ? String($0.dropFirst(6)) : $0 }
     }
 
     private func sections(_ listed: [SidebarItem]) -> [SidebarItem] {
         guard !hosts.isEmpty else { return listed }
-        func host(_ i: SidebarItem) -> String { if case .project(let id) = i.kind { hosts[id] ?? "" } else { "" } }
+        func host(_ sidebarItem: SidebarItem) -> String {
+            if case .project(let id) = sidebarItem.kind { hosts[id] ?? "" } else { "" }
+        }
         var order: [String] = []
         for h in [""] + listed.map(host) where !order.contains(h) { order.append(h) }
         return order.flatMap { h -> [SidebarItem] in
@@ -123,5 +129,5 @@ public struct Inbox: Sendable {
     public var settlesAt: Date? {
         queue.filter { !viewing.contains($0.id) }.map { since($0) + settle }.filter { $0 > now }.min()
     }
-    private func since(_ s: Session) -> Date { s.statusAt ?? s.createdAt }
+    private func since(_ session: Session) -> Date { session.statusAt ?? session.createdAt }
 }

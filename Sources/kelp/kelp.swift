@@ -149,8 +149,10 @@ func jsonOrText(_ s: String) -> JSONValue {
 }
 
 /// The workspace the current directory is in; an agent's own one (KELP_SESSION) when several share the folder.
-func currentWorktree(_ c: RPCClient) async throws -> Worktree {
-    guard let worktree = try await worktreeHere(c) else { throw RPCError.invalidParams("not inside a kelp worktree") }
+func currentWorktree(_ client: RPCClient) async throws -> Worktree {
+    guard let worktree = try await worktreeHere(client) else {
+        throw RPCError.invalidParams("not inside a kelp worktree")
+    }
     return worktree
 }
 /// nil outside every workspace: for a command with somewhere else to go then. A daemon that didn't answer is an error.
@@ -162,17 +164,17 @@ func worktreeHere(_ c: RPCClient) async throws -> Worktree? {
     else { return nil }
     return try await c.call(WorktreeList()).first { $0.id == id }
 }
-func currentWorktreeID(_ c: RPCClient) async throws -> String { try await currentWorktree(c).id }
-func currentRepoID(_ c: RPCClient) async throws -> String {
+func currentWorktreeID(_ client: RPCClient) async throws -> String { try await currentWorktree(client).id }
+func currentRepoID(_ client: RPCClient) async throws -> String {
     if let repo = flag("--repo") { return repo }
     let cwd = FileManager.default.currentDirectoryPath
     // The nearest: a project inside another (~/code/app in ~/code) is the one its folder is in.
-    if let id = try await c.call(RepoList()).filter({ Paths.inside(cwd, $0.path) }).max(by: {
+    if let id = try await client.call(RepoList()).filter({ Paths.inside(cwd, $0.path) }).max(by: {
         $0.path.count < $1.path.count
     })?.id {
         return id
     }
-    if let id = try await worktreeHere(c)?.repoId { return id }
+    if let id = try await worktreeHere(client)?.repoId { return id }
     fail("no repo here; pass --repo <id> or run `kelp repo add`")
 }
 
@@ -260,42 +262,42 @@ func currentRepoID(_ c: RPCClient) async throws -> String {
         } catch let rpcError as RPCError { fail("error: \(rpcError.message)") } catch { fail("error: \(error)") }
     }
 
-    static func run(_ cmd: String, _ c: RPCClient) async throws {
+    static func run(_ cmd: String, _ client: RPCClient) async throws {
         let sub = args.first.flatMap { $0.hasPrefix("-") ? nil : $0 }
         if sub != nil { args.removeFirst() }
         switch cmd {
-        case "status", "repo", "worktree": try await projects(cmd, sub, c)
-        case "session", "terminal", "wait", "why", "report": try await sessions(cmd, sub, c)
-        case "agents": try await agents(c)
-        case "usage": try await usageLimits(c)
-        case "diff", "commit", "merge", "push", "comment": try await git(cmd, sub, c)
-        case "github", "linear": try await forge(cmd, sub, c)
-        case "settings", "ui", "run": try await settingsAndUI(cmd, sub, c)
-        case "ext": try await ext(sub, c)
-        case "open": try await open(sub, c)
-        case "edit": try await edit(sub, c)
-        case "shot": try await shot(sub, c)
-        case "browser": try await browser(sub, c)
-        case "routine": try await routines(sub, c)
-        case "artifact": try await artifacts(sub, c)
-        case "vm": try await vm(sub, c)
-        case "db": try await db(sub, c)
-        case "mcp": try await addons(.server, sub, c)
-        case "skill": try await addons(.skill, sub, c)
+        case "status", "repo", "worktree": try await projects(cmd, sub, client)
+        case "session", "terminal", "wait", "why", "report": try await sessions(cmd, sub, client)
+        case "agents": try await agents(client)
+        case "usage": try await usageLimits(client)
+        case "diff", "commit", "merge", "push", "comment": try await git(cmd, sub, client)
+        case "github", "linear": try await forge(cmd, sub, client)
+        case "settings", "ui", "run": try await settingsAndUI(cmd, sub, client)
+        case "ext": try await ext(sub, client)
+        case "open": try await open(sub, client)
+        case "edit": try await edit(sub, client)
+        case "shot": try await shot(sub, client)
+        case "browser": try await browser(sub, client)
+        case "routine": try await routines(sub, client)
+        case "artifact": try await artifacts(sub, client)
+        case "vm": try await vm(sub, client)
+        case "db": try await db(sub, client)
+        case "mcp": try await addons(.server, sub, client)
+        case "skill": try await addons(.skill, sub, client)
         default: print(usage)
         }
     }
 
     /// A session's full id from it or a unique prefix of it (what `kelp status` prints).
-    static func session(_ c: RPCClient, _ prefix: String) async throws -> String {
+    static func session(_ client: RPCClient, _ prefix: String) async throws -> String {
         guard !prefix.isEmpty else { fail("id required") }
-        return unique(prefix, among: try await c.call(SessionList()).map(\.id))
+        return unique(prefix, among: try await client.call(SessionList()).map(\.id))
     }
 
     /// A workspace's full id from it or a unique prefix of it.
-    static func workspace(_ c: RPCClient, _ prefix: String) async throws -> String {
+    static func workspace(_ client: RPCClient, _ prefix: String) async throws -> String {
         guard !prefix.isEmpty else { fail("id required") }
-        return unique(prefix, among: try await c.call(WorktreeList()).map(\.id))
+        return unique(prefix, among: try await client.call(WorktreeList()).map(\.id))
     }
 
     private static func unique(_ prefix: String, among ids: [String]) -> String {

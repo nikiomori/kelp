@@ -11,17 +11,19 @@ final class BrowserBox: NSView {
         find(NSFindPanelAction(rawValue: UInt((sender as? NSMenuItem)?.tag ?? 1)))
     }
 
-    override func performKeyEquivalent(with e: NSEvent) -> Bool {
-        let mods = e.modifierFlags.intersection([.command, .shift, .option, .control])
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let mods = event.modifierFlags.intersection([.command, .shift, .option, .control])
         guard mods == .command, let focus = window?.firstResponder as? NSView, focus.isDescendant(of: self) else {
-            return super.performKeyEquivalent(with: e)
+            return super.performKeyEquivalent(with: event)
         }
         // ⌘F by key code (a Russian layout sends another letter): the address field's editor would take it otherwise.
-        if e.keyCode == 3 {
+        if event.keyCode == 3 {
             find(nil)
             return true
         }
-        guard e.charactersIgnoringModifiers?.lowercased() == "r" else { return super.performKeyEquivalent(with: e) }
+        guard event.charactersIgnoringModifiers?.lowercased() == "r" else {
+            return super.performKeyEquivalent(with: event)
+        }
         reload()
         return true
     }

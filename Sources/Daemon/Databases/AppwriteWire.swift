@@ -16,8 +16,8 @@ struct AppwriteWire: DatabaseRunner {
         var base: String, project: String, key: String, database: String
     }
 
-    static func endpoint(_ c: DatabaseConnection) throws -> Endpoint {
-        let db = c.database
+    static func endpoint(_ databaseConnection: DatabaseConnection) throws -> Endpoint {
+        let db = databaseConnection.database
         var host = (db.host ?? "").trimmingCharacters(in: .whitespaces)
         var scheme = db.ssl == "disable" ? "http" : "https"
         for prefix in ["https://", "http://"] where host.hasPrefix(prefix) {
@@ -30,7 +30,7 @@ struct AppwriteWire: DatabaseRunner {
         guard let project = db.user, !project.isEmpty else {
             throw DatabaseFailure.failed("\(db.name) needs its Project ID: the project's Settings in Appwrite.")
         }
-        guard let key = c.password, !key.isEmpty else {
+        guard let key = databaseConnection.password, !key.isEmpty else {
             throw DatabaseFailure.failed(
                 "Kelp has no password for \(db.name), its API key: Edit… to paste one (the project's Overview › "
                     + "API keys, with databases.read, tables.read, rows.read and rows.write).")
@@ -163,11 +163,12 @@ struct AppwriteWire: DatabaseRunner {
         }
     }
 
-    private static func run(_ e: Endpoint, _ statement: AppwriteSQL.Statement, _ tx: String) async throws -> Int {
+    private static func run(_ endpoint: Endpoint, _ statement: AppwriteSQL.Statement, _ tx: String) async throws -> Int
+    {
         switch statement {
         case .select: throw DatabaseFailure.failed("A SELECT changes nothing: run it as a read.")
         case .insert(let insert):
-            let kinds = try await kinds(e, insert.table)
+            let kinds = try await kinds(endpoint, insert.table)
             for row in insert.rows {
                 var data: [String: Any] = [:], id = "unique()"
                 for (column, value) in zip(insert.columns, row) {
@@ -178,30 +179,33 @@ struct AppwriteWire: DatabaseRunner {
                     }
                 }
                 _ = try await call(
-                    e, "POST", rows(e, insert.table), body: ["rowId": id, "data": data, "transactionId": tx])
+                    endpoint, "POST", rows(endpoint, insert.table),
+                    body: ["rowId": id, "data": data, "transactionId": tx])
             }
             return insert.rows.count
         case .update(let table, let set, let condition):
-            let kinds = try await kinds(e, table)
+            let kinds = try await kinds(endpoint, table)
             var data: [String: Any] = [:]
             for (column, value) in set { data[column] = kinds.value(value, column) }
-            let found = try await ids(e, table, condition, kinds)
+            let found = try await ids(endpoint, table, condition, kinds)
             for id in found {
                 _ = try await call(
-                    e, "PATCH", rows(e, table) + "/" + path(id), body: ["data": data, "transactionId": tx])
+                    endpoint, "PATCH", rows(endpoint, table) + "/" + path(id), body: ["data": data, "transactionId": tx]
+                )
             }
             return found.count
         case .delete(let table, let condition):
-            let found = try await ids(e, table, condition, try await kinds(e, table))
+            let found = try await ids(endpoint, table, condition, try await kinds(endpoint, table))
             for id in found {
-                _ = try await call(e, "DELETE", rows(e, table) + "/" + path(id), body: ["transactionId": tx])
+                _ = try await call(
+                    endpoint, "DELETE", rows(endpoint, table) + "/" + path(id), body: ["transactionId": tx])
             }
             return found.count
         }
     }
 
     /// The rows a WHERE names: "$id" = '…' as it is (the tab's edits), else asked for (5 000 at most).
-    private static func ids(_ e: Endpoint, _ table: String, _ condition: AppwriteSQL.Condition, _ kinds: Kinds)
+    private static func ids(_ endpoint: Endpoint, _ table: String, _ condition: AppwriteSQL.Condition, _ kinds: Kinds)
         async throws -> [String]
     {
         if case .test("equal", "$id", let values) = condition {
@@ -209,7 +213,7 @@ struct AppwriteWire: DatabaseRunner {
         }
         let limit = 5000
         let answer = try await call(
-            e, "GET", rows(e, table),
+            endpoint, "GET", rows(endpoint, table),
             queries: kinds.queries(condition) + [
                 ["method": "select", "values": ["$id"]], ["method": "limit", "values": [limit]]
             ])
@@ -253,13 +257,13 @@ struct AppwriteWire: DatabaseRunner {
         }
 
         /// Top-level ANDs as separate queries, as Appwrite ANDs them.
-        func queries(_ c: AppwriteSQL.Condition) -> [[String: Any]] {
-            if case .all(let parts) = c { return parts.map(query) }
-            return [query(c)]
+        func queries(_ condition: AppwriteSQL.Condition) -> [[String: Any]] {
+            if case .all(let parts) = condition { return parts.map(query) }
+            return [query(condition)]
         }
 
-        func query(_ c: AppwriteSQL.Condition) -> [String: Any] {
-            switch c {
+        func query(_ condition: AppwriteSQL.Condition) -> [String: Any] {
+            switch condition {
             case .all(let parts): return ["method": "and", "values": parts.map(query)]
             case .any(let parts): return ["method": "or", "values": parts.map(query)]
             case .test(let method, let column, let values):
@@ -270,8 +274,9 @@ struct AppwriteWire: DatabaseRunner {
         }
     }
 
-    private static func kinds(_ e: Endpoint, _ table: String) async throws -> Kinds {
-        let found = self.table(try await call(e, "GET", "/tablesdb/\(path(e.database))/tables/\(path(table))"))
+    private static func kinds(_ endpoint: Endpoint, _ table: String) async throws -> Kinds {
+        let found = self.table(
+            try await call(endpoint, "GET", "/tablesdb/\(path(endpoint.database))/tables/\(path(table))"))
         var types: [String: (type: String, array: Bool)] = ["$sequence": ("integer", false)]
         for c in found.columns {
             let array = c.type.hasSuffix("[]")
@@ -300,21 +305,21 @@ struct AppwriteWire: DatabaseRunner {
     // MARK: HTTP
 
     /// A database ID left out: the project's only one.
-    private static func withDatabase(_ e: Endpoint) async throws -> Endpoint {
-        guard e.database.isEmpty else { return e }
-        let answer = try await call(e, "GET", "/tablesdb", queries: [["method": "limit", "values": [2]]])
+    private static func withDatabase(_ endpoint: Endpoint) async throws -> Endpoint {
+        guard endpoint.database.isEmpty else { return endpoint }
+        let answer = try await call(endpoint, "GET", "/tablesdb", queries: [["method": "limit", "values": [2]]])
         let ids = (answer["databases"] as? [[String: Any]] ?? []).compactMap { $0["$id"] as? String }
         guard ids.count == 1 else {
             throw DatabaseFailure.failed(
                 ids.isEmpty ? "The project has no database." : "Pick one of the project's databases: Edit… › Database.")
         }
-        var one = e
+        var one = endpoint
         one.database = ids[0]
         return one
     }
 
-    private static func rows(_ e: Endpoint, _ table: String) -> String {
-        "/tablesdb/\(path(e.database))/tables/\(path(table))/rows"
+    private static func rows(_ endpoint: Endpoint, _ table: String) -> String {
+        "/tablesdb/\(path(endpoint.database))/tables/\(path(table))/rows"
     }
 
     private static func path(_ s: String) -> String {
@@ -322,10 +327,11 @@ struct AppwriteWire: DatabaseRunner {
     }
 
     static func call(
-        _ e: Endpoint, _ method: String, _ path: String, queries: [[String: Any]] = [], body: [String: Any]? = nil,
+        _ endpoint: Endpoint, _ method: String, _ path: String, queries: [[String: Any]] = [],
+        body: [String: Any]? = nil,
         signed: Bool = true
     ) async throws -> [String: Any] {
-        var parts = URLComponents(string: e.base + path)
+        var parts = URLComponents(string: endpoint.base + path)
         if !queries.isEmpty {
             parts?.queryItems = try queries.map { query in
                 let data = try JSONSerialization.data(withJSONObject: query, options: [.withoutEscapingSlashes])
@@ -335,12 +341,12 @@ struct AppwriteWire: DatabaseRunner {
             let encoded = parts?.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
             parts?.percentEncodedQuery = encoded
         }
-        guard let url = parts?.url else { throw DatabaseFailure.failed("Not an address: \(e.base + path)") }
+        guard let url = parts?.url else { throw DatabaseFailure.failed("Not an address: \(endpoint.base + path)") }
         var request = URLRequest(url: url, timeoutInterval: DatabaseEngines.readTimeout)
         request.httpMethod = method
         if signed {   // a wrong project fails even what needs none
-            request.setValue(e.project, forHTTPHeaderField: "X-Appwrite-Project")
-            request.setValue(e.key, forHTTPHeaderField: "X-Appwrite-Key")
+            request.setValue(endpoint.project, forHTTPHeaderField: "X-Appwrite-Project")
+            request.setValue(endpoint.key, forHTTPHeaderField: "X-Appwrite-Key")
         }
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -348,7 +354,7 @@ struct AppwriteWire: DatabaseRunner {
         }
         let (data, response): (Data, URLResponse)
         do { (data, response) = try await URLSession.shared.data(for: request) } catch let error as URLError {
-            throw failure(error, e)
+            throw failure(error, endpoint)
         }
         var object: [String: Any] = [:]
         if !data.isEmpty {   // a proxy's HTML page instead of JSON: said by its status below
@@ -361,8 +367,8 @@ struct AppwriteWire: DatabaseRunner {
         return object
     }
 
-    private static func failure(_ error: URLError, _ e: Endpoint) -> DatabaseFailure {
-        let host = URL(string: e.base)?.host ?? e.base
+    private static func failure(_ error: URLError, _ endpoint: Endpoint) -> DatabaseFailure {
+        let host = URL(string: endpoint.base)?.host ?? endpoint.base
         switch error.code {
         case .cannotFindHost, .dnsLookupFailed:
             return .failed("Can't find \(host) on the network: is a VPN or SSH needed to reach it?")

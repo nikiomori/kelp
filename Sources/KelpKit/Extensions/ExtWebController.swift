@@ -87,19 +87,19 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
     /// The window stays on the extension's own pages: the bridge is in every page it shows, and `push` hands it the
     /// settings and the workspace's path. A link elsewhere opens as a preview's do (`PreviewLinks`); its frames load anything.
     func webView(
-        _ w: WKWebView, decidePolicyFor a: WKNavigationAction,
+        _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
     ) {
-        if let frame = a.targetFrame, !frame.isMainFrame {
+        if let frame = navigationAction.targetFrame, !frame.isMainFrame {
             decisionHandler(.allow)
             return
         }
-        guard let url = a.request.url, !Self.isOwn(url, folder) else {
+        guard let url = navigationAction.request.url, !Self.isOwn(url, folder) else {
             decisionHandler(.allow)
             return
         }
         decisionHandler(.cancel)
-        if a.navigationType == .linkActivated { PreviewLinks.open(url, in: app) }
+        if navigationAction.navigationType == .linkActivated { PreviewLinks.open(url, in: app) }
     }
 
     /// A page in the extension's folder (served from it: `ExtPages`, which serves this web view's folder only); nothing else
@@ -123,10 +123,12 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
         web.evaluateJavaScript("window.kelp && window.kelp.__update(\(workspaceJSON), \(settingsJSON))")
     }
 
-    func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
+    func userContentController(_ controller: WKUserContentController, didReceive scriptMessage: WKScriptMessage) {
         // The handler is visible to every frame, whatever it loaded: only the extension's own page may run commands.
-        guard m.frameInfo.isMainFrame, let url = m.frameInfo.request.url, Self.isOwn(url, folder) else { return }
-        guard let body = m.body as? [String: Any], let op = body["op"] as? String else { return }
+        guard scriptMessage.frameInfo.isMainFrame, let url = scriptMessage.frameInfo.request.url,
+            Self.isOwn(url, folder)
+        else { return }
+        guard let body = scriptMessage.body as? [String: Any], let op = body["op"] as? String else { return }
         let id = body["id"] as? Int ?? 0, arg = body["arg"] as? String ?? ""
         let ctx = IDEContext.of(app)
         switch op {
@@ -195,8 +197,9 @@ final class ExtWebController: NSViewController, WKScriptMessageHandler, WKNaviga
 /// WKUserContentController retains its handlers; break the cycle.
 package final class WeakHandler: NSObject, WKScriptMessageHandler {
     weak var target: WKScriptMessageHandler?
-    package init(_ t: WKScriptMessageHandler) { target = t }
-    package func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
-        target?.userContentController(c, didReceive: m)
+    package init(_ handler: WKScriptMessageHandler) { target = handler }
+    package func userContentController(_ controller: WKUserContentController, didReceive scriptMessage: WKScriptMessage)
+    {
+        target?.userContentController(controller, didReceive: scriptMessage)
     }
 }

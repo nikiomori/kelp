@@ -42,7 +42,8 @@ extension Main {
     }
 
     /// One action, its answer printed: as lines (`browserText`), or as the JSON it came as.
-    static func browse(_ sub: String, js: String? = nil, _ c: RPCClient, _ workspace: String?, json: Bool) async throws
+    static func browse(_ sub: String, js: String? = nil, _ client: RPCClient, _ workspace: String?, json: Bool)
+        async throws
     {
         guard let action = BrowserAction(rawValue: sub) else { fail("usage: kelp " + browserUsage) }
         if action == .ask, args.isEmpty { fail("browser ask <what the user should do on the page, then hand it back>") }
@@ -52,9 +53,9 @@ extension Main {
         if let session = ProcessInfo.processInfo.environment["KELP_SESSION"] { params["session"] = .string(session) }
         let answer =
             action == .ask
-            ? try await c.call(
+            ? try await client.call(
                 UIBrowserAsk(question: params["text"]?.string ?? "", args: .object(params), worktreeId: workspace))
-            : try await c.call(UIBrowser(action: action, args: .object(params), worktreeId: workspace))
+            : try await client.call(UIBrowser(action: action, args: .object(params), worktreeId: workspace))
         let what = [params["key"]?.string, params["ref"]?.string ?? params["to"]?.string].compactMap { $0 }
         if !json, let text = browserText(action, what.joined(separator: " "), answer) {
             print(text)

@@ -8,12 +8,12 @@ extension Main {
         """
 
     /// `db <action>`: the project's databases through kelpd, which holds their passwords (`db.*`).
-    static func db(_ sub: String?, _ c: RPCClient) async throws {
-        let worktree = try await currentWorktree(c)
+    static func db(_ sub: String?, _ client: RPCClient) async throws {
+        let worktree = try await currentWorktree(client)
         let named = flag("--db")
         switch sub {
         case "list":
-            let all = try await c.call(DatabaseList(worktreeId: worktree.id))
+            let all = try await client.call(DatabaseList(worktreeId: worktree.id))
             guard !all.isEmpty else {
                 print("No databases here: Kelp looks in compose files, .env, config/database.yml and SQLite files.")
                 return
@@ -23,16 +23,16 @@ extension Main {
                     ["name", "engine", "where", "agents"],
                     all.map { [$0.name, $0.engine.rawValue, place($0), words($0)] }))
         case "schema":
-            let name = try await database(named, worktree.id, c)
-            let schema = try await c.call(
+            let name = try await database(named, worktree.id, client)
+            let schema = try await client.call(
                 DatabaseSchemaRead(worktreeId: worktree.id, database: name, table: args.first))
             print(text(schema, columns: args.first != nil || schema.tables.count <= 8))
         case "query":
             let json = has("--json"), limit = limitFlag()
             guard !args.isEmpty else { fail("kelp db query \"SELECT …\" [--db name] [--limit 200] [--json]") }
-            let name = try await database(named, worktree.id, c)
+            let name = try await database(named, worktree.id, client)
             let sql = args.joined(separator: " ")
-            let result = try await c.call(
+            let result = try await client.call(
                 DatabaseQuery(worktreeId: worktree.id, database: name, sql: sql, limit: limit))
             if let parts = result.statements {   // several, in one transaction: what each changed
                 let said = batch(parts, changed: result.changed, ms: result.ms, json: json)
@@ -47,12 +47,12 @@ extension Main {
                 print(footer(result, sql: sql, limit: limit))
             }
         case "copy":   // the user's: a copy for this workspace's branch (not for agents: `db.copy` isn't theirs)
-            let name = try await database(args.first ?? named, worktree.id, c)
-            let copy = try await c.call(DatabaseCopy(worktreeId: worktree.id, database: name))
+            let name = try await database(args.first ?? named, worktree.id, client)
+            let copy = try await client.call(DatabaseCopy(worktreeId: worktree.id, database: name))
             print("\(copy.name): \(copy.address)")
         case "open":
-            let name = try await database(args.first ?? named, worktree.id, c)
-            _ = try await c.call(
+            let name = try await database(args.first ?? named, worktree.id, client)
+            _ = try await client.call(
                 UIOpen(
                     uri: DatabaseTabURI.uri(worktree: worktree.id, name: name), split: "right", worktreeId: worktree.id)
             )
@@ -61,9 +61,9 @@ extension Main {
     }
 
     /// The one named, or the only one; with several, the user's choice is asked for.
-    static func database(_ named: String?, _ worktreeId: String, _ c: RPCClient) async throws -> String {
+    static func database(_ named: String?, _ worktreeId: String, _ client: RPCClient) async throws -> String {
         if let named { return named }
-        let all = try await c.call(DatabaseList(worktreeId: worktreeId))
+        let all = try await client.call(DatabaseList(worktreeId: worktreeId))
         if let one = unnamed(all) { return one }
         if all.isEmpty { fail("No databases here: kelp db list") }
         fail("Which one? --db " + all.map(\.name).joined(separator: " | "))
@@ -159,26 +159,29 @@ extension Main {
 
     /// What it did: the rows a change touched (with the rows it returned, when it says them), else the rows read and
     /// how many of them are shown, and how to see more.
-    static func footer(_ r: QueryResult, sql: String, limit: Int?) -> String {
-        if let changed = r.changed {
+    static func footer(_ queryResult: QueryResult, sql: String, limit: Int?) -> String {
+        if let changed = queryResult.changed {
             let verb = sql.trimmingCharacters(in: .whitespacesAndNewlines).prefix { $0.isLetter }.uppercased()
             guard changed > 0 || ["UPDATE", "DELETE", "INSERT", "MERGE", "REPLACE", "WITH"].contains(verb) else {
-                return "Done · \(r.ms) ms"   // DDL: it changed what the database is, no rows
+                return "Done · \(queryResult.ms) ms"   // DDL: it changed what the database is, no rows
             }
             let rows = changed == 1 ? "1 row" : "\(changed) rows"
-            return "\(rows) changed" + (r.columns.isEmpty ? "" : " (those rows above)") + " · \(r.ms) ms"
+            return "\(rows) changed" + (queryResult.columns.isEmpty ? "" : " (those rows above)")
+                + " · \(queryResult.ms) ms"
         }
-        let counted = r.total >= QueryResult.counted ? "\(r.total)+ rows" : r.total == 1 ? "1 row" : "\(r.total) rows"
-        guard r.rows.count < r.total else { return "\(counted) · \(r.ms) ms" }
+        let counted =
+            queryResult.total >= QueryResult.counted
+            ? "\(queryResult.total)+ rows" : queryResult.total == 1 ? "1 row" : "\(queryResult.total) rows"
+        guard queryResult.rows.count < queryResult.total else { return "\(counted) · \(queryResult.ms) ms" }
         let more =
-            if r.cut == true {
+            if queryResult.cut == true {
                 "Kelp keeps 1 MB of a result's cells: select fewer or shorter columns, or page with LIMIT and OFFSET"
-            } else if r.rows.count >= QueryResult.kept && (limit ?? 0) > r.rows.count {
+            } else if queryResult.rows.count >= QueryResult.kept && (limit ?? 0) > queryResult.rows.count {
                 "Kelp keeps \(QueryResult.kept) at most: narrow it with WHERE, or page with LIMIT and OFFSET"
             } else {
                 "--limit for more"
             }
-        return "\(counted), the first \(r.rows.count) shown (\(more)) · \(r.ms) ms"
+        return "\(counted), the first \(queryResult.rows.count) shown (\(more)) · \(queryResult.ms) ms"
     }
 
     /// Tables a line each with their rows; with `columns`, each column under its table.

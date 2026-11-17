@@ -4,7 +4,7 @@ import Core
 import DesignKit
 
 extension QuickOpen {
-    func control(_ c: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
         switch sel {
         case #selector(NSResponder.moveDown(_:)):
             move(1)
@@ -62,23 +62,23 @@ extension QuickOpen {
         NSApp.mainWindow?.makeKeyAndOrderFront(nil)
         if split, let openSplit = it.split { openSplit() } else { it.action() }
     }
-    @objc func panelResignedKey(_ n: Notification) {
+    @objc func panelResignedKey(_ notification: Notification) {
         stopChoosing()
         hide()
     }
 
-    func numberOfRows(in t: NSTableView) -> Int { rows.count }
-    func tableView(_ t: NSTableView, shouldSelectRow row: Int) -> Bool {
+    func numberOfRows(in table: NSTableView) -> Int { rows.count }
+    func tableView(_ table: NSTableView, shouldSelectRow row: Int) -> Bool {
         if case .item = rows[row] { true } else { false }
     }
-    func tableView(_ t: NSTableView, heightOfRow row: Int) -> CGFloat {
+    func tableView(_ table: NSTableView, heightOfRow row: Int) -> CGFloat {
         TextSize.of(rows[row].isItem ? Metrics.rowMenu : Metrics.row)
     }
-    func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
+    func tableView(_ table: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         guard case .item(let it) = rows[row] else {
             guard case .heading(let group) = rows[row] else { return nil }
             let id = NSUserInterfaceItemIdentifier("quickOpen.heading")
-            if let header = t.makeView(withIdentifier: id, owner: nil) as? NSStackView,
+            if let header = table.makeView(withIdentifier: id, owner: nil) as? NSStackView,
                 let heading = header.arrangedSubviews.first as? NSTextField
             {
                 heading.stringValue = loc(group)
@@ -92,7 +92,7 @@ extension QuickOpen {
             header.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 0, right: 10)
             return header
         }
-        let cell = t.makeView(withIdentifier: QuickOpenCell.id, owner: nil) as? QuickOpenCell ?? QuickOpenCell()
+        let cell = table.makeView(withIdentifier: QuickOpenCell.id, owner: nil) as? QuickOpenCell ?? QuickOpenCell()
         var icon = it.image ?? (it.kind == "File" ? app.fileIcons.image(it.title) : NSImage.symbol(it.icon, it.kind))
         if it.image == nil, let session = it.session, let own = app.catalog.icon(session.agent, size: 18) { icon = own }
         cell.show(lead: icon, session: it.session)

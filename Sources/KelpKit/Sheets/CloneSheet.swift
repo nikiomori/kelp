@@ -91,8 +91,8 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
         window?.initialFirstResponder = field
     }
 
-    func controlTextDidChange(_ n: Notification) {
-        if n.object as? NSTextField === dest { destEdited = !dest.stringValue.isEmpty } else { fill() }
+    func controlTextDidChange(_ notification: Notification) {
+        if notification.object as? NSTextField === dest { destEdited = !dest.stringValue.isEmpty } else { fill() }
     }
 
     /// "~/Developer/" + the URL's repository name, unless the destination was typed.

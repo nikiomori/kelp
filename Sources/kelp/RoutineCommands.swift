@@ -3,10 +3,10 @@ import Foundation
 
 extension Main {
     /// `routine add|list|run|rm`.
-    static func routines(_ sub: String?, _ c: RPCClient) async throws {
+    static func routines(_ sub: String?, _ client: RPCClient) async throws {
         func id() async throws -> String {
             let prefix = args.first ?? "",
-                found = try await c.call(RoutineList()).routines.map(\.id).filter {
+                found = try await client.call(RoutineList()).routines.map(\.id).filter {
                     !prefix.isEmpty && $0.hasPrefix(prefix)
                 }
             guard found.count == 1 else {
@@ -32,14 +32,15 @@ extension Main {
             }
             let time = hm.count > 1 ? hm[0] * 60 + hm[1] : hm[0] * 60
             show(
-                try await c.call(
+                try await client.call(
                     RoutineSet(
                         routine: Routine(
-                            name: name, repoId: try await currentRepoID(c), agent: agent, model: model, prompt: prompt,
+                            name: name, repoId: try await currentRepoID(client), agent: agent, model: model,
+                            prompt: prompt,
                             every: every, time: time, weekday: weekday + 1, onWake: !skip))))
-        case "list": show(try await c.call(RoutineList()))
-        case "run": show(try await c.call(RoutineRun(id: try await id())))
-        case "rm": _ = try await c.call(RoutineDelete(id: try await id()))
+        case "list": show(try await client.call(RoutineList()))
+        case "run": show(try await client.call(RoutineRun(id: try await id())))
+        case "rm": _ = try await client.call(RoutineDelete(id: try await id()))
         default: print(usage)
         }
     }

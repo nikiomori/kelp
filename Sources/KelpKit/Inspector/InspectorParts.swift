@@ -15,7 +15,7 @@ final class InspectorView: NSView {
         super.layout()
         onLayout?()
     }
-    override func menu(for e: NSEvent) -> NSMenu? { rowMenu?(e) }
+    override func menu(for event: NSEvent) -> NSMenu? { rowMenu?(event) }
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         onShow?()
@@ -156,19 +156,19 @@ final class PanelIcon: NSButton {
         get { false }
         set {}
     }
-    override func mouseEntered(with e: NSEvent) {
+    override func mouseEntered(with event: NSEvent) {
         hover = true
         guard let rested else { return }
         let work = DispatchWorkItem(block: rested)
         resting = work
         DispatchQueue.main.asyncAfter(deadline: .now() + Motion.base, execute: work)   // passing over doesn't open it
     }
-    override func mouseExited(with e: NSEvent) {
+    override func mouseExited(with event: NSEvent) {
         hover = false
         resting?.cancel()
     }
 
-    override func menu(for e: NSEvent) -> NSMenu? { contextMenu?(e) }
+    override func menu(for event: NSEvent) -> NSMenu? { contextMenu?(event) }
 
     /// Pops `menu` up under the icon. `closingWhenLeft`: it closes a moment after the pointer is off both the icon and
     /// the menu (menu tracking delivers no mouse-exited, so a clock on the tracking run loop looks while it's open).
@@ -210,19 +210,21 @@ final class PanelIcon: NSButton {
         hover = bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
     }
 
-    override func mouseDown(with e: NSEvent) {
+    override func mouseDown(with event: NSEvent) {
         resting?.cancel()
-        if e.modifierFlags.contains(.control), let shown = menu(for: e) {
-            return NSMenu.popUpContextMenu(shown, with: e, for: self)
+        if event.modifierFlags.contains(.control), let shown = menu(for: event) {
+            return NSMenu.popUpContextMenu(shown, with: event, for: self)
         }
-        guard let window, let row = superview else { return super.mouseDown(with: e) }
+        guard let window, let row = superview else { return super.mouseDown(with: event) }
         isHighlighted = true
         defer { isHighlighted = false }
-        var dragging = false, at = e.locationInWindow
+        var dragging = false, at = event.locationInWindow
         while let next = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
             at = next.locationInWindow
             if next.type == .leftMouseUp { break }
-            guard dragging || hypot(at.x - e.locationInWindow.x, at.y - e.locationInWindow.y) > 3 else { continue }
+            guard dragging || hypot(at.x - event.locationInWindow.x, at.y - event.locationInWindow.y) > 3 else {
+                continue
+            }
             dragging = true
             isHighlighted = false
             moved?(row.convert(at, from: nil))

@@ -75,7 +75,7 @@ public enum ServedPages {
 
     /// Worth showing: from 49152 up the system hands out ports to anything that asks, which is where agents' helpers
     /// listen, and ssh only holds a remote project's forwarding.
-    public static func listed(_ p: PortsList.Port) -> Bool { p.command != "ssh" && p.port < 49152 }
+    public static func listed(_ port: PortsList.Port) -> Bool { port.command != "ssh" && port.port < 49152 }
 
     /// What runs printed (their address as printed, whatever its port), then the rest of the listening ports, each port
     /// once, with pages before the addresses that aren't: the first is what a click on the capsule opens.

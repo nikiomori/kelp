@@ -121,10 +121,12 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         return (Self.join(current.path, rows[row].name), current.repo || rows[row].git)
     }
 
-    func tableViewSelectionDidChange(_ n: Notification) { update() }
+    func tableViewSelectionDidChange(_ notification: Notification) { update() }
 
-    func controlTextDidChange(_ n: Notification) { if n.object as? NSComboBox === host { hostEdited() } }
-    func comboBoxSelectionDidChange(_ n: Notification) { hostEdited() }
+    func controlTextDidChange(_ notification: Notification) {
+        if notification.object as? NSComboBox === host { hostEdited() }
+    }
+    func comboBoxSelectionDidChange(_ notification: Notification) { hostEdited() }
     private func hostEdited() {
         guard listed != nil else { return }
         listed = nil
@@ -233,9 +235,9 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
 
     // MARK: list
 
-    func numberOfRows(in t: NSTableView) -> Int { rows.count }
+    func numberOfRows(in table: NSTableView) -> Int { rows.count }
 
-    func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
+    func tableView(_ table: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let folder = rows[row], up = folder.name == ".."
         let icon = NSImageView(
             image: .symbol(up ? "arrow.turn.left.up" : folder.git ? "arrow.triangle.branch" : "folder"))

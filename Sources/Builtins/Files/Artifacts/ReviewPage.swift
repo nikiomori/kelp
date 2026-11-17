@@ -10,12 +10,12 @@ import Markdown
 /// into the file, which then draws the page again.
 enum ReviewPage {
     /// `sendTo`: the agent's name on the button; nil when its chat has ended (the picks go to the agent on screen).
-    static func body(_ r: Review, sendTo: String?) -> String {
+    static func body(_ review: Review, sendTo: String?) -> String {
         let esc = MarkdownHTML.esc
-        var html = "<h1>\(esc(r.title))</h1>\n"
-        if !r.intro.isEmpty { html += "<div class=\"k-intro\">\(MarkdownHTML.render(r.intro))</div>\n" }
-        let sent = r.sent != nil
-        for p in r.points {
+        var html = "<h1>\(esc(review.title))</h1>\n"
+        if !review.intro.isEmpty { html += "<div class=\"k-intro\">\(MarkdownHTML.render(review.intro))</div>\n" }
+        let sent = review.sent != nil
+        for p in review.points {
             let done = p.done ? "<span class=\"k-done\">✓ \(esc(String(localized: "Done")))</span>" : ""
             html +=
                 "<section class=\"k-point\" id=\"p\(esc(p.number))\"><div class=\"k-q\">"
@@ -45,30 +45,30 @@ enum ReviewPage {
             }
             html += "</section>\n"
         }
-        return html + capsule(r, sendTo: sendTo)
+        return html + capsule(review, sendTo: sendTo)
     }
 
     /// The foot: where the answers stand and what to do with them.
-    private static func capsule(_ r: Review, sendTo: String?) -> String {
+    private static func capsule(_ review: Review, sendTo: String?) -> String {
         let esc = MarkdownHTML.esc
-        let picks = r.points.compactMap { p in p.pick.map { p.number + $0 } }.joined(separator: " ")
+        let picks = review.points.compactMap { p in p.pick.map { p.number + $0 } }.joined(separator: " ")
         let who = sendTo ?? String(localized: "the Agent")
-        if let time = r.sent {
+        if let time = review.sent {
             return
                 "<div class=\"k-bar\"><span class=\"k-ok\">✓ \(esc(String(localized: "Sent to \(who)")))</span>"
                 + "<span class=\"k-sum\">\(esc(time)) · \(esc(picks))</span><button type=\"button\" "
                 + "class=\"k-pill k-unsend\">\(esc(String(localized: "Change Answers")))</button></div>"
         }
-        let answered = r.points.filter { $0.pick != nil }.count
-        let dots = r.points.map { p in
+        let answered = review.points.filter { $0.pick != nil }.count
+        let dots = review.points.map { p in
             "<button type=\"button\" class=\"k-pd\(p.pick != nil ? " on" : "")\" data-go=\"\(esc(p.number))\" "
                 + "title=\"\(esc(p.number + ". " + p.question))\"></button>"
         }.joined()
-        let rest = r.points.contains { $0.pick == nil && $0.options.contains(where: \.recommended) }
+        let rest = review.points.contains { $0.pick == nil && $0.options.contains(where: \.recommended) }
         let sum =
             picks.isEmpty
             ? String(localized: "Pick an option in each point")
-            : picks + " · " + String(localized: "\(answered) of \(r.points.count)")
+            : picks + " · " + String(localized: "\(answered) of \(review.points.count)")
         let restButton =
             rest
             ? "<span class=\"k-sep\"></span><button type=\"button\" class=\"k-pill k-rest\">"

@@ -88,14 +88,14 @@ public struct WorkspaceHistory: Equatable, Sendable {
 
 /// A project's own screen: its oldest workspace, the one its chats are on. It has no heading and doesn't close; every other
 /// workspace is a group.
-public func mainWorkspace(of r: Repo, among ws: [Worktree]) -> Worktree? {
-    ws.filter { $0.repoId == r.id && $0.path == r.path && !$0.archived }.min { $0.createdAt < $1.createdAt }
+public func mainWorkspace(of repo: Repo, among ws: [Worktree]) -> Worktree? {
+    ws.filter { $0.repoId == repo.id && $0.path == repo.path && !$0.archived }.min { $0.createdAt < $1.createdAt }
 }
 
 /// Where a new chat in `r` goes: the screen you're on when it's that project's, else the project's own.
-public func newChatScreen(in r: Repo, current: Worktree?, rows: [Worktree]) -> Worktree? {
-    if let current, current.repoId == r.id { return current }
-    return mainWorkspace(of: r, among: rows) ?? rows.first { $0.repoId == r.id && !$0.archived }
+public func newChatScreen(in repo: Repo, current: Worktree?, rows: [Worktree]) -> Worktree? {
+    if let current, current.repoId == repo.id { return current }
+    return mainWorkspace(of: repo, among: rows) ?? rows.first { $0.repoId == repo.id && !$0.archived }
 }
 
 /// Several workspaces closed at once (the sidebar's multi-selection): a project's own screen stays (without one, the oldest
@@ -131,10 +131,10 @@ public struct WorkspaceClosing: Equatable, Sendable {
     /// `w`'s last tab closed and nothing runs there: its row goes with it, and this is the row to show instead, the one
     /// under it or else the one over it. Nil: it stays, being the project's own screen.
     /// `rows`: the project's open workspaces, as the sidebar lists them.
-    public static func afterLastTab(of w: Worktree, rows: [Worktree], repos: [Repo]) -> Worktree? {
-        guard let project = repos.first(where: { $0.id == w.repoId }),
-            w.id != mainWorkspace(of: project, among: rows)?.id,
-            let index = rows.firstIndex(where: { $0.id == w.id })
+    public static func afterLastTab(of worktree: Worktree, rows: [Worktree], repos: [Repo]) -> Worktree? {
+        guard let project = repos.first(where: { $0.id == worktree.repoId }),
+            worktree.id != mainWorkspace(of: project, among: rows)?.id,
+            let index = rows.firstIndex(where: { $0.id == worktree.id })
         else { return nil }
         return rows.dropFirst(index + 1).first ?? rows[..<index].last
     }

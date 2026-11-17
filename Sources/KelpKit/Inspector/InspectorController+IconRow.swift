@@ -38,7 +38,7 @@ extension InspectorController {
         }
     }
 
-    @objc func showMore(_ b: NSButton) { showMore(byHover: false) }
+    @objc func showMore(_ button: NSButton) { showMore(byHover: false) }
 
     /// Opened by a click, the menu stays until a click; opened by the pointer resting, it goes when the pointer leaves.
     func showMore(byHover: Bool) {
@@ -56,8 +56,8 @@ extension InspectorController {
     }
 
     /// The row's right-click menu (on an icon or the band around it): which icons show, where the row sits, auto-hide.
-    func rowMenu(_ e: NSEvent) -> NSMenu? {
-        let point = view.convert(e.locationInWindow, from: nil)
+    func rowMenu(_ event: NSEvent) -> NSMenu? {
+        let point = view.convert(event.locationInWindow, from: nil)
         let band = view.bounds.height - WindowBar.height
         let settings = app.settings, column = settings[SettingKeys.inspectorIconsPosition] == "side"
         let onRow =
@@ -104,8 +104,8 @@ extension InspectorController {
         return menuItem
     }
 
-    @objc private func toggleIcon(_ i: NSMenuItem) {
-        guard let id = i.representedObject as? String else { return }
+    @objc private func toggleIcon(_ menuItem: NSMenuItem) {
+        guard let id = menuItem.representedObject as? String else { return }
         var hidden = app.settings[SettingKeys.hiddenPanels] ?? []
         if let index = hidden.firstIndex(of: id) { hidden.remove(at: index) } else { hidden.append(id) }
         app.settings.set(SettingKeys.hiddenPanels, hidden.isEmpty ? nil : hidden)
@@ -116,8 +116,8 @@ extension InspectorController {
         }
     }
 
-    @objc private func setChoice(_ i: NSMenuItem) {
-        guard let (key, v) = i.representedObject as? (String, String) else { return }
+    @objc private func setChoice(_ menuItem: NSMenuItem) {
+        guard let (key, v) = menuItem.representedObject as? (String, String) else { return }
         app.settings.set(key, .string(v))
     }
 

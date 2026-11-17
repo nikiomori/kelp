@@ -124,8 +124,8 @@ class PaletteCell: NSTableCellView {
     override var backgroundStyle: NSView.BackgroundStyle {
         didSet { apply(backgroundStyle, in: self) }
     }
-    private func apply(_ style: NSView.BackgroundStyle, in v: NSView) {
-        for sub in v.subviews {
+    private func apply(_ style: NSView.BackgroundStyle, in view: NSView) {
+        for sub in view.subviews {
             (sub as? NSControl)?.cell?.backgroundStyle = style
             if let image = sub as? NSImageView, image.image?.isTemplate == true {
                 image.contentTintColor =

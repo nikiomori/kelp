@@ -114,13 +114,13 @@ package struct QuickItem {
 /// The palette's window: ⌘1–⌘6 pick from the agents it lists before the main menu sees them (they select tabs there).
 final class QuickPanel: NSPanel {
     var onNumber: ((Int) -> Bool)?
-    override func performKeyEquivalent(with e: NSEvent) -> Bool {
-        if e.modifierFlags.intersection([.command, .shift, .option, .control]) == .command,
-            let number = Int(e.charactersIgnoringModifiers ?? ""),
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.intersection([.command, .shift, .option, .control]) == .command,
+            let number = Int(event.charactersIgnoringModifiers ?? ""),
             (1...6).contains(number), onNumber?(number) == true
         {
             return true
         }
-        return super.performKeyEquivalent(with: e)
+        return super.performKeyEquivalent(with: event)
     }
 }

@@ -267,10 +267,10 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
     }
 
     /// An uppercase key equivalent means ⇧ too.
-    static func shortcut(_ i: NSMenuItem) -> String {
-        var mods = KeySpec.Modifiers(i.keyEquivalentModifierMask)
-        if i.keyEquivalent != i.keyEquivalent.lowercased() { mods.insert(.shift) }
-        return KeyBindings.display(KeySpec(key: i.keyEquivalent, mods: mods))
+    static func shortcut(_ menuItem: NSMenuItem) -> String {
+        var mods = KeySpec.Modifiers(menuItem.keyEquivalentModifierMask)
+        if menuItem.keyEquivalent != menuItem.keyEquivalent.lowercased() { mods.insert(.shift) }
+        return KeyBindings.display(KeySpec(key: menuItem.keyEquivalent, mods: mods))
     }
 
     @objc private func filterAction() { filter() }
@@ -380,5 +380,5 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         }
         tryOn()   // the same row index can hold another choice now, so no selection-change call comes
     }
-    func tableViewSelectionDidChange(_ n: Notification) { tryOn() }
+    func tableViewSelectionDidChange(_ notification: Notification) { tryOn() }
 }

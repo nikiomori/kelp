@@ -59,10 +59,11 @@ def one_letter_names(code):
 
 def parameter_names(code):
     """The names a `func`, `init` or `subscript` declares for its parameters (`of r: Repo` → r), over as many lines as
-    its list runs: an argument label at a call (`NSPoint(x: 0)`) names nothing."""
+    its list runs: an argument label at a call (`NSPoint(x: 0)`) names nothing. A function whose body ends on the line
+    its parameters do (`func id(_ s: Session) -> String { s.id }`) isn't counted, as a one-line closure isn't."""
     names = []
     for m in re.finditer(r"\b(?:func\s+[^\s(<]+(?:<[^>]*>)?|init[?!]?|subscript)\s*\(", code):
-        depth, part, at = 1, "", m.end()
+        depth, part, at, count = 1, "", m.end(), len(names)
         while at < len(code) and depth:
             ch = code[at]
             if not (ch == ">" and code[at - 1] == "-"):   # a closure type's `->` closes nothing
@@ -73,6 +74,9 @@ def parameter_names(code):
             elif depth >= 1:
                 part += ch
             at += 1
+        rest = code[at:code.find("\n", at) if "\n" in code[at:] else len(code)]
+        if "{" in rest and rest.count("}") >= rest.count("{"):
+            del names[count:]
     found = []
     for p in names:
         head = p.split(":")[0].split()

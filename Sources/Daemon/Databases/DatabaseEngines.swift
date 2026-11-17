@@ -91,74 +91,92 @@ enum DatabaseEngines {
     }
 
     /// `timeout`: seconds the server may take (Postgres stops it there).
-    static func read(_ c: DatabaseConnection, _ sql: String, timeout: TimeInterval = readTimeout, off: Slots)
+    static func read(
+        _ databaseConnection: DatabaseConnection, _ sql: String, timeout: TimeInterval = readTimeout, off: Slots
+    )
         async throws -> DatabaseRows
     {
         try whole(
-            try await explained(c) {
-                try await runner(c, off: off).read(sql, timeout: timeout)
-            }, c.database.name)
+            try await explained(databaseConnection) {
+                try await runner(databaseConnection, off: off).read(sql, timeout: timeout)
+            }, databaseConnection.database.name)
     }
 
     /// A server that isn't up, said with how to start it when a compose file runs it.
-    static func explained<T>(_ c: DatabaseConnection, _ body: () async throws -> T) async throws -> T {
+    static func explained<T>(_ databaseConnection: DatabaseConnection, _ body: () async throws -> T) async throws -> T {
         do { return try await body() } catch DatabaseFailure.failed(let text)
             where text.contains("Connection refused") || text.contains("Can't connect")
         {
             let start =
-                c.database.source.map { source in
+                databaseConnection.database.source.map { source in
                     DatabaseFind.composeFiles.contains(source)
                         ? " Is it running? docker compose up -d starts what \(source) runs." : ""
                 } ?? ""
-            let place = c.database.host == nil ? c.container.map { "its compose service \($0.name)" } : nil
+            let place =
+                databaseConnection.database.host == nil
+                ? databaseConnection.container.map { "its compose service \($0.name)" } : nil
             throw DatabaseFailure.failed(
-                "\(c.database.name) doesn't answer at \(place ?? c.database.address).\(start)")
+                "\(databaseConnection.database.name) doesn't answer at \(place ?? databaseConnection.database.address).\(start)"
+            )
         }
     }
 
     /// The change made and rolled back: what it touched, and the rows it would leave when it can say (RETURNING).
-    static func trial(_ c: DatabaseConnection, _ sql: String, off: Slots) async throws -> DatabaseRows {
-        guard SQLText.mayTry(sql, c.database.engine) else {
+    static func trial(_ databaseConnection: DatabaseConnection, _ sql: String, off: Slots) async throws -> DatabaseRows
+    {
+        guard SQLText.mayTry(sql, databaseConnection.database.engine) else {
             throw DatabaseFailure.failed("\(SQLText.verb(sql)) can't be tried in a transaction there")
         }
-        return try whole(try await runner(c, off: off).trial(sql), c.database.name)
+        return try whole(try await runner(databaseConnection, off: off).trial(sql), databaseConnection.database.name)
     }
 
     /// `allowed`: the rows the user allowed it to change (its trial's), committed only if it changes as many where the
     /// runner `holdsAllowed`; elsewhere (Appwrite) it runs as asked, so a table changed while it was asked can change a
     /// different number.
-    static func write(_ c: DatabaseConnection, _ sql: String, allowed: Int? = nil, off: Slots) async throws
+    static func write(_ databaseConnection: DatabaseConnection, _ sql: String, allowed: Int? = nil, off: Slots)
+        async throws
         -> DatabaseRows
     {
-        try whole(try await runner(c, off: off).write(sql, allowed: allowed), c.database.name)
+        try whole(
+            try await runner(databaseConnection, off: off).write(sql, allowed: allowed),
+            databaseConnection.database.name)
     }
 
     /// The user's edits, all or none, in one transaction: the rows they changed. Through a container's client too: a
     /// failure stops it before COMMIT, and the session it ends rolls back.
-    static func apply(_ c: DatabaseConnection, _ statements: [String], off: Slots) async throws -> Int {
-        try await runner(c, off: off).apply(statements)
+    static func apply(_ databaseConnection: DatabaseConnection, _ statements: [String], off: Slots) async throws -> Int
+    {
+        try await runner(databaseConnection, off: off).apply(statements)
     }
 
     /// Several statements in one transaction, kept when `keep` says so of the rows each changed (`DatabaseRunner.batch`).
     static func batch(
-        _ c: DatabaseConnection, _ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool, off: Slots
+        _ databaseConnection: DatabaseConnection, _ statements: [String], keep: @escaping @Sendable ([Int?]) -> Bool,
+        off: Slots
     ) async throws -> [Int?] {
-        try await explained(c) { try await runner(c, off: off).batch(statements, keep: keep) }
+        try await explained(databaseConnection) {
+            try await runner(databaseConnection, off: off).batch(statements, keep: keep)
+        }
     }
 
-    static func schema(_ c: DatabaseConnection, table: String?, off: Slots) async throws -> DatabaseSchema {
-        let schema = try await explained(c) { try await runner(c, off: off).schema() }
+    static func schema(_ databaseConnection: DatabaseConnection, table: String?, off: Slots) async throws
+        -> DatabaseSchema
+    {
+        let schema = try await explained(databaseConnection) { try await runner(databaseConnection, off: off).schema() }
         guard let table else { return schema }
         let one = schema.tables.filter { $0.name.caseInsensitiveCompare(table) == .orderedSame }
         guard !one.isEmpty else {
-            throw DatabaseFailure.failed("No table \(table) in \(c.database.name). Its tables: kelp db schema")
+            throw DatabaseFailure.failed(
+                "No table \(table) in \(databaseConnection.database.name). Its tables: kelp db schema")
         }
         return DatabaseSchema(tables: one)
     }
 
-    static func path(_ c: DatabaseConnection) throws -> String {
-        guard let path = c.database.path, FileManager.default.fileExists(atPath: path) else {
-            throw DatabaseFailure.failed("\(c.database.name)'s file isn't there: \(c.database.path ?? "no path").")
+    static func path(_ databaseConnection: DatabaseConnection) throws -> String {
+        guard let path = databaseConnection.database.path, FileManager.default.fileExists(atPath: path) else {
+            throw DatabaseFailure.failed(
+                "\(databaseConnection.database.name)'s file isn't there: \(databaseConnection.database.path ?? "no path")."
+            )
         }
         return path
     }
@@ -166,11 +184,11 @@ enum DatabaseEngines {
     /// How to run the client inside the container compose runs the database in (`docker exec`, its port there), with
     /// `secret` (the password's variable) passed from the environment, never on the command line. A database with an
     /// address is spoken to directly (`DatabaseWire`).
-    static func invocation(_ c: DatabaseConnection, _ name: String, secret: String) throws -> (
+    static func invocation(_ databaseConnection: DatabaseConnection, _ name: String, secret: String) throws -> (
         argv: [String], host: String, port: Int
     ) {
-        guard let service = c.container else {
-            throw DatabaseFailure.failed("\(c.database.name) has no address to reach it at.")
+        guard let service = databaseConnection.container else {
+            throw DatabaseFailure.failed("\(databaseConnection.database.name) has no address to reach it at.")
         }
         let docker = try client("docker", also: Databases.dockerFolders)
         guard let id = Databases.container(service, docker: docker) else {

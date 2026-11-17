@@ -102,12 +102,12 @@ extension Main {
 
     /// Looks at the session twice a second until `done` says so, or it ended or was paused (it can't change then);
     /// nil when `timeout` ran out first.
-    static func waitFor(_ c: RPCClient, _ id: String, timeout: TimeInterval?, until done: (Session) -> Bool)
+    static func waitFor(_ client: RPCClient, _ id: String, timeout: TimeInterval?, until done: (Session) -> Bool)
         async throws -> Session?
     {
         let end = timeout.map { Date().addingTimeInterval($0) }
         while true {
-            guard let session = try await c.call(SessionList()).first(where: { $0.id == id }) else {
+            guard let session = try await client.call(SessionList()).first(where: { $0.id == id }) else {
                 fail("no session \(id)")
             }
             if done(session) || session.status == .exited || session.status == .paused { return session }
@@ -118,10 +118,11 @@ extension Main {
 
     /// Until all of this agent's working children stopped, or (`all` false) one of them. Fails with none to wait for: only
     /// children that haven't stopped yet count, so a report read earlier doesn't end the wait at once.
-    static func waitChildren(_ c: RPCClient, of me: String, all: Bool, timeout: TimeInterval?) async throws -> [Session]
+    static func waitChildren(_ client: RPCClient, of me: String, all: Bool, timeout: TimeInterval?) async throws
+        -> [Session]
     {
-        func stopped(_ s: Session) -> Bool { ![.working, .idle].contains(s.status) }
-        func kids() async throws -> [Session] { try await c.call(SessionList()).filter { $0.parent == me } }
+        func stopped(_ session: Session) -> Bool { ![.working, .idle].contains(session.status) }
+        func kids() async throws -> [Session] { try await client.call(SessionList()).filter { $0.parent == me } }
         let watched = Set(try await kids().filter { !stopped($0) }.map(\.id))
         guard !watched.isEmpty else { fail("no children working") }
         let end = timeout.map { Date().addingTimeInterval($0) }

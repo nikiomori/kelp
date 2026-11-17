@@ -38,13 +38,14 @@ enum EditorConfig {
         return (rules, root)
     }
 
-    private static func apply(_ key: String, _ value: String, to r: inout EditorRules) {
+    private static func apply(_ key: String, _ value: String, to editorRules: inout EditorRules) {
         switch key {
-        case "indent_style": r.insertSpaces = value == "space" ? true : value == "tab" ? false : nil
-        case "indent_size", "tab_width": if let size = Int(value), size > 0 { r.tabSize = size }
+        case "indent_style": editorRules.insertSpaces = value == "space" ? true : value == "tab" ? false : nil
+        case "indent_size", "tab_width": if let size = Int(value), size > 0 { editorRules.tabSize = size }
         case "trim_trailing_whitespace":
-            r.trimTrailingWhitespace = value == "true" ? true : value == "false" ? false : nil
-        case "insert_final_newline": r.insertFinalNewline = value == "true" ? true : value == "false" ? false : nil
+            editorRules.trimTrailingWhitespace = value == "true" ? true : value == "false" ? false : nil
+        case "insert_final_newline":
+            editorRules.insertFinalNewline = value == "true" ? true : value == "false" ? false : nil
         default: break
         }
     }

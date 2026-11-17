@@ -188,8 +188,8 @@ enum Machines {
     }
 
     /// What a machine's state reads as, and in what colour.
-    static func machineWord(_ v: VMInfo) -> (text: String, color: NSColor) {
-        switch v.state {
+    static func machineWord(_ vmInfo: VMInfo) -> (text: String, color: NSColor) {
+        switch vmInfo.state {
         case .running: (String(localized: "Running"), .textGreen)
         case .starting: (String(localized: "Starting…"), .secondaryLabelColor)
         case .paused: (String(localized: "Paused"), .secondaryLabelColor)
@@ -197,15 +197,16 @@ enum Machines {
         case .off: (String(localized: "Off"), .secondaryLabelColor)
         case .creating: (String(localized: "Being made"), .secondaryLabelColor)
         case .error:
-            v.notMade == true ? (String(localized: "Failed"), .textRed) : (String(localized: "Didn't start"), .textRed)
+            vmInfo.notMade == true
+                ? (String(localized: "Failed"), .textRed) : (String(localized: "Didn't start"), .textRed)
         }
     }
 
     /// Where making it got: the step in the user's words, and how far ("Downloading macOS 27.2 · 43%").
-    static func stepText(_ v: VMInfo) -> String {
-        let what = v.detail ?? ""
+    static func stepText(_ vmInfo: VMInfo) -> String {
+        let what = vmInfo.detail ?? ""
         let text: String =
-            switch v.step {
+            switch vmInfo.step {
             case .asking: String(localized: "Asking Apple for the latest macOS")
             case .downloading: String(localized: "Downloading \(what)")
             case .checking: String(localized: "Checking \(what)")
@@ -218,7 +219,7 @@ enum Machines {
             case .building: String(localized: "Building Kelp's runner")
             case .starting, nil: String(localized: "Starting for the first time")
             }
-        return text + (v.progress.map { " · " + $0.formatted(.percent.precision(.fractionLength(0))) } ?? "")
+        return text + (vmInfo.progress.map { " · " + $0.formatted(.percent.precision(.fractionLength(0))) } ?? "")
     }
 
     /// The machine's second line: what it takes of the Mac (CPU and memory while it runs, else its disk) and what runs.

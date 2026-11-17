@@ -9,9 +9,9 @@ private var sheetWindow: NSWindow? {
 
 /// An alert as a sheet on the front window, awaited (native, no nested modal loop). Every question in the app goes here.
 @MainActor
-public func runSheet(_ a: NSAlert) async -> NSApplication.ModalResponse {
-    guard let window = sheetWindow else { return a.runModal() }
-    return await withCheckedContinuation { c in a.beginSheetModal(for: window) { c.resume(returning: $0) } }
+public func runSheet(_ alert: NSAlert) async -> NSApplication.ModalResponse {
+    guard let window = sheetWindow else { return alert.runModal() }
+    return await withCheckedContinuation { c in alert.beginSheetModal(for: window) { c.resume(returning: $0) } }
 }
 
 /// A window of our own (a form) as a sheet on the front window, awaited; its buttons end it with
@@ -24,9 +24,9 @@ public func runSheet(_ sheet: NSWindow) async -> NSApplication.ModalResponse {
 
 /// A save panel as a sheet on the front window, awaited.
 @MainActor
-public func runSheet(_ p: NSSavePanel) async -> NSApplication.ModalResponse {
-    guard let window = sheetWindow else { return p.runModal() }
-    return await withCheckedContinuation { c in p.beginSheetModal(for: window) { c.resume(returning: $0) } }
+public func runSheet(_ savePanel: NSSavePanel) async -> NSApplication.ModalResponse {
+    guard let window = sheetWindow else { return savePanel.runModal() }
+    return await withCheckedContinuation { c in savePanel.beginSheetModal(for: window) { c.resume(returning: $0) } }
 }
 
 /// A one-field question (rename, go to line…).

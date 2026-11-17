@@ -9,8 +9,8 @@ extension WorkspaceLayout {
         guard !all.isEmpty else { return }
         let picked = all.filter { tabs.contains($0.id) }, rest = all.filter { !tabs.contains($0.id) }
         var used = Set<String>()
-        func cell(_ t: [TabRef], showing shown: TabRef) -> GroupModel {
-            var model = GroupModel(tabs: t, selected: shown.id)
+        func cell(_ tabRefs: [TabRef], showing shown: TabRef) -> GroupModel {
+            var model = GroupModel(tabs: tabRefs, selected: shown.id)
             if let id = group(of: shown.id), used.insert(id).inserted { model.id = id }
             return model
         }

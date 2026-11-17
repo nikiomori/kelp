@@ -82,10 +82,10 @@ extension Main {
     /// `files`: the library's SHA-256 of each, which the download must match. `before`: the version installed now; commands
     /// the new one runs that it didn't are asked about even when the rest needs no review.
     static func fetch(
-        _ source: String, as name: String?, _ c: RPCClient, review: Bool = false, files: [String: String]? = nil,
+        _ source: String, as name: String?, _ client: RPCClient, review: Bool = false, files: [String: String]? = nil,
         before: URL? = nil
     ) async throws -> URL {
-        let folder = URL(fileURLWithPath: try await c.call(ExtensionFetch(source: source, files: files)).folder)
+        let folder = URL(fileURLWithPath: try await client.call(ExtensionFetch(source: source, files: files)).folder)
         let had = before.map { ExtensionFiles.commandsIn(manifest($0)) }
         var (commands, pages) = ExtensionFiles.commandsIn(manifest(folder))
         if !review, let had {   // an update: only what's new needs a yes

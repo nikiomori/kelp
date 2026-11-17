@@ -255,30 +255,30 @@ final class InspectorController: NSViewController {
         }
     }
 
-    private static func size(_ b: NSButton) {
+    private static func size(_ button: NSButton) {
         NSLayoutConstraint.activate([
-            b.widthAnchor.constraint(equalToConstant: Metrics.segment.width),
-            b.heightAnchor.constraint(equalToConstant: Metrics.segment.height)
+            button.widthAnchor.constraint(equalToConstant: Metrics.segment.width),
+            button.heightAnchor.constraint(equalToConstant: Metrics.segment.height)
         ])
     }
 
     /// A badge past the glyph's top-right corner, clear of its strokes: over them it hid the branch's node.
-    private func pin(_ n: CountBadge, on b: NSButton) {
-        n.translatesAutoresizingMaskIntoConstraints = false
-        b.addSubview(n)
+    private func pin(_ countBadge: CountBadge, on button: NSButton) {
+        countBadge.translatesAutoresizingMaskIntoConstraints = false
+        button.addSubview(countBadge)
         let half = Metrics.segmentPoint / 2
         // 3 pt past the glyph's half: 1 pt left the branch's right node touching the number. A wider one ("19") moves
         // left rather than onto the next icon: it ends 3 pt before that glyph.
-        let start = n.leadingAnchor.constraint(equalTo: b.centerXAnchor, constant: half + 3)
+        let start = countBadge.leadingAnchor.constraint(equalTo: button.centerXAnchor, constant: half + 3)
         start.priority = .defaultHigh
         let nextGlyph = Metrics.iconGap + (Metrics.segment.width - Metrics.segmentPoint) / 2
         NSLayoutConstraint.activate([
             start,
-            n.trailingAnchor.constraint(lessThanOrEqualTo: b.trailingAnchor, constant: nextGlyph - 3),
+            countBadge.trailingAnchor.constraint(lessThanOrEqualTo: button.trailingAnchor, constant: nextGlyph - 3),
             // In a column it hangs past the capsule's edge, into the inset, short of the window's edge.
-            n.trailingAnchor.constraint(
-                lessThanOrEqualTo: b.trailingAnchor, constant: Metrics.iconGap + Metrics.insetTrailing - 2),
-            n.centerYAnchor.constraint(equalTo: b.centerYAnchor, constant: Metrics.iconGap - half - 1)
+            countBadge.trailingAnchor.constraint(
+                lessThanOrEqualTo: button.trailingAnchor, constant: Metrics.iconGap + Metrics.insetTrailing - 2),
+            countBadge.centerYAnchor.constraint(equalTo: button.centerYAnchor, constant: Metrics.iconGap - half - 1)
         ])
     }
 
@@ -320,17 +320,17 @@ final class InspectorController: NSViewController {
     }
 
     /// A dragged icon takes the slot under the pointer (`p` in the row or column); the others slide aside.
-    private func move(_ b: NSButton, to p: NSPoint) {
+    private func move(_ button: NSButton, to p: NSPoint) {
         var views = selector.arrangedSubviews
-        views.removeAll { $0 === b || $0 === more }   // the » stays last
+        views.removeAll { $0 === button || $0 === more }   // the » stays last
         let down = selector.isFlipped ? 1.0 : -1.0   // a column's next slot is further down
         let next = views.first { v in
             !v.isHidden && (selector.orientation == .vertical ? (v.frame.midY - p.y) * down > 0 : v.frame.midX > p.x)
         }
         let index = next.flatMap { slot in views.firstIndex { $0 === slot } } ?? views.count
-        guard selector.arrangedSubviews.firstIndex(of: b) != index else { return }
-        selector.removeArrangedSubview(b)
-        selector.insertArrangedSubview(b, at: index)
+        guard selector.arrangedSubviews.firstIndex(of: button) != index else { return }
+        selector.removeArrangedSubview(button)
+        selector.insertArrangedSubview(button, at: index)
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = Motion.duration(Motion.fast)
             ctx.allowsImplicitAnimation = true

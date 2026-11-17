@@ -153,8 +153,9 @@ final class StartView: NSView {
     /// (a group splits the screen), or a branch of its own in its own folder (a branch splits the code), which is made
     /// when picked: this empty group goes as the screen moves to that one. Beside it, a branch that's there or a pull
     /// request. Nil for the project's own screen, a group on a branch already, and a project on a host.
-    private func codeChoice(_ w: Worktree, _ repo: Repo?) -> NSView? {
-        guard let repo, app.groupName(w) != nil, w.path == repo.path, RemoteHost.of(repo.path) == nil else {
+    private func codeChoice(_ worktree: Worktree, _ repo: Repo?) -> NSView? {
+        guard let repo, app.groupName(worktree) != nil, worktree.path == repo.path, RemoteHost.of(repo.path) == nil
+        else {
             return nil
         }
         let app = self.app

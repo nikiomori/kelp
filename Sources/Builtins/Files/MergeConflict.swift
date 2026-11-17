@@ -59,13 +59,13 @@ struct MergeConflict: Equatable {
     }
 
     /// "<", "|", "=" or ">" when the line is that marker.
-    private static func marker(_ s: NSString, _ line: NSRange) -> Character? {
+    private static func marker(_ string: NSString, _ line: NSRange) -> Character? {
         guard line.length >= 7 else { return nil }
-        let head = s.substring(with: NSRange(location: line.location, length: 7))
+        let head = string.substring(with: NSRange(location: line.location, length: 7))
         guard let first = head.first, ["<", "|", "=", ">"].contains(first), head.allSatisfy({ $0 == first }) else {
             return nil
         }
-        let rest = s.substring(with: NSRange(location: line.location + 7, length: line.length - 7))
+        let rest = string.substring(with: NSRange(location: line.location + 7, length: line.length - 7))
         if first == "=" { return rest.trimmingCharacters(in: .newlines).isEmpty ? first : nil }
         return rest.isEmpty || rest.first == " " || rest.first?.isNewline == true ? first : nil
     }

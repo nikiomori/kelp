@@ -74,8 +74,8 @@ extension QuickOpen {
         // After what's open: the empty field without agents to list starts with tabs and workspaces, not the Kelp menu.
         // Commands: every enabled menu item with an action. The app menu's say no menu ("Kelp" beside each said nothing).
         let appMenu = NSApp.mainMenu?.items.first?.submenu
-        func walk(_ m: NSMenu, path: String) {
-            for i in m.items {
+        func walk(_ menu: NSMenu, path: String) {
+            for i in menu.items {
                 if let submenu = i.submenu {
                     // Not the system's Services ("Convert Text to Chinese"…): other apps' actions, not Kelp's commands.
                     if submenu !== NSApp.servicesMenu {

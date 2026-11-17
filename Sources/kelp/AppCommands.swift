@@ -14,11 +14,11 @@ extension Main {
     }
 
     /// `shot [file]`: the open window as a PNG, for an agent to look at. The app writes it, so this waits for the file.
-    static func shot(_ file: String?, _ c: RPCClient) async throws {
+    static func shot(_ file: String?, _ client: RPCClient) async throws {
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(
             "kelp-shot-\(UUID().uuidString.prefix(8)).png")
         let url = file.map { URL(fileURLWithPath: $0) } ?? temporary, asked = Date().timeIntervalSince1970
-        _ = try await c.call(UICommand(id: "window.shot", args: .object(["path": .string(url.path)])))
+        _ = try await client.call(UICommand(id: "window.shot", args: .object(["path": .string(url.path)])))
         for _ in 0..<50 {
             var st = stat()
             let written =
@@ -32,23 +32,24 @@ extension Main {
         fail("the app wrote no \(url.path)")
     }
 
-    static func settingsAndUI(_ cmd: String, _ sub: String?, _ c: RPCClient) async throws {
+    static func settingsAndUI(_ cmd: String, _ sub: String?, _ client: RPCClient) async throws {
         switch (cmd, sub) {
-        case ("settings", nil): show(.object(try await c.call(SettingsGet())))
+        case ("settings", nil): show(.object(try await client.call(SettingsGet())))
         case ("settings", "get"):
             guard let key = args.first else { fail("settings get <key>") }
-            show(try await c.call(SettingsGet())[key] ?? .null)
+            show(try await client.call(SettingsGet())[key] ?? .null)
         case ("settings", "set"):
             guard args.count >= 2 else { fail("settings set <key> <value>") }
-            _ = try await c.call(SettingsSet(key: args[0], value: jsonOrText(args.dropFirst().joined(separator: " "))))
+            _ = try await client.call(
+                SettingsSet(key: args[0], value: jsonOrText(args.dropFirst().joined(separator: " "))))
         case ("settings", "unset"):
             guard let key = args.first else { fail("settings unset <key>") }
-            _ = try await c.call(SettingsSet(key: key, value: nil))
-        case ("ui", "state"): show(try await c.call(UIStateGet()))
+            _ = try await client.call(SettingsSet(key: key, value: nil))
+        case ("ui", "state"): show(try await client.call(UIStateGet()))
         case ("run", let id?):
             show(
                 try .from(
-                    try await c.call(
+                    try await client.call(
                         UICommand(id: id, args: args.isEmpty ? nil : jsonOrText(args.joined(separator: " "))))))
         default: print(usage)
         }

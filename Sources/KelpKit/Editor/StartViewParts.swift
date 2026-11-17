@@ -157,16 +157,16 @@ final class TemplateGroup: NSStackView {
     let head = StartView.heading(String(localized: "Templates"))
     private let store: LayoutTemplates, workspace: Worktree
 
-    init(app: AppModel, workspace w: Worktree) {
+    init(app: AppModel, workspace worktree: Worktree) {
         store = LayoutTemplates(app: app)
-        workspace = w
+        workspace = worktree
         super.init(frame: .zero)
         orientation = .vertical
         alignment = .leading
         spacing = 6
         show(file: [])
         Task { [weak self] in
-            let file = await LayoutTemplates(app: app).fromFile(w)
+            let file = await LayoutTemplates(app: app).fromFile(worktree)
             if !file.isEmpty { self?.show(file: file) }
         }
     }

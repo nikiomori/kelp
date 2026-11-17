@@ -14,40 +14,40 @@ enum PostgresText {
     }
 
     // ponytail: the common built-in types; geometric, range and full-text values fall back to their size
-    static func value(_ b: inout ByteBuffer, type: PostgresDataType) -> String {
+    static func value(_ byteBuffer: inout ByteBuffer, type: PostgresDataType) -> String {
         switch type {
-        case .bool: return b.readInteger(as: UInt8.self) == 1 ? "t" : "f"
-        case .int2: return b.readInteger(as: Int16.self).map(String.init) ?? ""
-        case .int4: return b.readInteger(as: Int32.self).map(String.init) ?? ""
-        case .int8: return b.readInteger(as: Int64.self).map(String.init) ?? ""
-        case .oid, .regproc, .xid: return b.readInteger(as: UInt32.self).map(String.init) ?? ""
-        case .float4: return b.readInteger(as: UInt32.self).map { float(Double(Float(bitPattern: $0))) } ?? ""
-        case .float8: return b.readInteger(as: UInt64.self).map { float(Double(bitPattern: $0)) } ?? ""
-        case .numeric: return numeric(&b)
-        case .money: return b.readInteger(as: Int64.self).map { money($0) } ?? ""
-        case .uuid: return uuid(&b)
-        case .date: return b.readInteger(as: Int32.self).map(date) ?? ""
-        case .timestamp: return b.readInteger(as: Int64.self).map { timestamp($0, zone: false) } ?? ""
-        case .timestamptz: return b.readInteger(as: Int64.self).map { timestamp($0, zone: true) } ?? ""
-        case .time: return b.readInteger(as: Int64.self).map(clock) ?? ""
-        case .interval: return interval(&b)
+        case .bool: return byteBuffer.readInteger(as: UInt8.self) == 1 ? "t" : "f"
+        case .int2: return byteBuffer.readInteger(as: Int16.self).map(String.init) ?? ""
+        case .int4: return byteBuffer.readInteger(as: Int32.self).map(String.init) ?? ""
+        case .int8: return byteBuffer.readInteger(as: Int64.self).map(String.init) ?? ""
+        case .oid, .regproc, .xid: return byteBuffer.readInteger(as: UInt32.self).map(String.init) ?? ""
+        case .float4: return byteBuffer.readInteger(as: UInt32.self).map { float(Double(Float(bitPattern: $0))) } ?? ""
+        case .float8: return byteBuffer.readInteger(as: UInt64.self).map { float(Double(bitPattern: $0)) } ?? ""
+        case .numeric: return numeric(&byteBuffer)
+        case .money: return byteBuffer.readInteger(as: Int64.self).map { money($0) } ?? ""
+        case .uuid: return uuid(&byteBuffer)
+        case .date: return byteBuffer.readInteger(as: Int32.self).map(date) ?? ""
+        case .timestamp: return byteBuffer.readInteger(as: Int64.self).map { timestamp($0, zone: false) } ?? ""
+        case .timestamptz: return byteBuffer.readInteger(as: Int64.self).map { timestamp($0, zone: true) } ?? ""
+        case .time: return byteBuffer.readInteger(as: Int64.self).map(clock) ?? ""
+        case .interval: return interval(&byteBuffer)
         case .jsonb:
-            b.moveReaderIndex(forwardBy: 1)   // jsonb's version byte
-            return b.readString(length: b.readableBytes) ?? ""
-        case .bytea: return bytea(&b)
-        case .inet, .cidr: return inet(&b)
+            byteBuffer.moveReaderIndex(forwardBy: 1)   // jsonb's version byte
+            return byteBuffer.readString(length: byteBuffer.readableBytes) ?? ""
+        case .bytea: return bytea(&byteBuffer)
+        case .inet, .cidr: return inet(&byteBuffer)
         default:
             if type.knownSQLName?.hasPrefix("_") == true || type.rawValue == 1000 || isArray(type) {
-                return array(&b) ?? "<\(b.readableBytes) bytes>"
+                return array(&byteBuffer) ?? "<\(byteBuffer.readableBytes) bytes>"
             }
-            return textual(&b)
+            return textual(&byteBuffer)
         }
     }
 
     /// Text-like types (text, varchar, name, json, xml) and user ones whose binary form is their text.
-    private static func textual(_ b: inout ByteBuffer) -> String {
-        let count = b.readableBytes
-        guard let bytes = b.readBytes(length: count), let text = String(bytes: bytes, encoding: .utf8),
+    private static func textual(_ byteBuffer: inout ByteBuffer) -> String {
+        let count = byteBuffer.readableBytes
+        guard let bytes = byteBuffer.readBytes(length: count), let text = String(bytes: bytes, encoding: .utf8),
             !text.unicodeScalars.contains(where: { $0.value < 32 && !["\n", "\r", "\t"].contains($0) })
         else { return "<\(count) bytes>" }
         return text
@@ -72,15 +72,15 @@ enum PostgresText {
     }
 
     /// Base-10000 digits, the first `weight` + 1 before the point, `dscale` digits after it.
-    static func numeric(_ b: inout ByteBuffer) -> String {
-        guard let count = b.readInteger(as: Int16.self), let weight = b.readInteger(as: Int16.self),
-            let sign = b.readInteger(as: UInt16.self), let scale = b.readInteger(as: Int16.self)
+    static func numeric(_ byteBuffer: inout ByteBuffer) -> String {
+        guard let count = byteBuffer.readInteger(as: Int16.self), let weight = byteBuffer.readInteger(as: Int16.self),
+            let sign = byteBuffer.readInteger(as: UInt16.self), let scale = byteBuffer.readInteger(as: Int16.self)
         else { return "" }
         if sign == 0xC000 { return "NaN" }
         if sign == 0xD000 { return "Infinity" }
         if sign == 0xF000 { return "-Infinity" }
         var digits: [Int16] = []
-        for _ in 0..<max(0, Int(count)) { digits.append(b.readInteger(as: Int16.self) ?? 0) }
+        for _ in 0..<max(0, Int(count)) { digits.append(byteBuffer.readInteger(as: Int16.self) ?? 0) }
         var whole = ""
         if weight < 0 {
             whole = "0"
@@ -101,8 +101,8 @@ enum PostgresText {
         return (sign == 0x4000 && text.contains(where: { $0 != "0" && $0 != "." }) ? "-" : "") + text
     }
 
-    private static func uuid(_ b: inout ByteBuffer) -> String {
-        guard let bytes = b.readBytes(length: 16) else { return "" }
+    private static func uuid(_ byteBuffer: inout ByteBuffer) -> String {
+        guard let bytes = byteBuffer.readBytes(length: 16) else { return "" }
         return UUID(uuid: bytes.withUnsafeBytes { $0.load(as: uuid_t.self) }).uuidString.lowercased()
     }
 
@@ -147,9 +147,9 @@ enum PostgresText {
         return "." + text
     }
 
-    private static func interval(_ b: inout ByteBuffer) -> String {
-        guard let micros = b.readInteger(as: Int64.self), let days = b.readInteger(as: Int32.self),
-            let months = b.readInteger(as: Int32.self)
+    private static func interval(_ byteBuffer: inout ByteBuffer) -> String {
+        guard let micros = byteBuffer.readInteger(as: Int64.self), let days = byteBuffer.readInteger(as: Int32.self),
+            let months = byteBuffer.readInteger(as: Int32.self)
         else { return "" }
         var parts: [String] = []
         let years = months / 12, mons = months % 12
@@ -160,16 +160,16 @@ enum PostgresText {
         return parts.joined(separator: " ")
     }
 
-    private static func bytea(_ b: inout ByteBuffer) -> String {
-        let count = b.readableBytes
-        let shown = b.readBytes(length: min(count, 64)) ?? []
+    private static func bytea(_ byteBuffer: inout ByteBuffer) -> String {
+        let count = byteBuffer.readableBytes
+        let shown = byteBuffer.readBytes(length: min(count, 64)) ?? []
         return "\\x" + shown.map { String(format: "%02x", $0) }.joined() + (count > 64 ? "… (\(count) bytes)" : "")
     }
 
-    private static func inet(_ b: inout ByteBuffer) -> String {
-        guard let family = b.readInteger(as: UInt8.self), let bits = b.readInteger(as: UInt8.self),
-            let cidr = b.readInteger(as: UInt8.self), let size = b.readInteger(as: UInt8.self),
-            let addr = b.readBytes(length: Int(size))
+    private static func inet(_ byteBuffer: inout ByteBuffer) -> String {
+        guard let family = byteBuffer.readInteger(as: UInt8.self), let bits = byteBuffer.readInteger(as: UInt8.self),
+            let cidr = byteBuffer.readInteger(as: UInt8.self), let size = byteBuffer.readInteger(as: UInt8.self),
+            let addr = byteBuffer.readBytes(length: Int(size))
         else { return "" }
         let text =
             family == 2
@@ -182,14 +182,15 @@ enum PostgresText {
     }
 
     /// `{1,2,NULL}`, nested for more dimensions; elements quoted when psql would.
-    private static func array(_ b: inout ByteBuffer) -> String? {
-        guard let dims = b.readInteger(as: Int32.self), b.readInteger(as: Int32.self) != nil,
-            let element = b.readInteger(as: UInt32.self)
+    private static func array(_ byteBuffer: inout ByteBuffer) -> String? {
+        guard let dims = byteBuffer.readInteger(as: Int32.self), byteBuffer.readInteger(as: Int32.self) != nil,
+            let element = byteBuffer.readInteger(as: UInt32.self)
         else { return nil }
         guard dims > 0 else { return "{}" }
         var sizes: [Int] = []
         for _ in 0..<dims {
-            guard let size = b.readInteger(as: Int32.self), b.readInteger(as: Int32.self) != nil else { return nil }
+            guard let size = byteBuffer.readInteger(as: Int32.self), byteBuffer.readInteger(as: Int32.self) != nil
+            else { return nil }
             sizes.append(Int(size))
         }
         let type = PostgresDataType(element)
@@ -200,8 +201,8 @@ enum PostgresText {
                     items.append(level(depth + 1))
                     continue
                 }
-                guard let length = b.readInteger(as: Int32.self), length >= 0,
-                    var item = b.readSlice(length: Int(length))
+                guard let length = byteBuffer.readInteger(as: Int32.self), length >= 0,
+                    var item = byteBuffer.readSlice(length: Int(length))
                 else {
                     items.append("NULL")
                     continue

@@ -36,13 +36,13 @@ package protocol TabContent: AnyObject {
 /// follows them with `track`, so a tab says nothing when they change.
 struct TabLook: Equatable {
     let uri: String, title: String, toolTip: String?, isEdited: Bool, badge: TabBadge?, icon: NSImage?
-    @MainActor init(_ c: TabContent) {
-        uri = c.uri
-        title = c.title
-        toolTip = c.toolTip
-        isEdited = c.isEdited
-        badge = c.badge
-        icon = c.icon
+    @MainActor init(_ tabContent: TabContent) {
+        uri = tabContent.uri
+        title = tabContent.title
+        toolTip = tabContent.toolTip
+        isEdited = tabContent.isEdited
+        badge = tabContent.badge
+        icon = tabContent.icon
     }
 }
 
@@ -66,23 +66,23 @@ package struct TabBadge: Equatable {
         waitsFor = session?.waitsForCommand ?? false
     }
     /// A session's tab, built or not (a hidden terminal lets go of its surface, its tab keeps saying all this).
-    package static func of(_ s: Session?, meter: SessionContextWindow.Usage?) -> TabBadge {
+    package static func of(_ session: Session?, meter: SessionContextWindow.Usage?) -> TabBadge {
         // A terminal shows a state only while a program in it says how far it got (a build).
         TabBadge(
-            status: s.flatMap {
+            status: session.flatMap {
                 $0.isTerminal
                     ? ($0.progress == nil ? nil : .working) : $0.endedWithError ? .error : $0.markStatus
             },
-            unread: s?.unread ?? false, meter: meter, progress: s?.progress.map { Double($0) / 100 },
-            attention: s.flatMap(attention),
-            backgroundOf: s)
+            unread: session?.unread ?? false, meter: meter, progress: session?.progress.map { Double($0) / 100 },
+            attention: session.flatMap(attention),
+            backgroundOf: session)
     }
     /// The ring around its pane: it asks (orange) or failed (red). Finished is quiet, as its mark in the sidebar: the
     /// unread dot and the bold name say it's new.
-    private static func attention(_ s: Session) -> NSColor? {
-        guard !s.isTerminal else { return nil }
-        if s.status == .waiting { return .systemOrange }
-        return (s.status == .error || s.endedWithError) && s.unread ? .systemRed : nil
+    private static func attention(_ session: Session) -> NSColor? {
+        guard !session.isTerminal else { return nil }
+        if session.status == .waiting { return .systemOrange }
+        return (session.status == .error || session.endedWithError) && session.unread ? .systemRed : nil
     }
 
     /// Its state mark (nil: a terminal whose program doesn't say how far it got).

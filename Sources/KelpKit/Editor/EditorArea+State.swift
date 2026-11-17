@@ -40,8 +40,8 @@ extension EditorArea {
 
 extension EditorArea: NSSplitViewDelegate {
     /// A dragged divider stays where it was put: tab changes and relaunches rebuild the splits from these shares.
-    func splitViewDidResizeSubviews(_ n: Notification) {
-        guard let sv = n.object as? NSSplitView, sv.window != nil, let key = sv.identifier?.rawValue,
+    func splitViewDidResizeSubviews(_ notification: Notification) {
+        guard let sv = notification.object as? NSSplitView, sv.window != nil, let key = sv.identifier?.rawValue,
             sv.arrangedSubviews.count == key.split(separator: ",").count
         else { return }   // being taken apart: not the user
         let lengths = sv.arrangedSubviews.map { Double(sv.isVertical ? $0.frame.width : $0.frame.height) }

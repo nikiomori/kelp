@@ -67,13 +67,13 @@ struct MachinesView: View {
         .accessibilityLabel(String(localized: "New Machine"))
     }
 
-    private func row(_ v: VMInfo) -> some View {
-        let word = Machines.machineWord(v)
-        let mark = VMImage.named(v.machine.image)?.mark ?? ("?", .systemGray)
-        let asleep = [.sleeping, .off, .error].contains(v.state)
+    private func row(_ vmInfo: VMInfo) -> some View {
+        let word = Machines.machineWord(vmInfo)
+        let mark = VMImage.named(vmInfo.machine.image)?.mark ?? ("?", .systemGray)
+        let asleep = [.sleeping, .off, .error].contains(vmInfo.state)
         return HStack(spacing: Metrics.gapWide) {
             Group {
-                switch v.machine.kind {
+                switch vmInfo.machine.kind {
                 case .macos: Image(systemName: "apple.logo").font(.ui(TextSize.row, weight: .semibold))
                 case .android: Image(systemName: "smartphone").font(.ui(TextSize.row, weight: .semibold))
                 case .ios: Image(systemName: "iphone").font(.ui(TextSize.row, weight: .semibold))
@@ -85,13 +85,13 @@ struct MachinesView: View {
             .saturation(asleep ? 0 : 1).opacity(asleep ? 0.6 : 1)
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 HStack(spacing: Metrics.gap) {
-                    Text(v.machine.name).font(.ui(TextSize.row, weight: .semibold)).lineLimit(1)
-                    if v.state == .starting || v.state == .creating { ProgressView().controlSize(.mini) }
+                    Text(vmInfo.machine.name).font(.ui(TextSize.row, weight: .semibold)).lineLimit(1)
+                    if vmInfo.state == .starting || vmInfo.state == .creating { ProgressView().controlSize(.mini) }
                     Text(word.text).font(.ui(TextSize.caption)).foregroundStyle(Color(nsColor: word.color)).lineLimit(1)
                     Spacer(minLength: Metrics.gap)
-                    faces(v)
+                    faces(vmInfo)
                 }
-                Text(Machines.machineLine(app, v, short: true)).font(.ui(TextSize.caption).monospacedDigit())
+                Text(Machines.machineLine(app, vmInfo, short: true)).font(.ui(TextSize.caption).monospacedDigit())
                     .foregroundStyle(
                         .secondary
                     )
@@ -101,22 +101,23 @@ struct MachinesView: View {
         }
         .padding(.horizontal, Metrics.gap).frame(height: Metrics.rowTwoLine)
         .background(
-            RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(hovered == v.id ? Color(nsColor: .fillHover) : .clear)
+            RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(
+                hovered == vmInfo.id ? Color(nsColor: .fillHover) : .clear)
         )
         .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovered)
         .contentShape(Rectangle())
-        .onHover { hovered = $0 ? v.id : (hovered == v.id ? nil : hovered) }
-        .onTapGesture { Machines.openMachine(app, v.machine.name) }
-        .contextMenu { menu(v) }
-        .help(v.state == .error ? (v.detail ?? "") : Machines.machineLine(app, v))
+        .onHover { hovered = $0 ? vmInfo.id : (hovered == vmInfo.id ? nil : hovered) }
+        .onTapGesture { Machines.openMachine(app, vmInfo.machine.name) }
+        .contextMenu { menu(vmInfo) }
+        .help(vmInfo.state == .error ? (vmInfo.detail ?? "") : Machines.machineLine(app, vmInfo))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(v.machine.name), \(word.text), \(Machines.machineLine(app, v))")
+        .accessibilityLabel("\(vmInfo.machine.name), \(word.text), \(Machines.machineLine(app, vmInfo))")
         .accessibilityAddTraits(.isButton)
     }
 
     /// The agents with a command running in it: their icons, overlapping.
-    @ViewBuilder private func faces(_ v: VMInfo) -> some View {
-        let agents = (v.sessions ?? []).compactMap { app.session($0)?.agent }
+    @ViewBuilder private func faces(_ vmInfo: VMInfo) -> some View {
+        let agents = (vmInfo.sessions ?? []).compactMap { app.session($0)?.agent }
         HStack(spacing: -Metrics.appIcon / 3) {   // overlapping, as a stack of faces
             ForEach(Array(Set(agents)).sorted().prefix(3), id: \.self) { agent in
                 if let icon = app.catalog.icon(agent, size: Metrics.iconLarge) {
@@ -126,18 +127,19 @@ struct MachinesView: View {
         }
     }
 
-    @ViewBuilder private func menu(_ v: VMInfo) -> some View {
-        let name = v.machine.name
+    @ViewBuilder private func menu(_ vmInfo: VMInfo) -> some View {
+        let name = vmInfo.machine.name
         Button(String(localized: "Open")) { Machines.openMachine(app, name) }
         Button(String(localized: "Open in Own Window")) { Machines.openMachine(app, name, ownWindow: true) }
         Button(String(localized: "Open Terminal")) { Machines.runInMachine(app, name) }.disabled(
-            v.state == .creating || v.notMade == true)
+            vmInfo.state == .creating || vmInfo.notMade == true)
         Divider()
-        MachineControls(app: app, info: v)
+        MachineControls(app: app, info: vmInfo)
         Divider()
         Button(
-            v.state == .creating ? String(localized: "Stop Making…") : String(localized: "Delete…"), role: .destructive
-        ) { Machines.deleteMachine(app, v) }
+            vmInfo.state == .creating ? String(localized: "Stop Making…") : String(localized: "Delete…"),
+            role: .destructive
+        ) { Machines.deleteMachine(app, vmInfo) }
     }
 }
 

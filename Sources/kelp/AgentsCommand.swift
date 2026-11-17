@@ -17,16 +17,16 @@ extension Main {
         [4]: .quit
     ]
 
-    static func agents(_ c: RPCClient) async throws {
+    static func agents(_ client: RPCClient) async throws {
         // What ends these agents, said where someone away from the Mac will read it.
         var warning: String?
         do {
-            if try await !c.call(DaemonBackgroundAllowed()) {
+            if try await !client.call(DaemonBackgroundAllowed()) {
                 warning = "Quitting Kelp ends these: allow it in Login Items"
             }
         } catch {}   // an older kelpd can't say
         guard isatty(0) == 1, isatty(1) == 1 else {
-            for r in try await board(c).rows { print("\(r.title)  [\(r.id.prefix(8))]\n  \(r.detail)") }
+            for r in try await board(client).rows { print("\(r.title)  [\(r.id.prefix(8))]\n  \(r.detail)") }
             if let warning { print(warning) }
             return
         }
@@ -42,7 +42,7 @@ extension Main {
         put(enter)
         var selected: String?, note: String?, shown = ""
         while true {
-            let (rows, paused) = try await board(c)
+            let (rows, paused) = try await board(client)
             let at = rows.firstIndex { $0.id == selected } ?? 0
             selected = rows.isEmpty ? nil : rows[at].id
             let frame = render(rows, at: at, paused: paused, note: note ?? warning)
@@ -64,17 +64,18 @@ extension Main {
                 shown = ""
             case .yes, .no:
                 guard let id = selected, rows[at].status == .waiting else { break }
-                if try await !c.call(SessionChoose(id: id, answer: key == .yes ? "allow" : "deny")) {
+                if try await !client.call(SessionChoose(id: id, answer: key == .yes ? "allow" : "deny")) {
                     note = "No yes/no on its screen: press Enter to open it"
                 }
             }
         }
     }
 
-    private static func board(_ c: RPCClient) async throws -> (rows: [AgentBoard.Row], paused: Int) {
-        let all = try await c.call(SessionList())
+    private static func board(_ client: RPCClient) async throws -> (rows: [AgentBoard.Row], paused: Int) {
+        let all = try await client.call(SessionList())
         return (
-            AgentBoard.rows(all, worktrees: try await c.call(WorktreeList()), repos: try await c.call(RepoList())),
+            AgentBoard.rows(
+                all, worktrees: try await client.call(WorktreeList()), repos: try await client.call(RepoList())),
             AgentBoard.paused(all)
         )
     }
@@ -101,8 +102,8 @@ extension Main {
         return "\u{1B}[H" + lines.map { $0 + "\u{1B}[K" }.joined(separator: "\r\n") + "\u{1B}[J"
     }
 
-    private static func mark(_ s: AgentStatus) -> String {
-        switch s {
+    private static func mark(_ agentStatus: AgentStatus) -> String {
+        switch agentStatus {
         case .waiting: "\u{1B}[33m?\u{1B}[39m"
         case .error: "\u{1B}[31m!\u{1B}[39m"
         case .working: "\u{1B}[36m●\u{1B}[39m"

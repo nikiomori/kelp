@@ -98,10 +98,10 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         cpu < 10 ? String(format: "%.1f%%", cpu) : "\(Int(cpu.rounded()))%"
     }
 
-    func numberOfRows(in t: NSTableView) -> Int { rows.count }
-    func tableView(_ t: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
+    func numberOfRows(in table: NSTableView) -> Int { rows.count }
+    func tableView(_ table: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
 
-    func tableView(_ t: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
+    func tableView(_ table: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let app = self.app
         let entry = rows[row], session = entry.session, model = app
         let icon = NSImageView(
@@ -139,10 +139,10 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         return rowView
     }
 
-    func menuNeedsUpdate(_ m: NSMenu) {
-        m.removeAllItems()
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
         guard rows.indices.contains(table.clickedRow) else { return }
-        AgentActions(app).addSessionItems(to: m, rows[table.clickedRow].session.id)
+        AgentActions(app).addSessionItems(to: menu, rows[table.clickedRow].session.id)
     }
 
     @objc private func open() {

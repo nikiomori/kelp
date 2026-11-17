@@ -24,24 +24,24 @@ final class MenuBuilder {
     }
 
     /// These commands, in order ("-" is a separator); one whose extension is off is left out.
-    @discardableResult func add(_ m: NSMenu, _ ids: String...) -> [NSMenuItem] {
+    @discardableResult func add(_ menu: NSMenu, _ ids: String...) -> [NSMenuItem] {
         ids.compactMap { id in
             if id == "-" {
-                m.addItem(.separator())
+                menu.addItem(.separator())
                 return nil
             }
             guard let command = reg.command(id) else { return nil }
             placed.insert(id)
             let menuItem = item(command)
-            m.addItem(menuItem)
+            menu.addItem(menuItem)
             return menuItem
         }
     }
 
     /// Only its key: in the menu so the shortcut works, not shown.
-    func hide(_ i: NSMenuItem) {
-        i.isHidden = true
-        i.allowsKeyEquivalentWhenHidden = true
+    func hide(_ menuItem: NSMenuItem) {
+        menuItem.isHidden = true
+        menuItem.allowsKeyEquivalentWhenHidden = true
     }
 
     /// Every command nothing placed, in the menu it names (after a separator) or in `tools`; Tools goes if it's empty.
@@ -77,8 +77,8 @@ extension AppDelegate {
     }
 
     /// Kelp: About, updates, settings, and the standard Services / Hide / Quit.
-    private func appMenu(_ b: MenuBuilder) {
-        let app = b.sub("Kelp")
+    private func appMenu(_ menuBuilder: MenuBuilder) {
+        let app = menuBuilder.sub("Kelp")
         app.addItem(
             withTitle: "About Kelp", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: "")
@@ -93,7 +93,7 @@ extension AppDelegate {
                 keyEquivalent: ""
             ).target = controller
         }
-        b.add(app, "-", "workbench.openSettings", "workbench.openExtensions", "workbench.restartService", "-")
+        menuBuilder.add(app, "-", "workbench.openSettings", "workbench.openExtensions", "workbench.restartService", "-")
         // The standard application menu: Services, Hide / Hide Others / Show All, Quit.
         let services = NSMenu(title: "Services")
         NSApp.servicesMenu = services
@@ -111,10 +111,10 @@ extension AppDelegate {
     }
 
     /// File: new workspaces, agents and tabs, projects, saving and closing.
-    private func fileMenu(_ b: MenuBuilder) {
+    private func fileMenu(_ menuBuilder: MenuBuilder) {
         let app = self.app
-        let file = b.sub("File")
-        b.add(
+        let file = menuBuilder.sub("File")
+        menuBuilder.add(
             file, "workspace.new", "workspace.newGroup", "workspace.newBranch", "workspace.newBranchAsking",
             "agents.new", "terminal.new", "terminal.tmux")
         let with = NSMenu()
@@ -122,11 +122,11 @@ extension AppDelegate {
             with.add(a.name) { app.extensions.run("agents.new", ["agent": .string(a.id)]) }
         }
         with.addItem(.separator())
-        for e in b.reg.all.editors {
+        for e in menuBuilder.reg.all.editors {
             with.add(e.title, symbol: e.icon) { e.open(IDEContext.of(app), in: app) }
         }
         file.add("New Tab", submenu: with)
-        b.add(
+        menuBuilder.add(
             file, "workspace.addProject", "workspace.cloneRepository", "workspace.addRemote", "machines.new", "-",
             "workspace.revealInFinder")
         let openIn = NSMenu()
@@ -134,16 +134,16 @@ extension AppDelegate {
         if !openIn.items.isEmpty {
             file.add("Open Folder In", submenu: openIn)
         }
-        b.add(file, "-", "editor.reopenTab")
+        menuBuilder.add(file, "-", "editor.reopenTab")
         let recent = NSMenu(title: "Recently Closed")
         recent.delegate = recentlyClosedMenu
         file.add("Recently Closed", submenu: recent)
-        b.add(file, "-", "editor.save", "editor.saveAll", "-", "editor.closeTab", "workspace.close")
+        menuBuilder.add(file, "-", "editor.save", "editor.saveAll", "-", "editor.closeTab", "workspace.close")
     }
 
     /// Edit: undo, the clipboard, Find, and the editor's commands.
-    private func editMenu(_ b: MenuBuilder) {
-        let edit = b.sub("Edit")
+    private func editMenu(_ menuBuilder: MenuBuilder) {
+        let edit = menuBuilder.sub("Edit")
         edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
         edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
         edit.addItem(.separator())
@@ -164,10 +164,11 @@ extension AppDelegate {
             menuItem.keyEquivalentModifierMask = mods
             menuItem.tag = Int(action.rawValue)
         }
-        b.add(find, "files.findInWorkspace", "files.findByName")
-        b.add(find, "files.search.matchCase", "files.search.wholeWord", "files.search.regex").forEach(b.hide)   // their keys, not more rows
+        menuBuilder.add(find, "files.findInWorkspace", "files.findByName")
+        menuBuilder.add(find, "files.search.matchCase", "files.search.wholeWord", "files.search.regex").forEach(
+            menuBuilder.hide)   // their keys, not more rows
         edit.add("Find", submenu: find)
-        b.add(
+        menuBuilder.add(
             edit, "editor.goToLine", "editor.nextProblem", "editor.previousProblem", "editor.showCompletions",
             "editor.showHover",
             "editor.jumpToDefinition", "editor.findReferences", "editor.rename", "editor.quickFix",
@@ -176,7 +177,7 @@ extension AppDelegate {
             "-", "editor.fold", "editor.unfold", "editor.foldAll", "editor.foldLevel2", "editor.foldLevel3",
             "editor.unfoldAll")
         let markdown = NSMenu(title: "Markdown")
-        b.add(
+        menuBuilder.add(
             markdown, "markdown.bold", "markdown.italic", "markdown.code", "markdown.link", "-", "markdown.bullets",
             "markdown.numbered",
             "markdown.tasks", "-", "markdown.cycleView")
@@ -185,9 +186,10 @@ extension AppDelegate {
 
     /// Selection: the code editor's, as VS Code's. After View: a key goes to the first menu item that has it, on or off,
     /// and ⌘D, ⌘[ ⌘] are Split Right and the panes outside the editor (inside, the editor takes them first: EditorBox).
-    private func selectionMenu(_ b: MenuBuilder) {
-        b.add(
-            b.sub("Selection"), "editor.addNextOccurrence", "editor.selectAllOccurrences", "editor.expandSelection",
+    private func selectionMenu(_ menuBuilder: MenuBuilder) {
+        menuBuilder.add(
+            menuBuilder.sub("Selection"), "editor.addNextOccurrence", "editor.selectAllOccurrences",
+            "editor.expandSelection",
             "editor.shrinkSelection",
             "editor.cursorAbove", "editor.cursorBelow", "editor.cursorsAtLineEnds", "-", "editor.moveLinesUp",
             "editor.moveLinesDown",
@@ -196,38 +198,38 @@ extension AppDelegate {
     }
 
     /// View: the sidebar and inspector, panels, text size, panes and tabs.
-    private func viewMenu(_ b: MenuBuilder) {
+    private func viewMenu(_ menuBuilder: MenuBuilder) {
         let app = self.app
-        let view = b.sub("View")
-        b.add(view, "workbench.toggleSidebar", "workbench.toggleInspector", "workbench.toggleFocusMode")
-        for (i, p) in b.reg.all.panels.prefix(9).enumerated() {
+        let view = menuBuilder.sub("View")
+        menuBuilder.add(view, "workbench.toggleSidebar", "workbench.toggleInspector", "workbench.toggleFocusMode")
+        for (i, p) in menuBuilder.reg.all.panels.prefix(9).enumerated() {
             let menuItem = view.add("  " + p.title, symbol: p.icon, key: "\(i + 1)") {
                 app.extensions.run("workbench.showPanel", ["panel": .string(p.id)])
             }
             menuItem.keyEquivalentModifierMask = [.command, .option]
         }
-        b.placed.insert("workbench.showPanel")
-        b.add(view, "-", "editor.toggleWordWrap", "-", "view.biggerText")
+        menuBuilder.placed.insert("workbench.showPanel")
+        menuBuilder.add(view, "-", "editor.toggleWordWrap", "-", "view.biggerText")
         // ⌘= enlarges too, as in Ghostty, VS Code and Safari (+ is the shifted =).
-        b.hide(view.add("Bigger Text", key: "=") { app.extensions.run("view.biggerText") })
-        b.add(
+        menuBuilder.hide(view.add("Bigger Text", key: "=") { app.extensions.run("view.biggerText") })
+        menuBuilder.add(
             view, "view.smallerText", "view.defaultTextSize", "-", "terminal.splitRight", "terminal.splitDown",
             "agents.sideBySide",
             "view.maximizePane", "view.equalizePanes")
         let panes = NSMenu(title: "Select Pane")
-        b.add(
+        menuBuilder.add(
             panes, "view.nextPane", "view.previousPane", "-", "view.paneLeft", "view.paneRight", "view.paneAbove",
             "view.paneBelow")
         view.add("Select Pane", submenu: panes)
-        b.add(view, "-", "editor.nextTab", "editor.previousTab")
+        menuBuilder.add(view, "-", "editor.nextTab", "editor.previousTab")
         for n in 1...9 {
-            b.add(view, "editor.tab.\(n)").forEach {
+            menuBuilder.add(view, "editor.tab.\(n)").forEach {
                 $0.isHidden = n > 3
                 $0.allowsKeyEquivalentWhenHidden = true
             }
         }
         // ⌃Tab / ⌃⇧Tab: the workspace switcher (Window menu); tabs keep ⇧⌘] / ⇧⌘[.
-        b.add(view, "-", "workbench.commandPalette", "files.quickOpen", "agents.history", "-")
+        menuBuilder.add(view, "-", "workbench.commandPalette", "files.quickOpen", "agents.history", "-")
         view.addItem(
             withTitle: "Enter Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f"
         )
@@ -235,30 +237,30 @@ extension AppDelegate {
     }
 
     /// Run: the project's commands (the built-in that runs them fills in the rest) and the editor's run, test, format.
-    private func runMenu(_ b: MenuBuilder) {
-        let runs = b.sub("Run")
+    private func runMenu(_ menuBuilder: MenuBuilder) {
+        let runs = menuBuilder.sub("Run")
         runs.delegate = app.extensions.all.runs?.menu   // the project's other commands go between the separators
-        b.add(
+        menuBuilder.add(
             runs, "scripts.run", "scripts.choose", "scripts.test", "scripts.stop", "scripts.openPage", "-", "-",
             "editor.runFile", "editor.testAtCursor", "editor.format", "-", "scripts.edit")
     }
 
     /// Window: workspaces, the agent needing you, archived workspaces.
-    private func windowMenu(_ b: MenuBuilder) {
+    private func windowMenu(_ menuBuilder: MenuBuilder) {
         let app = self.app
-        let win = b.sub("Window")
+        let win = menuBuilder.sub("Window")
         win.addItem(withTitle: "Minimize", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m")
         win.addItem(withTitle: "Zoom", action: #selector(NSWindow.zoom(_:)), keyEquivalent: "")
-        b.add(win, "workbench.ownWindow", "workbench.saveTemplate")
+        menuBuilder.add(win, "workbench.ownWindow", "workbench.saveTemplate")
         win.addItem(.separator())
-        b.add(win, "agents.nextNeedingYou", "agents.usage", "workbench.scratch", "workspace.switch")
+        menuBuilder.add(win, "agents.nextNeedingYou", "agents.usage", "workbench.scratch", "workspace.switch")
         let back = win.add(String(localized: "Previous Screen"), key: "\t") {
             app.extensions.run("workspace.switch", ["by": -1])
         }
         back.keyEquivalentModifierMask = [.control, .shift]
-        b.add(win, "workspace.next", "workspace.previous", "workspace.back", "workspace.forward")
+        menuBuilder.add(win, "workspace.next", "workspace.previous", "workspace.back", "workspace.forward")
         for n in 1...9 {
-            b.add(win, "workspace.select.\(n)").forEach {
+            menuBuilder.add(win, "workspace.select.\(n)").forEach {
                 $0.isHidden = n > 1
                 $0.allowsKeyEquivalentWhenHidden = true
             }
@@ -274,9 +276,9 @@ extension AppDelegate {
     }
 
     /// Help: macOS puts its menu search here.
-    private func helpMenu(_ b: MenuBuilder) {
-        let help = b.sub("Help")
-        b.add(help, "help.guide", "help.extensionGuide")
+    private func helpMenu(_ menuBuilder: MenuBuilder) {
+        let help = menuBuilder.sub("Help")
+        menuBuilder.add(help, "help.guide", "help.extensionGuide")
         NSApp.helpMenu = help
     }
 }
