@@ -46,12 +46,12 @@ extension AddonFiles {
     public func trashSkill(_ name: String, cwd: String) throws {
         let found = places(name, cwd: cwd)
         guard !found.isEmpty else { throw CocoaError(.fileNoSuchFile, userInfo: [NSFilePathErrorKey: name]) }
-        for place in found where place.real != place.path {
-            try FileManager.default.removeItem(atPath: place.path)   // a link: only itself
-        }
-        for real in Set(found.filter { $0.real == $0.path }.map(\.path)) {
-            try FileManager.default.trashItem(at: URL(fileURLWithPath: real), resultingItemURL: nil)
-        }
+        // A link is what is a link itself: a real folder reached through a linked parent (~/.claude from dotfiles,
+        // /tmp for /private/tmp) resolves elsewhere too, and removing it would delete the skill for good.
+        let links = Set(
+            found.map(\.path).filter { (try? FileManager.default.destinationOfSymbolicLink(atPath: $0)) != nil })
+        for link in links { try FileManager.default.removeItem(atPath: link) }   // only itself
+        for real in Set(found.map(\.path)).subtracting(links) { try Trash.move(URL(fileURLWithPath: real)) }
     }
 
     /// A link to the skill in each of its scope's two folders that lacks it, so every agent reads it.
