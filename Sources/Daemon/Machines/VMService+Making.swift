@@ -207,12 +207,8 @@ extension VMService {
         let dir = images.appendingPathComponent(".unpack-\(image.id)-\(UUID().uuidString.prefix(8))")   // another make may unpack too
         try Paths.ensure(dir)
         defer { remove(dir) }
-        let out = try await blocking {
-            try Subprocess.run(
-                ["/usr/bin/tar", "-xf", archive.path, "-C", dir.path, image.member], cwd: "/", env: [:], timeLimit: 600)
-        }
-        guard out.status == 0 else {
-            throw RPCError.internalError("tar: " + String(decoding: out.stderr, as: UTF8.self))
+        _ = try await blocking {
+            try run(["/usr/bin/tar", "-xf", archive.path, "-C", dir.path, image.member], limit: 600)
         }
         if !FileManager.default.fileExists(atPath: raw.path) {   // otherwise another make unpacked it first
             try FileManager.default.moveItem(at: dir.appendingPathComponent(image.member), to: raw)
@@ -312,13 +308,17 @@ extension VMService {
         return line.flatMap { Double($0.dropFirst("content-length:".count).trimmingCharacters(in: .whitespaces)) } ?? 0
     }
 
-    /// Runs a program and returns its output. When the program fails, this throws with the program's error output.
+    /// Runs a program and returns its output. When the program fails, this throws with `what` (the program's name
+    /// unless given) and the program's error output.
     @discardableResult
-    func run(_ argv: [String], limit: TimeInterval = 60) throws -> String {
-        let out = try Subprocess.run(argv, cwd: "/", env: [:], timeLimit: limit)
+    func run(
+        _ argv: [String], _ what: String? = nil, env: [String: String] = [:], stdin: Data? = nil,
+        limit: TimeInterval = 60
+    ) throws -> String {
+        let out = try Subprocess.run(argv, cwd: "/", env: env, stdin: stdin, timeLimit: limit)
         guard out.status == 0 else {
             throw RPCError.internalError(
-                (argv[0] as NSString).lastPathComponent + ": " + String(decoding: out.stderr, as: UTF8.self))
+                (what ?? (argv[0] as NSString).lastPathComponent) + ": " + String(decoding: out.stderr, as: UTF8.self))
         }
         return String(decoding: out.stdout, as: UTF8.self)
     }

@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import GitKit
 import os
 
 /// Kelp's virtual machines (Core/VM/VMs.swift). This service makes them, starts each machine's `kelp-vm` and asks it
@@ -32,10 +33,7 @@ struct VMService: Sendable {
     /// sessions of what runs inside, read from inside (one SSH run per machine), and the session whose turn it is on a
     /// macOS machine's screen, because an agent driving the screen runs nothing inside.
     func list(sessions: Bool = false) -> [VMInfo] {
-        let names: [String]
-        do {
-            names = try FileManager.default.contentsOfDirectory(atPath: root.path).filter { !$0.hasPrefix(".") }
-        } catch { return [] }
+        let names = FileManager.default.names(in: root.path).filter { !$0.hasPrefix(".") }
         return names.sorted().compactMap { name in
             var entry: VMInfo
             let st = status(name)   // asked once per machine per poll, as a busy kelp-vm takes up to 2 s each time
@@ -232,13 +230,10 @@ struct VMService: Sendable {
     }
 
     private func projectFolder(_ cwd: String) -> String {
-        let env = ProcessInfo.processInfo.environment
-        do {
-            let top = try Subprocess.run(
-                ["/usr/bin/git", "-C", cwd, "rev-parse", "--show-toplevel"], cwd: "/", env: env, timeLimit: 10)
-            if top.status == 0 { return String(decoding: top.stdout, as: UTF8.self).trimmingCharacters(in: .newlines) }
-        } catch { Log.vm.info("git for \(cwd): \(error)") }
-        return cwd
+        do { return try Git.root(of: cwd, remotes: .none) } catch {
+            Log.vm.info("git for \(cwd): \(error)")
+            return cwd
+        }
     }
 
     /// Makes room for `machine` (`admit`), then starts its kelp-vm, one machine at a time (vms/.waking). Two machines
@@ -383,13 +378,17 @@ struct VMService: Sendable {
             throw RPCError.internalError("\(name) didn't stop: try again in a moment, or restart the Mac.")
         }
         endChildren(name)
-        if let udid = text(folder(name).udid) {
-            do {
-                try run(["/usr/bin/xcrun", "simctl", "delete", udid.trimmingCharacters(in: .whitespacesAndNewlines)])
-            } catch { Log.vm.error("deleting \(name)'s simulator: \(error)") }
-        }
+        deleteSimulator(name)
         if trash { try Trash.move(folder(name).url) } else { try FileManager.default.removeItem(at: folder(name).url) }
         Keychain.delete("vm." + name)
+    }
+
+    /// Deletes an iOS machine's simulator. Other machines have none.
+    func deleteSimulator(_ name: String) {
+        guard let udid = text(folder(name).udid) else { return }
+        do {
+            try run(["/usr/bin/xcrun", "simctl", "delete", udid.trimmingCharacters(in: .whitespacesAndNewlines)])
+        } catch { Log.vm.error("deleting \(name)'s simulator: \(error)") }
     }
 
     /// Returns whether the machine's kelp-vm runs, which it does while it holds `kelp-vm.lock`. It doesn't wait for an

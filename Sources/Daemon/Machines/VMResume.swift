@@ -10,10 +10,7 @@ extension VMService {
     /// Makes again from the start every machine that an earlier kelpd was making when it quit or was upgraded midway.
     /// Each machine's download goes on where it stopped. kelpd calls this once as it starts.
     func resumeMaking() {
-        let names: [String]
-        do {
-            names = try FileManager.default.contentsOfDirectory(atPath: root.path).filter { !$0.hasPrefix(".") }
-        } catch { return }
+        let names = FileManager.default.names(in: root.path).filter { !$0.hasPrefix(".") }
         for name in names where text(folder(name).creating) != nil && text(folder(name).failed) == nil {
             do {
                 let vm = try machine(name)
@@ -45,18 +42,12 @@ extension VMService {
         let name = vm.name
         quit(name)
         endLeftovers(name)
-        if let udid = text(folder(name).udid) {   // an iOS machine's simulator is deleted, and made again too
-            do {
-                try run(["/usr/bin/xcrun", "simctl", "delete", udid.trimmingCharacters(in: .whitespacesAndNewlines)])
-            } catch { Log.vm.error("deleting \(name)'s simulator: \(error)") }
-        }
+        deleteSimulator(name)   // an iOS machine's simulator is deleted, and made again too
         let source = text(folder(name).source).map { URL(fileURLWithPath: $0) }
         let keep = Set([folder(name).machine, folder(name).creating, folder(name).source].map(\.lastPathComponent))
-        let made =
-            FileManager.default.enumerator(atPath: folder(name).path)?.compactMap { $0 as? String }.filter {
-                !$0.contains("/")
-            } ?? []
-        for entry in made where !keep.contains(entry) { remove(folder(name).file(entry)) }
+        for entry in FileManager.default.names(in: folder(name).path) where !keep.contains(entry) {
+            remove(folder(name).file(entry))
+        }
         step(vm, .starting)
         Task.detached {
             switch vm.kind {

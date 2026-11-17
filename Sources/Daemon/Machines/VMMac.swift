@@ -84,25 +84,17 @@ extension VMService {
         let key = try String(contentsOf: folder(machine.name).key.appendingPathExtension("pub"), encoding: .utf8)
         let line =
             "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
-        let keyed = try Subprocess.run(ssh + [line], cwd: "/", env: env, stdin: Data(key.utf8), timeLimit: 60)
-        guard keyed.status == 0 else {
-            throw RPCError.internalError("ssh with the password: " + String(decoding: keyed.stderr, as: UTF8.self))
-        }
+        try run(ssh + [line], "ssh with the password", env: env, stdin: Data(key.utf8))
         let password = try String(contentsOf: folder(machine.name).password, encoding: .utf8)
         let rule = "\(machine.user) ALL=(ALL) NOPASSWD: ALL"
         let root =
             "echo \(ShellQuote.word(rule)) > /etc/sudoers.d/kelp && chmod 440 /etc/sudoers.d/kelp && pmset -a sleep 0 displaysleep 0 disksleep 0 && sync"
             // The machine gets the Mac's time zone, so times read the same on both.
             + " && systemsetup -settimezone \(ShellQuote.word(TimeZone.current.identifier)) >/dev/null"
-        let sudo = try Subprocess.run(
-            [
-                "/usr/bin/ssh", "-F", folder(machine.name).sshConfig.path, "-T", machine.name,
-                "sudo -S -p '' sh -c \(ShellQuote.word(root))"
-            ],
-            cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data((password + "\n").utf8), timeLimit: 60)
-        guard sudo.status == 0 else {
-            throw RPCError.internalError("sudo: " + String(decoding: sudo.stderr, as: UTF8.self))
-        }
+        let asUser = ["/usr/bin/ssh", "-F", folder(machine.name).sshConfig.path, "-T", machine.name]
+        try run(
+            asUser + ["sudo -S -p '' sh -c \(ShellQuote.word(root))"], "sudo", env: ProcessInfo.processInfo.environment,
+            stdin: Data((password + "\n").utf8))
         // The screen must never lock, because macOS locks it 5 minutes after the display sleeps and then asks for this
         // password. That is a user's setting, so this runs as the user (sysadminctl wants the password). Then all of it
         // is synced to the machine's disk.
@@ -110,12 +102,9 @@ extension VMService {
             "read -r pw; sysadminctl -screenLock off -password \"$pw\" && defaults -currentHost write com.apple.screensaver idleTime 0"
             // This makes ~/Kelp, because on the machine's first boot kelp-vm had no key yet to make it.
             + " && { \(VMs.filesSetup(os: .macos)); } && sync"
-        let unlocked = try Subprocess.run(
-            ["/usr/bin/ssh", "-F", folder(machine.name).sshConfig.path, "-T", machine.name, unlock],
-            cwd: "/", env: ProcessInfo.processInfo.environment, stdin: Data((password + "\n").utf8), timeLimit: 60)
-        guard unlocked.status == 0 else {
-            throw RPCError.internalError("screen lock: " + String(decoding: unlocked.stderr, as: UTF8.self))
-        }
+        try run(
+            asUser + [unlock], "screen lock", env: ProcessInfo.processInfo.environment,
+            stdin: Data((password + "\n").utf8))
         remove(folder(machine.name).password)
     }
 
@@ -156,16 +145,10 @@ extension VMService {
         let env = ProcessInfo.processInfo.environment
         let unpack =
             "rm -rf ~/Applications/KelpGuest.app && mkdir -p ~/Applications ~/Library/LaunchAgents && tar -C ~/Applications -xf - && sync"
-        let copied = try Subprocess.run(ssh + [unpack], cwd: "/", env: env, stdin: tar.stdout, timeLimit: 120)
-        guard copied.status == 0 else {
-            throw RPCError.internalError("copying Kelp Guest: " + String(decoding: copied.stderr, as: UTF8.self))
-        }
-        let written = try Subprocess.run(
-            ssh + ["cat > ~/Library/LaunchAgents/dev.kelp.guest.plist && sync"], cwd: "/", env: env, stdin: plist,
-            timeLimit: 60)
-        guard written.status == 0 else {
-            throw RPCError.internalError("Kelp Guest's login item: " + String(decoding: written.stderr, as: UTF8.self))
-        }
+        try run(ssh + [unpack], "copying Kelp Guest", env: env, stdin: tar.stdout, limit: 120)
+        try run(
+            ssh + ["cat > ~/Library/LaunchAgents/dev.kelp.guest.plist && sync"], "Kelp Guest's login item", env: env,
+            stdin: plist)
         // This loads now if the guest's login session is up. On a first boot the login may still be on its way
         // (launchctl says "Domain does not support specified action"), and then the agent starts by itself at that
         // login. Loading is tried for two minutes and never counts as a failure.
