@@ -4,7 +4,7 @@ import Foundation
 /// Formulas are taken out before cmark parses, because its emphasis and escapes would eat `_`, `*` and `\`. Each is
 /// left as a mark of private-use characters that cmark keeps as they are, and is put back as `<span class='kelp-math'>`
 /// with its TeX as text. `MarkdownHTML.math` draws them in the page with the bundled KaTeX.
-/// ponytail: code is skipped when fenced or in backticks, not when indented by four spaces.
+/// Limit: code is skipped when fenced or in backticks, not when indented by four spaces.
 struct MarkdownMath {
     private(set) var formulas: [(tex: String, display: Bool)] = []
 

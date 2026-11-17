@@ -40,7 +40,7 @@ extension GhosttyTerminalView {
 
     /// The screen the program draws on (not the scrollback the view may be showing), the cursor's cell on it, and the
     /// caret: the length of the text up to the cursor, read the same way, so soft wraps and wide characters count as in
-    /// the whole. ponytail: a cursor past its row's last written cell sits at that cell; Claude Code and shells write
+    /// the whole. Limit: a cursor past its row's last written cell sits at that cell; Claude Code and shells write
     /// what's before their cursor, add a cell count if one doesn't.
     func screen() -> (text: String, caret: Int, cursor: (row: Int, col: Int)?) {
         let text = readText(GHOSTTY_POINT_ACTIVE), ns = text as NSString

@@ -1,6 +1,6 @@
 // A small Markdown reader that builds DOM nodes and nothing else: the agent's text is untrusted, so there is no
 // innerHTML here, HTML in the text stays text, and a link is a link only when it is http(s).
-// ponytail: lists are flat (nesting shows as one level), images stay as typed, a table's cells can't hold a `|`.
+// Limit: lists are flat (nesting shows as one level), images stay as typed, a table's cells can't hold a `|`.
 
 const el = (tag, ...children) => {
   const node = document.createElement(tag);

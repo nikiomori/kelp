@@ -65,7 +65,7 @@ struct DatabaseEdits: Equatable {
                 return column + (old == nil ? " IS NULL" : " = \(engine.literal(old))")
             }.joined(separator: " AND ")
         }
-        // ponytail: rows are told apart by their values, so of two identical rows either one goes.
+        // Limit: rows are told apart by their values, so of two identical rows either one goes.
         // CockroachDB has no ctid.
         func one(_ row: Int) -> String {
             if keyed { return " WHERE " + match(row) }

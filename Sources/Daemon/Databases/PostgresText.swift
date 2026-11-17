@@ -13,7 +13,7 @@ enum PostgresText {
         return value(&bytes, type: cell.dataType)
     }
 
-    // ponytail: the common built-in types; geometric, range and full-text values fall back to their size
+    // Limit: the common built-in types; geometric, range and full-text values fall back to their size
     static func value(_ byteBuffer: inout ByteBuffer, type: PostgresDataType) -> String {
         switch type {
         case .bool: return byteBuffer.readInteger(as: UInt8.self) == 1 ? "t" : "f"

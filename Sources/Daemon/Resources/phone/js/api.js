@@ -67,7 +67,7 @@ let me = await store('readonly', kept => kept.get('pairing')).catch(() => null);
 
 let last = 0;
 /** A number no earlier request of this phone had: the time, and 12 bits against two in one millisecond. */
-// ponytail: past 2^53 in September 2039, when the Mac's Number.isSafeInteger refuses every call; then count from a
+// Limit: past 2^53 in September 2039, when the Mac's Number.isSafeInteger refuses every call; then count from a
 // later epoch, with each device's newest number moved over by the Mac.
 const stamp = () => last = Math.max(last + 1, Date.now() * 4096 + crypto.getRandomValues(new Uint16Array(1))[0] % 4096);
 

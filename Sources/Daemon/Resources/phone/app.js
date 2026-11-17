@@ -208,7 +208,7 @@ function tileNode(name, project) {
   }
   return tile;
 }
-// ponytail: icons are asked for again on each load, one at a time; keep them in the phone if the list gets long.
+// Limit: icons are asked for again on each load, one at a time; keep them in the phone if the list gets long.
 const icons = new Map();
 let asking = Promise.resolve();
 function iconOf(project) {
@@ -810,7 +810,7 @@ function lens(pane, source) {
   copy.inert = true;
   pane.classList.add('lensed');
   pane.prepend(view);
-  // ponytail: placed on every frame (two rects a pane) while the agent is on screen, which also keeps it in step with a
+  // Limit: placed on every frame (two rects a pane) while the agent is on screen, which also keeps it in step with a
   // scroll; watch the source's scroller and layout instead if this ever shows in a profile.
   // What changed under it is copied once a frame at most, and not at all while the agent isn't on screen.
   let was = '', stale = true, awake = false;
@@ -891,7 +891,7 @@ if (standalone) {
 // ---- notifications
 
 const pushable = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-// ponytail: an iPad asking for the desktop site calls itself a Mac and gets "not available" in place of the hint.
+// Limit: an iPad asking for the desktop site calls itself a Mac and gets "not available" in place of the hint.
 const needsHome = ios && !standalone;   // Web Push on iOS exists only for a page on the Home Screen
 // Registered even where there is no push: it also keeps the page for a launch with no network.
 const registration = 'serviceWorker' in navigator ? navigator.serviceWorker.register('/sw.js').catch(() => null) : null;
