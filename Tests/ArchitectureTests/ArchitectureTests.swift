@@ -175,7 +175,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +2: one rule for which agent text goes to (`FileActions.agents`, `agent`, `pickAgent` for `targetAgent`), so a
     // diff's findings, a pull request's fixes and Send to Agent pick alike and none goes to a reviewer.
     // +1 −1: a folder made from Issues asks about its setup (`KelpFile.setup`); the editor's sample is Files' own.
-    #expect(declared == 367, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // −1: a notification's Continue to the sessions it is about is the shell's (`notifyUser`'s `goingOn`), so a
+    // built-in no longer names its category and calls `goOn` itself.
+    #expect(declared == 366, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

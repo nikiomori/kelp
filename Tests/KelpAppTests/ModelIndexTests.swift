@@ -3,6 +3,7 @@ import Foundation
 import TestSupport
 import Testing
 
+@testable import BuiltinAgents
 @testable import KelpKit
 
 @MainActor private func agent(_ id: String, in wid: String, parent: String? = nil) -> Session {
@@ -86,22 +87,23 @@ import Testing
     #expect(m.tellWatches(next).isEmpty)
 }
 
-/// The context ring is on an agent's tab, and tabs are the workspace on screen's: only its agents' context is watched.
-/// One read before stays for when its workspace shows again; an agent that ended lets go of it.
-@MainActor @Test func onlyTheShownWorkspacesAgentsHaveTheirContextWatched() {
+/// The context ring is on an agent's tab, and tabs are the workspace on screen's: only its agents' context is watched
+/// (Agents watches it). One read before stays for when its workspace shows again; an agent that ended lets go of it.
+@MainActor @Test func onlyTheShownWorkspacesAgentsHaveTheirContextWatched() async throws {
     let m = AppModel()
     var shell = Session(id: "t", worktreeId: "w1", cwd: "/", command: "zsh", agent: "shell")
     shell.status = .idle
     m.sessions = [agent("a", in: "w1"), agent("b", in: "w2"), shell]
     func watched() -> Set<String> { Set(m.watching.keys.filter { $0.topic == .context }.map(\.key)) }
     m.workbench.workspaceId = "w1"
+    ContextRings.start(m)
     #expect(watched() == ["a"])
     m.workbench.workspaceId = "w2"
-    #expect(watched() == ["b"])
+    try await waitFor { watched() == ["b"] }
     var ended = agent("b", in: "w2")
     ended.status = .exited
     m.handle(ended)
-    #expect(watched().isEmpty)
+    try await waitFor { watched().isEmpty }
 }
 
 /// A parked agent comes back when the newest run of any workflow failed, as the daemon and the marks read CI: not only

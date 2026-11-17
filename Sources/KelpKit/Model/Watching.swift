@@ -50,9 +50,9 @@ extension AppModel {
         return unheard
     }
 
-    package func unwatch(_ topic: WatchTopic, _ key: String = "") { unwatch(topic, key, forgetting: true) }
-
-    private func unwatch(_ topic: WatchTopic, _ key: String, forgetting: Bool) {
+    /// The last watcher gone: the daemon stops, and what it pushed is let go of unless `forgetting` is false (shown
+    /// again soon, it's there at once).
+    package func unwatch(_ topic: WatchTopic, _ key: String = "", forgetting: Bool = true) {
         let start = WatchStart(topic, key)
         guard let count = watching[start] else { return }
         if count > 1 {
@@ -129,18 +129,6 @@ extension AppModel {
             worktrees.removeAll { $0.id == id }
         }
         if let id = e.session { removed(session: id) }
-    }
-
-    /// The context ring on an agent's tab: watched for the agents of the workspace on screen (the tabs there are) that
-    /// haven't ended, let go as another workspace is shown or the agent ends. A ring read before stays for the next time
-    /// its workspace shows, so it's there at once, until its agent ends.
-    func syncContextWatches() {
-        let shown = workbench.workspaceId
-        let live = Set(sessions.filter { !$0.isTerminal && $0.status != .exited }.map(\.id))
-        let want = live.filter { session($0)?.worktreeId == shown }
-        let have = Set(watching.keys.filter { $0.topic == .context }.map(\.key))
-        for id in want.subtracting(have) { watch(.context, id) }
-        for id in have.subtracting(want) { unwatch(.context, id, forgetting: !live.contains(id)) }
     }
 }
 

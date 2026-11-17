@@ -69,7 +69,7 @@ final class LimitWatch {
         guard let full = resets.end(agent) else { return }
         let app = self.app
         let stopped = LimitResets.stopped(app.sessions, agent: agent, full).filter { !Mutes.isMuted($0, in: app) }
-        guard let first = stopped.first else { return }
+        guard !stopped.isEmpty else { return }
         let ids = stopped.map(\.id)
         let content = UNMutableNotificationContent()
         let name = app.catalog.name(agent)
@@ -77,10 +77,7 @@ final class LimitWatch {
         content.body = String(
             localized: "Stopped at it: \(stopped.map(app.catalog.displayName).joined(separator: ", "))")
         content.sound = .default
-        content.categoryIdentifier = "limitReset"
-        content.userInfo = ["session": first.id, "sessions": ids]
-        Notifications.notifyUser(
-            app, "reset-\(agent)", content, action: (String(localized: "Continue"), { Notifications.goOn(app, ids) }))
+        Notifications.notifyUser(app, "reset-\(agent)", content, goingOn: ids)
     }
 
     private func forecastChanged(_ u: UsageGet.Result) {

@@ -71,8 +71,9 @@ extension Builtins {
             sidebarSections: [SidebarSection(id: "limits", foot: true) { UsageFooter.make(app) }],
             pushed: [{ LimitWatch.of(app).landed($0) }],
             plans: PlanNote.words(app),
-            // The strip over the Dock, with Kelp behind another app, and its items in the Dock icon's menu.
-            launched: [{ AgentStrip.of(app).start() }],
+            // The strip over the Dock, with Kelp behind another app, and its items in the Dock icon's menu; the context
+            // rings on agents' tabs, watched for the workspace on screen.
+            launched: [{ AgentStrip.of(app).start() }, { ContextRings.start(app) }],
             dockMenu: [{ AgentStrip.of(app).dockItems($0) }],
             dockUsage: { LimitWatch.dockFace(app) },
             skills: [terminalsSkill, agentsSkill]

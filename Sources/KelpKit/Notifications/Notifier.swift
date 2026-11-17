@@ -11,6 +11,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     var allowed = true
     let center: UNUserNotificationCenter? = Bundle.main.bundleIdentifier != nil ? .current() : nil   // needs an app bundle
     let app: AppModel
+    /// A notification's about sessions whose Continue tells them to go on (`Notifications.notifyUser`'s `goingOn`).
+    static let goOnCategory = "continueAll"
     init(app: AppModel) {
         self.app = app
         super.init()
@@ -36,7 +38,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                     UNNotificationAction(identifier: "goOn", title: QuickReply.goOn.title)
                 ], intentIdentifiers: []),
             UNNotificationCategory(
-                identifier: "limitReset",
+                identifier: Self.goOnCategory,
                 actions: [
                     UNNotificationAction(identifier: "continue", title: String(localized: "Continue"))
                 ], intentIdentifiers: [])

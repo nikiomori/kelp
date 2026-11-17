@@ -9,16 +9,23 @@ import Core
 package enum Notifications {
     /// A built-in's notification, under the shell's rules: held while you type, and a banner in Kelp (with `action` as
     /// its button) when macOS has them turned off. `id` is its own: one added again under the same id may show silently.
+    /// `goingOn`: the sessions it is about, whose Continue (on the banner, or Kelp's) tells each to go on.
     package static func notifyUser(
         _ app: AppModel, _ id: String, _ content: UNNotificationContent,
-        action: (title: String, run: @MainActor () -> Void)? = nil
+        action: (title: String, run: @MainActor () -> Void)? = nil, goingOn ids: [String] = []
     ) {
-        app.notifier?.postAlert(id, content, action: action)
+        guard let first = ids.first, let told = content.mutableCopy() as? UNMutableNotificationContent else {
+            return app.notifier?.postAlert(id, content, action: action) ?? ()
+        }
+        told.categoryIdentifier = Notifier.goOnCategory
+        told.userInfo["session"] = first
+        told.userInfo["sessions"] = ids
+        app.notifier?.postAlert(id, told, action: action ?? (String(localized: "Continue"), { goOn(app, ids) }))
     }
 
-    /// The Continue of a "limitReset" notification: "continue" to each of `ids` that still stands where the limit left
-    /// it (one the user went on with meanwhile isn't told twice).
-    package static func goOn(_ app: AppModel, _ ids: [String]) {
+    /// The Continue of a `goingOn` notification: "continue" to each of `ids` that still stands where it stopped (one
+    /// the user went on with meanwhile isn't told twice).
+    static func goOn(_ app: AppModel, _ ids: [String]) {
         let still = ids.filter { id in app.session(id).map { [.done, .error].contains($0.status) } ?? false }
         Task { for id in still { _ = await app.call(SessionSend(id: id, text: "continue", enter: true)) } }
     }

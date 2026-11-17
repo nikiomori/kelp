@@ -296,7 +296,6 @@ package final class AppModel {
             for (now, was) in missed { notifier?.statusChanged(now, was) }
         }
         if let routines = await routineList { land(routines) }
-        syncContextWatches()
         recordEvents = [:]
         sessionEvents = [:]
     }
@@ -375,10 +374,7 @@ package final class AppModel {
             if session.isOlder(than: old) { return }
             if old != session { upsert(session) }   // views follow `sessions`
             notifier?.statusChanged(session, old)
-            if old?.status != session.status {
-                syncContextWatches()
-                arrangement.followParked(session)
-            }
+            if old?.status != session.status { arrangement.followParked(session) }
         case let repo as Repo: record(repo, in: \.repos)
         case let worktree as Worktree: record(worktree, in: \.worktrees)
         case let removal as RemovedEvent: removed(removal)
@@ -411,7 +407,6 @@ package final class AppModel {
         sessionEvents[id, default: 0] += 1
         guard !restarting.contains(id), let index = sessionIndex(id) else { return }
         sessions.remove(at: index)
-        syncContextWatches()
     }
 
     // MARK: calls
