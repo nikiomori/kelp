@@ -51,6 +51,26 @@
         }
       }
     },
+    "%@ can be rebuilt.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ можно пересобрать."
+          }
+        }
+      }
+    },
+    "Nothing that rebuilds by itself.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пересобираемого нет."
+          }
+        }
+      }
+    },
     "%@ chosen": {
       "localizations": {
         "ru": {

@@ -173,14 +173,8 @@ struct DiskList: View {
                 Text(DiskNames.size(items.bytes)).font(.ui(TextSize.title, weight: .semibold)).monospacedDigit()
                 Text(DiskNames.place(host: host)).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
             }
-            Text(
-                rebuilds > 0
-                    ? String(
-                        localized:
-                            "\(DiskNames.size(rebuilds)) can be rebuilt, \(DiskNames.size(check)) needs a look first.")
-                    : String(localized: "Nothing that rebuilds by itself. \(DiskNames.size(check)) needs a look first.")
-            )
-            .font(.ui(TextSize.body)).fixedSize(horizontal: false, vertical: true)
+            Text(DiskNames.summary(rebuilds: rebuilds, check: check))
+                .font(.ui(TextSize.body)).fixedSize(horizontal: false, vertical: true)
         }
     }
 }

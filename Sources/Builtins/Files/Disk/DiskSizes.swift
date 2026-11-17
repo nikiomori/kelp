@@ -100,6 +100,17 @@ enum DiskNames {
         host.map { String(localized: "on \($0)") } ?? String(localized: "on this Mac")
     }
 
+    /// The tab's sentence under the total: how much rebuilds and how much needs a look, each only when there is some.
+    static func summary(rebuilds: Int, check: Int) -> String {
+        switch (rebuilds > 0, check > 0) {
+        case (true, true):
+            String(localized: "\(size(rebuilds)) can be rebuilt, \(size(check)) needs a look first.")
+        case (true, false): String(localized: "\(size(rebuilds)) can be rebuilt.")
+        case (false, true): String(localized: "Nothing that rebuilds by itself. \(size(check)) needs a look first.")
+        case (false, false): String(localized: "Nothing that rebuilds by itself.")
+        }
+    }
+
     /// The footer's words after the size: how much of it the next build makes again, or else whose disk it is on.
     static func foot(_ items: [RepoDiskUsage.Item], host: String?) -> String {
         let rebuilds = items.of(.rebuilds).bytes
