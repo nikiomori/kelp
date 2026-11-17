@@ -100,7 +100,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         let pillFrame = window.convertToScreen(pill.convert(pill.bounds, to: nil))
         let left = min(max(pillFrame.midX - size.width / 2, windowFrame.minX + 8), windowFrame.maxX - size.width - 8)
         let end = NSRect(x: left, y: pillFrame.maxY + 6 - size.height, width: size.width, height: size.height)
-        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+        guard !Motion.reduced else {
             panel.setFrame(end, display: false)
             return show()
         }

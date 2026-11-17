@@ -162,7 +162,7 @@ final class CommitCell: NSTableCellView, Hoverable {
 
     /// When the commit just reached the remote, its arrow hops up and fades.
     private func land() {
-        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+        guard !Motion.reduced else {
             up.alphaValue = 0
             return
         }   // with reduced motion, there is no hop and no fade

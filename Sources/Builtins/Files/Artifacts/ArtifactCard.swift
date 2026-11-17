@@ -127,9 +127,7 @@ final class ArtifactCard {
                     board: board),
                 !Task.isCancelled
             else { return }
-            let fade = CATransition()
-            fade.duration = Motion.fast
-            picture.layer?.add(fade, forKey: "fade")
+            picture.crossfade()
             picture.image = image
         }
     }
