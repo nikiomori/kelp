@@ -38,23 +38,19 @@ extension TasksViewController {
         }
         switch row {
         case .pr, .issue: return   // these open in a tab of their own
-        case .jira(let issue):
-            detail.addArrangedSubview(label("\(issue.key)  \(issue.title)", size: 17, weight: .semibold))
-            detail.addArrangedSubview(jiraTransitions(issue.key, current: issue.status))
+        case .jira, .linear:
+            guard let brief = Self.brief(row) else { return }
+            let title = "\(brief["ref"] ?? "")  \(brief["title"] ?? "")"
+            detail.addArrangedSubview(label(title, size: 17, weight: .semibold))
+            if case .jira(let issue) = row {
+                detail.addArrangedSubview(jiraTransitions(issue.key, current: issue.status))
+            }
+            if case .linear(let issue) = row { detail.addArrangedSubview(statePicker(issue)) }
             detail.addArrangedSubview(
-                button(String(localized: "Start Agent on This"), "sparkles") { [weak self] in
-                    self?.startTask(ref: issue.key, title: issue.title, body: issue.description, url: issue.url)
+                button(String(localized: "Start Agent on This"), "sparkles") { [app] in
+                    IssueWork.startHere(app, brief)
                 })
-            body(issue.description)
-        case .linear(let issue):
-            detail.addArrangedSubview(label("\(issue.identifier)  \(issue.title)", size: 17, weight: .semibold))
-            detail.addArrangedSubview(statePicker(issue))
-            detail.addArrangedSubview(
-                button(String(localized: "Start Agent on This"), "sparkles") { [weak self] in
-                    self?.startTask(
-                        ref: issue.identifier, title: issue.title, body: issue.description ?? "", url: issue.url)
-                })
-            body(issue.description ?? "")
+            body(brief["body"] ?? "")
         case .item(let item):
             detail.addArrangedSubview(label(item.title, size: 17, weight: .semibold))
             detail.addArrangedSubview(
@@ -86,16 +82,9 @@ extension TasksViewController {
             pop.selectItem(withTitle: issue.state.name)
         }
         let id = issue.id
-        let sink = ClosureTarget { [weak pop, app] in
-            guard let sid = pop?.selectedItem?.representedObject as? String else { return }
+        return pickerRow(String(localized: "State:"), pop) { [app] sid in
             Task { await app.call(LinearSetState(issueId: id, stateId: sid)) }
         }
-        pop.target = sink
-        pop.action = #selector(ClosureTarget.fire)
-        objc_setAssociatedObject(pop, "sink", sink, .OBJC_ASSOCIATION_RETAIN)
-        let row = NSStackView(views: [NSTextField(labelWithString: String(localized: "State:")), pop])
-        row.spacing = 6
-        return row
     }
 
     private func jiraTransitions(_ key: String, current: String) -> NSView {
@@ -108,18 +97,27 @@ extension TasksViewController {
                 pop.lastItem?.representedObject = transition.id
             }
         }
-        let sink = ClosureTarget { [weak pop, weak self, app] in
-            guard let id = pop?.selectedItem?.representedObject as? String else { return }
+        return pickerRow(String(localized: "Status:"), pop) { [weak self, app] id in
             Task {
                 if await app.call(JiraTransitionIssue(key: key, id: id)) != nil {
                     self?.status.stringValue = String(localized: "Moved \(key)")
                 }
             }
         }
+    }
+
+    /// "State: [pop-up]": `onPick` gets the id kept in the item picked (its representedObject).
+    private func pickerRow(
+        _ label: String, _ pop: NSPopUpButton, onPick: @escaping @MainActor (String) -> Void
+    ) -> NSView {
+        let sink = ClosureTarget { [weak pop] in
+            guard let id = pop?.selectedItem?.representedObject as? String else { return }
+            onPick(id)
+        }
         pop.target = sink
         pop.action = #selector(ClosureTarget.fire)
         objc_setAssociatedObject(pop, "sink", sink, .OBJC_ASSOCIATION_RETAIN)
-        let row = NSStackView(views: [NSTextField(labelWithString: String(localized: "Status:")), pop])
+        let row = NSStackView(views: [NSTextField(labelWithString: label), pop])
         row.spacing = 6
         return row
     }

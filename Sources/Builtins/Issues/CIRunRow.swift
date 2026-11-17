@@ -147,27 +147,17 @@ enum CIRow {
     /// "8 steps passed  2m 04s", with a chevron that opens the steps.
     static func fold(_ fold: CIRuns.StepRow) -> NSView {
         let count = fold.steps.count
-        switch fold {
-        case .passed:
-            let seconds = fold.steps.compactMap { $0.seconds() }.reduce(0, +),
-                done = String(localized: "\(count) steps passed")
-            return line(
-                CIRunLook.mark("completed", "success"), done, font: .ui(TextSize.caption), color: .secondaryLabelColor,
-                right: ciSpan(seconds)
-            ).cell
-        case .skipped:
-            let skipped = String(localized: "\(count) steps skipped")
-            return line(
-                CIRunLook.mark("completed", "skipped"), skipped, font: .ui(TextSize.caption),
-                color: .secondaryLabelColor, right: nil
-            ).cell
-        case .upcoming, .one:
-            let left = String(localized: "\(count) steps to go")
-            return line(
-                CIRunLook.mark("queued", nil), left, font: .ui(TextSize.caption), color: .secondaryLabelColor,
-                right: nil
-            ).cell
-        }
+        let (mark, text, right): (NSView, String, String?) =
+            switch fold {
+            case .passed:
+                (
+                    CIRunLook.mark("completed", "success"), String(localized: "\(count) steps passed"),
+                    ciSpan(fold.steps.compactMap { $0.seconds() }.reduce(0, +))
+                )
+            case .skipped: (CIRunLook.mark("completed", "skipped"), String(localized: "\(count) steps skipped"), nil)
+            case .upcoming, .one: (CIRunLook.mark("queued", nil), String(localized: "\(count) steps to go"), nil)
+            }
+        return line(mark, text, font: .ui(TextSize.caption), color: .secondaryLabelColor, right: right).cell
     }
 
     /// A mark, a name, and a number on the right; the number's label is returned for what counts up.

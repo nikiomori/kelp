@@ -6,26 +6,6 @@ import KelpKit
 import SwiftUI
 
 extension TasksViewController {
-    /// The default agent starts on the issue in the workspace on screen, with its text typed in but not sent. Whoever
-    /// filed the issue wrote it, so the user reads it before the agent acts on it.
-    func startTask(ref: String, title: String, body: String, url: String) {
-        guard let starter = app.workbench.starter, let wid = app.workbench.workspaceId else {
-            NSSound.beep()
-            return
-        }
-        Task {
-            let issue = ["ref": ref, "title": title, "body": body, "url": url]
-            guard let brief = await Self.issuePrompt(issue, in: wid, app) else { return }
-            starter.newAgent(nil, prompt: brief, draft: true)
-        }
-    }
-
-    /// The project's `issue` recipe, as `kelp github issue` writes it: the title and body framed as someone else's
-    /// words.
-    static func issuePrompt(_ issue: [String: String], in wid: String, _ app: AppModel) async -> String? {
-        await app.call(RecipeRender(id: wid, name: "issue", vars: issue))
-    }
-
     /// Review comments as the agent reads them: 12 at most, each cut at 800 characters, so a long thread stays a
     /// prompt.
     static func forAgent(_ cs: [GitHub.ReviewComment]) -> String {
@@ -69,9 +49,7 @@ extension TasksViewController {
             menu.add(String(localized: "Start Here")) { [app] in IssueWork(app: app, repoId: repoId).startHere(issue) }
         case .linear, .jira, .item:
             if let brief = Self.brief(row) {
-                menu.add(String(localized: "Start Agent on This")) { [weak self] in
-                    self?.startTask(ref: brief.ref, title: brief.title, body: brief.body, url: brief.url)
-                }
+                menu.add(String(localized: "Start Agent on This")) { [app] in IssueWork.startHere(app, brief) }
             }
         }
         guard let url = row.url else { return }
@@ -79,11 +57,12 @@ extension TasksViewController {
         menu.add(String(localized: "Open in Browser")) { Forge.open(url) }
         menu.add(String(localized: "Copy Link")) { copyText(url) }
     }
-    /// What an agent starts from, for a tracker's task.
-    private static func brief(_ row: Row) -> (ref: String, title: String, body: String, url: String)? {
+    /// What an agent starts from, for a tracker's task: the `issue` recipe's words.
+    static func brief(_ row: Row) -> [String: String]? {
         switch row {
-        case .linear(let issue): (issue.identifier, issue.title, issue.description ?? "", issue.url)
-        case .jira(let issue): (issue.key, issue.title, issue.description, issue.url)
+        case .linear(let issue):
+            ["ref": issue.identifier, "title": issue.title, "body": issue.description ?? "", "url": issue.url]
+        case .jira(let issue): ["ref": issue.key, "title": issue.title, "body": issue.description, "url": issue.url]
         case .pr, .issue, .item: nil
         }
     }

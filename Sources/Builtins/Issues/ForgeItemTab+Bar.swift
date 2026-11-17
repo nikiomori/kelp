@@ -152,12 +152,17 @@ struct IssueWork {
     /// Types the issue's text in without sending it, because whoever filed the issue wrote it, so the user reads it
     /// before the agent acts.
     func startHere(_ issue: GitHub.Issue) {
+        Self.startHere(app, ["ref": "#\(issue.number)", "title": issue.title, "body": issue.body, "url": issue.url])
+    }
+
+    /// The default agent starts in the workspace on screen with the project's `issue` recipe typed in (as `kelp github
+    /// issue` writes it: the title and body framed as someone else's words), a GitHub issue's or a tracker's task's.
+    static func startHere(_ app: AppModel, _ vars: [String: String]) {
         guard let starter = app.workbench.starter, let wid = app.workbench.workspaceId else {
             NSSound.beep()
             return
         }
         Task {
-            let vars = ["ref": "#\(issue.number)", "title": issue.title, "body": issue.body, "url": issue.url]
             guard let brief = await app.call(RecipeRender(id: wid, name: "issue", vars: vars)) else { return }
             starter.newAgent(nil, prompt: brief, draft: true)
         }
