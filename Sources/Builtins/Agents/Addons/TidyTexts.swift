@@ -39,7 +39,7 @@ extension AddonGroups {
     }
 
     /// Needs a Look's line under the instruction files: the worst finding with its file's name and how many more there
-    /// are, and whether agents lose lines or soon will (`warn`: the warning colour).
+    /// are, and whether agents lose lines now or soon will (`warn` shows it in the warning colour).
     static func instructionsText(_ files: [Addon]) -> (detail: String, warn: Bool) {
         func losing(_ file: Addon) -> Bool {
             (file.check?.cut ?? 0) > 0 || (file.check?.share ?? 0) >= InstructionCheck.near

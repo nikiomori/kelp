@@ -82,7 +82,8 @@ final class PageChip: ChipCapsule, WindowBarItem {
             ? String(localized: "Open \(page.place) (⇧⌘O)") : String(localized: "Copy \(page.place) (⇧⌘O)")
     }
 
-    /// What a click doesn't do. A page that came from a run's printed address may have no process here: a host's.
+    /// What a click doesn't do. A page that came from a run's printed address may have no process on this Mac: it may
+    /// run on a host.
     private func menu(_ look: Look) -> NSMenu {
         let actions = NSMenu(), app = app, page = PageActions(app)
         if look.page.isWeb {

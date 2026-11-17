@@ -21,7 +21,7 @@ enum Preview {
         return pdf.contains(pathExtension) || quickLook.contains(pathExtension)
     }
 
-    /// The PDF's or image's bytes are read off the main thread: a file on a slow volume mustn't stall the window.
+    /// The bytes of the PDF or image are read off the main thread, so a file on a slow volume can't stall the window.
     static func view(for url: URL, app: AppModel) async -> NSView {
         let isPDF = pdf.contains(url.pathExtension.lowercased()),
             isImage = UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true

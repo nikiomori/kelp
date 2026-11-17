@@ -122,7 +122,8 @@ final class StripCard {
         watch()
     }
 
-    /// A click in another app, or another Space: it goes, as a popover would. The strip's own clicks are Kelp's, not here.
+    /// A click in another app, or on another Space, closes the card, as it would close a popover. Clicks on the strip
+    /// itself go to Kelp and aren't handled here.
     private func watch() {
         let outside = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             MainActor.assumeIsolated { self?.onEnd(.left) }   // AppKit hands a monitor its events on the main thread

@@ -74,7 +74,8 @@ final class SyncPopover: NSViewController {
         head.setViews([name], in: .leading)
         head.setViews([fetch], in: .trailing)
 
-        // The popover's one action, in words alone and the accent (macOS 26's primary tint; the bezel colour before it).
+        // The popover's one action, shown in words alone in the accent colour (macOS 26's primary tint; the bezel
+        // colour before it).
         primary.bezelStyle = .push
         primary.controlSize = .regular   // a rounded rectangle, as Commit in the panel: large is a capsule
         if #available(macOS 26, *) {

@@ -3,10 +3,12 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A branch's CI in one mark, drawn as agents' states are: the spinning ring while it runs, the orange ◎ while a deploy waits
-/// for someone's approval, the quiet filled ✓ when it passed and you haven't looked, and a red dot when it failed (CI Runs'
-/// filled ✕ was the loudest thing in the sidebar and read as a window's close button); `spelled`, it says "CI" instead.
-/// It sits over a chip's or badge's image slot and lets the click through to it. The shell shows it through `FolderCI.mark`.
+/// A branch's CI in one mark, drawn the way agents' states are: a spinning ring while it runs, an orange ◎ while a
+/// deploy waits for someone's approval, a quiet filled ✓ when it passed and you haven't looked, and a red dot when it
+/// failed (CI Runs' filled ✕ was the loudest thing in the sidebar and read as a window's close button). When `spelled`,
+/// it says "CI" instead.
+/// It sits over the image slot of a chip or a badge, and lets clicks through to it. The shell shows it through
+/// `FolderCI.mark`.
 @MainActor
 final class CIMark: NSView {
     private let agentLike = StatusMark(size: 12), word = NSTextField(labelWithString: "CI")
@@ -36,7 +38,7 @@ final class CIMark: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
-    /// Silent: the ring's words are an agent's; the chip or badge it sits on says the CI's.
+    /// The ring says nothing: its words belong to an agent, while the chip or badge it sits on says what CI does.
     override func accessibilityChildren() -> [Any]? { [] }
 
     /// How much wider than its 12 pt the mark is while it says "CI": the room a row must keep for it.

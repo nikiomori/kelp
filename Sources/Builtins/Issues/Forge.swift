@@ -63,8 +63,8 @@ enum Forge {
     /// In the default browser, where the user is signed in to the site.
     static func open(_ url: String) { if let page = webPage(url) { PreviewLinks.openOutside(page) } }
 
-    /// Only a web page: the URL comes from a forge's or tracker's API, and a self-hosted one could hand over a file or
-    /// another app's scheme, which `NSWorkspace` would run.
+    /// Opens only a web page. The URL comes from a forge's or a tracker's API, and a self-hosted one could hand over a
+    /// file or another app's URL scheme, which `NSWorkspace` would run.
     static func webPage(_ url: String) -> URL? {
         guard let page = URL(string: url), ["http", "https"].contains(page.scheme?.lowercased()) else { return nil }
         return page

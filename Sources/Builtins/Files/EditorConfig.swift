@@ -50,7 +50,7 @@ enum EditorConfig {
         }
     }
 
-    /// A section's glob: without a `/` it matches a file's name at any depth.
+    /// Matches a section's glob; a glob without a `/` matches a file's name at any depth.
     static func matches(_ glob: String, _ file: String) -> Bool {
         let name = glob.contains("/") ? file : (file as NSString).lastPathComponent
         let bare = glob.hasPrefix("/") ? String(glob.dropFirst()) : glob

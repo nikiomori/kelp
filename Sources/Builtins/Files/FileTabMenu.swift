@@ -102,7 +102,8 @@ extension FileTab {
     }
 }
 
-/// A file's (or its lines') link on its forge, copied: from its tab's menu, the Files panel's and Copy Web Link.
+/// Copies the link to a file (or to its lines) on its forge. Used by the file tab's menu, the Files panel's menu and
+/// Copy Web Link.
 @MainActor
 func copyWebLink(_ app: AppModel, _ path: String, lines: ClosedRange<Int>? = nil) {
     Task {

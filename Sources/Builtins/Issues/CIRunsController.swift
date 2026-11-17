@@ -3,9 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// CI of the branch on screen: runs → jobs → steps, what broke in the picked job under them (the latest failure opens by
-/// itself; `CIJobPane`), and Run Workflow… for workflows started by hand. GitHub Actions (gh) or GitLab (glab);
-/// without them, a button that installs and signs in. The globe opens the project's pages on its site.
+/// CI of the branch on screen: runs → jobs → steps, what broke in the picked job under them (the latest failure opens
+/// by itself; `CIJobPane`), and Run Workflow… for workflows started by hand. It uses GitHub Actions (gh) or GitLab
+/// (glab); without them, it shows a button that installs and signs in. The globe opens the project's pages on its site.
 @MainActor
 final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate {
     let app: AppModel

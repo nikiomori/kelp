@@ -18,9 +18,10 @@ extension DatabaseInfo {
     }
 }
 
-/// All My Databases' groups. One dragged onto a group goes into it, onto the section's title out of any, onto the
-/// project's part is used here (a copy: it stays in All My Databases); a group dragged there brings all of its own. A
-/// group lasts while it has a database; several picked with ⌘ or ⇧ share one menu.
+/// All My Databases' groups. A database dragged onto a group goes into it; dropped on the section's title it leaves
+/// every group; dropped on the project's part it is used here (as a copy: it stays in All My Databases). A group
+/// dragged there brings all of its databases. A group lasts while it has a database. Several databases picked with ⌘ or
+/// ⇧ share one menu.
 extension DatabasesPanel {
     enum DropTarget: Equatable { case group(String), noGroup, project }
 
@@ -38,8 +39,8 @@ extension DatabasesPanel {
 
     // MARK: Dragging
 
-    /// One of All My Databases is no agent's yet: only this panel takes it. A project's, dropped on an agent's
-    /// terminal, is its name and where to read it.
+    /// A database from All My Databases isn't any agent's yet, so only this panel accepts it. A project's database
+    /// dropped on an agent's terminal becomes its name and where to read it.
     func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> (any NSPasteboardWriting)? {
         let item = NSPasteboardItem()
         if case .group(let name, _) = rows[row] {
@@ -104,9 +105,9 @@ extension DatabasesPanel {
     /// The project's databases by name: one of All My Databases among them is used here.
     var projectNames: Set<String> { Set(projectDatabases.map(\.name)) }
 
-    /// What the row under the pointer stands for, and the row that lights: a group's own row for any database in it,
-    /// the section's title for one in none, the project's card for the project's part. Between two rows, the one above
-    /// says where.
+    /// What the row under the pointer stands for, and which row lights: a group's own row for any database in it, the
+    /// section's title for a database in no group, and the project's card for the project's part. Between two rows, the
+    /// row above decides.
     private func dropTarget(row: Int, op: NSTableView.DropOperation) -> (DropTarget, Int)? {
         var index = op == .on ? row : row - 1
         while rows.indices.contains(index), case .problem = rows[index] { index -= 1 }   // a line under its database
@@ -290,7 +291,8 @@ extension DatabasesPanel {
 
     // MARK: Colors
 
-    /// Colours picked in a row's menu, as a project's in the sidebar: databases' and groups' by name, in UIState.
+    /// The colours picked in a row's menu, as for a project in the sidebar: for databases and groups, by name, kept in
+    /// UIState.
     private static func colorsKey(group: Bool) -> String { group ? "databases.groupColors" : "databases.colors" }
 
     /// Its colour, or the one previewed under the pointer in its menu.

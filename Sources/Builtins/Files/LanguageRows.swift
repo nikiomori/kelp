@@ -2,7 +2,7 @@ import Core
 import Foundation
 import WorkbenchKit
 
-/// A row of Settings › Languages: the languages that share their servers (C, C++, Objective-C: clangd).
+/// A row of Settings › Languages: the languages that share their servers (C, C++ and Objective-C share clangd).
 struct LanguageRow: Identifiable, Equatable {
     var languages: [String]
     var name: String, files: String
@@ -50,7 +50,7 @@ enum LanguageRows {
         return Set(kinds.compactMap { LanguageSpec.find($0, in: languages)?.id })
     }
 
-    /// The rows matching what's typed: a language's name, a file extension or a server's command.
+    /// The rows that match what is typed: a language's name, a file extension, or a server's command.
     static func matching(_ rows: [LanguageRow], _ typed: String) -> [LanguageRow] {
         let typed = typed.trimmingCharacters(in: .whitespaces)
         guard !typed.isEmpty else { return rows }

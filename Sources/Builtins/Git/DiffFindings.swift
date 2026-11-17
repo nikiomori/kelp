@@ -3,9 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// Review comments as findings to pick from (a reviewer agent's or the user's): each open one has a box saying whether
-/// it goes to the agent with Send to Agent (Space flips it on the selected comment), "Fix This One" sends it alone, and
-/// "Dismiss" resolves it.
+/// Review comments (a reviewer agent's or the user's) shown as findings to pick from. Each open comment has a box that
+/// says whether it goes to the agent with Send to Agent (Space flips it on the selected comment); "Fix This One" sends
+/// that comment alone, and "Dismiss" resolves it.
 extension DiffViewController {
     func commentRow(_ diffComment: DiffComment) -> NSView {
         let who = diffComment.author.map { "\($0): " } ?? ""

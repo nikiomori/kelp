@@ -108,9 +108,9 @@ extension Builtins {
                         return (CommitMessageTab.title(amend: amend), .symbol("square.and.pencil"), nil)
                     })
             ],
-            // A merged PR's switch in its project's menu.
-            // An agent writing a commit has no tab and no row until its Show.
-            // An agent's tile in the Dock strip: its workspace's CI, as the folder's sidebar row marks it.
+            // The switch for a merged PR, in its project's menu.
+            // An agent writing a commit has no tab and no row until the user picks Show.
+            // An agent's tile in the Dock strip shows its workspace's CI, as the folder's sidebar row does.
             rowMarks: [{ row in RowMarks.of(app).tile(row).map { [$0] } ?? [] }],
             sessionHidden: [{ panel.controller?.hiddenAgentSessions ?? [] }],
             rowMenu: [
@@ -168,13 +168,14 @@ private func remote(
     }
 }
 
-/// Where a branch's CI shows, read only here (the branch chip's is in Core, for its labels in Settings).
+/// Where a branch's CI shows, read only here (the branch chip's setting is in Core, for its labels in Settings).
 extension SettingKeys {
     static let ciSidebar = Setting("workbench.ci.sidebar", true)
     static let ciPopover = Setting("workbench.ci.popover", true)
 }
 
-// How the app keeps what the daemon pushes about pull requests: Git's own kinds, not the shell's.
+// How the app keeps what the daemon pushes about pull requests: these are the Git built-in's own kinds, not the
+// shell's.
 extension PREvent: Pushed {
     package var key: String { worktree }
     package static var forgottenWith: WatchTopic? { .pr }

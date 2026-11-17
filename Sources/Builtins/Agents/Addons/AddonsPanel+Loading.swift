@@ -3,14 +3,16 @@ import Core
 import DesignKit
 import KelpKit
 
-/// How the panel shows a read under way: nothing for a quick answer; past `Self.quiet` a turning ring round the chat's
-/// agent (a first read: Loading in the list's place), and the list dimmed while it's another chat's; the ring stays
-/// `Self.held` so it doesn't flicker. The answer crossfades in for another chat, and lights what changed for the same.
+/// How the panel shows a read that is under way. A quick answer shows nothing. Past `Self.quiet`, a ring turns around
+/// the chat's agent (on a first read, Loading takes the list's place), and the list is dimmed while it belongs to
+/// another chat. The ring stays for at least `Self.held`, so it doesn't flicker. The answer crossfades in for another
+/// chat, and for the same chat it lights what changed.
 extension AddonsPanel {
     static let quiet: Duration = .milliseconds(150)
     static let held: TimeInterval = 0.4
 
-    /// Past `quiet`, the read shows; `stale`: what's on screen is another chat's or workspace's.
+    /// Whether the read shows yet: only past `quiet`. `stale` means what is on screen belongs to another chat or
+    /// workspace.
     func beginBusy(stale: Bool) {
         busy?.cancel()
         busy = Task { [weak self] in
@@ -44,7 +46,7 @@ extension AddonsPanel {
         dim(false)
     }
 
-    /// Another chat's list, faded while this one's is read.
+    /// Fades the list while it still shows another chat's items and this chat's list is being read.
     private func dim(_ on: Bool) {
         let alpha: CGFloat = on ? 0.45 : 1   // still legible: it's there to be replaced, not read
         NSAnimationContext.runAnimationGroup { context in

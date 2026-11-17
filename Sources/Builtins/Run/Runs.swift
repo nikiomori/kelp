@@ -18,7 +18,8 @@ final class Runs: NSObject, NSMenuDelegate {
     let state = RunState()
     private var setupCommand: [String: String] = [:]
     private var watching = false
-    /// run.start calls on their way: a page printed before the call's answer is a run's too (kept, not opened).
+    /// run.start calls that are still on their way: a page printed before the call's answer belongs to a run too (it is
+    /// kept, not opened).
     var starting = 0
     /// The run chip's name, which the Run menu opens under.
     weak var anchor: NSView?
@@ -65,8 +66,9 @@ final class Runs: NSObject, NSMenuDelegate {
 
     // MARK: running
 
-    /// ⌘R ("run"): what last ran in the project, else .kelp.yaml's run, else the list. ⌘U ("test"): .kelp.yaml's test,
-    /// else the files' tests. Without either, the focused file's language's.
+    /// ⌘R ("run") runs what last ran in the project, else .kelp.yaml's run, else shows the list. ⌘U ("test") runs
+    /// .kelp.yaml's test, else the tests the files define. Without either, it uses the focused file's language's
+    /// command.
     func run(_ name: String) {
         guard let wid = app.workbench.workspaceId else {
             NSSound.beep()
@@ -113,8 +115,9 @@ final class Runs: NSObject, NSMenuDelegate {
         await start(wid, "kelp:" + name, app.workbench.sized(ScriptsRun(worktreeId: wid, name: name), split: .down))
     }
 
-    /// A .kelp.yaml command a layout template starts (`ProjectRuns.run`), its trust asked already: as Run starts one,
-    /// an earlier copy of it ending first and the run kept as the workspace's, but its tab is the template's to place.
+    /// Starts a .kelp.yaml command for a layout template (`ProjectRuns.run`), after its trust was already asked. It
+    /// starts the way Run starts a command (an earlier copy of it ends first, and the run is kept as the workspace's),
+    /// but the template decides where its tab goes.
     func runForTemplate(_ wid: String, _ name: String) async -> Session? {
         await launch(wid, "kelp:" + name, app.workbench.sized(ScriptsRun(worktreeId: wid, name: name)), tab: false)
     }

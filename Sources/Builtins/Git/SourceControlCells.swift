@@ -131,7 +131,7 @@ final class SectionCell: NSTableCellView, Hoverable {
     }
 }
 
-/// A section's file count on a grey capsule, as VS Code's: beside "+6 −2" a bare "3" ran into it.
+/// A section's file count on a grey capsule, as in VS Code: a bare "3" next to "+6 −2" ran into it.
 private final class CountCapsule: NSView {
     private let field = NSTextField(labelWithString: "")
     var text: String {

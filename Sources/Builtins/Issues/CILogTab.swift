@@ -5,8 +5,8 @@ import EditorKit
 import KelpKit
 import WorkbenchKit
 
-/// "cilog:?worktree=…&job=…&name=…": a job's whole log, read only, in the editor: its lines don't wrap at a panel's
-/// width, and Find works. A step opens it at the line where that step begins.
+/// "cilog:?worktree=…&job=…&name=…": a job's whole log, read-only, in the editor, where its lines don't wrap at a
+/// panel's width and Find works. A step opens it at the line where that step begins.
 @MainActor
 final class CILogTab: KelpKit.TabContent {   // not SwiftUI's
     let uri: String

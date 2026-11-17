@@ -1,4 +1,4 @@
-// The sync popover's actions: sync, commit, switch branch, and its message field's keys.
+// The sync popover's actions: sync, commit, switch branch, and the keys of its message field.
 import AppKit
 import Core
 import DesignKit

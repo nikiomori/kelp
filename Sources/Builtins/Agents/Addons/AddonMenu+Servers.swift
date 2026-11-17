@@ -3,8 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A server's menu: one Kelp keeps (edited here), one in one agent's own settings (taken out with that agent's
-/// command), one of the account's or waiting for a sign-in, or one that came with a plugin or the agent.
+/// A server's menu, by where the server comes from: one Kelp keeps (edited here), one in a single agent's own settings
+/// (removed with that agent's command), one from the account or waiting for a sign-in, or one that came with a plugin
+/// or the agent.
 extension AddonMenu {
     /// The agent whose own file holds this server alone, for "Give to All Agents".
     static func only(_ addon: Addon) -> String? {
@@ -15,7 +16,7 @@ extension AddonMenu {
         return agent
     }
 
-    /// One Kelp can take away: in its own file or the project's.
+    /// Whether Kelp can remove the server: it is in Kelp's own file or the project's.
     static func removable(_ addon: Addon) -> Bool {
         addon.kind == .server && (addon.origin == Addon.kept || addon.origin == ".mcp.json")
     }

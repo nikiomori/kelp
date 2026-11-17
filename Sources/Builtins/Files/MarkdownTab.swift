@@ -143,7 +143,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// The bar's and the selection bar's icon button.
+    /// An icon button for the bar and for the selection bar.
     static func toolButton(_ sym: String, _ tip: String, _ sel: Selector, target: AnyObject) -> NSButton {
         IconButton(.symbol(sym), tip: tip, target: target, action: sel)
     }
@@ -268,8 +268,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         runJS("kelpToLine(\(editor.topLine))")
     }
 
-    /// From Kelp's scripts beside the preview's page (`world`; the page's own don't run): scrolled to a line
-    /// (the source follows), or double-clicked on one (the cursor goes there).
+    /// Messages from Kelp's scripts beside the preview's page (`world`; the page's own scripts don't run): the page
+    /// scrolled to a line (the source follows), or a line was double-clicked (the cursor goes there).
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL != false else { return }
         let agents = page == .canvas || (artifactBar != nil && (page == .markdown || page == .slides))

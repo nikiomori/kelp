@@ -3,9 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The database tab's right column, as TablePro's inspector: Table (its rows, size, comment, columns, indexes,
-/// CREATE TABLE), Row (the selected row's fields, found by name, edited in place; a foreign key a link to its row),
-/// Agent (what agents ran on this table, and asking one about it).
+/// The database tab's right column, like TablePro's inspector: Table (its rows, size, comment, columns, indexes, CREATE
+/// TABLE), Row (the selected row's fields, found by name and edited in place; a foreign key links to its row), and
+/// Agent (what agents ran on this table, and asking an agent about it).
 @MainActor
 final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegate {
     enum Part: Int { case table, row, agent }

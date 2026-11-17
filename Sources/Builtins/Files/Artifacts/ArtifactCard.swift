@@ -4,9 +4,10 @@ import DesignKit
 import KelpKit
 import Markdown
 
-/// The card a page's row shows when the pointer rests on it, beside the panel: a picture of the page's top (a file's,
-/// or Kelp's copy of a page on a service, `ArtifactItem.preview`, drawn by `ArtifactShots`), its whole title, who made
-/// it and when. Rows of text-heavy pages look alike in a thumbnail; at this size the page's headings and pictures read.
+/// The card a page's row shows when the pointer rests on it, beside the panel: a picture of the top of the page (of the
+/// file, or of Kelp's copy of a page on a service, `ArtifactItem.preview`, drawn by `ArtifactShots`), its whole title,
+/// and who made it and when. Rows of text-heavy pages look alike as thumbnails; at this size the page's headings and
+/// pictures can be read.
 @MainActor
 final class ArtifactCard {
     struct Shown {

@@ -4,8 +4,8 @@ import KelpKit
 
 extension Builtins {
 
-    /// A project's commands, each in a tab of its own: the window bar's run chip and the page a run serves, the Run
-    /// menu (⌘R, ⌘U, ⌘.), the "+" menu's and the empty workspace's Run rows, and running the file in front.
+    /// A project's commands, each run in a tab of its own: the window bar's run chip and the page a run serves, the Run
+    /// menu (⌘R, ⌘U, ⌘.), the Run rows in the "+" menu and the empty workspace, and running the file in front.
     package static let run = Builtin(
         "kelp.run", "Run", "The project's commands: the run chip, the Run menu and the pages they serve.",
         icon: "play"

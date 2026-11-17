@@ -57,7 +57,8 @@ extension BrowserTab {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
     }
 
-    /// ⋯ › Page Size: the page at a phone's, a tablet's or a laptop's size, to see its layout there, or filling the pane.
+    /// ⋯ › Page Size: shows the page at the size of a phone, a tablet or a laptop, to check its layout there, or
+    /// filling the pane.
     func pageSizes() -> NSMenuItem {
         let sizes: [(String, CGSize?)] = [
             (String(localized: "Fill the Pane"), nil),

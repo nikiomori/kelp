@@ -1,4 +1,4 @@
-// The commands bar's parts: its header line, the grip that resizes it, and a command's row.
+// The parts of the commands bar: its header line, the grip that resizes it, and a command's row.
 import AppKit
 import Core
 import DesignKit

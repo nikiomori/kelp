@@ -37,7 +37,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     var rows: [Row] = [] {
         didSet { cards = Self.cards(rows) }
     }
-    /// Each row's part of a card (the project's, a group's), nil for one on its own.
+    /// Which part of a card each row is (the project's card or a group's card); nil for a row on its own.
     private var cards: [ListRowView.Card?] = []
     /// A drag of All My Databases is over the project's card: it lights up as where they'd go.
     var dropOnProject = false {
@@ -67,7 +67,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     private var libraryCount = Int.max   // the first read only counts
     /// The databases (by address) the dots were last read for: read again when that changes, not at each run.
     var checkedFor: [String] = []
-    /// Activity of one agent's session only; nil: everyone's.
+    /// Shows the activity of one agent's session only; nil shows everyone's.
     var only: String?
 
     init(app: AppModel) {
@@ -276,7 +276,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         return part
     }
 
-    /// Which card a row is on: the project's ("project"), a group's ("g:" and its name), or none.
+    /// Which card a row is on: the project's card ("project"), a group's card ("g:" and its name), or none.
     static func owner(_ rows: [Row], _ row: Int) -> String? {
         switch rows[row] {
         case .project, .use, .database(_, library: false): "project"

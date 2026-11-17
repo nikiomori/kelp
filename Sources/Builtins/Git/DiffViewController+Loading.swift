@@ -118,7 +118,7 @@ extension DiffViewController {
             } else {
                 ch = await app.quiet(GitStatus(id: wid)) ?? []
             }
-            cm = (await app.quiet(CommentList(id: wid)) ?? []).filter { [on = shownCommit] in $0.isOn(on) }   // a past commit's on its diff
+            cm = (await app.quiet(CommentList(id: wid)) ?? []).filter { [on = shownCommit] in $0.isOn(on) }   // a past commit's comments on its diff
         }
         // Compared once, off the main thread: a big diff (a lock file beside an agent's edit) is megabytes.
         let shown = diffs, same = await Task.detached { newDiffs == shown }.value

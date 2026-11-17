@@ -4,10 +4,10 @@ import DesignKit
 import KelpKit
 import SwiftUI
 
-/// The sidebar's Machines block, over the plan limits: its heading with + (a new machine: Linux, macOS, Android, iOS, or
-/// from a file), there while the Machines extension is on and there's a machine; under it each machine with its state in a word and colour,
-/// its memory and what runs in it, and the agents with a command there. A click opens its tab; a right-click starts,
-/// sleeps or stops it.
+/// The sidebar's Machines block, above the plan limits. Its heading has a + (for a new machine: Linux, macOS, Android,
+/// iOS, or from a file), and is there while the Machines extension is on and there is a machine. Under it is each
+/// machine with its state in a word and a colour, its memory and what runs in it, and the agents with a command there.
+/// A click opens its tab; a right-click starts, sleeps or stops it.
 struct MachinesView: View {
     let app: AppModel
     /// The list, watched while it's shown: the daemon reads them every 5 s, every second while one starts.

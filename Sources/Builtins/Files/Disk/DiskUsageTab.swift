@@ -5,9 +5,10 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// "disk:<project>" — what the project takes on its disk (this Mac's, or a remote project's host's): its parts sorted
-/// by what removing them costs, beside a map of them; what's chosen goes to the Trash in one click (the Finder puts
-/// it back), a remote project's aside on its host (its `.git/kelp-trash`, kept a week).
+/// "disk:<project>": what the project takes on its disk (this Mac's, or a remote project's host's). It lists the
+/// project's parts sorted by what removing them costs, beside a map of them. What is chosen goes to the Trash in one
+/// click (the Finder can put it back); for a remote project it is moved aside on its host (into its `.git/kelp-trash`,
+/// kept a week).
 @MainActor
 func diskUsageTab(uri: String, app: AppModel, sizes: DiskSizes) -> KelpKit.TabContent {   // not SwiftUI's
     HostedTabContent(

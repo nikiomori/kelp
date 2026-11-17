@@ -1,7 +1,7 @@
 import Foundation
 
-/// A merge conflict as git writes it into a file: `<<<<<<<`, the current side, `|||||||` and the base (diff3's, if
-/// any), `=======`, the incoming side, `>>>>>>>`. Ranges are UTF-16, as the editor's.
+/// A merge conflict as git writes it into a file: `<<<<<<<`, the current side, `|||||||` and the base (with diff3, if
+/// any), `=======`, the incoming side, `>>>>>>>`. Ranges are in UTF-16, as the editor's are.
 struct MergeConflict: Equatable {
     /// From the start of the `<<<<<<<` line to the end of the `>>>>>>>` one, its line break included.
     let whole: NSRange
@@ -9,8 +9,9 @@ struct MergeConflict: Equatable {
 
     enum Keep { case current, incoming, both }
 
-    /// Every conflict in `text`, in order. A marker counts only at a line's start, followed by a space or the line's
-    /// end, and only in its place: a lone `=======` (a Markdown heading's underline) or an unfinished block is no conflict.
+    /// Every conflict in `text`, in order. A marker counts only at the start of a line, followed by a space or the end
+    /// of the line, and only where it belongs: a lone `=======` (a Markdown heading's underline) or an unfinished block
+    /// isn't a conflict.
     static func all(in text: String) -> [MergeConflict] {
         let string = text as NSString
         guard string.range(of: "<<<<<<<").location != NSNotFound else { return [] }

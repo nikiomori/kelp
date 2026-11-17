@@ -29,8 +29,8 @@ extension Runs {
         app.workbench.open(TabURI.session(sid), split: .down, workspace: app.session(sid)?.worktreeId, focus: true)
     }
 
-    /// How a run's tab stands out among terminals: its purpose's symbol in colour (green ▶ for a server) and a glow of
-    /// that colour, the port it serves after its name. nil for any other session.
+    /// How a run's tab stands out among terminals: its purpose's symbol in colour (a green ▶ for a server) with a glow
+    /// of that colour, and the port it serves after its name. nil for any other session.
     func look(_ session: Session) -> (icon: NSImage?, glow: NSColor?)? {
         guard let wid = session.worktreeId, let picked = choice(of: session),
             var row = rows(wid).first(where: { $0.id == picked })
@@ -42,7 +42,7 @@ extension Runs {
         return (Self.tinted(symbol, color), color == .secondaryLabelColor ? nil : color)
     }
 
-    /// What the workspace serves, its main page first: the title bar's capsule, ⇧⌘O and the sidebar's card.
+    /// What the workspace serves, its main page first, for the title bar's capsule, ⇧⌘O and the sidebar's card.
     func pages(_ wid: String) -> [ServedPage] {
         ServedPages.list(
             printed: running(in: wid).compactMap { state.active[$0]?.url },

@@ -5,8 +5,8 @@ import KelpKit
 import WebKit
 
 extension BrowserTab {
-    /// An agent's action, about to be done here: the page is its session's (and subagent's), lit, with this step last.
-    /// A call from outside a session (the user's own `kelp browser`) leaves no mark.
+    /// An agent's action that is about to be done here: the page is marked as its session's (and subagent's) and lit,
+    /// with this step as the last one. A call from outside a session (the user's own `kelp browser`) leaves no mark.
     func told(_ action: BrowserAction, _ args: JSONValue) {
         guard let session = args["session"]?.string, let tab = args["tab"]?.string,
             let workspace = args["workspace"]?.string

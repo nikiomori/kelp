@@ -14,7 +14,8 @@ extension StripModel {
     static let sliver: CGFloat = 18
     /// The handle's room in the strip, on the side away from the edge.
     static let handle: CGFloat = 20
-    /// How long a question's line stays out beside the sliver; a failure's is shorter, as it waits for nothing.
+    /// How long a question's line stays out beside the sliver; a failure's line stays out for less time, since it waits
+    /// for nothing.
     static let questionStays: TimeInterval = 6, failureStays: TimeInterval = 4, doneStays: TimeInterval = 3
 
     /// Let go more than a third past a side: it hides there.

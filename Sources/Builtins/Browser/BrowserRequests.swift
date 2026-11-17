@@ -38,9 +38,9 @@ struct BrowserRequests {
         return try await browse(page, in: wid, action, args)
     }
 
-    /// A new page tab for `open`, beside the agent's pane; nil when there's one to navigate already: the page it drove, or
-    /// an agent's own, of the kind asked (`shared`: the user's cookies, which only a plain page has). A shared one acts as
-    /// the user, so the user says so first.
+    /// A new page tab for `open`, beside the agent's pane; nil when there is already a page to navigate: the page the
+    /// agent drove, or the agent's own page of the kind asked for (`shared` means with the user's cookies, which only a
+    /// plain page has). A shared page acts as the user, so the user has to say yes first.
     private func pageForOpen(_ wid: String, shared: Bool, args: JSONValue) async throws -> TabRef? {
         let url = args["url"]?.string ?? ""
         // A shared page is the one site the user allowed: another site is asked for again, in a tab of its own. A local

@@ -34,8 +34,8 @@ enum DatabaseUndo {
         return "SELECT \(columns) FROM \(result.change?.table ?? "") WHERE \(rows)"
     }
 
-    /// Whether the rows are as the change left them: an update's and an insert's still there and the same, a
-    /// delete's still gone.
+    /// Whether the rows are still as the change left them: rows an update or an insert wrote are still there and
+    /// unchanged, and rows a delete removed are still gone.
     static func unchanged(_ result: QueryResult, now: [[String?]]) -> Bool {
         guard let kind = result.change?.kind else { return false }
         if kind == .delete { return now.isEmpty }

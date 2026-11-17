@@ -4,8 +4,8 @@ import DesignKit
 import KelpKit
 import UniformTypeIdentifiers
 
-/// A table's Data (a page of rows in the order and with the filters asked for, edits saved together, the rows an
-/// agent's last change touched marked) and its Structure (columns, keys, indexes; CREATE TABLE in the details).
+/// A table's Data (a page of rows in the asked order and with the asked filters, edits saved together, and the rows an
+/// agent's last change touched marked) and its Structure (columns, keys, indexes, with CREATE TABLE in the details).
 extension DatabaseTab {
     var current: DatabaseSchema.Table? { mode.table.flatMap { name in tables.first { $0.name == name } } }
 
@@ -176,8 +176,8 @@ extension DatabaseTab {
         status.stringValue += " · ▍" + String(localized: "\(grid.marked.count) changed by \(who) \(shortAgo(last.at))")
     }
 
-    /// The latest change to `table` (`runs`: newest first), when an agent made it: one the user made since (an undo, an
-    /// edit) leaves no rows to mark as the agent's.
+    /// The latest change to `table` (`runs` is newest first), when an agent made it. A change the user made since (an
+    /// undo, an edit) leaves no rows to mark as the agent's.
     static func lastAgentChange(_ runs: [DatabaseRun], to table: String, in database: String) -> DatabaseRun? {
         let short = table.split(separator: ".").last.map { $0.lowercased() } ?? table
         let last = runs.first {

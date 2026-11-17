@@ -8,8 +8,9 @@ import WebKit
 /// over) answers for the agent: with what `kelp browser dialog` said ahead, else OK to an alert and no to the rest;
 /// either way it's in the console and in the action's answer, so the agent knows it was asked.
 extension BrowserTab: WKUIDelegate {
-    /// The agent answers this page's questions: a page it drives (its own, or the user's it was let into, while it still
-    /// does: ten minutes after its last action that tab is the user's again), not taken over.
+    /// Whether the agent answers this page's questions: a page it drives (its own, or the user's page it was let into,
+    /// while it still drives it; ten minutes after its last action that tab is the user's again), and that wasn't taken
+    /// over.
     var agentAnswers: Bool {
         guard let drive, !drive.takenOver else { return false }
         return agent || Date().timeIntervalSince(drive.drivenAt) < 600

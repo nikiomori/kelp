@@ -3,8 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The panel's "+" (a server, a skill from somewhere, a new skill) and its ⋯ (the order, what's off, the skills'
-/// folders, the chat's restart, reading the list again). The order and what's off are this Mac's view: UserDefaults.
+/// The panel's "+" menu (add a server, a skill from somewhere, or a new skill) and its ⋯ menu (the order, what is off,
+/// the skills' folders, restarting the chat, reading the list again). The order and what is off are this Mac's view,
+/// kept in UserDefaults.
 extension AddonsPanel {
     private static let byNameKey = "addons.byName", hideOffKey = "addons.hideOff"
 

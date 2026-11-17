@@ -59,8 +59,9 @@ extension BrowserTab {
           ready: document.readyState};
         """#
 
-    /// `textShown(el)`: the text in `el` is there for a person: laid out, not hidden and not transparent. A toast drawn
-    /// ahead at opacity 0 says "Saved" only to a script. `display: contents` has no box: its parent's says.
+    /// `textShown(el)` says whether the text in `el` is there for a person: laid out, not hidden and not transparent. A
+    /// toast drawn in advance at opacity 0 says "Saved" only to a script. An element with `display: contents` has no
+    /// box, so its parent's box decides.
     static let shownTextJS = #"""
         const OPAQUE = {opacityProperty: true, checkOpacity: true, visibilityProperty: true}, opaque = new Map();
         const textShown = e => {
@@ -73,11 +74,12 @@ extension BrowserTab {
         };
         """#
 
-    /// The page as an accessibility tree, a line an element: role, name, state, and a ref (`e12`) for what can be
-    /// clicked or typed in. An element keeps its ref while it's on the page; what came since the last whole snapshot
-    /// says `[new]`. Elements without a role don't show, their children do, one level up; links, buttons and fields
-    /// show their text, not what's inside them. A frame of the page's own site is read too; another site's can't be.
-    /// Over `max` lines the middle goes: a dialog's buttons are usually the page's last lines.
+    /// The page as an accessibility tree, one line per element: role, name, state, and a ref (`e12`) for what can be
+    /// clicked or typed in. An element keeps its ref while it is on the page, and elements that appeared since the last
+    /// whole snapshot say `[new]`. Elements without a role don't show, but their children do, one level up; links,
+    /// buttons and fields show their text, not what is inside them. A frame from the page's own site is read too;
+    /// another site's frame can't be.
+    /// Over `max` lines, the middle is dropped, because a dialog's buttons are usually the page's last lines.
     static var snapshotJS: String { observeJS + shownTextJS + snapshotBody }
     private static let snapshotBody = #"""
         if (!W.__kelpRefs) { W.__kelpRefs = new Map(); W.__kelpIds = new WeakMap(); W.__kelpNext = 0; }
@@ -218,8 +220,9 @@ extension BrowserTab {
         return '- page ' + JSON.stringify(document.title) + ' ' + location.href + '\n' + body.join('\n');
         """#
 
-    /// `el`: the element of `ref` from a snapshot (or the first a CSS selector matches), scrolled into view. `box(e)`:
-    /// where an element is in the top page (a frame's own place added: its elements' boxes are the frame's).
+    /// `el(ref)` finds the element of `ref` from a snapshot (or the first one a CSS selector matches) and scrolls it
+    /// into view. `box(e)` gives where an element is in the top page (a frame's own position is added, since its
+    /// elements' boxes are relative to the frame).
     static let findJS = #"""
         // A ref, or a CSS selector for an element the snapshot gave none.
         const byRef = /^e\d+$/.test(ref);
@@ -239,9 +242,10 @@ extension BrowserTab {
         };
         """#
 
-    /// `el` takes a pointer as it would a person's: enabled, shown, and not under something else at its middle (a
-    /// cookie banner, a dialog's backdrop): a script's events would reach it anyway, a person's click wouldn't. A box
-    /// under its own label and (`editable`) a field under the field a combobox lays over it count as reachable.
+    /// `el` accepts the pointer only as it would accept a person's: the element must be enabled, shown, and not covered
+    /// at its middle by something else (a cookie banner, a dialog's backdrop). A script's events would reach a covered
+    /// element anyway, but a person's click wouldn't. A box under its own label, and (`editable`) a field under the
+    /// field that a combobox lays over it, count as reachable.
     static let reachJS = #"""
         {
         const say = e => {

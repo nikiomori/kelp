@@ -5,11 +5,11 @@ import EditorKit
 import KelpKit
 
 /// A query of the user's own, in Kelp's editor: SQL colours, the database's tables and columns offered as words are
-/// typed, ⌘↩ runs the statement the cursor is in (one at a time, as an agent's), Explain shows the plan. What's typed
-/// is kept for the database (`db.draft/…`): it's there when the tab is opened again.
+/// typed, ⌘↩ runs the statement the cursor is in (one at a time, as an agent's are), and Explain shows the plan. What
+/// is typed is kept for the database (`db.draft/…`), so it is still there when the tab is opened again.
 extension DatabaseTab {
-    /// The editor over the rows, the line between them the user's to drag: as tall as they left it (kept per Mac, as
-    /// the tab's other split is).
+    /// The editor above the rows, with the line between them for the user to drag: it stays as tall as they left it
+    /// (kept per Mac, like the tab's other split).
     func buildEditor() -> NSView {
         editor.completionProvider = { [weak self] line, column in
             await MainActor.run { self?.completions(line: line, column: column) ?? [] }

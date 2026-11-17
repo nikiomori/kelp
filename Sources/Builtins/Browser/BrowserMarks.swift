@@ -1,5 +1,6 @@
 // What the pages agents drive show outside their tabs (`AgentPages`): a mark on the agent's row, the tab's look, the
-// agent's card, a subagent's last step; and the project menu's choice of whether new chats get the browser skill.
+// agent's card, and a subagent's last step; and the choice on the project menu of whether new chats get the browser
+// skill.
 import AppKit
 import Core
 import DesignKit

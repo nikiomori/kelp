@@ -151,9 +151,9 @@ extension BrowserTab {
         return path
     }
 
-    /// Where the element's component is written, from what dev builds leave on DOM nodes: Svelte's `__svelte_meta`,
-    /// inspector plugins' `data-insp-path` / `data-inspector-*`, React's fiber (`_debugSource`, or React 19's `_debugStack`),
-    /// Vue's `__vueParentComponent.type.__file`. The nearest ancestor that has one wins.
+    /// Where the element's component is written, read from what dev builds leave on DOM nodes: Svelte's
+    /// `__svelte_meta`, inspector plugins' `data-insp-path` / `data-inspector-*`, React's fiber (`_debugSource`, or
+    /// React 19's `_debugStack`), and Vue's `__vueParentComponent.type.__file`. The nearest ancestor that has one wins.
     static let sourceJS = """
         const __kelpSource = el => {
           const strip = u => u.replace(/^https?:\\/\\/[^/]+\\//, '').replace(/\\?[^:]*/, '').replace(/^@fs\\//, '/');

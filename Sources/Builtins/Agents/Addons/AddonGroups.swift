@@ -46,7 +46,7 @@ enum AddonLine: Equatable {
     case section(Section, count: Int)
     /// `tokens`: what its items weigh together; nil when none of theirs is known.
     case group(AddonGroup, count: Int, tokens: Int?, open: Bool)
-    /// `depth`: 0 on its own, 1 under a group's line, 2 under a plugin's.
+    /// `depth` is 0 for an item on its own, 1 under a group's line, and 2 under a plugin's line.
     case item(Addon, depth: Int)
     /// In Needs a Look: its name over what's wrong.
     case problem(Addon)
@@ -57,9 +57,9 @@ enum AddonLine: Equatable {
     case instructions([Addon], Tidied?)
 }
 
-/// What the panel lists, in its order, without AppKit: what needs a look, the servers (the person's and the
-/// project's one by one, the rest folded), the skills by who brought them, the instruction files, and folded at the end
-/// what only other agents get.
+/// What the panel lists, in order, without AppKit: what needs a look, the servers (the person's and the project's one
+/// by one, the rest folded), the skills by who brought them, the instruction files, and, folded at the end, what only
+/// other agents get.
 enum AddonGroups {
     static let skillSources: [Addon.Source] = [.project, .yours, .kelp, .plugin, .account, .agent]
     static let folded: [Addon.Source] = [.account, .plugin, .agent]
@@ -144,8 +144,8 @@ private struct Lister {
     private var filtering: Bool { !view.filter.trimmingCharacters(in: .whitespaces).isEmpty }
 
     func needsLook() -> [AddonLine] {
-        // What's off for the project is dealt with: it stays in its own section, grey, and leaves this one. Another
-        // agent's trouble is still the project's: it shows here too.
+        // What is off for the project has been dealt with: it stays in its own section, in grey, and leaves this one.
+        // Another agent's trouble is still the project's trouble, so it shows here too.
         let items = all
         let problems = items.filter { $0.problem != nil && !$0.off }, unsigned = AddonGroups.unsigned(items)
         let tidy = AddonGroups.tidied(items).filter { $0.check?.needsLook == true }

@@ -4,9 +4,9 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// A row's own menu, by what the row is: a skill of the person's or the project's, a plugin or one of its skills, a
-/// server (Kelp's, an agent's own, the account's), what doesn't work, an instruction file. What can't apply isn't
-/// there; what can't be undone comes last.
+/// A row's own menu, built for what the row is: a skill (the person's or the project's), a plugin or one of its skills,
+/// a server (Kelp's, an agent's own, or the account's), something that doesn't work, or an instruction file. Items that
+/// can't apply to the row are left out, and items that can't be undone come last.
 @MainActor
 struct AddonMenu {
     let app: AppModel, worktreeId: String
@@ -50,13 +50,15 @@ struct AddonMenu {
         }
     }
 
-    /// A skill of the person's or the project's that some agents don't read: Give to All Agents hands it to them.
+    /// A skill of the person's or the project's that some agents don't read: Give to All Agents hands it to those
+    /// agents.
     static func notEveryAgentHas(_ addon: Addon) -> Bool {
         [.yours, .project].contains(addon.source) && addon.key != nil
             && !(addon.agents.contains(Session.claudeAgent) && addon.agents.contains(Session.codexAgent))
     }
 
-    /// A skill in a folder: the person's or the project's can be handed to every agent and trashed.
+    /// A skill in a folder: one of the person's or the project's skills, which can be handed to every agent and moved
+    /// to the Trash.
     private func skill(_ menu: NSMenu, _ addon: Addon) {
         locate(menu, addon.path, open: String(localized: "Open SKILL.md"), folder: true)
         separate(menu)
@@ -131,7 +133,7 @@ struct AddonMenu {
 
     // MARK: Parts
 
-    /// Open, Reveal in Finder, Copy Path; `folder`: what's revealed is the folder the file is in (a skill's).
+    /// Open, Reveal in Finder and Copy Path. With `folder`, Reveal shows the folder the file is in (for a skill).
     func locate(_ menu: NSMenu, _ path: String?, open title: String, folder: Bool) {
         guard let path else { return }
         menu.add(title) { open(path) }

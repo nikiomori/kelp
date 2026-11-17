@@ -40,8 +40,9 @@ extension StripModel {
         return way(CGVector(dx: x, dy: up))
     }
 
-    /// As far as it goes that way: to that side's corner of its row (the other row's, slanted), behind the side from that
-    /// side's corner, and out from behind a side to its corner.
+    /// Where a fling in that direction lands, as far as it can go: to that side's corner of the strip's row (or the
+    /// other row's corner, for a slanted fling), behind the side when flung from that side's corner, and out from
+    /// behind a side to its corner.
     static func flung(from corner: StripCorner, edge: StripEdge?, _ way: StripWay) -> StripTarget? {
         let high = way.y == 0 ? corner.isTop : way.y > 0
         if let edge {

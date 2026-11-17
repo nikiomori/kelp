@@ -15,7 +15,7 @@ enum ServerActions {
         return mainWorkspace(of: project, among: app.worktrees)?.id
     }
 
-    /// A terminal on the host (nil `command`: its shell), in its project's folder, beside the server's tab.
+    /// Opens a terminal on the host (with nil `command`, its shell) in its project's folder, beside the server's tab.
     static func runOnServer(_ app: AppModel, _ host: String, command: String? = nil, title: String? = nil) {
         guard let wid = serverWorkspace(app, host) else { return }
         app.workbench.show(workspace: wid)
@@ -83,7 +83,7 @@ enum ServerReading {
     }
 
     /// What a process is part of, as a symbol and a name: its Docker container, else its systemd unit (a service by its
-    /// name, a login's scope as one). Its Kelp agent comes first, but that's the row's to show.
+    /// name, a login's scope as a login). Its Kelp agent would come first, but showing that is up to the row.
     static func place(_ process: HostStats.Process) -> (symbol: String, name: String)? {
         if let container = process.container { return ("shippingbox", container) }
         guard let unit = process.unit else { return nil }

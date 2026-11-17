@@ -163,8 +163,8 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         return String(localized: "Earlier")
     }
 
-    /// The title without the project's name in front ("Kelp — review 232f2997" in Kelp: "Review 232f2997"): the panel
-    /// shows one project's pages already, and the name took a third of the row.
+    /// The title without the project's name in front ("Kelp — review 232f2997" in Kelp becomes "Review 232f2997"): the
+    /// panel already shows one project's pages, and the name took a third of the row.
     nonisolated static func shortTitle(_ title: String, project: String?) -> String {
         guard let project, !project.isEmpty, title.lowercased().hasPrefix(project.lowercased()) else { return title }
         let rest = title.dropFirst(project.count).drop { $0 == " " }

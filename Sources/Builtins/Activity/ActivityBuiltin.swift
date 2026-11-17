@@ -22,7 +22,8 @@ extension Builtins {
     }
 }
 
-// How the app keeps what the daemon pushes about activity: Activity's own kinds, not the shell's.
+// How the app keeps what the daemon pushes about activity: these are the Activity built-in's own kinds, not the
+// shell's.
 extension ActivityEvent: Pushed {
     package var key: String { "" }
     package static var forgottenWith: WatchTopic? { .activity }

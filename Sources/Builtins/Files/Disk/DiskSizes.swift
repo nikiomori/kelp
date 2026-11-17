@@ -4,9 +4,10 @@ import Foundation
 import KelpKit
 import Observation
 
-/// What each project takes on its disk (this Mac's, or a remote project's host's), as last measured
-/// (`repo.diskUsage`): the foot of Files and the Disk Usage tab read it, and measure when it's missing or old, so only
-/// while one of them is on screen. One for the app, made with the Files built-in's contributions and handed to both.
+/// What each project takes on its disk (this Mac's, or a remote project's host's), as last measured (`repo.diskUsage`).
+/// The foot of Files and the Disk Usage tab read it, and measure again when the number is missing or old, so measuring
+/// happens only while one of them is on screen. The app has one of these, made with the Files built-in's contributions
+/// and handed to both.
 @MainActor @Observable
 final class DiskSizes {
     struct Measured {
@@ -93,7 +94,7 @@ enum DiskNames {
 
     static func size(_ bytes: Int) -> String { DesignKit.bytes(bytes, file: true) }
 
-    /// Whose disk the sizes are of: a remote project's is its host's (`host`), measured there.
+    /// Whose disk the sizes are of: for a remote project, its host's disk (`host`), measured there.
     static func place(host: String?) -> String {
         host.map { String(localized: "on \($0)") } ?? String(localized: "on this Mac")
     }
@@ -119,8 +120,9 @@ enum DiskNames {
         String(localized: "Into the project’s .git/kelp-trash on \(host), which keeps them a week.")
     }
 
-    /// What went, where, and that it isn't freed yet: the Trash holds it until it's emptied, a host's .git/kelp-trash
-    /// for a week (the Files panel's trash there). `what`: the one part's name; nil for several.
+    /// Says what went, where it went, and that the space isn't freed yet: the Trash holds it until it is emptied, and a
+    /// host's .git/kelp-trash (the Files panel's trash there) holds it for a week. `what` is the name of the one part,
+    /// or nil for several.
     static func moved(_ what: String?, count: Int, size: String, host: String?) -> String {
         if let host {
             guard let what else {

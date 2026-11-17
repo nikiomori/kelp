@@ -66,7 +66,7 @@ final class Breadcrumbs: NSView {
     }
     required init?(coder: NSCoder) { fatalError("not from a nib") }
 
-    /// The path's parts inside the project; only the file's name for a file outside it.
+    /// The parts of the path inside the project; for a file outside the project, only the file's name.
     static func parts(_ path: String, root: String) -> [String] {
         guard let inRoot = Paths.relative(path, to: root) else { return [(path as NSString).lastPathComponent] }
         return inRoot.split(separator: "/").map(String.init)

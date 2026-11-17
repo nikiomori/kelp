@@ -4,12 +4,16 @@ import DesignKit
 import EditorKit
 import KelpKit
 
-/// "db:<workspace>/<name>[?run=<id>|?table=<name>]", laid out as TablePlus and TablePro lay a database out: on the
-/// left its items, saved queries and history (`DatabaseSidebar`); on top its environment's tag (PROD in red) and,
-/// quieter, where you are, and the filter's rows under it (⇧⌘F); in the middle a table's rows, a run's, or a query
-/// of the user's own; at the foot everything about the table shown (Data / Structure, + Row, how many, the changes,
-/// Columns, pages); on the right its details (`DatabaseDetails`). While an agent asks to change this database, a bar
-/// over it all says who and how much, with Deny / Allow.
+/// "db:<workspace>/<name>[?run=<id>|?table=<name>]", laid out the way TablePlus and TablePro lay out a database:
+/// - on the left, its items, saved queries and history (`DatabaseSidebar`);
+/// - on top, its environment's tag (PROD in red), and more quietly where you are, with the filter's rows under it
+/// (⇧⌘F);
+/// - in the middle, a table's rows, a run's rows, or a query of the user's own;
+/// - at the foot, everything about the table shown (Data / Structure, + Row, the row count, the changes, Columns,
+/// pages);
+/// - on the right, its details (`DatabaseDetails`).
+/// While an agent asks to change this database, a bar above everything says which agent and how much, with Deny and
+/// Allow.
 @MainActor
 final class DatabaseTab: NSObject, KelpKit.TabContent {
     enum Mode: Equatable {
@@ -184,8 +188,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
             v.widthAnchor.constraint(equalTo: center.widthAnchor).isActive = true
         }
         rows.setContentHuggingPriority(.defaultLow, for: .vertical)
-        // The list and the details keep their width as the window changes; the rows take the rest. The list's width is
-        // the user's to drag, kept per Mac. The details stay closed until a row is picked.
+        // The list and the details keep their width as the window changes, and the rows take the rest. The user can
+        // drag the list's width, which is kept per Mac. The details stay closed until a row is picked.
         whole.isVertical = true
         whole.dividerStyle = .thin
         for pane in [sidebar.view, center, details.view] { whole.addArrangedSubview(pane) }

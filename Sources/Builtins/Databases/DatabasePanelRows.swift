@@ -3,10 +3,11 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The Databases panel's rows, drawn: a section's title (folding ones with a chevron and a count), an agent's
+/// Draws the Databases panel's rows: a section's title (folding sections have a chevron and a count), an agent's
 /// question with Allow, the project's card (its icon and name, its databases, Use a Database…), a group's card, a
-/// database (dot, name over where it is, PROD, what agents may do as an icon), what's wrong with one (Start for a
-/// stopped compose service), a run. A database's badge sits under its card's icon, its name under the card's name.
+/// database (a dot, its name over where it is, PROD, and what agents may do as an icon), what is wrong with a database
+/// (Start for a stopped compose service), and a run. A database's badge sits under its card's icon, and its name under
+/// the card's name.
 @MainActor
 struct DatabasePanelRows {
     let panel: DatabasesPanel
@@ -127,7 +128,7 @@ struct DatabasePanelRows {
             ? String(localized: "made just now") : String(localized: "made \(shortAgo(copy.at)) ago")
     }
 
-    /// Where a card's content starts: its icon 4 pt further in than a plain row's, as the selection is.
+    /// Where a card's content starts: its icon sits 4 pt further in than a plain row's, as the selection does.
     static let inCard = Metrics.inset + 4
 
     var projectTitle: String {
@@ -180,9 +181,9 @@ struct DatabasePanelRows {
         return row
     }
 
-    /// A group of All My Databases, its card's first row: folder, name, how many. Under the pointer the folder turns
-    /// into the chevron that folds it, as a project's icon does in the sidebar. A coloured group's folder is filled
-    /// with its colour, as Finder's tagged folders (its card takes the colour too).
+    /// The first row of a group's card in All My Databases: folder, name, and how many databases. Under the pointer the
+    /// folder turns into the chevron that folds the group, as a project's icon does in the sidebar. A coloured group's
+    /// folder is filled with its colour, like Finder's tagged folders (its card takes the colour too).
     func group(_ name: String, count: Int, open: Bool, color: ProjectColor? = nil) -> NSView {
         let folder = NSImageView(image: .symbol(color == nil ? "folder" : "folder.fill"))
         folder.symbolConfiguration = .chrome(Metrics.iconSmall + 2)

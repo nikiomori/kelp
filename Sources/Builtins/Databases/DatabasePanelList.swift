@@ -1,15 +1,15 @@
 import Core
 
-/// The Databases panel's rows in their order, from what the daemon listed and what the user folded or typed: an
-/// agent's questions, the project's card with its databases (a branch's copy under the database it's of), All My
-/// Databases by group, then what agents ran. A database is found by its name, address, environment or group.
+/// The Databases panel's rows in order, from what the daemon listed and what the user folded or typed: an agent's
+/// questions, the project's card with its databases (a branch's copy under the database it copies), All My Databases by
+/// group, then what agents ran. A database can be searched by its name, address, environment or group.
 @MainActor
 struct DatabasePanelList {
     var databases: [DatabaseInfo] = [], library: [DatabaseInfo] = [], runs: [DatabaseRun] = []
     /// What the find field holds, trimmed and lowercased.
     var find = ""
     var libraryOpen = true, activityOpen = true
-    /// Activity of one agent's session only; nil: everyone's.
+    /// Shows the activity of one agent's session only; nil shows everyone's.
     var only: String?
     var folded: Set<String> = []
     var health: [String: DatabaseHealth] = [:], libraryHealth: [String: DatabaseHealth] = [:]
@@ -18,7 +18,8 @@ struct DatabasePanelList {
         var list: [DatabasesPanel.Row] = []
         let asking = runs.filter { $0.state == .asks }
         if !asking.isEmpty { list += [.heading(.asks)] + asking.map(DatabasesPanel.Row.asks) }
-        // The project's card even empty: All My Databases under it alone read as this project's.
+        // Show the project's card even when it is empty: with All My Databases alone under it, those databases read as
+        // this project's.
         if !databases.isEmpty || !library.isEmpty {
             list.append(.project(count: databases.count))
             let under = databases.filter { copy in DatabasesPanel.nested(copy, among: databases) }

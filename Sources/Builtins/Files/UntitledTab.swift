@@ -5,14 +5,15 @@ import EditorKit
 import KelpKit
 import WorkbenchKit
 
-/// "untitled:<n>": a new file with no name yet, like VS Code's Untitled-1. Plain text until it's saved: the first ⌘S
-/// asks where and under what name (the extension makes it code; none makes it .txt), then the tab is that file's.
+/// "untitled:<n>": a new file with no name yet, like VS Code's Untitled-1. It is plain text until it is saved: the
+/// first ⌘S asks where to save it and under what name (the extension makes it code; with none it becomes .txt), and
+/// then the tab belongs to that file.
 @MainActor @Observable
 final class UntitledTab: SavableTab {
     let uri: String, app: AppModel
     var reopenURI: String? { nil }
     let editor = CodeEditor(text: "", url: URL(fileURLWithPath: "/Untitled.txt"))
-    /// The editor's keys before the menu's (⌘D), as in a file's tab.
+    /// The editor gets keys (⌘D) before the menu does, as in a file's tab.
     let view: NSView = EditorBox()
     let title: String
     var icon: NSImage? { .symbol("doc") }
@@ -97,7 +98,7 @@ final class UntitledTab: SavableTab {
         return true
     }
 
-    /// The first line, as VS Code proposes it: "def main():" → "def main()".
+    /// The name to propose: the first line, as VS Code proposes it ("def main():" → "def main()").
     static func suggestedName(_ text: String) -> String? {
         let line = text.split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
         let name = line.components(separatedBy: CharacterSet(charactersIn: "/:\\\"*?<>|")).joined().trimmingCharacters(

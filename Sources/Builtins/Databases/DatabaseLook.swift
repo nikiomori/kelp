@@ -13,7 +13,7 @@ enum DatabaseLook {
         return image
     }
 
-    /// The app's own icon where it's installed, else a symbol: for Import's rows.
+    /// The app's own icon where the app is installed, else a symbol; for Import's rows.
     @MainActor static func appIcon(_ source: String) -> NSImage {
         let bundles = [
             "tableplus": "com.tinyapp.TablePlus", "dbeaver": "org.jkiss.dbeaver.core.product",

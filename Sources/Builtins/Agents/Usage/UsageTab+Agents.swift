@@ -1,4 +1,4 @@
-// The usage report's agents: their lines, the totals over them, and the table's columns and cells.
+// The agents in the usage report: their lines, the totals over them, and the table's columns and cells.
 import AppKit
 import Charts
 import Core

@@ -1,10 +1,11 @@
 import Foundation
 
-/// Marks on an agent's Markdown page (a doc, slides), as on a canvas: with Mark on (`kelpMark(true)` from the bar) the
+/// Marks on an agent's Markdown page (a doc, slides), as on a canvas. With Mark on (`kelpMark(true)` from the bar),
 /// text you select gets a number and a line in the column on the right (`window.kelpColumn`) for what should change;
 /// Send puts them all in one message. With Mark off, a selection shows a Mark button that turns it on. The column's
-/// other list is the page's headings. A mark is found again by its text each time the page is drawn (the agent may
-/// have moved it). To `kelpSync`: `marks` (send), `marksDraft` (keep), `mode` (Mark turned on from the page).
+/// other list is the page's headings. A mark is found again by its text each time the page is drawn, since the agent
+/// may have moved it. It sends to `kelpSync`: `marks` (send), `marksDraft` (keep), and `mode` (Mark turned on from the
+/// page).
 enum PageMarks {
     static func source(marks: [CanvasMark], labels: [String: String]) -> String {
         """
@@ -168,7 +169,8 @@ enum PageMarks {
         """
     }
 
-    /// The marks' look on the page, the Mark button's, and a changed block's bar; with the column's (`CanvasChrome`).
+    /// The look of the marks on the page, of the Mark button, and of a changed block's bar, together with the column's
+    /// look (`CanvasChrome`).
     static let style = """
         <style>
         \(CanvasChrome.style)

@@ -4,8 +4,8 @@ import DesignKit
 import KelpKit
 import UniformTypeIdentifiers
 
-/// Under a code file, like Xcode's and BBEdit's: what kind of file it is, where the cursor is, and the indentation the
-/// file uses (no encoding: Kelp opens UTF-8 only, so naming it would say nothing).
+/// The bar under a code file, like Xcode's and BBEdit's: what kind of file it is, where the cursor is, and the
+/// indentation the file uses. It shows no encoding: Kelp opens UTF-8 only, so naming it would say nothing.
 @MainActor
 final class EditorStatusBar: NSView {
     private let place = NSTextField(labelWithString: "")

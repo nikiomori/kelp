@@ -109,8 +109,8 @@ struct ServerSide: View {
         .padding(.horizontal, 6).frame(minHeight: Metrics.rowTwoLine)
     }
 
-    /// A container: its name, how long it's been up and the ports it's published on, and what it takes. Its log a right
-    /// click away.
+    /// A container's row: its name, how long it has been up, the ports it publishes, and what it takes. Its log is a
+    /// right-click away.
     private func containerRow(_ container: HostStats.Container) -> some View {
         let line = [
             container.seconds.map { String(localized: "up \(shortSpan(Double($0), units: 2))") },

@@ -48,7 +48,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     /// The session reviewing this diff, if one was started here (`DiffReviewWith`).
     var reviewer: String?
     let reviewPop = NSPopUpButton(frame: .zero, pullsDown: true)
-    /// The agent's turns, with "Agent's Last Turn" (`DiffTurns`).
+    /// The agent's turns, listed with "Agent's Last Turn" (`DiffTurns`).
     let turnPop = NSPopUpButton()
     /// The turn picker and Undo Turn…, shown with "Agent's Last Turn" when the agent has turns kept.
     lazy var turnBar = NSStackView(views: [turnPop, undoTurnButton()])
@@ -73,7 +73,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
     var changes: [FileChange] = []
     /// Changed character range of a line that has a counterpart on the other side, by "file:kind:line".
     var words: [String: NSRange] = [:]
-    /// Each line's tree-sitter captures, by `DiffColors.key`; the theme's colours for them.
+    /// Each line's tree-sitter captures, by `DiffColors.key`, and the theme's colours for them.
     var syntax: [String: [DiffColors.Span]] = [:]
     var syntaxColors = CodeEditor.syntaxColors
     var worktreeId: String?
@@ -85,7 +85,7 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         get { DiffSource(rawValue: source.indexOfSelectedItem) ?? .uncommitted }
         set { source.selectItem(at: newValue.rawValue) }
     }
-    /// The editor's font and size, as the code it shows is the editor's; a row is a line of it and 4 pt.
+    /// The editor's font and size, since the code shown is the editor's code; a row is one line of it plus 4 pt.
     var font: NSFont { CodeEditor.font }
     static var lineHeight: CGFloat {
         let editorFont = CodeEditor.font

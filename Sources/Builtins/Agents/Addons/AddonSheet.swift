@@ -25,7 +25,7 @@ final class AddonSheet: NSObject, NSTextFieldDelegate {
     let read = NSStackView()
     private let add = NSButton()
     private(set) var paste: AddonPaste?
-    /// What a server signs in with, by "env:KEY" / "header:KEY": typed over what was pasted.
+    /// What a server signs in with, by "env:KEY" / "header:KEY": the values typed here replace what was pasted.
     var secrets: [String: NSSecureTextField] = [:]
     /// Something on this Mac was handed on from the sheet: the list is read again whatever the sheet ends with.
     private(set) var changed = false

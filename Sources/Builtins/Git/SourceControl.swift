@@ -22,7 +22,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         enum Kind {
             case section(Section), file(FileChange, Section), commit(Int), commitFile(String, FileChange), note(String)
         }
-        /// What a file's or commit's row shows: a rebuild draws again only the rows whose look changed.
+        /// What a file's or a commit's row shows; a rebuild draws again only the rows whose look changed.
         enum Look: Equatable {
             case file(FileChange, shared: [String], commit: Int?)
             case commit(GraphCommit, head: Bool, pushed: Bool?, lands: Double?, arrives: Double?)
@@ -31,7 +31,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         var kind: Kind
         var look: Look?
         var children: [Node] = []
-        var files: [FileChange] = []   // a section's, also while it's folded
+        var files: [FileChange] = []   // the section's files, kept while it is folded too
         init(_ k: Kind) { kind = k }
     }
     /// The rows of the last rebuild, by key (`Node`).
@@ -107,7 +107,8 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var more = false, limit = 200, loadingMore = false
     var commitFiles: [String: [FileChange]] = [:]
     var openCommits = Set<String>()
-    /// The card of the commit under the pointer, with the daemon's details (quiet: without them it shows the row's).
+    /// The card for the commit under the pointer, with the daemon's details (read quietly: without them it shows what
+    /// the row has).
     lazy var card: CommitCard = {
         let commitCard = CommitCard()
         commitCard.load = { [weak self] hash in

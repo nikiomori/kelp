@@ -47,7 +47,7 @@ final class FileTab: SavableTab {
     var root: String
     /// A remote project's file: no language server, formatter or notebook for it here; its preview shows a copy.
     let remote: Bool
-    /// A remote image's or PDF's preview, once its copy is here.
+    /// The preview of a remote image or PDF, once its copy is here.
     private var preview: NSView?
     /// A preview of a file here, built again when the file is written over.
     private var following: FollowedPreview?
@@ -313,7 +313,7 @@ final class FileTab: SavableTab {
         }
     }
 
-    /// Its items in the tab's context menu.
+    /// The tab's items for its context menu.
     /// The editor's context menu, after Cut, Copy and Paste.
 
     static func menu(

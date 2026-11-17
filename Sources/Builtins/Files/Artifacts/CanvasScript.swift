@@ -1,12 +1,12 @@
 import Foundation
 
-/// Kelp's script beside a canvas (`MarkdownTab.world`; the boards' own don't run): makes each board's frame as tall as
-/// what it holds (unless the board's height is fixed), fits the canvas to the pane, and checks what's drawn: text cut
-/// off, contrast under 4.5:1, a board wider or taller than its frame, an image that doesn't load, controls without a
-/// `data-id`. The result goes to `kelpSync` as `{kind: "check", issues}`, after the files' own (`CanvasPage.lint`), to
-/// the column's Check list (`kelp-check` with `window.kelpIssues`), and onto the boards as a `!` on each element at
-/// fault.
-/// `kelpZoom(z)` sets the canvas's size by hand (nil: fitted to the pane beside the column).
+/// Kelp's script that runs beside a canvas (`MarkdownTab.world`; the boards' own scripts don't run). It makes each
+/// board's frame as tall as what it holds (unless the board's height is fixed), fits the canvas to the pane, and checks
+/// what is drawn: text cut off, contrast under 4.5:1, a board wider or taller than its frame, an image that doesn't
+/// load, and controls without a `data-id`. The result goes to `kelpSync` as `{kind: "check", issues}`, after the files'
+/// own checks (`CanvasPage.lint`), to the column's Check list (`kelp-check` with `window.kelpIssues`), and onto the
+/// boards as a `!` on each element at fault.
+/// `kelpZoom(z)` sets the canvas's size by hand (nil fits it to the pane beside the column).
 enum CanvasScript {
     static func source(issues: [String]) -> String {
         """

@@ -149,7 +149,7 @@ extension DatabaseTab {
         return [ask]
     }
 
-    /// Away from edits only once they're saved or dropped.
+    /// Leaves edit mode for `next`, but only once the edits are saved or dropped.
     func leave(to next: Mode) async {
         if isEdited, await !close() { return }
         chosen = true

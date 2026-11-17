@@ -175,7 +175,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         changeItems(menu, rel)
     }
 
-    /// A file's and a folder's alike: hand it over, name it, find it, throw it away.
+    /// The menu items that files and folders share: hand it to an agent, rename it, find it, and move it to the Trash.
     private func changeItems(_ menu: NSMenu, _ rel: String) {
         let app = app, path = root + "/" + rel
         menu.add(String(localized: "Send to Agent")) { FileActions(app).sendToAgent(path) }

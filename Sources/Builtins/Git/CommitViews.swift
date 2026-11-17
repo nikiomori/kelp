@@ -1,4 +1,4 @@
-// The commit history's views: a commit's row with its badges, and the lane graph beside it.
+// The views of the commit history: a commit's row with its badges, and the lane graph beside it.
 import AppKit
 import Core
 import DesignKit
@@ -212,8 +212,9 @@ final class CommitCell: NSTableCellView, Hoverable {
         return views
     }
 
-    /// Local branches and tags (HEAD's branch first); a remote ref shows only when no local branch of that name is here.
-    /// The branches in `emphasis`: with Graphite the accent's grey was the remote's, and "main" read as "origin/main".
+    /// Local branches and tags (HEAD's branch first); a remote ref shows only when there is no local branch of that
+    /// name. The branches in `emphasis` are drawn stronger: with Graphite, the accent's grey was the remote's, and
+    /// "main" read as "origin/main".
     static func labels(_ refs: [String]) -> [(String, NSColor, Bool)] {
         var out: [(String, NSColor, Bool)] = []
         let locals = Set(

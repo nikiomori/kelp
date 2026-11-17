@@ -81,9 +81,9 @@ final class DiffTab: TabContent {
 }
 
 extension GitDiff {
-    /// What of a workspace's git this diff is read from: an event that leaves it as it was (a fetch moving ahead/behind,
-    /// a branch made elsewhere; for a branch's or a commit's diff, edits too) needs no new read. Edits and staging show
-    /// in the status and the line counts, commits in HEAD.
+    /// Which of a workspace's git readings this diff is read from. An event that leaves that reading as it was (a fetch
+    /// moving ahead/behind, a branch made elsewhere; and for a branch's or a commit's diff, edits too) needs no new
+    /// read. Edits and staging show in the status and the line counts, and commits in HEAD.
     struct Basis: Equatable {
         var changes: [FileChange]?, stats: LineStats?, head: String?, branches: BranchInfo?, error: String?
     }

@@ -2,7 +2,7 @@ import AppKit
 import Core
 import DesignKit
 
-/// A change's rows in the grid (a run's): each value an update changed as it was and as it becomes.
+/// The rows of a run that changed something, in the grid: each value an update changed, as it was and as it becomes.
 extension ResultGrid {
     /// The rows are a change's: its columns that changed (`changed`, by index) widen to hold both values.
     func show(change: RowChange?, changed: [Int]) {

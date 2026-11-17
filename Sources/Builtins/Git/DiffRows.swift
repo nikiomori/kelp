@@ -113,7 +113,8 @@ extension DiffRows {
         )
     }
 
-    /// Changed range of every line that has a counterpart on the other side, by "file:d:oldLine" / "file:a:newLine".
+    /// The changed range of every line that has a counterpart on the other side, keyed by "file:d:oldLine" or
+    /// "file:a:newLine".
     static func changedWords(_ diffs: [FileDiff]) -> [String: NSRange] {
         var out: [String: NSRange] = [:]
         for (fi, f) in diffs.enumerated() {
@@ -133,10 +134,11 @@ extension DiffRows {
         return out
     }
 
-    /// The table's rows: comments that aren't resolved go under their last line, once: a removed line's (`side` "old")
-    /// under that removed line, the others under the new file's. One from before sides keeps a number only: a line of the
-    /// new file wins, and a deleted line takes it only when the new file has no such line.
-    /// `hideFileRows`: one-file mode, where the bar already names the file.
+    /// The table's rows. A comment that isn't resolved goes under its last line, once: a comment on a removed line
+    /// (`side` "old") under that removed line, any other under the new file's line. A comment from before comments had
+    /// sides keeps only a line number: a line of the new file takes it, and a deleted line takes it only when the new
+    /// file has no such line.
+    /// `hideFileRows` is one-file mode, where the bar already names the file.
     static func reviewRows(
         _ diffs: [FileDiff], comments: [DiffComment], sideBySide: Bool, hideFileRows: Bool,
         opened: [String: [DiffLine]] = [:]

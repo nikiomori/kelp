@@ -12,8 +12,8 @@ final class SplitPushButton: NSButton {
     private var keyWatch: [NSObjectProtocol] = []
     private let glow = EdgeGlow(radius: Metrics.radiusSM, spread: 4, strength: 0.7)
     private let ring = StatusMark(size: 12)
-    /// What the button's action is doing. The state is light along its edge, as a tab's and a pane's are, with the words
-    /// on the button saying which; a ring turns in the capsule while it goes on.
+    /// What the button's action is doing. The state shows as light along the button's edge, as on a tab or a pane, and
+    /// the words on the button say which state it is; a ring turns in the capsule while the action runs.
     enum Work { case none, running, done, failed }
     var work = Work.none {
         didSet {

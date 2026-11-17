@@ -1,10 +1,10 @@
 import Foundation
 
-/// What Kelp puts around a canvas's boards, in the page (`MarkdownTab.world`): the column on the right that Mark and
-/// Edit fill (`window.kelpColumn`), the theme switch at the top right (one theme at a time, or both), and the zoom
-/// capsule at the bottom right (− % + and Fit). Drawn with Kelp's own tokens, in the window's light or dark. To
-/// `kelpSync`: `themes` (light, dark or both) and `zoom` (a size, or null for Fit), which the tab keeps for the next
-/// drawing. Without `floats` (a doc's page, a dashboard), only the column.
+/// What Kelp puts around a canvas's boards, inside the page (`MarkdownTab.world`): the column on the right that Mark
+/// and Edit fill (`window.kelpColumn`), the theme switch at the top right (one theme at a time, or both), and the zoom
+/// capsule at the bottom right (− % + and Fit). It is drawn with Kelp's own tokens, in the window's light or dark look.
+/// It sends to `kelpSync`: `themes` (light, dark or both) and `zoom` (a size, or null for Fit), which the tab keeps for
+/// the next drawing. Without `floats` (a doc's page, a dashboard) it adds only the column.
 enum CanvasChrome {
     struct Labels {
         var light: String, dark: String, both: String, fit: String, zoomOut: String, zoomIn: String

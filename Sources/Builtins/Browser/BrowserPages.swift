@@ -1,4 +1,5 @@
-// An agent's subagents in the browser: a page each, in the tab of the agent's page, and a row of them to switch between.
+// An agent's subagents in the browser: a page for each, in the tab of the agent's page, with a row of them to switch
+// between.
 import AppKit
 import Core
 import DesignKit
@@ -34,7 +35,8 @@ final class PageSet {
         host.switchSlot.pin(row)
     }
 
-    /// The page `args` is for, when it isn't the tab's own: a subagent's, made for its `open`. Nil: the tab's own.
+    /// The page `args` is for, when it isn't the tab's own page: a subagent's page, made for its `open`. Nil means the
+    /// tab's own page.
     func route(_ action: BrowserAction, _ args: JSONValue) -> BrowserTab? {
         let who = args["subagent"]?.string ?? ""
         guard let owner else {
@@ -99,8 +101,8 @@ final class PageSet {
     /// The row: a pill for each page, who drives it and what it did last, the one on show filled.
     private func showRow() {
         host.switchHeight.isActive = pages.isEmpty
-        // The agent's own page ("") is one of `pages` when a subagent drove the tab first: keyed by its owner, the
-        // tab's own pill isn't the agent's.
+        // The agent's own page ("") is among `pages` when a subagent drove the tab first: since pages are keyed by
+        // their owner, the tab's own pill isn't the agent's.
         let all = [(owner ?? "", host, true)] + pages.map { ($0.who, $0.tab, false) }
         for (index, (who, page, own)) in all.enumerated() {
             let pill = pills[who] ?? makePill(who, own: own)

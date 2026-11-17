@@ -45,7 +45,7 @@ extension Builtins {
                 cmd("markdown.cycleView", "Markdown: Source, Split, Preview", "shift+cmd+v") {
                     markdown(app)?.cycleMode()
                 },
-                // The formatting bar's, from the keyboard (as on GitHub); on only in a Markdown file's editor.
+                // The formatting bar's commands, from the keyboard (as on GitHub); on only in a Markdown file's editor.
                 cmd("markdown.bold", "Bold", "cmd+b") { markdown(app)?.bold() },
                 cmd("markdown.italic", "Italic", "cmd+i") { markdown(app)?.italic() },
                 cmd("markdown.code", "Code") { markdown(app)?.code() },
@@ -152,8 +152,10 @@ extension Builtins {
                 cmd("editor.copyWebLink", "Copy Web Link") {
                     if let tab = fileTab(app) { copyWebLink(app, tab.path, lines: tab.selectedLines) }
                 },
-                // The language's commands (`contributes.languages`): format the file (running it and its tests is Run's).
-                // ⌃⇧I as in Xcode: an Option-only key like VS Code's ⇧⌥F never reaches the menu from a text view (it types Ï).
+                // The language's commands (`contributes.languages`): format the file (running it and its tests belongs
+                // to Run).
+                // ⌃⇧I, as in Xcode: an Option-only key like VS Code's ⇧⌥F never reaches the menu from a text view (it
+                // types Ï).
                 cmd("editor.format", "Format Document", "ctrl+shift+i") {
                     if let tab = fileTab(app) { Task { await tab.format() } }
                 }

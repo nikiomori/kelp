@@ -3,9 +3,9 @@ import Foundation
 import KelpKit
 import Markdown
 
-/// A pull request's or an issue's page in its tab: title, who and when, what stands in the way, the description in
-/// Markdown and the conversation; beside it a PR's checks and files. Other people's words go through `MarkdownHTML`,
-/// which escapes raw HTML.
+/// A pull request's or an issue's page in its tab: the title, who opened it and when, what stands in the way, the
+/// description in Markdown and the conversation, and beside them a PR's checks and files. Other people's words go
+/// through `MarkdownHTML`, which escapes raw HTML.
 @MainActor
 enum ForgePage {
     static func pr(_ view: GitHub.PRView, checks: [GitHub.Check]?, block: String?) -> String {

@@ -94,7 +94,8 @@ final class FileRules {
         bar?.show(indent: spaces ? .spaces(size) : .tabs)
     }
 
-    /// From the file's folder up to the workspace's, or a `root = true`: the nearer one's say stands.
+    /// The .editorconfig files from the file's folder up to the workspace's folder, or up to one with `root = true`;
+    /// the nearer file's settings win.
     private func readConfig() async {
         var folder = (path as NSString).deletingLastPathComponent, found = EditorRules()
         while Paths.inside(folder, root) {

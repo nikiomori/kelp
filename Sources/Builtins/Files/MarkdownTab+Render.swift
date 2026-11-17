@@ -61,7 +61,7 @@ extension MarkdownTab {
                 ?? (dark ? .dark : .light)
             let canvasView = CanvasPage.View(
                 themes: isDashboard ? (dark ? .dark : .light) : themes, writer: canvasWriter, dashboard: isDashboard)
-            // An agent's Markdown page (a doc, slides) takes marks, and a doc shows what its agent's last turn changed.
+            // An agent's Markdown page (a doc, slides) takes marks, and a doc shows what the agent's last turn changed.
             let agents = artifactBar != nil && (kind == .markdown || kind == .slides)
             let markLabels = pageMarkLabels,
                 slideLabels = ["of": String(localized: "of"), "escEnds": canvasLabels.escEnds]
@@ -151,8 +151,9 @@ extension MarkdownTab {
         }
     }
 
-    /// The page shown takes `swap`'s body in place, its diagrams and formulas drawn again: a new page for each pause in the
-    /// typing read mermaid's and KaTeX's scripts again and lost the place. False when the page has no body to replace.
+    /// Replaces the shown page's body with `swap`'s and draws its diagrams and formulas again: loading a new page at
+    /// each pause in the typing read mermaid's and KaTeX's scripts again and lost the place. False when the page has no
+    /// body to replace.
     func replace(_ swap: Swap) async -> Bool {
         let place = currentMode == "split" ? "kelpToLine(\(editor.cursor?.line ?? 1));" : ""
         let js = """

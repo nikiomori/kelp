@@ -112,7 +112,7 @@ extension SourceControlController {
         if message == nil { empty.show(nil) }
         guard let message else { return }
         let notRepo = message.contains("not a git repository")
-        let away = message.hasPrefix("Can't reach ")   // a remote project's host (the daemon's words)
+        let away = message.hasPrefix("Can't reach ")   // the daemon's words for an unreachable remote host
         // The command that makes git work again, selectable.
         empty.showError(
             notRepo

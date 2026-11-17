@@ -40,16 +40,16 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
     let table = GridTable()
     private(set) var columns: [String] = []
     private(set) var rows: [[String?]] = []
-    /// The table's columns by name, when the rows are a table's: types and keys for the header.
+    /// The table's columns by name, when the rows come from a table: their types and keys, for the header.
     private(set) var info: [String: DatabaseSchema.Column] = [:]
     /// Columns of numbers (by index): they, and their headers, stand right.
     private var numeric: Set<Int> = []
     var edits = DatabaseEdits()
     var editable = false
-    /// What the change did to these rows, when they're a change's (a run's): an update's cells show what they were, a
-    /// delete's rows are struck out in red, an insert's are green.
+    /// What a change did to these rows, when they are the rows of a run that changed something: an update's cells show
+    /// what they were, a delete's rows are struck out in red, and an insert's rows are green.
     var change: RowChange?
-    /// Rows an agent's last change touched (by index), and that agent's colour.
+    /// The rows (by index) that an agent's last change touched, and that agent's colour.
     var marked = Set<Int>()
     var markColor = NSColor.systemOrange
     /// The order asked for: a column and whether it goes up.
@@ -241,12 +241,12 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         return cell
     }
 
-    /// Scrolled-away cells come back for the rows scrolled to (`makeView`): a plain value's, and a foreign key's with
-    /// its arrow.
+    /// The identifiers of reused cells: `makeView` hands a scrolled-away cell back for a row scrolled into view. One is
+    /// for a plain value, the other for a foreign key's value with its arrow.
     static let cellId = NSUserInterfaceItemIdentifier("grid.cell")
     static let keyCellId = NSUserInterfaceItemIdentifier("grid.key")
 
-    /// `field` as a new cell's, whatever row it showed before: no colour, mark, tooltip or editing of that row's left.
+    /// Sets `field` up as a new cell, so nothing of the row it showed before (colour, mark, tooltip, editing) is left.
     private func reused(_ field: NSTextField?) -> NSTextField {
         guard let field else {
             let made = NSTextField(labelWithString: "")

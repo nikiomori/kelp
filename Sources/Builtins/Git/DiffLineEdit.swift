@@ -5,8 +5,9 @@ import EditorKit
 import KelpKit
 import WorkbenchKit
 
-/// Fixing a typo seen in a review: double-click a line of the working tree's diff, type, ↩. It's written over the file as
-/// shown, so nothing an agent changed since is lost. Anything else in a diff (a commit's, a branch's) opens the file.
+/// Fixes a typo seen in a review: double-click a line of the working tree's diff, type, and press ↩. The edit is
+/// written over the file as it was shown, so nothing an agent changed since is lost. In any other diff (a commit's, a
+/// branch's), a double-click opens the file.
 extension DiffViewController: NSTextFieldDelegate {
     private var showsWorkingTree: Bool { sourcePicked == .uncommitted || sourcePicked == .unstaged }
 

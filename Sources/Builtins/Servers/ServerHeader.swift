@@ -3,9 +3,10 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The first row of a server's card, one line as tall as a project's: the machine, a word only when something's wrong,
-/// and at the right CPU, memory and disk, each a symbol and its percent (orange from 90), the rest in the tooltip. A click
-/// opens the server's tab; under the pointer its icon turns into the chevron that folds its projects away, as a project's.
+/// The first row of a server's card, one line as tall as a project's row: the machine, a word only when something is
+/// wrong, and on the right CPU, memory and disk, each as a symbol and its percent (orange from 90), with the rest in
+/// the tooltip. A click opens the server's tab; under the pointer its icon turns into the chevron that folds its
+/// projects away, as a project's icon does.
 @MainActor
 final class ServerHeader: NSTableCellView, SidebarRow {
     let host: String
@@ -232,7 +233,7 @@ enum ServerHeaders {
         menu.addItem(.separator())
     }
 
-    /// A remote project's: its server's tab and htop there.
+    /// The menu items for a remote project: its server's tab, and htop on that server.
     static func serverItems(_ menu: NSMenu, _ host: String, _ app: AppModel) {
         menu.add(String(localized: "Open Server \(host)")) { app.workbench.openServer(host) }
         menu.add(String(localized: "Open htop on \(host)")) { ServerActions.openHtop(app, host) }

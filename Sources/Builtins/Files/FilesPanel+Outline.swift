@@ -99,8 +99,8 @@ extension FilesPanel {
     }
 }
 
-/// A file's or folder's row: its icon, its name and git's letter (a dot on a folder holding a change). Made once; `show`
-/// sets all it shows, as the outline hands back the rows it set aside.
+/// The row for a file or folder: its icon, its name and git's status letter (a dot on a folder that holds a change). It
+/// is made once, and `show` sets everything it shows, because the outline hands back the rows it set aside.
 final class FileRowCell: NSTableCellView {
     static let id = NSUserInterfaceItemIdentifier("files.row")
     private let name = NSTextField(labelWithString: ""), icon = NSImageView(), badge = NSTextField(labelWithString: "")

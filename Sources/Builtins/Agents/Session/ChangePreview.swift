@@ -3,8 +3,8 @@ import Core
 import DesignKit
 
 /// The first rows of a change, in the card that asks for it: an update's key and the columns it changes, each value as
-/// it was and as it becomes; a delete's rows struck out in red, an insert's in green, by their first columns. Several
-/// statements asked as one: a line each, with the rows it would change.
+/// it was and as it becomes; a delete's rows struck out in red and an insert's in green, by their first columns.
+/// Several statements asked for as one get a line each, with the rows each would change.
 @MainActor
 final class ChangePreview: NSView {
     /// Rows and columns it shows at most: the rest are a click away, in the database's tab.
@@ -82,8 +82,8 @@ final class ChangePreview: NSView {
         }
     }
 
-    /// The key's columns first, then the ones an update changes, or the first of a delete's and an insert's. None for
-    /// an update whose rows as they were aren't known: there's nothing to compare.
+    /// The key columns first, then the columns an update changes, or the first columns of a delete or an insert. None
+    /// for an update whose old rows aren't known, since there is nothing to compare.
     static func columns(of result: QueryResult) -> [Int] {
         guard let change = result.change else { return [] }
         let key = change.key.compactMap(result.columns.firstIndex(of:))

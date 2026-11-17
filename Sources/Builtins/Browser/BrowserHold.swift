@@ -44,8 +44,9 @@ extension BrowserTab {
         }
     }
 
-    /// `kelp browser ask`: with `text`, the page is the user's and its strip asks them; with `ended`, the question is
-    /// over, and the page the agent's again when the user said Done (`allow`). The answer is where the page is.
+    /// `kelp browser ask`: with `text`, the page goes to the user and its strip asks them; with `ended`, the question
+    /// is over, and the page goes back to the agent when the user said Done (`allow`). The answer is wherever the page
+    /// is now.
     func ask(_ args: JSONValue) async throws -> JSONValue {
         guard let drive else { throw RPCError.invalidParams("That tab shows no page of an agent's.") }
         if let text = args["text"]?.string {

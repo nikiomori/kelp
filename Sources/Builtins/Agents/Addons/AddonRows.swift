@@ -3,9 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The Skills & MCP panel's rows, drawn: a section's title with its count, a group's line (chevron, name, where it's
-/// from, count and weight), an item (its kind's symbol, name, the agents that get it when that says something, where
-/// it's from, what it costs), and what's wrong with one.
+/// Draws the Skills & MCP panel's rows: a section's title with its count, a group's line (chevron, name, where it is
+/// from, count and weight), an item (its kind's symbol, its name, the agents that get it when that is worth saying,
+/// where it is from, what it costs), and what is wrong with an item.
 @MainActor
 struct AddonRows {
     let app: AppModel
@@ -41,8 +41,8 @@ struct AddonRows {
         return line(views, inset: Metrics.inset)
     }
 
-    /// `off`: the group's own switch (a plugin's), nil for a group whose items switch one by one. A plugin's line sits
-    /// in the Plugins group, one step in.
+    /// `off` is the group's own switch (a plugin's); nil for a group whose items switch one by one. A plugin's line
+    /// sits in the Plugins group, one step in.
     func group(_ addonGroup: AddonGroup, count: Int, tokens: Int?, open: Bool, off: Bool?) -> NSView {
         let chevron = NSImageView()
         // A plugin that's off has nothing to unfold: its name still starts where the others do.
@@ -64,11 +64,12 @@ struct AddonRows {
         return row
     }
 
-    /// `width`: the row's, so the name gets its room first and what's beside it only what's left. `parent`: the group
-    /// it sits under, which already says where it's from (an agent's group: whose it is). Under the pointer a row with a
-    /// file shows a button that opens it.
+    /// `width` is the row's width, so the name gets its room first and what sits beside it gets only what is left.
+    /// `parent` is the group the row sits under, which already says where the item is from (for an agent's group, whose
+    /// it is). Under the pointer, a row with a file shows a button that opens it.
     func item(_ addon: Addon, depth: Int, width: CGFloat, parent: AddonGroup? = nil) -> NSView {
-        // A plugin's skill sits under its plugin's line: its name there is enough ("sales:call-prep" → "call-prep").
+        // A plugin's skill sits under its plugin's line, so its bare name is enough there ("sales:call-prep" →
+        // "call-prep").
         let title = addon.source == .plugin ? addon.name.split(separator: ":").last.map(String.init) : nil
         let name = NSTextField.label(
             title ?? addon.name, font: .ui(TextSize.row), color: addon.off ? .secondaryLabelColor : .labelColor)
@@ -168,8 +169,9 @@ struct AddonRows {
         return row
     }
 
-    /// Needs a Look: the project's instruction files, in one of three states: what they cost every chat and the worst
-    /// of what's wrong (Tidy Up); an agent shortening them (Show Chat); what it saved (Review, Undo).
+    /// The Needs a Look row for the project's instruction files, in one of three states: what they cost every chat and
+    /// the worst of what is wrong with them (Tidy Up); an agent shortening them (Show Chat); or what the agent saved
+    /// (Review, Undo).
     func instructions(_ files: [Addon], tidied: Tidied?, working: Bool) -> NSView {
         let name = String(localized: "Instructions")
         if working {

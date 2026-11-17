@@ -47,7 +47,7 @@ extension Runs {
         return result
     }
 
-    /// Runs a choice and keeps it as the project's: false when it's gone (the file no longer has it).
+    /// Runs a choice and keeps it as the project's choice; false when the choice is gone (the file no longer has it).
     @discardableResult func start(choice: String, in wid: String) async -> Bool {
         if choice.hasPrefix("kelp:") {
             let name = String(choice.dropFirst(5))
@@ -132,7 +132,8 @@ extension Runs {
             await load(wid)
             if let ports = await app.quiet(PortsList(worktreeId: wid)) { adopt(ports, wid) }
             let runMenu = menu(wid)
-            // 4 pt under the chip, as the title bar's other menus; without the chip (focus mode), near the window's top.
+            // 4 pt under the chip, as the title bar's other menus are; without the chip (in focus mode), near the
+            // window's top.
             if let below = button ?? anchor, below.window != nil {
                 runMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: below.bounds.height + 4), in: below)
             } else if let content = app.workbench.windowContent {
@@ -143,8 +144,8 @@ extension Runs {
         }
     }
 
-    /// The ports the workspace's sessions listen on: a run's page found again (it printed it before Kelp restarted), and
-    /// the servers an agent or a terminal started, for the menu's first section.
+    /// The ports the workspace's sessions listen on, for the menu's first section: a run's page found again (when it
+    /// printed its address before Kelp restarted), and the servers an agent or a terminal started.
     private func adopt(_ ports: [PortsList.Port], _ wid: String) {
         state.ports[wid] = ports
         for port in ports {
@@ -170,7 +171,8 @@ extension Runs {
         var purpose = Purpose.other
     }
 
-    /// Every command the menu offers: .kelp.yaml's, then the files', its own folder's first; what runs, and what ⌘R runs.
+    /// Every command the menu offers: .kelp.yaml's first, then those from the project's files (its own folder's first);
+    /// and which of them runs now, and what ⌘R runs.
     func rows(_ wid: String) -> [Row] {
         let mark = current(wid)?.choice
         let live = Dictionary(

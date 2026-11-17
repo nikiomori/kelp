@@ -61,7 +61,8 @@ struct LimitForecast {
         return trend.last.percent + max(0, trend.rate) * resetAt.timeIntervalSince(trend.last.at)
     }
 
-    /// The time to say "full in …" for: it fills before it resets (at `resetAt`), within a day.
+    /// How long until the limit is full, for saying "full in …": only when it fills before it resets (at `resetAt`) and
+    /// within a day.
     func warning(_ key: String, resetAt: Date?, window: TimeInterval? = nil, now: Date = Date()) -> TimeInterval? {
         guard let resetAt, let eta = untilFull(key, resetAt: resetAt, window: window, now: now), eta > 0,
             eta < 24 * 3600,

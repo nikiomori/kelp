@@ -3,9 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The database tab's left column, as TablePlus' and TablePro's: Items (Functions, Views and Tables of the schema
-/// picked at its foot, each section folding, names in the editor's font), Queries (saved ones, New Query), History
-/// (what agents and the user ran here). A search over it finds by name, and a table by its columns too.
+/// The database tab's left column, like TablePlus' and TablePro's: Items (the Functions, Views and Tables of the schema
+/// picked at its foot; each section folds, and names use the editor's font), Queries (the saved ones, and New Query),
+/// and History (what agents and the user ran here). Its search finds items by name, and a table by its columns too.
 @MainActor
 final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate {
     enum Row {

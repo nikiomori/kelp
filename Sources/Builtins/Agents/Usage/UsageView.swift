@@ -4,12 +4,13 @@ import DesignKit
 import KelpKit
 import SwiftUI
 
-/// How much of the agents' plans is used: the fullest limit of all (or each agent's fullest, by setting) with the agent's
-/// icon and name over a bar the width of the row, its percentage, the time it resets if that's within 12 hours, and a tick
-/// where an even pace would have the bar by now. On hover, that agent's limits each with its bar and reset; with one row
-/// shown, every agent's.
-/// The numbers come from the agents' own /usage screens (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor — the daemon reads them) and
-/// Codex's app server (or its session logs, when newer); agents that don't report limits aren't listed.
+/// How much of the agents' plans is used. It shows the fullest limit of all (or each agent's fullest, by a setting)
+/// with the agent's icon and name, over a bar the width of the row, with its percentage, the time it resets if that is
+/// within 12 hours, and a tick where an even pace would have the bar by now. On hover it shows that agent's limits,
+/// each with its bar and reset; with one row shown, every agent's limits.
+/// The numbers come from the agents' own /usage screens (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor; the
+/// daemon reads them) and from Codex's app server (or its session logs, when they are newer). Agents that don't report
+/// limits aren't listed.
 struct UsageView: View {
     struct Line: Equatable {   // used: 0...1
         var label: String
@@ -103,7 +104,7 @@ struct UsageView: View {
             ForEach(shown) { row in
                 let main = row.main ?? Line(label: "", used: 0)
                 HStack(spacing: Metrics.gapWide) {
-                    // The agent's icon over both lines, in colour as in the sidebar's rows above.
+                    // The agent's icon beside both lines, in colour, as in the sidebar's rows above.
                     if let icon = app.catalog.icon(row.id) { Image(nsImage: icon).frame(width: 16, height: 16) }
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: Metrics.gap) {
@@ -322,9 +323,9 @@ final class UsageFooter: NSHostingView<UsageView> {
     }
 }
 
-/// The sidebar's foot as it is, with this Mac's real readings: the rows below change it as they're switched. Without the
-/// line over it, which is the sidebar's edge, not the foot's; as wide as the row, and on the card as its rows are: a grey
-/// plate of its own read as a box inside the box.
+/// The sidebar's foot as it really is, with this Mac's readings; the rows below change it as they are switched. It
+/// leaves out the line above it, which belongs to the sidebar's edge rather than the foot. It is as wide as the row and
+/// sits on the card as the rows do: a grey plate of its own read as a box inside the box.
 struct LimitsSample: View {
     @Environment(AppModel.self) private var app
     var body: some View {

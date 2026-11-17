@@ -41,7 +41,7 @@ enum ForgeRows {
         return row
     }
 
-    /// The glyph's colour, GitHub's: open green, draft grey, merged purple, closed red.
+    /// The glyph's colour, as GitHub colours it: open green, draft grey, merged purple, closed red.
     static func color(state: String, draft: Bool = false) -> NSColor {
         if draft { return .secondaryLabelColor }
         switch state {
@@ -87,7 +87,8 @@ enum ForgeRows {
             title: issue.title, meta: joined(parts.map { ($0, nil) }), branch: working, unseen: false)
     }
 
-    /// "#49 · ada · 3d · conflict": the parts with a dot between, each in its colour (none: the caption's grey).
+    /// "#49 · ada · 3d · conflict": the parts with a dot between them, each in its colour (without one, the caption's
+    /// grey).
     private static func joined(_ parts: [(String, NSColor?)]) -> NSAttributedString {
         let words = NSMutableAttributedString()
         for (index, (text, color)) in parts.enumerated() {
@@ -98,7 +99,7 @@ enum ForgeRows {
         return words
     }
 
-    /// The title's lines at `width` (one or two), for the row's height.
+    /// How many lines the title takes at `width` (one or two), for the row's height.
     static func height(title: String, width: CGFloat) -> CGFloat {
         sizer.stringValue = title
         let line = TextSize.of(16)

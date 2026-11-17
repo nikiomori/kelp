@@ -98,7 +98,7 @@ extension SourceControlController {
     /// The rows in order: every node with children is open (folding is `collapsed`'s).
     private static func flat(_ nodes: [Node]) -> [Node] { nodes.flatMap { [$0] + flat($0.children) } }
 
-    /// A rebuild's nodes: the last one's by key, kept, and the ones whose rows are to be drawn again.
+    /// A rebuild's nodes: the previous rebuild's nodes by key, kept, and the ones whose rows have to be drawn again.
     struct Rows {
         private let last: [String: Node]
         private(set) var kept: [String: Node] = [:], redrawn: [Node] = []

@@ -3,9 +3,9 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The filter over a table's rows (⇧⌘F), as TablePro's: rows of column ▾ condition ▾ value, each with a box that turns
-/// it on, + and −; Match all or any; Raw SQL in the column's list makes its row a WHERE of its own. Apply (↩) reads
-/// the rows again with it.
+/// The filter over a table's rows (⇧⌘F), like TablePro's: rows of column ▾ condition ▾ value, each with a box that
+/// turns it on, + and −; Match all or any. Choosing Raw SQL in the column list turns that row into a WHERE clause of
+/// its own. Apply (↩) reads the rows again with the filter.
 @MainActor
 final class DatabaseFilters: NSObject, NSTextFieldDelegate {
     struct Rule: Equatable {

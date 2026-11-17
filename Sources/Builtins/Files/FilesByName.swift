@@ -131,7 +131,7 @@ extension FilesPanel {
         replaceRow.isHidden = true
     }
 
-    /// The field's magnifier chooses, as Finder's and Mail's do; the choice stays.
+    /// The field's magnifier menu chooses what to search, as in Finder and Mail; the choice is kept.
     func setUpSearchMode() {
         let menu = NSMenu()
         for (title, name) in [(String(localized: "File Names"), true), (String(localized: "File Contents"), false)] {

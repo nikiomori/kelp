@@ -59,8 +59,8 @@ extension BrowserTab {
     static let watchJS = #"""
         (() => { if (window.__kelpWatch) return; window.__kelpWatch = true;
         const post = d => { try { window.webkit.messageHandlers.kelpWatch.postMessage(d); } catch (_) {} };
-        // An error as its kind and message (`TypeError: …`), then its stack without nameless frames (a lone "@": a timer's
-        // or eval's), none when that's all it had.
+        // An error as its kind and message (`TypeError: …`), then its stack without nameless frames (a lone "@" comes
+        // from a timer or eval), and no stack when that is all it had.
         const stack = e => String(e.stack || '').split('\n').filter(l => l.trim() && l.trim() !== '@').join('\n');
         const str = v => { if (typeof v === 'string') return v; if (v instanceof Error) return String(v) + (stack(v) ? '\n' + stack(v) : '');
           try { return JSON.stringify(v) ?? String(v); } catch (_) { return String(v); } };
@@ -129,7 +129,7 @@ final class AgentDrive {
     var userAt = Date.distantPast
     private var waiters: [UUID: CheckedContinuation<Bool, Never>] = [:]
 
-    /// Whether the user handed the page back within `seconds` (at once when it's the agent's).
+    /// Whether the user handed the page back within `seconds` (true at once when the page is the agent's own).
     func handedBack(within seconds: TimeInterval) async -> Bool {
         guard takenOver else { return true }
         let id = UUID()

@@ -43,9 +43,10 @@ extension DiffViewController {
         if !hide { positioned = false }   // at its width again on the next layout
     }
 
-    /// Whether the hunks shown are the staged diff's (Unstage) or the unstaged one's (Stage); nil where they're neither
-    /// and git can't take them as they are. The uncommitted diff (against HEAD) is the unstaged one's for a file with
-    /// nothing staged, and the staged one's for a file with nothing left unstaged.
+    /// Whether the hunks shown come from the staged diff (so they offer Unstage) or the unstaged diff (so they offer
+    /// Stage); nil where they come from neither and git can't take them as they are. The uncommitted diff (against
+    /// HEAD) counts as the unstaged diff for a file with nothing staged, and as the staged diff for a file with nothing
+    /// left unstaged.
     func hunksStaged(_ file: Int) -> Bool? {
         if hidesSpace { return nil }
         if let single {
@@ -65,7 +66,8 @@ extension DiffViewController {
         }
     }
 
-    /// One file of the review in a tab of its own, which has room for a whole file's changes; nil for the agent's last turn.
+    /// One file of the review, in a tab of its own that has room for the whole file's changes; nil for the agent's last
+    /// turn.
     private func alone(_ path: String) -> String? {
         guard single == nil, let wid = worktreeId else { return nil }
         switch sourcePicked {
@@ -134,8 +136,8 @@ extension DiffViewController {
         }
     }
 
-    /// A hunk's header spans both sides, its buttons at the row's end, rather than ending halfway in an empty strip.
-    /// A hunk's header and a file's band run across the row.
+    /// A hunk's header spans both sides, with its buttons at the row's end, rather than ending halfway in an empty
+    /// strip. A hunk's header and a file's band run across the whole row.
     func tableView(_ t: NSTableView, isGroupRow row: Int) -> Bool {
         guard t === table, rows.indices.contains(row) else { return false }
         switch rows[row] {

@@ -6,8 +6,8 @@ import KelpKit
 /// A page's kept versions in its bar: back and forward through them, one shown in the preview and restored, the
 /// menu that lists them, and the version a doc's changes are counted from.
 extension ArtifactBar {
-    /// A doc's changes count from the version its agent's last turn started from: the one before the last kept, or
-    /// the last while a turn is writing the file (it differs from it).
+    /// The version a doc's changes are counted from, the one its agent's last turn started from: the version before the
+    /// last kept one, or the last kept one while a turn is writing the file (the file then differs from it).
     func followBaseline(versions: [ArtifactVersion], live: Bool) {
         let n = (live ? versions.last : versions.dropLast().last)?.n
         guard n != baselineN else { return }

@@ -60,7 +60,7 @@ enum Machines {
         }
     }
 
-    /// A machine from a file of the user's: macOS from its restore image, Linux from a cloud image's raw disk.
+    /// Makes a machine from a file of the user's: macOS from its restore image, Linux from a cloud image's raw disk.
     static func machineFromFile(_ app: AppModel) {
         Task {
             let panel = NSOpenPanel()
@@ -72,8 +72,8 @@ enum Machines {
         }
     }
 
-    /// Makes one with the next free name ("debian", "debian2"…); it shows in the sidebar at once, and how far it got.
-    /// macOS asks first, unless it's from a file of the user's: it downloads over 20 GB.
+    /// Makes a machine with the next free name ("debian", "debian2"…). It shows in the sidebar at once, with how far it
+    /// got. macOS asks first, since it downloads over 20 GB, unless it is made from a file of the user's.
     static func newMachine(_ app: AppModel, _ image: String, file: String? = nil) {
         Task {
             if image == "macos", file == nil {
@@ -106,8 +106,8 @@ enum Machines {
         app.workbench.open(TabURI.machine(name), workspace: app.workbench.workspaceId ?? app.worktrees.first?.id)
     }
 
-    /// A terminal in the machine (nil `command`: its shell), in this screen's project folder, shared at the same path; in
-    /// its home folder when that folder can't be shared or is a remote project's.
+    /// Opens a terminal in the machine (with nil `command`, its shell), in this screen's project folder, which is
+    /// shared at the same path; or in its home folder when that folder can't be shared or belongs to a remote project.
     static func runInMachine(_ app: AppModel, _ name: String, command: String? = nil) {
         let folder = app.workbench.workspaceId.flatMap(app.worktree)?.path
         // A remote project's folder is on its host, not here to share: the machine's home, run from this Mac (`kelp`
@@ -223,7 +223,8 @@ enum Machines {
     }
 
     /// The machine's second line: what it takes of the Mac (CPU and memory while it runs, else its disk) and what runs.
-    /// `short`, the row's: a sleeping one's disk alone, how fast it wakes left to the tooltip (it didn't fit the row).
+    /// With `short`, for the row: a sleeping machine shows its disk alone, and how fast it wakes is left to the tooltip
+    /// (it didn't fit the row).
     static func machineLine(_ app: AppModel, _ info: VMInfo, short: Bool = false) -> String {
         switch info.state {
         case .creating: return stepText(info)

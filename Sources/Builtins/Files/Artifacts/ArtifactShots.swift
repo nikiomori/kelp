@@ -50,9 +50,9 @@ final class ArtifactShots: NSObject, WKNavigationDelegate {
         } catch { return nil }
     }
 
-    /// A Design canvas's board (the element in its `x-dc` past the `helmet`: 880 × 150, a phone's 390 × 844), all of
-    /// it, for the card to fit whole; a page is taken at its top. Measured in Kelp's own world: the page's scripts stay
-    /// off.
+    /// A Design canvas's board (the element in its `x-dc` past the `helmet`: 880 × 150, or a phone's 390 × 844), taken
+    /// whole so the card can fit all of it; a page is taken at its top. It is measured in Kelp's own world, so the
+    /// page's scripts stay off.
     private func boardRect() async -> CGRect {
         let top = CGRect(origin: .zero, size: Self.page)
         let found: Any?

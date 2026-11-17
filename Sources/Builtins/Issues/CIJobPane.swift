@@ -169,7 +169,7 @@ final class CIJobPane: NSObject {
 
     private func rerun() { if let shown { actions?.rerunFailed(shown.run) } }
 
-    /// The project's copy of the file, which can differ from the commit the run tested: the line is the run's.
+    /// The project's copy of the file, which can differ from the commit the run tested; the line number is the run's.
     private func open(_ failure: CIRuns.Failure) {
         guard let file = failure.file, let root = app.worktree(worktree)?.path else { return }
         app.workbench.open(

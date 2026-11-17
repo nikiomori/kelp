@@ -40,7 +40,7 @@ enum Snippets {
         }
     }
 
-    /// The project's, then the user's. No file is the usual case; one that can't be read says so.
+    /// The project's snippets, then the user's. Having no file is the usual case; a file that can't be read says so.
     @MainActor static func load(app: AppModel, language: String, root: String, path: String) async -> [CodeEditor
         .Completion]
     {

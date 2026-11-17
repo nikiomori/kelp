@@ -66,7 +66,7 @@ final class FileNode: NSObject, @unchecked Sendable {
         return found
     }
 
-    /// Where it sorts among its folder's: folders first, then by name in any case.
+    /// Where the node sorts among its folder's nodes: folders first, then by name, ignoring case.
     private var order: (Int, String) { (children != nil ? 0 : 1, name.lowercased()) }
 
     // Keys made once per node: lowercasing inside the comparator did it n log n times (100k files in a big repo).

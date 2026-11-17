@@ -183,8 +183,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
             chat.map(app.catalog.displayName) ?? (newChat ? String(localized: "What a new chat gets") : "")
     }
 
-    /// The answer for `key`. A failed read again of the same list keeps it, under a line that says so; another chat's
-    /// crossfades in; the same one's lights what changed.
+    /// Shows the answer for `key`. When reading the same list again fails, the old list stays, under a line that says
+    /// so; another chat's list crossfades in; the same chat's list lights what changed.
     private func show(_ value: Addons?, error: String?, chat: Session?, key: String?) {
         endBusy()
         pending = [:]

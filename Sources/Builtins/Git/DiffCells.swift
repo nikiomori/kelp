@@ -338,7 +338,7 @@ extension DiffViewController {
         where_.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         stack.addArrangedSubview(where_)
         if let staged = hunksStaged(f) {
-            // Named buttons at the hunk's end, as in Xcode's and GitHub Desktop's reviews.
+            // Buttons with names at the end of the hunk, as in Xcode's and GitHub Desktop's reviews.
             func button(_ title: String, _ selector: Selector) -> NSButton {
                 let hunkButton = TextButton(title, target: self, action: selector)
                 hunkButton.tag = f * 10000 + h

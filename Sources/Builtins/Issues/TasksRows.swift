@@ -1,8 +1,8 @@
 import Core
 import KelpKit
 
-/// What the Tasks panel lists: a source's rows (PRs, issues, a tracker's tasks, a board's items), the sources in the
-/// menu's order with what each says when it's empty or can't be read, and the lines the table shows.
+/// What the Tasks panel lists: the rows of a source (PRs, issues, a tracker's tasks, a board's items), the sources in
+/// the menu's order with what each says when it is empty or can't be read, and the lines the table shows.
 extension TasksViewController {
     /// What the selected source lists.
     enum Row {
@@ -65,7 +65,7 @@ extension TasksViewController {
     enum Line {
         case heading(String), row(Row)
     }
-    /// A PR's or an issue's number, which names it across a refresh.
+    /// A PR's or issue's number, which identifies it across a refresh.
     static func number(_ row: Row) -> Int? {
         switch row {
         case .pr(let pr): pr.number

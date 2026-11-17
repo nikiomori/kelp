@@ -155,7 +155,7 @@ final class StripButton: PointerControl {
     var onMenu: (() -> NSMenu)?
     var onHover: ((Bool) -> Void)?
     private let icon = NSImageView(), mark = StatusMark(size: 12), label = NSTextField(labelWithString: "")
-    /// Its branch's CI, in a bite out of the tile's other right corner.
+    /// The CI mark of the agent's branch, in a bite out of the tile's other right corner.
     private var ciMark: NSView?, ciShown: String?
     private let glow = EdgeGlow(radius: StripButton.height / 2, spread: 2, strength: 0.35)
     private var trailing: NSLayoutConstraint?
@@ -222,8 +222,8 @@ final class StripButton: PointerControl {
         guard shown?.item != item || shown?.open != open else { return }
         shown = (item, open)
         let status = StripModel.status(item.cell)
-        // Every state has its mark in the tile's bite; working's is the spinning arc, so a strip of agents at work reads as
-        // work going on, not as a row of Dock icons.
+        // Every state has its mark in the tile's bite; working's mark is the spinning arc, so a strip of working agents
+        // reads as work going on, not as a row of Dock icons.
         mark.status = status
         if ciShown != item.ci?.key { show(ci: item.ci) }
         label.isHidden = !open

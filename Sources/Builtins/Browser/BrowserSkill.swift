@@ -2,8 +2,8 @@ import Core
 import KelpKit
 
 extension Builtins {
-    /// `kelp browser`, for agents. Always written: which chats get it is the daemon's choice (Settings' In Web Projects /
-    /// Always / Never, and each project's).
+    /// The `kelp browser` skill for agents. It is always written; which chats get it is the daemon's decision
+    /// (Settings' In Web Projects / Always / Never, and each project's own choice).
     static let browserSkill = SkillSpec(
         name: "kelp-browser",
         description:

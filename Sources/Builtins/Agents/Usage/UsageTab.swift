@@ -32,7 +32,7 @@ struct UsageReportView: View {
     @State private var loading = true
     @State private var failed: String?
     @State private var showSources = false
-    /// The last year's days, for the months (read once a project, after the span's).
+    /// The days of the last year, for the months view (read once per project, after the span's days).
     @State private var year: [UsageAgents.Day] = []
     @State private var yearFor: String?
 
@@ -253,7 +253,7 @@ struct UsageReportView: View {
         }
     }
 
-    /// The span's days, the first to today's.
+    /// The days of the span, from the first day to today.
     func span(_ usage: UsageAgents.Result) -> ClosedRange<Date> {
         let start = Calendar.current.startOfDay(for: Date(timeIntervalSince1970: usage.since))
         let end =
@@ -261,8 +261,8 @@ struct UsageReportView: View {
         return start...max(start, end)
     }
 
-    /// Eight rows with their share of the first, then the rest on request. A model's dot is its agent's colour; a project
-    /// narrows the page to it (again: back to all).
+    /// Eight rows with their share of the first row, then the rest on request. A model's dot has its agent's colour;
+    /// clicking a project narrows the page to it (clicking again goes back to all).
     private func groups(_ title: String, _ rows: [UsageAgents.Group], all: Binding<Bool>, model: Bool) -> some View {
         let top = rows.first.map { $0.cost > 0 ? $0.cost : Double($0.tokens) } ?? 1
         return VStack(alignment: .leading, spacing: 6) {

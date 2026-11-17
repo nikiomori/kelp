@@ -3,7 +3,7 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The list's rows drawn: a PR's or an issue's from `ForgeRows`, a tracker's task as a title over a line.
+/// Draws the list's rows: a PR or an issue from `ForgeRows`, and a tracker's task as a title over a line.
 extension TasksViewController {
     func numberOfRows(in tableView: NSTableView) -> Int { lines.count }
     func tableView(_ tableView: NSTableView, heightOfRow index: Int) -> CGFloat {
@@ -34,7 +34,7 @@ extension TasksViewController {
         }
     }
 
-    /// A tracker's task, a project's item: its title and a line under it.
+    /// The row for a tracker's task or a project's item: its title, with a line under it.
     func trackerCell(_ row: Row) -> NSView {
         let (title, sub): (String, String) =
             switch row {

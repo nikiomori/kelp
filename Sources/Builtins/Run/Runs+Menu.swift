@@ -6,9 +6,10 @@ import KelpKit
 import WorkbenchKit
 
 extension Runs {
-    /// The Run menu: what's already running that it didn't start, then the project's commands a group a program ("make",
-    /// "npm · web"), each by what it does, a line each: its purpose's symbol, its name, the program in grey; more than three
-    /// that say nothing of their purpose go under More, by file. A description and the whole command are the tip.
+    /// The Run menu: first what is already running that the menu didn't start, then the project's commands, grouped by
+    /// program ("make", "npm · web") and each named by what it does, one line each: its purpose's symbol, its name, and
+    /// the program in grey. When more than three commands say nothing about their purpose, they go under More, by file.
+    /// A command's description and its whole command line are its tooltip.
     func menu(_ wid: String) -> NSMenu {
         let runMenu = NSMenu()
         // Servers this menu didn't start (an agent's dev server, one typed in a terminal): before starting a second one.
@@ -96,7 +97,8 @@ extension Runs {
         item.show(Self.tinted(symbol, row.running ? color : .secondaryLabelColor))
         item.state = row.current ? .on : .off
         item.toolTip = [row.detail, row.command].compactMap { $0 }.joined(separator: "\n")
-        // What it runs is the project's file's to say: seen before it's picked, not only on a hover.
+        // The project's file says what the item runs, so the command shows as a subtitle before it is picked, not only
+        // in a tooltip.
         if #available(macOS 14.4, *) { item.subtitle = String((row.detail ?? row.command).prefix(80)) }
         let port = row.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
         let hidden = row.session.map(app.workbench.isHidden) == true ? [String(localized: "hidden")] : []

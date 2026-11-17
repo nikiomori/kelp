@@ -13,8 +13,9 @@ struct CanvasMark: Codable, Equatable, Sendable {
 
     static let file = "notes.json"
 
-    /// The marks as one line to the chat, by board: `Marks on <file>: boards/A.html 1 [data-id=t] «Hi»: bigger; …`.
-    /// A page's marks (a doc's, slides') have no board or target: `Marks on <file>: 1 «quoted text»: note`.
+    /// The marks as one line for the chat, grouped by board: `Marks on <file>: boards/A.html 1 [data-id=t] «Hi»:
+    /// bigger; …`.
+    /// Marks on a page (a doc or slides) have no board or target: `Marks on <file>: 1 «quoted text»: note`.
     static func message(_ marks: [CanvasMark], canvas: String) -> String {
         var n = 0
         let boards = Dictionary(grouping: marks, by: \.board).sorted { $0.key < $1.key }.map { board, marks in
@@ -35,11 +36,14 @@ struct CanvasMark: Codable, Equatable, Sendable {
     }
 }
 
-/// Kelp's script for what the user does on a canvas (`MarkdownTab.world`; the boards' own don't run): marks on elements
-/// (`kelpMark(true)` from the bar; a click outlines the element, a number lands on it, the column on the right holds
-/// the notes and sends them), Pick on each row, each board's tweaks moved live and saved, and Present
-/// (`kelpPresent(true)`: the boards one at a time, each as large as the pane; ← → step, Esc ends). To `kelpSync`:
-/// `marks` (send), `marksDraft` (keep), `pick`, `tweak`, `present` (ended).
+/// Kelp's script for what the user does on a canvas (`MarkdownTab.world`; the boards' own scripts don't run):
+/// - marks on elements (`kelpMark(true)` from the bar): a click outlines the element and puts a number on it, and the
+/// column on the right holds the notes and sends them;
+/// - Pick on each row;
+/// - each board's tweaks, moved live and saved;
+/// - Present (`kelpPresent(true)`): the boards one at a time, each as large as the pane; ← → step through them and Esc
+/// ends.
+/// It sends to `kelpSync`: `marks` (send), `marksDraft` (keep), `pick`, `tweak` and `present` (ended).
 enum CanvasEdit {
     struct Labels: Encodable {
         var send: String, pick: String, tweaks: String, note: String, remove: String

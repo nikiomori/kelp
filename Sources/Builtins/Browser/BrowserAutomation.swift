@@ -21,8 +21,8 @@ extension BrowserTab {
             }
             return value
         }
-        // The user's logged-in tab is the agent's on the one site the user allowed: taken elsewhere since (by the user, once
-        // the agent left it), it's theirs.
+        // The user's logged-in tab belongs to the agent on the one site the user allowed. Once it was taken elsewhere
+        // (by the user, after the agent left it), it belongs to the user again.
         if !agent, let now = web.url, now.scheme != "about", PageOrigin.of(now) != PageOrigin.of(URL(string: start)) {
             throw RPCError.invalidParams(
                 "This tab is on another site than the one the user let you use: kelp browser open <url> --shared asks again."
@@ -175,7 +175,8 @@ extension BrowserTab {
         web.frame = CGRect(x: 0, y: 0, width: 1280, height: 800)
     }
 
-    /// `viewport 390x844`: the page at that size (`reset`: the pane's), and the size the page now says it has.
+    /// `viewport 390x844` shows the page at that size (`reset` goes back to the pane's size), and answers with the size
+    /// the page now reports.
     private func resize(_ size: String) async throws -> JSONValue {
         if size == "reset" {
             viewport = nil
@@ -210,8 +211,8 @@ extension BrowserTab {
     /// What an agent may still do on a page the user took over: look.
     static let whileTakenOver: Set<BrowserAction> = [.wait, .info, .record, .ask]   // a recording pauses meanwhile
 
-    /// The snapshot's lines that mention `text` (any case), each under the lines it sits in, so a ref keeps its place,
-    /// and over what's inside it (a heading's list, a form's fields), up to 20 lines each.
+    /// The snapshot's lines that mention `text` (in any case), each shown under the lines that contain it, so a ref
+    /// keeps its place, and over what is inside it (a heading's list, a form's fields), up to 20 lines each.
     nonisolated static func found(_ text: String, in snapshot: String) -> String {
         let lines = snapshot.components(separatedBy: "\n")
         guard let head = lines.first else { return "" }

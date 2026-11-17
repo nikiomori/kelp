@@ -24,7 +24,7 @@ struct DiskFill: View {
     }
 }
 
-/// The groups side by side, each as wide as its share: the foot's picture of the project, and the legend's.
+/// The groups side by side, each as wide as its share of the disk: the picture of the project, with its legend.
 struct DiskBar: View {
     let items: [RepoDiskUsage.Item]
     var body: some View {

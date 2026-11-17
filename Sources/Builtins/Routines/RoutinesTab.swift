@@ -5,9 +5,9 @@ import KelpKit
 import SwiftUI
 import WorkbenchKit
 
-/// "routines:<project>" — the project's routines over this week: a row a routine, a column a day, a mark a run (done,
-/// asked, failed, running, missed) and, ahead, when it's due. Under the week, the chosen routine: its prompt, when it
-/// repeats, and how the chosen run went.
+/// "routines:<project>": the project's routines over this week, with a row per routine, a column per day, and a mark
+/// per run (done, asked, failed, running, missed), plus, ahead, when each is due. Under the week is the chosen routine:
+/// its prompt, when it repeats, and how the chosen run went.
 @MainActor
 func routinesTab(uri: String, app: AppModel) -> KelpKit.TabContent {   // not SwiftUI's
     HostedTabContent(

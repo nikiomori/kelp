@@ -43,9 +43,9 @@ final class ArtifactBar: NSObject {
     private let modes = NSSegmentedControl(
         labels: [String(localized: "View"), String(localized: "Mark"), String(localized: "Edit")],
         trackingMode: .selectOne, target: nil, action: nil)
-    /// A canvas's Present: its boards one at a time, as large as the pane (a deck's slides).
+    /// A canvas's Present: its boards one at a time, each as large as the pane (like a deck's slides).
     private let present = TextButton(String(localized: "Present"))
-    /// A doc's changes in its agent's last turn: a click goes to the next one.
+    /// The changes the agent's last turn made to a doc; a click goes to the next one.
     private let changes = TextButton("")
     /// A dashboard's figures: when they were drawn, and Update (its agent runs them again).
     private let fresh = NSTextField(labelWithString: "")
@@ -141,8 +141,9 @@ final class ArtifactBar: NSObject {
         self.path = path
         self.markdown = markdown
         watched = Watched(.artifacts, in: app)
-        // The workspace whose folder holds the page: the deepest, for a branch's folder inside its project's. Compared
-        // without symlinks: a tab opened as /tmp/… is in the project at /private/tmp/….
+        // The workspace whose folder holds the page: the innermost one, for a branch's folder inside its project's.
+        // Paths are compared with symlinks resolved, because a tab opened as /tmp/… is in the project at
+        // /private/tmp/….
         let real = Paths.real(path) ?? path
         self.real = real
         workspace = app.worktree(holding: real)?.id

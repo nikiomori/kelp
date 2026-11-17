@@ -55,7 +55,7 @@ final class CommitPlanView: NSStackView {
     }
 }
 
-/// One commit of the plan: its number, its message to edit, its files.
+/// One commit of the plan: its number, its message (editable), and its files.
 @MainActor
 private final class PlanCard: FieldBox {
     var onEdit: ((String) -> Void)?

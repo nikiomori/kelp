@@ -6,8 +6,8 @@ import WorkbenchKit
 
 extension Builtins {
 
-    /// A project's databases, as its agents reach them (`kelp db`): the Databases panel (what's there, what agents ran,
-    /// who asks), and a `db:` tab with a database's tables, a run's rows, and a query of the user's own.
+    /// A project's databases, as its agents reach them (`kelp db`): the Databases panel (what is there, what agents
+    /// ran, who is asking), and a `db:` tab with a database's tables, a run's rows, and a query of the user's own.
     package static let databases = Builtin(
         "kelp.databases", "Databases", "The project's databases: what agents ran on them, and their tables.",
         icon: DatabaseLook.symbol
@@ -111,7 +111,7 @@ extension TabURI {
     static let databaseScheme = "db"
 }
 
-/// "db:<workspace>/<name>", "?run=<id>" for one run's rows, "?table=<name>" for a table's.
+/// "db:<workspace>/<name>", with "?run=<id>" for one run's rows or "?table=<name>" for a table's rows.
 struct DatabaseURI: Equatable {
     var worktree: String, name: String, run: String?, table: String?
 

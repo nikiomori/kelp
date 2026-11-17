@@ -3,8 +3,8 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The agent's turns, newest first, beside the "Agent's Last Turn" source: each one's start is kept by the daemon
-/// (`SessionTurns`), so any of them can be read again, named by the prompt that started it.
+/// The agent's turns, newest first, beside the "Agent's Last Turn" source. The daemon keeps where each turn started
+/// (`SessionTurns`), so any of them can be read again; each is named by the prompt that started it.
 extension DiffViewController {
     /// The turn picked, nil for the last one.
     var chosenTurn: String? {

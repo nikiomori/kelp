@@ -108,7 +108,7 @@ extension FileTab {
                 ?? LanguageSpec.word(in: editor?.text ?? "", line: line, column: column)
         }
         let inside = Paths.relative(path, to: root), relative = inside ?? path
-        // A remote project's command runs on its host: its paths are the host's.
+        // A remote project's command runs on its host, so its paths are the host's paths.
         let top = RemoteHost.of(root)?.path ?? root, file = inside.map { top + "/" + $0 } ?? path
         let vars = [
             "file": file, "relativeFile": relative, "dir": (file as NSString).deletingLastPathComponent,

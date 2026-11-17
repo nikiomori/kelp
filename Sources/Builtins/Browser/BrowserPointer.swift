@@ -5,9 +5,9 @@ import DesignKit
 import KelpKit
 
 extension BrowserTab {
-    /// The pointer's colour and label for `action` on `ref`, as the user watching reads it: the agent's own colour
-    /// (Claude's orange), Kelp's purple for one whose colour doesn't stand out on a page (near black, grey), and
-    /// `Claude · clicks “Save”`; plus the label's type size and padding.
+    /// The pointer's colour and label for `action` on `ref`, as the user watching reads them: the agent's own colour
+    /// (Claude's orange), or Kelp's purple for an agent whose colour doesn't stand out on a page (near black, grey),
+    /// and a label like `Claude · clicks “Save”`; plus the label's type size and padding.
     func pointerLook(_ action: BrowserAction, ref: String, _ request: JSONValue) -> [String: Any] {
         let agent = request["session"]?.string.flatMap { app.session($0) }?.agent
         let who = agent == nil ? String(localized: "Agent") : app.catalog.name(agent)

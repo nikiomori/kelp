@@ -11,8 +11,9 @@ import WorkbenchKit
 enum TerminalPaths {
     static let images: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "heic", "tiff", "bmp", "svg", "ico"]
 
-    /// "Sources/App.swift:12:5", "~/x.md", "a/src/x.ts" (a diff's) → an existing file and its line, from `cwd` — or from
-    /// the one folder of `elsewhere` (the other projects) that has it: an agent may name another project's files.
+    /// Turns a path an agent printed ("Sources/App.swift:12:5", "~/x.md", or "a/src/x.ts" from a diff) into an existing
+    /// file and its line, looked up from `cwd`, or from the one folder in `elsewhere` (the other projects) that has the
+    /// file, since an agent may name another project's files.
     static func resolve(_ token: String, cwd: String, elsewhere: [String] = []) -> (path: String, line: Int?)? {
         guard !token.contains("://") || token.hasPrefix("file://") else { return nil }   // URLs are Ghostty's
         var text = token.hasPrefix("file://") ? (URL(string: token)?.path ?? token) : token

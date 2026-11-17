@@ -87,7 +87,7 @@ extension Builtins {
     }
 }
 
-/// Settings › Editor's rows only the editor reads (the shell's are `SettingKeys` in Core).
+/// The Settings › Editor rows that only the editor reads (the shell's rows are `SettingKeys` in Core).
 extension SettingKeys {
     static let rulers = Setting("editor.rulers", "")
     static let renderWhitespace = Setting("editor.renderWhitespace", "selection")

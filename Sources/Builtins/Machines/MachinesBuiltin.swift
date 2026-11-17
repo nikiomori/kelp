@@ -7,7 +7,8 @@ import WorkbenchKit
 extension Builtins {
 
     /// A virtual machine as a tab ("vm:<name>"): its state, what runs in it and for which agent, its ports and folders.
-    /// Opened from the sidebar's Machines block, there once there's a machine; File › New Machine… makes the first.
+    /// It opens from the sidebar's Machines block, which is there once a machine exists; File › New Machine… makes the
+    /// first one.
     package static let machines = Builtin(
         "kelp.machines", "Machines", "Kelp's virtual machines: what runs in each, its ports and folders.",
         icon: "shippingbox"

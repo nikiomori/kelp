@@ -26,7 +26,7 @@ enum LimitStop {
         return (String(localized: "Limit:"), resets.map { String(localized: "resets \($0)") } ?? hit.kind)
     }
 
-    /// The banner's text: "5-hour · resets 3:40pm".
+    /// The banner's text, such as "5-hour · resets 3:40pm".
     static func banner(_ hit: LimitHit) -> String {
         hit.resets.map { String(localized: "\(hit.kind) · resets \($0)") } ?? hit.kind
     }

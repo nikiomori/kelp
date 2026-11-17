@@ -50,7 +50,7 @@ extension DiffViewController {
         if menu === files.menu { fileMenu(menu, row: files.clickedRow) } else { lineMenu(menu, row: table.clickedRow) }
     }
 
-    /// Stage or Unstage as the file stands; a commit's or a turn's diff has nothing to stage.
+    /// Stage or Unstage, depending on how the file stands; a commit's or a turn's diff has nothing to stage.
     func fileMenu(_ menu: NSMenu, row: Int) {
         menu.removeAllItems()
         let live = single?.commit == nil && sourcePicked.isLive

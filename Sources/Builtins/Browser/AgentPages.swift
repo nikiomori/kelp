@@ -4,10 +4,11 @@ import Core
 import DesignKit
 import KelpKit
 
-/// What each page an agent (or one of its subagents) drives is doing: the browser mark on the agent's row, lit in the
-/// agent's colour for a while after each action (`litFor`) and grey while the page is only open; the glow on the page's
-/// tab; the page in the agent's card. The pages tell it (`drives`, `acted`, `change`, `closed`); the marks the shell
-/// shows (`BrowserMarks`) read it under observation, and ask a page for its picture or to come forward. The app's one.
+/// What each page driven by an agent (or one of its subagents) is doing. It feeds the browser mark on the agent's row
+/// (lit in the agent's colour for a while after each action, `litFor`, and grey while the page is only open), the glow
+/// on the page's tab, and the page in the agent's card. The pages report to it (`drives`, `acted`, `change`, `closed`);
+/// the marks the shell shows (`BrowserMarks`) read it under observation, and ask a page for its picture or to come
+/// forward. The app has one.
 @MainActor
 @Observable
 final class AgentPages {
@@ -112,7 +113,8 @@ final class AgentPages {
         pages.filter { $0.value.tab == tab }.map { (id: $0.key, page: $0.value) }
     }
 
-    /// What a session's row shows: nil without a page; lit while one acted lately; who has it when that's the user.
+    /// What a session's row shows: nil without a page; lit while a page acted lately; and who has the page when that is
+    /// the user.
     struct Mark: Equatable {
         let color: NSColor?, holder: Holder
     }

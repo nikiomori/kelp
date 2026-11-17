@@ -1,17 +1,18 @@
 import Core
 import Foundation
 
-/// A design's canvas as the tab shows it: its rows of boards, each board in a frame of its own (an iframe: its styles
-/// and its phone width are its own) holding the board's fragment on a page Kelp makes from the project's design system,
-/// once in light and once in dark when the system has a dark theme. The boards' scripts don't run; Kelp's (`script`)
-/// size the frames, fit the canvas to the pane and check what's drawn.
+/// A design's canvas as the tab shows it: rows of boards, each board in a frame of its own (an iframe, so its styles
+/// and its phone width are its own). The frame holds the board's fragment on a page Kelp makes from the project's
+/// design system, once in light and once in dark when the system has a dark theme. The boards' scripts don't run;
+/// Kelp's script (`script`) sizes the frames, fits the canvas to the pane and checks what is drawn.
 enum CanvasPage {
     /// Which themes the boards show in (a view preference of this Mac; none set: the window's own).
     enum Themes: String, CaseIterable { case both, light, dark }
     static let themesKey = "artifacts.canvasThemes"
 
-    /// How it's drawn: in which themes, who is writing it now (their board gets the ring), and whether it's a
-    /// dashboard: its boards as the pane's page, one view at a time, without rows, names or sizes (`DashboardPage`).
+    /// How the canvas is drawn: in which themes, who is writing it now (their board gets the ring), and whether it is a
+    /// dashboard, which shows its boards as the pane's page, one view at a time, without rows, names or sizes
+    /// (`DashboardPage`).
     struct View: Sendable {
         var themes: Themes
         var writer: String?

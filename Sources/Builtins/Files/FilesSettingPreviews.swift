@@ -10,7 +10,7 @@ import SwiftUI
 struct EditorSample: NSViewRepresentable {
     @Environment(AppModel.self) private var app
 
-    /// As a section's preview: framed like the terminal's.
+    /// The editor sample as a settings section's preview, framed like the terminal's preview.
     static func card() -> AnyView {
         AnyView(
             EditorSample().frame(height: 132).clipShape(

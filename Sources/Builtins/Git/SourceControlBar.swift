@@ -29,7 +29,7 @@ final class SourceControlBar {
         button.title = words
     }
 
-    /// Commits on their way: the shade runs up Push's arrow or down Pull's.
+    /// Shows commits on their way: the shade runs up Push's arrow or down Pull's arrow.
     func flow(push moving: Bool, pull coming: Bool) {
         push.flow(up: moving ? true : nil)
         pull.flow(up: coming ? false : nil)

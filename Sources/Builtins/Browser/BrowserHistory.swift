@@ -1,7 +1,7 @@
 import Foundation
 
 /// The pages the user visited in Kelp's browser tabs (an agent's pages aren't kept), newest first, for the address
-/// bar's completion. Per Mac, in UserDefaults. Limit: the last 500 addresses, matched from their start.
+/// bar's completion. Kept per Mac, in UserDefaults. Limit: the last 500 addresses, matched from their start.
 enum BrowserHistory {
     static let key = "browser.history"
     @MainActor static var urls: [String] { UserDefaults.standard.stringArray(forKey: key) ?? [] }

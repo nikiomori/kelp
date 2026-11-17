@@ -68,11 +68,13 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @ObservationIgnored var drive: AgentDrive?
     /// Downloads under way (BrowserDownloads.swift): where each goes, where from, from which page.
     @ObservationIgnored var downloading: [ObjectIdentifier: (to: URL, source: URL?, page: URL?)] = [:]
-    /// When WebKit last decided a navigation is a download that has no destination yet: an action's answer waits for it
-    /// (5 s at most, in case it never starts), since on a busy Mac it can begin after the answer's first look.
+    /// When WebKit last decided a navigation is a download that has no destination yet. An action's answer waits for it
+    /// (5 s at most, in case it never starts), since on a busy Mac the download can begin after the answer's first
+    /// look.
     @ObservationIgnored var downloadDecided: Date?
     var downloadComing: Bool { downloadDecided.map { Date().timeIntervalSince($0) < 5 } ?? false }
-    /// Under the toolbar once an agent drives the page: that it does, and Take Over / Hand Back. No height until then.
+    /// The bar under the toolbar once an agent drives the page: it says so, with Take Over / Hand Back. It has no
+    /// height until then.
     @ObservationIgnored private let agentSlot = NSView()
     @ObservationIgnored private lazy var agentSlotHeight = agentSlot.heightAnchor.constraint(equalToConstant: 0)
     @ObservationIgnored private let agentLabel = NSTextField(labelWithString: "")

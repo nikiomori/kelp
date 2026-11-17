@@ -4,8 +4,8 @@ import Core
 import DesignKit
 import KelpKit
 
-/// A database's menu, in the panel and on its tab: open it, what agents may do, production, its address, edit, forget;
-/// one of All My Projects is used in this project instead; a branch's copy is made again or deleted.
+/// A database's menu, in the panel and on its tab: open it, what agents may do, production, its address, edit, forget.
+/// A database from All My Projects can be used in this project instead; a branch's copy can be made again or deleted.
 @MainActor
 enum DatabaseMenu {
     /// `more` adds to the part about where it's used (All My Databases' groups) and how it looks (its colour).

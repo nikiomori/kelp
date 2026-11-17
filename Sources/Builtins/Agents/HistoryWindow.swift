@@ -4,9 +4,9 @@ import DesignKit
 import KelpKit
 import WorkbenchKit
 
-/// Every past Claude / Codex conversation on this Mac: search, resume in place, or copy the resume command. The search
-/// and the buttons sit in the window's toolbar, as in Xcode's Organizer; the list shows a spinner while it's read and
-/// says so in its middle when there's nothing.
+/// Every past Claude / Codex conversation on this Mac, to search, resume in place, or copy the resume command for. The
+/// search and the buttons sit in the window's toolbar, as in Xcode's Organizer. The list shows a spinner while it is
+/// read, and says so in its middle when there is nothing.
 @MainActor
 final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate,
     NSToolbarDelegate
@@ -180,7 +180,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         let field = NSTextField.label(
             text, font: .ui(TextSize.body), color: id == "updated" ? .secondaryLabelColor : .labelColor,
             truncation: id == "cwd" ? .byTruncatingHead : .byTruncatingTail)
-        return NSStackView(views: [field])   // in the row's middle, on the agent's line
+        return NSStackView(views: [field])   // placed in the middle of the row, on the agent's line
     }
     /// The agent as the sidebar shows it: its icon and its name from the catalog.
     private func agentCell(_ agent: String) -> NSView {
