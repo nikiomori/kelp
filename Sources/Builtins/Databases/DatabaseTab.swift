@@ -348,6 +348,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         let (read, error) = await app.tryCall(
             DatabaseSchemaRead(worktreeId: address.worktree, database: address.name))
         reading?.cancel()
+        await loading.settled()
         loading.show(nil)
         guard let read else {
             if first { return failed(error ?? String(localized: "It doesn’t answer.")) }

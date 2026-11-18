@@ -130,7 +130,7 @@ final class HistoryWindow: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     private func load() {
         let slow = whileSlow { [weak self] in
             self?.empty.show(nil)
-            self?.loading.show(String(localized: "Loading…"))
+            self?.loading.show(String(localized: "Reading the history…"))
         }
         Task {
             defer {

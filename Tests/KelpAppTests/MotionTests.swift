@@ -128,3 +128,18 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     let ghost = parent.subviews.first { $0 !== tab }
     #expect(ghost?.layer?.animation(forKey: "opacity")?.duration == Motion.fast)
 }
+
+/// What a wait shows stays up for a moment, so an answer right behind it doesn't make it blink. A wait that showed
+/// nothing holds no answer up.
+@MainActor @Test func aShownWaitStaysUpForAMoment() async {
+    let wait = LoadingView()
+    let window = onScreen(wait)
+    defer { withExtendedLifetime(window) {} }
+    var asked = Date.now
+    await wait.settled()
+    #expect(Date.now.timeIntervalSince(asked) < 0.1)
+    wait.show("Reading the list…")
+    asked = .now
+    await wait.settled()
+    #expect(Date.now.timeIntervalSince(asked) >= LoadingView.held - 0.05)
+}

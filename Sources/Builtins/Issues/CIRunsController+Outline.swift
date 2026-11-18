@@ -15,7 +15,7 @@ extension CIRunsController {
     func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
         guard let item = item as? Item else { return runs[index] }
         return item.children?[index]
-            ?? Item(.step(.init(name: String(localized: "Loading…"), status: "queued", conclusion: nil)))
+            ?? Item(.step(.init(name: String(localized: "Reading the steps…"), status: "queued", conclusion: nil)))
     }
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
         guard let item = item as? Item else { return false }

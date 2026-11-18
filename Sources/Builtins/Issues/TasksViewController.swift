@@ -156,7 +156,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     }
     /// The setup that runs in a terminal tab when gh or glab isn't installed or signed in.
     private var setup: Forge.Setup?
-    lazy var checkAgain = ClosureButton(title: String(localized: "Check Again")) { [weak self] in self?.reload() }
+    lazy var checkAgain = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.reload() }
     lazy var setupButton = ClosureButton(title: "") { [weak self] in
         if let self, let setup = self.setup { Forge.run(setup, in: app) }
     }
@@ -277,17 +277,14 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             return
         }
         source.isHidden = false
-        let slow = whileSlow { [weak self] in
-            guard let self, rows.isEmpty else { return }
-            showLoading()
-        }
+        let slow = showWait(quietly: quietly)
         // When the user asked, over rows it keeps showing, Refresh answers the click at once.
         if !quietly, !rows.isEmpty { refresh.busy = true }
         let src = shown, filterIndex = filter.indexOfSelectedItem
         let picked = quietly ? row(at: table.selectedRow).flatMap(Self.number) : nil
         Task {
             defer {
-                slow.cancel()
+                slow?.cancel()
                 if gen == reloads { refresh.busy = false }
             }
             var rows: [Row] = []
@@ -330,6 +327,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                         rows = []
                     }
                 }
+                await loadingView.settled()
                 // When the project, list or filter switched meanwhile, these rows belong to the old one.
                 guard gen == reloads else { return }
                 self.rows = rows
@@ -345,6 +343,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 setupButton.isHidden = true
                 showEmpty(rows.isEmpty ? why : nil)
             } catch {
+                await loadingView.settled()
                 guard gen == reloads else { return }
                 showAll.isHidden = true
                 let message = (error as? RPCError)?.message ?? "\(error)"

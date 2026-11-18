@@ -12893,6 +12893,16 @@
         }
       }
     },
+    "Reading #%lld…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю #%lld…"
+          }
+        }
+      }
+    },
     "Reading Claude Code's transcripts — the first time takes a minute.": {
       "localizations": {
         "ru": {
@@ -12909,6 +12919,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Читаю с %@…"
+          }
+        }
+      }
+    },
+    "Reading the history…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю историю…"
+          }
+        }
+      }
+    },
+    "Reading the library…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю библиотеку…"
+          }
+        }
+      }
+    },
+    "Reading the list…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю список…"
+          }
+        }
+      }
+    },
+    "Reading the runs…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю прогоны…"
+          }
+        }
+      }
+    },
+    "Reading the steps…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю шаги…"
           }
         }
       }

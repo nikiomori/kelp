@@ -8,8 +8,8 @@ import KelpKit
 /// belongs to another chat. The ring stays for at least `Self.held`, so it doesn't flicker. The answer crossfades in
 /// for another chat, and for the same chat it lights up what changed.
 extension AddonsPanel {
-    static let quiet: Duration = .milliseconds(150)
-    static let held: TimeInterval = 0.4
+    static let quiet: Duration = .seconds(1)
+    static let held = LoadingView.held
 
     /// Starts showing the read, but only once it has taken longer than `quiet`. `stale` means what is on screen
     /// belongs to another chat or workspace.

@@ -65,14 +65,23 @@ final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
 
     /// Reads the item again: on opening, after an action, and from ⋯.
     func reload() {
-        let slow = whileSlow { [weak self] in self?.loading.show(String(localized: "Loading…")) }
+        // An item not shown yet is read from its forge, which takes more than a moment: its wait shows at once. Read
+        // again over its page, it says nothing for the first second.
+        let wait = String(localized: "Reading #\(number)…")
+        var slow: Task<Void, Never>?
+        if prView == nil, issueView == nil {
+            loading.show(wait)
+        } else {
+            slow = whileSlow { [weak self] in self?.loading.show(wait) }
+        }
         Task { [weak self] in
             guard let self else { return }
             viewer = await Viewer.get(app)
             switch kind {
             case .pr:
                 let read = await app.tryCall(GitHubPRView(repoId: repoId, pr: number))
-                slow.cancel()
+                slow?.cancel()
+                await loading.settled()
                 guard let view = read.value else { return failed(read.error) }
                 prView = view
                 title = "#\(number) \(view.pr.title)"
@@ -82,7 +91,8 @@ final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
                 show(ForgePage.pr(view, checks: checks ?? [], block: PRWork.mergeBlock(view.pr)))
             case .issue:
                 let read = await app.tryCall(GitHubIssueView(repoId: repoId, issue: number))
-                slow.cancel()
+                slow?.cancel()
+                await loading.settled()
                 guard let view = read.value else { return failed(read.error) }
                 issueView = view
                 title = "#\(number) \(view.issue.title)"
@@ -104,7 +114,7 @@ final class ForgeItemTab: KelpKit.TabContent {   // not SwiftUI's
         loading.show(nil)
         web.isHidden = true
         let open = ClosureButton(title: String(localized: "Open in Browser")) { [weak self] in self?.openInBrowser() }
-        let again = ClosureButton(title: String(localized: "Check Again")) { [weak self] in self?.reload() }
+        let again = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.reload() }
         empty.showError(String(localized: "Couldn't read #\(number)"), text: error ?? "", buttons: [again, open])
         showBar()
     }

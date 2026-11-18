@@ -58,7 +58,21 @@ extension TasksViewController {
     func showLoading() {
         showEmpty(nil)
         split.isHidden = true
-        loadingView.show(String(localized: "Loading…"))
+        loadingView.show(String(localized: "Reading the list…"))
+    }
+
+    /// Shows the wait for a list on its way. The forge won't answer within the moment a quick answer takes, so with no
+    /// rows to keep showing the wait shows at once. A refresh nobody asked for says nothing for the first second: the
+    /// task that would say it is the one to cancel.
+    func showWait(quietly: Bool) -> Task<Void, Never>? {
+        if rows.isEmpty, !quietly {
+            showLoading()
+            return nil
+        }
+        return whileSlow { [weak self] in
+            guard let self, rows.isEmpty else { return }
+            showLoading()
+        }
     }
 }
 

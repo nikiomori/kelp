@@ -11,6 +11,9 @@ public final class LoadingView: NSView {
     private let line = NSTextField(labelWithString: "")
     private let detail = NSTextField(wrappingLabelWithString: "")
     private let skeleton: SkeletonRows?
+    /// What a wait shows stays up at least this long, so an answer right behind it doesn't make it blink.
+    public static let held: TimeInterval = 0.4
+    private var shownAt: Date?
     /// Counts the leaves while the view fades away. A show meanwhile keeps it, and only the last leave hides it.
     private var leaving: Int?
     private var leaves = 0
@@ -62,14 +65,25 @@ public final class LoadingView: NSView {
         if text != nil { appear() } else { leave() }
     }
 
+    /// Waits out the rest of `held` when the wait is on screen. Call it before showing the answer, which then doesn't
+    /// come up under a wait that has only just appeared.
+    public func settled() async {
+        guard let shownAt, !isHidden, leaving == nil else { return }
+        let left = Self.held - Date.now.timeIntervalSince(shownAt)
+        guard left > 0 else { return }
+        do { try await Task.sleep(for: .seconds(left)) } catch { return }   // cancelled: its answer isn't shown
+    }
+
     private func appear() {
         leaving = nil
+        shownAt = .now
         spinner.startAnimation(nil)
         skeleton?.shimmer(true)
         fadeIn()
     }
 
     private func leave() {
+        shownAt = nil
         leaves += 1
         let ticket = leaves
         let done: @MainActor () -> Void = { [weak self] in

@@ -38,7 +38,7 @@ struct LibrarySection: View {
                     if !found.isEmpty { unreviewed(found) }
                 }
             } else {
-                LoadingLine(String(localized: "Loading…"))
+                LoadingLine(String(localized: "Reading the library…"))
             }
         } footer: {
             HStack {

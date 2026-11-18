@@ -31,6 +31,8 @@ struct UsageReportView: View {
     @State var day: Date?
     @State var usage: UsageAgents.Result?
     @State private var loading = true
+    /// The read has gone on for a second: only then does the spinner show.
+    @State private var slow = false
     @State private var failed: String?
     @State private var showSources = false
     /// The days of the last year, for the months view (read once per project, after the span's days).
@@ -116,7 +118,7 @@ struct UsageReportView: View {
                 }
                 .controlSize(.small)
             }
-            if loading { ProgressView().controlSize(.small) }
+            if slow { ProgressView().controlSize(.small) }
             Spacer()
             Picker("", selection: $range) {
                 Text("7 Days").tag(7)
@@ -321,7 +323,10 @@ struct UsageReportView: View {
 
     private func load() async {
         loading = true
+        let wait = whileSlow { slow = true }
         let read = await app.tryCall(UsageAgents(days: range, project: project))
+        wait.cancel()
+        slow = false
         failed = read.error
         if let fresh = read.value { usage = fresh }
         loading = false

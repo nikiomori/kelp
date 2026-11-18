@@ -43,7 +43,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     /// Shown until the first answer for the workspace comes (gh can take seconds), so the panel isn't blank meanwhile.
     private let loading = LoadingView(rows: true)
     private lazy var checkAgain: NSButton = {   // as large as the setup button beside it
-        let button = ClosureButton(title: String(localized: "Check Again")) { [weak self] in self?.reload() }
+        let button = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.reload() }
         button.bezelStyle = .push
         return button
     }()
@@ -128,7 +128,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             self?.worktree = $0
             self?.branch.title = app.worktree($0)?.branch ?? ""   // set before the runs come, so the header names it
             self?.loadPages()
-            if app.latest(CIEvent.self, app.gitKey($0)) == nil { self?.loading.show(String(localized: "Loading…")) }
+            if app.latest(CIEvent.self, app.gitKey($0)) == nil {
+                self?.loading.show(String(localized: "Reading the runs…"))
+            }
         }
         track(owner: self) { [weak self, app] in
             app.latest(CIEvent.self, app.gitKey(self?.worktree))

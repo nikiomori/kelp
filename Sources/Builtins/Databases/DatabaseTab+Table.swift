@@ -56,11 +56,11 @@ extension DatabaseTab {
         await mark(name, primary: primary, still: still)
     }
 
-    /// Shows "Reading…" in the foot only once half a second has gone, so a quick read doesn't flicker.
+    /// Shows "Reading…" in the foot only once a second has gone, so a quick read changes nothing (`whileSlow`'s rule).
     func startReading() {
         reading?.cancel()
         reading = Task { [weak self] in
-            do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
+            do { try await Task.sleep(for: .seconds(1)) } catch { return }
             self?.status.stringValue = String(localized: "Reading…")
             self?.busy.startAnimation(nil)
         }
