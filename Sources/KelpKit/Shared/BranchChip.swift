@@ -12,8 +12,11 @@ package final class BranchChip: PointerButton {
         padding = Metrics.gap
         imagePosition = .imageLeading
         imageHugsTitle = true
-        image = Glyph.image("arrow.triangle.branch", size: Metrics.segmentPoint)
-        font = .ui(TextSize.row, weight: .semibold)
+        // The name as the title bar's chip writes it: a row's size and weight, in the text's colour. It was semibold
+        // and grey here, a third way to write the one branch (semibold is for news, and the type scale has none at 12).
+        image = Glyph.image("arrow.triangle.branch", size: Metrics.iconPoint)
+        contentTintColor = .labelColor
+        font = .ui(TextSize.row)
         lineBreakMode = .byTruncatingMiddle
         setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     }
