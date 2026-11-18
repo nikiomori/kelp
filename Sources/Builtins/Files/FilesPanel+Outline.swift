@@ -144,6 +144,7 @@ final class FileRowCell: NSTableCellView {
         badge.stringValue = mark?.0 ?? ""
         badge.textColor = mark?.1
         badge.font = dot ? .ui(7) : .ui(TextSize.micro, weight: .bold)
-        badge.setAccessibilityLabel(dot ? String(localized: "Has changes") : nil)
+        // VoiceOver reads a bare "M" as a letter, so the letter says its word.
+        badge.setAccessibilityLabel(dot ? String(localized: "Has changes") : mark.flatMap { gitLetterWord($0.0) })
     }
 }

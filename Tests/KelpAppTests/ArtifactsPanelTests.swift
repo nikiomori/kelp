@@ -1,8 +1,10 @@
+import AppKit
 import Core
 import Foundation
 import Testing
 
 @testable import BuiltinFiles
+@testable import KelpKit
 
 /// The project's name in front of a title goes (the panel shows one project); a name that only starts the same stays.
 @Test func artifactTitlesLoseTheProjectsName() {
@@ -39,4 +41,18 @@ import Testing
         }
     }
     #expect(shape == ["# Today", "Review 0", "Sidebar 1", "# Previous 7 Days", "Plan 0"])
+}
+
+/// The filter sits over the list it filters, where every panel's filter is, not at the panel's foot.
+@MainActor @Test func artifactsFilterSitsOverItsList() throws {
+    func fields(_ view: NSView) -> [NSSearchField] {
+        ((view as? NSSearchField).map { [$0] } ?? []) + view.subviews.flatMap(fields)
+    }
+    let panel = ArtifactsPanel(app: AppModel(builtins: []))
+    let filter = try #require(fields(panel.view).first)
+    let list = try #require(panel.table.enclosingScrollView)
+    let parts = try #require(list.superview as? NSStackView).arrangedSubviews
+    let filterAt = try #require(parts.firstIndex { filter.isDescendant(of: $0) })
+    let listAt = try #require(parts.firstIndex(of: list))
+    #expect(filterAt < listAt)
 }

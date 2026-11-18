@@ -117,6 +117,21 @@ extension NSColor {
     public static var increaseContrast: Bool { NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast }
 }
 
+/// A git status letter in a word, for VoiceOver, which reads a bare "M" as a letter. It names the letters Files and
+/// Source Control show, the ones `NSColor.gitLetter` colours. Nil for anything else (a folder's dot).
+public func gitLetterWord(_ letter: String) -> String? {
+    switch letter {
+    case "M": String(localized: "Modified")
+    case "A": String(localized: "Added")
+    case "D": String(localized: "Deleted")
+    case "R": String(localized: "Renamed")
+    case "C": String(localized: "Copied")
+    case "U": String(localized: "Untracked")
+    case "!": String(localized: "Conflicted")
+    default: nil
+    }
+}
+
 /// The text shades for SwiftUI.
 extension Color {
     public static let textOrange = Color(nsColor: .textOrange)

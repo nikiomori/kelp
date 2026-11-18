@@ -304,7 +304,12 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     // MARK: Table view
 
     func numberOfRows(in tableView: NSTableView) -> Int { lines.count }
-    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
+    /// A section's title does nothing on a click, so it doesn't light up under the pointer. A group's row folds, so it
+    /// lights as the items do.
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        guard case .section = lines[row] else { return ListRowView() }
+        return ListRowView(lights: { _ in false })
+    }
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         switch lines[row] {
         case .item, .problem: true

@@ -233,10 +233,11 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
 
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
     /// A database of All My Databases in no group lines up with the cards' rows, so its selection sits where theirs
-    /// does.
+    /// does. The Asks heading does nothing on a click, so it doesn't light up under the pointer; the other two fold.
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
         let loose = if case .database(_, library: true) = rows[row], cards[row] == nil { true } else { false }
-        let view = ListRowView(inset: loose ? 10 : 6)
+        let inert = if case .heading(.asks) = rows[row] { true } else { false }
+        let view = ListRowView(inset: loose ? 10 : 6, lights: { _ in !inert })
         view.card = card(row)
         return view
     }

@@ -178,6 +178,10 @@ final class ForgeRowCell: NSView {
             dot.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
             dot.layer?.cornerRadius = Metrics.radiusXS
             dot.toolTip = String(localized: "Changed since you last opened it")
+            // The dot is only a colour, so VoiceOver reads it with the tooltip's words.
+            dot.setAccessibilityElement(true)
+            dot.setAccessibilityRole(.image)
+            dot.setAccessibilityLabel(dot.toolTip)
             NSLayoutConstraint.activate([
                 dot.widthAnchor.constraint(equalToConstant: 7), dot.heightAnchor.constraint(equalToConstant: 7)
             ])

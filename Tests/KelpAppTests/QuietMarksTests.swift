@@ -22,6 +22,16 @@ import Testing
     #expect((meter.accessibilityValue() as? String)?.contains("160k") == true)
 }
 
+/// VoiceOver hears what a section's count counts: a bare "2" says nothing. Text that isn't a number is read as it is.
+@MainActor @Test func voiceOverHearsWhatASectionsCountCounts() {
+    let capsule = CountCapsule()
+    capsule.text = "2"
+    let said = capsule.accessibilityLabel() ?? ""
+    #expect(capsule.isAccessibilityElement() && said.contains("2") && said.count > 1)
+    capsule.text = "all"
+    #expect(capsule.accessibilityLabel() == "all")
+}
+
 /// The sidebar's knob runs in the floater's margin, right of the cards, and stays an overlay whatever the system says.
 @MainActor @Test func sidebarScrollerRunsBesideTheCards() {
     let s = SidebarScrollView(frame: NSRect(x: 0, y: 0, width: 200, height: 300))

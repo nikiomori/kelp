@@ -256,3 +256,28 @@ extension AppOfItsOwn {
     #expect(v.count == 2 && v[0].toolTip == "main" && v[1].toolTip == "origin/feat\nv1")
     #expect(CommitCell.badges([]).isEmpty && CommitCell.badges(["tag: v1"]).count == 1)
 }
+
+/// VoiceOver reads a changed file's letter as a word, in Source Control's list and in Files' tree: a bare "M" is read
+/// as a letter. Every letter a file can show has a word of its own.
+@MainActor @Test func aChangedFilesLetterIsReadAsAWord() {
+    func fields(_ view: NSView) -> [NSTextField] {
+        ((view as? NSTextField).map { [$0] } ?? []) + view.subviews.flatMap(fields)
+    }
+    func said(_ cell: NSView, _ letter: String) -> String? {
+        fields(cell).first { $0.stringValue == letter }?.accessibilityLabel()
+    }
+    let files: [(index: String, worktree: String, word: String)] = [
+        (".", "M", "Modified"), ("A", ".", "Added"), ("D", ".", "Deleted"), ("R", ".", "Renamed"),
+        ("C", ".", "Copied"), ("?", "?", "Untracked"), ("U", "U", "Conflicted")
+    ]
+    for (index, worktree, word) in files {
+        let file = FileChange(path: "f.txt", index: index, worktree: worktree)
+        let letter = file.letter(inWorktree: index == ".")
+        let row = FileCell()
+        row.show(file, icon: NSImage(), letter: (letter, .gitLetter(letter)), indent: 0, actions: [])
+        #expect(said(row, letter) == word)
+        let inTree = FileRowCell()
+        inTree.show("f.txt", icon: NSImage(), badge: file.badge, dimmed: false)
+        #expect(said(inTree, file.badge.0) == gitLetterWord(file.badge.0))
+    }
+}

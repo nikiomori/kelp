@@ -133,38 +133,6 @@ final class SectionCell: NSTableCellView, Hoverable {
     }
 }
 
-/// A section's file count on a grey capsule, as in VS Code, because a bare "3" next to "+6 −2" ran into it.
-private final class CountCapsule: NSView {
-    private let field = NSTextField(labelWithString: "")
-    var text: String {
-        get { field.stringValue }
-        set { field.stringValue = newValue }
-    }
-    init() {
-        super.init(frame: .zero)
-        field.font = .uiDigits(TextSize.micro, weight: .semibold)
-        field.textColor = .secondaryLabelColor
-        field.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(field)
-        NSLayoutConstraint.activate([
-            field.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 5),
-            field.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
-            field.centerYAnchor.constraint(equalTo: centerYAnchor), heightAnchor.constraint(equalToConstant: 16),
-            widthAnchor.constraint(greaterThanOrEqualTo: heightAnchor)
-        ])
-    }
-    required init?(coder: NSCoder) { fatalError() }
-    override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() {
-        layer?.backgroundColor = NSColor.fillSelected.cgColor
-        layer?.cornerRadius = bounds.height / 2
-    }
-    override func layout() {
-        super.layout()
-        layer?.cornerRadius = bounds.height / 2
-    }
-}
-
 /// A changed file's row, in the changes or under a commit of the graph. Its views are made once, and `show` sets
 /// everything it shows, because the outline hands a row it set aside to another file.
 final class FileCell: NSTableCellView, Hoverable {
@@ -224,6 +192,7 @@ final class FileCell: NSTableCellView, Hoverable {
         dir.stringValue = (fileChange.path as NSString).deletingLastPathComponent
         letterField.stringValue = letter.0
         letterField.textColor = letter.1
+        letterField.setAccessibilityLabel(gitLetterWord(letter.0))   // VoiceOver reads a bare "M" as a letter
         let tip = shared.isEmpty ? nil : String(localized: "Also changed on \(shared.joined(separator: ", "))")
         // The merge mark goes before the letter, where the eye checks a file's state.
         mark.image = tip.map { .symbol("arrow.triangle.merge", $0) }

@@ -62,7 +62,11 @@ extension TasksViewController {
         stack.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         return stack
     }
-    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
+    /// A heading does nothing on a click, so it doesn't light up under the pointer as the rows under it do.
+    func tableView(_ tableView: NSTableView, rowViewForRow index: Int) -> NSTableRowView? {
+        let heading = row(at: index) == nil
+        return ListRowView(lights: { _ in !heading })
+    }
     func tableViewSelectionDidChange(_ notification: Notification) {
         let picked = row(at: table.selectedRow)
         switch picked {

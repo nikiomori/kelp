@@ -39,7 +39,10 @@ struct AddonRows {
             case .others: String(localized: "Other Agents")
             }
         let title = NSTextField.label(name, font: .ui(TextSize.caption, weight: .semibold), color: .secondaryLabelColor)
-        var views: [NSView] = [title, digits(count.formatted()), NSView()]
+        // The count sits on the capsule every list's section has, as Source Control's does.
+        let capsule = CountCapsule()
+        capsule.text = count.formatted()
+        var views: [NSView] = [title, capsule, NSView()]
         if section == .others { views.append(digits(String(localized: "not in this chat"))) }
         return line(views, inset: Metrics.inset)
     }

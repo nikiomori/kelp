@@ -19,7 +19,9 @@ struct DatabasePanelRows {
         case .asks: views = [DatabaseSheet.section(String(localized: "Asks")), NSView()]
         case .library(let count):
             let title = DatabaseSheet.section(String(localized: "All My Databases"))
-            views = [chevron(libraryOpen), title, NSView(), digits(count)]
+            let capsule = CountCapsule()   // the capsule every list's section has, as Source Control's does
+            capsule.text = count.formatted()
+            views = [chevron(libraryOpen), title, NSView(), capsule]
         case .activity(let count):
             let who = only.flatMap { app.session($0) }.map { app.catalog.name($0.agent) } ?? String(localized: "all")
             let title = DatabaseSheet.section(String(localized: "Activity"))
@@ -281,15 +283,16 @@ struct DatabasePanelRows {
     // MARK: Parts
 
     /// The engine's badge with a dot on its corner: green when it answers, orange stopped, red down, grey not tried. A
-    /// ring is cut out around the dot, so the dot reads on any row (selected, hovered).
+    /// ring is cut out around the dot, so the dot reads on any row (selected, hovered). VoiceOver hears the state in
+    /// words, because the dot is only a colour.
     private func mark(_ engine: DatabaseInfo.Engine, _ databaseHealth: DatabaseHealth?) -> NSImageView {
         let badge = DatabaseLook.badge(engine, size: 16)
-        let color: NSColor =
+        let (color, said): (NSColor, String) =
             switch databaseHealth?.state {
-            case .ok: .systemGreen
-            case .stopped: .systemOrange
-            case .down: .systemRed
-            default: .tertiaryLabelColor
+            case .ok: (.systemGreen, String(localized: "Answers"))
+            case .stopped: (.systemOrange, String(localized: "Stopped"))
+            case .down: (.systemRed, String(localized: "It doesn’t answer."))
+            default: (.tertiaryLabelColor, String(localized: "Not tried yet"))
             }
         let image = NSImage(size: NSSize(width: 19, height: 19), flipped: false) { _ in
             badge.draw(in: NSRect(x: 0, y: 3, width: 16, height: 16))
@@ -302,6 +305,7 @@ struct DatabasePanelRows {
             return true
         }
         let view = NSImageView(image: image)
+        view.setAccessibilityLabel(said)
         view.toolTip =
             databaseHealth.map {
                 [$0.state == .ok ? String(localized: "Answers") : nil, $0.reason].compactMap { $0 }.joined()

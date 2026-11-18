@@ -26,7 +26,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     let app: AppModel
     let table = KeyTable()
     private let search = NSSearchField()
-    private lazy var foot = NSStackView(views: [search])
+    private lazy var filterBar = NSStackView(views: [search])
     private let empty = EmptyStateView()
     private(set) var rows: [Row] = []
     private var count = 0
@@ -56,11 +56,10 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         search.controlSize = .small
         search.sendsSearchStringImmediately = true
         search.delegate = self
-        foot.edgeInsets = NSEdgeInsets(
-            top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)
-        // There's no bar on top, because the inspector's title names the panel. The filter is at the foot, as in
-        // Xcode's navigators.
-        let column = NSStackView(views: [scroll, foot])
+        filterBar.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: 0, right: Metrics.inset)
+        // There's no bar on top, because the inspector's title names the panel. The filter sits over the list it
+        // filters, as every panel's does, so there is one place to look for a filter.
+        let column = NSStackView(views: [filterBar, scroll])
         column.orientation = .vertical
         column.spacing = 0
         let content = NSView()
@@ -125,7 +124,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         let project = app.projectName(app.worktree(app.workbench.workspaceId)?.repoId)
         let found = items.filter { find.isEmpty || title($0, project).localizedCaseInsensitiveContains(find) }
         rows = Self.rows(found, title: { self.title($0, project) }, now: Date())
-        foot.isHidden = count <= Self.filterFrom && find.isEmpty
+        filterBar.isHidden = count <= Self.filterFrom && find.isEmpty
         empty.show(
             list != nil && items.isEmpty ? String(localized: "No Artifacts Yet") : nil, symbol: "doc.richtext",
             text: String(localized: "Pages agents make show here."), buttons: [makeButton])
@@ -233,7 +232,11 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     // MARK: Table
 
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
-    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
+    /// A day's heading does nothing on a click, so it doesn't light up under the pointer as the pages under it do.
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        let heading = item(at: row) == nil
+        return ListRowView(lights: { _ in !heading })
+    }
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool { item(at: row) != nil }
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         guard let (item, _) = item(at: row) else { return TextSize.of(Metrics.rowSection) }
@@ -279,7 +282,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     // MARK: Actions
 
     @objc private func open() {
-        guard let (item, _) = item(at: table.clickedRow) else { return }
+        guard let (item, _) = item(at: table.actedRow) else { return }
         openItem(item)
     }
     func openItem(_ item: ArtifactItem) {

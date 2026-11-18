@@ -74,6 +74,38 @@ import os
     #expect(glyph("OPEN", draft: true) === open)
 }
 
+/// A pull request that changed since its tab was last opened says so to VoiceOver: its dot alone is only a colour.
+@MainActor @Test func anUnseenPullRequestsDotHasAName() {
+    func named(_ view: NSView) -> [String] {
+        let own = view.isAccessibilityElement() ? view.accessibilityLabel() : nil
+        return [own].compactMap { $0 }.filter { !$0.isEmpty } + view.subviews.flatMap(named)
+    }
+    let pr = GitHub.PullRequest(
+        number: 1, title: "T", url: "", author: "a", headRefName: "b", isDraft: false, state: "OPEN", checks: .init())
+    let seen = named(ForgeRows.pr(pr, worktree: false, unseen: false))
+    #expect(named(ForgeRows.pr(pr, worktree: false, unseen: true)).count == seen.count + 1)
+}
+
+/// A heading in the list of pull requests does nothing on a click, so the pointer doesn't light it up as it does a
+/// pull request's row.
+@MainActor @Test func aHeadingOfPullRequestsStaysUnlitUnderThePointer() throws {
+    let app = AppModel(builtins: [])
+    let panel = TasksViewController(app: app, watch: PRWatch(app: app))
+    let pr = GitHub.PullRequest(
+        number: 1, title: "T", url: "", author: "a", headRefName: "b", isDraft: false, state: "OPEN", checks: .init())
+    panel.lines = [.heading("Yours"), .row(.pr(pr))]
+    let enter = try #require(
+        NSEvent.enterExitEvent(
+            with: .mouseEntered, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
+            eventNumber: 0, trackingNumber: 0, userData: nil))
+    let lit = try panel.lines.indices.map { index -> Bool in
+        let row = try #require(panel.tableView(panel.table, rowViewForRow: index))
+        row.mouseEntered(with: enter)
+        return row.layer?.sublayers?.first?.backgroundColor != nil   // the hover's fill, the row's first layer
+    }
+    #expect(lit == [false, true])
+}
+
 /// The tab's blue button: yours with a failing check is fixed, someone else's reviewed, an approved clean one merged.
 @MainActor @Test func aPullRequestsNextStepDependsOnWhoseItIs() {
     var pr = GitHub.PullRequest(
