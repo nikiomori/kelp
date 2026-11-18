@@ -118,6 +118,13 @@ extension CodeEditor {
         return (look.background, look.text)
     }
 
+    /// How much of the text's colour the line numbers and the matching bracket's background take. With Increase
+    /// Contrast (System Settings › Accessibility › Display) they take more, because they are the faintest things in the
+    /// editor.
+    nonisolated static func faint(highContrast: Bool) -> (numbers: CGFloat, bracket: CGFloat) {
+        highContrast ? (0.7, 0.35) : (0.4, 0.2)
+    }
+
     /// Re-applies colors, font and wrapping (at first, and after Settings or the appearance change them).
     public func refreshAppearance() {
         let look = Self.colors, font = Self.font, tv = textView
@@ -138,9 +145,17 @@ extension CodeEditor {
         tv.insertionPointColor = look.text
         tv.selectedTextAttributes = [.backgroundColor: look.selection]
         tv.lineHighlight = look.lineHighlight
-        bracketColor = look.text.withAlphaComponent(0.2)
+        // These two are read at each draw, because nothing calls this when Increase Contrast is switched: the look is
+        // the same. They are @Sendable, so not the main actor's, which a colour asked for on another thread would trap
+        // on.
+        let textColor = look.text
+        bracketColor = NSColor(name: nil) { @Sendable _ in
+            textColor.withAlphaComponent(CodeEditor.faint(highContrast: NSColor.increaseContrast).bracket)
+        }
         scroll.backgroundColor = look.background
-        gutter?.color = look.text.withAlphaComponent(0.4)
+        gutter?.color = NSColor(name: nil) { @Sendable _ in
+            textColor.withAlphaComponent(CodeEditor.faint(highContrast: NSColor.increaseContrast).numbers)
+        }
         gutter?.current = look.text
         gutter?.background = look.background
         gutter?.fit(lines: lineCount)   // a bigger font needs a wider gutter

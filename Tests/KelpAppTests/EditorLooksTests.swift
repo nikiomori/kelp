@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 import TestSupport
 import Testing
 
@@ -106,4 +107,13 @@ import Testing
     let line = lm.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil).height
     #expect(line == lm.defaultLineHeight(for: CodeEditor.font) + CodeEditor.lineExtra)
     #expect(lm.extraLineFragmentRect.height == line)
+}
+
+/// With Increase Contrast the line numbers and the matching bracket's background take more of the text's colour, the
+/// numbers still less than the text itself; an editor's bracket mark is as strong as the setting says now.
+@MainActor @Test func theEditorsFaintMarksGetStrongerWithIncreaseContrast() {
+    let plain = CodeEditor.faint(highContrast: false), strong = CodeEditor.faint(highContrast: true)
+    #expect(strong.numbers > plain.numbers && strong.bracket > plain.bracket && strong.numbers < 1)
+    let mark = opened("(a)\n", "c.swift").bracketColor.usingColorSpace(.sRGB)?.alphaComponent ?? 0
+    #expect(abs(mark - CodeEditor.faint(highContrast: NSColor.increaseContrast).bracket) < 0.001)
 }

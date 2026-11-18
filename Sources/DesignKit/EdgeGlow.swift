@@ -80,7 +80,9 @@ public final class EdgeGlow: NSView {
             animator().alphaValue = 1
             effectiveAppearance.performAsCurrentDrawingAppearance {
                 let light = color.withAlphaComponent(faint ? 0.5 : 1).cgColor
-                layer?.borderColor = color.withAlphaComponent(faint ? 0.25 : 0.5).cgColor
+                // The hairline is twice as strong with Increase Contrast, as the grey fills are.
+                let line = min(1, NSColor.fillAlpha(faint ? 0.25 : 0.5, highContrast: NSColor.increaseContrast))
+                layer?.borderColor = color.withAlphaComponent(line).cgColor
                 frameLayer.fillColor = light
                 frameLayer.shadowColor = light
             }
