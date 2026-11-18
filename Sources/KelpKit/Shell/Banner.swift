@@ -87,6 +87,16 @@ package enum Banner {
         return column
     }
 
+    /// The banners on screen, the newest first. One already fading out isn't counted.
+    private static var cards: [BannerCard] {
+        (stack?.arrangedSubviews ?? []).compactMap { $0 as? BannerCard }.filter { !$0.leaving }
+    }
+    /// Whether a banner shows, which is when Dismiss Banner can be chosen.
+    static var showing: Bool { !cards.isEmpty }
+    /// Closes the newest banner, for the keyboard: a banner's ✕ shows only under the pointer, and one that stays until
+    /// closed had no other way out.
+    static func dismissTop() { cards.first?.dismiss() }
+
     private static func find(_ id: NSUserInterfaceItemIdentifier, in view: NSView) -> NSView? {
         if view.identifier == id { return view }
         for sub in view.subviews { if let found = find(id, in: sub) { return found } }
@@ -98,6 +108,8 @@ package enum Banner {
 @MainActor
 private final class BannerCard: NSView {
     let stays: Bool
+    /// True once the banner is on its way out.
+    private(set) var leaving = false
     private var hovering = false { didSet { close.alphaValue = hovering || stays ? 1 : 0 } }
     private var leaveAt: Date?
     private let close = IconButton(.symbol("xmark", String(localized: "Close")), tip: String(localized: "Close")) {}
@@ -222,6 +234,7 @@ private final class BannerCard: NSView {
     }
 
     func dismiss() {
+        leaving = true
         leaveAt = nil
         NSAnimationContext.runAnimationGroup({
             $0.duration = Motion.duration(Motion.slow)

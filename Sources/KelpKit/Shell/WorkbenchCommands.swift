@@ -54,6 +54,13 @@ extension Builtins {
                     }
                 }
             },
+            // A banner's ✕ shows only under the pointer, so the keyboard closes one from the menu or the palette. It
+            // has no key of its own, because any key would be taken from the terminal.
+            CommandSpec(
+                id: "workbench.dismissBanner", title: "Dismiss Banner", menu: "View", enabled: { Banner.showing }
+            ) { _ in
+                Banner.dismissTop()
+            },
             cmd("view.biggerText", "Bigger Text", "cmd+plus") { zoomText(app, 1) },
             cmd("view.smallerText", "Smaller Text", "cmd+-") { zoomText(app, -1) },
             cmd("view.defaultTextSize", "Default Text Size") { zoomText(app, nil) },
