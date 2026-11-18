@@ -147,7 +147,7 @@ extension CodeEditor {
             }
             return true
         }
-        if handleSuggestion(command) { return true }
+        if handleSuggestion(command) || handleNextEdit(command) { return true }
         if command == #selector(NSResponder.insertTab(_:)) { return nextSnippetStop() }
         if command == #selector(NSResponder.cancelOperation(_:)) { completion.snippetStops = [] }
         return false

@@ -44,6 +44,7 @@ extension CodeEditor {
     /// A cursor moved by hand drops the suggestion; moving over an auto-paired closer is typing, which
     /// `suggestionTextChanged` already saw.
     func suggestionSelectionChanged() {
+        nextEditSelectionChanged()
         guard let shown = suggestion.shown, textView.selectedRange() != NSRange(location: shown.at, length: 0) else {
             return
         }
@@ -116,17 +117,28 @@ extension CodeEditor {
         )
     }
 
+    /// Once typing pauses: gray text where it may go, else (or when none comes) the next edit.
     private func askSoon() {
-        guard let ask = askable, let provider = suggestion.provider else { return }
         let edits = suggestion.edits, delay = suggestionDelay
+        guard let ask = askable, let provider = suggestion.provider else {
+            guard nextEdit.provider != nil else { return }
+            suggestion.task = Task { [weak self] in
+                do { try await Task.sleep(for: delay) } catch { return }
+                if self?.suggestion.edits == edits { self?.askNextEdit() }
+            }
+            return
+        }
         suggestion.task = Task { [weak self] in
             do { try await Task.sleep(for: delay) } catch { return }   // cancelled: a newer edit asks instead
-            guard let raw = await provider(ask.context), !Task.isCancelled, let self,
-                suggestion.edits == edits, textView.selectedRange() == NSRange(location: ask.at, length: 0),
-                completion.list?.isOpen != true,   // a list that opened meanwhile has the keys
+            let raw = await provider(ask.context)
+            guard !Task.isCancelled, let self, suggestion.edits == edits,
+                textView.selectedRange() == NSRange(location: ask.at, length: 0),
+                completion.list?.isOpen != true   // a list that opened meanwhile has the keys
+            else { return }
+            guard let raw,
                 let text = InlineSuggestion.cleaned(
                     raw, rest: ask.rest, below: ask.below, indent: InlineSuggestion.indent(of: ask.context.prefix))
-            else { return }
+            else { return askNextEdit() }
             show(text, at: ask.at)
             suggestion.taken = false
             suggestion.onEvent?(false)
@@ -134,6 +146,7 @@ extension CodeEditor {
     }
 
     private func show(_ text: String, at location: Int) {
+        dropNextEdit()
         suggestion.shown = .init(text: text, at: location, length: textView.length)
         showGhost((text, location))
         markBrackets()

@@ -17,6 +17,8 @@ final class GhostTextView: NSView {
     var lineHeight: CGFloat = 16
     var attributes: [NSAttributedString.Key: Any] = [:]
     var ghostColor = NSColor.tertiaryLabelColor, restColor = NSColor.labelColor
+    /// Behind the text put in, for an edit offered (green); none for gray text.
+    var tint: NSColor?
     /// What covers the rest of the line where it stood: the page, then the current line's tint.
     var cover: [NSColor] = []
 
@@ -36,6 +38,14 @@ final class GhostTextView: NSView {
         var lastEnd = firstX
         for (row, line) in lines.enumerated() {
             let x = row == 0 ? firstX : 0
+            if let tint, !line.isEmpty {
+                tint.setFill()
+                let width = (line as NSString).size(withAttributes: ghost).width
+                NSBezierPath(
+                    roundedRect: NSRect(x: x, y: CGFloat(row) * lineHeight, width: width, height: lineHeight),
+                    xRadius: 3, yRadius: 3
+                ).fill()
+            }
             (line as NSString).draw(at: NSPoint(x: x, y: CGFloat(row) * lineHeight + top), withAttributes: ghost)
             lastEnd = x + (line as NSString).size(withAttributes: ghost).width
         }
@@ -47,14 +57,23 @@ final class GhostTextView: NSView {
 extension CodeEditor {
     /// Shows `ghost`'s text at its place, or takes the gray text away.
     func showGhost(_ ghost: (text: String, at: Int)?) {
+        suggestion.view = placeGhost(suggestion.view, ghost)
+    }
+
+    /// Draws `ghost`'s text at its place in `view` (made when there's none), in `color` on `tint` (gray on nothing when
+    /// not given), making room under its line for its further lines; nil hides it. The room is one for both: gray text
+    /// and an edit offered never show together.
+    func placeGhost(
+        _ existing: GhostTextView?, _ ghost: (text: String, at: Int)?, color: NSColor? = nil, tint: NSColor? = nil
+    ) -> GhostTextView? {
         let tv = textView, room = tv.ghostRoom
         if let old = room.char {
             room.char = nil
             tv.relayOut(NSRange(location: min(old, tv.length), length: 0))
         }
         guard let ghost, let lm = tv.layoutManager else {
-            suggestion.view?.isHidden = true
-            return
+            existing?.isHidden = true
+            return existing
         }
         let string = tv.string as NSString, font = tv.font ?? Self.font
         let lineStart = string.lineRange(for: NSRange(location: ghost.at, length: 0)).location
@@ -69,9 +88,8 @@ extension CodeEditor {
             tv.relayOut(NSRange(location: key, length: 1))
             lm.ensureLayout(forCharacterRange: NSRange(location: key, length: 1))
         }
-        let view = suggestion.view ?? GhostTextView()
+        let view = existing ?? GhostTextView()
         if view.superview !== tv { tv.addSubview(view) }
-        suggestion.view = view
         let caret = tv.caretRect(at: ghost.at)
         let left = tv.textContainerOrigin.x + (tv.textContainer?.lineFragmentPadding ?? 0)
         view.lines = lines
@@ -80,12 +98,17 @@ extension CodeEditor {
         view.lineHeight = lineHeight
         view.attributes = tv.typingAttributes
         let text = (tv.typingAttributes[.foregroundColor] as? NSColor) ?? .labelColor
-        view.ghostColor = text.withAlphaComponent(0.4)
+        view.ghostColor = color ?? text.withAlphaComponent(0.4)
+        view.tint = tint
         view.restColor = text
-        view.cover = [tv.backgroundColor, tv.lineHighlight]
+        // Only the cursor's line wears the current line's tint.
+        let cursorLine = string.lineRange(
+            for: NSRange(location: min(tv.selectedRange().location, string.length), length: 0))
+        view.cover = lineStart == cursorLine.location ? [tv.backgroundColor, tv.lineHighlight] : [tv.backgroundColor]
         view.frame = NSRect(
             x: left, y: caret.minY, width: max(tv.bounds.width - left, 1), height: CGFloat(lines.count) * lineHeight)
         view.isHidden = false
         view.needsDisplay = true
+        return view
     }
 }

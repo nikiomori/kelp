@@ -49,8 +49,8 @@ public final class CodeEditor: NSObject {
     /// What the server says of a 1-based position: a symbol's text, and the signature of the call there.
     public var hoverProvider: ((Int, Int) async -> String?)?
     public var signatureProvider: ((Int, Int) async -> (label: String, active: NSRange?)?)?
-    /// The hover and signature cards, and the gray text after the cursor (CodeEditor+Hover and +Suggestion change them).
-    var hover = HoverState(), suggestion = SuggestionState()
+    /// Hover and signature cards, gray text, the next edit offered (CodeEditor+Hover, +Suggestion, +NextEdit).
+    var hover = HoverState(), suggestion = SuggestionState(), nextEdit = NextEditState()
     /// The selection each Expand Selection grew from, for Shrink.
     var selectionSteps: [NSRange] = []
     /// The selection those steps led to.
@@ -359,6 +359,7 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
     /// Called before an edit, while the old text is there, so the tree and the line count hear what's replaced by
     /// what.
     func willReplace(_ ranges: [NSRange], with texts: [String]) {
+        if let range = ranges.first, let text = texts.first { nextEditWillReplace(range, with: text) }
         let string = textView.string as NSString
         var pieces: [(column: Int, removed: String, inserted: String)] = []
         // Goes from the bottom, so each edit's offsets still hold for the next.
