@@ -20401,6 +20401,186 @@
         }
       }
     },
+    "Up to date with %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Совпадает с %@"
+          }
+        }
+      }
+    },
+    "1 commit ahead of %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На 1 коммит впереди %@"
+          }
+        }
+      }
+    },
+    "%lld commits ahead of %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Коммитов впереди %2$@: %1$lld"
+          }
+        }
+      }
+    },
+    "1 commit behind %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На 1 коммит позади %@"
+          }
+        }
+      }
+    },
+    "%lld commits behind %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Коммитов позади %2$@: %1$lld"
+          }
+        }
+      }
+    },
+    "%lld behind, %lld ahead of %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Позади на %1$lld, впереди на %2$lld: %3$@"
+          }
+        }
+      }
+    },
+    "fetched just now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "получено только что"
+          }
+        }
+      }
+    },
+    "fetched %@ ago": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "получено %@ назад"
+          }
+        }
+      }
+    },
+    "Pull %lld, then push %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подтянуть %1$lld, затем отправить %2$lld"
+          }
+        }
+      }
+    },
+    "Pull %lld commits": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подтянуть коммиты: %lld"
+          }
+        }
+      }
+    },
+    "Push %lld commits": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить коммиты: %lld"
+          }
+        }
+      }
+    },
+    "Published %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ветка %@ опубликована."
+          }
+        }
+      }
+    },
+    "Pushed %lld commits.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправлено коммитов: %lld."
+          }
+        }
+      }
+    },
+    "Pulled %lld commits.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подтянуто коммитов: %lld."
+          }
+        }
+      }
+    },
+    "%lld to pull": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "подтянуть: %lld"
+          }
+        }
+      }
+    },
+    "%lld to push": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отправить: %lld"
+          }
+        }
+      }
+    },
+    "%lld changed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "изменено: %lld"
+          }
+        }
+      }
+    },
+    "Branch %@, %lld to pull, %lld to push": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ветка %1$@, подтянуть: %2$lld, отправить: %3$lld"
+          }
+        }
+      }
+    },
     "%@ CLI Isn’t Installed": {
       "localizations": {
         "ru": {
