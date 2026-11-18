@@ -182,3 +182,10 @@ func aModelOnThisMacWaitsWhileItSavesPowerOrRunsHot(
     #expect(Suggestions.recommended(memory: 16 << 30).id == "qwen2.5-coder:1.5b-base")
     #expect(Suggestions.recommended(memory: 32 << 30).id == "hf.co/mradermacher/Seed-Coder-8B-Base-GGUF:Q4_K_M")
 }
+
+@Test func aQuickModelIsAskedSoonerAndTheBatteryAsksLess() {
+    #expect(Suggestions.pause(battery: false, typicalWait: 0.13) == .milliseconds(75))
+    #expect(Suggestions.pause(battery: false, typicalWait: 0.6) == .milliseconds(150))
+    #expect(Suggestions.pause(battery: false, typicalWait: nil) == .milliseconds(150))   // not timed yet
+    #expect(Suggestions.pause(battery: true, typicalWait: 0.13) == .milliseconds(300))
+}

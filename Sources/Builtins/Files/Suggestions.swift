@@ -130,6 +130,13 @@ final class Suggestions {
         }
     }
 
+    /// How long typing pauses before a model is asked: 75 ms when its answers come in under a quarter of a second, so
+    /// the gray text follows soon after a pause; 150 ms otherwise; 300 ms on the battery, to ask it less.
+    nonisolated static func pause(battery: Bool, typicalWait: Double?) -> Duration {
+        if battery { return .milliseconds(300) }
+        return .milliseconds((typicalWait ?? 1) < 0.25 ? 75 : 150)
+    }
+
     /// "hf.co/mradermacher/Seed-Coder-8B-Base-GGUF:Q4_K_M" → "Seed-Coder-8B-Base"; "qwen2.5-coder:latest" →
     /// "qwen2.5-coder"; "qwen2.5-coder:1.5b-base" stays.
     nonisolated static func shortName(_ id: String) -> String {
@@ -209,7 +216,8 @@ final class Suggestions {
         return { [weak self, weak editor] context in
             // Kelp in the background asks nothing; on the battery, typing pauses longer before the next ask.
             guard NSApp.isActive else { return nil }
-            editor?.suggestionDelay = .milliseconds(SuggestionPause.onBattery ? 300 : 150)
+            editor?.suggestionDelay = Self.pause(
+                battery: SuggestionPause.onBattery, typicalWait: self?.today.typicalWait)
             guard let self else { return nil }
             let settings = app.settings, named = settings[SettingKeys.suggestionModel], start = Date()
             let cloud =
