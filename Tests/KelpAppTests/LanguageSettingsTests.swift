@@ -102,6 +102,12 @@ func noModelIsShownAFileOfSecrets(path: String, secret: Bool) {
     #expect(Suggestions.shortName("starcoder2:latest") == "starcoder2")
     #expect(Suggestions.label(mode: "local", model: qwen, known: true, pause: .lowPower) == "Paused: Low Power")
     #expect(Suggestions.label(mode: "off", model: qwen, known: true, pause: .hot) == "Suggestions Off")
+    // A cloud model is named as one, whatever runs on this Mac and however warm it is.
+    #expect(
+        Suggestions.label(mode: "cloud", model: nil, known: true, pause: .hot, cloud: ("Codestral", true))
+            == "Cloud · Codestral")
+    #expect(Suggestions.label(mode: "cloud", model: qwen, known: true, cloud: ("Codestral", false)) == "Cloud: No Key")
+    #expect(Suggestions.cloudName(.openai, model: "hf.co/x/qwen2.5-coder-7b") == "qwen2.5-coder-7b")
 }
 
 @Test(

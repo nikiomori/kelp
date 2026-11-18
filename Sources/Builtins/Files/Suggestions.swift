@@ -59,9 +59,45 @@ final class Suggestions {
         change(&today)
     }
 
-    /// What the status bar says: the model while it suggests, Off while a model could, No Model when none can; nothing
-    /// while it's off and there's no model to turn on.
-    static func label(mode: String, model: SuggestModel?, known: Bool, pause: SuggestionPause? = nil) -> String? {
+    /// Whether a key is saved for each cloud provider, once asked.
+    private(set) var keys: [SuggestCloud: Bool] = [:]
+
+    func checkKey(_ cloud: SuggestCloud) async {
+        if let saved = await app.quiet(EditorSuggestKey(cloud: cloud)) { keys[cloud] = saved }
+    }
+
+    /// Asks for `cloud`'s key in a sheet and saves it in the login keychain (through the daemon).
+    func askForKey(_ cloud: SuggestCloud) async {
+        guard
+            let key = await askSecret(
+                String(localized: "API Key for \(Self.cloudName(cloud, model: ""))"),
+                detail: String(localized: "It's stored in your login keychain, not in settings.json."),
+                action: String(localized: "Save"), placeholder: String(localized: "Paste the key")),
+            !key.isEmpty
+        else { return }
+        if let saved = await app.call(EditorSuggestKey(cloud: cloud, key: key)) { keys[cloud] = saved }
+    }
+
+    /// A cloud provider's name as the status bar and the card say it: the service, or the model on a server of one's
+    /// own.
+    static func cloudName(_ cloud: SuggestCloud, model: String) -> String {
+        switch cloud {
+        case .mercury: "Mercury Edit 2"
+        case .codestral: "Codestral"
+        case .openai: if model.isEmpty { String(localized: "OpenAI-compatible server") } else { shortName(model) }
+        }
+    }
+
+    /// What the status bar says: the model while it suggests (a cloud one named as such), Off while a model could, No
+    /// Model or No Key when none can; nothing while it's off and there's no model to turn on.
+    static func label(
+        mode: String, model: SuggestModel?, known: Bool, pause: SuggestionPause? = nil,
+        cloud: (name: String, hasKey: Bool?)? = nil
+    ) -> String? {
+        if mode == "cloud", let cloud {
+            return cloud.hasKey == false
+                ? String(localized: "Cloud: No Key") : String(localized: "Cloud · \(cloud.name)")
+        }
         if mode == "off" { return model == nil ? nil : String(localized: "Suggestions Off") }
         guard let model else { return known ? String(localized: "No Model") : nil }
         return pause?.title ?? shortName(model.id)
@@ -82,6 +118,7 @@ final class Suggestions {
 
     private struct State: Equatable {
         var mode: String, named: String, models: [SuggestModel]?, pause: SuggestionPause?
+        var cloud: SuggestCloud?, hasKey: Bool?
     }
 
     /// Gives a file's editor gray text from `editor.suggest` while the setting is on (never in a file of secrets), and
@@ -93,23 +130,33 @@ final class Suggestions {
         // The model is told the file's path in its project, as its training data named files.
         let name = Paths.relative(path, to: root) ?? (path as NSString).lastPathComponent
         if models == nil { Task { await refresh() } }
-        editor.onSuggestion = { [weak self] taken in self?.tally { taken ? ($0.taken += 1) : ($0.shown += 1) } }
+        editor.onSuggestion = { [weak self] taken in
+            self?.tally { tally in
+                if taken { tally.taken += 1 } else { tally.shown += 1 }
+            }
+        }
         bar.onSuggestions = { [weak self] button in self?.showCard(from: button, language: language) }
         track(owner: owner) { [weak self, settings = app.settings] in
             State(
                 mode: settings[SettingKeys.suggestions, language: language],
-                named: settings[SettingKeys.suggestionModel], models: self?.models, pause: self?.pause)
+                named: settings[SettingKeys.suggestionModel], models: self?.models, pause: self?.pause,
+                cloud: SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]),
+                hasKey: SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]).flatMap { self?.keys[$0] })
         } changed: { [weak self, weak editor, weak bar] state in
             guard let self else { return }
-            let on = state.mode != "off" && state.pause == nil && !Self.holdsSecrets(path)
+            // A cloud model keeps on through low power and heat: they're this Mac's, and it runs elsewhere.
+            let cloud = state.mode == "cloud" ? state.cloud : nil
+            let on = (state.mode == "local" && state.pause == nil || cloud != nil) && !Self.holdsSecrets(path)
             editor?.suggestionProvider = on ? editor.map { provider(for: $0, name: name) } : nil
+            if let cloud, state.hasKey == nil { Task { await checkKey(cloud) } }
             if on, let editor {
                 ring.add(path: name, text: String(editor.text.prefix(SuggestionRing.width * 2)), from: 0)
-                warm(editor, name: name, named: state.named)
+                if cloud == nil { warm(editor, name: name, named: state.named) }
             }
             bar?.show(
                 suggestions: Self.label(
-                    mode: state.mode, model: model(named: state.named), known: state.models != nil, pause: state.pause))
+                    mode: state.mode, model: model(named: state.named), known: state.models != nil, pause: state.pause,
+                    cloud: cloud.map { (Self.cloudName($0, model: state.named), state.hasKey) }))
         }
     }
 
@@ -131,10 +178,14 @@ final class Suggestions {
             guard NSApp.isActive else { return nil }
             editor?.suggestionDelay = .milliseconds(SuggestionPause.onBattery ? 300 : 150)
             guard let self else { return nil }
-            let named = app.settings[SettingKeys.suggestionModel], start = Date()
+            let settings = app.settings, named = settings[SettingKeys.suggestionModel], start = Date()
+            let cloud =
+                settings[SettingKeys.suggestions, language: editor?.languageId] == "cloud"
+                ? SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]) : nil
+            let url = settings[SettingKeys.suggestionURL]
             let ask = EditorSuggest(
                 prefix: context.prefix, suffix: context.suffix, path: name, model: named.isEmpty ? nil : named,
-                extra: ring.extra(for: name))
+                extra: ring.extra(for: name), cloud: cloud, url: cloud == nil || url.isEmpty ? nil : url)
             // These lines go with the next suggestion asked in another file.
             ring.add(path: name, line: (editor?.cursor?.line ?? 1) - 1, before: context.prefix, after: context.suffix)
             let answer = await app.quiet(ask, timeout: EditorSuggest.timeout ?? 10) ?? nil
@@ -151,87 +202,5 @@ final class Suggestions {
         popover.contentViewController = NSHostingController(
             rootView: SuggestionsCard(suggestions: self, language: language) { popover.close() })
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-    }
-}
-
-/// What the status bar's suggestions item opens: the model and how it does today, how to turn it on, or how to get a
-/// model when there's none.
-struct SuggestionsCard: View {
-    let suggestions: Suggestions
-    let language: String
-    let close: () -> Void
-    private var app: AppModel { suggestions.app }
-
-    var body: some View {
-        let mode = app.settings[SettingKeys.suggestions, language: language]
-        let model = suggestions.model(named: app.settings[SettingKeys.suggestionModel])
-        VStack(alignment: .leading, spacing: Metrics.inset) {
-            if let model, mode == "off" {
-                title(String(localized: "Code Suggestions"))
-                Text("\(model.server) is running on this Mac with \(model.id).").foregroundStyle(.secondary)
-                buttons(String(localized: "Turn On")) { app.settings.set(SettingKeys.suggestions, "local") }
-            } else if let model {
-                title(Suggestions.shortName(model.id))
-                if let pause = suggestions.pause { Text(pause.reason).foregroundStyle(.secondary) }
-                facts(model)
-                buttons(String(localized: "Turn Off"), prominent: false) {
-                    app.settings.set(SettingKeys.suggestions, "off")
-                }
-            } else {
-                title(String(localized: "No Model Found"))
-                Text("Install Ollama, then download a model for code:").foregroundStyle(.secondary)
-                Text(verbatim: "ollama pull qwen2.5-coder:1.5b-base").font(.uiMono(TextSize.caption)).textSelection(
-                    .enabled)
-                buttons(String(localized: "Try Again")) { Task { await suggestions.refresh() } }
-            }
-        }
-        .font(.ui(TextSize.row))
-        .padding(Metrics.inset)
-        .frame(width: 300, alignment: .leading)
-        .task { await suggestions.refresh() }
-    }
-
-    private func title(_ text: String) -> some View {
-        Text(text).font(.ui(TextSize.heading, weight: .semibold)).lineLimit(1)
-    }
-
-    private func facts(_ model: SuggestModel) -> some View {
-        let today = suggestions.today
-        let taken =
-            today.shown == 0
-            ? String(localized: "None shown yet")
-            : String(localized: "\(today.taken * 100 / today.shown)% · \(today.taken) of \(today.shown)")
-        return VStack(spacing: Metrics.gap) {
-            fact(String(localized: "Where"), String(localized: "This Mac · \(model.server)"))
-            fact(String(localized: "Taken today"), taken)
-            if let wait = today.typicalWait {
-                fact(String(localized: "Typical wait"), String(localized: "\(Int(wait * 1000)) ms"))
-            }
-        }
-    }
-
-    private func fact(_ name: String, _ value: String) -> some View {
-        HStack {
-            Text(name).foregroundStyle(.secondary)
-            Spacer()
-            Text(value).monospacedDigit()
-        }
-    }
-
-    /// Settings…, then the card's one action: the default button when it's the step forward (Turn On, Try Again).
-    private func buttons(_ main: String, prominent: Bool = true, _ action: @escaping () -> Void) -> some View {
-        HStack {
-            Spacer()
-            Button(String(localized: "Settings…")) {
-                close()
-                app.extensions.run(
-                    "workbench.openSettings", ["section": .string("editor"), "group": .string("Code suggestions")])
-            }
-            if prominent {
-                Button(main, action: action).keyboardShortcut(.defaultAction)
-            } else {
-                Button(main, action: action)
-            }
-        }
     }
 }

@@ -82,12 +82,26 @@ extension Builtins {
                     requires: SettingKeys.lsp.key),
                 s(
                     SettingKeys.suggestions, "Suggest code as you type", .enum,
-                    "Gray text after the cursor from a model on this Mac (Ollama, LM Studio or llama-server); ⇥ puts it in.",
-                    options: ["off", "local"], labels: ["off": "Off", "local": "On This Mac"],
+                    "Gray text after the cursor from a model on this Mac (Ollama, LM Studio or llama-server) or in the cloud; ⇥ puts it in.",
+                    options: ["off", "local", "cloud"],
+                    labels: ["off": "Off", "local": "On This Mac", "cloud": "In the Cloud"],
                     group: "Code suggestions", perLanguage: true),
                 s(
+                    SettingKeys.suggestionCloud, "Cloud provider", .enum,
+                    "The code around the cursor goes to it. Its key is kept in your login keychain.",
+                    options: SuggestCloud.allCases.map(\.rawValue),
+                    labels: [
+                        "mercury": "Mercury Edit 2 (Inception)", "codestral": "Codestral (Mistral)",
+                        "openai": "OpenAI-Compatible Server"
+                    ], group: "Code suggestions", requires: "\(SettingKeys.suggestions.key)=cloud"),
+                s(
+                    SettingKeys.suggestionURL, "Server address", .string,
+                    "Empty: the provider's own. Codestral's free key works at https://codestral.mistral.ai.",
+                    group: "Code suggestions", requires: "\(SettingKeys.suggestions.key)=cloud",
+                    placeholder: "https://api.example.com"),
+                s(
                     SettingKeys.suggestionModel, "Model", .string,
-                    "Empty picks a code model the server has, a base one first.",
+                    "Empty: on this Mac, a code model the server has, a base one first; in the cloud, the provider's own.",
                     group: "Code suggestions", requires: "\(SettingKeys.suggestions.key)!=off",
                     placeholder: "qwen2.5-coder:1.5b-base"),
                 s(
@@ -117,4 +131,6 @@ extension SettingKeys {
     static let hover = Setting("editor.hover", true)
     static let suggestions = Setting("editor.suggestions", "off")
     static let suggestionModel = Setting("editor.suggestionModel", "")
+    static let suggestionCloud = Setting("editor.suggestionCloud", "mercury")
+    static let suggestionURL = Setting("editor.suggestionURL", "")
 }

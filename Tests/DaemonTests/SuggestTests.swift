@@ -109,4 +109,59 @@ import Testing
         let body = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(body["keep_alive"] as? Int == 0 && body["model"] as? String == "m")
     }
+
+    @Test(
+        arguments: [
+            (SuggestCloud.mercury, nil, "https://api.inceptionlabs.ai/v1/fim/completions", "mercury-edit-2"),
+            (.codestral, nil, "https://api.mistral.ai/v1/fim/completions", "codestral-latest"),
+            (
+                .codestral, "https://codestral.mistral.ai", "https://codestral.mistral.ai/v1/fim/completions",
+                "codestral-latest"
+            ),
+            (.openai, "https://llm.example.com/v1", "https://llm.example.com/v1/completions", "qwen2.5-coder-7b")
+        ] as [(SuggestCloud, String?, String, String)])
+    func eachCloudIsAskedAtItsOwnAddressWithTheKey(cloud: SuggestCloud, url: String?, endpoint: String, model: String)
+        throws
+    {
+        let ask = EditorSuggest(
+            prefix: "a", suffix: "b", path: "x.swift", model: cloud == .openai ? model : nil, cloud: cloud, url: url)
+        let request = try #require(try CloudModels.request(ask, cloud: cloud, key: "k"))
+        #expect(request.url?.absoluteString == endpoint)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer k")
+        let data = try #require(request.httpBody)
+        let body = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(body["model"] as? String == model)
+        if cloud == .openai {
+            #expect(
+                body["prompt"] as? String == "<|fim_prefix|>a<|fim_suffix|>b<|fim_middle|>" && body["suffix"] == nil)
+        } else {
+            #expect(body["prompt"] as? String == "a" && body["suffix"] as? String == "b")
+        }
+    }
+
+    @Test func anOpenAIServerNeedsAnAddressAndAModelItKnows() throws {
+        func ask(_ url: String?, _ model: String) throws -> URLRequest? {
+            try CloudModels.request(
+                EditorSuggest(prefix: "", suffix: "", path: "", model: model, cloud: .openai, url: url), cloud: .openai,
+                key: "k")
+        }
+        #expect(try ask(nil, "qwen2.5-coder") == nil)
+        #expect(try ask("https://x", "gpt-4o") == nil)   // a chat model: its fill-in markers aren't known
+    }
+
+    @Test func aCloudsAnswerIsReadWhereverItPutsIt() throws {
+        #expect(try CloudModels.answer(Data(#"{"choices":[{"index":0,"text":"x + 1"}]}"#.utf8)) == "x + 1")
+        #expect(try CloudModels.answer(Data(#"{"choices":[{"message":{"content":"x + 1"}}]}"#.utf8)) == "x + 1")
+        #expect(try CloudModels.answer(Data(#"{"error":{"message":"bad key"}}"#.utf8)) == nil)
+    }
+
+    @Test func aCloudsKeyIsSavedAndRemovedInTheKeychain() async throws {
+        let (d, c, _) = try daemon()
+        defer { d.stop() }
+        _ = try await c.call(EditorSuggestKey(cloud: .codestral, key: ""))
+        #expect(try await c.call(EditorSuggestKey(cloud: .codestral)) == false)
+        #expect(try await c.call(EditorSuggestKey(cloud: .codestral, key: "k")) == true)
+        #expect(try await c.call(EditorSuggestKey(cloud: .mercury)) == false)   // each provider its own
+        #expect(try await c.call(EditorSuggestKey(cloud: .codestral, key: "")) == false)
+    }
 }

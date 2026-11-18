@@ -1,7 +1,8 @@
 import Foundation
 
-/// Gray text for the editor: what a model on this Mac (Ollama, LM Studio, llama-server) writes between the code before
-/// and after the cursor. Nil when no model answers. Kelp runs no model of its own.
+/// Gray text for the editor: what a model writes between the code before and after the cursor. Nil when no model
+/// answers. The model is one on this Mac (Ollama, LM Studio, llama-server), or a cloud one (`cloud`) with the key saved
+/// for it in the login keychain. Kelp runs no model of its own.
 public struct EditorSuggest: InternalMethod {
     public static let name = "editor.suggest"
     public typealias Result = String?
@@ -15,9 +16,12 @@ public struct EditorSuggest: InternalMethod {
     public var warm: Bool?
     /// Code from other files lately open or edited, oldest first, for a model that reads more than one file.
     public var extra: [SuggestChunk]?
+    /// The cloud provider to ask instead of this Mac, and its server when not the provider's own.
+    public var cloud: SuggestCloud?
+    public var url: String?
     public init(
         prefix: String, suffix: String, path: String, model: String? = nil, warm: Bool? = nil,
-        extra: [SuggestChunk]? = nil
+        extra: [SuggestChunk]? = nil, cloud: SuggestCloud? = nil, url: String? = nil
     ) {
         self.prefix = prefix
         self.suffix = suffix
@@ -25,6 +29,26 @@ public struct EditorSuggest: InternalMethod {
         self.model = model
         self.warm = warm
         self.extra = extra
+        self.cloud = cloud
+        self.url = url
+    }
+}
+
+/// A cloud service that fills in code: Inception's Mercury Edit 2, Mistral's Codestral, or any server with OpenAI's
+/// completions API.
+public enum SuggestCloud: String, Codable, Sendable, CaseIterable {
+    case mercury, codestral, openai
+}
+
+/// Whether a key is saved for `cloud`, after saving `key` when one is given (an empty one removes it). Keys live in the
+/// login keychain, never in settings.json.
+public struct EditorSuggestKey: InternalMethod {
+    public static let name = "editor.suggestKey"
+    public typealias Result = Bool
+    public var cloud: SuggestCloud, key: String?
+    public init(cloud: SuggestCloud, key: String? = nil) {
+        self.cloud = cloud
+        self.key = key
     }
 }
 

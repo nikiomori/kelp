@@ -5026,6 +5026,15 @@
         ],
         "type" : "object"
       },
+      "SuggestCloud" : {
+        "description" : "A cloud service that fills in code: Inception's Mercury Edit 2, Mistral's Codestral, or any server with OpenAI's completions API.",
+        "enum" : [
+          "mercury",
+          "codestral",
+          "openai"
+        ],
+        "type" : "string"
+      },
       "SuggestModel" : {
         "properties" : {
           "fillsIn" : {
@@ -7832,10 +7841,18 @@
       "x-internal" : true
     },
     {
-      "description" : "Gray text for the editor: what a model on this Mac (Ollama, LM Studio, llama-server) writes between the code before and after the cursor. Nil when no model answers. Kelp runs no model of its own.",
+      "description" : "Gray text for the editor: what a model writes between the code before and after the cursor. Nil when no model answers. The model is one on this Mac (Ollama, LM Studio, llama-server), or a cloud one (`cloud`) with the key saved for it in the login keychain. Kelp runs no model of its own.",
       "name" : "editor.suggest",
       "paramStructure" : "by-name",
       "params" : [
+        {
+          "description" : "The cloud provider to ask instead of this Mac, and its server when not the provider's own.",
+          "name" : "cloud",
+          "required" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/SuggestCloud"
+          }
+        },
         {
           "description" : "Code from other files lately open or edited, oldest first, for a model that reads more than one file.",
           "name" : "extra",
@@ -7877,6 +7894,13 @@
           }
         },
         {
+          "name" : "url",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
           "description" : "True to have the model read the code and write nothing: a file just opened, so the first suggestion doesn't wait for the model to load. Answers nil.",
           "name" : "warm",
           "required" : false,
@@ -7889,6 +7913,34 @@
         "name" : "result",
         "schema" : {
           "type" : "string"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Whether a key is saved for `cloud`, after saving `key` when one is given (an empty one removes it). Keys live in the login keychain, never in settings.json.",
+      "name" : "editor.suggestKey",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "cloud",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/SuggestCloud"
+          }
+        },
+        {
+          "name" : "key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
         }
       },
       "x-internal" : true

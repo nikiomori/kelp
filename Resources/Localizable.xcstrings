@@ -71,6 +71,16 @@
         }
       }
     },
+    "%@ Needs a Key": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: нужен ключ"
+          }
+        }
+      }
+    },
     "%lld ms": {
       "localizations": {
         "ru": {
@@ -87,6 +97,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$lld%% · %2$lld из %3$lld"
+          }
+        }
+      }
+    },
+    "Add Key…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить ключ…"
+          }
+        }
+      }
+    },
+    "API Key for %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключ API для %@"
+          }
+        }
+      }
+    },
+    "Change Key…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сменить ключ…"
+          }
+        }
+      }
+    },
+    "Cloud provider": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Облачный провайдер"
+          }
+        }
+      }
+    },
+    "Cloud · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Облако · %@"
+          }
+        }
+      }
+    },
+    "Cloud: No Key": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Облако: нет ключа"
           }
         }
       }
@@ -111,12 +181,52 @@
         }
       }
     },
+    "Codestral (Mistral)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codestral (Mistral)"
+          }
+        }
+      }
+    },
     "Empty picks a code model the server has, a base one first.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Пусто — берётся модель для кода с сервера, сначала базовая."
+          }
+        }
+      }
+    },
+    "Empty: on this Mac, a code model the server has, a base one first; in the cloud, the provider's own.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пусто: на этом Mac — модель для кода с сервера, сначала базовая; в облаке — модель провайдера."
+          }
+        }
+      }
+    },
+    "Empty: the provider's own. Codestral's free key works at https://codestral.mistral.ai.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пусто — адрес провайдера. Бесплатный ключ Codestral работает на https://codestral.mistral.ai."
+          }
+        }
+      }
+    },
+    "Gray text after the cursor from a model on this Mac (Ollama, LM Studio or llama-server) or in the cloud; ⇥ puts it in.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серый текст после курсора от модели на этом Mac (Ollama, LM Studio или llama-server) или в облаке; ⇥ вставляет его."
           }
         }
       }
@@ -131,12 +241,42 @@
         }
       }
     },
+    "In the Cloud": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В облаке"
+          }
+        }
+      }
+    },
     "Install Ollama, then download a model for code:": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Установите Ollama и скачайте модель для кода:"
+          }
+        }
+      }
+    },
+    "It's stored in your login keychain, not in settings.json.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Он хранится в вашей связке ключей, а не в settings.json."
+          }
+        }
+      }
+    },
+    "Mercury Edit 2 (Inception)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mercury Edit 2 (Inception)"
           }
         }
       }
@@ -653,6 +793,26 @@
         }
       }
     },
+    "OpenAI-Compatible Server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сервер, совместимый с OpenAI"
+          }
+        }
+      }
+    },
+    "OpenAI-compatible server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер, совместимый с OpenAI"
+          }
+        }
+      }
+    },
     "Page": {
       "localizations": {
         "ru": {
@@ -1059,6 +1219,16 @@
         }
       }
     },
+    "Server address": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес сервера"
+          }
+        }
+      }
+    },
     "Share of cost": {
       "localizations": {
         "ru": {
@@ -1149,6 +1319,26 @@
         }
       }
     },
+    "The code around the cursor goes to %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код вокруг курсора отправляется в %@."
+          }
+        }
+      }
+    },
+    "The code around the cursor goes to it. Its key is kept in your login keychain.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код вокруг курсора отправляется ему. Ключ хранится в вашей связке ключей."
+          }
+        }
+      }
+    },
     "The first time takes a moment.": {
       "localizations": {
         "ru": {
@@ -1185,6 +1375,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Запрос изменили в другом месте. Закройте ещё раз, чтобы оставить свой текст, или нажмите «Отменить»."
+          }
+        }
+      }
+    },
+    "the server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер"
           }
         }
       }

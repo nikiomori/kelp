@@ -22,6 +22,8 @@ actor LocalModels {
     private static let fresh: TimeInterval = 30
     private var found: (servers: [Server], at: Date)?
     private let http = URLSession(configuration: .ephemeral)
+    /// Kept for the cloud's answers, so its connection stays open and each keystroke's ask skips a new TLS handshake.
+    let cloudHTTP = URLSession(configuration: .ephemeral)
     /// The Ollama model last asked, which a memory warning has Ollama put away at once (it would keep it 5 minutes).
     private var loaded: (server: Server, model: String)?
     private var pressure: DispatchSourceMemoryPressure?
@@ -162,8 +164,13 @@ actor LocalModels {
 
 extension EditorSuggest: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> String? {
-        try await lsp.models.suggest(
-            prefix: prefix, suffix: suffix, path: path, model: model, warm: warm == true, extra: extra ?? [])
+        guard let cloud else {
+            return try await lsp.models.suggest(
+                prefix: prefix, suffix: suffix, path: path, model: model, warm: warm == true, extra: extra ?? [])
+        }
+        guard warm != true else { return nil }   // a warm-up would be paid for: the cloud's models are always loaded
+        let key = try await lsp.offloads.run { try Keychain.find(CloudModels.account(cloud)) }
+        return try await lsp.models.suggest(self, cloud: cloud, key: key)
     }
 }
 
@@ -172,5 +179,7 @@ extension EditorSuggestModels: AsyncHandled {
 }
 
 extension Methods {
-    static let suggestMethods: [any Answered.Type] = [EditorSuggest.self, EditorSuggestModels.self]
+    static let suggestMethods: [any Answered.Type] = [
+        EditorSuggest.self, EditorSuggestModels.self, EditorSuggestKey.self
+    ]
 }
