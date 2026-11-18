@@ -47,7 +47,7 @@ extension CIRunsController {
     /// A fold opens from anywhere on its row. A step goes to its place in the job's log, which is read once the job is
     /// over.
     @objc func rowClicked() {
-        guard let item = outline.item(atRow: outline.clickedRow) as? Item else { return }
+        guard let item = outline.item(atRow: outline.actedRow) as? Item else { return }
         switch item.kind {
         case .fold: if outline.isItemExpanded(item) { outline.collapseItem(item) } else { outline.expandItem(item) }
         case .step(let step): showInLog(step, of: item)

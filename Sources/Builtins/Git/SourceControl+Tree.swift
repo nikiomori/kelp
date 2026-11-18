@@ -264,7 +264,7 @@ extension SourceControlController {
 
     @objc func clicked(_ outline: NSOutlineView) {
         card.close()
-        guard let node = outline.item(atRow: outline.clickedRow) as? Node else { return }
+        guard let node = outline.item(atRow: outline.actedRow) as? Node else { return }
         switch node.kind {
         case .section(let section): toggle(section)
         case .file(let file, let section): open(file, section)

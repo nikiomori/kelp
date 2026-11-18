@@ -18,6 +18,27 @@ import WorkbenchKit
     func close() async -> Bool { true }
 }
 
+/// A panel that is one list of three rows, which notes the row each action was about.
+@MainActor private final class ListPanel: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
+    let table = NSTableView()
+    var acted: [Int] = []
+    override func loadView() {
+        table.addTableColumn(NSTableColumn())
+        table.dataSource = self
+        table.delegate = self
+        table.target = self
+        table.action = #selector(act)
+        let scroll = NSScrollView()
+        scroll.documentView = table
+        view = scroll
+    }
+    func numberOfRows(in tableView: NSTableView) -> Int { 3 }
+    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
+        NSTextField(labelWithString: "row")
+    }
+    @objc func act() { acted.append(table.actedRow) }
+}
+
 /// Where a command shows: the menu bar and ⇧⌘P, and for the File menu's commands on what is in front, when.
 extension OneAtATime {
     /// Every command the registry has is an item of the menu bar, and every one the menu bar offers now is a row of
@@ -96,6 +117,70 @@ extension OneAtATime {
                 app.land(GitEvent(worktree: app.gitKey("group"), branches: info))
                 #expect(offered().contains("git.copyBranchName") == offers)
             }
+        }
+    }
+
+    /// ⌥⌘1–9 are the icons of the inspector's row, in its order: a panel dragged to the front is ⌥⌘1, and one hidden
+    /// from the row has no number. A panel's key gives its list the keys, where Return does what a click on the
+    /// selected row does; the same command without the menu's word leaves the keys where they were. VoiceOver hears
+    /// the number on a panel's icon with the panel's name.
+    @Test func aPanelsKeyIsItsIconsPlaceAndGivesItsListTheKeys() async throws {
+        _ = testHome
+        _ = NSApplication.shared
+        let before = NSApp.mainMenu
+        defer { NSApp.mainMenu = before }
+        let panel = ListPanel()
+        let lists = Builtin("test.lists", "Lists", "", icon: "doc") { _ in
+            Contributions(panels: [
+                PanelSpec(
+                    id: "test.list", title: "Test List", icon: "list.bullet", extensionId: "test.lists",
+                    badge: { PanelBadge("3") }
+                ) { panel }
+            ])
+        }
+        let delegate = AppDelegate(builtins: Builtins.all + [lists]), app = delegate.app
+        app.extensions.reload()
+        func numbered() throws -> [String] {
+            delegate.buildMenu()
+            return try #require(NSApp.mainMenu).leaves().map(\.0)
+                .filter { $0.keyEquivalentModifierMask == [.command, .option] && (Int($0.keyEquivalent) ?? 0) > 0 }
+                .sorted { $0.keyEquivalent < $1.keyEquivalent }.map { $0.title.trimmingCharacters(in: .whitespaces) }
+        }
+        let registered = app.extensions.all.panels
+        #expect(try numbered() == registered.prefix(9).map { loc($0.title) })
+        let first = try #require(registered.first)
+        app.settings.set(SettingKeys.panelOrder, ["test.list"])
+        app.settings.set(SettingKeys.hiddenPanels, [first.id])
+        defer {
+            app.settings.set(SettingKeys.panelOrder, nil)
+            app.settings.set(SettingKeys.hiddenPanels, nil)
+        }
+        let now = try numbered()
+        #expect(now.first == "Test List" && !now.contains(loc(first.title)))
+
+        let folder = NSTemporaryDirectory()
+        let controller = MainWindowController(app: app)
+        app.repos = [Repo(id: "r", name: "Atlas", path: folder)]
+        app.worktrees = [Worktree(id: "own", repoId: "r", branch: "main", path: folder, createdAt: .distantPast)]
+        app.workbench.show(workspace: "own")
+        controller.right.item.isCollapsed = false   // open at once: the slide that opens it takes its time
+        await mainActorTurns()   // the inspector hears of the project a turn later
+        try withExtendedLifetime(controller) {
+            let window = try #require(controller.window)
+            app.extensions.run("workbench.showPanel", ["panel": .string("test.list")])
+            #expect(window.firstResponder !== panel.table)
+            app.extensions.run("workbench.showPanel", ["panel": .string("test.list"), "keys": .bool(true)])
+            #expect(window.firstResponder === panel.table)
+            panel.table.selectRowIndexes([1], byExtendingSelection: false)
+            let key = try #require(
+                NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                    windowNumber: window.windowNumber, context: nil, characters: "\r",
+                    charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36))
+            panel.table.keyDown(with: key)
+            #expect(panel.acted == [1])
+            // The number on the panel's icon is said with its name.
+            #expect(controller.inspector.buttons.map { $0.accessibilityLabel() }.contains("Test List, 3"))
         }
     }
 }

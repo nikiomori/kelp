@@ -5,6 +5,66 @@ import DesignKit
 import SwiftUI
 
 extension InspectorController {
+    /// The registry's panels in the icon row's order: as the user dragged them, and the ones the saved order doesn't
+    /// name yet after those, in the registry's order.
+    static func ordered(_ app: AppModel) -> [PanelSpec] {
+        let order = app.settings[SettingKeys.panelOrder]
+        func rank(_ entry: (offset: Int, element: PanelSpec)) -> (Int, Int) {
+            (order.firstIndex(of: entry.element.id) ?? .max, entry.offset)
+        }
+        return app.extensions.all.panels.enumerated().sorted { rank($0) < rank($1) }.map(\.element)
+    }
+
+    /// The panels that have an icon in the row, in its order. The View menu lists and numbers these, so ⌥⌘1 is the
+    /// row's first icon whatever the user dragged or hid.
+    static func shown(_ app: AppModel) -> [PanelSpec] {
+        let hidden = Set(app.settings[SettingKeys.hiddenPanels] ?? [])
+        return ordered(app).filter { !hidden.contains($0.id) }
+    }
+
+    /// Pins a count badge past the top-right corner of the icon's glyph, clear of its strokes. Placed over the strokes,
+    /// the badge hid a node of the branch symbol.
+    func pin(_ countBadge: CountBadge, on button: NSButton) {
+        countBadge.translatesAutoresizingMaskIntoConstraints = false
+        button.addSubview(countBadge)
+        let half = Metrics.segmentPoint / 2
+        // The badge starts 3 pt past half the glyph's width, because at 1 pt the branch's right node touched the
+        // number. A wider badge ("19") moves left rather than onto the next icon, and ends 3 pt before that icon's
+        // glyph.
+        let start = countBadge.leadingAnchor.constraint(equalTo: button.centerXAnchor, constant: half + 3)
+        start.priority = .defaultHigh
+        let nextGlyph = Metrics.iconGap + (Metrics.segment.width - Metrics.segmentPoint) / 2
+        NSLayoutConstraint.activate([
+            start,
+            countBadge.trailingAnchor.constraint(lessThanOrEqualTo: button.trailingAnchor, constant: nextGlyph - 3),
+            // In a column, the badge hangs past the capsule's edge into the inset, stopping short of the window's edge.
+            countBadge.trailingAnchor.constraint(
+                lessThanOrEqualTo: button.trailingAnchor, constant: Metrics.iconGap + Metrics.insetTrailing - 2),
+            countBadge.centerYAnchor.constraint(equalTo: button.centerYAnchor, constant: Metrics.iconGap - half - 1)
+        ])
+    }
+
+    /// The first list of a panel that can take the keys.
+    static func list(in view: NSView) -> NSTableView? {
+        if let table = view as? NSTableView { return table.isHiddenOrHasHiddenAncestor ? nil : table }
+        for sub in view.subviews { if let found = list(in: sub) { return found } }
+        return nil
+    }
+
+    /// Answers a key that a panel's list passed on. Return does what a click on the selected row does (or a
+    /// double-click, in a list where only that acts), and Esc gives the keys back to the tab.
+    func answer(_ event: NSEvent) -> Bool {
+        guard let list = view.window?.firstResponder as? NSTableView, list.isDescendant(of: view) else { return false }
+        switch event.keyCode {
+        case 53: app.workbench.focusTab()
+        case 36, 76:
+            guard list.selectedRow >= 0, let action = list.action ?? list.doubleAction else { return false }
+            NSApp.sendAction(action, to: list.target, from: list)
+        default: return false
+        }
+        return true
+    }
+
     /// Keeps as many icons in the row as the inspector's width holds, in the row's order, and puts the rest into the »
     /// menu. The shown panel's icon stays in the row (taking the last slot if it would have folded), so the row always
     /// shows which panel is open.

@@ -38,7 +38,9 @@ extension Builtins {
                 if let id = app.workbench.workspaceId { Task { await LayoutTemplates(app: app).save(from: id) } }
             },
             CommandSpec(id: "workbench.showPanel", title: "Show Panel") { args in
-                if let panel = args["panel"]?.string { app.workbench.window?.showInspector(panel: panel) }
+                // Only the menu bar asks for the keys: an agent that shows a panel leaves them where the user types.
+                guard let panel = args["panel"]?.string else { return }
+                app.workbench.window?.showInspector(panel: panel, keys: args["keys"]?.bool == true)
             },
             cmd("workbench.commandPalette", "Command Palette…", "shift+cmd+p") {
                 app.quickOpen.show(commandsOnly: true)

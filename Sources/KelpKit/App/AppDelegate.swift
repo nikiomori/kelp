@@ -65,7 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         track(owner: self) { [app] in
             MenuSources(
                 revision: app.extensions.revision, agents: app.availability.ids, keys: app.settings[SettingKeys.keys],
-                update: app.updates.ready)
+                update: app.updates.ready, panels: InspectorController.shown(app).map(\.id))
         } changed: { [weak self] _ in
             self?.buildMenu()
         }
@@ -295,6 +295,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 /// What the menu bar is built from. The menu bar is built again when any of this changes.
 private struct MenuSources: Equatable {
     let revision: Int, agents: Set<String>, keys: JSONValue?, update: Updates.Ready?
+    /// The inspector's icons in their order: View numbers the panels by it.
+    let panels: [String]
 }
 
 extension AppDelegate: NSMenuItemValidation {

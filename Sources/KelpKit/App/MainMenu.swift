@@ -212,9 +212,10 @@ extension AppDelegate {
         let app = self.app
         let view = menuBuilder.sub("View")
         menuBuilder.add(view, "workbench.toggleSidebar", "workbench.toggleInspector", "workbench.toggleFocusMode")
-        for (i, p) in menuBuilder.reg.all.panels.prefix(9).enumerated() {
+        // In the icon row's order, so the number is the icon's place in the row.
+        for (i, p) in InspectorController.shown(app).prefix(9).enumerated() {
             let menuItem = view.add("  " + p.title, symbol: p.icon, key: "\(i + 1)") {
-                app.extensions.run("workbench.showPanel", ["panel": .string(p.id)])
+                app.extensions.run("workbench.showPanel", ["panel": .string(p.id), "keys": .bool(true)])
             }
             menuItem.keyEquivalentModifierMask = [.command, .option]
         }

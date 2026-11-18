@@ -47,8 +47,9 @@ package enum Help {
         paste and splits. Drop files to type their paths; ⌘K clears, ⌘+ / ⌘− change the text size.
 
         ## The inspector
-        Files (⌥⌘1), Source Control (⌥⌘2) — changes, staging, commit, history graph; click a file for its diff — Issues & Pull Requests, and
-        panels from extensions.
+        Files, Source Control — changes, staging, commit, history graph; click a file for its diff — Issues & Pull
+        Requests, and panels from extensions. ⌥⌘1–9 show a panel by its icon's place in the row and put the keys in
+        its list: ↑ ↓ move, Return does what a click does, Esc goes back to the tab.
 
         ## Extensions and agents
         Everything above is an extension; turn them off in Settings › Extensions. To add one, ask Claude Code in a tab:

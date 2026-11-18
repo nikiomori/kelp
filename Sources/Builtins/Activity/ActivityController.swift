@@ -148,7 +148,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
     }
 
     @objc private func open() {
-        guard rows.indices.contains(table.clickedRow) else { return }
-        app.workbench.focus(session: rows[table.clickedRow].session.id)
+        guard rows.indices.contains(table.actedRow) else { return }
+        app.workbench.focus(session: rows[table.actedRow].session.id)
     }
 }

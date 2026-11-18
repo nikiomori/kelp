@@ -1,15 +1,16 @@
 import AppKit
 import DesignKit
 
-/// Finder's keys in the tree: Space previews, ↩ renames, ⌘⌫ moves to the Trash.
+/// Finder's keys in the tree: Space previews, ↩ renames, ⌘↓ opens, ⌘⌫ moves to the Trash.
 final class FilesOutline: ListOutlineView {
-    var onSpace: (() -> Void)?, onReturn: (() -> Void)?, onDelete: (() -> Void)?
+    var onSpace: (() -> Void)?, onReturn: (() -> Void)?, onDelete: (() -> Void)?, onOpen: (() -> Void)?
     override func keyDown(with event: NSEvent) {
         let mods = event.modifierFlags.intersection([.command, .option, .control, .shift])
         switch (event.keyCode, mods) {
         case (49, []): onSpace?()
         case (36, []), (76, []): onReturn?()
         case (51, .command): onDelete?()
+        case (125, .command): onOpen?()
         default: super.keyDown(with: event)
         }
     }

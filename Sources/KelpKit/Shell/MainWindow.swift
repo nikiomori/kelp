@@ -246,11 +246,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         slide([(right, collapsed)])
         UserDefaults.standard.set(collapsed, forKey: "inspector.collapsed")
     }
-    func showInspector(panel: String) {
+    func showInspector(panel: String, keys: Bool = false) {
         if right.item.isCollapsed, peeking !== right {
             if hides(right) { peek(right) } else { toggleInspectorPanel() }
         }
-        inspector.show(panel: panel)
+        inspector.show(panel: panel, keys: keys)
     }
     @objc func toggleSidebarPanel() {
         if inFocusMode { return togglePeek(left) }

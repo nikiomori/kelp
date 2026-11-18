@@ -8,7 +8,7 @@ extension DatabasesPanel {
     // MARK: Clicks
 
     @objc func clicked() {
-        let index = table.clickedRow
+        let index = table.actedRow
         guard rows.indices.contains(index) else { return }
         let wid = workspace
         switch rows[index] {

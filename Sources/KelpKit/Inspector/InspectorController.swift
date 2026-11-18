@@ -31,6 +31,8 @@ final class InspectorController: NSViewController {
     private let host = NSView()   // clips the panel (see showSelected)
     var panels: [PanelSpec] = []
     private var made: [String: NSViewController] = [:]
+    /// True from ⌥⌘1–9 until the shown panel's list has taken the keys.
+    private var takesKeys = false
     /// One constraint for each choice of Settings › Appearance › Inspector icons (left, centered, right); the active
     /// one holds the row in place.
     private var align: [String: NSLayoutConstraint] = [:]
@@ -197,13 +199,8 @@ final class InspectorController: NSViewController {
     }
 
     private func rebuild() {
-        // Panels go in the order the user dragged the row into. Panels the saved order doesn't name yet follow in the
-        // registry's order.
-        let order = app.settings[SettingKeys.panelOrder], hidden = Set(app.settings[SettingKeys.hiddenPanels] ?? [])
-        func rank(_ entry: (offset: Int, element: PanelSpec)) -> (Int, Int) {
-            (order.firstIndex(of: entry.element.id) ?? .max, entry.offset)
-        }
-        panels = app.extensions.all.panels.enumerated().sorted { rank($0) < rank($1) }.map(\.element)
+        let hidden = Set(app.settings[SettingKeys.hiddenPanels] ?? [])
+        panels = Self.ordered(app)
         let ids = Set(panels.map(\.id))
         made.keys.filter { !ids.contains($0) }.forEach(unmake)
         buttons.forEach { $0.removeFromSuperview() }
@@ -261,28 +258,6 @@ final class InspectorController: NSViewController {
         ])
     }
 
-    /// Pins a count badge past the top-right corner of the icon's glyph, clear of its strokes. Placed over the strokes,
-    /// the badge hid a node of the branch symbol.
-    private func pin(_ countBadge: CountBadge, on button: NSButton) {
-        countBadge.translatesAutoresizingMaskIntoConstraints = false
-        button.addSubview(countBadge)
-        let half = Metrics.segmentPoint / 2
-        // The badge starts 3 pt past half the glyph's width, because at 1 pt the branch's right node touched the
-        // number. A wider badge ("19") moves left rather than onto the next icon, and ends 3 pt before that icon's
-        // glyph.
-        let start = countBadge.leadingAnchor.constraint(equalTo: button.centerXAnchor, constant: half + 3)
-        start.priority = .defaultHigh
-        let nextGlyph = Metrics.iconGap + (Metrics.segment.width - Metrics.segmentPoint) / 2
-        NSLayoutConstraint.activate([
-            start,
-            countBadge.trailingAnchor.constraint(lessThanOrEqualTo: button.trailingAnchor, constant: nextGlyph - 3),
-            // In a column, the badge hangs past the capsule's edge into the inset, stopping short of the window's edge.
-            countBadge.trailingAnchor.constraint(
-                lessThanOrEqualTo: button.trailingAnchor, constant: Metrics.iconGap + Metrics.insetTrailing - 2),
-            countBadge.centerYAnchor.constraint(equalTo: button.centerYAnchor, constant: Metrics.iconGap - half - 1)
-        ])
-    }
-
     /// Drops the built panels of folder extensions so they are made again, because a reload may have changed what they
     /// show (an agent edits one, then runs `kelp ext reload`). Built-in panels stay as they are.
     private func forgetFolderPanels() {
@@ -310,6 +285,9 @@ final class InspectorController: NSViewController {
             if let badge, folded.contains(i) { folds.append(badge) }
             buttons[i].toolTip =
                 badge.map { $0.count > 0 ? "\(loc(p.title)) (\($0.count))" : "\(loc(p.title)) •" } ?? loc(p.title)
+            // VoiceOver hears the badge with the name: its number, or that the panel has something new.
+            let said = badge.map { $0.count > 0 ? "\($0.count)" : String(localized: "Has changes") }
+            buttons[i].setAccessibilityLabel([loc(p.title), said].compactMap(\.self).joined(separator: ", "))
         }
         // The » shows a dot when a folded panel has a badge, and the dot is red if any of those badges is an alert.
         moreBadge.badge = folds.isEmpty ? nil : PanelBadge(alert: folds.contains(where: \.alert))
@@ -348,8 +326,17 @@ final class InspectorController: NSViewController {
         app.settings.set(SettingKeys.panelOrder, order)
     }
 
-    /// Shows a panel by id (menus and commands use this too).
-    func show(panel id: String) { app.workbench.inspectorPanel = id }
+    /// Shows a panel by id (menus and commands use this too). With `keys` its list takes the keys once it is on
+    /// screen, as ⌥⌘1–9 ask.
+    func show(panel id: String, keys: Bool = false) {
+        app.workbench.inspectorPanel = id
+        guard keys else { return }
+        takesKeys = true
+        showSelected()   // now, not when the change is heard: an inspector that is sliding in shows it on arrival
+    }
+    override func keyDown(with event: NSEvent) { if !answer(event) { super.keyDown(with: event) } }
+    /// Esc, when the list passed it on as the command.
+    override func cancelOperation(_ sender: Any?) { app.workbench.focusTab() }
     /// Returns the panel's view controller if it was already built (panels are built when first shown).
     func built(_ id: String) -> NSViewController? { made[id] }
 
@@ -372,6 +359,10 @@ final class InspectorController: NSViewController {
         if made[panel.id] == nil {
             made[panel.id] = vc
             addChild(vc)
+        }
+        defer {
+            if takesKeys, let list = Self.list(in: vc.view) { view.window?.makeFirstResponder(list) }
+            takesKeys = false
         }
         guard vc.view.superview !== host else { return }
         if !host.subviews.isEmpty { host.crossfade() }   // one panel fades into the next

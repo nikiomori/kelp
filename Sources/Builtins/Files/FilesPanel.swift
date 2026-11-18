@@ -82,6 +82,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
         outline.onReturn = { [weak self] in if self?.isNarrowed == true { self?.openSelected() } else { self?.rename() }
         }
         outline.onDelete = { [weak self] in self?.trashSelected() }
+        outline.onOpen = { [weak self] in self?.openSelected() }
         outline.menu = NSMenu()
         outline.menu?.delegate = self
         search.delegate = self
