@@ -45,7 +45,7 @@ struct SuggestionsCard: View {
                 facts(String(localized: "This Mac · \(model.server)"))
                 otherModels()
                 buttons(String(localized: "Turn Off"), prominent: false) {
-                    app.settings.set(SettingKeys.suggestions, "off")
+                    suggestions.turnOff()
                 }
             } else {
                 offCard(model)
@@ -117,7 +117,7 @@ struct SuggestionsCard: View {
             facts(String(localized: "Cloud · \(Self.company(cloud, app.settings[SettingKeys.suggestionURL]))"))
             Button(String(localized: "Change Key…")) { addKey(cloud) }.buttonStyle(.link)
             buttons(String(localized: "Turn Off"), prominent: false) {
-                app.settings.set(SettingKeys.suggestions, "off")
+                suggestions.turnOff()
             }
         }
     }

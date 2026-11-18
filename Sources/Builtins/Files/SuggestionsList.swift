@@ -17,6 +17,16 @@ struct SuggestionsList: View {
             cloud = SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud])
         let local = (suggestions.models ?? []).filter(\.fillsIn), recommended = Suggestions.recommended()
         VStack(alignment: .leading, spacing: 2) {
+            // On or off here; where from is the row picked below, and picking one turns them on.
+            Toggle(
+                String(localized: "Suggest code as you type"),
+                isOn: Binding(
+                    get: { mode != "off" },
+                    set: { on in
+                        if on { Task { await suggestions.switchOn() } } else { suggestions.turnOff() }
+                    })
+            )
+            .toggleStyle(.switch).controlSize(.small).padding(.horizontal, 6)
             heading(String(localized: "On This Mac"))
             ForEach(local, id: \.id) { model in
                 let picked = mode == "local" && (named == model.id || named.isEmpty && local.first == model)

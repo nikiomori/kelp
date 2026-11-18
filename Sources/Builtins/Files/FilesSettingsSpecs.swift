@@ -5,8 +5,8 @@ import KelpKit
 import SwiftUI
 
 extension Builtins {
-    /// Settings › Editor › Code suggestions: on or off per language; the list above them picks the model, and the
-    /// three rows it stands for stay for search and settings.json.
+    /// Settings › Editor › Code suggestions: the list (`SuggestionsList`) switches them on and picks where from; the
+    /// rows it stands for stay hidden, for search and settings.json (and a language's own on or off).
     private static var suggestionRows: [SettingSpec] {
         [
             s(
@@ -14,7 +14,7 @@ extension Builtins {
                 "Gray text after the cursor from a model on this Mac or in the cloud; ⇥ puts it in.",
                 options: ["off", "local", "cloud"],
                 labels: ["off": "Off", "local": "On This Mac", "cloud": "In the Cloud"],
-                group: "Code suggestions", perLanguage: true),
+                group: "Code suggestions", hidden: true, perLanguage: true),
             s(
                 SettingKeys.suggestionCloud, "Cloud provider", .enum,
                 "The code around the cursor goes to it. Its key is kept in your login keychain.",

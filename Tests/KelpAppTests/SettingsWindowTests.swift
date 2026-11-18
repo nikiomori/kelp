@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import SwiftUI
 import Testing
 
 @testable import BuiltinAgents
@@ -148,4 +149,15 @@ import Testing
     let rows = Set(Builtins.all.flatMap { $0.contribute(app).settings.flatMap(\.specs).map(\.key) })
     #expect(declared.subtracting(rows).subtracting(noRow.keys).sorted() == [], "a setting with no row")
     #expect(Set(noRow.keys).intersection(rows).sorted() == [], "a row now: take it off the list")
+}
+
+@MainActor @Test func aGroupOfHiddenRowsShowsOnlyWhenItsOwnViewDoesTheSetting() {
+    func row(_ key: String, group: String) -> SettingSpec {
+        SettingSpec(key: key, title: key, type: .boolean, group: group, hidden: true)
+    }
+    let shown = SettingsSection(
+        id: "s", title: "S", icon: "", specs: [row("a", group: "Picked"), row("b", group: "Gone")],
+        previews: ["Picked": { AnyView(EmptyView()) }])
+    #expect(shown.groups.map(\.0) == ["Picked"])   // its list stands for the rows; "Gone" has nothing to show
+    #expect(shown.groups.first?.1.isEmpty == true)
 }

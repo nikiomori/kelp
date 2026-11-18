@@ -37,6 +37,8 @@ final class Suggestions {
     /// Turn On's way to a model: one Ollama is downloading, what it still needs, or why it stopped.
     var pull: Pull?
     var needsOllama: OllamaSetup?
+    /// Where suggestions came from before they were switched off ("local" or "cloud").
+    @ObservationIgnored var wereOn: String?
     var setupError: String?
 
     struct Pull: Equatable {

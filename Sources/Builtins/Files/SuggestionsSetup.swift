@@ -83,6 +83,21 @@ extension Suggestions {
         problem = nil
     }
 
+    /// Off, remembering where suggestions came from, so switching them on again goes back there.
+    func turnOff() {
+        let mode = app.settings[SettingKeys.suggestions]
+        if mode != "off" { wereOn = mode }
+        app.settings.set(SettingKeys.suggestions, "off")
+    }
+
+    /// On again from where they last came: the cloud, or else this Mac (Turn On's way).
+    func switchOn() async {
+        if wereOn == "cloud", let cloud = SuggestCloud(rawValue: app.settings[SettingKeys.suggestionCloud]) {
+            return use(cloud)
+        }
+        await turnOn()
+    }
+
     /// Suggestions from `cloud`, which asks for its key when it has none.
     func use(_ cloud: SuggestCloud) {
         app.settings.set(SettingKeys.suggestionCloud, cloud.rawValue)
