@@ -21,6 +21,8 @@ final class AgentStack: NSView {
     /// What was drawn last. A status change re-reads the row, and when nothing changed the marks keep spinning instead
     /// of being made again.
     private var shown: [String] = []
+    /// The logos' marks by chat, so how a chat works (it began to wait for its command) shows without a new logo.
+    private var marks: [String: StatusMark] = [:]
 
     init() {
         super.init(frame: .zero)
@@ -49,8 +51,9 @@ final class AgentStack: NSView {
         toolTip = sorted.map { app.catalog.displayName($0) + " · " + $0.statusWords }.joined(
             separator: "\n")
         setAccessibilityLabel(toolTip)
-        guard now != shown else { return }
+        guard now != shown else { return chats.forEach { marks[$0.id]?.follow($0) } }
         shown = now
+        marks = [:]
         faces.forEach { $0.removeFromSuperview() }
         total = sorted.count
         faces = sorted.filter { Self.badge($0) != nil }.prefix(Self.most).map { face($0, app) }
@@ -105,6 +108,8 @@ final class AgentStack: NSView {
         face.image = session.status == .paused ? image.map(app.agentIcons.grey) : image
         face.mark.status = Self.badge(session)
         face.mark.unread = true
+        face.mark.follow(session)
+        marks[session.id] = face.mark
         face.cut()
         let id = session.id
         let button = PointerButton { [weak app] in

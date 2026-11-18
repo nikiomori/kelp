@@ -68,7 +68,7 @@ final class QuickOpenCell: PaletteCell {
         guard let session, state else { return }
         mark.status = session.status
         mark.unread = session.unread
-        mark.waitsForCommand = session.waitsForCommand
+        mark.follow(session)
     }
 
     /// Shows a built-in's view at the end, before the tick, and removes the view the reused row had.

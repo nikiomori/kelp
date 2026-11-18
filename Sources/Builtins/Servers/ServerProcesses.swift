@@ -203,8 +203,8 @@ extension View {
     func hoverRow(_ hovering: Binding<Bool>) -> some View {
         let fill = hovering.wrappedValue ? Color(nsColor: .fillHover) : .clear
         return background(RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(fill))
-        .contentShape(Rectangle())
-        .onHover { hovering.wrappedValue = $0 }
+            .contentShape(Rectangle())
+            .onHover { hovering.wrappedValue = $0 }
     }
 }
 
@@ -215,7 +215,7 @@ private struct PartOf: View {
     var body: some View {
         if let sid = process.session, let session = app.session(sid) {
             HStack(spacing: 4) {
-                StatusIcon(status: session.markStatus, waitsForCommand: session.waitsForCommand).frame(
+                StatusIcon(status: session.markStatus, of: session).frame(
                     width: 12, height: 12)
                 Text(app.catalog.displayName(session)).lineLimit(1)
             }

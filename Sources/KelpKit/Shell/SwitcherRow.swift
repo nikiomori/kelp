@@ -42,7 +42,7 @@ struct SwitcherRow {
             let mark = StatusMark(size: Metrics.iconLarge)
             mark.status = lead.shownStatus
             mark.unread = app.liveChats(in: worktree.id).contains { $0.shownStatus == lead.shownStatus && $0.unread }
-            mark.waitsForCommand = lead.waitsForCommand
+            mark.follow(lead)
             mark.announces = false   // the row's label says the state
             row.mark = mark
             row.when = shortAgo(lead.statusAt ?? lead.createdAt)

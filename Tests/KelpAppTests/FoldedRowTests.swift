@@ -50,6 +50,26 @@ extension OneAtATime {
         }
     }
 
+    /// A chat that only waits for its command is a ring of dots on its folded project's logo, as in its tab and on its
+    /// own row, and an arc again once the command ended, on the same logo. The logos copied the status alone, so the
+    /// chat turned there as an arc while its tab showed the dots.
+    @Test func aFoldedProjectsLogoSaysItsChatWaitsForItsCommand() throws {
+        var waiting = chats([.working])
+        waiting[0].awaiting = "swift test"
+        try withSidebar(repos: [atlas], worktrees: [home], sessions: waiting) { vc, o in
+            vc.toggle(try #require(o.item(atRow: 0) as? SidebarController.Node))
+            let cell = try foldedRow(vc, o, width: 280)
+            @MainActor func mark(_ view: NSView) -> StatusMark? {
+                view as? StatusMark ?? view.subviews.lazy.compactMap(mark).first
+            }
+            let logo = try #require(mark(cell.stack))
+            #expect(logo.waitsForCommand)
+            waiting[0].awaiting = nil
+            cell.stack.show(waiting, vc.app)
+            #expect(!logo.waitsForCommand && mark(cell.stack) === logo)
+        }
+    }
+
     /// Nobody at work: the count alone, which unfolds the row as "+N" did.
     @Test func aFoldedProjectWithOnlyReadyChatsShowsTheirCount() throws {
         try withSidebar(repos: [atlas], worktrees: [home], sessions: chats([.idle, .paused])) { vc, o in

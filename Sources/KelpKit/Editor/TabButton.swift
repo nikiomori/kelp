@@ -144,6 +144,9 @@ final class TabButton: NSControl, NSDraggingSource {
         mark.unread = it.badge?.unread ?? false
         mark.progress = it.badge?.progress
         mark.waitsForCommand = it.badge?.waitsFor ?? false
+        mark.guessed = it.badge?.guessed ?? false
+        mark.limited = it.badge?.limited ?? false
+        mark.compacting = it.badge?.compacting ?? false
         meter.usage = it.badge?.meter
         let level = ContextMeter.level(it.badge?.meter)
         full.isHidden = level < 3

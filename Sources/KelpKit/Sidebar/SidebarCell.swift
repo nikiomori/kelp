@@ -316,11 +316,7 @@ final class SidebarCell: NSTableCellView {
             title.font = .ui(TextSize.body, weight: session.isNews ? .semibold : .regular)
             mark.status = session.shownStatus
             mark.unread = session.unread
-            mark.limited = session.limitHit != nil
-            mark.compacting = session.compacting
-            mark.waitsForCommand = session.waitsForCommand
-            mark.guessed = session.guessed == true
-            mark.progress = session.progress.map { Double($0) / 100 }
+            mark.follow(session)
             showFace(session)
             // How long an agent has waited for you is worth the room. How long the others have been working isn't, so
             // the name gets the room. A chat with no project that works in a folder you picked shows that folder's

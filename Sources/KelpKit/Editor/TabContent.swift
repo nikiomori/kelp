@@ -64,6 +64,9 @@ package struct TabBadge: Equatable {
         background = session?.aside.count ?? 0
         backgroundTip = session?.backgroundTip
         waitsFor = session?.waitsForCommand ?? false
+        guessed = session?.guessed == true
+        limited = session?.limitHit != nil
+        compacting = session?.compacting ?? false
     }
     /// Makes the badge of a session's tab, built or not (a hidden terminal lets go of its surface, and its tab still
     /// shows all of this).
@@ -102,6 +105,9 @@ package struct TabBadge: Equatable {
     var backgroundTip: String?
     /// The agent works on only to see its command end, so its mark is the ring of dots.
     var waitsFor = false
+    /// The other ways the mark tells work apart, as in the chat's row: a status read off the screen (dashes), a plan
+    /// limit that stopped it (a clock), its conversation being compacted (a pulse).
+    var guessed = false, limited = false, compacting = false
 }
 
 /// A tab holding work that can be unsaved: ⌘S, Save All and quitting save it.

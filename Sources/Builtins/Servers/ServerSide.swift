@@ -71,7 +71,7 @@ struct ServerSide: View {
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    StatusIcon(status: session.markStatus, waitsForCommand: session.waitsForCommand)
+                    StatusIcon(status: session.markStatus, of: session)
                     Text(app.catalog.displayName(session)).font(.ui(TextSize.row)).lineLimit(1)
                     Spacer(minLength: 6)
                     if let usage = cost(session.id) {

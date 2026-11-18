@@ -79,6 +79,18 @@ package final class StatusMark: NSView {
     var announces = true { didSet { if announces != oldValue { update() } } }
     private let track = CAShapeLayer(), bar = CAShapeLayer()
 
+    /// Sets how the mark draws `session` at work: a ring of dots while it waits for its command, dashes for a guess, a
+    /// pulse while it compacts, a pie for how far it got, a clock at its limit. Every place that shows a chat's mark
+    /// sets these with this, after the status it shows there. Each copied them by hand, some two of the five and a
+    /// folded project's logos none, so one agent stood as a ring of dots in its tab and turned as an arc in the list.
+    func follow(_ session: Session) {
+        limited = session.limitHit != nil
+        compacting = session.compacting
+        waitsForCommand = session.waitsForCommand
+        guessed = session.guessed == true
+        progress = session.progress.map { Double($0) / 100 }
+    }
+
     package init(size: CGFloat = 12) {
         self.size = size
         super.init(frame: .zero)
@@ -243,14 +255,15 @@ package final class StatusMark: NSView {
 /// `StatusMark` in SwiftUI (for a hover card or an extension's list), so a state has one look, Reduce Motion included.
 package struct StatusIcon: NSViewRepresentable {
     let status: AgentStatus
-    var waitsForCommand = false
-    package init(status: AgentStatus, waitsForCommand: Bool = false) {
+    /// The chat the state is of, when it is one's: the mark says how it works, too (`StatusMark.follow`).
+    let session: Session?
+    package init(status: AgentStatus, of session: Session? = nil) {
         self.status = status
-        self.waitsForCommand = waitsForCommand
+        self.session = session
     }
     package func makeNSView(context: Context) -> StatusMark { StatusMark(size: 12) }
     package func updateNSView(_ mark: StatusMark, context: Context) {
         mark.status = status
-        mark.waitsForCommand = waitsForCommand
+        if let session { mark.follow(session) }
     }
 }

@@ -31,7 +31,7 @@ struct CardView: View {
             ForEach(model.agents, id: \.id) { agent in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        StatusIcon(status: agent.markStatus, waitsForCommand: agent.waitsForCommand)
+                        StatusIcon(status: agent.markStatus, of: agent)
                             .font(
                                 .ui(TextSize.caption))
                         Text(model.agentOnly ? agent.statusWords : model.app.catalog.displayName(agent))
