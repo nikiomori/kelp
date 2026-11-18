@@ -60,6 +60,17 @@ def window_start(text, at):
     return text.rfind("\n", 0, snapped) + 1
 
 
+def window_end(text, at):
+    forward = at + SUFFIX
+    if forward >= len(text):
+        return len(text)
+    snapped = -(-forward // STEP) * STEP
+    if snapped >= len(text):
+        return len(text)
+    nl = text.find("\n", snapped)
+    return len(text) if nl < 0 else nl + 1
+
+
 def one_line(prefix):
     lines = prefix.split("\n")
     if lines[-1].strip():
@@ -70,7 +81,7 @@ def one_line(prefix):
 
 def ask(model, text, at, tokens=None):
     prefix = text[window_start(text, at):at]
-    suffix = text[at:at + SUFFIX]
+    suffix = text[at:window_end(text, at)]
     suffix = suffix[suffix.find("\n"):] if "\n" in suffix else ""   # the editor asks with the line's rest gone
     single = one_line(prefix)
     template, stops = FAMILIES["seed-coder" if "seed-coder" in model.lower() else "qwen"]

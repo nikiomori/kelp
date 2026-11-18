@@ -178,8 +178,7 @@ func aModelOnThisMacWaitsWhileItSavesPowerOrRunsHot(
     #expect(SuggestionPause.of(lowPower: lowPower, thermal: thermal) == pause)
 }
 
-@Test func theLargerModelIsOfferedWhereThereIsMemoryForIt() {
-    #expect(Suggestions.recommended().id == "qwen2.5-coder:1.5b-base")
-    #expect(Suggestions.larger(memory: 16 << 30) == nil)
-    #expect(Suggestions.larger(memory: 32 << 30)?.id == "hf.co/mradermacher/Seed-Coder-8B-Base-GGUF:Q4_K_M")
+@Test func theModelRecommendedFitsTheMacsMemory() {
+    #expect(Suggestions.recommended(memory: 16 << 30).id == "qwen2.5-coder:1.5b-base")
+    #expect(Suggestions.recommended(memory: 32 << 30).id == "hf.co/mradermacher/Seed-Coder-8B-Base-GGUF:Q4_K_M")
 }

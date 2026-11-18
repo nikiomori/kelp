@@ -135,4 +135,8 @@ extension OneAtATime {
     #expect(start % 14 == 0)   // at a line's start
     #expect(9000 - start >= InlineSuggestion.prefixLimit)   // never less than the limit back
     #expect(InlineSuggestion.windowStart(at: 100, in: text) == 0)
+    let end = InlineSuggestion.windowEnd(at: 2000, in: text)
+    #expect(InlineSuggestion.windowEnd(at: 2003, in: text) == end)   // the end too
+    #expect(end % 14 == 0 && end - 2000 >= InlineSuggestion.suffixLimit)   // after a line break, never short
+    #expect(InlineSuggestion.windowEnd(at: 13_000, in: text) == text.length)
 }

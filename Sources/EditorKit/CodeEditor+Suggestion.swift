@@ -105,7 +105,7 @@ extension CodeEditor {
         let rest = string.substring(with: NSRange(location: at.location, length: lineEnd - at.location))
         guard InlineSuggestion.fits(beforeRest: Substring(rest)) else { return nil }
         let from = InlineSuggestion.windowStart(at: at.location, in: string)
-        let to = min(string.length, at.location + InlineSuggestion.suffixLimit)
+        let to = InlineSuggestion.windowEnd(at: at.location, in: string)
         let context = InlineSuggestion.Context(
             prefix: string.substring(with: NSRange(location: from, length: at.location - from)),
             suffix: string.substring(with: NSRange(location: at.location, length: to - at.location)),

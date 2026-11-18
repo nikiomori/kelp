@@ -37,9 +37,6 @@ struct SuggestionsList: View {
             if !local.contains(where: { $0.id == recommended.id }) {
                 get(recommended, note: String(localized: "recommended · \(recommended.size)"))
             }
-            if let larger = Suggestions.larger(), !local.contains(where: { $0.id == larger.id }) {
-                get(larger, note: String(localized: "more accurate, slower · \(larger.size)"))
-            }
             heading(String(localized: "Cloud"))
             ForEach([SuggestCloud.mercury, .codestral, .openai], id: \.self) { each in
                 let picked = mode == "cloud" && cloud == each
