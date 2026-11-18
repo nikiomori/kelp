@@ -61,6 +61,36 @@
         }
       }
     },
+    "Code suggestions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсказки кода"
+          }
+        }
+      }
+    },
+    "Empty picks a code model the server has, a base one first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пусто — берётся модель для кода с сервера, сначала базовая."
+          }
+        }
+      }
+    },
+    "Gray text after the cursor from a model on this Mac (Ollama, LM Studio or llama-server); ⇥ puts it in.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серый текст после курсора от модели на этом Mac (Ollama, LM Studio или llama-server); ⇥ вставляет его."
+          }
+        }
+      }
+    },
     "Nothing that rebuilds by itself.": {
       "localizations": {
         "ru": {
@@ -533,6 +563,16 @@
         }
       }
     },
+    "On This Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этом Mac"
+          }
+        }
+      }
+    },
     "Page": {
       "localizations": {
         "ru": {
@@ -945,6 +985,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Свернуть"
+          }
+        }
+      }
+    },
+    "Suggest code as you type": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсказывать код при наборе"
           }
         }
       }

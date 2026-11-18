@@ -80,3 +80,12 @@ extension AppOfItsOwn {
     #expect(FileRules.columns("  100") == [100])
     #expect(FileRules.columns("") == [] && FileRules.columns(nil) == [])
 }
+
+@Test(arguments: [
+    ("/p/.env", true), ("/p/.env.local", true), ("/home/me/.ssh/id_ed25519", true), ("/p/server.pem", true),
+    ("/p/tls.key", true), ("/p/.netrc", true), ("/p/main.swift", false), ("/p/environment.ts", false),
+    ("/p/keyboard.swift", false)
+])
+func noModelIsShownAFileOfSecrets(path: String, secret: Bool) {
+    #expect(FileRules.holdsSecrets(path) == secret)
+}

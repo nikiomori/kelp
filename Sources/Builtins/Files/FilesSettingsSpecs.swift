@@ -81,6 +81,16 @@ extension Builtins {
                     group: "Language servers",
                     requires: SettingKeys.lsp.key),
                 s(
+                    SettingKeys.suggestions, "Suggest code as you type", .enum,
+                    "Gray text after the cursor from a model on this Mac (Ollama, LM Studio or llama-server); ⇥ puts it in.",
+                    options: ["off", "local"], labels: ["off": "Off", "local": "On This Mac"],
+                    group: "Code suggestions", perLanguage: true),
+                s(
+                    SettingKeys.suggestionModel, "Model", .string,
+                    "Empty picks a code model the server has, a base one first.",
+                    group: "Code suggestions", requires: "\(SettingKeys.suggestions.key)!=off",
+                    placeholder: "qwen2.5-coder:1.5b-base"),
+                s(
                     SettingKeys.markdownMode, "Default Markdown mode", .enum,
                     options: ["preview", "edit", "split"], look: .segments, group: "Markdown")
             ], order: 70, previews: ["": EditorSample.card])
@@ -105,4 +115,6 @@ extension SettingKeys {
     static let insertFinalNewline = Setting("files.insertFinalNewline", false)
     static let lsp = Setting("editor.lsp", true)
     static let hover = Setting("editor.hover", true)
+    static let suggestions = Setting("editor.suggestions", "off")
+    static let suggestionModel = Setting("editor.suggestionModel", "")
 }
