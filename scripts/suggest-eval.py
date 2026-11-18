@@ -7,7 +7,7 @@ a model in Ollama on this Mac the way Kelp asks it, and compares the answer's fi
 It asks each place twice, a few keys apart, as typing does, and times the second ask, which finds Ollama's cache warm.
 
   scripts/suggest-eval.py                                  qwen2.5-coder:1.5b-base, 200 places
-  scripts/suggest-eval.py --model qwen2.5-coder:7b-base --places 100
+  scripts/suggest-eval.py --model hf.co/mradermacher/Seed-Coder-8B-Base-GGUF:Q4_K_M --places 100
 
 Prints, for every answer and for those Kelp shows (the model sure of each token): how many came exactly as written,
 how many were nearly (similarity ≥ 0.8), and the wait. ±5 points is the noise of 100 places. Needs only Ollama.
@@ -25,7 +25,12 @@ ROOT = Path(__file__).resolve().parent.parent
 # What Kelp does; keep in step with the sources named.
 PREFIX, SUFFIX, STEP = 6000, 2000, 1500   # InlineSuggestion.prefixLimit, suffixLimit, windowStep
 SURE = -0.8                               # FillIn.sureEnough
-STOP = ["<|endoftext|>", "<|fim_pad|>", "<|file_sep|>"]   # FillIn's Qwen stops, three of them, then "\n"
+# FillIn's prompts for the families measured: the model's markers and stops (three, then "\n" for one line).
+FAMILIES = {
+    "qwen": ("<|fim_prefix|>{p}<|fim_suffix|>{s}<|fim_middle|>", ["<|endoftext|>", "<|fim_pad|>", "<|file_sep|>"]),
+    "seed-coder": ("<[fim-suffix]>{s}<[fim-prefix]>{p}<[fim-middle]>",
+                   ["<[end~of~sentence]>", "<[fim-suffix]>", "<[fim-prefix]>"]),
+}
 
 
 def places(count, seed=7):
@@ -68,10 +73,11 @@ def ask(model, text, at, tokens=None):
     suffix = text[at:at + SUFFIX]
     suffix = suffix[suffix.find("\n"):] if "\n" in suffix else ""   # the editor asks with the line's rest gone
     single = one_line(prefix)
-    body = {"model": model, "prompt": f"<|fim_prefix|>{prefix}<|fim_suffix|>{suffix}<|fim_middle|>", "raw": True,
+    template, stops = FAMILIES["seed-coder" if "seed-coder" in model.lower() else "qwen"]
+    body = {"model": model, "prompt": template.format(p=prefix, s=suffix), "raw": True,
             "stream": False, "logprobs": True,
             "options": {"num_predict": tokens or (48 if single else 128), "temperature": 0,
-                        "stop": STOP + (["\n"] if single else [])}}
+                        "stop": stops + (["\n"] if single else [])}}
     req = urllib.request.Request("http://127.0.0.1:11434/api/generate", json.dumps(body).encode(),
                                  {"Content-Type": "application/json"})
     started = time.time()

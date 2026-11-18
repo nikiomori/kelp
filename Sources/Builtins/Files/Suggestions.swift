@@ -130,10 +130,17 @@ final class Suggestions {
         }
     }
 
-    /// "hf.co/bartowski/zeta-2-GGUF:Q4_K_M" → "zeta-2-GGUF:Q4_K_M"; "qwen2.5-coder:latest" → "qwen2.5-coder".
+    /// "hf.co/mradermacher/Seed-Coder-8B-Base-GGUF:Q4_K_M" → "Seed-Coder-8B-Base"; "qwen2.5-coder:latest" →
+    /// "qwen2.5-coder"; "qwen2.5-coder:1.5b-base" stays.
     nonisolated static func shortName(_ id: String) -> String {
-        let name = id.split(separator: "/").last.map(String.init) ?? id
-        return name.hasSuffix(":latest") ? String(name.dropLast(":latest".count)) : name
+        var name = id.split(separator: "/").last.map(String.init) ?? id
+        if name.hasSuffix(":latest") { name.removeLast(":latest".count) }
+        // A Hugging Face build's file kind and quantization ("-GGUF:Q4_K_M") say nothing about the model.
+        if let colon = name.lastIndex(of: ":"), name[name.index(after: colon)...].hasPrefix("Q") {
+            name = String(name[..<colon])
+        }
+        if name.lowercased().hasSuffix("-gguf") { name.removeLast(5) }
+        return name
     }
 
     /// Whether a file's name says it holds keys or passwords, whose text no model is shown.

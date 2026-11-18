@@ -10,11 +10,13 @@ extension Suggestions {
     /// as often as the 7B is (measured on Kelp's code). Both are Apache-2.0; the 3B is licensed for research only.
     nonisolated static func recommended() -> (id: String, size: String) { ("qwen2.5-coder:1.5b-base", "1 GB") }
 
-    /// The model offered beside it where there's memory for it (32 GB): more often sure, about 0.9 s an answer.
+    /// The model offered beside it where there's memory for it (32 GB): ByteDance's Seed-Coder 8B (MIT), which on
+    /// Kelp's code was sure in 59 % of the places against 41 % and right a little more often, at about 0.65 s an
+    /// answer; it beat qwen2.5-coder 7B and JetBrains' Mellum 4B on both.
     nonisolated static func larger(memory: UInt64 = ProcessInfo.processInfo.physicalMemory) -> (
         id: String, size: String
     )? {
-        memory >= 32 << 30 ? ("qwen2.5-coder:7b-base", "4.7 GB") : nil
+        memory >= 32 << 30 ? ("hf.co/mradermacher/Seed-Coder-8B-Base-GGUF:Q4_K_M", "5.1 GB") : nil
     }
 
     func turnOn() async {

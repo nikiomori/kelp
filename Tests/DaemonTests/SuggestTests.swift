@@ -12,6 +12,7 @@ import Testing
         ("Qwen2.5-Coder-7B-Instruct-GGUF", "<|fim_prefix|>a<|fim_suffix|>b<|fim_middle|>"),
         ("codegemma:2b-code", "<|fim_prefix|>a<|fim_suffix|>b<|fim_middle|>"),
         ("codestral:22b", "[SUFFIX]b[PREFIX]a"),
+        ("hf.co/mradermacher/Seed-Coder-8B-Base-GGUF:Q4_K_M", "<[fim-suffix]>b<[fim-prefix]>a<[fim-middle]>"),
         ("deepseek-coder:1.3b-base", "<｜fim▁begin｜>a<｜fim▁hole｜>b<｜fim▁end｜>"),
         ("starcoder2:3b", "<fim_prefix>a<fim_suffix>b<fim_middle>"),
         ("granite-code:3b", "<fim_prefix>a<fim_suffix>b<fim_middle>"),

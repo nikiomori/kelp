@@ -161,7 +161,8 @@ func noModelIsShownAFileOfSecrets(path: String, secret: Bool) {
         #expect(got?.text == text)
         #expect((got?.needsYou ?? false) == needsYou)
     }
-    #expect(Suggestions.shortName("hf.co/bartowski/zeta-2-GGUF:Q4_K_M") == "zeta-2-GGUF:Q4_K_M")
+    #expect(Suggestions.shortName("hf.co/mradermacher/Seed-Coder-8B-Base-GGUF:Q4_K_M") == "Seed-Coder-8B-Base")
+    #expect(Suggestions.shortName("qwen2.5-coder:1.5b-base") == "qwen2.5-coder:1.5b-base")
     #expect(Suggestions.shortName("starcoder2:latest") == "starcoder2")
 }
 
@@ -180,5 +181,5 @@ func aModelOnThisMacWaitsWhileItSavesPowerOrRunsHot(
 @Test func theLargerModelIsOfferedWhereThereIsMemoryForIt() {
     #expect(Suggestions.recommended().id == "qwen2.5-coder:1.5b-base")
     #expect(Suggestions.larger(memory: 16 << 30) == nil)
-    #expect(Suggestions.larger(memory: 32 << 30)?.id == "qwen2.5-coder:7b-base")
+    #expect(Suggestions.larger(memory: 32 << 30)?.id == "hf.co/mradermacher/Seed-Coder-8B-Base-GGUF:Q4_K_M")
 }

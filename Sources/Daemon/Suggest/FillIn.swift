@@ -11,7 +11,7 @@ enum FillIn {
 
     /// The prompt for `model`, or nil when its family isn't one Kelp knows how to ask. Code from other files (`extra`)
     /// goes first, each under its path, for the families trained to read several files (Qwen2.5-Coder, StarCoder2,
-    /// Mellum); the others get the file alone.
+    /// Mellum); the others (Seed-Coder, CodeGemma, Codestral, DeepSeek-Coder) get the file alone.
     static func prompt(model: String, prefix: String, suffix: String, path: String, extra: [SuggestChunk] = [])
         -> Prompt?
     {
@@ -30,6 +30,11 @@ enum FillIn {
             return Prompt(
                 text: "<|fim_prefix|>\(prefix)<|fim_suffix|>\(suffix)<|fim_middle|>",
                 stop: ["<|file_separator|>", "<|fim_prefix|>", "<eos>"])
+        }
+        if name.contains("seed-coder") {   // suffix first, as Seed-Coder was trained
+            return Prompt(
+                text: "<[fim-suffix]>\(suffix)<[fim-prefix]>\(prefix)<[fim-middle]>",
+                stop: ["<[end~of~sentence]>", "<[fim-suffix]>", "<[fim-prefix]>"])
         }
         if name.contains("codestral") {
             return Prompt(text: "[SUFFIX]\(suffix)[PREFIX]\(prefix)", stop: ["</s>"])
