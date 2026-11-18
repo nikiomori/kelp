@@ -142,6 +142,29 @@ import WorkbenchKit
     }
 }
 
+/// The other built-in themes are other people's palettes, kept as published, so they are held to less than a look is:
+/// text that passes for body text (4.5:1) and comments that can be told from the page.
+@MainActor @Test func everyBuiltInThemeStaysReadable() {
+    func luminance(_ hex: String) -> Double {
+        guard let c = NSColor(hex: hex)?.usingColorSpace(.sRGB) else { return -1 }
+        let f = { (v: CGFloat) in v <= 0.03928 ? Double(v) / 12.92 : pow((Double(v) + 0.055) / 1.055, 2.4) }
+        return 0.2126 * f(c.redComponent) + 0.7152 * f(c.greenComponent) + 0.0722 * f(c.blueComponent)
+    }
+    func contrast(_ a: String, _ b: String) -> Double {
+        let l = [luminance(a), luminance(b)].sorted()
+        return (l[1] + 0.05) / (l[0] + 0.05)
+    }
+    for t in ThemeManager.builtin + Theme.popular {
+        guard let term = t.terminal else { continue }   // it follows the system or Ghostty: no palette of its own
+        let text = contrast(term.foreground, term.background)
+        #expect(text >= 4.5, "\(t.id): text \(text)")
+        if let comment = t.editor?.comment {
+            let quiet = contrast(comment, t.editor?.background ?? term.background)
+            #expect(quiet >= 2, "\(t.id): comments \(quiet)")
+        }
+    }
+}
+
 @MainActor @Test func aThemeBuildsItsWindow() throws {
     let nord = try #require(Theme.popular.first { $0.id == "nord" }), kelp = try #require(ThemeManager.builtin.first)
     #expect(ThemeManager.windowLook(nil, terminalOpacity: 1, forced: nil) == WindowLook())   // Ghostty's: the system's window

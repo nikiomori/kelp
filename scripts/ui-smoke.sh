@@ -75,5 +75,13 @@ if ! grep -rqs '42' "$home/history"; then
     echo "terminal: the command didn't run"
     exit 1
 fi
+# The same file in dark: a colour kept from the light window shows here and nowhere else.
+scene dark KELP_SNAPSHOT_DARK=1 KELP_SNAPSHOT_OPEN="file://$repo/README.md"
 # The daemon the app started goes with the scenes.
+printf '{"jsonrpc":"2.0","id":1,"method":"daemon.shutdown"}\n' | nc -U -w 2 "$home/kelp.sock" > /dev/null 2>&1 || true
+# The window at the largest text size, in a home of its own because the size is read when the daemon starts: what
+# doesn't grow with the text, or grows out of its bar, shows here.
+home=$(mktemp -d /tmp/kui.XXXX)
+printf '{"workbench.textSize": "larger"}\n' > "$home/settings.json"
+scene larger KELP_SNAPSHOT_SHEET="project=$repo"
 printf '{"jsonrpc":"2.0","id":1,"method":"daemon.shutdown"}\n' | nc -U -w 2 "$home/kelp.sock" > /dev/null 2>&1 || true
