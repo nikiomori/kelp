@@ -71,8 +71,10 @@ extension SyncPopover {
     /// "fetched 4m ago", which says how old the counts may be.
     private static func fetched(_ date: Date) -> String {
         let ago = shortAgo(date)
-        return ago == String(localized: "now")
+        let words =
+            ago == String(localized: "now")
             ? String(localized: "fetched just now") : String(localized: "fetched \(ago) ago")
+        return words.replacingOccurrences(of: " ", with: "\u{00A0}")   // one piece, should the line go on to a second
     }
 
     /// The one sync that matters now, full width; none when there's nothing to move. A rejected push turns it into
@@ -84,7 +86,7 @@ extension SyncPopover {
         primary.isHidden = !possible || ops.isEmpty
         let text = running ?? title
         primary.title = text
-        primary.font = .ui(TextSize.body, weight: .semibold)
+        primary.font = .ui(TextSize.body)   // a push button's own weight, as Commit in the panel
         primary.isEnabled = running == nil
     }
 
@@ -193,7 +195,7 @@ extension SyncPopover {
             let line = LinkRow(
                 [
                     CIRunLook.mark(run.status, run.conclusion), name, words, NSView(),
-                    label(CIRunLook.ago(run.began), size: 11)
+                    label(CIRunLook.ago(run.began), size: TextSize.caption)
                 ],
                 said: "\(run.workflow): \(CIRunLook.words(run.status, run.conclusion))"
             ) { [weak self] in

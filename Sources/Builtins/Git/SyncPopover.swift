@@ -19,8 +19,10 @@ final class SyncPopover: NSViewController {
     let wid: String
     weak var popover: NSPopover?
 
-    let name = PointerButton(frame: .zero), state = NSTextField(labelWithString: "")
-    lazy var fetch = PointerButton(title: String(localized: "Fetch")) { [weak self] in self?.sync([.fetch]) }
+    let name = PointerButton(frame: .zero), state = NSTextField(wrappingLabelWithString: "")
+    /// Fetch is a second action named in a word, so it is the design system's worded button: the quiet grey plate. A
+    /// word alone in grey read as a caption, and with its arrow to a line as a third kind of arrow.
+    lazy var fetch = TextButton(String(localized: "Fetch")) { [weak self] in self?.sync([.fetch]) }
     lazy var primary = ClosureButton(title: "") { [weak self] in self.map { $0.sync($0.primaryOps) } }
     lazy var commit = ClosureButton(title: String(localized: "Commit")) { [weak self] in self?.commitPressed() }
     let busy = NSProgressIndicator(), note = NSTextField(wrappingLabelWithString: ""), status = NSStackView()
@@ -59,18 +61,16 @@ final class SyncPopover: NSViewController {
         name.toolTip = String(localized: "Switch Branch")
         state.font = .ui(TextSize.row)
         state.textColor = .secondaryLabelColor
-        state.lineBreakMode = .byTruncatingMiddle
-        state.setContentCompressionResistancePriority(.init(250), for: .horizontal)
-        fetch.padding = 4   // a word alone, as Push under it: a third arrow here read as Pull's
-        fetch.attributedTitle = NSAttributedString(
-            string: fetch.title,
-            attributes: [.font: NSFont.ui(TextSize.row), .foregroundColor: NSColor.secondaryLabelColor])
-        fetch.contentTintColor = .secondaryLabelColor
+        // A sentence goes on to a second line when it must. Cut in its middle, it lost the upstream's name
+        // ("ahead of origin/…in"), the one thing the line is there to say.
+        state.isSelectable = false
+        state.maximumNumberOfLines = 2
+        state.preferredMaxLayoutWidth = Self.width
         fetch.toolTip = String(localized: "Fetch from the remote")
         let head = NSStackView()
-        head.alignment = .top
         head.setViews([name], in: .leading)
         head.setViews([fetch], in: .trailing)
+        head.edgeInsets.right = Self.bleed   // the plate's edge is the words' edge: nothing of it greys in past them
 
         // The popover's one action, shown in words alone in the accent colour (macOS 26's primary tint, and the bezel
         // colour before it).
@@ -193,7 +193,7 @@ final class SyncPopover: NSViewController {
         return line
     }
 
-    func label(_ text: String, size: CGFloat = 12, secondary: Bool = true) -> NSTextField {
+    func label(_ text: String, size: CGFloat = TextSize.row, secondary: Bool = true) -> NSTextField {
         NSTextField.label(
             text, font: .ui(size), color: secondary ? .secondaryLabelColor : .labelColor, truncation: .byClipping)
     }
@@ -206,7 +206,7 @@ final class SyncPopover: NSViewController {
 final class LinkRow: PointerControl {
     convenience init(_ title: String, action: @escaping () -> Void) {
         let label = NSTextField(labelWithString: title)
-        label.font = .ui(TextSize.body)
+        label.font = .ui(TextSize.row)   // a popover's text, as every line over it
         self.init([label, NSView()], said: title, action: action)
     }
     /// Lays out `views` along the row, then the chevron. `said` is what VoiceOver reads for the row.
@@ -247,7 +247,8 @@ final class CommitRow: NSStackView {
         self.rest = rest
         commitHash = hash
         super.init(frame: .zero)
-        setViews([words, trailing], in: .leading)
+        setViews([words], in: .leading)
+        setViews([trailing], in: .trailing)   // when (or who) stands in a column at the edge, as in the graph
         spacing = 8
         toolTip = "\(hash) · \(rest)\n\(subject)"
         show(hovering: false)
