@@ -159,3 +159,54 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     slow.show(nil)
     #expect(!slow.showing)
 }
+
+/// A list of names, for a table in a test.
+@MainActor private final class Names: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+    var names: [String] = []
+    func numberOfRows(in tableView: NSTableView) -> Int { names.count }
+    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
+        NSTextField(labelWithString: names[row])
+    }
+}
+
+/// A refresh that changes a few rows of a list shows them moving: the row that goes leaves a picture that fades where
+/// it stood, a row that stays travels from where it stood, and the new one fades in. A refresh that changes many is
+/// the list changing as a whole, which just shows; so does any refresh without motion.
+@MainActor @Test func aFewChangedRowsMoveAndManyJustShow() {
+    _ = NSApplication.shared
+    for reduced in [false, true] {
+        Motion.pinned = reduced
+        defer { Motion.pinned = nil }
+        let list = Names(), table = NSTableView()
+        let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 200, height: 300))
+        table.addTableColumn(NSTableColumn())
+        table.dataSource = list
+        table.delegate = list
+        scroll.documentView = table
+        let window = NSWindow(contentRect: scroll.frame, styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = scroll
+        window.orderFrontRegardless()   // rows move only in a list that is on screen
+        defer { window.orderOut(nil) }   // not closed: a window made in code releases itself when it closes
+        func key(_ row: Int) -> String? { list.names.indices.contains(row) ? list.names[row] : nil }
+        func refresh(_ names: [String]) {
+            let places = table.rowPlaces(key), old = Set(list.names), now = Set(names)
+            list.names = names
+            table.reloadSettling(from: places, came: now.subtracting(old), gone: old.subtracting(now), key) {
+                table.reloadData()
+            }
+        }
+        func moves(_ name: String) -> [String] {
+            let row = list.names.firstIndex(of: name).flatMap { table.rowView(atRow: $0, makeIfNecessary: false) }
+            return ["arrive", "slide"].filter { row?.layer?.animation(forKey: $0) != nil }
+        }
+        func pictures() -> Int { scroll.subviews.filter { $0 is NSImageView }.count }
+        refresh(["a", "b", "c"])   // the first rows have nowhere to come from
+        table.layoutSubtreeIfNeeded()
+        #expect(moves("a") == [] && pictures() == 0)
+        refresh(["new", "a", "c"])
+        #expect(moves("new") == (reduced ? [] : ["arrive"]) && moves("a") == (reduced ? [] : ["slide"]))
+        #expect(moves("c") == [] && pictures() == (reduced ? 0 : 1))   // it stands where it stood; "b" left its picture
+        refresh(["p", "q", "r", "s", "a"])
+        #expect(moves("p") == [] && moves("a") == [] && pictures() == (reduced ? 0 : 1))
+    }
+}

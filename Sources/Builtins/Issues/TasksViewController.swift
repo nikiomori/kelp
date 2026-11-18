@@ -248,19 +248,23 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         guard shown == .pulls, filter.indexOfSelectedItem == 0, !filter.isHidden else { return }
         let picked = row(at: table.selectedRow).flatMap(Self.number)
         unseen = PRWatch.unseen(prs)
+        let places = table.rowPlaces(lineKey), old = Self.keys(rows)
         rows = prs.map(Row.pr)
         lines = lined(rows)
         listed = listKey(.pulls, 0)
         failureBar.show(nil)
-        table.reloadData()
-        reselect(picked)
+        let now = Self.keys(rows)
+        table.reloadSettling(from: places, came: now.subtracting(old), gone: old.subtracting(now), lineKey) {
+            table.reloadData()
+            reselect(picked)
+        }
         showEmpty(rows.isEmpty ? Source.pulls.none : nil)
     }
 
-    private func listKey(_ source: Source, _ filter: Int) -> String { "\(repoId ?? "")/\(source.rawValue)/\(filter)" }
+    func listKey(_ source: Source, _ filter: Int) -> String { "\(repoId ?? "")/\(source.rawValue)/\(filter)" }
 
     /// Picks the row of `number` again after the list was read again. It is the same tab, so nothing opens.
-    private func reselect(_ number: Int?) {
+    func reselect(_ number: Int?) {
         guard let number,
             let index = lines.firstIndex(where: { line in
                 if case .row(let row) = line { Self.number(row) == number } else { false }
@@ -339,20 +343,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 await loadingView.settled()
                 // When the project, list or filter switched meanwhile, these rows belong to the old one.
                 guard gen == reloads else { return }
-                self.rows = rows
-                lines = lined(rows)
-                listed = listKey(src, filterIndex)
-                failureBar.show(nil)
-                filter.isHidden = false
-                // A list empty because of the filter isn't the same as empty, so say which and offer the way back.
-                let narrowed = rows.isEmpty && filterIndex > 0 && src.none != nil
-                status.stringValue = ""
-                let picked = filter.titleOfSelectedItem ?? ""
-                let why =
-                    narrowed ? String(localized: "None in “\(picked)”.") : src.none ?? String(localized: "Nothing here")
-                showAll.isHidden = !narrowed
-                setupButton.isHidden = true
-                showEmpty(rows.isEmpty ? why : nil)
+                show(rows, of: src, filter: filterIndex, picked: picked)
             } catch {
                 await loadingView.settled()
                 guard gen == reloads else { return }
@@ -363,13 +354,11 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 }
                 showFailure(message, of: src)
             }
-            table.reloadData()
-            if picked != nil { reselect(picked) } else { showDetail(nil) }
         }
     }
 
     /// PRs in their parts (`ForgeRows.sections`), and the other rows as they came.
-    private func lined(_ rows: [Row]) -> [Line] {
+    func lined(_ rows: [Row]) -> [Line] {
         let prs = rows.compactMap { if case .pr(let pr) = $0 { pr } else { nil } }
         guard !prs.isEmpty, prs.count == rows.count else { return rows.map(Line.row) }
         let branch = app.worktree(app.workbench.workspaceId)?.branch

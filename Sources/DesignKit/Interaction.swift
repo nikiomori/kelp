@@ -267,16 +267,18 @@ extension NSTableView {
     }
 
     /// After a reload, rows that stayed travel from where they stood, and new ones fade in. More than a few coming or
-    /// going means the list changed as a whole, not that something happened, so then it just shows.
-    public func settleRows(from places: [String: NSPoint], _ key: (Int) -> String?) {
+    /// going means the list changed as a whole, not that something happened, so then it just shows. A caller that
+    /// knows which rows are new says so in `new`; otherwise they are counted among the rows on screen, where a row
+    /// pushed out of sight counts as gone.
+    public func settleRows(from places: [String: NSPoint], _ key: (Int) -> String?, new: Set<String>? = nil) {
         guard !places.isEmpty, !Motion.reduced, window?.isVisible == true else { return }
         layoutSubtreeIfNeeded()
         var rows: [(NSTableRowView, String)] = []
         enumerateAvailableRowViews { rowView, row in
             if let rowKey = key(row) { rows.append((rowView, rowKey)) }
         }
-        let came = rows.filter { places[$0.1] == nil }, kept = Set(rows.map(\.1))
-        guard came.count + places.keys.filter({ !kept.contains($0) }).count <= 3 else { return }
+        let came = rows.filter { new?.contains($0.1) ?? (places[$0.1] == nil) }, kept = Set(rows.map(\.1))
+        guard new != nil || came.count + places.keys.filter({ !kept.contains($0) }).count <= 3 else { return }
         for (row, rowKey) in rows { if let place = places[rowKey] { row.slide(from: place) } }
         for (row, _) in came {
             row.wantsLayer = true
@@ -287,5 +289,32 @@ extension NSTableView {
             animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
             row.layer?.add(animation, forKey: "arrive")
         }
+    }
+
+    /// True when a refresh that adds `came` rows and drops `gone` is one to show moving: a few rows, in a list on
+    /// screen that had rows, with motion on. More is the list changing as a whole, which just shows.
+    public func movesFor(came: Int, gone: Int, from places: [String: NSPoint]) -> Bool {
+        came + gone <= 3 && !places.isEmpty && !Motion.reduced && window?.isVisible == true
+    }
+
+    /// Reloads the list after a refresh, with the motion a small change gets: a row that goes leaves a picture that
+    /// fades where it stood, the rows that stay travel to where they stand now, and a new one fades in. Call it with
+    /// the new rows in the model and the old ones still on screen: `places` is `rowPlaces` from before the model
+    /// changed, `came` and `gone` are the keys the refresh added and dropped, and `reload` reloads the list and puts
+    /// back what it keeps (the open folds, the picked row).
+    public func reloadSettling(
+        from places: [String: NSPoint], came: Set<String>, gone: Set<String>, _ key: (Int) -> String?,
+        reload: () -> Void
+    ) {
+        let moves = movesFor(came: came.count, gone: gone.count, from: places)
+        if moves, let over = enclosingScrollView {
+            for place in gone.compactMap({ places[$0] }) {
+                // What leaves goes in less time than what comes takes.
+                rowView(atRow: row(at: convert(place, from: nil)), makeIfNecessary: false)?
+                    .leaveGhost(in: over, duration: Motion.base)
+            }
+        }
+        reload()
+        if moves { settleRows(from: places, key, new: came) }
     }
 }

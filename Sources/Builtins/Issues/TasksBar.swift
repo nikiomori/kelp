@@ -75,7 +75,45 @@ extension TasksViewController {
             setupButton.isHidden = true
             showEmpty(src.connectHint ?? message, symbol: "link")
         }
+        table.reloadData()
+        showDetail(nil)
     }
+
+    /// Shows the rows a read brought. When they are the list already on show, a few that came or went move the others
+    /// instead of jumping them.
+    func show(_ rows: [Row], of src: Source, filter filterIndex: Int, picked: Int?) {
+        let key = listKey(src, filterIndex)
+        let places = listed == key ? table.rowPlaces(lineKey) : [:], old = Self.keys(self.rows)
+        self.rows = rows
+        lines = lined(rows)
+        listed = key
+        failureBar.show(nil)
+        filter.isHidden = false
+        // A list empty because of the filter isn't the same as empty, so say which and offer the way back.
+        let narrowed = rows.isEmpty && filterIndex > 0 && src.none != nil
+        status.stringValue = ""
+        let chosen = filter.titleOfSelectedItem ?? ""
+        let why = narrowed ? String(localized: "None in “\(chosen)”.") : src.none ?? String(localized: "Nothing here")
+        showAll.isHidden = !narrowed
+        setupButton.isHidden = true
+        showEmpty(rows.isEmpty ? why : nil)
+        let now = Self.keys(rows)
+        table.reloadSettling(from: places, came: now.subtracting(old), gone: old.subtracting(now), lineKey) {
+            table.reloadData()
+            if picked != nil { reselect(picked) } else { showDetail(nil) }
+        }
+    }
+
+    /// A line's name across a refresh: a pull request's or an issue's number, a heading's words. A tracker's task has
+    /// none, and just shows.
+    func lineKey(_ index: Int) -> String? {
+        guard lines.indices.contains(index) else { return nil }
+        switch lines[index] {
+        case .heading(let text): return "heading \(text)"
+        case .row(let row): return Self.number(row).map { "#\($0)" }
+        }
+    }
+    static func keys(_ rows: [Row]) -> Set<String> { Set(rows.compactMap(number).map { "#\($0)" }) }
 
     /// Shows the spinner every panel waits with, as CI Runs does, when the list is on its way and there are no rows to
     /// keep showing.

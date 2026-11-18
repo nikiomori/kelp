@@ -224,6 +224,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
                 runs.flatMap { [$0] + openBelow($0) }.filter { outline.isItemExpanded($0) }.compactMap(\.key))
             let selected = (outline.item(atRow: outline.selectedRow) as? Item)?.id
             let was = Dictionary(runs.compactMap { run in run.key.map { ($0, run) } }) { first, _ in first }
+            // Where the rows stand, before the new list: a run or two that came or went then moves the others, not
+            // jumps them.
+            let places = outline.rowPlaces(rowKey)
             runs = (event.result?.runs ?? []).map { run in
                 let item = Item(.run(run))
                 // An open run keeps its rows until they're read again, because when shut and opened a moment later the
@@ -235,7 +238,6 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             workflowsButton.isHidden = workflows.isEmpty
             show(note: runs.isEmpty ? String(localized: "No CI runs on \(branchName) yet.") : nil)
             clock.clear()
-            outline.reloadData()
             history.show(CIRuns.history(allRuns))
             let reopen = { [self] (run: Item) in
                 outline.expandItem(run)
@@ -246,7 +248,13 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
                     outline.selectRowIndexes([row], byExtendingSelection: false)
                 }
             }
-            for run in runs where open.contains(run.key ?? "") && run.children != nil { reopen(run) }
+            let now = Set(runs.compactMap(\.key))
+            outline.reloadSettling(
+                from: places, came: now.subtracting(was.keys), gone: Set(was.keys).subtracting(now), rowKey
+            ) {
+                outline.reloadData()
+                for run in runs where open.contains(run.key ?? "") && run.children != nil { reopen(run) }
+            }
             for run in runs where open.contains(run.key ?? "") {
                 // A run that was over when its jobs were last read has nothing new to say.
                 if run.children != nil, case .run(let before)? = was[run.key ?? ""]?.kind, before.finished { continue }
@@ -264,6 +272,14 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
                 await expand(item, openFailed: true)
             }
         }
+    }
+
+    /// A row's name across a refresh, which makes every item anew. A step is named by its place under its job.
+    private func rowKey(_ row: Int) -> String? {
+        guard let item = outline.item(atRow: row) as? Item else { return nil }
+        if let key = item.key { return key }
+        guard let parent = outline.parent(forItem: item) as? Item, let above = parent.key else { return nil }
+        return "\(above) step \(outline.childIndex(forItem: item))"
     }
 
     /// Shows in the list the run of a mark in the strip.
