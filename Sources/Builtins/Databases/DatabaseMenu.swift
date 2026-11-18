@@ -127,7 +127,7 @@ enum DatabaseMenu {
                 Task { await app.call(DatabaseSave(worktreeId: worktreeId, database: changed)) }
             }
             item.state = db.access == access ? .on : .off
-            item.image = .symbol(DatabaseLook.accessSymbol(access))
+            item.show(.symbol(DatabaseLook.accessSymbol(access)))
             Self.explain(item, DatabaseLook.meaning(access))
         }
         return agents
@@ -163,11 +163,12 @@ enum DatabaseMenu {
             }
             item.state = db.stage == stage ? .on : .off
             Self.explain(item, DatabaseLook.meaning(stage))
-            item.image = NSImage(size: NSSize(width: 10, height: 10), flipped: false) { rect in
-                DatabaseLook.color(stage).setFill()
-                NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()
-                return true
-            }
+            item.show(
+                NSImage(size: NSSize(width: 10, height: 10), flipped: false) { rect in
+                    DatabaseLook.color(stage).setFill()
+                    NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()
+                    return true
+                })
         }
         menu.add(String(localized: "Environment"), submenu: stages)
     }

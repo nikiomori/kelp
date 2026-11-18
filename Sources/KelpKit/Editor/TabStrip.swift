@@ -404,7 +404,7 @@ final class TabStrip: NSView {
         let menu = NSMenu()
         for item in items {
             let menuItem = menu.add(item.title) { [weak self] in self?.onSelect?(item.id) }
-            menuItem.image = item.icon
+            menuItem.show(item.icon)
             menuItem.state = item.id == selectedId ? .on : .off
         }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: overflow.bounds.height + 4), in: overflow)

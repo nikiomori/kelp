@@ -65,7 +65,7 @@ extension SourceControlController {
         }
         for a in agents {
             let item = menu.add(a.name) { [weak self] in self?.ask(a, model: self?.model(for: a)) }
-            item.image = app.catalog.icon(a.id, size: 16)
+            item.show(app.catalog.icon(a.id, size: 16))
             item.state = a.id == lastAgent?.id ? .on : .off
             guard !a.models.isEmpty else { continue }
             let sub = NSMenu(), chosen = model(for: a)

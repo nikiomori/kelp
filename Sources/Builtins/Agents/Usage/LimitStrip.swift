@@ -161,7 +161,7 @@ final class LimitStrip: NSView {
         let menu = NSMenu()
         for t in takers {
             let item = menu.add(t.name) { [weak self] in self?.hand(to: t.id) }
-            item.image = app.catalog.icon(t.id)
+            item.show(app.catalog.icon(t.id))
             if let used = t.used { item.badge = NSMenuItemBadge(string: "\(Int(used.rounded())) %") }
         }
         return menu

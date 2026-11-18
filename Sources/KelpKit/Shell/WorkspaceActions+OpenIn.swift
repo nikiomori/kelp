@@ -80,7 +80,7 @@ extension WorkspaceActions {
                 }
                 open(resolved, in: editor.bundle)
             }
-            item.image = NSWorkspace.shared.icon(forFile: editor.app.path).resized(16)
+            item.show(NSWorkspace.shared.icon(forFile: editor.app.path).resized(16))
         }
     }
 
