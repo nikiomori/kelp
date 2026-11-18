@@ -64,11 +64,12 @@ extension WindowBar {
 
     /// Sets the arrows' tooltips to where they go. With nothing in that direction, an arrow greys out.
     func showNav(back to: String?, forward ahead: String?) {
-        for (arrow, name, title, key) in [
-            (back, to, String(localized: "Back"), "⌃⌘←"), (forward, ahead, String(localized: "Forward"), "⌃⌘→")
+        for (arrow, name, title, id) in [
+            (back, to, String(localized: "Back"), "workspace.back"),
+            (forward, ahead, String(localized: "Forward"), "workspace.forward")
         ] {
             arrow.isEnabled = name != nil
-            arrow.toolTip = name.map { "\(title): \($0) (\(key))" } ?? "\(title) (\(key))"
+            arrow.toolTip = app.extensions.hint(name.map { "\(title): \($0)" } ?? title, id)
         }
     }
     @objc func goBack() { app.workbench.goBack(-1) }
@@ -85,10 +86,10 @@ extension WindowBar {
         let image = NSImage.symbol(
             on ? "rectangle.split.3x1.fill" : "rectangle.split.3x1", String(localized: "Agents Side by Side"))
         sideBySide.image = on ? image.withSymbolConfiguration(.init(paletteColors: [.emphasis])) : image   // a recessed button ignores contentTintColor
-        sideBySide.toolTip =
+        sideBySide.toolTip = app.extensions.hint(
             on
-            ? String(localized: "Agents side by side. Click to show them as tabs (⌃⌘T)")
-            : String(localized: "Agents as tabs. Click to put them side by side (⌃⌘T)")
+                ? String(localized: "Agents side by side. Click to show them as tabs")
+                : String(localized: "Agents as tabs. Click to put them side by side"), "agents.sideBySide")
     }
     @objc func toggleSideBySide() { app.extensions.command("agents.sideBySide")?.run([:]) }
 

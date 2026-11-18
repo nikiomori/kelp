@@ -201,7 +201,8 @@ final class AgentSummary: NSView {
         }
         title.stringValue = said
         capsule.setAccessibilityLabel(String(localized: "Agents that need you: \(counted.count). Show the next one."))
-        capsule.toolTip = String(localized: "Show the next agent that needs you (⇧⌘U)")
+        capsule.toolTip = app.extensions.hint(
+            String(localized: "Show the next agent that needs you"), "agents.nextNeedingYou")
         if !new.isEmpty, !Motion.reduced {   // a question came in: a brief glow
             capsule.alphaValue = 0.4
             NSAnimationContext.runAnimationGroup {

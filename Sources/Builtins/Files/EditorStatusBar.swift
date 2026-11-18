@@ -28,6 +28,8 @@ final class EditorStatusBar: NSView {
     private let problem = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
     var onProblems: (() -> Void)? { didSet { problems.onClick = onProblems } }
     var onWrap: (() -> Void)? { didSet { wrap.onClick = onWrap } }
+    /// The Wrap chip's tooltip, with Word Wrap's key. The file's tab sets it, because the tab has the app to ask.
+    var wrapTip: String? { didSet { wrap.toolTip = wrapTip } }
     /// Shows the indentation in use. A click offers another one, or converts the file.
     private let indentButton = PointerButton()
     var indentMenu: (() -> NSMenu)?
@@ -65,7 +67,6 @@ final class EditorStatusBar: NSView {
         kind.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         wrap.title = String(localized: "Wrap")
         wrap.isHidden = true
-        wrap.toolTip = String(localized: "Long lines wrap (⌥Z)")
         restricted.title = String(localized: "Restricted")
         restricted.contentTintColor = .textOrange
         restricted.isHidden = true

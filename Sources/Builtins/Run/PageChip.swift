@@ -37,7 +37,7 @@ final class PageChip: ChipCapsule, WindowBarItem {
         }
         more.padding = 6
         more.contentTintColor = .secondaryLabelColor
-        more.toolTip = String(localized: "Everything Running Here (⌃⌘R)")
+        more.toolTip = app.extensions.hint(String(localized: "Everything Running Here"), "scripts.choose")
         more.onClick = { [weak self] in self?.runs.choose(from: self?.more) }
         isHidden = true
         track(owner: self) { [weak self] in
@@ -79,8 +79,9 @@ final class PageChip: ChipCapsule, WindowBarItem {
         if page.offline, let host = page.host {
             return String(localized: "No connection to \(host). The server keeps running there. Click to connect.")
         }
-        return page.isWeb
-            ? String(localized: "Open \(page.place) (⇧⌘O)") : String(localized: "Copy \(page.place) (⇧⌘O)")
+        return app.extensions.hint(
+            page.isWeb ? String(localized: "Open \(page.place)") : String(localized: "Copy \(page.place)"),
+            "scripts.openPage")
     }
 
     /// The right-click menu: what a click doesn't do. A page that came from a run's printed address may have no

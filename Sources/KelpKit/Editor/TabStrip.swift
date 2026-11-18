@@ -36,6 +36,9 @@ final class TabStrip: NSView {
     var addMenu: (() -> NSMenu)?
     var onNewAgent: (() -> Void)?
     var onUnzoom: (() -> Void)?
+    /// Puts a command's key after a tooltip's words ("Close Tab (⌘W)"). The editor area sets it, because the strip has
+    /// no app to ask for the keys, and until then the tooltips name none.
+    var hint: ((String, String) -> String)? { didSet { showTips() } }
     /// Shows `Item.card` under a tab the pointer rests on.
     var hoverCard: HoverCard?
     /// This group fills the editor area (⇧⌘↩); the button says so and brings the other panes back.
@@ -119,7 +122,6 @@ final class TabStrip: NSView {
         unzoom.isBordered = false
         unzoom.contentTintColor = .themeAccent
         unzoom.symbolConfiguration = .chrome(Metrics.iconSmall)
-        unzoom.toolTip = String(localized: "Show all panes (⇧⌘↩)")
         unzoom.target = self
         unzoom.action = #selector(unzoomTapped)
         unzoom.isHidden = true
@@ -127,7 +129,7 @@ final class TabStrip: NSView {
         add.image = .symbol("plus", String(localized: "New Tab"))
         add.contentTintColor = .secondaryLabelColor
         add.symbolConfiguration = .chrome()
-        add.toolTip = String(localized: "New tab: an agent (⌥⌘T), a terminal (⌘T), a browser…")
+        showTips()
         add.target = self
         add.action = #selector(addTapped)
         newAgent.imageScaling = .scaleNone
@@ -266,6 +268,7 @@ final class TabStrip: NSView {
     private func newButton() -> TabButton {
         let button = TabButton()
         button.strip = self
+        button.closeTip = tip(String(localized: "Close Tab"), "editor.closeTab")
         button.compact = compact
         button.low = low
         return button
@@ -362,6 +365,14 @@ final class TabStrip: NSView {
         buttons[index].scrollToVisible(buttons[index].bounds.insetBy(dx: -24, dy: 0))
     }
 
+    private func tip(_ title: String, _ id: String) -> String { hint?(title, id) ?? title }
+    /// Sets the tooltips of the buttons beside the tabs. With no title, a key comes as " (⌘T)" and no key as nothing.
+    private func showTips() {
+        unzoom.toolTip = tip(String(localized: "Show All Panes"), "view.maximizePane")
+        let agent = tip("", "agents.new"), terminal = tip("", "terminal.new")
+        add.toolTip = String(localized: "New tab: an agent\(agent), a terminal\(terminal), a browser…")
+    }
+
     @objc private func unzoomTapped() { onUnzoom?() }
     @objc private func stripScrolled() { fadeEdges() }
     /// Sets the agent that the button beside "+" starts (nil when no agent CLI was found, and the button hides). Its
@@ -372,7 +383,7 @@ final class TabStrip: NSView {
         newAgent.isHidden = icon == nil
         if let grey, faint?.of !== grey { faint = (grey, Self.faint(grey)) }
         newAgent.show(icon, atRest: grey == nil ? nil : faint?.image)
-        newAgent.toolTip = String(localized: "New \(name) (⌥⌘T)")
+        newAgent.toolTip = tip(String(localized: "New \(name)"), "agents.new")
         newAgent.setAccessibilityLabel(String(localized: "New \(name)"))
     }
     private var faint: (of: NSImage, image: NSImage)?

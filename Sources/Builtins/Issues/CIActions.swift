@@ -58,7 +58,9 @@ struct CIActions {
     /// Whether there is an agent to ask. When there is none, a banner says so.
     var hasAgent: Bool {
         if !FileActions(app).agents(in: worktree).isEmpty { return true }
-        Banner.show(String(localized: "No agent on this screen. Start one with ⌥⌘T, then ask again."), style: .error)
+        let new = app.extensions.keyText("agents.new") ?? String(localized: "New Agent")
+        Banner.show(
+            String(localized: "No agent on this screen. Start one with \(new), then ask again."), style: .error)
         return false
     }
 

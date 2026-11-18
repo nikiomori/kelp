@@ -7,7 +7,7 @@ import DesignKit
 @MainActor
 final class SearchPill: PointerControl {
     private let glass = NSImageView(image: .symbol("magnifyingglass", ""))
-    private let label = NSTextField(labelWithString: ""), key = NSTextField(labelWithString: "⌘P")
+    private let label = NSTextField(labelWithString: ""), key = NSTextField(labelWithString: "")
     private let full = String(localized: "Files, agents, commands"), short = String(localized: "Search")
     private let app: AppModel
 
@@ -25,7 +25,6 @@ final class SearchPill: PointerControl {
         row.spacing = 6
         row.edgeInsets = NSEdgeInsets(top: 0, left: 9, bottom: 0, right: 10)
         pin(row)
-        toolTip = String(localized: "Open Quickly (⌘P)")
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(String(localized: "Open Quickly"))
@@ -34,6 +33,15 @@ final class SearchPill: PointerControl {
         } changed: { [weak self] _ in
             self?.label.font = .ui(TextSize.row)
             self?.key.font = .ui(TextSize.caption)
+            self?.needsLayout = true
+        }
+        // The key shown and the tooltip's are Open Quickly's as it stands, so one set in Settings › Keyboard shows
+        // here at once, and a command left without a key shows none.
+        track(owner: self) {
+            app.extensions.keyText("files.quickOpen") ?? ""
+        } changed: { [weak self] shortcut in
+            self?.key.stringValue = shortcut
+            self?.toolTip = app.extensions.hint(String(localized: "Open Quickly"), "files.quickOpen")
             self?.needsLayout = true
         }
     }

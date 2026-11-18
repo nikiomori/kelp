@@ -271,10 +271,11 @@ package struct WorkspaceActions {
             if group.path != repo.path {
                 guard let work = await work(on: id) else { return }
                 if work.isAny {
+                    let key = app.extensions.keyText("workspace.close") ?? String(localized: "Close Group")
                     Banner.show(
                         String(
                             localized:
-                                "“\(group.displayName)” stays: its work is only on \(group.branch). ⇧⌘W closes it."
+                                "“\(group.displayName)” stays: its work is only on \(group.branch). \(key) closes it."
                         ))
                     return
                 }

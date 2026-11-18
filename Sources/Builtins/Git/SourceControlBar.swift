@@ -12,13 +12,16 @@ import KelpKit
 final class SourceControlBar {
     let pull: NSButton, push: NSButton, more: NSButton
     var buttons: [NSButton] { [pull, push, more] }
+    private let keys: ExtensionRegistry
 
     init(_ owner: SourceControlController) {
+        let keys = owner.app.extensions
+        self.keys = keys
         func b(_ symbol: String, _ tip: String, _ action: @escaping (SourceControlController) -> Void) -> NSButton {
             IconButton(.symbol(symbol), tip: tip) { [weak owner] in if let owner { action(owner) } }
         }
-        pull = b("arrow.down", String(localized: "Pull (⌥⌘X)")) { $0.pullPressed() }
-        push = b("arrow.up", String(localized: "Push (⌥⌘P)")) { $0.pushPressed() }
+        pull = b("arrow.down", keys.hint(String(localized: "Pull"), "git.pull")) { $0.pullPressed() }
+        push = b("arrow.up", keys.hint(String(localized: "Push"), "git.push")) { $0.pushPressed() }
         more = b("ellipsis.circle", String(localized: "More Actions")) { $0.showMoreMenu() }
     }
 
@@ -47,8 +50,9 @@ final class SourceControlBar {
         pull.contentTintColor = behind > 0 ? .labelColor : .secondaryLabelColor
         pull.toolTip =
             up.map {
-                behind > 0
-                    ? String(localized: "Pull \(behind) from \($0) (⌥⌘X)") : String(localized: "Pull from \($0) (⌥⌘X)")
+                keys.hint(
+                    behind > 0 ? String(localized: "Pull \(behind) from \($0)") : String(localized: "Pull from \($0)"),
+                    "git.pull")
             }
             ?? String(localized: "Pull (no upstream)")
         push.isEnabled = !busy && (publish || (up != nil && ahead > 0))
@@ -57,8 +61,12 @@ final class SourceControlBar {
         push.contentTintColor = ahead > 0 || publish ? .emphasis : .secondaryLabelColor
         let pushTip = up.map {
             ahead > 0
-                ? String(localized: "Push \(ahead) to \($0) (⌥⌘P)") : String(localized: "Nothing to push to \($0)")
+                ? keys.hint(String(localized: "Push \(ahead) to \($0)"), "git.push")
+                : String(localized: "Nothing to push to \($0)")
         }
-        push.toolTip = publish ? String(localized: "Publish Branch (⌥⌘P)") : pushTip ?? String(localized: "Push (⌥⌘P)")
+        push.toolTip =
+            publish
+            ? keys.hint(String(localized: "Publish Branch"), "git.push")
+            : pushTip ?? keys.hint(String(localized: "Push"), "git.push")
     }
 }

@@ -280,9 +280,16 @@ extension FileTab {
             conflicts?.refresh()
         case .conflict(let text): askKeepMine(disk: text)
         case .missing where !wasGone && isEdited:
-            Banner.show(String(localized: "\(title) was moved or deleted. ⌘S asks before writing it there again."))
+            Banner.show(goneNote(title))
         default: break
         }
+    }
+
+    /// What the tab says of a file that went from under it, in its banner and its tooltip. Save is named by its key as
+    /// it stands, or by its name when it has no key.
+    func goneNote(_ name: String) -> String {
+        let save = app.extensions.keyText("editor.save") ?? String(localized: "Save")
+        return String(localized: "\(name) was moved or deleted. \(save) asks before writing it there again.")
     }
 
     private func askKeepMine(disk: String) {

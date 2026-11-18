@@ -181,10 +181,10 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         heading.action = #selector(headingPicked(_:))
         formatting.setViews(
             [
-                heading, gap(), tool("bold", String(localized: "Bold (⌘B)"), #selector(bold)),
-                tool("italic", String(localized: "Italic (⌘I)"), #selector(italic)),
+                heading, gap(), tool("bold", keyed(String(localized: "Bold"), "markdown.bold"), #selector(bold)),
+                tool("italic", keyed(String(localized: "Italic"), "markdown.italic"), #selector(italic)),
                 tool("chevron.left.forwardslash.chevron.right", String(localized: "Code"), #selector(code)),
-                tool("link", String(localized: "Link (⌘K)"), #selector(link)), gap(),
+                tool("link", keyed(String(localized: "Link"), "markdown.link"), #selector(link)), gap(),
                 tool("list.bullet", String(localized: "Bulleted list"), #selector(bullets)),
                 tool("list.number", String(localized: "Numbered list"), #selector(numbered)),
                 tool("checklist", String(localized: "Task list"), #selector(tasks)),
@@ -246,11 +246,13 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     private lazy var selectionBar = MarkdownSelectionBar(
         target: self,
         items: [
-            ("bold", String(localized: "Bold (⌘B)"), #selector(bold)),
-            ("italic", String(localized: "Italic (⌘I)"), #selector(italic)),
+            ("bold", keyed(String(localized: "Bold"), "markdown.bold"), #selector(bold)),
+            ("italic", keyed(String(localized: "Italic"), "markdown.italic"), #selector(italic)),
             ("chevron.left.forwardslash.chevron.right", String(localized: "Code"), #selector(code)),
-            ("link", String(localized: "Link (⌘K)"), #selector(link))
+            ("link", keyed(String(localized: "Link"), "markdown.link"), #selector(link))
         ])
+    /// A formatting button's tooltip, with its command's key as it stands.
+    private func keyed(_ title: String, _ id: String) -> String { app.extensions.hint(title, id) }
 
     /// Shows the selection bar over the selection once it's made (not while the mouse is still dragging), and hides it
     /// when there's no selection.

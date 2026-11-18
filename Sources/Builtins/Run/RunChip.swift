@@ -31,7 +31,7 @@ final class RunChip: ChipCapsule, WindowBarItem {
         name.symbolConfiguration = .chrome(Metrics.iconTiny)
         name.lineBreakMode = .byTruncatingTail
         name.onClick = { [weak self] in self?.runs.choose() }
-        name.toolTip = String(localized: "Choose What to Run (⌃⌘R)")
+        name.toolTip = app.extensions.hint(String(localized: "Choose What to Run"), "scripts.choose")
         track(owner: self) { [weak self] in
             self?.look
         } changed: { [weak self] in
@@ -75,7 +75,10 @@ final class RunChip: ChipCapsule, WindowBarItem {
         go.image = .symbol(
             look.running ? "stop.fill" : "play.fill",
             look.running ? String(localized: "Stop") : String(localized: "Run"))
-        go.toolTip = look.running ? String(localized: "Stop (⌘.)") : String(localized: "Run (⌘R)")
+        go.toolTip =
+            look.running
+            ? app.extensions.hint(String(localized: "Stop"), "scripts.stop")
+            : app.extensions.hint(String(localized: "Run"), "scripts.run")
         name.attributedTitle = NSAttributedString(
             string: look.name,
             attributes: [

@@ -56,8 +56,9 @@ package struct FileActions {
     /// Types words into the agent's prompt without sending them, so the user adds what to do with them.
     package func sendToAgent(text: String) {
         guard !agents().isEmpty else {
+            let new = NewTabChoices.defaultKey(app).map(KeyBindings.display) ?? String(localized: "New Agent")
             Banner.show(
-                String(localized: "No agent on this screen. Start one with ⌥⌘T, then send again."), style: .error)
+                String(localized: "No agent on this screen. Start one with \(new), then send again."), style: .error)
             return
         }
         Task {

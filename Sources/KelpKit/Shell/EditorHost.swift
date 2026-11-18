@@ -329,9 +329,11 @@ final class WelcomeView: NSView {
         let title = NSTextField(
             labelWithString: hasRepos ? String(localized: "Select a chat") : String(localized: "Welcome to Kelp"))
         title.font = .ui(TextSize.title, weight: .semibold)
+        // New Chat's key as it stands. Without one, the button below is what to press.
+        let new = app.extensions.keyText("workspace.new") ?? String(localized: "New Chat")
         let body = NSTextField(
             wrappingLabelWithString: hasRepos
-                ? String(localized: "Pick a chat in the sidebar, or press ⌘N for a new one.")
+                ? String(localized: "Pick a chat in the sidebar, or press \(new) for a new one.")
                 : String(
                     localized:
                         "Ask an agent anything right away, or add a project folder: agents, terminals and files side by side."

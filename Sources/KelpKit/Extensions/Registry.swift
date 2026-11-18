@@ -238,6 +238,12 @@ package final class ExtensionRegistry {
         if let over = KeyBindings.overrides(app.settings)[id] { return over.isEmpty ? nil : KeySpec(over) }
         return (command(id)?.key ?? fallback).flatMap(KeySpec.init)
     }
+    /// Returns command `id`'s key as the menus show it ("⌘W"), or nil when it has none: what a sentence that names the
+    /// key puts in it.
+    package func keyText(_ id: String) -> String? { key(id).map(KeyBindings.display) }
+    /// Returns `title` with command `id`'s key after it, as a tooltip says it ("Close Tab (⌘W)"), and `title` alone
+    /// when the command has no key. A key typed into the tooltip's own text stayed the old one after a rebinding.
+    package func hint(_ title: String, _ id: String) -> String { keyText(id).map { "\(title) (\($0))" } ?? title }
     /// Runs the command (from a menu item or a key). A command whose extension is off does nothing.
     package func run(_ id: String, _ args: [String: JSONValue] = [:]) { command(id)?.run(args) }
 }

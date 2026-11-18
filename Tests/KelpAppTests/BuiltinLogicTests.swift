@@ -346,6 +346,10 @@ import os
     #expect(rig.app.extensions.key("agents.new") == nil)
     #expect(NewTabChoices.defaultKey(rig.app) == nil)   // the "+" menu and the start page read the same
     #expect(rig.app.extensions.key("no.such", fallback: "cmd+r") == KeySpec("cmd+r"))
+    // A tooltip and a sentence say the key as it stands now, and none for a command left without one.
+    #expect(rig.app.extensions.hint("New Terminal", "terminal.new") == "New Terminal (⇧⌘T)")
+    #expect(rig.app.extensions.hint("New Agent", "agents.new") == "New Agent")
+    #expect(rig.app.extensions.keyText("agents.new") == nil)
 }
 
 /// A machine being made says the step it's at in the user's words, and how far that step got when that's known; its

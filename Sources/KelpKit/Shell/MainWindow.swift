@@ -33,10 +33,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         greaterThanOrEqualTo: updatePill.trailingAnchor, constant: Metrics.gap)
     /// The panel toggles stay fixed in the window bar's corners, whichever panels are open.
     private let sidebarToggle = NSButton.titlebar(
-        "sidebar.left", String(localized: "Sidebar"), tip: String(localized: "Show or hide the sidebar (⌘0)"))
+        "sidebar.left", String(localized: "Sidebar"), tip: String(localized: "Show or hide the sidebar"))
     private let inspectorToggle = NSButton.titlebar(
-        "sidebar.trailing", String(localized: "Inspector"),
-        tip: String(localized: "Show or hide the inspector (⌥⌘0)"))
+        "sidebar.trailing", String(localized: "Inspector"), tip: String(localized: "Show or hide the inspector"))
 
     init(app: AppModel) {
         let created = NSWindow(
@@ -70,10 +69,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let root = NSViewController()
         root.view = surface
         root.addChild(split)
-        sidebarToggle.target = self
-        sidebarToggle.action = #selector(toggleSidebarPanel)
-        inspectorToggle.target = self
-        inspectorToggle.action = #selector(toggleInspectorPanel)
+        wireToggles()
         root.view.pin(split.view)
         // The inspector's toggle goes under its floater, because on the floater's corner it stood half on its border.
         // The sidebar's toggle stays over its floater, beside the traffic lights, which are over everything anyway.
@@ -158,6 +154,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
     /// Keeps Workbench told whether the inspector is docked, however its column opens or closes (a toggle, focus mode,
     /// a narrow window, or its divider dragged shut).
+    /// The two side toggles act on this window, and each one's tooltip names its command's key as it stands.
+    private func wireToggles() {
+        sidebarToggle.target = self
+        sidebarToggle.action = #selector(toggleSidebarPanel)
+        inspectorToggle.target = self
+        inspectorToggle.action = #selector(toggleInspectorPanel)
+        sidebarToggle.toolTip = app.extensions.hint(sidebarToggle.toolTip ?? "", "workbench.toggleSidebar")
+        inspectorToggle.toolTip = app.extensions.hint(inspectorToggle.toolTip ?? "", "workbench.toggleInspector")
+    }
+
     private func watchDock() {
         dockWatch = right.item.observe(\.isCollapsed, options: [.initial, .new]) { [weak app] item, _ in
             let docked = !item.isCollapsed

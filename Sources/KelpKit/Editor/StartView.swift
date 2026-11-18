@@ -70,7 +70,11 @@ final class StartView: NSView {
         folder.isHidden = folder.stringValue.isEmpty
 
         let agents = NewTabChoices.agents(app)
-        let hint = NSTextField(labelWithString: String(localized: "A file, an agent or a command: ⌘P"))
+        // The hint names Open Quickly's key as it stands, and is left out when the command has none.
+        let quick = app.extensions.keyText("files.quickOpen")
+        let hint = NSTextField(
+            labelWithString: quick.map { String(localized: "A file, an agent or a command: \($0)") } ?? "")
+        hint.isHidden = quick == nil
         hint.font = .ui(TextSize.row)
         hint.textColor = .secondaryLabelColor
 

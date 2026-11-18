@@ -88,9 +88,7 @@ final class FileTab: SavableTab {
             : (pageKind ?? ArtifactBar.kind(ofFile: path)).map(ArtifactBar.icon)
                 ?? app.fileIcons.image(url.lastPathComponent)
     }
-    var toolTip: String? {
-        gone ? String(localized: "\(path) was moved or deleted. ⌘S asks before writing it there again.") : path
-    }
+    var toolTip: String? { gone ? goneNote(path) : path }
 
     init(uri: String, app: AppModel) {
         self.app = app
@@ -175,10 +173,8 @@ final class FileTab: SavableTab {
         lastSaved = text
         known = (file.stamp, text)
         let bar = EditorStatusBar(url: url, text: text)
-        bar.contextMenu = { [app, weak codeEditor] in EditorStatusBar.menu(app, language: codeEditor?.languageId) }
+        wire(bar, to: codeEditor)
         bar.show(cursor: codeEditor.cursor)
-        bar.onWrap = { [app] in app.extensions.run("editor.toggleWordWrap") }
-        bar.onProblems = { [app] in app.extensions.run("files.showProblems") }
         statusBar = bar
         let crumbs = Breadcrumbs(app: app, path: inside, root: root, editor: codeEditor)
         let conflictBar = withConflictBar(codeEditor)
@@ -350,5 +346,13 @@ final class FileTab: SavableTab {
         empty.place(in: container)
         if failed { empty.showError(text, text: nil) } else { empty.show(text, symbol: "icloud.and.arrow.down") }
         return container
+    }
+
+    /// The status bar's clicks run the editor's commands, and its wrap button names that command's key as it stands.
+    private func wire(_ bar: EditorStatusBar, to codeEditor: CodeEditor) {
+        bar.contextMenu = { [app, weak codeEditor] in EditorStatusBar.menu(app, language: codeEditor?.languageId) }
+        bar.onWrap = { [app] in app.extensions.run("editor.toggleWordWrap") }
+        bar.wrapTip = app.extensions.hint(String(localized: "Long lines wrap"), "editor.toggleWordWrap")
+        bar.onProblems = { [app] in app.extensions.run("files.showProblems") }
     }
 }

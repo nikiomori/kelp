@@ -188,7 +188,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +1 −1: a folder made from Issues asks about its setup (`KelpFile.setup`); the editor's sample is Files' own.
     // −1: a notification's Continue to the sessions it is about is the shell's (`notifyUser`'s `goingOn`), so a
     // built-in no longer names its category and calls `goOn` itself.
-    #expect(declared == 366, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +2: a built-in's tooltip or sentence that names a command's key reads the key as it stands (`hint`, `keyText`),
+    // so a key rebound in Settings › Keyboard isn't still the old one on Git's, Run's and the editor's buttons.
+    #expect(declared == 368, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

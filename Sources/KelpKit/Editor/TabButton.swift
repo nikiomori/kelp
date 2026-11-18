@@ -16,6 +16,11 @@ final class TabButton: NSControl, NSDraggingSource {
     private weak var content: NSView?
     private let icon = NSImageView(), title = NSTextField(labelWithString: ""), close = PointerButton(frame: .zero),
         editedDot = NSImageView()
+    /// The close button's tooltip. The strip sets it, with Close Tab's key as it stands.
+    var closeTip: String? {
+        get { close.toolTip }
+        set { close.toolTip = newValue }
+    }
     private let mark = StatusMark(size: 12)
     private let meter = ContextMeter()
     /// How full the context is, shown next to the ring once the ring is red. Before that the ring and its tooltip say
@@ -61,7 +66,7 @@ final class TabButton: NSControl, NSDraggingSource {
         title.font = .ui(TextSize.row)
         title.lineBreakMode = .byTruncatingTail
         close.image = .symbol("xmark", String(localized: "Close Tab"))
-        close.toolTip = String(localized: "Close Tab (⌘W)")
+        close.toolTip = String(localized: "Close Tab")
         close.isBordered = false
         close.symbolConfiguration = .chrome(Metrics.iconTiny)
         close.wantsLayer = true

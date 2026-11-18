@@ -277,6 +277,7 @@ final class EditorArea: NSViewController {
             self?.starter.newAgent()
         }
         group.strip.onUnzoom = { [weak self] in self?.toggleZoom() }
+        group.strip.hint = { [app] in app.extensions.hint($0, $1) }
         group.strip.hoverCard = tabCard
         group.strip.tabWidth = app.settings[SettingKeys.tabWidth]
         group.strip.low = app.settings[SettingKeys.tabHeight] == "compact"
