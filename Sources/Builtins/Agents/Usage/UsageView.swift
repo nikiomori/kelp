@@ -173,7 +173,9 @@ struct UsageView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    static func percent(_ used: Double) -> String { "\(Int((used * 100).rounded()))%" }
+    /// The one spelling of a share as a percent, "42%", for the bars, the cards and the notes (`PlanNote`, which isn't
+    /// on the main actor).
+    nonisolated static func percent(_ used: Double) -> String { "\(Int((used * 100).rounded()))%" }
 
     /// A limit's bar: orange from 70 %, red from 90 %.
     static func tint(_ share: Double) -> Color { share >= 0.9 ? .red : share >= 0.7 ? .orange : .secondary }

@@ -118,8 +118,10 @@ enum DiskNames {
     }
 
     /// The title of the button for the chosen parts. A host has no Trash, so there the parts are moved aside instead
-    /// (`aside(on:)` says where, and `moved` says that they went).
+    /// (`aside(on:)` says where, and `moved` says that they went). With nothing chosen the button is off and names only
+    /// what it does, because "Move 0 Items" counts nothing.
     static func move(count: Int, host: String?) -> String {
+        if count == 0 { return host == nil ? String(localized: "Move to Trash") : String(localized: "Move Aside") }
         if host != nil {
             return count == 1 ? String(localized: "Move 1 Item Aside") : String(localized: "Move \(count) Items Aside")
         }

@@ -40,10 +40,10 @@ struct UsageReportView: View {
     @State private var yearFor: String?
 
     /// The charts' colours, given by an agent's place among the agents the daemon counts, so an agent keeps its colour
-    /// in every span.
-    static let palette: [Color] = [
-        .blue, .purple, .orange, .brown, .mint, .yellow, .cyan, .red, .teal, .green, .pink, .indigo
-    ]
+    /// in every span. None is orange, yellow or red: on this page those say a plan is near its limit or used up.
+    static let palette: [Color] = [.blue, .purple, .brown, .mint, .cyan, .teal, .green, .pink, .indigo]
+    /// The spans the picker offers, in days.
+    private static let spans = [7, 30, 90]
 
     var body: some View {
         let lines = agentLines(UsageView.rows(app).map(\.id))
@@ -51,7 +51,7 @@ struct UsageReportView: View {
         // sideways, starting from the left.
         GeometryReader { pane in
             ScrollView([.vertical, .horizontal]) {
-                page(lines).padding([.horizontal, .bottom], 24).frame(
+                page(lines).padding(.horizontal, Metrics.pageInset).padding(.bottom, Metrics.pageTop).frame(
                     width: min(max(pane.size.width, 700), 1400), alignment: .leading)
             }
             .defaultScrollAnchor(.topLeading)
@@ -61,14 +61,22 @@ struct UsageReportView: View {
     }
 
     private func page(_ lines: [Line]) -> some View {
-        VStack(alignment: .leading, spacing: 26) {
+        VStack(alignment: .leading, spacing: Metrics.blockGap) {
             header
             // The plans come first, because they say whether work can go on now. They don't depend on the span, so
             // they stand above the span's picker.
             PlanCards(app: app, unplanned: unplanned)
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: Metrics.inset) {
                 period
-                if let failed { Text("Couldn't read the usage: \(failed)").foregroundStyle(.secondary) }
+                // A read that fails over figures already shown leaves them there, with one line saying so.
+                if let failed, usage != nil {
+                    HStack(alignment: .firstTextBaseline, spacing: Metrics.gapWide) {
+                        Text("Couldn't read the usage: \(failed)").font(.ui(TextSize.caption))
+                            .foregroundStyle(.secondary)
+                        Button(String(localized: "Try Again")) { Task { await load() } }
+                            .controlSize(.small).font(.ui(TextSize.row))
+                    }
+                }
                 // The figures fill in as the logs are read.
                 if usage != nil, !lines.isEmpty { kpis() }
                 if !lines.isEmpty { table(lines) }
@@ -76,13 +84,22 @@ struct UsageReportView: View {
             if let usage, !usage.days.isEmpty {
                 detail(usage)
                 if !year.isEmpty { months }
-                HStack(alignment: .top, spacing: 36) {
+                HStack(alignment: .top, spacing: Metrics.blockGap) {
                     groups(
                         String(localized: "By Model"), sel.flatMap(agent)?.models ?? usage.models, all: $allModels,
                         model: true)
                     groups(
                         String(localized: "By Project"), sel.flatMap(agent)?.projects ?? usage.projects,
                         all: $allProjects, model: false)
+                }
+            } else if let failed, usage == nil {
+                // With no figures yet, the failure is the page's state: the block every tab shows, with a way on.
+                EmptyState(
+                    String(localized: "Couldn’t Read the Usage"), symbol: "exclamationmark.triangle", lifted: false
+                ) {
+                    Text(failed)
+                } actions: {
+                    Button(String(localized: "Try Again")) { Task { await load() } }
                 }
             } else if !loading, failed == nil {
                 EmptyState(String(localized: "No Conversations in This Time"), symbol: "chart.bar", lifted: false)
@@ -116,16 +133,19 @@ struct UsageReportView: View {
                     selected = nil
                     project = nil
                 }
-                .controlSize(.small)
+                .controlSize(.small).font(.ui(TextSize.row))
             }
             if slow { ProgressView().controlSize(.small) }
             Spacer()
-            Picker("", selection: $range) {
-                Text("7 Days").tag(7)
-                Text("30 Days").tag(30)
-                Text("90 Days").tag(90)
-            }
-            .pickerStyle(.segmented).controlSize(.small).fixedSize()
+            Segments(
+                labels: [String(localized: "7 Days"), String(localized: "30 Days"), String(localized: "90 Days")],
+                selection: Binding {
+                    Self.spans.firstIndex(of: range) ?? 1
+                } set: {
+                    range = Self.spans[$0]
+                }
+            )
+            .controlSize(.small).fixedSize().accessibilityLabel(Text("Period"))
         }
     }
 
@@ -171,11 +191,15 @@ struct UsageReportView: View {
                 Text("Per day").font(.ui(TextSize.body, weight: .semibold))
                 Text("the dashed line is the average").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                 Spacer()
-                Picker("", selection: $byCost) {
-                    Text("Cost").tag(true)
-                    Text("Tokens").tag(false)
-                }
-                .pickerStyle(.segmented).controlSize(.small).fixedSize()
+                Segments(
+                    labels: [String(localized: "Cost"), String(localized: "Tokens")],
+                    selection: Binding {
+                        byCost ? 0 : 1
+                    } set: {
+                        byCost = $0 == 0
+                    }
+                )
+                .controlSize(.small).fixedSize().accessibilityLabel(Text("Show"))
             }
             Chart {
                 ForEach(records, id: \.self) { record in
@@ -267,60 +291,6 @@ struct UsageReportView: View {
         return start...max(start, end)
     }
 
-    /// A list of eight rows, each with a bar for its share of the first row, and the rest on request. A model's dot has
-    /// its agent's colour. Clicking a project narrows the page to that project, and clicking it again goes back to all.
-    private func groups(_ title: String, _ rows: [UsageAgents.Group], all: Binding<Bool>, model: Bool) -> some View {
-        let top = rows.first.map { $0.cost > 0 ? $0.cost : Double($0.tokens) } ?? 1
-        return VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.ui(TextSize.body, weight: .semibold))
-            ForEach(all.wrappedValue ? rows : Array(rows.prefix(8)), id: \.name) { group in
-                let content = HStack(spacing: 8) {
-                    if model {
-                        let owner = sel ?? series.first(where: { $0.models.contains { $0.name == group.name } })?.id
-                        Circle().fill(owner.map(color) ?? .clear).frame(width: 6, height: 6)
-                    }
-                    Text(model ? Self.model(group.name) : group.name).lineLimit(1).truncationMode(.middle)
-                    Spacer(minLength: 12)
-                    MeterBar(
-                        share: (group.cost > 0 ? group.cost : Double(group.tokens)) / max(top, 1),
-                        tint: Color(nsColor: .tertiaryLabelColor), height: 3
-                    )
-                    .frame(width: 120)
-                    Text(count(group.tokens)).foregroundStyle(.secondary).monospacedDigit().frame(
-                        width: 56, alignment: .trailing)
-                    Text(money(group.cost, group.tokens)).monospacedDigit().frame(width: 72, alignment: .trailing)
-                }
-                .font(.ui(TextSize.row)).padding(.vertical, 3).padding(.horizontal, 4).contentShape(Rectangle())
-                if model {
-                    content
-                } else {
-                    Button {
-                        project = project == group.name ? nil : group.name
-                    } label: {
-                        content
-                    }
-                    .buttonStyle(.plain)
-                    .background(
-                        RoundedRectangle(cornerRadius: Metrics.radiusXS).fill(
-                            Color(
-                                nsColor: project == group.name
-                                    ? .fillSelected : hovered == "project:" + group.name ? .fillHover : .clear))
-                    )
-                    .onHover { hovered = $0 ? "project:" + group.name : nil }
-                }
-                Divider()
-            }
-            if rows.count > 8 {
-                Button(
-                    all.wrappedValue
-                        ? String(localized: "Show Fewer") : String(localized: "Show All \(rows.count)")
-                ) { all.wrappedValue.toggle() }
-                .buttonStyle(.link).font(.ui(TextSize.caption))
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private func load() async {
         loading = true
         let wait = whileSlow { slow = true }
@@ -376,11 +346,5 @@ struct UsageReportView: View {
     func count(_ n: Int) -> String { n.formatted(.number.notation(.compactName)) }
     func percent(_ part: Int, of whole: Int) -> String {
         UsageView.percent(Double(part) / Double(max(1, whole)))
-    }
-    func stat(_ value: String, _ label: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.ui(TextSize.title, weight: .semibold).monospacedDigit())
-            Text(label).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
-        }
     }
 }

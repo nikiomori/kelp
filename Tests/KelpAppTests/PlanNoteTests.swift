@@ -8,10 +8,10 @@ private func note(_ used: Double, resets: String? = "3:40pm", read: Date? = nil)
 }
 
 @Test func aPlansNoteSaysHowFullItIsAndUntilWhen() {
-    #expect(note(0.92)?.text == "92 % · 3:40pm")
-    #expect(note(0.12, resets: nil)?.text == "12 %")
+    #expect(note(0.92)?.text == "92% · 3:40pm")
+    #expect(note(0.12, resets: nil)?.text == "12%")
     #expect(note(1)?.text == "Full · 3:40pm")
-    #expect(note(0.92)?.amount == "92 %")
+    #expect(note(0.92)?.amount == "92%")
     #expect(note(1)?.amount == "Full")
     #expect(note(0.92)?.resetsTip == "Resets 3:40pm")
     #expect(note(0.92, resets: nil)?.resetsTip == nil)
@@ -26,7 +26,7 @@ private func note(_ used: Double, resets: String? = "3:40pm", read: Date? = nil)
 
 @Test func onlyANearlyFullPlanWarns() {
     #expect(note(0.89)?.warning(for: "Claude") == nil)
-    #expect(note(0.92)?.warning(for: "Claude") == "Claude is at 92 % until 3:40pm.")
+    #expect(note(0.92)?.warning(for: "Claude") == "Claude is at 92% until 3:40pm.")
     #expect(note(1, resets: nil)?.warning(for: "Claude") == "Claude is full.")
 }
 

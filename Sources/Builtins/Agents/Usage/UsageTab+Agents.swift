@@ -45,14 +45,32 @@ extension UsageReportView {
         let active = Set((usage?.days ?? []).filter { ids.contains($0.agent) && $0.tokens > 0 }.map(\.day)).count
         let before = usage?.previous.map { $0.filter { ids.contains($0.name) }.reduce(0) { $0 + $1.cost } }
         let costs = shown.compactMap(\.costs)
-        return HStack(alignment: .top, spacing: 36) {
+        // The figures stand on one plate with a rule between neighbours, because together they answer one question.
+        return HStack(alignment: .top, spacing: 0) {
             stat(money(cost, tokens), Self.change(cost, before: before, days: range))
+            Divider()
             stat(
                 money(cost / Double(max(1, active)), 0),
                 String(localized: "per active day · \(active) of \(range) days"))
+            Divider()
             stat(count(tokens), String(localized: "tokens · \(percent(cached, of: tokens)) read from cache"))
-            if let first = costs.first { CostSplit(costs: costs.dropFirst().reduce(first, +)) }
+            if let first = costs.first {
+                Divider()
+                CostSplit(costs: costs.dropFirst().reduce(first, +)).padding(Metrics.inset)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)   // across the page, as the table under it
+        .background(
+            RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).fill(Color(nsColor: .fillRest)))
+    }
+
+    /// One of the plate's figures: a number over what it counts, inset from the plate's edge and the rules.
+    private func stat(_ value: String, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value).font(.ui(TextSize.title, weight: .semibold).monospacedDigit())
+            Text(label).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+        }
+        .padding(Metrics.inset)
     }
 
     /// Returns the line under the cost, such as "at API prices · +139% on the 30 days before ($5,058)".
@@ -83,6 +101,8 @@ extension UsageReportView {
             if free.count == 1 || showFree { ForEach(free) { row($0, total: total) } }
             ForEach(rest) { row($0, total: total) }
         }
+        // A cell without a size of its own (a name, a count, a cost) is a row's text; the captions keep theirs.
+        .font(.ui(TextSize.row))
     }
 
     /// Lays out the columns agent | span | share | tokens | cost, with the same widths in every row.

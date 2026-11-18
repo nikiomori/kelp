@@ -163,7 +163,7 @@ struct DiskList: View {
                     .buttonStyle(.borderedProminent).disabled(picked.isEmpty || trashing)
                     .help(host.map(DiskNames.aside) ?? "")
             }
-            .padding(.horizontal, Metrics.inset).frame(height: Metrics.panelHeader + Metrics.gapWide)
+            .padding(.horizontal, Metrics.inset).frame(height: TextSize.of(Metrics.panelHeader + Metrics.gapWide))
         }
     }
 
@@ -190,21 +190,23 @@ struct DiskRow: View {
 
     var body: some View {
         let canGo = item.removable && !item.what.leftAlone
+        let name = DiskNames.name(item, root: root), size = DiskNames.size(item.bytes)
         HStack(spacing: Metrics.gapWide) {
-            // A part that can't go keeps the checkbox's room, hidden, so the names line up in one column.
+            // A part that can't go keeps the checkbox's room, hidden, so the names line up in one column. The label
+            // isn't drawn (`labelsHidden`), but it is what VoiceOver calls the checkbox: the part's name and size.
             Toggle(
-                "",
+                [name, size].joined(separator: ", "),
                 isOn: Binding(
                     get: { chosen.contains(item.path) },
                     set: { on in if on { chosen.insert(item.path) } else { chosen.remove(item.path) } })
             )
             .toggleStyle(.checkbox).labelsHidden().opacity(canGo ? 1 : 0).disabled(!canGo)
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                Text(DiskNames.name(item, root: root)).font(.ui(TextSize.row)).lineLimit(1).truncationMode(.middle)
+                Text(name).font(.ui(TextSize.row)).lineLimit(1).truncationMode(.middle)
                 Text(DiskNames.detail(item)).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: Metrics.gap)
-            Text(DiskNames.size(item.bytes)).font(.ui(TextSize.row)).monospacedDigit()
+            Text(size).font(.ui(TextSize.row)).monospacedDigit()
             Button {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)])
             } label: {
@@ -214,7 +216,7 @@ struct DiskRow: View {
             .accessibilityLabel(String(localized: "Show in Finder"))
             .opacity(hovering && local ? 1 : 0).disabled(!local)
         }
-        .padding(.horizontal, Metrics.gap).frame(minHeight: Metrics.rowTwoLine)
+        .padding(.horizontal, Metrics.gap).frame(minHeight: TextSize.of(Metrics.rowTwoLine))
         .background(
             RoundedRectangle(cornerRadius: Metrics.radiusSM)
                 .fill(Color(nsColor: hovering ? .fillHover : .clear))

@@ -66,27 +66,32 @@ struct DiskMap: View {
     private func tile(_ item: RepoDiskUsage.Item, _ rect: CGRect) -> some View {
         let name = DiskNames.name(item, root: root), size = DiskNames.size(item.bytes), on = chosen.contains(item.path)
         let canGo = item.removable && !item.what.leftAlone
-        return VStack(alignment: .leading, spacing: Metrics.lineGap) {
-            if rect.width > 64, rect.height > 36 {
-                Text(name).font(.ui(TextSize.row, weight: .medium)).lineLimit(1).truncationMode(.middle)
-                Text(size).font(.ui(TextSize.caption)).monospacedDigit()
-            }
-        }
-        .foregroundStyle(DiskGroup(item) == .leftAlone ? .secondary : .primary)
-        .padding(.horizontal, Metrics.gapWide).padding(.vertical, Metrics.gap)
-        .frame(width: max(rect.width, 0), height: max(rect.height, 0), alignment: .topLeading)
-        .background(DiskFill(group: DiskGroup(item)))
-        .overlay(
-            RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
-                .strokeBorder(Color.accentColor, lineWidth: on ? 2 : 0)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
-        .contentShape(Rectangle())
-        .help("\(name) · \(size)")
-        .onTapGesture {
+        // A button, not a tap gesture, so the keyboard and VoiceOver reach a tile as they reach its checkbox.
+        return Button {
             guard canGo else { return }
             if on { chosen.remove(item.path) } else { chosen.insert(item.path) }
+        } label: {
+            VStack(alignment: .leading, spacing: Metrics.lineGap) {
+                if rect.width > 64, rect.height > 36 {
+                    Text(name).font(.ui(TextSize.row, weight: .medium)).lineLimit(1).truncationMode(.middle)
+                    Text(size).font(.ui(TextSize.caption)).monospacedDigit()
+                }
+            }
+            .foregroundStyle(DiskGroup(item) == .leftAlone ? .secondary : .primary)
+            .padding(.horizontal, Metrics.gapWide).padding(.vertical, Metrics.gap)
+            .frame(width: max(rect.width, 0), height: max(rect.height, 0), alignment: .topLeading)
+            .background(DiskFill(group: DiskGroup(item)))
+            .overlay(
+                RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
+                    .strokeBorder(Color.accentColor, lineWidth: on ? 2 : 0)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .help("\(name) · \(size)")
+        .accessibilityLabel(Text(verbatim: "\(name), \(size)"))
+        .accessibilityAddTraits(on ? .isSelected : [])
         .offset(x: rect.minX, y: rect.minY)
     }
 }

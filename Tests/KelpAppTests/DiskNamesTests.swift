@@ -15,6 +15,8 @@ import Testing
     #expect(DiskNames.move(count: 3, host: nil) == "Move 3 Items to Trash")
     #expect(DiskNames.move(count: 1, host: "box") == "Move 1 Item Aside")
     #expect(DiskNames.move(count: 3, host: "box") == "Move 3 Items Aside")
+    #expect(DiskNames.move(count: 0, host: nil) == "Move to Trash")   // nothing chosen: no "0 Items"
+    #expect(DiskNames.move(count: 0, host: "box") == "Move Aside")
     #expect(DiskNames.aside(on: "box") == "Into the project’s .git/kelp-trash on box, which keeps them a week.")
 }
 

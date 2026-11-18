@@ -161,14 +161,11 @@ private struct PlanCard: View {
         .font(.ui(TextSize.row))
         .padding(Metrics.inset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        // A limit used up tints its card red, so the agent that can't go on stands out among them.
+        // A limit used up tints its card red, so the agent that can't go on stands out among them. The card is a fill
+        // with no stroke, so the state colours the fill itself.
         .background(
             RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous).fill(
                 Color(nsColor: usedUp ? .fillTint(.systemRed) : .fillRest))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
-                .strokeBorder(usedUp ? Color.red : Color(nsColor: .separatorColor), lineWidth: 1)
         )
         .opacity(row.stale ? 0.55 : 1)
         .accessibilityElement(children: .combine)

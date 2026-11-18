@@ -2,7 +2,7 @@ import AppKit
 import DesignKit
 import KelpKit
 
-/// An agent's fullest plan limit in a few words, such as "92 % · 3:40pm" or "Full · 3:40pm", shown where agents are
+/// An agent's fullest plan limit in a few words, such as "92% · 3:40pm" or "Full · 3:40pm", shown where agents are
 /// chosen. It uses the sidebar's numbers and colours. There is none for an unused plan, or for one read too long ago
 /// to tell.
 struct PlanNote: Equatable {
@@ -16,7 +16,7 @@ struct PlanNote: Equatable {
     }
 
     private var isFull: Bool { used >= 1 }
-    private var percent: String { "\(Int((used * 100).rounded())) %" }
+    private var percent: String { UsageView.percent(used) }
     /// How full the limit is, without the reset time, for a half-width row that has no room for the time.
     var amount: String { isFull ? String(localized: "Full") : percent }
     var text: String { [amount, resets].compactMap { $0 }.joined(separator: " · ") }
