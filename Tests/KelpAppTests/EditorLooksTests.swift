@@ -96,3 +96,14 @@ import Testing
     #expect(md.siblingScopes(ofLine: 1).map(\.line) == [1, 3])
     #expect(md.siblingScopes(ofLine: 0).map(\.line) == [0, 4])
 }
+
+/// A line of code is its font's height and four points more, as a diff's row is, and so is the empty line after a
+/// final newline.
+@MainActor @Test func aLineOfCodeIsAsTallAsADiffsRow() throws {
+    let e = opened("let a = 1\nlet b = 2\n", "a.swift")
+    let lm = try #require(e.textView.layoutManager), tc = try #require(e.textView.textContainer)
+    lm.ensureLayout(for: tc)
+    let line = lm.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil).height
+    #expect(line == lm.defaultLineHeight(for: CodeEditor.font) + CodeEditor.lineExtra)
+    #expect(lm.extraLineFragmentRect.height == line)
+}

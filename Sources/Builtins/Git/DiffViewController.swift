@@ -87,11 +87,11 @@ final class DiffViewController: NSViewController, NSTableViewDataSource, NSTable
         get { DiffSource(rawValue: source.indexOfSelectedItem) ?? .uncommitted }
         set { source.selectItem(at: newValue.rawValue) }
     }
-    /// The editor's font and size, because the code shown is the editor's code. A row is one line of it plus 4 pt.
+    /// The editor's font and size, because the code shown is the editor's code. A row is as tall as the editor's line.
     var font: NSFont { CodeEditor.font }
     static var lineHeight: CGFloat {
         let editorFont = CodeEditor.font
-        return (editorFont.ascender - editorFont.descender + editorFont.leading).rounded(.up) + 4
+        return (editorFont.ascender - editorFont.descender + editorFont.leading).rounded(.up) + CodeEditor.lineExtra
     }
     /// Side by side when chosen and there's room for two columns. A narrow pane shows the diff inline (like VS Code).
     var sideBySide: Bool { layoutToggle.selectedSegment == 0 && !narrow }

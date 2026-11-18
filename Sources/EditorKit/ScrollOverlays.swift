@@ -241,7 +241,7 @@ extension CodeEditor {
         let indent =
             (scroll.verticalRulerView?.ruleThickness ?? 0) + tv.textContainerOrigin.x
             + (tv.textContainer?.lineFragmentPadding ?? 0)
-        let row = lm.defaultLineHeight(for: Self.font)
+        let row = lm.defaultLineHeight(for: Self.font) + Self.lineExtra
         view.sticky.show(rows, look: (Self.font, Self.page.text, Self.page.background), indent: indent, rowHeight: row)
         view.placeSticky()
     }

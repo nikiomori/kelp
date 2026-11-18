@@ -101,6 +101,10 @@ extension CodeEditor {
             function: hex(palette.function) ?? base.function)
     }
 
+    /// What a line of code gets over its font's own height, the text in the middle of it: in the editor and in a diff,
+    /// so one file reads the same in both.
+    public nonisolated static let lineExtra: CGFloat = 4
+
     /// The editor's font. Code shown outside the editor (a diff) uses it too.
     public static var font: NSFont {
         current.fontName.flatMap { NSFont(name: $0, size: current.fontSize) }

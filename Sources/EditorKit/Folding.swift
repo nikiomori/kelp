@@ -103,6 +103,18 @@ extension EditorTextView: NSLayoutManagerDelegate {
         lm.setGlyphs(glyphs, properties: props, characterIndexes: characterIndexes, font: font, forGlyphRange: range)
         return range.length
     }
+
+    /// A line is the font's height and `CodeEditor.lineExtra`, with the text in its middle.
+    public nonisolated func layoutManager(
+        _ lm: NSLayoutManager, shouldSetLineFragmentRect rect: UnsafeMutablePointer<NSRect>,
+        lineFragmentUsedRect used: UnsafeMutablePointer<NSRect>, baselineOffset: UnsafeMutablePointer<CGFloat>,
+        in container: NSTextContainer, forGlyphRange range: NSRange
+    ) -> Bool {
+        rect.pointee.size.height += CodeEditor.lineExtra
+        used.pointee.size.height += CodeEditor.lineExtra
+        baselineOffset.pointee += CodeEditor.lineExtra / 2
+        return true
+    }
     // swiftlint:enable function_parameter_count
 
     /// Folds `range` (or opens it) and lays it out again.
@@ -185,5 +197,20 @@ extension CodeEditor {
             return textView.setFolded(folded, false)
         }
         if let region = foldRegion(line, in: string) { textView.setFolded(region, true) }
+    }
+}
+
+/// The empty line after a final newline is as tall as the lines above it. The typesetter sets that line without asking
+/// the delegate, which gives every other line its height.
+final class EditorLayoutManager: NSLayoutManager {
+    override func setExtraLineFragmentRect(
+        _ fragmentRect: NSRect, usedRect: NSRect, textContainer container: NSTextContainer
+    ) {
+        var fragmentRect = fragmentRect, usedRect = usedRect
+        if !fragmentRect.isEmpty {
+            fragmentRect.size.height += CodeEditor.lineExtra
+            usedRect.size.height += CodeEditor.lineExtra
+        }
+        super.setExtraLineFragmentRect(fragmentRect, usedRect: usedRect, textContainer: container)
     }
 }

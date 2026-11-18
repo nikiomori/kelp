@@ -195,6 +195,7 @@ public final class CodeEditor: NSObject {
         tv.textContainerInset = NSSize(width: 4, height: 6)
         tv.isVerticallyResizable = true
         tv.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
+        tv.textContainer?.replaceLayoutManager(EditorLayoutManager())   // for the last, empty line's height
         tv.layoutManager?.allowsNonContiguousLayout = true
         tv.textStorage?.delegate = self
         tv.layoutManager?.delegate = tv   // for folds

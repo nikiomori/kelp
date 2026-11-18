@@ -99,7 +99,8 @@ extension EditorTextView: NSViewToolTipOwner {
                 forGlyphRange: lm.glyphRange(forCharacterRange: mark.range, actualCharacterRange: nil),
                 withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0), in: tc
             ) { lineRect, _ in
-                let baseline = lineRect.maxY + origin.y - 1.5, wave = NSBezierPath()
+                // Under the text, which stands in the middle of its line.
+                let baseline = lineRect.maxY + origin.y - 1.5 - CodeEditor.lineExtra / 2, wave = NSBezierPath()
                 var along = lineRect.minX + origin.x, up = true
                 wave.move(to: NSPoint(x: along, y: baseline))
                 while along < lineRect.maxX + origin.x {
