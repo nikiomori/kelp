@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import Foundation
 import TestSupport
 import Testing
@@ -69,6 +70,8 @@ import Testing
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 300, height: 500), styleMask: [.titled], backing: .buffered, defer: true)
     window.contentView?.addSubview(panel.view)
+    LoadingView.patience = 0.05
+    defer { LoadingView.patience = 1 }
     panel.viewDidAppear()
     #expect(!panel.loading.showing)
     #expect(try await waitFor(10) { panel.loading.showing })

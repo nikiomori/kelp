@@ -149,6 +149,8 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
 /// wait has lasted. The answer ends the wait, whether or not it had shown: one answered at once never shows, not even
 /// by the time a wait started after it does.
 @MainActor @Test func aWaitForAFirstAnswerShowsOnceItIsSlow() async throws {
+    LoadingView.patience = 0.05
+    defer { LoadingView.patience = 1 }
     let answered = LoadingView(rows: true), slow = LoadingView(rows: true)
     answered.wait("Reading the changes…")
     #expect(!answered.showing)

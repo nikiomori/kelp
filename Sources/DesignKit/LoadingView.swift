@@ -21,6 +21,9 @@ public final class LoadingView: NSView {
     private var waiting: Task<Void, Never>?
     /// The longest a wait started by `wait` stays up.
     public static let longest: TimeInterval = 30
+    /// How long `wait` says nothing: a second, by the latency rule. A test shortens it, so that its wait is due before
+    /// a busy run's other tests take the main thread.
+    nonisolated(unsafe) public static var patience: TimeInterval = 1
     /// True while the view is on screen and not on its way out.
     public var showing: Bool { !isHidden && leaving == nil }
 
@@ -78,7 +81,8 @@ public final class LoadingView: NSView {
     public func wait(_ text: String) {
         waiting?.cancel()
         waiting = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(1)) } catch { return }   // cancelled, because the answer came
+            // Cancelled when the answer comes.
+            do { try await Task.sleep(for: .seconds(Self.patience)) } catch { return }
             self?.show(text)
             do { try await Task.sleep(for: .seconds(Self.longest)) } catch { return }
             self?.show(nil)
