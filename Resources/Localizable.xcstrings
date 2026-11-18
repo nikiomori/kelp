@@ -121,6 +121,16 @@
         }
       }
     },
+    "%@ · Edit Below": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · правка ниже"
+          }
+        }
+      }
+    },
     "%@ · key saved": {
       "localizations": {
         "ru": {
@@ -187,6 +197,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "адрес, модель, ключ"
+          }
+        }
+      }
+    },
+    "After an edit, Sweep Next-Edit on this Mac offers the like one nearby; ⇥ goes there, ⇥ takes it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "После правки Sweep Next-Edit на этом Mac предлагает такую же рядом: ⇥ — перейти, ⇥ — принять."
           }
         }
       }
@@ -341,6 +361,16 @@
         }
       }
     },
+    "Getting Sweep Next-Edit ready (1.5 GB the first time)…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готовлю Sweep Next-Edit (в первый раз — 1,5 ГБ)…"
+          }
+        }
+      }
+    },
     "Gray text after the cursor from a model on this Mac or in the cloud; ⇥ puts it in.": {
       "localizations": {
         "ru": {
@@ -367,6 +397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "В облаке"
+          }
+        }
+      }
+    },
+    "Install llama.cpp": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установка llama.cpp"
           }
         }
       }
@@ -411,6 +451,16 @@
         }
       }
     },
+    "llama-server stopped": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "llama-server остановился"
+          }
+        }
+      }
+    },
     "Mercury Edit 2 (Inception)": {
       "localizations": {
         "ru": {
@@ -437,6 +487,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Модель не найдена"
+          }
+        }
+      }
+    },
+    "Needs llama.cpp": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужен llama.cpp"
           }
         }
       }
@@ -1429,6 +1489,16 @@
         }
       }
     },
+    "Predict the next edit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предсказывать следующую правку"
+          }
+        }
+      }
+    },
     "Previous Conflict": {
       "localizations": {
         "ru": {
@@ -1599,6 +1669,16 @@
         }
       }
     },
+    "Sweep Next-Edit on this Mac · ⇥ goes to the edit, ⇥ takes it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sweep Next-Edit на этом Mac · ⇥ — к правке, ⇥ — принять"
+          }
+        }
+      }
+    },
     "Taken today": {
       "localizations": {
         "ru": {
@@ -1725,6 +1805,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Этот Mac · %@"
+          }
+        }
+      }
+    },
+    "to line %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "к строке %lld"
           }
         }
       }

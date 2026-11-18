@@ -18,10 +18,17 @@ struct SuggestionStatus: Equatable {
         var cloud: (name: String, hasKey: Bool?)?
         var problem: SuggestProblem?
         var loading = false
+        /// Whether an edit is offered in the file now.
+        var editOffered = false
     }
 
     /// Nil to say nothing: suggestions are off and there's no model to turn on.
     static func of(_ s: Inputs) -> SuggestionStatus? {
+        guard let status = plain(s), s.editOffered, !status.needsYou else { return plain(s) }
+        return SuggestionStatus(text: String(localized: "\(status.text) · Edit Below"))
+    }
+
+    private static func plain(_ s: Inputs) -> SuggestionStatus? {
         if s.mode == "off" {
             if s.everywhere != "off" { return SuggestionStatus(text: String(localized: "Off in This File")) }
             return s.model == nil ? nil : SuggestionStatus(text: String(localized: "Suggestions Off"))

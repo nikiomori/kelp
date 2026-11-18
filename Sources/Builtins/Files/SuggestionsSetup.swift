@@ -64,18 +64,23 @@ extension Suggestions {
     /// Installs Ollama's app with Homebrew in a terminal tab, then goes on with Turn On once the tab's command ends;
     /// without Homebrew, opens Ollama's download page.
     func installOllama() {
-        guard needsOllama == .homebrew, let starter = app.workbench.starter else {
+        guard needsOllama == .homebrew, app.workbench.starter != nil else {
             if let page = URL(string: "https://ollama.com/download") { PreviewLinks.openOutside(page) }
             return
         }
+        runInTerminal("brew install --cask ollama-app && open -a Ollama", title: String(localized: "Install Ollama")) {
+            [weak self] in await self?.turnOn()
+        }
+    }
+
+    /// Runs `command` in a terminal tab the person watches, and `then` once it has ended.
+    func runInTerminal(_ command: String, title: String, then: @escaping @MainActor () async -> Void) {
         let app = app
-        starter.run(
-            command: "brew install --cask ollama-app && open -a Ollama", title: String(localized: "Install Ollama")
-        ) { [weak self] made in
+        app.workbench.starter?.run(command: command, title: title) { [weak self] made in
             track(owner: self, now: false) {
                 app.session(made.id).map { $0.status == .exited } ?? true
-            } changed: { [weak self] ended in
-                if ended { Task { await self?.turnOn() } }
+            } changed: { ended in
+                if ended { Task { await then() } }
             }
         }
     }

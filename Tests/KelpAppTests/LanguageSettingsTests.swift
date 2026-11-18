@@ -1,11 +1,11 @@
 import Core
-import EditorKit
 import Foundation
 import TestSupport
 import Testing
 import WorkbenchKit
 
 @testable import BuiltinFiles
+@testable import EditorKit
 @testable import KelpApp
 @testable import KelpKit
 
@@ -101,6 +101,13 @@ func noModelIsShownAFileOfSecrets(path: String, secret: Bool) {
     let cases: [(SuggestionStatus?, String?, Bool)] = [
         (status { _ in }, "qwen2.5-coder:1.5b-base", false),
         (status { $0.loading = true }, "qwen2.5-coder:1.5b-base · Loading…", false),
+        (status { $0.editOffered = true }, "qwen2.5-coder:1.5b-base · Edit Below", false),
+        (
+            status {
+                $0.editOffered = true
+                $0.problem = .noServer
+            }, "Ollama Isn't Running", true
+        ),   // what needs you comes first
         (status { $0.problem = .noServer }, "Ollama Isn't Running", true),
         (status { $0.problem = .noModel }, "No Code Model", true),
         (status { $0.model = nil }, "No Code Model", true),
@@ -188,4 +195,13 @@ func aModelOnThisMacWaitsWhileItSavesPowerOrRunsHot(
     #expect(Suggestions.pause(battery: false, typicalWait: 0.6) == .milliseconds(150))
     #expect(Suggestions.pause(battery: false, typicalWait: nil) == .milliseconds(150))   // not timed yet
     #expect(Suggestions.pause(battery: true, typicalWait: 0.13) == .milliseconds(300))
+}
+
+@Test func theNextEditIsAskedWithTheEditsOldestFirstAndTheLatestLast() {
+    let ask = NextEdit.Ask(
+        earlier: [.init(old: "a", new: "A")], latest: .init(old: "b", new: "B"), original: "b", current: "B",
+        firstLine: 0)
+    let request = Suggestions.request(ask, path: "Sources/X.swift")
+    #expect(request.changes == [NextEditChange(old: "a", new: "A"), NextEditChange(old: "b", new: "B")])
+    #expect(request.path == "Sources/X.swift" && request.original == "b" && request.current == "B")
 }

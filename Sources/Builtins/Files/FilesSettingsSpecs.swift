@@ -32,7 +32,11 @@ extension Builtins {
                 SettingKeys.suggestionModel, "Model", .string,
                 "Empty: the first code model on this Mac, or the cloud provider's own.",
                 group: "Code suggestions", hidden: true, requires: "\(SettingKeys.suggestions.key)!=off",
-                placeholder: "qwen2.5-coder:1.5b-base")
+                placeholder: "qwen2.5-coder:1.5b-base"),
+            s(
+                SettingKeys.nextEdit, "Predict the next edit", .boolean,
+                "After an edit, Sweep Next-Edit on this Mac offers the like one nearby; ⇥ goes there, ⇥ takes it.",
+                group: "Code suggestions", hidden: true, requires: "\(SettingKeys.suggestions.key)!=off")
         ]
     }
 
@@ -146,4 +150,5 @@ extension SettingKeys {
     static let suggestionModel = Setting("editor.suggestionModel", "")
     static let suggestionCloud = Setting("editor.suggestionCloud", "mercury")
     static let suggestionURL = Setting("editor.suggestionURL", "")
+    static let nextEdit = Setting("editor.nextEdit", false)
 }

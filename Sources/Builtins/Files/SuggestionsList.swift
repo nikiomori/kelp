@@ -27,6 +27,7 @@ struct SuggestionsList: View {
                     })
             )
             .toggleStyle(.switch).controlSize(.small).padding(.horizontal, 6)
+            nextEdit(on: mode != "off")
             heading(String(localized: "On This Mac"))
             ForEach(local, id: \.id) { model in
                 let picked = mode == "local" && (named == model.id || named.isEmpty && local.first == model)
@@ -51,6 +52,37 @@ struct SuggestionsList: View {
         .task {
             if suggestions.models == nil { await suggestions.refresh() }
             for each in SuggestCloud.allCases where suggestions.keys[each] == nil { await suggestions.checkKey(each) }
+        }
+    }
+
+    /// The next edit: its own switch under the main one, and what its model needs.
+    @ViewBuilder private func nextEdit(on: Bool) -> some View {
+        let wanted = app.settings[SettingKeys.nextEdit]
+        Toggle(
+            String(localized: "Predict the next edit"),
+            isOn: Binding(get: { on && wanted }, set: { want in Task { await suggestions.setNextEdit(want) } })
+        )
+        .toggleStyle(.switch).controlSize(.small).padding(.horizontal, 6).padding(.top, Metrics.gap).disabled(!on)
+        if on, wanted {
+            HStack(spacing: Metrics.gap) {
+                switch suggestions.nextEditSetup {
+                case .starting:
+                    ProgressView().controlSize(.mini)
+                    Text(String(localized: "Getting Sweep Next-Edit ready (1.5 GB the first time)…")).lineLimit(1)
+                case .needs:
+                    Text(String(localized: "Needs llama.cpp"))
+                    Spacer()
+                    Button(String(localized: "Install")) { suggestions.installLlama() }
+                case .failed:
+                    Text(String(localized: "llama-server stopped"))
+                    Spacer()
+                    Button(String(localized: "Try Again")) { Task { await suggestions.startNextEdit() } }
+                case nil:
+                    Text(String(localized: "Sweep Next-Edit on this Mac · ⇥ goes to the edit, ⇥ takes it")).lineLimit(1)
+                }
+            }
+            .font(.ui(TextSize.caption)).foregroundStyle(.secondary).controlSize(.small)
+            .padding(.horizontal, 6).padding(.bottom, 2)
         }
     }
 

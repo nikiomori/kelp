@@ -38,6 +38,9 @@ final class Suggestions {
     /// Where suggestions came from before they were switched off ("local" or "cloud").
     @ObservationIgnored var wereOn: String?
     var setupError: String?
+    /// The next edit's llama-server: starting (the first time, downloading its model), or what it needs.
+    var nextEditSetup: NextEditSetup?
+    enum NextEditSetup: Equatable { case starting, needs(OllamaSetup), failed }
 
     struct Pull: Equatable {
         let model: String
@@ -59,7 +62,7 @@ final class Suggestions {
     }
 
     /// What a file's status bar says, for its language; `secret` for a file no model is shown.
-    func status(language: String?, secret: Bool) -> SuggestionStatus? {
+    func status(language: String?, secret: Bool, editOffered: Bool = false) -> SuggestionStatus? {
         let settings = app.settings, mode = settings[SettingKeys.suggestions, language: language]
         let named = settings[SettingKeys.suggestionModel]
         let cloud = mode == "cloud" ? SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]) : nil
@@ -67,7 +70,7 @@ final class Suggestions {
             .init(
                 mode: mode, everywhere: settings[SettingKeys.suggestions], secret: secret, model: model(named: named),
                 known: models != nil, pause: pause, cloud: cloud.map { (Self.cloudName($0, model: named), keys[$0]) },
-                problem: problem, loading: loading))
+                problem: problem, loading: loading, editOffered: editOffered))
     }
 
     /// Forgets the last problem and looks for models again (Try Again, a key saved, a model picked).
@@ -159,7 +162,7 @@ final class Suggestions {
 
     private struct State: Equatable {
         var mode: String, everywhere: String, named: String, models: [SuggestModel]?, pause: SuggestionPause?
-        var cloud: SuggestCloud?, hasKey: Bool?, problem: SuggestProblem?, loading: Bool
+        var cloud: SuggestCloud?, hasKey: Bool?, problem: SuggestProblem?, loading: Bool, nextEdit: Bool
     }
 
     /// Gives a file's editor gray text from `editor.suggest` while the setting is on (never in a file of secrets), and
@@ -177,6 +180,9 @@ final class Suggestions {
             }
         }
         bar.onSuggestions = { [weak self] button in self?.showCard(from: button, language: language) }
+        editor.onNextEdit = { [weak self, weak bar] offered in
+            bar?.show(suggestions: self?.status(language: language, secret: false, editOffered: offered))
+        }
         track(owner: owner) { [weak self, settings = app.settings] in
             State(
                 mode: settings[SettingKeys.suggestions, language: language],
@@ -184,13 +190,15 @@ final class Suggestions {
                 models: self?.models, pause: self?.pause,
                 cloud: SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]),
                 hasKey: SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]).flatMap { self?.keys[$0] },
-                problem: self?.problem, loading: self?.loading ?? false)
+                problem: self?.problem, loading: self?.loading ?? false, nextEdit: settings[SettingKeys.nextEdit])
         } changed: { [weak self, weak editor, weak bar] state in
             guard let self else { return }
             // A cloud model keeps on through low power and heat: they're this Mac's, and it runs elsewhere.
             let cloud = state.mode == "cloud" ? state.cloud : nil
             let on = (state.mode == "local" && state.pause == nil || cloud != nil) && !Self.holdsSecrets(path)
             editor?.suggestionProvider = on ? editor.map { provider(for: $0, name: name) } : nil
+            // The next edit's model is this Mac's, whichever gray text comes from: it rests through low power and heat.
+            editor?.nextEditProvider = on && state.nextEdit && state.pause == nil ? nextEditProvider(name: name) : nil
             if let cloud, state.hasKey == nil { Task { await checkKey(cloud) } }
             if on, cloud == nil, let editor { warm(editor, name: name, named: state.named) }
             bar?.show(suggestions: status(language: language, secret: Self.holdsSecrets(path)))
