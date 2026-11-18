@@ -90,6 +90,13 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(!q.commandsOnly && q.field.scope == nil)
 }
 
+/// VoiceOver hears that a banner is an error, which the eye reads off its red sign. A plain message is said as it is,
+/// after the name it leads with.
+@MainActor @Test func anErrorBannerIsSpokenAsOne() {
+    #expect(Banner.spoken("Couldn't push.", title: nil, style: .error) == "Error. Couldn't push.")
+    #expect(Banner.spoken("Copied.", title: "Kelp", style: .info) == "Kelp. Copied.")
+}
+
 /// ⌘P's tabs say where they are in words: a file inside its workspace, a page's host, the changes; never their address.
 @MainActor @Test func paletteTabsSayWhereTheyAre() {
     #expect(QuickOpen.place(TabURI.file("/w/Sources/App.swift"), root: "/w").detail == "Sources/App.swift")

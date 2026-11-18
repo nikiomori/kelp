@@ -11,7 +11,7 @@ public final class FailureBar: NSStackView {
         super.init(frame: .zero)
         let mark = NSImageView(image: .symbol("exclamationmark.triangle", String(localized: "Couldn’t refresh")))
         mark.symbolConfiguration = .chrome(Metrics.iconSmall)
-        mark.contentTintColor = .systemOrange
+        mark.contentTintColor = .secondaryLabelColor   // a state at the edge, which calls nobody: no colour
         let again = TextButton(String(localized: "Try Again"), onClick: retry)
         again.setContentCompressionResistancePriority(.required, for: .horizontal)
         // A long error is cut at its end, and read whole in the tooltip: it doesn't widen the panel.

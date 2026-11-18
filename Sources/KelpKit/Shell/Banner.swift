@@ -54,10 +54,16 @@ package enum Banner {
         NSAccessibility.post(
             element: window, notification: .announcementRequested,
             userInfo: [
-                .announcement: [title, text].compactMap { $0 }.joined(separator: ". "),
+                .announcement: Self.spoken(text, title: title, style: style),
                 .priority: (style == .error ? NSAccessibilityPriorityLevel.high : .medium).rawValue
             ])
         if !card.stays { card.leave(after: lasts ?? (action != nil ? 10 : style == .error ? 6 : 4)) }
+    }
+
+    /// What VoiceOver says for a banner. An error says that it is one, which sighted eyes read off its red sign.
+    static func spoken(_ text: String, title: String?, style: Style) -> String {
+        ([style == .error ? String(localized: "Error") : nil, title, text] as [String?]).compactMap(\.self)
+            .joined(separator: ". ")
     }
 
     /// The column banners stack in. It is made once per window, in the corner of the editor area (or of the window,
@@ -122,7 +128,8 @@ private final class BannerCard: NSView {
         super.init(frame: .zero)
         let symbol = NSImageView(
             image: icon ?? .symbol(style == .error ? "exclamationmark.triangle.fill" : "info.circle.fill"))
-        symbol.contentTintColor = style == .error ? .systemOrange : .secondaryLabelColor
+        // What the user asked for failed, so the sign is red: orange stays for what waits for them.
+        symbol.contentTintColor = style == .error ? .systemRed : .secondaryLabelColor
         symbol.imageScaling = .scaleProportionallyUpOrDown
         NSLayoutConstraint.activate([
             symbol.widthAnchor.constraint(equalToConstant: icon == nil ? 16 : 24),
@@ -189,7 +196,7 @@ private final class BannerCard: NSView {
         width.priority = .init(NSLayoutConstraint.Priority.required.rawValue - 1)
         NSLayoutConstraint.activate([width, padded.widthAnchor.constraint(lessThanOrEqualToConstant: 340)])
         buttons?.widthAnchor.constraint(equalTo: top.widthAnchor).isActive = true   // puts the button at the right edge
-        pin(FloatingCard.ground(padded, radius: Metrics.radiusLG, glassRadius: Metrics.radiusXL + 2))
+        pin(FloatingCard.ground(padded, radius: Metrics.radiusLG))
         addTrackingArea(
             NSTrackingArea(
                 rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
