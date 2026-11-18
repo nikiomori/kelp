@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import Foundation
+import TestSupport
 import Testing
 import WorkbenchKit
 
@@ -118,6 +119,32 @@ extension OneAtATime {
                 #expect(offered().contains("git.copyBranchName") == offers)
             }
         }
+    }
+
+    /// A search of the commands that finds nothing says so in the list's place, as the line and symbol modes say
+    /// theirs. One that finds something has rows and no such line.
+    @Test func thePaletteSaysWhenNothingMatches() async throws {
+        _ = testHome
+        _ = NSApplication.shared
+        let before = NSApp.mainMenu
+        defer { NSApp.mainMenu = before }
+        let delegate = AppDelegate(builtins: Builtins.all), app = delegate.app
+        app.extensions.reload()
+        delegate.buildMenu()   // the palette's commands are the menu bar's
+        let palette = QuickOpen(app: app)
+        palette.build()
+        palette.commandsOnly = true
+        palette.collect()
+        let command = try #require(palette.all.first { $0.kind == "Command" })
+        func headings() -> [String] {
+            palette.rows.compactMap { if case .heading(let text) = $0 { text } else { nil } }
+        }
+        palette.field.stringValue = "zzqqxxjj"
+        palette.filter()
+        #expect(try await waitFor(5) { palette.rows.count == 1 && headings() == ["No matches"] })
+        palette.field.stringValue = command.title
+        palette.filter()
+        #expect(try await waitFor(5) { palette.rows.contains(where: \.isItem) && !headings().contains("No matches") })
     }
 
     /// ⌥⌘1–9 are the icons of the inspector's row, in its order: a panel dragged to the front is ⌥⌘1, and one hidden

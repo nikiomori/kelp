@@ -176,18 +176,9 @@ struct SwitcherRow {
 
 /// The switcher's card: its rows (at most nine before they scroll), and the key hints under them while they're new.
 @MainActor
-final class SwitcherCard: NSVisualEffectView {
+final class SwitcherCard: NSView {
     init(rows: [NSView], hint: String?, maxHeight: CGFloat) {
         super.init(frame: .zero)
-        material = .popover   // the same as Quick Open
-        state = .active
-        wantsLayer = true
-        layer?.cornerRadius = Metrics.radiusXL
-        layer?.cornerCurve = .continuous
-        layer?.borderWidth = 1   // an edge, as menus have, so it holds against a window of the same grey
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            self.layer?.borderColor = NSColor.separatorColor.cgColor
-        }
         let list = NSStackView()
         list.orientation = .vertical
         list.spacing = Metrics.lineGap
@@ -227,7 +218,24 @@ final class SwitcherCard: NSVisualEffectView {
             column.addArrangedSubview(keys)
             column.edgeInsets.bottom = Metrics.gapWide
         }
-        pin(column)
+        // The ground Quick Open has, as both are a panel to go somewhere from: glass where there is glass, and the
+        // popover material before.
+        if #available(macOS 26, *) {
+            pin(FloatingCard.ground(column, radius: Metrics.radiusXL))
+            return
+        }
+        let material = NSVisualEffectView()
+        material.material = .popover
+        material.state = .active
+        material.wantsLayer = true
+        material.layer?.cornerRadius = Metrics.radiusXL
+        material.layer?.cornerCurve = .continuous
+        material.layer?.borderWidth = 1   // an edge, as menus have, so it holds against a window of the same grey
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            material.layer?.borderColor = NSColor.separatorColor.cgColor
+        }
+        material.pin(column)
+        pin(material)
     }
     required init?(coder: NSCoder) { fatalError() }
 }

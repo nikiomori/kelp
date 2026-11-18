@@ -341,6 +341,10 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
             scoring = Task { [weak self] in
                 let best = await Task.detached { Self.best(keys, query, files: fuzzy) }.value
                 guard let self, !Task.isCancelled else { return }
+                // Nothing found is said, as the line and symbol modes say theirs: an empty list looked unfinished.
+                guard !best.isEmpty else {
+                    return setRows([], grouped: false, heading: String(localized: "No matches"))
+                }
                 setRows(best.map { $0 < pool.count ? pool[$0] : fileItem($0 - pool.count) }, grouped: grouped)
             }
         }

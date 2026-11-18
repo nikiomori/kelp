@@ -72,7 +72,7 @@ extension QuickOpen {
         if case .item = rows[row] { true } else { false }
     }
     func tableView(_ table: NSTableView, heightOfRow row: Int) -> CGFloat {
-        TextSize.of(rows[row].isItem ? Metrics.rowMenu : Metrics.row)
+        TextSize.of(rows[row].isItem ? Metrics.rowMenu : Metrics.rowSection)
     }
     func tableView(_ table: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         guard case .item(let it) = rows[row] else {
