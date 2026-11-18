@@ -11,7 +11,21 @@ import SwiftUI
 final class Suggestions {
     static func of(_ app: AppModel) -> Suggestions { app.part { Suggestions(app) } }
     @ObservationIgnored unowned let app: AppModel
-    private init(_ app: AppModel) { self.app = app }
+    private init(_ app: AppModel) {
+        self.app = app
+        let center = NotificationCenter.default
+        for name in [Notification.Name.NSProcessInfoPowerStateDidChange, ProcessInfo.thermalStateDidChangeNotification]
+        {
+            watching.append(
+                center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.pause = SuggestionPause.now }   // queue: .main delivers here
+                })
+        }
+    }
+    @ObservationIgnored private var watching: [any NSObjectProtocol] = []
+    /// Why the model on this Mac isn't asked now, if it isn't.
+    private(set) var pause = SuggestionPause.now
+    @ObservationIgnored private var warmed = Date.distantPast
 
     /// What the servers offer, in the order the daemon picks one; nil until asked.
     private(set) var models: [SuggestModel]?
@@ -45,10 +59,10 @@ final class Suggestions {
 
     /// What the status bar says: the model while it suggests, Off while a model could, No Model when none can; nothing
     /// while it's off and there's no model to turn on.
-    static func label(mode: String, model: SuggestModel?, known: Bool) -> String? {
+    static func label(mode: String, model: SuggestModel?, known: Bool, pause: SuggestionPause? = nil) -> String? {
         if mode == "off" { return model == nil ? nil : String(localized: "Suggestions Off") }
         guard let model else { return known ? String(localized: "No Model") : nil }
-        return shortName(model.id)
+        return pause?.title ?? shortName(model.id)
     }
 
     /// "hf.co/bartowski/zeta-2-GGUF:Q4_K_M" → "zeta-2-GGUF:Q4_K_M"; "qwen2.5-coder:latest" → "qwen2.5-coder".
@@ -65,7 +79,7 @@ final class Suggestions {
     }
 
     private struct State: Equatable {
-        var mode: String, named: String, models: [SuggestModel]?
+        var mode: String, named: String, models: [SuggestModel]?, pause: SuggestionPause?
     }
 
     /// Gives a file's editor gray text from `editor.suggest` while the setting is on (never in a file of secrets), and
@@ -77,20 +91,36 @@ final class Suggestions {
         track(owner: owner) { [weak self, settings = app.settings] in
             State(
                 mode: settings[SettingKeys.suggestions, language: language],
-                named: settings[SettingKeys.suggestionModel], models: self?.models)
+                named: settings[SettingKeys.suggestionModel], models: self?.models, pause: self?.pause)
         } changed: { [weak self, weak editor, weak bar] state in
             guard let self else { return }
-            let on = state.mode != "off" && !Self.holdsSecrets(path)
-            editor?.suggestionProvider = on ? provider() : nil
+            let on = state.mode != "off" && state.pause == nil && !Self.holdsSecrets(path)
+            editor?.suggestionProvider = on ? editor.map(provider) : nil
+            if on, let editor { warm(editor, path: path, named: state.named) }
             bar?.show(
                 suggestions: Self.label(
-                    mode: state.mode, model: model(named: state.named), known: state.models != nil))
+                    mode: state.mode, model: model(named: state.named), known: state.models != nil, pause: state.pause))
         }
     }
 
-    private func provider() -> (InlineSuggestion.Context) async -> String? {
+    /// Has the model read a file just opened, so the first suggestion in it doesn't wait for the model to load. At most
+    /// once a minute: a model that was asked since stays loaded for minutes.
+    private func warm(_ editor: CodeEditor, path: String, named: String) {
+        guard Date().timeIntervalSince(warmed) > 60 else { return }
+        warmed = Date()
+        let suffix = String(editor.text.prefix(2000)), app = app
+        Task {
+            _ = await app.quiet(
+                EditorSuggest(prefix: "", suffix: suffix, path: path, model: named.isEmpty ? nil : named, warm: true))
+        }
+    }
+
+    private func provider(for editor: CodeEditor) -> (InlineSuggestion.Context) async -> String? {
         let app = app
-        return { [weak self] context in
+        return { [weak self, weak editor] context in
+            // Kelp in the background asks nothing; on the battery, typing pauses longer before the next ask.
+            guard NSApp.isActive else { return nil }
+            editor?.suggestionDelay = .milliseconds(SuggestionPause.onBattery ? 300 : 150)
             let named = app.settings[SettingKeys.suggestionModel], start = Date()
             let ask = EditorSuggest(
                 prefix: context.prefix, suffix: context.suffix, path: context.path, model: named.isEmpty ? nil : named)
@@ -129,6 +159,7 @@ struct SuggestionsCard: View {
                 buttons(String(localized: "Turn On")) { app.settings.set(SettingKeys.suggestions, "local") }
             } else if let model {
                 title(Suggestions.shortName(model.id))
+                if let pause = suggestions.pause { Text(pause.reason).foregroundStyle(.secondary) }
                 facts(model)
                 buttons(String(localized: "Turn Off"), prominent: false) {
                     app.settings.set(SettingKeys.suggestions, "off")

@@ -22,6 +22,9 @@ actor LocalModels {
     private static let fresh: TimeInterval = 30
     private var found: (servers: [Server], at: Date)?
     private let http = URLSession(configuration: .ephemeral)
+    /// The Ollama model last asked, which a memory warning has Ollama put away at once (it would keep it 5 minutes).
+    private var loaded: (server: Server, model: String)?
+    private var pressure: DispatchSourceMemoryPressure?
 
     func servers() async -> [Server] {
         if let found, Date().timeIntervalSince(found.at) < Self.fresh { return found.servers }
@@ -51,7 +54,9 @@ actor LocalModels {
     }
 
     /// What `model` (else the first that fills in code) writes between `prefix` and `suffix`.
-    func suggest(prefix: String, suffix: String, path: String, model: String?) async throws -> String? {
+    func suggest(prefix: String, suffix: String, path: String, model: String?, warm: Bool = false) async throws
+        -> String?
+    {
         let servers = await servers()
         let wanted = model.flatMap { $0.isEmpty ? nil : $0 }
         let server =
@@ -61,13 +66,44 @@ actor LocalModels {
             let prompt = FillIn.prompt(model: name, prefix: prefix, suffix: suffix, path: path)
         else { return nil }
         do {
-            let (data, response) = try await http.data(for: try Self.request(server, model: name, prompt: prompt))
+            let request = try Self.request(server, model: name, prompt: prompt, tokens: warm ? 1 : 128)
+            let (data, response) = try await http.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-            return try Self.answer(data, ollama: server.ollama)
+            if server.ollama { remember(server, name) }
+            return warm ? nil : try Self.answer(data, ollama: server.ollama)
         } catch let error as URLError where error.code == .cannotConnectToHost {
             found = nil   // it went away: look again next time
             return nil
         }
+    }
+
+    /// Keeps which Ollama model is in memory, and starts listening for the system's memory warnings once.
+    private func remember(_ server: Server, _ model: String) {
+        loaded = (server, model)
+        guard pressure == nil else { return }
+        let source = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .global())
+        source.setEventHandler { [weak self] in Task { await self?.unload() } }
+        source.resume()
+        pressure = source
+    }
+
+    /// Has Ollama put the last model away now: the Mac is short of memory, and agents and builds need it more.
+    private func unload() async {
+        guard let loaded else { return }
+        self.loaded = nil
+        do {
+            _ = try await http.data(for: try Self.unloadRequest(loaded.server, model: loaded.model))
+        } catch {
+            Log.rpc.debug("Ollama didn't put \(loaded.model, privacy: .public) away: \(error.localizedDescription)")
+        }
+    }
+
+    static func unloadRequest(_ server: Server, model: String) throws -> URLRequest {
+        var request = URLRequest(url: server.base.appendingPathComponent("api/generate"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 5
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["model": model, "keep_alive": 0])
+        return request
     }
 
     private func probe(_ name: String, port: Int, ollama: Bool) async -> Server? {
@@ -95,13 +131,14 @@ actor LocalModels {
     }
 
     /// A short answer, the same each time: a suggestion is a line or a few, and guessing would make it flicker.
-    static func request(_ server: Server, model: String, prompt: FillIn.Prompt) throws -> URLRequest {
+    static func request(_ server: Server, model: String, prompt: FillIn.Prompt, tokens: Int = 128) throws -> URLRequest
+    {
         var body: [String: Any] = ["model": model, "prompt": prompt.text, "stream": false]
         if server.ollama {
             body["raw"] = true
-            body["options"] = ["num_predict": 128, "temperature": 0, "stop": prompt.stop]
+            body["options"] = ["num_predict": tokens, "temperature": 0, "stop": prompt.stop]
         } else {
-            body["max_tokens"] = 128
+            body["max_tokens"] = tokens
             body["temperature"] = 0
             body["stop"] = Array(prompt.stop.prefix(4))   // OpenAI's API takes at most four
             body["cache_prompt"] = true   // llama-server keeps the code it read for the next keystroke
@@ -125,7 +162,7 @@ actor LocalModels {
 
 extension EditorSuggest: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> String? {
-        try await lsp.models.suggest(prefix: prefix, suffix: suffix, path: path, model: model)
+        try await lsp.models.suggest(prefix: prefix, suffix: suffix, path: path, model: model, warm: warm == true)
     }
 }
 

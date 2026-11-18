@@ -919,6 +919,46 @@
         }
       }
     },
+    "Paused until the Mac cools down.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На паузе, пока Mac не остынет."
+          }
+        }
+      }
+    },
+    "Paused while Low Power Mode is on.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На паузе, пока включён режим энергосбережения."
+          }
+        }
+      }
+    },
+    "Paused: Low Power": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пауза: энергосбережение"
+          }
+        }
+      }
+    },
+    "Paused: Mac Is Hot": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пауза: Mac перегрет"
+          }
+        }
+      }
+    },
     "Per day": {
       "localizations": {
         "ru": {

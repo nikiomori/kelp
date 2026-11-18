@@ -1,5 +1,6 @@
 import Core
 import EditorKit
+import Foundation
 import TestSupport
 import Testing
 import WorkbenchKit
@@ -99,4 +100,18 @@ func noModelIsShownAFileOfSecrets(path: String, secret: Bool) {
     #expect(Suggestions.label(mode: "local", model: nil, known: false) == nil)   // not asked yet
     #expect(Suggestions.shortName("hf.co/bartowski/zeta-2-GGUF:Q4_K_M") == "zeta-2-GGUF:Q4_K_M")
     #expect(Suggestions.shortName("starcoder2:latest") == "starcoder2")
+    #expect(Suggestions.label(mode: "local", model: qwen, known: true, pause: .lowPower) == "Paused: Low Power")
+    #expect(Suggestions.label(mode: "off", model: qwen, known: true, pause: .hot) == "Suggestions Off")
+}
+
+@Test(
+    arguments: [
+        (false, ProcessInfo.ThermalState.nominal, nil), (false, .fair, nil), (false, .serious, .hot),
+        (false, .critical, .hot),
+        (true, .nominal, .lowPower), (true, .critical, .lowPower)
+    ] as [(Bool, ProcessInfo.ThermalState, SuggestionPause?)])
+func aModelOnThisMacWaitsWhileItSavesPowerOrRunsHot(
+    lowPower: Bool, thermal: ProcessInfo.ThermalState, pause: SuggestionPause?
+) {
+    #expect(SuggestionPause.of(lowPower: lowPower, thermal: thermal) == pause)
 }

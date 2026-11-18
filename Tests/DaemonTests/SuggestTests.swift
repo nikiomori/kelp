@@ -75,4 +75,18 @@ import Testing
         #expect(
             try await c.call(EditorSuggest(prefix: "a", suffix: "", path: "/x.swift", model: "no-such-model")) == nil)
     }
+
+    @Test func aWarmUpAsksForOneTokenAndAMemoryWarningPutsTheModelAway() throws {
+        let prompt = try #require(FillIn.prompt(model: "qwen2.5-coder", prefix: "a", suffix: "b", path: ""))
+        let base = try #require(URL(string: "http://127.0.0.1:1"))
+        let server = LocalModels.Server(name: "Ollama", base: base, ollama: true, models: [])
+        let warm = try #require(try LocalModels.request(server, model: "m", prompt: prompt, tokens: 1).httpBody)
+        let options = try #require(try JSONSerialization.jsonObject(with: warm) as? [String: Any])["options"]
+        #expect((options as? [String: Any])?["num_predict"] as? Int == 1)
+        let away = try LocalModels.unloadRequest(server, model: "m")
+        #expect(away.url?.path == "/api/generate")
+        let data = try #require(away.httpBody)
+        let body = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(body["keep_alive"] as? Int == 0 && body["model"] as? String == "m")
+    }
 }

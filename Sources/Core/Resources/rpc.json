@@ -7847,6 +7847,14 @@
           "schema" : {
             "type" : "string"
           }
+        },
+        {
+          "description" : "True to have the model read the code and write nothing: a file just opened, so the first suggestion doesn't wait for the model to load. Answers nil.",
+          "name" : "warm",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
         }
       ],
       "result" : {

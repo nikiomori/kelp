@@ -10,11 +10,15 @@ public struct EditorSuggest: InternalMethod {
     public var prefix: String, suffix: String, path: String
     /// The model to ask, as its server names it; nil or empty picks one that fills in code.
     public var model: String?
-    public init(prefix: String, suffix: String, path: String, model: String? = nil) {
+    /// True to have the model read the code and write nothing: a file just opened, so the first suggestion doesn't
+    /// wait for the model to load. Answers nil.
+    public var warm: Bool?
+    public init(prefix: String, suffix: String, path: String, model: String? = nil, warm: Bool? = nil) {
         self.prefix = prefix
         self.suffix = suffix
         self.path = path
         self.model = model
+        self.warm = warm
     }
 }
 
