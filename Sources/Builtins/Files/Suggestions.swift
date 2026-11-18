@@ -31,6 +31,9 @@ final class Suggestions {
 
     /// What the servers offer, in the order the daemon picks one; nil until asked.
     private(set) var models: [SuggestModel]?
+    /// Why the last ask brought nothing, until one brings something; and whether one has waited past a second.
+    private(set) var problem: SuggestProblem?
+    private(set) var loading = false
     @ObservationIgnored private var asking = false
     private(set) var today = Tally()
 
@@ -40,6 +43,25 @@ final class Suggestions {
         /// The latest answers' waits, in seconds.
         var waits: [Double] = []
         var typicalWait: Double? { waits.isEmpty ? nil : waits.sorted()[waits.count / 2] }
+    }
+
+    /// What a file's status bar says, for its language; `secret` for a file no model is shown.
+    func status(language: String?, secret: Bool) -> SuggestionStatus? {
+        let settings = app.settings, mode = settings[SettingKeys.suggestions, language: language]
+        let named = settings[SettingKeys.suggestionModel]
+        let cloud = mode == "cloud" ? SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]) : nil
+        return SuggestionStatus.of(
+            .init(
+                mode: mode, everywhere: settings[SettingKeys.suggestions], secret: secret, model: model(named: named),
+                known: models != nil, pause: pause, cloud: cloud.map { (Self.cloudName($0, model: named), keys[$0]) },
+                problem: problem, loading: loading))
+    }
+
+    /// Forgets the last problem and looks for models again (Try Again, a key saved, a model picked).
+    func retry() async {
+        problem = nil
+        warmed = .distantPast
+        await refresh()
     }
 
     func refresh() async {
@@ -75,7 +97,10 @@ final class Suggestions {
                 action: String(localized: "Save"), placeholder: String(localized: "Paste the key")),
             !key.isEmpty
         else { return }
-        if let saved = await app.call(EditorSuggestKey(cloud: cloud, key: key)) { keys[cloud] = saved }
+        if let saved = await app.call(EditorSuggestKey(cloud: cloud, key: key)) {
+            keys[cloud] = saved
+            problem = nil
+        }
     }
 
     /// A cloud provider's name as the status bar and the card say it: the service, or the model on a server of one's
@@ -88,23 +113,8 @@ final class Suggestions {
         }
     }
 
-    /// What the status bar says: the model while it suggests (a cloud one named as such), Off while a model could, No
-    /// Model or No Key when none can; nothing while it's off and there's no model to turn on.
-    static func label(
-        mode: String, model: SuggestModel?, known: Bool, pause: SuggestionPause? = nil,
-        cloud: (name: String, hasKey: Bool?)? = nil
-    ) -> String? {
-        if mode == "cloud", let cloud {
-            return cloud.hasKey == false
-                ? String(localized: "Cloud: No Key") : String(localized: "Cloud · \(cloud.name)")
-        }
-        if mode == "off" { return model == nil ? nil : String(localized: "Suggestions Off") }
-        guard let model else { return known ? String(localized: "No Model") : nil }
-        return pause?.title ?? shortName(model.id)
-    }
-
     /// "hf.co/bartowski/zeta-2-GGUF:Q4_K_M" → "zeta-2-GGUF:Q4_K_M"; "qwen2.5-coder:latest" → "qwen2.5-coder".
-    static func shortName(_ id: String) -> String {
+    nonisolated static func shortName(_ id: String) -> String {
         let name = id.split(separator: "/").last.map(String.init) ?? id
         return name.hasSuffix(":latest") ? String(name.dropLast(":latest".count)) : name
     }
@@ -117,8 +127,8 @@ final class Suggestions {
     }
 
     private struct State: Equatable {
-        var mode: String, named: String, models: [SuggestModel]?, pause: SuggestionPause?
-        var cloud: SuggestCloud?, hasKey: Bool?
+        var mode: String, everywhere: String, named: String, models: [SuggestModel]?, pause: SuggestionPause?
+        var cloud: SuggestCloud?, hasKey: Bool?, problem: SuggestProblem?, loading: Bool
     }
 
     /// Gives a file's editor gray text from `editor.suggest` while the setting is on (never in a file of secrets), and
@@ -139,9 +149,11 @@ final class Suggestions {
         track(owner: owner) { [weak self, settings = app.settings] in
             State(
                 mode: settings[SettingKeys.suggestions, language: language],
-                named: settings[SettingKeys.suggestionModel], models: self?.models, pause: self?.pause,
+                everywhere: settings[SettingKeys.suggestions], named: settings[SettingKeys.suggestionModel],
+                models: self?.models, pause: self?.pause,
                 cloud: SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]),
-                hasKey: SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]).flatMap { self?.keys[$0] })
+                hasKey: SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]).flatMap { self?.keys[$0] },
+                problem: self?.problem, loading: self?.loading ?? false)
         } changed: { [weak self, weak editor, weak bar] state in
             guard let self else { return }
             // A cloud model keeps on through low power and heat: they're this Mac's, and it runs elsewhere.
@@ -153,10 +165,7 @@ final class Suggestions {
                 ring.add(path: name, text: String(editor.text.prefix(SuggestionRing.width * 2)), from: 0)
                 if cloud == nil { warm(editor, name: name, named: state.named) }
             }
-            bar?.show(
-                suggestions: Self.label(
-                    mode: state.mode, model: model(named: state.named), known: state.models != nil, pause: state.pause,
-                    cloud: cloud.map { (Self.cloudName($0, model: state.named), state.hasKey) }))
+            bar?.show(suggestions: status(language: language, secret: Self.holdsSecrets(path)))
         }
     }
 
@@ -168,7 +177,10 @@ final class Suggestions {
         let ask = EditorSuggest(
             prefix: "", suffix: String(editor.text.prefix(2000)), path: name, model: named.isEmpty ? nil : named,
             warm: true, extra: ring.extra(for: name))
-        Task { [app] in _ = await app.quiet(ask) }
+        Task { [app, weak self] in
+            // A server that's down shows at once, before any typing.
+            if let answer = await app.quiet(ask) { self?.problem = answer.problem }
+        }
     }
 
     private func provider(for editor: CodeEditor, name: String) -> (InlineSuggestion.Context) async -> String? {
@@ -188,11 +200,16 @@ final class Suggestions {
                 extra: ring.extra(for: name), cloud: cloud, url: cloud == nil || url.isEmpty ? nil : url)
             // These lines go with the next suggestion asked in another file.
             ring.add(path: name, line: (editor?.cursor?.line ?? 1) - 1, before: context.prefix, after: context.suffix)
-            let answer = await app.quiet(ask, timeout: EditorSuggest.timeout ?? 10) ?? nil
-            if answer != nil {
+            let slow = whileSlow { [weak self] in self?.loading = true }   // the model is loading: say so past a second
+            let answer = await app.quiet(ask, timeout: EditorSuggest.timeout ?? 10)
+            slow.cancel()
+            loading = false
+            guard let answer, !Task.isCancelled else { return nil }   // a newer edit asked instead
+            problem = answer.problem
+            if answer.text != nil {
                 tally { $0.waits = Array(($0.waits + [Date().timeIntervalSince(start)]).suffix(50)) }
             }
-            return answer
+            return answer.text
         }
     }
 

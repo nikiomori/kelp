@@ -1,3 +1,4 @@
+import AppKit
 import Core
 import DesignKit
 import KelpKit
@@ -16,7 +17,11 @@ struct SuggestionsCard: View {
         let named = app.settings[SettingKeys.suggestionModel]
         let model = suggestions.model(named: named)
         VStack(alignment: .leading, spacing: Metrics.inset) {
-            if mode == "cloud", let cloud = SuggestCloud(rawValue: app.settings[SettingKeys.suggestionCloud]) {
+            if mode != "off", let problem = suggestions.problem, problem != .keyMissing,
+                let status = suggestions.status(language: language, secret: false), status.needsYou
+            {
+                problemCard(problem, title: status.text, named: named)
+            } else if mode == "cloud", let cloud = SuggestCloud(rawValue: app.settings[SettingKeys.suggestionCloud]) {
                 cloudCard(cloud, named: named)
             } else if let model, mode == "off" {
                 title(String(localized: "Code Suggestions"))
@@ -59,6 +64,64 @@ struct SuggestionsCard: View {
             }
         }
     }
+
+    /// Why nothing comes, and the one button that fixes it.
+    @ViewBuilder private func problemCard(_ problem: SuggestProblem, title text: String, named: String) -> some View {
+        let cloud =
+            app.settings[SettingKeys.suggestions, language: language] == "cloud"
+            ? SuggestCloud(rawValue: app.settings[SettingKeys.suggestionCloud]) : nil
+        title(text)
+        switch problem {
+        case .noServer:
+            Text("Nothing answers where Ollama, LM Studio or llama-server listen on this Mac.").foregroundStyle(
+                .secondary)
+            if let ollama = Self.ollamaApp {
+                buttons(String(localized: "Open Ollama")) {
+                    NSWorkspace.shared.openApplication(at: ollama, configuration: .init()) { _, _ in }
+                    close()
+                    Task { await suggestions.retry() }
+                }
+            } else {
+                retry()
+            }
+        case .noModel:
+            Text("No server on this Mac has a model that fills in code. Download one:").foregroundStyle(.secondary)
+            Text(verbatim: "ollama pull qwen2.5-coder:1.5b-base").font(.uiMono(TextSize.caption)).textSelection(
+                .enabled)
+            retry()
+        case .modelMissing:
+            Text(
+                cloud == .openai
+                    ? String(localized: "The server needs an address and a code model Kelp knows (Qwen2.5-Coder…).")
+                    : String(localized: "No server on this Mac has \(named). Pick another model, or download it.")
+            ).foregroundStyle(.secondary)
+            retry()
+        case .keyRejected:
+            if let cloud {
+                let company = Self.company(cloud, app.settings[SettingKeys.suggestionURL])
+                Text(
+                    cloud == .codestral
+                        ? String(
+                            localized: "Mistral didn't take the key. A free key works only at codestral.mistral.ai.")
+                        : String(localized: "\(company) didn't take the key.")
+                ).foregroundStyle(.secondary)
+                buttons(String(localized: "Change Key…")) { addKey(cloud) }
+            }
+        case .notAnswering:
+            Text("No answer came in 8 seconds, or there's no connection.").foregroundStyle(.secondary)
+            retry()
+        case .failed, .keyMissing:
+            Text("The server answered with an error.").foregroundStyle(.secondary)
+            retry()
+        }
+    }
+
+    private func retry() -> some View {
+        buttons(String(localized: "Try Again")) { Task { await suggestions.retry() } }
+    }
+
+    /// Ollama's app, when it's installed where apps go.
+    static var ollamaApp: URL? { NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.electron.ollama") }
 
     /// Who the code goes to: the company, or the server's host.
     static func company(_ cloud: SuggestCloud, _ url: String) -> String {

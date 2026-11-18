@@ -114,9 +114,10 @@ final class EditorStatusBar: NSView {
         servers.title = summary?.title ?? ""
         servers.contentTintColor = summary?.missing == true ? .textOrange : nil
     }
-    func show(suggestions title: String?) {
-        suggestions.isHidden = title == nil
-        suggestions.title = title ?? ""
+    func show(suggestions status: SuggestionStatus?) {
+        suggestions.isHidden = status == nil
+        suggestions.title = status?.text ?? ""
+        suggestions.contentTintColor = status?.needsYou == true ? .textOrange : nil
     }
     /// Adds a Markdown file's Edit / Split / Preview control, last in the bar.
     func show(modes: NSControl) {

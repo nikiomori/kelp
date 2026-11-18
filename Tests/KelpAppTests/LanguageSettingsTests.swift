@@ -91,23 +91,78 @@ func noModelIsShownAFileOfSecrets(path: String, secret: Bool) {
     #expect(Suggestions.holdsSecrets(path) == secret)
 }
 
-@MainActor @Test func theStatusBarNamesTheModelOrSaysWhyThereIsNone() {
+@Test func theStatusBarNamesTheModelOrSaysWhyThereIsNone() {
     let qwen = SuggestModel(id: "qwen2.5-coder:1.5b-base", server: "Ollama", fillsIn: true)
-    #expect(Suggestions.label(mode: "local", model: qwen, known: true) == "qwen2.5-coder:1.5b-base")
-    #expect(Suggestions.label(mode: "off", model: qwen, known: true) == "Suggestions Off")
-    #expect(Suggestions.label(mode: "off", model: nil, known: true) == nil)   // nothing to turn on: quiet
-    #expect(Suggestions.label(mode: "local", model: nil, known: true) == "No Model")
-    #expect(Suggestions.label(mode: "local", model: nil, known: false) == nil)   // not asked yet
+    func status(_ change: (inout SuggestionStatus.Inputs) -> Void) -> SuggestionStatus? {
+        var inputs = SuggestionStatus.Inputs(mode: "local", everywhere: "local", model: qwen)
+        change(&inputs)
+        return SuggestionStatus.of(inputs)
+    }
+    let cases: [(SuggestionStatus?, String?, Bool)] = [
+        (status { _ in }, "qwen2.5-coder:1.5b-base", false),
+        (status { $0.loading = true }, "qwen2.5-coder:1.5b-base · Loading…", false),
+        (status { $0.problem = .noServer }, "Ollama Isn't Running", true),
+        (status { $0.problem = .noModel }, "No Code Model", true),
+        (status { $0.model = nil }, "No Code Model", true),
+        (
+            status {
+                $0.model = nil
+                $0.known = false
+            }, nil, false
+        ),   // not asked yet: quiet
+        (status { $0.pause = .lowPower }, "Paused: Low Power", false),
+        (status { $0.secret = true }, "Off in This File", false),
+        (status { $0.mode = "off" }, "Off in This File", false),   // off for this language only
+        (
+            status {
+                $0.mode = "off"
+                $0.everywhere = "off"
+            }, "Suggestions Off", false
+        ),
+        (
+            status {
+                $0.mode = "off"
+                $0.everywhere = "off"
+                $0.model = nil
+            }, nil, false
+        ),
+        // A cloud model is named as one, whatever runs on this Mac and however warm it is.
+        (
+            status {
+                $0.mode = "cloud"
+                $0.cloud = ("Codestral", true)
+                $0.pause = .hot
+            }, "Cloud · Codestral", false
+        ),
+        (
+            status {
+                $0.mode = "cloud"
+                $0.cloud = ("Codestral", false)
+            }, "Cloud: No Key", true
+        ),
+        (
+            status {
+                $0.mode = "cloud"
+                $0.cloud = ("Codestral", true)
+                $0.problem = .keyRejected
+            },
+            "Codestral: Key Rejected", true
+        ),
+        (
+            status {
+                $0.mode = "cloud"
+                $0.cloud = ("Codestral", true)
+                $0.problem = .notAnswering
+            },
+            "Codestral Isn't Answering", true
+        )
+    ]
+    for (got, text, needsYou) in cases {
+        #expect(got?.text == text)
+        #expect((got?.needsYou ?? false) == needsYou)
+    }
     #expect(Suggestions.shortName("hf.co/bartowski/zeta-2-GGUF:Q4_K_M") == "zeta-2-GGUF:Q4_K_M")
     #expect(Suggestions.shortName("starcoder2:latest") == "starcoder2")
-    #expect(Suggestions.label(mode: "local", model: qwen, known: true, pause: .lowPower) == "Paused: Low Power")
-    #expect(Suggestions.label(mode: "off", model: qwen, known: true, pause: .hot) == "Suggestions Off")
-    // A cloud model is named as one, whatever runs on this Mac and however warm it is.
-    #expect(
-        Suggestions.label(mode: "cloud", model: nil, known: true, pause: .hot, cloud: ("Codestral", true))
-            == "Cloud · Codestral")
-    #expect(Suggestions.label(mode: "cloud", model: qwen, known: true, cloud: ("Codestral", false)) == "Cloud: No Key")
-    #expect(Suggestions.cloudName(.openai, model: "hf.co/x/qwen2.5-coder-7b") == "qwen2.5-coder-7b")
 }
 
 @Test(

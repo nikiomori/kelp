@@ -5,7 +5,7 @@ import Foundation
 /// for it in the login keychain. Kelp runs no model of its own.
 public struct EditorSuggest: InternalMethod {
     public static let name = "editor.suggest"
-    public typealias Result = String?
+    public typealias Result = SuggestAnswer
     /// A slow answer is no use: the person typed on long before it.
     public static var timeout: TimeInterval? { 10 }
     public var prefix: String, suffix: String, path: String
@@ -32,6 +32,32 @@ public struct EditorSuggest: InternalMethod {
         self.cloud = cloud
         self.url = url
     }
+}
+
+/// What a model wrote, or why nothing came: the status bar names the problem and its card offers the fix.
+public struct SuggestAnswer: Codable, Sendable, Equatable {
+    public var text: String?
+    public var problem: SuggestProblem?
+    public init(text: String? = nil, problem: SuggestProblem? = nil) {
+        self.text = text
+        self.problem = problem
+    }
+}
+
+/// Why no suggestion came.
+public enum SuggestProblem: String, Codable, Sendable, CaseIterable {
+    /// Nothing listens where Ollama, LM Studio or llama-server would.
+    case noServer
+    /// A server runs, but none of its models fills in code.
+    case noModel
+    /// The model named in Settings isn't on any server.
+    case modelMissing
+    /// The cloud provider has no key saved, or turned the key down.
+    case keyMissing, keyRejected
+    /// No answer in time, or no connection.
+    case notAnswering
+    /// The server answered with an error.
+    case failed
 }
 
 /// A cloud service that fills in code: Inception's Mercury Edit 2, Mistral's Codestral, or any server with OpenAI's

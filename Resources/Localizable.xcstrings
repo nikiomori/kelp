@@ -61,6 +61,26 @@
         }
       }
     },
+    "%@ didn't take the key.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не принял ключ."
+          }
+        }
+      }
+    },
+    "%@ Failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: ошибка"
+          }
+        }
+      }
+    },
     "%@ is running on this Mac with %@.": {
       "localizations": {
         "ru": {
@@ -71,12 +91,52 @@
         }
       }
     },
+    "%@ Isn't Answering": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не отвечает"
+          }
+        }
+      }
+    },
+    "%@ Isn't Running": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не запущена"
+          }
+        }
+      }
+    },
     "%@ Needs a Key": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "%@: нужен ключ"
+          }
+        }
+      }
+    },
+    "%@ · Loading…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · загрузка…"
+          }
+        }
+      }
+    },
+    "%@: Key Rejected": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: ключ не принят"
           }
         }
       }
@@ -191,22 +251,12 @@
         }
       }
     },
-    "Empty picks a code model the server has, a base one first.": {
+    "Empty: the first code model on this Mac, or the cloud provider's own.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Пусто — берётся модель для кода с сервера, сначала базовая."
-          }
-        }
-      }
-    },
-    "Empty: on this Mac, a code model the server has, a base one first; in the cloud, the provider's own.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Пусто: на этом Mac — модель для кода с сервера, сначала базовая; в облаке — модель провайдера."
+            "value": "Пусто — первая модель для кода на этом Mac или модель облачного провайдера."
           }
         }
       }
@@ -221,22 +271,12 @@
         }
       }
     },
-    "Gray text after the cursor from a model on this Mac (Ollama, LM Studio or llama-server) or in the cloud; ⇥ puts it in.": {
+    "Gray text after the cursor from a model on this Mac or in the cloud; ⇥ puts it in.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Серый текст после курсора от модели на этом Mac (Ollama, LM Studio или llama-server) или в облаке; ⇥ вставляет его."
-          }
-        }
-      }
-    },
-    "Gray text after the cursor from a model on this Mac (Ollama, LM Studio or llama-server); ⇥ puts it in.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Серый текст после курсора от модели на этом Mac (Ollama, LM Studio или llama-server); ⇥ вставляет его."
+            "value": "Серый текст после курсора от модели на этом Mac или в облаке; ⇥ вставляет его."
           }
         }
       }
@@ -281,6 +321,46 @@
         }
       }
     },
+    "Mistral didn't take the key. A free key works only at codestral.mistral.ai.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mistral не принял ключ. Бесплатный ключ работает только на codestral.mistral.ai."
+          }
+        }
+      }
+    },
+    "Model Not Found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Модель не найдена"
+          }
+        }
+      }
+    },
+    "No answer came in 8 seconds, or there's no connection.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ответа нет 8 секунд или нет соединения."
+          }
+        }
+      }
+    },
+    "No Code Model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет модели для кода"
+          }
+        }
+      }
+    },
     "No Model": {
       "localizations": {
         "ru": {
@@ -301,12 +381,42 @@
         }
       }
     },
+    "No server on this Mac has %@. Pick another model, or download it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ни у одного сервера на этом Mac нет %@. Выберите другую модель или скачайте эту."
+          }
+        }
+      }
+    },
+    "No server on this Mac has a model that fills in code. Download one:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ни у одного сервера на этом Mac нет модели, которая дописывает код. Скачайте её:"
+          }
+        }
+      }
+    },
     "None shown yet": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Пока ни одной"
+          }
+        }
+      }
+    },
+    "Nothing answers where Ollama, LM Studio or llama-server listen on this Mac.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этом Mac не отвечают ни Ollama, ни LM Studio, ни llama-server."
           }
         }
       }
@@ -773,6 +883,16 @@
         }
       }
     },
+    "Off in This File": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выкл. в этом файле"
+          }
+        }
+      }
+    },
     "on %@": {
       "localizations": {
         "ru": {
@@ -789,6 +909,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "На этом Mac"
+          }
+        }
+      }
+    },
+    "Open Ollama": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть Ollama"
           }
         }
       }
@@ -1385,6 +1515,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "сервер"
+          }
+        }
+      }
+    },
+    "The server answered with an error.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сервер ответил ошибкой."
+          }
+        }
+      }
+    },
+    "The server needs an address and a code model Kelp knows (Qwen2.5-Coder…).": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серверу нужны адрес и модель для кода, которую Kelp знает (Qwen2.5-Coder…)."
           }
         }
       }

@@ -82,7 +82,7 @@ extension Builtins {
                     requires: SettingKeys.lsp.key),
                 s(
                     SettingKeys.suggestions, "Suggest code as you type", .enum,
-                    "Gray text after the cursor from a model on this Mac (Ollama, LM Studio or llama-server) or in the cloud; ⇥ puts it in.",
+                    "Gray text after the cursor from a model on this Mac or in the cloud; ⇥ puts it in.",
                     options: ["off", "local", "cloud"],
                     labels: ["off": "Off", "local": "On This Mac", "cloud": "In the Cloud"],
                     group: "Code suggestions", perLanguage: true),
@@ -101,7 +101,7 @@ extension Builtins {
                     placeholder: "https://api.example.com"),
                 s(
                     SettingKeys.suggestionModel, "Model", .string,
-                    "Empty: on this Mac, a code model the server has, a base one first; in the cloud, the provider's own.",
+                    "Empty: the first code model on this Mac, or the cloud provider's own.",
                     group: "Code suggestions", requires: "\(SettingKeys.suggestions.key)!=off",
                     placeholder: "qwen2.5-coder:1.5b-base"),
                 s(

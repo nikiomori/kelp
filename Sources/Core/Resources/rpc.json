@@ -5009,6 +5009,21 @@
         ],
         "type" : "object"
       },
+      "SuggestAnswer" : {
+        "description" : "What a model wrote, or why nothing came: the status bar names the problem and its card offers the fix.",
+        "properties" : {
+          "problem" : {
+            "$ref" : "#/components/schemas/SuggestProblem"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+
+        ],
+        "type" : "object"
+      },
       "SuggestChunk" : {
         "description" : "A piece of another file: lines around where it was edited, or its start (imports and types).",
         "properties" : {
@@ -5055,6 +5070,19 @@
           "server"
         ],
         "type" : "object"
+      },
+      "SuggestProblem" : {
+        "description" : "Why no suggestion came.",
+        "enum" : [
+          "noServer",
+          "noModel",
+          "modelMissing",
+          "keyMissing",
+          "keyRejected",
+          "notAnswering",
+          "failed"
+        ],
+        "type" : "string"
       },
       "TailscaleSteps" : {
         "description" : "Tailscale's setup steps on this Mac, as Kelp last checked them: installed, signed in, and serving the page (which needs the tailnet's HTTPS certificates).",
@@ -7912,7 +7940,7 @@
       "result" : {
         "name" : "result",
         "schema" : {
-          "type" : "string"
+          "$ref" : "#/components/schemas/SuggestAnswer"
         }
       },
       "x-internal" : true

@@ -2,7 +2,7 @@ import Core
 import Foundation
 
 /// The cloud services that fill in code, asked with the key the person saved in the login keychain. Each has its own
-/// fill-in-the-middle API; a server with OpenAI's completions API gets the model's own markers, as one on this Mac does.
+/// fill-in-the-middle API; a server with OpenAI's completions API gets the model's own markers, as on this Mac.
 enum CloudModels {
     static func account(_ cloud: SuggestCloud) -> String { "suggest.\(cloud.rawValue)" }
 
@@ -54,12 +54,20 @@ enum CloudModels {
 }
 
 extension LocalModels {
-    /// What `ask.cloud` writes for `ask`, with its saved key; nil without a key or an answer.
-    func suggest(_ ask: EditorSuggest, cloud: SuggestCloud, key: String?) async throws -> String? {
-        guard let key, let request = try CloudModels.request(ask, cloud: cloud, key: key) else { return nil }
-        let (data, response) = try await cloudHTTP.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-        return try CloudModels.answer(data)
+    /// What `ask.cloud` writes for `ask`, with its saved key, or why nothing came.
+    func suggest(_ ask: EditorSuggest, cloud: SuggestCloud, key: String?) async throws -> SuggestAnswer {
+        guard let key else { return SuggestAnswer(problem: .keyMissing) }
+        guard let request = try CloudModels.request(ask, cloud: cloud, key: key) else {
+            return SuggestAnswer(problem: .modelMissing)   // a server of one's own with no address or a known model
+        }
+        do {
+            let (data, response) = try await cloudHTTP.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard status == 200 else { return SuggestAnswer(problem: Self.problem(status: status)) }
+            return SuggestAnswer(text: try CloudModels.answer(data))
+        } catch is URLError {
+            return SuggestAnswer(problem: .notAnswering)
+        }
     }
 }
 

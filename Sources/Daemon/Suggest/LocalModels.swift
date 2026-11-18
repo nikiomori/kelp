@@ -39,7 +39,7 @@ actor LocalModels {
             for await (index, server) in group { byIndex[index] = server }
             servers = known.indices.compactMap { byIndex[$0] }
         }
-        found = (servers, Date())
+        found = servers.isEmpty ? nil : (servers, Date())   // none: look again at once, a server may just be starting
         return servers
     }
 
@@ -58,24 +58,36 @@ actor LocalModels {
     /// What `model` (else the first that fills in code) writes between `prefix` and `suffix`.
     func suggest(
         prefix: String, suffix: String, path: String, model: String?, warm: Bool = false, extra: [SuggestChunk] = []
-    ) async throws -> String? {
+    ) async throws -> SuggestAnswer {
         let servers = await servers()
+        guard !servers.isEmpty else { return SuggestAnswer(problem: .noServer) }
         let wanted = model.flatMap { $0.isEmpty ? nil : $0 }
         let server =
             wanted.map { name in servers.first { $0.models.contains(name) } }
             ?? servers.first { FillIn.pick($0.models) != nil }
         guard let server, let name = wanted ?? FillIn.pick(server.models),
             let prompt = FillIn.prompt(model: name, prefix: prefix, suffix: suffix, path: path, extra: extra)
-        else { return nil }
+        else { return SuggestAnswer(problem: wanted == nil ? .noModel : .modelMissing) }
         do {
             let request = try Self.request(server, model: name, prompt: prompt, tokens: warm ? 1 : 128)
             let (data, response) = try await http.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard status == 200 else { return SuggestAnswer(problem: Self.problem(status: status)) }
             if server.ollama { remember(server, name) }
-            return warm ? nil : try Self.answer(data, ollama: server.ollama)
-        } catch let error as URLError where error.code == .cannotConnectToHost {
-            found = nil   // it went away: look again next time
-            return nil
+            return SuggestAnswer(text: warm ? nil : try Self.answer(data, ollama: server.ollama))
+        } catch let error as URLError {
+            if error.code == .cannotConnectToHost { found = nil }   // it went away: look again next time
+            return SuggestAnswer(problem: error.code == .cannotConnectToHost ? .noServer : .notAnswering)
+        }
+    }
+
+    /// What an answer's HTTP status says went wrong.
+    static func problem(status: Int) -> SuggestProblem {
+        switch status {
+        case 401, 403: .keyRejected
+        case 404: .modelMissing
+        case 408, 504: .notAnswering
+        default: .failed
         }
     }
 
@@ -163,12 +175,12 @@ actor LocalModels {
 }
 
 extension EditorSuggest: AsyncHandled {
-    func handle(_ lsp: LSPHost) async throws -> String? {
+    func handle(_ lsp: LSPHost) async throws -> SuggestAnswer {
         guard let cloud else {
             return try await lsp.models.suggest(
                 prefix: prefix, suffix: suffix, path: path, model: model, warm: warm == true, extra: extra ?? [])
         }
-        guard warm != true else { return nil }   // a warm-up would be paid for: the cloud's models are always loaded
+        guard warm != true else { return SuggestAnswer() }   // a warm-up would be paid for: the cloud's are loaded
         let key = try await lsp.offloads.run { try Keychain.find(CloudModels.account(cloud)) }
         return try await lsp.models.suggest(self, cloud: cloud, key: key)
     }

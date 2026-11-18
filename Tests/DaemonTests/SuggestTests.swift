@@ -84,7 +84,7 @@ import Testing
     @Test func withNoServerListeningThereIsNoModelAndNoAnswer() async throws {
         let models = LocalModels(known: [("Ollama", 9, true), ("LM Studio", 9, false)])   // port 9: nothing listens
         #expect(await models.models() == [])
-        #expect(try await models.suggest(prefix: "a", suffix: "", path: "/x.swift", model: nil) == nil)
+        #expect(try await models.suggest(prefix: "a", suffix: "", path: "/x.swift", model: nil).problem == .noServer)
 
     }
 
@@ -92,8 +92,9 @@ import Testing
         let (d, c, _) = try daemon()
         defer { d.stop() }
         _ = try await c.call(EditorSuggestModels())   // whatever runs on this Mac: only that it answers
-        #expect(
-            try await c.call(EditorSuggest(prefix: "a", suffix: "", path: "/x.swift", model: "no-such-model")) == nil)
+        let answer = try await c.call(
+            EditorSuggest(prefix: "a", suffix: "", path: "/x.swift", model: "no-such-model"))
+        #expect(answer.text == nil && answer.problem != nil)   // no server, or none with that model
     }
 
     @Test func aWarmUpAsksForOneTokenAndAMemoryWarningPutsTheModelAway() throws {
@@ -163,5 +164,13 @@ import Testing
         #expect(try await c.call(EditorSuggestKey(cloud: .codestral, key: "k")) == true)
         #expect(try await c.call(EditorSuggestKey(cloud: .mercury)) == false)   // each provider its own
         #expect(try await c.call(EditorSuggestKey(cloud: .codestral, key: "")) == false)
+    }
+
+    @Test(arguments: [
+        (401, SuggestProblem.keyRejected), (403, .keyRejected), (404, .modelMissing), (504, .notAnswering),
+        (500, .failed), (429, .failed)
+    ])
+    func anErrorAnswerSaysWhatWentWrong(status: Int, problem: SuggestProblem) {
+        #expect(LocalModels.problem(status: status) == problem)
     }
 }
