@@ -109,6 +109,11 @@ final class LineNumbers: NSRulerView {
         hoverLine = nil
     }
     override func mouseMoved(with event: NSEvent) { hoverLine = lineStart(at: event)?.location }
+    /// The change bars are only drawn, so VoiceOver hears how many there are as the gutter's value.
+    override func accessibilityValue() -> Any? {
+        guard let count = editor?.changeMarks.count, count > 0 else { return nil }
+        return String(localized: "\(count) changes")
+    }
 
     /// Makes the gutter wide enough for the last line's number, three digits at least, and the chevrons.
     func fit(lines: Int) {

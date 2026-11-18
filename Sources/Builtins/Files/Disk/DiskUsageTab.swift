@@ -87,6 +87,7 @@ struct DiskUsageView: View {
                     Image(systemName: "arrow.clockwise").font(.symbol())
                 }
                 .buttonStyle(PointerButtonStyle()).help(String(localized: "Measure Again"))
+                .accessibilityLabel(String(localized: "Measure Again"))
             }
         }
     }
@@ -210,6 +211,7 @@ struct DiskRow: View {
                 Image(systemName: "magnifyingglass").font(.symbol())
             }
             .buttonStyle(PointerButtonStyle()).help(String(localized: "Show in Finder"))
+            .accessibilityLabel(String(localized: "Show in Finder"))
             .opacity(hovering && local ? 1 : 0).disabled(!local)
         }
         .padding(.horizontal, Metrics.gap).frame(minHeight: Metrics.rowTwoLine)

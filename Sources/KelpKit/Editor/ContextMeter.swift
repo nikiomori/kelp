@@ -30,6 +30,10 @@ final class ContextMeter: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         isHidden = true
+        // The pie is only drawn, so VoiceOver gets it as a level, in the tooltip's words.
+        setAccessibilityElement(true)
+        setAccessibilityRole(.levelIndicator)
+        setAccessibilityLabel(String(localized: "Context"))
         // Draw the circle's edge, and inside it a 4 pt stroke along a circle of radius 2, so the stroke covers the pie
         // and strokeEnd fills it from the top, clockwise (the layer's y goes up). This is StatusMark's progress pie.
         track.path = CGPath(ellipseIn: CGRect(x: 1, y: 1, width: 10, height: 10), transform: nil)
@@ -59,6 +63,8 @@ final class ContextMeter: NSView {
             color = [NSColor.systemYellow, .systemYellow, .systemOrange, .systemRed][Self.level(usage)]
         toolTip = String(
             localized: "Context \(Int(share * 100)) % full: \(usage.used / 1000)k of \(usage.window / 1000)k tokens")
+        setAccessibilityValue(
+            String(localized: "\(Int(share * 100)) % full: \(usage.used / 1000)k of \(usage.window / 1000)k tokens"))
         effectiveAppearance.performAsCurrentDrawingAppearance {
             track.strokeColor = color.cgColor
             fill.strokeColor = color.cgColor

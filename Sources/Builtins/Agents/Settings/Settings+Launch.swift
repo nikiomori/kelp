@@ -46,7 +46,7 @@ extension AgentsSettings {
                 copyText(cmd)
             } label: {
                 Image(systemName: "doc.on.doc").font(.symbol())
-            }.buttonStyle(PointerButtonStyle()).help("Copy")
+            }.buttonStyle(PointerButtonStyle()).help("Copy").accessibilityLabel("Copy")
         }
         .padding(Metrics.gapWide)
         .background(Color(nsColor: .fillRest), in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))

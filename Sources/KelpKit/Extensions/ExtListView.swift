@@ -37,7 +37,7 @@ struct ExtListView: View {
                             Image(systemName: action.icon ?? "play.fill").frame(width: 22, height: 22)
                         }
                     }
-                    .buttonStyle(PointerButtonStyle()).help(action.title)
+                    .buttonStyle(PointerButtonStyle()).help(action.title).accessibilityLabel(action.title)
                     if index == 0 { Spacer() }
                 }
                 if def.toolbar?.isEmpty ?? true { Spacer() }
@@ -48,6 +48,7 @@ struct ExtListView: View {
                     Image(systemName: "ellipsis.circle")
                 }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More")
+                .accessibilityLabel("More")
             }
             .font(.system(size: Metrics.iconPoint))
             .foregroundStyle(.secondary)

@@ -4675,12 +4675,12 @@
         }
       }
     },
-    "Agents as tabs. Click to put them side by side (⌃⌘T)": {
+    "Agents as tabs. Click to put them side by side": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Агенты во вкладках. Нажмите, чтобы поставить их рядом (⌃⌘T)"
+            "value": "Агенты во вкладках. Нажмите, чтобы поставить их рядом"
           }
         }
       }
@@ -4738,12 +4738,12 @@
         }
       }
     },
-    "Agents side by side. Click to show them as tabs (⌃⌘T)": {
+    "Agents side by side. Click to show them as tabs": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Агенты рядом. Нажмите, чтобы показать их вкладками (⌃⌘T)"
+            "value": "Агенты рядом. Нажмите, чтобы показать их вкладками"
           }
         }
       }
@@ -5601,16 +5601,6 @@
         }
       }
     },
-    "Bold (⌘B)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Жирный (⌘B)"
-          }
-        }
-      }
-    },
     "Branch prefix": {
       "extractionState": "manual",
       "localizations": {
@@ -5815,12 +5805,12 @@
         }
       }
     },
-    "Choose What to Run (⌃⌘R)": {
+    "Choose What to Run": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выбрать, что запускать (⌃⌘R)"
+            "value": "Выбрать, что запускать"
           }
         }
       }
@@ -6237,12 +6227,12 @@
         }
       }
     },
-    "Copy %@ (⇧⌘O)": {
+    "Copy %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Скопировать %@ (⇧⌘O)"
+            "value": "Скопировать %@"
           }
         }
       }
@@ -6702,16 +6692,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Закрыть вкладку"
-          }
-        }
-      }
-    },
-    "Close Tab (⌘W)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Закрыть вкладку (⌘W)"
           }
         }
       }
@@ -7647,6 +7627,17 @@
         }
       }
     },
+    "Dismiss Banner": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть баннер"
+          }
+        }
+      }
+    },
     "Do Not Disturb": {
       "localizations": {
         "ru": {
@@ -8020,12 +8011,12 @@
         }
       }
     },
-    "Everything Running Here (⌃⌘R)": {
+    "Everything Running Here": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Всё, что здесь работает (⌃⌘R)"
+            "value": "Всё, что здесь работает"
           }
         }
       }
@@ -9632,16 +9623,6 @@
         }
       }
     },
-    "Italic (⌘I)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Курсив (⌘I)"
-          }
-        }
-      }
-    },
     "Its login stays in %@.": {
       "localizations": {
         "ru": {
@@ -10145,12 +10126,12 @@
         }
       }
     },
-    "Link (⌘K)": {
+    "Link": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ссылка (⌘K)"
+            "value": "Ссылка"
           }
         }
       }
@@ -10265,12 +10246,12 @@
         }
       }
     },
-    "Long lines wrap (⌥Z)": {
+    "Long lines wrap": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Длинные строки переносятся (⌥Z)"
+            "value": "Длинные строки переносятся"
           }
         }
       }
@@ -10799,16 +10780,6 @@
         }
       }
     },
-    "New %@ (⌥⌘T)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Новый %@ (⌥⌘T)"
-          }
-        }
-      }
-    },
     "New Agent": {
       "extractionState": "manual",
       "localizations": {
@@ -10974,12 +10945,12 @@
         }
       }
     },
-    "New tab: an agent (⌥⌘T), a terminal (⌘T), a browser…": {
+    "New tab: an agent%@, a terminal%@, a browser…": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Новая вкладка: агент (⌥⌘T), терминал (⌘T), браузер…"
+            "value": "Новая вкладка: агент%1$@, терминал%2$@, браузер…"
           }
         }
       }
@@ -11289,16 +11260,6 @@
         }
       }
     },
-    "Open %@ (⇧⌘O)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Открыть %@ (⇧⌘O)"
-          }
-        }
-      }
-    },
     "Open a chat to log in to %@ there.": {
       "localizations": {
         "ru": {
@@ -11521,22 +11482,22 @@
         }
       }
     },
-    "No agent on this screen. Start one with ⌥⌘T, then ask again.": {
+    "No agent on this screen. Start one with %@, then ask again.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "На этом экране нет агента. Запустите его (⌥⌘T) и попросите снова."
+            "value": "На этом экране нет агента. Запустите его (%@) и попросите снова."
           }
         }
       }
     },
-    "No agent on this screen. Start one with ⌥⌘T, then send again.": {
+    "No agent on this screen. Start one with %@, then send again.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "На этом экране нет агента. Запустите его (⌥⌘T) и отправьте снова."
+            "value": "На этом экране нет агента. Запустите его (%@) и отправьте снова."
           }
         }
       }
@@ -12345,12 +12306,12 @@
         }
       }
     },
-    "Pick a chat in the sidebar, or press ⌘N for a new one.": {
+    "Pick a chat in the sidebar, or press %@ for a new one.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выберите чат в боковой панели или нажмите ⌘N, чтобы начать новый."
+            "value": "Выберите чат в боковой панели или нажмите %@, чтобы начать новый."
           }
         }
       }
@@ -13690,16 +13651,6 @@
         }
       }
     },
-    "Run (⌘R)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Запустить (⌘R)"
-          }
-        }
-      }
-    },
     "Run All": {
       "localizations": {
         "ru": {
@@ -14494,16 +14445,6 @@
         }
       }
     },
-    "Show all panes (⇧⌘↩)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Показать все панели (⇧⌘↩)"
-          }
-        }
-      }
-    },
     "Show in Finder": {
       "localizations": {
         "ru": {
@@ -14525,22 +14466,22 @@
         }
       }
     },
-    "Show or hide the inspector (⌥⌘0)": {
+    "Show or hide the inspector": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Показать или скрыть инспектор (⌥⌘0)"
+            "value": "Показать или скрыть инспектор"
           }
         }
       }
     },
-    "Show or hide the sidebar (⌘0)": {
+    "Show or hide the sidebar": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Показать или скрыть боковую панель (⌘0)"
+            "value": "Показать или скрыть боковую панель"
           }
         }
       }
@@ -15116,16 +15057,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Остановить агентов (%lld)?"
-          }
-        }
-      }
-    },
-    "Stop (⌘.)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Остановить (⌘.)"
           }
         }
       }
@@ -17822,17 +17753,6 @@
         }
       }
     },
-    "Open Quickly (⌘P)": {
-      "extractionState": "manual",
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Быстрое открытие (⌘P)"
-          }
-        }
-      }
-    },
     "%lld done": {
       "localizations": {
         "en": {
@@ -17999,12 +17919,12 @@
         }
       }
     },
-    "A file, an agent or a command: ⌘P": {
+    "A file, an agent or a command: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Файл, агент или команда: ⌘P"
+            "value": "Файл, агент или команда: %@"
           }
         }
       }
@@ -18099,12 +18019,12 @@
         }
       }
     },
-    "Show the next agent that needs you (⇧⌘U)": {
+    "Show the next agent that needs you": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Показать следующего агента, который ждёт вас (⇧⌘U)"
+            "value": "Показать следующего агента, который ждёт вас"
           }
         }
       }
@@ -18361,12 +18281,12 @@
         }
       }
     },
-    "%@ was moved or deleted. ⌘S asks before writing it there again.": {
+    "%@ was moved or deleted. %@ asks before writing it there again.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ перемещён или удалён. ⌘S спросит, прежде чем записать его туда снова."
+            "value": "%1$@ перемещён или удалён. %2$@ спросит, прежде чем записать его туда снова."
           }
         }
       }
@@ -20412,22 +20332,12 @@
         }
       }
     },
-    "Publish Branch (⌥⌘P)": {
+    "Pull %lld from %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Опубликовать ветку (⌥⌘P)"
-          }
-        }
-      }
-    },
-    "Pull %lld from %@ (⌥⌘X)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Подтянуть %lld из %@ (⌥⌘X)"
+            "value": "Подтянуть %1$lld из %2$@"
           }
         }
       }
@@ -20442,42 +20352,22 @@
         }
       }
     },
-    "Pull (⌥⌘X)": {
+    "Pull from %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Подтянуть (⌥⌘X)"
+            "value": "Подтянуть из %@"
           }
         }
       }
     },
-    "Pull from %@ (⌥⌘X)": {
+    "Push %lld to %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Подтянуть из %@ (⌥⌘X)"
-          }
-        }
-      }
-    },
-    "Push %lld to %@ (⌥⌘P)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отправить %lld в %@ (⌥⌘P)"
-          }
-        }
-      }
-    },
-    "Push (⌥⌘P)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отправить (⌥⌘P)"
+            "value": "Отправить %1$lld в %2$@"
           }
         }
       }
@@ -20649,6 +20539,78 @@
           "stringUnit": {
             "state": "translated",
             "value": "Контекст заполнен на %lld %%: %lldk из %lldk токенов"
+          }
+        }
+      }
+    },
+    "Context": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Контекст"
+          }
+        }
+      }
+    },
+    "%lld %% full: %lldk of %lldk tokens": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заполнен на %lld %%: %lldk из %lldk токенов"
+          }
+        }
+      }
+    },
+    "%lld changes": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld change"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld changes"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld изменение"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld изменения"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld изменений"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld изменения"
+                }
+              }
+            }
           }
         }
       }
@@ -21646,12 +21608,12 @@
         }
       }
     },
-    "“%1$@” stays: its work is only on %2$@. ⇧⌘W closes it.": {
+    "“%@” stays: its work is only on %@. %@ closes it.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "«%1$@» остаётся: эта работа есть только на %2$@. Закрыть: ⇧⌘W."
+            "value": "«%1$@» остаётся: эта работа есть только на %2$@. Закрыть: %3$@."
           }
         }
       }

@@ -48,6 +48,14 @@ extension OneAtATime {
     #expect(e.changeMarks.first?.line == 2)
 }
 
+/// VoiceOver hears how many change bars the gutter has, and nothing of them in a file without any.
+@MainActor @Test func voiceOverHearsHowManyChangeBarsThereAre() {
+    let e = CodeEditor(text: "a\nb\nc\n", url: URL(fileURLWithPath: "/t.txt"))
+    #expect(e.gutter != nil && e.gutter?.accessibilityValue() as? String == nil)
+    e.changeMarks = [.init(kind: .added, line: 0, count: 1, hunk: 0), .init(kind: .removed, line: 2, count: 0, hunk: 1)]
+    #expect((e.gutter?.accessibilityValue() as? String)?.hasPrefix("2") == true)
+}
+
 @MainActor @Test func aChangesCardIsAsBigAsItsLines() {
     let many = (0..<40).map { DiffLine(kind: .add, text: "line \($0)", newLine: $0 + 1) }
     let small = ChangeCard(shown: Hunk(header: "", oldStart: 1, newStart: 1, lines: Array(many.prefix(1))), actions: [])

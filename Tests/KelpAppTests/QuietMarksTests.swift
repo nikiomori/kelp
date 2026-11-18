@@ -14,6 +14,14 @@ import Testing
     #expect(TabButton.minTitle("Refactor the login screen", font: font) == twelve)
 }
 
+/// VoiceOver hears the context pie as a level that says how much is used, as the tooltip does.
+@MainActor @Test func voiceOverHearsHowFullTheContextIs() {
+    let meter = ContextMeter()
+    meter.usage = .init(used: 160_000, window: 200_000)
+    #expect(meter.isAccessibilityElement() && meter.accessibilityRole() == .levelIndicator)
+    #expect((meter.accessibilityValue() as? String)?.contains("160k") == true)
+}
+
 /// The sidebar's knob runs in the floater's margin, right of the cards, and stays an overlay whatever the system says.
 @MainActor @Test func sidebarScrollerRunsBesideTheCards() {
     let s = SidebarScrollView(frame: NSRect(x: 0, y: 0, width: 200, height: 300))
