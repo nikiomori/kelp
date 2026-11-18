@@ -35,6 +35,9 @@ public enum TextSize {
 
     /// A row or a spacing measured for normal text, scaled to this text size.
     public static func of(_ points: CGFloat) -> CGFloat { (points * scale).rounded() }
+    /// The height of a capsule in the window bar (the search, an update, what runs) at this text size: a segment's,
+    /// scaled, but never so tall that less than 2 pt of the title bar is left above it and below it.
+    public static var barCapsule: CGFloat { min(of(Metrics.segment.height), Metrics.titleBar - 4) }
 }
 
 @MainActor

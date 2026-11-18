@@ -7,27 +7,28 @@ import DesignKit
 /// inspector's panel icons.
 @MainActor
 final class TabStrip: NSView {
-    /// Room around the tabs, so they don't run into the strip's edges or the pane dividers. The band of the sidebar and
-    /// the inspector in the same row is as tall.
-    static func height(compact: Bool) -> CGFloat { compact ? 32 : 40 }
+    /// Room around the tabs, so they don't run into the strip's edges or the pane dividers: 40 pt, or 32 compact, for
+    /// normal text, growing with the text size. The band of the sidebar and the inspector in the same row is as tall.
+    static func height(compact: Bool) -> CGFloat { TextSize.of(compact ? 32 : 40) }
     @MainActor static func height(_ settings: SettingsStore) -> CGFloat {
         height(compact: settings[SettingKeys.tabHeight] == "compact")
     }
     /// Settings › Appearance › Tab height: Compact, 24 pt tabs in a 32 pt strip.
-    var low = false {
-        didSet {
-            guard low != oldValue else { return }
-            tall.constant = Self.height(compact: low)
-            addHeights.forEach { $0.constant = low ? 20 : 24 }
-            buttons.forEach { $0.low = low }
-            measured = nil
-            needsLayout = true
-        }
+    var low = false { didSet { if low != oldValue { resize() } } }
+    private lazy var tall = heightAnchor.constraint(equalToConstant: 0)
+    private lazy var addHeights = [add, newAgent].map { $0.heightAnchor.constraint(equalToConstant: 0) }
+    private lazy var sideWidths = [add, newAgent, overflow].map { $0.widthAnchor.constraint(equalToConstant: 0) }
+    /// Sizes the strip, its tabs and the buttons beside them for the tab height and the text size as they stand. "+"
+    /// and the new agent are a tab's height less their capsule's 2 pt edges, and as wide as that at the regular height.
+    private func resize() {
+        tall.constant = Self.height(compact: low)
+        let side = TabButton.height(compact: false) - 4
+        addHeights.forEach { $0.constant = TabButton.height(compact: low) - 4 }
+        zip(sideWidths, [side, side, TextSize.of(18)]).forEach { $0.constant = $1 }   // the chevron is narrower
+        buttons.forEach { $0.low = low }
+        measured = nil
+        needsLayout = true
     }
-    private lazy var tall = heightAnchor.constraint(equalToConstant: Self.height(compact: false))
-    private lazy var addHeights = [
-        add.heightAnchor.constraint(equalToConstant: 24), newAgent.heightAnchor.constraint(equalToConstant: 24)
-    ]
 
     var onSelect: ((String) -> Void)?
     var onClose: ((String) -> Void)?
@@ -169,6 +170,7 @@ final class TabStrip: NSView {
         let lead = adds.leadingAnchor.constraint(equalTo: leadingAnchor)
         lead.priority = .init(249)
         addLead = lead
+        resize()   // the heights and widths get their points before they take effect
         NSLayoutConstraint.activate([
             tall,
             scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -182,13 +184,11 @@ final class TabStrip: NSView {
             stack.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),
             trailing.centerYAnchor.constraint(equalTo: centerYAnchor),
             adds.centerYAnchor.constraint(equalTo: centerYAnchor),
-            overflow.widthAnchor.constraint(equalToConstant: 18), add.widthAnchor.constraint(equalToConstant: 24),
-            newAgent.widthAnchor.constraint(equalToConstant: 24),
             sep.leadingAnchor.constraint(equalTo: leadingAnchor),
             sep.trailingAnchor.constraint(equalTo: trailingAnchor),
             sep.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
-        NSLayoutConstraint.activate(addHeights)
+        NSLayoutConstraint.activate(addHeights + sideWidths)
         // Like Safari: tabs narrow (titles truncate, down to their minimum) before the strip has to scroll.
         // Below the split view's holding priority (250): a full strip must never move the divider.
         let fit = stack.widthAnchor.constraint(lessThanOrEqualTo: scroll.widthAnchor)
@@ -248,11 +248,10 @@ final class TabStrip: NSView {
         if reveal { revealSoon() }
     }
 
-    /// Called when the titles' font changed, so the tabs take the new font and their widths change with it.
+    /// Called when the chrome's text changed: the tabs take the new font, and the strip the sizes that text asks for.
     func restyle() {
         buttons.forEach { $0.updateLook() }
-        measured = nil
-        needsLayout = true
+        resize()
     }
 
     /// Reveals the selected tab on the next turn of the run loop, once, however often it's asked.

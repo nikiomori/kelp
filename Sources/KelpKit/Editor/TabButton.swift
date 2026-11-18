@@ -41,9 +41,11 @@ final class TabButton: NSControl, NSDraggingSource {
     /// The title keeps about twelve letters however many tabs there are (six when compact); the tabs that don't fit
     /// scroll and are in the ▾ menu.
     private lazy var titleMin = title.widthAnchor.constraint(greaterThanOrEqualToConstant: 0)
-    private lazy var tall = heightAnchor.constraint(equalToConstant: 28)
-    /// Settings › Appearance › Tab height: Compact.
-    var low = false { didSet { tall.constant = low ? 24 : 28 } }
+    private lazy var tall = heightAnchor.constraint(equalToConstant: TabButton.height(compact: false))
+    /// Settings › Appearance › Tab height: Compact. Set again after the text size changed, it sizes the tab for it.
+    var low = false { didSet { tall.constant = TabButton.height(compact: low) } }
+    /// A tab is 28 pt high, or 24 compact, for normal text, and grows with the text size.
+    static func height(compact: Bool) -> CGFloat { TextSize.of(compact ? 24 : 28) }
     private lazy var widest = widthAnchor.constraint(lessThanOrEqualToConstant: 300)
     private lazy var narrowest = widthAnchor.constraint(greaterThanOrEqualToConstant: 76)
     private lazy var comfortable = widthAnchor.constraint(greaterThanOrEqualToConstant: 110)
@@ -153,8 +155,9 @@ final class TabButton: NSControl, NSDraggingSource {
         chip.setAccessibilityLabel(it.badge?.backgroundTip)
         toolTip = it.card == nil ? it.toolTip ?? it.title : nil   // not both at once
         // VoiceOver hears the agent's state too ("Claude Code, Needs your input"), because on screen the state replaces
-        // the icon.
-        setAccessibilityLabel((it.badge?.status).map { "\(it.title), \($0.words)" } ?? it.title)
+        // the icon, and that a file has unsaved changes ("notes.md, Edited"), which on screen is only a dot.
+        let said = [it.title, it.badge?.status?.words, it.edited ? String(localized: "Edited") : nil]
+        setAccessibilityLabel(said.compactMap { $0 }.joined(separator: ", "))
         setAccessibilityValue(selected)
         updateLook()
         return sizeKey != before
@@ -170,15 +173,17 @@ final class TabButton: NSControl, NSDraggingSource {
         let title: String, font: NSFont?, chip: Int, meter: Bool, full: String
     }
 
-    /// Whether the slot shows the agent's state: working, asking, failed, or finished and not looked at. Then the state
-    /// says more than the agent's icon.
+    /// Whether the slot shows the agent's state: working, asking, failed, paused (the moon its sidebar row shows), or
+    /// finished and not looked at. Then the state says more than the agent's icon.
     private var showsState: Bool {
         guard let status = item?.badge?.status else { return false }
-        return [.working, .waiting, .error].contains(status) || (status == .done && item?.badge?.unread == true)
+        return [.working, .waiting, .error, .paused].contains(status)
+            || (status == .done && item?.badge?.unread == true)
     }
 
-    /// Whether the tab has something for you, so it stays bright when its pane fades.
-    private var news: Bool { showsState && item?.badge?.status != .working }
+    /// Whether the tab has something for you, so it stays bright when its pane fades. A paused agent has nothing: its
+    /// moon only says where it stands.
+    private var news: Bool { showsState && item?.badge?.status != .working && item?.badge?.status != .paused }
 
     /// The title's colour when the agent asks, or failed and wasn't looked at. The tab also glows (`glow`), so the pane
     /// that calls for you stands out across the window, not only by its 12 pt mark.

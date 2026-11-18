@@ -1,4 +1,4 @@
-// The window bar's buttons: Keep Mac Awake, Back and Forward, Side by Side, the pull request's mark.
+// The window bar's buttons: Keep Mac Awake, Back and Forward, Side by Side, the pull request's mark, and its chips.
 import AppKit
 import Core
 import DesignKit

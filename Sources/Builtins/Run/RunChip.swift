@@ -22,7 +22,7 @@ final class RunChip: ChipCapsule, WindowBarItem {
         go.imagePosition = .imageOnly
         go.contentTintColor = .labelColor
         go.symbolConfiguration = .chrome(Metrics.iconSmall)
-        go.widthAnchor.constraint(equalToConstant: 22).isActive = true
+        go.widthAnchor.constraint(equalToConstant: TextSize.barCapsule).isActive = true   // round, as its end is
         go.onClick = { [weak self] in self?.goClicked() }
         name.padding = 6
         name.imagePosition = .imageTrailing
@@ -92,8 +92,8 @@ final class RunChip: ChipCapsule, WindowBarItem {
     }
 }
 
-/// The title bar's capsule of buttons, shared by the run and page chips: 22 pt high, with round ends and a resting
-/// fill.
+/// The title bar's capsule of buttons, shared by the run and page chips: as high as the bar's other capsules
+/// (`TextSize.barCapsule`, 22 pt for normal text), with round ends and a resting fill.
 @MainActor
 class ChipCapsule: NSStackView {
     init() {
@@ -101,7 +101,7 @@ class ChipCapsule: NSStackView {
         spacing = 0
         detachesHiddenViews = true
         wantsLayer = true
-        heightAnchor.constraint(equalToConstant: 22).isActive = true
+        heightAnchor.constraint(equalToConstant: TextSize.barCapsule).isActive = true
     }
     required init?(coder: NSCoder) { fatalError() }
 

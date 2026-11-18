@@ -15,7 +15,7 @@ final class UpdatePill: PointerButton {
         padding = 8
         restFill = .fillRest
         isHidden = true
-        heightAnchor.constraint(equalToConstant: 22).isActive = true
+        heightAnchor.constraint(equalToConstant: TextSize.barCapsule).isActive = true
         onClick = { Task { await app.updates.install(app) } }
         track(owner: self) {
             app.themes.chromeText

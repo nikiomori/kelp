@@ -7,6 +7,8 @@ public enum Metrics {
     public static let panelHeader: CGFloat = 36   // an inspector panel's bar
     public static let contentBar: CGFloat = 32   // a tab's toolbar (diff, Markdown, notebook, browser)
     public static let statusBar: CGFloat = 24   // under an editor tab
+    /// The system title bar's height (28 pt before macOS 26, 32 after), which the window's own bar takes.
+    @MainActor public static let titleBar = NSWindow.frameRect(forContentRect: .zero, styleMask: [.titled]).height
 
     // Rows
     public static let row: CGFloat = 24   // one line in the inspector

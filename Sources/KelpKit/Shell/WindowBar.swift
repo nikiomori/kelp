@@ -9,7 +9,9 @@ import DesignKit
 @MainActor
 final class WindowBar: NSView {
     /// The height of the system title bar (28 pt before macOS 26, 32 after). The traffic lights sit on its centre line.
-    static let height = NSWindow.frameRect(forContentRect: .zero, styleMask: [.titled]).height
+    static let height = Metrics.titleBar
+    /// The widest the branch's chip gets: about twenty-four letters with its glyph and counts.
+    private static let branchMost: CGFloat = 180
 
     /// The icon, name, folder, branch and pull request. It is hidden when there is no workspace.
     let context = NSStackView()
@@ -69,6 +71,9 @@ final class WindowBar: NSView {
         name.setContentCompressionResistancePriority(.init(450), for: .horizontal)
         folder.lineBreakMode = .byTruncatingMiddle
         folder.setContentCompressionResistancePriority(.init(300), for: .horizontal)
+        // A branch's name has no end to its length: past this the chip cuts it in the middle, so the search stays in
+        // the centre of a window of ordinary width.
+        branch.widthAnchor.constraint(lessThanOrEqualToConstant: Self.branchMost).isActive = true
         folder.target = self
         folder.action = #selector(folderMenu)
         folder.toolTip = String(localized: "Open In, Reveal in Finder, Copy Path")
@@ -120,7 +125,7 @@ final class WindowBar: NSView {
             icon.widthAnchor.constraint(equalToConstant: 16), icon.heightAnchor.constraint(equalToConstant: 16),
             context.centerYAnchor.constraint(equalTo: centerYAnchor),
             search.centerYAnchor.constraint(equalTo: centerYAnchor),
-            search.heightAnchor.constraint(equalToConstant: 22), wide, center,
+            search.heightAnchor.constraint(equalToConstant: TextSize.barCapsule), wide, center,
             search.widthAnchor.constraint(greaterThanOrEqualToConstant: 120),
             search.widthAnchor.constraint(lessThanOrEqualToConstant: 280),
             back.widthAnchor.constraint(equalToConstant: 24), forward.widthAnchor.constraint(equalToConstant: 24),
@@ -267,9 +272,7 @@ final class WindowBar: NSView {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
             }
         }
-        menu.add(String(localized: "Copy Path")) {
-            copyText(host.map { "\($0.host):\($0.path)" } ?? path)
-        }
+        menu.add(String(localized: "Copy Path")) { WorkspaceActions.copyPath(path) }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: folder.bounds.height + 4), in: folder)
     }
 
@@ -305,6 +308,11 @@ final class WindowBar: NSView {
             title.append(NSAttributedString(string: " "))
             title.append(NSAttributedString(attachment: room))
         }
+        // Short of room, a long name loses its middle: both its ends tell branches apart, and the counts and the dot
+        // after it stay, because they are the title's end.
+        let cut = NSMutableParagraphStyle()
+        cut.lineBreakMode = .byTruncatingMiddle
+        title.addAttribute(.paragraphStyle, value: cut, range: NSRange(location: 0, length: title.length))
         branch.attributedTitle = title
         ciMark.state = atEnd || inPlace ? ci : nil
         ciAtStart.isActive = inPlace
