@@ -78,7 +78,9 @@ public enum NextEdit {
     static func proposal(_ answer: String, for ask: Ask) -> Proposal? {
         let now = lines(ask.current)
         var got = lines(answer)
-        while got.count > now.count, got.last?.trimmingCharacters(in: .whitespaces).isEmpty == true { got.removeLast() }
+        // A line break more at the end is the model's, unless the window too ends at one.
+        let blank = { (line: String?) in line?.trimmingCharacters(in: .whitespaces).isEmpty == true }
+        while got.count > 1, blank(got.last), !blank(now.last) { got.removeLast() }
         let trimmed = { (s: String) in s.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression) }
         guard let (start, end) = shared(now, got, same: { trimmed($0) == trimmed($1) }) else { return nil }
         let old = Array(now[start..<now.count - end]), new = Array(got[start..<got.count - end])

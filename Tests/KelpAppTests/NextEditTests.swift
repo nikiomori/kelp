@@ -22,17 +22,19 @@ private let thirty = (0..<30).map { "line \($0)" }
 
 @Test(
     arguments: [
-        // The model's answer, and the lines it offers to change into what.
-        ("a\nB\nc\nd", 1..<2, ["b"], ["B"]),   // a line written another way
-        ("a\nb\nc\nnew\nd", 3..<3, [], ["new"]),   // a line added
-        ("a\nc\nd", 1..<2, ["b"], []),   // a line taken away
-        ("a\nb\nc\nd\n", nil, [], []),   // the same, with a line break more
-        ("a\nb  \nc\nd", nil, [], []),   // only spaces at a line's end
-        ("a\nb", nil, [], [])   // it stopped short: the window's end isn't taken away
-    ] as [(String, Range<Int>?, [String], [String])])
-func anAnswerOffersTheLinesItChanged(answer: String, lines: Range<Int>?, old: [String], new: [String]) {
+        // The window, the model's answer, and the lines it offers to change into what.
+        ("a\nb\nc\nd", "a\nB\nc\nd", 1..<2, ["b"], ["B"]),   // a line written another way
+        ("a\nb\nc\nd", "a\nb\nc\nnew\nd", 3..<3, [], ["new"]),   // a line added
+        ("a\nb\nc\nd", "a\nc\nd", 1..<2, ["b"], []),   // a line taken away
+        ("a\nb\nc\nd", "a\nb\nc\nd\n", nil, [], []),   // the same, with a line break more
+        ("a\nb\nc\nd", "a\nb  \nc\nd", nil, [], []),   // only spaces at a line's end
+        ("a\nb\nc\nd", "a\nb", nil, [], []),   // it stopped short: the window's end isn't taken away
+        ("a\nb\n", "a\nb\nnew\n", 2..<2, [], ["new"])   // added before the window's own last line break
+    ] as [(String, String, Range<Int>?, [String], [String])])
+func anAnswerOffersTheLinesItChanged(current: String, answer: String, lines: Range<Int>?, old: [String], new: [String])
+{
     let ask = NextEdit.Ask(
-        earlier: [], latest: .init(old: "", new: ""), original: "", current: "a\nb\nc\nd", firstLine: 10)
+        earlier: [], latest: .init(old: "", new: ""), original: "", current: current, firstLine: 10)
     let proposal = NextEdit.proposal(answer, for: ask)
     #expect(proposal?.lines == lines.map { $0.lowerBound + 10..<$0.upperBound + 10 })
     if let proposal { #expect(proposal.old == old && proposal.new == new) }

@@ -153,20 +153,23 @@ extension CodeEditor {
             let anchor =
                 p.old.isEmpty
                 ? range.location - 1 : MultiCursor.lineEnd(string, max(range.location, NSMaxRange(range) - 1))
-            if !p.old.isEmpty { strike(NSRange(location: range.location, length: anchor - range.location)) }
+            // No tint: the last line's is as tall as the room under it, where the lines that come show.
+            if !p.old.isEmpty {
+                strike(NSRange(location: range.location, length: anchor - range.location), tint: false)
+            }
             let ghost = p.new.isEmpty ? nil : ("\n" + p.new.joined(separator: "\n"), anchor)
             nextEdit.view = placeGhost(nextEdit.view, ghost, color: green, tint: tint)
         }
         placePill()
     }
 
-    private func strike(_ range: NSRange) {
+    private func strike(_ range: NSRange, tint: Bool = true) {
         guard range.length > 0, let lm = textView.layoutManager else { return }
-        lm.addTemporaryAttributes(
-            [
-                .strikethroughStyle: NSUnderlineStyle.single.rawValue, .strikethroughColor: NSColor.textRed,
-                .backgroundColor: NSColor.systemRed.withAlphaComponent(0.12)
-            ], forCharacterRange: range)
+        var marks: [NSAttributedString.Key: Any] = [
+            .strikethroughStyle: NSUnderlineStyle.single.rawValue, .strikethroughColor: NSColor.textRed
+        ]
+        if tint { marks[.backgroundColor] = NSColor.systemRed.withAlphaComponent(0.12) }
+        lm.addTemporaryAttributes(marks, forCharacterRange: range)
         nextEdit.struck = range
     }
 
