@@ -93,7 +93,10 @@ actor LocalModels {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             guard status == 200 else { return SuggestAnswer(problem: Self.problem(status: status)) }
             if server.ollama { remember(server, name) }
-            return SuggestAnswer(text: warm ? nil : try Self.answer(data, ollama: server.ollama))
+            guard !warm else { return SuggestAnswer() }
+            // An answer the model wasn't sure of shows nothing: wrong gray text costs more than none.
+            guard FillIn.sure(try Self.logprobs(data, ollama: server.ollama)) else { return SuggestAnswer() }
+            return SuggestAnswer(text: try Self.answer(data, ollama: server.ollama))
         } catch let error as URLError {
             if error.code == .cannotConnectToHost { found = nil }   // it went away: look again next time
             return SuggestAnswer(problem: error.code == .cannotConnectToHost ? .noServer : .notAnswering)
@@ -172,12 +175,14 @@ actor LocalModels {
         let stop = oneLine ? Array(prompt.stop.prefix(3)) + ["\n"] : Array(prompt.stop.prefix(4))   // OpenAI takes 4
         if server.ollama {
             body["raw"] = true
+            body["logprobs"] = true
             body["options"] = ["num_predict": tokens, "temperature": 0, "stop": stop]
         } else {
             body["max_tokens"] = tokens
             body["temperature"] = 0
             body["stop"] = stop
             body["cache_prompt"] = true   // llama-server keeps the code it read for the next keystroke
+            body["logprobs"] = 1   // OpenAI's completions: each token's own, under choices[0].logprobs
         }
         var request = URLRequest(
             url: server.base.appendingPathComponent(server.ollama ? "api/generate" : "v1/completions"))
@@ -186,6 +191,23 @@ actor LocalModels {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         return request
+    }
+
+    /// The log-probabilities of an answer's first line's tokens: Ollama's `logprobs[].logprob`, OpenAI's
+    /// `choices[0].logprobs.token_logprobs` (with `tokens`). Nil when the server sent none.
+    static func logprobs(_ data: Data, ollama: Bool) throws -> [Double]? {
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        let pairs: [(String, Double)]
+        if ollama {
+            guard let list = json["logprobs"] as? [[String: Any]] else { return nil }
+            pairs = list.compactMap { t in (t["logprob"] as? Double).map { ((t["token"] as? String) ?? "", $0) } }
+        } else {
+            guard let choice = (json["choices"] as? [[String: Any]])?.first,
+                let lp = choice["logprobs"] as? [String: Any], let values = lp["token_logprobs"] as? [Double]
+            else { return nil }
+            pairs = Array(zip((lp["tokens"] as? [String]) ?? values.map { _ in "" }, values))
+        }
+        return pairs.prefix { !$0.0.contains("\n") }.map(\.1)
     }
 
     /// The text of an answer: Ollama's `response`, OpenAI's `choices[0].text`.

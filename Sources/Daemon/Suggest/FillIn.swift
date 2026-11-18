@@ -54,6 +54,19 @@ enum FillIn {
         return nil
     }
 
+    /// How sure a model must be of every token of an answer's first line to show it, as a log-probability. Measured on
+    /// 200 places in Kelp's code with qwen2.5-coder 1.5B, answers above it were exactly right 57 % of the time against
+    /// 29 % for all, and nearly right 78 %; they come in 40 % of the places. The least sure token told right from wrong
+    /// better than the first tokens' or the line's mean. Showing nothing beats misleading.
+    static let sureEnough = -0.8
+
+    /// Whether an answer whose first line's tokens came with these log-probabilities is sure enough to show. Without
+    /// them (a server that doesn't tell) there is nothing to judge by, and it shows.
+    static func sure(_ logprobs: [Double]?) -> Bool {
+        guard let least = logprobs?.min() else { return true }
+        return least >= sureEnough
+    }
+
     /// Whether the answer is one line: mid-line it's the rest of the line, and on an empty line it's that line, unless
     /// the line above opens a block (`{`, `:`), whose body may take several. Measured on Kelp's code, a new line is
     /// guessed right far less often than the rest of one (16 % against 42 %), so a long guess there mostly misleads.

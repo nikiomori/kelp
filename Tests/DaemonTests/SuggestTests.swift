@@ -205,4 +205,17 @@ import Testing
         let body = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(((body["options"] as? [String: Any])?["stop"] as? [String])?.last == "\n")
     }
+
+    @Test func anAnswerTheModelWasntSureOfShowsNothing() throws {
+        #expect(!FillIn.sure([-0.01, -0.1, -0.2, -3]))   // one token it guessed: hidden
+        #expect(FillIn.sure([-0.01, -0.5, -0.7]))
+        #expect(FillIn.sure(nil) && FillIn.sure([]))   // a server that doesn't tell: shown
+        let ollama = Data(
+            #"{"response":"a\nb","logprobs":[{"token":"a","logprob":-0.1},{"token":"\n","logprob":-2},{"token":"b","logprob":-5}]}"#
+                .utf8)
+        #expect(try LocalModels.logprobs(ollama, ollama: true) == [-0.1])   // the first line's only
+        let openAI = Data(#"{"choices":[{"text":"x","logprobs":{"tokens":["x"],"token_logprobs":[-0.3]}}]}"#.utf8)
+        #expect(try LocalModels.logprobs(openAI, ollama: false) == [-0.3])
+        #expect(try LocalModels.logprobs(Data(#"{"response":"x"}"#.utf8), ollama: true) == nil)
+    }
 }
