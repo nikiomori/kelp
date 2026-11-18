@@ -60,6 +60,7 @@ final class SplitPushButton: NSButton {
         self.title = title
         bezelStyle = .push
         controlSize = .regular   // a rounded rectangle, as the Message field over it, because large is a capsule
+        font = .ui(TextSize.body)   // the system's own font stays at its size whatever Text size says
         arrow.image = .symbol("chevron.down", arrowTip)
         arrow.toolTip = arrowTip
         arrow.symbolConfiguration = .chrome()
