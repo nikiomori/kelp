@@ -63,7 +63,8 @@ extension SyncPopover {
             return behind == 1
                 ? String(localized: "1 commit behind \(upstream)")
                 : String(localized: "\(behind) commits behind \(upstream)")
-        default: return String(localized: "\(ahead) ahead, \(behind) behind \(upstream)")
+        // What is to pull comes first, as in the title bar's chip (↓3 ↑37) and on the button under this line.
+        default: return String(localized: "\(behind) behind, \(ahead) ahead of \(upstream)")
         }
     }
 
