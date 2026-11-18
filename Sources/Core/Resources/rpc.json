@@ -5009,6 +5009,27 @@
         ],
         "type" : "object"
       },
+      "SuggestModel" : {
+        "properties" : {
+          "fillsIn" : {
+            "description" : "Whether Kelp knows how to ask this model to fill in code.",
+            "type" : "boolean"
+          },
+          "id" : {
+            "description" : "The model's name on its server (\"qwen2.5-coder:1.5b-base\"), and the server (\"Ollama\").",
+            "type" : "string"
+          },
+          "server" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "fillsIn",
+          "id",
+          "server"
+        ],
+        "type" : "object"
+      },
       "TailscaleSteps" : {
         "description" : "Tailscale's setup steps on this Mac, as Kelp last checked them: installed, signed in, and serving the page (which needs the tailnet's HTTPS certificates).",
         "properties" : {
@@ -7789,6 +7810,67 @@
         "name" : "result",
         "schema" : {
           "$ref" : "#/components/schemas/DatabaseInfo"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Gray text for the editor: what a model on this Mac (Ollama, LM Studio, llama-server) writes between the code before and after the cursor. Nil when no model answers. Kelp runs no model of its own.",
+      "name" : "editor.suggest",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "description" : "The model to ask, as its server names it; nil or empty picks one that fills in code.",
+          "name" : "model",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "prefix",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "suffix",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "string"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "The models the servers running on this Mac offer, those that fill in code first.",
+      "name" : "editor.suggestModels",
+      "paramStructure" : "by-name",
+      "params" : [
+
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/SuggestModel"
+          },
+          "type" : "array"
         }
       },
       "x-internal" : true

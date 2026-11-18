@@ -52,6 +52,8 @@ final class LSPHost: Sendable {
     let remotes: Remotes
     /// Where files are read for an answer (the lines of references), so the reads never run on the cooperative pool.
     let offloads: Slots
+    /// The model servers on this Mac the editor's gray text comes from (`editor.suggest`), beside the code's servers.
+    let models = LocalModels()
 
     /// `retryDelay` sets when a broken server restarts, and `idleDelay` when an idle one stops. Tests shorten both.
     init(store: Store, remotes: Remotes, offloads: Slots, retryDelay: TimeInterval, idleDelay: TimeInterval) {
