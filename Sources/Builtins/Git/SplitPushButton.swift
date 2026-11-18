@@ -37,6 +37,16 @@ final class SplitPushButton: NSButton {
         if window != nil { crossfade() }
         title = words
     }
+    /// What stands after the words, in their colour: counts with their signs (↓3 ↑37 after Sync Changes).
+    var counts: [(symbol: String, count: Int)] = [] {
+        didSet {
+            guard counts.map(\.count) != oldValue.map(\.count) || counts.map(\.symbol) != oldValue.map(\.symbol)
+            else { return }
+            if window != nil { crossfade() }
+            invalidateIntrinsicContentSize()
+            needsDisplay = true
+        }
+    }
     /// The accent fill (macOS 26's primary tint), for the panel's main action while it has something to do.
     var primary = false {
         didSet {
@@ -128,12 +138,28 @@ final class SplitPushButton: NSButton {
 /// counts the arrow's room in the button's width.
 private final class SplitCell: NSButtonCell {
     static let reserve: CGFloat = 32   // the arrow (26), its gap and the hairline
+    /// The button's counts, each a space after what stands before it.
+    private func counts(_ color: NSColor) -> NSAttributedString {
+        let text = NSMutableAttributedString()
+        for (symbol, count) in (controlView as? SplitPushButton)?.counts ?? [] {
+            text.append(NSAttributedString(string: " ", attributes: [.font: NSFont.ui(TextSize.body)]))
+            text.append(.signed(symbol, count, size: TextSize.body, color: color))
+        }
+        return text
+    }
+    /// The counts take the colour the system gave the words (white on the accent fill, grey while switched off).
     override func drawTitle(_ title: NSAttributedString, withFrame frame: NSRect, in view: NSView) -> NSRect {
-        super.drawTitle(title, withFrame: frame.offsetBy(dx: -Self.reserve / 2, dy: 0), in: view)
+        let whole = NSMutableAttributedString(attributedString: title)
+        let color = title.length > 0 ? title.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor : nil
+        let tail = counts(color ?? .labelColor)
+        whole.append(tail)
+        // The frame is the words' own width: the counts get theirs, half on each side, so the whole stays centred.
+        let room = frame.insetBy(dx: -tail.size().width / 2, dy: 0).offsetBy(dx: -Self.reserve / 2, dy: 0)
+        return super.drawTitle(whole, withFrame: room, in: view)
     }
     override var cellSize: NSSize {
         var size = super.cellSize
-        size.width += Self.reserve
+        size.width += Self.reserve + counts(.labelColor).size().width
         return size
     }
 }

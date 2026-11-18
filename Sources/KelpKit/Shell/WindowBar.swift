@@ -276,7 +276,8 @@ final class WindowBar: NSView {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: folder.bounds.height + 4), in: folder)
     }
 
-    /// Shows the branch, what is left to pull (orange) and push (blue), and a dot while there are uncommitted changes.
+    /// Shows the branch, what is left to pull (in the text's colour: news, not a call) and to push (in the accent: what
+    /// you can do), and a dot while there are uncommitted changes. Orange stays for what waits for you.
     /// The sync arrows replace the branch glyph while a pull, push or fetch runs, and otherwise the CI's mark can go
     /// there (or after the counts). With no upstream, it shows only what publishing would push.
     private func showBranch(_ info: BranchInfo) {
@@ -285,15 +286,10 @@ final class WindowBar: NSView {
         let title = NSMutableAttributedString(
             string: info.current ?? info.head ?? "HEAD",
             attributes: [.font: font, .foregroundColor: NSColor.labelColor])
-        if behind > 0 {
-            title.append(
-                NSAttributedString(
-                    string: "  ↓\(behind)", attributes: [.font: count, .foregroundColor: NSColor.textOrange]))
-        }
-        if ahead > 0 {
-            title.append(
-                NSAttributedString(
-                    string: "  ↑\(ahead)", attributes: [.font: count, .foregroundColor: NSColor.emphasis]))
+        for (arrow, commits, color) in [("arrow.down", behind, NSColor.labelColor), ("arrow.up", ahead, .emphasis)]
+        where commits > 0 {
+            title.append(NSAttributedString(string: "  ", attributes: [.font: font]))
+            title.append(.signed(arrow, commits, size: TextSize.row, color: color))
         }
         if dirty {
             title.append(
@@ -319,8 +315,8 @@ final class WindowBar: NSView {
         ciAtEnd.isActive = atEnd
         let changed = app.latest(GitEvent.self, app.gitKey(app.workbench.mainWorkspaceId))?.changes?.count ?? 0
         let parts =
-            [info.current ?? info.head ?? "HEAD"] + (ahead > 0 ? [String(localized: "\(ahead) to push")] : [])
-            + (behind > 0 ? [String(localized: "\(behind) to pull")] : [])
+            [info.current ?? info.head ?? "HEAD"] + (behind > 0 ? [String(localized: "\(behind) to pull")] : [])
+            + (ahead > 0 ? [String(localized: "\(ahead) to push")] : [])
             + (changed > 0 ? [String(localized: "\(changed) changed")] : [])
         let said = ciLine
         branch.toolTip = parts.joined(separator: " · ") + (said.map { "\n" + $0 } ?? "")

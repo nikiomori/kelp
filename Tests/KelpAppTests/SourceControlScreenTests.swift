@@ -145,6 +145,31 @@ extension AppOfItsOwn {
             "\(cells.count) cells for \(shown) rows on show; graph \(graph.visibleRect)")
     }
 
+    /// With nothing to commit, the button says what is left to move: its words, then how many commits to pull and how
+    /// many to push, in that order, and a side with nothing is left out. VoiceOver hears the counts in words.
+    @Test func theCommitButtonCountsWhatToPullThenWhatToPush() async throws {
+        let rig = try await AppRig(files: ["kept.txt": "a\n"])
+        defer { rig.done() }
+        let vc = SourceControlController(app: rig.app)
+        rig.show(vc, 320, 700)
+        vc.followWatches()
+        #expect(try await waitFor(5) { !vc.commits.isEmpty })
+        let button = try #require(vc.commitButton)
+        let cases: [(ahead: Int, behind: Int, signs: [String], counts: [Int], heard: String?)] = [
+            (4, 3, ["arrow.down", "arrow.up"], [3, 4], "Sync Changes, 3 to pull, 4 to push"),
+            (4, 0, ["arrow.up"], [4], "Sync Changes, 4 to push"), (0, 0, [], [], nil)
+        ]
+        for row in cases {
+            let branch = BranchInfo(
+                current: "main", head: "abc1234", local: ["main"], remote: [], upstream: "origin/main",
+                ahead: row.ahead, behind: row.behind, merging: false)
+            vc.apply(GitEvent(worktree: vc.gitKey ?? "", changes: [], branches: branch, stats: LineStats()))
+            #expect(button.counts.map(\.symbol) == row.signs && button.counts.map(\.count) == row.counts, "\(row)")
+            #expect(row.heard == nil || button.accessibilityLabel() == row.heard, "\(row)")
+            #expect(!button.title.contains("↑") && !button.title.contains("↓"), "\(button.title)")
+        }
+    }
+
     /// Back on a workspace seen before, its changes and graph show at once, before git is read again: switching used
     /// to read the whole graph each time.
     @Test func aWorkspaceShownAgainShowsItsGraphAtOnce() async throws {

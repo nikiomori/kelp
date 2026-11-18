@@ -378,6 +378,14 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         cb.say(
             syncing?.title ?? confirmed ?? next ?? make
                 ?? (count == 0 ? String(localized: "Commit") : String(localized: "Commit \(count) Files")))
+        let moved = syncing == nil && confirmed == nil && next != nil ? syncCounts : []
+        cb.counts = moved
+        // VoiceOver hears the counts in words: the arrows are pictures now.
+        let heard = moved.map {
+            $0.symbol == "arrow.down"
+                ? String(localized: "\($0.count) to pull") : String(localized: "\($0.count) to push")
+        }
+        cb.setAccessibilityLabel(heard.isEmpty ? nil : ([next ?? ""] + heard).joined(separator: ", "))
         let idle = next == nil && syncing == nil && confirmed == nil
         moreMenu = plan != nil ? planMenu : next == nil ? commitMenu : syncMenu
         pullItem?.isHidden = info?.upstream == nil
@@ -427,8 +435,11 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         guard let info, info.current != nil else { return nil }
         guard info.upstream != nil else { return info.remote.isEmpty ? nil : String(localized: "Publish Branch") }
         let ahead = info.ahead ?? 0, behind = info.behind ?? 0
-        guard ahead + behind > 0 else { return nil }
-        // The arrows go before the counts, as the title bar's chip and the header write them: ↓2 ↑56.
-        return String(localized: "Sync Changes") + (behind > 0 ? " ↓\(behind)" : "") + (ahead > 0 ? " ↑\(ahead)" : "")
+        return ahead + behind > 0 ? String(localized: "Sync Changes") : nil
+    }
+    /// What Sync Changes moves, written after the words as the title bar's chip writes it: ↓2 ↑56, to pull first.
+    private var syncCounts: [(symbol: String, count: Int)] {
+        guard let info, info.upstream != nil else { return [] }
+        return [("arrow.down", info.behind ?? 0), ("arrow.up", info.ahead ?? 0)].filter { $0.count > 0 }
     }
 }

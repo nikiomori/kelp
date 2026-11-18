@@ -19,7 +19,8 @@ public final class IconButton: PointerButton {
         setAccessibilityLabel(tip)
         contentTintColor = .secondaryLabelColor
         symbolConfiguration = .chrome()
-        font = .uiDigits(TextSize.caption, weight: .medium)
+        font = .uiDigits(TextSize.caption, weight: .semibold)   // a count's weight, as `NSAttributedString.signed`
+        imageHugsTitle = true   // a count stands by its sign, not in the middle of the room left
         self.target = target
         self.action = action
         setContentHuggingPriority(.required, for: .horizontal)
