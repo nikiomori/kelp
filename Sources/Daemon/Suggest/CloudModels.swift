@@ -12,7 +12,11 @@ enum CloudModels {
         let (prefix, suffix) = (ask.prefix, ask.suffix)
         let named = ask.model.flatMap { $0.isEmpty ? nil : $0 }
         let address = ask.url.flatMap { $0.isEmpty ? nil : $0 }
-        var body: [String: Any] = ["max_tokens": 128, "stream": false, "prompt": prefix, "suffix": suffix]
+        let oneLine = FillIn.oneLine(before: prefix)
+        var body: [String: Any] = [
+            "max_tokens": oneLine ? 48 : 128, "stream": false, "prompt": prefix, "suffix": suffix
+        ]
+        if oneLine { body["stop"] = ["\n"] }
         let endpoint: String
         switch cloud {
         case .mercury:
@@ -32,7 +36,7 @@ enum CloudModels {
             body["prompt"] = prompt.text
             body["suffix"] = nil
             body["temperature"] = 0
-            body["stop"] = Array(prompt.stop.prefix(4))   // OpenAI's API takes at most four
+            body["stop"] = oneLine ? Array(prompt.stop.prefix(3)) + ["\n"] : Array(prompt.stop.prefix(4))   // at most 4
         }
         guard let target = URL(string: endpoint.replacingOccurrences(of: "/v1/v1/", with: "/v1/")) else { return nil }
         var request = URLRequest(url: target)

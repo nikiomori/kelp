@@ -185,4 +185,24 @@ import Testing
         defer { d.stop() }
         _ = try await c.call(EditorSuggestPullCancel())   // none going on: nothing to stop
     }
+
+    @Test(arguments: [
+        ("let total = items.", true),   // mid-line: the rest of the line
+        ("func f() {\n    let a = 1\n    ", true),   // a new line inside a block: one line
+        ("func f() {\n    ", false),   // just opened a block: its body may take several
+        ("if ready:\n    ", false),
+        ("", true)
+    ])
+    func anAnswerIsOneLineUnlessABlockWasJustOpened(prefix: String, oneLine: Bool) {
+        #expect(FillIn.oneLine(before: prefix) == oneLine)
+    }
+
+    @Test func aOneLineAnswerStopsAtTheLinesEnd() throws {
+        let prompt = try #require(FillIn.prompt(model: "qwen2.5-coder", prefix: "a", suffix: "b", path: ""))
+        let base = try #require(URL(string: "http://127.0.0.1:1"))
+        let server = LocalModels.Server(name: "Ollama", base: base, ollama: true, models: [])
+        let data = try #require(try LocalModels.request(server, model: "m", prompt: prompt, oneLine: true).httpBody)
+        let body = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(((body["options"] as? [String: Any])?["stop"] as? [String])?.last == "\n")
+    }
 }

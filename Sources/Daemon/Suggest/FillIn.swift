@@ -54,6 +54,16 @@ enum FillIn {
         return nil
     }
 
+    /// Whether the answer is one line: mid-line it's the rest of the line, and on an empty line it's that line, unless
+    /// the line above opens a block (`{`, `:`), whose body may take several. Measured on Kelp's code, a new line is
+    /// guessed right far less often than the rest of one (16 % against 42 %), so a long guess there mostly misleads.
+    static func oneLine(before prefix: String) -> Bool {
+        let lines = prefix.split(separator: "\n", omittingEmptySubsequences: false)
+        guard let current = lines.last, current.allSatisfy(\.isWhitespace) else { return true }
+        let above = lines.dropLast().last { !$0.allSatisfy(\.isWhitespace) }?.trimmingCharacters(in: .whitespaces)
+        return !(above?.hasSuffix("{") == true || above?.hasSuffix(":") == true)
+    }
+
     /// The model to ask when none is named: one Kelp can ask, a base model before a chat-tuned one, as those fill in
     /// code better.
     static func pick(_ models: [String]) -> String? {

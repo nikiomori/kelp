@@ -127,3 +127,12 @@ extension OneAtATime {
         #expect(!e.isSuggesting)
     }
 }
+
+@Test func theWindowBeforeTheCursorStaysPutWhileYouType() {
+    let text = String(repeating: "let value = 1\n", count: 1000) as NSString   // 14 000 characters, lines of 14
+    let start = InlineSuggestion.windowStart(at: 9000, in: text)
+    #expect(InlineSuggestion.windowStart(at: 9003, in: text) == start)   // three keys later: the same start
+    #expect(start % 14 == 0)   // at a line's start
+    #expect(9000 - start >= InlineSuggestion.prefixLimit)   // never less than the limit back
+    #expect(InlineSuggestion.windowStart(at: 100, in: text) == 0)
+}

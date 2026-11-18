@@ -86,7 +86,9 @@ actor LocalModels {
             let prompt = FillIn.prompt(model: name, prefix: prefix, suffix: suffix, path: path, extra: extra)
         else { return SuggestAnswer(problem: wanted == nil ? .noModel : .modelMissing) }
         do {
-            let request = try Self.request(server, model: name, prompt: prompt, tokens: warm ? 1 : 128)
+            let oneLine = FillIn.oneLine(before: prefix)
+            let request = try Self.request(
+                server, model: name, prompt: prompt, tokens: warm ? 1 : oneLine ? 48 : 128, oneLine: oneLine)
             let (data, response) = try await http.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             guard status == 200 else { return SuggestAnswer(problem: Self.problem(status: status)) }
@@ -162,16 +164,19 @@ actor LocalModels {
     }
 
     /// A short answer, the same each time: a suggestion is a line or a few, and guessing would make it flicker.
-    static func request(_ server: Server, model: String, prompt: FillIn.Prompt, tokens: Int = 128) throws -> URLRequest
-    {
+    /// `oneLine` stops the answer at the line's end: a model writes far less, and far sooner.
+    static func request(
+        _ server: Server, model: String, prompt: FillIn.Prompt, tokens: Int = 128, oneLine: Bool = false
+    ) throws -> URLRequest {
         var body: [String: Any] = ["model": model, "prompt": prompt.text, "stream": false]
+        let stop = oneLine ? Array(prompt.stop.prefix(3)) + ["\n"] : Array(prompt.stop.prefix(4))   // OpenAI takes 4
         if server.ollama {
             body["raw"] = true
-            body["options"] = ["num_predict": tokens, "temperature": 0, "stop": prompt.stop]
+            body["options"] = ["num_predict": tokens, "temperature": 0, "stop": stop]
         } else {
             body["max_tokens"] = tokens
             body["temperature"] = 0
-            body["stop"] = Array(prompt.stop.prefix(4))   // OpenAI's API takes at most four
+            body["stop"] = stop
             body["cache_prompt"] = true   // llama-server keeps the code it read for the next keystroke
         }
         var request = URLRequest(

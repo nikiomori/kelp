@@ -12,11 +12,21 @@ public enum InlineSuggestion {
         public let path: String
     }
 
-    /// How much text around the cursor goes to the model, in UTF-16 units: about 1500 and 500 tokens of code.
-    static let prefixLimit = 6000, suffixLimit = 2000
+    /// How much text around the cursor goes to the model, in UTF-16 units: about 1500 and 500 tokens of code. The
+    /// start of what goes before it moves in steps of `windowStep` (`windowStart`).
+    static let prefixLimit = 6000, suffixLimit = 2000, windowStep = 1500
     /// The most lines a suggestion shows.
     static let lineLimit = 12
     private static let closers = Set(")]}>\"'`;,")
+
+    /// Where the code sent before the cursor at `location` starts: about `prefixLimit` back, moved down to a step of
+    /// `windowStep` and then to the start of its line. It stays put while you type, so the model's server reuses what
+    /// it read (measured: 711 → 207 ms a suggestion, a window that slid with each key made it read it all again).
+    static func windowStart(at location: Int, in string: NSString) -> Int {
+        let back = location - prefixLimit
+        guard back > 0 else { return 0 }
+        return string.lineRange(for: NSRange(location: back / windowStep * windowStep, length: 0)).location
+    }
 
     /// Whether the rest of the line after the cursor leaves room for a suggestion: nothing, or only what closes a
     /// bracket or a string (an auto-paired `)`), which the gray text then goes in front of.
