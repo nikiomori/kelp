@@ -27,8 +27,8 @@ extension CodeEditor {
     public var isOfferingEdit: Bool { nextEdit.shown != nil }
 
     /// Before an edit, with the old text still there. One near the last (on their lines or next to them, within a
-    /// minute) adds to the edit being made; one elsewhere starts a new edit, and the text as it is now is what the model
-    /// is shown as before it.
+    /// minute) adds to the edit being made; one elsewhere starts a new edit, and the text as it is now is what the
+    /// model is shown as before it.
     func nextEditWillReplace(_ range: NSRange, with text: String) {
         dropNextEdit()
         guard nextEdit.provider != nil else { return }

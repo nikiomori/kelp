@@ -3300,6 +3300,22 @@
         ],
         "type" : "object"
       },
+      "NextEditChange" : {
+        "description" : "An edit made: its lines before and after.",
+        "properties" : {
+          "new" : {
+            "type" : "string"
+          },
+          "old" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "new",
+          "old"
+        ],
+        "type" : "object"
+      },
       "OutputEvent" : {
         "description" : "What a session printed, sent to a client that attached with JSON (`session.attach`) rather than as a byte pipe.",
         "properties" : {
@@ -7884,6 +7900,84 @@
         "name" : "result",
         "schema" : {
           "$ref" : "#/components/schemas/DatabaseInfo"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "The next edit around the cursor, guessed by Sweep Next-Edit 1.5B from the edits just made: the cursor's lines (`current`) as the model would have them next, in `text`; nil when it changes nothing or isn't sure. The model runs on this Mac in llama-server (llama.cpp), which kelpd starts: an ask while it's starting answers nothing and starts it.",
+      "name" : "editor.nextEdit",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "description" : "The edits made lately, oldest first, the latest last.",
+          "name" : "changes",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "$ref" : "#/components/schemas/NextEditChange"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "current",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "description" : "The cursor's lines before the latest edit, and now.",
+          "name" : "original",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "description" : "The file's path in its project.",
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/SuggestAnswer"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Starts llama-server with the next-edit model and waits until it answers: the first time, llama-server downloads the model (1.5 GB). The problem is `noServer` when llama.cpp isn't installed, `failed` when it stopped.",
+      "name" : "editor.nextEditStart",
+      "paramStructure" : "by-name",
+      "params" : [
+
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/SuggestAnswer"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Stops the llama-server `editor.nextEditStart` started: the next edit was switched off.",
+      "name" : "editor.nextEditStop",
+      "paramStructure" : "by-name",
+      "params" : [
+
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
         }
       },
       "x-internal" : true

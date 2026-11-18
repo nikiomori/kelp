@@ -219,4 +219,49 @@ import Testing
         #expect(try LocalModels.logprobs(openAI, ollama: false) == [-0.3])
         #expect(try LocalModels.logprobs(Data(#"{"response":"x"}"#.utf8), ollama: true) == nil)
     }
+
+    @Test func theNextEditIsAskedInSweepsOwnFormat() throws {
+        let ask = EditorNextEdit(
+            path: "Sources/A.swift", changes: [.init(old: "a = 1", new: "a = 2")], original: "a = 1\nb = 1",
+            current: "a = 2\nb = 1")
+        #expect(
+            NextEditServer.prompt(ask) == """
+                <|file_sep|>Sources/A.swift.diff
+                original:
+                a = 1
+                updated:
+                a = 2
+                <|file_sep|>original/Sources/A.swift
+                a = 1
+                b = 1
+                <|file_sep|>current/Sources/A.swift
+                a = 2
+                b = 1
+                <|file_sep|>updated/Sources/A.swift
+
+                """)
+        let request = try NextEditServer.request(try #require(URL(string: "http://127.0.0.1:1")), prompt: "p")
+        let body = try #require(try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+        #expect(request.url?.path == "/completion" && body["n_probs"] as? Int == 1)
+        #expect(body["stop"] as? [String] == ["<|file_sep|>", "</s>"])   // the window's end: the next file's marker
+    }
+
+    @Test(arguments: [(-0.3, true), (-0.9, false)])
+    func aNextEditTheModelWasntSureOfIsNotOffered(least: Double, offered: Bool) throws {
+        let data = Data(
+            #"{"content":"b = 2","completion_probabilities":[{"logprob":-0.01},{"logprob":\#(least)}]}"#.utf8)
+        #expect(try NextEditServer.answer(data) == (offered ? "b = 2" : nil))
+    }
+
+    @Test func withoutLlamaCppTheNextEditSaysSoAndAsksNothing() async throws {
+        let server = NextEditServer(command: "kelp-no-such-server")
+        let ask = EditorNextEdit(path: "a.swift", changes: [], original: "", current: "")
+        #expect(try await server.ask(ask, Slots(1)) == SuggestAnswer())   // not running yet: nothing, and it starts
+        #expect(await server.start(Slots(1)).problem == .noServer)
+        #expect((NextEditServer.freePort() ?? 0) > 0)
+        let (d, c, _) = try daemon()
+        defer { d.stop() }
+        _ = try await c.call(EditorNextEditStop())   // none running: nothing to stop
+        _ = EditorNextEditStart()   // starts the real llama-server: the app's Turn On, not a test's
+    }
 }

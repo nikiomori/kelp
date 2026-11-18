@@ -2,7 +2,8 @@ import Core
 import Foundation
 
 /// The model servers running on this Mac, found where each listens by default, and the one call that asks a model to
-/// fill in code. Kelp starts and downloads nothing: what the person runs is what there is.
+/// fill in code. Kelp starts none of them: what the person runs is what there is (the next edit's own llama-server
+/// aside, NextEditServer).
 actor LocalModels {
 
     struct Server: Equatable {
@@ -237,6 +238,6 @@ extension EditorSuggestModels: AsyncHandled {
 extension Methods {
     static let suggestMethods: [any Answered.Type] = [
         EditorSuggest.self, EditorSuggestModels.self, EditorSuggestKey.self, EditorSuggestPull.self,
-        EditorSuggestPullCancel.self
+        EditorSuggestPullCancel.self, EditorNextEdit.self, EditorNextEditStart.self, EditorNextEditStop.self
     ]
 }

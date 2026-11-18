@@ -136,3 +136,50 @@ public struct SuggestPullEvent: RPCEvent {
         self.total = total
     }
 }
+
+/// The next edit around the cursor, guessed by Sweep Next-Edit 1.5B from the edits just made: the cursor's lines
+/// (`current`) as the model would have them next, in `text`; nil when it changes nothing or isn't sure. The model runs
+/// on this Mac in llama-server (llama.cpp), which kelpd starts: an ask while it's starting answers nothing and starts
+/// it.
+public struct EditorNextEdit: InternalMethod {
+    public static let name = "editor.nextEdit"
+    public typealias Result = SuggestAnswer
+    public static var timeout: TimeInterval? { 10 }
+    /// The file's path in its project.
+    public var path: String
+    /// The edits made lately, oldest first, the latest last.
+    public var changes: [NextEditChange]
+    /// The cursor's lines before the latest edit, and now.
+    public var original: String, current: String
+    public init(path: String, changes: [NextEditChange], original: String, current: String) {
+        self.path = path
+        self.changes = changes
+        self.original = original
+        self.current = current
+    }
+}
+
+/// An edit made: its lines before and after.
+public struct NextEditChange: Codable, Sendable, Equatable {
+    public var old: String, new: String
+    public init(old: String, new: String) {
+        self.old = old
+        self.new = new
+    }
+}
+
+/// Starts llama-server with the next-edit model and waits until it answers: the first time, llama-server downloads the
+/// model (1.5 GB). The problem is `noServer` when llama.cpp isn't installed, `failed` when it stopped.
+public struct EditorNextEditStart: InternalMethod {
+    public static let name = "editor.nextEditStart"
+    public typealias Result = SuggestAnswer
+    public static var timeout: TimeInterval? { nil }
+    public init() {}
+}
+
+/// Stops the llama-server `editor.nextEditStart` started: the next edit was switched off.
+public struct EditorNextEditStop: InternalMethod {
+    public static let name = "editor.nextEditStop"
+    public typealias Result = Done
+    public init() {}
+}
