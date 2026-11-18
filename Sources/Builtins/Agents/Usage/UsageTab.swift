@@ -85,7 +85,7 @@ struct UsageReportView: View {
                         all: $allProjects, model: false)
                 }
             } else if !loading, failed == nil {
-                Text("No agent conversations in this time.").foregroundStyle(.secondary)
+                EmptyState(String(localized: "No Conversations in This Time"), symbol: "chart.bar", lifted: false)
             }
             if usage != nil { footnote }
         }

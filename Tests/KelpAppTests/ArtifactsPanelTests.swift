@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import Foundation
+import TestSupport
 import Testing
 
 @testable import BuiltinFiles
@@ -55,4 +56,24 @@ import Testing
     let filterAt = try #require(parts.firstIndex { filter.isDescendant(of: $0) })
     let listAt = try #require(parts.firstIndex(of: list))
     #expect(filterAt < listAt)
+}
+
+/// A panel whose first answer is slow says it is reading, so its empty list isn't taken for nothing there. The answer
+/// takes the wait away once the wait has had its moment, and the rows show.
+@MainActor @Test func aPanelWaitingForItsFirstAnswerSaysSo() async throws {
+    let app = AppModel(builtins: []), folder = NSTemporaryDirectory()
+    app.repos = [Repo(id: "r", name: "Atlas", path: folder)]
+    app.worktrees = [Worktree(id: "own", repoId: "r", branch: "main", path: folder, createdAt: .distantPast)]
+    app.workbench.show(workspace: "own")
+    let panel = ArtifactsPanel(app: app)
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 300, height: 500), styleMask: [.titled], backing: .buffered, defer: true)
+    window.contentView?.addSubview(panel.view)
+    panel.viewDidAppear()
+    #expect(!panel.loading.showing)
+    #expect(try await waitFor(10) { panel.loading.showing })
+    let page = ArtifactItem(
+        slug: "p", type: "page", title: "Plan", created: Date().timeIntervalSince1970, target: "/tmp/p.html")
+    app.land(ArtifactsEvent(worktree: "own", items: [page]))
+    #expect(try await waitFor(10) { !panel.loading.showing && panel.rows.count == 2 })
 }

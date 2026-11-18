@@ -20391,6 +20391,56 @@
         }
       }
     },
+    "Reading the changes…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю изменения…"
+          }
+        }
+      }
+    },
+    "Reading the pages…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю страницы…"
+          }
+        }
+      }
+    },
+    "Reading the databases…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю базы…"
+          }
+        }
+      }
+    },
+    "No Conversations in This Time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "За это время разговоров не было"
+          }
+        }
+      }
+    },
+    "Nothing in the Library Yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В библиотеке пока ничего нет"
+          }
+        }
+      }
+    },
     "Modified": {
       "localizations": {
         "ru": {

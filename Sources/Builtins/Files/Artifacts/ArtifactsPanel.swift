@@ -28,6 +28,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     private let search = NSSearchField()
     private lazy var filterBar = NSStackView(views: [search])
     private let empty = EmptyStateView()
+    let loading = LoadingView(rows: true)
     private(set) var rows: [Row] = []
     private var count = 0
     private lazy var watched = Watched(.artifacts, in: app)
@@ -65,6 +66,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         let content = NSView()
         content.pin(column)
         empty.place(in: content)
+        loading.place(in: content)
         view = content
     }
 
@@ -106,6 +108,12 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     }
     private func watchShown() {
         watched.key = shown ? app.workbench.workspaceId : nil
+        // Until the first answer, an empty list would read as no pages: the wait says it is on its way.
+        if shown, let wid = app.workbench.workspaceId, app.latest(ArtifactsEvent.self, wid) == nil {
+            loading.wait(String(localized: "Reading the pages…"))
+        } else {
+            loading.show(nil)
+        }
         reload()
     }
     func controlTextDidChange(_ obj: Notification) { reload() }
@@ -117,6 +125,15 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
 
     private func rebuild() {
         let list = app.latest(ArtifactsEvent.self, app.workbench.workspaceId ?? "")?.items
+        if list != nil, loading.showing {   // a wait on screen stays its moment, and then gives way to the answer
+            Task {
+                await loading.settled()
+                loading.show(nil)
+                rebuild()
+            }
+            return
+        }
+        if list != nil { loading.show(nil) }
         let items = list ?? []
         seedSeen(items)
         count = items.count

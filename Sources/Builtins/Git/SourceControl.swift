@@ -69,6 +69,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var moreButton: NSButton?
     var commitArea: NSView?, separator: NSView?
     let empty = EmptyStateView()
+    let loading = LoadingView(rows: true)
     private(set) lazy var failureBar = FailureBar { [weak self] in self?.reloadAll() }
     var headerBar: NSView?
 
@@ -211,6 +212,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             graphScroll.trailingAnchor.constraint(equalTo: root.trailingAnchor)
         ])
         empty.place(in: root, under: header)
+        loading.place(in: root, under: sep)   // where the changes will be: the commit box stays as it is
         view = root
         updateHeader()   // so NSButton's own "Button" title doesn't show while the branch loads
         if app.workbench.workspaceId == nil { showNoProject(true) }

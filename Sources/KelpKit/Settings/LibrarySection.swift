@@ -26,7 +26,8 @@ struct LibrarySection: View {
                 }
             } else if let entries {
                 if entries.isEmpty {
-                    Text("Nothing in the library yet.").foregroundStyle(.secondary)
+                    EmptyState(
+                        String(localized: "Nothing in the Library Yet"), symbol: "puzzlepiece.extension", lifted: false)
                 } else {
                     filters(entries)
                     let shown = entries.filter {

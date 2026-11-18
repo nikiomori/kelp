@@ -32,6 +32,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     let table = DropTable()
     private let search = NSSearchField()
     private let empty = EmptyStateView()
+    private let loading = LoadingView(rows: true)
     /// The header every inspector panel has, 36 pt tall with its hairline.
     private var bar: Bar?
     var rows: [Row] = [] {
@@ -104,6 +105,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         self.bar = bar
         let content = stacked(bar, scroll)
         empty.place(in: content)
+        loading.place(in: content, under: bar)
         view = content
     }
 
@@ -149,6 +151,12 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     }
     private func watchShown() {
         watched.key = shown ? app.workbench.workspaceId : nil
+        // Until the first answer, an empty list would read as no databases: the wait says it is on its way.
+        if shown, let wid = app.workbench.workspaceId, app.latest(DatabasesEvent.self, wid) == nil {
+            loading.wait(String(localized: "Reading the databases…"))
+        } else {
+            loading.show(nil)
+        }
         reload()
     }
 
@@ -156,6 +164,15 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
 
     func reload() {
         let event = app.latest(DatabasesEvent.self, workspace)
+        if event != nil, loading.showing {   // a wait on screen stays its moment, and then gives way to the answer
+            Task {
+                await loading.settled()
+                loading.show(nil)
+                reload()
+            }
+            return
+        }
+        if event != nil { loading.show(nil) }
         let databases = event?.databases ?? [], library = event?.library ?? []
         if event != nil {
             if library.count > libraryCount { libraryOpen = true }   // one was just imported or added: show it

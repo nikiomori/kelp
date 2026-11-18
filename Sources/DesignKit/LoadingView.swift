@@ -17,6 +17,12 @@ public final class LoadingView: NSView {
     /// Counts the leaves while the view fades away. A show meanwhile keeps it, and only the last leave hides it.
     private var leaving: Int?
     private var leaves = 0
+    /// The wait that `wait` started, which shows the view once it is slow.
+    private var waiting: Task<Void, Never>?
+    /// The longest a wait started by `wait` stays up.
+    public static let longest: TimeInterval = 30
+    /// True while the view is on screen and not on its way out.
+    public var showing: Bool { !isHidden && leaving == nil }
 
     public init(rows: Bool = false) {
         skeleton = rows ? SkeletonRows() : nil
@@ -60,9 +66,23 @@ public final class LoadingView: NSView {
         setAccessibilityLabel(text)
         self.detail.stringValue = detail ?? ""
         self.detail.isHidden = detail?.isEmpty ?? true
-        let shown = !isHidden && leaving == nil
-        guard (text != nil) != shown else { return }
+        if text == nil { waiting?.cancel() }
+        guard (text != nil) != showing else { return }
         if text != nil { appear() } else { leave() }
+    }
+
+    /// Starts the wait for a first answer by the latency rule (`whileSlow`): `text` shows once the wait has lasted a
+    /// second. `show(nil)` ends it, as the answer does.
+    /// Limit: a local read that fails says nothing to its panel, so the wait gives itself up after `longest`. The
+    /// daemon would have to push the failure for the panel to say it instead.
+    public func wait(_ text: String) {
+        waiting?.cancel()
+        waiting = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(1)) } catch { return }   // cancelled, because the answer came
+            self?.show(text)
+            do { try await Task.sleep(for: .seconds(Self.longest)) } catch { return }
+            self?.show(nil)
+        }
     }
 
     /// Waits out the rest of `held` when the wait is on screen. Call it before showing the answer, which then doesn't

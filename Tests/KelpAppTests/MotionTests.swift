@@ -1,4 +1,5 @@
 import AppKit
+import TestSupport
 import Testing
 
 @testable import DesignKit
@@ -142,4 +143,19 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     asked = .now
     await wait.settled()
     #expect(Date.now.timeIntervalSince(asked) >= LoadingView.held - 0.05)
+}
+
+/// A wait for a first answer says nothing at first, so a quick answer changes nothing on screen, and shows once the
+/// wait has lasted. The answer ends the wait, whether or not it had shown: one answered at once never shows, not even
+/// by the time a wait started after it does.
+@MainActor @Test func aWaitForAFirstAnswerShowsOnceItIsSlow() async throws {
+    let answered = LoadingView(rows: true), slow = LoadingView(rows: true)
+    answered.wait("Reading the changes…")
+    #expect(!answered.showing)
+    answered.show(nil)   // the answer came within the second
+    slow.wait("Reading the changes…")
+    #expect(try await waitFor(10) { slow.showing })
+    #expect(!answered.showing)
+    slow.show(nil)
+    #expect(!slow.showing)
 }

@@ -15,6 +15,7 @@ extension SourceControlController {
         }
         worktreeId = wid
         failureBar.show(nil)
+        loading.show(nil)
         showNoProject(wid == nil)
         let back = wid.flatMap { seen[$0] }
         changes = back?.changes ?? []
@@ -39,6 +40,14 @@ extension SourceControlController {
         rebuild()
         followWatches()
         apply(app.latest(GitEvent.self, gitKey ?? ""))
+        awaitFirstRead()
+    }
+
+    /// While git's first answer for this folder is on its way, the list's place says so once that takes a second, so
+    /// an empty list isn't read as no changes.
+    private func awaitFirstRead() {
+        guard view.window != nil, let gitKey, app.latest(GitEvent.self, gitKey) == nil else { return }
+        loading.wait(String(localized: "Reading the changes…"))
     }
 
     /// The key that git and CI are watched and pushed under: the folder, which other workspaces may share.
@@ -63,6 +72,15 @@ extension SourceControlController {
     /// Applies what the daemon read: the lists, the header, and the graph when the branches moved.
     func apply(_ event: GitEvent?) {
         guard let event, event.worktree == gitKey else { return }
+        if loading.showing {   // a wait on screen stays its moment, and then gives way to the answer
+            Task {
+                await loading.settled()
+                loading.show(nil)
+                apply(app.latest(GitEvent.self, gitKey ?? ""))
+            }
+            return
+        }
+        loading.show(nil)
         if let error = event.error {
             // What git read here before stays, under a line that says why it couldn't be read again. A folder that is
             // no repository any more has nothing to keep.
@@ -136,6 +154,7 @@ extension SourceControlController {
     override func viewDidAppear() {
         super.viewDidAppear()
         followWatches()
+        awaitFirstRead()
     }
 
     /// The CI line under Commit, as the daemon pushes it (it looks again while a run goes on, and for a while after a
