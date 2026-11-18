@@ -48,6 +48,7 @@ struct RoutineWeek {
         case .daily: return String(localized: "Every day at \(at)")
         case .weekdays: return String(localized: "Weekdays at \(at)")
         case .weekly:
+            // English writes the day in the plural; a language that doesn't has its own form in the catalog.
             let day = calendar.weekdaySymbols[(routine.weekday - 1) % 7]
             return String(localized: "\(day)s at \(at)")
         }

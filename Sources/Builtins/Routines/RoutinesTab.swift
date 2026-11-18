@@ -58,10 +58,10 @@ struct RoutinesView: View {
             let on = list.filter(\.enabled).count
             let span = week.days.first.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
             let last = week.days.last.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
-            Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.ui(TextSize.row))
-                .monospacedDigit()
-                .foregroundStyle(
-                    .secondary)
+            // A tab kept after its project went has no name to show: the line stands alone.
+            if let project = app.repo(repoId)?.name { Text(project).font(.ui(TextSize.body, weight: .semibold)) }
+            Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.ui(TextSize.caption))
+                .monospacedDigit().foregroundStyle(.secondary).lineLimit(1)
             Spacer()
             // With no routines, the button is under No Routines instead.
             if !list.isEmpty { Button(String(localized: "New Routine…")) { newRoutine() } }
@@ -85,6 +85,7 @@ struct WeekGrid: View {
     @Binding var chosen: String?
     @Binding var picked: String?
     let app: AppModel
+    @State private var hovered: String?   // the routine whose row is under the pointer
 
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
@@ -103,34 +104,53 @@ struct WeekGrid: View {
             }
             ForEach(routines) { routine in
                 GridRow {
-                    name(routine)
-                    ForEach(week.days, id: \.self) { day in cell(routine, day) }
-                    Button {
-                        run(routine)
-                    } label: {
-                        Image(
-                            systemName: runs.contains { $0.routineId == routine.id && $0.isOpen }
-                                ? "stop.fill" : "play.fill")
-                    }
-                    .buttonStyle(PointerButtonStyle()).help(String(localized: "Run Now")).frame(
-                        width: Metrics.iconButton + Metrics.inset)
+                    piece(name(routine), of: routine, .leading)
+                    ForEach(week.days, id: \.self) { day in piece(cell(routine, day), of: routine) }
+                    piece(runButton(routine), of: routine, .trailing)
                 }
-                .frame(minHeight: 44)
-                .background((chosen ?? routines.first?.id) == routine.id ? Color(nsColor: .fillSelected) : .clear)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     chosen = routine.id
                     picked = nil
                 }
+                .onHover { hovered = $0 ? routine.id : (hovered == routine.id ? nil : hovered) }
                 Divider().gridCellUnsizedAxes(.horizontal)
             }
         }
     }
 
+    /// One cell of a routine's row over the row's fill: the chosen row's, else the one under the pointer. A modifier on
+    /// a `GridRow` goes to each cell, not to the row, so the fill is drawn in pieces that touch: the first and the last
+    /// round their outer corners and stay `Metrics.gap` from the page's edges, as a list's rows do.
+    private func piece(_ content: some View, of routine: Routine, _ edge: HorizontalEdge? = nil) -> some View {
+        let on = (chosen ?? routines.first?.id) == routine.id
+        let lead = edge == .leading ? Metrics.radiusSM : 0, trail = edge == .trailing ? Metrics.radiusSM : 0
+        return content.frame(minHeight: 44).background(
+            UnevenRoundedRectangle(
+                topLeadingRadius: lead, bottomLeadingRadius: lead, bottomTrailingRadius: trail, topTrailingRadius: trail
+            )
+            .fill(Color(nsColor: on ? .fillSelected : hovered == routine.id ? .fillHover : .clear))
+            .padding(.leading, edge == .leading ? Metrics.gap : 0)
+            .padding(.trailing, edge == .trailing ? Metrics.gap : 0))
+    }
+
+    /// Run Now, or Stop while a run is open: the button says which, as its symbol does.
+    private func runButton(_ routine: Routine) -> some View {
+        let open = runs.contains { $0.routineId == routine.id && $0.isOpen }
+        let verb = open ? String(localized: "Stop") : String(localized: "Run Now")
+        return Button {
+            run(routine)
+        } label: {
+            Image(systemName: open ? "stop.fill" : "play.fill").font(.symbol())
+        }
+        .buttonStyle(PointerButtonStyle()).help(verb).accessibilityLabel(verb)
+        .frame(width: Metrics.iconButton + Metrics.inset)
+    }
+
     private func name(_ routine: Routine) -> some View {
         HStack(spacing: Metrics.gapWide) {
             Toggle(
-                "",
+                routine.name,   // hidden; VoiceOver reads it, so each row's switch says whose it is
                 isOn: Binding(get: { routine.enabled }, set: { RoutineActions(app: app).turn(routine, on: $0) })
             )
             .toggleStyle(.switch).controlSize(.small).labelsHidden()
@@ -161,6 +181,8 @@ struct WeekGrid: View {
                     chosen = routine.id
                     picked = mark.run?.id
                 }
+                // Here a click picks the mark; on the run's card it is only a sign, so the trait isn't RunMark's own.
+                .accessibilityAddTraits(.isButton)
             }
             if marks.count > 3 {
                 Text("+\(marks.count - 2)").font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.tertiary)
@@ -204,7 +226,24 @@ struct RunMark: View {
         .background(
             picked ? Color(nsColor: .fillSelected) : .clear, in: RoundedRectangle(cornerRadius: Metrics.radiusXS)
         )
+        .accessibilityElement(children: .ignore).accessibilityLabel(spoken)
         .help(mark.run?.summary ?? "")
+    }
+
+    /// What VoiceOver says in place of the symbol: what the mark means and its time ("Done, 9:00"). A run still going
+    /// has no result to put a time to.
+    private var spoken: String {
+        let word: String
+        switch mark.kind {
+        case .run(.running): return String(localized: "Running")
+        case .run(.done): word = String(localized: "Done")
+        case .run(.asked): word = String(localized: "Asked")
+        case .run(.failed): word = String(localized: "Failed")
+        case .run(.missed): word = String(localized: "Missed")
+        case .next: word = String(localized: "Next")
+        case .planned: word = String(localized: "Planned")
+        }
+        return "\(word), \(mark.at.formatted(date: .omitted, time: .shortened))"
     }
 
     @ViewBuilder private var symbol: some View {

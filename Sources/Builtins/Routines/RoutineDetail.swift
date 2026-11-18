@@ -24,17 +24,18 @@ struct RoutineDetail: View {
                 Button(String(localized: "Edit…")) { RoutineActions(app: app).edit(routine) }
                 Button(String(localized: "Delete…")) { RoutineActions(app: app).delete(routine) }
             }
+            .controlSize(.small)   // a page's inline buttons are the system's small ones
             Text(routine.prompt).font(.ui(TextSize.row)).textSelection(.enabled).frame(
                 maxWidth: .infinity, alignment: .leading
             )
             .padding(Metrics.gapWide).background(
-                Color(nsColor: .fillRest), in: RoundedRectangle(cornerRadius: Metrics.radiusSM))
+                Color(nsColor: .fillRest), in: RoundedRectangle(cornerRadius: Metrics.radiusMD))
             Form { RepeatFields(routine: Binding(get: { routine }, set: { save($0) })) }.formStyle(.columns).frame(
                 maxWidth: 420)
             facts
             if let run = runs.first(where: { $0.id == picked }) ?? runs.first { RunResult(app: app, run: run) }
         }
-        .padding(Metrics.inset + 4)
+        .padding(.horizontal, Metrics.pageInset).padding(.vertical, Metrics.pageTop)
     }
 
     /// The next run, where the routine runs, and what a missed run does.
@@ -110,6 +111,7 @@ struct RunResult: View {
                     Button(run.outcome == .asked ? String(localized: "Answer") : String(localized: "Open Run")) {
                         app.workbench.focus(session: sessionId)
                     }
+                    .controlSize(.small)
                 }
             }
             if !run.summary.isEmpty {
