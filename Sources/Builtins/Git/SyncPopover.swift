@@ -20,9 +20,17 @@ final class SyncPopover: NSViewController {
     weak var popover: NSPopover?
 
     let name = PointerButton(frame: .zero), state = NSTextField(wrappingLabelWithString: "")
-    /// Fetch is a second action named in a word, so it is the design system's worded button: the quiet grey plate. A
-    /// word alone in grey read as a caption, and with its arrow to a line as a third kind of arrow.
-    lazy var fetch = TextButton(String(localized: "Fetch")) { [weak self] in self?.sync([.fetch]) }
+    /// Fetch is a button, so it is its own sign, the arrow down to a line, drawn as Source Control's header draws
+    /// Pull and Push (`signed`): one arrow in both. The word alone said less than the sign, and read as Pull.
+    lazy var fetch: IconButton = {
+        let button = IconButton(nil, tip: String(localized: "Fetch from the remote")) { [weak self] in
+            self?.sync([.fetch])
+        }
+        button.attributedTitle = .signed(
+            "arrow.down.to.line", nil, size: TextSize.row, color: .secondaryLabelColor)
+        button.imagePosition = .noImage
+        return button
+    }()
     lazy var primary = ClosureButton(title: "") { [weak self] in self.map { $0.sync($0.primaryOps) } }
     lazy var commit = ClosureButton(title: String(localized: "Commit")) { [weak self] in self?.commitPressed() }
     let busy = NSProgressIndicator(), note = NSTextField(wrappingLabelWithString: ""), status = NSStackView()
@@ -66,11 +74,11 @@ final class SyncPopover: NSViewController {
         state.isSelectable = false
         state.maximumNumberOfLines = 2
         state.preferredMaxLayoutWidth = Self.width
-        fetch.toolTip = String(localized: "Fetch from the remote")
         let head = NSStackView()
         head.setViews([name], in: .leading)
         head.setViews([fetch], in: .trailing)
-        head.edgeInsets.right = Self.bleed   // the plate's edge is the words' edge: nothing of it greys in past them
+        // The sign's own edge is the words' edge, as a chevron's under it: its square greys in past them.
+        head.edgeInsets.right = Self.bleed - (Metrics.iconButton - Metrics.iconTiny) / 2
 
         // The popover's one action, shown in words alone in the accent colour (macOS 26's primary tint, and the bezel
         // colour before it).
