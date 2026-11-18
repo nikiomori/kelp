@@ -116,6 +116,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         let check = NSButton(checkboxWithTitle: "", target: self, action: #selector(toggled(_:)))
         check.tag = row
         check.state = chosen.contains(item.id) ? .on : .off
+        check.setAccessibilityLabel(db.name)   // the checkbox has no title of its own: the name is beside it
         let name = NSTextField(labelWithString: db.name)
         name.font = .ui(TextSize.body)
         name.lineBreakMode = .byTruncatingTail

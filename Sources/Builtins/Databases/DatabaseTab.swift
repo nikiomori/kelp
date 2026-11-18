@@ -7,10 +7,10 @@ import KelpKit
 /// The tab for "db:<workspace>/<name>[?run=<id>|?table=<name>]", laid out the way TablePlus and TablePro lay out a
 /// database:
 /// - on the left, the database's items, saved queries and history (`DatabaseSidebar`);
-/// - on top, the environment's tag (PROD in red) and, more quietly, where you are, with the filter's rows under it
-/// (⇧⌘F);
+/// - on top, the environment's tag (Production in red) and, more quietly, where you are, with the filter's rows under
+/// it (⇧⌘F);
 /// - in the middle, a table's rows, a run's rows, or a query of the user's own;
-/// - at the foot, everything about the table shown (Data / Structure, + Row, the row count, the changes, Columns,
+/// - at the foot, everything about the table shown (Data / Structure, Add Row, the row count, the changes, Columns,
 /// pages);
 /// - on the right, the details (`DatabaseDetails`).
 /// While an agent asks to change this database, a bar above everything says which agent and how much, with Deny and
@@ -54,11 +54,12 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     /// Covers the whole tab until the database is open, saying it is connecting, or why it isn't and what to do.
     let gate = EmptyStateView()
     let loading = LoadingView()
-    /// Spins in the foot while a page is read, once the read takes past half a second.
+    /// Spins in the foot while a page is read, once the read takes past a second.
     let busy = NSProgressIndicator()
     let whole = NSSplitView()
     let capsule = NSTextField(labelWithString: "")
     let capsuleBox = NSStackView()
+    let capsuleButton = PointerControl(frame: .zero)
     let part = NSSegmentedControl(
         labels: [String(localized: "Data"), String(localized: "Structure")], trackingMode: .selectOne, target: nil,
         action: nil)
@@ -82,7 +83,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     static let pageSize = 200
     /// How many rows the table has with the filter on, once they were counted.
     var counted: Int?
-    /// The read in progress. It is shown only past half a second, so a quick read doesn't flicker.
+    /// The read in progress. It is shown only past a second, so a quick read doesn't flicker.
     var reading: Task<Void, Never>?
     lazy var watched = Watched(.databases, in: app)
     lazy var run = NSButton(title: String(localized: "Run"), target: self, action: #selector(runQuery))
@@ -99,7 +100,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     lazy var next = IconButton(.symbol("chevron.right"), tip: String(localized: "Next Rows")) { [weak self] in
         self?.turn(1)
     }
-    lazy var addRow = ClosureButton(title: String(localized: "Row")) { [weak self] in self?.grid.addRow() }
+    lazy var addRow = ClosureButton(title: String(localized: "Add Row")) { [weak self] in self?.grid.addRow() }
     lazy var columnsButton = ClosureButton(title: String(localized: "Columns")) { [weak self] in self?.columnsMenu() }
     lazy var reload = IconButton(.symbol("arrow.clockwise"), tip: String(localized: "Read Again")) { [weak self] in
         self?.refresh()
@@ -182,6 +183,14 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         let rows = buildEditor()   // the query's editor over the rows
         buildAskBar()
         let foot = footBar()
+        // One main action per bar is in the accent colour (macOS 26's primary tint, and the bezel colour before it).
+        for button in [run, save] {
+            if #available(macOS 26, *) {
+                button.tintProminence = .primary
+            } else {
+                button.bezelColor = .controlAccentColor
+            }
+        }
         let center = NSStackView(views: [askBar, top, filters.view, sqlBox, rows, foot])
         center.orientation = .vertical
         center.spacing = 0
@@ -221,13 +230,16 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         capsule.lineBreakMode = .byTruncatingMiddle
         capsule.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         capsuleBox.spacing = Metrics.gap
-        capsuleBox.heightAnchor.constraint(equalToConstant: 22).isActive = true
-        let capsuleButton = PointerControl(frame: .zero)
+        capsuleBox.heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.iconButton)).isActive = true
         capsuleButton.layer?.cornerRadius = Metrics.radiusSM
         capsuleButton.onClick = { [weak self] in self?.capsuleClicked() }
         capsuleButton.pin(capsuleBox)
-        capsuleBox.toolTip = String(localized: "Its menu: environment, what agents may do, address")
+        capsuleButton.toolTip = String(localized: "Its menu: environment, what agents may do, address")
+        capsuleButton.setAccessibilityElement(true)   // one button to VoiceOver, named in `capsuleChanged`
+        capsuleButton.setAccessibilityRole(.button)
         for button in [run, explain] { button.setContentHuggingPriority(.required, for: .horizontal) }
+        run.toolTip = String(localized: "Run (⌘↩)")
+        explain.toolTip = String(localized: "Explain the Statement")
         filterToggle.keyEquivalent = "f"
         filterToggle.keyEquivalentModifierMask = [.command, .shift]
         run.keyEquivalent = "\r"
@@ -242,14 +254,11 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         part.target = self
         part.action = #selector(partChanged)
         part.setContentHuggingPriority(.required, for: .horizontal)
-        addRow.image = .symbol("plus")
-        addRow.imagePosition = .imageLeading
-        for button in [addRow, columnsButton, discard, showSQL, ask, saveQuery] {
-            button.bezelStyle = .accessoryBarAction
+        // Inside a page a worded button is the system's small bordered one, so it reads as a button before a hover.
+        for button in [addRow, columnsButton, discard, showSQL, ask, saveQuery, save] {
+            button.bezelStyle = .push
             button.controlSize = .small
         }
-        save.bezelStyle = .push
-        save.controlSize = .small
         save.keyEquivalent = "s"
         save.keyEquivalentModifierMask = .command
         status.font = .uiDigits(TextSize.caption)
@@ -275,13 +284,16 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         let show = NSButton(title: String(localized: "Show Rows"), target: self, action: #selector(showAsked))
         let deny = NSButton(title: String(localized: "Deny"), target: self, action: #selector(denyAsked))
         let allow = NSButton(title: String(localized: "Allow"), target: self, action: #selector(allowAsked))
-        for button in [show, deny, allow] { button.bezelStyle = .accessoryBarAction }
+        for button in [show, deny, allow] {
+            button.bezelStyle = .push
+            button.controlSize = .small
+        }
         let mark = NSImageView(image: .symbol("exclamationmark.bubble"))
         mark.contentTintColor = .textOrange
         for v in [mark, askText, NSView(), show, deny, allow] { askBar.addArrangedSubview(v) }
         askBar.spacing = Metrics.gapWide
         askBar.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
-        askBar.heightAnchor.constraint(equalToConstant: Metrics.contentBar).isActive = true
+        askBar.heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.contentBar)).isActive = true
         askBar.wantsLayer = true
         askBar.layer?.backgroundColor = NSColor.fillTint(.systemOrange).cgColor
         askBar.isHidden = true
@@ -352,7 +364,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         loading.show(nil)
         guard let read else {
             if first { return failed(error ?? String(localized: "It doesn’t answer.")) }
-            empty.showError(String(localized: "Can't read \(address.name)"), text: error)
+            empty.showError(String(localized: "Can’t Read \(address.name)"), text: error)
             return
         }
         whole.isHidden = false

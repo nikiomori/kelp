@@ -196,5 +196,5 @@ import Testing
         [(v as? NSTextField)?.stringValue].compactMap { $0 } + v.subviews.flatMap(texts)
     }
     let said = texts(tab.empty)
-    #expect(said.contains("Can't read shop") && !said.contains("Not Kept"), "\(said)")
+    #expect(said.contains("Can’t Read shop") && !said.contains("Not Kept"), "\(said)")
 }

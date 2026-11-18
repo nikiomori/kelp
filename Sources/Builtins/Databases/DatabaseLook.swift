@@ -57,14 +57,9 @@ enum DatabaseLook {
         }
     }
 
-    /// Green, blue, orange and red, the way TablePlus and TablePro colour their environments.
+    /// Red for Production and grey for the rest: colour is kept for the one environment where a mistake costs.
     static func color(_ stage: DatabaseInfo.Stage) -> NSColor {
-        switch stage {
-        case .local: .systemGreen
-        case .development: .systemBlue
-        case .staging: .systemOrange
-        case .production: .systemRed
-        }
+        stage == .production ? .systemRed : .secondaryLabelColor
     }
 
     /// The environment a list shows: the one the user set, else Local for a file or a server on this Mac. A server
@@ -79,27 +74,24 @@ enum DatabaseLook {
         return nil
     }
 
-    /// "LOCAL", "DEV", "STAGING" or "PROD" on a tinted capsule, wherever a database is listed; nil when it shows none.
+    /// "Local", "Dev", "Staging" or "Production" on a capsule, wherever a database is listed; nil when it shows none.
+    /// Only Production's is red, and the others are grey (`color`).
     @MainActor static func stageChip(_ db: DatabaseInfo) -> NSView? {
         guard let stage = shownStage(db) else { return nil }
-        let word: String =
-            switch stage {
-            case .local: String(localized: "LOCAL")
-            case .development: String(localized: "DEV")
-            case .staging: String(localized: "STAGING")
-            case .production: String(localized: "PROD")
-            }
-        let label = NSTextField(labelWithString: word)
-        label.font = .ui(TextSize.micro, weight: .bold)
-        label.textColor = color(stage)
-        let chip = NSView()
-        chip.wantsLayer = true
+        let production = stage == .production
+        // "Dev" is the chip's short word; the other three are the names the menu shows.
+        let label = NSTextField(labelWithString: stage == .development ? String(localized: "Dev") : title(stage))
+        label.font = .ui(TextSize.micro, weight: production ? .semibold : .medium)
+        label.textColor = production ? .textRed : .secondaryLabelColor
+        // A `FillStack`, because the grey fill is black on light and white on dark: it reads the fill in the chip's own
+        // appearance, where a layer's colour set once keeps the one the chip was built in.
+        let chip = FillStack(views: [label])
+        chip.edgeInsets = NSEdgeInsets(top: 1, left: 5, bottom: 1, right: 5)
+        chip.fill = production ? .fillTint(.systemRed) : .fillHover
         chip.layer?.cornerRadius = Metrics.radiusXS
-        chip.layer?.backgroundColor = NSColor.fillTint(color(stage)).cgColor
-        chip.pin(label, inset: NSEdgeInsets(top: 1, left: 5, bottom: 1, right: 5))
         chip.toolTip = title(stage) + ": " + meaning(stage)
-        chip.setContentHuggingPriority(.required, for: .horizontal)
-        chip.setContentCompressionResistancePriority(.required, for: .horizontal)
+        chip.setHuggingPriority(.required, for: .horizontal)   // as big as its word, wherever it sits
+        chip.setHuggingPriority(.required, for: .vertical)
         return chip
     }
 

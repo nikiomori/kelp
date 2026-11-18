@@ -3,9 +3,10 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The right column of the database tab, like TablePro's inspector. It has three parts. Table shows the table's rows,
-/// size, comment, columns, indexes and CREATE TABLE. Row shows the selected row's fields, found by name and edited in
-/// place, where a foreign key links to its row. Agent shows what agents ran on this table, and asks an agent about it.
+/// The right column of the database tab, like TablePro's inspector. It has three parts. Table shows the table's name,
+/// row count, size, comment, columns, what it refers to and its indexes. Row shows the selected row's fields, found by
+/// name and edited in place, where a foreign key links to its row. Agent shows what agents ran on this table, and asks
+/// an agent about it.
 @MainActor
 final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegate {
     enum Part: Int { case table, row, agent }
@@ -187,7 +188,9 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
             sql.lineBreakMode = .byTruncatingTail
             sql.alignment = .left
             sql.widthAnchor.constraint(lessThanOrEqualToConstant: Self.width - 2 * Metrics.inset).isActive = true
-            add(box([small("\(shortAgo(run.at)) · \(DatabasePanelRows.outcome(run))"), sql]))
+            // A finished run's outcome ends with its time; the other states' words carry none.
+            let when = run.state == .done ? "" : shortAgo(run.at) + " · "
+            add(box([small(when + DatabasePanelRows.outcome(run)), sql]))
         }
         if let agentName {
             let ask = ClosureButton(title: String(localized: "Ask \(agentName) About This Table")) { [weak self] in

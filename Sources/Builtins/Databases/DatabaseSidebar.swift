@@ -4,9 +4,9 @@ import DesignKit
 import KelpKit
 
 /// The database tab's left column, like TablePlus' and TablePro's. Items lists the Functions, Views and Tables of the
-/// schema picked at the column's foot; each section folds, and names use the editor's font. Queries lists the saved
-/// queries and New Query, and History lists what agents and the user ran here. The search finds items by name, and
-/// a table by its columns too.
+/// schema picked at the column's foot; each section folds, and names are in the chrome's mono face (`.uiMono`).
+/// Queries lists the saved queries and New Query, and History lists what agents and the user ran here. The search
+/// finds items by name, and a table by its columns too.
 @MainActor
 final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate {
     enum Row {
@@ -84,7 +84,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             top: Metrics.gap, left: Metrics.gapWide, bottom: Metrics.gap, right: Metrics.gapWide)
         let foot = NSStackView(views: [schemaPicker, NSView()])   // shown only when the database has other schemas
         foot.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gap)
-        foot.heightAnchor.constraint(equalToConstant: Metrics.statusBar + 4).isActive = true
+        foot.heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.statusBar + 4)).isActive = true
         foot.isHidden = true
         let column = NSStackView(views: [top, find, scroll, foot])
         column.orientation = .vertical
@@ -173,7 +173,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         switch rows[row] {
         case .run, .saved: TextSize.of(Metrics.rowTwoLine)
-        default: TextSize.of(20)
+        default: TextSize.of(Metrics.row)
         }
     }
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
@@ -187,9 +187,9 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             let chevron = NSImageView(image: .symbol(open ? "chevron.down" : "chevron.right"))
             chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
             chevron.contentTintColor = .tertiaryLabelColor
-            return line(
-                [chevron, NSTextField.label(title, font: .ui(TextSize.row, weight: .medium)), NSView(), digits(count)],
-                inset: 6)
+            let capsule = CountCapsule()   // the title and capsule every list's section has, as the panel's do
+            capsule.text = count.formatted()
+            return line([chevron, DatabaseSheet.section(title), NSView(), capsule], inset: 6)
         case .table(let table):
             let icon = symbol(table.kind == "view" ? "eye" : "tablecells")
             if table.kind == "view" { icon.contentTintColor = .systemPurple }
@@ -220,9 +220,10 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             return twoLines(
                 icon, first,
                 [
-                    who.map { app.catalog.name($0.agent) } ?? String(localized: "You"), shortAgo(run.at),
+                    who.map { app.catalog.name($0.agent) } ?? String(localized: "You"),
+                    run.state == .done ? nil : shortAgo(run.at),   // a finished run's outcome ends with its time
                     DatabasePanelRows.outcome(run)
-                ].joined(separator: " · "), mono: true)
+                ].compactMap { $0 }.joined(separator: " · "), mono: true)
         }
     }
 
@@ -250,9 +251,6 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         icon.symbolConfiguration = .chrome(Metrics.iconSmall)
         icon.contentTintColor = .secondaryLabelColor
         return icon
-    }
-    private func digits(_ n: Int) -> NSTextField {
-        NSTextField.label(n.formatted(), font: .uiDigits(TextSize.caption), color: .tertiaryLabelColor)
     }
 
     // MARK: Clicks

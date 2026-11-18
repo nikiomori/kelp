@@ -871,7 +871,7 @@ func codeOnly(_ s: String) -> String {
 /// What still types one is counted, and each count is a ceiling that only goes down. What's left: a tile's fixed glyph,
 /// an icon row's point size, radii concentric with another (9 in a row, 14 and 16 in glass), the colourful icons that
 /// need a weight (`NSImage.symbol` itself is DesignKit's), the glass panels, a row's glow, the backdrop's drift, a
-/// duration of 0, a shadow, a stroke, a drawn icon, a grid's own densities, a title, a big number, a grid's NULL.
+/// duration of 0, a shadow, a stroke, a drawn icon, a grid's own densities, a title, a big number.
 /// Settings' pictures draw mock windows and aren't chrome.
 @Test func designValuesComeFromDesignKit() throws {
     let chromeDirs = ["Sources/KelpKit", "Sources/Builtins"]
@@ -884,7 +884,7 @@ func codeOnly(_ s: String) -> String {
     exactly(try matches(#"systemFont\(ofSize"#, in: chromeDirs), 4, "system fonts at a size")   // a tile's letters
     exactly(try matches(#"xRadius: *[0-9]"#, in: chromeDirs), 5, "drawn radii")   // icon tiles
     exactly(
-        try matches(#"\.ui(Mono|Digits)?\(\d"#, in: chromeDirs + ["Sources/DesignKit", "Sources/EditorKit"]), 3,
+        try matches(#"\.ui(Mono|Digits)?\(\d"#, in: chromeDirs + ["Sources/DesignKit", "Sources/EditorKit"]), 2,
         "text sizes")
     exactly(try matches(#"NSImage\(systemSymbolName"#, in: chromeDirs), 1, "symbols made by hand")
     // The system's text styles stay at their size whatever Text size says: SwiftUI text takes `Font.ui` too.
@@ -898,5 +898,5 @@ func codeOnly(_ s: String) -> String {
     exactly(try matches(#"\.now\(\) \+ 0\.\d"#, in: chromeDirs), 2, "delays")
     let pictures = ["SettingPictures", "SettingPreviews", "ThemeGallery", "DockStripPicture"]
     let alphas = try matches(#"withAlphaComponent\(0?\.[0-9]|\.opacity\(0?\.[0-9]"#, in: appDirs)
-    exactly(alphas.filter { path in !pictures.contains { path.contains($0) } }, 23, "opacities")
+    exactly(alphas.filter { path in !pictures.contains { path.contains($0) } }, 22, "opacities")
 }

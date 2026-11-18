@@ -41,8 +41,10 @@ extension DatabaseTab {
         let before = String(lines[line - 1].prefix(max(0, column - 1)))
         let word = String(before.reversed().prefix { $0.isLetter || $0.isNumber || $0 == "_" }.reversed()).lowercased()
         let named = tables.filter { text.lowercased().contains($0.name.lowercased()) }
-        let tableWords = tables.map {
-            CodeEditor.Completion(label: $0.name, detail: $0.rows.map { "\($0) rows" }, insert: $0.name, kind: "class")
+        let tableWords = tables.map { table in
+            CodeEditor.Completion(
+                label: table.name, detail: table.rows.map { String(localized: "\($0) rows") }, insert: table.name,
+                kind: "class")
         }
         let columnWords = named.flatMap { table in
             table.columns.map {

@@ -5,9 +5,9 @@ import KelpKit
 
 /// Draws the Databases panel's rows. These are a section's title (a folding section has a chevron and a count), an
 /// agent's question with Allow, the project's card (its icon and name, its databases, Use a Database…) and a group's
-/// card. A database's row has a dot, its name over where it is, PROD, and an icon for what agents may do. A row under
-/// a database says what is wrong with it (with Start for a stopped compose service), and a run has its own row. A
-/// database's badge sits under its card's icon, and its name under the card's name.
+/// card. A database's row has a dot, its name over where it is, its environment, and an icon for what agents may do.
+/// A row under a database says what is wrong with it (with Start for a stopped compose service), and a run has its
+/// own row. A database's badge sits under its card's icon, and its name under the card's name.
 @MainActor
 struct DatabasePanelRows {
     let panel: DatabasesPanel

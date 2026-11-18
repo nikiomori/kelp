@@ -31,9 +31,9 @@ final class GridTable: NSTableView {
 
 /// Rows as a grid. Each result column is a column, with a key's mark in its header and its type in the header's
 /// tooltip when the table is known. NULL shows in grey, numbers in digits that line up, and stripes only where there
-/// are rows. A table with a primary key can be edited: cells typed over, rows added at the end (green) or marked to be
-/// deleted (red), all kept in `edits` until saved. Rows that an agent's last change touched carry the agent's mark in
-/// the numbers' column. A header click asks for that order (`onSort`).
+/// are rows. A table's rows can be edited, with a primary key or without one (a view's can't): cells typed over, rows
+/// added at the end (green) or marked to be deleted (red), all kept in `edits` until saved. Rows that an agent's last
+/// change touched carry the agent's mark in the numbers' column. A header click asks for that order (`onSort`).
 @MainActor
 final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
     let scroll = NSScrollView()
@@ -65,7 +65,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         didSet { table.rowHeight = TextSize.of(Self.height(density)) }
     }
     static func height(_ density: String) -> CGFloat { density == "comfortable" ? 28 : density == "normal" ? 24 : 20 }
-    var font: NSFont { .uiMono(density == "comfortable" ? 12.5 : 11.5) }
+    var font: NSFont { .uiMono(density == "comfortable" ? TextSize.body : TextSize.row) }
     /// Called for "Rows Where …" in a cell's menu, with a WHERE condition.
     var onFilter: (_ column: String, _ op: DatabaseFilters.Condition, _ value: String?) -> Void = { _, _, _ in }
     /// The table and engine the rows are of, for Copy as INSERT and the filters' quoting.
@@ -122,7 +122,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             column.headerToolTip = describe(name)
             let longest = rows.prefix(60).map { ($0.indices.contains(i) ? $0[i] : nil)?.count ?? 4 }.max() ?? 0
             let fk = self.info[name]?.references == nil ? 0 : 3
-            column.width = min(320, max(48, CGFloat(max(longest + fk, name.count + 2)) * 7.2 + 18))
+            column.width = min(320, max(48, CGFloat(max(longest + fk, name.count + 2)) * Self.charWidth + 18))
             column.minWidth = 40
             table.addTableColumn(column)
         }
@@ -142,7 +142,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         if info[name]?.primary == true {
             let mark = NSTextAttachment()
             mark.image = NSImage.symbol("key.fill", String(localized: "primary key")).withSymbolConfiguration(
-                .init(pointSize: 8, weight: .regular).applying(.init(hierarchicalColor: .systemOrange)))
+                .init(pointSize: 8, weight: .regular).applying(.init(hierarchicalColor: .secondaryLabelColor)))
             text.append(NSAttributedString(string: " "))
             text.append(NSAttributedString(attachment: mark))
         }
@@ -190,7 +190,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         guard let columnIndex = Int(column.identifier.rawValue), columns.indices.contains(columnIndex) else { return }
         let longest =
             rows.prefix(200).map { ($0.indices.contains(columnIndex) ? $0[columnIndex] : nil)?.count ?? 4 }.max() ?? 0
-        column.width = min(600, max(48, CGFloat(max(longest, columns[columnIndex].count)) * 7.2 + 24))
+        column.width = min(600, max(48, CGFloat(max(longest, columns[columnIndex].count)) * Self.charWidth + 24))
     }
 
     // MARK: Cells
@@ -279,7 +279,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         return cell
     }
 
-    /// Shows a value, NULL or DEFAULT in its field, struck through on a row marked to be deleted and yellow if edited.
+    /// Shows a value, NULL or DEFAULT in its field, struck through on a row marked to be deleted and orange if edited.
     private func show(_ value: String?, in field: NSTextField, row: Int, column: Int) {
         let new = row >= rows.count
         if let value {
@@ -289,7 +289,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             field.toolTip = value.count > 40 ? value : nil
         } else {
             field.stringValue = new ? String(localized: "DEFAULT") : "NULL"
-            field.font = NSFontManager.shared.convert(.uiMono(10.5), toHaveTrait: .italicFontMask)
+            field.font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
             field.textColor = .tertiaryLabelColor
         }
         if !new, showChange(value, in: field, row: row, column: column) { return }
@@ -307,7 +307,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         }
         if !new, edits.edited(row: row, column: column) {
             field.drawsBackground = true
-            field.backgroundColor = NSColor.systemYellow.withAlphaComponent(0.25)
+            field.backgroundColor = NSColor.fillTint(.systemOrange)   // the orange of "N changes" under the grid
         }
     }
 

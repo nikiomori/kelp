@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 
 /// A table's Data and its Structure. Data is a page of rows in the order and with the filters asked for; edits are
 /// saved together, and the rows that an agent's last change touched are marked. Structure shows the columns, keys
-/// and indexes, with CREATE TABLE in the details.
+/// and indexes; CREATE TABLE is copied from the table's menu and from Copy or Export Rows.
 extension DatabaseTab {
     var current: DatabaseSchema.Table? { mode.table.flatMap { name in tables.first { $0.name == name } } }
 
@@ -87,9 +87,8 @@ extension DatabaseTab {
             words.append(String(localized: "No rows"))
         } else {
             let range = "\((first + 1).formatted())–\((first + shown).formatted())"
-            words.append(
-                total.map { range + " " + String(localized: "of") + " " + (exact ? "" : "≈ ") + Self.rows($0) }
-                    ?? range)
+            let all = total.map { (exact ? "" : "≈ ") + Self.rows($0) }   // "≈ 12 408 rows"
+            words.append(all.map { String(localized: "\(range) of \($0)") } ?? range)
         }
         if filters.isActive { words.append(String(localized: "filtered")) }
         if !grid.editable { words.append(String(localized: "a view: read only")) }
@@ -197,11 +196,12 @@ extension DatabaseTab {
         grid.source = nil
         var rows = table.columns.map { column -> [String?] in
             [
-                column.name, column.type, column.nullable ? "yes" : "no", column.primary ? "primary key" : "",
-                column.references ?? ""
+                column.name, column.type, column.nullable ? String(localized: "yes") : String(localized: "no"),
+                column.primary ? String(localized: "primary key") : "", column.references ?? ""
             ]
         }
-        if !table.indexes.isEmpty { rows += [["", "", "", "", ""]] + table.indexes.map { ["index", $0, "", "", ""] } }
+        let index = String(localized: "index")
+        if !table.indexes.isEmpty { rows += [["", "", "", "", ""]] + table.indexes.map { [index, $0, "", "", ""] } }
         grid.show(
             columns: [
                 String(localized: "column"), String(localized: "type"), String(localized: "null"),
@@ -378,7 +378,9 @@ extension DatabaseTab {
             }
             grid.edits.clear()
             await showTable(name)
-            status.stringValue += " · " + Self.rows(done.changed ?? 0) + " " + String(localized: "saved")
+            let saved = done.changed ?? 0, number = saved.formatted()
+            status.stringValue +=
+                " · " + (saved == 1 ? String(localized: "1 row saved") : String(localized: "\(number) rows saved"))
             // Each statement changes one row, so fewer changes mean a row wasn't where it was read (it changed
             // meanwhile).
             if let changed = done.changed, changed < statements.count {

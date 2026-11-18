@@ -29,6 +29,10 @@ extension DatabaseTab {
             db?.ssh.map { String(localized: "via \($0)") }, place
         ]
         capsule.stringValue = parts.compactMap { $0 }.joined(separator: " · ")
+        // VoiceOver hears the environment too: its tag is a view of its own inside the button.
+        let stage = db.flatMap(DatabaseLook.shownStage).map { DatabaseLook.title($0) }
+        let shown = [stage, capsule.stringValue].compactMap { $0 }.joined(separator: " · ")
+        capsuleButton.setAccessibilityLabel(String(localized: "Connection: \(shown)"))
         // The environment shows as a tag, as in the databases list, and the rest stays quiet, because a whole red line
         // read as an error.
         capsuleBox.setViews([db.flatMap(DatabaseLook.stageChip), capsule, NSView()].compactMap { $0 }, in: .leading)

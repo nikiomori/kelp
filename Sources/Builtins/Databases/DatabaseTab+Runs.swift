@@ -35,7 +35,7 @@ extension DatabaseTab {
         } else if result?.statements != nil {
             empty.show(nil)
         } else if let error = read.error {   // a failed read doesn't mean the rows weren't kept
-            empty.showError(String(localized: "Can't read \(address.name)"), text: error)
+            empty.showError(String(localized: "Can’t Read \(address.name)"), text: error)
         } else if result == nil {
             empty.show(
                 String(localized: "Not Kept"), symbol: "clock",
@@ -60,10 +60,10 @@ extension DatabaseTab {
         }
     }
 
-    /// "1 row", "200 rows", "3 rows changed", with the plural right.
+    /// "1 row", "200 rows", "3 rows changed", with the plural right. Each is one phrase, so it is translated whole.
     static func rows(_ n: Int, changed: Bool = false) -> String {
-        let count = n == 1 ? String(localized: "1 row") : String(localized: "\(n.formatted()) rows")
-        return changed ? count + " " + String(localized: "changed") : count
+        guard changed else { return n == 1 ? String(localized: "1 row") : String(localized: "\(n.formatted()) rows") }
+        return n == 1 ? String(localized: "1 row changed") : String(localized: "\(n.formatted()) rows changed")
     }
 
     /// How long a read took: "84 ms", "1.5 s".
@@ -74,8 +74,11 @@ extension DatabaseTab {
     static func summary(_ run: DatabaseRun) -> String {
         switch run.state {
         case .asks:
-            return run.changed.map { rows($0) + " " + String(localized: "would change: shown as they would be") }
-                ?? String(localized: "Waits for your answer")
+            return run.changed.map {
+                $0 == 1
+                    ? String(localized: "1 row would change: shown as it would be")
+                    : String(localized: "\($0.formatted()) rows would change: shown as they would be")
+            } ?? String(localized: "Waits for your answer")
         case .done:
             let what = run.changed.map { rows($0, changed: true) } ?? rows(run.rows ?? 0)
             return [what, run.ms.map { "\($0) ms" }].compactMap { $0 }.joined(separator: " · ")

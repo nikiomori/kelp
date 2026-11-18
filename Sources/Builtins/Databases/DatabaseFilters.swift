@@ -17,6 +17,18 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
             isIn = "in"
 
         var takesValue: Bool { self != .isNull && self != .isNotNull }
+        /// The condition as the pop-up words it. The signs are the same in every language.
+        var title: String {
+            switch self {
+            case .contains: String(localized: "contains")
+            case .notContains: String(localized: "doesn't contain")
+            case .startsWith: String(localized: "starts with")
+            case .isNull: String(localized: "is NULL")
+            case .isNotNull: String(localized: "is not NULL")
+            case .isIn: String(localized: "in")
+            default: rawValue
+            }
+        }
     }
     static let raw = String(localized: "Raw SQL")
 
@@ -110,6 +122,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         let on = NSButton(checkboxWithTitle: "", target: self, action: #selector(toggled(_:)))
         on.tag = i
         on.state = rule.on ? .on : .off
+        on.setAccessibilityLabel(String(localized: "Use This Condition"))
         let column = NSPopUpButton()
         column.controlSize = .small
         column.addItems(withTitles: columns + [Self.raw])
@@ -120,8 +133,8 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         column.action = #selector(columnPicked(_:))
         let op = NSPopUpButton()
         op.controlSize = .small
-        op.addItems(withTitles: Condition.allCases.map(\.rawValue))
-        op.selectItem(withTitle: rule.op.rawValue)
+        op.addItems(withTitles: Condition.allCases.map(\.title))
+        op.selectItem(withTitle: rule.op.title)
         op.tag = i
         op.target = self
         op.action = #selector(opPicked(_:))
