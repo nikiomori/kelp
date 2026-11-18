@@ -6,8 +6,9 @@ import KelpKit
 /// The project's GitHub, GitLab or Bitbucket: its pages in the browser, and gh / glab set up when they're missing.
 @MainActor
 enum Forge {
-    /// A button's title, what the button is for, and the command it runs.
-    typealias Setup = (title: String, note: String, command: String)
+    /// A button's title, what the button is for, the command it runs, and what is wrong in a few words (the title of
+    /// the panel's empty state).
+    typealias Setup = (title: String, note: String, command: String, state: String)
 
     /// When gh or glab is missing or signed out (the error says which), returns what fixes it. Returns nil for any
     /// other error (no remote, the network, a failing API).
@@ -39,14 +40,14 @@ enum Forge {
         return (
             String(localized: "Install \(site) CLI"),
             String(localized: "Kelp reaches \(site) through its CLI, \(cli). Install it with Homebrew and sign in."),
-            "brew install \(cli) && \(cli) auth login"
+            "brew install \(cli) && \(cli) auth login", String(localized: "\(site) CLI Isn’t Installed")
         )
     }
     static func signIn(_ cli: String) -> Setup {
         let site = cli == "glab" ? "GitLab" : "GitHub"
         return (
             String(localized: "Sign In to \(site)"), String(localized: "The \(site) CLI (\(cli)) isn't signed in."),
-            "\(cli) auth login"
+            "\(cli) auth login", String(localized: "\(site) CLI Isn’t Signed In")
         )
     }
 
@@ -126,7 +127,8 @@ extension EmptyStateView {
             setupButton.title = setup.title
             setupButton.toolTip = setup.command
             show(
-                setup.note, symbol: "terminal", text: String(localized: "It runs in a terminal tab; then Check Again."),
+                setup.state, symbol: "terminal",
+                text: setup.note + " " + String(localized: "It runs in a terminal tab; then Try Again."),
                 buttons: [setupButton, checkAgain])
         } else if let quiet = Forge.noRemote(error) {
             show(quiet.title, symbol: "network", text: quiet.text, buttons: [checkAgain])

@@ -19568,12 +19568,12 @@
         }
       }
     },
-    "It runs in a terminal tab; then Check Again.": {
+    "It runs in a terminal tab; then Try Again.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Команда запустится во вкладке терминала, затем нажмите «Проверить снова»."
+            "value": "Команда запустится во вкладке терминала, затем нажмите «Повторить»."
           }
         }
       }
@@ -20387,6 +20387,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Есть изменения"
+          }
+        }
+      }
+    },
+    "%@ CLI Isn’t Installed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CLI %@ не установлен"
+          }
+        }
+      }
+    },
+    "%@ CLI Isn’t Signed In": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В CLI %@ не выполнен вход"
           }
         }
       }

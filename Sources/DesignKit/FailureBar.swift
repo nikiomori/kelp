@@ -40,6 +40,9 @@ public final class FailureBar: NSStackView {
         let column = NSStackView(views: [header, self])
         column.orientation = .vertical
         column.spacing = 0
+        // As tall as what it holds, over a list that would give it the room: stretched, it pushed the panel's empty
+        // state to the bottom, which stands under it.
+        column.setHuggingPriority(.defaultHigh, for: .vertical)
         for view in [header, self] { view.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
         return column
     }
