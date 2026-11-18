@@ -30,7 +30,7 @@ final class SyncPopover: NSViewController {
     let changes = NSTextField(labelWithString: ""), stats = NSTextField(labelWithString: ""),
         message = NSTextField()
     let nothing = NSTextField(labelWithString: String(localized: "Nothing to commit"))
-    let hint = NSTextField(labelWithString: String(localized: "⏎ commit · ⌘⏎ commit and push"))
+    let hint = NSTextField(labelWithString: String(localized: "↩ commit · ⌘↩ commit and push"))
     let field = NSStackView()
     let root = NSStackView()
 

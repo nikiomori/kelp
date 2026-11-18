@@ -94,16 +94,15 @@ package struct WorkspaceActions {
             guard let all = await app.call(RepoWorktreeSizes(id: repo.id)) else { return }
             let clean = all.filter(\.removable), alert = NSAlert()
             guard !clean.isEmpty else {
-                alert.messageText = String(localized: "No clean worktrees in “\(repo.name)”")
-                alert.informativeText =
+                // Nothing to remove is a result, so a banner says it: a sheet would ask a question with one answer.
+                let why =
                     all.isEmpty
                     ? String(localized: "The project has no other git worktrees.")
                     : String(
                         localized:
                             "Each of its \(all.count) worktrees has uncommitted changes, is locked or is in use in Kelp."
                     )
-                _ = await runSheet(alert)
-                return
+                return Banner.show(String(localized: "No clean worktrees in “\(repo.name)”") + ". " + why)
             }
             let size = WorktreeSizes.size(clean.reduce(0) { $0 + $1.bytes })
             alert.messageText =

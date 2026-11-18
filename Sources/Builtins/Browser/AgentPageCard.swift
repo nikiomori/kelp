@@ -111,6 +111,7 @@ struct AgentPageCard: View {
                         picture(other.id, width: 84, height: 52)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(other.page.title.isEmpty ? other.page.url : other.page.title)
                     .task(id: other.page.steps.last?.at) { await take(other.id) }
                     Text(
                         other.page.subagent.map(subagentTitle) ?? app.session(session).map(

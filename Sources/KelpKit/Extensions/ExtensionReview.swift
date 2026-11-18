@@ -24,7 +24,7 @@ enum ExtensionReview {
             action: allowing ? String(localized: "Allow") : String(localized: "Install"),
             cancel: allowing ? String(localized: "Not Now") : nil)
         if !lines.isEmpty {
-            alert.accessoryView = NSScrollView.readOnly(lines.joined(separator: "\n"), lines: lines.count, width: 420)
+            alert.accessoryView = NSScrollView.readOnly(lines.joined(separator: "\n"), lines: lines.count)
         }
         return await runSheet(alert) == .alertFirstButtonReturn
     }

@@ -41,7 +41,7 @@ enum Machines {
     static func chooseNew(_ app: AppModel) {
         let choices = machineChoices
         app.workbench.showList(
-            String(localized: "New machine"), keys: String(localized: "↩ makes it · ⎋ closes")
+            String(localized: "New machine"), keys: String(localized: "↩ makes it · esc closes")
         ) { typed in
             let text = typed.lowercased()
             func shown(_ title: String) -> Bool { text.isEmpty || title.lowercased().contains(text) }

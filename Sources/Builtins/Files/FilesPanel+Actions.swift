@@ -118,13 +118,14 @@ extension FilesPanel {
             )
             return Banner.show(String(localized: "No templates yet") + ". " + how)
         }
-        let pop = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 300, height: 26))
+        let wide = Metrics.alertAccessory
+        let pop = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: wide, height: 26))
         for template in all { pop.addItem(withTitle: template.deletingPathExtension().lastPathComponent) }
-        let name = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        let name = NSTextField(frame: NSRect(x: 0, y: 0, width: wide, height: 24))
         name.placeholderString = String(localized: "File name, e.g. plan-login.md")
         let box = NSStackView(views: [pop, name])
         box.orientation = .vertical
-        box.frame = NSRect(x: 0, y: 0, width: 300, height: 60)
+        box.frame = NSRect(x: 0, y: 0, width: wide, height: 60)
         let alert = NSAlert()
         alert.messageText = String(localized: "New from Template")
         alert.accessoryView = box

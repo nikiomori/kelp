@@ -20391,6 +20391,26 @@
         }
       }
     },
+    "↩ opens · / goes into a database's tables · esc closes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↩ открывает · / входит в таблицы базы · esc закрывает"
+          }
+        }
+      }
+    },
+    "Error": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка"
+          }
+        }
+      }
+    },
     "Reading the changes…": {
       "localizations": {
         "ru": {
@@ -21467,12 +21487,12 @@
         }
       }
     },
-    "⏎ commit · ⌘⏎ commit and push": {
+    "↩ commit · ⌘↩ commit and push": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "⏎ закоммитить · ⌘⏎ закоммитить и отправить"
+            "value": "↩ закоммитить · ⌘↩ закоммитить и отправить"
           }
         }
       }
@@ -24713,12 +24733,12 @@
         }
       }
     },
-    "↩ makes it · ⎋ closes": {
+    "↩ makes it · esc closes": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "↩ создаёт · ⎋ закрывает"
+            "value": "↩ создаёт · esc закрывает"
           }
         }
       }

@@ -260,6 +260,7 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         guard NSEvent.pressedMouseButtons == 0, page != .html, page != .canvas, !editor.view.isHidden,
             let selection = editor.selectionRect
         else {
+            if !selectionBar.isHidden { selectionBar.crossfade() }   // it fades away as it came
             return selectionBar.isHidden = true
         }
         selectionBar.show(over: view.convert(selection, from: editor.view), in: view)

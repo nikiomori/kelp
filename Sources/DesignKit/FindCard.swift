@@ -135,6 +135,7 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
     @objc private func stepped() { onStep?(steps.selectedSegment == 1) }
     @objc public func close() {
         pending.cancel()
+        crossfade()   // it fades away as it came, in less time
         isHidden = true
         onClose?()
     }
