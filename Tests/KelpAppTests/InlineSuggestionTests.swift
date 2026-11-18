@@ -28,6 +28,19 @@ func aModelsAnswerLosesWhatsAlreadyThere(raw: String, rest: String, below: Strin
     #expect(InlineSuggestion.cleaned(raw, rest: Substring(rest), below: below) == shown)
 }
 
+@Test(
+    arguments: [
+        // raw answer, the cursor line's indent, what shows: it ends with the cursor's block
+        ("return s == s[::-1]\n\nprint(is_palindrome(\"racecar\"))", 4, "return s == s[::-1]"),
+        ("a = 1\n    b = 2\nc = 3", 4, "a = 1\n    b = 2"),
+        ("x)\n  }\n}", 4, "x)\n  }\n}"),   // lines that only close stay, however far out
+        ("one\ntwo", 0, "one\ntwo")
+    ] as [(String, Int, String)])
+func aSuggestionEndsWithTheCursorsBlock(raw: String, indent: Int, shown: String) {
+    #expect(InlineSuggestion.cleaned(raw, rest: "", below: "", indent: indent) == shown)
+    #expect(InlineSuggestion.indent(of: "func f() {\n" + String(repeating: " ", count: indent)) == indent)
+}
+
 @Test func aSuggestionStopsAfterItsLineLimit() {
     let raw = (1...30).map { "line\($0)" }.joined(separator: "\n")
     let shown = InlineSuggestion.cleaned(raw, rest: "", below: "")

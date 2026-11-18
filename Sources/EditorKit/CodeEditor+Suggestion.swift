@@ -114,7 +114,8 @@ extension CodeEditor {
             guard let raw = await provider(ask.context), !Task.isCancelled, let self,
                 suggestion.edits == edits, textView.selectedRange() == NSRange(location: ask.at, length: 0),
                 completion.list?.isOpen != true,   // a list that opened meanwhile has the keys
-                let text = InlineSuggestion.cleaned(raw, rest: ask.rest, below: ask.below)
+                let text = InlineSuggestion.cleaned(
+                    raw, rest: ask.rest, below: ask.below, indent: InlineSuggestion.indent(of: ask.context.prefix))
             else { return }
             show(text, at: ask.at)
         }

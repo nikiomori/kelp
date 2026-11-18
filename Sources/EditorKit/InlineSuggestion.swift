@@ -24,11 +24,19 @@ public enum InlineSuggestion {
         rest.allSatisfy { $0 == " " || $0 == "\t" || closers.contains($0) }
     }
 
-    /// What a model's raw answer shows as, or nil when nothing is worth showing. It loses the line ending its last
-    /// line, what the rest of the line already holds, and any line that repeats the next line already below the cursor,
-    /// so ⇥ never doubles a `}`; then it stops after `lineLimit` lines.
-    static func cleaned(_ raw: String, rest: Substring, below: String) -> String? {
+    /// What a model's raw answer shows as, or nil when nothing is worth showing. It ends with the block the cursor is
+    /// in: before an empty line or a line indented less than the cursor's (`indent`, in characters) that doesn't only
+    /// close brackets, and before a line repeating the next line already below the cursor, so ⇥ never doubles a `}`.
+    /// It loses what the rest of the line already holds, and stops after `lineLimit` lines.
+    static func cleaned(_ raw: String, rest: Substring, below: String, indent: Int = 0) -> String? {
         var lines = raw.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
+        if let end = lines.indices.dropFirst().first(where: { index in
+            let line = lines[index], code = line.drop { $0 == " " || $0 == "\t" }
+            return line.isEmpty
+                || !code.isEmpty && line.count - code.count < indent && !code.allSatisfy({ closers.contains($0) })
+        }) {
+            lines.removeSubrange(end...)
+        }
         let next = below.split(separator: "\n", omittingEmptySubsequences: true).first {
             !$0.allSatisfy(\.isWhitespace)
         }.map { $0.trimmingCharacters(in: .whitespaces) }
@@ -50,6 +58,12 @@ public enum InlineSuggestion {
         // Spaces before a closer stay (`{ a }`); at the end of the line they would only be trailing.
         while tail.isEmpty, text.last == " " || text.last == "\t" { text.removeLast() }
         return text.allSatisfy(\.isWhitespace) ? nil : text
+    }
+
+    /// How far the last line of `text` is indented, in characters.
+    static func indent(of text: String) -> Int {
+        (text.split(separator: "\n", omittingEmptySubsequences: false).last ?? "").prefix { $0 == " " || $0 == "\t" }
+            .count
     }
 
     /// What's left of `shown` once `typed` went in at its start, or nil when the typing went another way.
