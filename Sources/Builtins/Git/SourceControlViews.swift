@@ -15,7 +15,8 @@ struct RowAction {
 
 /// The Graph pane's header. A click folds the pane and a drag sizes it (VS Code's view header and sash in one).
 final class GraphBar: NSView {
-    static let height = TextSize.of(26) + 1
+    /// A section's row, and the line over it.
+    static var height: CGFloat { TextSize.of(Metrics.rowSection) + 1 }
     var onToggle: (() -> Void)?, onResize: ((CGFloat) -> Void)?, onRefresh: (() -> Void)?
     var expanded = true {
         didSet {
