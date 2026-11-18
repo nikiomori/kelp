@@ -167,6 +167,10 @@ extension AppOfItsOwn {
             #expect(button.counts.map(\.symbol) == row.signs && button.counts.map(\.count) == row.counts, "\(row)")
             #expect(row.heard == nil || button.accessibilityLabel() == row.heard, "\(row)")
             #expect(!button.title.contains("↑") && !button.title.contains("↓"), "\(button.title)")
+            // The header's Pull and Push write the same counts, and keep their arrow alone with nothing to move.
+            let header = [vc.bar.pull, vc.bar.push].map { $0.title.filter(\.isNumber) }
+            #expect(header == [row.behind, row.ahead].map { $0 > 0 ? "\($0)" : "" }, "\(row)")
+            #expect(vc.bar.pull.attributedTitle.length > 0 && vc.bar.push.attributedTitle.length > 0)
         }
     }
 

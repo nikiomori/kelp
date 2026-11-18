@@ -97,9 +97,10 @@ extension NSImage {
 extension NSAttributedString {
     /// A count with its sign before it, as a branch's ↓3 and ↑37: the action's own symbol, then the number 2 pt after
     /// it in digits of one width, both in `color`. Whatever says how many commits wait to be pulled or pushed writes
-    /// it with this (the title bar's chip, Source Control's button), so the arrow is one drawing at every text size.
-    /// Typed as "↑" it was the font's own arrow, another one at each size and in each theme's font.
-    @MainActor public static func signed(_ symbol: String, _ count: Int, size: CGFloat, color: NSColor)
+    /// it with this (the title bar's chip, Source Control's header and its button), so the arrow is one drawing at
+    /// every text size. Typed as "↑" it was the font's own arrow, another one at each size and in each theme's font.
+    /// With no count it is the arrow alone, the same one: a button with nothing to move.
+    @MainActor public static func signed(_ symbol: String, _ count: Int?, size: CGFloat, color: NSColor)
         -> NSAttributedString
     {
         let font = NSFont.uiDigits(size, weight: .semibold), text = NSMutableAttributedString()
@@ -112,9 +113,9 @@ extension NSAttributedString {
             // On the digits' middle: an attachment stands on the baseline otherwise, half a line too high.
             sign.bounds = NSRect(origin: NSPoint(x: 0, y: (font.capHeight - arrow.size.height) / 2), size: arrow.size)
             text.append(NSAttributedString(attachment: sign))
-            text.addAttribute(.kern, value: 2, range: NSRange(location: 0, length: text.length))
+            if count != nil { text.addAttribute(.kern, value: 2, range: NSRange(location: 0, length: text.length)) }
         }
-        text.append(NSAttributedString(string: "\(count)"))
+        if let count { text.append(NSAttributedString(string: "\(count)")) }
         text.addAttributes([.font: font, .foregroundColor: color], range: NSRange(location: 0, length: text.length))
         return text
     }

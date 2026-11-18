@@ -17,21 +17,26 @@ final class SourceControlBar {
     init(_ owner: SourceControlController) {
         let keys = owner.app.extensions
         self.keys = keys
-        func b(_ symbol: String, _ tip: String, _ action: @escaping (SourceControlController) -> Void) -> NSButton {
-            IconButton(.symbol(symbol), tip: tip) { [weak owner] in if let owner { action(owner) } }
+        func b(_ symbol: String?, _ tip: String, _ action: @escaping (SourceControlController) -> Void) -> NSButton {
+            IconButton(symbol.map { .symbol($0) }, tip: tip) { [weak owner] in if let owner { action(owner) } }
         }
-        pull = b("arrow.down", keys.hint(String(localized: "Pull"), "git.pull")) { $0.pullPressed() }
-        push = b("arrow.up", keys.hint(String(localized: "Push"), "git.push")) { $0.pushPressed() }
+        pull = b(nil, keys.hint(String(localized: "Pull"), "git.pull")) { $0.pullPressed() }
+        push = b(nil, keys.hint(String(localized: "Push"), "git.push")) { $0.pushPressed() }
         more = b("ellipsis.circle", String(localized: "More Actions")) { $0.showMoreMenu() }
     }
 
-    /// A count changes with a fade, so it reads as the number moving on, not as a jump.
-    private func show(_ count: String, _ any: Bool, on button: NSButton) {
-        let words = any ? count : ""
-        guard button.title != words else { return }
+    /// Writes what a button moves as the title bar's chip writes it (`NSAttributedString.signed`): the arrow, and the
+    /// count while there is one, so ↑37 is one drawing in both. The chrome's 13 pt arrow with a small count beside
+    /// it was a second one. A count changes with a fade, so it reads as the number moving on, not as a jump.
+    private func show(_ arrow: String, _ count: Int, _ color: NSColor, on button: NSButton) {
+        let mark = "\(arrow) \(count) \(color == .secondaryLabelColor)"
+        guard shown[ObjectIdentifier(button)] != mark else { return }
+        shown[ObjectIdentifier(button)] = mark
         if button.window != nil { button.crossfade() }
-        button.title = words
+        button.attributedTitle = .signed(arrow, count > 0 ? count : nil, size: TextSize.row, color: color)
+        button.imagePosition = .noImage
     }
+    private var shown: [ObjectIdentifier: String] = [:]
 
     /// Shows commits on their way: the shade runs up Push's arrow or down Pull's arrow.
     func flow(push moving: Bool, pull coming: Bool) {
@@ -46,8 +51,7 @@ final class SourceControlBar {
         let up = info?.upstream, ahead = info?.ahead ?? 0, behind = info?.behind ?? 0
         let publish = up == nil && info?.current != nil && !(info?.remote.isEmpty ?? true)
         pull.isEnabled = !busy && up != nil
-        show("\(behind)", behind > 0, on: pull)
-        pull.contentTintColor = behind > 0 ? .labelColor : .secondaryLabelColor
+        show("arrow.down", behind, behind > 0 ? .labelColor : .secondaryLabelColor, on: pull)
         pull.toolTip =
             up.map {
                 keys.hint(
@@ -56,9 +60,9 @@ final class SourceControlBar {
             }
             ?? String(localized: "Pull (no upstream)")
         push.isEnabled = !busy && (publish || (up != nil && ahead > 0))
-        push.image = .symbol(publish ? "arrow.up.to.line" : "arrow.up", String(localized: "Push"))
-        show("\(ahead)", ahead > 0, on: push)
-        push.contentTintColor = ahead > 0 || publish ? .emphasis : .secondaryLabelColor
+        show(
+            publish ? "arrow.up.to.line" : "arrow.up", ahead, ahead > 0 || publish ? .emphasis : .secondaryLabelColor,
+            on: push)
         let pushTip = up.map {
             ahead > 0
                 ? keys.hint(String(localized: "Push \(ahead) to \($0)"), "git.push")
@@ -68,5 +72,7 @@ final class SourceControlBar {
             publish
             ? keys.hint(String(localized: "Publish Branch"), "git.push")
             : pushTip ?? keys.hint(String(localized: "Push"), "git.push")
+        // VoiceOver hears the tooltip's words ("Push 37 to origin/main"): the title is a picture and a number.
+        for button in [pull, push] { button.setAccessibilityLabel(button.toolTip) }
     }
 }

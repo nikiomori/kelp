@@ -61,10 +61,7 @@ final class SyncPopover: NSViewController {
         state.textColor = .secondaryLabelColor
         state.lineBreakMode = .byTruncatingMiddle
         state.setContentCompressionResistancePriority(.init(250), for: .horizontal)
-        fetch.padding = 4
-        fetch.image = .symbol("arrow.down.to.line", String(localized: "Fetch"))   // Fetch's own sign, not Pull's
-        fetch.symbolConfiguration = .chrome()
-        fetch.imagePosition = .imageLeading
+        fetch.padding = 4   // a word alone, as Push under it: a third arrow here read as Pull's
         fetch.attributedTitle = NSAttributedString(
             string: fetch.title,
             attributes: [.font: NSFont.ui(TextSize.row), .foregroundColor: NSColor.secondaryLabelColor])
