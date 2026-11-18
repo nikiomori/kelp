@@ -26,8 +26,6 @@ final class Suggestions {
     /// Why the model on this Mac isn't asked now, if it isn't.
     private(set) var pause = SuggestionPause.now
     @ObservationIgnored private var warmed = Date.distantPast
-    /// Code from the files lately open or edited, which goes with each suggestion asked in another file.
-    @ObservationIgnored private var ring = SuggestionRing()
 
     /// What the servers offer, in the order the daemon picks one; nil until asked.
     private(set) var models: [SuggestModel]?
@@ -180,10 +178,7 @@ final class Suggestions {
             let on = (state.mode == "local" && state.pause == nil || cloud != nil) && !Self.holdsSecrets(path)
             editor?.suggestionProvider = on ? editor.map { provider(for: $0, name: name) } : nil
             if let cloud, state.hasKey == nil { Task { await checkKey(cloud) } }
-            if on, let editor {
-                ring.add(path: name, text: String(editor.text.prefix(SuggestionRing.width * 2)), from: 0)
-                if cloud == nil { warm(editor, name: name, named: state.named) }
-            }
+            if on, cloud == nil, let editor { warm(editor, name: name, named: state.named) }
             bar?.show(suggestions: status(language: language, secret: Self.holdsSecrets(path)))
         }
     }
@@ -195,7 +190,7 @@ final class Suggestions {
         warmed = Date()
         let ask = EditorSuggest(
             prefix: "", suffix: String(editor.text.prefix(2000)), path: name, model: named.isEmpty ? nil : named,
-            warm: true, extra: ring.extra(for: name))
+            warm: true)
         Task { [app, weak self] in
             // A server that's down shows at once, before any typing.
             if let answer = await app.quiet(ask) { self?.problem = answer.problem }
@@ -216,9 +211,7 @@ final class Suggestions {
             let url = settings[SettingKeys.suggestionURL]
             let ask = EditorSuggest(
                 prefix: context.prefix, suffix: context.suffix, path: name, model: named.isEmpty ? nil : named,
-                extra: ring.extra(for: name), cloud: cloud, url: cloud == nil || url.isEmpty ? nil : url)
-            // These lines go with the next suggestion asked in another file.
-            ring.add(path: name, line: (editor?.cursor?.line ?? 1) - 1, before: context.prefix, after: context.suffix)
+                cloud: cloud, url: cloud == nil || url.isEmpty ? nil : url)
             let slow = whileSlow { [weak self] in self?.loading = true }   // the model is loading: say so past a second
             let answer = await app.quiet(ask, timeout: EditorSuggest.timeout ?? 10)
             slow.cancel()

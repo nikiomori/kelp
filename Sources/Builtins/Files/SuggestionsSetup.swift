@@ -6,12 +6,15 @@ import KelpKit
 /// Turn On in one step: a code model already on this Mac, else the one recommended for it downloaded through Ollama,
 /// else Ollama itself installed with Homebrew in a terminal tab the person watches.
 extension Suggestions {
-    /// The model to suggest with on this Mac: the 7B where there's memory for it (32 GB), else the 1.5B. Both are
-    /// Apache-2.0; the 3B fills in better but is licensed for research only.
-    nonisolated static func recommended(memory: UInt64 = ProcessInfo.processInfo.physicalMemory) -> (
+    /// The model to suggest with: the 1.5B, which answers in about 0.2 s and, keeping only what it's sure of, is right
+    /// as often as the 7B is (measured on Kelp's code). Both are Apache-2.0; the 3B is licensed for research only.
+    nonisolated static func recommended() -> (id: String, size: String) { ("qwen2.5-coder:1.5b-base", "1 GB") }
+
+    /// The model offered beside it where there's memory for it (32 GB): more often sure, about 0.9 s an answer.
+    nonisolated static func larger(memory: UInt64 = ProcessInfo.processInfo.physicalMemory) -> (
         id: String, size: String
-    ) {
-        memory >= 32 << 30 ? ("qwen2.5-coder:7b-base", "4.7 GB") : ("qwen2.5-coder:1.5b-base", "1 GB")
+    )? {
+        memory >= 32 << 30 ? ("qwen2.5-coder:7b-base", "4.7 GB") : nil
     }
 
     func turnOn() async {

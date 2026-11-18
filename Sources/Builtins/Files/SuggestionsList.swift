@@ -35,23 +35,10 @@ struct SuggestionsList: View {
                 }
             }
             if !local.contains(where: { $0.id == recommended.id }) {
-                HStack(spacing: Metrics.gap) {
-                    Image(systemName: "arrow.down.circle").foregroundStyle(.secondary).frame(width: 14)
-                    Text(Suggestions.shortName(recommended.id)).lineLimit(1)
-                    Spacer()
-                    Text("recommended · \(recommended.size)").foregroundStyle(.secondary).lineLimit(1)
-                    Button(String(localized: "Get")) {
-                        Task {
-                            if suggestions.models?.isEmpty != false {
-                                await suggestions.turnOn()
-                            } else {
-                                await suggestions.download(recommended.id)
-                            }
-                        }
-                    }
-                    .disabled(suggestions.pull != nil)
-                }
-                .frame(minHeight: Metrics.row).padding(.horizontal, 6)
+                get(recommended, note: String(localized: "recommended · \(recommended.size)"))
+            }
+            if let larger = Suggestions.larger(), !local.contains(where: { $0.id == larger.id }) {
+                get(larger, note: String(localized: "more accurate, slower · \(larger.size)"))
             }
             heading(String(localized: "Cloud"))
             ForEach([SuggestCloud.mercury, .codestral, .openai], id: \.self) { each in
@@ -101,6 +88,27 @@ struct SuggestionsList: View {
 
     private func setting(_ setting: Setting<String>) -> Binding<String> {
         Binding(get: { app.settings[setting] }, set: { app.settings.set(setting, $0.isEmpty ? nil : $0) })
+    }
+
+    /// A model to download through Ollama (Turn On's way when there's none yet).
+    private func get(_ model: (id: String, size: String), note: String) -> some View {
+        HStack(spacing: Metrics.gap) {
+            Image(systemName: "arrow.down.circle").foregroundStyle(.secondary).frame(width: 14)
+            Text(Suggestions.shortName(model.id)).lineLimit(1)
+            Spacer()
+            Text(note).foregroundStyle(.secondary).lineLimit(1)
+            Button(String(localized: "Get")) {
+                Task {
+                    if suggestions.models?.isEmpty != false {
+                        await suggestions.turnOn()
+                    } else {
+                        await suggestions.download(model.id)
+                    }
+                }
+            }
+            .disabled(suggestions.pull != nil)
+        }
+        .frame(minHeight: Metrics.row).padding(.horizontal, 6)
     }
 
     private func heading(_ text: String) -> some View {

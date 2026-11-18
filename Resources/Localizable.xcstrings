@@ -441,6 +441,16 @@
         }
       }
     },
+    "more accurate, slower · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "точнее, но медленнее · %@"
+          }
+        }
+      }
+    },
     "No answer came in 8 seconds, or there's no connection.": {
       "localizations": {
         "ru": {
