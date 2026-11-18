@@ -49,8 +49,8 @@ public final class CodeEditor: NSObject {
     /// What the server says of a 1-based position: a symbol's text, and the signature of the call there.
     public var hoverProvider: ((Int, Int) async -> String?)?
     public var signatureProvider: ((Int, Int) async -> (label: String, active: NSRange?)?)?
-    /// The hover and signature cards (CodeEditor+Hover changes them).
-    var hover = HoverState()
+    /// The hover and signature cards, and the gray text after the cursor (CodeEditor+Hover and +Suggestion change them).
+    var hover = HoverState(), suggestion = SuggestionState()
     /// The selection each Expand Selection grew from, for Shrink.
     var selectionSteps: [NSRange] = []
     /// The selection those steps led to.
@@ -342,11 +342,13 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
         onChange?(textView.string)
         findBar?.textChanged()
         refreshCompletions()
+        suggestionTextChanged()
     }
 
     public func textViewDidChangeSelection(_ notification: Notification) {
         if hover.signatureCard?.isShown == true { askSignature() }
         if completion.completing != nil { refreshCompletions() }
+        suggestionSelectionChanged()
         refreshScrollMarks()
         if textView.indentGuides { textView.setNeedsDisplay(textView.visibleRect) }   // which guide is the cursor's
         gutter?.needsDisplay = true

@@ -62,7 +62,8 @@ extension CodeEditor {
         }
         marked = []
         let selection = textView.selectedRange()
-        guard textView.cursors.count == 1, selection.length == 0 else { return }
+        // Gray text covers the line's closers, and the marks would show through.
+        guard textView.cursors.count == 1, selection.length == 0, !isSuggesting else { return }
         for at in [selection.location - 1, selection.location] where at >= 0 && at < string.length {
             guard let partner = Brackets.partner(of: at, in: string, tree: highlighter?.tree) else { continue }
             marked = [at, partner].map { NSRange(location: $0, length: 1) }

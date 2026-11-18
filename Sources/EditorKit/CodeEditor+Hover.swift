@@ -57,6 +57,9 @@ extension CodeEditor {
         hover.card?.close()
         hover.shownAt = nil
         let before = textView.string as NSString, cursor = textView.selectedRange().location
+        // Typing what the gray text shows goes on through it; the list would take its keys.
+        if isSuggesting { return }
+        if key == "." { showCompletions() }
         if key == ":" || key == ">", cursor >= 2,
             before.substring(with: NSRange(location: cursor - 2, length: 2)) == (key == ":" ? "::" : "->")
         {

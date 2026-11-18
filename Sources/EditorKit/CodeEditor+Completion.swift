@@ -28,6 +28,7 @@ extension CodeEditor {
 
     private func open(_ items: [Completion], from start: Int) {
         guard !items.isEmpty, textView.selectedRange().location >= start else { return }
+        dropSuggestion()   // the list has the keys now
         completion.completing = (start, items)
         refreshCompletions()
     }
@@ -146,6 +147,7 @@ extension CodeEditor {
             }
             return true
         }
+        if handleSuggestion(command) { return true }
         if command == #selector(NSResponder.insertTab(_:)) { return nextSnippetStop() }
         if command == #selector(NSResponder.cancelOperation(_:)) { completion.snippetStops = [] }
         return false
@@ -159,4 +161,5 @@ struct CompletionState {
     fileprivate(set) var list: CompletionList?
     /// A snippet's tab stops still to come, the current one first.
     fileprivate var snippetStops: [[NSRange]] = []
+    var snippetActive: Bool { !snippetStops.isEmpty }
 }
