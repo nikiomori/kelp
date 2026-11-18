@@ -25,7 +25,8 @@ extension DiffViewController {
     private func lineCell(
         _ string: String, font: NSFont, color: NSColor = .labelColor, align: NSTextAlignment = .left, fill: NSColor?
     ) -> NSTextField {
-        let field = table.makeView(withIdentifier: Self.lineCellId, owner: nil) as? NSTextField
+        let field =
+            table.makeView(withIdentifier: Self.lineCellId, owner: nil) as? NSTextField
             ?? .label("", font: font, truncation: .byClipping)
         field.identifier = Self.lineCellId
         field.font = font
@@ -39,8 +40,10 @@ extension DiffViewController {
         field.drawsBackground = color != nil
         field.backgroundColor = color ?? .clear
     }
-    private func prefix(_ diffLine: DiffLine, marker: Bool) -> String {
-        marker ? (diffLine.kind == .add ? "+ " : diffLine.kind == .del ? "- " : "  ") : " "
+    /// A line's sign before its code, in either layout: side by side too, an added or a removed line isn't told by its
+    /// tint alone. An unchanged line gets the same width blank, so the code lines up.
+    private func prefix(_ diffLine: DiffLine) -> String {
+        diffLine.kind == .add ? "+ " : diffLine.kind == .del ? "- " : "  "
     }
     /// Lines wrap at words and go on under their own code's indent, not under the "+", indented at most half the
     /// column. Tab stops come every four columns, as `height(of:)` counts them. Limit: past 4000 characters (a
@@ -67,14 +70,15 @@ extension DiffViewController {
         return column
     }
     /// The width a code column wraps its lines at.
-    private func wrapWidth(marker: Bool) -> CGFloat {
-        (table.tableColumn(withIdentifier: .init(marker ? "t" : "r"))?.width ?? 0) - 4
+    private func wrapWidth(_ column: String) -> CGFloat {
+        (table.tableColumn(withIdentifier: .init(column))?.width ?? 0) - 4
     }
     /// The part of a line a row shows. A text field takes seconds over a megabyte, and nobody reads that far along one
     /// line.
     static func shown(_ line: String) -> String { line.utf16.count > 20_000 ? String(line.prefix(20_000)) + "…" : line }
-    func codeCell(_ diffLine: DiffLine, file f: Int, marker: Bool) -> NSTextField {
-        let prefix = prefix(diffLine, marker: marker)
+    /// A line's code in `column`: "t" inline, "l" and "r" side by side.
+    func codeCell(_ diffLine: DiffLine, file f: Int, column: String) -> NSTextField {
+        let prefix = prefix(diffLine)
         let text = Self.shown(diffLine.text)
         let colored =
             DiffColors.key(f, diffLine).flatMap { syntax[$0] }.map {
@@ -99,7 +103,7 @@ extension DiffViewController {
         // The text gets its own paragraph style, the same one `height(of:)` measures with, because the field's mode
         // doesn't reach an attributed string.
         styled.addAttribute(
-            .paragraphStyle, value: Self.wrap(text, prefix: prefix, font: font, width: wrapWidth(marker: marker)),
+            .paragraphStyle, value: Self.wrap(text, prefix: prefix, font: font, width: wrapWidth(column)),
             range: NSRange(location: 0, length: styled.length))
         let field =
             table.makeView(withIdentifier: Self.codeCellId, owner: nil) as? NSTextField
@@ -237,7 +241,7 @@ extension DiffViewController {
         let icon = NSImageView(image: app.fileIcons.image((path as NSString).lastPathComponent))
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
         let name = NSTextField.label(path, font: .ui(TextSize.row, weight: .semibold), truncation: .byTruncatingHead)
-        let stack = NSStackView(views: [
+        let stack = FillStack(views: [
             icon, name, NSTextField(labelWithAttributedString: GitFolders.changes(added: a, removed: d))
         ])
         // A spacer takes the room between.
@@ -249,8 +253,7 @@ extension DiffViewController {
         }
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
-        stack.wantsLayer = true
-        stack.layer?.backgroundColor = NSColor.fillSelected.cgColor
+        stack.fill = .fillSelected
         return stack
     }
 
@@ -263,17 +266,17 @@ extension DiffViewController {
         let lineHeight = Self.lineHeight
         if rows.indices.contains(row), rows[row] == .draft { return Self.draftHeight }   // the comment card
         guard rows.indices.contains(row), case .diff(let diffRow) = rows[row] else { return lineHeight }
-        func lines(_ line: DiffLine?, _ column: String, marker: Bool) -> Int {
+        func lines(_ line: DiffLine?, _ column: String) -> Int {
             guard let line, let tableColumn = table.tableColumn(withIdentifier: .init(column)) else { return 1 }
-            let width = tableColumn.width - 4, marked = prefix(line, marker: marker)
+            let width = tableColumn.width - 4, marked = prefix(line)
             return wraps.count(.init(text: line.text, prefix: marked, width: width, font: font)) {
                 wrappedLines(line.text, prefix: marked, width: width)
             }
         }
         let lineCount =
             switch diffRow {
-            case .line(_, let line): lines(line, "t", marker: true)
-            case .pair(_, let left, let right): max(lines(left, "l", marker: false), lines(right, "r", marker: false))
+            case .line(_, let line): lines(line, "t")
+            case .pair(_, let left, let right): max(lines(left, "l"), lines(right, "r"))
             case .file: 0
             default: 1
             }
@@ -321,11 +324,10 @@ extension DiffViewController {
 
     /// A hunk's header row: where the hunk is, and Stage / Unstage (and Discard where the diff is the unstaged one).
     func hunkRow(file f: Int, hunk h: Int, header: String) -> NSView {
-        let stack = NSStackView()
+        let stack = FillStack()
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
-        stack.wantsLayer = true
-        stack.layer?.backgroundColor = NSColor.diffHunk.cgColor
+        stack.fill = .diffHunk
         let where_ = NSTextField.label(header, font: .uiMono(TextSize.caption), color: .secondaryLabelColor)
         stack.addArrangedSubview(where_)
         if let staged = hunksStaged(f) {

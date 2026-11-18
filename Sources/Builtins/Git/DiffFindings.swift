@@ -32,11 +32,10 @@ extension DiffViewController {
             views.insert(NSView(), at: 2)   // the room goes between the text and its buttons
             views[2].setContentHuggingPriority(.init(1), for: .horizontal)
         }
-        let row = NSStackView(views: views)
+        let row = FillStack(views: views)
         row.spacing = Metrics.gap
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gapWide)
-        row.wantsLayer = true
-        row.layer?.backgroundColor = NSColor.fillSelected.cgColor
+        row.fill = .fillSelected
         return row
     }
 

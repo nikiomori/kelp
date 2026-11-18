@@ -122,14 +122,14 @@ extension DiffViewController {
                 switch id {
                 case "on": return number(line.oldLine, kind: line.kind)
                 case "nn": return number(line.newLine, kind: line.kind)
-                default: return codeCell(line, file: file, marker: true)
+                default: return codeCell(line, file: file, column: "t")
                 }
             case .pair(let file, let left, let right):
                 switch id {
                 case "on": return left.map { number($0.oldLine, kind: $0.kind) } ?? filler()
                 case "nn": return right.map { number($0.newLine, kind: $0.kind) } ?? filler()
-                case "l": return left.map { codeCell($0, file: file, marker: false) } ?? filler()
-                default: return right.map { codeCell($0, file: file, marker: false) } ?? filler()
+                case "l": return left.map { codeCell($0, file: file, column: "l") } ?? filler()
+                default: return right.map { codeCell($0, file: file, column: "r") } ?? filler()
                 }
             }
         }

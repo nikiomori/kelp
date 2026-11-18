@@ -56,6 +56,24 @@ import os
     #expect(one.count == 1 && one[0].0 == nil)
 }
 
+/// A pull request's row has a glyph of its own when open, merged and closed, so none is told by its colour alone. A
+/// draft keeps the open one's: its line says "draft".
+@MainActor @Test func aPullRequestsRowShowsItsStateByShape() {
+    func images(_ view: NSView) -> [NSImageView] {
+        ((view as? NSImageView).map { [$0] } ?? []) + view.subviews.flatMap(images)
+    }
+    func glyph(_ state: String, draft: Bool = false) -> NSImage? {
+        let pr = GitHub.PullRequest(
+            number: 1, title: "T", url: "", author: "a", headRefName: "b", isDraft: draft, state: state,
+            checks: .init())
+        return images(ForgeRows.pr(pr, worktree: false, unseen: false)).first?.image
+    }
+    let open = glyph("OPEN"), merged = glyph("MERGED"), closed = glyph("CLOSED")
+    #expect(open != nil && merged != nil && closed != nil)
+    #expect(open !== merged && open !== closed && merged !== closed)
+    #expect(glyph("OPEN", draft: true) === open)
+}
+
 /// The tab's blue button: yours with a failing check is fixed, someone else's reviewed, an approved clean one merged.
 @MainActor @Test func aPullRequestsNextStepDependsOnWhoseItIs() {
     var pr = GitHub.PullRequest(

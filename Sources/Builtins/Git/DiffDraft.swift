@@ -100,14 +100,13 @@ extension DiffViewController {
             b.controlSize = .small
         }
         let buttons = NSStackView(views: [NSView(), cancel, save])
-        let card = NSStackView(views: [draft.field, buttons])
+        let card = FillStack(views: [draft.field, buttons])
         card.orientation = .vertical
         card.alignment = .trailing
         card.spacing = Metrics.gap
         card.edgeInsets = NSEdgeInsets(
             top: Metrics.gap, left: Self.codeIndent, bottom: Metrics.gap, right: Metrics.gapWide)
-        card.wantsLayer = true
-        card.layer?.backgroundColor = NSColor.fillRest.cgColor
+        card.fill = .fillRest
         NSLayoutConstraint.activate([
             draft.field.widthAnchor.constraint(equalTo: card.widthAnchor, constant: -Self.codeIndent - Metrics.gapWide),
             draft.field.heightAnchor.constraint(equalToConstant: Self.draftField)

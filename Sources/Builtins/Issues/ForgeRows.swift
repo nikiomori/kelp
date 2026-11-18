@@ -62,8 +62,18 @@ enum ForgeRows {
             said.append(("✓", .textGreen))
         }
         return ForgeRowCell(
-            symbol: "arrow.triangle.pull", tint: .pullRequest(state: pr.state, draft: pr.isDraft), title: pr.title,
+            symbol: symbol(pr), tint: .pullRequest(state: pr.state, draft: pr.isDraft), title: pr.title,
             meta: joined(said), branch: worktree, unseen: unseen)
+    }
+
+    /// A merged and a closed pull request each have a shape of their own, so neither is told from an open one by its
+    /// colour alone. A draft keeps the open one's, because its line says "draft".
+    private static func symbol(_ pr: GitHub.PullRequest) -> String {
+        switch pr.isDraft ? "DRAFT" : pr.state {
+        case "MERGED": "arrow.triangle.merge"
+        case "CLOSED": "xmark.circle"
+        default: "arrow.triangle.pull"
+        }
     }
 
     static func issue(_ issue: GitHub.Issue, working: Bool) -> ForgeRowCell {

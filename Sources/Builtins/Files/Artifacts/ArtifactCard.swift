@@ -21,8 +21,8 @@ final class ArtifactCard {
     private var shownTarget: String?
     private let shots = ArtifactShots()
     /// The place for the picture. It is a grey fill until the page is drawn, and then the page fades in.
-    private lazy var picture: NSImageView = {
-        let view = NSImageView()
+    private lazy var picture: PictureView = {
+        let view = PictureView()
         view.imageScaling = .scaleProportionallyUpOrDown
         view.wantsLayer = true
         view.layer?.cornerRadius = Metrics.radiusSM
@@ -84,10 +84,7 @@ final class ArtifactCard {
         if let preview = item.preview {
             views.append(picture)
             picture.image = nil
-            picture.effectiveAppearance.performAsCurrentDrawingAppearance {
-                picture.layer?.backgroundColor = NSColor.fillRest.cgColor
-                picture.layer?.borderColor = NSColor.separatorColor.cgColor
-            }
+            picture.tint()
             let dark = picture.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             load(preview, version: item.modified ?? item.created, dark: dark, board: item.type == "design")
         }
@@ -130,5 +127,20 @@ final class ArtifactCard {
             picture.crossfade()
             picture.image = image
         }
+    }
+}
+
+/// The picture's place on the card. Its fill and border are a layer's colours, which keep the appearance they were set
+/// in, so they are set again at the moment the Mac goes light or dark with the card up.
+private final class PictureView: NSImageView {
+    func tint() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = NSColor.fillRest.cgColor
+            layer?.borderColor = NSColor.separatorColor.cgColor
+        }
+    }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        tint()
     }
 }

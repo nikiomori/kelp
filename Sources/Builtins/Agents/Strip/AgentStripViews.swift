@@ -221,10 +221,7 @@ final class StripButton: PointerControl {
 
     func update(_ item: StripItem, open: Bool, app: AppModel) {
         if let repo = item.repo { ProjectIcon.show(repo, in: icon, app: app) }
-        // The fill behind the icon keeps the tile's shape when a project's icon has a clear background.
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            icon.layer?.backgroundColor = NSColor.fillHover.cgColor
-        }
+        fillIcon()
         // Nothing changed for this tile. Swapping its constraint anyway would lay the strip out again for every agent's
         // news.
         guard shown?.item != item || shown?.open != open else { return }
@@ -248,6 +245,18 @@ final class StripButton: PointerControl {
         setAccessibilityRole(.button)
         setAccessibilityLabel(
             [item.name, status.words, open ? item.words : nil, item.ci?.tip].compactMap { $0 }.joined(separator: ", "))
+    }
+
+    /// The fill behind the icon keeps the tile's shape when a project's icon has a clear background. It is a layer's
+    /// colour, which keeps the appearance it was set in, so it is set again at the moment the Mac goes light or dark.
+    private func fillIcon() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            icon.layer?.backgroundColor = NSColor.fillHover.cgColor
+        }
+    }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        fillIcon()
     }
 
     /// Shows the branch's CI mark as the sidebar shows it, at 12 pt, drawn by the built-in that owns CI

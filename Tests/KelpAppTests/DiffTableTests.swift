@@ -67,3 +67,46 @@ import Testing
     #expect(!shown.isEmpty && !vc.table.rows(in: vc.table.visibleRect).contains(0))
     #expect(shown.allSatisfy { !$0.drawsBackground })
 }
+
+/// Side by side, an added and a removed line carry their sign as they do inline, so neither is told by its tint
+/// alone; an unchanged line has a blank as wide, so the code of both columns lines up.
+@MainActor @Test func aSideBySideLineCarriesItsSign() throws {
+    let (vc, window) = diffInAWindow()
+    defer { withExtendedLifetime(window) {} }
+    try #require(vc.sideBySide)   // the layout a review opens in
+    vc.diffs = [FileDiff(path: "f.txt", header: "", hunks: [], binary: false)]   // a row's line is of a file
+    let same = DiffLine(kind: .context, text: "same", oldLine: 2, newLine: 2)
+    vc.rows = [
+        .diff(
+            .pair(
+                file: 0, left: DiffLine(kind: .del, text: "old", oldLine: 1),
+                right: DiffLine(kind: .add, text: "new", newLine: 1))),
+        .diff(.pair(file: 0, left: same, right: same))
+    ]
+    vc.table.reloadData()
+    func code(_ column: String, _ row: Int) -> String? {
+        let cell = vc.table.view(
+            atColumn: vc.table.column(withIdentifier: .init(column)), row: row, makeIfNecessary: true)
+        return (cell as? NSTextField)?.stringValue
+    }
+    #expect(code("l", 0) == "- old" && code("r", 0) == "+ new")
+    #expect(code("l", 1) == "  same" && code("r", 1) == "  same")
+}
+
+/// A file's band, a comment's row and the comment card stand on fills that are the appearance's own once the Mac goes
+/// light or dark, not the ones they were built in.
+@MainActor @Test func aDiffsBandsFollowLightAndDark() {
+    let (vc, window) = diffInAWindow()
+    defer { withExtendedLifetime(window) {} }
+    vc.notes.draft = CommentDraft(file: "f.txt", start: 1, end: 1, quote: "", side: nil)
+    let comment = DiffComment(worktreeId: "w", file: "f.txt", startLine: 1, endLine: 1, quote: "", text: "why?")
+    for band in [vc.fileBand("f.txt", added: 1, removed: 0), vc.commentRow(comment), vc.draftCard()] {
+        func fill(_ name: NSAppearance.Name) -> CGColor? {
+            band.appearance = NSAppearance(named: name)
+            band.effectiveAppearance.performAsCurrentDrawingAppearance { band.updateLayer() }   // as AppKit draws it
+            return band.layer?.backgroundColor
+        }
+        let light = fill(.aqua)
+        #expect(light != nil && light != fill(.darkAqua))
+    }
+}

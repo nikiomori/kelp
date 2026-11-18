@@ -338,6 +338,22 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     #expect(tile.constraints.map(ObjectIdentifier.init) != before)
 }
 
+/// The fill behind a tile's icon is the appearance's own at the moment the Mac goes light or dark, not at the agent's
+/// next news.
+@MainActor @Test func aTilesIconFillFollowsLightAndDark() {
+    let tile = StripButton()
+    tile.update(
+        StripItem(workspace: "w", name: "kelp", cell: .working, session: "s", since: Date()), open: false,
+        app: AppModel())
+    func fill(_ name: NSAppearance.Name) -> CGColor? {
+        tile.appearance = NSAppearance(named: name)
+        tile.viewDidChangeEffectiveAppearance()   // as AppKit tells a view on a switch
+        return tile.subviews.compactMap { ($0 as? NSImageView)?.layer?.backgroundColor }.first
+    }
+    let light = fill(.aqua)
+    #expect(light != nil && light != fill(.darkAqua))
+}
+
 /// A refresh for nothing it shows (Kelp coming to the front with the strip set to stay, a screen's other change) lays
 /// nothing out, and a move to another place doesn't measure the same tiles again.
 @MainActor @Test func theStripIsMeasuredOnlyWhenItsTilesChange() async throws {

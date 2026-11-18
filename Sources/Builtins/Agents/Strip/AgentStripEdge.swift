@@ -250,9 +250,7 @@ final class StripLine {
 
         func show(_ item: StripItem, more: Int, app: AppModel) {
             if let repo = item.repo { ProjectIcon.show(repo, in: icon, app: app) }
-            effectiveAppearance.performAsCurrentDrawingAppearance {
-                icon.layer?.backgroundColor = NSColor.fillHover.cgColor
-            }
+            fillIcon()
             let line = NSMutableAttributedString(
                 string: item.name,
                 attributes: [.font: NSFont.ui(TextSize.row, weight: .medium), .foregroundColor: NSColor.labelColor])
@@ -273,6 +271,18 @@ final class StripLine {
             setAccessibilityElement(true)
             setAccessibilityRole(.button)
             setAccessibilityLabel(says)
+        }
+
+        /// The fill behind the icon is a layer's colour, which keeps the appearance it was set in, so it is set again
+        /// at the moment the Mac goes light or dark with the line out.
+        private func fillIcon() {
+            effectiveAppearance.performAsCurrentDrawingAppearance {
+                icon.layer?.backgroundColor = NSColor.fillHover.cgColor
+            }
+        }
+        override func viewDidChangeEffectiveAppearance() {
+            super.viewDidChangeEffectiveAppearance()
+            fillIcon()
         }
 
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }

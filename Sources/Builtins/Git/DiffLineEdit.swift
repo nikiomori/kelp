@@ -47,8 +47,8 @@ extension DiffViewController: NSTextFieldDelegate {
             return table.rect(ofRow: row).insetBy(dx: Metrics.inset, dy: 0)
         }
         var rect = table.convert(cell.bounds, from: cell)
-        // The cell's text starts after its prefix: "+ " in the unified layout, one space in the split one.
-        let lead = ((table.numberOfColumns < 4 ? "  " : " ") as NSString).size(withAttributes: [.font: font]).width
+        // The cell's text starts after its sign: "+ " or the blank as wide, in either layout.
+        let lead = ("  " as NSString).size(withAttributes: [.font: font]).width
         rect.origin.x += lead
         rect.size.width -= lead
         return rect
