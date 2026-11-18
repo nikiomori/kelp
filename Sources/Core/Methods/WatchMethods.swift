@@ -254,9 +254,12 @@ public struct FilesEvent: RPCEvent, Equatable {
 public struct ArtifactsEvent: RPCEvent, Equatable {
     public static let name = "event.artifacts"
     public var worktree: String, items: [ArtifactItem]
-    public init(worktree: String, items: [ArtifactItem]) {
+    /// Why the pages couldn't be read, when they couldn't: there are no items then.
+    public var error: String?
+    public init(worktree: String, items: [ArtifactItem], error: String? = nil) {
         self.worktree = worktree
         self.items = items
+        self.error = error
     }
 }
 

@@ -430,6 +430,10 @@
       "ArtifactsEvent" : {
         "description" : "A watched workspace's artifacts (`.kelp/artifacts`), most recently changed first, pushed when that folder changed.",
         "properties" : {
+          "error" : {
+            "description" : "Why the pages couldn't be read, when they couldn't: there are no items then.",
+            "type" : "string"
+          },
           "items" : {
             "items" : {
               "$ref" : "#/components/schemas/ArtifactItem"
@@ -1472,6 +1476,10 @@
               "$ref" : "#/components/schemas/DatabaseInfo"
             },
             "type" : "array"
+          },
+          "error" : {
+            "description" : "Why the databases couldn't be read, when they couldn't: there are none in the event then.",
+            "type" : "string"
           },
           "library" : {
             "description" : "The \"All my projects\" databases, the user's own, which no agent sees until one is used in a project (`db.use`).",
@@ -7115,7 +7123,7 @@
       "x-internal" : true
     },
     {
-      "description" : "Returns false when Kelp's switch in Login Items is off, because macOS then ends the daemon and its agents with the app. The daemon answers this rather than the CLI, because a `kelp` linked onto the PATH can't tell which app it belongs to, while kelpd runs from inside the app.",
+      "description" : "Returns false when Kelp's switch in Login Items is off, because macOS then ends the daemon and its agents with the app. The daemon answers, not the CLI: a `kelp` linked onto the PATH can't tell its app, while kelpd runs inside it.",
       "name" : "daemon.backgroundAllowed",
       "paramStructure" : "by-name",
       "params" : [
@@ -9234,7 +9242,7 @@
       }
     },
     {
-      "description" : "Pushes, takes the title and body from the commits if they aren't given, opens the PR (a draft with `draft`), and links it. Returns {url, title}.",
+      "description" : "Pushes, opens the PR (a draft with `draft`) and links it. The title and body come from the commits unless given.",
       "name" : "github.pr-create",
       "paramStructure" : "by-name",
       "params" : [
@@ -9549,7 +9557,7 @@
       }
     },
     {
-      "description" : "Resumes a past conversation (`session`, as history.list gives it) as a live session, in `worktreeId` or in the conversation's own folder.",
+      "description" : "Resumes a past conversation (`session`, from history.list) as a live session, in `worktreeId` or its own folder.",
       "name" : "history.resume",
       "paramStructure" : "by-name",
       "params" : [
@@ -9769,7 +9777,7 @@
       }
     },
     {
-      "description" : "Saves Jira credentials. An empty `token` disconnects and returns null. Otherwise the credentials are checked before they are saved, and the account's name is returned.",
+      "description" : "Saves Jira credentials once checked and returns the account's name. An empty `token` disconnects and returns null.",
       "name" : "jira.setCredentials",
       "paramStructure" : "by-name",
       "params" : [
@@ -9890,7 +9898,7 @@
       }
     },
     {
-      "description" : "Saves a Linear key. An empty `key` disconnects and returns null. Otherwise the key is checked before it is saved, and the key's user is returned.",
+      "description" : "Saves a Linear key after checking it and returns the key's user. An empty `key` disconnects and returns null.",
       "name" : "linear.setKey",
       "paramStructure" : "by-name",
       "params" : [
@@ -10844,7 +10852,7 @@
       "x-internal" : true
     },
     {
-      "description" : "Reads the login shell's PATH again after an installer changed the shell profile, so `process.which` and new sessions find what it installed. The daemon answers once the shell has been asked, which can take seconds with a slow profile.",
+      "description" : "Reads the login shell's PATH again after an installer changed the profile, so `process.which` and new sessions find what it installed. The daemon answers once the shell has been asked, which takes seconds with a slow profile.",
       "name" : "process.refreshPath",
       "paramStructure" : "by-name",
       "params" : [
@@ -10911,7 +10919,7 @@
       "x-internal" : true
     },
     {
-      "description" : "Finds each command on the login-shell PATH that the daemon gives programs (`process.run`, sessions), as command → absolute path, leaving out the ones not found. The app asks the daemon instead of reading that PATH itself, which would start the user's shell.",
+      "description" : "Finds commands on the login-shell PATH the daemon gives programs (`process.run`, sessions), as command → absolute path, leaving out missing ones. The app asks the daemon because reading that PATH would start the user's shell.",
       "name" : "process.which",
       "paramStructure" : "by-name",
       "params" : [
@@ -11646,7 +11654,7 @@
       }
     },
     {
-      "description" : "Sets a summary from the UI (the agent's own last reply), and optionally a better status guess. With `ifStatus`, it applies only while the session still has that status, because the summary is of a turn that ended a moment ago and the row may have moved on to a question.",
+      "description" : "Sets a summary from the UI (the agent's last reply), and optionally a better status guess. With `ifStatus`, the call applies only while the session keeps that status, as the row may have moved on to a question.",
       "name" : "session.annotate",
       "paramStructure" : "by-name",
       "params" : [
@@ -11882,7 +11890,7 @@
       "x-internal" : true
     },
     {
-      "description" : "Starts a session in the folder of `worktreeId`, or in `cwd`, which wins. It runs the agent `agent`, or else the shell command `command`. `tmux` makes a terminal attached to that tmux session, started if there is none (see `Tmux`). `parent` is the agent session that started this agent or this command (see `Session.parent`, `Session.startedBy`), when that is an agent.",
+      "description" : "Starts a session in `cwd`, or else the folder of `worktreeId`, running `agent` or else the shell command `command`. `tmux` attaches the terminal to that tmux session, started if missing (see `Tmux`). `parent` is the agent session that started this one, if an agent did (see `Session.parent`, `Session.startedBy`).",
       "name" : "session.create",
       "paramStructure" : "by-name",
       "params" : [
@@ -12027,7 +12035,7 @@
       }
     },
     {
-      "description" : "Starts a new chat beside this one, in the same folder, going on from a copy of its conversation, while this chat goes on as it was. Claude Code and Codex fork their own conversations (`--fork-session`, `codex fork`). Other agents can't, so the call is refused for them.",
+      "description" : "Starts a new chat beside this one, in the same folder, from a copy of its conversation; this chat goes on as it was. Only Claude Code and Codex fork a conversation (`--fork-session`, `codex fork`), so other agents are refused.",
       "name" : "session.fork",
       "paramStructure" : "by-name",
       "params" : [
@@ -12061,7 +12069,7 @@
       }
     },
     {
-      "description" : "Starts a new agent (`agent`, or else the same agent) in the same workspace, briefed with this session's transcript. With `full`, the brief holds the whole transcript.",
+      "description" : "Starts `agent` (or else the same agent) in this workspace, briefed with this transcript (all of it with `full`).",
       "name" : "session.handoff",
       "paramStructure" : "by-name",
       "params" : [
@@ -12210,7 +12218,7 @@
           }
         },
         {
-          "description" : "The file one of the agent's tools just changed (Claude Code's Edit, Write, MultiEdit or NotebookEdit, read from PostToolUse).",
+          "description" : "The file an agent's tool just changed (Claude Code's Edit, Write, MultiEdit or NotebookEdit, from PostToolUse).",
           "name" : "edited",
           "required" : false,
           "schema" : {
@@ -13187,7 +13195,7 @@
       "x-internal" : true
     },
     {
-      "description" : "Starts work on an issue or task: a branch with its number, a worktree, and an agent briefed with the issue's text. `title` is the issue's title, and the session's title becomes \"ref title\". The brief is typed but not sent unless `draft` is false, because whoever filed the issue wrote its text.",
+      "description" : "Starts work on an issue or task: a branch with its number, a worktree, and an agent briefed with the issue's text. The session is titled \"ref title\". The brief waits unsent unless `draft` is false, as the issue's author wrote it.",
       "name" : "task.fromIssue",
       "paramStructure" : "by-name",
       "params" : [

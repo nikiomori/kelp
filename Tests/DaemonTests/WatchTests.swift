@@ -47,6 +47,18 @@ func saved(_ paths: String...) -> [FileWatcher.Change] {
     #expect(heard.events(GitEvent.self).count == seen)   // nothing changes: nothing is pushed
 }
 
+/// A read of a workspace's databases or pages that fails is pushed with its reason, so the panel says it. Kept to the
+/// log, the failure left the panel waiting for an answer that never came.
+@Test func aWatchedReadThatFailsIsPushedWithItsReason() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let heard = Heard()
+    heard.listen(w.c)
+    w.c.notify(WatchStart(.databases, "no-such-workspace"))
+    #expect(try await waitFor(10) { heard.events(DatabasesEvent.self).last?.error?.isEmpty == false })
+    #expect(heard.events(DatabasesEvent.self).last?.databases == [])
+}
+
 /// A build writing into a folder git ignores (dist/) doesn't read git again; once .gitignore stops ignoring it, it does.
 @Test func whatGitIgnoresDoesntReadGitAgain() async throws {
     let w = try await world()

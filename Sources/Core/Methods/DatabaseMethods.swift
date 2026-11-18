@@ -181,10 +181,16 @@ public struct DatabasesEvent: RPCEvent, Equatable {
     /// The "All my projects" databases, the user's own, which no agent sees until one is used in a project
     /// (`db.use`).
     public var library: [DatabaseInfo]?
-    public init(worktree: String, databases: [DatabaseInfo], runs: [DatabaseRun], library: [DatabaseInfo]? = nil) {
+    /// Why the databases couldn't be read, when they couldn't: there are none in the event then.
+    public var error: String?
+    public init(
+        worktree: String, databases: [DatabaseInfo], runs: [DatabaseRun], library: [DatabaseInfo]? = nil,
+        error: String? = nil
+    ) {
         self.worktree = worktree
         self.databases = databases
         self.runs = runs
         self.library = library
+        self.error = error
     }
 }

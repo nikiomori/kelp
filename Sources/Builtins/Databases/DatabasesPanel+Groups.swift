@@ -35,7 +35,7 @@ extension DatabasesPanel {
         return (named, library.filter { $0.groupName == nil })
     }
 
-    var library: [DatabaseInfo] { app.latest(DatabasesEvent.self, workspace)?.library ?? [] }
+    var library: [DatabaseInfo] { listed?.library ?? [] }
     private var project: String { app.projectName(app.worktree(workspace)?.repoId) ?? "" }
 
     // MARK: Dragging
@@ -103,7 +103,7 @@ extension DatabasesPanel {
         info.draggingPasteboard.availableType(from: [.kelpDatabaseGroup]) != nil
     }
 
-    private var projectDatabases: [DatabaseInfo] { app.latest(DatabasesEvent.self, workspace)?.databases ?? [] }
+    private var projectDatabases: [DatabaseInfo] { listed?.databases ?? [] }
     /// The names of the project's databases. One of All My Databases whose name is among them is used here.
     var projectNames: Set<String> { Set(projectDatabases.map(\.name)) }
 

@@ -29,6 +29,13 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     private lazy var filterBar = NSStackView(views: [search])
     private let empty = EmptyStateView()
     let loading = LoadingView(rows: true)
+    /// The last read that worked, which stays on show when the next one fails.
+    private var read: ArtifactsEvent?
+    private(set) lazy var failureBar = FailureBar { [weak self] in self?.readAgain() }
+    private lazy var tryAgain = ClosureButton(title: String(localized: "Try Again")) { [weak self] in
+        self?.readAgain()
+    }
+    private func readAgain() { if let wid = app.workbench.workspaceId { app.watchAgain(.artifacts, wid) } }
     private(set) var rows: [Row] = []
     private var count = 0
     private lazy var watched = Watched(.artifacts, in: app)
@@ -60,9 +67,10 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         filterBar.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         // There's no bar on top, because the inspector's title names the panel. The filter sits over the list it
         // filters, as every panel's does, so there is one place to look for a filter.
-        let column = NSStackView(views: [filterBar, scroll])
+        let column = NSStackView(views: [failureBar, filterBar, scroll])
         column.orientation = .vertical
         column.spacing = 0
+        failureBar.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true
         let content = NSView()
         content.pin(column)
         empty.place(in: content)
@@ -80,7 +88,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
             self?.watchShown()
         }
         track(owner: self) { [app] in
-            app.latest(ArtifactsEvent.self, app.workbench.workspaceId ?? "")?.items
+            app.latest(ArtifactsEvent.self, app.workbench.workspaceId ?? "")
         } changed: { [weak self] _ in
             self?.reload()
         }
@@ -124,8 +132,8 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
     private func reload() { whenShown.run { [weak self] in self?.rebuild() } }
 
     private func rebuild() {
-        let list = app.latest(ArtifactsEvent.self, app.workbench.workspaceId ?? "")?.items
-        if list != nil, loading.showing {   // a wait on screen stays its moment, and then gives way to the answer
+        let latest = app.latest(ArtifactsEvent.self, app.workbench.workspaceId ?? "")
+        if latest != nil, loading.showing {   // a wait on screen stays its moment, and then gives way to the answer
             Task {
                 await loading.settled()
                 loading.show(nil)
@@ -133,7 +141,14 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
             }
             return
         }
-        if list != nil { loading.show(nil) }
+        if latest != nil { loading.show(nil) }
+        // A read that failed keeps the pages the last one brought for this folder, under a line that says why. With
+        // none to keep, the reason takes the list's place.
+        if let latest, latest.error == nil { read = latest }
+        let kept = read?.worktree == app.workbench.workspaceId ? read : nil
+        let failed = latest?.error
+        failureBar.show(kept == nil ? nil : failed)
+        let list = (failed == nil ? latest : kept)?.items
         let items = list ?? []
         seedSeen(items)
         count = items.count
@@ -142,9 +157,13 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         let found = items.filter { find.isEmpty || title($0, project).localizedCaseInsensitiveContains(find) }
         rows = Self.rows(found, title: { self.title($0, project) }, now: Date())
         filterBar.isHidden = count <= Self.filterFrom && find.isEmpty
-        empty.show(
-            list != nil && items.isEmpty ? String(localized: "No Artifacts Yet") : nil, symbol: "doc.richtext",
-            text: String(localized: "Pages agents make show here."), buttons: [makeButton])
+        if let failed, kept == nil {
+            empty.showError(String(localized: "Couldn't read the pages"), text: failed, buttons: [tryAgain])
+        } else {
+            empty.show(
+                list != nil && items.isEmpty ? String(localized: "No Artifacts Yet") : nil, symbol: "doc.richtext",
+                text: String(localized: "Pages agents make show here."), buttons: [makeButton])
+        }
         table.reloadData()
         markOpen()
     }

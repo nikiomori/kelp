@@ -170,7 +170,8 @@ extension Daemon {
                 [self] _ in
                 do { return (line(try await ask(DatabaseActivity(worktreeId: key))), nil) } catch {
                     Log.session.error("reading workspace \(key)'s databases: \(error)")
-                    return (nil, nil)
+                    // The panel is told, or it would wait for an answer that isn't coming.
+                    return (line(DatabasesEvent(worktree: key, databases: [], runs: [], error: error.rpcMessage)), nil)
                 }
             }
         case .machines:
@@ -356,7 +357,7 @@ extension Daemon {
             return line(ArtifactsEvent(worktree: key, items: items))
         } catch {
             Log.session.error("reading workspace \(key) for its artifacts: \(error)")
-            return nil
+            return line(ArtifactsEvent(worktree: key, items: [], error: error.rpcMessage))   // the panel is told
         }
     }
 

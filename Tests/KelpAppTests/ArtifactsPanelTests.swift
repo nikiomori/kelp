@@ -77,3 +77,30 @@ import Testing
     app.land(ArtifactsEvent(worktree: "own", items: [page]))
     #expect(try await waitFor(10) { !panel.loading.showing && panel.rows.count == 2 })
 }
+
+/// A read of the pages that fails keeps the pages read before, under a line that says why. With none read before, the
+/// reason takes the list's place, and the next read that works shows its pages.
+@MainActor @Test func aFailedReadOfThePagesIsSaidInThePanel() async throws {
+    func texts(_ view: NSView) -> [String] {
+        ((view as? NSTextField).map { [$0.stringValue] } ?? []) + view.subviews.filter { !$0.isHidden }.flatMap(texts)
+    }
+    let app = AppModel(builtins: []), folder = NSTemporaryDirectory()
+    app.repos = [Repo(id: "r", name: "Atlas", path: folder)]
+    app.worktrees = [Worktree(id: "own", repoId: "r", branch: "main", path: folder, createdAt: .distantPast)]
+    app.workbench.show(workspace: "own")
+    let panel = ArtifactsPanel(app: app)
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 300, height: 500), styleMask: [.titled], backing: .buffered, defer: true)
+    window.contentView?.addSubview(panel.view)
+    panel.viewDidAppear()
+    app.land(ArtifactsEvent(worktree: "own", items: [], error: "disk I/O error"))
+    #expect(try await waitFor(10) { texts(panel.view).contains("disk I/O error") })
+    #expect(panel.rows.isEmpty && panel.failureBar.shown == nil)
+    let page = ArtifactItem(
+        slug: "p", type: "page", title: "Plan", created: Date().timeIntervalSince1970, target: "/tmp/p.html")
+    app.land(ArtifactsEvent(worktree: "own", items: [page]))
+    #expect(try await waitFor(10) { panel.rows.count == 2 })
+    app.land(ArtifactsEvent(worktree: "own", items: [], error: "disk I/O error"))
+    #expect(try await waitFor(10) { panel.failureBar.shown == "disk I/O error" })
+    #expect(panel.rows.count == 2)
+}

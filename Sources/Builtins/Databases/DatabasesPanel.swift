@@ -33,6 +33,18 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     private let search = NSSearchField()
     private let empty = EmptyStateView()
     private let loading = LoadingView(rows: true)
+    /// The last read that worked, which stays on show when the next one fails.
+    private var read: DatabasesEvent?
+    private(set) lazy var failureBar = FailureBar { [weak self] in self?.readAgain() }
+    private lazy var tryAgain = ClosureButton(title: String(localized: "Try Again")) { [weak self] in
+        self?.readAgain()
+    }
+    private func readAgain() { app.watchAgain(.databases, workspace) }
+    /// What the list shows: the latest read, or the last one that worked while the latest failed.
+    var listed: DatabasesEvent? {
+        let latest = app.latest(DatabasesEvent.self, workspace)
+        return latest?.error == nil ? latest : read?.worktree == workspace ? read : nil
+    }
     /// The header every inspector panel has, 36 pt tall with its hairline.
     private var bar: Bar?
     var rows: [Row] = [] {
@@ -103,9 +115,10 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
         }
         let bar = Bar.panel([search], [add], stretching: search)
         self.bar = bar
-        let content = stacked(bar, scroll)
+        let top = failureBar.under(bar)
+        let content = stacked(top, scroll)
         empty.place(in: content)
-        loading.place(in: content, under: bar)
+        loading.place(in: content, under: top)
         view = content
     }
 
@@ -163,8 +176,8 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     // MARK: Rows
 
     func reload() {
-        let event = app.latest(DatabasesEvent.self, workspace)
-        if event != nil, loading.showing {   // a wait on screen stays its moment, and then gives way to the answer
+        let latest = app.latest(DatabasesEvent.self, workspace)
+        if latest != nil, loading.showing {   // a wait on screen stays its moment, and then gives way to the answer
             Task {
                 await loading.settled()
                 loading.show(nil)
@@ -172,7 +185,14 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             }
             return
         }
-        if event != nil { loading.show(nil) }
+        if latest != nil { loading.show(nil) }
+        // A read that failed keeps what the last one brought for this folder, under a line that says why. With nothing
+        // to keep, the reason takes the list's place.
+        if let latest, latest.error == nil { read = latest }
+        let kept = read?.worktree == workspace ? read : nil
+        let failed = latest?.error
+        let event = listed
+        failureBar.show(kept == nil ? nil : failed)
         let databases = event?.databases ?? [], library = event?.library ?? []
         if event != nil {
             if library.count > libraryCount { libraryOpen = true }   // one was just imported or added: show it
@@ -184,14 +204,18 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
                 find: search.stringValue.trimmingCharacters(in: .whitespaces).lowercased(), libraryOpen: libraryOpen,
                 activityOpen: activityOpen, only: only, folded: folded, health: health, libraryHealth: libraryHealth
             ).rows
-        empty.show(
-            event != nil && databases.isEmpty && library.isEmpty ? String(localized: "No Databases") : nil,
-            symbol: DatabaseLook.symbol,
-            text: String(
-                localized:
-                    "Kelp looks in compose files, .env, config/database.yml, .idea and SQLite or DuckDB files of the project."
-            ),
-            buttons: [addButton])
+        if let failed, kept == nil {
+            empty.showError(String(localized: "Couldn't read the databases"), text: failed, buttons: [tryAgain])
+        } else {
+            empty.show(
+                event != nil && databases.isEmpty && library.isEmpty ? String(localized: "No Databases") : nil,
+                symbol: DatabaseLook.symbol,
+                text: String(
+                    localized:
+                        "Kelp looks in compose files, .env, config/database.yml, .idea and SQLite or DuckDB files of the project."
+                ),
+                buttons: [addButton])
+        }
         table.reloadData()
         markOpen()
         alignSearch()
