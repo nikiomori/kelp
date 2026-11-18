@@ -54,16 +54,16 @@ actor LocalModels {
     }
 
     /// What `model` (else the first that fills in code) writes between `prefix` and `suffix`.
-    func suggest(prefix: String, suffix: String, path: String, model: String?, warm: Bool = false) async throws
-        -> String?
-    {
+    func suggest(
+        prefix: String, suffix: String, path: String, model: String?, warm: Bool = false, extra: [SuggestChunk] = []
+    ) async throws -> String? {
         let servers = await servers()
         let wanted = model.flatMap { $0.isEmpty ? nil : $0 }
         let server =
             wanted.map { name in servers.first { $0.models.contains(name) } }
             ?? servers.first { FillIn.pick($0.models) != nil }
         guard let server, let name = wanted ?? FillIn.pick(server.models),
-            let prompt = FillIn.prompt(model: name, prefix: prefix, suffix: suffix, path: path)
+            let prompt = FillIn.prompt(model: name, prefix: prefix, suffix: suffix, path: path, extra: extra)
         else { return nil }
         do {
             let request = try Self.request(server, model: name, prompt: prompt, tokens: warm ? 1 : 128)
@@ -162,7 +162,8 @@ actor LocalModels {
 
 extension EditorSuggest: AsyncHandled {
     func handle(_ lsp: LSPHost) async throws -> String? {
-        try await lsp.models.suggest(prefix: prefix, suffix: suffix, path: path, model: model, warm: warm == true)
+        try await lsp.models.suggest(
+            prefix: prefix, suffix: suffix, path: path, model: model, warm: warm == true, extra: extra ?? [])
     }
 }
 

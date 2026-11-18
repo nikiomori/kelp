@@ -115,3 +115,20 @@ func aModelOnThisMacWaitsWhileItSavesPowerOrRunsHot(
 ) {
     #expect(SuggestionPause.of(lowPower: lowPower, thermal: thermal) == pause)
 }
+
+@Test func theRingKeepsTheNewestPiecesOfOtherFilesWithinItsBudget() {
+    var ring = SuggestionRing()
+    ring.add(path: "Item.swift", text: "struct Item {\n    var price: Int\n}", from: 0)
+    ring.add(path: "Cart.swift", line: 9, before: "a\nb\nlet x = ", after: " 1\nc\nd")
+    #expect(ring.chunks.last?.text == "a\nb\nlet x =  1\nc\nd")   // the cursor's line whole, and the lines around it
+    #expect(ring.chunks.last?.lines == 7..<12)
+    #expect(ring.extra(for: "Cart.swift").map(\.path) == ["Item.swift"])   // never the file being filled in
+    #expect(ring.extra(for: "Other.swift").map(\.path) == ["Item.swift", "Cart.swift"])   // newest nearest
+    ring.add(path: "Item.swift", text: "struct Item {}", from: 1)   // overlaps the old start: replaces it
+    #expect(ring.chunks.map(\.path) == ["Cart.swift", "Item.swift"])
+    for n in 0..<20 { ring.add(path: "f\(n).swift", text: String(repeating: "x", count: 1000), from: 0) }
+    #expect(ring.chunks.count == SuggestionRing.most)
+    #expect(ring.extra(for: "z.swift").count == SuggestionRing.budget / 1000)
+    ring.add(path: "blank.swift", text: "  \n ", from: 0)
+    #expect(!ring.chunks.contains { $0.path == "blank.swift" })
+}

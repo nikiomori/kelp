@@ -5009,6 +5009,23 @@
         ],
         "type" : "object"
       },
+      "SuggestChunk" : {
+        "description" : "A piece of another file: lines around where it was edited, or its start (imports and types).",
+        "properties" : {
+          "path" : {
+            "description" : "The file's path in its project.",
+            "type" : "string"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "path",
+          "text"
+        ],
+        "type" : "object"
+      },
       "SuggestModel" : {
         "properties" : {
           "fillsIn" : {
@@ -7819,6 +7836,17 @@
       "name" : "editor.suggest",
       "paramStructure" : "by-name",
       "params" : [
+        {
+          "description" : "Code from other files lately open or edited, oldest first, for a model that reads more than one file.",
+          "name" : "extra",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SuggestChunk"
+            },
+            "type" : "array"
+          }
+        },
         {
           "description" : "The model to ask, as its server names it; nil or empty picks one that fills in code.",
           "name" : "model",

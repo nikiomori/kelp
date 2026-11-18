@@ -15,10 +15,30 @@ import Testing
         ("deepseek-coder:1.3b-base", "<｜fim▁begin｜>a<｜fim▁hole｜>b<｜fim▁end｜>"),
         ("starcoder2:3b", "<fim_prefix>a<fim_suffix>b<fim_middle>"),
         ("granite-code:3b", "<fim_prefix>a<fim_suffix>b<fim_middle>"),
-        ("hf.co/JetBrains/Mellum-4b-base-gguf", "<filename>x.swift\n<fim_suffix>b<fim_prefix>a<fim_middle>")
+        ("hf.co/JetBrains/Mellum-4b-base-gguf", "<filename>src/x.swift\n<fim_suffix>b<fim_prefix>a<fim_middle>")
     ])
     func eachFamilyHasItsOwnMarkers(model: String, text: String) {
-        #expect(FillIn.prompt(model: model, prefix: "a", suffix: "b", path: "/p/x.swift")?.text == text)
+        #expect(FillIn.prompt(model: model, prefix: "a", suffix: "b", path: "src/x.swift")?.text == text)
+    }
+
+    @Test(arguments: [
+        (
+            "qwen2.5-coder:1.5b-base",
+            "<|file_sep|>Item.swift\nstruct Item {}\n<|file_sep|>src/x.swift\n<|fim_prefix|>a<|fim_suffix|>b<|fim_middle|>"
+        ),
+        (
+            "starcoder2:3b",
+            "<file_sep>Item.swift\nstruct Item {}<file_sep><fim_prefix>src/x.swift\na<fim_suffix>b<fim_middle>"
+        ),
+        (
+            "mellum-4b-base",
+            "<filename>Item.swift\nstruct Item {}\n<filename>src/x.swift\n<fim_suffix>b<fim_prefix>a<fim_middle>"
+        ),
+        ("codestral:22b", "[SUFFIX]b[PREFIX]a")   // reads one file: the others are left out
+    ])
+    func otherFilesGoFirstForTheModelsThatReadSeveral(model: String, text: String) {
+        let extra = [SuggestChunk(path: "Item.swift", text: "struct Item {}")]
+        #expect(FillIn.prompt(model: model, prefix: "a", suffix: "b", path: "src/x.swift", extra: extra)?.text == text)
     }
 
     @Test func aChatModelOrAnUnknownOneIsntAsked() {

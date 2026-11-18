@@ -26,6 +26,8 @@ final class Suggestions {
     /// Why the model on this Mac isn't asked now, if it isn't.
     private(set) var pause = SuggestionPause.now
     @ObservationIgnored private var warmed = Date.distantPast
+    /// Code from the files lately open or edited, which goes with each suggestion asked in another file.
+    @ObservationIgnored private var ring = SuggestionRing()
 
     /// What the servers offer, in the order the daemon picks one; nil until asked.
     private(set) var models: [SuggestModel]?
@@ -84,7 +86,12 @@ final class Suggestions {
 
     /// Gives a file's editor gray text from `editor.suggest` while the setting is on (never in a file of secrets), and
     /// keeps its status bar saying which model suggests.
-    func attach(to editor: CodeEditor, bar: EditorStatusBar, path: String, language: String, owner: AnyObject) {
+    func attach(
+        to editor: CodeEditor, bar: EditorStatusBar, path: String, root: String, owner: AnyObject
+    ) {
+        let language = editor.languageId
+        // The model is told the file's path in its project, as its training data named files.
+        let name = Paths.relative(path, to: root) ?? (path as NSString).lastPathComponent
         if models == nil { Task { await refresh() } }
         editor.onSuggestion = { [weak self] taken in self?.tally { taken ? ($0.taken += 1) : ($0.shown += 1) } }
         bar.onSuggestions = { [weak self] button in self?.showCard(from: button, language: language) }
@@ -95,8 +102,11 @@ final class Suggestions {
         } changed: { [weak self, weak editor, weak bar] state in
             guard let self else { return }
             let on = state.mode != "off" && state.pause == nil && !Self.holdsSecrets(path)
-            editor?.suggestionProvider = on ? editor.map(provider) : nil
-            if on, let editor { warm(editor, path: path, named: state.named) }
+            editor?.suggestionProvider = on ? editor.map { provider(for: $0, name: name) } : nil
+            if on, let editor {
+                ring.add(path: name, text: String(editor.text.prefix(SuggestionRing.width * 2)), from: 0)
+                warm(editor, name: name, named: state.named)
+            }
             bar?.show(
                 suggestions: Self.label(
                     mode: state.mode, model: model(named: state.named), known: state.models != nil, pause: state.pause))
@@ -105,28 +115,31 @@ final class Suggestions {
 
     /// Has the model read a file just opened, so the first suggestion in it doesn't wait for the model to load. At most
     /// once a minute: a model that was asked since stays loaded for minutes.
-    private func warm(_ editor: CodeEditor, path: String, named: String) {
+    private func warm(_ editor: CodeEditor, name: String, named: String) {
         guard Date().timeIntervalSince(warmed) > 60 else { return }
         warmed = Date()
-        let suffix = String(editor.text.prefix(2000)), app = app
-        Task {
-            _ = await app.quiet(
-                EditorSuggest(prefix: "", suffix: suffix, path: path, model: named.isEmpty ? nil : named, warm: true))
-        }
+        let ask = EditorSuggest(
+            prefix: "", suffix: String(editor.text.prefix(2000)), path: name, model: named.isEmpty ? nil : named,
+            warm: true, extra: ring.extra(for: name))
+        Task { [app] in _ = await app.quiet(ask) }
     }
 
-    private func provider(for editor: CodeEditor) -> (InlineSuggestion.Context) async -> String? {
+    private func provider(for editor: CodeEditor, name: String) -> (InlineSuggestion.Context) async -> String? {
         let app = app
         return { [weak self, weak editor] context in
             // Kelp in the background asks nothing; on the battery, typing pauses longer before the next ask.
             guard NSApp.isActive else { return nil }
             editor?.suggestionDelay = .milliseconds(SuggestionPause.onBattery ? 300 : 150)
+            guard let self else { return nil }
             let named = app.settings[SettingKeys.suggestionModel], start = Date()
             let ask = EditorSuggest(
-                prefix: context.prefix, suffix: context.suffix, path: context.path, model: named.isEmpty ? nil : named)
+                prefix: context.prefix, suffix: context.suffix, path: name, model: named.isEmpty ? nil : named,
+                extra: ring.extra(for: name))
+            // These lines go with the next suggestion asked in another file.
+            ring.add(path: name, line: (editor?.cursor?.line ?? 1) - 1, before: context.prefix, after: context.suffix)
             let answer = await app.quiet(ask, timeout: EditorSuggest.timeout ?? 10) ?? nil
             if answer != nil {
-                self?.tally { $0.waits = Array(($0.waits + [Date().timeIntervalSince(start)]).suffix(50)) }
+                tally { $0.waits = Array(($0.waits + [Date().timeIntervalSince(start)]).suffix(50)) }
             }
             return answer
         }
