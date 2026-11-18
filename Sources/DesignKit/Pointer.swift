@@ -124,6 +124,20 @@ open class PointerButton: NSButton {
     }
 }
 
+extension PointerButton {
+    /// The small button that takes the place of a row's icon under the pointer: a chat's ✕, or the fold of a project,
+    /// a group or a server. It is round, as on a tab, starts hidden, and its row gives it the slot's 16 pt.
+    public static func slot(action: @escaping () -> Void) -> PointerButton {
+        let button = PointerButton(title: "", action: action)
+        button.imagePosition = .imageOnly
+        button.radius = nil   // a round fill under the pointer, 16 pt like the slot
+        button.contentTintColor = .secondaryLabelColor
+        button.symbolConfiguration = .chrome(Metrics.iconTiny)
+        button.isHidden = true
+        return button
+    }
+}
+
 /// A borderless pop-up (a panel's title words that pick what it lists). The hover grey fades in under the pointer, as
 /// a `PointerButton`'s does, and its menu answers the press.
 @MainActor

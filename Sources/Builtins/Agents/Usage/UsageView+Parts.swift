@@ -58,7 +58,7 @@ extension UsageView {
                             Text(line.label).foregroundStyle(.secondary)
                             Spacer()
                             Text(UsageView.percent(line.used)).monospacedDigit().fontWeight(.semibold).foregroundStyle(
-                                UsageView.tint(line.used, quiet: .primary))
+                                UsageView.textTint(line.used))
                         }
                         let even = pace ? line.pace() : nil
                         Bar(used: line.used, pace: even)

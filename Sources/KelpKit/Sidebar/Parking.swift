@@ -81,6 +81,7 @@ final class ParkedHeader: NSView {
         super.init(frame: .zero)
         let title = NSTextField(labelWithString: String(localized: "Parked"))
         title.font = .ui(TextSize.caption, weight: .semibold)
+        title.textColor = .secondaryLabelColor   // as "Projects" above the list
         let number = NSTextField(labelWithString: "\(count)")
         number.font = .uiDigits(TextSize.caption)
         number.textColor = .secondaryLabelColor

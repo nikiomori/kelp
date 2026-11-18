@@ -23,9 +23,8 @@ final class ServerHeader: NSTableCellView, SidebarRow {
     private let glyph = NSImageView(image: .symbol("server.rack"))
     /// The striped plate under the icon, when that is all the card shows of being elsewhere (`ServerRow.plate`).
     private let plate = NSView()
-    private lazy var fold = IconButton(.symbol("chevron.down"), tip: String(localized: "Collapse")) { [weak self] in
-        self?.row.fold()
-    }
+    /// The same round button as a project's fold (`PointerButton.slot`).
+    private lazy var fold = PointerButton.slot { [weak self] in self?.row.fold() }
 
     init(host: String, app: AppModel, row: ServerRow) {
         self.host = host
@@ -37,13 +36,11 @@ final class ServerHeader: NSTableCellView, SidebarRow {
         plate.wantsLayer = true
         plate.layer?.cornerRadius = Metrics.radiusSM
         plate.layer?.borderWidth = 1
-        title.font = .ui(TextSize.body, weight: .medium)
+        title.font = .ui(TextSize.body)   // regular, as every name in this column: semibold means news
         title.lineBreakMode = .byTruncatingTail
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         title.setContentHuggingPriority(.init(2), for: .horizontal)
         word.font = .uiDigits(TextSize.caption)
-        fold.symbolConfiguration = .chrome(Metrics.iconTiny)
-        fold.isHidden = true
         note.font = .ui(TextSize.caption)
         note.textColor = .secondaryLabelColor
         note.lineBreakMode = .byTruncatingTail

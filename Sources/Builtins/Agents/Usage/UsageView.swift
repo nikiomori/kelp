@@ -124,7 +124,7 @@ struct UsageView: View {
                                 Text(at).fixedSize().monospacedDigit().foregroundStyle(.secondary)
                             }
                             Text((row.stale ? "~" : "") + Self.percent(main.used)).fixedSize()
-                                .monospacedDigit().foregroundStyle(UsageView.tint(main.used, quiet: .primary))
+                                .monospacedDigit().foregroundStyle(UsageView.textTint(main.used))
                                 .contentTransition(.numericText(value: main.used))   // rolls as the counts do
                                 .animation(Motion.reduced ? nil : .easeOut(duration: Motion.base), value: main.used)
                         }
@@ -175,8 +175,13 @@ struct UsageView: View {
 
     static func percent(_ used: Double) -> String { "\(Int((used * 100).rounded()))%" }
 
-    static func tint(_ share: Double, quiet: Color = .secondary) -> Color {
-        share >= 0.9 ? .red : share >= 0.7 ? .orange : quiet
+    /// A limit's bar: orange from 70 %, red from 90 %.
+    static func tint(_ share: Double) -> Color { share >= 0.9 ? .red : share >= 0.7 ? .orange : .secondary }
+
+    /// The percent beside the bar, at the same steps but in the text shades, which keep 4.5:1 on a light window where
+    /// the system's red and orange don't.
+    static func textTint(_ share: Double) -> Color {
+        share >= 0.9 ? .textRed : share >= 0.7 ? .textOrange : .primary
     }
 
     private func load() {

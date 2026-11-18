@@ -64,15 +64,23 @@ extension SidebarCell {
         let st = session.shownStatus, project = app.projectName(app.worktree(session.worktreeId)?.repoId)
         let state = mark.isHidden ? nil : st.words
         let line = ask.isHidden ? nil : ask.stringValue, quiet = muted.isHidden ? nil : muted.toolTip
-        setAccessibilityElement(true)
-        setAccessibilityRole(.staticText)
-        setAccessibilityLabel(
-            [title.stringValue, state, line, quiet, project, trailing.stringValue].compactMap { $0 }.filter {
-                !$0.isEmpty
-            }
-            .joined(separator: ", "))
+        say([title.stringValue, state, line, quiet, project, trailing.stringValue])
         mark.announces = false
         for part in [title, ask, trailing] as [NSView] { part.setAccessibilityElement(false) }
+    }
+
+    /// Makes the row one sentence for VoiceOver, of the parts it has. A project's row says its name and its tooltip
+    /// with this. On a project's and a group's row the name stays a field of its own, because it is renamed in place.
+    func say(_ parts: [String?]) {
+        setAccessibilityElement(true)
+        setAccessibilityRole(.staticText)
+        setAccessibilityLabel(parts.compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", "))
+    }
+
+    /// A group's row as a sentence: "feat, Branch, 2 chats". The count is the one the row shows while it is open.
+    func speakGroup(onBranch: Bool) {
+        let chats = node.children.isEmpty ? nil : String(localized: "\(node.children.count) chats")
+        say([title.stringValue, onBranch ? String(localized: "Branch") : String(localized: "Group"), chats])
     }
 
     /// Styles the row as one line, as Mail lists mailboxes. An agent asking for you, or done and unseen, is bold
@@ -143,6 +151,7 @@ extension SidebarCell {
         if let prBadge {
             pr.attributedTitle = prBadge.title
             pr.toolTip = prBadge.tip
+            pr.setAccessibilityLabel(prBadge.tip)
         }
         let state = folder.flatMap { app.extensions.all.ci?.row($0.id) }
         ciMark.state = state

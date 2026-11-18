@@ -5289,6 +5289,17 @@
         }
       }
     },
+    "Archive Group": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить группу в архив"
+          }
+        }
+      }
+    },
     "Archived Groups": {
       "localizations": {
         "ru": {
@@ -7012,6 +7023,17 @@
         }
       }
     },
+    "Copy Chat Context": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать контекст чата"
+          }
+        }
+      }
+    },
     "Copy Commit Hash": {
       "localizations": {
         "ru": {
@@ -8630,6 +8652,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "До конца дня"
+          }
+        }
+      }
+    },
+    "Fork Chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ответвить чат"
           }
         }
       }
@@ -10262,6 +10294,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Особые"
+          }
+        }
+      }
+    },
+    "Mark Chat as Unread": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отметить чат непрочитанным"
           }
         }
       }
@@ -13246,6 +13289,39 @@
         }
       }
     },
+    "Rename Chat…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать чат…"
+          }
+        }
+      }
+    },
+    "Rename Group…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать группу…"
+          }
+        }
+      }
+    },
+    "Rename Project…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать проект…"
+          }
+        }
+      }
+    },
     "Rename Symbol": {
       "localizations": {
         "ru": {
@@ -13463,6 +13539,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Перезапустить"
+          }
+        }
+      }
+    },
+    "Restart Agent": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезапустить агента"
           }
         }
       }
@@ -20615,12 +20702,74 @@
         }
       }
     },
+    "%lld chats": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chat"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chats"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чат"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чатов"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld чата"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Bold": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Жирный"
+          }
+        }
+      }
+    },
+    "Branch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ветка"
           }
         }
       }

@@ -32,7 +32,7 @@ final class ShellSplit: NSSplitViewController {
 /// lights are (at a 6 pt inset, the lights sat on its corner with a strip of window around them).
 @MainActor
 final class Floater: NSView {
-    private static let radius: CGFloat = 12
+    private static let radius = Metrics.radiusXL
     private let inset: CGFloat
     /// What holds the panel, with the theme's colour (`tint`) under it.
     let box = NSView()

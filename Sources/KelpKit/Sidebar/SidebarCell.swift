@@ -36,16 +36,7 @@ final class SidebarCell: NSTableCellView {
     weak var rest: NSView?
     /// The small button on a row: a chat's ✕, or the fold of a project or a group. It is 16 pt and round, as on a tab,
     /// and clicks a little outside it still reach it.
-    lazy var action: PointerButton = {
-        let button = PointerButton(title: "") { [weak self] in self?.acted() }
-        button.imagePosition = .imageOnly
-        button.isBordered = false
-        button.radius = nil   // a round fill under the pointer, 16 pt like the slot
-        button.contentTintColor = .secondaryLabelColor
-        button.symbolConfiguration = .chrome(Metrics.iconTiny)
-        button.isHidden = true
-        return button
-    }()
+    lazy var action = PointerButton.slot { [weak self] in self?.acted() }
     /// Waits a moment after the pointer arrives, so moving across the list doesn't make the marks people read blink.
     let reveal = Debounce()
     /// The agent's own icon in grey after the name. It shows when the agent isn't the default one (Settings ›
@@ -230,7 +221,7 @@ final class SidebarCell: NSTableCellView {
 
     private func layout(row: [NSView]) {
         let rowStack = NSStackView(views: row)
-        rowStack.spacing = 6
+        rowStack.spacing = Metrics.gap
         rowStack.alignment = .centerY
         rowStack.detachesHiddenViews = true
         for view in row where view === changes || view === pr || view === ci || view === stack {
@@ -289,6 +280,7 @@ final class SidebarCell: NSTableCellView {
                 missing
                 ? String(localized: "\(repo?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.")
                 : repo.map(app.projectPlace)
+            say([title.stringValue, toolTip])
             // The agents' own rows and the line above the projects show who needs you. When the project is folded,
             // its row sums them up.
             locate.isHidden = !missing
@@ -316,6 +308,7 @@ final class SidebarCell: NSTableCellView {
             stack.show(collapsed ? AgentStack.chats(under: node, app) : [], app)
             fitBadges()
             toolTip = nil   // the hover card shows the workspace in full
+            speakGroup(onBranch: onBranch)
         case .agent(let sid):
             guard let session = app.session(sid) else { return }
             showIcon(session)
