@@ -20,6 +20,10 @@ final class EditorStatusBar: NSView {
     /// Install.
     private let servers = PointerButton()
     var onServers: ((NSView) -> Void)?
+    /// Names the model that suggests code, or that suggestions are off or have no model (Suggestions). A click opens
+    /// what it does today, or how to turn it on.
+    private let suggestions = PointerButton()
+    var onSuggestions: ((NSView) -> Void)?
     private let row = NSStackView()
     var onTrust: (() -> Void)?
     /// Shows how many problems the file has. A click lists the problems of every open file.
@@ -48,7 +52,7 @@ final class EditorStatusBar: NSView {
 
     init(url: URL, text: String) {
         super.init(frame: .zero)
-        for button in [indentButton, wrap, restricted, servers, problems] {
+        for button in [indentButton, wrap, restricted, servers, suggestions, problems] {
             button.font = .ui(TextSize.caption)
             button.padding = Metrics.gap
         }
@@ -75,10 +79,14 @@ final class EditorStatusBar: NSView {
         restricted.onClick = { [weak self] in self?.offerTrust() }
         servers.isHidden = true
         servers.onClick = { [weak self] in self.map { $0.onServers?($0.servers) } }
+        suggestions.isHidden = true
+        suggestions.onClick = { [weak self] in self.map { $0.onSuggestions?($0.suggestions) } }
         problems.isHidden = true
         problems.toolTip = String(localized: "Show Problems")
         problem.setContentCompressionResistancePriority(.init(100), for: .horizontal)
-        row.setViews([kind, place, problems, problem, NSView(), restricted, servers, wrap, indentButton], in: .leading)
+        row.setViews(
+            [kind, place, problems, problem, NSView(), restricted, servers, suggestions, wrap, indentButton],
+            in: .leading)
         row.spacing = 16
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         let line = NSBox()
@@ -105,6 +113,10 @@ final class EditorStatusBar: NSView {
         servers.isHidden = summary == nil
         servers.title = summary?.title ?? ""
         servers.contentTintColor = summary?.missing == true ? .textOrange : nil
+    }
+    func show(suggestions title: String?) {
+        suggestions.isHidden = title == nil
+        suggestions.title = title ?? ""
     }
     /// Adds a Markdown file's Edit / Split / Preview control, last in the bar.
     func show(modes: NSControl) {

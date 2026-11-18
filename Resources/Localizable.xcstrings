@@ -61,7 +61,47 @@
         }
       }
     },
+    "%@ is running on this Mac with %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ работает на этом Mac с моделью %2$@."
+          }
+        }
+      }
+    },
+    "%lld ms": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld мс"
+          }
+        }
+      }
+    },
+    "%lld%% · %lld of %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld%% · %2$lld из %3$lld"
+          }
+        }
+      }
+    },
     "Code suggestions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсказки кода"
+          }
+        }
+      }
+    },
+    "Code Suggestions": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -87,6 +127,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Серый текст после курсора от модели на этом Mac (Ollama, LM Studio или llama-server); ⇥ вставляет его."
+          }
+        }
+      }
+    },
+    "Install Ollama, then download a model for code:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установите Ollama и скачайте модель для кода:"
+          }
+        }
+      }
+    },
+    "No Model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет модели"
+          }
+        }
+      }
+    },
+    "No Model Found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Модель не найдена"
+          }
+        }
+      }
+    },
+    "None shown yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока ни одной"
           }
         }
       }
@@ -999,6 +1079,26 @@
         }
       }
     },
+    "Suggestions Off": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсказки выкл."
+          }
+        }
+      }
+    },
+    "Taken today": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Принято сегодня"
+          }
+        }
+      }
+    },
     "Templates": {
       "localizations": {
         "ru": {
@@ -1059,6 +1159,16 @@
         }
       }
     },
+    "This Mac · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот Mac · %@"
+          }
+        }
+      }
+    },
     "Tokens": {
       "localizations": {
         "ru": {
@@ -1079,6 +1189,16 @@
         }
       }
     },
+    "Typical wait": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обычное ожидание"
+          }
+        }
+      }
+    },
     "Used up": {
       "localizations": {
         "ru": {
@@ -1095,6 +1215,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Исчерпан · вернётся %1$@, через %2$@"
+          }
+        }
+      }
+    },
+    "Where": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Где"
           }
         }
       }

@@ -87,5 +87,16 @@ extension AppOfItsOwn {
     ("/p/keyboard.swift", false)
 ])
 func noModelIsShownAFileOfSecrets(path: String, secret: Bool) {
-    #expect(FileRules.holdsSecrets(path) == secret)
+    #expect(Suggestions.holdsSecrets(path) == secret)
+}
+
+@MainActor @Test func theStatusBarNamesTheModelOrSaysWhyThereIsNone() {
+    let qwen = SuggestModel(id: "qwen2.5-coder:1.5b-base", server: "Ollama", fillsIn: true)
+    #expect(Suggestions.label(mode: "local", model: qwen, known: true) == "qwen2.5-coder:1.5b-base")
+    #expect(Suggestions.label(mode: "off", model: qwen, known: true) == "Suggestions Off")
+    #expect(Suggestions.label(mode: "off", model: nil, known: true) == nil)   // nothing to turn on: quiet
+    #expect(Suggestions.label(mode: "local", model: nil, known: true) == "No Model")
+    #expect(Suggestions.label(mode: "local", model: nil, known: false) == nil)   // not asked yet
+    #expect(Suggestions.shortName("hf.co/bartowski/zeta-2-GGUF:Q4_K_M") == "zeta-2-GGUF:Q4_K_M")
+    #expect(Suggestions.shortName("starcoder2:latest") == "starcoder2")
 }

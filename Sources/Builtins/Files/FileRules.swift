@@ -46,33 +46,8 @@ final class FileRules {
         } changed: { [weak self] _ in
             self?.applyLooks()
         }
-        track(owner: self) { [settings = app.settings] in
-            settings[SettingKeys.suggestions, language: language]
-        } changed: { [weak self] mode in
-            self?.suggest(mode != "off")
-        }
+        Suggestions.of(app).attach(to: editor, bar: bar, path: path, language: language, owner: self)
         Task { [weak self] in await self?.readConfig() }
-    }
-
-    /// Gives the editor gray text from a model on this Mac (`editor.suggest`), never in a file of secrets.
-    private func suggest(_ on: Bool) {
-        let app = app
-        editor?.suggestionProvider =
-            on && !Self.holdsSecrets(path)
-            ? { context in
-                let model = app.settings[SettingKeys.suggestionModel]
-                let ask = EditorSuggest(
-                    prefix: context.prefix, suffix: context.suffix, path: context.path,
-                    model: model.isEmpty ? nil : model)
-                return await app.quiet(ask, timeout: EditorSuggest.timeout ?? 10) ?? nil
-            } : nil
-    }
-
-    /// Whether a file's name says it holds keys or passwords, whose text no model is shown.
-    nonisolated static func holdsSecrets(_ path: String) -> Bool {
-        let name = (path as NSString).lastPathComponent.lowercased()
-        return name.hasPrefix(".env") || name.hasPrefix("id_") || name.hasSuffix(".pem") || name.hasSuffix(".key")
-            || name.hasSuffix(".p12") || name == ".netrc" || name == "credentials"
     }
 
     /// Parses a list of columns such as `"80, 120"`, as Settings stores it.

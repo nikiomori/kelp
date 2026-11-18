@@ -18,6 +18,12 @@ extension CodeEditor {
         set { suggestion.delay = newValue }
     }
 
+    /// Told when a suggestion first shows (false) and when ⇥ or ⌥→ takes some of it (true, once per suggestion).
+    public var onSuggestion: ((_ taken: Bool) -> Void)? {
+        get { suggestion.onEvent }
+        set { suggestion.onEvent = newValue }
+    }
+
     /// Whether gray text is showing now.
     public var isSuggesting: Bool { suggestion.shown != nil }
 
@@ -76,8 +82,12 @@ extension CodeEditor {
         return true
     }
 
+    /// Puts in `text`, the start of what shows: what's left of it goes on showing, as if typed (`typedThrough`).
     private func accept(_ text: String, at location: Int) {
-        dropSuggestion()
+        if !suggestion.taken {
+            suggestion.taken = true
+            suggestion.onEvent?(true)
+        }
         textView.replace([NSRange(location: location, length: 0)], with: [text])
         textView.setSelectedRange(NSRange(location: location + (text as NSString).length, length: 0))
     }
@@ -118,6 +128,8 @@ extension CodeEditor {
                     raw, rest: ask.rest, below: ask.below, indent: InlineSuggestion.indent(of: ask.context.prefix))
             else { return }
             show(text, at: ask.at)
+            suggestion.taken = false
+            suggestion.onEvent?(false)
         }
     }
 
@@ -140,6 +152,9 @@ struct SuggestionState {
     var task: Task<Void, Never>?
     var shown: Shown?
     var view: GhostTextView?
+    var onEvent: ((Bool) -> Void)?
+    /// Whether ⇥ or ⌥→ took some of the suggestion that shows.
+    var taken = false
     /// Counts edits, so an answer to text that has changed since is thrown away.
     var edits = 0
 }

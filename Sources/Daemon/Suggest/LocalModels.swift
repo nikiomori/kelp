@@ -46,7 +46,8 @@ actor LocalModels {
                     fillsIn: FillIn.prompt(model: $0, prefix: "", suffix: "", path: "") != nil)
             }
         }
-        return all.filter(\.fillsIn) + all.filter { !$0.fillsIn }
+        let able = all.filter(\.fillsIn), base = { (m: SuggestModel) in m.id.lowercased().contains("base") }
+        return able.filter(base) + able.filter { !base($0) } + all.filter { !$0.fillsIn }   // the order `pick` takes
     }
 
     /// What `model` (else the first that fills in code) writes between `prefix` and `suffix`.

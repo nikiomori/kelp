@@ -7858,7 +7858,7 @@
       "x-internal" : true
     },
     {
-      "description" : "The models the servers running on this Mac offer, those that fill in code first.",
+      "description" : "The models the servers running on this Mac offer, in the order a model is picked when none is named: those that fill in code first, a base one before a chat-tuned one.",
       "name" : "editor.suggestModels",
       "paramStructure" : "by-name",
       "params" : [

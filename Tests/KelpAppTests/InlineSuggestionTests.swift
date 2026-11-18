@@ -102,12 +102,17 @@ extension OneAtATime {
         let (e, tv) = suggesting("x = ", answer: "price * count")
         type(tv, " ")
         #expect(try await settled(e))
+        var events: [Bool] = []
+        e.onSuggestion = { events.append($0) }
         tv.doCommand(by: #selector(NSResponder.moveWordRight(_:)))
         #expect(tv.string == "x =  price")
-        #expect(try await settled(e))
+        #expect(e.isSuggesting)   // the rest still shows, as if typed
+        tv.doCommand(by: #selector(NSResponder.moveWordRight(_:)))
+        #expect(tv.string == "x =  price *")
+        #expect(events == [true])   // taken once, however many words
         tv.doCommand(by: #selector(NSResponder.cancelOperation(_:)))
         #expect(!e.isSuggesting)
-        #expect(tv.string == "x =  price")
+        #expect(tv.string == "x =  price *")   // Esc keeps what was taken
     }
 
     @Test func movingTheCursorOrTextAfterItAsksNothing() async throws {

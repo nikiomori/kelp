@@ -18,7 +18,8 @@ public struct EditorSuggest: InternalMethod {
     }
 }
 
-/// The models the servers running on this Mac offer, those that fill in code first.
+/// The models the servers running on this Mac offer, in the order a model is picked when none is named: those that fill
+/// in code first, a base one before a chat-tuned one.
 public struct EditorSuggestModels: InternalMethod {
     public static let name = "editor.suggestModels"
     public typealias Result = [SuggestModel]
