@@ -173,4 +173,16 @@ import Testing
     func anErrorAnswerSaysWhatWentWrong(status: Int, problem: SuggestProblem) {
         #expect(LocalModels.problem(status: status) == problem)
     }
+
+    @Test func aDownloadReadsOllamasLinesAndStopsWhenNothingListens() async throws {
+        let step = try LocalModels.step(
+            Data(#"{"status":"pulling 1a2b","digest":"x","total":1000,"completed":420}"#.utf8))
+        #expect(step.completed == 420 && step.total == 1000 && step.error == nil)
+        #expect(try LocalModels.step(Data(#"{"error":"pull model manifest: file does not exist"}"#.utf8)).error != nil)
+        let models = LocalModels(known: [], ollama: URL(string: "http://127.0.0.1:9"), waits: 1)   // nothing listens
+        await #expect(throws: RPCError.self) { try await models.pull(EditorSuggestPull(model: "m").model, conn: 0) }
+        let (d, c, _) = try daemon()
+        defer { d.stop() }
+        _ = try await c.call(EditorSuggestPullCancel())   // none going on: nothing to stop
+    }
 }

@@ -12,40 +12,97 @@ struct SuggestionsCard: View {
     let close: () -> Void
     private var app: AppModel { suggestions.app }
 
+    /// Whether the card shows every model to pick from (Other Models…).
+    @State private var listing = false
+
     var body: some View {
         let mode = app.settings[SettingKeys.suggestions, language: language]
         let named = app.settings[SettingKeys.suggestionModel]
         let model = suggestions.model(named: named)
         VStack(alignment: .leading, spacing: Metrics.inset) {
-            if mode != "off", let problem = suggestions.problem, problem != .keyMissing,
+            if listing {
+                title(String(localized: "Code Suggestions"))
+                SuggestionsList(suggestions: suggestions)
+                buttons(String(localized: "Done")) { listing = false }
+            } else if let pull = suggestions.pull {
+                pullCard(pull)
+            } else if let setup = suggestions.needsOllama {
+                ollamaCard(setup)
+            } else if let error = suggestions.setupError {
+                title(String(localized: "Couldn't Get the Model"))
+                Text(error).foregroundStyle(.secondary)
+                otherModels()
+                buttons(String(localized: "Try Again")) { Task { await suggestions.turnOn() } }
+            } else if mode != "off", let problem = suggestions.problem, problem != .keyMissing,
                 let status = suggestions.status(language: language, secret: false), status.needsYou
             {
                 problemCard(problem, title: status.text, named: named)
             } else if mode == "cloud", let cloud = SuggestCloud(rawValue: app.settings[SettingKeys.suggestionCloud]) {
                 cloudCard(cloud, named: named)
-            } else if let model, mode == "off" {
-                title(String(localized: "Code Suggestions"))
-                Text("\(model.server) is running on this Mac with \(model.id).").foregroundStyle(.secondary)
-                buttons(String(localized: "Turn On")) { app.settings.set(SettingKeys.suggestions, "local") }
-            } else if let model {
+            } else if let model, mode != "off" {
                 title(Suggestions.shortName(model.id))
                 if let pause = suggestions.pause { Text(pause.reason).foregroundStyle(.secondary) }
                 facts(String(localized: "This Mac · \(model.server)"))
+                otherModels()
                 buttons(String(localized: "Turn Off"), prominent: false) {
                     app.settings.set(SettingKeys.suggestions, "off")
                 }
             } else {
-                title(String(localized: "No Model Found"))
-                Text("Install Ollama, then download a model for code:").foregroundStyle(.secondary)
-                Text(verbatim: "ollama pull qwen2.5-coder:1.5b-base").font(.uiMono(TextSize.caption))
-                    .textSelection(.enabled)
-                buttons(String(localized: "Try Again")) { Task { await suggestions.refresh() } }
+                offCard(model)
             }
         }
         .font(.ui(TextSize.row))
         .padding(Metrics.inset)
-        .frame(width: 300, alignment: .leading)
+        .frame(width: 320, alignment: .leading)
         .task { await suggestions.refresh() }
+    }
+
+    /// Off, or on with no model yet: one button that gets it going.
+    @ViewBuilder private func offCard(_ model: SuggestModel?) -> some View {
+        let recommended = Suggestions.recommended()
+        title(String(localized: "Code Suggestions"))
+        Text("Gray text as you type, from a model on this Mac. Your code stays on it.").foregroundStyle(.secondary)
+        if model == nil {
+            Text("Kelp gets \(Suggestions.shortName(recommended.id)) (\(recommended.size)) through Ollama.")
+                .foregroundStyle(.secondary)
+        }
+        otherModels()
+        buttons(String(localized: "Turn On")) { Task { await suggestions.turnOn() } }
+    }
+
+    private func pullCard(_ pull: Suggestions.Pull) -> some View {
+        let bytes = { (count: Int) in ByteCountFormatter.string(fromByteCount: Int64(count), countStyle: .file) }
+        return Group {
+            title(String(localized: "Getting \(Suggestions.shortName(pull.model))"))
+            Text("Ollama downloads it into its own folder.").foregroundStyle(.secondary)
+            ProgressView(value: Double(pull.completed), total: Double(max(pull.total, 1)))
+            Text(pull.total == 0 ? String(localized: "Starting…") : "\(bytes(pull.completed)) / \(bytes(pull.total))")
+                .font(.ui(TextSize.caption)).monospacedDigit().foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button(String(localized: "Cancel")) { suggestions.cancelDownload() }
+            }
+        }
+    }
+
+    @ViewBuilder private func ollamaCard(_ setup: Suggestions.OllamaSetup) -> some View {
+        title(String(localized: "Ollama Runs the Model"))
+        Text(
+            setup == .homebrew
+                ? String(
+                    localized: "Ollama runs code models on this Mac. Kelp installs it with Homebrew in a terminal tab.")
+                : String(localized: "Ollama runs code models on this Mac. Download it, then Turn On again.")
+        ).foregroundStyle(.secondary)
+        otherModels()
+        buttons(setup == .homebrew ? String(localized: "Install Ollama") : String(localized: "Download Ollama")) {
+            close()
+            suggestions.installOllama()
+        }
+    }
+
+    /// Every model to pick from, the cloud's too.
+    private func otherModels() -> some View {
+        Button(String(localized: "Other Models…")) { listing = true }.buttonStyle(.link)
     }
 
     @ViewBuilder private func cloudCard(_ cloud: SuggestCloud, named: String) -> some View {

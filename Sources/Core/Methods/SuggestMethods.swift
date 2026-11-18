@@ -107,3 +107,32 @@ public struct SuggestModel: Codable, Sendable, Equatable {
         self.fillsIn = fillsIn
     }
 }
+
+/// Has Ollama download `model` through its own API into its own folder, waiting up to 30 s for Ollama to start first
+/// (an app just opened). Progress comes to the caller as `SuggestPullEvent`s; Ollama's error is thrown.
+public struct EditorSuggestPull: InternalMethod {
+    public static let name = "editor.suggestPull"
+    public typealias Result = Done
+    /// A model is a gigabyte or more: it takes as long as it takes, and Cancel ends it.
+    public static var timeout: TimeInterval? { nil }
+    public var model: String
+    public init(model: String) { self.model = model }
+}
+
+/// Stops the download `editor.suggestPull` started.
+public struct EditorSuggestPullCancel: InternalMethod {
+    public static let name = "editor.suggestPullCancel"
+    public typealias Result = Done
+    public init() {}
+}
+
+/// How far Ollama's download of a model has come, in bytes, a few times a second.
+public struct SuggestPullEvent: RPCEvent {
+    public static let name = "event.suggestPull"
+    public var model: String, completed: Int, total: Int
+    public init(model: String, completed: Int, total: Int) {
+        self.model = model
+        self.completed = completed
+        self.total = total
+    }
+}

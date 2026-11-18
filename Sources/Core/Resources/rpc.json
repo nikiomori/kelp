@@ -5084,6 +5084,26 @@
         ],
         "type" : "string"
       },
+      "SuggestPullEvent" : {
+        "description" : "How far Ollama's download of a model has come, in bytes, a few times a second.",
+        "properties" : {
+          "completed" : {
+            "type" : "integer"
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "total" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "completed",
+          "model",
+          "total"
+        ],
+        "type" : "object"
+      },
       "TailscaleSteps" : {
         "description" : "Tailscale's setup steps on this Mac, as Kelp last checked them: installed, signed in, and serving the page (which needs the tailnet's HTTPS certificates).",
         "properties" : {
@@ -7987,6 +8007,42 @@
             "$ref" : "#/components/schemas/SuggestModel"
           },
           "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Has Ollama download `model` through its own API into its own folder, waiting up to 30 s for Ollama to start first (an app just opened). Progress comes to the caller as `SuggestPullEvent`s; Ollama's error is thrown.",
+      "name" : "editor.suggestPull",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "model",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Stops the download `editor.suggestPull` started.",
+      "name" : "editor.suggestPullCancel",
+      "paramStructure" : "by-name",
+      "params" : [
+
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
         }
       },
       "x-internal" : true
@@ -14623,6 +14679,13 @@
       "name" : "event.subagents",
       "params" : {
         "$ref" : "#/components/schemas/SubagentsEvent"
+      }
+    },
+    {
+      "description" : "How far Ollama's download of a model has come, in bytes, a few times a second.",
+      "name" : "event.suggestPull",
+      "params" : {
+        "$ref" : "#/components/schemas/SuggestPullEvent"
       }
     },
     {

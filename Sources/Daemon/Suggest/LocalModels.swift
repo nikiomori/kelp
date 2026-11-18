@@ -17,11 +17,25 @@ actor LocalModels {
     /// Where each server listens unless told otherwise.
     static let defaults: [Place] = [("Ollama", 11434, true), ("LM Studio", 1234, false), ("llama-server", 8080, false)]
     private let known: [Place]
-    init(known: [Place] = defaults) { self.known = known }
+    /// Who hears a model's download (`SuggestPullEvent`); none in tests.
+    let clients: Clients?
+    /// The download going on, which Cancel stops.
+    var pulling: Task<Void, any Error>?
+    /// Where Ollama listens for a download, and how many half seconds it's waited for when just opened.
+    let ollama: URL?, waits: Int
+    init(
+        known: [Place] = defaults, clients: Clients? = nil, ollama: URL? = URL(string: "http://127.0.0.1:11434"),
+        waits: Int = 60
+    ) {
+        self.known = known
+        self.clients = clients
+        self.ollama = ollama
+        self.waits = waits
+    }
     /// How long what was found is trusted: a server started meanwhile is seen this much later.
     private static let fresh: TimeInterval = 30
     private var found: (servers: [Server], at: Date)?
-    private let http = URLSession(configuration: .ephemeral)
+    let http = URLSession(configuration: .ephemeral)
     /// Kept for the cloud's answers, so its connection stays open and each keystroke's ask skips a new TLS handshake.
     let cloudHTTP = URLSession(configuration: .ephemeral)
     /// The Ollama model last asked, which a memory warning has Ollama put away at once (it would keep it 5 minutes).
@@ -42,6 +56,9 @@ actor LocalModels {
         found = servers.isEmpty ? nil : (servers, Date())   // none: look again at once, a server may just be starting
         return servers
     }
+
+    /// Forgets what was found, so the next ask looks again (a model was just downloaded).
+    func forget() { found = nil }
 
     func models() async -> [SuggestModel] {
         let all = await servers().flatMap { server in
@@ -192,6 +209,7 @@ extension EditorSuggestModels: AsyncHandled {
 
 extension Methods {
     static let suggestMethods: [any Answered.Type] = [
-        EditorSuggest.self, EditorSuggestModels.self, EditorSuggestKey.self
+        EditorSuggest.self, EditorSuggestModels.self, EditorSuggestKey.self, EditorSuggestPull.self,
+        EditorSuggestPullCancel.self
     ]
 }

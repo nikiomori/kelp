@@ -121,6 +121,16 @@
         }
       }
     },
+    "%@ · key saved": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · ключ сохранён"
+          }
+        }
+      }
+    },
     "%@ · Loading…": {
       "localizations": {
         "ru": {
@@ -171,6 +181,16 @@
         }
       }
     },
+    "address, model, key": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "адрес, модель, ключ"
+          }
+        }
+      }
+    },
     "API Key for %@": {
       "localizations": {
         "ru": {
@@ -187,6 +207,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сменить ключ…"
+          }
+        }
+      }
+    },
+    "Cloud": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Облако"
           }
         }
       }
@@ -251,6 +281,26 @@
         }
       }
     },
+    "Couldn't Get the Model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось получить модель"
+          }
+        }
+      }
+    },
+    "Download Ollama": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачать Ollama"
+          }
+        }
+      }
+    },
     "Empty: the first code model on this Mac, or the cloud provider's own.": {
       "localizations": {
         "ru": {
@@ -271,6 +321,26 @@
         }
       }
     },
+    "Get": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачать"
+          }
+        }
+      }
+    },
+    "Getting %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачивается %@"
+          }
+        }
+      }
+    },
     "Gray text after the cursor from a model on this Mac or in the cloud; ⇥ puts it in.": {
       "localizations": {
         "ru": {
@@ -281,12 +351,32 @@
         }
       }
     },
+    "Gray text as you type, from a model on this Mac. Your code stays on it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серый текст при наборе от модели на этом Mac. Код никуда не уходит."
+          }
+        }
+      }
+    },
     "In the Cloud": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "В облаке"
+          }
+        }
+      }
+    },
+    "Install Ollama": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установить Ollama"
           }
         }
       }
@@ -307,6 +397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Он хранится в вашей связке ключей, а не в settings.json."
+          }
+        }
+      }
+    },
+    "Kelp gets %@ (%@) through Ollama.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp скачает %1$@ (%2$@) через Ollama."
           }
         }
       }
@@ -893,6 +993,46 @@
         }
       }
     },
+    "Ollama downloads it into its own folder.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama скачивает её в свою папку."
+          }
+        }
+      }
+    },
+    "Ollama runs code models on this Mac. Download it, then Turn On again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama запускает модели для кода на этом Mac. Скачайте её и снова нажмите «Включить»."
+          }
+        }
+      }
+    },
+    "Ollama runs code models on this Mac. Kelp installs it with Homebrew in a terminal tab.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama запускает модели для кода на этом Mac. Kelp установит её через Homebrew во вкладке терминала."
+          }
+        }
+      }
+    },
+    "Ollama Runs the Model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Модель запускает Ollama"
+          }
+        }
+      }
+    },
     "on %@": {
       "localizations": {
         "ru": {
@@ -939,6 +1079,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "сервер, совместимый с OpenAI"
+          }
+        }
+      }
+    },
+    "Other Models…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другие модели…"
           }
         }
       }
@@ -1309,6 +1459,16 @@
         }
       }
     },
+    "recommended · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "рекомендуем · %@"
+          }
+        }
+      }
+    },
     "Run in Dev Container": {
       "localizations": {
         "ru": {
@@ -1325,6 +1485,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Можно удалить"
+          }
+        }
+      }
+    },
+    "Save Key": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить ключ"
           }
         }
       }
@@ -2217,6 +2387,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Xcode соберёт заново"
+          }
+        }
+      }
+    },
+    "Your Server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свой сервер"
           }
         }
       }

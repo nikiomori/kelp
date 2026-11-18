@@ -32,8 +32,21 @@ final class Suggestions {
     /// What the servers offer, in the order the daemon picks one; nil until asked.
     private(set) var models: [SuggestModel]?
     /// Why the last ask brought nothing, until one brings something; and whether one has waited past a second.
-    private(set) var problem: SuggestProblem?
+    var problem: SuggestProblem?
     private(set) var loading = false
+    /// Turn On's way to a model: one Ollama is downloading, what it still needs, or why it stopped.
+    var pull: Pull?
+    var needsOllama: OllamaSetup?
+    var setupError: String?
+
+    struct Pull: Equatable {
+        let model: String
+        var completed = 0, total = 0
+        var cancelled = false
+    }
+
+    /// No Ollama on this Mac: whether Homebrew can install it in a terminal tab, or the person downloads it.
+    enum OllamaSetup: Equatable { case homebrew, download }
     @ObservationIgnored private var asking = false
     private(set) var today = Tally()
 
@@ -97,6 +110,10 @@ final class Suggestions {
                 action: String(localized: "Save"), placeholder: String(localized: "Paste the key")),
             !key.isEmpty
         else { return }
+        await saveKey(key, for: cloud)
+    }
+
+    func saveKey(_ key: String, for cloud: SuggestCloud) async {
         if let saved = await app.call(EditorSuggestKey(cloud: cloud, key: key)) {
             keys[cloud] = saved
             problem = nil

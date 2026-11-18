@@ -193,3 +193,9 @@ func aModelOnThisMacWaitsWhileItSavesPowerOrRunsHot(
     ring.add(path: "blank.swift", text: "  \n ", from: 0)
     #expect(!ring.chunks.contains { $0.path == "blank.swift" })
 }
+
+@Test func theModelRecommendedFitsTheMacsMemory() {
+    #expect(Suggestions.recommended(memory: 16 << 30).id == "qwen2.5-coder:1.5b-base")
+    #expect(Suggestions.recommended(memory: 24 << 30).id == "qwen2.5-coder:1.5b-base")
+    #expect(Suggestions.recommended(memory: 32 << 30).id == "qwen2.5-coder:7b-base")
+}
