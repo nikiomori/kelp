@@ -27,34 +27,29 @@ struct ServerSide: View {
         (stats.tmux ?? []).filter { t in t.session.flatMap(app.session).map { $0.status == .exited } ?? true }
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Agents").sectionHeading()
-            if agents.isEmpty { Text("No agents on \(host) now.").quietNote() }
-            ForEach(agents, id: \.id) { s in agentRow(s) }
-            if !leftRunning.isEmpty {
-                Text("Still Running in tmux").sectionHeading().padding(.top, Metrics.gapWide)
-                ForEach(leftRunning, id: \.name) { t in tmuxRow(t) }
-            }
-            if let containers = stats.containers, !containers.isEmpty {
-                HStack(spacing: Metrics.gap) {
-                    Text("Containers").sectionTitle()
-                    Text(verbatim: "\(containers.count)").font(.ui(TextSize.caption)).monospacedDigit().foregroundStyle(
-                        .tertiary)
-                }
-                .frame(height: Metrics.rowSection, alignment: .bottom).padding(.top, Metrics.gapWide)
-                ForEach(containers, id: \.name) { c in containerRow(c) }
-            }
-            if let ports = stats.ports, !ports.isEmpty {
-                Text("Listening").sectionHeading().padding(.top, Metrics.gapWide)
-                ForEach(ports, id: \.port) { p in
-                    PortRow(
-                        port: p, forwardedTo: forwarded[p.port], open: { open(port: $0) }, forward: { forward(p.port) })
-                }
-            }
-            Text("Projects").sectionHeading().padding(.top, Metrics.gapWide)
-            ForEach(projects, id: \.id) { r in projectRow(r) }
+    var body: some View { SectionList(sections) }
+
+    /// The column's lists, each under its title: a list with nothing in it is left out, but for the agents (whose
+    /// absence is worth saying) and the projects.
+    private var sections: [SectionList.Section] {
+        var all = [
+            SectionList.Section(
+                id: "agents", title: String(localized: "Agents"), rows: agents.map(agentRow),
+                note: String(localized: "No agents on \(host) now."))
+        ]
+        if !leftRunning.isEmpty {
+            all.append(
+                .init(id: "tmux", title: String(localized: "Still Running in tmux"), rows: leftRunning.map(tmuxRow)))
         }
+        if let containers = stats.containers, !containers.isEmpty {
+            all.append(
+                .init(id: "containers", title: String(localized: "Containers"), rows: containers.map(containerRow)))
+        }
+        if let ports = stats.ports, !ports.isEmpty {
+            all.append(.init(id: "ports", title: String(localized: "Listening"), rows: ports.map(portRow)))
+        }
+        all.append(.init(id: "projects", title: String(localized: "Projects"), rows: projects.map(projectRow)))
+        return all
     }
 
     /// What a session's processes on the server take together.
@@ -65,83 +60,91 @@ struct ServerSide: View {
         return String(format: "%.1f%%", cpu) + " · " + bytes(memory)
     }
 
-    private func agentRow(_ session: Session) -> some View {
-        Button {
-            app.workbench.focus(session: session.id)
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    StatusIcon(status: session.markStatus, of: session)
-                    Text(app.catalog.displayName(session)).font(.ui(TextSize.row)).lineLimit(1)
-                    Spacer(minLength: 6)
-                    if let usage = cost(session.id) {
-                        Text(usage).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
-                    }
-                }
-                if session.status == .waiting, !session.summary.isEmpty {
-                    (Text("Asks: ").foregroundColor(Color(nsColor: .textOrange))
-                        + Text(session.summary).foregroundColor(.secondary))
-                        .font(.ui(TextSize.caption)).lineLimit(1).padding(.leading, 18)
-                }
-            }
-            .padding(.horizontal, 6).padding(.vertical, 4)
-            .contentShape(Rectangle())
+    private func agentRow(_ session: Session) -> SectionList.Row {
+        let app = app
+        var row = SectionList.Row(id: "agent " + session.id, title: app.catalog.displayName(session))
+        row.icon = { NSHostingView(rootView: StatusIcon(status: session.markStatus, of: session)) }
+        // The mark's own state: it moves while the row's words stay.
+        row.iconKey = [
+            "\(session.markStatus)", "\(session.limitHit != nil)", "\(session.compacting)",
+            "\(session.waitsForCommand)", "\(session.guessed == true)", "\(session.progress ?? -1)"
+        ].joined(separator: " ")
+        row.trailing = cost(session.id)
+        if session.status == .waiting, !session.summary.isEmpty {
+            row.lead = String(localized: "Asks:")
+            row.detail = session.summary
         }
-        .buttonStyle(PointerButtonStyle())
+        row.click = { app.workbench.focus(session: session.id) }
+        return row
     }
 
-    private func tmuxRow(_ tmux: HostStats.TmuxSession) -> some View {
-        let session = tmux.session.flatMap(app.session)
-        return HStack(spacing: 6) {
-            Image(systemName: "moon").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary).frame(width: 14)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.map(app.catalog.displayName) ?? tmux.name).font(.ui(TextSize.row)).lineLimit(1)
-                Text(
-                    session == nil
-                        ? String(localized: "Not started by this Kelp · \(tmux.name)")
-                        : String(localized: "Closed in Kelp, still running")
-                )
-                .font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
-            }
-            Spacer(minLength: 6)
-            if let session {
-                Button(String(localized: "Open")) { app.workbench.focus(session: session.id) }.controlSize(.small)
-            }
+    private func tmuxRow(_ tmux: HostStats.TmuxSession) -> SectionList.Row {
+        let app = app, session = tmux.session.flatMap(app.session)
+        var row = SectionList.Row(id: "tmux " + tmux.name, title: session.map(app.catalog.displayName) ?? tmux.name)
+        row.icon = SectionList.symbol("moon")
+        row.detail =
+            session == nil
+            ? String(localized: "Not started by this Kelp · \(tmux.name)")
+            : String(localized: "Closed in Kelp, still running")
+        if let session {
+            row.button = .init(String(localized: "Open")) { app.workbench.focus(session: session.id) }
+            row.open = row.button?.run
         }
-        .padding(.horizontal, 6).frame(minHeight: Metrics.rowTwoLine)
+        return row
     }
 
     /// A container's row: its name, how long it has been up, the ports it publishes, and what it takes. Its log is a
-    /// right-click away.
-    private func containerRow(_ container: HostStats.Container) -> some View {
+    /// right-click away, or Return.
+    private func containerRow(_ container: HostStats.Container) -> SectionList.Row {
+        let app = app, host = host
         let line = [
             container.seconds.map { String(localized: "up \(shortSpan(Double($0), units: 2))") },
             container.ports.isEmpty ? nil : container.ports.map(String.init).joined(separator: ", ")
         ].compactMap { $0 }.joined(separator: " · ")
-        return HStack(spacing: 6) {
-            Image(systemName: "shippingbox").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary).frame(
-                width: 14)
-            VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                Text(container.name).font(.ui(TextSize.row)).lineLimit(1)
-                if !line.isEmpty {
-                    Text(line).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
-                }
-            }
-            Spacer(minLength: 6)
-            if let memory = container.memory {
-                Text(bytes(memory)).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
-            }
+        var row = SectionList.Row(id: "container " + container.name, title: container.name)
+        row.icon = SectionList.symbol("shippingbox")
+        row.detail = line.isEmpty ? nil : line
+        row.trailing = container.memory.map { bytes($0) }
+        let log = SectionList.Action(String(localized: "Show Log")) {
+            ServerActions.runOnServer(
+                app, host, command: "docker logs -f --tail 200 \(ShellQuote.word(container.name))",
+                title: container.name)
         }
-        .padding(.horizontal, 6).frame(minHeight: Metrics.rowTwoLine)
-        .contentShape(Rectangle())
-        .contextMenu {
-            Button(String(localized: "Show Log")) {
-                ServerActions.runOnServer(
-                    app, host, command: "docker logs -f --tail 200 \(ShellQuote.word(container.name))",
-                    title: container.name)
+        row.menu = [log, .init(String(localized: "Copy Name")) { copyText(container.name) }]
+        row.open = log.run
+        return row
+    }
+
+    /// A port something listens on: what listens (its container, or its program when ss says), and where it's
+    /// reached. Forward stays shown on a port the server keeps to itself, because that is the only way to reach it
+    /// from here. On a port open to all, Forward shows under the pointer, and it never shows on ssh's own port. Once
+    /// the port is forwarded, the row shows the port here, which opens in a click.
+    private func portRow(_ port: HostStats.Port) -> SectionList.Row {
+        var row = SectionList.Row(id: "port \(port.port)", title: port.container ?? port.process ?? "")
+        row.key = "\(port.port)"
+        if port.container != nil { row.icon = SectionList.symbol("shippingbox") }
+        row.tip =
+            port.local ? String(localized: "Only this server reaches it") : String(localized: "Open on all addresses")
+        if let here = forwarded[port.port] {
+            row.link = .init("localhost:\(here)", tip: String(localized: "Open in the browser beside you")) {
+                open(port: here)
             }
-            Button(String(localized: "Copy Name")) { copyText(container.name) }
+            row.open = row.link?.run
+            return row
         }
+        if !port.local || port.port == 22 {
+            row.trailing = port.local ? String(localized: "this server only") : String(localized: "all addresses")
+        }
+        if port.port != 22 {
+            row.button = .init(
+                String(localized: "Forward"), tip: String(localized: "Reach it from this Mac as localhost")
+            ) {
+                forward(port.port)
+            }
+            row.onHover = !port.local
+            row.open = row.button?.run
+        }
+        return row
     }
 
     private func open(port here: Int) {
@@ -150,24 +153,17 @@ struct ServerSide: View {
         }
     }
 
-    private func projectRow(_ repo: Repo) -> some View {
-        Button {
+    private func projectRow(_ repo: Repo) -> SectionList.Row {
+        let app = app
+        var row = SectionList.Row(id: "project " + repo.id, title: repo.name)
+        row.icon = SectionList.symbol("folder")
+        row.trailing = RemoteHost.of(repo.path)?.path
+        row.click = {
             if let workspace = mainWorkspace(of: repo, among: app.worktrees) {
                 app.workbench.show(workspace: workspace.id)
             }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "folder").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary).frame(
-                    width: 14)
-                Text(repo.name).font(.ui(TextSize.row))
-                Spacer(minLength: 6)
-                Text(RemoteHost.of(repo.path)?.path ?? "").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.head)
-            }
-            .padding(.horizontal, 6).frame(height: Metrics.row).contentShape(Rectangle())
         }
-        .buttonStyle(PointerButtonStyle())
+        return row
     }
 
     private func forward(_ port: Int) {
@@ -178,46 +174,5 @@ struct ServerSide: View {
                 app.part { ServerForwards() }.ports[host, default: [:]][port] = here
             }
         }
-    }
-}
-
-/// A port something listens on: what listens (its container, or its program when ss says), and where it's reached.
-/// Forward stays shown on a port the server keeps to itself, because that is the only way to reach it from here. On a
-/// port open to all, Forward shows under the pointer, and it never shows on ssh's own port. Once the port is
-/// forwarded, the row shows the port here, which opens in a click.
-private struct PortRow: View {
-    let port: HostStats.Port, forwardedTo: Int?
-    let open: (Int) -> Void, forward: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Text(verbatim: "\(port.port)").font(.ui(TextSize.row).monospacedDigit()).frame(
-                width: 40, alignment: .leading)
-            if let container = port.container {
-                Image(systemName: "shippingbox").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary)
-                Text(container).font(.ui(TextSize.row)).lineLimit(1).truncationMode(.middle)
-            } else if let process = port.process {
-                Text(process).font(.ui(TextSize.row)).lineLimit(1)
-            }
-            Spacer(minLength: 6)
-            if let here = forwardedTo {
-                Button("localhost:\(here)") { open(here) }
-                    .buttonStyle(PointerButtonStyle()).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(
-                        Color.accentColor
-                    )
-                    .help(String(localized: "Open in the browser beside you"))
-            } else if port.port != 22, port.local || hovering {
-                Button(String(localized: "Forward")) { forward() }.controlSize(.small)
-                    .help(String(localized: "Reach it from this Mac as localhost"))
-            } else {
-                Text(port.local ? String(localized: "this server only") : String(localized: "all addresses"))
-                    .font(.ui(TextSize.caption)).foregroundStyle(.tertiary).lineLimit(1)
-            }
-        }
-        .padding(.horizontal, 6).frame(height: Metrics.row)
-        .hoverRow($hovering)
-        .help(
-            port.local ? String(localized: "Only this server reaches it") : String(localized: "Open on all addresses"))
     }
 }

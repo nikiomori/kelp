@@ -163,7 +163,10 @@ final class ServerHeader: NSTableCellView, SidebarRow {
         let load = ServerReading.load(stats)
         return [
             serverLine(stats),
-            stats.cpu.map { String(localized: "CPU \(Int($0.rounded()))%") + (load.map { " · load " + $0 } ?? "") },
+            stats.cpu.map {
+                String(localized: "CPU \(Int($0.rounded()))%")
+                    + (load.map { " · " + String(localized: "load \($0)") } ?? "")
+            },
             of(stats.memory, stats.memoryTotal).map { String(localized: "Memory \($0)") },
             of(stats.swap, stats.swapTotal).map { String(localized: "Swap \($0)") },
             of(stats.disk, stats.diskTotal).map { String(localized: "Disk / \($0)") }

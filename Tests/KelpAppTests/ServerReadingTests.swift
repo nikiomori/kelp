@@ -68,3 +68,32 @@ import Testing
     #expect(lines[1] == "CPU 12% · load 0.50 0.40 0.30")
     #expect(lines[2].hasPrefix("Memory ") && lines[2].hasSuffix(" · 25%"), "\(lines[2])")
 }
+
+/// The processes' table sorts by the column its header names, the other way on a second click, and rows that are
+/// equal by that column keep one order from reading to reading, whatever order the reading came in (so rows at 0.0 %
+/// don't trade places under a chosen row). One program's processes in one place are one line.
+@Test func aServersProcessesSortBothWaysAndKeepTheirPlaces() {
+    func process(_ pid: Int, _ command: String, cpu: Double, mb: Int = 1, container: String? = nil) -> HostStats.Process
+    {
+        HostStats.Process(
+            pid: pid, user: "root", cpu: cpu, memory: mb << 20, seconds: pid, command: command, args: command,
+            container: container)
+    }
+    let read = [
+        process(1, "nginx", cpu: 0, container: "web"), process(2, "nginx", cpu: 2, container: "web"),
+        process(3, "sshd", cpu: 5), process(4, "cron", cpu: 0), process(5, "atd", cpu: 0),
+        process(6, "nginx", cpu: 1, container: "proxy")
+    ]
+    func names(_ by: ServerProcesses.Sort, up: Bool, _ processes: [HostStats.Process]) -> [String] {
+        ServerProcesses.lines(processes, kelpOnly: false, order: .init(by: by, ascending: up)).map {
+            "\($0.members[0].command)\($0.members[0].container.map { "@" + $0 } ?? "")×\($0.members.count)"
+        }
+    }
+    let busiest = names(.cpu, up: false, read)
+    #expect(busiest.prefix(3) == ["sshd×1", "nginx@web×2", "nginx@proxy×1"])
+    #expect(names(.cpu, up: true, read).suffix(3) == ["nginx@proxy×1", "nginx@web×2", "sshd×1"])
+    #expect(names(.command, up: true, read).first == "atd×1" && names(.command, up: false, read).first == "sshd×1")
+    // cron and atd both stand at 0 %: the same order whichever way the reading lists them.
+    #expect(names(.cpu, up: false, read.reversed()) == busiest && names(.cpu, up: false, read.shuffled()) == busiest)
+    #expect(ServerProcesses.lines(read, kelpOnly: true, order: .init(by: .cpu, ascending: false)).isEmpty)
+}

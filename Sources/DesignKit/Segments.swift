@@ -28,7 +28,11 @@ public struct Segments: NSViewRepresentable {
             control.segmentCount = labels.count
             for (index, label) in labels.enumerated() { control.setLabel(label, forSegment: index) }
         }
-        control.controlSize = size == .small || size == .mini ? .small : .regular
+        let small = size == .small || size == .mini
+        control.controlSize = small ? .small : .regular
+        // A small control keeps its 13 pt words unless told, as in `Bar`. SwiftUI may have made it small already.
+        let font = NSFont.ui(TextSize.caption)
+        if small, control.font?.pointSize != font.pointSize { control.font = font }
         control.selectedSegment = selection
     }
     public func sizeThatFits(_ proposal: ProposedViewSize, nsView control: NSSegmentedControl, context: Context)

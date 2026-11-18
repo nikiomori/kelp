@@ -11,55 +11,61 @@ struct ServerDetail: View {
     /// The last hour's readings, oldest first.
     let history: [HostStats.Sample]
 
+    /// The side column's width: it gives way to the processes down to `least`.
+    private static let side: (least: CGFloat, ideal: CGFloat, most: CGFloat) = (240, 300, 340)
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Metrics.blockGap) {
             meters
-            // When the view is too narrow for both side by side (a process row needs `ProcessRow.least`), the side
+            // When the view is too narrow for both side by side (the table needs `ProcessTable.least`), the side
             // column goes under the processes, which SwiftUI otherwise centres past the left edge.
             GeometryReader { geometry in
-                if geometry.size.width >= ProcessRow.least + 20 + 240 {
-                    HStack(alignment: .top, spacing: 20) {
-                        ServerProcesses(app: app, stats: stats).frame(minWidth: ProcessRow.least, maxWidth: .infinity)
-                        side.frame(minWidth: 240, idealWidth: 300, maxWidth: 340)
+                if geometry.size.width >= ProcessTable.least + Metrics.blockGap + Self.side.least {
+                    HStack(alignment: .top, spacing: Metrics.blockGap) {
+                        ServerProcesses(app: app, stats: stats).frame(minWidth: ProcessTable.least, maxWidth: .infinity)
+                        side.frame(minWidth: Self.side.least, idealWidth: Self.side.ideal, maxWidth: Self.side.most)
                     }
                 } else {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: Metrics.blockGap) {
                         ServerProcesses(app: app, stats: stats)
                         side.frame(maxHeight: geometry.size.height * 0.4)
                     }
                 }
             }
         }
-        .padding(.horizontal, 20).padding(.vertical, 16)
+        .padding(.horizontal, Metrics.pageInset).padding(.vertical, Metrics.pageTop)
     }
 
-    private var side: some View {
-        ScrollView { ServerSide(app: app, host: host, stats: stats).frame(maxWidth: .infinity, alignment: .leading) }
-    }
+    private var side: some View { ServerSide(app: app, host: host, stats: stats) }
 
+    /// The four readings as one group with a line between neighbours, the way Activity Monitor sums a Mac up: one
+    /// strip to read across, where four cards in a row were a web dashboard's.
     private var meters: some View {
-        Grid(horizontalSpacing: 12) {
-            GridRow {
-                Tile(
-                    label: "CPU", value: stats.cpu.map { "\(Int($0.rounded()))%" } ?? "–", detail: load,
-                    share: stats.cpu.map { $0 / 100 }, trend: trend(\.cpu), foot: cpuFoot)
-                Tile(
-                    label: "Memory",
-                    value: stats.memory.map { ServerReading.amount($0, like: stats.memoryTotal ?? $0) } ?? "–",
-                    detail: of(stats.memory, stats.memoryTotal), share: share(stats.memory, stats.memoryTotal),
-                    trend: trend(\.memory), foot: swap.text, footStrained: swap.strained)
-                Tile(
-                    label: "Disk /",
-                    value: stats.disk.map { ServerReading.amount($0, like: stats.diskTotal ?? $0) } ?? "–",
-                    detail: of(stats.disk, stats.diskTotal), share: share(stats.disk, stats.diskTotal))
-                if let network = stats.network {
-                    Tile(
-                        label: "Network", value: "↓ " + ServerReading.rate(network.received),
-                        detail: "↑ " + ServerReading.rate(network.sent), share: nil, trend: traffic,
-                        foot: network.interface)
-                }
+        HStack(spacing: 0) {
+            Meter(
+                label: "CPU", value: stats.cpu.map { "\(Int($0.rounded()))%" } ?? "–", detail: load,
+                share: stats.cpu.map { $0 / 100 }, trend: trend(\.cpu), foot: cpuFoot)
+            Divider()
+            Meter(
+                label: "Memory",
+                value: stats.memory.map { ServerReading.amount($0, like: stats.memoryTotal ?? $0) } ?? "–",
+                detail: of(stats.memory, stats.memoryTotal), share: share(stats.memory, stats.memoryTotal),
+                trend: trend(\.memory), foot: swap.text, footStrained: swap.strained)
+            Divider()
+            Meter(
+                label: "Disk /",
+                value: stats.disk.map { ServerReading.amount($0, like: stats.diskTotal ?? $0) } ?? "–",
+                detail: of(stats.disk, stats.diskTotal), share: share(stats.disk, stats.diskTotal))
+            if let network = stats.network {
+                Divider()
+                Meter(
+                    label: "Network", value: "↓ " + ServerReading.rate(network.received),
+                    detail: "↑ " + ServerReading.rate(network.sent), share: nil, trend: traffic,
+                    foot: network.interface)
             }
         }
+        .fixedSize(horizontal: false, vertical: true)   // every reading as tall as the tallest
+        .background(RoundedRectangle(cornerRadius: Metrics.radiusMD).fill(Color(nsColor: .fillRest)))
     }
 
     private var load: String {
@@ -104,9 +110,9 @@ struct ServerDetail: View {
     }
 }
 
-/// One meter: the number, what it's out of, the last hour (or a bar for disk, where history says little), and a line
-/// under it.
-private struct Tile: View {
+/// One reading of the group: the number, what it's out of, the last hour (or a bar for disk, where history says
+/// little), and a line under it.
+private struct Meter: View {
     let label: LocalizedStringKey, value: String, detail: String
     let share: Double?
     var trend: [Trend.Point]?
@@ -116,7 +122,7 @@ private struct Tile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(label).font(.ui(TextSize.caption, weight: .semibold)).foregroundStyle(.secondary)
+                Text(label).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                 Spacer(minLength: 4)
                 if trend != nil {
                     Text("1 h").font(.ui(TextSize.caption)).foregroundStyle(.tertiary).help(
@@ -141,9 +147,8 @@ private struct Tile: View {
                     .foregroundStyle(footStrained ? ServerReading.strainedColor : .secondary)
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 108, maxHeight: 108, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: Metrics.radiusLG).fill(Color(nsColor: .fillRest)))
+        .padding(Metrics.inset)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 

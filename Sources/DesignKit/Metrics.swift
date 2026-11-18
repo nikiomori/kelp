@@ -26,6 +26,12 @@ public enum Metrics {
     public static let lineGap: CGFloat = 2   // between a row's two lines
     public static let emptyLift: CGFloat = 40   // an empty state sits this far over the middle
     public static let sheetInset: CGFloat = 20
+    // A page (a tab of data: a server, Usage, a machine): its content's sides, its top and bottom, and the space
+    // between its blocks. A title stands `gapWide` over what it names. A table across the page and split panes have
+    // no margins.
+    public static let pageInset: CGFloat = 20
+    public static let pageTop: CGFloat = 16
+    public static let blockGap: CGFloat = 20
 
     // Radii
     public static let radiusXS: CGFloat = 4   // chips, swatches
