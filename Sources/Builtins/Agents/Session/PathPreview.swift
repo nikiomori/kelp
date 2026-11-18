@@ -246,7 +246,7 @@ struct PathPreviewView: View {
                 }
                 .font(.uiMono(TextSize.caption))
             }
-            Text("⌘-click to open · ⌥⌘-click opens it in its app").font(.ui(TextSize.caption)).foregroundStyle(
+            Text("⌘-click to open · ⌥⌘-click shows it in the Finder").font(.ui(TextSize.caption)).foregroundStyle(
                 .tertiary)
         }
         .padding(12).frame(width: 520, alignment: .leading)

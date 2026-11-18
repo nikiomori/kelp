@@ -17541,12 +17541,12 @@
         }
       }
     },
-    "⌘-click to open · ⌥⌘-click opens it in its app": {
+    "⌘-click to open · ⌥⌘-click shows it in the Finder": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "⌘-клик — открыть · ⌥⌘-клик — открыть в своём приложении"
+            "value": "⌘-клик — открыть · ⌥⌘-клик — показать в Finder"
           }
         }
       }
