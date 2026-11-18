@@ -34,6 +34,29 @@ import Testing
     }
 }
 
+/// A project's row keeps its pill and its name where they are while the project folds or opens. The room under the row
+/// (its card's end) changes at once and the row's height takes a third of a second to follow: on the way, the pill is
+/// as tall as at rest and the name stands in the same place. A row arriving from nothing has no room for a pill yet.
+@MainActor @Test func aProjectsPillKeepsItsHeightWhileTheProjectFolds() {
+    let row: CGFloat = 28, open = (first: true, last: false), folded = (first: true, last: true)
+    func pill(_ height: CGFloat, _ group: (first: Bool, last: Bool), content: CGFloat = 28) -> NSRect {
+        SidebarRowView.pill(
+            in: NSRect(x: 0, y: 0, width: 240, height: height), group: group, gap: 0, content: content)
+    }
+    let ends = SidebarRowView.pads(folded)
+    let atRest = pill(row + ends.top, open)
+    #expect(atRest.height == row - 4 && atRest.minY == ends.top + 2)
+    #expect(pill(row + ends.top + ends.bottom, folded) == atRest)
+    // On the way: the height between the two, with the pads of where it is going.
+    for height in stride(from: row + ends.top, through: row + ends.top + ends.bottom, by: 1.5) {
+        #expect(pill(height, folded) == atRest && pill(height, open) == atRest, "at \(height)")
+        #expect(SidebarOutline.rest(in: height, pad: ends, rest: row) == row)
+        #expect(SidebarOutline.rest(in: height, pad: (ends.top, 0), rest: row) == row)
+    }
+    #expect(pill(0.01 + ends.bottom, (first: false, last: true), content: 0.01).height == 0)
+    #expect(SidebarOutline.rest(in: 0.01 + ends.bottom, pad: (0, ends.bottom), rest: 0.01) == 0.01)
+}
+
 /// A done mark that's been read fades where it stood: a fade on its own layer, hidden at once, never showed.
 @MainActor @Test func aReadDoneMarkFadesWhereItStood() {
     let parent = NSView(), mark = StatusMark()

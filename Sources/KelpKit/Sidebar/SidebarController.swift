@@ -136,6 +136,7 @@ final class SidebarController: NSViewController, NSOutlineViewDataSource, NSOutl
         outline.pads = { [weak self] row in
             (self?.outline.item(atRow: row) as? Node).flatMap { self?.pads($0) } ?? (0, 0)
         }
+        outline.rests = { [weak self] row in self?.rest(row) ?? 0 }
         outline.allowsMultipleSelection = true   // ⌘/⇧-click picks several rows, and the menu acts on all of them
         outline.dataSource = self
         outline.delegate = self

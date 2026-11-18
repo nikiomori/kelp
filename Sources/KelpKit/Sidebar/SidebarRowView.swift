@@ -2,49 +2,6 @@ import AppKit
 import Core
 import DesignKit
 
-/// The sidebar's outline: a project, then its chats and groups in the same two columns (the slot under the project's
-/// icon, the name under its name), since the card shows what the project holds. A group's chats sit 12 pt further in.
-final class SidebarOutline: NSOutlineView {
-    static let lead: CGFloat = 14, step: CGFloat = 12
-    /// Extra indent steps beyond a row's level, for a group under the chat that made it and for that group's chats.
-    var steps: (Int) -> Int = { _ in 0 }
-    /// Room above and below a row's content, where the project's card opens and closes (SidebarRowView.group).
-    var pads: (Int) -> (top: CGFloat, bottom: CGFloat) = { _ in (0, 0) }
-    /// No disclosure triangles: projects and groups fold from the chevron their slot shows on hover (SidebarCell).
-    override func frameOfOutlineCell(atRow row: Int) -> NSRect { .zero }
-    override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
-        var cellFrame = padded(super.frameOfCell(atColumn: column, row: row), row)
-        // Content ends as far inside the card's right as a project's icon starts from its left (SidebarRowView.band).
-        // Rows under a heading sit a step further in than those beside it, so the group ends at the indent.
-        let left = Self.lead + Self.step * CGFloat((level(forRow: row) >= 2 ? 1 : 0) + steps(row))
-        cellFrame.origin.x = left
-        cellFrame.size.width = bounds.width - 8 - left
-        return cellFrame
-    }
-    /// The row a right-click opened the menu for. `clickedRow` stays -1, see `menu(for:)`.
-    private(set) var menuRow = -1
-    /// Returns the menu without the outline NSTableView draws around the clicked row, which matched neither the pill
-    /// nor the card. Instead the row keeps its hover pill until the menu closes (`menuClosed`).
-    override func menu(for event: NSEvent) -> NSMenu? {
-        menuRow = row(at: convert(event.locationInWindow, from: nil))
-        (rowView(atRow: menuRow, makeIfNecessary: false) as? SidebarRowView)?.menuTarget = true
-        return menu
-    }
-    func menuClosed() {
-        let row = rowView(atRow: menuRow, makeIfNecessary: false) as? SidebarRowView
-        row?.menuTarget = false
-        row?.recheckPointer()   // the pointer may have left the row while the menu was open
-        menuRow = -1
-    }
-
-    private func padded(_ cellFrame: NSRect, _ row: Int) -> NSRect {
-        let pad = pads(row)
-        return NSRect(
-            x: cellFrame.minX, y: cellFrame.minY + pad.top, width: cellFrame.width,
-            height: cellFrame.height - pad.top - pad.bottom)
-    }
-}
-
 /// A sidebar row, drawn like Safari's tab groups. A project with rows under it sits on a quiet card (ProjectCard), and
 /// the row you're on is a raised pill. The pill has no accent colour, so the text and the status marks keep theirs. A
 /// project with nothing under it is a plain row, on a card only when its colour fills one.
@@ -57,6 +14,8 @@ final class SidebarRowView: NSTableRowView {
     }
     /// Room above the row where a server's card starts (`SidebarController.serverGap`). The pill doesn't cover it.
     var gap: CGFloat = 0 { didSet { if gap != oldValue { needsDisplay = true } } }
+    /// The row's own height, without the room its card's ends take: what the pill stands in. 0 while it isn't known.
+    var content: CGFloat = 0 { didSet { if content != oldValue { needsDisplay = true } } }
     private var keyWatch: [NSObjectProtocol] = []
     /// True while the pointer is over the row, which then fades in the pill's shape in hover grey before any click.
     private var hovering = false { didSet { if hovering != oldValue { showHover() } } }
@@ -72,6 +31,13 @@ final class SidebarRowView: NSTableRowView {
         layer?.insertSublayer(hoverLayer, at: 0)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    /// A row whose height is on its way (its project folds or opens under it) draws its pill again at each step. Left
+    /// to AppKit, the picture drawn at the first step was stretched to the row's new height until the next drawing.
+    override func setFrameSize(_ newSize: NSSize) {
+        if newSize.height != frame.height { needsDisplay = true }
+        super.setFrameSize(newSize)
+    }
 
     /// True while the row's right-click menu is open, so the hover pill shows what the menu is about (`menu(for:)`).
     var menuTarget = false { didSet { if menuTarget != oldValue { showHover() } } }
@@ -89,12 +55,7 @@ final class SidebarRowView: NSTableRowView {
     }
 
     override func drawBackground(in dirtyRect: NSRect) {
-        let pad = group.map(Self.pads) ?? (top: 0, bottom: 0)
-        // In a card, the pill is 4 pt inside the card on every side, as far as from the next pill, and its corners
-        // follow the card's (radiusLG − 4). A row on its own gets a pill where its card would be.
-        var pill = group == nil ? band(6).insetBy(dx: 0, dy: 1) : band(10).insetBy(dx: 0, dy: 2)
-        pill.origin.y += pad.top + gap
-        pill.size.height -= pad.top + pad.bottom + gap
+        let pill = Self.pill(in: bounds, group: group, gap: gap, content: content)
         let radius = Self.pillRadius(inCard: group != nil)
         let path = NSBezierPath(roundedRect: pill, xRadius: radius, yRadius: radius)
         CATransaction.begin()
@@ -125,6 +86,20 @@ final class SidebarRowView: NSTableRowView {
             edge.lineWidth = 1
             edge.stroke()
         }
+    }
+    /// The pill of a row that fills `bounds`. In a card, the pill is 4 pt inside the card on every side, as far as from
+    /// the next pill, and its corners follow the card's (radiusLG − 4). A row on its own gets a pill where its card
+    /// would be. The pill hangs from the card's top at the row's own height (`content`), so it keeps its height while
+    /// a project folds or opens: the room under its row changes at once and the row takes a third of a second to
+    /// follow, in which a pill cut from what the pads left shrank by that room and grew back. With less room than
+    /// its height (a row arriving from nothing), it has what there is.
+    static func pill(in bounds: NSRect, group: (first: Bool, last: Bool)?, gap: CGFloat, content: CGFloat) -> NSRect {
+        let pad = group.map(pads) ?? (top: 0, bottom: 0), edge: CGFloat = group == nil ? 1 : 2
+        var pill = band(bounds, group == nil ? 6 : 10)
+        pill.origin.y += pad.top + gap + edge
+        let room = bounds.height - pad.top - gap - 2 * edge
+        pill.size.height = max(0, content > 0 ? min(content - 2 * edge, room) : room - pad.bottom)
+        return pill
     }
     /// Returns the pill's corner radius: a card's for a row on its own, or 4 pt less (radiusSM) for a row in a card.
     static func pillRadius(inCard: Bool) -> CGFloat { inCard ? Metrics.radiusLG - 4 : Metrics.radiusLG }

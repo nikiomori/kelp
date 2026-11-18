@@ -106,6 +106,13 @@ extension SidebarController {
         let node = outline.item(atRow: row) as? Node
         (rowView as? SidebarRowView)?.group = node.flatMap(group)
         (rowView as? SidebarRowView)?.gap = node.map(serverGap) ?? 0
+        (rowView as? SidebarRowView)?.content = rest(row)
+    }
+    /// A row's own height: the height it was given, without the room its card's ends take. 0 while no height is known.
+    func rest(_ row: Int) -> CGFloat {
+        guard rowHeights.indices.contains(row), let node = outline.item(atRow: row) as? Node else { return 0 }
+        let pad = pads(node)
+        return max(0, rowHeights[row] - pad.top - pad.bottom)
     }
     /// The cards follow rows that open, close or move, and a project's last row changes height with them. Inside an
     /// animation group, the cards move with the group. Outside one, they move the way the outline moves rows by itself
