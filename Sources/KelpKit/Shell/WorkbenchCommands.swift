@@ -90,6 +90,7 @@ extension Builtins {
             },
             cmd("editor.reopenTab", "Reopen Closed Tab", "shift+cmd+t") { app.workbench.reopenClosedTab() },
             cmd("workspace.new", "New Chat", "cmd+n") { app.workbench.newChat() },
+            cmd("workspace.newChatInGroup", "New Chat in New Group") { app.workbench.newChatInGroup() },
             cmd("workspace.newGroup", "New Group", "shift+cmd+n") { app.workbench.newGroup() },
             cmd("workspace.newBranch", "New Group on Branch", "ctrl+cmd+n") { app.workbench.newBranch() },
             cmd("workspace.newBranchAsking", "New Group on Branch…", "opt+ctrl+cmd+n") {

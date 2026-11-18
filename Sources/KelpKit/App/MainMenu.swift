@@ -117,7 +117,8 @@ extension AppDelegate {
         let app = self.app
         let file = menuBuilder.sub("File")
         menuBuilder.add(
-            file, "workspace.new", "workspace.newGroup", "workspace.newBranch", "workspace.newBranchAsking",
+            file, "workspace.new", "workspace.newChatInGroup", "workspace.newGroup", "workspace.newBranch",
+            "workspace.newBranchAsking",
             "agents.new", "terminal.new", "terminal.tmux")
         let with = NSMenu()
         for a in app.catalog.installed {

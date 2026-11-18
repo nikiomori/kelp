@@ -382,7 +382,8 @@ final class TabStrip: NSView {
         newAgent.isHidden = icon == nil
         if let grey, faint?.of !== grey { faint = (grey, Self.faint(grey)) }
         newAgent.show(icon, atRest: grey == nil ? nil : faint?.image)
-        newAgent.toolTip = tip(String(localized: "New \(name)"), "agents.new")
+        newAgent.toolTip =
+            tip(String(localized: "New \(name)"), "agents.new") + "\n" + String(localized: "⌘-click: in a new group")
         newAgent.setAccessibilityLabel(String(localized: "New \(name)"))
     }
     private var faint: (of: NSImage, image: NSImage)?

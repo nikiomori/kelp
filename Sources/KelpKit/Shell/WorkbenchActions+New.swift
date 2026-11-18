@@ -40,6 +40,16 @@ extension Workbench {
         }
     }
 
+    /// New Chat in New Group, and a click on an agent with ⌘ held (`EditorArea.startAgent`): the group ⇧⌘N makes with
+    /// the agent already started in it, one step where there were two.
+    func newChatInGroup(repo: String? = nil, agent: String? = nil, prompt: String? = nil) {
+        Task {
+            guard let rid = await project(repo), let id = await app.call(WorkspaceCreate(repoId: rid))?.id
+            else { return }
+            await startChat(on: id, agent: agent, prompt: prompt)
+        }
+    }
+
     /// ⌃⌘N, and Own Branch on a group's empty screen, make the same with code of its own: a new branch from the
     /// project's base, in its own folder. The first prompt names both. A .kelp.yaml not yet trusted asks once the
     /// screen is there, so its setup waits for nobody.
@@ -99,10 +109,10 @@ extension Workbench {
 
     /// Starts a new agent of the default kind before anything shows, so it comes as a row of its own. With no agent on
     /// this Mac, the empty screen offers to install one.
-    private func startChat(on id: String, cwd: String? = nil, agent: String? = nil) async {
+    private func startChat(on id: String, cwd: String? = nil, agent: String? = nil, prompt: String? = nil) async {
         var chat: Session?
         if let kind = agent ?? app.catalog.startable {
-            chat = await app.call(sized(SessionCreate(cwd: cwd, worktreeId: id, agent: kind)))
+            chat = await app.call(sized(SessionCreate(cwd: cwd, worktreeId: id, agent: kind, prompt: prompt)))
         }
         if let chat {
             app.upsert(chat)

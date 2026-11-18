@@ -1,6 +1,7 @@
 import AppKit
 import Core
 import Foundation
+import TestSupport
 import Testing
 import WorkbenchKit
 
@@ -26,6 +27,22 @@ extension OneAtATime {
         area.reconcile()
         #expect(area.layout.tab(uri: TabURI.session(other.id)) != nil)
         #expect(area.layout.focusedGroup?.selectedTab?.uri == TabURI.session(mine.id))
+    }
+
+    /// A click on an agent starts it on the screen you are on; with ⌘ held it starts in a new group of the same project
+    /// (the button at the end of the tabs, "+" and the empty screen all go through this).
+    @Test func anAgentStartedWithCommandHeldGetsAGroupOfItsOwn() async throws {
+        let rig = try await AppRig(files: [:])
+        defer { rig.done() }
+        let area = EditorArea(app: rig.app, workspaceId: rig.workspace.id), here = rig.workspace.id
+        rig.app.connected = true   // the rig hands the app its daemon without the launch that says so
+        area.startAgent(Session.shellAgent, elsewhere: true)
+        #expect(try await waitFor(5) { rig.app.sessions.contains { rig.app.worktree($0.worktreeId) != nil } })
+        let made = try #require(rig.app.sessions.first)
+        #expect(made.worktreeId != here && rig.app.worktree(made.worktreeId)?.repoId == rig.project.id)
+        area.startAgent(Session.shellAgent, elsewhere: false)
+        #expect(try await waitFor(5) { rig.app.sessions.contains { $0.worktreeId == here } })
+        #expect(rig.app.sessions.count == 2)
     }
 
     /// `kelp open` beside you: the pane appears, and the one you're in stays the focused one.

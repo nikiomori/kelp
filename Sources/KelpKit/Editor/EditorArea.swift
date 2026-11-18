@@ -274,7 +274,7 @@ final class EditorArea: NSViewController {
         group.strip.addMenu = { [weak self] in self?.newTabMenu(group: gid) ?? NSMenu() }
         group.strip.onNewAgent = { [weak self] in
             self?.layout.focused = gid
-            self?.starter.newAgent()
+            self?.startAgent()
         }
         group.strip.onUnzoom = { [weak self] in self?.toggleZoom() }
         group.strip.hint = { [app] in app.extensions.hint($0, $1) }
@@ -414,13 +414,27 @@ final class EditorArea: NSViewController {
         showStart()
     }
 
+    /// A click with ⌘ alone held, which does the same thing in another place (the design system's rule for ⌘).
+    static var commandClick: Bool {
+        guard let event = NSApp.currentEvent, [.leftMouseUp, .leftMouseDown].contains(event.type) else { return false }
+        return event.modifierFlags.intersection([.command, .shift, .option, .control]) == .command
+    }
+    /// What a click on an agent does (the button at the end of the tabs, "+", the empty screen): it starts here, and
+    /// with ⌘ held (`elsewhere`) in a new group of this project.
+    func startAgent(_ agent: String? = nil, prompt: String? = nil, elsewhere: Bool = EditorArea.commandClick) {
+        guard elsewhere else { return starter.newAgent(agent, prompt: prompt) }
+        app.workbench.newChatInGroup(
+            repo: worktree?.repoId, agent: agent ?? app.catalog.defaultAgent,
+            prompt: prompt?.isEmpty == false ? prompt : nil)
+    }
+
     private func showStart() {
         guard start == nil, let worktree else { return }
         let startView = StartView(app: app, worktree: worktree)
-        startView.onAgent = { [weak self] agent in self?.starter.newAgent(agent) }
+        startView.onAgent = { [weak self] agent in self?.startAgent(agent) }
         startView.onPrompt = { [weak self] agent, text in
             self?.startDraft = ""
-            self?.starter.newAgent(agent, prompt: text)
+            self?.startAgent(agent, prompt: text)
         }
         startView.draft = startDraft
         startView.onDraft = { [weak self] in self?.startDraft = $0 }

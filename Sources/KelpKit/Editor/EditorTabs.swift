@@ -298,8 +298,9 @@ extension EditorArea {
         func agentItem(_ agent: AgentManifest, in menu: NSMenu, column: CGFloat) {
             let item = menu.add(agent.name) { [weak self] in
                 focus()
-                self?.starter.newAgent(agent.id)
+                self?.startAgent(agent.id)
             }
+            item.toolTip = String(localized: "⌘-click: in a new group")
             item.show(app.catalog.icon(agent.id))
             if let note = notes[agent.id] {
                 item.attributedTitle = NSMenuItem.titleWithNote(

@@ -17541,6 +17541,16 @@
         }
       }
     },
+    "⌘-click: in a new group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘-клик: в новой группе"
+          }
+        }
+      }
+    },
     "⌘-click to open · ⌥⌘-click shows it in the Finder": {
       "localizations": {
         "ru": {
@@ -22275,6 +22285,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Новый чат на ветке"
+          }
+        }
+      }
+    },
+    "New Chat in New Group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый чат в новой группе"
           }
         }
       }
