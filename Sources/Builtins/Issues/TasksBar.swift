@@ -23,10 +23,11 @@ extension TasksViewController {
         // details.
         let controls = Bar.panel([source, filter], [refresh])
         status.isHidden = true
-        let bar = NSStackView(views: [controls, status])
+        let bar = NSStackView(views: [controls, status, failureBar])
         bar.orientation = .vertical
         bar.spacing = 6
         controls.widthAnchor.constraint(equalTo: bar.widthAnchor).isActive = true
+        failureBar.widthAnchor.constraint(equalTo: bar.widthAnchor).isActive = true
         // Without this width, the status wraps to no width.
         status.widthAnchor.constraint(equalTo: bar.widthAnchor, constant: -2 * Metrics.inset).isActive = true
         // As tall as its views, over the split's holding, or the list gets no height.
@@ -53,6 +54,29 @@ extension TasksViewController {
 }
 
 extension TasksViewController {
+    /// A read that failed with no rows to keep: the error takes the list's place, with what sets it right (a tool to
+    /// set up, a remote to add, Try Again).
+    func showFailure(_ message: String, of src: Source) {
+        showAll.isHidden = true
+        rows = []
+        lines = []
+        listed = nil
+        failureBar.show(nil)
+        status.stringValue = ""
+        // The source stays, because Linear and Jira need no remote.
+        filter.isHidden = src.needsRemote && Forge.noRemote(message) != nil
+        if src.needsRemote {
+            showList(false)
+            setup = emptyView.showForge(
+                message, failed: String(localized: "Couldn't load the list"), hint: src.connectHint,
+                setupButton: setupButton, checkAgain: checkAgain)
+        } else {
+            setup = nil
+            setupButton.isHidden = true
+            showEmpty(src.connectHint ?? message, symbol: "link")
+        }
+    }
+
     /// Shows the spinner every panel waits with, as CI Runs does, when the list is on its way and there are no rows to
     /// keep showing.
     func showLoading() {

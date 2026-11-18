@@ -108,6 +108,12 @@ enum Forge {
     }
 }
 
+extension Forge {
+    /// True for a failure that a later read may not have (the network, a timeout), so the rows read before stay on
+    /// show under it. A tool to set up or a missing remote is a state, which takes the list's place.
+    static func passing(_ error: String) -> Bool { setup(for: error) == nil && noRemote(error) == nil }
+}
+
 extension EmptyStateView {
     /// Shows a forge's `error` instead of the list: gh or glab to set up (on `setupButton`, then Check Again), no
     /// GitHub remote, or `failed` with `hint` or the error's words. Returns the setup, for the button to run.

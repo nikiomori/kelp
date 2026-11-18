@@ -22,8 +22,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     let face = AddonFace()
     private let chatTitle = NSTextField(labelWithString: "")
     let weight = NSHostingView(rootView: AddonWeight(headline: "", shares: []))
-    let failureBar = NSStackView()
-    let failureLine = NSTextField.label("", font: .ui(TextSize.caption), color: .secondaryLabelColor)
+    private(set) lazy var failureBar = FailureBar { [weak self] in self?.reload() }
     private let filter = NSSearchField()
     private lazy var filterBar = NSStackView(views: [filter])
     lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in
@@ -87,7 +86,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         filterBar.isHidden = true
         weight.sizingOptions = [.intrinsicContentSize]
         weight.isHidden = true
-        let column = NSStackView(views: [header, makeFailureBar(), filterBar, weight, scroll, makeFoot()])
+        let column = NSStackView(views: [header, failureBar, filterBar, weight, scroll, makeFoot()])
         column.orientation = .vertical
         column.spacing = 0
         for part in column.arrangedSubviews { part.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
@@ -193,10 +192,10 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         pending = [:]
         let same = key == shownKey && addons != nil
         if let error, same {
-            failure(error)
+            failureBar.show(error)
             return relist()
         }
-        failure(nil)
+        failureBar.show(nil)
         if !same, addons != nil { table.enclosingScrollView?.crossfade(Motion.appear) }
         let before = same ? lines : nil
         shownKey = key

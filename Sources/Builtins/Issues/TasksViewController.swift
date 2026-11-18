@@ -33,6 +33,9 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     var shown: Source { Source(rawValue: source.selectedTag()) ?? .pulls }
     var rows: [Row] = []
     var lines: [Line] = []
+    /// The project, list and filter the rows were read for: another list's rows don't stay under this one's error.
+    var listed: String?
+    private(set) lazy var failureBar = FailureBar { [weak self] in self?.reload() }
     func row(at index: Int) -> Row? {
         guard lines.indices.contains(index), case .row(let row) = lines[index] else { return nil }
         return row
@@ -155,7 +158,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         self?.reload()
     }
     /// The setup that runs in a terminal tab when gh or glab isn't installed or signed in.
-    private var setup: Forge.Setup?
+    var setup: Forge.Setup?
     lazy var checkAgain = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.reload() }
     lazy var setupButton = ClosureButton(title: "") { [weak self] in
         if let self, let setup = self.setup { Forge.run(setup, in: app) }
@@ -170,6 +173,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         // in this repo.
         rows = []
         lines = []
+        failureBar.show(nil)
         table.reloadData()
         showDetail(nil)
         reload()
@@ -246,10 +250,14 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         unseen = PRWatch.unseen(prs)
         rows = prs.map(Row.pr)
         lines = lined(rows)
+        listed = listKey(.pulls, 0)
+        failureBar.show(nil)
         table.reloadData()
         reselect(picked)
         showEmpty(rows.isEmpty ? Source.pulls.none : nil)
     }
+
+    private func listKey(_ source: Source, _ filter: Int) -> String { "\(repoId ?? "")/\(source.rawValue)/\(filter)" }
 
     /// Picks the row of `number` again after the list was read again. It is the same tab, so nothing opens.
     private func reselect(_ number: Int?) {
@@ -270,6 +278,7 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         guard let repoId else {
             rows = []
             lines = []
+            failureBar.show(nil)
             table.reloadData()
             source.isHidden = true
             filter.isHidden = true   // there is nothing to choose among yet
@@ -332,6 +341,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
                 guard gen == reloads else { return }
                 self.rows = rows
                 lines = lined(rows)
+                listed = listKey(src, filterIndex)
+                failureBar.show(nil)
                 filter.isHidden = false
                 // A list empty because of the filter isn't the same as empty, so say which and offer the way back.
                 let narrowed = rows.isEmpty && filterIndex > 0 && src.none != nil
@@ -345,23 +356,12 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
             } catch {
                 await loadingView.settled()
                 guard gen == reloads else { return }
-                showAll.isHidden = true
                 let message = (error as? RPCError)?.message ?? "\(error)"
-                self.rows = []
-                lines = []
-                status.stringValue = ""
-                // The source stays, because Linear and Jira need no remote.
-                filter.isHidden = src.needsRemote && Forge.noRemote(message) != nil
-                if src.needsRemote {
-                    showList(false)
-                    setup = emptyView.showForge(
-                        message, failed: String(localized: "Couldn't load the list"), hint: src.connectHint,
-                        setupButton: setupButton, checkAgain: checkAgain)
-                } else {
-                    setup = nil
-                    setupButton.isHidden = true
-                    showEmpty(src.connectHint ?? message, symbol: "link")
+                // The same list's rows, read before, stay under a line that says why they couldn't be read again.
+                if !self.rows.isEmpty, listed == listKey(src, filterIndex), Forge.passing(message) {
+                    return failureBar.show(message)
                 }
+                showFailure(message, of: src)
             }
             table.reloadData()
             if picked != nil { reselect(picked) } else { showDetail(nil) }

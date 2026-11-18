@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import Foundation
 import TestSupport
 import Testing
@@ -7,6 +8,7 @@ import Testing
 @testable import BuiltinActivity
 @testable import BuiltinFiles
 @testable import BuiltinGit
+@testable import BuiltinIssues
 @testable import KelpApp
 @testable import KelpKit
 
@@ -29,6 +31,43 @@ import Testing
 }
 
 extension AppOfItsOwn {
+    /// A refresh that fails keeps what was read before, under a line that says why. The next good read takes the line
+    /// away. What is not a failure to wait out has nothing to keep and takes the list's place: a folder that is no
+    /// repository any more, a project with no remote on GitHub.
+    @Test func aFailedRefreshKeepsTheRowsUnderALine() async throws {
+        let rig = try await AppRig(files: ["kept.txt": "a\n"])
+        defer { rig.done() }
+        try rig.write("kept.txt", "b\n")
+        let git = SourceControlController(app: rig.app)
+        rig.show(git, 320, 700)
+        git.followWatches()
+        #expect(try await waitFor(5) { !git.changes.isEmpty })
+        let key = try #require(git.gitKey), read = try #require(rig.app.latest(GitEvent.self, key))
+        rig.app.land(GitEvent(worktree: key, error: "fatal: index file corrupt"))
+        try await settle()
+        #expect(!git.changes.isEmpty && git.failureBar.shown == "fatal: index file corrupt")
+        rig.app.land(read)
+        try await settle()
+        #expect(!git.changes.isEmpty && git.failureBar.shown == nil)
+        rig.app.land(GitEvent(worktree: key, error: "fatal: not a git repository"))
+        try await settle()
+        #expect(git.changes.isEmpty && git.failureBar.shown == nil)
+
+        let runs = CIRunsController(app: rig.app)
+        rig.show(runs, 320, 700)
+        try await settle()
+        let run = CIRuns.Run(
+            id: 1, title: "Fix", workflow: "CI", status: "completed", conclusion: "success", event: "push", url: "",
+            createdAt: "")
+        rig.app.land(CIEvent(worktree: key, result: CIRunsList.Result(branch: "main", runs: [run], workflows: [])))
+        #expect(try await waitFor(5) { runs.runs.count == 1 })
+        rig.app.land(CIEvent(worktree: key, error: "HTTP 502"))
+        #expect(try await waitFor(5) { runs.failureBar.shown == "HTTP 502" })
+        #expect(runs.runs.count == 1)
+        rig.app.land(CIEvent(worktree: key, error: GitHub.noRemote))
+        #expect(try await waitFor(5) { runs.failureBar.shown == nil })
+    }
+
     @Test func artifactsOutOfTheWindowRebuildWhenBack() async throws {
         let rig = try await AppRig()
         defer { rig.done() }

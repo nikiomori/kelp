@@ -69,6 +69,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
     var moreButton: NSButton?
     var commitArea: NSView?, separator: NSView?
     let empty = EmptyStateView()
+    private(set) lazy var failureBar = FailureBar { [weak self] in self?.reloadAll() }
     var headerBar: NSView?
 
     var worktreeId: String?
@@ -153,7 +154,7 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
         branchButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 60).isActive = true
         moreButton = bar.more
         stats.font = .uiDigits(TextSize.micro, weight: .medium)
-        let header = bar.header(branchButton)
+        let header = failureBar.under(bar.header(branchButton))
         headerBar = header
 
         let box = commitBox()

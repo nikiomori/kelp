@@ -72,27 +72,6 @@ extension AddonsPanel {
             }
         }
     }
-
-    /// Shows a bar over the kept list that says why the list couldn't be read again, with Try Again. nil hides the bar.
-    func failure(_ error: String?) {
-        failureLine.stringValue = error.map { String(localized: "Couldn’t refresh: \($0)") } ?? ""
-        failureLine.toolTip = error
-        if failureBar.isHidden != (error == nil) { failureBar.crossfade() }
-        failureBar.isHidden = error == nil
-    }
-
-    func makeFailureBar() -> NSView {
-        let mark = NSImageView(image: .symbol("exclamationmark.triangle", String(localized: "Couldn’t refresh")))
-        mark.symbolConfiguration = .chrome(Metrics.iconSmall)
-        mark.contentTintColor = .systemOrange
-        let retry = TextButton(String(localized: "Try Again")) { [weak self] in self?.reload() }
-        retry.setContentCompressionResistancePriority(.required, for: .horizontal)
-        failureBar.setViews([mark, failureLine, NSView(), retry], in: .leading)
-        failureBar.spacing = Metrics.gap
-        failureBar.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: 0, right: Metrics.inset)
-        failureBar.isHidden = true
-        return failureBar
-    }
 }
 
 /// The agent's logo in the panel's bar. While the list is read, a working ring turns around it and the logo shrinks

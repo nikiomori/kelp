@@ -63,6 +63,9 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private var logPane: (view: NSView, room: NSLayoutConstraint, split: NSSplitView)?
     let workflowsButton = IconButton(nil, tip: "", target: nil, action: nil)
     var runs: [Item] = []
+    /// The folder `runs` were read for: another folder's runs don't stay under this one's error.
+    private var runsFor: String?
+    private(set) lazy var failureBar = FailureBar { [weak self] in self?.reload() }
     var workflows: [CIRuns.Workflow] = []
     var worktree: String?
     var branchName = ""
@@ -115,9 +118,10 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         split.addArrangedSubview(scroll)
         split.addArrangedSubview(bottom)
         split.setHoldingPriority(.init(260), forSubviewAt: 0)   // the runs keep their room, and the log takes the rest
-        let stack = stacked(header, history, split)
-        empty.place(in: stack, under: header)
-        loading.place(in: stack, under: header)
+        let top = failureBar.under(header)
+        let stack = stacked(top, history, split)
+        empty.place(in: stack, under: top)
+        loading.place(in: stack, under: top)
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 200).isActive = true
         bottom.isHidden = true
         logPane = (bottom, bottom.heightAnchor.constraint(greaterThanOrEqualToConstant: 120), split)
@@ -126,6 +130,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
             app.workbench.workspaceId
         } changed: { [weak self, app] in
             self?.worktree = $0
+            self?.failureBar.show(nil)
             self?.branch.title = app.worktree($0)?.branch ?? ""   // set before the runs come, so the header names it
             self?.loadPages()
             if app.latest(CIEvent.self, app.gitKey($0)) == nil {
@@ -202,11 +207,16 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
         applying?.cancel()
         applying = Task {
             if let error = event.error {
+                // This folder's runs, read before, stay under a line that says why they couldn't be read again.
+                if !runs.isEmpty, runsFor == event.worktree, Forge.passing(error) { return failureBar.show(error) }
+                failureBar.show(nil)
                 branch.title = app.worktree(worktree)?.branch ?? ""   // still names whose runs these would be
                 workflowsButton.isHidden = true
                 show(note: error, failed: true)
                 return
             }
+            failureBar.show(nil)
+            runsFor = event.worktree
             branchName = event.result?.branch ?? ""
             branch.title = branchName
             // What was open stays open across a refresh, and its jobs are read again.

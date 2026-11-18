@@ -14,6 +14,7 @@ extension SourceControlController {
                 changes: changes, info: graphInfo, commits: commits, unpushed: unpushed, more: more, limit: limit)
         }
         worktreeId = wid
+        failureBar.show(nil)
         showNoProject(wid == nil)
         let back = wid.flatMap { seen[$0] }
         changes = back?.changes ?? []
@@ -63,6 +64,13 @@ extension SourceControlController {
     func apply(_ event: GitEvent?) {
         guard let event, event.worktree == gitKey else { return }
         if let error = event.error {
+            // What git read here before stays, under a line that says why it couldn't be read again. A folder that is
+            // no repository any more has nothing to keep.
+            if info != nil, !error.contains("not a git repository") {
+                failureBar.show(error)
+                return followWatches()
+            }
+            failureBar.show(nil)
             changes = []
             info = nil
             commits = []
@@ -82,6 +90,7 @@ extension SourceControlController {
         let pushed = info.map { br.pushed(since: $0) } ?? false
         changes = ch
         info = br
+        failureBar.show(nil)
         showError(nil)
         updateHeader()
         updateCommitButton()
