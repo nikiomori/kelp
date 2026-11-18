@@ -23,8 +23,10 @@ public struct SectionList: NSViewRepresentable {
         /// Makes the row's mark: a symbol, a logo, a status. `iconKey` says what it shows, for a mark that changes
         /// while the row's words stay (an agent's status), so the row is drawn again then.
         public var icon: (@MainActor () -> NSView)?, iconKey: String?
-        /// The second line, with `lead` before it in orange ("Asks:").
-        public var detail: String?, lead: String?
+        /// The second line, with `lead` before it in orange ("Asks:"). `mono` sets it as a command is written.
+        public var detail: String?, lead: String?, mono = false
+        /// The name is a path: cut in its middle, where both ends say something.
+        public var path = false
         /// Said at the row's end in grey: what it takes, where it is.
         public var trailing: String?
         /// A worded action at the row's end. With `onHover` it stands in `trailing`'s place only under the pointer.
@@ -56,7 +58,12 @@ public struct SectionList: NSViewRepresentable {
     static let keyWidth: CGFloat = 40   // a port's five digits
 
     let sections: [Section]
-    public init(_ sections: [Section]) { self.sections = sections }
+    /// False for a list inside a page that scrolls: it is as tall as its rows and leaves the wheel to the page.
+    let scrolls: Bool
+    public init(_ sections: [Section], scrolls: Bool = true) {
+        self.sections = sections
+        self.scrolls = scrolls
+    }
 
     /// A row's mark from a symbol, in the grey of a row's quiet marks.
     public static func symbol(_ name: String) -> @MainActor () -> NSView {
@@ -71,7 +78,11 @@ public struct SectionList: NSViewRepresentable {
     public func makeCoordinator() -> Coordinator { Coordinator() }
     public func makeNSView(context: Context) -> NSScrollView {
         let lists = context.coordinator, table = lists.table
-        let scroll = table.plainList("s")
+        let scroll = table.plainList("s", in: scrolls ? NSScrollView() : Still())
+        scroll.hasVerticalScroller = scrolls
+        // A row's words start a panel's inset from the list's own edge, where a page's other blocks start too. The
+        // table's spacing between cells would move them 8.5 pt further in.
+        table.intercellSpacing = .zero
         table.dataSource = lists
         table.delegate = lists
         table.target = lists
@@ -84,6 +95,16 @@ public struct SectionList: NSViewRepresentable {
         return scroll
     }
     public func updateNSView(_ scroll: NSScrollView, context: Context) { context.coordinator.show(sections) }
+    public func sizeThatFits(_ proposal: ProposedViewSize, nsView scroll: NSScrollView, context: Context) -> CGSize? {
+        guard !scrolls else { return nil }
+        let table = context.coordinator.table, rows = table.numberOfRows
+        return CGSize(width: proposal.width ?? 0, height: rows > 0 ? table.rect(ofRow: rows - 1).maxY : 0)
+    }
+
+    /// The scroll view of a list that doesn't scroll: the wheel goes on to the page around it.
+    final class Still: NSScrollView {
+        override func scrollWheel(with event: NSEvent) { nextResponder?.scrollWheel(with: event) }
+    }
 
     enum Line {
         case section(Section, open: Bool)
@@ -106,7 +127,7 @@ public struct SectionList: NSViewRepresentable {
             case .row(let row):
                 [
                     row.key, row.iconKey, row.title, row.lead, row.detail, row.trailing, row.button?.title,
-                    row.link?.title, row.tip, row.onHover ? "h" : nil
+                    row.link?.title, row.tip, row.onHover ? "h" : nil, row.mono ? "m" : nil, row.path ? "p" : nil
                 ]
                 .map { $0 ?? "" }.joined(separator: "\u{1F}")
             }
@@ -221,7 +242,8 @@ public struct SectionList: NSViewRepresentable {
 
         private func cell(_ row: Row) -> NSView {
             let id = row.id
-            let title = NSTextField.label(row.title, font: .ui(TextSize.row))
+            let title = NSTextField.label(
+                row.title, font: .ui(TextSize.row), truncation: row.path ? .byTruncatingMiddle : .byTruncatingTail)
             var views: [NSView] = []
             if let key = row.key {
                 let label = NSTextField.label(key, font: .uiDigits(TextSize.row))
@@ -275,8 +297,8 @@ public struct SectionList: NSViewRepresentable {
             words.append(
                 NSAttributedString(
                     string: row.detail ?? "", attributes: [.foregroundColor: NSColor.secondaryLabelColor]))
-            words.addAttribute(
-                .font, value: NSFont.uiDigits(TextSize.caption), range: NSRange(location: 0, length: words.length))
+            let font = row.mono ? NSFont.uiMono(TextSize.caption) : .uiDigits(TextSize.caption)
+            words.addAttribute(.font, value: font, range: NSRange(location: 0, length: words.length))
             let under = NSTextField(labelWithAttributedString: words)
             under.lineBreakMode = .byTruncatingTail
             under.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)

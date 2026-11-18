@@ -32,6 +32,7 @@ public enum Metrics {
     public static let pageInset: CGFloat = 20
     public static let pageTop: CGFloat = 16
     public static let blockGap: CGFloat = 20
+    public static let pageColumn: CGFloat = 560   // the widest a page's column of text and facts runs
 
     // Radii
     public static let radiusXS: CGFloat = 4   // chips, swatches

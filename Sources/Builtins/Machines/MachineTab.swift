@@ -60,7 +60,7 @@ struct MachineView: View {
                 Image(systemName: "ellipsis.circle").font(.symbol())
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-            .accessibilityLabel(String(localized: "More"))
+            .help(String(localized: "More Actions")).accessibilityLabel(String(localized: "More Actions"))
         }
     }
 
@@ -159,45 +159,57 @@ struct MachineView: View {
         }
     }
 
+    /// The running machine's column: its screen, then what runs in it, what listens and what it shares as lists that
+    /// fold (`SectionList`, the server page's too), then its files and what it is. Everything starts at one edge:
+    /// the lists' rows are a panel's inset in from the column's.
     private func running(_ info: VMInfo) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 4) {
                 if let guest = detail?.guest { screen(guest) }
-                Text("Running").sectionHeading()
-                if let runs = detail?.runs, !runs.isEmpty {
-                    ForEach(runs, id: \.pid) { runRow($0) }
-                } else {
-                    let note: LocalizedStringKey =
-                        info.state == .paused
-                        ? "Paused: nothing has run for a while. The next command goes on at once."
-                        : "Nothing runs in it now. Agents use it with kelp vm run."
-                    Text(note).quietNote().padding(.horizontal, 6)
-                }
-                if let detail, !detail.ports.isEmpty, let address = detail.address {
-                    Text("Listening").sectionHeading().padding(.top, Metrics.gapWide)
-                    ForEach(detail.ports.filter { $0 != 22 }, id: \.self) { portRow($0, address) }
-                }
-                if let folders = detail?.folders, !folders.isEmpty {
-                    Text("Shared Folders").sectionHeading().padding(.top, Metrics.gapWide)
-                    ForEach(folders, id: \.self) { folder in
-                        Text((folder as NSString).abbreviatingWithTildeInPath).font(.ui(TextSize.row)).lineLimit(1)
-                            .truncationMode(
-                                .middle
-                            )
-                            .padding(.horizontal, 6).padding(.vertical, Metrics.lineGap)
-                    }
-                }
+                SectionList(lists(info), scrolls: false)
                 machine(info)
             }
-            .padding(.horizontal, Metrics.inset).padding(.bottom, Metrics.inset)
-            .frame(maxWidth: 560, alignment: .leading)
+            .padding(.horizontal, Metrics.pageInset - Metrics.inset).padding(.bottom, Metrics.pageTop)
+            .frame(maxWidth: Metrics.pageColumn, alignment: .leading)
         }
+    }
+
+    private func lists(_ info: VMInfo) -> [SectionList.Section] {
+        let app = app
+        let note =
+            info.state == .paused
+            ? String(localized: "Paused: nothing has run for a while. The next command goes on at once.")
+            : String(localized: "Nothing runs in it now. Agents use it with kelp vm run.")
+        var all = [
+            SectionList.Section(
+                id: "runs", title: String(localized: "Running"), rows: (detail?.runs ?? []).map(runRow), note: note)
+        ]
+        if let detail, let address = detail.address {
+            let ports = detail.ports.filter { $0 != 22 }.map { port -> SectionList.Row in
+                var row = SectionList.Row(id: "port \(port)", title: "")
+                row.key = "\(port)"
+                row.trailing = "\(address):\(port)"
+                row.button = .init(String(localized: "Open")) { app.workbench.open("http://\(address):\(port)") }
+                row.open = row.button?.run
+                return row
+            }
+            if !ports.isEmpty { all.append(.init(id: "ports", title: String(localized: "Listening"), rows: ports)) }
+        }
+        if let folders = detail?.folders, !folders.isEmpty {
+            let rows = folders.map { folder -> SectionList.Row in
+                var row = SectionList.Row(id: folder, title: (folder as NSString).abbreviatingWithTildeInPath)
+                row.path = true
+                return row
+            }
+            all.append(.init(id: "folders", title: String(localized: "Shared Folders"), rows: rows))
+        }
+        return all
     }
 
     /// A macOS machine's screen: whose turn it is (agents read and drive it from the Mac's side, so there is nothing
     /// to allow), and the password for a dialog inside that asks for it.
     @ViewBuilder private func screen(_ guest: VMDetail.Guest) -> some View {
-        Text("Screen").sectionHeading()
+        Text("Screen").sectionHeading().padding(.horizontal, Metrics.inset)
         VStack(alignment: .leading, spacing: 6) {
             let holder = guest.screen.flatMap(app.session).map { app.catalog.displayName($0) } ?? guest.screen
             Text(
@@ -214,70 +226,45 @@ struct MachineView: View {
             }
             .controlSize(.small)
         }
-        .padding(.horizontal, 6).padding(.bottom, Metrics.gapWide)
+        .padding(.horizontal, Metrics.inset).padding(.bottom, Metrics.gapWide)
     }
 
     /// A `kelp vm run`: the chat it came from (a terminal's shows as Terminal), its command, and how long it has run.
-    private func runRow(_ run: VMDetail.Run) -> some View {
-        let session = run.session.flatMap(app.session)
-        return Button {
-            if let session { app.workbench.focus(session: session.id) }
-        } label: {
-            HStack(spacing: Metrics.gap) {
-                if let session, session.isChat, let icon = app.catalog.icon(session.agent, size: 14) {
-                    Image(nsImage: icon).frame(width: 14, height: 14)
-                } else {
-                    Image(systemName: "terminal").font(.symbol(Metrics.iconSmall)).foregroundStyle(.secondary).frame(
-                        width: 14)
-                }
-                Text(session.map { app.catalog.displayName($0) } ?? String(localized: "Terminal")).font(
-                    .ui(TextSize.row)
-                )
-                .lineLimit(1)
-                Text(run.command.isEmpty ? String(localized: "shell") : run.command).font(
-                    .ui(TextSize.caption).monospaced()
-                )
-                .foregroundStyle(.secondary)
-                .lineLimit(1).truncationMode(.tail)
-                Spacer(minLength: 6)
-                Text(Self.elapsed(run.seconds)).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(
-                    .secondary)
-            }
-            .padding(.horizontal, 6).padding(.vertical, 4)
-            .contentShape(Rectangle())
+    private func runRow(_ run: VMDetail.Run) -> SectionList.Row {
+        let app = app, session = run.session.flatMap(app.session)
+        var row = SectionList.Row(
+            id: "run \(run.pid)", title: session.map { app.catalog.displayName($0) } ?? String(localized: "Terminal"))
+        if let session, session.isChat, let icon = app.catalog.icon(session.agent, size: Metrics.appIcon) {
+            row.icon = { NSImageView(image: icon) }
+            row.iconKey = session.agent
+        } else {
+            row.icon = SectionList.symbol("terminal")
         }
-        .buttonStyle(PointerButtonStyle())
-        .disabled(session == nil)
-    }
-
-    private func portRow(_ port: Int, _ address: String) -> some View {
-        HStack(spacing: Metrics.gap) {
-            Text(String(port)).font(.ui(TextSize.row).monospacedDigit())
-            Text("\(address):\(String(port))").font(.ui(TextSize.caption).monospaced()).foregroundStyle(.secondary)
-                .lineLimit(1)
-            Spacer(minLength: 6)
-            Button(String(localized: "Open")) { app.workbench.open("http://\(address):\(port)") }.controlSize(.small)
-        }
-        .padding(.horizontal, 6).padding(.vertical, 2)
+        row.detail = run.command.isEmpty ? String(localized: "shell") : run.command
+        row.mono = true
+        row.trailing = Self.elapsed(run.seconds)
+        if let session { row.click = { app.workbench.focus(session: session.id) } }
+        return row
     }
 
     /// The machine's files and what it is, at the end of the running view and below the asleep one.
     private func machine(_ info: VMInfo) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             if let files = info.files { exchange(files) }
-            Text("Machine").sectionHeading().padding(.top, Metrics.gapWide)
+            Text("Machine").sectionHeading().padding(.top, Metrics.gapWide).padding(.horizontal, Metrics.inset)
             facts(info)
             if info.machine.kind.resizable, info.state != .off {
-                Text("Shut it down to change its processors, memory or disk.").quietNote().padding(.horizontal, 6)
+                Text("Shut it down to change its processors, memory or disk.").quietNote()
+                    .padding(.horizontal, Metrics.inset)
             }
         }
-        .frame(maxWidth: 560, alignment: .leading)
+        .frame(maxWidth: Metrics.pageColumn, alignment: .leading)
     }
 
     /// The machine's exchange folder: `~/Kelp` inside it, and a folder beside the machine here.
     private func exchange(_ files: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Files").sectionHeading().padding(.top, Metrics.gapWide)
+            Text("Files").sectionHeading().padding(.top, Metrics.gapWide).padding(.horizontal, Metrics.inset)
             VStack(alignment: .leading, spacing: 6) {
                 Text("~/Kelp in it is this folder on your Mac: put files there for it, take what it leaves.")
                     .font(.ui(TextSize.row)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -286,7 +273,7 @@ struct MachineView: View {
                 }
                 .controlSize(.small)
             }
-            .padding(.horizontal, 6)
+            .padding(.horizontal, Metrics.inset)
         }
     }
 
@@ -352,7 +339,7 @@ struct MachineView: View {
             }
         }
         .controlSize(.small)
-        .padding(.horizontal, 6)
+        .padding(.horizontal, Metrics.inset)
     }
 
     private func memory(_ info: VMInfo) -> String {
