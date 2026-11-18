@@ -48,8 +48,9 @@ extension OneAtATime {
         #expect(!offered.isEmpty && offered.map(\.title).filter { !rows.contains($0) } == [])
     }
 
-    /// The commands on the chat, the group and the project in front are offered only while there is one: none with no
-    /// screen, the project's on its own screen, and all of them on a chat in a group.
+    /// The commands on what is in front are offered only while it is there: none with no screen, the folder's and the
+    /// project's on a project's own screen, the chat's and the group's too on a chat in a group, the tabs' while the
+    /// focused tab has others beside it or to its right, and the branch's while the folder is on a branch.
     @Test func commandsOnWhatIsInFrontAreOfferedWhileItIsThere() {
         _ = testHome
         _ = NSApplication.shared
@@ -62,8 +63,12 @@ extension OneAtATime {
         let onChat = ["agents.rename", "agents.markUnread", "agents.restart", "agents.fork", "agents.copyContext"]
         let onGroup = ["workspace.renameGroup", "workspace.archiveGroup"]
         let onProject = ["workspace.renameProject", "workspace.removeProject"]
+        let onTabs = ["editor.closeOtherTabs", "editor.closeTabsToRight"]
+        let onFolder = ["workspace.copyPath"], onBranch = ["git.copyBranchName"]
         func offered() -> [String] {
-            (onChat + onGroup + onProject).filter { app.extensions.command($0)?.enabled?() == true }
+            (onTabs + onFolder + onBranch + onChat + onGroup + onProject).filter {
+                app.extensions.command($0)?.enabled?() == true
+            }
         }
         let folder = NSTemporaryDirectory()   // a folder that is there, so the project isn't one to locate
         withExtendedLifetime(MainWindowController(app: app)) {   // the workbench holds its window weakly
@@ -76,9 +81,21 @@ extension OneAtATime {
             app.workbench.layouts["group"].add(TabURI.session("s"))
             #expect(offered() == [])
             app.workbench.show(workspace: "own")
-            #expect(offered() == onProject)
+            #expect(offered() == onFolder + onProject)
             app.workbench.show(workspace: "group")
-            #expect(offered() == onChat + onGroup + onProject)
+            #expect(offered() == onFolder + onChat + onGroup + onProject)
+            // A second tab, behind the chat's, is beside it and to its right. With that last tab in front, none is to
+            // the right, and the tab is no chat.
+            let last = app.workbench.layouts["group"].add(TabURI.session("other"), select: false)
+            #expect(offered() == onTabs + onFolder + onChat + onGroup + onProject)
+            app.workbench.layouts["group"].select(last.id)
+            #expect(offered() == ["editor.closeOtherTabs"] + onFolder + onGroup + onProject)
+            // The branch is what the daemon pushed for the group's folder. A detached HEAD has none.
+            for (branch, offers) in [("main", true), (nil, false)] as [(String?, Bool)] {
+                let info = BranchInfo(current: branch, head: "abc1234", local: [], remote: [], merging: false)
+                app.land(GitEvent(worktree: app.gitKey("group"), branches: info))
+                #expect(offered().contains("git.copyBranchName") == offers)
+            }
         }
     }
 }

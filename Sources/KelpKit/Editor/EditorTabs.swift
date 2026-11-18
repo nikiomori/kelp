@@ -263,18 +263,27 @@ extension EditorArea {
             app.extensions.all.runs?.tabMenu(menu, session)
         }
         menu.add(String(localized: "Close Tab")) { [weak self] in self?.closeTab(id) }
-        let tabs = layout.group(of: id).flatMap { layout.groups[$0]?.tabs } ?? []
         func close(_ title: String, _ gone: [TabRef]) {
             guard !gone.isEmpty else { return }
-            menu.add(title) { [weak self] in Task { for tab in gone { await self?.closeTabAsking(tab.id) } } }   // one question at a time
+            menu.add(title) { [weak self] in self?.closeTabs(gone) }
         }
-        close(String(localized: "Close Other Tabs"), tabs.filter { $0.id != id })
-        close(String(localized: "Close Tabs to the Right"), Array(tabs.drop { $0.id != id }.dropFirst()))
+        close(String(localized: "Close Other Tabs"), tabs(beside: id))
+        close(String(localized: "Close Tabs to the Right"), tabs(beside: id, toRight: true))
         menu.addItem(.separator())
         menu.addChoiceMenu(SettingKeys.tabWidth, app, title: String(localized: "Tab Width"))
         menu.addChoiceMenu(SettingKeys.tabHeight, app, title: String(localized: "Tab Height"))
         return menu
     }
+
+    /// The other tabs of the pane that tab `id` is in, or with `toRight` only those after it. Close Other Tabs and
+    /// Close Tabs to the Right take these, from a tab's own menu and as commands on the focused tab.
+    func tabs(beside id: String, toRight: Bool = false) -> [TabRef] {
+        let all = layout.group(of: id).flatMap { layout.groups[$0]?.tabs } ?? []
+        return toRight ? Array(all.drop { $0.id != id }.dropFirst()) : all.filter { $0.id != id }
+    }
+
+    /// Closes several tabs one after another, so a tab that asks first asks alone.
+    func closeTabs(_ gone: [TabRef]) { Task { for tab in gone { await closeTabAsking(tab.id) } } }
 
     /// Builds the "+" menu in the empty workspace's order (`NewTabChoices`): the agents, what opens, what runs, then
     /// Make.

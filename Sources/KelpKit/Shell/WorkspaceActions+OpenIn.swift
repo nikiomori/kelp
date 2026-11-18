@@ -100,16 +100,18 @@ extension WorkspaceActions {
         if !editors.items.isEmpty {
             menu.add(String(localized: "Open In"), submenu: editors)
         }
-        let copyPath: @MainActor () -> Void = {
-            copyText(host.map { "\($0.host):\($0.path)" } ?? path)   // host:path, as scp and rsync name it
-        }
         guard !copies.isEmpty else {
-            menu.add(String(localized: "Copy Path"), copyPath)
+            menu.add(String(localized: "Copy Path")) { copyPath(path) }
             return
         }
         let list = NSMenu()
-        list.add(String(localized: "Path"), copyPath)
+        list.add(String(localized: "Path")) { copyPath(path) }
         for copy in copies { list.add(copy.title, copy.run) }
         menu.add(String(localized: "Copy"), submenu: list)
+    }
+
+    /// Copies where a file or a folder is: its path, or host:path for a remote project's, as scp and rsync name it.
+    static func copyPath(_ path: String) {
+        copyText(onHost(path).map { "\($0.host):\($0.path)" } ?? path)
     }
 }

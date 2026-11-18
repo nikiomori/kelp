@@ -130,7 +130,7 @@ extension AppDelegate {
         file.add("New Tab", submenu: with)
         menuBuilder.add(
             file, "workspace.addProject", "workspace.cloneRepository", "workspace.addRemote", "machines.new", "-",
-            "workspace.revealInFinder")
+            "workspace.revealInFinder", "workspace.copyPath")
         let openIn = NSMenu()
         WorkspaceActions.addOpenIn(to: openIn, path: { app.worktree(app.workbench.workspaceId)?.path }, prefix: "")
         if !openIn.items.isEmpty {
@@ -140,7 +140,9 @@ extension AppDelegate {
         let recent = NSMenu(title: "Recently Closed")
         recent.delegate = recentlyClosedMenu
         file.add("Recently Closed", submenu: recent)
-        menuBuilder.add(file, "-", "editor.save", "editor.saveAll", "-", "editor.closeTab", "workspace.close")
+        menuBuilder.add(
+            file, "-", "editor.save", "editor.saveAll", "-", "editor.closeTab", "editor.closeOtherTabs",
+            "editor.closeTabsToRight", "workspace.close")
         // What the rows' menus in the sidebar do, for what is in front: the chat, then its group, then its project.
         menuBuilder.add(
             file, "-", "agents.rename", "agents.markUnread", "agents.restart", "agents.fork", "agents.copyContext",

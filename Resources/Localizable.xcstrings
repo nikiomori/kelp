@@ -7105,6 +7105,17 @@
         }
       }
     },
+    "Copy Project Path": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать путь к проекту"
+          }
+        }
+      }
+    },
     "Copy Relative Path": {
       "localizations": {
         "ru": {
@@ -8817,6 +8828,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Git не отслеживает этот файл, восстановить его будет нельзя."
+          }
+        }
+      }
+    },
+    "Git: Copy Branch Name": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: скопировать имя ветки"
           }
         }
       }

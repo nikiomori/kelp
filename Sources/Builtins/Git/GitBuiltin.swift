@@ -62,6 +62,12 @@ extension Builtins {
                 },
                 CommandSpec(id: "git.fetch", title: "Git: Fetch", key: "opt+cmd+f") { _ in
                     remote(app, panel, .fetch, String(localized: "Fetched")) { $0.fetchPressed() }
+                },
+                // What the branch chip's menu copies, for the keyboard.
+                CommandSpec(
+                    id: "git.copyBranchName", title: "Git: Copy Branch Name", enabled: { branchName(app) != nil }
+                ) { _ in
+                    if let name = branchName(app) { copyText(name) }
                 }
             ],
             settings: [
@@ -168,6 +174,13 @@ private func remote(
             Banner.show(done)
         }
     }
+}
+
+/// The branch of the workspace on screen, as the daemon last pushed it (the branch chip reads the same). It is nil on a
+/// detached HEAD and outside a repository.
+@MainActor
+private func branchName(_ app: AppModel) -> String? {
+    app.latest(GitEvent.self, app.gitKey(app.workbench.workspaceId))?.branches?.current
 }
 
 /// Where a branch's CI shows, read only here. The branch chip's setting is in Core, for its labels in Settings.

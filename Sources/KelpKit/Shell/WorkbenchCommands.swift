@@ -133,9 +133,10 @@ extension Builtins {
         return contributions
     }
 
-    /// The commands on what is in front: the chat of the focused tab, the group on screen and its project. Each does
-    /// what its row's menu in the sidebar does, so the menu bar, the palette and a key of your own reach it too. None
-    /// has a key of its own, and each is unavailable while there is no such thing in front.
+    /// The commands on what is in front: the focused tab's neighbours, the chat of that tab, the group on screen, its
+    /// folder and its project. Each does what a right-click does (on the tab, on the window bar's folder, on the row
+    /// in the sidebar), so the menu bar, the palette and a key of your own reach it too. None has a key of its own,
+    /// and each is unavailable while there is no such thing in front.
     private static func frontCommands(_ app: AppModel) -> [CommandSpec] {
         let agents = AgentActions(app), workspaces = WorkspaceActions(app)
         // A command on what `find` returns, unavailable while that is nothing or `when` says no.
@@ -148,6 +149,15 @@ extension Builtins {
             }
         }
         return [
+            on({ tabsBesideFocused($0) }, "editor.closeOtherTabs", "Close Other Tabs") {
+                app.workbench.editor?.closeTabs($0)
+            },
+            on({ tabsBesideFocused($0, toRight: true) }, "editor.closeTabsToRight", "Close Tabs to the Right") {
+                app.workbench.editor?.closeTabs($0)
+            },
+            on({ $0.workbench.editor?.worktree }, "workspace.copyPath", "Copy Project Path") {
+                WorkspaceActions.copyPath($0.path)
+            },
             on(chatInFront, "agents.rename", "Rename Chat…") { agents.rename($0.id) },
             on(chatInFront, "agents.markUnread", "Mark Chat as Unread", when: { !$0.unread }) {
                 agents.markUnread($0.id)
@@ -164,6 +174,13 @@ extension Builtins {
             ) { renameInSidebar(app, $0.id, project: true) },
             on(projectInFront, "workspace.removeProject", "Remove Project…") { workspaces.removeProject($0) }
         ]
+    }
+
+    /// The other tabs of the focused tab's pane, or with `toRight` only those after it. It is nil when there are none.
+    private static func tabsBesideFocused(_ app: AppModel, toRight: Bool = false) -> [TabRef]? {
+        guard let area = app.workbench.editor, let tab = area.layout.focusedGroup?.selectedTab else { return nil }
+        let tabs = area.tabs(beside: tab.id, toRight: toRight)
+        return tabs.isEmpty ? nil : tabs
     }
 
     /// The chat whose tab has the focus on the screen in front. It is nil on a terminal, a file or a page, and while no
