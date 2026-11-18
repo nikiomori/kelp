@@ -35,8 +35,16 @@ extension SidebarController {
         let pad = pads(node)
         // The edge of the row's card keeps its room, because without it the cell's height comes out below 0, and the
         // outline throws on that.
-        if arriving.contains(node.key) { return 0.01 + pad.top + pad.bottom }
-        return TextSize.of(rowBase + (hasAsk(node) ? 16 : 0)) + pad.top + pad.bottom
+        return rest(node) + pad.top + pad.bottom
+    }
+    /// A row's own height, without the room its card's ends take: one line, two for an agent that asks, and next to
+    /// nothing for a row that is arriving or under a fold. Its pill and its name stand in this, hung from the card's
+    /// top. It is asked of the row itself: a list of heights by row number names another row once a project above
+    /// folds, and the name then stood 6 pt off its pill.
+    func rest(_ node: Node) -> CGFloat {
+        if underFold(node) || arriving.contains(node.key) { return 0.01 }
+        if case .host = node.kind { return TextSize.of(rowBase) }
+        return TextSize.of(rowBase + (hasAsk(node) ? 16 : 0))
     }
     /// The row height from Settings › Appearance › Row height. Match System reads macOS's Sidebar icon size (small,
     /// medium, large), as Finder and Mail do. Limit: only the height follows it, and the text stays 13 pt (Text size
@@ -106,13 +114,7 @@ extension SidebarController {
         let node = outline.item(atRow: row) as? Node
         (rowView as? SidebarRowView)?.group = node.flatMap(group)
         (rowView as? SidebarRowView)?.gap = node.map(serverGap) ?? 0
-        (rowView as? SidebarRowView)?.content = rest(row)
-    }
-    /// A row's own height: the height it was given, without the room its card's ends take. 0 while no height is known.
-    func rest(_ row: Int) -> CGFloat {
-        guard rowHeights.indices.contains(row), let node = outline.item(atRow: row) as? Node else { return 0 }
-        let pad = pads(node)
-        return max(0, rowHeights[row] - pad.top - pad.bottom)
+        (rowView as? SidebarRowView)?.content = node.map(rest) ?? 0
     }
     /// The cards follow rows that open, close or move, and a project's last row changes height with them. Inside an
     /// animation group, the cards move with the group. Outside one, they move the way the outline moves rows by itself
