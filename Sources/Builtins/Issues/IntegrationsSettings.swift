@@ -63,7 +63,7 @@ struct IntegrationsSettings: View {
         LabeledContent {
             HStack {
                 Circle().strokeBorder(on ? Color.clear : Color.secondary, lineWidth: 1.5)
-                    .background(Circle().fill(on ? Color.green : .clear)).frame(width: 8, height: 8)
+                    .background(Circle().fill(on ? Color.secondary : .clear)).frame(width: 8, height: 8)
                     .accessibilityHidden(true)   // the status beside it says the same in words
                 Text(status).foregroundStyle(.secondary)
                 actions()
@@ -86,7 +86,16 @@ struct IntegrationsSettings: View {
     private func linkRow(_ account: Account, _ connection: Connection, _ about: LocalizedStringKey) -> some View {
         row(account.title, on: connection.on, status: connection.status, about: about) {
             if connection.on {
-                Button("Disconnect") { Task { await disconnect(account) } }
+                Button("Disconnect…") {
+                    Task {
+                        let sure = await confirm(
+                            String(localized: "Disconnect \(account.title)?"),
+                            detail: String(
+                                localized: "Kelp forgets what it kept to sign in. Connecting again asks for it."),
+                            action: String(localized: "Disconnect"), destructive: true)
+                        if sure { await disconnect(account) }
+                    }
+                }
             } else {
                 Button("Connect…") { connecting = account }
             }

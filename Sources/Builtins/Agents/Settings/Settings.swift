@@ -112,8 +112,10 @@ struct AgentsSettings: View {
             }
             if !rest.isEmpty { Section("Not Installed \(rest.count)") { ForEach(rest, id: \.id) { row($0) } } }
             if have.isEmpty && rest.isEmpty {
-                Text(show == .installed ? "No agent is installed yet." : "Every agent Kelp knows is installed.")
-                    .foregroundStyle(.secondary)
+                EmptyState(
+                    show == .installed
+                        ? String(localized: "No agent is installed yet.")
+                        : String(localized: "Every agent Kelp knows is installed."), symbol: "sparkles", lifted: false)
             }
         }
         .formStyle(.grouped)
@@ -162,8 +164,10 @@ struct AgentsSettings: View {
                     HStack(spacing: Metrics.gap) {
                         Text(manifest.name).foregroundStyle(have ? .primary : .secondary)
                         if updates.contains(where: { $0.id == manifest.id }) {
-                            Circle().fill(Color.textOrange).frame(width: Metrics.gap, height: Metrics.gap).help(
-                                "Update available")
+                            // An update is news, which has no colour: orange is for what waits for the user.
+                            Circle().fill(Color.secondary).frame(width: Metrics.gap, height: Metrics.gap).help(
+                                "Update available"
+                            ).accessibilityLabel("Update available")
                         }
                     }
                     HStack(spacing: 0) {
@@ -235,7 +239,7 @@ struct AgentsSettings: View {
                                 "If the installer printed a line to add to your shell profile, add it, then check again."
                         ))
             } icon: {
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color(nsColor: .systemRed))
             }
             HStack {
                 Spacer()

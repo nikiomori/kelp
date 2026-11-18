@@ -70,6 +70,9 @@ import Testing
     #expect(SettingRow.label(SettingKeys.alertAt.key, "80", m) == "80%")
     #expect(SettingRow.label(SettingKeys.hibernateMinutes.key, "240", m) == "After 4 Hours")
     #expect(SettingRow.label(SettingKeys.usageLimits.key, "all", m) == "All Agents")
+    // A row's title has no brackets: what they held is the field's own business, or the help's.
+    #expect(sections.flatMap(\.specs).map(\.title).filter { $0.contains("(") } == [])
+    #expect(SettingRow.label(SettingKeys.databaseAccess.key, "ask", m) == "Read, Ask to Change")
     #expect(SettingRow.label(SettingKeys.textSize.key, "large", m) == "Large")   // not named: its value, capitalized
 }
 

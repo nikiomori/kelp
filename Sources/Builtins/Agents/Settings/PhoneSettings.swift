@@ -22,22 +22,32 @@ struct PhoneSettings: View {
     }
     private var isOn: Bool { !via.isEmpty }
 
+    /// What the switch turns on and how it is kept private, behind the row's ⓘ.
+    private static var what: String {
+        String(
+            localized:
+                """
+                See your agents, answer Allow or Deny and reply from a phone’s browser. What passes between the \
+                phone and this Mac is sealed with a key only the two hold: nothing on the way can read it.
+                """)
+    }
+
     var body: some View {
         Section {
             Toggle(
-                "Agents on your phone",
                 isOn: Binding(
                     get: { isOn },
                     set: { on in
                         app.settings.set(SettingKeys.phoneVia, on ? "tailscale" : "")
                         if !on { app.settings.set(SettingKeys.phoneRelay, "") }
-                    }))
-        } footer: {
-            Text(
-                """
-                See your agents, answer Allow or Deny and reply from a phone’s browser. What passes between the \
-                phone and this Mac is sealed with a key only the two hold: nothing on the way can read it.
-                """)
+                    })
+            ) {
+                // One line, as every row of Settings is: what it does and how it is kept private is behind the ⓘ.
+                HStack(spacing: Metrics.gap) {
+                    Text("Agents on your phone")
+                    HelpMark(text: Self.what)
+                }
+            }
         }
         .task {
             // The watch ends with the page, because `Watched` stops watching when this view's state goes away.
@@ -68,7 +78,9 @@ struct PhoneSettings: View {
                 }
             }
             Section("Paired Phones") {
-                if state.phones.isEmpty { Text("No phone is paired yet.").foregroundStyle(.secondary) }
+                if state.phones.isEmpty {
+                    EmptyState(String(localized: "No phone is paired yet."), symbol: "iphone", lifted: false)
+                }
                 ForEach(state.phones) { phone in
                     HStack(spacing: Metrics.gap) {
                         Image(systemName: "iphone").foregroundStyle(.secondary)
@@ -81,8 +93,15 @@ struct PhoneSettings: View {
                             .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: Metrics.gap)
-                        Button("Remove") {
-                            Task { if await app.call(PhoneUnpair(device: phone.id)) != nil { app.watchAgain(.phone) } }
+                        Button("Remove…") {
+                            Task {
+                                let sure = await confirm(
+                                    String(localized: "Remove “\(phone.name)”?"),
+                                    detail: String(localized: "It can’t reach this Mac until it is paired again."),
+                                    action: String(localized: "Remove"), destructive: true)
+                                guard sure else { return }
+                                if await app.call(PhoneUnpair(device: phone.id)) != nil { app.watchAgain(.phone) }
+                            }
                         }
                         .controlSize(.small)
                     }
@@ -158,7 +177,7 @@ struct PhoneSettings: View {
     {
         HStack(spacing: Metrics.gap) {
             Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(done ? Color(nsColor: .systemGreen) : .secondary)
+                .foregroundStyle(.secondary)   // done is the filled mark: the shape says it, not a colour
             Text(title).foregroundStyle(done || next ? .primary : .secondary)
             Spacer(minLength: Metrics.gap)
             if !done, next { todo().font(.ui(TextSize.caption)) }
@@ -172,8 +191,10 @@ struct PhoneSettings: View {
     private func reached(_ state: PhoneState) -> some View {
         let host = (state.address ?? state.relay).flatMap { URL(string: $0)?.host } ?? ""
         return HStack(spacing: Metrics.gap) {
-            Circle().fill(state.connected && state.address != nil ? Color(nsColor: .systemGreen) : .secondary)
-                .frame(width: 7, height: 7)
+            // Reached is a filled dot and not reached a ring, as an integration's is.
+            Circle().strokeBorder(Color.secondary, lineWidth: 1.5)
+                .background(Circle().fill(state.connected && state.address != nil ? Color.secondary : .clear))
+                .frame(width: 8, height: 8)
             if let steps = state.tailscale, !steps.serving {
                 Text("Finish Tailscale’s steps above.").foregroundStyle(.secondary)   // the steps say what's missing
             } else if let error = state.error {

@@ -105,20 +105,21 @@ struct ExtensionsSettings: View {
             Label {
                 Text(info.builtin ? loc(info.name) : "\(loc(info.name)) \(info.version)")
                 if !info.description.isEmpty { Text(loc(info.description)) }
-                if let err = info.error { Text(err).foregroundStyle(Color.textOrange).textSelection(.enabled) }
+                if let err = info.error { Text(err).foregroundStyle(Color.textRed).textSelection(.enabled) }
                 if let reason = info.unavailable { Text(reason) }
                 if info.waitsToBeAllowed {
                     Text("New or changed since it was allowed: it runs no commands until you allow it.")
                 }
             } icon: {
-                SymbolIcon(info.icon).foregroundStyle(info.error == nil ? Color.secondary : Color.textOrange)
+                SymbolIcon(info.icon).foregroundStyle(info.error == nil ? Color.secondary : Color.textRed)
             }
         }
     }
 
     private func enabled(_ info: ExtensionInfo) -> some View {
-        Toggle("", isOn: Binding(get: { info.enabled }, set: { registry.setEnabled(info.id, $0) })).toggleStyle(.switch)
-            .labelsHidden()
+        // Named, though the name is hidden: VoiceOver says which extension the switch is for.
+        Toggle(loc(info.name), isOn: Binding(get: { info.enabled }, set: { registry.setEnabled(info.id, $0) }))
+            .toggleStyle(.switch).labelsHidden()
     }
 
     /// The actions for an installed extension. Kelp's own extensions can only be turned off.
@@ -131,7 +132,15 @@ struct ExtensionsSettings: View {
                     ? "extension.json" : "package.json"
                 Button("Edit \(manifest)") { app.workbench.showFile(folder.appendingPathComponent(manifest)) }
                 Divider()
-                Button("Uninstall", role: .destructive) { registry.uninstall(info.id) }
+                Button("Uninstall…", role: .destructive) {
+                    Task {
+                        let sure = await confirm(
+                            String(localized: "Uninstall “\(loc(info.name))”?"),
+                            detail: String(localized: "Its folder moves to the Trash."),
+                            action: String(localized: "Uninstall"), destructive: true)
+                        if sure { registry.uninstall(info.id) }
+                    }
+                }
             } label: {
                 Image(systemName: "ellipsis.circle").font(.symbol())
             }

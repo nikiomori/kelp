@@ -339,6 +339,7 @@ final class WelcomeView: NSView {
                         "Ask an agent anything right away, or add a project folder: agents, terminals and files side by side."
                 ))
         body.alignment = .center
+        body.font = .ui(TextSize.body)   // it grows with Text size, which this very screen offers
         body.textColor = .secondaryLabelColor
         // A chat needs no project, so with no project yet a chat is the first thing to do and adding a project the
         // second.

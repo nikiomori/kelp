@@ -190,27 +190,6 @@ struct SettingRow: View {
     }
 }
 
-/// The ⓘ beside a row's title. It shows the row's whole help on hover, or in a popover on a click, so the line under
-/// the title stays one line.
-struct HelpMark: View {
-    let text: String
-    @State private var shown = false
-    var body: some View {
-        Button {
-            shown.toggle()
-        } label: {
-            Image(systemName: "info.circle").font(.symbol()).foregroundStyle(.secondary)
-        }
-        .buttonStyle(PointerButtonStyle(flush: true)).padding(.vertical, -3)   // so the row keeps its height
-        .help(text)
-        .accessibilityLabel(text)
-        .popover(isPresented: $shown, arrowEdge: .bottom) {
-            Text(text).fixedSize(horizontal: false, vertical: true).frame(width: 280, alignment: .leading).padding(
-                Metrics.inset)
-        }
-    }
-}
-
 /// A relaunch button for Language, which takes effect at launch. It shows once the setting differs from what this
 /// launch read.
 private struct RelaunchRow: View {

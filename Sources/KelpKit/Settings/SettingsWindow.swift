@@ -98,13 +98,13 @@ struct SettingsView: View {
                     } label: {
                         Label("Back", systemImage: "chevron.left")
                     }
-                    .keyboardShortcut("[", modifiers: .command).disabled(back.isEmpty)
+                    .keyboardShortcut("[", modifiers: .command).disabled(back.isEmpty).help("Back")
                     Button {
                         walk(&forward, &back)
                     } label: {
                         Label("Forward", systemImage: "chevron.right")
                     }
-                    .keyboardShortcut("]", modifiers: .command).disabled(forward.isEmpty)
+                    .keyboardShortcut("]", modifiers: .command).disabled(forward.isEmpty).help("Forward")
                 }
                 SettingsTitle(text: title)
                 ToolbarItem(placement: .primaryAction) {
@@ -260,7 +260,9 @@ private struct SearchResults: View {
         let found = SettingsSearch.find(query, in: app.extensions.all.settings + [Self.extensions])
         let keys = KeyBindings.entries().contains { KeyBindings.matches($0, query) }
         Form {
-            if found.isEmpty, !keys { Text("No settings match “\(query)”.").foregroundStyle(.secondary) }
+            if found.isEmpty, !keys {
+                EmptyState(String(localized: "No settings match “\(query)”."), symbol: "magnifyingglass", lifted: false)
+            }
             ForEach(found) { result in
                 Section(result.title) {
                     ForEach(result.specs) { spec in SettingRow(spec: spec) { open(result.section.id) } }

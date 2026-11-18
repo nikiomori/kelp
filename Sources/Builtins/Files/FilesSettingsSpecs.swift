@@ -64,7 +64,7 @@ extension Builtins {
                     group: "Saving"),
                 s(
                     SettingKeys.formatOnSave, "Format on save", .boolean,
-                    "⌘S runs Format Document first, for languages that have a formatter.",
+                    "Saving runs Format Document first, for languages that have a formatter.",
                     group: "Saving", perLanguage: true),
                 s(
                     SettingKeys.trimTrailingWhitespace, "Trim trailing whitespace on save", .boolean,

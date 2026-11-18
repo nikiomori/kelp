@@ -91,9 +91,9 @@ extension Builtins {
         ] + sidebarRows + inspectorRows + [
             s(
                 SettingKeys.sideBySideButton, "Agents side by side button", .boolean,
-                "In the title bar, with two agents or more; ⌃⌘T works either way.",
+                "In the title bar, with two agents or more; the command works either way.",
                 help:
-                    "In the title bar, right of the search, with two agents or more; right-click it to hide it. ⌃⌘T works either way.",
+                    "In the title bar, right of the search, with two agents or more; right-click it to hide it. Agents Side by Side in the menu bar works either way.",
                 group: "Window"),
             s(
                 SettingKeys.awakeButton, "Keep Mac awake button", .boolean,

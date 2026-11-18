@@ -185,9 +185,16 @@ final class TemplateGroup: NSStackView {
             }
             guard mine else { return row }
             row.menu = NSMenu()
-            row.menu?.add(String(localized: "Delete Template")) { [weak self] in
-                store.delete(t.name, in: w.repoId)
-                self?.show(file: file)
+            row.menu?.add(String(localized: "Delete Template…")) { [weak self] in
+                Task {
+                    let sure = await confirm(
+                        String(localized: "Delete the template “\(t.name)”?"),
+                        detail: String(localized: "The chats made from it stay as they are."),
+                        action: String(localized: "Delete"), destructive: true)
+                    guard sure else { return }
+                    store.delete(t.name, in: w.repoId)
+                    self?.show(file: file)
+                }
             }
             return row
         }

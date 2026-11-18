@@ -10270,12 +10270,12 @@
         }
       }
     },
-    "Log in once per profile; afterwards pick the account when starting an agent. Usage and limits per account show in Agents › Usage.": {
+    "Log in once per profile; afterwards pick the account when starting an agent. Usage and limits per account show in Window › Usage.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Войдите один раз для каждого профиля; потом выбирайте аккаунт при запуске агента. Расход и лимиты по аккаунтам — в Агенты › Расход."
+            "value": "Войдите один раз для каждого профиля; потом выбирайте аккаунт при запуске агента. Расход и лимиты по аккаунтам — в Окно › Расход."
           }
         }
       }
@@ -12202,13 +12202,13 @@
         }
       }
     },
-    "Option key sends Alt (Meta)": {
+    "Option key sends Alt": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Option работает как Alt (Meta)"
+            "value": "Option работает как Alt"
           }
         }
       }
@@ -12351,12 +12351,12 @@
         }
       }
     },
-    "Phone notifications (ntfy address)": {
+    "Phone notifications": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Уведомления на телефон (адрес ntfy)"
+            "value": "Уведомления на телефон"
           }
         }
       }
@@ -17551,12 +17551,12 @@
         }
       }
     },
-    "⌘S runs Format Document first, for languages that have a formatter.": {
+    "Saving runs Format Document first, for languages that have a formatter.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "⌘S сначала форматирует документ — для языков, у которых есть форматтер."
+            "value": "При сохранении документ сначала форматируется — для языков, у которых есть форматтер."
           }
         }
       }
@@ -20391,6 +20391,176 @@
         }
       }
     },
+    "Couldn't read the databases": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать базы"
+          }
+        }
+      }
+    },
+    "Couldn't read the pages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать страницы"
+          }
+        }
+      }
+    },
+    "Table rows": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Строки таблиц"
+          }
+        }
+      }
+    },
+    "Read, Ask to Change": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читать, спрашивать перед изменением"
+          }
+        }
+      }
+    },
+    "Read and Change": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читать и менять"
+          }
+        }
+      }
+    },
+    "Disconnect…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключить…"
+          }
+        }
+      }
+    },
+    "Uninstall…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить…"
+          }
+        }
+      }
+    },
+    "Delete Template…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить шаблон…"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить"
+          }
+        }
+      }
+    },
+    "Disconnect %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключить %@?"
+          }
+        }
+      }
+    },
+    "Kelp forgets what it kept to sign in. Connecting again asks for it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp забудет данные для входа. При новом подключении спросит их снова."
+          }
+        }
+      }
+    },
+    "Remove “%@”?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать «%@»?"
+          }
+        }
+      }
+    },
+    "It can’t reach this Mac until it is paired again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Он не сможет связаться с этим Mac, пока его не подключат снова."
+          }
+        }
+      }
+    },
+    "Uninstall “%@”?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить «%@»?"
+          }
+        }
+      }
+    },
+    "Its folder moves to the Trash.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Его папка уйдёт в Корзину."
+          }
+        }
+      }
+    },
+    "Delete the template “%@”?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить шаблон «%@»?"
+          }
+        }
+      }
+    },
+    "The chats made from it stay as they are.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чаты, созданные по нему, останутся как есть."
+          }
+        }
+      }
+    },
     "↩ opens · / goes into a database's tables · esc closes": {
       "localizations": {
         "ru": {
@@ -21717,12 +21887,12 @@
         }
       }
     },
-    "Used by New Agent (⌥⌘T). More agents are in the Agent Catalog.": {
+    "Used by New Agent. More agents are in the Agent Catalog.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Для «Новый агент» (⌥⌘T). Другие агенты — в каталоге агентов."
+            "value": "Для «Новый агент». Другие агенты — в каталоге агентов."
           }
         }
       }
@@ -22547,13 +22717,13 @@
         }
       }
     },
-    "In the title bar, right of the search, with two agents or more; right-click it to hide it. ⌃⌘T works either way.": {
+    "In the title bar, right of the search, with two agents or more; right-click it to hide it. Agents Side by Side in the menu bar works either way.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "В заголовке окна, справа от поиска, когда агентов два или больше; правый клик по ней скрывает её. ⌃⌘T работает в любом случае."
+            "value": "В заголовке окна, справа от поиска, когда агентов два или больше; правый клик по ней скрывает её. Команда «Агенты рядом» в строке меню работает в любом случае."
           }
         }
       }
@@ -22580,13 +22750,13 @@
         }
       }
     },
-    "In the title bar, with two agents or more; ⌃⌘T works either way.": {
+    "In the title bar, with two agents or more; the command works either way.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "В заголовке окна, когда агентов два или больше; ⌃⌘T работает в любом случае."
+            "value": "В заголовке окна, когда агентов два или больше; команда работает в любом случае."
           }
         }
       }

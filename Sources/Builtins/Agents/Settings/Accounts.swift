@@ -65,7 +65,7 @@ struct AccountsSettings: View {
                 }
             }
             HStack {
-                Picker("", selection: $newAgent) {
+                Picker("Agent", selection: $newAgent) {
                     ForEach(app.catalog.all.filter(\.profiles), id: \.id) { Text($0.name).tag($0.id) }
                 }.labelsHidden().fixedSize()
                 TextField("Profile name", text: $newName, prompt: Text("Profile name")).labelsHidden().textFieldStyle(
@@ -86,7 +86,7 @@ struct AccountsSettings: View {
                 Button("Remove…") { remove() }.disabled(!loaded || selection == nil)
             }
             Text(
-                "Log in once per profile; afterwards pick the account when starting an agent. Usage and limits per account show in Agents › Usage."
+                "Log in once per profile; afterwards pick the account when starting an agent. Usage and limits per account show in Window › Usage."
             )
             .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
         }

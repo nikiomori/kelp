@@ -124,7 +124,7 @@ struct ServerLine: View {
 
     private func dot(_ status: ServerStatus) -> Color {
         switch status {
-        case .running: Color(nsColor: .systemGreen)
+        case .running: .secondary   // filled, with "Running" beside it: only what failed has a colour
         case .failed: Color(nsColor: .systemRed)
         case .installed, .untrusted: .secondary
         default: .clear

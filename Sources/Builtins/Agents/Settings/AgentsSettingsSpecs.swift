@@ -18,7 +18,7 @@ extension Builtins {
             specs: [
                 s(
                     SettingKeys.defaultAgent, "Default agent", .enum,
-                    "Used by New Agent (⌥⌘T). More agents are in the Agent Catalog.",
+                    "Used by New Agent. More agents are in the Agent Catalog.",
                     options: app.catalog.all.map(\.id),
                     // The choices are the agents installed now, shown by name. They are worked out when the row shows,
                     // not when this spec is declared.
@@ -236,7 +236,7 @@ extension Builtins {
                     ], look: .pictures, group: "Dock",
                     choices: SettingChoices(picture: { AnyView(DockIconPicture(option: $0)) })),
                 s(
-                    SettingKeys.phoneURL, "Phone notifications (ntfy address)", .string,
+                    SettingKeys.phoneURL, "Phone notifications", .string,
                     "When you've been away 5 minutes or Kelp is closed.",
                     help:
                         "When an agent asks, fails or hits a limit and you've been away for 5 minutes or Kelp is closed. Anyone who knows this address can read what's sent.",
@@ -267,7 +267,7 @@ extension Builtins {
                 s(
                     SettingKeys.cursorStyle, "Cursor style", .enum, options: ["block", "bar", "underline"],
                     look: .pictures, choices: SettingChoices(picture: SettingSamples.cursor)),
-                s(SettingKeys.optionAsAlt, "Option key sends Alt (Meta)", .boolean),
+                s(SettingKeys.optionAsAlt, "Option key sends Alt", .boolean),
                 s(
                     SettingKeys.cleanCopy, "Copy text without borders", .boolean,
                     "Drops box borders and an agent's gutter, and rejoins lines it wrapped."),

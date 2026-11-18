@@ -133,7 +133,7 @@ struct PictureArt: View {
                 Text(verbatim: "Kelp").font(Self.drawn(10, weight: .semibold)).scaleEffect(scale, anchor: .leading)
             }
             row(height: 15 * scale) {
-                Circle().fill(Color.textGreen).frame(width: 5, height: 5)
+                Circle().fill(Color.secondary).frame(width: 5, height: 5)   // a chat's mark, grey as in the sidebar
                 Text(verbatim: "Claude").font(Self.drawn(10)).scaleEffect(scale, anchor: .leading)
             }
         }

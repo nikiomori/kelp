@@ -14,7 +14,7 @@ extension AgentsSettings {
                 status(
                     String(localized: "\(agentManifest.name) is installed"), String(localized: "Offered in New Agent."))
             } icon: {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.secondary)
             }
             Spacer()
             Button("Start \(agentManifest.name)") {
