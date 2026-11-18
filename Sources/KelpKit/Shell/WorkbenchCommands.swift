@@ -114,6 +114,7 @@ extension Builtins {
                 app.workbench.open(TabURI.file(ExtensionRegistry.userDir.appendingPathComponent("EXTENSIONS.md").path))
             }
         ]
+        contributions.commands += frontCommands(app)
         // Like VS Code's openEditorAtIndex1…9: one id per number, so each can be rebound.
         contributions.commands += (1...9).map { number in
             cmd("editor.tab.\(number)", "Tab \(number)", "cmd+\(number)") { editor(app)?.selectTab(index: number - 1) }
@@ -130,6 +131,73 @@ extension Builtins {
             }
         }
         return contributions
+    }
+
+    /// The commands on what is in front: the chat of the focused tab, the group on screen and its project. Each does
+    /// what its row's menu in the sidebar does, so the menu bar, the palette and a key of your own reach it too. None
+    /// has a key of its own, and each is unavailable while there is no such thing in front.
+    private static func frontCommands(_ app: AppModel) -> [CommandSpec] {
+        let agents = AgentActions(app), workspaces = WorkspaceActions(app)
+        // A command on what `find` returns, unavailable while that is nothing or `when` says no.
+        func on<Thing>(
+            _ find: @escaping @MainActor (AppModel) -> Thing?, _ id: String, _ title: String,
+            when: @escaping @MainActor (Thing) -> Bool = { _ in true }, _ run: @escaping @MainActor (Thing) -> Void
+        ) -> CommandSpec {
+            CommandSpec(id: id, title: title, enabled: { find(app).map { when($0) } ?? false }) { _ in
+                if let thing = find(app) { run(thing) }
+            }
+        }
+        return [
+            on(chatInFront, "agents.rename", "Rename Chat…") { agents.rename($0.id) },
+            on(chatInFront, "agents.markUnread", "Mark Chat as Unread", when: { !$0.unread }) {
+                agents.markUnread($0.id)
+            },
+            on(chatInFront, "agents.restart", "Restart Agent") { agents.restart($0.id) },
+            on(chatInFront, "agents.fork", "Fork Chat", when: { agents.canFork($0.id) }) { agents.fork($0.id) },
+            on(chatInFront, "agents.copyContext", "Copy Chat Context") { agents.copyContext($0.id) },
+            on(groupInFront, "workspace.renameGroup", "Rename Group…") { renameInSidebar(app, $0.id) },
+            on(groupInFront, "workspace.archiveGroup", "Archive Group") { workspaces.archive($0) },
+            // A project whose folder is missing can only be located or removed, as its row's menu has it.
+            on(
+                projectInFront, "workspace.renameProject", "Rename Project…",
+                when: { !app.missingFolders.contains($0.path) }
+            ) { renameInSidebar(app, $0.id, project: true) },
+            on(projectInFront, "workspace.removeProject", "Remove Project…") { workspaces.removeProject($0) }
+        ]
+    }
+
+    /// The chat whose tab has the focus on the screen in front. It is nil on a terminal, a file or a page, and while no
+    /// workspace has the keyboard (a server's page is over it).
+    private static func chatInFront(_ app: AppModel) -> Session? {
+        guard let uri = app.workbench.editor?.layout.focusedGroup?.selectedTab?.uri, TabURI.scheme(uri) == "session",
+            let session = app.session(TabURI.body(uri)), session.isChat
+        else { return nil }
+        return session
+    }
+
+    /// The group on screen. It is nil on a project's own screen, which is no group and can't be renamed or archived.
+    private static func groupInFront(_ app: AppModel) -> Worktree? {
+        app.workbench.editor?.worktree.flatMap { app.groupName($0) == nil ? nil : $0 }
+    }
+
+    /// The project of the screen in front. It is nil on the No Project screen, which is Kelp's own and has nothing to
+    /// rename or remove.
+    private static func projectInFront(_ app: AppModel) -> Repo? {
+        app.repo(app.workbench.editor?.worktree?.repoId).flatMap { NoProject.holds($0) ? nil : $0 }
+    }
+
+    /// Starts the sidebar's own rename of a group's row, or with `project` of its project's row. The row has to be in
+    /// sight first. The main window comes forward when the group is in a window of its own, and a sidebar that is away
+    /// comes in as the inspector does when one of its panels is asked for. It beeps when the list has no such row.
+    private static func renameInSidebar(_ app: AppModel, _ id: String, project: Bool = false) {
+        guard let window = app.workbench.window else { return }
+        window.window?.makeKeyAndOrderFront(nil)
+        let rename: @MainActor @Sendable () -> Void = {
+            if !window.sidebar.startRename(id, project: project) { NSSound.beep() }
+        }
+        guard window.hides(window.left) else { return window.slide([(window.left, false)], then: rename) }
+        window.peek(window.left)
+        rename()
     }
 
     /// Zooms terminal and editor text together, like a browser. The settings stay the one source of the sizes.

@@ -299,14 +299,18 @@ private struct MenuSources: Equatable {
 
 extension AppDelegate: NSMenuItemValidation {
     /// Show/Hide items say what choosing them does, Focus Mode is ticked while it is on, Stop needs something running,
-    /// and the file commands need a file.
+    /// and the file commands need a file. The window is asked as `main?`, because there is none until launch and a
+    /// test checks the menu bar without one.
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         switch item.identifier?.rawValue {
         case "workbench.toggleSidebar":
-            item.title = main.sidebarShown ? String(localized: "Hide Sidebar") : String(localized: "Show Sidebar")
+            item.title =
+                main?.sidebarShown == true ? String(localized: "Hide Sidebar") : String(localized: "Show Sidebar")
         case "workbench.toggleInspector":
-            item.title = main.inspectorShown ? String(localized: "Hide Inspector") : String(localized: "Show Inspector")
-        case "workbench.toggleFocusMode": item.state = main.inFocusMode ? .on : .off
+            item.title =
+                main?.inspectorShown == true
+                ? String(localized: "Hide Inspector") : String(localized: "Show Inspector")
+        case "workbench.toggleFocusMode": item.state = main?.inFocusMode == true ? .on : .off
         case "power.keepAwake": item.state = app.settings[SettingKeys.keepAwake] == "always" ? .on : .off
         // Disabled outside a file, so a terminal still gets ⌥Z.
         case "editor.toggleWordWrap":

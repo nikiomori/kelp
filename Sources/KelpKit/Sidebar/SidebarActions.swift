@@ -110,14 +110,20 @@ extension SidebarController {
     }
 
     /// Starts an inline rename, like Finder's, of a workspace's name, or with `project` of the project's own name.
-    func startRename(_ id: String, project: Bool = false) {
-        guard let node = project ? node("p:" + id) : workspaceNode(id) else { return }
+    /// Returns false when the list has no such row (its server's header is folded).
+    @discardableResult func startRename(_ id: String, project: Bool = false) -> Bool {
+        guard let node = project ? node("p:" + id) : workspaceNode(id) else { return false }
+        // The File menu's command can ask for a row that is out of sight, which the row's own menu never does. A folded
+        // project opens first, as it does when its group comes on screen, and the list scrolls to the row.
+        if let above = outline.parent(forItem: node) as? Node, isCollapsed(above) { open(above) }
         let row = outline.row(forItem: node)
         guard row >= 0, let cell = outline.view(atColumn: 0, row: row, makeIfNecessary: true) as? SidebarCell else {
-            return
+            return false
         }
+        outline.scrollRowToVisible(row)
         renaming = (id, project)
         cell.beginEditing(delegate: self, project: project)
+        return true
     }
     func controlTextDidEndEditing(_ notification: Notification) {
         guard let (id, project) = renaming, let field = notification.object as? NSTextField else { return }
@@ -200,9 +206,7 @@ extension SidebarController {
                 moveItems(menu, chat: sid)
             }
             if app.session(sid)?.unread == false {
-                menu.add(String(localized: "Mark as Unread")) { [app] in
-                    Task { await app.call(SessionMarkUnread(id: sid)) }
-                }
+                menu.add(String(localized: "Mark as Unread")) { AgentActions(app).markUnread(sid) }
             } else if app.session(sid)?.status == .done {
                 // A finished chat waits to be seen. This marks it read by hand, as looking at it would.
                 menu.add(String(localized: "Mark as Read")) { [app] in Task { await app.call(SessionMarkRead(id: sid)) }

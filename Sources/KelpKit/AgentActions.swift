@@ -112,9 +112,11 @@ package struct AgentActions {
     /// Adds "Fork Chat" for an agent that can fork. It opens a new chat beside this one that goes on from a copy of its
     /// conversation.
     func addFork(to menu: NSMenu, _ sid: String) {
-        guard app.catalog.manifest(app.session(sid)?.agent)?.forks == true else { return }
+        guard canFork(sid) else { return }
         menu.add(String(localized: "Fork Chat")) { fork(sid) }
     }
+    /// Whether the chat's agent can fork. The menu's item and the File menu's command are both offered by it.
+    func canFork(_ sid: String) -> Bool { app.catalog.manifest(app.session(sid)?.agent)?.forks == true }
 
     /// Adds "Continue On ▸ box". The chat goes on in a copy of its project on another machine (a server, or this Mac),
     /// in a branch worktree there with its commits and uncommitted changes, briefed as Hand Off does. The chat here
@@ -139,6 +141,9 @@ package struct AgentActions {
     }
 
     func fork(_ sid: String) { open(SessionFork(id: sid), split: .right) }
+
+    /// Marks a chat unread by hand, so its row asks for a look again.
+    func markUnread(_ sid: String) { Task { await app.call(SessionMarkUnread(id: sid)) } }
 
     func copyContext(_ sid: String) {
         Task {

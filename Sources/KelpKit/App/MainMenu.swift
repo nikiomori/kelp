@@ -111,7 +111,8 @@ extension AppDelegate {
         app.addItem(withTitle: "Quit Kelp", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }
 
-    /// Builds the File menu: new workspaces, agents and tabs, projects, saving and closing.
+    /// Builds the File menu: new workspaces, agents and tabs, projects, saving and closing, and what the chat, the
+    /// group and the project in front can do.
     private func fileMenu(_ menuBuilder: MenuBuilder) {
         let app = self.app
         let file = menuBuilder.sub("File")
@@ -140,6 +141,11 @@ extension AppDelegate {
         recent.delegate = recentlyClosedMenu
         file.add("Recently Closed", submenu: recent)
         menuBuilder.add(file, "-", "editor.save", "editor.saveAll", "-", "editor.closeTab", "workspace.close")
+        // What the rows' menus in the sidebar do, for what is in front: the chat, then its group, then its project.
+        menuBuilder.add(
+            file, "-", "agents.rename", "agents.markUnread", "agents.restart", "agents.fork", "agents.copyContext",
+            "-", "workspace.renameGroup", "workspace.archiveGroup", "-", "workspace.renameProject",
+            "workspace.removeProject")
     }
 
     /// Builds the Edit menu: undo, the clipboard, Find, and the editor's commands.
