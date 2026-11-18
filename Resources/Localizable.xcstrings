@@ -20416,7 +20416,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "На 1 коммит впереди %@"
+            "value": "На 1 впереди %@"
           }
         }
       }
@@ -20426,7 +20426,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Коммитов впереди %2$@: %1$lld"
+            "value": "На %1$lld впереди %2$@"
           }
         }
       }
@@ -20436,7 +20436,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "На 1 коммит позади %@"
+            "value": "На 1 позади %@"
           }
         }
       }
@@ -20446,7 +20446,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Коммитов позади %2$@: %1$lld"
+            "value": "На %1$lld позади %2$@"
           }
         }
       }
@@ -20456,7 +20456,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Позади на %1$lld, впереди на %2$lld: %3$@"
+            "value": "На %1$lld позади и на %2$lld впереди %3$@"
           }
         }
       }
