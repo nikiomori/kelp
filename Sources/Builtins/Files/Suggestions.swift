@@ -32,8 +32,9 @@ final class Suggestions {
 
     /// What the servers offer, in the order the daemon picks one; nil until asked.
     private(set) var models: [SuggestModel]?
-    /// Why the last ask brought nothing, until one brings something; and whether one has waited past a second.
+    /// Why the last ask brought nothing. It clears when an ask brings a suggestion.
     var problem: SuggestProblem?
+    /// Whether an ask has waited more than a second (the model is loading).
     private(set) var loading = false
     /// Turn On's way to a model: one Ollama is downloading, what it still needs, or why it stopped.
     var pull: Pull?
@@ -259,8 +260,8 @@ final class Suggestions {
         }
     }
 
-    /// The model the editor names for `cloud`: this Mac's, or a server of one's own's; none for a cloud provider, which
-    /// is asked for its own.
+    /// The model to ask for. With no cloud it is the model on this Mac; with the user's own server it is that server's
+    /// model. Mercury and Codestral get none, because each picks its own.
     nonisolated static func model(for cloud: SuggestCloud?, local: String, server: String) -> String? {
         let named =
             switch cloud {

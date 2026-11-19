@@ -11,9 +11,9 @@ extension Suggestions {
     /// stops its model as this changes, whoever changed the setting (the card, Settings, `kelp settings`, by hand).
     var nextEditWanted: Bool { app.settings[SettingKeys.nextEdit] && app.settings[SettingKeys.suggestions] != .off }
 
-    /// On: starts the model now, so the first edit doesn't wait for its download. Off: stops it, giving its memory back.
-    /// Only on a change once the settings were read: a next edit already on when Kelp opens starts with the first edit
-    /// that asks for it, not with Kelp (its settings arriving after this part was made aren't the switch moving).
+    /// Starts the model when the next edit is turned on, so the first edit doesn't wait for the download, and stops it
+    /// when it is turned off, to give its memory back. It reacts only to changes made after the settings were first
+    /// read. When Kelp opens with the next edit already on, the model starts at the first edit that needs it.
     func followNextEdit() {
         settingsWereRead = app.settings.loaded
         track(owner: self, now: false) { [weak self] in

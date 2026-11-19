@@ -256,8 +256,8 @@ struct NextEditState {
 /// "⇥ to line 14": a key cap and where it goes, at the end of the cursor's line.
 final class JumpPill: NSView {
     var label = "" { didSet { needsDisplay = true } }
-    /// Read at each use, so the pill follows Text size: a line of its text and the key cap's inset round it (18 pt at
-    /// normal text), its key cap as wide.
+    /// Read at each use, so the pill follows Text size. The pill is one line of text tall plus the key cap's inset
+    /// above and below (18 pt at the normal size), and the key cap is as wide as it is tall.
     private var font: NSFont { .ui(TextSize.caption) }
     private var height: CGFloat { ceil(Self.lines.defaultLineHeight(for: font)) + 2 * Self.inset }
     private static let lines = NSLayoutManager(), inset: CGFloat = 2.5   // the key cap's from the pill's edge
