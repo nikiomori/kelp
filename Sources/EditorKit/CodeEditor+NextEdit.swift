@@ -135,8 +135,10 @@ extension CodeEditor {
     }
 
     private func take(_ shown: NextEditState.Shown) {
-        let lines = shown.proposal.new.joined(separator: "\n") as NSString
-        textView.replace([shown.range], with: [shown.text], caret: [shown.text.isEmpty ? 0 : lines.length])
+        // The caret goes after the last line put in, before its line break.
+        let text = shown.text, end = (text as NSString).length
+        let caret = text.hasSuffix("\r\n") ? end - 2 : text.hasSuffix("\n") ? end - 1 : end
+        textView.replace([shown.range], with: [text], caret: [caret])
     }
 
     private func drawNextEdit() {

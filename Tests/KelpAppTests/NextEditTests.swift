@@ -51,7 +51,8 @@ func anAnswerOffersTheLinesItChanged(current: String, answer: String, lines: Ran
         (1..<2, ["B"], NSRange(location: 2, length: 2), "B\n"),
         (1..<2, [], NSRange(location: 2, length: 2), ""),
         (2..<2, ["new"], NSRange(location: 4, length: 0), "new\n"),
-        (2..<3, ["C"], NSRange(location: 4, length: 1), "C")   // the last line, which has no line break
+        (2..<3, ["C"], NSRange(location: 4, length: 1), "C"),   // the last line, which has no line break
+        (3..<3, ["new"], NSRange(location: 5, length: 0), "\nnew")   // added after it: the break goes first
     ] as [(Range<Int>, [String], NSRange, String)])
 func takingAnEditReplacesWholeLines(lines: Range<Int>, new: [String], range: NSRange, text: String) {
     let old = Array(["a", "b", "c"][lines])

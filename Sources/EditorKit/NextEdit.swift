@@ -121,9 +121,13 @@ public enum NextEdit {
             end = NSMaxRange(string.lineRange(for: NSRange(location: end, length: 0)))
         }
         let breaks = end > start && string.character(at: end - 1) == 10
+        let lines = proposal.new.joined(separator: "\n")
+        // Lines added after the last line, which has no line break: the break goes before them, not after.
+        let afterLast =
+            proposal.old.isEmpty && start == string.length && start > 0 && string.character(at: start - 1) != 10
         let text =
             proposal.new.isEmpty
-            ? "" : proposal.new.joined(separator: "\n") + (proposal.old.isEmpty || breaks ? "\n" : "")
+            ? "" : afterLast ? "\n" + lines : lines + (proposal.old.isEmpty || breaks ? "\n" : "")
         return (NSRange(location: start, length: end - start), text)
     }
 }
