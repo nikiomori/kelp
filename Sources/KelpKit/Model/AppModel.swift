@@ -29,15 +29,23 @@ package final class AppModel {
 
     private func reposChanged() {
         repoBy = nil
-        lookForFolders()
+        // A record that changed (a revision, a name) keeps its folder: only folders new to the list are looked for,
+        // and coming to the front looks at them all.
+        let paths = Set(repos.map(\.path)), new = paths.subtracting(listedFolders)
+        guard paths != listedFolders else { return }
+        listedFolders = paths
+        lookForFolders(new)
     }
+    @ObservationIgnored private var listedFolders: Set<String> = []
 
-    private func lookForFolders() {
-        let paths = repos.map(\.path)
+    /// Looks for `paths` (all the projects' folders by default) off the main thread, keeping what's known of the rest.
+    private func lookForFolders(_ paths: Set<String>? = nil) {
+        let paths = paths ?? Set(repos.map(\.path))
         Task {
-            let missing = await Task.detached(priority: .utility) {
+            let gone = await Task.detached(priority: .utility) {
                 Set(paths.filter { !FileManager.default.fileExists(atPath: $0) })
             }.value
+            let missing = missingFolders.subtracting(paths).union(gone).intersection(repos.map(\.path))
             if missing != missingFolders { missingFolders = missing }
         }
     }

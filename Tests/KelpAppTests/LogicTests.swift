@@ -741,12 +741,3 @@ extension OneAtATime {
     m.sessions.append(Session(id: "c", worktreeId: "w1", cwd: "/", command: "claude", agent: "claude"))
     #expect(m.liveChats(in: "w1").map(\.id) == ["c"] && m.liveChats(in: "w2").map(\.id) == ["b"])
 }
-
-/// A project whose folder is gone says so on its row; it's looked for off the main thread, not by each row update.
-@MainActor @Test func aProjectsMissingFolderIsFoundOffTheMainThread() async throws {
-    let m = AppModel()
-    m.repos = [
-        Repo(id: "r1", name: "here", path: NSTemporaryDirectory()), Repo(id: "r2", name: "gone", path: "/nope/x")
-    ]
-    #expect(try await waitFor(5) { m.missingFolders == ["/nope/x"] })
-}

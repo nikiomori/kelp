@@ -1,3 +1,4 @@
+import AppKit
 import Core
 import Foundation
 import TestSupport
@@ -152,4 +153,26 @@ import Testing
     #expect(!m.told.contains(WatchStart(.ports, "other")))
     m.setAway(false)
     #expect(m.told.contains(ports) && m.told.contains(WatchStart(.ports, "other")))
+}
+
+/// A project whose folder is gone says so on its row; it's looked for off the main thread, not by each row update.
+@MainActor @Test func aProjectsMissingFolderIsFoundOffTheMainThread() async throws {
+    let m = AppModel()
+    m.repos = [
+        Repo(id: "r1", name: "here", path: NSTemporaryDirectory()), Repo(id: "r2", name: "gone", path: "/nope/x")
+    ]
+    #expect(try await waitFor(5) { m.missingFolders == ["/nope/x"] })
+    // A record that moves on (a revision) keeps its folder, so no folder is looked for again until Kelp comes forward;
+    // a project added is looked for, and one removed is forgotten.
+    let soon = NSTemporaryDirectory() + "kelp-soon-gone-\(UUID().uuidString)"
+    try FileManager.default.createDirectory(atPath: soon, withIntermediateDirectories: true)
+    m.repos.append(Repo(id: "r3", name: "soon", path: soon))
+    m.repos.append(Repo(id: "r4", name: "new", path: "/nope/y"))
+    #expect(try await waitFor(5) { m.missingFolders == ["/nope/x", "/nope/y"] })
+    try FileManager.default.removeItem(atPath: soon)
+    m.repos[2].revision = 2
+    m.repos.removeLast()
+    #expect(try await waitFor(5) { m.missingFolders == ["/nope/x"] })
+    NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+    #expect(try await waitFor(5) { m.missingFolders == ["/nope/x", soon] })
 }
