@@ -101,18 +101,27 @@ struct ExtActions {
         }
     }
 
-    func perform(_ spec: ExtManifest.ActionDef, item: JSONValue?, folder: URL, after: (() -> Void)? = nil) {
+    /// Does what the action says. `busy` hears when a `run` command has gone on for a second (true) and when it ends
+    /// (false), for the button that ran it to show the wait.
+    func perform(
+        _ spec: ExtManifest.ActionDef, item: JSONValue?, folder: URL, busy: (@MainActor (Bool) -> Void)? = nil,
+        after: (() -> Void)? = nil
+    ) {
         guard let question = spec.confirm else {
-            act(spec, item: item, folder: folder, after: after)
+            act(spec, item: item, folder: folder, busy: busy, after: after)
             return
         }
         let text = expand(question, item: item, quote: false)
         Task {
-            if await confirm(text, action: spec.title) { act(spec, item: item, folder: folder, after: after) }
+            guard await confirm(text, action: spec.title) else { return }
+            act(spec, item: item, folder: folder, busy: busy, after: after)
         }
     }
 
-    private func act(_ spec: ExtManifest.ActionDef, item: JSONValue?, folder: URL, after: (() -> Void)?) {
+    private func act(
+        _ spec: ExtManifest.ActionDef, item: JSONValue?, folder: URL, busy: (@MainActor (Bool) -> Void)?,
+        after: (() -> Void)?
+    ) {
         if let command = spec.terminal {
             app.workbench.starterForNewTab?.run(
                 command: expand(command, item: item, quote: true), title: spec.title)
@@ -142,10 +151,13 @@ struct ExtActions {
             app.workbench.starterForNewTab?.newAgent(nil, prompt: expand(prompt, item: item, quote: false), draft: true)
         } else if let script = spec.run {
             let cmd = expand(script, item: item, quote: true)
+            let slow = whileSlow { busy?(true) }
             Task {
                 let res = await Shell.run(
                     app, cmd, cwd: IDEContext.of(app).workspace?.path ?? folder.path,
                     extension: folder.lastPathComponent)
+                slow.cancel()
+                busy?(false)
                 if res.code != 0 {
                     let output = String((res.stderr.isEmpty ? res.stdout : res.stderr).suffix(400))
                     Banner.show(String(localized: "\(spec.title) failed: \(output)"), style: .error)

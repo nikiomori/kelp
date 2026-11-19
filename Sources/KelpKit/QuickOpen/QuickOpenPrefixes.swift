@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import DesignKit
 import EditorKit
 import WorkbenchKit
 
@@ -74,6 +75,7 @@ extension QuickOpen {
         let app = self.app, path = url.path
         let root = app.worktree(holding: path)?.path ?? url.deletingLastPathComponent().path
         symbolLoad?.cancel()
+        waitForSymbols()
         symbolLoad = Task { [weak self] in
             var found = await app.quiet(LSPSymbols(root: root, path: path)) ?? []
             if found.isEmpty, ["md", "markdown"].contains(url.pathExtension.lowercased()),
@@ -108,6 +110,7 @@ extension QuickOpen {
         let app = self.app, path = url.path
         let root = app.worktree(holding: path)?.path ?? url.deletingLastPathComponent().path
         symbolLoad?.cancel()
+        waitForSymbols()
         symbolLoad = Task { [weak self] in
             let found = await app.quiet(LSPWorkspaceSymbols(root: root, path: path, query: q)) ?? []
             guard let self, !Task.isCancelled, case .everywhere(let now)? = Prefix(field.stringValue), now == q else {
@@ -123,6 +126,17 @@ extension QuickOpen {
             setRows(
                 Array(items), grouped: false,
                 heading: items.isEmpty ? String(localized: "No symbols (the language server may need a build)") : nil)
+        }
+    }
+
+    /// Clears the rows while the language server answers, so ↩ can't open what was listed before, and names the wait
+    /// if it takes over a second (a cold server). The answer always brings rows or a heading, so no rows means waiting.
+    private func waitForSymbols() {
+        setRows([], grouped: false)
+        let asked = field.stringValue
+        whileSlow { [weak self] in
+            guard let self, field.stringValue == asked, rows.isEmpty else { return }
+            setRows([], grouped: false, heading: String(localized: "Reading the symbols…"))
         }
     }
 
@@ -158,7 +172,7 @@ extension QuickOpen {
                     Item(
                         kind: "", icon: row.icon, title: row.title, detail: row.detail, action: row.open,
                         split: row.split, image: row.image, accessory: row.accessory)
-                }, grouped: false)
+                }, grouped: false, heading: items.isEmpty ? String(localized: "No matches") : nil)
         }
     }
 

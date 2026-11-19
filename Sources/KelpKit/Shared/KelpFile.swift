@@ -96,6 +96,6 @@ package struct KelpFile {
         if !info.shared.isEmpty { lines.append("shared: " + info.shared.joined(separator: ", ")) }
         if let command = info.issueCommand { lines.append("issueCommand: \(command)") }
         for (name, recipe) in info.recipes.sorted(by: { $0.key < $1.key }) { lines.append("recipe.\(name): \(recipe)") }
-        return NSScrollView.readOnly(lines.joined(separator: "\n"), lines: lines.count, width: 360)
+        return NSScrollView.readOnly(lines.joined(separator: "\n"), lines: lines.count)
     }
 }

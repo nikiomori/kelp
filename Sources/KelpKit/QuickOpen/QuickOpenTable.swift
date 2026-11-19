@@ -14,10 +14,11 @@ extension QuickOpen {
             return true
         case #selector(NSResponder.insertNewline(_:)):
             let split = NSApp.currentEvent?.modifierFlags.contains(.shift) == true
-            // ↩ right after typing picks from what was typed, once that is scored.
-            if let pending = scoring {
+            // ↩ right after typing picks from what was typed, once that is scored or read (symbols, a built-in's list).
+            let pending = [scoring, symbolLoad, prefixedLoad].compactMap { $0 }
+            if !pending.isEmpty {
                 Task {
-                    await pending.value
+                    for task in pending { await task.value }
                     choose(split: split)
                 }
             } else {
@@ -104,7 +105,10 @@ extension QuickOpen {
         }
         let cell = table.makeView(withIdentifier: QuickOpenCell.id, owner: nil) as? QuickOpenCell ?? QuickOpenCell()
         var icon = it.image ?? (it.kind == "File" ? app.fileIcons.image(it.title) : NSImage.symbol(it.icon, it.kind))
-        if it.image == nil, let session = it.session, let own = app.catalog.icon(session.agent, size: 18) { icon = own }
+        if it.image == nil, let session = it.session, let logo = app.catalog.icon(session.agent, size: Metrics.iconMenu)
+        {
+            icon = logo
+        }
         cell.show(lead: icon, session: it.session)
         cell.title.attributedStringValue = Self.highlighted(it.title, field.stringValue)
         cell.detail.stringValue = it.detail
@@ -112,7 +116,8 @@ extension QuickOpen {
         // With the field empty, the agents on ⌘1–⌘6 show their shortcut (counted past the heading).
         let index = itemIndex.indices.contains(row) ? itemIndex[row] : 0
         let shortcut = showingRecents && index < 6 && it.kind != "Group" ? "⌘\(index + 1)  " : ""
-        cell.kind.stringValue = shortcut + (showingRecents ? loc(it.kind) : it.value.map { $0 + "  ›" } ?? "")
+        cell.kind.stringValue = shortcut + (showingRecents ? loc(it.kind) : it.value ?? "")
+        cell.chevron.isHidden = showingRecents || it.value == nil
         cell.tick.isHidden = !it.checked   // the choice in effect gets a tick at the end, as in a menu
         cell.key.stringValue = it.key   // a command's shortcut sits at the end of the title's line, as in a menu
         cell.key.isHidden = it.key.isEmpty

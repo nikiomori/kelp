@@ -13,7 +13,8 @@ struct ExtListView: View {
     @State private var error: String?
     @State private var waitingSince: Date?   // when the rows' outline came up, a second into the first wait
     @State private var answered = false   // the command has answered once (no "empty" before that)
-    @State private var selection: Int?
+    @State private var selection: String?
+    @State private var busy: Set<Int> = []   // toolbar actions whose command has run for over a second
     private let app: AppModel
     private var bench: Workbench { app.workbench }
 
@@ -25,25 +26,14 @@ struct ExtListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // The bar every panel has (DesignKit's Bar): the first action in words on the grey plate, as TextButton
-            // draws it (a worded button has no symbol), the others as icons, Refresh in ⋯.
+            // The bar every panel has (DesignKit's Bar): the leading side is for the panel's subject (its tab names
+            // it), and the actions sit at the end before ⋯ (Refresh): the first in words on the grey plate, as
+            // TextButton draws it (a worded button has no symbol), the others as icons, or in words without a symbol.
             HStack(spacing: Metrics.gap) {
+                Spacer()
                 ForEach(Array((def.toolbar ?? []).enumerated()), id: \.offset) { index, action in
-                    let run: @MainActor () -> Void = {
-                        ExtActions(app).perform(action, item: nil, folder: folder) { reload() }
-                    }
-                    if index == 0 {
-                        Button(action.title, action: run).buttonStyle(BarButtonStyle())
-                        Spacer()
-                    } else {
-                        Button(action: run) {
-                            Image(systemName: action.icon ?? "play.fill").font(.symbol()).foregroundStyle(.secondary)
-                                .frame(width: Metrics.iconButton, height: Metrics.iconButton)
-                        }
-                        .buttonStyle(PointerButtonStyle()).help(action.title).accessibilityLabel(action.title)
-                    }
+                    toolbarButton(action, index)
                 }
-                if def.toolbar?.isEmpty ?? true { Spacer() }
                 Menu {
                     Button("Refresh") { reload() }
                 } label: {
@@ -56,31 +46,29 @@ struct ExtListView: View {
                 height: TextSize.of(Metrics.panelHeader))
             Divider()
             if let error, items.isEmpty {
-                EmptyState(title: String(localized: "Couldn’t load"), symbol: nil, output: error, retry: reload).frame(
-                    maxHeight: .infinity)
+                EmptyState(
+                    title: String(localized: "Couldn’t Run the List’s Command"), symbol: nil, output: error,
+                    retry: reload
+                ).frame(maxHeight: .infinity)
             } else if items.isEmpty, !answered {
                 // Only the first wait shows the rows' outline; a timed refresh keeps what is shown.
-                if waitingSince != nil { Waiting().frame(maxHeight: .infinity) } else { Color.clear }
+                if waitingSince != nil {
+                    Waiting(rowHeight: def.subtitle == nil ? Metrics.row : Metrics.rowTwoLine).frame(
+                        maxHeight: .infinity)
+                } else {
+                    Color.clear
+                }
             } else if items.isEmpty {
                 let symbol = def.icon.map { $0.contains("${") ? "tray" : $0 } ?? "tray"   // a field's icon names no symbol here
-                EmptyState(title: def.empty ?? String(localized: "Nothing here"), symbol: symbol, output: nil).frame(
+                EmptyState(title: def.empty ?? String(localized: "Nothing Here"), symbol: symbol, output: nil).frame(
                     maxHeight: .infinity)
             } else {
                 if let error {
                     FailureLine(error, retry: reload).padding(.horizontal, Metrics.inset).padding(.top, Metrics.gap)
                 }
                 List(selection: $selection) {
-                    ForEach(Array(items.enumerated()), id: \.offset) { i, item in
-                        draggable(row(item), item).tag(i)
-                            .contextMenu {
-                                ForEach(Array((def.actions ?? []).enumerated()), id: \.offset) { _, a in
-                                    Button {
-                                        ExtActions(app).perform(a, item: item, folder: folder) { reload() }
-                                    } label: {
-                                        Label(a.title, systemImage: a.icon ?? "circle")
-                                    }
-                                }
-                            }
+                    ForEach(Array(zip(keys(items), items)), id: \.0) { key, item in
+                        draggable(row(item), item).tag(key).contextMenu { rowMenu(item) }
                     }
                 }
                 .listStyle(.sidebar)
@@ -88,16 +76,72 @@ struct ExtListView: View {
                 .environment(
                     \.defaultMinListRowHeight, TextSize.of(def.subtitle == nil ? Metrics.row : Metrics.rowTwoLine)
                 )
-                .contextMenu(forSelectionType: Int.self) { _ in
+                .contextMenu(forSelectionType: String.self) { _ in
                 } primaryAction: { sel in
-                    if let index = sel.first, items.indices.contains(index), let action = def.actions?.first {
-                        ExtActions(app).perform(action, item: items[index], folder: folder) { reload() }
+                    if let key = sel.first, let index = keys(items).firstIndex(of: key),
+                        let action = def.actions?.first
+                    {
+                        ExtActions(app).perform(action, item: items[index], folder: folder, after: { reload() })
                     }
                 }
             }
         }
         .task(id: bench.workspaceId) {
             await Self.refreshing(every: def.refresh, away: { app.away }, run: refresh)
+        }
+    }
+
+    /// A row's right-click menu: every action, with its symbol when it names one.
+    @ViewBuilder private func rowMenu(_ item: JSONValue) -> some View {
+        ForEach(Array((def.actions ?? []).enumerated()), id: \.offset) { _, a in
+            Button {
+                ExtActions(app).perform(a, item: item, folder: folder, after: { reload() })
+            } label: {
+                if let icon = a.icon { Label(a.title, systemImage: icon) } else { Text(a.title) }
+            }
+        }
+    }
+
+    /// A toolbar action. A `run` command that takes over a second shows a spinner in the button's place, and the
+    /// button can't be pressed again until it ends.
+    @ViewBuilder private func toolbarButton(_ action: ExtManifest.ActionDef, _ index: Int) -> some View {
+        let run: @MainActor () -> Void = {
+            ExtActions(app).perform(
+                action, item: nil, folder: folder,
+                busy: { on in
+                    if on { busy.insert(index) } else { busy.remove(index) }
+                }
+            ) { reload() }
+        }
+        let waiting = busy.contains(index)
+        Group {
+            if index == 0 {
+                Button(action: run) { Text(action.title).opacity(waiting ? 0 : 1) }.buttonStyle(BarButtonStyle())
+            } else if let icon = action.icon {
+                Button(action: run) {
+                    Image(systemName: icon).font(.symbol()).foregroundStyle(.secondary).opacity(waiting ? 0 : 1)
+                        .frame(width: Metrics.iconButton, height: Metrics.iconButton)
+                }
+                .buttonStyle(PointerButtonStyle()).help(action.title).accessibilityLabel(action.title)
+            } else {
+                Button(action: run) { Text(action.title).font(.ui(TextSize.row)).opacity(waiting ? 0 : 1) }
+                    .buttonStyle(PointerButtonStyle())
+            }
+        }
+        .overlay { if waiting { ProgressView().controlSize(.small) } }
+        .disabled(waiting)
+    }
+
+    /// Each row's key: its title, numbered where titles repeat. A refresh keeps a row, and its selection, while its
+    /// other fields change (a container's "Up 5 minutes"); keyed by position, the selection moved to another row when
+    /// one above it went.
+    private func keys(_ items: [JSONValue]) -> [String] {
+        let actions = ExtActions(app)
+        var seen: [String: Int] = [:]
+        return items.map { item in
+            let title = actions.expand(def.title ?? "${name}", item: item, quote: false)
+            seen[title, default: 0] += 1
+            return seen[title] == 1 ? title : "\(title)\u{1}\(seen[title] ?? 0)"
         }
     }
 
@@ -116,8 +160,9 @@ struct ExtListView: View {
 
     /// DesignKit's loading view: the shape of the rows to come, while the first answer is slow.
     private struct Waiting: NSViewRepresentable {
+        var rowHeight: CGFloat
         func makeNSView(context: Context) -> LoadingView {
-            let view = LoadingView(rows: true)
+            let view = LoadingView(rows: true, rowHeight: rowHeight)
             view.show(String(localized: "Running the list’s command…"))
             return view
         }
@@ -226,7 +271,10 @@ struct ExtListView: View {
             return
         }
         error = nil
-        items = Self.parse(result.stdout)
+        let new = Self.parse(result.stdout)
+        // Up to three rows coming or going fade while their neighbours move; more change at once.
+        let changed = Set(keys(new)).symmetricDifference(keys(items)).count
+        withAnimation(changed <= 3 && !Motion.reduced ? .easeOut(duration: Motion.appear) : nil) { items = new }
     }
 
     /// A JSON array, or one JSON object per line.

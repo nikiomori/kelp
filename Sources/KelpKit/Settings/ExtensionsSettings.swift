@@ -79,7 +79,7 @@ struct ExtensionsSettings: View {
                         "A VS Code extension (.vsix or its folder) — for its file icon themes — or a Kelp extension folder"
                     )
                 Menu {
-                    Button("Show in Finder") {
+                    Button("Reveal in Finder") {
                         NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: ExtensionRegistry.userDir.path)
                     }
                     Button("Reload Extensions") { registry.reload() }

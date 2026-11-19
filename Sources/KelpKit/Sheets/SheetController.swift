@@ -14,7 +14,8 @@ class SheetController: NSWindowController {
                 contentRect: NSRect(x: 0, y: 0, width: width, height: 10), styleMask: [.titled], backing: .buffered,
                 defer: true))
         status.textColor = .secondaryLabelColor
-        status.font = .ui(TextSize.caption)
+        status.font = .uiDigits(TextSize.caption)   // git's percentages and counts change many times a second
+        status.cell?.truncatesLastVisibleLine = true
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -25,8 +26,10 @@ class SheetController: NSWindowController {
         return true
     }
 
-    /// Shows `text` on the status line (red for an `error`), or hides the line for nil.
+    /// Shows `text` on the status line (red for an `error`), or hides the line for nil. What the sheet is doing keeps
+    /// to one line, so a long progress line doesn't make the sheet hop; an error wraps, to be read whole.
     func say(_ text: String?, error: Bool = false) {
+        status.maximumNumberOfLines = error ? 0 : 1
         status.isHidden = text == nil
         status.stringValue = text ?? ""
         status.textColor = error ? .textRed : .secondaryLabelColor

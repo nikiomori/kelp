@@ -222,7 +222,7 @@ struct KeyboardSettings: View {
     private func fold(_ menu: String, count: Int) -> some View {
         let shown = open.contains(menu)
         return Button {
-            withAnimation(Motion.reduced ? nil : .easeOut(duration: Motion.fast)) {
+            withAnimation(Motion.reduced ? nil : .timingCurve(0.25, 0.8, 0.25, 1, duration: Motion.fold)) {   // `soft`
                 if shown { open.remove(menu) } else { open.insert(menu) }
             }
         } label: {
@@ -247,7 +247,9 @@ struct KeyboardSettings: View {
                     detail: String(localized: "The shortcuts you set are lost."),
                     action: String(localized: "Restore Defaults"), destructive: true)
             else { return }
-            app.settings.set(SettingKeys.keys, nil)
+            withAnimation(Motion.reduced ? nil : .easeOut(duration: Motion.fast)) {
+                app.settings.set(SettingKeys.keys, nil)
+            }
             later()
         }
     }
@@ -268,11 +270,8 @@ struct KeyboardSettings: View {
                 Text(entry.title)
                 Spacer()
                 if KeyBindings.overrides(app.settings)[entry.id] != nil {
-                    Button("Default") {
-                        KeyBindings.set(entry.id, nil, in: app.settings)
-                        warning[entry.id] = nil
-                        later()
-                    }.buttonStyle(BarButtonStyle())
+                    Button("Default") { change(entry.id, to: nil, shows: entry.defaultKey) }
+                        .buttonStyle(BarButtonStyle())
                         .help(
                             entry.defaultKey.map { String(localized: "Kelp’s default: \(KeyBindings.display($0))") }
                                 ?? String(localized: "Kelp’s default: none"))
@@ -314,11 +313,7 @@ struct KeyboardSettings: View {
             let chars = ev.charactersIgnoringModifiers ?? ""
             switch ev.keyCode {
             case 53 where mods.isEmpty: stop()   // Esc keeps the shortcut
-            case 51 where mods.isEmpty:   // ⌫ removes the shortcut
-                KeyBindings.set(id, .init(key: "", mods: []), in: app.settings)
-                warning[id] = nil
-                stop()
-                later()
+            case 51 where mods.isEmpty: change(id, to: .init(key: "", mods: []), shows: nil)   // ⌫ removes the shortcut
             default:
                 let fKey = (0xF704...0xF70F).contains(chars.unicodeScalars.first?.value ?? 0)
                 guard !mods.subtracting(.shift).isEmpty || fKey else {
@@ -327,10 +322,7 @@ struct KeyboardSettings: View {
                 }   // a plain letter would type, so it needs a modifier or an F key
                 let key = KeySpec(
                     key: mods.contains(.shift) && chars.count == 1 ? chars.uppercased() : chars, mods: .init(mods))
-                warning[id] = KeyBindings.conflict(key, keyCode: ev.keyCode, except: id)
-                KeyBindings.set(id, key, in: app.settings)
-                stop()
-                later()
+                change(id, to: key, shows: key, warning: KeyBindings.conflict(key, keyCode: ev.keyCode, except: id))
             }
             return nil
         }
@@ -340,6 +332,18 @@ struct KeyboardSettings: View {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
         recording = nil
+    }
+
+    /// Sets a shortcut and shows the key it `shows` on its row at once, fading from "Type shortcut…" (the menu is
+    /// rebuilt a moment later, and until then the entries held the old key, which flashed back).
+    private func change(_ id: String, to key: KeySpec?, shows: KeySpec?, warning message: String? = nil) {
+        withAnimation(Motion.reduced ? nil : .easeOut(duration: Motion.fast)) {
+            KeyBindings.set(id, key, in: app.settings)
+            warning[id] = message
+            stop()
+            if let i = entries.firstIndex(where: { $0.id == id }) { entries[i].key = shows }
+        }
+        later()
     }
 
     /// Reads the entries back a moment later, once the menu is rebuilt from the setting.
