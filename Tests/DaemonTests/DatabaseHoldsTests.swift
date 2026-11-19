@@ -192,6 +192,6 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
     do {
         _ = try await MySQLWire.open(DatabaseConnection(database: db), handshake: 0.5)
         Issue.record("a server that never greeted was connected")
-    } catch { #expect("\(error)".contains("No answer from silent")) }
+    } catch { #expect((error as? DatabaseFailure)?.message.contains("didn't finish logging in") == true, "\(error)") }
     #expect(Date().timeIntervalSince(started) < 5)
 }

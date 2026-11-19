@@ -56,14 +56,16 @@ private func callPastItsTime(_ engine: DatabaseInfo.Engine) async throws {
     var db = DatabaseInfo(name: "slow", engine: engine, host: "127.0.0.1", port: server.port, database: "d", user: "u")
     db.ssl = "disable"
     let conn = DatabaseConnection(database: db)
-    // Its whole time is `timeout + grace`, login included: the wire's 10 s, since under TSan a MySQL login alone took
-    // over 3 s. Waited for 25 s at most: a call that never ends fails here, not as a hang.
-    let said = await firstOf(seconds: 25, otherwise: "no answer after 25 s") {
+    // Its whole time is `timeout + grace` (Postgres: login included), and MySQL's login has its own 10 s: both grow
+    // with the run's slowness, since a starved TSan run once took over 10 s to log in on loopback. Waited for 25 s
+    // (stretched as well) at most: a call that never ends fails here, not as a hang.
+    let limit = 10 * testSlowness
+    let said = await firstOf(seconds: 25 * testSlowness, otherwise: "no answer in time") {
         do {
             _ =
                 engine == .postgres
-                ? try await PostgresWire(connection: conn, grace: 10).read("SELECT 1", timeout: 0)
-                : try await MySQLWire(connection: conn, grace: 10).read("SELECT 1", timeout: 0)
+                ? try await PostgresWire(connection: conn, grace: limit).read("SELECT 1", timeout: 0)
+                : try await MySQLWire(connection: conn, grace: limit, handshake: limit).read("SELECT 1", timeout: 0)
             return "an answer"
         } catch { return (error as? DatabaseFailure)?.message ?? "\(error)" }
     }
