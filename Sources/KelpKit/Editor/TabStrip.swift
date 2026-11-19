@@ -32,6 +32,8 @@ final class TabStrip: NSView {
 
     var onSelect: ((String) -> Void)?
     var onClose: ((String) -> Void)?
+    /// Closes the other tabs of this strip's pane (⌥-click on a tab's ✕).
+    var onCloseOthers: ((String) -> Void)?
     var onMenu: ((String) -> NSMenu?)?
     var onDropTab: ((String, Int) -> Void)?   // tab id, index in this strip
     var addMenu: (() -> NSMenu)?
@@ -266,7 +268,9 @@ final class TabStrip: NSView {
     private func newButton() -> TabButton {
         let button = TabButton()
         button.strip = self
-        button.closeTip = tip(String(localized: "Close Tab"), "editor.closeTab")
+        button.closeTip =
+            tip(String(localized: "Close Tab"), "editor.closeTab") + "\n"
+            + String(localized: "⌥-click: close the others")
         button.compact = compact
         button.low = low
         return button

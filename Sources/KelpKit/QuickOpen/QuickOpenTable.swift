@@ -49,6 +49,15 @@ extension QuickOpen {
         table.scrollRowToVisible(row)
     }
     @objc func activate() { choose(split: false) }
+    /// A click only selects a row (a double-click opens it), but with ⇧ it opens the row beside, in a split, as ⇧↩
+    /// does. A row with nothing to open beside (a command, a setting) stays selected.
+    @objc func clicked() { click(with: NSApp.currentEvent?.modifierFlags ?? []) }
+    func click(with flags: NSEvent.ModifierFlags) {
+        let row = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
+        guard flags.contains(.shift), rows.indices.contains(row), case .item(let it) = rows[row], it.split != nil
+        else { return }
+        choose(split: true)
+    }
     private func choose(split: Bool) {
         let row = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
         guard rows.indices.contains(row), case .item(let it) = rows[row] else { return }

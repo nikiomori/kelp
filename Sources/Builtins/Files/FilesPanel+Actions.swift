@@ -5,6 +5,7 @@ import DesignKit
 import KelpKit
 import Markdown
 import Quartz
+import WorkbenchKit
 
 extension FilesPanel {
     // MARK: rename in place
@@ -83,8 +84,10 @@ extension FilesPanel {
             if outline.isItemExpanded(node) { outline.collapseItem(node) } else { outline.expandItem(node) }
             return
         }
-        // Like Xcode's navigator: the file opens, the keys stay here (↑↓, Space, ↩, ⌘C).
-        openFile(node.path, focus: false)
+        // Like Xcode's navigator: the file opens, the keys stay here (↑↓, Space, ↩, ⌘C). With ⌥ it opens beside, in a
+        // split (in a list ⌘ and ⇧ pick several rows).
+        let beside = NSApp.currentEvent?.modifierFlags.contains(.option) == true
+        app.workbench.open(TabURI.file(root + "/" + node.path), split: beside ? .right : nil, focus: false)
     }
     /// Adds a file the way Finder adds a new folder: "untitled" appears with its name selected, and once a name is
     /// typed, the file opens.

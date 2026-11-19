@@ -76,7 +76,7 @@ final class TabButton: NSControl, NSDraggingSource {
         close.imagePosition = .imageOnly
         close.radius = nil   // a round 16 pt fill (the slot's size) under the pointer
         close.target = self
-        close.action = #selector(closeTapped)
+        close.action = #selector(closeClicked)
         // Unsaved changes: a dot where the close button goes (as in TextEdit's tabs); hovering shows the close button.
         editedDot.image = .symbol("circle.fill", String(localized: "Edited"))
         editedDot.symbolConfiguration = .chrome(Metrics.iconTiny)
@@ -325,6 +325,12 @@ final class TabButton: NSControl, NSDraggingSource {
         return item.flatMap { strip?.onMenu?($0.id) }
     }
     @objc private func closeTapped() { if let id = item?.id { strip?.onClose?(id) } }
+    /// A click on ✕ closes the tab; with ⌥ held it closes the pane's other tabs instead, as in Safari.
+    @objc private func closeClicked() { clickClose(with: NSApp.currentEvent?.modifierFlags ?? []) }
+    func clickClose(with flags: NSEvent.ModifierFlags) {
+        guard flags.contains(.option), let id = item?.id else { return closeTapped() }
+        strip?.onCloseOthers?(id)
+    }
 
     override func mouseDragged(with event: NSEvent) {
         guard let id = item?.id else { return }

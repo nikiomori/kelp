@@ -281,13 +281,15 @@ extension SourceControlController {
     @objc func clicked(_ outline: NSOutlineView) {
         card.close()
         guard let node = outline.item(atRow: outline.actedRow) as? Node else { return }
+        // ⌥-click opens a file beside, in a split (in a list ⌘ and ⇧ pick several rows).
+        let split: SplitDirection? = NSApp.currentEvent?.modifierFlags.contains(.option) == true ? .right : nil
         switch node.kind {
         case .section(let section): toggle(section)
-        case .file(let file, let section): open(file, section)
+        case .file(let file, let section): open(file, section, split: split)
         case .commit(let index): toggle(commit: commits[index].hash)
         case .commitFile(let hash, let fileChange):
             if let worktree = worktreeId {
-                app.workbench.open(DiffTab.uri(worktree, file: fileChange.path, commit: hash))
+                app.workbench.open(DiffTab.uri(worktree, file: fileChange.path, commit: hash), split: split)
             }
         case .note: break
         }
@@ -321,18 +323,20 @@ extension SourceControlController {
 
 // MARK: status letters (VS Code's colors)
 extension SourceControlController {
-    func open(_ file: FileChange, _ section: Section) {
+    func open(_ file: FileChange, _ section: Section, split: SplitDirection? = nil) {
         guard let worktree = worktreeId else { return }
         if section == .merge {
-            openFile(file)
+            openFile(file, split: split)
             return
         }
         // When a review beside it shows the file, the review scrolls there instead.
         if DiffViewController.reveal(file.path, worktree: worktree) { return }
-        app.workbench.open(DiffTab.uri(worktree, file: file.path, source: section == .staged ? .staged : .unstaged))
+        app.workbench.open(
+            DiffTab.uri(worktree, file: file.path, source: section == .staged ? .staged : .unstaged), split: split)
     }
-    func openFile(_ file: FileChange) {
-        if let worktree = app.worktree(worktreeId) { app.workbench.open(TabURI.file(worktree.path + "/" + file.path)) }
+    func openFile(_ file: FileChange, split: SplitDirection? = nil) {
+        guard let worktree = app.worktree(worktreeId) else { return }
+        app.workbench.open(TabURI.file(worktree.path + "/" + file.path), split: split)
     }
 
     static func letter(_ file: FileChange, _ section: Section) -> (String, NSColor) {

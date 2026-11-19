@@ -231,6 +231,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         table.intercellSpacing.width = 0   // a cell starts at the list's edge, so the one left edge comes out even
         table.backgroundColor = .clear
         table.target = self
+        table.action = #selector(clicked)   // ⇧-click: beside
         table.doubleAction = #selector(activate)
         let sv = NSScrollView()
         sv.documentView = table
