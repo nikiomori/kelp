@@ -3165,7 +3165,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Отправить в «%@»"
+            "value": "Отправить: %@"
           }
         }
       }
@@ -31765,6 +31765,4326 @@
           "stringUnit": {
             "state": "translated",
             "value": "Кэш остынет через %1$lld мин: тогда следующее сообщение снова запишет %2$@"
+          }
+        }
+      }
+    },
+    "Google’s agent for Code Assist and API keys: Antigravity took over free and AI Pro plans": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент Google для Code Assist и API-ключей: бесплатный план и AI Pro перешли к Antigravity"
+          }
+        }
+      }
+    },
+    "Yours": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваши"
+          }
+        }
+      }
+    },
+    "This project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот проект"
+          }
+        }
+      }
+    },
+    "claude.ai connectors": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Коннекторы claude.ai"
+          }
+        }
+      }
+    },
+    "Plugins": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плагины"
+          }
+        }
+      }
+    },
+    "Built in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Встроенные"
+          }
+        }
+      }
+    },
+    "New chats won’t get this server. Its entry is deleted.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новые чаты не получат этот сервер. Его запись удаляется."
+          }
+        }
+      }
+    },
+    "Give to All Agents": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дать всем агентам"
+          }
+        }
+      }
+    },
+    "Remove with %@…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать через %@…"
+          }
+        }
+      }
+    },
+    "Remove “%@” from %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать «%1$@» из %2$@?"
+          }
+        }
+      }
+    },
+    "%@ takes it out of its settings, in a terminal tab here: %@%@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ уберёт его из своих настроек во вкладке терминала здесь: %2$@%3$@"
+          }
+        }
+      }
+    },
+    "Remove %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать %@"
+          }
+        }
+      }
+    },
+    "Sign In…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Войти…"
+          }
+        }
+      }
+    },
+    "Sign in to %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Войти в %@"
+          }
+        }
+      }
+    },
+    "Manage on claude.ai": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Управлять на claude.ai"
+          }
+        }
+      }
+    },
+    "Copy as JSON": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать как JSON"
+          }
+        }
+      }
+    },
+    "Open SKILL.md": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть SKILL.md"
+          }
+        }
+      }
+    },
+    "Move to Trash…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переместить в Корзину…"
+          }
+        }
+      }
+    },
+    "Move “%@” to the Trash?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переместить «%@» в Корзину?"
+          }
+        }
+      }
+    },
+    "Uninstall with Claude Code…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить через Claude Code…"
+          }
+        }
+      }
+    },
+    "Claude Code takes it out, in a terminal tab here: claude plugin uninstall %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code удалит его во вкладке терминала здесь: claude plugin uninstall %@"
+          }
+        }
+      }
+    },
+    "Uninstall %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить %@"
+          }
+        }
+      }
+    },
+    "Show the Error": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать ошибку"
+          }
+        }
+      }
+    },
+    "Copy the Error": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать ошибку"
+          }
+        }
+      }
+    },
+    "Off in This Project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить в этом проекте"
+          }
+        }
+      }
+    },
+    "Turn Off All %lld Not Signed In": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить все без входа (%lld)"
+          }
+        }
+      }
+    },
+    "On in This Project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить в этом проекте"
+          }
+        }
+      }
+    },
+    "Needs a Look": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стоит проверить"
+          }
+        }
+      }
+    },
+    "MCP Servers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP-серверы"
+          }
+        }
+      }
+    },
+    "not in this chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет в этом чате"
+          }
+        }
+      }
+    },
+    "This chat follows the switch after a restart": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот чат последует переключателю после перезапуска"
+          }
+        }
+      }
+    },
+    "On in this project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включено в этом проекте"
+          }
+        }
+      }
+    },
+    "Off in this project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключено в этом проекте"
+          }
+        }
+      }
+    },
+    "Off in this project: new chats here don’t get it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключено в этом проекте: новые чаты здесь его не получат"
+          }
+        }
+      }
+    },
+    "Off Here": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить здесь"
+          }
+        }
+      }
+    },
+    "Needs a look": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стоит проверить"
+          }
+        }
+      }
+    },
+    "Edit “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить «%@»"
+          }
+        }
+      }
+    },
+    "Add a Skill or MCP Server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить скилл или MCP-сервер"
+          }
+        }
+      }
+    },
+    "A command, an address, JSON, or a skill’s folder or repository": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Команда, адрес, JSON или папка либо репозиторий скилла"
+          }
+        }
+      }
+    },
+    "All Projects": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все проекты"
+          }
+        }
+      }
+    },
+    "Calls %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обращается к %@"
+          }
+        }
+      }
+    },
+    "Runs %@ on this Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускает %@ на этом Mac"
+          }
+        }
+      }
+    },
+    "MCP Server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP-сервер"
+          }
+        }
+      }
+    },
+    "Skill Folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Папка скилла"
+          }
+        }
+      }
+    },
+    "Skills from a Repository": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скиллы из репозитория"
+          }
+        }
+      }
+    },
+    "Use in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Где использовать"
+          }
+        }
+      }
+    },
+    "Handed over when a chat starts; their own settings stay untouched": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Передаётся при старте чата; их собственные настройки не трогаются"
+          }
+        }
+      }
+    },
+    "They read the folder it sits in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Они читают папку, где он лежит"
+          }
+        }
+      }
+    },
+    "Gets it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Получат"
+          }
+        }
+      }
+    },
+    "Cursor Agent, Pi and the others take servers only from their own files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cursor Agent, Pi и остальные берут серверы только из своих файлов"
+          }
+        }
+      }
+    },
+    "Can’t get it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не получат"
+          }
+        }
+      }
+    },
+    "Kelp’s own file, readable by you only": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Собственный файл Kelp, читать его можете только вы"
+          }
+        }
+      }
+    },
+    ".mcp.json: goes to the team with the repository": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ".mcp.json: попадёт к команде вместе с репозиторием"
+          }
+        }
+      }
+    },
+    "~/.agents/skills, linked for Claude Code": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "~/.agents/skills, со ссылкой для Claude Code"
+          }
+        }
+      }
+    },
+    ".agents/skills in %@’s folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ".agents/skills в папке %@"
+          }
+        }
+      }
+    },
+    "What it signs in with": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чем он входит"
+          }
+        }
+      }
+    },
+    "only %@ has it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "есть только у %@"
+          }
+        }
+      }
+    },
+    "only %@ have it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "есть только у %@"
+          }
+        }
+      }
+    },
+    "Give to All": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дать всем"
+          }
+        }
+      }
+    },
+    "every agent has it now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "теперь он есть у всех агентов"
+          }
+        }
+      }
+    },
+    "New Skill": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый скилл"
+          }
+        }
+      }
+    },
+    "A SKILL.md to fill in, in the folder every agent reads skills from.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SKILL.md для заполнения, в папке, откуда все агенты читают скиллы."
+          }
+        }
+      }
+    },
+    "Its name, like release-notes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Его имя, например release-notes"
+          }
+        }
+      }
+    },
+    "Only in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только в %@"
+          }
+        }
+      }
+    },
+    "Other": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другое"
+          }
+        }
+      }
+    },
+    "In this project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В этом проекте"
+          }
+        }
+      }
+    },
+    "On this Mac, outside the project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этом Mac, вне проекта"
+          }
+        }
+      }
+    },
+    "From the agent’s account": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Из аккаунта агента"
+          }
+        }
+      }
+    },
+    "From a plugin": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Из плагина"
+          }
+        }
+      }
+    },
+    "Built into the agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Встроено в агента"
+          }
+        }
+      }
+    },
+    "Kelp’s own": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Из Kelp"
+          }
+        }
+      }
+    },
+    "%@ tokens before the first word": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ токенов до первого слова"
+          }
+        }
+      }
+    },
+    "%lld skills": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скиллов: %lld"
+          }
+        }
+      }
+    },
+    "%lld servers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "серверов: %lld"
+          }
+        }
+      }
+    },
+    "1 server isn’t signed in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 сервер без входа"
+          }
+        }
+      }
+    },
+    "%lld servers aren’t signed in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серверов без входа: %lld"
+          }
+        }
+      }
+    },
+    "They do nothing until signed in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без входа они ничего не делают"
+          }
+        }
+      }
+    },
+    "Idle, %@ tokens each chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Простаивают, %@ токенов на каждый чат"
+          }
+        }
+      }
+    },
+    "Also in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Также в %@"
+          }
+        }
+      }
+    },
+    "Always on in %@: no switch for one chat there": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В %@ всегда включено: там нет переключателя для одного чата"
+          }
+        }
+      }
+    },
+    "loaded %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "загружено %@"
+          }
+        }
+      }
+    },
+    "Changes reach new chats.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменения дойдут до новых чатов."
+          }
+        }
+      }
+    },
+    "This chat still has %@, removed since.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В этом чате ещё есть %@, хотя его уже убрали."
+          }
+        }
+      }
+    },
+    "This chat still has %@ and %lld more, removed since.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В этом чате ещё есть %1$@ и ещё %2$lld, хотя их уже убрали."
+          }
+        }
+      }
+    },
+    "Add a Skill or MCP Server…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить скилл или MCP-сервер…"
+          }
+        }
+      }
+    },
+    "New Skill…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый скилл…"
+          }
+        }
+      }
+    },
+    "Sort by Weight": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По весу"
+          }
+        }
+      }
+    },
+    "Sort by Name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По имени"
+          }
+        }
+      }
+    },
+    "Show What’s Off": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать выключенное"
+          }
+        }
+      }
+    },
+    "Open Skills Folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть папку скиллов"
+          }
+        }
+      }
+    },
+    "Restart This Chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезапустить этот чат"
+          }
+        }
+      }
+    },
+    "Reading skills and servers…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю скиллы и серверы…"
+          }
+        }
+      }
+    },
+    "Reading what this chat gets": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю, что получает этот чат"
+          }
+        }
+      }
+    },
+    "Filter": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фильтр"
+          }
+        }
+      }
+    },
+    "What a new chat gets": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что получает новый чат"
+          }
+        }
+      }
+    },
+    "Nothing here yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь пока ничего нет"
+          }
+        }
+      }
+    },
+    "What agents get besides the prompt: skills, MCP servers, instruction files.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что агенты получают помимо промпта: скиллы, MCP-серверы, файлы инструкций."
+          }
+        }
+      }
+    },
+    "Skills & MCP": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скиллы и MCP"
+          }
+        }
+      }
+    },
+    "The agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент"
+          }
+        }
+      }
+    },
+    "%lld rows would change. Tried, then rolled back.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменится строк: %lld. Попробовано и откачено."
+          }
+        }
+      }
+    },
+    "%@ wants to change 1 row of %@ in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ хочет изменить 1 строку таблицы %2$@ в %3$@"
+          }
+        }
+      }
+    },
+    "%@ wants to change %lld rows of %@ in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ хочет изменить строки таблицы %3$@ в %4$@: %2$lld"
+          }
+        }
+      }
+    },
+    "and %lld more · tried, then rolled back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "и ещё %lld · попробовано и откачено"
+          }
+        }
+      }
+    },
+    "Tried, then rolled back.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попробовано и откачено."
+          }
+        }
+      }
+    },
+    "Show All %lld Rows": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать все строки (%lld)"
+          }
+        }
+      }
+    },
+    "%lld statements in one transaction: all of them or none.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запросов в одной транзакции: %lld. Выполнятся все или ни одного."
+          }
+        }
+      }
+    },
+    "Show All %lld Statements": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать все запросы (%lld)"
+          }
+        }
+      }
+    },
+    "Show Statements": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать запросы"
+          }
+        }
+      }
+    },
+    "No file “%@” in %@:%@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет файла «%1$@» в %2$@:%3$@."
+          }
+        }
+      }
+    },
+    "Recap when you’re away": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сводка, когда вас нет"
+          }
+        }
+      }
+    },
+    "Query the project’s databases": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запросы к базам проекта"
+          }
+        }
+      }
+    },
+    "Use pages in Kelp’s browser": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работать со страницами в браузере Kelp"
+          }
+        }
+      }
+    },
+    "Done: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово: %@"
+          }
+        }
+      }
+    },
+    "1 error · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 ошибка · %@"
+          }
+        }
+      }
+    },
+    "%lld errors · last: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибок: %1$lld · последняя: %2$@"
+          }
+        }
+      }
+    },
+    "You have the page: the agent waits until you hand it back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница у вас: агент ждёт, пока вы её не вернёте"
+          }
+        }
+      }
+    },
+    "Asks you: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спрашивает вас: %@"
+          }
+        }
+      }
+    },
+    "Show Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать страницу"
+          }
+        }
+      }
+    },
+    "Take Over": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Взять управление"
+          }
+        }
+      }
+    },
+    "Hand Back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть"
+          }
+        }
+      }
+    },
+    "This page says": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница сообщает"
+          }
+        }
+      }
+    },
+    "%@ says": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ сообщает"
+          }
+        }
+      }
+    },
+    "Downloaded %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачано: %@"
+          }
+        }
+      }
+    },
+    "a file": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "файл"
+          }
+        }
+      }
+    },
+    "opens %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "открывает %@"
+          }
+        }
+      }
+    },
+    "presses %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нажимает %@"
+          }
+        }
+      }
+    },
+    "scrolls %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "прокручивает %@"
+          }
+        }
+      }
+    },
+    "reads the page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "читает страницу"
+          }
+        }
+      }
+    },
+    "takes a screenshot": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "делает снимок экрана"
+          }
+        }
+      }
+    },
+    "runs a script": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "выполняет скрипт"
+          }
+        }
+      }
+    },
+    "waits for the page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ждёт страницу"
+          }
+        }
+      }
+    },
+    "goes back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "идёт назад"
+          }
+        }
+      }
+    },
+    "reloads": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "перезагружает"
+          }
+        }
+      }
+    },
+    "records the page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "записывает страницу"
+          }
+        }
+      }
+    },
+    "reads the console": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "читает консоль"
+          }
+        }
+      }
+    },
+    "reads the requests": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "читает запросы"
+          }
+        }
+      }
+    },
+    "looks at the page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "смотрит на страницу"
+          }
+        }
+      }
+    },
+    "asks you: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "спрашивает вас: %@"
+          }
+        }
+      }
+    },
+    "hears your answer": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "получает ваш ответ"
+          }
+        }
+      }
+    },
+    "A subagent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Субагент"
+          }
+        }
+      }
+    },
+    "%@ asks: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ спрашивает: %2$@"
+          }
+        }
+      }
+    },
+    "Give the page back to %@: it goes on from here": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть страницу: дальше продолжит %@"
+          }
+        }
+      }
+    },
+    "You have this page · hand it back to %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница у вас · вернуть её? %@ ждёт"
+          }
+        }
+      }
+    },
+    "You have this page · %@ waits": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница у вас · %@ ждёт"
+          }
+        }
+      }
+    },
+    "Let %@ click and type here again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ снова сможет нажимать и печатать здесь"
+          }
+        }
+      }
+    },
+    "%@ is using this page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ работает с этой страницей"
+          }
+        }
+      }
+    },
+    "Browser · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Браузер · %@"
+          }
+        }
+      }
+    },
+    "Let an agent use your logged-in browser?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дать агенту ваш браузер с выполненными входами?"
+          }
+        }
+      }
+    },
+    "It opens %@ with your cookies and can act as you on that site.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Он откроет %@ с вашими cookie и сможет действовать на этом сайте от вашего имени."
+          }
+        }
+      }
+    },
+    "Open in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в %@"
+          }
+        }
+      }
+    },
+    "Fill the Pane": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Во всю панель"
+          }
+        }
+      }
+    },
+    "Phone 390×844": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Телефон 390×844"
+          }
+        }
+      }
+    },
+    "Tablet 820×1180": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Планшет 820×1180"
+          }
+        }
+      }
+    },
+    "Laptop 1280×800": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ноутбук 1280×800"
+          }
+        }
+      }
+    },
+    "Page Size": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер страницы"
+          }
+        }
+      }
+    },
+    "Is the dev server running? The page opens once it starts here; ⌘R tries now.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dev-сервер запущен? Страница откроется, как только он запустится здесь; ⌘R — попробовать сейчас."
+          }
+        }
+      }
+    },
+    "Reload (⌘R) tries again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезагрузка (⌘R) попробует снова."
+          }
+        }
+      }
+    },
+    "page %lld×%lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "страница %1$lld×%2$lld"
+          }
+        }
+      }
+    },
+    "Stop Loading": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить загрузку"
+          }
+        }
+      }
+    },
+    "Databases": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Базы данных"
+          }
+        }
+      }
+    },
+    "Open Database…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть базу…"
+          }
+        }
+      }
+    },
+    "Agents may": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агентам можно"
+          }
+        }
+      }
+    },
+    "Rows an agent gets": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Строк агенту"
+          }
+        }
+      }
+    },
+    "Seconds a read may take": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Секунд на чтение"
+          }
+        }
+      }
+    },
+    "Present": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать"
+          }
+        }
+      }
+    },
+    "Look at the boards": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Смотреть макеты"
+          }
+        }
+      }
+    },
+    "Click elements to mark them, then send your notes to the agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажимайте на элементы, чтобы пометить их, затем отправьте заметки агенту"
+          }
+        }
+      }
+    },
+    "Click an element to change its style, double-click a text to retype it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите на элемент, чтобы изменить его стиль, или дважды на текст, чтобы перепечатать его"
+          }
+        }
+      }
+    },
+    "Read the page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читать страницу"
+          }
+        }
+      }
+    },
+    "Select text to mark it, then send your notes to the agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выделите текст, чтобы пометить его, затем отправьте заметки агенту"
+          }
+        }
+      }
+    },
+    "Its Markdown beside the page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markdown рядом со страницей"
+          }
+        }
+      }
+    },
+    "%lld Changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменений: %lld"
+          }
+        }
+      }
+    },
+    "Ask its agent to run the numbers again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попросить агента пересчитать цифры"
+          }
+        }
+      }
+    },
+    "Data from %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Данные на %@"
+          }
+        }
+      }
+    },
+    "No Issues": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проблем нет"
+          }
+        }
+      }
+    },
+    "%lld to Fix": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "К исправлению: %lld"
+          }
+        }
+      }
+    },
+    "What Kelp found where it drew the boards: cut-off text, contrast, sizes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что Kelp нашёл, отрисовав макеты: обрезанный текст, контраст, размеры"
+          }
+        }
+      }
+    },
+    "%lld steps · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шагов: %1$lld · %2$@"
+          }
+        }
+      }
+    },
+    "Stop Presenting": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закончить показ"
+          }
+        }
+      }
+    },
+    "the Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агент"
+          }
+        }
+      }
+    },
+    "Ask %@ to Fix": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попросить исправить: %@"
+          }
+        }
+      }
+    },
+    "chat ended": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "чат завершён"
+          }
+        }
+      }
+    },
+    "Opens in your browser · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откроется в вашем браузере · %@"
+          }
+        }
+      }
+    },
+    "On claude.ai: opens in your browser": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На claude.ai: откроется в вашем браузере"
+          }
+        }
+      }
+    },
+    "%lld pages of this title: the latest opens": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страниц с таким названием: %lld. Откроется последняя"
+          }
+        }
+      }
+    },
+    "Opens in your browser": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откроется в вашем браузере"
+          }
+        }
+      }
+    },
+    "Today": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сегодня"
+          }
+        }
+      }
+    },
+    "Yesterday": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вчера"
+          }
+        }
+      }
+    },
+    "Previous 7 Days": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Последние 7 дней"
+          }
+        }
+      }
+    },
+    "Earlier": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Раньше"
+          }
+        }
+      }
+    },
+    "Earlier Versions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прежние версии"
+          }
+        }
+      }
+    },
+    "Ask the agent for boards: each goes in boards/, and canvas.json lists it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попросите агента о макетах: каждый ляжет в boards/, а canvas.json его перечислит."
+          }
+        }
+      }
+    },
+    "No Boards Yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Макетов пока нет"
+          }
+        }
+      }
+    },
+    "Not written yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё не написан"
+          }
+        }
+      }
+    },
+    "Change Answers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить ответы"
+          }
+        }
+      }
+    },
+    "Recommended for the Rest": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Рекомендованное для остальных"
+          }
+        }
+      }
+    },
+    "1–9 point · A–D option · ⌘↩ send": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1–9 пункт · A–D вариант · ⌘↩ отправить"
+          }
+        }
+      }
+    },
+    "Discarded a change in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменение в %@ выброшено"
+          }
+        }
+      }
+    },
+    "Changed again since, so kept as it is now: %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С тех пор снова изменены, поэтому оставлены как есть: %@."
+          }
+        }
+      }
+    },
+    "No Language Server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет языкового сервера"
+          }
+        }
+      }
+    },
+    "Changed again, so kept as it is: %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снова изменены, поэтому оставлены как есть: %@."
+          }
+        }
+      }
+    },
+    "%@ changed since it was read: nothing was changed.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ изменился после чтения: ничего не изменено."
+          }
+        }
+      }
+    },
+    "Search languages and servers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск языков и серверов"
+          }
+        }
+      }
+    },
+    "In This Project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В этом проекте"
+          }
+        }
+      }
+    },
+    "No language or server matches “%@”.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет языка или сервера по запросу «%@»."
+          }
+        }
+      }
+    },
+    "Copy Install Command": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать команду установки"
+          }
+        }
+      }
+    },
+    "Trust Project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доверять проекту"
+          }
+        }
+      }
+    },
+    " · optional": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · необязательный"
+          }
+        }
+      }
+    },
+    "Running · 1 file": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работает · 1 файл"
+          }
+        }
+      }
+    },
+    "Running · %lld files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работает · файлов: %lld"
+          }
+        }
+      }
+    },
+    "Installed · waits for this project’s trust": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установлен · ждёт доверия к этому проекту"
+          }
+        }
+      }
+    },
+    "All Languages…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все языки…"
+          }
+        }
+      }
+    },
+    "Pick": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать"
+          }
+        }
+      }
+    },
+    "Tweaks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подстройки"
+          }
+        }
+      }
+    },
+    "What should change?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что изменить?"
+          }
+        }
+      }
+    },
+    "Marks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пометки"
+          }
+        }
+      }
+    },
+    "Check": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка"
+          }
+        }
+      }
+    },
+    "Click an element on a board to mark it, then say what should change.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите на элемент макета, чтобы пометить его, и скажите, что изменить."
+          }
+        }
+      }
+    },
+    "No issues: nothing cut off, every text readable, every file there.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проблем нет: ничего не обрезано, весь текст читается, все файлы на месте."
+          }
+        }
+      }
+    },
+    "of": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "из"
+          }
+        }
+      }
+    },
+    "Both": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обе"
+          }
+        }
+      }
+    },
+    "Fit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вписать"
+          }
+        }
+      }
+    },
+    "Smaller": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мельче"
+          }
+        }
+      }
+    },
+    "Bigger": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Крупнее"
+          }
+        }
+      }
+    },
+    "Contents": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Содержание"
+          }
+        }
+      }
+    },
+    "Select text on the page to mark it, then say what should change.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выделите текст на странице, чтобы пометить его, и скажите, что изменить."
+          }
+        }
+      }
+    },
+    "No headings on this page.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этой странице нет заголовков."
+          }
+        }
+      }
+    },
+    "Select more text to add a mark. ⌘↩ sends.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выделите ещё текст, чтобы добавить пометку. ⌘↩ — отправить."
+          }
+        }
+      }
+    },
+    "Properties": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свойства"
+          }
+        }
+      }
+    },
+    "Parent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Родитель"
+          }
+        }
+      }
+    },
+    "As Drawn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как нарисовано"
+          }
+        }
+      }
+    },
+    "This element has no data-id: mark it and ask the agent to give it one.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У этого элемента нет data-id: пометьте его и попросите агента добавить."
+          }
+        }
+      }
+    },
+    "Double-click it to change its text.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дважды нажмите, чтобы изменить текст."
+          }
+        }
+      }
+    },
+    "Click an element on a board to change its style, or double-click a text.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите на элемент макета, чтобы изменить его стиль, или дважды на текст."
+          }
+        }
+      }
+    },
+    "Layout": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Компоновка"
+          }
+        }
+      }
+    },
+    "Fill": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заливка"
+          }
+        }
+      }
+    },
+    "Size": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер"
+          }
+        }
+      }
+    },
+    "Weight": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Насыщенность"
+          }
+        }
+      }
+    },
+    "Colour": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвет"
+          }
+        }
+      }
+    },
+    "Padding": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отступы"
+          }
+        }
+      }
+    },
+    "Gap": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Промежуток"
+          }
+        }
+      }
+    },
+    "Radius": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скругление"
+          }
+        }
+      }
+    },
+    "Comment %lld of %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Комментарий %1$lld из %2$lld"
+          }
+        }
+      }
+    },
+    "Change %lld of %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменение %1$lld из %2$lld"
+          }
+        }
+      }
+    },
+    "Comment (⌘↩)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Комментировать (⌘↩)"
+          }
+        }
+      }
+    },
+    "Comment on This Line": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Комментировать эту строку"
+          }
+        }
+      }
+    },
+    "Send to Agent with the others": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить агенту вместе с остальными"
+          }
+        }
+      }
+    },
+    "Fix This One": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исправить это"
+          }
+        }
+      }
+    },
+    "No open comments ticked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не отмечено ни одного открытого комментария"
+          }
+        }
+      }
+    },
+    "Show These Lines": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать эти строки"
+          }
+        }
+      }
+    },
+    "Review: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разбор: %@"
+          }
+        }
+      }
+    },
+    "the changes to %@ in commit %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "изменения в %1$@ в коммите %2$@"
+          }
+        }
+      }
+    },
+    "the changes to %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "изменения в %@"
+          }
+        }
+      }
+    },
+    "the unstaged changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "изменения вне индекса"
+          }
+        }
+      }
+    },
+    "the staged changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "изменения в индексе"
+          }
+        }
+      }
+    },
+    "commit %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "коммит %@"
+          }
+        }
+      }
+    },
+    "the uncommitted changes, new files included": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "незакоммиченные изменения, включая новые файлы"
+          }
+        }
+      }
+    },
+    "Undo Turn…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить ход…"
+          }
+        }
+      }
+    },
+    "Put the files back as they were before this turn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть файлы, какими они были до этого хода"
+          }
+        }
+      }
+    },
+    "Nothing changed since that turn began": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С начала этого хода ничего не изменилось"
+          }
+        }
+      }
+    },
+    "Put %lld files back as they were before this turn?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть файлы (%lld), какими они были до этого хода?"
+          }
+        }
+      }
+    },
+    "Put Back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть"
+          }
+        }
+      }
+    },
+    "Put %lld files back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть файлы (%lld)"
+          }
+        }
+      }
+    },
+    "Hide Whitespace Changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть изменения пробелов"
+          }
+        }
+      }
+    },
+    "⌥↑ ⌥↓ changes, ⌥⇧↑ ⌥⇧↓ comments": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌥↑ ⌥↓ изменения, ⌥⇧↑ ⌥⇧↓ комментарии"
+          }
+        }
+      }
+    },
+    "Review with": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разбор с"
+          }
+        }
+      }
+    },
+    "Viewed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Просмотрено"
+          }
+        }
+      }
+    },
+    "%lld of %lld left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Осталось %1$lld из %2$lld"
+          }
+        }
+      }
+    },
+    "Folder for worktrees": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Папка для worktree"
+          }
+        }
+      }
+    },
+    "Discarded changes in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменения в %@ выброшены"
+          }
+        }
+      }
+    },
+    "Discarded %lld changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выброшено изменений: %lld"
+          }
+        }
+      }
+    },
+    "Also changed on %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Также изменён в %@"
+          }
+        }
+      }
+    },
+    "Merge…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Влить…"
+          }
+        }
+      }
+    },
+    "Its changes against %@, in its own folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Его изменения относительно %@, в своей папке"
+          }
+        }
+      }
+    },
+    "Nobody assigned": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Никто не назначен"
+          }
+        }
+      }
+    },
+    "Assigned to %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Назначено: %@"
+          }
+        }
+      }
+    },
+    "Open Its Group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть его группу"
+          }
+        }
+      }
+    },
+    "Open in Its Own Folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в своей папке"
+          }
+        }
+      }
+    },
+    "Open Its Folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть его папку"
+          }
+        }
+      }
+    },
+    "Fix Checks with Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исправить проверки с агентом"
+          }
+        }
+      }
+    },
+    "Start Here": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать здесь"
+          }
+        }
+      }
+    },
+    "updated %@ ago": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "обновлено %@ назад"
+          }
+        }
+      }
+    },
+    "In work on %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В работе: %@."
+          }
+        }
+      }
+    },
+    "asked for changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "попросил изменений"
+          }
+        }
+      }
+    },
+    "reviewed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "проверил"
+          }
+        }
+      }
+    },
+    "Checks · %lld failing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверки · упало: %lld"
+          }
+        }
+      }
+    },
+    "Checks · %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверки · %lld"
+          }
+        }
+      }
+    },
+    "Files · %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы · %lld"
+          }
+        }
+      }
+    },
+    "This Branch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эта ветка"
+          }
+        }
+      }
+    },
+    "Waiting for Your Review": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ждут вашего ревью"
+          }
+        }
+      }
+    },
+    "Others": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остальные"
+          }
+        }
+      }
+    },
+    "in work": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "в работе"
+          }
+        }
+      }
+    },
+    "Has a folder in Kelp": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Есть папка в Kelp"
+          }
+        }
+      }
+    },
+    "pull request #%lld's changes since %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "изменения pull request #%1$lld с %2$@"
+          }
+        }
+      }
+    },
+    "Review: #%lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разбор: #%lld"
+          }
+        }
+      }
+    },
+    "No failing check on #%lld now.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сейчас у #%lld нет упавших проверок."
+          }
+        }
+      }
+    },
+    "No review comments on #%lld.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У #%lld нет комментариев ревью."
+          }
+        }
+      }
+    },
+    "%@ #%lld?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ #%2$lld?"
+          }
+        }
+      }
+    },
+    "It conflicts with the base branch: resolve the conflicts first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Есть конфликты с базовой веткой: сначала разрешите их."
+          }
+        }
+      }
+    },
+    "The base branch moved on: update this branch first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Базовая ветка ушла вперёд: сначала обновите эту ветку."
+          }
+        }
+      }
+    },
+    "Some checks failed, though GitHub lets it merge.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Часть проверок упала, хотя GitHub позволяет влить."
+          }
+        }
+      }
+    },
+    "A reviewer asked for changes.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ревьюер попросил изменений."
+          }
+        }
+      }
+    },
+    "It needs an approving review.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужно одобряющее ревью."
+          }
+        }
+      }
+    },
+    "Required checks failed.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обязательные проверки упали."
+          }
+        }
+      }
+    },
+    "Required checks are still running.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обязательные проверки ещё идут."
+          }
+        }
+      }
+    },
+    "Open in New Tab": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в новой вкладке"
+          }
+        }
+      }
+    },
+    "Connect Linear or Jira…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключить Linear или Jira…"
+          }
+        }
+      }
+    },
+    "New Machine…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая машина…"
+          }
+        }
+      }
+    },
+    "Previous Screen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущий экран"
+          }
+        }
+      }
+    },
+    "Unsaved changes came back after a crash: %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "После сбоя вернулись несохранённые изменения: %lld"
+          }
+        }
+      }
+    },
+    "%@ Still running the version from before the change.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ Пока работает версия до изменения."
+          }
+        }
+      }
+    },
+    "%@ has no file “%@” in its folder.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В папке %1$@ нет файла «%2$@»."
+          }
+        }
+      }
+    },
+    "%@ installs with %@, which isn’t on this Mac. ": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ ставится через %2$@, которого нет на этом Mac. "
+          }
+        }
+      }
+    },
+    "Restart It": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезапустить"
+          }
+        }
+      }
+    },
+    " and %lld more": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " и ещё %lld"
+          }
+        }
+      }
+    },
+    "Also changed on %@: %@%@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Также изменены в %1$@: %2$@%3$@"
+          }
+        }
+      }
+    },
+    "Back:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернулся:"
+          }
+        }
+      }
+    },
+    "Looks Good, Go On": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё хорошо, продолжай"
+          }
+        }
+      }
+    },
+    "Reading the symbols…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю символы…"
+          }
+        }
+      }
+    },
+    "Reading the tmux sessions…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю сессии tmux…"
+          }
+        }
+      }
+    },
+    "From GitHub · not reviewed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С GitHub · не проверены"
+          }
+        }
+      }
+    },
+    "topic kelp-extension, fastest growing first": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "тема kelp-extension, сначала быстрорастущие"
+          }
+        }
+      }
+    },
+    "Nobody at Kelp has looked at these. Before installing, Kelp shows every command one runs.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В Kelp их никто не проверял. Перед установкой Kelp показывает каждую команду, которую расширение запускает."
+          }
+        }
+      }
+    },
+    "Down the Side": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбоку"
+          }
+        }
+      }
+    },
+    "New Branch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая ветка"
+          }
+        }
+      }
+    },
+    "Existing Branch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Существующая ветка"
+          }
+        }
+      }
+    },
+    "Named from your first prompt": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Имя — по вашему первому промпту"
+          }
+        }
+      }
+    },
+    "From": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "От"
+          }
+        }
+      }
+    },
+    "Pull request": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pull request"
+          }
+        }
+      }
+    },
+    "Working, as far as the screen shows": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работает, насколько видно по экрану"
+          }
+        }
+      }
+    },
+    "Server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сервер"
+          }
+        }
+      }
+    },
+    "Show Panel": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать панель"
+          }
+        }
+      }
+    },
+    "Recent Screens": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Недавние экраны"
+          }
+        }
+      }
+    },
+    "%@’s new terminals and agents start in its dev container.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новые терминалы и агенты проекта %@ запускаются в его dev container."
+          }
+        }
+      }
+    },
+    "Its database copy %@ goes too.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копия базы %@ тоже удалится."
+          }
+        }
+      }
+    },
+    "Files in the project are not touched.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы проекта не трогаются."
+          }
+        }
+      }
+    },
+    "1 paused agent closes for good. ": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 агент на паузе закроется насовсем. "
+          }
+        }
+      }
+    },
+    "%lld paused agents close for good. ": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агенты на паузе закроются насовсем: %lld. "
+          }
+        }
+      }
+    },
+    "Its agents stop, and its chats and routines leave Kelp for good.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Его агенты остановятся, а чаты и рутины навсегда уйдут из Kelp."
+          }
+        }
+      }
+    },
+    "Folders of its branch groups stay on disk, and Kelp no longer lists them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Папки групп его веток остаются на диске, но Kelp больше их не показывает."
+          }
+        }
+      }
+    },
+    "⇥ next · ⇧⇥ back · 1–9 go there · esc stay": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⇥ дальше · ⇧⇥ назад · 1–9 перейти · esc остаться"
+          }
+        }
+      }
+    },
+    "its thinking": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "его размышления"
+          }
+        }
+      }
+    },
+    "Until It Needs Me": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока я не понадоблюсь"
+          }
+        }
+      }
+    },
+    "Until Tomorrow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "До завтра"
+          }
+        }
+      }
+    },
+    "until it calls": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "пока не позовёт"
+          }
+        }
+      }
+    },
+    "till %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "до %@"
+          }
+        }
+      }
+    },
+    "it asks you something": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "задаёт вам вопрос"
+          }
+        }
+      }
+    },
+    "it failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ошибка"
+          }
+        }
+      }
+    },
+    "CI failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI упал"
+          }
+        }
+      }
+    },
+    "Parked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отложено"
+          }
+        }
+      }
+    },
+    "Parked, %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отложено: %lld"
+          }
+        }
+      }
+    },
+    "Unpark": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть"
+          }
+        }
+      }
+    },
+    "Park": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отложить"
+          }
+        }
+      }
+    },
+    "quiet %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "тихо %@"
+          }
+        }
+      }
+    },
+    "Skills & MCP: Add a Skill or MCP Server…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скиллы и MCP: добавить скилл или MCP-сервер…"
+          }
+        }
+      }
+    },
+    "Skills & MCP: New Skill…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скиллы и MCP: новый скилл…"
+          }
+        }
+      }
+    },
+    "Skills & MCP: Restart This Chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скиллы и MCP: перезапустить этот чат"
+          }
+        }
+      }
+    },
+    "Skills & MCP: Open": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скиллы и MCP: открыть"
+          }
+        }
+      }
+    },
+    "Skills & MCP: Off in This Project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скиллы и MCP: выключить в этом проекте"
+          }
+        }
+      }
+    },
+    "Skills & MCP: On in This Project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скиллы и MCP: включить в этом проекте"
+          }
+        }
+      }
+    },
+    "A Claude Code agent that finishes while nobody’s at the Mac says what it did and what’s left, from a fork of its conversation that leaves the conversation as it was. Uses a little of its plan.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агент Claude Code, закончивший, пока за Mac никого нет, рассказывает, что сделал и что осталось, — из ответвления разговора, которое оставляет сам разговор как был. Тратит немного лимита плана."
+          }
+        }
+      }
+    },
+    "Claude Code reads your databases through Kelp, never their passwords; a change waits for your Allow.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code читает ваши базы через Kelp, но никогда — их пароли; изменение ждёт вашего «Разрешить»."
+          }
+        }
+      }
+    },
+    "Claude Code opens your app in a tab beside it and works in it while you watch. A project can have its own: right-click it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code открывает ваше приложение во вкладке рядом и работает в нём у вас на глазах. У проекта может быть своя настройка: щёлкните его правой кнопкой."
+          }
+        }
+      }
+    },
+    "With a database Kelp finds in a project, until its menu says otherwise. Production: read only.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для базы, которую Kelp находит в проекте, пока её меню не скажет иначе. Продакшен: только чтение."
+          }
+        }
+      }
+    },
+    "A statement’s rows an agent reads unless it asks for more; the tab shows up to 1000.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сколько строк запроса читает агент, если не попросит больше; вкладка показывает до 1000."
+          }
+        }
+      }
+    },
+    "How tall a table’s rows are: Compact fits the most, as TablePlus does.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Высота строк таблицы: «Компактно» вмещает больше всего, как в TablePlus."
+          }
+        }
+      }
+    },
+    "Postgres and MySQL stop a read past it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Postgres и MySQL прерывают чтение дольше этого."
+          }
+        }
+      }
+    },
+    "Refresh Database": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить базу"
+          }
+        }
+      }
+    },
+    "Show Data": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать данные"
+          }
+        }
+      }
+    },
+    "Show Structure": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать структуру"
+          }
+        }
+      }
+    },
+    "The project’s databases: what agents ran on them, and their tables.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Базы данных проекта: что на них запускали агенты и их таблицы."
+          }
+        }
+      }
+    },
+    "On: a long line continues on the next row instead of running past the edge.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включено: длинная строка продолжается на следующей, а не уходит за край."
+          }
+        }
+      }
+    },
+    "Each project’s branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp’s own folder.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ветки каждого проекта лягут там в папку с его именем, например ~/worktrees. Пусто: в папке самого Kelp."
+          }
+        }
+      }
+    },
+    "A ring while it runs, a red dot when it fails.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кольцо, пока идёт, красная точка — если упал."
+          }
+        }
+      }
+    },
+    "A ring while it runs, a red dot when it fails, ◎ while a deploy waits for approval, ✓ for a minute after it passes.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кольцо, пока идёт, красная точка — если упал, ◎ — пока деплой ждёт подтверждения, ✓ — минуту после успеха."
+          }
+        }
+      }
+    },
+    "Kelp’s virtual machines: what runs in each, its ports and folders.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Виртуальные машины Kelp: что работает в каждой, её порты и папки."
+          }
+        }
+      }
+    },
+    "The project’s commands: the run chip, the Run menu and the pages they serve.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Команды проекта: кнопка запуска, меню «Запуск» и страницы, которые они отдают."
+          }
+        }
+      }
+    },
+    "How each SSH server is doing: CPU, memory, disk, processes and agents.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как дела у каждого SSH-сервера: CPU, память, диск, процессы и агенты."
+          }
+        }
+      }
+    },
+    "Start Machine": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить машину"
+          }
+        }
+      }
+    },
+    "Put Machine to Sleep": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Усыпить машину"
+          }
+        }
+      }
+    },
+    "Shut Down Machine": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить машину"
+          }
+        }
+      }
+    },
+    "Show Machine’s Screen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать экран машины"
+          }
+        }
+      }
+    },
+    "Open Terminal in Machine": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть терминал в машине"
+          }
+        }
+      }
+    },
+    "Delete Machine…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить машину…"
+          }
+        }
+      }
+    },
+    "Open Terminal on Server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть терминал на сервере"
+          }
+        }
+      }
+    },
+    "Open htop on Server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть htop на сервере"
+          }
+        }
+      }
+    },
+    "Disconnect Server…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключить сервер…"
+          }
+        }
+      }
+    },
+    "Nothing Running on This Screen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этом экране ничего не запущено"
+          }
+        }
+      }
+    },
+    "Not Connected to %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет подключения к %@"
+          }
+        }
+      }
+    },
+    "Can’t Reach %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ недоступен"
+          }
+        }
+      }
+    },
+    "%@ Wasn’t Made": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не создана"
+          }
+        }
+      }
+    },
+    "%@ Didn’t Start": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не запустилась"
+          }
+        }
+      }
+    },
+    "%@ Is Asleep": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ спит"
+          }
+        }
+      }
+    },
+    "%@ Is Shut Down": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ выключена"
+          }
+        }
+      }
+    },
+    "Reading the ports…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю порты…"
+          }
+        }
+      }
+    },
+    "Reading %@…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю %@…"
+          }
+        }
+      }
+    },
+    "Running the statement…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполняю запрос…"
+          }
+        }
+      }
+    },
+    "Reading the server…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю сервер…"
+          }
+        }
+      }
+    },
+    "Looking for other apps’ connections…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ищу подключения других программ…"
+          }
+        }
+      }
+    },
+    "Reading %@’s connections…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю подключения %@…"
+          }
+        }
+      }
+    },
+    "Couldn’t Read %@’s Connections": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать подключения %@"
+          }
+        }
+      }
+    },
+    "No Connections Kelp Can Open": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет подключений, которые Kelp может открыть"
+          }
+        }
+      }
+    },
+    "Kelp opens Postgres, MySQL, SQLite and DuckDB.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp открывает Postgres, MySQL, SQLite и DuckDB."
+          }
+        }
+      }
+    },
+    "No History Yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Истории пока нет"
+          }
+        }
+      }
+    },
+    "What agents and you run on this database shows here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь появится то, что вы и агенты выполняете в этой базе."
+          }
+        }
+      }
+    },
+    "No Matches": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет совпадений"
+          }
+        }
+      }
+    },
+    "No Table Shown": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Таблица не открыта"
+          }
+        }
+      }
+    },
+    "No Row Selected": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Строка не выбрана"
+          }
+        }
+      }
+    },
+    "No Matching Fields": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет подходящих полей"
+          }
+        }
+      }
+    },
+    "No Agent Runs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агенты ничего не выполняли"
+          }
+        }
+      }
+    },
+    "What agents run on this table shows here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь появится то, что агенты выполняют в этой таблице."
+          }
+        }
+      }
+    },
+    "Grow %@’s disk to %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Увеличить диск %1$@ до %2$@?"
+          }
+        }
+      }
+    },
+    "%@ is %@’s copy of %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ — копия %3$@ для ветки %2$@."
+          }
+        }
+      }
+    },
+    "No Matches for “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет совпадений для «%@»"
+          }
+        }
+      }
+    },
+    "No Problems in Open Files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В открытых файлах проблем нет"
+          }
+        }
+      }
+    },
+    "Reading the notebook…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю блокнот…"
+          }
+        }
+      }
+    },
+    "Reading the language servers…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю языковые серверы…"
+          }
+        }
+      }
+    },
+    "Suggestion: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсказка: %@"
+          }
+        }
+      }
+    },
+    "Next edit on line %lld. Tab goes there.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующая правка — строка %lld. Tab переходит к ней."
+          }
+        }
+      }
+    },
+    "Nothing Here Yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока пусто"
+          }
+        }
+      }
+    },
+    "No Agents Installed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агенты не установлены"
+          }
+        }
+      }
+    },
+    "All Agents Installed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все агенты установлены"
+          }
+        }
+      }
+    },
+    "No Profiles Yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профилей пока нет"
+          }
+        }
+      }
+    },
+    "Agents use their own login.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Агенты входят под своей учётной записью."
+          }
+        }
+      }
+    },
+    "Couldn’t Run the List’s Command": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось выполнить команду списка"
+          }
+        }
+      }
+    },
+    "Nothing Here": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь пусто"
+          }
+        }
+      }
+    },
+    "⌥-click the chat’s row: the same": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌥-клик по строке чата: то же самое"
+          }
+        }
+      }
+    },
+    "%@ changes, %@ comments": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ изменения, %2$@ комментарии"
+          }
+        }
+      }
+    },
+    "Git: Next Change": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: следующее изменение"
+          }
+        }
+      }
+    },
+    "Git: Previous Change": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: предыдущее изменение"
+          }
+        }
+      }
+    },
+    "Git: Next Comment": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: следующий комментарий"
+          }
+        }
+      }
+    },
+    "Git: Previous Comment": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: предыдущий комментарий"
           }
         }
       }
