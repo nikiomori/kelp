@@ -69,7 +69,7 @@ struct PhoneSettings: View {
             }
         }
         if isOn, let state, state.via != nil {
-            Section("Pair a Phone") {
+            TitledSection("Pair a Phone") {
                 reached(state)
                 if let link = state.link {
                     code(link, until: state.linkUntil)
@@ -77,7 +77,7 @@ struct PhoneSettings: View {
                     Button("Show Pairing Code") { Task { await pair() } }.disabled(state.address == nil)
                 }
             }
-            Section("Paired Phones") {
+            TitledSection("Paired Phones") {
                 if state.phones.isEmpty {
                     EmptyState(String(localized: "No Phone Paired Yet"), symbol: "iphone", lifted: false)
                 }

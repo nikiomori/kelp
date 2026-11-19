@@ -54,7 +54,7 @@ struct AccountsSettings: View {
     @State private var newAgent = Session.claudeAgent
 
     var body: some View {
-        Section("Accounts") {
+        TitledSection("Accounts") {
             if profiles.isEmpty {
                 Text("No profiles yet: agents use their own login.").foregroundStyle(.secondary)
             } else {

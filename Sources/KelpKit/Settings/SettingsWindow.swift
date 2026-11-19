@@ -233,7 +233,7 @@ private struct SectionForm: View {
                     if rows.isEmpty && shown == nil {
                         EmptyView()
                     } else if let title = groups[index].0 {
-                        Section(loc(title)) {
+                        TitledSection(verbatim: loc(title)) {
                             section.previews[title]?()
                             ForEach(rows) { row($0) }
                         }.id(title)
@@ -276,7 +276,7 @@ private struct SearchResults: View {
                 EmptyState(String(localized: "No Settings Match “\(query)”"), symbol: "magnifyingglass", lifted: false)
             }
             ForEach(found) { result in
-                Section(result.title) {
+                TitledSection(verbatim: result.title) {
                     ForEach(result.specs) { spec in SettingRow(spec: spec) { open(result.section.id) } }
                     ForEach(result.screens, id: \.self) { word in
                         // The word goes along, so the Agent Catalog opens on the agent it names (it has no search of

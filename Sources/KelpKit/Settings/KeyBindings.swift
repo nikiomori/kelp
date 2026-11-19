@@ -184,7 +184,9 @@ struct KeyboardSettings: View {
                 page
             } else {
                 ForEach(groups, id: \.0) { menu, items in
-                    Section("\(String(localized: "Keyboard")) › \(menu)") { ForEach(items) { e in row(e) } }
+                    TitledSection(verbatim: "\(String(localized: "Keyboard")) › \(menu)") {
+                        ForEach(items) { e in row(e) }
+                    }
                 }
             }
         }
@@ -206,8 +208,8 @@ struct KeyboardSettings: View {
             }
         }
         let changed = entries.filter { KeyBindings.overrides(app.settings)[$0.id] != nil }
-        if !changed.isEmpty { Section("Changed by you") { ForEach(changed) { e in row(e) } } }
-        Section("Menus") {
+        if !changed.isEmpty { TitledSection("Changed by you") { ForEach(changed) { e in row(e) } } }
+        TitledSection("Menus") {
             ForEach(groups, id: \.0) { menu, items in
                 fold(menu, count: items.count)
                 if open.contains(menu) { ForEach(items) { e in row(e) } }

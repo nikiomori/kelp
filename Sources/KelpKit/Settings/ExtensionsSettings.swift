@@ -50,7 +50,7 @@ struct ExtensionsSettings: View {
         Section {
             ForEach(registry.extensions.filter { $0.builtin && !$0.essential }) { row($0) }
         } header: {
-            Text("Built-in")
+            Text("Built-in").font(.ui(TextSize.body, weight: .semibold))
         } footer: {
             let always = registry.extensions.filter(\.essential).map { loc($0.name) }.joined(separator: ", ")
             Text("Turn off what you don’t use. Always on: \(always).").font(.ui(TextSize.caption)).foregroundStyle(
@@ -58,7 +58,7 @@ struct ExtensionsSettings: View {
         }
         let added = registry.extensions.filter { !$0.builtin }
         if !added.isEmpty {
-            Section("Installed") { ForEach(added) { row($0) } }
+            TitledSection("Installed") { ForEach(added) { row($0) } }
         }
         Section {
             Text(

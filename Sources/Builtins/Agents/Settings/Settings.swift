@@ -99,7 +99,7 @@ struct AgentsSettings: View {
                 Section {
                     ForEach(have, id: \.id) { row($0) }
                 } header: {
-                    Text("Installed \(have.count)")
+                    Text("Installed \(have.count)").font(.ui(TextSize.body, weight: .semibold))
                 } footer: {
                     if !updates.isEmpty {
                         Text(
@@ -111,7 +111,7 @@ struct AgentsSettings: View {
                     }
                 }
             }
-            if !rest.isEmpty { Section("Not Installed \(rest.count)") { ForEach(rest, id: \.id) { row($0) } } }
+            if !rest.isEmpty { TitledSection("Not Installed \(rest.count)") { ForEach(rest, id: \.id) { row($0) } } }
             if have.isEmpty && rest.isEmpty {
                 EmptyState(
                     show == .installed

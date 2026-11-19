@@ -18,7 +18,7 @@ struct GeneralSettings: View {
     }()
 
     var body: some View {
-        Section("Updates") {
+        TitledSection("Updates") {
             if let controller = app.updates.controller {
                 Toggle(
                     isOn: Binding(
@@ -58,7 +58,7 @@ struct GeneralSettings: View {
             checks = app.updates.controller?.updater.automaticallyChecksForUpdates ?? false
             downloads = app.updates.controller?.updater.automaticallyDownloadsUpdates ?? false
         }
-        Section("Background") {
+        TitledSection("Background") {
             if BackgroundItem.bundled {
                 LabeledContent {
                     Button("Open Login Items") { BackgroundItem.openSettings() }

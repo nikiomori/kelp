@@ -22,14 +22,14 @@ struct IntegrationsSettings: View {
 
     var body: some View {
         Group {
-            Section("Code hosting") {
+            TitledSection("Code hosting") {
                 cliRow(
                     "GitHub", gh,
                     "Through the GitHub CLI and its login. Project boards need `gh auth refresh -s read:project`.")
                 cliRow("GitLab", glab, "Through the GitLab CLI (glab) and its login, self-managed hosts too.")
                 linkRow(.bitbucket, bitbucket, "For repos whose origin is on bitbucket.org.")
             }
-            Section("Issues") {
+            TitledSection("Issues") {
                 linkRow(.jira, jira, "Issues from your Jira site.")
                 linkRow(.linear, linear, "Issues from your Linear workspace.")
             }

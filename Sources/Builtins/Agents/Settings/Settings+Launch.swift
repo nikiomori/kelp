@@ -103,7 +103,7 @@ extension AgentsSettings {
                 Button("Reset to Default…") { reset(agentManifest) }
             }
         } header: {
-            Text("Launch")
+            Text("Launch").font(.ui(TextSize.body, weight: .semibold))
         } footer: {
             Text(
                 "Values of *_KEY, *_TOKEN and *_SECRET are kept in your login keychain, not in the agent’s file. Agents are JSON files in ~/.kelp/agents — add a file to add any CLI agent."
