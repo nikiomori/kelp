@@ -290,8 +290,8 @@ func codeOnly(_ s: String) -> String {
             l.count > 120 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 390, "lines over 120: \(over120)")
-    #expect(over120 >= 390, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 376, "lines over 120: \(over120)")
+    #expect(over120 >= 376, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -482,12 +482,17 @@ func codeOnly(_ s: String) -> String {
             1, "a read says Reading… only past half a second: a quick one doesn't flicker"
         ),
         "Builtins/Agents/Addons/AddonsPanel+Loading.swift": (
-            3, "a read shows past 150 ms and stays 400 ms, so a quick one doesn't flicker; a changed row's light fades"
+            2, "a read shows past 150 ms and stays 400 ms, so a quick one doesn't flicker"
         ),
         "Builtins/Databases/DatabaseTab+Opening.swift": (
             1, "Connecting to … shows past half a second: a quick open doesn't flicker"
         ),
-        "KelpKit/Extensions/ExtListView.swift": (1, "an extension's own refresh interval for its command's list"),
+        "KelpKit/Extensions/ExtListView.swift": (
+            2, "an extension's own refresh interval for its command's list; a shown outline stays 0.4 s, not to blink"
+        ),
+        "Builtins/Files/Disk/DiskUsageTab.swift": (
+            1, "Measuring… shows only past a second: a quick measure doesn't flicker"
+        ),
         "KelpKit/Extensions/DeclarativeExtension.swift": (
             1, "an extension's own refresh interval for its panel's badge command"
         ),
@@ -910,7 +915,7 @@ func codeOnly(_ s: String) -> String {
     exactly(try matches(#"\.now\(\) \+ 0\.\d"#, in: chromeDirs), 2, "delays")
     let pictures = ["SettingPictures", "SettingPreviews", "ThemeGallery", "DockStripPicture"]
     let alphas = try matches(#"withAlphaComponent\(0?\.[0-9]|\.opacity\(0?\.[0-9]"#, in: appDirs)
-    exactly(alphas.filter { path in !pictures.contains { path.contains($0) } }, 22, "opacities")
+    exactly(alphas.filter { path in !pictures.contains { path.contains($0) } }, 21, "opacities")
     // The editor's too: a fold's plate and its dots.
     exactly(
         try matches(#"withAlphaComponent\(0?\.[0-9]|\.opacity\(0?\.[0-9]"#, in: ["Sources/EditorKit"]), 2,

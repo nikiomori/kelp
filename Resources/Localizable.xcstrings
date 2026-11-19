@@ -61,7 +61,7 @@
         }
       }
     },
-    "%@ didn't take the key.": {
+    "%@ didn’t take the key.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -91,7 +91,7 @@
         }
       }
     },
-    "%@ Isn't Answering": {
+    "%@ Isn’t Answering": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -101,7 +101,7 @@
         }
       }
     },
-    "%@ Isn't Running": {
+    "%@ Isn’t Running": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -301,7 +301,7 @@
         }
       }
     },
-    "Couldn't Get the Model": {
+    "Couldn’t Get the Model": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -331,7 +331,7 @@
         }
       }
     },
-    "Empty: the provider's own. Codestral's free key works at https://codestral.mistral.ai.": {
+    "Empty: the provider’s own. Codestral’s free key works at https://codestral.mistral.ai.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -431,7 +431,7 @@
         }
       }
     },
-    "It's stored in your login keychain, not in settings.json.": {
+    "It’s stored in your login keychain, not in settings.json.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -471,7 +471,7 @@
         }
       }
     },
-    "Mistral didn't take the key. A free key works only at codestral.mistral.ai.": {
+    "Mistral didn’t take the key. A free key works only at codestral.mistral.ai.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -501,7 +501,7 @@
         }
       }
     },
-    "No answer came in 8 seconds, or there's no connection.": {
+    "No answer came in 8 seconds, or there’s no connection.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -893,7 +893,7 @@
         }
       }
     },
-    "From each agent's own logs and /usage on this Mac": {
+    "From each agent’s own logs and /usage on this Mac": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -913,7 +913,7 @@
         }
       }
     },
-    "Git doesn't track this line": {
+    "Git doesn’t track this line": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -953,7 +953,7 @@
         }
       }
     },
-    "Kelp's background service runs them; macOS allows it in Login Items.": {
+    "Kelp’s background service runs them; macOS allows it in Login Items.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -1339,7 +1339,7 @@
         }
       }
     },
-    "Not committed yet, and no agent's turn changed it": {
+    "Not committed yet, and no agent’s turn changed it": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -2159,7 +2159,7 @@
         }
       }
     },
-    "This build doesn't update itself.": {
+    "This build doesn’t update itself.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -2203,7 +2203,7 @@
         }
       }
     },
-    "On: Kelp's background service is allowed in Login Items.": {
+    "On: Kelp’s background service is allowed in Login Items.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -2595,7 +2595,7 @@
         }
       }
     },
-    "Ctrl+G opens an agent's prompt in a tab here.": {
+    "Ctrl+G opens an agent’s prompt in a tab here.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -2617,7 +2617,7 @@
         }
       }
     },
-    "What it did and what's left, if it finishes while you're away.": {
+    "What it did and what’s left, if it finishes while you’re away.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -2628,7 +2628,7 @@
         }
       }
     },
-    "The other agent's result or question comes back as input.": {
+    "The other agent’s result or question comes back as input.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -2694,7 +2694,7 @@
         }
       }
     },
-    "When you've been away 5 minutes or Kelp is closed.": {
+    "When you’ve been away 5 minutes or Kelp is closed.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -2727,7 +2727,7 @@
         }
       }
     },
-    "Empty: inside Kelp's own folder.": {
+    "Empty: inside Kelp’s own folder.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -3220,7 +3220,7 @@
         }
       }
     },
-    "%.1f GB of the Mac's (%.0f GB given)": {
+    "%.1f GB of the Mac’s (%.0f GB given)": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -3270,7 +3270,7 @@
         }
       }
     },
-    "%@ wasn't made": {
+    "%@ wasn’t made": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -3390,7 +3390,7 @@
         }
       }
     },
-    "It holds none of this Mac's memory. The next command wakes it in under a second, with all it ran.": {
+    "It holds none of this Mac’s memory. The next command wakes it in under a second, with all it ran.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -3720,7 +3720,7 @@
         }
       }
     },
-    "Turn Kelp Guest on in the machine's System Settings › Privacy & Security: Screen Recording and Accessibility.": {
+    "Turn Kelp Guest on in the machine’s System Settings › Privacy & Security: Screen Recording and Accessibility.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -3730,7 +3730,7 @@
         }
       }
     },
-    "Kelp Guest isn't running in it: sign in on its screen.": {
+    "Kelp Guest isn’t running in it: sign in on its screen.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -3810,7 +3810,7 @@
         }
       }
     },
-    "Needs Android Studio's SDK with an arm64 system image": {
+    "Needs Android Studio’s SDK with an arm64 system image": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -3870,7 +3870,7 @@
         }
       }
     },
-    "macOS from a restore image (.ipsw), Linux from a cloud image's raw disk": {
+    "macOS from a restore image (.ipsw), Linux from a cloud image’s raw disk": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -3880,7 +3880,7 @@
         }
       }
     },
-    "A macOS restore image (.ipsw) or a Linux cloud image's raw disk (.raw, .img)": {
+    "A macOS restore image (.ipsw) or a Linux cloud image’s raw disk (.raw, .img)": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -3990,7 +3990,7 @@
         }
       }
     },
-    "Building Kelp's runner": {
+    "Building Kelp’s runner": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -4020,7 +4020,7 @@
         }
       }
     },
-    "Types this machine's password into the field that asks for it, in its window.": {
+    "Types this machine’s password into the field that asks for it, in its window.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -4060,7 +4060,7 @@
         }
       }
     },
-    "Couldn't make %@: %@": {
+    "Couldn’t make %@: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -4310,7 +4310,7 @@
         }
       }
     },
-    "The agent works in this folder. It isn't added as a project.": {
+    "The agent works in this folder. It isn’t added as a project.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -4495,7 +4495,7 @@
         }
       }
     },
-    "%@ can't be read: %@": {
+    "%@ can’t be read: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -4525,7 +4525,7 @@
         }
       }
     },
-    "%@ didn't run at %@": {
+    "%@ didn’t run at %@": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -4626,7 +4626,7 @@
         }
       }
     },
-    "%@ isn't there anymore. Right-click › Locate… if it moved.": {
+    "%@ isn’t there anymore. Right-click › Locate… if it moved.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -4888,7 +4888,7 @@
         }
       }
     },
-    "%lld files not committed on %@. The project's menu can switch it later.": {
+    "%lld files not committed on %@. The project’s menu can switch it later.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -4904,6 +4904,24 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пропущено файлов (несохранённые правки или нечего менять): %lld."
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld file with unsaved edits or nothing to change is left out."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld files with unsaved edits or nothing to change are left out."
+                }
+              }
+            }
           }
         }
       }
@@ -5360,7 +5378,7 @@
         }
       }
     },
-    "A finished or failed agent's banner waits until you stop typing in Kelp for 20 seconds, then they come as one. Questions come at once.": {
+    "A finished or failed agent’s banner waits until you stop typing in Kelp for 20 seconds, then they come as one. Questions come at once.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -5371,7 +5389,7 @@
         }
       }
     },
-    "A language's own value wins over the one for all files.": {
+    "A language’s own value wins over the one for all files.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -5402,7 +5420,7 @@
         }
       }
     },
-    "A project's changes and history show here.": {
+    "A project’s changes and history show here.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -5423,7 +5441,7 @@
         }
       }
     },
-    "A symbol's signature and documentation, and the arguments of a call as you type it.": {
+    "A symbol’s signature and documentation, and the arguments of a call as you type it.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -5688,7 +5706,7 @@
         }
       }
     },
-    "An agent is at work in the folder, so it stays on %@. The project's menu can switch it later.": {
+    "An agent is at work in the folder, so it stays on %@. The project’s menu can switch it later.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -5955,7 +5973,7 @@
         }
       }
     },
-    "Agent's Last Turn": {
+    "Agent’s Last Turn": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -6067,7 +6085,7 @@
         }
       }
     },
-    "It's new or changed since it was allowed. It can run these commands on this Mac:": {
+    "It’s new or changed since it was allowed. It can run these commands on this Mac:": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -6344,7 +6362,7 @@
         }
       }
     },
-    "At the left edge, at their line's indentation, or one level past it.": {
+    "At the left edge, at their line’s indentation, or one level past it.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -6820,7 +6838,7 @@
         }
       }
     },
-    "Can't show this notebook": {
+    "Can’t show this notebook": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -6871,7 +6889,7 @@
         }
       }
     },
-    "Claude Code's notes": {
+    "Claude Code’s notes": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -6932,7 +6950,7 @@
         }
       }
     },
-    "Closing this tab puts the text in the agent's prompt": {
+    "Closing this tab puts the text in the agent’s prompt": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -7239,7 +7257,7 @@
         }
       }
     },
-    "Couldn't format %@: %@": {
+    "Couldn’t format %@: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -7249,7 +7267,7 @@
         }
       }
     },
-    "Couldn't list the files": {
+    "Couldn’t list the files": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -7259,7 +7277,7 @@
         }
       }
     },
-    "Couldn't load the library: %@": {
+    "Couldn’t load the library: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -7269,7 +7287,7 @@
         }
       }
     },
-    "Couldn't load the list": {
+    "Couldn’t load the list": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -7279,7 +7297,7 @@
         }
       }
     },
-    "Couldn't measure the sessions": {
+    "Couldn’t measure the sessions": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -7289,7 +7307,7 @@
         }
       }
     },
-    "Couldn't read the runs": {
+    "Couldn’t read the runs": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -7299,7 +7317,7 @@
         }
       }
     },
-    "Couldn't relaunch Kelp: %@": {
+    "Couldn’t relaunch Kelp: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -7309,7 +7327,7 @@
         }
       }
     },
-    "Couldn't search": {
+    "Couldn’t search": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -7903,7 +7921,7 @@
         }
       }
     },
-    "Copied %@ and the element's details": {
+    "Copied %@ and the element’s details": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -8087,7 +8105,7 @@
         }
       }
     },
-    "Couldn't install %@: %@": {
+    "Couldn’t install %@: %@": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8103,7 +8121,7 @@
         }
       }
     },
-    "Couldn't load": {
+    "Couldn’t load": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -8113,7 +8131,7 @@
         }
       }
     },
-    "Couldn't read it.": {
+    "Couldn’t read it.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -8123,7 +8141,7 @@
         }
       }
     },
-    "Couldn't read the checks: %@": {
+    "Couldn’t read the checks: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -8143,7 +8161,7 @@
         }
       }
     },
-    "Couldn't read this file.": {
+    "Couldn’t read this file.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -8209,7 +8227,7 @@
         }
       }
     },
-    "Create a key in Linear › Settings › Security & access. It's stored in your login keychain.": {
+    "Create a key in Linear › Settings › Security & access. It’s stored in your login keychain.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -8633,7 +8651,7 @@
         }
       }
     },
-    "Don't Save": {
+    "Don’t Save": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -8673,7 +8691,7 @@
         }
       }
     },
-    "Drops box borders and an agent's gutter, and rejoins lines it wrapped.": {
+    "Drops box borders and an agent’s gutter, and rejoins lines it wrapped.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -8684,7 +8702,7 @@
         }
       }
     },
-    "Drops box borders, an agent's indented gutter and trailing spaces from what you copy, and joins the lines an agent wrapped at the edge (a long command copies as one line).": {
+    "Drops box borders, an agent’s indented gutter and trailing spaces from what you copy, and joins the lines an agent wrapped at the edge (a long command copies as one line).": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -9034,7 +9052,7 @@
         }
       }
     },
-    "Extensions people shared, each reviewed before it's added.": {
+    "Extensions people shared, each reviewed before it’s added.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -9115,7 +9133,7 @@
         }
       }
     },
-    "Faint lines at each level; the block around the cursor's is brighter.": {
+    "Faint lines at each level; the block around the cursor’s is brighter.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -9712,7 +9730,7 @@
       "extractionState": "manual",
       "shouldTranslate": false
     },
-    "Git Isn't Available": {
+    "Git Isn’t Available": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -9722,7 +9740,7 @@
         }
       }
     },
-    "Git doesn't track this file, so it can't be restored.": {
+    "Git doesn’t track this file, so it can’t be restored.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -10587,7 +10605,7 @@
         }
       }
     },
-    "Its command, arguments and environment go back to Kelp's.": {
+    "Its command, arguments and environment go back to Kelp’s.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -10680,7 +10698,7 @@
         }
       }
     },
-    "Kelp isn't allowed to run in the background, so macOS ends its agents when it quits.": {
+    "Kelp isn’t allowed to run in the background, so macOS ends its agents when it quits.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -10783,7 +10801,7 @@
         }
       }
     },
-    "Keybindings and other Ghostty options; the theme's colors still apply.": {
+    "Keybindings and other Ghostty options; the theme’s colors still apply.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -10817,7 +10835,7 @@
         }
       }
     },
-    "Kelp can't find the file in that link.": {
+    "Kelp can’t find the file in that link.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -10827,7 +10845,7 @@
         }
       }
     },
-    "Kelp doesn't know the link %@.": {
+    "Kelp doesn’t know the link %@.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -10847,7 +10865,7 @@
         }
       }
     },
-    "Kelp isn't allowed to run in the background: quitting or updating it ends running agents.": {
+    "Kelp isn’t allowed to run in the background: quitting or updating it ends running agents.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -10867,7 +10885,7 @@
         }
       }
     },
-    "Kelp's background service isn't running.": {
+    "Kelp’s background service isn’t running.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -10877,7 +10895,7 @@
         }
       }
     },
-    "Kelp's default: %@": {
+    "Kelp’s default: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -10887,7 +10905,7 @@
         }
       }
     },
-    "Kelp's default: none": {
+    "Kelp’s default: none": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -10907,7 +10925,7 @@
         }
       }
     },
-    "Language server %@ isn't installed.": {
+    "Language server %@ isn’t installed.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -12204,7 +12222,7 @@
         }
       }
     },
-    "Off: the agent's and the workspace's names only.": {
+    "Off: the agent’s and the workspace’s names only.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -12335,7 +12353,7 @@
         }
       }
     },
-    "Other Agents Only hides the default agent's icon.": {
+    "Other Agents Only hides the default agent’s icon.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -12780,7 +12798,7 @@
         }
       }
     },
-    "Notifications for Kelp are turned off in System Settings, so you won't hear when an agent needs you.": {
+    "Notifications for Kelp are turned off in System Settings, so you won’t hear when an agent needs you.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -13718,7 +13736,7 @@
         }
       }
     },
-    "Ran late: the Mac was asleep or Kelp wasn't running at %@": {
+    "Ran late: the Mac was asleep or Kelp wasn’t running at %@": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -13809,7 +13827,7 @@
         }
       }
     },
-    "Read from ~/.claude transcripts on this Mac (every account profile). Prices are Anthropic's list prices; a subscription bills differently.": {
+    "Read from ~/.claude transcripts on this Mac (every account profile). Prices are Anthropic’s list prices; a subscription bills differently.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -13829,7 +13847,7 @@
         }
       }
     },
-    "Reading Claude Code's transcripts — the first time takes a minute.": {
+    "Reading Claude Code’s transcripts — the first time takes a minute.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -14352,6 +14370,24 @@
             "state": "translated",
             "value": "Заменено в файлах: %lld."
           }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Replaced in %lld file."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Replaced in %lld files."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -14527,7 +14563,7 @@
         }
       }
     },
-    "Restore every shortcut to Kelp's default?": {
+    "Restore every shortcut to Kelp’s default?": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -14711,7 +14747,7 @@
         }
       }
     },
-    "Run this project's commands?": {
+    "Run this project’s commands?": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -15139,7 +15175,7 @@
         }
       }
     },
-    "Servers you start in this screen's terminals and agents show up here. Or type an address above.": {
+    "Servers you start in this screen’s terminals and agents show up here. Or type an address above.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -15619,7 +15655,7 @@
         }
       }
     },
-    "Comes in while the pointer is at the window's left edge, like the Dock.": {
+    "Comes in while the pointer is at the window’s left edge, like the Dock.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -15630,7 +15666,7 @@
         }
       }
     },
-    "Comes in while the pointer is at the window's right edge.": {
+    "Comes in while the pointer is at the window’s right edge.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -15748,7 +15784,7 @@
         }
       }
     },
-    "Spaces to a level. A file's own indentation and its .editorconfig come first.": {
+    "Spaces to a level. A file’s own indentation and its .editorconfig come first.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -16573,7 +16609,7 @@
         }
       }
     },
-    "The browser, git and issues are extensions too. Turn off what you don't use.": {
+    "The browser, git and issues are extensions too. Turn off what you don’t use.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -16633,7 +16669,7 @@
         }
       }
     },
-    "The file's folders and the scopes around the cursor, in a thin bar over the editor.": {
+    "The file’s folders and the scopes around the cursor, in a thin bar over the editor.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -16643,7 +16679,7 @@
         }
       }
     },
-    "The language server can't rename this.": {
+    "The language server can’t rename this.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -16653,7 +16689,7 @@
         }
       }
     },
-    "The lines that open the class and function you're in stay pinned as you scroll.": {
+    "The lines that open the class and function you’re in stay pinned as you scroll.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -16696,7 +16732,7 @@
         }
       }
     },
-    "The Mac was asleep or Kelp wasn't running. Run Now is on its Routines tab.": {
+    "The Mac was asleep or Kelp wasn’t running. Run Now is on its Routines tab.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -16852,7 +16888,7 @@
         }
       }
     },
-    "This can't be undone.": {
+    "This can’t be undone.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -16862,7 +16898,7 @@
         }
       }
     },
-    "This folder isn't under git version control.": {
+    "This folder isn’t under git version control.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -16872,7 +16908,7 @@
         }
       }
     },
-    "This is how you'll hear that an agent finished or needs you.": {
+    "This is how you’ll hear that an agent finished or needs you.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -17009,7 +17045,7 @@
         }
       }
     },
-    "Turn off what you don't use. Always on: %@.": {
+    "Turn off what you don’t use. Always on: %@.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -17436,7 +17472,7 @@
         }
       }
     },
-    "Values of *_KEY, *_TOKEN and *_SECRET are kept in your login keychain, not in the agent's file. Agents are JSON files in ~/.kelp/agents — add a file to add any CLI agent.": {
+    "Values of *_KEY, *_TOKEN and *_SECRET are kept in your login keychain, not in the agent’s file. Agents are JSON files in ~/.kelp/agents — add a file to add any CLI agent.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -17614,7 +17650,7 @@
         }
       }
     },
-    "What changed since the agent's last prompt, even with other agents in the same folder": {
+    "What changed since the agent’s last prompt, even with other agents in the same folder": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -17644,7 +17680,7 @@
         }
       }
     },
-    "What Kelp's icon in the Dock shows. Also in its menu, on a right-click.": {
+    "What Kelp’s icon in the Dock shows. Also in its menu, on a right-click.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -17655,7 +17691,7 @@
         }
       }
     },
-    "What's New": {
+    "What’s New": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -17665,7 +17701,7 @@
         }
       }
     },
-    "What's running stops now. You can start the run again.": {
+    "What’s running stops now. You can start the run again.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -17675,7 +17711,7 @@
         }
       }
     },
-    "When an agent asks, fails or hits a limit and you've been away for 5 minutes or Kelp is closed. Anyone who knows this address can read what's sent.": {
+    "When an agent asks, fails or hits a limit and you’ve been away for 5 minutes or Kelp is closed. Anyone who knows this address can read what’s sent.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -18034,7 +18070,7 @@
         }
       }
     },
-    "Wrapping stops here on a wide screen. 0: at the window's edge.": {
+    "Wrapping stops here on a wide screen. 0: at the window’s edge.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -18086,7 +18122,7 @@
         }
       }
     },
-    "Your changes will be lost if you don't save them.": {
+    "Your changes will be lost if you don’t save them.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -18208,7 +18244,7 @@
         }
       }
     },
-    "macOS uses this for %@, so Kelp won't see it (System Settings › Keyboard › Keyboard Shortcuts).": {
+    "macOS uses this for %@, so Kelp won’t see it (System Settings › Keyboard › Keyboard Shortcuts).": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -18418,7 +18454,7 @@
         }
       }
     },
-    "“%@” isn't a Git repository": {
+    "“%@” isn’t a Git repository": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -18928,7 +18964,7 @@
         }
       }
     },
-    "%@ goes back to the committed lines here: %lld added lines go, %lld removed lines come back. This can't be undone.": {
+    "%@ goes back to the committed lines here: %lld added lines go, %lld removed lines come back. This can’t be undone.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -19290,7 +19326,7 @@
         }
       }
     },
-    "%@ opens read only: it's too large, or its lines too long, to edit here.": {
+    "%@ opens read only: it’s too large, or its lines too long, to edit here.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -19400,7 +19436,7 @@
         }
       }
     },
-    "Couldn't change “%@”: %@": {
+    "Couldn’t change “%@”: %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -19430,7 +19466,7 @@
         }
       }
     },
-    "A project's own chats stay.": {
+    "A project’s own chats stay.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -19470,7 +19506,7 @@
         }
       }
     },
-    "It hasn't been saved yet, so its text will be lost if you don't save it.": {
+    "It hasn’t been saved yet, so its text will be lost if you don’t save it.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -19520,7 +19556,7 @@
         }
       }
     },
-    "Name it with an extension for code (main.py, App.swift); without one it's a .txt file.": {
+    "Name it with an extension for code (main.py, App.swift); without one it’s a .txt file.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -19650,7 +19686,7 @@
         }
       }
     },
-    "This notebook can't be read (is it valid nbformat 4 JSON?).": {
+    "This notebook can’t be read (is it valid nbformat 4 JSON?).": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -20152,7 +20188,7 @@
         }
       }
     },
-    "Default: the theme's / Ghostty's font.": {
+    "Default: the theme’s / Ghostty’s font.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -20163,7 +20199,7 @@
         }
       }
     },
-    "%lld commits on this branch aren't on any other branch or remote and will be lost.": {
+    "%lld commits on this branch aren’t on any other branch or remote and will be lost.": {
       "localizations": {
         "en": {
           "variations": {
@@ -20408,7 +20444,7 @@
         }
       }
     },
-    "The %@ CLI (%@) isn't signed in.": {
+    "The %@ CLI (%@) isn’t signed in.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -20428,7 +20464,7 @@
         }
       }
     },
-    "This project's origin isn't on GitHub, GitLab or Bitbucket.": {
+    "This project’s origin isn’t on GitHub, GitLab or Bitbucket.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -20498,7 +20534,7 @@
         }
       }
     },
-    "Couldn't check": {
+    "Couldn’t check": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -20508,7 +20544,7 @@
         }
       }
     },
-    "%@ CLI isn't installed": {
+    "%@ CLI isn’t installed": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -20518,7 +20554,7 @@
         }
       }
     },
-    "%@ CLI isn't signed in (or %@ can't be reached)": {
+    "%@ CLI isn’t signed in (or %@ can’t be reached)": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -21511,7 +21547,7 @@
         }
       }
     },
-    "Couldn't read the pages": {
+    "Couldn’t read the pages": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -21671,7 +21707,7 @@
         }
       }
     },
-    "↩ opens · / goes into a database's tables · esc closes": {
+    "↩ opens · / goes into a database’s tables · esc closes": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -22907,7 +22943,7 @@
         }
       }
     },
-    "Push rejected: the remote has commits this branch doesn't. Pull first.": {
+    "Push rejected: the remote has commits this branch doesn’t. Pull first.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -22987,7 +23023,7 @@
         }
       }
     },
-    "Pull requests, issues and CI runs show here once this project's git has a remote on GitHub.": {
+    "Pull requests, issues and CI runs show here once this project’s git has a remote on GitHub.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -23077,7 +23113,7 @@
         }
       }
     },
-    "How much of each agent's plan is used, at the bottom of the sidebar; read in the background, no tokens.": {
+    "How much of each agent’s plan is used, at the bottom of the sidebar; read in the background, no tokens.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -23098,7 +23134,7 @@
         }
       }
     },
-    "A line under Claude Code's terminal with the shell commands it ran; a click lists them, and a click on one shows what it printed.": {
+    "A line under Claude Code’s terminal with the shell commands it ran; a click lists them, and a click on one shows what it printed.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -23219,7 +23255,7 @@
         }
       }
     },
-    "How the color from a project's row menu shows. On the icon it also follows the project to the title bar, ⌃Tab and Needs You.": {
+    "How the color from a project’s row menu shows. On the icon it also follows the project to the title bar, ⌃Tab and Needs You.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -23229,7 +23265,7 @@
         }
       }
     },
-    "“%@” has work that's nowhere else": {
+    "“%@” has work that’s nowhere else": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -23289,7 +23325,7 @@
         }
       }
     },
-    "When an agent starts another with kelp, the other's result or question comes to it as input.": {
+    "When an agent starts another with kelp, the other’s result or question comes to it as input.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -23509,7 +23545,7 @@
         }
       }
     },
-    "Resets %@. What isn't used by then is lost.": {
+    "Resets %@. What isn’t used by then is lost.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -23519,7 +23555,7 @@
         }
       }
     },
-    "Over half left; what isn't used by the reset is lost.": {
+    "Over half left; what isn’t used by the reset is lost.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -23595,7 +23631,7 @@
         }
       }
     },
-    "Git doesn't track this file: Undo puts it back for a minute, and a project on this Mac keeps it in the Trash.": {
+    "Git doesn’t track this file: Undo puts it back for a minute, and a project on this Mac keeps it in the Trash.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -23705,7 +23741,7 @@
         }
       }
     },
-    "Language servers and formatters don't run in this project until you trust it": {
+    "Language servers and formatters don’t run in this project until you trust it": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -23782,7 +23818,7 @@
         }
       }
     },
-    "A project's files, changes and runs show here.": {
+    "A project’s files, changes and runs show here.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -23903,7 +23939,7 @@
         }
       }
     },
-    "⌃G opens an agent's prompt in a tab here.": {
+    "⌃G opens an agent’s prompt in a tab here.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -24032,7 +24068,7 @@
         }
       }
     },
-    "How a server's card shows that its projects run on another machine.": {
+    "How a server’s card shows that its projects run on another machine.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -24120,7 +24156,7 @@
         }
       }
     },
-    "Compact keeps six letters of a title, so more agents fit in a pane. Automatic stays Regular while the tabs fit and turns Compact when they don't. Also in a tab's right-click menu.": {
+    "Compact keeps six letters of a title, so more agents fit in a pane. Automatic stays Regular while the tabs fit and turns Compact when they don’t. Also in a tab’s right-click menu.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -24164,7 +24200,7 @@
         }
       }
     },
-    "Compact tabs are 24 pt in a 32 pt strip. Also in a tab's right-click menu.": {
+    "Compact tabs are 24 pt in a 32 pt strip. Also in a tab’s right-click menu.": {
       "extractionState": "manual",
       "localizations": {
         "ru": {
@@ -24809,7 +24845,7 @@
         }
       }
     },
-    "Off: the agent's and the workspace's names only. For the address above and for paired phones.": {
+    "Off: the agent’s and the workspace’s names only. For the address above and for paired phones.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -25843,7 +25879,7 @@
         }
       }
     },
-    "Can't Reach the Server": {
+    "Can’t Reach the Server": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -25873,7 +25909,7 @@
         }
       }
     },
-    "Kelp hasn't connected to it before. Its key is %@ (%@): trust it only if that's the key you expect.": {
+    "Kelp hasn’t connected to it before. Its key is %@ (%@): trust it only if that’s the key you expect.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -25883,7 +25919,7 @@
         }
       }
     },
-    "%@ didn't start": {
+    "%@ didn’t start": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -25903,7 +25939,7 @@
         }
       }
     },
-    "%@ of the Mac's (%@ given)": {
+    "%@ of the Mac’s (%@ given)": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -25923,7 +25959,7 @@
         }
       }
     },
-    "A disk can't be made smaller again. It takes room on this Mac only as it fills.": {
+    "A disk can’t be made smaller again. It takes room on this Mac only as it fills.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -26303,7 +26339,7 @@
         }
       }
     },
-    "%lld changes you made aren't saved.": {
+    "%lld changes you made aren’t saved.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -26633,7 +26669,7 @@
         }
       }
     },
-    "Agents don't see it.": {
+    "Agents don’t see it.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -26833,7 +26869,7 @@
         }
       }
     },
-    "At this pace it's full in %@, before it resets.": {
+    "At this pace it’s full in %@, before it resets.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -27643,7 +27679,7 @@
         }
       }
     },
-    "Its disk and everything on it (%@) are erased. This can't be undone.": {
+    "Its disk and everything on it (%@) are erased. This can’t be undone.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -27653,7 +27689,7 @@
         }
       }
     },
-    "Its disk and everything on it are erased. This can't be undone.": {
+    "Its disk and everything on it are erased. This can’t be undone.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -27703,7 +27739,7 @@
         }
       }
     },
-    "Kelp connects when you ask: it doesn't dial a machine by itself.": {
+    "Kelp connects when you ask: it doesn’t dial a machine by itself.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -27713,7 +27749,7 @@
         }
       }
     },
-    "Kelp didn't keep these rows as they were before the change.": {
+    "Kelp didn’t keep these rows as they were before the change.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -27753,7 +27789,7 @@
         }
       }
     },
-    "Kelp no longer keeps this change's rows: it keeps the latest changes only.": {
+    "Kelp no longer keeps this change’s rows: it keeps the latest changes only.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -27763,7 +27799,7 @@
         }
       }
     },
-    "Kelp puts back the rows of one table's UPDATE, DELETE or INSERT when it kept them all as they were: not this change.": {
+    "Kelp puts back the rows of one table’s UPDATE, DELETE or INSERT when it kept them all as they were: not this change.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -28503,7 +28539,7 @@
         }
       }
     },
-    "Read from each agent's own logs on this Mac: Claude Code (every account profile), Codex, Grok, Antigravity, Kimi Code, Copilot, OpenCode, Kilo Code, pi, oh-my-pi, Qwen Code and Gemini CLI. Cursor, Amp and fx keep no token counts on disk; Droid, Goose, Hermes and Kiro keep only a session's. Tokens include reads from the cache, which cost far less than fresh input. Prices are list prices (Grok's, pi's and OpenCode's as they report them); a subscription bills differently, and \"—\" is a model without one.": {
+    "Read from each agent’s own logs on this Mac: Claude Code (every account profile), Codex, Grok, Antigravity, Kimi Code, Copilot, OpenCode, Kilo Code, pi, oh-my-pi, Qwen Code and Gemini CLI. Cursor, Amp and fx keep no token counts on disk; Droid, Goose, Hermes and Kiro keep only a session’s. Tokens include reads from the cache, which cost far less than fresh input. Prices are list prices (Grok’s, pi’s and OpenCode’s as they report them); a subscription bills differently, and \"—\" is a model without one.": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -29393,7 +29429,7 @@
         }
       }
     },
-    "doesn't contain": {
+    "doesn’t contain": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -29803,16 +29839,6 @@
         }
       }
     },
-    "Couldn’t load": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не удалось загрузить"
-          }
-        }
-      }
-    },
     "Couldn’t load the library": {
       "localizations": {
         "ru": {
@@ -29859,16 +29885,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Настройки для"
-          }
-        }
-      }
-    },
-    "A language’s own value wins over the one for all files.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Значение для языка важнее значения для всех файлов."
           }
         }
       }
@@ -30313,42 +30329,6 @@
         }
       }
     },
-    "Couldn't save %@: %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Couldn't save %1$@: %2$@"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не удалось сохранить %@: %@"
-          }
-        }
-      }
-    },
-    "Can't reach": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нет связи"
-          }
-        }
-      }
-    },
-    "Can't reach %@": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нет связи с %@"
-          }
-        }
-      }
-    },
     "Cleared %@'s cookies and data": {
       "localizations": {
         "ru": {
@@ -30359,23 +30339,962 @@
         }
       }
     },
-    "Don't Allow": {
-      "extractionState": "manual",
+    "# How Kelp works\n\n## Projects, workspaces, agents\n- **Project** — a folder, usually a git repository (the folder button over the sidebar, or File › Add Project…, %@). It's a section in the sidebar.\n- **Workspace** — a screen of its own in that folder: its tabs, splits and agents. **+** next to the project (New Chat, %@) opens one at once; it's named after the first thing you ask an agent. Rename with a double-click; close with %@ (agents stop, files stay). Several workspaces can work in the same folder.\n- **Agent** — Claude Code, Grok, Antigravity, Qwen… whatever is installed and runs on this Mac (found automatically).": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Не разрешать"
+            "value": "# Как устроен Kelp\n\n## Проекты, воркспейсы, агенты\n- **Проект** — папка, обычно git-репозиторий (кнопка с папкой над сайдбаром или File › Add Project…, %1$@). Это раздел в сайдбаре.\n- **Воркспейс** — отдельный экран в этой папке: его вкладки, сплиты и агенты. **+** рядом с проектом (New Chat, %2$@) сразу открывает новый; имя ему даёт первое, о чём вы попросите агента. Переименовать — двойным щелчком; закрыть — %3$@ (агенты остановятся, файлы останутся). В одной папке могут работать несколько воркспейсов.\n- **Агент** — Claude Code, Grok, Antigravity, Qwen… всё, что установлено и работает на этом Mac (находится само)."
           }
         }
       }
     },
-    "Couldn't download %@: %@": {
+    "## What the sidebar tells you\nOne line per agent: its icon, name, how long ago its state changed, and a mark. The mark is the same wherever the chat shows: its row, its tab, Quick Open and the switcher.\n\n| Mark | Means |\n| --- | --- |\n| a turning arc | Working: it's thinking |\n| a pie filling up | Working, and it says how far it got |\n| a slow pulse | Working: it compacts its conversation |\n| a slow ring of eight dots | its turn is over, and it waits for a command it started |\n| a ring of dashes | the state was read off its screen, so it's a guess |\n| an orange ring with a dot, the tab glowing | Needs your input: it asked you something (hover for the question) |\n| an outlined check, a bold name | Done, and you haven't looked yet |\n| a clock | stopped at its plan limit |\n| a red circle with an exclamation mark | Failed |\n| a circle with a cross | Ended |\n| a moon | Paused to save memory — opens where it left off |\n| none | Ready for a task |\n\nThe row above the projects counts the chats that need you; a click goes to the next one, as %@ does from anywhere (also in the Dock icon's menu). Beside it are the chats at work, at a limit and done; rest the pointer on a count to see its chats. A folded project or group shows the logos of the chats that are at work or wait for you, each with its mark in a corner.\n\n**Limits** at the bottom: a ring per agent — how full its fullest limit is (orange from 70 %%, red from 90 %%), read from the agents' own /usage (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor) and Codex's logs. Hover or click for every limit and when it resets. Settings › Agents › Show plan limits turns it off.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Не удалось скачать %@: %@"
+            "value": "## Что говорит сайдбар\nСтрока на агента: значок, имя, сколько прошло с последней смены состояния, и метка. Метка одна везде, где виден чат: в его строке, вкладке, Quick Open и переключателе.\n\n| Метка | Что значит |\n| --- | --- |\n| вращающаяся дуга | Working: думает |\n| заполняющийся круг | Working, и видно, сколько сделано |\n| медленный пульс | Working: сжимает разговор |\n| медленное кольцо из восьми точек | ход закончен, ждёт запущенную команду |\n| кольцо из штрихов | состояние прочитано с экрана, это догадка |\n| оранжевое кольцо с точкой, вкладка светится | Needs your input: агент вас спросил (вопрос — по наведению) |\n| контурная галочка, жирное имя | Done, вы ещё не смотрели |\n| часы | остановлен лимитом тарифа |\n| красный круг с восклицательным знаком | Failed |\n| круг с крестиком | Ended |\n| луна | Paused, чтобы сберечь память; откроется там, где остановился |\n| нет | Ready, ждёт задачу |\n\nСтрока над проектами считает чаты, которым вы нужны; щелчок ведёт к следующему, как %@ отовсюду (и в меню значка в Dock). Рядом — чаты в работе, на лимите и готовые; наведите на число, чтобы увидеть его чаты. Свёрнутый проект или группа показывает логотипы чатов в работе или ждущих вас, с меткой в углу.\n\n**Лимиты** внизу: кольцо на агента — насколько заполнен самый полный лимит (оранжевое с 70 %%, красное с 90 %%), по собственному /usage агентов (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor) и логам Codex. Наведите или щёлкните — увидите все лимиты и когда они сбросятся. Выключается в Settings › Agents › Show plan limits."
+          }
+        }
+      }
+    },
+    "## The middle: tabs and splits\nThe **+** at the end of a pane's tabs opens an agent, a terminal, a browser or what extensions add; the agent's icon before it starts the default agent (Settings › Agents) in one click. %@ splits right, %@ down; drag a tab to an edge to split, between groups to move it. Dividers stay where you drag them (View › Equalize Panes evens them out); %@ move to the pane on that side. %@ lets the focused pane fill the area and brings the others back. Agents open side by side, each in a pane of its own (four make a 2×2 grid); terminals and files share one more pane. The button right of the search (%@; right-click hides it) shows them as tabs in one pane instead, and back; splitting or dragging a tab to another pane arranges the panes by hand from then on.\n%@ closes a tab (in an empty workspace, the workspace); %@ brings it back in its place, an agent with its conversation, and File › Recently Closed lists the rest. Edited files show a dot on their tab and in the window's close button; %@ saves.\n\nIn a terminal ⌘F finds text in its scrollback (⌘G / ⇧⌘G next / previous, ⌘E the selection). Right-click for copy, paste and splits. Drop files to type their paths; ⌘K clears, %@ / %@ change the text size.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "## Середина: вкладки и сплиты\n**+** в конце вкладок панели открывает агента, терминал, браузер или то, что добавили расширения; значок агента перед ним запускает агента по умолчанию (Settings › Agents) в один щелчок. %1$@ делит вправо, %2$@ вниз; перетащите вкладку к краю, чтобы разделить, или между группами, чтобы перенести. Разделители остаются, где вы их оставили (View › Equalize Panes выравнивает); %3$@ переходят к панели с той стороны. %4$@ разворачивает панель в фокусе на всю область и возвращает остальные. Агенты открываются рядом, каждый в своей панели (четыре — сетка 2×2); терминалы и файлы делят ещё одну панель. Кнопка справа от поиска (%5$@; правый клик её прячет) показывает их вкладками в одной панели и обратно; после сплита или переноса вкладки в другую панель панели расставляются вручную.\n%6$@ закрывает вкладку (в пустом воркспейсе — воркспейс); %7$@ возвращает её на место, агента — с разговором, а File › Recently Closed хранит остальные. У изменённых файлов точка на вкладке и на кнопке закрытия окна; %8$@ сохраняет.\n\nВ терминале ⌘F ищет текст в истории (⌘G / ⇧⌘G — следующий / предыдущий, ⌘E — выделенное). Правый клик — копировать, вставить, сплиты. Перетащите файлы, чтобы вписать их пути; ⌘K очищает, %9$@ / %10$@ меняют размер текста."
+          }
+        }
+      }
+    },
+    "## The inspector\nFiles, Source Control — changes, staging, commit, history graph; click a file for its diff — Issues & Pull Requests, and panels from extensions. ⌥⌘1–9 show a panel by its icon's place in the row and put the keys in its list: ↑ ↓ move, Return does what a click does, Esc goes back to the tab.\n\n## Extensions and agents\nEverything above is an extension; turn them off in Settings › Extensions. To add one, ask Claude Code in a tab: *\"make a Kelp panel that lists my Docker containers\"*. It knows how through Kelp's **skills** (Settings › Agents), which also let it change settings for you: *\"switch Kelp to the Dracula theme\"*.\n\n## Settings\nKelp › Settings… (%@) — or ~/.kelp/settings.json, or `kelp settings set <key> <value>` from any terminal.\n\n## Adding projects\nFile › Add Project… (%@), or drop a folder on the sidebar or on Kelp's Dock icon, or run `open -a Kelp .` in a folder. A folder that isn't a Git repository asks first: Initialize Git, or Open Without Git (files, terminals and agents work; Source Control waits for `git init`). File › Clone Repository… and Open over SSH… are the other ways in.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "## Инспектор\nFiles, Source Control — изменения, индекс, коммит, граф истории; щёлкните файл, чтобы увидеть дифф — Issues & Pull Requests и панели расширений. ⌥⌘1–9 показывают панель по месту её значка в ряду и ставят клавиатуру в её список: ↑ ↓ — выбор, Return — как щелчок, Esc — назад во вкладку.\n\n## Расширения и агенты\nВсё выше — расширения; выключаются в Settings › Extensions. Чтобы добавить, попросите Claude Code во вкладке: *\"сделай панель Kelp со списком моих Docker-контейнеров\"*. Он знает как — через **навыки** Kelp (Settings › Agents), они же дают ему менять настройки: *\"включи в Kelp тему Dracula\"*.\n\n## Настройки\nKelp › Settings… (%1$@) — или ~/.kelp/settings.json, или `kelp settings set <key> <value>` в любом терминале.\n\n## Добавить проект\nFile › Add Project… (%2$@), или перетащите папку на сайдбар или значок Kelp в Dock, или выполните `open -a Kelp .` в папке. Папка без Git сначала спросит: Initialize Git или Open Without Git (файлы, терминалы и агенты работают; Source Control ждёт `git init`). Ещё пути: File › Clone Repository… и Open over SSH…."
+          }
+        }
+      }
+    },
+    "⌃G in an agent opens its prompt in a tab, for long text; closing the tab puts it back, for you to send. Shortcuts work on any keyboard layout.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌃G в агенте открывает его промпт во вкладке — для длинного текста; когда вкладка закрыта, текст возвращается, и вы его отправляете. Сочетания работают в любой раскладке."
+          }
+        }
+      }
+    },
+    "no key": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "без клавиши"
+          }
+        }
+      }
+    },
+    "chat": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "чат"
+          }
+        }
+      }
+    },
+    "group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "группа"
+          }
+        }
+      }
+    },
+    "group on a branch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "группа на ветке"
+          }
+        }
+      }
+    },
+    "agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агент"
+          }
+        }
+      }
+    },
+    "terminal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "терминал"
+          }
+        }
+      }
+    },
+    "browser": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "браузер"
+          }
+        }
+      }
+    },
+    "open file": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "открыть файл"
+          }
+        }
+      }
+    },
+    "commands": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "команды"
+          }
+        }
+      }
+    },
+    "split": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "разделить"
+          }
+        }
+      }
+    },
+    "agents side by side / as tabs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агенты рядом / вкладками"
+          }
+        }
+      }
+    },
+    "maximize pane": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "развернуть панель"
+          }
+        }
+      }
+    },
+    "tabs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "вкладки"
+          }
+        }
+      }
+    },
+    "next / previous tab": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "следующая / предыдущая вкладка"
+          }
+        }
+      }
+    },
+    "recent screens": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "недавние экраны"
+          }
+        }
+      }
+    },
+    "next / previous pane": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "следующая / предыдущая панель"
+          }
+        }
+      }
+    },
+    "pane on that side": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "панель с той стороны"
+          }
+        }
+      }
+    },
+    "groups": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "группы"
+          }
+        }
+      }
+    },
+    "next / previous group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "следующая / предыдущая группа"
+          }
+        }
+      }
+    },
+    "agent that needs you": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "агент, которому вы нужны"
+          }
+        }
+      }
+    },
+    "find": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "найти"
+          }
+        }
+      }
+    },
+    "reveal in Finder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "показать в Finder"
+          }
+        }
+      }
+    },
+    "sidebar": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сайдбар"
+          }
+        }
+      }
+    },
+    "inspector": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "инспектор"
+          }
+        }
+      }
+    },
+    "save": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сохранить"
+          }
+        }
+      }
+    },
+    "close tab": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "закрыть вкладку"
+          }
+        }
+      }
+    },
+    "close group": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "закрыть группу"
+          }
+        }
+      }
+    },
+    "## Shortcuts": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "## Сочетания клавиш"
+          }
+        }
+      }
+    },
+    "What should %@ do? ↩ starts it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что поручить %@? ↩ — запустить"
+          }
+        }
+      }
+    },
+    "Run Routine Now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запустить рутину сейчас"
+          }
+        }
+      }
+    },
+    "Stop Routine": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить рутину"
+          }
+        }
+      }
+    },
+    "Edit Routine…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить рутину…"
+          }
+        }
+      }
+    },
+    "Turn Routine Off": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить рутину"
+          }
+        }
+      }
+    },
+    "Turn Routine On": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить рутину"
+          }
+        }
+      }
+    },
+    "Delete Routine…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить рутину…"
+          }
+        }
+      }
+    },
+    "%@ is at %lld%%": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: %2$lld %%"
+          }
+        }
+      }
+    },
+    "%@ · %@: full in %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@: закончится через %3$@"
+          }
+        }
+      }
+    },
+    "%@ · %@: %lld%% left": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@: осталось %3$lld %%"
+          }
+        }
+      }
+    },
+    "Running the list’s command…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполняется команда списка…"
+          }
+        }
+      }
+    },
+    "⌫ removes it, esc keeps it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌫ удаляет его, esc оставляет."
+          }
+        }
+      }
+    },
+    "https://github.com/owner/repo or git@…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "https://github.com/owner/repo или git@…"
+          }
+        }
+      }
+    },
+    "Add Note": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить заметку"
+          }
+        }
+      }
+    },
+    "Listing the files…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю список файлов…"
+          }
+        }
+      }
+    },
+    "One at a time, as large as the pane: ← → step, esc ends": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По одной, во всю панель: ← → листать, esc — выход"
+          }
+        }
+      }
+    },
+    "%lld failing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Упало: %lld"
+          }
+        }
+      }
+    },
+    "Closed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыт"
+          }
+        }
+      }
+    },
+    "All changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все изменения"
+          }
+        }
+      }
+    },
+    "Staged changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подготовленные изменения"
+          }
+        }
+      }
+    },
+    "No changes to commit.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нечего коммитить."
+          }
+        }
+      }
+    },
+    "All Open": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все открытые"
+          }
+        }
+      }
+    },
+    "Assigned to Me": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Назначенные мне"
+          }
+        }
+      }
+    },
+    "My Issues": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мои задачи"
+          }
+        }
+      }
+    },
+    "My Open Issues": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мои открытые задачи"
+          }
+        }
+      }
+    },
+    "Branch vs Base": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ветка и база"
+          }
+        }
+      }
+    },
+    "CI: Re-run Failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI: перезапустить упавшие"
+          }
+        }
+      }
+    },
+    "CI: Re-run All": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI: перезапустить всё"
+          }
+        }
+      }
+    },
+    "CI: Cancel Run…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI: отменить запуск…"
+          }
+        }
+      }
+    },
+    "CI: Run Workflow…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI: запустить workflow…"
+          }
+        }
+      }
+    },
+    "CI: Fix with Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI: исправить с агентом"
+          }
+        }
+      }
+    },
+    "CI: Open Full Log": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CI: открыть весь лог"
+          }
+        }
+      }
+    },
+    "Pull Request: Review with Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pull request: проверить с агентом"
+          }
+        }
+      }
+    },
+    "Issue: Start on Own Branch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задача: начать в своей ветке"
+          }
+        }
+      }
+    },
+    "Git: Stash Changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: спрятать изменения"
+          }
+        }
+      }
+    },
+    "Git: Pop Stash": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git: вернуть спрятанное"
+          }
+        }
+      }
+    },
+    "Review with Agent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить с агентом"
+          }
+        }
+      }
+    },
+    "Start on Own Branch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать в своей ветке"
+          }
+        }
+      }
+    },
+    "Nothing running on this screen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этом экране ничего не запущено"
+          }
+        }
+      }
+    },
+    "Not yet: SQL Server, ClickHouse, MongoDB, Redis, Oracle.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока нет: SQL Server, ClickHouse, MongoDB, Redis, Oracle."
+          }
+        }
+      }
+    },
+    "Ask for One": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попросить"
+          }
+        }
+      }
+    },
+    "Filters": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фильтры"
+          }
+        }
+      }
+    },
+    "Save Changes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить изменения"
+          }
+        }
+      }
+    },
+    "Run Statement": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполнить запрос"
+          }
+        }
+      }
+    },
+    "%@ runs the statement the cursor is in. Words from the tables come as you type.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ выполняет запрос, в котором стоит курсор. Слова из таблиц подставляются по мере ввода."
+          }
+        }
+      }
+    },
+    "Show Change": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать изменение"
+          }
+        }
+      }
+    },
+    "No definition found.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Определение не найдено."
+          }
+        }
+      }
+    },
+    "Reading the file…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чтение файла…"
+          }
+        }
+      }
+    },
+    "Couldn’t read this notebook": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать блокнот"
+          }
+        }
+      }
+    },
+    "It isn’t valid nbformat 4 JSON.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это не JSON в формате nbformat 4."
+          }
+        }
+      }
+    },
+    "esc to end": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc — закончить"
+          }
+        }
+      }
+    },
+    "Revert Change": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить изменение"
+          }
+        }
+      }
+    },
+    "Stage Change": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить изменение в индекс"
+          }
+        }
+      }
+    },
+    "Next Change": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующее изменение"
+          }
+        }
+      }
+    },
+    "Previous Change": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущее изменение"
+          }
+        }
+      }
+    },
+    "Mode": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Режим"
+          }
+        }
+      }
+    },
+    "Measure": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Считать"
+          }
+        }
+      }
+    },
+    "Where It’s Listed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Где виден"
+          }
+        }
+      }
+    },
+    "Where It Works": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Где работает"
+          }
+        }
+      }
+    },
+    "Start From": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать с"
+          }
+        }
+      }
+    },
+    "Warning": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предупреждение"
+          }
+        }
+      }
+    },
+    "Database Stage": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стадия базы"
+          }
+        }
+      }
+    },
+    "Open (state)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыт"
           }
         }
       }
