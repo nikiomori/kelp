@@ -70,9 +70,11 @@ extension OneAtATime {
         #expect(underlined(tv) == [8, 9, 10])
         tv.mouseMoved(with: event(.mouseMoved, tv, 11, .command))   // "(" is no name
         #expect(underlined(tv).isEmpty)
-        tv.mouseMoved(with: event(.mouseMoved, tv, 1, .command))
-        #expect(underlined(tv) == [0, 1, 2])
-        tv.link.update(tv, at: point(tv, 1), [])   // ⌘ let go, the pointer still there
+        tv.mouseMoved(with: event(.mouseMoved, tv, 1, .command))   // "let" is a keyword, no name
+        #expect(underlined(tv).isEmpty)
+        tv.mouseMoved(with: event(.mouseMoved, tv, 4, .command))
+        #expect(underlined(tv) == [4])
+        tv.link.update(tv, at: point(tv, 4), [])   // ⌘ let go, the pointer still there
         #expect(underlined(tv).isEmpty)
     }
 

@@ -195,7 +195,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +3, nothing new: a `package internal(set)` is counted too (`inFocusMode`, `page`, `byKey`), as it is surface.
     // 2026-11-19: making every one internal and putting back what the compiler asked for took none away: the built-ins
     // use all 374. +1: Files waits for the settings to have been read (`SettingsStore.loaded`).
-    #expect(declared == 375, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +2: the commit agent's mark follows its session as every mark does (`StatusMark.follow`), and a CI tooltip
+    // names the site a ⌘-click opens (`CIRunLook.clickTip`).
+    #expect(declared == 377, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's
@@ -487,6 +489,7 @@ func codeOnly(_ s: String) -> String {
         ),
         "KelpKit/Extensions/ExtListView.swift": (2, "an extension's refresh interval; a shown outline stays 0.4 s"),
         "KelpKit/Sidebar/HoverCardViews.swift": (1, "a card's shown wait stays 0.4 s, so a quick read doesn't flicker"),
+        "Builtins/Files/Disk/DiskFoot.swift": (1, "a measure on this Mac shows its wait only after a second"),
         "Builtins/Files/Disk/DiskUsageTab.swift": (
             1, "Measuring… shows only past a second: a quick measure doesn't flicker"
         ),

@@ -35,7 +35,7 @@ import Testing
 @MainActor @Test func aRunningCommandShowsItsPurposesColour() {
     var running = row("test", "npm test", kind: "test")
     running.running = true
-    #expect(Runs.glyph(running) == ("flask.fill", .systemPurple))
+    #expect(Runs.glyph(running) == ("flask", .systemPurple))
 }
 
 /// Where a command comes from, in a word: its program as people call it, and the folder it runs in.
