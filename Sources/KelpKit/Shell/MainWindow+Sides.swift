@@ -22,6 +22,7 @@ extension MainWindowController {
         guard on != side.autoHide else { return }   // so the first read, before loading, keeps the saved layout
         side.autoHide = on
         side.pinned = false
+        followLights()   // the lights and the toggle move with the column, from its first frame
         if inFocusMode { side.closedBefore = on }
         if peeking === side { stopPeek() }
         guard !inFocusMode else { return place() }
@@ -102,16 +103,24 @@ extension MainWindowController {
         followLights()
     }
 
-    /// The traffic lights and the sidebar's toggle go with a sidebar put away, and come back over it while it slides in
-    /// at the edge, as Dia's do (decision 109): with the sidebar away the bar starts at the window's edge.
+    /// A sidebar put away takes the traffic lights with it, as Dia's does (decision 109): they come back on it while
+    /// it slides in at the edge, and with it in its column. Its toggle stays, at the window's edge where the lights
+    /// stood; the toggle and the workspace's name move with the column (`toggleFloor`), never while it slides in.
     func followLights() {
-        let shown = !hides(left) || peeking === left
-        guard sidebarToggle.isHidden == shown || sidebarToggle.alphaValue != (shown ? 1 : 0) else { return }
+        let away = hides(left)
+        let floor = away ? lightsStart : lightsEnd + 12
+        if toggleFloor?.constant != floor {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = Motion.duration(Motion.base)
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                toggleFloor?.animator().constant = floor
+            }
+        }
+        let shown = !away || peeking === left
         let lights: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
-        for view in lights.compactMap({ window?.standardWindowButton($0) }) + [sidebarToggle] {
+        for view in lights.compactMap({ window?.standardWindowButton($0) }) where view.isHidden == shown {
             fade(view, hidden: !shown)
         }
-        clearOfToggle.isActive = shown
     }
 
     func peek(_ side: Side) {
