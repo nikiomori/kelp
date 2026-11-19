@@ -30,15 +30,25 @@ import Testing
         })
 }
 
-/// A trust question Kelp leaves to the user holds the launch prompt back: its Enter would otherwise pick "Yes". Once the
-/// user has answered (typed anything), the prompt goes in.
-@Test func theLaunchPromptNeverAnswersATrustQuestion() async throws {
+/// A question at startup that Kelp leaves to the user holds the launch prompt back: its Enter would otherwise pick "Yes".
+/// The trust question until the user has answered (typed anything); any numbered menu (an MCP server's, say) until it
+/// gives way to the input box.
+@Test(
+    arguments: [
+        (#"Do you trust the files in this folder?\n> 1. Yes, proceed\n  2. No, exit\n"#, nil),
+        (
+            #"New MCP server found in .mcp.json: tools\n\xe2\x9d\xaf 1. Use this and all future MCP servers\n  2. Continue without\n"#,
+            #"\xe2\x9d\xaf \n"#
+        )
+    ] as [(String, String?)])
+func theLaunchPromptWaitsForAStartupQuestion(question: String, inputBox: String?) async throws {
     let w = try await world()
     defer { w.d.stop() }
-    let wt = try await workspace(w, "untrusted")
+    let wt = try await workspace(w, "startup")
     let fake =
-        #"printf 'Do you trust the files in this folder?\n> 1. Yes, proceed\n  2. No, exit\n'; "#
-        + #"if IFS= read -rsn1 -t 6 k; then echo ANSWERED-BY-PROMPT; else echo NOT-ANSWERED; fi; exec cat -v"#
+        #"printf '\#(question)'; "#
+        + #"if IFS= read -rsn1 -t \#(scaled(6)) k; then echo ANSWERED-BY-PROMPT; else echo NOT-ANSWERED; fi; "#
+        + #"printf '\#(inputBox ?? "")'; exec cat -v"#
     let s: Session = try await w.c.call(
         "session.create",
         .obj([
@@ -50,7 +60,10 @@ import Testing
     }
     #expect(try await waitFor(15) { try await screen().contains("NOT-ANSWERED") })   // the question timed out unanswered
     #expect(!(try await screen()).contains("ANSWERED-BY-PROMPT"))
-    w.c.notify("session.write", .obj(["id": .string(s.id), "base64": .string(Data("1".utf8).base64EncodedString())]))   // the user answers
+    if inputBox == nil {   // the user answers
+        w.c.notify(
+            "session.write", .obj(["id": .string(s.id), "base64": .string(Data("1".utf8).base64EncodedString())]))
+    }
     #expect(try await waitFor(10) { try await screen().contains("Fix the bug") })
 }
 
@@ -189,28 +202,6 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     try w.d.sessions.edit(s.id) { $0.title = "late" }
     await withCheckedContinuation { c in ls.inOrder { c.resume() } }
     #expect(try w.d.store.session(s.id) == nil)
-}
-
-/// Any numbered menu at startup (an MCP server question, say) holds the launch prompt, as the trust question does.
-@Test func theLaunchPromptWaitsForAStartupMenu() async throws {
-    let w = try await world()
-    defer { w.d.stop() }
-    let wt = try await workspace(w, "menu")
-    let fake =
-        #"printf 'New MCP server found in .mcp.json: tools\n\xe2\x9d\xaf 1. Use this and all future MCP servers\n  2. Continue without\n'; "#
-        + #"if IFS= read -rsn1 -t 6 k; then echo ANSWERED-BY-PROMPT; else echo NOT-ANSWERED; fi; printf '\xe2\x9d\xaf \n'; exec cat -v"#
-    let s: Session = try await w.c.call(
-        "session.create",
-        .obj([
-            "worktreeId": .string(wt.id), "command": .string("/bin/bash -c " + ShellQuote.word(fake)),
-            "prompt": "Fix the bug"
-        ]), as: Session.self)
-    func screen() async throws -> String {
-        (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string ?? ""
-    }
-    #expect(try await waitFor(15) { try await screen().contains("NOT-ANSWERED") })
-    #expect(!(try await screen()).contains("ANSWERED-BY-PROMPT"))
-    #expect(try await waitFor(10) { try await screen().contains("Fix the bug") })   // the menu gone, the input box shown: it goes in
 }
 
 /// Several lines to a program that never turned on bracketed paste arrive as plain lines, not wrapped in ESC[200~.

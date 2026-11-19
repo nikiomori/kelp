@@ -141,10 +141,10 @@ extension OneAtATime {
         }
         palette.field.stringValue = "zzqqxxjj"
         palette.filter()
-        #expect(try await waitFor(5) { palette.rows.count == 1 && headings() == ["No matches"] })
+        #expect(try await waitFor { palette.rows.count == 1 && headings() == ["No matches"] })
         palette.field.stringValue = command.title
         palette.filter()
-        #expect(try await waitFor(5) { palette.rows.contains(where: \.isItem) && !headings().contains("No matches") })
+        #expect(try await waitFor { palette.rows.contains(where: \.isItem) && !headings().contains("No matches") })
     }
 
     /// ⌥⌘1–9 are the icons of the inspector's row, in its order: a panel dragged to the front is ⌥⌘1, and one hidden

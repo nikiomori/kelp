@@ -16,10 +16,12 @@ import os
     var top: FileStreams.Hold? = streams.hold(root) { c in heardRoot.withLock { $0.formUnion(c.map(\.path)) } }
     var inner: FileStreams.Hold? = streams.hold(sub + "/") { c in heardSub.withLock { $0.formUnion(c.map(\.path)) } }
     #expect(streams.count == 1)
-    try await Task.sleep(for: .milliseconds(300))   // FSEvents starts reporting a moment after
-    try "a".write(toFile: root + "/a.txt", atomically: false, encoding: .utf8)
-    try "b".write(toFile: sub + "/b.txt", atomically: false, encoding: .utf8)
-    #expect(try await waitFor(10) { heardRoot.withLock { $0.isSuperset(of: [root + "/a.txt", sub + "/b.txt"]) } })
+    #expect(
+        try await waitFor(10) {   // written till heard: FSEvents starts reporting a moment after
+            try "a".write(toFile: root + "/a.txt", atomically: false, encoding: .utf8)
+            try "b".write(toFile: sub + "/b.txt", atomically: false, encoding: .utf8)
+            return heardRoot.withLock { $0.isSuperset(of: [root + "/a.txt", sub + "/b.txt"]) }
+        })
     #expect(try await waitFor(10) { heardSub.withLock { $0.contains(sub + "/b.txt") } })
     #expect(!heardSub.withLock { $0.contains(root + "/a.txt") })
     top = nil

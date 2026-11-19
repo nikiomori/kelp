@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import TestSupport
 import Testing
 
 @testable import KelpVM
@@ -76,7 +77,7 @@ import Testing
     #expect(flock(look, LOCK_SH | LOCK_NB) == 0)   // a look as one starts…
     #expect(Lifecycle.hold(folder, tries: 0) == nil)
     DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) { flock(look, LOCK_UN) }
-    let second = try #require(Lifecycle.hold(folder))   // …which its tries outlast
+    let second = try #require(Lifecycle.hold(folder, tries: scaled(10)))   // …which its tries (half a second) outlast
     close(second)
 }
 

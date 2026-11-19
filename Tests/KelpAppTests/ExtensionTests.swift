@@ -100,12 +100,12 @@ private func folder(_ files: [String: String]) throws -> URL {
     let m = AppModel(builtins: Builtins.all)
     m.extensions.reload()
     let vm = Paths.agentSkills.appendingPathComponent("kelp-vm/skills/kelp-vm/SKILL.md").path
-    #expect(try await waitFor(5) { FileManager.default.fileExists(atPath: vm) })
+    #expect(try await waitFor { FileManager.default.fileExists(atPath: vm) })
     m.settings.apply([SettingKeys.disabledExtensions.key: .array(["kelp.machines"])])
-    #expect(try await waitFor(5) { !m.extensions.all.skills.contains { $0.name == "kelp-vm" } })
-    #expect(try await waitFor(5) { !FileManager.default.fileExists(atPath: vm) })
+    #expect(try await waitFor { !m.extensions.all.skills.contains { $0.name == "kelp-vm" } })
+    #expect(try await waitFor { !FileManager.default.fileExists(atPath: vm) })
     m.settings.apply([:])
-    #expect(try await waitFor(5) { FileManager.default.fileExists(atPath: vm) })
+    #expect(try await waitFor { FileManager.default.fileExists(atPath: vm) })
 }
 
 /// A row of a kind Kelp doesn't have, or of one of Kelp's own (the theme gallery), shows as text, and the extension

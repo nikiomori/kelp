@@ -25,7 +25,7 @@ import WorkbenchKit
     let view = NSImageView(), app = AppModel(builtins: Builtins.all)
     ProjectIcon.show(dir, in: view, app: app)
     let initial = try #require(view.image)
-    #expect(try await waitFor(5) { !(view.image === initial) })
+    #expect(try await waitFor { !(view.image === initial) })
     #expect(view.image !== initial && view.image?.size == NSSize(width: 32, height: 32))
     #expect(ProjectIcon.image(for: dir, app: app) === view.image)   // found once
 }
@@ -39,13 +39,13 @@ import WorkbenchKit
     rig.show(vc, 200, 200)
     let card = HoverCard(app: rig.app)
     card.hover(.project(rig.project.id), rect: NSRect(x: 0, y: 0, width: 200, height: 24), in: vc.view)
-    #expect(try await waitFor(5) { !(card.shownKind == nil) })
+    #expect(try await waitFor { !(card.shownKind == nil) })
     #expect(card.shownKind != nil)
     NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: NSWindow())   // another window's: not its
     await mainActorTurns()
     #expect(card.shownKind != nil)
     NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: vc.view.window)
-    #expect(try await waitFor(5) { !(card.shownKind != nil) })
+    #expect(try await waitFor { !(card.shownKind != nil) })
     #expect(card.shownKind == nil)
 }
 
@@ -213,7 +213,7 @@ import WorkbenchKit
     }
     tab.editor.setText("x")
     tab.editor.onChange?("x")   // as typing does
-    #expect(try await waitFor(5) { !(looks.isEmpty) })
+    #expect(try await waitFor { !(looks.isEmpty) })
     #expect(looks.map(\.isEdited) == [true])
 }
 

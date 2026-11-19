@@ -39,11 +39,11 @@ extension OneAtATime {
         func onDisk() -> JSONValue? {
             (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
         }
-        #expect(try await waitFor(5) { !(onDisk()?["editor.autoSave"]?.bool != true) })
+        #expect(try await waitFor { !(onDisk()?["editor.autoSave"]?.bool != true) })
         #expect(onDisk()?["editor.autoSave"]?.bool == true)
 
         _ = try await cli.call("settings.set", .obj(["key": "editor.lsp", "value": false]))   // elsewhere
-        #expect(try await waitFor(5) { !(s.bool("editor.lsp") != false) })
+        #expect(try await waitFor { !(s.bool("editor.lsp") != false) })
         #expect(s.bool("editor.lsp") == false && s.bool("editor.autoSave") == true)
     }
 
@@ -90,7 +90,7 @@ extension OneAtATime {
     let c = try RPCClient(socket: path), m = AppModel(builtins: [])
     m.listen(c)
     c.onEvent?(Repo(id: "r1", name: "one", path: "/one"))
-    #expect(try await waitFor(5) { !(m.repos.isEmpty) })
+    #expect(try await waitFor { !(m.repos.isEmpty) })
     m.stopHearing(c)
     c.onEvent?(Repo(id: "r2", name: "two", path: "/two"))
     await mainActorTurns()   // heard, it would be handled by now

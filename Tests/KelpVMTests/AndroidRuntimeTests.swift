@@ -10,7 +10,7 @@ import Testing
     /// Which boots of the emulator have its window, step by step: Show asks it of the boot to come (off, headless, being
     /// slept), never of one up with it; whatever ends a shown emulator (`kelp vm sleep`, the memory budget's) takes it
     /// with it. An SDK of two scripts stands in for the emulator and adb; each row is a fresh machine.
-    @Test(.timeLimit(.minutes(2))) func whichBootsHaveTheWindow() async throws {
+    @Test(.timeLimit(minutes: 2)) func whichBootsHaveTheWindow() async throws {
         enum Step { case ask(VMHelper.Request.Operation), begin(show: Bool), sleepThenShow }
         let rows: [(steps: [Step], windows: [Bool], why: String)] = [
             (
@@ -70,7 +70,7 @@ import Testing
 
     /// SIGTERM leaves no emulator behind: one up is slept, one booting once it's up, one being saved once it's saved; and
     /// nothing new starts meanwhile (a start then would boot an emulator nobody ends).
-    @Test(.timeLimit(.minutes(1))) func leavingEndsTheEmulatorWhateverItWasDoing() async throws {
+    @Test(.timeLimit(minutes: 1)) func leavingEndsTheEmulatorWhateverItWasDoing() async throws {
         let before = ProcessInfo.processInfo.environment["ANDROID_HOME"]
         defer { if let before { setenv("ANDROID_HOME", before, 1) } else { unsetenv("ANDROID_HOME") } }
         enum When { case up, booting, saving }
@@ -183,7 +183,7 @@ func script(_ url: URL, _ body: String) throws {
 extension AndroidRuntimeOnAStandIn {
     /// SIGTERM after a boot that failed (Android never said it booted) leaves no emulator: it's ended, SIGTERM ignored
     /// or not, before kelp-vm goes, not left to a SIGKILL that would have died with kelp-vm.
-    @Test(.timeLimit(.minutes(1))) func leavingAfterAFailedBootEndsTheEmulator() async throws {
+    @Test(.timeLimit(minutes: 1)) func leavingAfterAFailedBootEndsTheEmulator() async throws {
         let (vm, sdk, putAway) = try androidStandIn(booting: "trap '' TERM", adb: "*getprop*) ;;")
         defer { putAway() }
         var later: TimeInterval = 0

@@ -156,7 +156,7 @@ import os
     inWrite.wait()
     let read = DispatchSemaphore(value: 0)
     Thread.detachNewThread { if (try? s.repos().count) == 1 { read.signal() } }
-    #expect(read.wait(timeout: .now() + 2) == .success)
+    #expect(read.wait(timeout: .now() + 2 * testSlowness) == .success)
     release.signal()
 }
 

@@ -170,7 +170,7 @@ import Testing
     await mainActorTurns()   // a session they began would be asked for by now
     #expect(try await rig.app.get(SessionList()).isEmpty)
     area.runURI("terminal:?cmd=echo%20hi")
-    #expect(try await waitFor(5) { !(try await rig.app.get(SessionList()).isEmpty) })
+    #expect(try await waitFor { !(try await rig.app.get(SessionList()).isEmpty) })
     #expect(try await rig.app.get(SessionList()).count == 1)
 }
 

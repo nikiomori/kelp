@@ -415,9 +415,9 @@ final class Flag: @unchecked Sendable {   // the bool under lock
     let ended = DispatchSemaphore(value: 0)
     c.onClose = { ended.signal() }
     c.notify("x", .string(String(repeating: "x", count: 4 << 20)))   // more than the socket holds: the write blocks
-    Thread.sleep(forTimeInterval: 0.3)   // the write under way and stuck: nothing says it has begun
+    Thread.sleep(forTimeInterval: 0.3 * testSlowness)   // the write under way and stuck: nothing says it has begun
     c.close()
-    #expect(ended.wait(timeout: .now() + 3) == .success)
+    #expect(ended.wait(timeout: .now() + 3 * testSlowness) == .success)
 }
 
 /// An Android module's launcher icon; a site's favicon under the project's name, not another brand's.

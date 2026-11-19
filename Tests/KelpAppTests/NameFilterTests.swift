@@ -38,7 +38,7 @@ extension AppOfItsOwn {
         let panel = FilesPanel(app: rig.app)
         rig.show(panel, 300, 500)
         panel.viewWillAppear()
-        #expect(try await waitFor(5) { !(panel.outline.numberOfRows == 0) })
+        #expect(try await waitFor { !(panel.outline.numberOfRows == 0) })
         #expect(panel.outline.numberOfRows == 2)   // readme and src, shut
 
         panel.searchBy(name: true)

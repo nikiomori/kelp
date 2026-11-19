@@ -24,7 +24,8 @@ let localSSH: String = {
     [ -e "$(dirname "$0")/unreachable-$h" ] && { echo "ssh: Could not resolve hostname $h" >&2; exit 255; }
     printf '%s\\n' "$1" >> "$(dirname "$0")/ssh.log"
     case "$1" in *cut-short*) head -c 3 | exec /bin/sh -c "$1";; esac   # a connection dropped part way through
-    case "$1" in *slow-host*) if [ -e "$(dirname "$0")/slow-host" ]; then : > "$(dirname "$0")/slow-asked"; sleep 3; fi;; esac   # slow, when asked to be
+    slow="$(dirname "$0")/slow-host"   # held, saying so, when asked to be
+    case "$1" in *slow-host*) [ -e "$slow" ] && : > "$slow-asked"; while [ -e "$slow" ]; do sleep 0.1; done;; esac
     case "$1" in *held-host*) while [ -e "$(dirname "$0")/held-host" ]; do sleep 0.1; done;; esac   # no answer, while asked for none
     exec /bin/sh -c "$1"
     """.write(to: shim, atomically: true, encoding: .utf8)
@@ -415,7 +416,7 @@ final class NoteBox: @unchecked Sendable {
 /// OSC 7501: a hookless agent probes, the daemon answers as the terminal, and its own report sets the status.
 @Test func programStatusFromTheAgent() async throws {
     let script =
-        #"stty -icanon -echo; printf '\033]7501;?\033\\'; IFS= read -r -t 5 -d '\' reply; "#
+        #"stty -icanon -echo; printf '\033]7501;?\033\\'; IFS= read -r -t \#(scaled(5)) -d '\' reply; "#
         + #"[[ $reply == *states=idle* ]] && printf '\033]7501;state=blocked:kind=permission:msg=QWxsb3cgcm0/\033\\'; sleep 30"#
     let p = try await world(agents: [AgentManifest(id: "osc", name: "OSC", command: "/bin/bash", args: ["-c", script])])
     defer { p.d.stop() }
@@ -433,7 +434,8 @@ final class NoteBox: @unchecked Sendable {
 /// both, the 7501 reply first, else they never report.
 @Test func probeWithAttributesIsAnsweredHeadless() async throws {
     let script =
-        #"stty -icanon -echo; printf '\033]7501;?\033\\\033[c'; IFS= read -r -t 3 -d '\' first; IFS= read -r -t 3 -d c da; "#
+        #"stty -icanon -echo; printf '\033]7501;?\033\\\033[c'; IFS= read -r -t \#(scaled(3)) -d '\' first; "#
+        + #"IFS= read -r -t \#(scaled(3)) -d c da; "#
         + #"[[ $first == *states=* && $da == *'[?62;22' ]] && echo BOTH-IN-ORDER || echo NO; sleep 30"#
     let p = try await world(agents: [AgentManifest(id: "osc", name: "OSC", command: "/bin/bash", args: ["-c", script])])
     defer { p.d.stop() }
@@ -453,7 +455,7 @@ final class NoteBox: @unchecked Sendable {
 /// its Enter gets its answer after the Enter, not inside the line being typed.
 @Test func aReplyDoesntLandInsideASend() async throws {
     let script =
-        #"stty -icanon -echo; IFS= read -rn1 first; printf '\033]7501;?\033\\'; IFS= read -r -t 5 -d '\' rest; "#
+        #"stty -icanon -echo; IFS= read -rn1 first; printf '\033]7501;?\033\\'; IFS= read -r -t \#(scaled(5)) -d '\' rest; "#
         + #"[[ $rest == i$'\n'* ]] && echo IN-ORDER || echo MIXED; sleep 30"#
     let p = try await world(agents: [AgentManifest(id: "osc", name: "OSC", command: "/bin/bash", args: ["-c", script])])
     defer { p.d.stop() }

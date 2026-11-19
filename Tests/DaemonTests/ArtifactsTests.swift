@@ -194,7 +194,7 @@ private func tempRoot() throws -> URL {
 
 /// A cloned repository can commit `.kelp/artifacts/x/artifact.json`: it lists only a web page's link or a file in its
 /// own folder, and a page that is a link to a device (`/dev/zero` never ends) is never read.
-@Test(.timeLimit(.minutes(1))) func aCommittedArtifactIsReadWithCare() throws {
+@Test(.timeLimit(minutes: 1)) func aCommittedArtifactIsReadWithCare() throws {
     let root = try tempRoot(), base = Artifacts.dir(root: root.path)
     func add(_ name: String, _ json: String) throws {
         let f = base.appendingPathComponent(name)

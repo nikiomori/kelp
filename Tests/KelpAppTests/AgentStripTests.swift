@@ -110,7 +110,7 @@ private func session(
     strip.start()
     #expect(!strip.isShowing)
     rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
-    #expect(try await waitFor(5) { strip.isShowing })
+    #expect(try await waitFor { strip.isShowing })
     #expect(strip.isShowing)
     let f = try #require(strip.frame), area = try #require(NSScreen.main?.visibleFrame)
     #expect(f.height == StripButton.stripHeight)
@@ -120,17 +120,17 @@ private func session(
     strip.hide(until: Date().addingTimeInterval(3600))   // a call: out of the way, whatever comes
     #expect(strip.hiddenUntil != nil)
     strip.hide(until: nil)
-    #expect(try await waitFor(5) { (strip.isShowing && strip.frame?.height == StripButton.stripHeight) })
+    #expect(try await waitFor { (strip.isShowing && strip.frame?.height == StripButton.stripHeight) })
     strip.later(asked.id)   // put off: it stops calling
-    #expect(try await waitFor(5) { !(strip.isShowing) })
+    #expect(try await waitFor { !(strip.isShowing) })
     #expect(!strip.isShowing)
     var again = asked
     again.statusAt = Date()   // the agent asks something else
     rig.app.sessions = [again]
-    #expect(try await waitFor(5) { strip.isShowing })
+    #expect(try await waitFor { strip.isShowing })
     #expect(strip.isShowing)
     rig.app.sessions = []
-    #expect(try await waitFor(5) { !(strip.isShowing) })
+    #expect(try await waitFor { !(strip.isShowing) })
     #expect(!strip.isShowing)
 }
 
@@ -233,15 +233,15 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     rig.app.worktrees.append(other)
     strip.start()
     rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?", at: 5)]
-    #expect(try await waitFor(5) { strip.isShowing })
+    #expect(try await waitFor { strip.isShowing })
     let before = try #require(strip.frame)
     strip.hoverStrip(true)
     // An older question elsewhere: it would open into the pill.
     rig.app.sessions.append(session(other.id, .waiting, summary: "Which port, 3000 or 8080?", at: 1))
-    #expect(try await waitFor(5) { strip.deferred })   // the news came, and was put off
+    #expect(try await waitFor { strip.deferred })   // the news came, and was put off
     #expect(strip.frame == before)
     strip.hoverStrip(false)
-    #expect(try await waitFor(5) { strip.frame != before })
+    #expect(try await waitFor { strip.frame != before })
 }
 
 /// The card answers what the agent waits on: a permission, one of its question's answers, or a line at its prompt.
@@ -365,11 +365,11 @@ private let screenArea = NSRect(x: 0, y: 0, width: 2000, height: 1200)
     strip.animates = false
     strip.start()
     rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow npm test?")]
-    #expect(try await waitFor(5) { strip.isShowing })
+    #expect(try await waitFor { strip.isShowing })
     let measured = strip.measures
     for _ in 0..<3 { strip.refresh() }
     strip.put(appearing: false)
     #expect(strip.measures == measured)
     rig.app.sessions = [session(rig.workspace.id, .waiting, summary: "Allow rm -rf build?")]
-    #expect(try await waitFor(5) { strip.measures == measured + 1 })
+    #expect(try await waitFor { strip.measures == measured + 1 })
 }

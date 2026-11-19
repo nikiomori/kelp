@@ -22,7 +22,9 @@ import Testing
     let finished = DispatchSemaphore(value: 0)
     defer { finished.signal() }
     Thread.detachNewThread {
-        if finished.wait(timeout: .now() + 45) == .timedOut { fatalError("closing a terminal held the main thread") }
+        if finished.wait(timeout: .now() + 45 * testSlowness) == .timedOut {
+            fatalError("closing a terminal held the main thread")
+        }
     }
     let script = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-titles-\(UUID().uuidString).sh")
     try #"while :; do printf '\033]0;a title\007'; done"#.write(to: script, atomically: true, encoding: .utf8)
@@ -198,8 +200,7 @@ let wrappedRows = [
     w.contentView = v
     w.orderFront(nil)
     defer { w.orderOut(nil) }
-    let deadline = Date() + 15   // a loaded CI runner can take seconds to start the shell
-    #expect(try await waitFor(deadline.timeIntervalSinceNow) { v.visibleText.contains("DONE") })
+    #expect(try await waitFor(15) { v.visibleText.contains("DONE") })   // a loaded CI runner takes seconds to start the shell
     let s = ghostty_surface_size(surface), scale = w.backingScaleFactor
     try #require(s.columns == 32)
     let cw = Double(s.cell_width_px) / scale, ch = Double(s.cell_height_px) / scale
@@ -226,7 +227,7 @@ let wrappedRows = [
     }
     let before = pb.changeCount
     v.copy(nil)
-    #expect(try await waitFor(deadline.timeIntervalSinceNow + 2) { pb.changeCount != before })
+    #expect(try await waitFor { pb.changeCount != before })
     #expect(pb.string(forType: .string) == wrappedCommand)
 }
 

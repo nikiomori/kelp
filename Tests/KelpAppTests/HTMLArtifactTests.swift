@@ -12,7 +12,7 @@ import WebKit
 /// A design or dashboard may be a cloned repository's: shown in Kelp its own scripts, inline handlers and frames don't run,
 /// even behind a comment that once hid Kelp's policy (`<!--<head>-->`), and a meta refresh doesn't take the preview to a site,
 /// while Kelp's own script beside the page runs and is the one heard.
-@MainActor @Test(.timeLimit(.minutes(1))) func anHTMLPagesOwnScriptsDontRun() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func anHTMLPagesOwnScriptsDontRun() async throws {
     let page =
         #"<!--<head>--><!DOCTYPE html><html><head><title>t</title><meta http-equiv="refresh" content="0;url=https://example.com/">"#
         + #"</head><body onload="document.title='onload'"><script>document.title = 'ran'; webkit.messageHandlers.kelpSync?.postMessage('page')"#
@@ -29,7 +29,7 @@ import WebKit
     func js(_ s: String) async -> String? {
         (try? await web.evaluateJavaScript(s, contentWorld: MarkdownTab.world)) as? String
     }
-    #expect(try await waitFor(5) { !(await js("document.readyState") != "complete") })
+    #expect(try await waitFor { !(await js("document.readyState") != "complete") })
     // The refresh is tried, and refused, rather than waited out.
     #expect(try await waitFor(10) { decided.refused.contains(where: { $0.hasPrefix("https://example.com") }) })
     #expect(decided.refused.contains { $0.hasPrefix("https://example.com") })
@@ -41,7 +41,7 @@ import WebKit
 }
 
 /// Kelp's own renderers still draw in a page whose scripts are off: mermaid's diagram, beside the page.
-@MainActor @Test(.timeLimit(.minutes(1))) func mermaidDrawsBesideAScriptlessPage() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func mermaidDrawsBesideAScriptlessPage() async throws {
     let md = "```mermaid\ngraph LR\n  A --> B\n```"
     let web = WKWebView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
     let links = PreviewLinks(app: AppModel(builtins: Builtins.all))
@@ -57,7 +57,7 @@ import WebKit
 }
 
 /// And KaTeX's formulas, with its fonts from inside its CSS.
-@MainActor @Test(.timeLimit(.minutes(1))) func mathDrawsBesideAScriptlessPage() async throws {
+@MainActor @Test(.timeLimit(minutes: 1)) func mathDrawsBesideAScriptlessPage() async throws {
     let body = MarkdownHTML.render("Euler: $e^{i\\pi} + 1 = 0$\n\n$$\\int_0^1 x\\,dx$$")
     let web = WKWebView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
     let links = PreviewLinks(app: AppModel(builtins: Builtins.all))

@@ -116,8 +116,9 @@ final class Box: @unchecked Sendable {
     #expect(try await waitFor(10) { box.text.contains("\u{1B}[3J") })   // it asked for the session (it clears the screen next)
     term.resize(cols: 100, rows: 30)
     // The new size goes out while the wake is held, and the daemon drops it (nothing runs yet): what's tested is that
-    // the agent still gets it once it runs (attach sends it again), not when it was sent. Half a second lets it go out.
-    try await Task.sleep(for: .milliseconds(500))
+    // the agent still gets it once it runs (attach sends it again), not when it was sent. Half a second (times
+    // `testSlowness`) lets it go out.
+    try await Task.sleep(for: .milliseconds(500 * testSlowness))
     release.signal()
     #expect(try await waitFor(10) { box.text.contains("SIZE=30 100") }, "\(box.text.debugDescription)")
 }
@@ -269,18 +270,23 @@ final class Box: @unchecked Sendable {
     }
     p.start()
     defer { p.kill() }
-    #expect(ready.wait(timeout: .now() + 2) == .success)
+    #expect(ready.wait(timeout: .now() + 8 * testSlowness) == .success)
     let big = Data(repeating: 0x61, count: 2 << 20)   // far more than the terminal buffers
-    let t = Date()
-    p.write(big)
-    #expect(Date().timeIntervalSince(t) < 1)   // queued, not written here (written here it would block for good)
+    let wrote = DispatchSemaphore(value: 0)
+    Thread.detachNewThread {
+        p.write(big)
+        wrote.signal()
+    }
+    #expect(wrote.wait(timeout: .now() + 8 * testSlowness) == .success)   // queued, not written there (it'd block for good)
     let done = DispatchSemaphore(value: 0)
     Thread.detachNewThread {
         p.resize(cols: 100, rows: 30)
         _ = p.foregroundProgram
         done.signal()
     }   // its own thread: a busy pool mustn't look like a stuck lock
-    #expect(done.wait(timeout: .now() + 2) == .success, "resize / foregroundProgram waited on the stuck write")
+    #expect(
+        done.wait(timeout: .now() + 8 * testSlowness) == .success,
+        "resize / foregroundProgram waited on the stuck write")
 }
 
 /// A terminal closes its fds once: finishing and being dropped both hang up, and a second close would hit whatever

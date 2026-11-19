@@ -286,7 +286,7 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     let task = Data("Counts files".utf8).base64EncodedString()
     func report(_ body: String) -> String { "printf '\\033]7501;\(body)\\007'; " }
     let script =
-        report("state=blocked:kind=permission") + report("state=working:id=a1:title=\(task)") + "sleep 2; "
+        report("state=blocked:kind=permission") + report("state=working:id=a1:title=\(task)") + "read -r; "
         + report("state=clear:id=a1") + "cat"
     let agent = AgentManifest(
         id: "fake", name: "Fake", command: "/bin/zsh", args: ["-c", script],
@@ -302,6 +302,7 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     #expect(
         try await now()?.runningSubagents.map { [$0.id, $0.kind, $0.task] } == [["a1", "Explore", "Counts files"]])
     #expect(try await now()?.status == (hooked ? .idle : .waiting))
+    _ = try await w.c.call(SessionWrite(id: s.id, base64: Data("\n".utf8).base64EncodedString()))   // now it reports a1 done
     #expect(
         try await waitFor(5) {
             let after = try await now()

@@ -7,10 +7,10 @@ import Testing
 @testable import Daemon
 
 /// A stand-in for an agent asking whether to trust the folder: TRUSTED-BY-KELP when Enter answers it, NOT-ANSWERED when
-/// nothing does within 4 s.
+/// nothing does within 4 s (times `testSlowness`).
 func trustQuestionStandIn() -> String {
     #"stty -icanon -echo; printf 'Do you trust the files in this folder?\n\xe2\x9d\xaf 1. Yes, proceed\n  2. No, exit\n'; "#
-        + #"if IFS= read -rsn1 -t 4 k && [[ -z "$k" ]]; then echo TRUSTED-BY-KELP; else echo NOT-ANSWERED; fi; sleep 30"#
+        + #"if IFS= read -rsn1 -t \#(scaled(4)) k && [[ -z "$k" ]]; then echo TRUSTED-BY-KELP; else echo NOT-ANSWERED; fi; sleep 30"#
 }
 
 @Test func anIdleSessionIsNotBusyAndDetachingNeverEndsIt() async throws {
@@ -283,7 +283,7 @@ func trustQuestionStandIn() -> String {
     let menu =
         #"stty -icanon -echo; IFS= read -r line; "#
         + #"printf 'README: Do you trust the files in this folder?\nRun rm -rf build?\n\xe2\x9d\xaf 1. Yes\n  2. No\n'; "#
-        + #"if IFS= read -rsn1 -t 4 k && [[ -z "$k" ]]; then echo APPROVED-BY-KELP; else echo NOT-ANSWERED; fi; sleep 30"#
+        + #"if IFS= read -rsn1 -t \#(scaled(4)) k && [[ -z "$k" ]]; then echo APPROVED-BY-KELP; else echo NOT-ANSWERED; fi; sleep 30"#
     let config = tmp().path
     func agent(_ id: String, _ script: String) -> AgentManifest {
         var m = AgentManifest(

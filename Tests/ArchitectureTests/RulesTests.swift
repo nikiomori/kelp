@@ -246,7 +246,14 @@ import Testing
         let code = codeOnly(f.text)
         return sleep.numberOfMatches(in: code, range: NSRange(code.startIndex..., in: code))
     }.reduce(0, +)
-    #expect(count == 29, "sleeps in the tests: wait for the event instead (`waitFor`), or lower the count")
+    #expect(count == 23, "sleeps in the tests: wait for the event instead (`waitFor`), or lower the count")
+}
+
+/// A test's limit grows with its waits (`.timeLimit(minutes:)` from TestSupport): a fixed one beside waits stretched by
+/// KELP_TEST_SLOW failed CI runs whose waits all held.
+@Test func testLimitsGrowWithTheirWaits() throws {
+    let fixed = try matches(#"\.timeLimit\(\.minutes"#, in: ["Tests"]).filter { !$0.hasPrefix("Tests/TestSupport/") }
+    #expect(fixed.isEmpty, "a fixed time limit: use .timeLimit(minutes:) \(fixed)")
 }
 
 /// What `try?` drops, spelled out: a `catch {}`, or one that only returns a stand-in (`return`, `return nil`, `[]`,

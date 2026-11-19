@@ -410,7 +410,7 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     let w = FileWatcher(root: dir.path, latency: 0.05) { paths in MainActor.assumeIsolated { seen += paths } }
     try Data("a".utf8).write(to: dir.appendingPathComponent("node_modules/x/a.js"))
     try Data("b".utf8).write(to: dir.appendingPathComponent("b.swift"))
-    #expect(try await waitFor(5) { seen.contains(where: { $0.hasSuffix("/b.swift") }) })
+    #expect(try await waitFor { seen.contains(where: { $0.hasSuffix("/b.swift") }) })
     #expect(w != nil && seen.contains { $0.hasSuffix("/b.swift") })
     #expect(!seen.contains { $0.contains("/node_modules/") })
 }
@@ -486,14 +486,14 @@ extension OneAtATime {
     let after = Debounce()
     var settled = false
     after.after(0.1) { settled = true }
-    #expect(try await waitFor(5) { settled })   // however busy the Mac
+    #expect(try await waitFor { settled })   // however busy the Mac
     #expect(ran == [3])
     d.after(0.05) { ran.append(4) }
     d.cancel()
     let later = Debounce()
     var control = false
     later.after(0.1) { control = true }   // scheduled after the cancelled one, with a longer delay: once it ran, the other would have
-    #expect(try await waitFor(5) { control })
+    #expect(try await waitFor { control })
     #expect(control && ran == [3])
 }
 
@@ -552,7 +552,7 @@ extension OneAtATime {
     await DaemonLink.stop(other.processIdentifier)
     #expect(other.isRunning)
     await DaemonLink.stop(d.processIdentifier)
-    #expect(try await waitFor(5) { !(d.isRunning) })
+    #expect(try await waitFor { !(d.isRunning) })
     #expect(!d.isRunning && d.terminationReason == .uncaughtSignal)
 }
 
@@ -673,17 +673,17 @@ extension OneAtATime {
     let b = RowMarks.of(m)
     m.workbench.workspaceId = "w2"   // its own worktree: not w1's folder
     ci("in_progress")
-    #expect(try await waitFor(5) { b.sidebarCI("w1") == .running })
+    #expect(try await waitFor { b.sidebarCI("w1") == .running })
     #expect(b.sidebarCI("w1") == .running && b.chipCI("w1") == .running)
-    try await Task.sleep(for: .milliseconds(100))   // the badges see it run before it passes, as with reads seconds apart
+    await mainActorTurns()   // the badges see it run before it passes, as with reads seconds apart
     ci("completed", "success")
-    #expect(try await waitFor(5) { b.sidebarCI("w1") == .passed })
+    #expect(try await waitFor { b.sidebarCI("w1") == .passed })
     #expect(b.sidebarCI("w1") == .passed)
     m.workbench.workspaceId = "w1"
-    #expect(try await waitFor(5) { b.sidebarCI("w1") == nil })
+    #expect(try await waitFor { b.sidebarCI("w1") == nil })
     #expect(b.sidebarCI("w1") == nil && b.chipCI("w1") == .passed)   // seen: off the sidebar, on the chip for a minute
     ci("completed", "failure")
-    #expect(try await waitFor(5) { b.chipCI("w1") == .failed })
+    #expect(try await waitFor { b.chipCI("w1") == .failed })
     #expect(b.sidebarCI("w1") == .failed && b.ciLine("w1") == "CI: Failed · CI")
 }
 

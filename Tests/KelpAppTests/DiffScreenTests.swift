@@ -107,7 +107,7 @@ extension AppOfItsOwn {
         box.performClick(nil)
         box.performClick(nil)   // a click flips it: off, then on again
         #expect(vc.status.stringValue.contains("1 of 2 left"))
-        #expect(try await waitFor(5) { !(rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).isEmpty) })
+        #expect(try await waitFor { !(rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).isEmpty) })
         #expect(rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).count == 1)
     }
 
@@ -135,7 +135,7 @@ extension AppOfItsOwn {
         let button = try #require(vc.gapRow(file: f, from: from, lines: n, context: "").subviews.first as? NSButton)
         button.performClick(nil)
         #expect(
-            try await waitFor(5) { !(vc.rows.contains(where: { if case .diff(.gap) = $0 { true } else { false } })) })
+            try await waitFor { !(vc.rows.contains(where: { if case .diff(.gap) = $0 { true } else { false } })) })
         #expect(!vc.rows.contains { if case .diff(.gap) = $0 { true } else { false } })
         #expect(vc.rows.contains { shown($0)?.text == "line 20" && shown($0)?.kind == .context })
     }
@@ -176,7 +176,7 @@ extension AppOfItsOwn {
         #expect(vc.rows[at + 1] == .draft && vc.notes.draft?.field.stringValue == "why upper case?")
         let save = try #require(buttons(in: vc.draftCard()).first { $0.keyEquivalent == "\r" })
         save.performClick(nil)
-        #expect(try await waitFor(5) { vc.rows.contains(where: { if case .comment = $0 { true } else { false } }) })
+        #expect(try await waitFor { vc.rows.contains(where: { if case .comment = $0 { true } else { false } }) })
         #expect(vc.notes.draft == nil && !vc.rows.contains(.draft))
         let line = try #require(vc.rows.firstIndex { shown($0)?.text == "TWO" })   // read again: found again
         #expect(vc.rows[line + 1] == .comment(vc.notes.saved[0]) && vc.notes.saved[0].text == "why upper case?")
@@ -252,7 +252,7 @@ extension AppOfItsOwn {
         stage[1].performClick(nil)   // the second hunk: "bottom change"
         var cached = ""
         #expect(
-            try await waitFor(5) {
+            try await waitFor {
                 cached = try Git.run(["diff", "--cached"], cwd: repo, remotes: .none)
                 return !cached.isEmpty
             })
@@ -313,7 +313,7 @@ extension AppOfItsOwn {
         edited.stats = LineStats(added: [.code: 2], removed: [.code: 1])
         rig.app.land(edited)
         vc.gitChanged(edited)
-        #expect(try await waitFor(5) { !(vc.loads.reads == reads) })   // a busy runner took over 300 ms
+        #expect(try await waitFor { !(vc.loads.reads == reads) })   // a busy runner took over 300 ms
         #expect(vc.loads.reads == reads + 1)
     }
 

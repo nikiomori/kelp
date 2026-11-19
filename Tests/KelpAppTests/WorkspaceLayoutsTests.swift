@@ -42,7 +42,7 @@ import WorkbenchKit
     app.workbench.layouts["w"].add("session:s1")
     app.workbench.layouts["w"].add("file:///tmp/kept.txt")
     host.closeChat("s1", workspace: "w")
-    #expect(try await waitFor(5) { app.workbench.layouts["w"].tab(uri: "session:s1") == nil })
+    #expect(try await waitFor { app.workbench.layouts["w"].tab(uri: "session:s1") == nil })
     #expect(app.workbench.layouts["w"].allTabs.map(\.uri) == ["file:///tmp/kept.txt"])
     #expect(app.workbench.closedTabs.all.first?.uri == "session:s1")
 }
@@ -54,11 +54,11 @@ import WorkbenchKit
     let area = EditorArea(app: app, workspaceId: "w")
     _ = area.view
     host.openInBackground("file:///tmp/a.txt", workspace: "w")
-    #expect(try await waitFor(5) { !area.groupViews.isEmpty })
+    #expect(try await waitFor { !area.groupViews.isEmpty })
     let tab = try #require(area.layout.tab(uri: "file:///tmp/a.txt"))
     area.contents[tab.id] = UnavailableTab(uri: tab.uri, app: app)
     host.replaceInBackground("file:///tmp/a.txt", with: "file:///tmp/b.txt", workspace: "w")
-    #expect(try await waitFor(5) { area.contents[tab.id]?.uri != "file:///tmp/a.txt" })
+    #expect(try await waitFor { area.contents[tab.id]?.uri != "file:///tmp/a.txt" })
     #expect(area.layout.tab(uri: "file:///tmp/b.txt")?.id == tab.id)
 }
 

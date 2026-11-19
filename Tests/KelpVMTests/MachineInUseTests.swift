@@ -58,7 +58,7 @@ import Testing
 
 /// The budget's sleep is refused by an Android machine whose window the user has; the user's own goes ahead.
 extension AndroidRuntimeOnAStandIn {
-    @Test(.timeLimit(.minutes(1))) func anAndroidWindowRefusesTheBudgetsSleep() async throws {
+    @Test(.timeLimit(minutes: 1)) func anAndroidWindowRefusesTheBudgetsSleep() async throws {
         let (vm, sdk, putAway) = try androidStandIn()
         defer { putAway() }
         #expect(await askAndroid(vm, .init(op: .show)) == nil)
@@ -71,7 +71,7 @@ extension AndroidRuntimeOnAStandIn {
 
     /// A start kelpd answered is use until its command's adb comes: the budget's sleep in between is refused. Past
     /// `startWindow`, idle again.
-    @Test(.timeLimit(.minutes(1))) func aStartIsUseUntilItsCommandsAdbComes() async throws {
+    @Test(.timeLimit(minutes: 1)) func aStartIsUseUntilItsCommandsAdbComes() async throws {
         let (vm, _, putAway) = try androidStandIn()
         defer { putAway() }
         var later: TimeInterval = 0

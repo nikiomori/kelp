@@ -9,7 +9,7 @@ import os
 
 /// A usage probe that read the usage, and one that gave up (its agent said it failed), each leave no process of it (its
 /// own child included) and no fd of its terminal open in kelpd.
-@Test(.timeLimit(.minutes(1))) func aUsageProbeLeavesNothingBehind() async throws {
+@Test(.timeLimit(minutes: 1)) func aUsageProbeLeavesNothingBehind() async throws {
     let reads = "printf '❯ '; read line; printf '5%% used'"
     for (why, said) in [("it read the usage", reads), ("it gave up", "printf 'Error: not signed in'")] {
         let dir = tmp()
@@ -44,7 +44,7 @@ import os
 
 /// A Postgres or MySQL connection whose call runs past its time is closed (`DatabaseWire.within`): the server sees it
 /// go, and the call fails then, saying so, not when the server answers (this one never does).
-@Test(.timeLimit(.minutes(1))) func aDatabaseCallPastItsTimeClosesItsConnection() async throws {
+@Test(.timeLimit(minutes: 1)) func aDatabaseCallPastItsTimeClosesItsConnection() async throws {
     try await withThrowingTaskGroup(of: Void.self) { group in
         for engine in [DatabaseInfo.Engine.postgres, .mysql] { group.addTask { try await callPastItsTime(engine) } }
         try await group.waitForAll()

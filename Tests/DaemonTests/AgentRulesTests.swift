@@ -31,7 +31,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     // `kelp attach`: the stream's line, then what it types.
     let attach =
         #"a() { zsocket $KELP_SOCKET; print -u $REPLY "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session.stream\",\"params\":{\"id\":\"$1\"}}"; "#
-        + #"print -u $REPLY typed; read -t 3 -u $REPLY line; print -r -- "stream $line"; exec {REPLY}>&-; }"#
+        + #"print -u $REPLY typed; read -t \#(scaled(3)) -u $REPLY line; print -r -- "stream $line"; exec {REPLY}>&-; }"#
     let script =
         "\(zshAsk); \(call); \(attach); s() { \(send); }; read kid; s \(other.id); s $kid; "
         + #"r session.restart "{\"id\":\"\#(other.id)\"}"; a \#(other.id); "#

@@ -3,6 +3,7 @@ import Core
 import Foundation
 import GitKit
 import Testing
+import os
 
 @testable import Daemon
 
@@ -61,16 +62,22 @@ import Testing
     try Git.run(["commit", "-q", "--allow-empty", "-m", "a"], cwd: there, remotes: .none)
     let repo = try await c.call(RepoAddRemote(host: "box", path: there))
     let shim = URL(fileURLWithPath: localSSH).deletingLastPathComponent()
-    let flag = shim.appendingPathComponent("slow-host").path, asked = shim.appendingPathComponent("slow-asked").path
+    let flag = shim.appendingPathComponent("slow-host").path,
+        asked = shim.appendingPathComponent("slow-host-asked").path
     try? FileManager.default.removeItem(atPath: asked)
     FileManager.default.createFile(atPath: flag, contents: nil)
     defer { try? FileManager.default.removeItem(atPath: flag) }
     let workspaces = d.workspaces
     let creating = Task.detached { try workspaces.createWorkspace(in: repo) }
-    #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: asked) })   // its branch is being read on the host, for 3 s
-    let start = Date()
-    try workspaces.syncMainWorkspaces()
-    #expect(Date().timeIntervalSince(start) < 2.5)   // not behind that read
+    #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: asked) })   // its branch is being read on the host
+    let synced = OSAllocatedUnfairLock(initialState: false)
+    let syncing = Task.detached {
+        try workspaces.syncMainWorkspaces()
+        synced.withLock { $0 = true }
+    }
+    #expect(try await waitFor { synced.withLock { $0 } })   // not behind that read, which the host still holds
+    try FileManager.default.removeItem(atPath: flag)   // the host answers
+    try await syncing.value
     _ = try await creating.value
 }
 

@@ -85,7 +85,7 @@ extension AppOfItsOwn {
         let tab = FileTab(uri: TabURI.file(rig.workspace.path + "/a.txt"), app: rig.app)
         await tab.loading?.value
         let e = try #require(tab.editor)
-        #expect(try await waitFor(5) { !(e.tabWidth != 8) })
+        #expect(try await waitFor { !(e.tabWidth != 8) })
         #expect(e.tabWidth == 8)
     }
 }

@@ -46,7 +46,8 @@ private let env = ProcessInfo.processInfo.environment
 @Test func aSubprocessLetsGoOfPipesAChildStillHolds() async throws {
     let mark = NSTemporaryDirectory() + "sp-\(UUID().uuidString)", ended = mark + ".ended"
     defer { for f in [mark, ended] { try? FileManager.default.removeItem(atPath: f) } }
-    let child = "(trap '' PIPE; trap 'touch \(ended)' EXIT; sleep 3; echo late && touch \(mark)) &"
+    // It writes at 3 s, times `testSlowness`: on a busy machine the pipes' 2 s run later.
+    let child = "(trap '' PIPE; trap 'touch \(ended)' EXIT; sleep \(scaled(3)); echo late && touch \(mark)) &"
     let r = try await Subprocess.run(["/bin/bash", "-c", "echo hi; " + child], cwd: "/tmp", env: env, timeLimit: 30)
     #expect(String(decoding: r.stdout, as: UTF8.self) == "hi\n")   // back after the pipes' 2 s, before the child writes
     #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: ended) })   // past the child's write at 3 s
@@ -58,11 +59,11 @@ private let env = ProcessInfo.processInfo.environment
     let mark = NSTemporaryDirectory() + "sp-\(UUID().uuidString)", ended = mark + ".ended"
     defer { for f in [mark, ended] { try? FileManager.default.removeItem(atPath: f) } }
     let child =
-        "(trap '' PIPE; trap 'touch \(ended)' EXIT; for i in $(seq 40); do echo x || exit; sleep 0.1; done; "
+        "(trap '' PIPE; trap 'touch \(ended)' EXIT; for i in $(seq \(scaled(40))); do echo x || exit; sleep 0.1; done; "
         + "touch \(mark)) &"
     // Back after 2 s.
     _ = try await Subprocess.run(["/bin/bash", "-c", "echo hi; " + child], cwd: "/tmp", env: env, timeLimit: 30)
-    #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: ended) })   // the loop left (or ran its 4 s)
+    #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: ended) })   // the loop left (or ran its 4 s × slowness)
     #expect(!FileManager.default.fileExists(atPath: mark))   // a write after the pipes went failed, and it left
 }
 

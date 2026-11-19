@@ -126,6 +126,6 @@ private func home() throws -> URL {
     s.file.lock()   // a write in progress
     let read = DispatchSemaphore(value: 0)
     Thread.detachNewThread { if s.number("sessions.hibernateMinutes") == 5 { read.signal() } }
-    #expect(read.wait(timeout: .now() + 2) == .success)
+    #expect(read.wait(timeout: .now() + 2 * testSlowness) == .success)
     s.file.unlock()
 }

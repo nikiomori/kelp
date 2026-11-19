@@ -47,7 +47,7 @@ extension AppOfItsOwn {
                 (outline.view(atColumn: 0, row: $0, makeIfNecessary: true)).map(texts) ?? []
             }
         }
-        #expect(try await waitFor(5) { rows().contains("staged.txt") })
+        #expect(try await waitFor { rows().contains("staged.txt") })
         let shown = rows()
         #expect(shown.contains("staged.txt") && shown.contains("kept.txt") && shown.contains("gone.txt"), "\(shown)")
         #expect(shown.contains { $0.localizedCaseInsensitiveContains("Staged") })   // its section header
@@ -96,7 +96,7 @@ extension AppOfItsOwn {
                 (outline.view(atColumn: 0, row: $0, makeIfNecessary: true) as? FileCell)?.path == path
             }
         }
-        #expect(try await waitFor(5) { !(row("kept.txt") == nil || graph.numberOfRows < 1) })
+        #expect(try await waitFor { !(row("kept.txt") == nil || graph.numberOfRows < 1) })
         let kept = try #require(row("kept.txt"))
         let node = outline.item(atRow: kept) as AnyObject?,
             cell = outline.view(atColumn: 0, row: kept, makeIfNecessary: false)
@@ -106,7 +106,7 @@ extension AppOfItsOwn {
         #expect(graph.view(atColumn: 0, row: 0, makeIfNecessary: false) === commit)
         try rig.write("new.txt", "n\n")
         vc.reloadAll()
-        #expect(try await waitFor(5) { !(row("new.txt") == nil) })
+        #expect(try await waitFor { !(row("new.txt") == nil) })
         #expect(outline.item(atRow: try #require(row("kept.txt"))) as AnyObject? === node)
     }
 
@@ -119,7 +119,7 @@ extension AppOfItsOwn {
         rig.show(vc, 320, 500)
         vc.followWatches()
         let graph = try #require(outlines(in: vc.view).last)
-        #expect(try await waitFor(5) { !(graph.numberOfRows < 1) })   // the project's one commit: the graph is up
+        #expect(try await waitFor { !(graph.numberOfRows < 1) })   // the project's one commit: the graph is up
         let hashes = (0...60).map { String(format: "%040x", $0) }   // 61 commits in a line, newest first
         vc.commits = hashes.indices.map { i in
             GraphCommit(
@@ -153,7 +153,7 @@ extension AppOfItsOwn {
         let vc = SourceControlController(app: rig.app)
         rig.show(vc, 320, 700)
         vc.followWatches()
-        #expect(try await waitFor(5) { !vc.commits.isEmpty })
+        #expect(try await waitFor { !vc.commits.isEmpty })
         let button = try #require(vc.commitButton)
         let cases: [(ahead: Int, behind: Int, signs: [String], counts: [Int], heard: String?)] = [
             (4, 3, ["arrow.down", "arrow.up"], [3, 4], "Sync Changes, 3 to pull, 4 to push"),
@@ -182,7 +182,7 @@ extension AppOfItsOwn {
         let vc = SourceControlController(app: rig.app), here = rig.workspace.id
         rig.show(vc, 320, 700)
         vc.followWatches()
-        #expect(try await waitFor(5) { !vc.commits.isEmpty })
+        #expect(try await waitFor { !vc.commits.isEmpty })
         vc.bind("another")
         #expect(vc.commits.isEmpty)
         vc.bind(here)
@@ -253,7 +253,7 @@ extension AppOfItsOwn {
         rig.show(vc, 320, 800)
         vc.followWatches()
         let outline = try #require(outlines(in: vc.view).first), graph = try #require(outlines(in: vc.view).last)
-        #expect(try await waitFor(5) { !(outline.numberOfRows < 2 || graph.numberOfRows < 1) })
+        #expect(try await waitFor { !(outline.numberOfRows < 2 || graph.numberOfRows < 1) })
         vc.view.window?.setContentSize(NSSize(width: 320, height: 800))   // the window took the panel's fitting size
         vc.view.layoutSubtreeIfNeeded()
         let changes = try #require(outline.enclosingScrollView),
@@ -272,7 +272,7 @@ extension AppOfItsOwn {
         let vc = SourceControlController(app: rig.app)
         rig.show(vc, 260, 700)
         vc.followWatches()
-        #expect(try await waitFor(5) { texts(vc.view).contains(where: { $0.hasPrefix("Message") }) })
+        #expect(try await waitFor { texts(vc.view).contains(where: { $0.hasPrefix("Message") }) })
         vc.view.layoutSubtreeIfNeeded()
         #expect(vc.view.fittingSize.width <= 260, "\(vc.view.fittingSize.width)")
     }

@@ -26,7 +26,7 @@ extension AppOfItsOwn {
         let rig = try await AppRig(files: [:])
         defer { rig.done() }
         let (tab, path) = try await opened(rig, text: "draft")
-        #expect(try await waitFor(5) { !(tab.typed == nil) })
+        #expect(try await waitFor { !(tab.typed == nil) })
         tab.type("long prompt\n")
         #expect(await tab.close())
         #expect(try String(contentsOfFile: path, encoding: .utf8) == "long prompt\n")
@@ -38,7 +38,7 @@ extension AppOfItsOwn {
         let rig = try await AppRig(files: [:])
         defer { rig.done() }
         let (tab, path) = try await opened(rig, text: "draft")
-        #expect(try await waitFor(5) { !(tab.typed == nil) })
+        #expect(try await waitFor { !(tab.typed == nil) })
         try "saved elsewhere\n".write(toFile: path, atomically: true, encoding: .utf8)
         tab.type("mine\n")
         #expect(await tab.close() == false)
