@@ -183,7 +183,12 @@ extension WorktreeRemove: Handled {
         else {
             throw RPCError.noWorkspace(id)
         }
-        try workspaces.removeWorkspace(workspace, repo, force: force == true, dropCommits: dropCommits == true)
+        // A branch that was there before the workspace (checked out with `--existing`) isn't Kelp's to delete: only
+        // its folder goes, as when a group tidies itself away.
+        let branch = workspaces.branchNow(of: workspace, in: repo)
+        let theirs = try !Git.made(repo: repo.path, branch, at: workspace.createdAt, remotes: workspaces.remotes)
+        try workspaces.removeWorkspace(
+            workspace, repo, force: force == true, dropCommits: dropCommits == true, keepBranch: theirs)
         workspaces.databases.dropCopies(of: workspace)   // the workspace's own copies of the project's databases go too
         return Done()
     }

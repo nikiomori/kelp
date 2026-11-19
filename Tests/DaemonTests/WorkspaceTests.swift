@@ -165,6 +165,24 @@ import Testing
         Git.branchExists(w.repo.path, "theirs", remotes: .none) && !FileManager.default.fileExists(atPath: theirs.path))
 }
 
+/// Removing a workspace opened on a branch that was there already (`--existing`) removes its folder and keeps the
+/// branch, whoever asks; one Kelp made for it goes with it.
+@Test func removingAWorkspaceKeepsABranchItDidntMake() async throws {
+    let w = try await world()
+    defer { w.d.stop() }
+    let made = try await workspace(w, "made")
+    try Git.run(["branch", "theirs"], cwd: w.repo.path, remotes: .none)
+    var asked = WorktreeCreate(repoId: w.repo.id, branch: "theirs", setup: false)
+    asked.existing = true
+    var theirs = try await w.c.call(asked).worktree
+    theirs.createdAt = Date().addingTimeInterval(120)   // the branch was there two minutes before
+    try w.d.store.save(theirs)
+    for workspace in [made, theirs] { _ = try await w.c.call(WorktreeRemove(id: workspace.id)) }
+    #expect(
+        !FileManager.default.fileExists(atPath: theirs.path) && Git.branchExists(w.repo.path, "theirs", remotes: .none))
+    #expect(!Git.branchExists(w.repo.path, "made", remotes: .none))
+}
+
 /// A branch group whose work is in the base branch goes by itself: removed with nobody on it, archived with its chat.
 /// One opened on a branch that was there already, one with uncommitted files and one with nothing done stay.
 @Test func aBranchWhoseWorkLandedGoesByItself() async throws {
