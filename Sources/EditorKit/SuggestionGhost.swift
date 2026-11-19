@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 
 /// Room under the cursor's line for a suggestion's further lines: the line holding `char` is laid out taller by
 /// `height`, so the lines below move down rather than sit under the gray text.
@@ -98,7 +99,7 @@ extension CodeEditor {
         view.lineHeight = lineHeight
         view.attributes = tv.typingAttributes
         let text = (tv.typingAttributes[.foregroundColor] as? NSColor) ?? .labelColor
-        view.ghostColor = color ?? text.withAlphaComponent(0.4)
+        view.ghostColor = color ?? .offered(text)
         view.tint = tint
         view.restColor = text
         // Only the cursor's line wears the current line's tint.

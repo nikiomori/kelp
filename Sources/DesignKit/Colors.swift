@@ -82,6 +82,8 @@ extension NSColor {
     /// it. Ask for it while drawing, because it's fixed to the current appearance, as `labelColor.withAlphaComponent`
     /// is.
     public static func fillTint(_ color: NSColor) -> NSColor { color.withAlphaComponent(0.16) }
+    /// Text offered and not yet put in (the editor's gray text): the text's own `color`, faded.
+    public static func offered(_ color: NSColor) -> NSColor { color.withAlphaComponent(0.4) }
     /// A diff's fills: a whole added or removed line, the words changed in it (stronger), a hunk's header band, and the
     /// band of unchanged lines between hunks.
     public static let diffAdded = tint(.systemGreen, 0.14)

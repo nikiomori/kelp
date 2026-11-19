@@ -901,4 +901,8 @@ func codeOnly(_ s: String) -> String {
     let pictures = ["SettingPictures", "SettingPreviews", "ThemeGallery", "DockStripPicture"]
     let alphas = try matches(#"withAlphaComponent\(0?\.[0-9]|\.opacity\(0?\.[0-9]"#, in: appDirs)
     exactly(alphas.filter { path in !pictures.contains { path.contains($0) } }, 22, "opacities")
+    // The editor's too: a fold's plate and its dots.
+    exactly(
+        try matches(#"withAlphaComponent\(0?\.[0-9]|\.opacity\(0?\.[0-9]"#, in: ["Sources/EditorKit"]), 2,
+        "opacities in the editor")
 }

@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 import Foundation
 import TestSupport
 import Testing
@@ -68,6 +69,18 @@ func takingAnEditReplacesWholeLines(lines: Range<Int>, new: [String], range: NSR
     #expect(changed.range == NSRange(location: 3, length: 3) && changed.text == "B\r\nB2\r\n")
     let added = NextEdit.replacement(.init(lines: 3..<3, old: [], new: ["d"]), in: text, lineBreak: "\r\n")
     #expect(added.range == NSRange(location: 7, length: 0) && added.text == "\r\nd")
+}
+
+/// "⇥ to line N" grows with Settings › Appearance › Text size, so its words don't stick out of it.
+@MainActor @Test func theJumpPillGrowsWithTheText() {
+    defer { TextSize.apply(nil) }
+    let pill = JumpPill()
+    pill.label = "to line 14"
+    let normal = pill.fitting
+    TextSize.apply("larger")
+    let grown = pill.fitting
+    #expect(grown.height > normal.height && grown.width > normal.width)
+    print("jump pill height", normal.height, "→", grown.height)
 }
 
 @MainActor private enum KeptEditWindows { static var all: [NSWindow] = [] }

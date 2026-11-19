@@ -174,7 +174,7 @@ extension CodeEditor {
     private func drawNextEdit() {
         guard let shown = nextEdit.shown else { return }
         let p = shown.proposal, range = shown.range, string = textView.string as NSString
-        let green = NSColor.textGreen, tint = NSColor.systemGreen.withAlphaComponent(0.16)
+        let green = NSColor.textGreen, tint = NSColor.diffAdded
         if p.old.count == 1, p.new.count == 1 {
             let (gone, put) = NextEdit.inline(p.old[0], p.new[0])
             strike(NSRange(location: range.location + gone.location, length: gone.length))
@@ -200,7 +200,7 @@ extension CodeEditor {
         var marks: [NSAttributedString.Key: Any] = [
             .strikethroughStyle: NSUnderlineStyle.single.rawValue, .strikethroughColor: NSColor.textRed
         ]
-        if tint { marks[.backgroundColor] = NSColor.systemRed.withAlphaComponent(0.12) }
+        if tint { marks[.backgroundColor] = NSColor.diffRemoved }
         lm.addTemporaryAttributes(marks, forCharacterRange: range)
         nextEdit.struck = range
     }
@@ -256,24 +256,29 @@ struct NextEditState {
 /// "⇥ to line 14": a key cap and where it goes, at the end of the cursor's line.
 final class JumpPill: NSView {
     var label = "" { didSet { needsDisplay = true } }
-    private static let height: CGFloat = 18, key: CGFloat = 18
-    private let font = NSFont.ui(TextSize.caption)
+    /// Read at each use, so the pill follows Text size: a line of its text and the key cap's inset round it (18 pt at
+    /// normal text), its key cap as wide.
+    private var font: NSFont { .ui(TextSize.caption) }
+    private var height: CGFloat { ceil(Self.lines.defaultLineHeight(for: font)) + 2 * Self.inset }
+    private static let lines = NSLayoutManager(), inset: CGFloat = 2.5   // the key cap's from the pill's edge
     override var isFlipped: Bool { true }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     var fitting: NSSize {
         let width = (label as NSString).size(withAttributes: [.font: font]).width
-        return NSSize(width: ceil(2 + Self.key + 6 + width + 9), height: Self.height)
+        return NSSize(width: ceil(2 + height + 6 + width + 9), height: height)
     }
 
     override func draw(_ dirtyRect: NSRect) {
+        let font = font, height = height
         let body = bounds.insetBy(dx: 0.5, dy: 0.5)
         let outline = NSBezierPath(roundedRect: body, xRadius: body.height / 2, yRadius: body.height / 2)
         NSColor.controlBackgroundColor.setFill()
         outline.fill()
         NSColor.separatorColor.setStroke()
         outline.stroke()
-        let cap = NSRect(x: 2.5, y: 2.5, width: Self.key, height: Self.height - 5)
+        let inset = Self.inset
+        let cap = NSRect(x: inset, y: inset, width: height, height: height - 2 * inset)
         let capPath = NSBezierPath(roundedRect: cap, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS)
         NSColor.separatorColor.setStroke()
         capPath.stroke()
