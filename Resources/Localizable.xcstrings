@@ -31748,6 +31748,26 @@
           }
         }
       }
+    },
+    "Cache is cold: the next message writes %@ again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кэш остыл: следующее сообщение снова запишет %@"
+          }
+        }
+      }
+    },
+    "Cache goes cold in %lld min: then the next message writes %@ again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кэш остынет через %1$lld мин: тогда следующее сообщение снова запишет %2$@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
