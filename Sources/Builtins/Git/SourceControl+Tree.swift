@@ -127,7 +127,7 @@ extension SourceControlController {
         let saved = UserDefaults.standard.object(forKey: "scm.graphHeight") as? CGFloat
         graphHeight?.constant = min(saved ?? 0, (NSScreen.main?.visibleFrame.height ?? 800) / 2)
         graphHeight?.isActive = open && saved != nil
-        changesHug?.isActive = open && saved == nil
+        changesHug?.isActive = open   // the changes are as tall as their rows; the graph has the rest
         changesCap?.isActive = open && saved == nil
         graphClosed?.isActive = !open
     }
@@ -137,8 +137,7 @@ extension SourceControlController {
             let graph = graphOutline.enclosingScrollView
         else { return }
         gh.constant = min(max(60, graph.frame.height + dy), changes.frame.height + graph.frame.height - 80)
-        changesHug?.isActive = false
-        changesCap?.isActive = false
+        changesCap?.isActive = false   // the changes still hug their rows: dragging never opens empty room
         gh.isActive = true
         UserDefaults.standard.set(gh.constant, forKey: "scm.graphHeight")
     }

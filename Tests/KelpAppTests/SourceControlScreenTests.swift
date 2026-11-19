@@ -241,11 +241,13 @@ extension AppOfItsOwn {
         #expect(r.committed && !r.pushed)
     }
 
-    /// A few changes take their rows' height and the graph follows right under them, not half the panel down.
-    @Test func theGraphFollowsAShortListOfChanges() async throws {
+    /// A few changes take their rows' height and the graph follows right under them, not half the panel down; also
+    /// once the graph was dragged to a height of its own (200), which it keeps as its least.
+    @Test(arguments: [nil, 200] as [CGFloat?]) func theGraphFollowsAShortListOfChanges(dragged: CGFloat?) async throws {
         let kept = ["scm.graphHeight", "scm.collapsed"].map { ($0, UserDefaults.standard.object(forKey: $0)) }
         defer { for (key, value) in kept { UserDefaults.standard.set(value, forKey: key) } }   // the process's: put back
         for (key, _) in kept { UserDefaults.standard.removeObject(forKey: key) }
+        if let dragged { UserDefaults.standard.set(dragged, forKey: "scm.graphHeight") }
         let rig = try await AppRig(files: ["kept.txt": "a\n"])
         defer { rig.done() }
         try rig.write("kept.txt", "b\n")

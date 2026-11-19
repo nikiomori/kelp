@@ -173,9 +173,11 @@ final class SourceControlController: NSViewController, NSOutlineViewDataSource, 
             part.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(part)
         }
-        // When open, the graph is the height it was dragged to. Under windowSizeStayPut it never stretches the window.
-        let gh = graphScroll.heightAnchor.constraint(equalToConstant: 260)
-        gh.priority = .init(495)
+        // When open, the graph is at least the height it was dragged to, and takes what the changes leave: a short list
+        // of changes is followed by the graph, not by empty room. It gives way to the 80 pt the changes keep, and under
+        // windowSizeStayPut it never stretches the window.
+        let gh = graphScroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 260)
+        gh.priority = .init(740)
         graphHeight = gh
         changesHug = scroll.heightAnchor.constraint(equalToConstant: 0)
         changesHug?.priority = .init(495)
