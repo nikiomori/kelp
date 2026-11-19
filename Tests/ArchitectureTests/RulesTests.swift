@@ -17,6 +17,7 @@ import Testing
             "the parser and its tree: the main thread's for a short text, `queue`'s alone once long",
         "Sources/EditorKit/SyntaxHighlighter.swift: Text": "an immutable copy of the text, or read under `queue.sync`",
         "Sources/EditorKit/Folding.swift: Folds": "the main thread only: the layout manager asks for glyphs there",
+        "Sources/EditorKit/SuggestionGhost.swift: GhostRoom": "the main thread only: the layout manager lays out there",
         "Sources/Builtins/Files/FileNode.swift: FileNode":
             "a tree built off the main actor (`FileNode.update`) and handed over whole: read and changed on main only"
     ]

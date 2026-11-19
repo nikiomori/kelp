@@ -136,6 +136,8 @@ final class LineNumbers: NSRulerView {
         var number = editor.lineIndex.line(at: visible.location, in: string)
         let y0 = convert(NSPoint.zero, from: tv).y + tv.textContainerOrigin.y
         let font = self.font
+        // A line with room under it for a suggestion's gray text keeps its number on its own row.
+        let row = lm.defaultLineHeight(for: font) + CodeEditor.lineExtra
         func draw(_ number: Int, at frag: NSRect, start: Int) {
             if let mark = editor.changeMark(onLine: number) {
                 drawChange(mark, y: y0 + frag.minY, height: rowsHeight(of: start, first: frag))
@@ -147,7 +149,7 @@ final class LineNumbers: NSRulerView {
             text.draw(
                 at: NSPoint(
                     x: ruleThickness - Self.chevron - size.width - 4,
-                    y: y0 + frag.minY + (frag.height - size.height) / 2))
+                    y: y0 + frag.minY + (min(frag.height, row) - size.height) / 2))
             let line = string.lineRange(for: NSRange(location: start, length: 0))
             let folded = tv.folds.fold(at: MultiCursor.lineEnd(string, start)) != nil
             guard folded || (hovering && editor.foldRegion(line, in: string) != nil) else { return }

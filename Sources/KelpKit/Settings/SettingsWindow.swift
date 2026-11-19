@@ -218,7 +218,9 @@ private struct SectionForm: View {
                     let rows = groups[index].1.filter {
                         (language.isEmpty || $0.perLanguage == true) && store.meets($0.requires)
                     }
-                    if rows.isEmpty {
+                    // A group whose own view does the setting (a list that picks a model) shows with no rows.
+                    let shown = groups[index].0.flatMap { language.isEmpty ? section.previews[$0] : nil }
+                    if rows.isEmpty && shown == nil {
                         EmptyView()
                     } else if let title = groups[index].0 {
                         Section(loc(title)) {

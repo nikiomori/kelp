@@ -294,7 +294,7 @@ extension Daemon {
             + Methods.databaseLibraryMethods + Methods.extensionMethods + Methods.fileMethods + Methods.gitMethods
             + Methods.hostStatsMethods + Methods.integrationMethods + Methods.lspMethods + Methods.launchMethods
             + Methods.cloneMethods + Methods.phoneMethods + Methods.portMethods + Methods.processMethods
-            + Methods.recapMethods
+            + Methods.recapMethods + Methods.suggestMethods
             + Methods.remoteMethods + Methods.routineMethods + Methods.runMethods + Methods.scriptMethods
             + Methods.artifactMethods + Methods.sessionEditMethods + Methods.sessionMethods + Methods.hookMethods
             + Methods.skillMethods + Methods.settingsMethods + Methods.tmuxMethods + Methods.trackerMethods

@@ -3300,6 +3300,22 @@
         ],
         "type" : "object"
       },
+      "NextEditChange" : {
+        "description" : "An edit made: its lines before and after.",
+        "properties" : {
+          "new" : {
+            "type" : "string"
+          },
+          "old" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "new",
+          "old"
+        ],
+        "type" : "object"
+      },
       "OutputEvent" : {
         "description" : "What a session printed, sent to a client that attached with JSON (`session.attach`) rather than as a byte pipe.",
         "properties" : {
@@ -5006,6 +5022,101 @@
         "required" : [
           "session",
           "steps"
+        ],
+        "type" : "object"
+      },
+      "SuggestAnswer" : {
+        "description" : "What a model wrote, or why nothing came: the status bar names the problem and its card offers the fix.",
+        "properties" : {
+          "problem" : {
+            "$ref" : "#/components/schemas/SuggestProblem"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+
+        ],
+        "type" : "object"
+      },
+      "SuggestChunk" : {
+        "description" : "A piece of another file: lines around where it was edited, or its start (imports and types).",
+        "properties" : {
+          "path" : {
+            "description" : "The file's path in its project.",
+            "type" : "string"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "path",
+          "text"
+        ],
+        "type" : "object"
+      },
+      "SuggestCloud" : {
+        "description" : "A cloud service that fills in code: Inception's Mercury Edit 2, Mistral's Codestral, or any server with OpenAI's completions API.",
+        "enum" : [
+          "mercury",
+          "codestral",
+          "openai"
+        ],
+        "type" : "string"
+      },
+      "SuggestModel" : {
+        "properties" : {
+          "fillsIn" : {
+            "description" : "Whether Kelp knows how to ask this model to fill in code.",
+            "type" : "boolean"
+          },
+          "id" : {
+            "description" : "The model's name on its server (\"qwen2.5-coder:1.5b-base\"), and the server (\"Ollama\").",
+            "type" : "string"
+          },
+          "server" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "fillsIn",
+          "id",
+          "server"
+        ],
+        "type" : "object"
+      },
+      "SuggestProblem" : {
+        "description" : "Why no suggestion came.",
+        "enum" : [
+          "noServer",
+          "noModel",
+          "modelMissing",
+          "keyMissing",
+          "keyRejected",
+          "notAnswering",
+          "failed"
+        ],
+        "type" : "string"
+      },
+      "SuggestPullEvent" : {
+        "description" : "How far Ollama's download of a model has come, in bytes, a few times a second.",
+        "properties" : {
+          "completed" : {
+            "type" : "integer"
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "total" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "completed",
+          "model",
+          "total"
         ],
         "type" : "object"
       },
@@ -7789,6 +7900,243 @@
         "name" : "result",
         "schema" : {
           "$ref" : "#/components/schemas/DatabaseInfo"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "The next edit around the cursor, guessed by Sweep Next-Edit 1.5B from the edits just made: the cursor's lines (`current`) as the model would have them next, in `text`; nil when it changes nothing or isn't sure. The model runs on this Mac in llama-server (llama.cpp), which kelpd starts: an ask while it's starting answers nothing and starts it.",
+      "name" : "editor.nextEdit",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "description" : "The edits made lately, oldest first, the latest last.",
+          "name" : "changes",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "$ref" : "#/components/schemas/NextEditChange"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "name" : "current",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "description" : "The cursor's lines before the latest edit, and now.",
+          "name" : "original",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "description" : "The file's path in its project.",
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/SuggestAnswer"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Starts llama-server with the next-edit model and waits until it answers: the first time, llama-server downloads the model (1.5 GB). The problem is `noServer` when llama.cpp isn't installed, `failed` when it stopped.",
+      "name" : "editor.nextEditStart",
+      "paramStructure" : "by-name",
+      "params" : [
+
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/SuggestAnswer"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Stops the llama-server `editor.nextEditStart` started: the next edit was switched off.",
+      "name" : "editor.nextEditStop",
+      "paramStructure" : "by-name",
+      "params" : [
+
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Gray text for the editor: what a model writes between the code before and after the cursor. Nil when no model answers. The model is one on this Mac (Ollama, LM Studio, llama-server), or a cloud one (`cloud`) with the key saved for it in the login keychain. Kelp runs no model of its own.",
+      "name" : "editor.suggest",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "description" : "The cloud provider to ask instead of this Mac, and its server when not the provider's own.",
+          "name" : "cloud",
+          "required" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/SuggestCloud"
+          }
+        },
+        {
+          "description" : "Code from other files lately open or edited, oldest first, for a model that reads more than one file.",
+          "name" : "extra",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SuggestChunk"
+            },
+            "type" : "array"
+          }
+        },
+        {
+          "description" : "The model to ask, as its server names it; nil or empty picks one that fills in code.",
+          "name" : "model",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "prefix",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "suffix",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "name" : "url",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        },
+        {
+          "description" : "True to have the model read the code and write nothing: a file just opened, so the first suggestion doesn't wait for the model to load. Answers nil.",
+          "name" : "warm",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "$ref" : "#/components/schemas/SuggestAnswer"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Whether a key is saved for `cloud`, after saving `key` when one is given (an empty one removes it). Keys live in the login keychain, never in settings.json.",
+      "name" : "editor.suggestKey",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "cloud",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/SuggestCloud"
+          }
+        },
+        {
+          "name" : "key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "boolean"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "The models the servers running on this Mac offer, in the order a model is picked when none is named: those that fill in code first, a base one before a chat-tuned one.",
+      "name" : "editor.suggestModels",
+      "paramStructure" : "by-name",
+      "params" : [
+
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "items" : {
+            "$ref" : "#/components/schemas/SuggestModel"
+          },
+          "type" : "array"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Has Ollama download `model` through its own API into its own folder, waiting up to 30 s for Ollama to start first (an app just opened). Progress comes to the caller as `SuggestPullEvent`s; Ollama's error is thrown.",
+      "name" : "editor.suggestPull",
+      "paramStructure" : "by-name",
+      "params" : [
+        {
+          "name" : "model",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
+        }
+      },
+      "x-internal" : true
+    },
+    {
+      "description" : "Stops the download `editor.suggestPull` started.",
+      "name" : "editor.suggestPullCancel",
+      "paramStructure" : "by-name",
+      "params" : [
+
+      ],
+      "result" : {
+        "name" : "result",
+        "schema" : {
+          "type" : "null"
         }
       },
       "x-internal" : true
@@ -14425,6 +14773,13 @@
       "name" : "event.subagents",
       "params" : {
         "$ref" : "#/components/schemas/SubagentsEvent"
+      }
+    },
+    {
+      "description" : "How far Ollama's download of a model has come, in bytes, a few times a second.",
+      "name" : "event.suggestPull",
+      "params" : {
+        "$ref" : "#/components/schemas/SuggestPullEvent"
       }
     },
     {

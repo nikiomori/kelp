@@ -19,6 +19,8 @@ public final class EditorTextView: NSTextView {
     var anchors: [Int] = []
     /// What's folded away (Folding).
     nonisolated let folds = Folds()
+    /// Room for a suggestion's further lines (SuggestionGhost).
+    nonisolated let ghostRoom = GhostRoom()
     /// The folded block whose ⋯ is under the pointer. It brightens, and the pointer is an arrow there, because it's a
     /// button.
     var hoveredFold: NSRange? {
@@ -182,7 +184,6 @@ public final class EditorTextView: NSTextView {
             defer { onTyped?(text) }
             if replacementRange.location == NSNotFound, !hasMarkedText(), Typing.pairs(self, text) { return }
             super.insertText(string, replacementRange: replacementRange)
-            if text == "." { onComplete?() }
             return
         }
         let cs = cursors

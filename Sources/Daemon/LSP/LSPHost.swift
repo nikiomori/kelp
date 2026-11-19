@@ -52,9 +52,17 @@ final class LSPHost: Sendable {
     let remotes: Remotes
     /// Where files are read for an answer (the lines of references), so the reads never run on the cooperative pool.
     let offloads: Slots
+    /// The model servers on this Mac the editor's gray text comes from (`editor.suggest`), beside the code's servers.
+    let models: LocalModels
+    /// The llama-server it starts for the next edit (`editor.nextEdit`).
+    let nextEdit = NextEditServer()
 
     /// `retryDelay` sets when a broken server restarts, and `idleDelay` when an idle one stops. Tests shorten both.
-    init(store: Store, remotes: Remotes, offloads: Slots, retryDelay: TimeInterval, idleDelay: TimeInterval) {
+    init(
+        store: Store, remotes: Remotes, offloads: Slots, clients: Clients, retryDelay: TimeInterval,
+        idleDelay: TimeInterval
+    ) {
+        models = LocalModels(clients: clients)
         self.store = store
         self.remotes = remotes
         self.offloads = offloads
@@ -270,6 +278,7 @@ final class LSPHost: Sendable {
         // The servers are gone before this returns, because the daemon stops or execs next, and a SIGKILL left for
         // later would never come.
         DispatchQueue.concurrentPerform(iterations: all.count) { all[$0].terminateNow() }
+        nextEdit.stop(now: true)
     }
 
     private func start(_ key: Key) {

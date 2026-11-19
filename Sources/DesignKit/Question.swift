@@ -37,6 +37,17 @@ public func pick(_ question: String, from choices: [(title: String, value: Strin
     return await runSheet(alert) == .alertFirstButtonReturn ? pop.selectedItem?.representedObject as? String : nil
 }
 
+/// Asks for a secret (an API key) in a sheet: a field that hides what's typed. Returns it, or nil when cancelled.
+@MainActor
+public func askSecret(_ question: String, detail: String, action: String, placeholder: String) async -> String? {
+    let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: Metrics.alertAccessory, height: 22))
+    field.placeholderString = placeholder
+    let alert = NSAlert(question: question, detail: detail, action: action)
+    alert.accessoryView = field
+    alert.window.initialFirstResponder = field
+    return await runSheet(alert) == .alertFirstButtonReturn ? field.stringValue : nil
+}
+
 extension NSScrollView {
     /// Read-only monospaced text for a question's accessory (the commands a file runs, a whole error), scrollable
     /// when long. `lines` sizes it, up to 220 pt.

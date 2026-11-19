@@ -61,6 +61,526 @@
         }
       }
     },
+    "%@ didn't take the key.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не принял ключ."
+          }
+        }
+      }
+    },
+    "%@ Failed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: ошибка"
+          }
+        }
+      }
+    },
+    "%@ is running on this Mac with %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ работает на этом Mac с моделью %2$@."
+          }
+        }
+      }
+    },
+    "%@ Isn't Answering": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не отвечает"
+          }
+        }
+      }
+    },
+    "%@ Isn't Running": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не запущена"
+          }
+        }
+      }
+    },
+    "%@ Needs a Key": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: нужен ключ"
+          }
+        }
+      }
+    },
+    "%@ · Edit Below": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · правка ниже"
+          }
+        }
+      }
+    },
+    "%@ · key saved": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · ключ сохранён"
+          }
+        }
+      }
+    },
+    "%@ · Loading…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · загрузка…"
+          }
+        }
+      }
+    },
+    "%@: Key Rejected": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: ключ не принят"
+          }
+        }
+      }
+    },
+    "%lld ms": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld мс"
+          }
+        }
+      }
+    },
+    "%lld%% · %lld of %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld%% · %2$lld из %3$lld"
+          }
+        }
+      }
+    },
+    "Add Key…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить ключ…"
+          }
+        }
+      }
+    },
+    "address, model, key": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "адрес, модель, ключ"
+          }
+        }
+      }
+    },
+    "After an edit, Sweep Next-Edit on this Mac offers the like one nearby; ⇥ goes there, ⇥ takes it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "После правки Sweep Next-Edit на этом Mac предлагает такую же рядом: ⇥ — перейти, ⇥ — принять."
+          }
+        }
+      }
+    },
+    "API Key for %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключ API для %@"
+          }
+        }
+      }
+    },
+    "Change Key…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сменить ключ…"
+          }
+        }
+      }
+    },
+    "Cloud": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Облако"
+          }
+        }
+      }
+    },
+    "Cloud provider": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Облачный провайдер"
+          }
+        }
+      }
+    },
+    "Cloud · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Облако · %@"
+          }
+        }
+      }
+    },
+    "Cloud: No Key": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Облако: нет ключа"
+          }
+        }
+      }
+    },
+    "Code suggestions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсказки кода"
+          }
+        }
+      }
+    },
+    "Code Suggestions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсказки кода"
+          }
+        }
+      }
+    },
+    "Codestral (Mistral)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codestral (Mistral)"
+          }
+        }
+      }
+    },
+    "Couldn't Get the Model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось получить модель"
+          }
+        }
+      }
+    },
+    "Download Ollama": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачать Ollama"
+          }
+        }
+      }
+    },
+    "Empty: the first code model on this Mac, or the cloud provider's own.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пусто — первая модель для кода на этом Mac или модель облачного провайдера."
+          }
+        }
+      }
+    },
+    "Empty: the provider's own. Codestral's free key works at https://codestral.mistral.ai.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пусто — адрес провайдера. Бесплатный ключ Codestral работает на https://codestral.mistral.ai."
+          }
+        }
+      }
+    },
+    "Get": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачать"
+          }
+        }
+      }
+    },
+    "Getting %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачивается %@"
+          }
+        }
+      }
+    },
+    "Getting Sweep Next-Edit ready (1.5 GB the first time)…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готовлю Sweep Next-Edit (в первый раз — 1,5 ГБ)…"
+          }
+        }
+      }
+    },
+    "Gray text after the cursor from a model on this Mac or in the cloud; ⇥ puts it in.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серый текст после курсора от модели на этом Mac или в облаке; ⇥ вставляет его."
+          }
+        }
+      }
+    },
+    "Gray text as you type, from a model on this Mac. Your code stays on it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серый текст при наборе от модели на этом Mac. Код никуда не уходит."
+          }
+        }
+      }
+    },
+    "In the Cloud": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В облаке"
+          }
+        }
+      }
+    },
+    "Install llama.cpp": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установка llama.cpp"
+          }
+        }
+      }
+    },
+    "Install Ollama": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установить Ollama"
+          }
+        }
+      }
+    },
+    "Install Ollama, then download a model for code:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установите Ollama и скачайте модель для кода:"
+          }
+        }
+      }
+    },
+    "It's stored in your login keychain, not in settings.json.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Он хранится в вашей связке ключей, а не в settings.json."
+          }
+        }
+      }
+    },
+    "Kelp gets %@ (%@) through Ollama.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelp скачает %1$@ (%2$@) через Ollama."
+          }
+        }
+      }
+    },
+    "llama-server stopped": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "llama-server остановился"
+          }
+        }
+      }
+    },
+    "Mercury Edit 2 (Inception)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mercury Edit 2 (Inception)"
+          }
+        }
+      }
+    },
+    "Mistral didn't take the key. A free key works only at codestral.mistral.ai.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mistral не принял ключ. Бесплатный ключ работает только на codestral.mistral.ai."
+          }
+        }
+      }
+    },
+    "Model Not Found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Модель не найдена"
+          }
+        }
+      }
+    },
+    "Needs llama.cpp": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужен llama.cpp"
+          }
+        }
+      }
+    },
+    "No answer came in 8 seconds, or there's no connection.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ответа нет 8 секунд или нет соединения."
+          }
+        }
+      }
+    },
+    "No Code Model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет модели для кода"
+          }
+        }
+      }
+    },
+    "No Model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет модели"
+          }
+        }
+      }
+    },
+    "No Model Found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Модель не найдена"
+          }
+        }
+      }
+    },
+    "No server on this Mac has %@. Pick another model, or download it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ни у одного сервера на этом Mac нет %@. Выберите другую модель или скачайте эту."
+          }
+        }
+      }
+    },
+    "No server on this Mac has a model that fills in code. Download one:": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ни у одного сервера на этом Mac нет модели, которая дописывает код. Скачайте её:"
+          }
+        }
+      }
+    },
+    "None shown yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока ни одной"
+          }
+        }
+      }
+    },
+    "Nothing answers where Ollama, LM Studio or llama-server listen on this Mac.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этом Mac не отвечают ни Ollama, ни LM Studio, ни llama-server."
+          }
+        }
+      }
+    },
     "Nothing that rebuilds by itself.": {
       "localizations": {
         "ru": {
@@ -523,12 +1043,122 @@
         }
       }
     },
+    "Off in %@ Files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключено в файлах %@"
+          }
+        }
+      }
+    },
+    "Off in This File": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выкл. в этом файле"
+          }
+        }
+      }
+    },
+    "Ollama downloads it into its own folder.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama скачивает её в свою папку."
+          }
+        }
+      }
+    },
+    "Ollama runs code models on this Mac. Download it, then Turn On again.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama запускает модели для кода на этом Mac. Скачайте её и снова нажмите «Включить»."
+          }
+        }
+      }
+    },
+    "Ollama runs code models on this Mac. Kelp installs it with Homebrew in a terminal tab.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama запускает модели для кода на этом Mac. Kelp установит её через Homebrew во вкладке терминала."
+          }
+        }
+      }
+    },
+    "Ollama Runs the Model": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Модель запускает Ollama"
+          }
+        }
+      }
+    },
     "on %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "на %@"
+          }
+        }
+      }
+    },
+    "On This Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этом Mac"
+          }
+        }
+      }
+    },
+    "Open Ollama": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть Ollama"
+          }
+        }
+      }
+    },
+    "OpenAI-Compatible Server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сервер, совместимый с OpenAI"
+          }
+        }
+      }
+    },
+    "OpenAI-compatible server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер, совместимый с OpenAI"
+          }
+        }
+      }
+    },
+    "Other Models…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другие модели…"
           }
         }
       }
@@ -799,6 +1429,46 @@
         }
       }
     },
+    "Paused until the Mac cools down.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На паузе, пока Mac не остынет."
+          }
+        }
+      }
+    },
+    "Paused while Low Power Mode is on.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На паузе, пока включён режим энергосбережения."
+          }
+        }
+      }
+    },
+    "Paused: Low Power": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пауза: энергосбережение"
+          }
+        }
+      }
+    },
+    "Paused: Mac Is Hot": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пауза: Mac перегрет"
+          }
+        }
+      }
+    },
     "Per day": {
       "localizations": {
         "ru": {
@@ -825,6 +1495,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Планы"
+          }
+        }
+      }
+    },
+    "Predict the next edit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предсказывать следующую правку"
           }
         }
       }
@@ -859,6 +1539,16 @@
         }
       }
     },
+    "recommended · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "рекомендуем · %@"
+          }
+        }
+      }
+    },
     "Run in Dev Container": {
       "localizations": {
         "ru": {
@@ -879,6 +1569,16 @@
         }
       }
     },
+    "Save Key": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить ключ"
+          }
+        }
+      }
+    },
     "Save Layout as Template": {
       "localizations": {
         "ru": {
@@ -895,6 +1595,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сохранить раскладку как шаблон…"
+          }
+        }
+      }
+    },
+    "Server address": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес сервера"
           }
         }
       }
@@ -949,12 +1659,82 @@
         }
       }
     },
+    "Suggest code as you type": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсказывать код при наборе"
+          }
+        }
+      }
+    },
+    "Suggestions are on in other files.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В остальных файлах подсказки включены."
+          }
+        }
+      }
+    },
+    "Suggestions Off": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсказки выкл."
+          }
+        }
+      }
+    },
+    "Sweep Next-Edit on this Mac · ⇥ goes to the edit, ⇥ takes it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sweep Next-Edit на этом Mac · ⇥ — к правке, ⇥ — принять"
+          }
+        }
+      }
+    },
+    "Taken today": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Принято сегодня"
+          }
+        }
+      }
+    },
     "Templates": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Шаблоны"
+          }
+        }
+      }
+    },
+    "The code around the cursor goes to %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код вокруг курсора отправляется в %@."
+          }
+        }
+      }
+    },
+    "The code around the cursor goes to it. Its key is kept in your login keychain.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код вокруг курсора отправляется ему. Ключ хранится в вашей связке ключей."
           }
         }
       }
@@ -999,12 +1779,62 @@
         }
       }
     },
+    "the server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сервер"
+          }
+        }
+      }
+    },
+    "The server answered with an error.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сервер ответил ошибкой."
+          }
+        }
+      }
+    },
+    "The server needs an address and a code model Kelp knows (Qwen2.5-Coder…).": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серверу нужны адрес и модель для кода, которую Kelp знает (Qwen2.5-Coder…)."
+          }
+        }
+      }
+    },
     "This Mac": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Этот Mac"
+          }
+        }
+      }
+    },
+    "This Mac · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот Mac · %@"
+          }
+        }
+      }
+    },
+    "to line %lld": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "к строке %lld"
           }
         }
       }
@@ -1029,6 +1859,36 @@
         }
       }
     },
+    "Turn On in %@ Files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить в файлах %@"
+          }
+        }
+      }
+    },
+    "Turn Off in %@ Files": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить в файлах %@"
+          }
+        }
+      }
+    },
+    "Typical wait": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обычное ожидание"
+          }
+        }
+      }
+    },
     "Used up": {
       "localizations": {
         "ru": {
@@ -1045,6 +1905,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Исчерпан · вернётся %1$@, через %2$@"
+          }
+        }
+      }
+    },
+    "Where": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Где"
           }
         }
       }
@@ -1647,6 +2517,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Xcode соберёт заново"
+          }
+        }
+      }
+    },
+    "Your Server": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свой сервер"
           }
         }
       }

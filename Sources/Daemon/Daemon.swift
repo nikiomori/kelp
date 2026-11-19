@@ -78,7 +78,7 @@ public final class Daemon: Sendable {
         self.agentUsage = AgentUsage(root: root, settings: settings, store: self.store, remotes: remotes)
         self.forges = Forges(offloads: offloads, store: self.store, clients: clients, remotes: remotes)
         self.lsp = LSPHost(
-            store: self.store, remotes: remotes, offloads: offloads, retryDelay: lspDelays.retry,
+            store: self.store, remotes: remotes, offloads: offloads, clients: clients, retryDelay: lspDelays.retry,
             idleDelay: lspDelays.idle)
         self.watches = Watches(clients: clients)
         lsp.whenProblemsChange { [watches] path in

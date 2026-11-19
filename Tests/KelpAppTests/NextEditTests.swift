@@ -1,0 +1,112 @@
+import AppKit
+import Foundation
+import TestSupport
+import Testing
+
+@testable import EditorKit
+
+private let thirty = (0..<30).map { "line \($0)" }
+
+@Test func theModelSeesTheEditJustMadeAndTheCursorsLinesBeforeAndAfterIt() throws {
+    var now = thirty
+    now[12] = "LINE 12"
+    now.insert("added", at: 13)
+    let ask = try #require(
+        NextEdit.ask(base: thirty.joined(separator: "\n"), now: now.joined(separator: "\n"), line: 12, earlier: []))
+    #expect(ask.latest == NextEdit.Change(old: "line 12", new: "LINE 12\nadded"))
+    #expect(ask.firstLine == 4)
+    #expect(ask.current == now[4...20].joined(separator: "\n"))   // eight lines each side of the cursor
+    #expect(ask.original == thirty[4...19].joined(separator: "\n"))   // the same lines, before the line was added
+    #expect(NextEdit.ask(base: "same", now: "same", line: 0, earlier: []) == nil)   // no edit: nothing to ask
+}
+
+@Test(
+    arguments: [
+        // The window, the model's answer, and the lines it offers to change into what.
+        ("a\nb\nc\nd", "a\nB\nc\nd", 1..<2, ["b"], ["B"]),   // a line written another way
+        ("a\nb\nc\nd", "a\nb\nc\nnew\nd", 3..<3, [], ["new"]),   // a line added
+        ("a\nb\nc\nd", "a\nc\nd", 1..<2, ["b"], []),   // a line taken away
+        ("a\nb\nc\nd", "a\nb\nc\nd\n", nil, [], []),   // the same, with a line break more
+        ("a\nb\nc\nd", "a\nb  \nc\nd", nil, [], []),   // only spaces at a line's end
+        ("a\nb\nc\nd", "a\nb", nil, [], []),   // it stopped short: the window's end isn't taken away
+        ("a\nb\n", "a\nb\nnew\n", 2..<2, [], ["new"])   // added before the window's own last line break
+    ] as [(String, String, Range<Int>?, [String], [String])])
+func anAnswerOffersTheLinesItChanged(current: String, answer: String, lines: Range<Int>?, old: [String], new: [String])
+{
+    let ask = NextEdit.Ask(
+        earlier: [], latest: .init(old: "", new: ""), original: "", current: current, firstLine: 10)
+    let proposal = NextEdit.proposal(answer, for: ask)
+    #expect(proposal?.lines == lines.map { $0.lowerBound + 10..<$0.upperBound + 10 })
+    if let proposal { #expect(proposal.old == old && proposal.new == new) }
+}
+
+@Test func aLineWrittenAnotherWayShowsOnlyWhatGoesAndWhatComes() {
+    let (gone, put) = NextEdit.inline("folder.font = .systemFont(ofSize: 13)", "folder.font = .ui(13)")
+    #expect(gone == NSRange(location: 15, length: 19))   // "systemFont(ofSize: "
+    #expect(put == "ui(")
+}
+
+@Test(
+    arguments: [
+        (1..<2, ["B"], NSRange(location: 2, length: 2), "B\n"),
+        (1..<2, [], NSRange(location: 2, length: 2), ""),
+        (2..<2, ["new"], NSRange(location: 4, length: 0), "new\n"),
+        (2..<3, ["C"], NSRange(location: 4, length: 1), "C")   // the last line, which has no line break
+    ] as [(Range<Int>, [String], NSRange, String)])
+func takingAnEditReplacesWholeLines(lines: Range<Int>, new: [String], range: NSRange, text: String) {
+    let old = Array(["a", "b", "c"][lines])
+    let got = NextEdit.replacement(.init(lines: lines, old: old, new: new), in: "a\nb\nc" as NSString)
+    #expect(got.range == range)
+    #expect(got.text == text)
+}
+
+@MainActor private enum KeptEditWindows { static var all: [NSWindow] = [] }
+
+/// The next edit in a real editor: offered after an edit, ⇥ goes to it, ⇥ takes it, Esc drops one.
+extension OneAtATime {
+    @Test func tabGoesToTheEditOfferedThenTakesIt() async throws {
+        _ = NSApplication.shared
+        let text = "a.font = .systemFont(ofSize: 15)\nb.text = 1\nc.font = .systemFont(ofSize: 13)\n"
+        let e = CodeEditor(text: text, url: URL(fileURLWithPath: "/tmp/next.swift"))
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 300), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.contentView = e.view
+        KeptEditWindows.all.append(window)
+        window.makeFirstResponder(e.textView)
+        let tv = e.textView
+        e.suggestionDelay = .zero
+        e.suggestionProvider = { _ in nil }   // no gray text: the next edit is asked for
+        var asked: NextEdit.Ask?
+        e.nextEditProvider = { ask in
+            asked = ask
+            return ask.current.replacingOccurrences(of: ".systemFont(ofSize: 13)", with: ".ui(13)")
+        }
+        var events: [Bool] = []
+        e.onNextEdit = { events.append($0) }
+        tv.setSelectedRange(NSRange(location: 9, length: 23))   // ".systemFont(ofSize: 15)"
+        tv.insertText(".ui(15)", replacementRange: NSRange(location: NSNotFound, length: 0))
+        #expect(try await waitFor(2) { e.isOfferingEdit })
+        #expect(asked?.latest == NextEdit.Change(old: "a.font = .systemFont(ofSize: 15)", new: "a.font = .ui(15)"))
+        #expect(e.nextEdit.pill?.isHidden == false)   // "⇥ to line 3", the cursor being on line 1
+        #expect(e.nextEdit.struck == NSRange(location: 38, length: 19))
+
+        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
+        #expect(tv.selectedRange() == NSRange(location: 38, length: 0))   // where line 3 changes
+        #expect(e.nextEdit.pill?.isHidden == true)
+        #expect(tv.string == "a.font = .ui(15)\nb.text = 1\nc.font = .systemFont(ofSize: 13)\n")   // not taken yet
+
+        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
+        #expect(tv.string == "a.font = .ui(15)\nb.text = 1\nc.font = .ui(13)\n")
+        #expect(tv.selectedRange().location == 44)   // after it
+        #expect(!e.isOfferingEdit && e.nextEdit.struck == nil)
+        #expect(events.prefix(2) == [true, false])
+
+        e.nextEditProvider = { $0.current + "\nmore" }   // next, one that adds a line; Esc drops it
+        tv.insertText(" ", replacementRange: NSRange(location: NSNotFound, length: 0))
+        #expect(try await waitFor(2) { e.isOfferingEdit })
+        tv.doCommand(by: #selector(NSResponder.cancelOperation(_:)))
+        #expect(!e.isOfferingEdit)
+        #expect(tv.string == "a.font = .ui(15)\nb.text = 1\nc.font = .ui(13) \n")
+    }
+}

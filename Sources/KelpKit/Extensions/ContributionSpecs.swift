@@ -305,12 +305,16 @@ package struct SettingsSection: Identifiable {
     /// The shown rows under their headings. Rows keep their order, and each run of rows in one group goes under the
     /// group's heading, as System Settings groups its panes.
     var groups: [(String?, [SettingSpec])] {
-        specs.filter { $0.hidden != true }.reduce(into: []) { runs, spec in
+        let runs: [(String?, [SettingSpec])] = specs.reduce(into: []) { runs, spec in
             if let last = runs.indices.last, runs[last].0 == spec.group {
                 runs[last].1.append(spec)
             } else {
                 runs.append((spec.group, [spec]))
             }
+        }
+        // Hidden rows aren't drawn; a group of them stays when its own view (a preview) does the setting.
+        return runs.map { ($0.0, $0.1.filter { $0.hidden != true }) }.filter { group, rows in
+            !rows.isEmpty || group.map { previews[$0] != nil } == true
         }
     }
     /// The section's own views under the generated rows (accounts, integrations…), or the whole page (`fillsPane`).

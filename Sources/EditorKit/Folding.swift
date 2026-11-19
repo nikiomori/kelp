@@ -113,6 +113,12 @@ extension EditorTextView: NSLayoutManagerDelegate {
         rect.pointee.size.height += CodeEditor.lineExtra
         used.pointee.size.height += CodeEditor.lineExtra
         baselineOffset.pointee += CodeEditor.lineExtra / 2
+        if let char = ghostRoom.char,
+            NSLocationInRange(char, lm.characterRange(forGlyphRange: range, actualGlyphRange: nil))
+        {
+            rect.pointee.size.height += ghostRoom.height
+            used.pointee.size.height += ghostRoom.height
+        }
         return true
     }
     // swiftlint:enable function_parameter_count

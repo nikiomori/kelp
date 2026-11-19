@@ -46,6 +46,8 @@ final class FileRules {
         } changed: { [weak self] _ in
             self?.applyLooks()
         }
+        Suggestions.of(app).attach(
+            to: editor, bar: bar, path: path, root: root, owner: self)
         Task { [weak self] in await self?.readConfig() }
     }
 

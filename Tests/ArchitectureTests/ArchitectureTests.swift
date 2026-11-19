@@ -190,7 +190,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // built-in no longer names its category and calls `goOn` itself.
     // +2: a built-in's tooltip or sentence that names a command's key reads the key as it stands (`hint`, `keyText`),
     // so a key rebound in Settings › Keyboard isn't still the old one on Git's, Run's and the editor's buttons.
-    #expect(declared == 368, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // +3: a file's status bar card turns code suggestions off in its language's files and says which
+    // (`setOwn`, `LanguageName`, its `of`), as Settings' language picker does.
+    #expect(declared == 371, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

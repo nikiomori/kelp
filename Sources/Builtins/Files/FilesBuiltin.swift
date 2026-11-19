@@ -161,7 +161,7 @@ extension Builtins {
                     if let tab = fileTab(app) { Task { await tab.format() } }
                 }
             ],
-            settings: [editorSettings, languagesSettings(app)],
+            settings: [editorSettings(app), languagesSettings(app)],
             tabs: [
                 TabProvider(
                     schemes: ["file"], make: { FileTab(uri: $0, app: app) },
@@ -184,7 +184,14 @@ extension Builtins {
                     placeholder: { _ in (String(localized: "Disk Usage"), .symbol("internaldrive"), nil) })
             ],
             languages: Languages.all,
-            skills: [artifactsSkill]
+            skills: [artifactsSkill],
+            events: [
+                {
+                    guard let progress = $0 as? SuggestPullEvent else { return false }
+                    Suggestions.of(app).downloaded(progress)
+                    return true
+                }
+            ]
         )
     }
 }

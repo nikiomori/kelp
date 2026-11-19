@@ -2,10 +2,46 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
+import SwiftUI
 
 extension Builtins {
+    /// Settings › Editor › Code suggestions: the list (`SuggestionsList`) switches them on and picks where from; the
+    /// rows it stands for stay hidden, for search and settings.json (and a language's own on or off).
+    private static var suggestionRows: [SettingSpec] {
+        [
+            s(
+                SettingKeys.suggestions, "Suggest code as you type", .enum,
+                "Gray text after the cursor from a model on this Mac or in the cloud; ⇥ puts it in.",
+                options: ["off", "local", "cloud"],
+                labels: ["off": "Off", "local": "On This Mac", "cloud": "In the Cloud"],
+                group: "Code suggestions", hidden: true, perLanguage: true),
+            s(
+                SettingKeys.suggestionCloud, "Cloud provider", .enum,
+                "The code around the cursor goes to it. Its key is kept in your login keychain.",
+                options: SuggestCloud.allCases.map(\.rawValue),
+                labels: [
+                    "mercury": "Mercury Edit 2 (Inception)", "codestral": "Codestral (Mistral)",
+                    "openai": "OpenAI-Compatible Server"
+                ], group: "Code suggestions", hidden: true, requires: "\(SettingKeys.suggestions.key)=cloud"),
+            s(
+                SettingKeys.suggestionURL, "Server address", .string,
+                "Empty: the provider's own. Codestral's free key works at https://codestral.mistral.ai.",
+                group: "Code suggestions", hidden: true, requires: "\(SettingKeys.suggestions.key)=cloud",
+                placeholder: "https://api.example.com"),
+            s(
+                SettingKeys.suggestionModel, "Model", .string,
+                "Empty: the first code model on this Mac, or the cloud provider's own.",
+                group: "Code suggestions", hidden: true, requires: "\(SettingKeys.suggestions.key)!=off",
+                placeholder: "qwen2.5-coder:1.5b-base"),
+            s(
+                SettingKeys.nextEdit, "Predict the next edit", .boolean,
+                "After an edit, Sweep Next-Edit on this Mac offers the like one nearby; ⇥ goes there, ⇥ takes it.",
+                group: "Code suggestions", hidden: true, requires: "\(SettingKeys.suggestions.key)!=off")
+        ]
+    }
+
     /// Settings › Editor.
-    static var editorSettings: SettingsSection {
+    static func editorSettings(_ app: AppModel) -> SettingsSection {
         SettingsSection(
             id: "editor", title: "Editor", icon: "doc.text",
             specs: [
@@ -79,11 +115,16 @@ extension Builtins {
                     SettingKeys.hover, "Show what the language server knows on hover", .boolean,
                     "A symbol's signature and documentation, and the arguments of a call as you type it.",
                     group: "Language servers",
-                    requires: SettingKeys.lsp.key),
+                    requires: SettingKeys.lsp.key)
+            ] + suggestionRows + [
                 s(
                     SettingKeys.markdownMode, "Default Markdown mode", .enum,
                     options: ["preview", "edit", "split"], look: .segments, group: "Markdown")
-            ], order: 70, previews: ["": EditorSample.card])
+            ], order: 70,
+            previews: [
+                "": EditorSample.card,
+                "Code suggestions": { AnyView(SuggestionsList(suggestions: Suggestions.of(app)).padding(.bottom, 8)) }
+            ])
     }
 }
 
@@ -105,4 +146,9 @@ extension SettingKeys {
     static let insertFinalNewline = Setting("files.insertFinalNewline", false)
     static let lsp = Setting("editor.lsp", true)
     static let hover = Setting("editor.hover", true)
+    static let suggestions = Setting("editor.suggestions", "off")
+    static let suggestionModel = Setting("editor.suggestionModel", "")
+    static let suggestionCloud = Setting("editor.suggestionCloud", "mercury")
+    static let suggestionURL = Setting("editor.suggestionURL", "")
+    static let nextEdit = Setting("editor.nextEdit", false)
 }
