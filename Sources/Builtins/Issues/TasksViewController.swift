@@ -76,7 +76,8 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         detail.orientation = .vertical
         detail.alignment = .leading
         detail.spacing = Metrics.gapWide
-        detail.edgeInsets = NSEdgeInsets(top: 16, left: 18, bottom: 16, right: 18)
+        detail.edgeInsets = NSEdgeInsets(
+            top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
         let ds = NSScrollView()
         ds.hasVerticalScroller = true
         ds.drawsBackground = false

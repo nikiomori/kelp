@@ -12,9 +12,9 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     enum Part: Int { case table, row, agent }
 
     let view = NSView()
-    private let part = NSSegmentedControl(
-        labels: [String(localized: "Table"), String(localized: "Row"), String(localized: "Agent")],
-        trackingMode: .selectOne, target: nil, action: nil)
+    private let part = CapsuleSegments(
+        labels: [String(localized: "Table"), String(localized: "Row"), String(localized: "Agent")], target: nil,
+        action: nil)
     private let search = NSSearchField()
     private let stack = NSStackView()
     static let width: CGFloat = 264
@@ -88,7 +88,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     // MARK: Table
 
     private func tablePart() {
-        guard let table else { return add(note(String(localized: "No Table Shown"))) }
+        guard let table else { return add(note(String(localized: "No table shown"))) }
         add(field(String(localized: "Name"), table.name, mono: true))
         if table.kind == "view" { add(field(String(localized: "Kind"), String(localized: "View"))) }
         if let rows = table.rows { add(field(String(localized: "Rows"), "≈ " + rows.formatted())) }
@@ -114,7 +114,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     // MARK: Row
 
     private func rowPart() {
-        guard let row else { return add(note(String(localized: "No Row Selected"))) }
+        guard let row else { return add(note(String(localized: "No row selected"))) }
         let find = search.stringValue.lowercased()
         var shown = 0
         for (i, name) in row.columns.enumerated() where find.isEmpty || name.lowercased().contains(find) {
@@ -123,7 +123,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
             add(rowField(i, name, value, column))
             shown += 1
         }
-        if shown == 0 { add(note(String(localized: "No Matching Fields"))) }
+        if shown == 0 { add(note(String(localized: "No matching fields"))) }
     }
 
     private func rowField(_ index: Int, _ name: String, _ value: String?, _ column: DatabaseSchema.Column?) -> NSView {
@@ -179,7 +179,7 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     // MARK: Agent
 
     private func agentPart() {
-        if runs.isEmpty { add(note(String(localized: "No Agent Has Run Anything on It"))) }
+        if runs.isEmpty { add(note(String(localized: "No agent has run anything on it"))) }
         for run in runs.prefix(20) {
             let sql = PointerButton(title: run.sql.split(whereSeparator: \.isNewline).joined(separator: " ")) {
                 [weak self] in self?.onRun(run)
@@ -231,11 +231,11 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     }
 
     private func note(_ s: String) -> NSView {
-        padded(NSTextField.label(s, font: .ui(TextSize.row), color: .tertiaryLabelColor))
+        padded(NSTextField.label(s, font: .ui(TextSize.row), color: .secondaryLabelColor))
     }
 
     private func small(_ s: String) -> NSTextField {
-        .label(s, font: .ui(TextSize.caption), color: .tertiaryLabelColor)
+        .label(s, font: .ui(TextSize.caption), color: .secondaryLabelColor)
     }
 
     /// Returns JSON indented, and any other value as it is.

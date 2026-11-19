@@ -326,7 +326,9 @@ extension DatabaseTab {
             let written = await Task.detached { Result { try body.write(to: url, atomically: true, encoding: .utf8) } }
                 .value
             if case .failure(let error) = written {
-                Banner.show(String(localized: "Couldn't save \(url.lastPathComponent): \(error.localizedDescription)"))
+                Banner.show(
+                    String(localized: "Couldn’t save \(url.lastPathComponent): \(error.localizedDescription)"),
+                    style: .error)
             }
         }
     }
@@ -373,7 +375,7 @@ extension DatabaseTab {
             let (done, error) = await app.tryCall(
                 DatabaseApply(worktreeId: address.worktree, database: address.name, statements: statements))
             guard let done else {
-                Banner.show(String(localized: "Nothing saved: \(error ?? "")"))
+                Banner.show(String(localized: "Nothing saved: \(error ?? "")"), style: .error)
                 return
             }
             grid.edits.clear()

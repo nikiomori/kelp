@@ -1,4 +1,5 @@
 import Core
+import DesignKit
 import EditorKit
 import SwiftUI
 
@@ -23,8 +24,11 @@ struct LanguagePicker: View {
                     Text(LanguageName.of($0)).tag($0)
                 }
             } label: {
-                Text("For")
-                Text("A language's own value wins over the one for all files.")
+                // A title that says what it picks on its own, with the rule behind a ⓘ as the other rows have it.
+                HStack(spacing: Metrics.gap) {
+                    Text("Settings for")
+                    HelpMark(text: String(localized: "A language’s own value wins over the one for all files."))
+                }
             }
         }
     }

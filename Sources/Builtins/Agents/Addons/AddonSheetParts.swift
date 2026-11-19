@@ -170,13 +170,15 @@ enum AddonSheetParts {
                 symbol(addon.kind == .server ? "server.rack" : "doc.text"), text(addon.name, .ui(TextSize.body)), about,
                 NSView()
             ])
-            let button = PointerButton(title: String(localized: "Give to All")) {}
-            button.onClick = { [weak sheet, weak button, weak about] in
+            // A row's worded button in a sheet is the system's small one. Once taken, it goes: it's the row's last view.
+            let button = ClosureButton(title: String(localized: "Give to All")) { [weak sheet, weak line, weak about] in
                 sheet?.take(addon) {
-                    button?.isHidden = true
+                    line?.arrangedSubviews.last?.isHidden = true
                     about?.stringValue = String(localized: "every agent has it now")
                 }
             }
+            button.bezelStyle = .push
+            button.controlSize = .small
             line.addArrangedSubview(button)
             return line
         }

@@ -1,0 +1,299 @@
+import AppKit
+
+/// A choice of a few words in one capsule: the chosen word sits on a white raised capsule that slides to a new choice,
+/// as the sidebar's chosen row is drawn. The system's segmented control draws every style of it as a rounded rectangle
+/// now, where Kelp's controls taken whole are capsules. Each segment is as wide as its word; more room is shared in
+/// proportion. It answers the pointer, a press, the arrows (with Full Keyboard Access) and VoiceOver as a radio group,
+/// and grows with Text size. `SwiftUI` takes it through `Segments`.
+@MainActor
+public final class CapsuleSegments: NSControl {
+    private var words: [String]
+    private var fields: [NSTextField] = []
+    private var segmentOn: [Bool] = []
+    private var tips: [String?] = []
+    private let thumb = NSView(), hover = NSView()
+    private var hovered: Int?, pressed: Int?
+    private var watching: [NSObjectProtocol] = []
+
+    public init(labels: [String], target: AnyObject? = nil, action: Selector? = nil) {
+        words = labels
+        super.init(frame: .zero)
+        self.target = target
+        self.action = action
+        wantsLayer = true
+        for part in [hover, thumb] {
+            part.wantsLayer = true
+            addSubview(part)
+        }
+        rebuild()
+        setAccessibilityElement(true)
+        setAccessibilityRole(.radioGroup)
+    }
+    public convenience init() { self.init(labels: []) }
+    required init?(coder: NSCoder) { fatalError("not from a nib") }
+
+    // MARK: What it says
+
+    /// The chosen segment, -1 for none. Setting it slides the plate; it sends no action.
+    public var selectedSegment = -1 {
+        didSet {
+            guard selectedSegment != oldValue else { return }
+            restyle()
+            placeThumb(animated: window != nil && oldValue >= 0)
+            NSAccessibility.post(element: self, notification: .valueChanged)
+        }
+    }
+    public var segmentCount: Int {
+        get { words.count }
+        set {
+            words = Array(words.prefix(newValue)) + Array(repeating: "", count: max(0, newValue - words.count))
+            rebuild()
+        }
+    }
+    public func setLabel(_ label: String, forSegment index: Int) {
+        guard words.indices.contains(index), words[index] != label else { return }
+        words[index] = label
+        fields[index].stringValue = label
+        invalidateIntrinsicContentSize()
+        needsLayout = true
+    }
+    public func label(forSegment index: Int) -> String? { words.indices.contains(index) ? words[index] : nil }
+    public func setEnabled(_ on: Bool, forSegment index: Int) {
+        guard segmentOn.indices.contains(index) else { return }
+        segmentOn[index] = on
+        restyle()
+    }
+    public func isEnabled(forSegment index: Int) -> Bool { segmentOn.indices.contains(index) && segmentOn[index] }
+    public func setToolTip(_ tip: String?, forSegment index: Int) {
+        guard tips.indices.contains(index) else { return }
+        tips[index] = tip
+        needsLayout = true
+    }
+    override public var isEnabled: Bool { didSet { restyle() } }
+    override public var controlSize: NSControl.ControlSize {
+        didSet {
+            restyle()
+            invalidateIntrinsicContentSize()
+        }
+    }
+
+    private func rebuild() {
+        fields.forEach { $0.removeFromSuperview() }
+        fields = words.map { word in
+            let field = NSTextField(labelWithString: word)
+            field.alignment = .center
+            field.lineBreakMode = .byTruncatingTail
+            addSubview(field)
+            return field
+        }
+        segmentOn = Array(repeating: true, count: words.count)
+        tips = Array(repeating: nil, count: words.count)
+        if selectedSegment >= words.count { selectedSegment = -1 }
+        light(nil)
+        restyle()
+        invalidateIntrinsicContentSize()
+        needsLayout = true
+    }
+
+    // MARK: Size and places
+
+    private var small: Bool { controlSize == .small || controlSize == .mini }
+    private var wordFont: NSFont { .ui(small ? TextSize.caption : TextSize.body) }
+    private var chosenFont: NSFont { .ui(small ? TextSize.caption : TextSize.body, weight: .medium) }
+    private var height: CGFloat { TextSize.of(small ? Metrics.segment.height : Metrics.row) }
+    /// A word's own width with room on both sides, measured in the weight it has when chosen, so choosing doesn't move it.
+    private var wants: [CGFloat] {
+        words.map { ceil(($0 as NSString).size(withAttributes: [.font: chosenFont]).width) + 2 * Metrics.gapWide + 2 }
+    }
+    override public var intrinsicContentSize: NSSize {
+        NSSize(width: wants.reduce(0, +) + 2 * Metrics.lineGap, height: height)
+    }
+    /// Each segment's place: its word's width, with what room there is beyond (or short of) them shared in proportion.
+    func segmentRects() -> [NSRect] {
+        let wants = self.wants, total = wants.reduce(0, +)
+        guard total > 0 else { return [] }
+        let share = (bounds.width - 2 * Metrics.lineGap) / total
+        var x = Metrics.lineGap
+        return wants.map { want in
+            defer { x += want * share }
+            return NSRect(x: x, y: Metrics.lineGap, width: want * share, height: bounds.height - 2 * Metrics.lineGap)
+        }
+    }
+    override public func layout() {
+        super.layout()
+        layer?.cornerRadius = bounds.height / 2
+        let rects = segmentRects()
+        removeAllToolTips()
+        for (index, field) in fields.enumerated() where rects.indices.contains(index) {
+            let size = field.fittingSize
+            field.frame = NSRect(
+                x: rects[index].minX + Metrics.gapWide / 2, y: rects[index].midY - size.height / 2,
+                width: rects[index].width - Metrics.gapWide, height: size.height)
+            if let tip = tips[index] { addToolTip(rects[index], owner: tip as NSString, userData: nil) }
+        }
+        placeThumb(animated: false)
+        if let hovered, rects.indices.contains(hovered) { hover.frame = rects[hovered] }
+    }
+    private func placeThumb(animated: Bool) {
+        let rects = segmentRects()
+        thumb.isHidden = !rects.indices.contains(selectedSegment)
+        guard rects.indices.contains(selectedSegment) else { return }
+        let target = rects[selectedSegment]
+        thumb.layer?.cornerRadius = target.height / 2
+        hover.layer?.cornerRadius = target.height / 2
+        guard animated, !Motion.reduced else { return thumb.frame = target }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.base
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            thumb.animator().frame = target
+        }
+    }
+
+    // MARK: Look
+
+    private func restyle() {
+        let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua,
+            key = window?.isKeyWindow ?? true, contrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = NSColor.fillHover.cgColor
+            guard let plate = thumb.layer else { return }
+            // As the sidebar's chosen row: white and lifted by a hairline shadow in light, lighter than the track in
+            // dark; quieter while another window is in front.
+            plate.backgroundColor = NSColor.white.withAlphaComponent(dark ? (key ? 0.2 : 0.1) : (key ? 1 : 0.6)).cgColor
+            plate.shadowOpacity = !dark && key ? 1 : 0
+            plate.shadowColor = NSColor.black.withAlphaComponent(0.18).cgColor
+            plate.shadowRadius = 1
+            plate.shadowOffset = CGSize(width: 0, height: -0.5)
+            plate.borderWidth = contrast ? 1 : 0
+            plate.borderColor = (dark ? NSColor.white : .black).withAlphaComponent(dark ? 0.35 : 0.25).cgColor
+        }
+        for (index, field) in fields.enumerated() {
+            let chosen = index == selectedSegment, on = isEnabled && segmentOn[index]
+            field.font = chosen ? chosenFont : wordFont
+            field.textColor = !on ? .tertiaryLabelColor : chosen ? .labelColor : .secondaryLabelColor
+        }
+    }
+    override public func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        restyle()
+    }
+    override public func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        watching.forEach(NotificationCenter.default.removeObserver)
+        watching = []
+        guard let window else { return }
+        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
+            // Delivered on the main thread: the window posts it there.
+            watching.append(
+                NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.restyle() }   // queue .main: the observer runs there
+                })
+        }
+        restyle()
+        placeThumb(animated: false)
+    }
+
+    // MARK: Pointer
+
+    private func segment(at point: NSPoint) -> Int? {
+        segmentRects().firstIndex { $0.contains(point) }.flatMap { isEnabled && segmentOn[$0] ? $0 : nil }
+    }
+    override public func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(
+            NSTrackingArea(
+                rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+                owner: self))
+    }
+    override public func mouseMoved(with event: NSEvent) {
+        light(segment(at: convert(event.locationInWindow, from: nil)))
+    }
+    override public func mouseExited(with event: NSEvent) { light(nil) }
+    /// Greys in the segment under the pointer (not the chosen one, which has its plate) and fades it out after.
+    private func light(_ index: Int?) {
+        let index = index == selectedSegment ? nil : index
+        guard index != hovered else { return }
+        hovered = index
+        if let index, segmentRects().indices.contains(index) {
+            hover.layer?.backgroundColor = nil
+            hover.frame = segmentRects()[index]
+            hover.fadeBackground(to: .fillHover)
+        } else {
+            hover.fadeBackground(to: nil)
+        }
+    }
+    override public func mouseDown(with event: NSEvent) {
+        guard let index = segment(at: convert(event.locationInWindow, from: nil)) else { return }
+        pressed = index
+        if index != selectedSegment {
+            hovered = index
+            hover.frame = segmentRects()[index]
+            hover.fadeBackground(to: .fillSelected, held: true)
+        }
+    }
+    override public func mouseUp(with event: NSEvent) {
+        defer { pressed = nil }
+        guard let pressed else { return }
+        let index = segment(at: convert(event.locationInWindow, from: nil))
+        light(nil)
+        if index == pressed { choose(pressed) }
+    }
+    /// Picks `index` as a person did: the plate slides there and the action goes.
+    func choose(_ index: Int) {
+        guard index != selectedSegment, segmentOn.indices.contains(index), segmentOn[index], isEnabled else { return }
+        selectedSegment = index
+        sendAction(action, to: target)
+    }
+
+    // MARK: Keys
+
+    override public var acceptsFirstResponder: Bool { isEnabled && NSApp.isFullKeyboardAccessEnabled }
+    override public var focusRingMaskBounds: NSRect { bounds }
+    override public func drawFocusRingMask() {
+        NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2).fill()
+    }
+    override public func keyDown(with event: NSEvent) {
+        let step: Int? =
+            switch event.specialKey {
+            case .leftArrow?: -1
+            case .rightArrow?: 1
+            default: nil
+            }
+        guard let step else { return super.keyDown(with: event) }
+        var index = selectedSegment + step
+        while segmentOn.indices.contains(index), !segmentOn[index] { index += step }
+        if segmentOn.indices.contains(index) { choose(index) }
+    }
+
+    // MARK: VoiceOver
+
+    override public func accessibilityValue() -> Any? { label(forSegment: selectedSegment) }
+    override public func accessibilityChildren() -> [Any]? {
+        segmentRects().enumerated().map { index, rect in
+            let element = Choice(index: index, of: self)
+            element.setAccessibilityRole(.radioButton)
+            element.setAccessibilityLabel(words[index])
+            element.setAccessibilityValue(index == selectedSegment ? 1 : 0)
+            element.setAccessibilityEnabled(isEnabled && segmentOn[index])
+            element.setAccessibilityParent(self)
+            element.setAccessibilityFrameInParentSpace(rect)
+            return element
+        }
+    }
+    /// One segment to VoiceOver: a radio button whose press chooses it.
+    private final class Choice: NSAccessibilityElement {
+        let index: Int
+        weak var control: CapsuleSegments?
+        init(index: Int, of control: CapsuleSegments) {
+            self.index = index
+            self.control = control
+            super.init()
+        }
+        override func accessibilityPerformPress() -> Bool {
+            let control = self.control, index = self.index
+            MainActor.assumeIsolated { control?.choose(index) }   // VoiceOver asks on the main thread
+            return true
+        }
+    }
+}

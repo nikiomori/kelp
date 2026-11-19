@@ -141,7 +141,7 @@ struct DiskList: View {
                                 Text(DiskNames.size(these.bytes)).monospacedDigit()
                             }
                             .font(.ui(TextSize.caption, weight: .semibold)).foregroundStyle(.secondary)
-                            .padding(.horizontal, Metrics.inset).frame(height: Metrics.rowSection)
+                            .padding(.horizontal, Metrics.inset).frame(height: TextSize.of(Metrics.rowSection))
                             ForEach(these, id: \.path) {
                                 DiskRow(item: $0, root: root, local: host == nil, chosen: $chosen)
                             }

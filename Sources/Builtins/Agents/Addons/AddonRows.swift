@@ -55,7 +55,7 @@ struct AddonRows {
         // plugin's name lined up with the others.
         if count > 0 { chevron.image = .symbol(open ? "chevron.down" : "chevron.right") }
         chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
-        chevron.contentTintColor = .tertiaryLabelColor
+        chevron.contentTintColor = .secondaryLabelColor   // a disclosure chevron is secondary, never tertiary
         chevron.widthAnchor.constraint(equalToConstant: Self.chevron).isActive = true
         let title = addonGroup.agent.map { app.catalog.name($0) } ?? addonGroup.title
         let name = NSTextField.label(
@@ -198,7 +198,8 @@ struct AddonRows {
             let saved = "\(shortTokens(tidied.tokensBefore)) → \(shortTokens(tidied.tokensNow))"
             let keep = button(String(localized: "Keep"), String(localized: "The changes stay: close this"), onKeep)
             let review = button(String(localized: "Review"), String(localized: "Every change, file by file"), onReview)
-            let undo = button(String(localized: "Undo"), String(localized: "Put the files back as they were"), onUndo)
+            // It asks first, so its name ends in "…".
+            let undo = button(String(localized: "Undo…"), String(localized: "Put the files back as they were"), onUndo)
             let row = twoLines(
                 tidied.changed == 0 ? String(localized: "Nothing changed") : String(localized: "Saved"),
                 String(localized: "\(saved) tokens in new chats"), color: .secondaryLabelColor,
@@ -299,7 +300,7 @@ struct AddonRows {
     private static func inset(_ depth: Int) -> CGFloat { Metrics.inset + CGFloat(depth) * (chevron + Metrics.gap) }
 
     private func digits(_ text: String) -> NSTextField {
-        let field = NSTextField.label(text, font: .uiDigits(TextSize.caption), color: .tertiaryLabelColor)
+        let field = NSTextField.label(text, font: .uiDigits(TextSize.caption), color: .secondaryLabelColor)
         field.setContentCompressionResistancePriority(.required, for: .horizontal)
         return field
     }

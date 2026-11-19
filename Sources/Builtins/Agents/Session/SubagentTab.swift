@@ -50,6 +50,9 @@ struct SubagentJournalView: View {
     /// What triggers a new read: another step, or the subagent's end, because its report comes last.
     private struct Change: Equatable { var touched: Date?, working: Bool }
 
+    /// The first read has taken a second: only then does the wait show.
+    @State private var slow = false
+
     private var run: Subagent? { app.session(model.session)?.subagentRuns?.first { $0.id == model.id } }
     private var working: Bool { run.map { $0.ended == nil } ?? false }
 
@@ -60,11 +63,19 @@ struct SubagentJournalView: View {
                 Divider()
                 steps(journal)
             } else if let failed = model.failed {
-                message(String(localized: "Can’t read this subagent"), failed)
+                EmptyState(String(localized: "Can’t Read This Subagent"), symbol: "exclamationmark.triangle") {
+                    Text(failed)
+                } actions: {
+                    Button(String(localized: "Try Again")) { Task { await load() } }
+                }
             } else if model.loaded {
-                message(
-                    String(localized: "Nothing to show"),
-                    String(localized: "Claude Code kept no record of this subagent."))
+                EmptyState(String(localized: "Nothing to Show"), symbol: "list.bullet.rectangle") {
+                    Text("Claude Code kept no record of this subagent.")
+                }
+            } else if slow {
+                // Where the empty state would stand, lifted as it is, so one gives way to the other without a jump.
+                LoadingLine(String(localized: "Reading the subagent’s steps…")).offset(y: -Metrics.emptyLift)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .onAppear { watched.key = model.session }
@@ -76,30 +87,31 @@ struct SubagentJournalView: View {
     }
 
     private func load() async {
+        // Only the first read waits in view; later ones read again under the steps already shown.
+        let wait = model.loaded ? nil : whileSlow { slow = true }
         let (value, error) = await app.tryCall(SessionSubagentJournal(id: model.session, subagent: model.id))
+        wait?.cancel()
+        slow = false
         model.journal = value ?? nil
         model.failed = error
         model.loaded = true
     }
 
+    /// The tab's bar: the subagent's task, its facts in grey, and the way to its agent on the bar's plate.
     private func header(_ journal: SessionSubagentJournal.Journal) -> some View {
-        HStack(spacing: Metrics.gap) {
+        ContentBar {
             Text(journal.task ?? (journal.kind.isEmpty ? String(localized: "Subagent") : journal.kind)).font(
-                .ui(TextSize.row, weight: .medium)
+                .ui(TextSize.body, weight: .semibold)
             )
             .lineLimit(1)
             Text(facts(journal)).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
-            Spacer(minLength: 8)
+            Spacer(minLength: 0)
             if working, let run {
                 Text(run.started, style: .timer).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(
                     .secondary)
             }
-            Button("Go to Agent") { app.workbench.focus(session: model.session) }.buttonStyle(PointerButtonStyle())
-                .font(.ui(TextSize.caption))
-                .lineLimit(1).fixedSize()
+            Button("Go to Agent") { app.workbench.focus(session: model.session) }.lineLimit(1).fixedSize()
         }
-        .padding(.horizontal, Metrics.inset)
-        .frame(height: TextSize.of(Metrics.contentBar))
     }
 
     private func facts(_ journal: SessionSubagentJournal.Journal) -> String {
@@ -133,15 +145,6 @@ struct SubagentJournalView: View {
             .padding(Metrics.inset)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-
-    private func message(_ title: String, _ text: String) -> some View {
-        VStack(spacing: Metrics.gap) {
-            Text(title).font(.ui(TextSize.body, weight: .semibold))
-            Text(text).font(.ui(TextSize.body)).foregroundStyle(.secondary).multilineTextAlignment(.center)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     static func clock(_ seconds: TimeInterval) -> String {

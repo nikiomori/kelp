@@ -15,7 +15,7 @@ extension TasksViewController {
         for c in [source, filter] {
             c.controlSize = .small
             c.isBordered = false
-            c.font = .ui(TextSize.row, weight: .semibold)
+            c.font = .ui(TextSize.row, weight: .medium)
             c.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
         filter.font = .ui(TextSize.row)

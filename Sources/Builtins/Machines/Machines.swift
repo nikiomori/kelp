@@ -192,10 +192,10 @@ enum Machines {
         }
     }
 
-    /// What a machine's state reads as, and in what colour.
+    /// What a machine's state reads as, and in what colour: grey, running or not, and red only when it broke.
     static func machineWord(_ vmInfo: VMInfo) -> (text: String, color: NSColor) {
         switch vmInfo.state {
-        case .running: (String(localized: "Running"), .textGreen)
+        case .running: (String(localized: "Running"), .secondaryLabelColor)
         case .starting: (String(localized: "Starting…"), .secondaryLabelColor)
         case .paused: (String(localized: "Paused"), .secondaryLabelColor)
         case .sleeping: (String(localized: "Asleep"), .secondaryLabelColor)
@@ -203,7 +203,7 @@ enum Machines {
         case .creating: (String(localized: "Being made"), .secondaryLabelColor)
         case .error:
             vmInfo.notMade == true
-                ? (String(localized: "Failed"), .textRed) : (String(localized: "Didn't start"), .textRed)
+                ? (String(localized: "Failed"), .textRed) : (String(localized: "Didn’t start"), .textRed)
         }
     }
 

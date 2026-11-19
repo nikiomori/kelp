@@ -19,9 +19,12 @@ struct LibrarySection: View {
     var body: some View {
         Section {
             if let error {
-                HStack {
-                    Text(error).foregroundStyle(.secondary).textSelection(.enabled)
-                    Spacer()
+                // The same error block every panel shows: the triangle, what failed, why, and Try Again.
+                EmptyState(
+                    String(localized: "Couldn’t load the library"), symbol: "exclamationmark.triangle", lifted: false
+                ) {
+                    Text(error).textSelection(.enabled)
+                } actions: {
                     Button("Try Again") { Task { await load() } }
                 }
             } else if let entries {
@@ -34,7 +37,11 @@ struct LibrarySection: View {
                         (category == nil || Self.category($0) == category) && $0.matches(query)
                     }
                     let (reviewed, found) = Self.split(shown)
-                    if shown.isEmpty { Text("No extension matches “\(query)”.").foregroundStyle(.secondary) }
+                    if shown.isEmpty {
+                        EmptyState(
+                            String(localized: "No extension matches “\(query)”"), symbol: "magnifyingglass",
+                            lifted: false)
+                    }
                     ForEach(reviewed, id: \.id) { row($0) }
                     if !found.isEmpty { unreviewed(found) }
                 }
@@ -103,17 +110,21 @@ struct LibrarySection: View {
 
     /// Lists GitHub's repositories under the `kelp-extension` topic. Nobody reviewed them, and the list says so first.
     private func unreviewed(_ found: [ExtensionLibrary.Entry]) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        VStack(alignment: .leading, spacing: Metrics.gap) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.gapWide) {
                 Text("From GitHub · not reviewed").fontWeight(.semibold)
                 Text("topic kelp-extension, fastest growing first").font(.ui(TextSize.caption)).foregroundStyle(
                     .secondary)
             }
-            Text("Nobody at Kelp has looked at these. Before installing, Kelp shows every command one runs.")
-                .font(.ui(TextSize.caption)).foregroundStyle(Color.textOrange)
+            // A caution, not something waiting for you: grey with the triangle, as orange is only for "waits for you".
+            Label(
+                "Nobody at Kelp has looked at these. Before installing, Kelp shows every command one runs.",
+                systemImage: "exclamationmark.triangle"
+            )
+            .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
             ForEach(found, id: \.id) { row($0) }
         }
-        .padding(.top, 8)
+        .padding(.top, Metrics.gapWide)
     }
 
     private func row(_ entry: ExtensionLibrary.Entry) -> some View {
@@ -123,15 +134,10 @@ struct LibrarySection: View {
                 .secondary
             ).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
+                HStack(spacing: Metrics.gap) {
                     Text(entry.name).fontWeight(.medium)
                     Text(entry.version).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
-                    if let stars = entry.stars {
-                        Text("★ \(stars)" + (entry.weekly.map { $0 > 0 ? " · +\($0) this week" : "" } ?? "")).font(
-                            .ui(TextSize.caption).monospacedDigit()
-                        )
-                        .foregroundStyle(.secondary)
-                    }
+                    if let stars = entry.stars { popularity(stars, weekly: entry.weekly ?? 0) }
                 }
                 if let summary = entry.description, !summary.isEmpty {
                     Text(summary).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
@@ -156,6 +162,18 @@ struct LibrarySection: View {
         .padding(.vertical, 2)
     }
 
+    /// GitHub's stars as SF Symbols' star beside the count (not a typed ★), and how many came this week.
+    private func popularity(_ stars: Int, weekly: Int) -> some View {
+        HStack(spacing: Metrics.gap) {
+            HStack(spacing: Metrics.lineGap) {
+                Image(systemName: "star").font(.symbol(Metrics.iconSmall)).accessibilityLabel("Stars")
+                Text(stars, format: .number)
+            }
+            if weekly > 0 { Text("+\(weekly) this week") }
+        }
+        .font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
+    }
+
     private func install(_ entry: ExtensionLibrary.Entry) {
         installing = entry.id
         Task {
@@ -177,7 +195,7 @@ struct LibrarySection: View {
             }
             entries = all.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         } catch {
-            self.error = String(localized: "Couldn't load the library: \(AppModel.message(error))")
+            self.error = AppModel.message(error)
         }
     }
 }

@@ -51,7 +51,7 @@ extension BrowserTab: WKDownloadDelegate {
         await confirm(
             String(localized: "Allow downloads from \(host)?"),
             detail: String(localized: "Its files go to your Downloads folder."), action: String(localized: "Allow"),
-            cancel: String(localized: "Don't Allow"))
+            cancel: String(localized: "Don’t Allow"))
     }
 
     /// Whether the page's response is a file to keep: a type WebKit can't show, or one sent as an attachment.
@@ -137,7 +137,7 @@ extension BrowserTab: WKDownloadDelegate {
             noteDownload("\(name) failed: \(error.localizedDescription)")
             return
         }
-        Banner.show(String(localized: "Couldn't download \(name): \(error.localizedDescription)"), style: .error)
+        Banner.show(String(localized: "Couldn’t download \(name): \(error.localizedDescription)"), style: .error)
     }
 
     /// Notes a download the agent's page made, in the page's console and in the answer of the action that started it.

@@ -115,7 +115,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
             replaceRow.topAnchor.constraint(equalTo: bar.bottomAnchor),
             replaceRow.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             replaceRow.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            replaceRow.heightAnchor.constraint(equalToConstant: Metrics.row + Metrics.gap),
+            replaceRow.heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.row) + Metrics.gap),
             patternError.topAnchor.constraint(equalTo: bar.bottomAnchor),
             patternError.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: Metrics.inset),
             patternError.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -Metrics.inset),

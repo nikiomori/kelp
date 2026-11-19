@@ -35,7 +35,7 @@ struct MachinesView: View {
                         Spacer(minLength: Metrics.gap)
                         add
                     }
-                    .frame(height: Metrics.rowSection).padding(.leading, Metrics.gap)
+                    .frame(height: TextSize.of(Metrics.rowSection)).padding(.leading, Metrics.gap)
                     ForEach(machines) { row($0) }
                 }
                 .padding(.horizontal, Metrics.gapWide).padding(.bottom, Metrics.gapWide)
@@ -83,12 +83,14 @@ struct MachinesView: View {
                 case .linux: Text(mark.letter).font(.ui(TextSize.caption, weight: .semibold))
                 }
             }
-            .foregroundStyle(.white).frame(width: Metrics.iconButton, height: Metrics.iconButton)
+            .foregroundStyle(.white).frame(
+                width: Metrics.iconButton, height: Metrics.iconButton
+            )
             .background(RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(Color(nsColor: mark.color)))
             .saturation(asleep ? 0 : 1).opacity(asleep ? 0.6 : 1)
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 HStack(spacing: Metrics.gap) {
-                    Text(vmInfo.machine.name).font(.ui(TextSize.row, weight: .semibold)).lineLimit(1)
+                    Text(vmInfo.machine.name).font(.ui(TextSize.body)).lineLimit(1)   // as every name in the sidebar
                     if vmInfo.state == .starting || vmInfo.state == .creating { ProgressView().controlSize(.mini) }
                     Text(word.text).font(.ui(TextSize.caption)).foregroundStyle(Color(nsColor: word.color)).lineLimit(1)
                     Spacer(minLength: Metrics.gap)
@@ -102,7 +104,7 @@ struct MachinesView: View {
                     .truncationMode(.tail)
             }
         }
-        .padding(.horizontal, Metrics.gap).frame(height: Metrics.rowTwoLine)
+        .padding(.horizontal, Metrics.gap).frame(height: TextSize.of(Metrics.rowTwoLine))
         .background(
             RoundedRectangle(cornerRadius: Metrics.radiusSM).fill(
                 hovered == vmInfo.id ? Color(nsColor: .fillHover) : .clear)

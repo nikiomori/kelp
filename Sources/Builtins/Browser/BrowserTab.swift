@@ -131,7 +131,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         }
         let browser = Self.defaultBrowser()
         let ext = IconButton(browser?.icon ?? .symbol("safari"), tip: Self.openIn(browser), target: nil, action: nil)
-        let more = b("ellipsis.circle", String(localized: "More"))
+        let more = b("ellipsis.circle", String(localized: "More Actions"))
         address.placeholderString = String(localized: "Search or enter address")
         address.lineBreakMode = .byTruncatingTail
         address.bezelStyle = .roundedBezel

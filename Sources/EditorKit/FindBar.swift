@@ -37,8 +37,8 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         self?.toggleReplace()
     }
     private lazy var replaceRow = NSStackView(views: [
-        replaceField, caseKept, button(String(localized: "Replace")) { [weak self] in self?.replaceOne() },
-        button(String(localized: "All")) { [weak self] in self?.replaceAll() }
+        replaceField, caseKept, TextButton(String(localized: "Replace")) { [weak self] in self?.replaceOne() },
+        TextButton(String(localized: "All")) { [weak self] in self?.replaceAll() }
     ])
 
     init(editor: CodeEditor) {
@@ -52,7 +52,8 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         replaceField.placeholderString = String(localized: "Replace")
         (replaceField.cell as? NSSearchFieldCell)?.searchButtonCell?.isTransparent = true
         replaceRow.spacing = Metrics.gap
-        replaceRow.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.iconButton + Metrics.gap, bottom: 0, right: 0)
+        replaceRow.edgeInsets = NSEdgeInsets(
+            top: 0, left: Metrics.iconButton + Metrics.gap, bottom: 0, right: 0)
         replaceRow.isHidden = true
         card.onSearch = { [weak self] _ in self?.search(moving: true) }
         card.onStep = { [weak self] in self?.step(forward: $0) }
@@ -61,16 +62,6 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         pin(card)
     }
     required init?(coder: NSCoder) { fatalError("not from a nib") }
-
-    private func button(_ title: String, _ action: @escaping () -> Void) -> NSView {
-        let button = PointerButton()
-        button.title = title
-        button.font = .ui(TextSize.caption)
-        button.padding = Metrics.gap
-        button.restFill = .fillRest
-        button.onClick = action
-        return button
-    }
 
     func begin(with text: String?) {
         let shown = !isHidden && !card.isHidden

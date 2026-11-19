@@ -145,7 +145,7 @@ private struct PlanCard: View {
                             ? String(localized: "read just now")
                             : String(localized: "read \(shortAgo(at, now: now)) ago")
                     )
-                    .font(.ui(TextSize.caption)).foregroundStyle(row.stale ? Color.textOrange : .secondary)
+                    .font(.ui(TextSize.caption)).foregroundStyle(.secondary)   // the card is dimmed and "~" already
                     .lineLimit(1)
                 }
             }

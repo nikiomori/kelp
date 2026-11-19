@@ -78,7 +78,7 @@ struct BrowserRequests {
         await confirm(
             String(localized: "Let an agent use your logged-in browser?"),
             detail: String(localized: "It opens \(url) with your cookies and can act as you on that site."),
-            action: String(localized: "Allow"), cancel: String(localized: "Don't Allow"))
+            action: String(localized: "Allow"), cancel: String(localized: "Don’t Allow"))
     }
 
     /// Runs the action on the page, building the page's tab first if it wasn't built yet.

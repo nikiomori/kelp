@@ -2,14 +2,16 @@ import AppKit
 import Core
 import DesignKit
 import KelpKit
+import SwiftUI
 import WorkbenchKit
 
 /// What a blank browser tab shows: the ports the workspace's terminals and agents listen on, each to open, copy or
-/// stop. The list is refreshed every few seconds while it shows.
+/// stop. It is a `SectionList`, as the server page's ports are: rows that light up under the pointer, ↑ ↓ and Return,
+/// and a right-click menu. The list is refreshed every few seconds while it shows.
 @MainActor
 final class PortsView: NSView {
     var onOpen: ((String) -> Void)?
-    private let list = NSStackView()
+    private let list = NSHostingView(rootView: SectionList([]))
     private let empty = EmptyStateView()
     private var shown: [ServedPage]?
     private let app: AppModel
@@ -18,24 +20,19 @@ final class PortsView: NSView {
         self.app = app
         ports = Watched(.ports, in: app)
         super.init(frame: .zero)
-        let title = NSTextField(labelWithString: String(localized: "Running on This Screen"))
-        title.font = .ui(TextSize.body, weight: .semibold)
-        list.orientation = .vertical
-        list.alignment = .leading
-        list.spacing = 6
-        let stack = NSStackView(views: [title, list])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = Metrics.gapWide
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
+        list.sizingOptions = []
+        list.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(list)
+        // A page's column: its top, and its sides a panel's inset short of the page's, where the rows' words start.
+        let side = Metrics.pageInset - Metrics.inset
+        let fill = list.widthAnchor.constraint(equalToConstant: Metrics.pageColumn)
+        fill.priority = .defaultHigh   // in a narrower pane the list is the pane's width
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: topAnchor, constant: 40),
-            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
-            stack.widthAnchor.constraint(lessThanOrEqualToConstant: 460),
-            stack.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -40)
+            list.topAnchor.constraint(equalTo: topAnchor, constant: Metrics.pageTop),
+            list.bottomAnchor.constraint(equalTo: bottomAnchor),
+            list.centerXAnchor.constraint(equalTo: centerXAnchor),
+            list.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -2 * side), fill
         ])
-        servers = stack
         empty.place(in: self)
         showEmpty(true)
         track(owner: self) { [weak self] in
@@ -62,10 +59,9 @@ final class PortsView: NSView {
         show(pages)
     }
     private let ports: Watched
-    private var servers: NSView?
 
     private func showEmpty(_ none: Bool) {
-        servers?.isHidden = none
+        list.isHidden = none
         empty.show(
             none ? String(localized: "Running on This Screen") : nil, symbol: "network",
             text: String(
@@ -80,62 +76,41 @@ final class PortsView: NSView {
     private func show(_ found: [ServedPage]?) {
         guard let wid = ports.key, let found, found != shown else { return }
         shown = found
-        list.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for page in found { list.addArrangedSubview(row(page, workspace: wid)) }
+        let rows = found.map { row($0, workspace: wid) }
+        list.rootView = SectionList([
+            .init(id: "ports", title: String(localized: "Running on This Screen"), rows: rows)
+        ])
         showEmpty(found.isEmpty)
     }
 
-    private func row(_ page: ServedPage, workspace wid: String) -> NSView {
+    /// A port's row: its number, what listens, and where a remote one really is. A web page's address opens it in this
+    /// tab; anything else (a database, a debugger) copies its address, offered under the pointer.
+    private func row(_ page: ServedPage, workspace wid: String) -> SectionList.Row {
         let actions = PageActions(app)
-        let link = PointerButton(title: page.host == nil ? page.address : page.place) { [weak self] in
-            Task {
-                guard page.isWeb else { return await actions.copy(page, in: wid) }
-                if let here = await actions.reach(page, in: wid) { self?.onOpen?(here.url) }
-            }
-        }
-        link.contentTintColor = .linkColor
-        link.font = .uiDigits(TextSize.body, weight: .medium)
-        link.underlinesOnHover = true
-        let what = NSTextField(labelWithString: page.command)
-        what.textColor = .secondaryLabelColor
-        what.font = .ui(TextSize.row)
-        what.lineBreakMode = .byTruncatingTail
-        what.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let copy = ClosureButton(title: String(localized: "Copy")) { Task { await actions.copy(page, in: wid) } }
-        let stop = ClosureButton(title: String(localized: "Stop")) {
-            guard let pid = page.pid else { return }
-            Task { await actions.stop(pid: pid, in: wid) }
-        }
-        stop.isHidden = page.pid == nil
-        for button in [copy, stop] {
-            button.bezelStyle = .push
-            button.controlSize = .small
-        }
         let command = page.command.isEmpty ? String(localized: "the process") : page.command
-        stop.toolTip = String(localized: "Stops \(command) (PID \(Int(page.pid ?? 0)))")
-        let row = PortRow(views: [link, what, NSView(), copy, stop])
-        row.spacing = 8
-        row.items = { menu in
-            if page.isWeb { menu.add(String(localized: "Open")) { link.performClick(nil) } }
-            menu.add(String(localized: "Copy Address")) { copy.performClick(nil) }
-            if page.pid != nil {
-                menu.addItem(.separator())
-                menu.add(String(localized: "Stop")) { stop.performClick(nil) }
+        var row = SectionList.Row(id: "port \(page.host ?? ""):\(page.remotePort)", title: command)
+        row.key = "\(page.port)"
+        row.trailing = page.host == nil ? nil : page.place
+        let copy = SectionList.Action(String(localized: "Copy Address")) { Task { await actions.copy(page, in: wid) } }
+        if page.isWeb {
+            let open = SectionList.Action(String(localized: "Open")) { [weak self] in
+                Task { if let here = await actions.reach(page, in: wid) { self?.onOpen?(here.url) } }
             }
+            row.link = .init(page.address, tip: String(localized: "Open in This Tab"), run: open.run)
+            row.open = open.run
+            row.menu = [open, copy]
+        } else {
+            row.button = .init(String(localized: "Copy"), run: copy.run)
+            row.onHover = true
+            row.open = copy.run
+            row.menu = [copy]
         }
-        let wide = row.widthAnchor.constraint(equalToConstant: 460)
-        wide.priority = .defaultHigh   // in a narrower pane the row is the pane's width, its buttons still in it
-        wide.isActive = true
+        if let pid = page.pid {
+            row.menu.append(
+                .init(String(localized: "Stop"), tip: String(localized: "Stops \(command) (PID \(Int(pid)))")) {
+                    Task { await actions.stop(pid: pid, in: wid) }
+                })
+        }
         return row
-    }
-}
-
-/// A port's row, which offers its buttons again in a right-click menu.
-private final class PortRow: NSStackView {
-    var items: ((NSMenu) -> Void)?
-    override func menu(for event: NSEvent) -> NSMenu? {
-        let menu = NSMenu()
-        items?(menu)
-        return menu
     }
 }

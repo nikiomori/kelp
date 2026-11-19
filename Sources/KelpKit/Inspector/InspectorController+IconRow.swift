@@ -136,9 +136,11 @@ extension InspectorController {
         }
         let at = settings[SettingKeys.inspectorIconsPosition]
         menu.addItem(.sectionHeader(title: String(localized: "Position")))
+        // The choices named as Settings names them (Beside the Tabs…), so the two places read the same.
+        let names = Builtins.inspectorRows.first { $0.key == SettingKeys.inspectorIconsPosition.key }?.labels ?? [:]
         for v in ["top", "bottom", "side"] {
             let choice = (SettingKeys.inspectorIconsPosition.key, v)
-            menu.addItem(item(loc(v.capitalized), #selector(setChoice(_:)), choice, on: at == v))
+            menu.addItem(item(names[v] ?? loc(v.capitalized), #selector(setChoice(_:)), choice, on: at == v))
         }
         let side =
             ["left", "right"].contains(settings[SettingKeys.inspectorIcons])

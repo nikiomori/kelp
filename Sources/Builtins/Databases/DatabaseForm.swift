@@ -18,9 +18,9 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     private let ssh = NSComboBox(), ssl = NSPopUpButton()
     private let sshRow = NSStackView(), sslRow = NSStackView()
     private let sshOn = NSButton(), sslOn = NSButton()
-    private let place = NSSegmentedControl(), agents = NSSegmentedControl()
-    private let stage = NSSegmentedControl(
-        labels: DatabaseInfo.Stage.allCases.map(DatabaseLook.title), trackingMode: .selectOne, target: nil, action: nil)
+    private let place = CapsuleSegments(), agents = CapsuleSegments()
+    private let stage = CapsuleSegments(
+        labels: DatabaseInfo.Stage.allCases.map(DatabaseLook.title), target: nil, action: nil)
     private let why = DatabaseSheet.small("")
     /// Says what agents may do with the database as the form stands. Under Production agents only read, whatever the
     /// choice says.
@@ -306,14 +306,14 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
                 self.status.stringValue =
                     "● " + through + "\(found.version) · "
                     + String(localized: "\(found.tables) tables") + " · \(found.ms) ms"
-                self.status.textColor = .systemGreen
+                self.status.textColor = .secondaryLabelColor   // it answers: nothing to do, so no colour
                 if !found.databases.isEmpty {
                     self.database.removeAllItems()
                     self.database.addItems(withObjectValues: found.databases)
                 }
             } else {
                 self.status.stringValue = "● " + (answer.error ?? String(localized: "It doesn’t answer."))
-                self.status.textColor = .systemOrange
+                self.status.textColor = .textRed
             }
             self.sheet.fit()
         }
@@ -347,7 +347,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
                 sheet.end()
             } else {
                 status.stringValue = "● " + (answer.error ?? "")
-                status.textColor = .systemRed
+                status.textColor = .textRed
                 add.isEnabled = true
                 sheet.fit()
             }

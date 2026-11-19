@@ -64,14 +64,17 @@ final class CIFailuresView: NSView {
             $0 > 128 ? String(localized: "Exit \($0): stopped by signal \($0 - 128)") : String(localized: "Exit \($0)")
         }
         let lines = report.lastLines.isEmpty ? nil : report.lastLines.joined(separator: "\n")
-        return [head.map(caption), lines.map { mono($0, color: .secondaryLabelColor) }].compactMap { $0 }
+        return [head.map { caption($0) }, lines.map { mono($0, color: .secondaryLabelColor) }].compactMap { $0 }
     }
 
-    fileprivate static func caption(_ text: String) -> NSTextField {
-        let label = NSTextField(labelWithString: text)
+    /// A grey line under a failure. A sentence wraps onto the next line rather than losing its middle; a `name` (a file
+    /// and its line) loses its middle, as in Finder.
+    fileprivate static func caption(_ text: String, name: Bool = false) -> NSTextField {
+        let label = name ? NSTextField(labelWithString: text) : NSTextField(wrappingLabelWithString: text)
         label.font = .ui(TextSize.caption)
         label.textColor = .secondaryLabelColor
-        label.lineBreakMode = .byTruncatingMiddle
+        label.isSelectable = false
+        if name { label.lineBreakMode = .byTruncatingMiddle }
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return label
     }
@@ -117,7 +120,7 @@ private final class FailureRow: PointerControl {
             : failure.file.map { file in ((file as NSString).lastPathComponent + (failure.line.map { ":\($0)" } ?? ""))
             } ?? failure.suite
         let body =
-            (place.map { [CIFailuresView.caption($0)] } ?? [])
+            (place.map { [CIFailuresView.caption($0, name: true)] } ?? [])
             + failure.messages.map { CIFailuresView.mono($0, color: .textRed) }
         let text = NSStackView(views: body)
         text.orientation = .vertical

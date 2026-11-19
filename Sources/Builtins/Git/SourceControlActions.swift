@@ -260,7 +260,7 @@ extension SourceControlController {
     /// Merges a workspace on its own branch (a worktree) into the project's base branch.
     private func mergeIntoBase() {
         guard let wid = worktreeId else { return }
-        Task {
+        Task { @MainActor in
             guard let outcome = await app.call(GitMerge(id: wid)) else { return }
             if outcome.merged {
                 Banner.show(String(localized: "Merged"))
@@ -272,24 +272,29 @@ extension SourceControlController {
                 for id in Set([app.gitKey(wid), project?.id].compactMap({ $0 })) { app.watchAgain(.git, id) }
                 return
             }
+            // A failed action is a red banner, not a sheet to dismiss; it offers the agent the conflicts when there
+            // is one here.
             let files = outcome.conflicts
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Merge Conflicts")
-            alert.alertStyle = .warning
-            alert.informativeText =
-                files.joined(separator: "\n") + String(localized: "\n\nThe merge was aborted; nothing changed.")
-            alert.addButton(withTitle: String(localized: "OK"))
-            if !FileActions(app).agents(in: wid).isEmpty {
-                alert.addButton(withTitle: String(localized: "Ask Agent to Resolve"))
-            }
-            if await runSheet(alert) == .alertSecondButtonReturn, let worktree = app.worktree(wid),
-                let repo = app.repo(worktree.repoId)
+            let named = files.prefix(3).joined(separator: ", ") + (files.count > 3 ? ", …" : "")
+            Banner.show(
+                String(localized: "Merge conflicts in \(named). The merge was aborted; nothing changed."),
+                style: .error, action: askToResolve(files, in: wid))
+        }
+    }
+
+    /// The banner's action after a merge stopped on conflicts: the agent here gets them, when there is one.
+    private func askToResolve(_ files: [String], in wid: String) -> (title: String, run: @MainActor () -> Void)? {
+        guard !FileActions(app).agents(in: wid).isEmpty else { return nil }
+        let app = self.app
+        return (
+            String(localized: "Ask Agent to Resolve"),
             {
+                guard let worktree = app.worktree(wid), let repo = app.repo(worktree.repoId) else { return }
                 GitFix(app).send(
                     "resolveConflicts", worktree: wid,
                     vars: ["base": repo.baseBranch, "files": files.joined(separator: ", ")])
             }
-        }
+        )
     }
 
     // MARK: context menu

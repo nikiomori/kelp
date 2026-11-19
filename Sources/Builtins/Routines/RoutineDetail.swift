@@ -123,7 +123,7 @@ struct RunResult: View {
                 Text(
                     "Ran late: the Mac was asleep or Kelp wasn't running at \(run.due.formatted(date: .omitted, time: .shortened))"
                 )
-                .font(.ui(TextSize.caption)).foregroundStyle(.tertiary)
+                .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
             }
         }
         .padding(Metrics.inset)

@@ -101,7 +101,10 @@ extension CIRunsController {
             } else {
                 let field = NSTextField(string: input.defaultValue)
                 field.placeholderString = input.description
-                field.widthAnchor.constraint(equalToConstant: 220).isActive = true
+                // The form is a question sheet's width, its names beside the fields, as in a new chat's sheet.
+                field.widthAnchor.constraint(
+                    equalToConstant: Metrics.alertAccessory - Metrics.formLabel - Metrics.gapWide
+                ).isActive = true
                 control = field
             }
             fields.append((input.name, control))

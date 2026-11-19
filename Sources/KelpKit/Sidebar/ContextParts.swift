@@ -44,12 +44,12 @@ struct ContextParts: View {
         let rows = self.rows, used = rows.reduce(0) { $0 + $1.tokens }, buffer = parts.setup?.buffer ?? 0
         let biggest = rows.filter { $0.id != "base" }.max { $0.tokens < $1.tokens }?.id
         let reserve = Color(nsColor: .quaternaryLabelColor)
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Metrics.gap) {
             PartsBar(
                 rows.map { PartsBar.Part(id: $0.id, value: Double($0.tokens), color: $0.color ?? .clear) },
                 total: Double(window),
                 end: buffer > 0 ? PartsBar.Part(id: "buffer", value: Double(buffer), color: reserve) : nil)
-            Grid(alignment: .leading, horizontalSpacing: Metrics.gap, verticalSpacing: 3) {
+            Grid(alignment: .leading, horizontalSpacing: Metrics.gap, verticalSpacing: Metrics.lineGap) {
                 ForEach(rows.sorted { $0.tokens > $1.tokens }) { row in legend(row, bold: row.id == biggest) }
                 if buffer > 0 {
                     legend(
@@ -63,7 +63,7 @@ struct ContextParts: View {
                         detail: "", color: nil), bold: false)
             }
             if let deferred = parts.setup?.deferred, !deferred.isEmpty {
-                Text(Self.deferred(deferred)).font(.ui(TextSize.caption)).foregroundStyle(.tertiary).fixedSize(
+                Text(Self.deferred(deferred)).font(.ui(TextSize.caption)).foregroundStyle(.secondary).fixedSize(
                     horizontal: false, vertical: true)
             }
             if let compact { Button(String(localized: "Compact Now"), action: compact).controlSize(.small) }
@@ -84,7 +84,7 @@ struct ContextParts: View {
         if !row.detail.isEmpty {
             GridRow {
                 Color.clear.frame(width: 0, height: 0)
-                Text(row.detail).font(.ui(TextSize.caption)).foregroundStyle(.tertiary).lineLimit(1).truncationMode(
+                Text(row.detail).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1).truncationMode(
                     .tail
                 )
                 .gridCellColumns(3)
@@ -134,17 +134,17 @@ struct ContextParts: View {
         }
     }
 
+    /// No part is orange, yellow or red: those say how full the context is. MCP's two parts share its green (the legend
+    /// names them), and a name Claude Code adds later is grey like Other.
     static func color(_ claude: String) -> Color {
         switch claude {
         case "System prompt": .gray
-        case "System tools": .orange
-        case "MCP tools": .green
-        case "MCP server instructions": .mint
+        case "System tools": .brown
+        case "MCP tools", "MCP server instructions": .green
         case "Custom agents": .indigo
-        case "Memory files": .yellow
+        case "Memory files": .mint
         case "Skills": .pink
-        case "Other": Color(nsColor: .tertiaryLabelColor)
-        default: .brown
+        default: Color(nsColor: .tertiaryLabelColor)
         }
     }
 

@@ -58,7 +58,7 @@ import Testing
     #expect(ServerHeader.details(stats) == "Not connected. Click to open the server, which connects.")
     stats.error = "Connection refused"
     #expect(
-        serverLine(stats) == "Can't reach: Connection refused" && ServerHeader.details(stats) == "Connection refused")
+        serverLine(stats) == "Can’t reach: Connection refused" && ServerHeader.details(stats) == "Connection refused")
     stats = HostStats(host: "box", connected: true)
     (stats.os, stats.cores) = ("Ubuntu 24.04", 1)
     #expect(serverLine(stats) == "Ubuntu 24.04 · 1 core")

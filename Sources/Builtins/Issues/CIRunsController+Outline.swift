@@ -87,10 +87,9 @@ extension CIRunsController {
             cell.toolTip = job.name   // a narrow panel cuts the name
             return cell
         case .step(let step):
-            // The step running now reads like a title, done steps are grey, and the steps still to come quieter still.
-            let color: NSColor =
-                step.status == "in_progress"
-                ? .labelColor : step.status == "completed" ? .secondaryLabelColor : .tertiaryLabelColor
+            // The step running now reads like a title and the others are grey: their marks tell a done step from one
+            // still to come (tertiary grey would be the only copy of its name).
+            let color: NSColor = step.status == "in_progress" ? .labelColor : .secondaryLabelColor
             let line = CIRow.line(
                 CIRunLook.mark(step.status, step.conclusion), step.shortName, font: .ui(TextSize.caption), color: color,
                 right: step.seconds().map(ciSpan))

@@ -2,7 +2,8 @@ import AppKit
 
 /// A button that is an icon (and maybe a count): a 13 pt medium symbol in secondary grey on a 22 pt square. Under the
 /// pointer the square fades to grey; pressed, it darkens; and a click dips it and springs it back (`PointerButton`).
-/// This is the one icon button used in bars: a panel's header, a tab's toolbar, the sidebar.
+/// This is the one icon button used in bars: a panel's header, a tab's toolbar, the sidebar. It keeps its size at any
+/// Text size, as toolbar symbols do in Finder and Xcode: a symbol beside it (Pull's and Push's arrows) doesn't grow.
 @MainActor
 public final class IconButton: PointerButton {
     /// An icon button showing `image`, named `tip` (its tooltip), that calls `action`.
@@ -64,6 +65,7 @@ public final class IconButton: PointerButton {
 
     override public var intrinsicContentSize: NSSize {
         let size = super.intrinsicContentSize
-        return NSSize(width: max(Metrics.iconButton, size.width + (title.isEmpty ? 0 : 6)), height: Metrics.iconButton)
+        return NSSize(
+            width: max(Metrics.iconButton, size.width + (title.isEmpty ? 0 : Metrics.gap)), height: Metrics.iconButton)
     }
 }

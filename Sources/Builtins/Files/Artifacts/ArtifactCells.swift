@@ -59,7 +59,7 @@ struct ArtifactCells {
         text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let row = ArtifactCell(views: [icon, text, NSView()] + end(item))
-        row.spacing = Metrics.gap + 2
+        row.spacing = Metrics.gap   // icon to its name
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         icon.widthAnchor.constraint(equalToConstant: Metrics.iconPoint + 2).isActive = true
         row.onHover = { [weak panel, weak row] on in

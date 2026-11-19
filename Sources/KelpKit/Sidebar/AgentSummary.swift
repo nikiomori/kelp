@@ -67,7 +67,7 @@ final class AgentSummary: NSView {
         card = SummaryCard(app: app)
         super.init(frame: .zero)
         title.maximumNumberOfLines = 1
-        title.font = .ui(TextSize.row, weight: .semibold)
+        title.font = .ui(TextSize.row, weight: .medium)   // 12 has no semibold on the scale
         title.setContentCompressionResistancePriority(.required, for: .horizontal)
         let content = NSStackView(views: [mark, title])
         content.spacing = Metrics.gap

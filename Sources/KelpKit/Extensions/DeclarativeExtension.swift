@@ -217,9 +217,13 @@ enum DeclarativeExtension {
             return ExtWebController(
                 page: folder.appendingPathComponent(web), folder: folder, app: app, badge: badge, props: props)
         }
-        let vc = NSViewController()
-        vc.view = NSTextField(
-            labelWithString: String(localized: "\(extManifest.name): view “\(viewDef.id)” has neither list nor web."))
+        // A view that names neither gets the panel's error block, as a missing page does, not a bare line in a corner.
+        let empty = EmptyStateView(), vc = NSViewController()
+        empty.showError(
+            String(localized: "Nothing to show"),
+            text: String(localized: "\(extManifest.name): view “\(viewDef.id)” has neither list nor web."),
+            fix: "kelp ext check \(ShellQuote.word(folder.path))")
+        vc.view = empty
         return vc
     }
 

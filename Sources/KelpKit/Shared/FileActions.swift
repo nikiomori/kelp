@@ -41,11 +41,21 @@ package struct FileActions {
         if let sure = agent(in: workspace) { return sure }
         let live = agents(in: workspace)
         guard live.count > 1 else { return nil }
+        let titles = Self.distinct(live.map(\.displayTitle))
         let id = await pick(
-            String(localized: "Send to which agent?"),
-            from: live.map { ("\($0.displayTitle) [\($0.id.prefix(6))]", $0.id) },
-            action: String(localized: "Send"), width: 240)
+            String(localized: "Send to which agent?"), from: Array(zip(titles, live.map(\.id))),
+            action: String(localized: "Send"), width: Metrics.alertAccessory)
         return id.flatMap { id in live.first { $0.id == id } }
+    }
+
+    /// The agents' names as the sidebar shows them, with a number after a name that comes again ("Claude", "Claude 2"),
+    /// so two alike can be told apart without showing their ids.
+    static func distinct(_ titles: [String]) -> [String] {
+        var seen: [String: Int] = [:]
+        return titles.map { title in
+            seen[title, default: 0] += 1
+            return seen[title] == 1 ? title : "\(title) \(seen[title] ?? 0)"
+        }
     }
 
     /// Types the reference into the agent's prompt without pressing Return, and shows the agent.

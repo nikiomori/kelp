@@ -40,7 +40,7 @@ extension UsageView {
         var body: some View {
             VStack(alignment: .leading, spacing: Metrics.gapWide) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(row.fullName).font(.ui(TextSize.body, weight: .semibold))
+                    Text(row.fullName).font(.ui(TextSize.heading, weight: .semibold))   // a popover's headline
                     if let at = row.readAt {
                         Text(
                             row.stale
@@ -48,7 +48,8 @@ extension UsageView {
                                 : Date().timeIntervalSince(at) < 60
                                     ? String(localized: "Read just now") : String(localized: "Read \(shortAgo(at)) ago")
                         )
-                        .font(.ui(TextSize.caption)).foregroundStyle(row.stale ? Color.textOrange : .secondary)
+                        // Grey even when old: the dimmed row and its "~" say that already.
+                        .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     }
                 }

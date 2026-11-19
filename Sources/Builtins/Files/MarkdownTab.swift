@@ -19,9 +19,9 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// The script world where Kelp's scripts for the preview run, and the only world `kelpSync` listens to. The page's
     /// own scripts don't run (`PreviewLinks`).
     static let world = WKContentWorld.world(name: "kelp")
-    private let mode = NSSegmentedControl(
-        labels: [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")],
-        trackingMode: .selectOne, target: nil, action: nil)
+    private let mode = CapsuleSegments(
+        labels: [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")], target: nil,
+        action: nil)
     private let split = NSSplitView()
     var renderTask: Task<Void, Never>?
     /// The parts the last loaded page was built from, kept when its body can be replaced in place (`Swap`).

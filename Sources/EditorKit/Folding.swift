@@ -1,4 +1,5 @@
 import AppKit
+import DesignKit
 
 /// Folding by indentation, as VS Code does for most languages. A line whose next lines go in further can hide them
 /// (from its own end to the end of the last line further in), shown as a ⋯ capsule. The line that comes back out (a
@@ -126,6 +127,7 @@ extension EditorTextView: NSLayoutManagerDelegate {
     /// Folds `range` (or opens it) and lays it out again.
     func setFolded(_ range: NSRange, _ on: Bool) {
         if on { folds.add(range) } else { folds.remove(range) }
+        if !on, range == hoveredFold { hoveredFold = nil }   // its ⋯ is gone
         relayOut(range)
         if on, let caret = cursors.first?.location, NSLocationInRange(caret, range), caret != range.location {
             setSelectedRange(NSRange(location: range.location, length: 0))
@@ -147,13 +149,24 @@ extension EditorTextView: NSLayoutManagerDelegate {
         return NSRect(x: caret.minX + 4, y: caret.minY + 2, width: max(width, 18), height: max(caret.height - 4, 8))
     }
 
+    /// Fades the hover fill in over the hovered fold's ⋯, or out, as a control's fill does.
+    func showFoldHover() {
+        if foldPlate.superview !== self { addSubview(foldPlate) }
+        if let hoveredFold {
+            let box = capsule(for: hoveredFold)
+            foldPlate.frame = box
+            foldPlate.layer?.cornerRadius = box.height / 2
+        }
+        foldPlate.fadeBackground(to: hoveredFold == nil ? nil : .fillHover)
+    }
+
     func drawCapsules(in dirty: NSRect) {
         guard !folds.isEmpty else { return }
         let color = textColor ?? .labelColor
         for fold in folds.hidden {
             let box = capsule(for: fold)
             guard box.intersects(dirty) else { continue }
-            color.withAlphaComponent(fold == hoveredFold ? 0.24 : 0.14).setFill()   // brighter under the pointer
+            color.withAlphaComponent(0.14).setFill()   // under the pointer, `foldPlate` brightens it
             NSBezierPath(roundedRect: box, xRadius: box.height / 2, yRadius: box.height / 2).fill()
             let dots = NSAttributedString(
                 string: "⋯",
@@ -219,4 +232,15 @@ final class EditorLayoutManager: NSLayoutManager {
         }
         super.setExtraLineFragmentRect(fragmentRect, usedRect: usedRect, textContainer: container)
     }
+}
+
+/// The fill over a hovered fold's ⋯: a view of its own, so the fill fades in and out as a control's does. The pointer
+/// goes through it to the text.
+final class FoldPlate: NSView {
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+    }
+    required init?(coder: NSCoder) { fatalError("not from a nib") }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

@@ -165,7 +165,7 @@ final class ReplaceSheet: NSObject, NSTableViewDataSource, NSTableViewDelegate {
             box.state =
                 files[fileIndex].chosen.isEmpty
                 ? .off : files[fileIndex].chosen.count == files[fileIndex].matches.count ? .on : .mixed
-            box.font = .ui(TextSize.row, weight: .semibold)
+            box.font = .ui(TextSize.row, weight: .medium)   // the file over its lines
             return box
         }
         let match = files[fileIndex].matches[matchIndex]

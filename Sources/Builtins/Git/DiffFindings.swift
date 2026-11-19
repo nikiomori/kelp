@@ -9,10 +9,14 @@ import KelpKit
 extension DiffViewController {
     func commentRow(_ diffComment: DiffComment) -> NSView {
         let who = diffComment.author.map { "\($0): " } ?? ""
-        let text = NSTextField.label(
-            "💬 \(who)\(diffComment.text)" + (diffComment.state == .open ? "" : "  [\(diffComment.state.rawValue)]"),
-            font: .ui(TextSize.caption, weight: .medium))
-        var views: [NSView] = [text]
+        let text = NSTextField.label("\(who)\(diffComment.text)", font: .ui(TextSize.caption, weight: .medium))
+        let bubble = NSImageView(image: .symbol("text.bubble", String(localized: "Comment")))
+        bubble.symbolConfiguration = .chrome(Metrics.iconSmall)
+        bubble.contentTintColor = .secondaryLabelColor
+        var views: [NSView] = [bubble, text]
+        if let word = Self.stateWord(diffComment.state) {   // a comment that was sent or resolved says so, in grey
+            views.append(NSTextField.label(word, font: .ui(TextSize.caption), color: .secondaryLabelColor))
+        }
         if diffComment.state == .open {
             let box = ClosureButton(title: "") { [weak self] in self?.flip(diffComment.id) }
             box.setButtonType(.switch)
@@ -29,14 +33,23 @@ extension DiffViewController {
                 button.controlSize = .small
                 views.append(button)
             }
-            views.insert(NSView(), at: 2)   // the room goes between the text and its buttons
-            views[2].setContentHuggingPriority(.init(1), for: .horizontal)
+            views.insert(NSView(), at: 3)   // the room goes between the text and its buttons
+            views[3].setContentHuggingPriority(.init(1), for: .horizontal)
         }
         let row = FillStack(views: views)
         row.spacing = Metrics.gap
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gapWide)
         row.fill = .fillSelected
         return row
+    }
+
+    /// What a comment's row says of a comment that is no longer open: "sent" or "resolved".
+    static func stateWord(_ state: DiffComment.State) -> String? {
+        switch state {
+        case .open: nil
+        case .sent: String(localized: "sent", comment: "A review comment that was sent to the agent")
+        case .resolved: String(localized: "resolved", comment: "A review comment that was dismissed or fixed")
+        }
     }
 
     /// Space on a selected comment puts it in or out of what Send to Agent sends.

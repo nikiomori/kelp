@@ -13,6 +13,58 @@ enum DatabaseLook {
         return image
     }
 
+    /// How the badge's dot shows a database's state. Only what is broken has a colour: a grey dot while it answers, a
+    /// grey ring while its compose service is stopped (told by its form, as nothing broke), red when it doesn't
+    /// answer, and no dot before it was tried.
+    static func dot(_ state: DatabaseHealth.State?) -> (color: NSColor, ring: Bool)? {
+        switch state {
+        case .ok: (.secondaryLabelColor, false)
+        case .stopped: (.secondaryLabelColor, true)
+        case .down: (.systemRed, false)
+        case .unknown, nil: nil
+        }
+    }
+
+    /// The engine's badge with its `dot` on its corner. A ring is cut out around the dot, so the dot reads on any row
+    /// (selected, hovered). VoiceOver hears the state in words, because the dot is only a colour and a form.
+    @MainActor static func mark(_ engine: DatabaseInfo.Engine, _ databaseHealth: DatabaseHealth?) -> NSImageView {
+        let badge = DatabaseLook.badge(engine, size: 16)
+        let said: String =
+            switch databaseHealth?.state {
+            case .ok: String(localized: "Answers")
+            case .stopped: String(localized: "Stopped")
+            case .down: String(localized: "It doesn’t answer.")
+            case .unknown, nil: String(localized: "Not tried yet")
+            }
+        let look = dot(databaseHealth?.state)
+        let image = NSImage(size: NSSize(width: 19, height: 19), flipped: false) { _ in
+            badge.draw(in: NSRect(x: 0, y: 3, width: 16, height: 16))
+            guard let look else { return true }
+            let dot = NSRect(x: 12, y: 0, width: 7, height: 7)
+            NSGraphicsContext.current?.compositingOperation = .clear
+            NSBezierPath(ovalIn: dot.insetBy(dx: -1.5, dy: -1.5)).fill()
+            NSGraphicsContext.current?.compositingOperation = .sourceOver
+            if look.ring {
+                let ring = NSBezierPath(ovalIn: dot.insetBy(dx: 0.75, dy: 0.75))
+                ring.lineWidth = 1.5
+                look.color.setStroke()
+                ring.stroke()
+            } else {
+                look.color.setFill()
+                NSBezierPath(ovalIn: dot).fill()
+            }
+            return true
+        }
+        let view = NSImageView(image: image)
+        view.setAccessibilityLabel(said)
+        view.toolTip =
+            databaseHealth.map {
+                [$0.state == .ok ? String(localized: "Answers") : nil, $0.reason].compactMap { $0 }.joined()
+            }
+            ?? String(localized: "Not tried yet")
+        return view
+    }
+
     /// The app's own icon when the app is installed, else a symbol. Import's rows show it.
     @MainActor static func appIcon(_ source: String) -> NSImage {
         let bundles = [
@@ -86,7 +138,8 @@ enum DatabaseLook {
         // A `FillStack`, because the grey fill is black on light and white on dark: it reads the fill in the chip's own
         // appearance, where a layer's colour set once keeps the one the chip was built in.
         let chip = FillStack(views: [label])
-        chip.edgeInsets = NSEdgeInsets(top: 1, left: 5, bottom: 1, right: 5)
+        let (side, top) = (Metrics.gap, Metrics.lineGap)
+        chip.edgeInsets = NSEdgeInsets(top: top, left: side, bottom: top, right: side)
         chip.fill = production ? .fillTint(.systemRed) : .fillHover
         chip.layer?.cornerRadius = Metrics.radiusXS
         chip.toolTip = title(stage) + ": " + meaning(stage)
@@ -109,7 +162,7 @@ enum DatabaseLook {
     /// What agents may do, worded as a menu or a segment shows it.
     static func title(_ access: DatabaseInfo.Access) -> String {
         switch access {
-        case .hidden: String(localized: "Can't See")
+        case .hidden: String(localized: "Can’t See")
         case .read: String(localized: "Read")
         case .ask: String(localized: "Ask to Change")
         case .free: String(localized: "Change Freely")

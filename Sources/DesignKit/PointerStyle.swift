@@ -119,6 +119,6 @@ private struct PointerMenu: ViewModifier {
 }
 
 extension Animation {
-    /// A press dipping and coming back, in SwiftUI (AppKit's is `pressBounce`).
-    fileprivate static var pressSpring: Animation { .spring(response: 0.25, dampingFraction: 0.6) }
+    /// A press dipping and coming back, in SwiftUI (AppKit's is `pressBounce`), in the time a press takes there.
+    @MainActor static var pressSpring: Animation { .spring(response: Motion.press, dampingFraction: 0.6) }
 }

@@ -45,7 +45,6 @@ final class SummarySegment: PointerControl {
         verb.textColor = .secondaryLabelColor
         verb.setContentCompressionResistancePriority(.required, for: .horizontal)
         let content = NSStackView(views: [mark, label, verb])
-        content.setCustomSpacing(3, after: label)
         content.detachesHiddenViews = true
         content.spacing = 4
         content.translatesAutoresizingMaskIntoConstraints = false
@@ -73,7 +72,7 @@ final class SummarySegment: PointerControl {
             ceil((text as NSString).size(withAttributes: [.font: font]).width) + 2
         }
         let named = peek.map {
-            wide($0.name, .ui(TextSize.caption, weight: .medium)) + 3 + wide($0.verb, .ui(TextSize.caption))
+            wide($0.name, .ui(TextSize.caption, weight: .medium)) + 4 + wide($0.verb, .ui(TextSize.caption))
         }
         let text = named ?? wide(words[min(level, words.count - 1)], .uiDigits(TextSize.caption))
         return 2 * Metrics.gap + 12 + 4 + text

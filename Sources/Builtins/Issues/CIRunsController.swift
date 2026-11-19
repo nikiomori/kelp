@@ -76,7 +76,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private let history = CIHistoryStrip()
 
     override func loadView() {
-        let more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in
+        let more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) { [weak self] in
             self?.showMore()
         }
         workflowsButton.isHidden = true

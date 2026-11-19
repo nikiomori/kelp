@@ -76,14 +76,18 @@ struct PRLine: View {
                 Text("#\(pr.number)").font(.ui(TextSize.row).monospacedDigit())
                 Text(pr.title).font(.ui(TextSize.row)).lineLimit(1)
             }
-            HStack(spacing: 6) {
+            HStack(spacing: Metrics.gap) {
                 Text(state).foregroundStyle(color)
+                // Only a failure has a colour: running checks go by themselves (the agents' ring, grey) and passed ones
+                // are a quiet filled ✓, as the sidebar's CI mark draws them.
                 if failed > 0 {
                     Text("✕ \(failed) failing").foregroundStyle(Color.textRed)
                 } else if pending > 0 {
-                    Text("● \(pending) running").foregroundStyle(Color.textOrange)
+                    StatusIcon(status: .working)
+                    Text("\(pending) running").foregroundStyle(.secondary)
                 } else if passed > 0 {
-                    Text("✓ checks passed").foregroundStyle(Color.textGreen)
+                    SymbolIcon("checkmark.circle.fill", size: Metrics.iconSmall).foregroundStyle(.secondary)
+                    Text("checks passed").foregroundStyle(.secondary)
                 }
             }.font(.ui(TextSize.caption))
         }

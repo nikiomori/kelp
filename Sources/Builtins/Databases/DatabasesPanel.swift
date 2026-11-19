@@ -205,7 +205,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
                 activityOpen: activityOpen, only: only, folded: folded, health: health, libraryHealth: libraryHealth
             ).rows
         if let failed, kept == nil {
-            empty.showError(String(localized: "Couldn't read the databases"), text: failed, buttons: [tryAgain])
+            empty.showError(String(localized: "Couldn’t read the databases"), text: failed, buttons: [tryAgain])
         } else {
             empty.show(
                 event != nil && databases.isEmpty && library.isEmpty ? String(localized: "No Databases") : nil,

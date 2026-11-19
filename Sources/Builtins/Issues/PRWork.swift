@@ -118,13 +118,15 @@ struct PRWork {
     }
 
     /// GitHub's three ways to merge, as a menu. The commit on screen is the one that lands (`--match-head-commit`).
+    /// Each item ends in "…", because it asks before it merges.
     func mergeMenu(done: @escaping () -> Void) -> NSMenu {
         let menu = NSMenu()
-        for (title, method) in [
-            (String(localized: "Squash and Merge"), "squash"), (String(localized: "Create a Merge Commit"), "merge"),
-            (String(localized: "Rebase and Merge"), "rebase")
+        for (item, title, method) in [
+            (String(localized: "Squash and Merge…"), String(localized: "Squash and Merge"), "squash"),
+            (String(localized: "Create a Merge Commit…"), String(localized: "Create a Merge Commit"), "merge"),
+            (String(localized: "Rebase and Merge…"), String(localized: "Rebase and Merge"), "rebase")
         ] {
-            menu.add(title) { merge(method: method, title: title, done: done) }
+            menu.add(item) { merge(method: method, title: title, done: done) }
         }
         return menu
     }

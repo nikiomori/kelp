@@ -22,8 +22,8 @@ final class SearchPill: PointerControl {
         label.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         key.textColor = .tertiaryLabelColor
         let row = NSStackView(views: [glass, label, NSView(), key])
-        row.spacing = 6
-        row.edgeInsets = NSEdgeInsets(top: 0, left: 9, bottom: 0, right: 10)
+        row.spacing = Metrics.gap
+        row.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
         pin(row)
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
@@ -52,7 +52,7 @@ final class SearchPill: PointerControl {
         layer?.cornerRadius = bounds.height / 2
         // When room is short, show "Search" instead of "Files, a…". The room measured is the pill's own, so the choice
         // doesn't feed back on itself.
-        let room = bounds.width - 19 - glass.frame.width - key.frame.width - 18
+        let room = bounds.width - 20 - glass.frame.width - key.frame.width - 3 * Metrics.gap
         let text =
             (full as NSString).size(withAttributes: [.font: label.font ?? .ui(TextSize.row)]).width <= room
             ? full : short

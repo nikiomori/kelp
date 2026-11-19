@@ -68,14 +68,30 @@ enum DatabaseMenu {
             menu.add(String(localized: "Edit…")) {
                 Task { await DatabaseSheet.run(app, worktreeId: worktreeId, editing: db, library: library) }
             }
-            // A database used from All My Projects leaves only this project. It stays in All My Projects, with its
-            // password.
-            let mine = app.latest(DatabasesEvent.self, worktreeId)?.library?.contains { $0.name == db.name } ?? false
-            let project = app.projectName(app.worktree(worktreeId)?.repoId) ?? ""
-            let title =
-                !library && mine ? String(localized: "Remove from \(project)") : String(localized: "Forget")
-            menu.add(title) {
-                Task { await app.call(DatabaseRemove(worktreeId: worktreeId, name: db.name, library: library)) }
+            forget(menu, db, app: app, worktreeId: worktreeId, library: library)
+        }
+    }
+
+    /// Forget, or Remove from <project> for a database used from All My Databases, which leaves only this project and
+    /// stays there with its password. Either asks first, because the address and password go with it.
+    private static func forget(_ menu: NSMenu, _ db: DatabaseInfo, app: AppModel, worktreeId: String, library: Bool) {
+        let mine = app.latest(DatabasesEvent.self, worktreeId)?.library?.contains { $0.name == db.name } ?? false
+        let project = app.projectName(app.worktree(worktreeId)?.repoId) ?? ""
+        let leaves = !library && mine
+        let title = leaves ? String(localized: "Remove from \(project)…") : String(localized: "Forget…")
+        let question =
+            leaves ? String(localized: "Remove \(db.name) from \(project)?") : String(localized: "Forget \(db.name)?")
+        let detail =
+            leaves
+            ? String(localized: "It stays in All My Databases, with its password.")
+            : library
+                ? String(localized: "Its address and password leave Kelp. Projects that use it keep theirs.")
+                : String(localized: "Its address and password leave Kelp. The database itself stays as it is.")
+        let action = leaves ? String(localized: "Remove") : String(localized: "Forget")
+        menu.add(title) {
+            Task {
+                guard await confirm(question, detail: detail, action: action) else { return }
+                await app.call(DatabaseRemove(worktreeId: worktreeId, name: db.name, library: library))
             }
         }
     }

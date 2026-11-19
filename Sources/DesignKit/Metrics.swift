@@ -16,6 +16,7 @@ public enum Metrics {
     public static let rowSection: CGFloat = 28   // a section's title over its rows
     public static let rowMenu: CGFloat = 32   // Quick Open, the switcher
     public static let rowCard: CGFloat = 36   // a choice in a grouped card (the empty workspace's)
+    public static let countCapsule: CGFloat = 16   // a section's count on its capsule
 
     // Spacing
     public static let inset: CGFloat = 12   // a panel's edge to its content
@@ -24,6 +25,7 @@ public enum Metrics {
     public static let gap: CGFloat = 6   // between a bar's controls; icon to label in a row
     public static let gapWide: CGFloat = 8   // between separate controls in a tab's bar, a banner, or a sheet's buttons
     public static let lineGap: CGFloat = 2   // between a row's two lines
+    public static let gapTight: CGFloat = 4   // a count's digits to its capsule's edge
     public static let emptyLift: CGFloat = 40   // an empty state sits this far over the middle
     public static let sheetInset: CGFloat = 20
     // A page (a tab of data: a server, Usage, a machine): its content's sides, its top and bottom, and the space
@@ -85,7 +87,7 @@ extension NSImage.SymbolConfiguration {
 /// How long things move, and nothing under Reduce Motion.
 @MainActor
 public enum Motion {
-    // The 80 / 120 / 180 / 240 ms scale (canvas 7.4, picked by eye against 150 / 200 / 300). Things come in on it, and
+    // The 120 / 180 / 240 ms scale (canvas 7.4, picked by eye against 150 / 200 / 300). Things come in on it, and
     // what leaves goes in about two thirds of that, because nobody waits to watch it go.
     public static let fast: TimeInterval = 0.12   // hover, icons moving, the picture of what went fading
     public static let base: TimeInterval = 0.18   // a panel sliding, Quick Open opening

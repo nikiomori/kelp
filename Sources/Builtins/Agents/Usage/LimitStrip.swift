@@ -88,7 +88,7 @@ final class LimitStrip: NSView {
         let words = NSStackView(views: [title, detail])
         words.orientation = .vertical
         words.alignment = .leading
-        words.spacing = 1
+        words.spacing = Metrics.lineGap
         handOff.target = self
         handOff.action = #selector(handOffTapped)
         later.bezelStyle = .push
@@ -105,7 +105,9 @@ final class LimitStrip: NSView {
         let row = NSStackView(views: [mark, words, handOff, later, cancel, close])
         row.spacing = Metrics.gapWide
         row.detachesHiddenViews = true
-        row.edgeInsets = NSEdgeInsets(top: 10, left: 14, bottom: 10, right: 10)
+        // A card's inset all round, and the bar's to its last icon (the ✕) at the right.
+        row.edgeInsets = NSEdgeInsets(
+            top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.insetTrailing)
         // In a narrow pane the "Continue at" button hides first, then the hand-off button. The words are cut before
         // any button hides.
         row.setVisibilityPriority(.init(rawValue: 300), for: later)
@@ -162,7 +164,7 @@ final class LimitStrip: NSView {
         for t in takers {
             let item = menu.add(t.name) { [weak self] in self?.hand(to: t.id) }
             item.show(app.catalog.icon(t.id))
-            if let used = t.used { item.badge = NSMenuItemBadge(string: "\(Int(used.rounded())) %") }
+            if let used = t.used { item.badge = NSMenuItemBadge(string: "\(Int(used.rounded()))%") }
         }
         return menu
     }

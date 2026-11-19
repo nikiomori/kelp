@@ -163,7 +163,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
                 done(outcome)
             } else {
                 status.stringValue = answer.error ?? ""
-                status.textColor = .systemRed
+                status.textColor = .textRed
                 update()
             }
         }
@@ -209,7 +209,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         close.keyEquivalent = "\r"
         let buttons = NSStackView(views: [NSView(), close])
         let icon = NSImageView(image: .symbol("checkmark.circle.fill"))
-        icon.contentTintColor = .systemGreen
+        icon.contentTintColor = .secondaryLabelColor   // done, nothing waits: a filled grey check, no green
         let heading = NSStackView(views: [icon, title])
         heading.spacing = Metrics.gapWide
         let view = SheetForm.stack([heading, text, buttons], wide: [text, buttons], width: DatabaseSheet.width)

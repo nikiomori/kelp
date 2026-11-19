@@ -66,7 +66,7 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(!MainWindowController.overPeek(NSPoint(x: 300, y: 400), panel: panel, edge: edge))
 }
 
-/// The context ring: nothing while there's room, then yellow, orange, red — by share in a 200k window, by tokens in 1M.
+/// The context ring: nothing while there's room, then grey, orange, red — by share in a 200k window, by tokens in 1M.
 @MainActor @Test func theContextRingColoursAtTheTokensWhereAnswersSlip() {
     func level(_ used: Int, _ window: Int) -> Int {
         ContextMeter.level(SessionContextWindow.Usage(used: used, window: window))

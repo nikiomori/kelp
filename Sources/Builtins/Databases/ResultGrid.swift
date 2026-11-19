@@ -142,7 +142,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         if info[name]?.primary == true {
             let mark = NSTextAttachment()
             mark.image = NSImage.symbol("key.fill", String(localized: "primary key")).withSymbolConfiguration(
-                .init(pointSize: 8, weight: .regular).applying(.init(hierarchicalColor: .secondaryLabelColor)))
+                .chrome(TextSize.of(Metrics.iconTiny)).applying(.init(hierarchicalColor: .secondaryLabelColor)))
             text.append(NSAttributedString(string: " "))
             text.append(NSAttributedString(attachment: mark))
         }

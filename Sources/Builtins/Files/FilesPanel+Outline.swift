@@ -19,7 +19,8 @@ extension FilesPanel {
         let cell = tree.makeView(withIdentifier: FileRowCell.id, owner: nil) as? FileRowCell ?? FileRowCell()
         let badge: (String, NSColor)? =
             status[node.path]?.badge
-            ?? (node.children != nil && changedFolders.contains(node.path) ? ("●", .tertiaryLabelColor) : nil)
+            ?? (node.children != nil && changedFolders.contains(node.path)
+                ? (FileRowCell.changesDot, .secondaryLabelColor) : nil)
         cell.show(
             node.name,
             icon: app.fileIcons.image(node.name, folder: node.children != nil, expanded: tree.isItemExpanded(node)),
@@ -106,6 +107,13 @@ extension FilesPanel {
 final class FileRowCell: NSTableCellView {
     static let id = NSUserInterfaceItemIdentifier("files.row")
     private let name = NSTextField(labelWithString: ""), icon = NSImageView(), badge = NSTextField(labelWithString: "")
+    /// The mark of a folder with changes inside: a 6 pt dot, drawn, in place of the letter a file has.
+    static let changesDot = "●", dotSide: CGFloat = 6
+    private let dot = NSImageView(
+        image: NSImage(size: NSSize(width: FileRowCell.dotSide, height: FileRowCell.dotSide), flipped: false) { rect in
+            NSBezierPath(ovalIn: rect).fill()
+            return true
+        })
 
     init() {
         super.init(frame: .zero)
@@ -114,7 +122,8 @@ final class FileRowCell: NSTableCellView {
         // The name gives way, not its git letter.
         name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         name.font = .ui(TextSize.row)
-        for subview in [icon, name, badge] as [NSView] {
+        dot.image?.isTemplate = true   // tinted by `contentTintColor`
+        for subview in [icon, name, badge, dot] as [NSView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             addSubview(subview)
         }
@@ -124,11 +133,13 @@ final class FileRowCell: NSTableCellView {
             icon.leadingAnchor.constraint(equalTo: leadingAnchor),
             icon.centerYAnchor.constraint(equalTo: centerYAnchor),
             icon.widthAnchor.constraint(equalToConstant: 16), icon.heightAnchor.constraint(equalToConstant: 16),
-            name.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 4),
+            name.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: Metrics.gap),
             name.centerYAnchor.constraint(equalTo: centerYAnchor),
             badge.leadingAnchor.constraint(greaterThanOrEqualTo: name.trailingAnchor, constant: 4),
             badge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
-            badge.centerYAnchor.constraint(equalTo: centerYAnchor)
+            badge.centerYAnchor.constraint(equalTo: centerYAnchor),
+            dot.centerXAnchor.constraint(equalTo: badge.centerXAnchor),
+            dot.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -140,11 +151,14 @@ final class FileRowCell: NSTableCellView {
         name.textColor = dimmed ? .secondaryLabelColor : .labelColor
         icon.image = image
         icon.alphaValue = dimmed ? 0.5 : 1
-        let dot = mark?.0 == "●"
-        badge.stringValue = mark?.0 ?? ""
+        let isDot = mark?.0 == Self.changesDot
+        // The dot stands where the letter would, so the badge keeps its width as a space.
+        badge.stringValue = isDot ? " " : mark?.0 ?? ""
         badge.textColor = mark?.1
-        badge.font = dot ? .ui(7) : .ui(TextSize.micro, weight: .bold)
+        badge.font = .ui(TextSize.micro, weight: .bold)
+        dot.isHidden = !isDot
+        dot.contentTintColor = mark?.1
         // VoiceOver reads a bare "M" as a letter, so the letter says its word.
-        badge.setAccessibilityLabel(dot ? String(localized: "Has changes") : mark.flatMap { gitLetterWord($0.0) })
+        badge.setAccessibilityLabel(isDot ? String(localized: "Has changes") : mark.flatMap { gitLetterWord($0.0) })
     }
 }

@@ -49,7 +49,7 @@ extension BrowserTab {
             menu.add(String(localized: "Stop Recording")) { [weak self] in self?.saveRecording() }
         }
         menu.addItem(.separator())
-        menu.add(String(localized: "Clear Cookies and Data for This Site")) { [weak self] in self?.clearSiteData() }
+        menu.add(String(localized: "Clear Cookies and Data for This Site…")) { [weak self] in self?.clearSiteData() }
         menu.addItem(.separator())
         let tip = menu.addItem(
             withTitle: String(localized: "Inspect: right-click the page › Inspect Element"), action: nil,
@@ -83,18 +83,31 @@ extension BrowserTab {
         return item
     }
 
+    /// Asks first, because it signs the person out of the site.
     func clearSiteData() {
         guard let host = web.url?.host else {
             NSSound.beep()
             return
         }
+        Task { [weak self] in
+            guard
+                await confirm(
+                    String(localized: "Clear \(host)’s cookies and data?"),
+                    detail: String(localized: "You’re signed out of it, and the page loads again."),
+                    action: String(localized: "Clear"), destructive: true)
+            else { return }
+            self?.removeSiteData(host)
+        }
+    }
+
+    private func removeSiteData(_ host: String) {
         let store = web.configuration.websiteDataStore, types = WKWebsiteDataStore.allWebsiteDataTypes()
         store.fetchDataRecords(ofTypes: types) { [weak self] records in
             guard self != nil else { return }
             let mine = records.filter { host == $0.displayName || host.hasSuffix("." + $0.displayName) }
             store.removeData(ofTypes: types, for: mine) { [weak self] in   // WebKit calls back on the main thread
                 MainActor.assumeIsolated {
-                    Banner.show(String(localized: "Cleared \(host)'s cookies and data"))
+                    Banner.show(String(localized: "Cleared \(host)’s cookies and data"))
                     self?.web.reload()
                 }
             }

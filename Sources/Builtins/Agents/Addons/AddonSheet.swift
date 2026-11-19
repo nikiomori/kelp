@@ -21,7 +21,7 @@ final class AddonSheet: NSObject, NSTextFieldDelegate {
         backing: .buffered, defer: true)
     let field = NSTextField()
     let name = NSTextField()
-    let scope = NSSegmentedControl()
+    let scope = CapsuleSegments()
     /// The boxes that show what Kelp read and who gets it, rebuilt as the field changes.
     let read = NSStackView()
     private let add = NSButton()
@@ -68,13 +68,13 @@ final class AddonSheet: NSObject, NSTextFieldDelegate {
         field.font = .uiMono(TextSize.row)
         field.controlSize = .large
         field.delegate = self
-        let choose = PointerButton(title: String(localized: "Choose…")) { [weak self] in self?.chooseFolder() }
+        let choose = ClosureButton(title: String(localized: "Choose…")) { [weak self] in self?.chooseFolder() }
+        choose.bezelStyle = .push   // a sheet's button is the system's
         let entry = NSStackView(views: editing == nil ? [field, choose] : [field])
         entry.spacing = Metrics.gapWide
         scope.segmentCount = 2
         scope.setLabel(String(localized: "All Projects"), forSegment: 0)
         scope.setLabel(String(localized: "Only \(project)"), forSegment: 1)
-        scope.trackingMode = .selectOne
         scope.selectedSegment = 0
         scope.target = self
         scope.action = #selector(scopeChanged)

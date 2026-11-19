@@ -89,7 +89,8 @@ extension QuickOpen {
             heading.textColor = .secondaryLabelColor
             let header = NSStackView(views: [heading])
             header.identifier = id
-            header.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 0, right: 10)
+            // At the rows' left edge, the palette's one edge.
+            header.edgeInsets = NSEdgeInsets(top: 6, left: Metrics.gapWide, bottom: 0, right: Metrics.gapWide)
             return header
         }
         let cell = table.makeView(withIdentifier: QuickOpenCell.id, owner: nil) as? QuickOpenCell ?? QuickOpenCell()

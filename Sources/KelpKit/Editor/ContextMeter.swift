@@ -4,11 +4,12 @@ import DesignKit
 
 @MainActor
 /// Shows on an agent's tab how full its conversation is. It shows nothing while there's room, then a pie that fills:
-/// yellow where answers may start to slip, orange where it's time to compact or hand off, and red just before the agent
-/// compacts by itself. It is a pie, not an arc, because an arc in the same place as the working ring read as a second
-/// spinner. Yellow starts past half a 200k window, or past 200k tokens of a bigger one, because long-context benchmarks
-/// slip by absolute tokens. So a 1M window turns yellow at 200k, orange at 400k and red at 600k, and a 200k window at
-/// 100k, 130k and 150k (under Claude Code's own compaction).
+/// grey where answers may start to slip, orange where it's time to compact or hand off, and red just before the agent
+/// compacts by itself. The first level is grey because it is a state to see, not a call: colour waits until there is
+/// something to do. It is a pie, not an arc, because an arc in the same place as the working ring read as a second
+/// spinner. The pie starts past half a 200k window, or past 200k tokens of a bigger one, because long-context
+/// benchmarks slip by absolute tokens. So a 1M window shows at 200k, turns orange at 400k and red at 600k, and a 200k
+/// window at 100k, 130k and 150k (under Claude Code's own compaction).
 final class ContextMeter: NSView {
     private let track = CAShapeLayer(), fill = CAShapeLayer()
     var usage: SessionContextWindow.Usage? {
@@ -17,15 +18,24 @@ final class ContextMeter: NSView {
             update()
         }
     }
-    /// Returns the level: 0 room, 1 yellow, 2 orange, 3 red.
+    /// Returns the level: 0 room, 1 grey, 2 orange, 3 red. The tab's pie and the hover card's "Context N%" line both
+    /// read it, so they change colour at the same tokens.
     static func level(_ usage: SessionContextWindow.Usage?) -> Int {
         guard let usage, usage.window > 0 else { return 0 }
         let window = Double(usage.window), used = Double(usage.used)
         return used >= min(0.75 * window, 600_000)
             ? 3 : used >= min(0.65 * window, 400_000) ? 2 : used >= min(0.5 * window, 200_000) ? 1 : 0
     }
-    /// Whether the meter shows on a tab, which it does from yellow on.
+    /// Whether the meter shows on a tab, which it does from the first level on.
     static func shows(_ usage: SessionContextWindow.Usage?) -> Bool { level(usage) >= 1 }
+    /// The pie's colour at a level: the system's orange and red on the drawn mark, grey before there is anything to do.
+    static func color(_ level: Int) -> NSColor {
+        [NSColor.secondaryLabelColor, .systemOrange, .systemRed][max(0, level - 1)]
+    }
+    /// The colour of words that tell the level: the text shades of orange and red, which keep their contrast.
+    static func textColor(_ level: Int) -> NSColor {
+        [NSColor.secondaryLabelColor, .textOrange, .textRed][max(0, level - 1)]
+    }
     init() {
         super.init(frame: .zero)
         wantsLayer = true
@@ -59,12 +69,11 @@ final class ContextMeter: NSView {
     }
     private func update() {
         guard let usage, usage.window > 0 else { return }
-        let share = Double(usage.used) / Double(usage.window),
-            color = [NSColor.systemYellow, .systemYellow, .systemOrange, .systemRed][Self.level(usage)]
+        let share = Double(usage.used) / Double(usage.window), color = Self.color(Self.level(usage))
         toolTip = String(
-            localized: "Context \(Int(share * 100)) % full: \(usage.used / 1000)k of \(usage.window / 1000)k tokens")
+            localized: "Context \(Int(share * 100))% full: \(usage.used / 1000)k of \(usage.window / 1000)k tokens")
         setAccessibilityValue(
-            String(localized: "\(Int(share * 100)) % full: \(usage.used / 1000)k of \(usage.window / 1000)k tokens"))
+            String(localized: "\(Int(share * 100))% full: \(usage.used / 1000)k of \(usage.window / 1000)k tokens"))
         effectiveAppearance.performAsCurrentDrawingAppearance {
             track.strokeColor = color.cgColor
             fill.strokeColor = color.cgColor

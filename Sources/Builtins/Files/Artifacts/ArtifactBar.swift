@@ -43,9 +43,9 @@ final class ArtifactBar: NSObject {
     private var spentAt: Double?
     /// The View / Mark / Edit control. On a canvas it sets what a click on a board does: nothing, a mark for the agent,
     /// or a change by hand.
-    private let modes = NSSegmentedControl(
-        labels: [String(localized: "View"), String(localized: "Mark"), String(localized: "Edit")],
-        trackingMode: .selectOne, target: nil, action: nil)
+    private let modes = CapsuleSegments(
+        labels: [String(localized: "View"), String(localized: "Mark"), String(localized: "Edit")], target: nil,
+        action: nil)
     /// The Present button. It shows a canvas's boards one at a time, each as large as the pane, like slides in a deck.
     private let present = TextButton(String(localized: "Present"))
     /// The button that counts the changes the agent's last turn made to a doc. A click goes to the next change.

@@ -27,7 +27,6 @@ struct UsageReportView: View {
     @State var selected: String?
     /// The project the page is narrowed to (a name from the span's projects).
     @State var project: String?
-    @State var hovered: String?
     @State var allModels = false
     @State var allProjects = false
     /// The day under the pointer in the chart.
@@ -50,14 +49,18 @@ struct UsageReportView: View {
 
     var body: some View {
         let lines = agentLines(UsageView.rows(app).map(\.id))
-        // The page is as wide as the pane, up to 1400, and at least as wide as the table. A narrower pane scrolls
-        // sideways, starting from the left.
-        GeometryReader { pane in
-            ScrollView([.vertical, .horizontal]) {
-                page(lines).padding(.horizontal, Metrics.pageInset).padding(.bottom, Metrics.pageTop).frame(
-                    width: min(max(pane.size.width, 700), 1400), alignment: .leading)
+        // The bar stays put over the page. The page is as wide as the pane, up to 1400, and at least as wide as the
+        // table. A narrower pane scrolls sideways, starting from the left.
+        VStack(spacing: 0) {
+            bar
+            Divider()
+            GeometryReader { pane in
+                ScrollView([.vertical, .horizontal]) {
+                    page(lines).padding(.horizontal, Metrics.pageInset).padding(.vertical, Metrics.pageTop).frame(
+                        width: min(max(pane.size.width, 700), 1400), alignment: .leading)
+                }
+                .defaultScrollAnchor(.topLeading)
             }
-            .defaultScrollAnchor(.topLeading)
         }
         .watchingPlans(app)
         .task(id: "\(range)|\(project ?? "")") { await load() }
@@ -65,7 +68,6 @@ struct UsageReportView: View {
 
     private func page(_ lines: [Line]) -> some View {
         VStack(alignment: .leading, spacing: Metrics.blockGap) {
-            header
             // The plans come first, because they say whether work can go on now. They don't depend on the span, so
             // they stand above the span's picker.
             PlanCards(app: app, unplanned: unplanned)
@@ -74,11 +76,17 @@ struct UsageReportView: View {
                 // A read that fails over figures already shown leaves them there, with one line saying so.
                 if let failed, usage != nil {
                     HStack(alignment: .firstTextBaseline, spacing: Metrics.gapWide) {
-                        Text("Couldn't read the usage: \(failed)").font(.ui(TextSize.caption))
+                        Text("Couldn’t read the usage: \(failed)").font(.ui(TextSize.caption))
                             .foregroundStyle(.secondary)
                         Button(String(localized: "Try Again")) { Task { await load() } }
                             .controlSize(.small).font(.ui(TextSize.row))
                     }
+                }
+                // Until the first read is in, a spinner and a line saying what it waits for stand where the figures
+                // will, once the read has taken a second.
+                if usage == nil, slow, failed == nil {
+                    LoadingLine(String(localized: "Reading the agents’ logs…"))
+                        .frame(maxWidth: .infinity).padding(.vertical, Metrics.blockGap)
                 }
                 // The figures fill in as the logs are read.
                 if usage != nil, !lines.isEmpty { kpis() }
@@ -111,17 +119,27 @@ struct UsageReportView: View {
         }
     }
 
-    /// Says where the figures come from, in the band where other tabs have their bar, so banners start under it.
-    private var header: some View {
-        HStack(spacing: Metrics.gapWide) {
-            Text("From each agent's own logs and /usage on this Mac").font(.ui(TextSize.caption)).foregroundStyle(
-                .secondary)
+    /// The tab's bar, as every page has one: its name, where the figures come from, and the span's picker at the
+    /// right. Banners start under it.
+    private var bar: some View {
+        ContentBar {
+            Text("Usage").font(.ui(TextSize.body, weight: .semibold))
+            Text("From each agent's own logs and /usage on this Mac").font(.ui(TextSize.caption))
+                .foregroundStyle(.secondary).lineLimit(1)
             Spacer()
+            Segments(
+                labels: [String(localized: "7 Days"), String(localized: "30 Days"), String(localized: "90 Days")],
+                selection: Binding {
+                    Self.spans.firstIndex(of: range) ?? 1
+                } set: {
+                    range = Self.spans[$0]
+                }
+            )
+            .fixedSize().accessibilityLabel(Text("Period"))
         }
-        .frame(height: TextSize.of(Metrics.contentBar))
     }
 
-    /// The span, what the page is narrowed to, and the span's picker.
+    /// The span and what the page is narrowed to. A read over figures already shown has a spinner beside them.
     private var period: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.gapWide) {
             Text("Last \(range) days").font(.ui(TextSize.body, weight: .semibold))
@@ -138,17 +156,7 @@ struct UsageReportView: View {
                 }
                 .controlSize(.small).font(.ui(TextSize.row))
             }
-            if slow { ProgressView().controlSize(.small) }
-            Spacer()
-            Segments(
-                labels: [String(localized: "7 Days"), String(localized: "30 Days"), String(localized: "90 Days")],
-                selection: Binding {
-                    Self.spans.firstIndex(of: range) ?? 1
-                } set: {
-                    range = Self.spans[$0]
-                }
-            )
-            .controlSize(.small).fixedSize().accessibilityLabel(Text("Period"))
+            if slow, usage != nil { ProgressView().controlSize(.small) }
         }
     }
 
@@ -161,7 +169,7 @@ struct UsageReportView: View {
                 .popover(isPresented: $showSources, arrowEdge: .top) {
                     Text(Self.sources)
                         .font(.ui(TextSize.caption)).fixedSize(horizontal: false, vertical: true)
-                        .frame(width: 340, alignment: .leading).padding(12)
+                        .frame(width: 340, alignment: .leading).padding(Metrics.inset)
                 }
         }
         .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
@@ -246,11 +254,11 @@ struct UsageReportView: View {
     /// A day's figures by agent, over the chart while the pointer is on it.
     private func breakdown(_ day: Date, _ records: [UsageAgents.Day]) -> some View {
         let total = records.reduce(0) { $0 + value($1) }
-        return VStack(alignment: .leading, spacing: 3) {
+        return VStack(alignment: .leading, spacing: Metrics.lineGap) {
             Text("\(day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())) · \(amount(total))")
                 .fontWeight(.semibold).monospacedDigit()
             ForEach(records.sorted { value($0) > value($1) }, id: \.self) { record in
-                HStack(spacing: 6) {
+                HStack(spacing: Metrics.gap) {
                     Circle().fill(color(record.agent)).frame(width: 6, height: 6)
                     Text(app.catalog.name(record.agent)).foregroundStyle(.secondary)
                     Spacer(minLength: 16)

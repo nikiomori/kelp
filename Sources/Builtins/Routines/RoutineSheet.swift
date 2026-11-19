@@ -72,7 +72,7 @@ struct RoutineFormView: View {
             TextField(
                 String(localized: "Model"),
                 text: Binding(get: { form.routine.model ?? "" }, set: { form.routine.model = $0.isEmpty ? nil : $0 }),
-                prompt: Text("The agent's default"))
+                prompt: Text("The agent’s default"))
             LabeledContent(String(localized: "Prompt")) {
                 TextEditor(text: $form.routine.prompt).font(.ui(TextSize.body)).frame(height: 72)
                     .overlay(RoundedRectangle(cornerRadius: Metrics.radiusXS).stroke(Color(nsColor: .separatorColor)))
@@ -89,13 +89,22 @@ struct RepeatFields: View {
     @Binding var routine: Routine
 
     var body: some View {
-        Picker(String(localized: "Repeat"), selection: $routine.every) {
-            Text("Hourly").tag(Routine.Every.hourly)
-            Text("Daily").tag(Routine.Every.daily)
-            Text("Weekdays").tag(Routine.Every.weekdays)
-            Text("Weekly").tag(Routine.Every.weekly)
+        // Segments, not a segmented Picker: each segment as wide as its word, in any language.
+        let every = Routine.Every.allCases
+        LabeledContent(String(localized: "Repeat")) {
+            Segments(
+                labels: [
+                    String(localized: "Hourly"), String(localized: "Daily"), String(localized: "Weekdays"),
+                    String(localized: "Weekly")
+                ],
+                selection: Binding {
+                    every.firstIndex(of: routine.every) ?? 0
+                } set: {
+                    routine.every = every[$0]
+                }
+            )
+            .fixedSize().accessibilityLabel(Text("Repeat"))
         }
-        .pickerStyle(.segmented).fixedSize()
         if routine.every == .weekly {
             Picker(String(localized: "Day"), selection: $routine.weekday) {
                 ForEach(1...7, id: \.self) { Text(Calendar.current.weekdaySymbols[$0 - 1]).tag($0) }

@@ -288,8 +288,8 @@ func codeOnly(_ s: String) -> String {
                 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 277, "lines over 120: \(over120)")
-    #expect(over120 >= 277, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 276, "lines over 120: \(over120)")
+    #expect(over120 >= 276, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
@@ -881,12 +881,12 @@ func codeOnly(_ s: String) -> String {
         #expect(found.count <= count, "\(what) typed by hand: \(found)")
         #expect(found.count >= count, "\(what): fewer now (\(found.count)): lower the ceiling")
     }
-    exactly(try matches(#"\.font\(\.system\(size"#, in: chromeDirs), 1, "system font sizes")
+    exactly(try matches(#"\.font\(\.system\(size"#, in: chromeDirs), 0, "system font sizes")
     exactly(try matches(#"cornerRadius( =|:) *[0-9]"#, in: chromeDirs), 0, "corner radii")
     exactly(try matches(#"systemFont\(ofSize"#, in: chromeDirs), 4, "system fonts at a size")   // a tile's letters
     exactly(try matches(#"xRadius: *[0-9]"#, in: chromeDirs), 5, "drawn radii")   // icon tiles
     exactly(
-        try matches(#"\.ui(Mono|Digits)?\(\d"#, in: chromeDirs + ["Sources/DesignKit", "Sources/EditorKit"]), 2,
+        try matches(#"\.ui(Mono|Digits)?\(\d"#, in: chromeDirs + ["Sources/DesignKit", "Sources/EditorKit"]), 0,
         "text sizes")
     exactly(try matches(#"NSImage\(systemSymbolName"#, in: chromeDirs), 1, "symbols made by hand")
     // The system's text styles stay at their size whatever Text size says: SwiftUI text takes `Font.ui` too.

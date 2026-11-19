@@ -30,8 +30,9 @@ extension Runs {
         app.workbench.open(TabURI.session(sid), split: .down, workspace: app.session(sid)?.worktreeId, focus: true)
     }
 
-    /// How a run's tab stands out among terminals: its purpose's symbol in colour (a green ▶ for a server) with a glow
-    /// of that colour, and the port it serves after its name. Nil for any other session.
+    /// How a run's tab stands out among terminals: its purpose's symbol in grey (▶ for a server, a hammer for a
+    /// build), and the port it serves after its name. No glow and no colour: a glow is for an agent calling you, and
+    /// a purpose's colour lives in the Run menu while it runs. Nil for any other session.
     func look(_ session: Session) -> (icon: NSImage?, glow: NSColor?)? {
         guard let wid = session.worktreeId, let picked = choice(of: session),
             var row = rows(wid).first(where: { $0.id == picked })
@@ -39,8 +40,7 @@ extension Runs {
             return nil
         }
         row.running = false   // shows its purpose's mark, not the menu's "running" circle
-        let (symbol, color) = Self.glyph(row)
-        return (Self.tinted(symbol, color), color == .secondaryLabelColor ? nil : color)
+        return (Self.tinted(Self.glyph(row).0, .secondaryLabelColor), nil)
     }
 
     /// What the workspace serves, its main page first, for the title bar's capsule, ⇧⌘O and the sidebar's card.

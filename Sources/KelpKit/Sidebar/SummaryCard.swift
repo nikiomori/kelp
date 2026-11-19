@@ -135,7 +135,7 @@ struct SummaryCardView: View {
             Spacer(minLength: Metrics.gapWide)
             Text(row.time).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
     }

@@ -145,7 +145,7 @@ final class Breadcrumbs: NSView {
             let item = menu.add(Self.name(scope.text)) { [weak editor] in editor?.goTo(line: scope.line + 1) }
             item.state = scope.line == line ? .on : .off
         }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
     }
 
     private func showSiblings(in folder: String, under button: NSButton) async {
@@ -156,7 +156,7 @@ final class Breadcrumbs: NSView {
         menu.delegate = filler
         filler.menuNeedsUpdate(menu)
         withExtendedLifetime(filler) {   // NSMenu holds its delegate weakly
-            _ = menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
+            _ = menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
         }
     }
 }

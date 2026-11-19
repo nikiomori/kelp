@@ -104,7 +104,7 @@ enum KeyBindings {
         let named: [String: String] = [
             "\u{F700}": "↑", "\u{F701}": "↓", "\u{F702}": "←", "\u{F703}": "→", "\r": "↩", "\t": "⇥",
             " ": String(localized: "Space"),
-            "\u{1b}": "⎋", "\u{8}": "⌫", "\u{7f}": "⌫"
+            "\u{1b}": "esc", "\u{8}": "⌫", "\u{7f}": "⌫"   // Escape in words, as the design system names it
         ]
         return text + (named[key.key] ?? key.key.uppercased())
     }
@@ -297,7 +297,9 @@ struct KeyboardSettings: View {
                         ? Color.accentColor : entry.key == nil ? Color(nsColor: .tertiaryLabelColor) : .secondary)
             }
             if let message = warning[entry.id] {
-                Text(message).font(.ui(TextSize.caption)).foregroundStyle(Color.textOrange)
+                // A clash to know about, not something waiting for you: grey with the triangle, not orange.
+                Label(message, systemImage: "exclamationmark.triangle").font(.ui(TextSize.caption)).foregroundStyle(
+                    .secondary)
             }
         }
     }

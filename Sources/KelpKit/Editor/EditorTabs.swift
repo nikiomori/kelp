@@ -314,9 +314,9 @@ extension EditorArea {
         let column = NSMenuItem.noteColumn(shown.map(\.name))
         for agent in shown { agentItem(agent, in: menu, column: column) }
         if agents.isEmpty {
-            menu.addItem(withTitle: String(localized: "No agent CLIs found"), action: nil, keyEquivalent: "")
-                .isEnabled =
-                false
+            // The start page's words, in a menu's Title Case.
+            menu.addItem(withTitle: String(localized: "No Agent Found on This Mac"), action: nil, keyEquivalent: "")
+                .isEnabled = false
         }
         if !rest.isEmpty {
             let sub = NSMenu(), column = NSMenuItem.noteColumn(rest.map(\.name))

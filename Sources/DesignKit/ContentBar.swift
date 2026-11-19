@@ -16,7 +16,7 @@ public struct ContentBar<Content: View>: View {
 }
 
 /// `TextButton` for SwiftUI: a button named in words in a tab's bar is the quiet grey plate, darker under the pointer.
-/// `ContentBar` gives this style to every button it holds.
+/// Held, it dips and springs back as `PointerButtonStyle` does. `ContentBar` gives this style to every button it holds.
 public struct BarButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View { Plate(configuration: configuration) }
@@ -24,6 +24,7 @@ public struct BarButtonStyle: ButtonStyle {
     private struct Plate: View {
         let configuration: Configuration
         @State private var hovering = false
+        @State private var size = CGSize.zero
         @Environment(\.isEnabled) private var enabled
 
         var body: some View {
@@ -38,6 +39,13 @@ public struct BarButtonStyle: ButtonStyle {
                 )
                 .onHover { hovering = $0 }
                 .animation(.easeOut(duration: Motion.duration(Motion.fast)), value: hovering)
+                .scaleEffect(configuration.isPressed && !Motion.reduced ? Motion.pressDip(size) : 1)
+                .animation(Motion.reduced ? nil : .pressSpring, value: configuration.isPressed)
+                .onGeometryChange(for: CGSize.self) {
+                    $0.size
+                } action: {
+                    size = $0
+                }
         }
     }
 }

@@ -33,25 +33,41 @@ final class EditorScrollView: NSScrollView {
     }
 }
 
-/// The marks beside the scroller: where the problems, changes, matches and the cursor are in the whole file.
+/// The marks beside the scroller: where the problems, changes, matches and the cursor are in the whole file. A change
+/// is a short line in the left half and a problem a dot in the right half, so the two read apart by their form and not
+/// only by colour (an orange line is a changed line, an orange dot a warning).
 final class ScrollMarks: NSView {
-    static let width: CGFloat = 6
+    /// What a mark says, which gives its form.
+    enum Form: Int {
+        case line   // a match or the cursor: across the strip
+        case change   // a git change: the left half
+        case problem   // an error or a warning: a dot in the right half
+    }
+    static let width: CGFloat = 12
     private static let mark: CGFloat = 2
     /// The file's line count, and what's on its lines, 0-based.
     var lines = 1
-    var ticks: [(line: Int, color: NSColor)] = [] { didSet { needsDisplay = true } }
+    var ticks: [(line: Int, color: NSColor, form: Form)] = [] { didSet { needsDisplay = true } }
 
     override var isFlipped: Bool { true }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }   // the scroller is under it
 
     override func draw(_ dirtyRect: NSRect) {
         guard lines > 0 else { return }
-        var seen = Set<Int>()
+        var seen = Set<[Int]>()
         for tick in ticks {
-            let row = Int(CGFloat(tick.line) / CGFloat(lines) * bounds.height)
-            guard seen.insert(row).inserted else { continue }   // a thousand matches get a pixel each
+            let row = CGFloat(Int(CGFloat(tick.line) / CGFloat(lines) * bounds.height))
+            guard seen.insert([Int(row), tick.form.rawValue]).inserted else { continue }   // a thousand matches
             tick.color.setFill()
-            NSRect(x: 0, y: CGFloat(row), width: bounds.width, height: Self.mark).fill()
+            let half = bounds.width / 2
+            switch tick.form {
+            case .line: NSRect(x: 0, y: row, width: bounds.width, height: Self.mark).fill()
+            case .change: NSRect(x: 0, y: row, width: half, height: Self.mark).fill()
+            case .problem:
+                // As wide as the half, centred on the line and kept inside the strip.
+                let top = min(max(0, row + Self.mark / 2 - half / 2), bounds.height - half)
+                NSBezierPath(ovalIn: NSRect(x: half, y: top, width: half, height: half)).fill()
+            }
         }
     }
 }
@@ -131,16 +147,16 @@ extension CodeEditor {
     /// Sets the ticks beside the scroller to all there is to mark as of now.
     func refreshScrollMarks() {
         let string = textView.string as NSString
-        var ticks: [(line: Int, color: NSColor)] = changeMarks.map { mark in
-            (mark.line, mark.kind == .added ? .textGreen : mark.kind == .changed ? .textOrange : .textRed)
+        var ticks: [(line: Int, color: NSColor, form: ScrollMarks.Form)] = changeMarks.map { mark in
+            (mark.line, mark.kind == .added ? .textGreen : mark.kind == .changed ? .textOrange : .textRed, .change)
         }
         ticks += textView.findMarks.prefix(2000).map {
-            (lineIndex.line(at: $0.location, in: string), NSColor.findHighlightColor)
+            (lineIndex.line(at: $0.location, in: string), NSColor.findHighlightColor, ScrollMarks.Form.line)
         }
         // Problems go last, over what they share a pixel with.
-        ticks += problems.map { ($0.line, $0.isError ? NSColor.textRed : NSColor.textOrange) }
+        ticks += problems.map { ($0.line, $0.isError ? NSColor.textRed : NSColor.textOrange, ScrollMarks.Form.problem) }
         ticks.reverse()
-        ticks.append((lineIndex.line(at: textView.selectedRange().location, in: string), .tertiaryLabelColor))
+        ticks.append((lineIndex.line(at: textView.selectedRange().location, in: string), .tertiaryLabelColor, .line))
         (scroll as? EditorScrollView)?.marks.lines = lineCount
         (scroll as? EditorScrollView)?.marks.ticks = ticks
     }

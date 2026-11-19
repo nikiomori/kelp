@@ -165,15 +165,17 @@ extension SidebarCell {
     /// Shows the changes as a quiet dot at rest. Under the pointer it shows the counts on a pill, as the PR's number is
     /// shown, because bare counts read as part of the name.
     func showChanges() {
-        let full = spelling === changes ? counts : nil,
-            title = full ?? Self.dot(shares ? .textOrange : .secondaryLabelColor)
+        let full = spelling === changes ? counts : nil, title = full ?? Self.dot(shared: shares)
         if changes.attributedTitle != title { changes.attributedTitle = title }
-        changes.padding = full == nil ? 3 : Metrics.gap
+        changes.padding = full == nil ? Metrics.iconGap : Metrics.gap
         changes.restFill = full == nil ? nil : .fillRest
     }
-    static func dot(_ color: NSColor) -> NSAttributedString {
-        NSAttributedString(
-            string: "•", attributes: [.font: NSFont.ui(TextSize.row, weight: .semibold), .foregroundColor: color])
+    /// The grey changes dot, doubled ("••") when another folder changes the same files. That is a state to see, not a
+    /// call to answer, so its form tells it, not orange.
+    static func dot(shared: Bool) -> NSAttributedString {
+        let font = NSFont.ui(TextSize.row, weight: .semibold)
+        return NSAttributedString(
+            string: shared ? "••" : "•", attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor])
     }
 
     /// Shows the badges only while the name fits beside them, so they step aside before the name truncates. Left to

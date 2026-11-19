@@ -3,7 +3,7 @@ import Core
 import DesignKit
 import KelpKit
 
-/// The tab's bar: where it goes, the one thing to do next as the blue button, Files, and the rest under ⋯.
+/// The tab's bar: where it goes, the one thing to do next as the accent's push button, Files, and the rest under ⋯.
 extension ForgeItemTab {
     func prBar() -> NSView {
         guard let view = prView else { return Bar.content([], [moreButton(issueMenu: false)]) }
@@ -14,19 +14,18 @@ extension ForgeItemTab {
         var trailing: [NSView] = []
         let refresh: () -> Void = { [weak self] in self?.reload() }
         switch PRWork.next(pr, mine: pr.author == viewer) {
-        case .fix: trailing.append(primary(String(localized: "Fix with Agent")) { work.fixChecks() })
+        case .fix: trailing.append(primary(String(localized: "Fix with Agent")) { _ in work.fixChecks() })
         case .answer:
-            trailing.append(primary(String(localized: "Send Review Comments to Agent")) { work.answerReviews() })
+            trailing.append(primary(String(localized: "Send Review Comments to Agent")) { _ in work.answerReviews() })
         case .review:
-            trailing.append(primary(String(localized: "Review with Agent")) { work.review(base: view.baseRefName) })
+            trailing.append(
+                primary(String(localized: "Review with Agent")) { _ in work.review(base: view.baseRefName) })
         case .merge:
-            let merge = primary(String(localized: "Merge…")) {}
-            merge.onClick = { [weak merge] in
-                guard let merge else { return }
-                work.mergeMenu(done: refresh).popUp(
-                    positioning: nil, at: NSPoint(x: 0, y: merge.bounds.height + 4), in: merge)
-            }
-            trailing.append(merge)
+            trailing.append(
+                primary(String(localized: "Merge…")) { merge in
+                    work.mergeMenu(done: refresh).popUp(
+                        positioning: nil, at: NSPoint(x: 0, y: merge.bounds.height + 4), in: merge)
+                })
         case .wait: break
         }
         let files = TextButton(String(localized: "Files")) { work.showFiles() }
@@ -46,27 +45,23 @@ extension ForgeItemTab {
         var trailing: [NSView] = []
         if let folder = issueFolder {
             trailing.append(
-                primary(String(localized: "Open Its Group")) { [app] in app.workbench.show(workspace: folder.id) })
+                primary(String(localized: "Open Its Group")) { [app] _ in app.workbench.show(workspace: folder.id) })
         } else if issue.state == "OPEN" {
-            trailing.append(primary(String(localized: "Start on Own Branch")) { [weak self] in self?.startOnBranch() })
+            trailing.append(
+                primary(String(localized: "Start on Own Branch")) { [weak self] _ in self?.startOnBranch() })
         }
         trailing.append(moreButton(issueMenu: true))
         return Bar.content([route], trailing, stretching: route)
     }
 
-    /// The button for the next thing to do: the accent's push button, the one blue thing in the bar.
-    private func primary(_ title: String, _ action: @escaping () -> Void) -> PointerButton {
-        let button = TextButton(title, onClick: action)
-        button.restFill = .controlAccentColor
-        button.contentTintColor = .white
-        button.attributedTitle = NSAttributedString(
-            string: title,
-            attributes: [.font: NSFont.ui(TextSize.row, weight: .medium), .foregroundColor: NSColor.white])
-        return button
+    /// The button for the next thing to do: the system's push button in the accent, the one blue thing in the bar.
+    /// `action` gets the button, so a menu can open under it.
+    private func primary(_ title: String, _ action: @escaping @MainActor (NSView) -> Void) -> NSButton {
+        MainActionButton(title, run: action)
     }
 
     private func moreButton(issueMenu: Bool) -> NSView {
-        let more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) {}
+        let more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) {}
         more.onClick = { [weak self, weak more] in
             guard let self, let more else { return }
             let menu = issueMenu ? self.issueMoreMenu() : self.prMoreMenu()
@@ -113,7 +108,7 @@ extension ForgeItemTab {
             menu.add(String(localized: "Open in Browser")) { Forge.open(url) }
             menu.add(String(localized: "Copy Link")) { copyText(url) }
         }
-        menu.add(String(localized: "Reload")) { [weak self] in self?.reload() }
+        menu.add(String(localized: "Refresh")) { [weak self] in self?.reload() }   // the word every panel uses
     }
 
     /// Starts a group on a branch of its own named after the issue, and gives its agent the issue to read before
@@ -128,6 +123,29 @@ extension ForgeItemTab {
         guard let issue = issueView?.issue else { return }
         IssueWork(app: app, repoId: repoId).startHere(issue)
     }
+}
+
+/// A bar's main action as the system draws it: a push button in the accent colour (macOS 26's primary tint, and the
+/// bezel colour before it), as Run in a database's bar. Its click runs `run` with the button.
+@MainActor
+private final class MainActionButton: NSButton {
+    private var run: (@MainActor (NSView) -> Void)?
+
+    convenience init(_ title: String, run: @escaping @MainActor (NSView) -> Void) {
+        self.init(frame: .zero)
+        self.title = title
+        self.run = run
+        bezelStyle = .push
+        if #available(macOS 26, *) {
+            tintProminence = .primary
+        } else {
+            bezelColor = .controlAccentColor
+        }
+        target = self
+        action = #selector(fire)
+    }
+
+    @objc private func fire() { run?(self) }
 }
 
 /// Starting work from an issue: on a branch of its own (`task.fromIssue`), or in the group on screen.

@@ -100,7 +100,7 @@ final class CommitCell: NSTableCellView, Hoverable {
         graph.needsDisplay = true
         graphWidth?.constant = width
         subject.stringValue = parsedSubject.text
-        subject.font = .ui(TextSize.row, weight: isHead ? .semibold : .regular)
+        subject.font = .ui(TextSize.row, weight: isHead ? .medium : .regular)   // 600 is kept for news
         bang.isHidden = !parsedSubject.breaking
         let typeMark = Self.mark(parsedSubject, merge: commit.parents.count > 1)
         mark.image = typeMark.map { .symbol($0.symbol, parsedSubject.type ?? String(localized: "Merge commit")) }
@@ -230,7 +230,7 @@ final class CommitCell: NSTableCellView, Hoverable {
             } else if r == "HEAD" {
                 out.insert(("HEAD", .emphasis, true), at: 0)
             } else if r.hasPrefix("tag: ") {
-                out.append((String(r.dropFirst(5)), .systemOrange, false))
+                out.append((String(r.dropFirst(5)), .secondaryLabelColor, false))   // orange is for what waits for you
             } else if r.contains("/") {
                 if !locals.contains(String(r.drop { $0 != "/" }.dropFirst())) {
                     out.append((r, .secondaryLabelColor, false))
@@ -274,13 +274,17 @@ final class Badge: NSView {
         toolTip = text
     }
     required init?(coder: NSCoder) { fatalError() }
-    override var intrinsicContentSize: NSSize { NSSize(width: min(ceil(text.size().width) + 10, 110), height: 16) }
+    /// The chip grows with Text size, as the words in it do.
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: min(ceil(text.size().width) + 2 * Metrics.gap, 110), height: TextSize.of(16))
+    }
     override func draw(_ dirtyRect: NSRect) {
         NSColor.fillTint(color).setFill()
         NSBezierPath(roundedRect: bounds, xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS).fill()
-        let width = bounds.width - 10
+        let width = bounds.width - 2 * Metrics.gap
         text.draw(
-            with: NSRect(x: 5, y: (bounds.height - text.size().height) / 2, width: width, height: text.size().height),
+            with: NSRect(
+                x: Metrics.gap, y: (bounds.height - text.size().height) / 2, width: width, height: text.size().height),
             options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
     }
 }

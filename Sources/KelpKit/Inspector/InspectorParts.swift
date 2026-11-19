@@ -276,16 +276,22 @@ final class CountBadge: NSView {
         ])
     }
     required init?(coder: NSCoder) { fatalError() }
+    /// The capsule's height: a little under a section's count (`Metrics.countCapsule`), because it sits on an icon's
+    /// corner. It grows with Text size, as the digits in it do; a dot is half as tall.
+    private static var height: CGFloat { TextSize.of(Metrics.countCapsule - Metrics.lineGap) }
     override var intrinsicContentSize: NSSize {
         // With no number, the badge is a dot, centred where the number's capsule would be.
-        guard Self.number(badge) != nil else { return NSSize(width: 7, height: 14) }
-        return NSSize(width: max(14, ceil(digits.attributedStringValue.size().width) + 7), height: 14)
+        let height = Self.height
+        guard Self.number(badge) != nil else { return NSSize(width: height / 2, height: height) }
+        let edge = TextSize.of(Metrics.gapTight)
+        return NSSize(width: max(height, ceil(digits.attributedStringValue.size().width) + 2 * edge), height: height)
     }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }   // clicks go to the icon
     override func draw(_ dirtyRect: NSRect) {
         (badge?.alert == true ? NSColor.systemRed : NSColor.systemGray).setFill()
         guard Self.number(badge) != nil else {
-            return NSBezierPath(ovalIn: NSRect(x: 0, y: 3, width: 7, height: 7)).fill()
+            let dot = Self.height / 2
+            return NSBezierPath(ovalIn: NSRect(x: 0, y: (bounds.height - dot) / 2, width: dot, height: dot)).fill()
         }
         NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2).fill()
     }

@@ -29,6 +29,8 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
     private let table = NSTableView()
     private let total = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
     private let empty = EmptyStateView()
+    /// Stands in the rows' place until the daemon's first measure comes, once that has taken a second.
+    private let loading = LoadingView()
     private var rows: [Row] = []
 
     override func loadView() {
@@ -43,6 +45,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         let header = Bar.panel([total])
         let root = stacked(header, scroll)
         empty.place(in: root, under: header)
+        loading.place(in: root, under: header)
         view = root
     }
 
@@ -50,7 +53,11 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
     override func viewDidAppear() {
         super.viewDidAppear()
         watched.key = ""
-        show(app.latest(ActivityEvent.self))
+        if let event = app.latest(ActivityEvent.self) {
+            show(event)
+        } else {
+            loading.wait(String(localized: "Measuring the sessions…"))
+        }
     }
     override func viewDidDisappear() {
         super.viewDidDisappear()
@@ -71,6 +78,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
 
     private func show(_ event: ActivityEvent?) {
         guard let event else { return }
+        loading.show(nil)
         let model = app
         // When the daemon couldn't measure, the empty state says why, in the place of "No sessions running.", rather
         // than claiming nothing runs.
@@ -84,7 +92,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
             rows.isEmpty
             ? "" : String(localized: "\(rows.count) sessions · CPU \(Self.percent(cpu)) · \(bytes(mem))")
         if let error = event.error {
-            empty.showError(String(localized: "Couldn't measure the sessions"), text: error)
+            empty.showError(String(localized: "Couldn’t Measure the Sessions"), text: error)
         } else {
             empty.show(
                 rows.isEmpty ? String(localized: "No Sessions Running") : nil,
@@ -134,11 +142,17 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         let tip = String(localized: "Stop \(name.stringValue) (ends its processes)")
         let stop = IconButton(.symbol("stop.fill"), tip: tip) { AgentActions(app).stop([session.id]) }
         for x in [name, place, text] { x.setContentCompressionResistancePriority(.defaultLow, for: .horizontal) }
-        let rowView = NSStackView(views: [icon, text, NSView(), cost, stop])
-        rowView.spacing = 8
-        rowView.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 10)
-        icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        return rowView
+        let cell = ActivityCell(views: [icon, text, NSView(), cost, stop])
+        cell.spacing = Metrics.gapWide
+        cell.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.insetTrailing)
+        icon.widthAnchor.constraint(equalToConstant: Metrics.appIcon).isActive = true
+        cell.stop = stop
+        // A row drawn again every two seconds under a still pointer keeps its Stop showing.
+        let under = table.rowView(atRow: row, makeIfNecessary: false).flatMap { view in
+            view.window.map { view.bounds.contains(view.convert($0.mouseLocationOutsideOfEventStream, from: nil)) }
+        }
+        cell.setHover(under ?? false)
+        return cell
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -151,4 +165,17 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         guard rows.indices.contains(table.actedRow) else { return }
         app.workbench.focus(session: rows[table.actedRow].session.id)
     }
+}
+
+/// A session's row. Its Stop shows only under the pointer, as a row's actions do; the right-click menu has it too.
+/// The button keeps its room while hidden, so the figures beside it don't move.
+@MainActor
+private final class ActivityCell: NSStackView, Hoverable {
+    var stop: NSView? {
+        didSet {
+            detachesHiddenViews = false
+            stop?.isHidden = true
+        }
+    }
+    func setHover(_ on: Bool) { stop?.isHidden = !on }
 }

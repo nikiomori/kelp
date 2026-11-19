@@ -27,19 +27,14 @@ final class NotebookTab: NSViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        func actionButton(_ title: String, _ sym: String, _ sel: Selector) -> NSButton {
-            let button = TextButton(title, target: self, action: sel)
-            button.image = .symbol(sym)
-            button.imagePosition = .imageLeading
-            return button
-        }
         status.textColor = .secondaryLabelColor
         status.font = .ui(TextSize.caption)
+        // Worded buttons carry no symbol (the design's rule for buttons with words).
         let bar = Bar.content(
             [
-                actionButton(String(localized: "Run All"), "play.fill", #selector(runAll)),
-                actionButton(String(localized: "Open Kernel"), "server.rack", #selector(openKernel)),
-                actionButton(String(localized: "Ask Agent"), "text.bubble", #selector(askAgent))
+                TextButton(String(localized: "Run All"), target: self, action: #selector(runAll)),
+                TextButton(String(localized: "Open Kernel"), target: self, action: #selector(openKernel)),
+                TextButton(String(localized: "Ask Agent"), target: self, action: #selector(askAgent))
             ], [status])
         web.navigationDelegate = links
         view = stacked(bar, web)
@@ -78,11 +73,12 @@ final class NotebookTab: NSViewController {
             .first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
+    private static func noJupyter() {
+        Banner.show(String(localized: "Jupyter not found — pip install jupyter"), style: .error)
+    }
+
     @objc private func runAll() {
-        guard let jupyter = Self.jupyter() else {
-            status.stringValue = String(localized: "Jupyter not found — pip install jupyter")
-            return
-        }
+        guard let jupyter = Self.jupyter() else { return Self.noJupyter() }
         status.stringValue = String(localized: "Running…")
         let file = url
         Task {
@@ -91,18 +87,16 @@ final class NotebookTab: NSViewController {
                 app, [jupyter, "nbconvert", "--to", "notebook", "--execute", "--inplace", file.path],
                 cwd: file.deletingLastPathComponent().path, timeout: 12 * 3600)
             let msg = result.stderr.split(separator: "\n").last.map(String.init) ?? ""
-            status.stringValue =
-                result.code == 0 ? String(localized: "Ran all cells") : String(localized: "Failed: \(msg)")
+            // What was asked failed: a banner with the error's mark, not a grey line in the bar.
+            status.stringValue = result.code == 0 ? String(localized: "Ran all cells") : ""
+            if result.code != 0 { Banner.show(String(localized: "Couldn’t run the notebook: \(msg)"), style: .error) }
             reload()
         }
     }
 
     @objc private func openKernel() {
         guard let wid = worktreeId else { return }
-        guard Self.jupyter() != nil else {
-            status.stringValue = String(localized: "Jupyter not found — pip install jupyter")
-            return
-        }
+        guard Self.jupyter() != nil else { return Self.noJupyter() }
         Task {
             guard
                 let session = await app.call(

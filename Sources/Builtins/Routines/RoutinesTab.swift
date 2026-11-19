@@ -97,7 +97,7 @@ struct WeekGrid: View {
                         .font(.ui(TextSize.caption, weight: today ? .semibold : .regular)).foregroundStyle(
                             today ? Color.accentColor : .secondary
                         )
-                        .frame(maxWidth: .infinity, minHeight: Metrics.rowSection)
+                        .frame(maxWidth: .infinity, minHeight: TextSize.of(Metrics.rowSection))
                         .background(today ? Color(nsColor: .fillRest) : .clear)
                 }
                 Color.clear.frame(width: Metrics.iconButton + Metrics.inset, height: 1)
@@ -131,7 +131,10 @@ struct WeekGrid: View {
             )
             .fill(Color(nsColor: on ? .fillSelected : hovered == routine.id ? .fillHover : .clear))
             .padding(.leading, edge == .leading ? Metrics.gap : 0)
-            .padding(.trailing, edge == .trailing ? Metrics.gap : 0))
+            .padding(.trailing, edge == .trailing ? Metrics.gap : 0)
+            // The fill comes and goes under the pointer rather than switching; the row's content doesn't move.
+            .animation(.easeOut(duration: Motion.duration(Motion.fast)), value: hovered)
+        )
     }
 
     /// Run Now, or Stop while a run is open: the button says which, as its symbol does.
@@ -163,7 +166,9 @@ struct WeekGrid: View {
         .frame(width: 220, alignment: .leading)
         .opacity(routine.enabled ? 1 : 0.55)
         .contextMenu {
-            Button(String(localized: "Run Now")) { run(routine) }
+            // The same word as the row's button: a run that is open is stopped, not run again.
+            let open = runs.contains { $0.routineId == routine.id && $0.isOpen }
+            Button(open ? String(localized: "Stop") : String(localized: "Run Now")) { run(routine) }
             Button(String(localized: "Edit…")) { RoutineActions(app: app).edit(routine) }
             Button(routine.enabled ? String(localized: "Turn Off") : String(localized: "Turn On")) {
                 RoutineActions(app: app).turn(routine, on: !routine.enabled)
@@ -185,7 +190,7 @@ struct WeekGrid: View {
                 .accessibilityAddTraits(.isButton)
             }
             if marks.count > 3 {
-                Text("+\(marks.count - 2)").font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.tertiary)
+                Text("+\(marks.count - 2)").font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 44)
@@ -209,7 +214,7 @@ struct WeekGrid: View {
     }
 }
 
-/// One run, or a time a run is due: ✓ done, ● asked, ! failed, a spinner running, dashed missed. Ahead, it is a ring
+/// One run, or a time a run is due: ✓ done, ● asked, ! failed, the working ring running, dashed missed. Ahead, it is a ring
 /// (the next one in the accent colour). The time sits under it.
 struct RunMark: View {
     let mark: RoutineWeek.Mark, picked: Bool
@@ -248,7 +253,7 @@ struct RunMark: View {
 
     @ViewBuilder private var symbol: some View {
         switch mark.kind {
-        case .run(.running): ProgressView().controlSize(.mini)
+        case .run(.running): StatusIcon(status: .working)   // the ring of work going on by itself, as on a chat
         case .run(.done): Image(systemName: "checkmark.circle.fill").foregroundStyle(.secondary)
         case .run(.asked): Image(systemName: "questionmark.circle.fill").foregroundStyle(Color.textOrange)
         case .run(.failed): Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.textRed)
