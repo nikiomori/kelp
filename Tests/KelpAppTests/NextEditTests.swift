@@ -119,4 +119,35 @@ extension OneAtATime {
         #expect(!e.isOfferingEdit)
         #expect(tv.string == "a.font = .ui(15)\nb.text = 1\nc.font = .ui(13) \n")
     }
+
+    @Test func anEditAnsweredAfterTheCursorLeftIsntOffered() async throws {
+        let (e, tv) = editing("a.font = .systemFont(ofSize: 15)\nb.text = 1\nc.font = .systemFont(ofSize: 13)\n")
+        var answer: CheckedContinuation<Void, Never>?
+        e.nextEditProvider = { ask in
+            await withCheckedContinuation { answer = $0 }
+            return ask.current.replacingOccurrences(of: ".systemFont(ofSize: 13)", with: ".ui(13)")
+        }
+        tv.setSelectedRange(NSRange(location: 9, length: 23))
+        tv.insertText(".ui(15)", replacementRange: NSRange(location: NSNotFound, length: 0))
+        #expect(try await waitFor(2) { answer != nil })
+        tv.setSelectedRange(NSRange(location: 0, length: 0))   // a click elsewhere while the model writes
+        answer?.resume()
+        await e.nextEdit.task?.value
+        #expect(!e.isOfferingEdit)
+    }
+
+    /// An editor in a window, with no gray text, so edits ask for the next edit.
+    private func editing(_ text: String) -> (CodeEditor, EditorTextView) {
+        _ = NSApplication.shared
+        let e = CodeEditor(text: text, url: URL(fileURLWithPath: "/tmp/next.swift"))
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 300), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.contentView = e.view
+        KeptEditWindows.all.append(window)
+        window.makeFirstResponder(e.textView)
+        e.suggestionDelay = .zero
+        e.suggestionProvider = { _ in nil }
+        return (e, e.textView)
+    }
 }

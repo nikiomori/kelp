@@ -72,8 +72,9 @@ extension CodeEditor {
         let edits = suggestion.edits
         nextEdit.task?.cancel()
         nextEdit.task = Task { [weak self] in
+            // A cursor moved meanwhile asks no more: the answer would take its next ⇥ back to where it was.
             guard let answer = await provider(ask), !Task.isCancelled, let self, suggestion.edits == edits,
-                suggestion.shown == nil, completion.list?.isOpen != true,
+                textView.selectedRange() == at, suggestion.shown == nil, completion.list?.isOpen != true,
                 let proposal = NextEdit.proposal(answer, for: ask)
             else { return }
             let (range, text) = NextEdit.replacement(
