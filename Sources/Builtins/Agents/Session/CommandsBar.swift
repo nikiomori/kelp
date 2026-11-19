@@ -78,9 +78,9 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
         header.toTab.onClick = { [weak self] in if let run = self?.current { self?.moveToTab(run) } }
         grip.isHidden = true
         grip.dragged = { [weak self] in self?.drag(by: $0) }
-        for v in [line, header, scroll, consoleBox, grip] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(v)
+        for part in [line, header, scroll, consoleBox, grip] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(part)
         }
         let barHeight = heightAnchor.constraint(equalToConstant: 0),
             lh = scroll.heightAnchor.constraint(equalToConstant: 0)
@@ -186,10 +186,10 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
 
     /// Shows session `s` in the console. The keyboard focus stays where it is. A click in the console takes the focus,
     /// and Esc gives it back.
-    func open(_ s: Session) {
-        guard console?.sessionId != s.id else { return }
+    func open(_ session: Session) {
+        guard console?.sessionId != session.id else { return }
         console?.removeFromSuperview()
-        let pane = PaneView(session: s, app: app, embedded: true)
+        let pane = PaneView(session: session, app: app, embedded: true)
         console = pane
         consoleBox.pin(pane)
         grip.isHidden = false
@@ -357,7 +357,7 @@ final class CommandsBar: NSView, NSTableViewDataSource, NSTableViewDelegate, NSM
 
     func numberOfRows(in table: NSTableView) -> Int { items.count }
     func tableView(_ table: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
-    func tableView(_ table: NSTableView, viewFor c: NSTableColumn?, row: Int) -> NSView? {
+    func tableView(_ table: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
         let cell = table.makeView(withIdentifier: CommandRow.id, owner: nil) as? CommandRow ?? CommandRow()
         switch items[row] {
         case .run(let run): cell.show(run: run, tail: tails[run.id], page: port(of: run), now: Date())

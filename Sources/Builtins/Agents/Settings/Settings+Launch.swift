@@ -78,8 +78,8 @@ extension AgentsSettings {
                 Text("SSH hosts: \(names)").foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail).help(names)
                 Spacer()
                 Button("Update on Hosts") {
-                    for h in hosts {
-                        run(cmd, String(localized: "Update \(agentManifest.name) on \(h.host)"), in: h.folder)
+                    for host in hosts {
+                        run(cmd, String(localized: "Update \(agentManifest.name) on \(host.host)"), in: host.folder)
                     }
                 }.help(cmd)
             }
@@ -178,9 +178,9 @@ extension AgentsSettings {
 
     private func addLines(_ lines: [String]) {
         var have = env.split(separator: "\n").map(String.init)
-        for l in lines
-        where !have.contains(where: { $0.hasPrefix(l.split(separator: "=").first.map { $0 + "=" } ?? l) }) {
-            have.append(l)
+        for line in lines
+        where !have.contains(where: { $0.hasPrefix(line.split(separator: "=").first.map { $0 + "=" } ?? line) }) {
+            have.append(line)
         }
         env = have.joined(separator: "\n")
     }
@@ -237,12 +237,13 @@ extension AgentsSettings {
                     ? (String(parts[0]).trimmingCharacters(in: .whitespaces), String(parts[1])) : nil
             }, uniquingKeysWith: { $1 })
         // The daemon puts secrets in the keychain, and the file only says where they are.
-        for (k, v) in pairs where AgentManifest.isSecret(k) && v != AgentManifest.keychainValue && !v.isEmpty {
-            guard await app.call(AgentSetSecret(agent: manifest.id, key: k, value: v)) != nil else { return }
-            pairs[k] = AgentManifest.keychainValue
+        for (key, value) in pairs
+        where AgentManifest.isSecret(key) && value != AgentManifest.keychainValue && !value.isEmpty {
+            guard await app.call(AgentSetSecret(agent: manifest.id, key: key, value: value)) != nil else { return }
+            pairs[key] = AgentManifest.keychainValue
         }
-        for k in manifest.env.keys where pairs[k] == nil && manifest.env[k] == AgentManifest.keychainValue {
-            await app.call(AgentSetSecret(agent: manifest.id, key: k))   // the secret was removed, so forget it
+        for key in manifest.env.keys where pairs[key] == nil && manifest.env[key] == AgentManifest.keychainValue {
+            await app.call(AgentSetSecret(agent: manifest.id, key: key))   // the secret was removed, so forget it
         }
         manifest.env = pairs.filter { !$0.value.isEmpty }   // drops a preset's blank line until it is filled in
         let file: JSONValue

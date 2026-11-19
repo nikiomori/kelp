@@ -17,8 +17,8 @@ struct LimitAlerts {
     mutating func update(_ result: UsageGet.Result, first: Int? = 80) -> [Alert] {
         let levels = Self.levels(first: first)
         var alerts: [Alert] = []
-        for r in result.fresh() {
-            let agent = r.agent, l = r.limit
+        for reading in result.fresh() {
+            let agent = reading.agent, l = reading.limit
             let key = agent + "|" + l.kind
             let level = levels.last { l.percent >= Double($0) } ?? 0
             if l.percent < Double((levels.first ?? 100) - 10) { told[key] = nil }

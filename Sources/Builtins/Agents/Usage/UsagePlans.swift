@@ -115,11 +115,11 @@ struct PlanCards: View {
     }
 
     nonisolated static func ordered(_ cards: [Card]) -> [Card] {
-        cards.sorted { a, b in
+        cards.sorted { left, right in
             let rank = { (card: Card) in
                 (card.row.stale ? 0 : 1, card.outlooks.map(\.urgency).max() ?? 0, card.row.main?.used ?? 0)
             }
-            return rank(a) > rank(b)
+            return rank(left) > rank(right)
         }
     }
 }

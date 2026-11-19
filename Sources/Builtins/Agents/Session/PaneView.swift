@@ -151,9 +151,9 @@ final class PaneView: NSView {
         restartButton.title = String(localized: "Restart")
         restartButton.target = self
         restartButton.action = #selector(restartTapped)
-        for b in [restartButton, closeButton] {
-            b.bezelStyle = .push
-            b.controlSize = .small
+        for button in [restartButton, closeButton] {
+            button.bezelStyle = .push
+            button.controlSize = .small
         }
         endedSlot.clipsToBounds = true
         for v in [endedSlot, endedBar] { v.translatesAutoresizingMaskIntoConstraints = false }
@@ -288,10 +288,10 @@ final class PaneView: NSView {
         released = true
     }
 
-    func update(_ s: Session) {
+    func update(_ session: Session) {
         settle()
-        guard limitStrip == nil, s.limitHit != nil else { return }
-        let strip = LimitStrip(app: app, session: s.id)   // it shows and hides itself
+        guard limitStrip == nil, session.limitHit != nil else { return }
+        let strip = LimitStrip(app: app, session: session.id)   // it shows and hides itself
         limitStrip = strip
         overlay(strip)
     }

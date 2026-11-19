@@ -12,8 +12,8 @@ extension LimitHit {
 /// shell). Its strip also says who could go on with its work.
 enum LimitStop {
     /// Formats a time, with its date unless the date is today.
-    static func clock(_ d: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
-        d.formatted(date: calendar.isDate(d, inSameDayAs: now) ? .omitted : .abbreviated, time: .shortened)
+    static func clock(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        date.formatted(date: calendar.isDate(date, inSameDayAs: now) ? .omitted : .abbreviated, time: .shortened)
     }
 
     /// The second line of the session's row.

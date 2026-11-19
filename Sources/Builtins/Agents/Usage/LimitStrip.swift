@@ -81,9 +81,9 @@ final class LimitStrip: NSView {
         title.font = .ui(TextSize.body, weight: .semibold)
         detail.font = .ui(TextSize.caption)
         detail.textColor = .secondaryLabelColor
-        for l in [title, detail] {
-            l.lineBreakMode = .byTruncatingTail
-            l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        for label in [title, detail] {
+            label.lineBreakMode = .byTruncatingTail
+            label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
         let words = NSStackView(views: [title, detail])
         words.orientation = .vertical
@@ -161,10 +161,10 @@ final class LimitStrip: NSView {
 
     private func menu(_ takers: [LimitStop.Taker]) -> NSMenu {
         let menu = NSMenu()
-        for t in takers {
-            let item = menu.add(t.name) { [weak self] in self?.hand(to: t.id) }
-            item.show(app.catalog.icon(t.id))
-            if let used = t.used { item.badge = NSMenuItemBadge(string: "\(Int(used.rounded()))%") }
+        for taker in takers {
+            let item = menu.add(taker.name) { [weak self] in self?.hand(to: taker.id) }
+            item.show(app.catalog.icon(taker.id))
+            if let used = taker.used { item.badge = NSMenuItemBadge(string: "\(Int(used.rounded()))%") }
         }
         return menu
     }

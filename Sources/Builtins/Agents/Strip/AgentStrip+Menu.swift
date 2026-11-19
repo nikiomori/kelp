@@ -52,8 +52,8 @@ extension AgentStrip {
     /// the strip off and showing it over full-screen apps are in those settings.
     private func stripItems(_ menu: NSMenu) {
         let hide = NSMenu()
-        for c in Mutes.choices() where c.until != Mutes.forever {
-            hide.add(c.title) { [weak self] in self?.hide(until: c.until) }
+        for choice in Mutes.choices() where choice.until != Mutes.forever {
+            hide.add(choice.title) { [weak self] in self?.hide(until: choice.until) }
         }
         menu.add(String(localized: "Hide Strip"), submenu: hide)
         menu.addChoiceMenu(SettingKeys.dockStripComesFor, app, title: String(localized: "Comes Up For"), tryOn: false)

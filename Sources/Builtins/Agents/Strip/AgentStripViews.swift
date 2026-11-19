@@ -180,9 +180,9 @@ final class StripButton: PointerControl {
         clipsToBounds = false   // a closed tile is a circle, and clipping to it would cut the mark in two
         label.lineBreakMode = .byTruncatingTail
         label.maximumNumberOfLines = 1
-        for v in [glow, icon, label, mark] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(v)
+        for part in [glow, icon, label, mark] as [NSView] {
+            part.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(part)
         }
         notch(ci: false)
         let closed = trailingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 4)
@@ -279,8 +279,8 @@ final class StripButton: PointerControl {
         // would stop dead at a word.
         let cut = NSMutableParagraphStyle()
         cut.lineBreakMode = .byTruncatingTail
-        func text(_ s: String, _ font: NSFont, _ color: NSColor) -> NSAttributedString {
-            NSAttributedString(string: s, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: cut])
+        func text(_ string: String, _ font: NSFont, _ color: NSColor) -> NSAttributedString {
+            NSAttributedString(string: string, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: cut])
         }
         let title = NSMutableAttributedString(
             attributedString: text(item.name, .ui(TextSize.row, weight: .medium), .labelColor))
@@ -334,10 +334,10 @@ final class StripTip {
         name.font = .ui(TextSize.row, weight: .medium)
         agents.font = .ui(TextSize.caption)
         agents.textColor = .secondaryLabelColor
-        for f in [name, agents] {
-            f.lineBreakMode = .byTruncatingTail
-            f.maximumNumberOfLines = f === agents ? Self.listed + 1 : 1
-            f.widthAnchor.constraint(lessThanOrEqualToConstant: 280).isActive = true
+        for field in [name, agents] {
+            field.lineBreakMode = .byTruncatingTail
+            field.maximumNumberOfLines = field === agents ? Self.listed + 1 : 1
+            field.widthAnchor.constraint(lessThanOrEqualToConstant: 280).isActive = true
         }
         let stack = NSStackView(views: [name, agents])
         stack.orientation = .vertical

@@ -15,12 +15,12 @@ struct LimitResets {
         -> [String]
     {
         var changed: [String] = []
-        for r in readings where r.limit.percent >= 100 {
-            guard let at = r.resetAt, at > now else { continue }
-            let old = full[r.agent]
+        for reading in readings where reading.limit.percent >= 100 {
+            guard let at = reading.resetAt, at > now else { continue }
+            let old = full[reading.agent]
             if let old, at <= old.until { continue }
-            full[r.agent] = Full(since: old?.since ?? now, until: at)
-            if !changed.contains(r.agent) { changed.append(r.agent) }
+            full[reading.agent] = Full(since: old?.since ?? now, until: at)
+            if !changed.contains(reading.agent) { changed.append(reading.agent) }
         }
         return changed
     }

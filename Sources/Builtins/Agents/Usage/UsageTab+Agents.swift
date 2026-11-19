@@ -121,10 +121,10 @@ extension UsageReportView {
             case .cost: { ($0.usage?.cost ?? -1) < ($1.usage?.cost ?? -1) }
             }
         let places = Dictionary(lines.enumerated().map { ($1.id, $0) }) { a, _ in a }
-        return lines.sorted { a, b in
-            let (first, second) = order.ascending ? (a, b) : (b, a)
+        return lines.sorted { left, right in
+            let (first, second) = order.ascending ? (left, right) : (right, left)
             if before(first, second) { return true }
-            return before(second, first) ? false : (places[a.id] ?? 0) < (places[b.id] ?? 0)
+            return before(second, first) ? false : (places[left.id] ?? 0) < (places[right.id] ?? 0)
         }
     }
 

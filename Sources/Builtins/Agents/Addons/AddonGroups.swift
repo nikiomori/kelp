@@ -105,16 +105,16 @@ enum AddonGroups {
     }
 
     /// Sorts the heaviest item first and items of unknown weight last. Items of equal weight sort by name.
-    static func byWeight(_ addon: Addon, _ b: Addon) -> Bool {
-        switch (addon.tokens, b.tokens) {
+    static func byWeight(_ addon: Addon, _ other: Addon) -> Bool {
+        switch (addon.tokens, other.tokens) {
         case (let x?, let y?) where x != y: x > y
         case (.some, nil): true
         case (nil, .some): false
-        default: byName(addon, b)
+        default: byName(addon, other)
         }
     }
-    static func byName(_ addon: Addon, _ b: Addon) -> Bool {
-        addon.name.localizedStandardCompare(b.name) == .orderedAscending
+    static func byName(_ addon: Addon, _ other: Addon) -> Bool {
+        addon.name.localizedStandardCompare(other.name) == .orderedAscending
     }
 
     /// Returns the total weight of the items; nil when no item's weight is known.
@@ -214,9 +214,9 @@ private struct Lister {
         let names = Set(skills.compactMap(\.origin)).union(items.filter { $0.kind == .plugin }.map(\.name))
         guard !names.isEmpty else { return [] }
         let each = names.map { name in (name: name, skills: skills.filter { $0.origin == name }) }
-        let ordered = each.sorted { a, b in
-            let x = AddonGroups.sum(a.skills) ?? -1, y = AddonGroups.sum(b.skills) ?? -1
-            return view.byName || x == y ? a.name.localizedStandardCompare(b.name) == .orderedAscending : x > y
+        let ordered = each.sorted { left, right in
+            let x = AddonGroups.sum(left.skills) ?? -1, y = AddonGroups.sum(right.skills) ?? -1
+            return view.byName || x == y ? left.name.localizedStandardCompare(right.name) == .orderedAscending : x > y
         }
         let outer = AddonGroup(kind: .skill, source: .plugin), open = isOpen(outer)
         let head = AddonLine.group(outer, count: names.count, tokens: AddonGroups.sum(skills), open: open)

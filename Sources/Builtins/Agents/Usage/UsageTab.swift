@@ -327,11 +327,12 @@ struct UsageReportView: View {
     static func model(_ id: String) -> String {
         guard id.hasPrefix("claude-") else { return id }
         var words: [String] = []
-        for p in id.dropFirst(7).split(separator: "-").map(String.init) where !(p.count == 8 && Int(p) != nil) {   // not a snapshot's date
-            if Int(p) != nil, let prev = words.last, prev.last?.isNumber == true {
-                words[words.count - 1] += "." + p
+        for part in id.dropFirst(7).split(separator: "-").map(String.init) where !(part.count == 8 && Int(part) != nil)
+        {   // not a snapshot's date
+            if Int(part) != nil, let prev = words.last, prev.last?.isNumber == true {
+                words[words.count - 1] += "." + part
             } else {
-                words.append(p.prefix(1).uppercased() + p.dropFirst())
+                words.append(part.prefix(1).uppercased() + part.dropFirst())
             }
         }
         return words.joined(separator: " ")
@@ -347,8 +348,8 @@ struct UsageReportView: View {
         return formatter
     }()
     /// Formats dollars, with cents for amounts under ten.
-    nonisolated static func dollars(_ v: Double) -> String {
-        v.formatted(.currency(code: "USD").precision(.fractionLength(v < 10 ? 2 : 0)))
+    nonisolated static func dollars(_ value: Double) -> String {
+        value.formatted(.currency(code: "USD").precision(.fractionLength(value < 10 ? 2 : 0)))
     }
     /// Formats dollars, or "—" for tokens with no price (a model without a list price).
     func money(_ v: Double, _ tokens: Int) -> String { v == 0 && tokens > 0 ? "—" : Self.dollars(v) }

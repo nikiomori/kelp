@@ -37,13 +37,13 @@ final class LimitWatch {
     private var forecastTold = Set<String>()   // limits already warned about, until they stop filling before the reset
     private func limitsChanged(_ usage: UsageGet.Result?) {
         guard let usage else { return }
-        for a in limitAlerts.update(usage, first: app.settings.usageAlertAt) {
-            let name = app.catalog.name(a.agent)
+        for alert in limitAlerts.update(usage, first: app.settings.usageAlertAt) {
+            let name = app.catalog.name(alert.agent)
             let content = UNMutableNotificationContent()
-            content.title = String(localized: "\(name) is at \(Int(a.percent.rounded())) %")
-            content.body = a.resets.map { String(localized: "\(a.kind) · resets \($0)") } ?? a.kind
-            content.sound = a.level >= 95 ? .default : nil
-            Notifications.notifyUser(app, "limit-\(a.agent)-\(a.kind)-\(a.level)", content)
+            content.title = String(localized: "\(name) is at \(Int(alert.percent.rounded())) %")
+            content.body = alert.resets.map { String(localized: "\(alert.kind) · resets \($0)") } ?? alert.kind
+            content.sound = alert.level >= 95 ? .default : nil
+            Notifications.notifyUser(app, "limit-\(alert.agent)-\(alert.kind)-\(alert.level)", content)
         }
         forecastChanged(usage)
         resetsChanged(usage)
@@ -87,8 +87,8 @@ final class LimitWatch {
     private func forecastChanged(_ result: UsageGet.Result) {
         guard app.settings.usageAlertAt != nil else { return }
         var read = Set<String>()
-        for r in result.fresh() {
-            let agent = r.agent, l = r.limit, resetAt = r.resetAt
+        for reading in result.fresh() {
+            let agent = reading.agent, l = reading.limit, resetAt = reading.resetAt
             let key = LimitForecast.key(agent, l.kind), window = UsageGet.window(l.kind)
             read.insert(key)
             // A limit is warned about again only after its pace eases to 90 % at the reset, because a pace that
