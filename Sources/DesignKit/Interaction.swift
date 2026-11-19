@@ -115,8 +115,8 @@ extension NSView {
 
     /// For a view about to go in a change that can't animate it. A picture of the view stays where it stood, over
     /// `parent`, and fades over `duration`, drifting `drift` points up the screen (down when negative). Call it before
-    /// the view is removed or redrawn.
-    public func leaveGhost(in parent: NSView, duration: TimeInterval = Motion.appear, drift: CGFloat = 0) {
+    /// the view is removed or redrawn. A row comes in over `appear` and goes over `base`, about two thirds of it.
+    public func leaveGhost(in parent: NSView, duration: TimeInterval = Motion.base, drift: CGFloat = 0) {
         guard !Motion.reduced, window != nil, bounds.width > 0, bounds.height > 0,
             let picture = bitmapImageRepForCachingDisplay(in: bounds)
         else { return }

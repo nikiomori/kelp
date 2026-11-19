@@ -59,7 +59,8 @@ extension FileTab {
         let container = NSView(), empty = EmptyStateView()
         empty.place(in: container)
         empty.showError(
-            String(localized: "File not found — it was moved or deleted."), text: nil, buttons: [close, files])
+            String(localized: "File Not Found"), text: String(localized: "It was moved or deleted."),
+            buttons: [close, files])
         return container
     }
 }

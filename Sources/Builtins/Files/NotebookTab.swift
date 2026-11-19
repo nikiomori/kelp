@@ -59,10 +59,10 @@ final class NotebookTab: NSViewController {
                 web.isHidden = true
                 if let error = read.error {
                     let again = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.reload() }
-                    empty.showError(String(localized: "Couldn’t read this notebook"), text: error, buttons: [again])
+                    empty.showError(String(localized: "Couldn’t Read This Notebook"), text: error, buttons: [again])
                 } else {
                     empty.showError(
-                        String(localized: "Can’t show this notebook"),
+                        String(localized: "Can’t Show This Notebook"),
                         text: String(localized: "It isn’t valid nbformat 4 JSON."))
                 }
                 return

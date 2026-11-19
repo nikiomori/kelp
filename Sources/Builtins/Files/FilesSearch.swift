@@ -17,7 +17,7 @@ extension FilesPanel {
     }
     func showLoadError(_ message: String?) {
         if let message {
-            loadError.showError(String(localized: "Couldn’t list the files"), text: message)
+            loadError.showError(String(localized: "Couldn’t List the Files"), text: message)
         } else {
             loadError.show(nil)
         }
@@ -107,7 +107,7 @@ extension FilesPanel {
             results.show(found.value ?? [])
             showReplace()
             if let error = found.error {
-                noResults.showError(String(localized: "Couldn’t search"), text: error, buttons: [clearButton()])
+                noResults.showError(String(localized: "Couldn’t Search"), text: error, buttons: [clearButton()])
             } else {
                 noResults.show(
                     results.matches.isEmpty ? String(localized: "No matches for “\(query)”") : nil,

@@ -273,7 +273,7 @@ extension AppOfItsOwn {
         @MainActor func labels(_ v: NSView) -> [NSTextField] {
             ((v as? NSTextField).map { [$0] } ?? []) + v.subviews.flatMap(labels)
         }
-        let said = labels(panel.view).filter { !$0.isHidden && $0.stringValue.contains("Couldn’t list the files") }
+        let said = labels(panel.view).filter { !$0.isHidden && $0.stringValue.contains("Couldn’t List the Files") }
         #expect(said.count == 1, "\(labels(panel.view).map(\.stringValue))")
     }
 }

@@ -158,7 +158,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         rows = Self.rows(found, title: { self.title($0, project) }, now: Date())
         filterBar.isHidden = count <= Self.filterFrom && find.isEmpty
         if let failed, kept == nil {
-            empty.showError(String(localized: "Couldn’t read the pages"), text: failed, buttons: [tryAgain])
+            empty.showError(String(localized: "Couldn’t Read the Pages"), text: failed, buttons: [tryAgain])
         } else {
             empty.show(
                 list != nil && items.isEmpty ? String(localized: "No Artifacts Yet") : nil, symbol: "doc.richtext",

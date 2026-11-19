@@ -3450,7 +3450,7 @@
         }
       }
     },
-    "No machine called %@": {
+    "No Machine Called %@": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -6838,7 +6838,7 @@
         }
       }
     },
-    "Can’t show this notebook": {
+    "Can’t Show This Notebook": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -7267,7 +7267,7 @@
         }
       }
     },
-    "Couldn’t list the files": {
+    "Couldn’t List the Files": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -7327,7 +7327,7 @@
         }
       }
     },
-    "Couldn’t search": {
+    "Couldn’t Search": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -12201,7 +12201,7 @@
         }
       }
     },
-    "Nothing to show": {
+    "Nothing to Show": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -12636,12 +12636,12 @@
         }
       }
     },
-    "No settings match “%@”.": {
+    "No Settings Match “%@”": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Нет настроек по запросу «%@»."
+            "value": "Нет настроек по запросу «%@»"
           }
         }
       }
@@ -19376,7 +19376,7 @@
         }
       }
     },
-    "Can’t open this page": {
+    "Can’t Open This Page": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -21537,7 +21537,7 @@
         }
       }
     },
-    "Couldn’t read the databases": {
+    "Couldn’t Read the Databases": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -21547,7 +21547,7 @@
         }
       }
     },
-    "Couldn’t read the pages": {
+    "Couldn’t Read the Pages": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -24745,12 +24745,12 @@
         }
       }
     },
-    "No phone is paired yet.": {
+    "No Phone Paired Yet": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Пока не подключён ни один телефон."
+            "value": "Телефон ещё не подключён"
           }
         }
       }
@@ -26249,7 +26249,7 @@
         }
       }
     },
-    "%@ said no": {
+    "%@ Said No": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -29839,7 +29839,7 @@
         }
       }
     },
-    "Couldn’t load the library": {
+    "Couldn’t Load the Library": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -29849,7 +29849,7 @@
         }
       }
     },
-    "No extension matches “%@”": {
+    "No Extension Matches “%@”": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -30115,16 +30115,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось прочитать субагента"
-          }
-        }
-      }
-    },
-    "Nothing to Show": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нечего показать"
           }
         }
       }
@@ -31149,7 +31139,7 @@
         }
       }
     },
-    "Couldn’t read this notebook": {
+    "Couldn’t Read This Notebook": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -31379,7 +31369,7 @@
         }
       }
     },
-    "Couldn’t read #%lld": {
+    "Couldn’t Read #%lld": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -31625,6 +31615,86 @@
           "stringUnit": {
             "state": "translated",
             "value": "изменения этой ветки с %@"
+          }
+        }
+      }
+    },
+    "File Not Found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл не найден"
+          }
+        }
+      }
+    },
+    "It was moved or deleted.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Его переместили или удалили."
+          }
+        }
+      }
+    },
+    "Couldn’t Read the Skills and Servers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать навыки и серверы"
+          }
+        }
+      }
+    },
+    "No Page to Show": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нечего показать"
+          }
+        }
+      }
+    },
+    "Merge %@ into %@?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слить %1$@ в %2$@?"
+          }
+        }
+      }
+    },
+    "Project": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проект"
+          }
+        }
+      }
+    },
+    "Share": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доля"
+          }
+        }
+      }
+    },
+    "%@ stopped. Click to see the servers, then Restart.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ остановлен. Нажмите, чтобы увидеть серверы, затем Restart."
           }
         }
       }
