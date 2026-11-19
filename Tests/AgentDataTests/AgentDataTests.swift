@@ -411,6 +411,21 @@ private func assistant(
         UsageIndex(cache: dir.appendingPathComponent("cache.json")).rows(roots: [dir], since: since).reduce(0) {
             $0 + $1.tally.tokens.output
         } == 42)
+    // A line still being written waits, after the lines before it are read; once it ends, it counts once.
+    func total() -> Int {
+        UsageIndex(cache: dir.appendingPathComponent("cache.json")).rows(roots: [dir], since: since).reduce(0) {
+            $0 + $1.tally.tokens.output
+        }
+    }
+    let e = Data(line("e", now, 100).utf8), half = e.count / 2
+    let k = try FileHandle(forWritingTo: f)
+    try k.seekToEnd()
+    try k.write(contentsOf: Data((line("f", now, 1) + "\n").utf8) + e[..<half])
+    #expect(total() == 43)
+    try k.write(contentsOf: e[half...] + Data("\n".utf8))
+    try k.close()
+    #expect(total() == 143)
+    #expect(total() == 143)
 }
 
 @Test func timesAndDaysReadTheWayTranscriptsWriteThem() throws {

@@ -45,7 +45,7 @@ import Testing
 }
 
 /// Saving a table's edits: deletes and updates found by the key, new rows inserted with what was typed in them.
-@Test func editsBecomeDeletesUpdatesAndInserts() {
+@Test func editsBecomeDeletesUpdatesAndInserts() throws {
     var edits = DatabaseEdits()
     let rows: [[String?]] = [["1", "a"], ["2", "b"]]
     edits.toggleDeleted(1)
@@ -66,6 +66,30 @@ import Testing
         only.statements(table: "t", engine: .mysql, columns: ["v"], primary: [], rows: []) == [
             "INSERT INTO `t` (`v`) VALUES ('x')"
         ])
+    // A key the result doesn't hold in full is no key: the row is found by all its values.
+    #expect(
+        edits.statements(table: "t", engine: .postgres, columns: ["id", "v"], primary: ["id", "w"], rows: rows)
+            .first == #"DELETE FROM "t" WHERE (tableoid, ctid) = (SELECT tableoid, ctid FROM "t" "#
+            + #"WHERE "id"::text = '2' AND "v"::text = 'b' LIMIT 1)"#)
+    // Without a key, SQLite finds a row by its values through its rowid, a NULL cell by IS NULL: of two identical
+    // rows, one changes.
+    let path = NSTemporaryDirectory() + "kelp-edits-\(UUID().uuidString).sqlite"
+    defer { try? FileManager.default.removeItem(atPath: path) }
+    _ = try run(
+        path, "CREATE TABLE t (a INTEGER, b TEXT); INSERT INTO t VALUES (1, 'a'), (1, 'a'), (2, NULL), (2, NULL)")
+    var keyless = DatabaseEdits()
+    keyless.set(row: 0, column: 1, to: "z", was: "a")
+    keyless.toggleDeleted(2)
+    let saved = keyless.statements(
+        table: "t", engine: .sqlite, columns: ["a", "b"], primary: [],
+        rows: [["1", "a"], ["1", "a"], ["2", nil], ["2", nil]])
+    #expect(
+        saved == [
+            #"DELETE FROM "t" WHERE rowid = (SELECT rowid FROM "t" WHERE "a" = '2' AND "b" IS NULL LIMIT 1)"#,
+            #"UPDATE "t" SET "b" = 'z' WHERE rowid = (SELECT rowid FROM "t" WHERE "a" = '1' AND "b" = 'a' LIMIT 1)"#
+        ])
+    for statement in saved { #expect(try run(path, statement + "; SELECT changes()") == "1", "\(statement)") }
+    #expect(try run(path, "SELECT group_concat(a || ':' || ifnull(b, 'NULL'), ' ') FROM t") == "1:z 1:a 2:NULL")
 }
 
 /// Copy as: each format as the tool it's for reads it.

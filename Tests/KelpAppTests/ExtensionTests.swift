@@ -153,7 +153,7 @@ private func folder(_ files: [String: String]) throws -> URL {
 }
 
 /// An action's command takes item fields as variables: a title with $(…) or a newline never runs (all the quoting
-/// cases are in WorkbenchKitTests.aValueInAShellTemplateNeverRuns).
+/// cases are in WorkbenchKitTests: aValueInAShellTemplateNeverRuns, aValueInANestedShellStaysData).
 extension OneAtATime {
     @Test func aFieldNeverRunsInAnActionsCommand() async throws {
         let rig = try await AppRig(files: [:])
@@ -193,51 +193,18 @@ extension OneAtATime {
     }
 }
 
-/// A value in a string another shell runs as code (`sh -c '…'`) stays data there too: that shell expands it from the
-/// environment, quoted, instead of reading it as its own code.
+/// An action's command gets the item's fields as `KELP_<name>` too, for a string another shell runs as code (all the
+/// nested shapes are in WorkbenchKitTests.aValueInANestedShellStaysData).
 @MainActor @Test func aValueInANestedShellStaysData() {
     let item = JSONValue.object(["title": .string("x$(echo PWNED)")])
     let actions = ExtActions(AppModel(builtins: Builtins.all))
-    let shapes = [
-        #"sh -c 'printf %s ${title}'"#, #"bash -lc 'printf %s ${title}'"#, #"eval 'printf %s ${title}'"#,
-        #"/bin/sh -c 'printf %s ${title}'"#, #"env bash -c 'printf %s ${title}'"#, #"sh -c "printf %s ${title}""#,
-        #"/bin/bash -c "printf %s ${title}""#, "sh <<EOF\nprintf %s ${title}\nEOF",
-        "cat <<EOF | sh\nprintf %s ${title}\nEOF",
-        #"ssh -o x=y host 'printf %s ${title}'"#, #"ssh host "printf %s ${title}""#, #"ssh host printf %s ${title}"#,
-        #"ssh -o x=y host 'cd /' \; printf %s ${title}"#,
-        #"printf %s "$KELP_title""#, #"sh -c 'printf %s "$KELP_title"'"#,
-        #"python3 -c 'import os; print(os.environ["KELP_title"], end="")'"#
-    ]
-    for template in shapes {
-        let sh = Process(), out = Pipe()
-        // ssh is a stand-in that joins the words after the host into one command line for sh, as ssh does for a host.
-        let shim = "ssh() { [ \"$1\" = -o ] && shift 2; shift; sh -c \"$*\"; }; "
-        sh.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        sh.arguments = ["-c", shim + actions.expand(template, item: item, quote: true)]
-        sh.standardOutput = out
-        try? sh.run()
-        sh.waitUntilExit()
-        #expect(
-            String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self) == "x$(echo PWNED)",
-            "\(template)")
-    }
-    // Bare after `sh -c` or `eval`, the value is the script's one word, not its code.
-    let script = JSONValue.object(["title": .string("echo PWNED")])
-    for template in ["sh -c ${title}", "eval ${title}"] {
-        let sh = Process(), out = Pipe()
-        sh.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        sh.arguments = ["-c", actions.expand(template, item: script, quote: true)]
-        sh.standardOutput = out
-        sh.standardError = Pipe()
-        try? sh.run()
-        sh.waitUntilExit()
-        #expect(
-            !String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).contains("PWNED"),
-            "\(template)")
-    }
-    // An ordinary single-quoted string still reads the value as text in it.
-    #expect(
-        actions.expand("echo 'Issue: ${title}'", item: item, quote: true).hasSuffix(#"echo 'Issue: '"${KELP_V1}"''"#))
+    let sh = Process(), out = Pipe()
+    sh.executableURL = URL(fileURLWithPath: "/bin/zsh")
+    sh.arguments = ["-c", actions.expand(#"sh -c 'printf %s "$KELP_title"'"#, item: item, quote: true)]
+    sh.standardOutput = out
+    try? sh.run()
+    sh.waitUntilExit()
+    #expect(String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self) == "x$(echo PWNED)")
 }
 
 /// A hidden terminal lets go of its surface once two others were shown after it and it was hidden a while; the one on

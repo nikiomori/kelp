@@ -214,7 +214,8 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     let templates = [
         "printf %s ${v}", "printf %s \"${v}\"", "printf %s '${v}'", "printf %s \"PR: ${v}!\"",
         "printf %s \"$(printf %s ${v})\"", "printf %s ${v}#${v}", "# don't\nprintf %s ${v}", "true # ${v}",
-        "cat <<EOF\n${v}\nEOF", "cat <<'EOF'\n${v}\nEOF", "cat <<-EOF\n${v}\nEOF"
+        "cat <<EOF\n${v}\nEOF", "cat <<'EOF'\n${v}\nEOF", "cat <<-EOF\n${v}\nEOF",
+        "printf %s '$(' && (true) && printf %s ${v}"   // a $( in quotes opens nothing, so its ) closes nothing
     ]
     for shell in ["/bin/zsh", "/bin/sh"] {
         for t in templates {
@@ -225,6 +226,36 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
             }
         }
     }
+}
+
+/// A value in a string another shell runs as code (`sh -c '…'`, eval, a here-document fed to sh, ssh's command for the
+/// host, python -c) stays data there too: that shell expands it from the environment, quoted, instead of reading it as
+/// its own code.
+@Test func aValueInANestedShellStaysData() throws {
+    func fill(_ template: String, _ value: String) -> String {
+        ShellTemplate.fill(template, named: ["title": value]) { $0 == "title" ? value : nil }
+    }
+    let shapes = [
+        #"sh -c 'printf %s ${title}'"#, #"bash -lc 'printf %s ${title}'"#, #"eval 'printf %s ${title}'"#,
+        #"/bin/sh -c 'printf %s ${title}'"#, #"env bash -c 'printf %s ${title}'"#, #"sh -c "printf %s ${title}""#,
+        #"/bin/bash -c "printf %s ${title}""#, "sh <<EOF\nprintf %s ${title}\nEOF",
+        "cat <<EOF | sh\nprintf %s ${title}\nEOF",
+        #"ssh -o x=y host 'printf %s ${title}'"#, #"ssh host "printf %s ${title}""#, #"ssh host printf %s ${title}"#,
+        #"ssh -o x=y host 'cd /' \; printf %s ${title}"#,
+        #"printf %s "$KELP_title""#, #"sh -c 'printf %s "$KELP_title"'"#,
+        #"python3 -c 'import os; print(os.environ["KELP_title"], end="")'"#
+    ]
+    // ssh is a stand-in that joins the words after the host into one command line for sh, as ssh does for a host.
+    let shim = "ssh() { [ \"$1\" = -o ] && shift 2; shift; sh -c \"$*\"; }; "
+    for template in shapes {
+        #expect(try sh("/bin/zsh", shim + fill(template, "x$(echo PWNED)")) == "x$(echo PWNED)", "\(template)")
+    }
+    // Bare after `sh -c` or `eval`, the value is the script's one word, not its code.
+    for template in ["sh -c ${title}", "eval ${title}"] {
+        #expect(try !sh("/bin/zsh", fill(template, "echo PWNED")).contains("PWNED"), "\(template)")
+    }
+    // An ordinary single-quoted string still reads the value as text in it.
+    #expect(fill("echo 'Issue: ${title}'", "x").hasSuffix(#"echo 'Issue: '"${KELP_V1}"''"#))
 }
 
 @Test func reorderingInsideAGroupDropsWhereTheBarShows() throws {

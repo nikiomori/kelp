@@ -59,8 +59,31 @@ import Testing
     ] {
         #expect(SQLText.pastTheDatabase(sql, .postgres) != nil, "\(sql)")
     }
+    // Each built-in that reaches past is named, whatever else the statement holds
+    for (sql, name) in [
+        ("SELECT query_to_xml('SELECT 1', true, true, '')", "query_to_xml"),
+        ("SELECT query_to_xmlschema('SELECT 1', true, true, '')", "query_to_xmlschema"),
+        ("SELECT * FROM ts_stat('SELECT v FROM t')", "ts_stat"),
+        ("SELECT ts_rewrite('a'::tsquery, 'SELECT a, b FROM r')", "ts_rewrite"),
+        ("SELECT lo_import('/etc/passwd')", "lo_import"), ("SELECT * FROM pg_stat_file('/etc/passwd')", "pg_stat_file"),
+        ("SELECT pg_reload_conf()", "pg_reload_conf"), ("SELECT pg_cancel_backend(42)", "pg_cancel_backend"),
+        ("SELECT pg_promote()", "pg_promote")
+    ] {
+        #expect(SQLText.pastTheDatabase(sql, .postgres)?.hasPrefix(name + " ") == true, "\(sql)")
+    }
     #expect(SQLText.pastTheDatabase("SELECT copy, program FROM t WHERE note = 'do it'", .postgres) == nil)
     #expect(SQLText.pastTheDatabase("COPY t TO 'x.csv'", .duckdb) == nil)   // -safe holds DuckDB to its file
+}
+
+/// Every duckdb run is held to its file (`-safe`, before the file's path), and a read opens it read-only. This is
+/// checked without duckdb, because CI has none.
+@Test func duckDBIsHeldToItsFileAndAReadToReadOnly() {
+    let read = DuckDBRun.arguments("/bin/duckdb", "/p/a.duckdb", readOnly: true)
+    let write = DuckDBRun.arguments("/bin/duckdb", "/p/a.duckdb", readOnly: false)
+    for argv in [read, write] {
+        #expect(argv.first == "/bin/duckdb" && argv.last == "/p/a.duckdb" && argv.contains("-safe"))
+    }
+    #expect(read.contains("-readonly") && !write.contains("-readonly"))
 }
 
 /// MySQL's way to the server's files with the FILE privilege, which a read-only transaction lets through, is refused
@@ -72,7 +95,7 @@ import Testing
         // a comment is a space to MySQL: split by one, it's the same statement
         "SELECT * FROM t INTO/**/OUTFILE '/tmp/x'", "SELECT LOAD_FILE/* x */('/etc/passwd')",
         "SELECT 1 INTO -- x\nDUMPFILE '/tmp/y'", "SELECT 1 INTO#x\nOUTFILE '/tmp/z'",
-        "LOAD/**/DATA INFILE 'x' INTO TABLE t"
+        "LOAD/**/DATA INFILE 'x' INTO TABLE t", "LOAD XML LOCAL INFILE '/tmp/p.xml' INTO TABLE t"
     ] {
         #expect(SQLText.pastTheDatabase(sql, .mysql) != nil, "\(sql)")
     }

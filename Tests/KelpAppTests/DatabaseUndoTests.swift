@@ -13,8 +13,8 @@ private func result(_ kind: RowChange.Kind, _ rows: [[String?]], before: [[Strin
     return result
 }
 
-/// A SQLite file with `orders` as an agent found it; `sql` runs on it through sqlite3, as the statements would.
-private func run(_ path: String, _ sql: String) throws -> String {
+/// Runs `sql` on the SQLite file at `path` through sqlite3, as the statements would run, and returns what it printed.
+func run(_ path: String, _ sql: String) throws -> String {
     let sqlite = Process(), out = Pipe()
     sqlite.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
     sqlite.arguments = [path, sql]
@@ -27,6 +27,7 @@ private func run(_ path: String, _ sql: String) throws -> String {
 
 private let listed = "SELECT group_concat(id || ':' || status || ':' || ifnull(note, 'NULL'), ' ') FROM orders"
 
+/// A SQLite file with `orders` as an agent found it.
 private func orders() throws -> String {
     let path = NSTemporaryDirectory() + "kelp-undo-\(UUID().uuidString).sqlite"
     _ = try run(
