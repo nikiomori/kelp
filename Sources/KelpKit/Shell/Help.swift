@@ -18,9 +18,9 @@ package enum Help {
 
                 ## Projects, workspaces, agents
                 - **Project** — a folder, usually a git repository (the folder button over the sidebar, or File › Add \
-                Project…, \(k("workspace.addProject"))). It's a section in the sidebar.
+                Project…, \(k("workspace.addProject"))). It’s a section in the sidebar.
                 - **Workspace** — a screen of its own in that folder: its tabs, splits and agents. **+** next to the \
-                project (New Chat, \(k("workspace.new"))) opens one at once; it's named after the first thing you ask \
+                project (New Chat, \(k("workspace.new"))) opens one at once; it’s named after the first thing you ask \
                 an agent. Rename with a double-click; close with \(k("workspace.close")) (agents stop, files stay). \
                 Several workspaces can work in the same folder.
                 - **Agent** — Claude Code, Grok, Antigravity, Qwen… whatever is installed and runs on this Mac (found \
@@ -38,14 +38,14 @@ package enum Help {
 
                 | Mark | Means |
                 | --- | --- |
-                | a turning arc | Working: it's thinking |
+                | a turning arc | Working: it’s thinking |
                 | a pie filling up | Working, and it says how far it got |
                 | a slow pulse | Working: it compacts its conversation |
                 | a slow ring of eight dots | its turn is over, and it waits for a command it started |
-                | a ring of dashes | the state was read off its screen, so it's a guess |
+                | a ring of dashes | the state was read off its screen, so it’s a guess |
                 | an orange ring with a dot, the tab glowing | Needs your input: it asked you something (hover for the \
                 question) |
-                | an outlined check, a bold name | Done, and you haven't looked yet |
+                | an outlined check, a bold name | Done, and you haven’t looked yet |
                 | a clock | stopped at its plan limit |
                 | a red circle with an exclamation mark | Failed |
                 | a circle with a cross | Ended |
@@ -53,13 +53,13 @@ package enum Help {
                 | none | Ready for a task |
 
                 The row above the projects counts the chats that need you; a click goes to the next one, as \
-                \(k("agents.nextNeedingYou")) does from anywhere (also in the Dock icon's menu). Beside it are the \
+                \(k("agents.nextNeedingYou")) does from anywhere (also in the Dock icon’s menu). Beside it are the \
                 chats at work, at a limit and done; rest the pointer on a count to see its chats. A folded project or \
                 group shows the logos of the chats that are at work or wait for you, each with its mark in a corner.
 
                 **Limits** at the bottom: a ring per agent — how full its fullest limit is (orange from 70 %, red from \
                 90 %), read from the agents' own /usage (Claude Code, Grok, Antigravity, Kimi, Copilot, Cursor) and \
-                Codex's logs. Hover or click for every limit and when it resets. Settings › Agents › Show plan limits \
+                Codex’s logs. Hover or click for every limit and when it resets. Settings › Agents › Show plan limits \
                 turns it off.
                 """)
     }
@@ -70,8 +70,8 @@ package enum Help {
         return String(
             localized: """
                 ## The middle: tabs and splits
-                The **+** at the end of a pane's tabs opens an agent, a terminal, a browser or what extensions add; the \
-                agent's icon before it starts the default agent (Settings › Agents) in one click. \
+                The **+** at the end of a pane’s tabs opens an agent, a terminal, a browser or what extensions add; the \
+                agent’s icon before it starts the default agent (Settings › Agents) in one click. \
                 \(k("terminal.splitRight")) splits right, \(k("terminal.splitDown")) down; drag a tab to an edge to \
                 split, between groups to move it. Dividers stay where you drag them (View › Equalize Panes evens them \
                 out); \(panes) move to the pane on that side. \(k("view.maximizePane")) lets the focused pane fill the \
@@ -81,7 +81,7 @@ package enum Help {
                 splitting or dragging a tab to another pane arranges the panes by hand from then on.
                 \(k("editor.closeTab")) closes a tab (in an empty workspace, the workspace); \(k("editor.reopenTab")) \
                 brings it back in its place, an agent with its conversation, and File › Recently Closed lists the \
-                rest. Edited files show a dot on their tab and in the window's close button; \(k("editor.save")) saves.
+                rest. Edited files show a dot on their tab and in the window’s close button; \(k("editor.save")) saves.
 
                 In a terminal ⌘F finds text in its scrollback (⌘G / ⇧⌘G next / previous, ⌘E the selection). \
                 Right-click for copy, paste and splits. Drop files to type their paths; ⌘K clears, \
@@ -94,12 +94,12 @@ package enum Help {
             localized: """
                 ## The inspector
                 Files, Source Control — changes, staging, commit, history graph; click a file for its diff — Issues & \
-                Pull Requests, and panels from extensions. ⌥⌘1–9 show a panel by its icon's place in the row and put \
+                Pull Requests, and panels from extensions. ⌥⌘1–9 show a panel by its icon’s place in the row and put \
                 the keys in its list: ↑ ↓ move, Return does what a click does, Esc goes back to the tab.
 
                 ## Extensions and agents
                 Everything above is an extension; turn them off in Settings › Extensions. To add one, ask Claude Code \
-                in a tab: *"make a Kelp panel that lists my Docker containers"*. It knows how through Kelp's \
+                in a tab: *"make a Kelp panel that lists my Docker containers"*. It knows how through Kelp’s \
                 **skills** (Settings › Agents), which also let it change settings for you: *"switch Kelp to the \
                 Dracula theme"*.
 
@@ -108,8 +108,8 @@ package enum Help {
                 `kelp settings set <key> <value>` from any terminal.
 
                 ## Adding projects
-                File › Add Project… (\(k("workspace.addProject"))), or drop a folder on the sidebar or on Kelp's Dock \
-                icon, or run `open -a Kelp .` in a folder. A folder that isn't a Git repository asks first: Initialize \
+                File › Add Project… (\(k("workspace.addProject"))), or drop a folder on the sidebar or on Kelp’s Dock \
+                icon, or run `open -a Kelp .` in a folder. A folder that isn’t a Git repository asks first: Initialize \
                 Git, or Open Without Git (files, terminals and agents work; Source Control waits for `git init`). \
                 File › Clone Repository… and Open over SSH… are the other ways in.
                 """)
