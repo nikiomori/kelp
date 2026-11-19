@@ -18,7 +18,7 @@ package struct SessionStarter {
     ) {
         createSession(
             SessionCreate(
-                worktreeId: workspaceId, agent: agent ?? app.catalog.defaultAgent,
+                worktreeId: workspaceId, agent: agent ?? app.catalog.defaultAgent(in: area.worktree),
                 prompt: prompt?.isEmpty == false ? prompt : nil,
                 draft: draft ? true : nil), split: split, focus: focus)
     }

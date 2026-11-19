@@ -1,3 +1,4 @@
+import AppKit
 import Core
 import Foundation
 import Testing
@@ -30,4 +31,34 @@ import Testing
     #expect(actions.agent(in: "w") == nil)   // two, and the user with neither: asked, not guessed
     app.workbench.lastSession = "second"
     #expect(actions.agent(in: "w")?.id == "second")
+}
+
+/// A remote project's empty workspace offers the agents its host has, once the host answers, and New Agent starts one
+/// of those: never an agent only this Mac has, which the host can't run ("claude: not found").
+@MainActor @Test func aRemoteProjectOffersTheAgentsItsHostHas() async throws {
+    _ = testHome
+    let folder = URL(fileURLWithPath: Paths.root.path).appendingPathComponent("remote/box/app-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    try JSONEncoder().encode(RemoteHost(host: "box", path: "/srv/app"))
+        .write(to: folder.appendingPathComponent(RemoteHost.marker))
+    let app = AppModel(builtins: Builtins.all)
+    app.worktrees = [Worktree(id: "w", repoId: "r", branch: "main", path: folder.path)]
+    let area = EditorArea(app: app, workspaceId: "w")
+    area.render()
+    func tiles() -> [String] {
+        func labels(_ v: NSView) -> [String] {
+            (v as? AgentTile).map { $0.subviews.flatMap(texts) } ?? v.subviews.flatMap(labels)
+        }
+        func texts(_ v: NSView) -> [String] {
+            ((v as? NSTextField).map { [$0.stringValue] } ?? []) + v.subviews.flatMap(texts)
+        }
+        return labels(area.start ?? NSView()).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+    await mainActorTurns()
+    #expect(tiles() == [])   // the host hasn't answered, and this Mac has none
+    app.availability.heard("box", ["codex"])
+    await mainActorTurns()
+    #expect(tiles() == ["Codex", "⌥⌘T", "Agent Catalog…"])   // codex alone, the default here, and the catalog
+    #expect(app.catalog.defaultAgent(in: app.worktree("w")) == "codex")
 }

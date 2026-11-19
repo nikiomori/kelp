@@ -43,7 +43,7 @@ final class StartView: NSView {
     private let app: AppModel
     init(app: AppModel, worktree w: Worktree) {
         self.app = app
-        def = app.catalog.defaultAgent
+        def = app.catalog.defaultAgent(in: w)
         super.init(frame: .zero)
         let repo = app.repo(w.repoId)
         let icon = NSImageView(image: .symbol("folder"))
@@ -69,7 +69,7 @@ final class StartView: NSView {
         folder.lineBreakMode = .byTruncatingMiddle
         folder.isHidden = folder.stringValue.isEmpty
 
-        let agents = NewTabChoices.agents(app)
+        let agents = NewTabChoices.agents(app, in: w)
         // The hint names Open Quickly's key as it stands, and is left out when the command has none.
         let quick = app.extensions.keyText("files.quickOpen")
         let hint = NSTextField(

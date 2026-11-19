@@ -291,7 +291,7 @@ extension EditorArea {
         let app = self.app
         let focus: @MainActor () -> Void = { [weak self] in if let group { self?.layout.focused = group } }
         let menu = NSMenu()
-        let agents = NewTabChoices.agents(app), def = app.catalog.defaultAgent
+        let agents = NewTabChoices.agents(app, in: worktree), def = app.catalog.defaultAgent(in: worktree)
         menu.addItem(.sectionHeader(title: String(localized: "Agents")))
         let notes = app.extensions.all.plans?.notes() ?? [:]
         let shown = agents.prefix(NewTabChoices.shown), rest = agents.dropFirst(NewTabChoices.shown)

@@ -34,14 +34,13 @@ package enum NewTabChoices {
     /// The key that starts the default agent: the key of the New Agent command.
     static func defaultKey(_ app: AppModel) -> KeySpec? { key("agents.new", app, default: "opt+cmd+t") }
 
-    /// The installed agents: the default first, then those in use, then the others by name.
-    static func agents(_ app: AppModel) -> [AgentManifest] {
-        let def = app.catalog.defaultAgent, started = Set(app.sessions.map(\.agent))
+    /// The agents `worktree` can start: the default first, then those in use, then the others by name.
+    static func agents(_ app: AppModel, in worktree: Worktree?) -> [AgentManifest] {
+        let def = app.catalog.defaultAgent(in: worktree), started = Set(app.sessions.map(\.agent))
         let rank = { (agent: AgentManifest) in
             (agent.id == def ? 0 : 1, started.contains(agent.id) ? 0 : 1, agent.name.lowercased())
         }
-        let here = app.workbench.workspaceId.flatMap(app.worktree)
-        return app.catalog.startable(in: here).sorted { rank($0) < rank($1) }
+        return app.catalog.startable(in: worktree).sorted { rank($0) < rank($1) }
     }
 
     /// A terminal, a tmux session when there is tmux, and what extensions open, in the registry's order.

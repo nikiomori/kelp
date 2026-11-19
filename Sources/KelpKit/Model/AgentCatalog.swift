@@ -44,6 +44,12 @@ package struct AgentCatalog {
     func hasTmux(_ worktree: Worktree?) -> Bool {
         app.availability.ids.contains("tmux") || worktree.flatMap { RemoteHost.of($0.path) } != nil
     }
+    /// The agent "New Agent" starts in `worktree`: the default when it runs there, else the first agent that does (a
+    /// host may lack the agent this Mac has).
+    func defaultAgent(in worktree: Worktree?) -> String {
+        let there = startable(in: worktree).filter { Session.isAgent($0.id) }, def = defaultAgent
+        return there.contains { $0.id == def } ? def : there.first?.id ?? def
+    }
     /// The default agent, nil while no agent CLI is found (nothing to start).
     var startable: String? { installed.isEmpty ? nil : defaultAgent }
     package func name(_ id: String?) -> String {
@@ -147,9 +153,11 @@ package final class AgentAvailability {
                 hostAsked[host] = nil   // the host wasn't reached, so ask again next time
                 return
             }
-            onHost[host] = Set(found)
+            heard(host, found)
         }
     }
+    /// Records the agent commands `host` has; what lists agents for its projects follows.
+    func heard(_ host: String, _ found: [String]) { onHost[host] = Set(found) }
     @ObservationIgnored private var checkedAt = Date.distantPast
     @ObservationIgnored private var checking = false
     /// A forced check asked for while another check runs. It runs once that one is done, so the end of an installer
