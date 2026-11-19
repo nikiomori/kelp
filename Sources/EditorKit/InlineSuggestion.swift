@@ -59,9 +59,9 @@ public enum InlineSuggestion {
         }) {
             lines.removeSubrange(end...)
         }
-        let next = below.split(separator: "\n", omittingEmptySubsequences: true).first {
-            !$0.allSatisfy(\.isWhitespace)
-        }.map { $0.trimmingCharacters(in: .whitespaces) }
+        // Split on "\n" in UTF-16: a Character split keeps "\r\n" whole, and a CRLF file would be one line.
+        let next = below.components(separatedBy: "\n").first { !$0.allSatisfy(\.isWhitespace) }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         if let next,
             let cut = lines.indices.dropFirst().first(where: {
                 lines[$0].trimmingCharacters(in: .whitespaces) == next
@@ -82,10 +82,9 @@ public enum InlineSuggestion {
         return text.allSatisfy(\.isWhitespace) ? nil : text
     }
 
-    /// How far the last line of `text` is indented, in characters.
+    /// How far the last line of `text` is indented, in characters (CRLF too: see `cleaned`).
     static func indent(of text: String) -> Int {
-        (text.split(separator: "\n", omittingEmptySubsequences: false).last ?? "").prefix { $0 == " " || $0 == "\t" }
-            .count
+        (text.components(separatedBy: "\n").last ?? "").prefix { $0 == " " || $0 == "\t" }.count
     }
 
     /// What's left of `shown` once `typed` went in at its start, or nil when the typing went another way.

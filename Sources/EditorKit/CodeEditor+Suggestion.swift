@@ -76,15 +76,17 @@ extension CodeEditor {
         let string = textView.string as NSString, at = textView.selectedRange()
         guard at.length == 0, at.location > shown.at, at.location <= string.length,
             string.length - shown.length == at.location - shown.at,
-            let left = InlineSuggestion.remaining(
-                shown.text, after: string.substring(with: NSRange(location: shown.at, length: at.location - shown.at)))
+            case let typed = string.substring(with: NSRange(location: shown.at, length: at.location - shown.at)),
+            let left = InlineSuggestion.remaining(shown.text, after: typed.replacingOccurrences(of: "\r\n", with: "\n"))
         else { return false }
         show(left, at: at.location)
         return true
     }
 
-    /// Puts in `text`, the start of what shows: what's left of it goes on showing, as if typed (`typedThrough`).
-    private func accept(_ text: String, at location: Int) {
+    /// Puts in `shown`, the start of what shows, with the text's own line breaks: what's left of it goes on showing,
+    /// as if typed (`typedThrough`).
+    private func accept(_ shown: String, at location: Int) {
+        let text = shown.replacingOccurrences(of: "\n", with: textView.lineBreak)
         if !suggestion.taken {
             suggestion.taken = true
             suggestion.onEvent?(true)

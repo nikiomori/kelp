@@ -61,6 +61,15 @@ func takingAnEditReplacesWholeLines(lines: Range<Int>, new: [String], range: NSR
     #expect(got.text == text)
 }
 
+@Test func aCRLFTextIsReadAndWrittenWithItsOwnLineBreaks() {
+    #expect(NextEdit.lines("a\r\nb\r\n") == ["a", "b", ""])   // the model reads "\n" lines
+    let text = "a\r\nb\r\nc" as NSString
+    let changed = NextEdit.replacement(.init(lines: 1..<2, old: ["b"], new: ["B", "B2"]), in: text, lineBreak: "\r\n")
+    #expect(changed.range == NSRange(location: 3, length: 3) && changed.text == "B\r\nB2\r\n")
+    let added = NextEdit.replacement(.init(lines: 3..<3, old: [], new: ["d"]), in: text, lineBreak: "\r\n")
+    #expect(added.range == NSRange(location: 7, length: 0) && added.text == "\r\nd")
+}
+
 @MainActor private enum KeptEditWindows { static var all: [NSWindow] = [] }
 
 /// The next edit in a real editor: offered after an edit, ⇥ goes to it, ⇥ takes it, Esc drops one.

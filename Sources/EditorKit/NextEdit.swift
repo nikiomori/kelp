@@ -35,7 +35,10 @@ public enum NextEdit {
         var reach: Range<Int> { lines.isEmpty ? lines.lowerBound - 1..<lines.lowerBound + 1 : lines }
     }
 
-    static func lines(_ text: String) -> [String] { text.components(separatedBy: "\n") }
+    /// `text`'s lines without their line breaks, CRLF ones too: the model reads and writes "\n".
+    static func lines(_ text: String) -> [String] {
+        text.components(separatedBy: "\n").map { $0.hasSuffix("\r") ? String($0.dropLast()) : $0 }
+    }
 
     /// How many lines `a` and `b` share at the start and at the end (never overlapping); nil when they're the same.
     static func shared(
@@ -109,8 +112,11 @@ public enum NextEdit {
         )
     }
 
-    /// What taking `proposal` replaces in `string` (whole lines, with their line breaks), and with what.
-    static func replacement(_ proposal: Proposal, in string: NSString) -> (range: NSRange, text: String) {
+    /// What taking `proposal` replaces in `string` (whole lines, with their line breaks), and with what: lines ending
+    /// in `lineBreak`, the text's own.
+    static func replacement(
+        _ proposal: Proposal, in string: NSString, lineBreak: String = "\n"
+    ) -> (range: NSRange, text: String) {
         var start = 0, line = 0
         while line < proposal.lines.lowerBound, start < string.length {
             start = NSMaxRange(string.lineRange(for: NSRange(location: start, length: 0)))
@@ -121,13 +127,13 @@ public enum NextEdit {
             end = NSMaxRange(string.lineRange(for: NSRange(location: end, length: 0)))
         }
         let breaks = end > start && string.character(at: end - 1) == 10
-        let lines = proposal.new.joined(separator: "\n")
+        let lines = proposal.new.joined(separator: lineBreak)
         // Lines added after the last line, which has no line break: the break goes before them, not after.
         let afterLast =
             proposal.old.isEmpty && start == string.length && start > 0 && string.character(at: start - 1) != 10
         let text =
             proposal.new.isEmpty
-            ? "" : afterLast ? "\n" + lines : lines + (proposal.old.isEmpty || breaks ? "\n" : "")
+            ? "" : afterLast ? lineBreak + lines : lines + (proposal.old.isEmpty || breaks ? lineBreak : "")
         return (NSRange(location: start, length: end - start), text)
     }
 }

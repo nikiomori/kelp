@@ -76,7 +76,8 @@ extension CodeEditor {
                 suggestion.shown == nil, completion.list?.isOpen != true,
                 let proposal = NextEdit.proposal(answer, for: ask)
             else { return }
-            let (range, text) = NextEdit.replacement(proposal, in: textView.string as NSString)
+            let (range, text) = NextEdit.replacement(
+                proposal, in: textView.string as NSString, lineBreak: textView.lineBreak)
             nextEdit.shown = .init(proposal: proposal, range: range, text: text)
             drawNextEdit()
             nextEdit.onEvent?(true)

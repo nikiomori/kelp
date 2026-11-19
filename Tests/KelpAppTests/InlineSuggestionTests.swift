@@ -22,7 +22,8 @@ func aSuggestionFitsBeforeOnlyClosersOrNothing(rest: String, fits: Bool) {
         ("   \n  ", "", "", nil),
         ("x\r\ny", "", "", "x\ny"),
         (")", ")", "", nil),
-        ("\n    a\n  ", "}", "", "\n    a\n  ")   // the closer goes on a line of its own
+        ("\n    a\n  ", "}", "", "\n    a\n  "),   // the closer goes on a line of its own
+        ("a\n}", "", "\r\n}\r\n", "a")   // a CRLF file's next line isn't doubled either
     ] as [(String, String, String, String?)])
 func aModelsAnswerLosesWhatsAlreadyThere(raw: String, rest: String, below: String, shown: String?) {
     #expect(InlineSuggestion.cleaned(raw, rest: Substring(rest), below: below) == shown)
@@ -39,6 +40,7 @@ func aModelsAnswerLosesWhatsAlreadyThere(raw: String, rest: String, below: Strin
 func aSuggestionEndsWithTheCursorsBlock(raw: String, indent: Int, shown: String) {
     #expect(InlineSuggestion.cleaned(raw, rest: "", below: "", indent: indent) == shown)
     #expect(InlineSuggestion.indent(of: "func f() {\n" + String(repeating: " ", count: indent)) == indent)
+    #expect(InlineSuggestion.indent(of: "  f() {\r\n" + String(repeating: " ", count: indent)) == indent)   // CRLF
 }
 
 @Test func aSuggestionStopsAfterItsLineLimit() {
@@ -96,6 +98,14 @@ extension OneAtATime {
         #expect(!e.isSuggesting)
         type(tv, "x")   // typed something else: gone until the next answer
         #expect(!e.isSuggesting)
+    }
+
+    @Test func aCRLFFileTakesGrayTextWithItsOwnLineBreaks() async throws {
+        let (e, tv) = suggesting("let a = 1\r\nlet b =", answer: "2\nlet c = 3")
+        type(tv, " ")
+        #expect(try await settled(e))
+        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
+        #expect(tv.string == "let a = 1\r\nlet b = 2\r\nlet c = 3")
     }
 
     @Test func optionRightTakesOneWordAndEscapeDropsIt() async throws {
