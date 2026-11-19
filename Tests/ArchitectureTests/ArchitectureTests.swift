@@ -490,6 +490,9 @@ func codeOnly(_ s: String) -> String {
         "KelpKit/Extensions/ExtListView.swift": (
             2, "an extension's own refresh interval for its command's list; a shown outline stays 0.4 s, not to blink"
         ),
+        "KelpKit/Sidebar/HoverCardViews.swift": (
+            1, "a card's Reading the conversation… stays 0.4 s once shown, so a quick read doesn't flicker"
+        ),
         "Builtins/Files/Disk/DiskUsageTab.swift": (
             1, "Measuring… shows only past a second: a quick measure doesn't flicker"
         ),

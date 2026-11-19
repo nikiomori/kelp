@@ -165,6 +165,10 @@ struct WorktreeSizes: View {
 struct ContextBlock: View {
     let model: CardModel, used: Int, window: Int
     @AppStorage("sidebar.card.contextOpen") private var opened = false
+    /// The read of the conversation is Kelp's own: its wait shows only past a second, and stays 0.4 s once shown, so
+    /// a quick read doesn't flicker. What it read then comes in (`grow`): the line fades into the parts, the bar fills.
+    @State private var waiting = false
+    @State private var arrived = false
 
     var body: some View {
         let open = opened || model.compact != nil
@@ -180,9 +184,31 @@ struct ContextBlock: View {
             }
             .buttonStyle(PointerButtonStyle(flush: true))
             if let cold = model.coldCache { Text(cold).font(.ui(TextSize.caption)).foregroundStyle(.secondary) }
-            if open, let parts = model.parts { ContextParts(parts: parts, window: window, compact: model.compact) }
+            if open, let parts = model.parts {
+                ContextParts(parts: parts, window: window, compact: model.compact, grow: arrived)
+                    .transition(.opacity)
+            } else if open, waiting {
+                LoadingLine(String(localized: "Reading the conversation…"), size: TextSize.caption)
+                    .transition(.opacity)
+            }
         }
-        .task(id: open) { if open { await model.loadParts() } }
+        .task(id: open) { if open { await load() } }
+    }
+
+    private func load() async {
+        guard model.parts == nil else { return }
+        let slow = whileSlow { withAnimation(.easeOut(duration: Motion.duration(Motion.fast))) { waiting = true } }
+        let began = Date.now
+        await model.loadParts()
+        slow.cancel()
+        if waiting {
+            let left = LoadingView.held - Date.now.timeIntervalSince(began + LoadingView.patience)
+            if left > 0 { do { try await Task.sleep(for: .seconds(left)) } catch { return } }
+        }
+        withAnimation(.easeOut(duration: Motion.duration(Motion.appear))) {
+            waiting = false
+            arrived = true
+        }
     }
 }
 

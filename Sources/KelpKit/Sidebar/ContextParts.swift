@@ -12,6 +12,10 @@ struct ContextParts: View {
     let parts: SessionContextParts.Parts, window: Int
     /// The Compact Now action, offered once the ring turns orange, while the agent waits for input.
     let compact: (() -> Void)?
+    /// True when the parts just arrived after a wait: the bar fills from empty as they come in. Shown again from the
+    /// card's memory, they stand at once.
+    var grow = false
+    @State private var filled = false
 
     struct Row: Identifiable { let id: String, label: String, tokens: Int, detail: String, color: Color? }
 
@@ -44,9 +48,12 @@ struct ContextParts: View {
         let rows = self.rows, used = rows.reduce(0) { $0 + $1.tokens }, buffer = parts.setup?.buffer ?? 0
         let biggest = rows.filter { $0.id != "base" }.max { $0.tokens < $1.tokens }?.id
         let reserve = Color(nsColor: .quaternaryLabelColor)
+        let full = !grow || filled
         VStack(alignment: .leading, spacing: Metrics.gap) {
             PartsBar(
-                rows.map { PartsBar.Part(id: $0.id, value: Double($0.tokens), color: $0.color ?? .clear) },
+                rows.map {
+                    PartsBar.Part(id: $0.id, value: full ? Double($0.tokens) : 0, color: $0.color ?? .clear)
+                },
                 total: Double(window),
                 end: buffer > 0 ? PartsBar.Part(id: "buffer", value: Double(buffer), color: reserve) : nil)
             Grid(alignment: .leading, horizontalSpacing: Metrics.gap, verticalSpacing: Metrics.lineGap) {
@@ -67,6 +74,10 @@ struct ContextParts: View {
                     horizontal: false, vertical: true)
             }
             if let compact { Button(String(localized: "Compact Now"), action: compact).controlSize(.small) }
+        }
+        .onAppear {
+            guard grow, !filled else { return }
+            withAnimation(.easeOut(duration: Motion.duration(Motion.fold))) { filled = true }
         }
     }
 

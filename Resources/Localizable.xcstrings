@@ -31708,6 +31708,16 @@
           }
         }
       }
+    },
+    "Reading the conversation…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаю разговор…"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

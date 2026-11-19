@@ -225,12 +225,16 @@ final class SkeletonRows: NSView {
 /// The same view for SwiftUI: the spinner and its line, as a form's row or, with `.frame(maxHeight: .infinity)`, in
 /// the middle of a page.
 public struct LoadingLine: View {
-    private let text: String
-    public init(_ text: String) { self.text = text }
+    private let text: String, size: CGFloat
+    /// `size` is the text's role: body on a page, caption in a card.
+    public init(_ text: String, size: CGFloat = TextSize.body) {
+        self.text = text
+        self.size = size
+    }
     public var body: some View {
         HStack(spacing: Metrics.gap) {
-            ProgressView().controlSize(.small)
-            Text(text).font(.ui(TextSize.body)).foregroundStyle(.secondary)
+            ProgressView().controlSize(size < TextSize.body ? .mini : .small)
+            Text(text).font(.ui(size)).foregroundStyle(.secondary)
         }
     }
 }
