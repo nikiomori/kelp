@@ -169,10 +169,8 @@ final class StartView: NSView {
         let label = NSTextField(labelWithString: String(localized: "Code"))
         label.font = .ui(TextSize.row)
         label.textColor = .secondaryLabelColor
-        let place = NSSegmentedControl(
-            labels: [String(localized: "Project Folder"), String(localized: "Own Branch")],
-            trackingMode: .selectOne, target: nil, action: nil)
-        place.segmentDistribution = .fit
+        let place = CapsuleSegments(
+            labels: [String(localized: "Project Folder"), String(localized: "Own Branch")], target: nil, action: nil)
         place.controlSize = .small
         place.selectedSegment = 0
         place.setToolTip(String(localized: "Shares the project’s files with its other chats"), forSegment: 0)

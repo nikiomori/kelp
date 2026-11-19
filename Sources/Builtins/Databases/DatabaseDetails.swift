@@ -12,9 +12,9 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
     enum Part: Int { case table, row, agent }
 
     let view = NSView()
-    private let part = NSSegmentedControl(
-        labels: [String(localized: "Table"), String(localized: "Row"), String(localized: "Agent")],
-        trackingMode: .selectOne, target: nil, action: nil)
+    private let part = CapsuleSegments(
+        labels: [String(localized: "Table"), String(localized: "Row"), String(localized: "Agent")], target: nil,
+        action: nil)
     private let search = NSSearchField()
     private let stack = NSStackView()
     static let width: CGFloat = 264

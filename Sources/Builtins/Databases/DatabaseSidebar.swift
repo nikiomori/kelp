@@ -19,9 +19,9 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     }
 
     let view = NSView()
-    private let part = NSSegmentedControl(
-        labels: [String(localized: "Items"), String(localized: "Queries"), String(localized: "History")],
-        trackingMode: .selectOne, target: nil, action: nil)
+    private let part = CapsuleSegments(
+        labels: [String(localized: "Items"), String(localized: "Queries"), String(localized: "History")], target: nil,
+        action: nil)
     private let search = NSSearchField()
     let list = NSTableView()
     private let schemaPicker = NSPopUpButton()

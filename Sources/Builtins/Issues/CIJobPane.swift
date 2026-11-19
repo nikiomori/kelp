@@ -33,8 +33,8 @@ final class CIJobPane: NSObject {
         if let self, let shown, let worktree { show(shown.job, run: shown.run, in: worktree) }
     }
     private let title = NSTextField(labelWithString: "")
-    private lazy var mode = NSSegmentedControl(
-        labels: [String(localized: "Failure"), String(localized: "Log")], trackingMode: .selectOne,
+    private lazy var mode = CapsuleSegments(
+        labels: [String(localized: "Failure"), String(localized: "Log")],
         target: self, action: #selector(modeChanged))
     private lazy var copyButton = IconButton(.symbol("doc.on.doc"), tip: String(localized: "Copy")) { [weak self] in
         self?.copy()

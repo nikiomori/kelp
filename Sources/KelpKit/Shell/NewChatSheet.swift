@@ -12,11 +12,11 @@ final class NewChatSheet: NSObject {
         var mode: Mode, name: String, from: String?, branch: String?, pr: Int?, agent: String
     }
 
-    private let mode = NSSegmentedControl(
+    private let mode = CapsuleSegments(
         labels: [
             String(localized: "New Branch"), String(localized: "Existing Branch"),
             String(localized: "Pull Request")
-        ], trackingMode: .selectOne, target: nil, action: nil)
+        ], target: nil, action: nil)
     let name = NSTextField(), from = NSPopUpButton(), branch = NSPopUpButton(), pr = NSPopUpButton(),
         agent = NSPopUpButton()
     private var rows: [Mode: [NSView]] = [:]

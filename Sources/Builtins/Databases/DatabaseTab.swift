@@ -60,8 +60,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     let capsule = NSTextField(labelWithString: "")
     let capsuleBox = NSStackView()
     let capsuleButton = PointerControl(frame: .zero)
-    let part = NSSegmentedControl(
-        labels: [String(localized: "Data"), String(localized: "Structure")], trackingMode: .selectOne, target: nil,
+    let part = CapsuleSegments(
+        labels: [String(localized: "Data"), String(localized: "Structure")], target: nil,
         action: nil)
     let sqlText = NSTextField(wrappingLabelWithString: "")
     lazy var editor = CodeEditor(text: "", url: URL(fileURLWithPath: "/query.sql"))

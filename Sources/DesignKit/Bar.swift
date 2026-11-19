@@ -88,7 +88,10 @@ public final class Bar: NSView {
             (view as? NSButton).map {
                 !($0 is PointerButton) && !($0 is NSPopUpButton) && $0.isBordered && $0.bezelStyle == .push
             } ?? false
-        let plain = [ObjectIdentifier(NSPopUpButton.self), ObjectIdentifier(NSSegmentedControl.self)].contains(
+        let plain = [
+            ObjectIdentifier(NSPopUpButton.self), ObjectIdentifier(NSSegmentedControl.self),
+            ObjectIdentifier(CapsuleSegments.self)
+        ].contains(
             ObjectIdentifier(type(of: view)))
         guard push || plain, let control = view as? NSControl else { return }
         control.controlSize = .small
