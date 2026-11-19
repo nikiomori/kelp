@@ -4,8 +4,8 @@ import Foundation
 /// before it and as they are now, and writes those lines as it guesses they'll be next. What it changed is offered in
 /// place, struck through and written in green: ⇥ goes there, ⇥ again takes it.
 public enum NextEdit {
-    /// Lines either side of the cursor the model writes again: on Kelp's history ±8 was right about as often as ±15,
-    /// three times sooner.
+    /// Lines either side of the cursor the model writes again: on Kelp's history ±15 offered the edit made a little
+    /// more often, but took three times as long (1 s).
     public static let half = 8
     /// The most lines an edit offered may take away or put in; more is the model losing its place, not a pattern.
     static let most = 12
