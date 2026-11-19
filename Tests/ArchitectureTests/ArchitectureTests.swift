@@ -743,7 +743,7 @@ func codeOnly(_ s: String) -> String {
         "KelpKit/Settings/IconTheme.swift": (2, "an icon theme an extension brings"),
         "KelpKit/Settings/ExtensionsSettings.swift": (1, "an extension's own folder"),
         "KelpKit/Extensions/Registry.swift": (4, "extensions' folders, Kelp's own"),
-        "KelpKit/Extensions/ExtensionInstall.swift": (3, "an extension installed into Kelp's folder, or taken out"),
+        "KelpKit/Extensions/ExtensionInstall.swift": (2, "an extension installed into Kelp's folder, or taken out"),
         "KelpKit/Extensions/DeclarativeExtension.swift": (5, "an extension's manifest, and whether its page is there"),
         "KelpKit/Extensions/ExtensionReview.swift": (1, "an extension's manifest, before it's installed"),
         "KelpKit/Extensions/ExtPages.swift": (1, "an extension's own page, served to its web view"),

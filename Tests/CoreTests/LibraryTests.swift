@@ -113,11 +113,17 @@ import Testing
     let src = dir.appendingPathComponent("src/docker"), into = dir.appendingPathComponent("extensions")
     try Paths.ensure(src)
     try "v1".write(to: src.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
-    try ExtensionFiles.installExtension(src, as: "docker", in: into)
+    let name = "docker-\(UUID().uuidString.prefix(8))"   // its own name: the Trash is shared by every test
+    try ExtensionFiles.installExtension(src, as: name, in: into)
     try "v2".write(to: src.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
-    let dest = try ExtensionFiles.installExtension(src, as: "docker", in: into, move: true)
+    let dest = try ExtensionFiles.installExtension(src, as: name, in: into, move: true)
     #expect(try String(contentsOf: dest.appendingPathComponent("extension.json"), encoding: .utf8) == "v2")
     #expect(!fm.fileExists(atPath: src.path))
+    // The old copy went to Kelp's Trash (KELP_TRASH in tests), whole, where Put Back finds it.
+    let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
+    let kept = try fm.contentsOfDirectory(atPath: trash).map { "\(trash)/\($0)/\(name)/extension.json" }
+        .filter { fm.fileExists(atPath: $0) }
+    #expect(try kept.map { try String(contentsOfFile: $0, encoding: .utf8) } == ["v1"])
     for bad in ["..", ".", "", "a/b", "../x", ".hidden"] {
         #expect(throws: RPCError.self, "\(bad)") { try ExtensionFiles.installExtension(dest, as: bad, in: into) }
         #expect(!ExtensionFiles.isPlainName(bad))

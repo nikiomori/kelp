@@ -61,7 +61,7 @@ extension ExtensionRegistry {
 
     func uninstall(_ id: String) {
         guard let ext = extensions.first(where: { $0.id == id }), let path = ext.path, !ext.builtin else { return }
-        do { try FileManager.default.trashItem(at: path, resultingItemURL: nil) } catch {
+        do { try Trash.move(path) } catch {
             let why = error.localizedDescription
             Banner.show(String(localized: "Couldn't move \(ext.name) to the Trash: \(why)"), style: .error)
         }
