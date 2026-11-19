@@ -14,6 +14,10 @@ public final class CapsuleSegments: NSControl {
     private let thumb = NSView(), hover = NSView()
     private var hovered: Int?, pressed: Int?
     private var watching: [NSObjectProtocol] = []
+    /// The pointer's area: the only one taken down and put back, so the tool tips' own areas stay.
+    private var tracking: NSTrackingArea?
+    /// The segments as VoiceOver knows them, made once per set of words, so its cursor stays on the one chosen.
+    private var choices: [Choice] = []
 
     public init(labels: [String], target: AnyObject? = nil, action: Selector? = nil) {
         words = labels
@@ -41,6 +45,7 @@ public final class CapsuleSegments: NSControl {
             restyle()
             placeThumb(animated: window != nil && oldValue >= 0)
             NSAccessibility.post(element: self, notification: .valueChanged)
+            NSAccessibility.post(element: self, notification: .selectedChildrenChanged)
         }
     }
     public var segmentCount: Int {
@@ -54,6 +59,7 @@ public final class CapsuleSegments: NSControl {
         guard words.indices.contains(index), words[index] != label else { return }
         words[index] = label
         fields[index].stringValue = label
+        choices[index].setAccessibilityLabel(label)
         invalidateIntrinsicContentSize()
         needsLayout = true
     }
@@ -88,6 +94,7 @@ public final class CapsuleSegments: NSControl {
         }
         segmentOn = Array(repeating: true, count: words.count)
         tips = Array(repeating: nil, count: words.count)
+        choices = words.enumerated().map { Choice(index: $0, label: $1, of: self) }
         if selectedSegment >= words.count { selectedSegment = -1 }
         light(nil)
         restyle()
@@ -130,6 +137,7 @@ public final class CapsuleSegments: NSControl {
                 x: rects[index].minX + Metrics.gapWide / 2, y: rects[index].midY - size.height / 2,
                 width: rects[index].width - Metrics.gapWide, height: size.height)
             if let tip = tips[index] { addToolTip(rects[index], owner: tip as NSString, userData: nil) }
+            choices[index].setAccessibilityFrameInParentSpace(rects[index])
         }
         placeThumb(animated: false)
         if let hovered, rects.indices.contains(hovered) { hover.frame = rects[hovered] }
@@ -171,6 +179,8 @@ public final class CapsuleSegments: NSControl {
             let chosen = index == selectedSegment, on = isEnabled && segmentOn[index]
             field.font = chosen ? chosenFont : wordFont
             field.textColor = !on ? .tertiaryLabelColor : chosen ? .labelColor : .secondaryLabelColor
+            choices[index].setAccessibilityValue(chosen ? 1 : 0)
+            choices[index].setAccessibilityEnabled(on)
         }
     }
     override public func viewDidChangeEffectiveAppearance() {
@@ -200,11 +210,12 @@ public final class CapsuleSegments: NSControl {
     }
     override public func updateTrackingAreas() {
         super.updateTrackingAreas()
-        trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(
-            NSTrackingArea(
-                rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
-                owner: self))
+        if let tracking { removeTrackingArea(tracking) }
+        let area = NSTrackingArea(
+            rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self)
+        addTrackingArea(area)
+        tracking = area
     }
     override public func mouseMoved(with event: NSEvent) {
         light(segment(at: convert(event.locationInWindow, from: nil)))
@@ -269,26 +280,21 @@ public final class CapsuleSegments: NSControl {
     // MARK: VoiceOver
 
     override public func accessibilityValue() -> Any? { label(forSegment: selectedSegment) }
-    override public func accessibilityChildren() -> [Any]? {
-        segmentRects().enumerated().map { index, rect in
-            let element = Choice(index: index, of: self)
-            element.setAccessibilityRole(.radioButton)
-            element.setAccessibilityLabel(words[index])
-            element.setAccessibilityValue(index == selectedSegment ? 1 : 0)
-            element.setAccessibilityEnabled(isEnabled && segmentOn[index])
-            element.setAccessibilityParent(self)
-            element.setAccessibilityFrameInParentSpace(rect)
-            return element
-        }
+    override public func accessibilityChildren() -> [Any]? { choices }
+    override public func accessibilitySelectedChildren() -> [Any]? {
+        choices.indices.contains(selectedSegment) ? [choices[selectedSegment]] : []
     }
     /// One segment to VoiceOver: a radio button whose press chooses it.
     private final class Choice: NSAccessibilityElement {
         let index: Int
         weak var control: CapsuleSegments?
-        init(index: Int, of control: CapsuleSegments) {
+        init(index: Int, label: String, of control: CapsuleSegments) {
             self.index = index
             self.control = control
             super.init()
+            setAccessibilityRole(.radioButton)
+            setAccessibilityLabel(label)
+            setAccessibilityParent(control)
         }
         override func accessibilityPerformPress() -> Bool {
             let control = self.control, index = self.index

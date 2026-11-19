@@ -30,6 +30,18 @@ import Testing
     control.setEnabled(false, forSegment: 1)
     #expect(segments[1].accessibilityPerformPress() && control.selectedSegment == 2 && sink.sent == [2])
     #expect(control.accessibilityValue() as? String == "90 Days")
+    // VoiceOver keeps its cursor on a segment, so each is the same element after a change, its value moved on.
+    let again = try #require(control.accessibilityChildren() as? [NSAccessibilityElement])
+    #expect(zip(again, segments).allSatisfy { $0 === $1 } && again[2].accessibilityValue() as? Int == 1)
+    #expect((control.accessibilitySelectedChildren() as? [NSAccessibilityElement])?.first === segments[2])
+
+    // A tip's own area outlives the pointer's being put back (a scroll calls `updateTrackingAreas`, not `layout`).
+    control.setToolTip("Last week", forSegment: 0)
+    control.layout()
+    control.updateTrackingAreas()
+    let areas = control.trackingAreas.count
+    control.updateTrackingAreas()
+    #expect(areas > 1 && control.trackingAreas.count == areas)
 
     let normal = control.intrinsicContentSize
     TextSize.apply("larger")
