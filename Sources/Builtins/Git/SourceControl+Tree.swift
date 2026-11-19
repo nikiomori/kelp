@@ -143,7 +143,7 @@ extension SourceControlController {
         else { return }
         let both = changes.frame.height + graph.frame.height
         guard both > 0 else { return }
-        let saved = UserDefaults.standard.object(forKey: "scm.graphHeight") as? CGFloat
+        let saved = graphHeight?.isActive == true ? graphHeight?.constant : nil   // the dragged height
         let least = min(saved ?? both / 2, max(0, both - 80))
         let fit = max(min(changesRows, both - least), min(80, changesRows))
         if abs(hug.constant - fit) > 0.5 { hug.constant = fit }
