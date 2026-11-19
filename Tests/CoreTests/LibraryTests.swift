@@ -92,7 +92,7 @@ import Testing
         try ExtensionFiles.unpackExtension(a, path: "nope", source: "s", work: try work())
     }
     let badID = try archive(["extension.json": #"{"id": "../evil", "name": "E"}"#])
-    #expect(throws: RPCError.self) {
+    expectRefusal(says: "needs an id of lowercase letters") {
         try ExtensionFiles.unpackExtension(badID, path: "", source: "s", work: try work())
     }
     let outside = dir.appendingPathComponent("outside")
@@ -100,7 +100,7 @@ import Testing
     try #"{"id": "out", "name": "O"}"#.write(
         to: outside.appendingPathComponent("extension.json"), atomically: true, encoding: .utf8)
     let link = try archive(["README.md": "x"], links: ["ext": outside.path])
-    #expect(throws: RPCError.self) {
+    expectRefusal(says: "has no extension.json") {
         try ExtensionFiles.unpackExtension(link, path: "ext", source: "s", work: try work())
     }
 }
@@ -125,7 +125,9 @@ import Testing
         .filter { fm.fileExists(atPath: $0) }
     #expect(try kept.map { try String(contentsOfFile: $0, encoding: .utf8) } == ["v1"])
     for bad in ["..", ".", "", "a/b", "../x", ".hidden"] {
-        #expect(throws: RPCError.self, "\(bad)") { try ExtensionFiles.installExtension(dest, as: bad, in: into) }
+        expectRefusal(says: "can't be an extension's folder name", "\(bad)") {
+            try ExtensionFiles.installExtension(dest, as: bad, in: into)
+        }
         #expect(!ExtensionFiles.isPlainName(bad))
     }
 }
@@ -187,4 +189,14 @@ import Testing
     try Data("rm -rf /".utf8).write(to: URL(fileURLWithPath: script))
     try FileManager.default.setAttributes([.modificationDate: was ?? Date()], ofItemAtPath: script)
     #expect(ExtensionFiles.extensionDigest(dir) != second)
+}
+
+/// Expects `call` refused by an `RPCError` whose message says `says` (any case), the reason: any error would pass a
+/// missing file for a refusal.
+func expectRefusal<T>(
+    says: String, _ comment: Comment? = nil, sourceLocation: SourceLocation = #_sourceLocation, _ call: () throws -> T
+) {
+    let e = #expect(throws: RPCError.self, comment, sourceLocation: sourceLocation) { _ = try call() }
+    guard let e else { return }
+    #expect(e.message.localizedCaseInsensitiveContains(says), "\(says) ≠ \(e.message)", sourceLocation: sourceLocation)
 }

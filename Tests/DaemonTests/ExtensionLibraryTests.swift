@@ -34,6 +34,6 @@ import Testing
         SettingsSet(key: "extensions.library", value: .string(root.appendingPathComponent("gone.json").absoluteString)))
     await #expect(throws: RPCError.self) { try await c.call(ExtensionLibrary()) }
     for bad in ["docker", "https://example.com/a/b/c", "me/exts/tree/main/../../etc"] {
-        await #expect(throws: RPCError.self, "\(bad)") { try await c.call(ExtensionFetch(source: bad)) }
+        await expectRefusal(says: "Not a GitHub folder", "\(bad)") { try await c.call(ExtensionFetch(source: bad)) }
     }
 }

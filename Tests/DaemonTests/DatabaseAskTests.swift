@@ -114,7 +114,7 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
     shop.access = .read
     _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: shop))
     #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "allow", question: try summary(w, agent.id))))
-    await #expect(throws: RPCError.self) { try await asked.value }
+    await expectRefusal(says: "became read-only for agents while it was asked") { try await asked.value }
     #expect(try count(path, "SELECT count(*) FROM orders WHERE status = 'paid'") == 0)
 }
 

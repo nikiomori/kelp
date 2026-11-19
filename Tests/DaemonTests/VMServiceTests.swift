@@ -338,14 +338,14 @@ import os
 
     /// A kelp-vm runs while it holds its machine's lock, answering or not: a busy one isn't taken for gone (a delete
     /// would take the folder from under it).
-    @Test func aKelpVMIsAliveByItsLockNotItsAnswer() throws {
+    @Test func aKelpVMIsAliveByItsLockNotItsAnswer() async throws {
         defer { try? FileManager.default.removeItem(at: home) }
         try folder([:])
         #expect(!vms.alive("deb"))
         let lock = open(home.appendingPathComponent("vms/deb/kelp-vm.lock").path, O_CREAT | O_RDWR, 0o600)
         #expect(flock(lock, LOCK_EX | LOCK_NB) == 0)
         #expect(vms.alive("deb"))
-        #expect(throws: RPCError.self) { _ = try vms.control("deb", .delete) }   // it doesn't answer, it's there: kept
+        await expectRefusal(says: "didn't stop") { _ = try vms.control("deb", .delete) }   // it doesn't answer, it's there: kept
         #expect(FileManager.default.fileExists(atPath: home.appendingPathComponent("vms/deb/machine.json").path))
         close(lock)
         #expect(!vms.alive("deb"))
@@ -395,9 +395,9 @@ import os
         #expect(vms.list().map(\.state) == [.sleeping])
     }
 
-    @Test func namesAndImagesAreChecked() {
-        #expect(throws: RPCError.self) { try vms.create(VMCreate(name: "Bad Name")) }
-        #expect(throws: RPCError.self) { try vms.create(VMCreate(name: "ok", image: "windows")) }
+    @Test func namesAndImagesAreChecked() async {
+        await expectRefusal(says: "A machine's name") { try vms.create(VMCreate(name: "Bad Name")) }
+        await expectRefusal(says: "No image windows") { try vms.create(VMCreate(name: "ok", image: "windows")) }
         #expect(throws: RPCError.self) { try vms.machine("nope") }
     }
 
@@ -427,7 +427,7 @@ import os
 }
 
 /// A file to make a machine from is looked at first: what can't run is refused, saying what to do.
-@Test func aMachinesFileIsCheckedFirst() throws {
+@Test func aMachinesFileIsCheckedFirst() async throws {
     let dir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("kvmf-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
@@ -440,11 +440,11 @@ import os
     isoBytes.replaceSubrange(0x8001..<0x8006, with: Data("CD001".utf8))
     try isoBytes.write(to: iso)
     try Data(count: 4096).write(to: raw)
-    #expect(throws: RPCError.self) { try VMService.check(qcow, for: linux) }
-    #expect(throws: RPCError.self) { try VMService.check(iso, for: linux) }
-    #expect(throws: RPCError.self) { try VMService.check(raw, for: mac) }   // not an .ipsw
-    #expect(throws: RPCError.self) { try VMService.check(raw, for: android) }
-    #expect(throws: RPCError.self) { try VMService.check(dir.appendingPathComponent("gone.raw"), for: linux) }
+    await expectRefusal(says: "qcow2 image") { try VMService.check(qcow, for: linux) }
+    await expectRefusal(says: "installer ISO") { try VMService.check(iso, for: linux) }
+    await expectRefusal(says: "restore image (.ipsw)") { try VMService.check(raw, for: mac) }   // not an .ipsw
+    await expectRefusal(says: "Android machines come from your SDK") { try VMService.check(raw, for: android) }
+    await expectRefusal(says: "No file") { try VMService.check(dir.appendingPathComponent("gone.raw"), for: linux) }
     try VMService.check(raw, for: linux)
 }
 
@@ -497,9 +497,9 @@ import os
     let denied = ask("deb")
     #expect(try await waitFor { try summary() == "Allow making a machine, deb (Debian 13: about 0.2 GB to download)?" })
     #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "deny", question: try summary())))
-    await #expect(throws: RPCError.self) { try await denied.value }
+    await expectRefusal(says: "didn't allow making deb") { try await denied.value }
     #expect(VMService(home: w.d.root, helper: "").list().isEmpty)
-    await #expect(throws: RPCError.self) { try await ask("Not_A_Name").value }
+    await expectRefusal(says: "A machine's name") { try await ask("Not_A_Name").value }
     #expect(try summary().isEmpty)
     let allowed = ask("box", image: "nope")
     #expect(try await waitFor { try summary().hasPrefix("Allow making a machine, box") })

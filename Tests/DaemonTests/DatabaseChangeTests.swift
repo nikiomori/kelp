@@ -281,7 +281,7 @@ func aDuckDBChangeIsKeptWithTheRowsItWrote() async throws {
         "UPDATE orders SET status = 'pending' WHERE id = 1 AND status = 'cancelled'",
         "UPDATE orders SET status = 'pending' WHERE id = 3 AND status = 'paid'"
     ]
-    await #expect(throws: RPCError.self) {
+    await expectRefusal(says: "Nothing was put back") {
         try await w.c.call(DatabaseApply(worktreeId: wt.id, database: "shop", statements: undo, each: 1))
     }
     #expect(try table(path).map { $0[1] } == ["pending", "pending", "paid"])

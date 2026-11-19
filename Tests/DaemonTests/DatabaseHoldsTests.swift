@@ -104,7 +104,7 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
         WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 900)
         SELECT printf('%.*c', 40000, 'x') FROM n
         """
-    await #expect(throws: RPCError.self) {
+    await expectRefusal(says: "more than Kelp reads") {
         try await w.c.call(DatabaseQuery(worktreeId: wt.id, database: "shop", sql: big))
     }
     var rows = DatabaseRows()

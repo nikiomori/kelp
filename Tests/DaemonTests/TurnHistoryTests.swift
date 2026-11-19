@@ -76,7 +76,7 @@ import Testing
     let plan = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id))
     #expect(plan.files.sorted() == ["a.txt", "new.txt"])   // .env stays out
     try "later\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)   // changed after the look
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "nothing was put back") {
         try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id, apply: true, state: plan.state))
     }
     #expect(file("a.txt") == "later\n" && file("new.txt") == "made\n")
@@ -91,7 +91,7 @@ import Testing
     // Redo: what the undo took (the user's own "later" too) comes back, only while the folder is as the undo left it.
     _ = try await w.c.call(SessionTurnRedo(id: s.id, turn: turn.id, state: after.state))
     #expect(file("a.txt") == "later\n" && file("new.txt") == "made\n")
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "no undo to take back") {
         try await w.c.call(SessionTurnRedo(id: s.id, turn: turn.id, state: after.state))
     }   // once
     after = try await w.c.call(
@@ -99,7 +99,7 @@ import Testing
             id: s.id, turn: turn.id, apply: true,
             state: try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id)).state))
     try "mine\n".write(toFile: wt.path + "/b.txt", atomically: true, encoding: .utf8)
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "nothing was put back") {
         try await w.c.call(SessionTurnRedo(id: s.id, turn: turn.id, state: after.state))
     }
     #expect(file("a.txt") == before && file("b.txt") == "mine\n")
@@ -107,11 +107,15 @@ import Testing
     // Another agent in the folder, or a commit since: no.
     let other: Session = try await w.c.call(
         "session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
-    await #expect(throws: (any Error).self) { try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id)) }
+    await expectRefusal(says: "Another agent works in this folder") {
+        try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id))
+    }
     _ = try await w.c.call("session.kill", .obj(["id": .string(other.id)]))
     #expect(try await waitFor(5) { w.d.sessions.existing(other.id)?.snapshot.status ?? .exited == .exited })
     try Git.run(["commit", "-q", "--allow-empty", "-m", "moved on"], cwd: wt.path, remotes: .none)
-    await #expect(throws: (any Error).self) { try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id)) }
+    await expectRefusal(says: "Commits were made since that turn began") {
+        try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id))
+    }
     // The session gone, its turns' snapshots and its undone state are no longer kept from git gc.
     #expect(try !Git.run(["for-each-ref", "refs/kelp/"], cwd: wt.path, remotes: .none).isEmpty)
     w.d.sessions.discard(try #require(try w.d.sessions.store.session(s.id)))
@@ -316,7 +320,7 @@ import Testing
     defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: wt.path + "/ro") }
     live.noteTurn(.idle)
     let plan = try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id))
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "The turn wasn't undone") {
         try await w.c.call(SessionTurnUndo(id: s.id, turn: turn.id, apply: true, state: plan.state))
     }
     #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "agent's\n")

@@ -13,13 +13,13 @@ import Testing
     let prod = DatabaseInfo(name: "prod", engine: .postgres, host: "db.example.com", port: 5432, user: "ro")
     _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: prod, password: "s3cret", adding: true))
     let other = DatabaseInfo(name: " prod", engine: .postgres, host: "other.example.com", port: 5432)
-    await #expect(throws: RPCError.self) {
+    await expectRefusal(says: "There's a database named prod already") {
         try await w.c.call(DatabaseSave(worktreeId: wt.id, database: other, password: "x", adding: true))
     }
     let connection = try w.d.workspaces.databases.connection(wt.id, "prod", agent: false)
     #expect(connection.password == "s3cret" && connection.database.host == "db.example.com")
     _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: other, library: true, adding: true))
-    await #expect(throws: RPCError.self) {
+    await expectRefusal(says: "There's a database named prod already") {
         try await w.c.call(DatabaseSave(worktreeId: wt.id, database: prod, library: true, adding: true))
     }
     #expect(try w.d.workspaces.databases.library().map(\.host) == ["other.example.com"])

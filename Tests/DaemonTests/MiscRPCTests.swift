@@ -203,7 +203,9 @@ func trustQuestionStandIn() -> String {
     try Git.run(["add", "n.txt"], cwd: wt.path, remotes: .none)
     try Git.run(["commit", "-qm", "only here"], cwd: wt.path, remotes: .none)
     #expect(try await w.c.call("worktree.unmerged", .obj(["id": .string(wt.id)])).int == 1)
-    await #expect(throws: (any Error).self) { _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id)])) }
+    await expectRefusal(says: "commit that aren't on any other branch") {
+        _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id)]))
+    }
     #expect(
         FileManager.default.fileExists(atPath: wt.path + "/n.txt")
             && Git.branchExists(w.repo.path, "feat/work", remotes: .none))   // nothing was removed
@@ -332,7 +334,9 @@ func trustQuestionStandIn() -> String {
     try Git.run(["commit", "-qm", "m"], cwd: wt.path, remotes: .none)
     // The main checkout was switched to another branch: merging there would land on the wrong branch.
     try Git.run(["switch", "-q", "-c", "elsewhere"], cwd: w.repo.path, remotes: .none)
-    await #expect(throws: (any Error).self) { _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)])) }
+    await expectRefusal(says: "not main: switch it back") {
+        _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)]))
+    }
     #expect(!FileManager.default.fileExists(atPath: w.repo.path + "/m.txt"))   // nothing merged into "elsewhere"
     try Git.run(["switch", "-q", "main"], cwd: w.repo.path, remotes: .none)
     #expect(try await w.c.call("git.merge", .obj(["id": .string(wt.id)]))["merged"]?.bool == true)
@@ -398,7 +402,7 @@ func trustQuestionStandIn() -> String {
     // The file changes while the sheet is open: what was shown is not what would be trusted.
     try "recipe.commit: something else entirely\n".write(
         toFile: w.repo.path + "/.kelp.yaml", atomically: true, encoding: .utf8)
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "changed since it was shown") {
         _ = try await w.c.call(
             "scripts.trust", .obj(["worktreeId": .string(wt.id), "digest": info["digest"] ?? .null]))
     }
@@ -425,7 +429,9 @@ func trustQuestionStandIn() -> String {
         try await waitFor(10) {
             (try await w.c.call("session.read", .obj(["id": .string(s.id)]))).string?.contains("ready") == true
         })
-    await #expect(throws: (any Error).self) { _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id)])) }
+    await expectRefusal(says: "uncommitted changes") {
+        _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id)]))
+    }
     #expect(FileManager.default.fileExists(atPath: wt.path + "/last-words.txt"))   // refused, and the work is still there
 }
 
@@ -500,7 +506,9 @@ func trustQuestionStandIn() -> String {
     try Git.run(["commit", "-qam", "theirs"], cwd: wt.path, remotes: .none)
     // The user has uncommitted work in the main checkout.
     try "mine, unsaved\n".write(toFile: w.repo.path + "/a.txt", atomically: true, encoding: .utf8)
-    await #expect(throws: (any Error).self) { _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)])) }
+    await expectRefusal(says: "main checkout has uncommitted changes") {
+        _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)]))
+    }
     #expect(try String(contentsOfFile: w.repo.path + "/a.txt", encoding: .utf8) == "mine, unsaved\n")
     // The user is halfway through a merge of their own, conflicts and all.
     try Git.run(["checkout", "-q", "--", "a.txt"], cwd: w.repo.path, remotes: .none)
@@ -512,7 +520,9 @@ func trustQuestionStandIn() -> String {
     try Git.run(["commit", "-qam", "main"], cwd: w.repo.path, remotes: .none)
     _ = try? Git.run(["merge", "side"], cwd: w.repo.path, remotes: .none)   // conflicts: the user's merge is under way
     #expect(Git.isMerging(w.repo.path, remotes: .none))
-    await #expect(throws: (any Error).self) { _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)])) }
+    await expectRefusal(says: "in the middle of a merge") {
+        _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)]))
+    }
     #expect(Git.isMerging(w.repo.path, remotes: .none))   // their merge is still there, not aborted
 }
 
@@ -572,12 +582,12 @@ func trustQuestionStandIn() -> String {
     #expect(
         try Git.diff(wt.path, source: .unstaged, file: "a.txt", remotes: .none).first?.hunks.first?.header
             == shown.header)
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "nothing was discarded") {
         _ = try await w.c.call(
             GitDiscardHunk(id: wt.id, file: "a.txt", hunk: 0, header: shown.header, fingerprint: shown.fingerprint))
     }
     #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8).contains("written by the agent"))   // not thrown away
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "nothing was staged") {
         _ = try await w.c.call(
             "git.hunk",
             .obj([
@@ -622,7 +632,7 @@ func trustQuestionStandIn() -> String {
     try "c\n".write(toFile: wt.path + "/c.txt", atomically: true, encoding: .utf8)
     try Git.run(["add", "c.txt"], cwd: wt.path, remotes: .none)
     try Git.run(["commit", "-qm", "only here"], cwd: wt.path, remotes: .none)
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "commit that aren't on any other branch") {
         _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id), "force": true]))
     }
     #expect(Git.branchExists(w.repo.path, "force", remotes: .none))   // its commit is still there
@@ -633,7 +643,7 @@ func trustQuestionStandIn() -> String {
     defer { w.d.stop() }
     try "setup: touch x\n".write(toFile: w.repo.path + "/.kelp.yaml", atomically: true, encoding: .utf8)
     let wt = try await workspace(w, "nodigest")
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "needs the digest") {
         _ = try await w.c.call("scripts.trust", .obj(["worktreeId": .string(wt.id)]))
     }
     #expect(try await w.c.call("scripts.list", .obj(["worktreeId": .string(wt.id)]))["trusted"]?.bool == false)

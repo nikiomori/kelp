@@ -30,7 +30,7 @@ import Testing
         _ = try await c.call(FilesRead(path: dir + "/gone.txt"))
         Issue.record("read a file that isn't there")
     } catch { #expect("\(error)".contains("moved or deleted")) }
-    await #expect(throws: (any Error).self) { _ = try await c.call(FilesRead(path: "a.txt")) }   // relative: whose folder?
+    await expectRefusal(says: "Not an absolute path") { _ = try await c.call(FilesRead(path: "a.txt")) }   // relative: whose folder?
 }
 
 /// A save goes in only over the version it was read as: an agent's edit meanwhile comes back to ask about, a file that's
@@ -90,7 +90,7 @@ import Testing
 
     #expect(name(try await c.call(FilesCreate(path: dir + "/untitled", unique: true))) == "untitled")
     #expect(name(try await c.call(FilesCreate(path: dir + "/untitled", unique: true))) == "untitled 2")
-    await #expect(throws: (any Error).self) { _ = try await c.call(FilesCreate(path: dir + "/untitled")) }   // taken
+    await expectRefusal(says: "already exists") { _ = try await c.call(FilesCreate(path: dir + "/untitled")) }   // taken
     let note = try await c.call(FilesCreate(path: dir + "/docs/plans/plan.md", text: "# Plan\n"))
     #expect(try String(contentsOfFile: note, encoding: .utf8) == "# Plan\n")
     var isDir: ObjCBool = false

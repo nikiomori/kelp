@@ -212,7 +212,7 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     #expect(change.changed == 1)
     #expect(try count(path, "SELECT count(*) FROM orders WHERE status = 'paid'") == 2)
     // Several statements run in a transaction of Kelp's own: one that ends it isn't run, nor what follows it
-    await #expect(throws: RPCError.self) {
+    await expectRefusal(says: "leave out COMMIT") {
         try await w.c.call(DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "COMMIT; DELETE FROM orders"))
     }
     let activity = try await w.c.call(DatabaseActivity(worktreeId: wt.id))
@@ -258,7 +258,7 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     let preview = try await w.c.call(DatabaseResultRead(worktreeId: wt.id, id: asking.id))
     #expect(preview?.rows.map { $0[2] } == ["cancelled", "cancelled"])   // RETURNING: the rows as they'd be
     #expect(try await w.c.call(SessionChoose(id: agent.id, answer: "deny", question: question)))
-    await #expect(throws: RPCError.self) { try await first.value }
+    await expectRefusal(says: "The user denied it") { try await first.value }
     #expect(try count(path, "SELECT count(*) FROM orders WHERE status = 'cancelled'") == 0)
 
     let second = ask()
@@ -282,20 +282,20 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     shop.access = .read
     _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: shop))
     let change = DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "DELETE FROM orders")
-    await #expect(throws: RPCError.self) { try await dbs.query(change, origin: agent.id) }
+    await expectRefusal(says: "read-only for agents") { try await dbs.query(change, origin: agent.id) }
     #expect(try await w.c.call(DatabaseActivity(worktreeId: wt.id)).runs.first?.state == .refused)
 
     shop.access = .free
     shop.production = true   // production: read only for agents, whatever access says
     _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: shop))
-    await #expect(throws: RPCError.self) { try await dbs.query(change, origin: agent.id) }
+    await expectRefusal(says: "read-only for agents") { try await dbs.query(change, origin: agent.id) }
     shop.production = false
     _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: shop))
     #expect(try await dbs.query(change, origin: agent.id).changed == 3)   // free: no question
 
     shop.access = .hidden
     _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: shop))
-    await #expect(throws: RPCError.self) {
+    await expectRefusal(says: "no databases Kelp knows of") {
         try await dbs.query(DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT 1"), origin: agent.id)
     }
     #expect(try await w.c.call(DatabaseList(worktreeId: wt.id)).count == 1)   // the user still sees it
@@ -328,7 +328,7 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     let list = try await w.c.call(DatabaseList(worktreeId: wt.id))
     #expect(list.map(\.name) == ["prod"])
     _ = try shopDB(in: wt.path)   // found: "shop", which one added by hand can't be called
-    await #expect(throws: RPCError.self) {
+    await expectRefusal(says: "a database named shop already") {
         try await w.c.call(
             DatabaseSave(worktreeId: wt.id, database: DatabaseInfo(name: "shop", engine: .sqlite, path: "/tmp/x.db")))
     }
@@ -482,7 +482,7 @@ private func count(_ path: String, _ sql: String) throws -> Int {
     let second = Task { try await dbs.query(update, origin: agent.id) }
     #expect(try await asked())
     _ = try await w.c.call(SessionHook(id: agent.id, event: "done", hookName: "Stop"))
-    await #expect(throws: RPCError.self) { try await second.value }
+    await expectRefusal(says: "no longer asked") { try await second.value }
     #expect(try await waitFor { try w.d.store.session(agent.id)?.summary.hasPrefix("Allow") == false })
 }
 
@@ -572,7 +572,7 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     db.access = .read
     _ = try await w.c.call(DatabaseSave(worktreeId: wt.id, database: db))
     let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
-    await #expect(throws: RPCError.self) {
+    await expectRefusal(says: "read-only for agents") {
         try await w.d.workspaces.databases.query(
             DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "DELETE FROM orders"), origin: agent.id)
     }
@@ -632,7 +632,7 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
 
     let agent = try await w.c.call(SessionCreate(worktreeId: wt.id, agent: "bot"))
     let dbs = w.d.workspaces.databases
-    await #expect(throws: RPCError.self) {
+    await expectRefusal(says: "no databases Kelp knows of") {
         try await dbs.query(DatabaseQuery(worktreeId: wt.id, database: "shop", sql: "SELECT 1"), origin: agent.id)
     }
     _ = try await w.c.call(DatabaseUse(worktreeId: wt.id, name: "shop"))

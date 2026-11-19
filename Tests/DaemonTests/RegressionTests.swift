@@ -97,11 +97,11 @@ func theLaunchPromptWaitsForAStartupQuestion(question: String, inputBox: String?
     defer { w.d.stop() }
     let wt = try await workspace(w, "refs")
     let file = tmp().path + "-written"
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "isn't a branch or commit") {
         _ = try await w.c.call(
             "git.diff", .obj(["id": .string(wt.id), "source": "commit", "commit": .string("--output=" + file)]))
     }
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "isn't a branch or commit") {
         _ = try await w.c.call("git.commitFiles", .obj(["id": .string(wt.id), "commit": .string("--output=" + file)]))
     }
     #expect(!FileManager.default.fileExists(atPath: file))
@@ -292,11 +292,12 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     try Git.run(["checkout", "-q", "--detach"], cwd: wt.path, remotes: .none)
     try "work\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
     try Git.run(["commit", "-qam", "on no branch"], cwd: wt.path, remotes: .none)
-    await #expect(throws: (any Error).self) { _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)])) }
-    await #expect(throws: (any Error).self) {
+    await expectRefusal(says: "isn't on a branch") { _ = try await w.c.call("git.merge", .obj(["id": .string(wt.id)])) }
+    await expectRefusal(says: "commit on no branch") {
         _ = try await w.c.call("worktree.remove", .obj(["id": .string(wt.id), "force": true]))
     }
     #expect(FileManager.default.fileExists(atPath: wt.path + "/a.txt"))
+    #expect(try w.d.store.worktree(wt.id) != nil)   // its record stays too
 }
 
 /// One folder added several times at once (a double click, the app and `kelp` together): one project, each told it,
@@ -420,7 +421,9 @@ private let stubbornScript = "trap '' HUP TERM; echo up; while :; do sleep 0.1; 
     try "private\n".write(to: w.root.appendingPathComponent("other.log"), atomically: true, encoding: .utf8)
     try FileManager.default.createDirectory(
         at: w.root.appendingPathComponent("history"), withIntermediateDirectories: true)
-    await #expect(throws: (any Error).self) { _ = try await w.c.call("session.read", .obj(["id": "../other"])) }
+    await expectRefusal(says: "No output kept for session") {
+        _ = try await w.c.call("session.read", .obj(["id": "../other"]))
+    }
 }
 
 /// The trust answer goes by the config the agent will actually read: the daemon's own CLAUDE_CONFIG_DIR when the

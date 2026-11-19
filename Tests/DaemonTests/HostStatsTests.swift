@@ -195,7 +195,7 @@ import Testing
     #expect(try await c.call(HostHistoryRead(host: "nowhere.invalid")).count <= 1)
     _ = try await c.call(HostDisconnect(host: "nowhere.invalid"))
     for bad in ["", "-oProxyCommand=x", "a b"] {
-        await #expect(throws: (any Error).self) { _ = try await c.call(HostStatsRead(host: bad)) }
-        await #expect(throws: (any Error).self) { _ = try await c.call(HostDisconnect(host: bad)) }
+        await expectRefusal(says: "Enter the host") { _ = try await c.call(HostStatsRead(host: bad)) }
+        await expectRefusal(says: "Enter the host") { _ = try await c.call(HostDisconnect(host: bad)) }
     }
 }

@@ -21,7 +21,7 @@ import os
     // The turn is listed before its snapshot's ref is written (git, off the turn's queue): waited for, not assumed
     #expect(try await waitFor(10) { try !refs().isEmpty })
     try Git.run(["worktree", "lock", wt.path], cwd: w.repo.path, remotes: .none)
-    await #expect(throws: (any Error).self) { try await w.c.call(WorktreeRemove(id: wt.id)) }
+    await expectRefusal(says: "is locked") { try await w.c.call(WorktreeRemove(id: wt.id)) }
     #expect(try !refs().isEmpty)
     try Git.run(["worktree", "unlock", wt.path], cwd: w.repo.path, remotes: .none)
     _ = try await w.c.call(WorktreeRemove(id: wt.id))
@@ -43,7 +43,9 @@ import os
     let own = try await workspace(w, "own-commit")
     try Git.run(["commit", "-q", "--allow-empty", "-m", "only here"], cwd: own.path, remotes: .none)
     try FileManager.default.moveItem(atPath: own.path, toPath: tmp().path + "/trashed")
-    await #expect(throws: (any Error).self) { try await w.c.call(WorktreeRemove(id: own.id)) }
+    await expectRefusal(says: "commit that aren't on any other branch") {
+        try await w.c.call(WorktreeRemove(id: own.id))
+    }
     #expect(try Git.branchExists(w.repo.path, "own-commit", remotes: .none) && w.d.store.worktree(own.id) != nil)
     _ = try await w.c.call(WorktreeRemove(id: own.id, dropCommits: true))
     #expect(
@@ -133,7 +135,9 @@ import os
     let wt = try await workspace(w, "keep")
     try "hello\nmine\n".write(toFile: wt.path + "/a.txt", atomically: true, encoding: .utf8)
     try Data().write(to: w.d.sourceControl.discards)
-    await #expect(throws: RPCError.self) { try await w.c.call(GitDiscard(id: wt.id, files: ["a.txt"])) }
+    await expectRefusal(says: "its Undo couldn't be kept") {
+        try await w.c.call(GitDiscard(id: wt.id, files: ["a.txt"]))
+    }
     #expect(try String(contentsOfFile: wt.path + "/a.txt", encoding: .utf8) == "hello\nmine\n")
 }
 
