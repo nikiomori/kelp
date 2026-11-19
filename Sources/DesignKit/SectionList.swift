@@ -78,7 +78,7 @@ public struct SectionList: NSViewRepresentable {
     public func makeCoordinator() -> Coordinator { Coordinator() }
     public func makeNSView(context: Context) -> NSScrollView {
         let lists = context.coordinator, table = lists.table
-        let scroll = table.plainList("s", in: scrolls ? NSScrollView() : Still())
+        let scroll = table.plainList("s", in: scrolls ? NSScrollView() : StillScrollView())
         scroll.hasVerticalScroller = scrolls
         // A row's words start a panel's inset from the list's own edge, where a page's other blocks start too. The
         // table's spacing between cells would move them 8.5 pt further in.
@@ -99,11 +99,6 @@ public struct SectionList: NSViewRepresentable {
         guard !scrolls else { return nil }
         let table = context.coordinator.table, rows = table.numberOfRows
         return CGSize(width: proposal.width ?? 0, height: rows > 0 ? table.rect(ofRow: rows - 1).maxY : 0)
-    }
-
-    /// The scroll view of a list that doesn't scroll: the wheel goes on to the page around it.
-    final class Still: NSScrollView {
-        override func scrollWheel(with event: NSEvent) { nextResponder?.scrollWheel(with: event) }
     }
 
     enum Line {
@@ -333,4 +328,10 @@ public struct SectionList: NSViewRepresentable {
             quiet?.isHidden = on
         }
     }
+}
+
+/// The scroll view of a list or table that stands in a page that scrolls: it is as tall as its rows, and the wheel
+/// goes on to the page around it.
+public final class StillScrollView: NSScrollView {
+    override public func scrollWheel(with event: NSEvent) { nextResponder?.scrollWheel(with: event) }
 }

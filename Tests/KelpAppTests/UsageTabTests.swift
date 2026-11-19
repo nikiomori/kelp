@@ -1,5 +1,7 @@
+import AppKit
 import Core
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import BuiltinAgents
@@ -70,4 +72,47 @@ import Testing
             == .usedUp(back: claude.resetAt))
     #expect(PlanOutlook.of(claude, agent: "claude", stale: true, forecast: forecast, now: now) == .unknown)
     #expect(PlanOutlook.usedUp(back: nil).text(usedUp, now: now) == "Used up")
+}
+
+/// The agents' table is the page's choice of agent: a row someone picks narrows the page to it, a filter cleared
+/// elsewhere leaves no row picked, a row that narrows nothing can't be picked, and a click on a header asks the page
+/// for that order. The lines sort by what the header names, and equal ones keep the order they came in.
+@MainActor @Test func theUsageTablesChosenRowIsThePagesAgent() {
+    final class Page {
+        var chosen: String?
+        var order = UsageReportView.AgentOrder(by: .cost, ascending: false)
+    }
+    let page = Page()
+    func table(_ stamp: String) -> UsageAgentTable {
+        UsageAgentTable(
+            items: [.init(id: "claude"), .init(id: "grok"), .init(id: "idle", picks: false)], cells: [:], stamp: stamp,
+            spanTitle: "Last 30 days", selected: Binding(get: { page.chosen }, set: { page.chosen = $0 }),
+            order: Binding(get: { page.order }, set: { page.order = $0 }))
+    }
+    let rows = UsageAgentTable.Coordinator()
+    _ = rows.make(table("a"))
+    rows.outline.selectRowIndexes([1], byExtendingSelection: false)
+    #expect(page.chosen == "grok")
+    page.chosen = nil   // Show All
+    rows.show(table("a"))
+    #expect(rows.outline.selectedRow == -1)
+    #expect(!rows.outlineView(rows.outline, shouldSelectItem: rows.outline.item(atRow: 2) as Any))
+    rows.outline.sortDescriptors = [NSSortDescriptor(key: "agent", ascending: true)]
+    #expect(page.order == .init(by: .agent, ascending: true))
+
+    func line(_ id: String, _ cost: Double?, _ tokens: Int = 1) -> UsageReportView.Line {
+        .init(
+            id: id,
+            usage: cost.map {
+                .init(
+                    id: id, cost: $0, tokens: tokens, input: 0, output: 0, cacheWrite: 0, cacheRead: 0, models: [],
+                    projects: [])
+            })
+    }
+    let lines = [line("b", 5), line("a", 5), line("c", 9, 3), line("idle", nil)]
+    func ids(_ by: UsageReportView.AgentSort, up: Bool) -> [String] {
+        UsageReportView.sorted(lines, by: .init(by: by, ascending: up), names: ["a": "Zed", "b": "Amp"]).map(\.id)
+    }
+    #expect(ids(.cost, up: false) == ["c", "b", "a", "idle"] && ids(.cost, up: true) == ["idle", "b", "a", "c"])
+    #expect(ids(.agent, up: true) == ["b", "c", "idle", "a"] && ids(.tokens, up: false).first == "c")
 }

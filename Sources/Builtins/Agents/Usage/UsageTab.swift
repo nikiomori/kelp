@@ -19,12 +19,15 @@ struct UsageReportView: View {
         let usage: UsageAgents.Agent?
     }
     @State var range = 30
+    /// What the agents' table is sorted by: the most expensive first until its header is clicked.
+    @State var agentOrder = AgentOrder(by: .cost, ascending: false)
+    enum AgentSort: String { case agent, tokens, cost }
+    struct AgentOrder: Equatable { var by: AgentSort, ascending: Bool }
     @State var byCost = true
     @State var selected: String?
     /// The project the page is narrowed to (a name from the span's projects).
     @State var project: String?
     @State var hovered: String?
-    @State var showFree = false
     @State var allModels = false
     @State var allProjects = false
     /// The day under the pointer in the chart.

@@ -83,111 +83,91 @@ extension UsageReportView {
             + String(localized: " · \(change > 0 ? "+" : "")\(change)% on the \(days) days before (\(dollars(before)))")
     }
 
+    /// The agents in the span as the system's table (`UsageAgentTable`): the ones with a cost, then those with no list
+    /// price (two or more fold into one row that names them), then those with nothing counted. A chosen row narrows
+    /// what's under the table to that agent.
     func table(_ lines: [Line]) -> some View {
-        let paid = lines.filter { ($0.usage?.cost ?? 0) > 0 }
-        let free = lines.filter { $0.usage != nil && $0.usage?.cost == 0 }
-        let rest = lines.filter { $0.usage == nil }
+        let sorted = Self.sorted(
+            lines, by: agentOrder, names: Dictionary(lines.map { ($0.id, app.catalog.name($0.id)) }) { a, _ in a })
+        let paid = sorted.filter { ($0.usage?.cost ?? 0) > 0 }
+        let free = sorted.filter { $0.usage != nil && $0.usage?.cost == 0 }
+        let rest = sorted.filter { $0.usage == nil }
         let total = paid.reduce(0) { $0 + ($1.usage?.cost ?? 0) }
-        return VStack(alignment: .leading, spacing: 2) {
-            columns(
-                Text("Agent"), Text("Last \(range) days"), Text("Share of cost"), Text("Tokens"), Text("At API prices")
-            )
-            .font(.ui(TextSize.caption)).foregroundStyle(.secondary).padding(.horizontal, Metrics.inset).padding(
-                .bottom, 4)
-            Divider()
-            ForEach(paid) { row($0, total: total) }
-            // Two or more agents with no list price fold into one row that names them, and a click on it unfolds them.
-            if free.count > 1 { freeRow(free) }
-            if free.count == 1 || showFree { ForEach(free) { row($0, total: total) } }
-            ForEach(rest) { row($0, total: total) }
-        }
-        // A cell without a size of its own (a name, a count, a cost) is a row's text; the captions keep theirs.
-        .font(.ui(TextSize.row))
-    }
-
-    /// Lays out the columns agent | span | share | tokens | cost, with the same widths in every row.
-    private func columns(
-        _ agent: some View, _ span: some View, _ share: some View, _ tokens: some View, _ cost: some View
-    ) -> some View {
-        HStack(spacing: 16) {
-            agent.frame(minWidth: 170, maxWidth: .infinity, alignment: .leading)
-            span.frame(minWidth: 140, maxWidth: .infinity, alignment: .leading)
-            share.frame(width: 170, alignment: .leading)
-            tokens.frame(width: 96, alignment: .trailing)
-            cost.frame(width: 96, alignment: .trailing)
-        }
-    }
-
-    /// A row for one agent. A click narrows what's under the table to that agent, and a second click goes back to all.
-    /// A row with nothing counted isn't a button.
-    @ViewBuilder private func row(_ line: Line, total: Double) -> some View {
-        let on = sel == line.id
-        let content = cells(line, total: total)
-            .padding(.horizontal, Metrics.inset).padding(.vertical, Metrics.gap).contentShape(Rectangle())
-        if line.usage == nil {
-            content
+        var items = paid.map { UsageAgentTable.Item(id: $0.id) }
+        var cells = Dictionary(sorted.map { ($0.id, self.cells($0, total: total)) }) { a, _ in a }
+        if free.count > 1 {
+            items.append(.init(id: Self.freeRow, children: free.map { .init(id: $0.id) }, picks: false))
+            cells[Self.freeRow] = freeCells(free)
         } else {
-            Button {
-                selected = on ? nil : line.id
-            } label: {
-                content
+            items += free.map { .init(id: $0.id) }
+        }
+        items += rest.map { .init(id: $0.id, picks: false) }
+        let figures = sorted.map { "\($0.id):\($0.usage?.cost ?? -1):\($0.usage?.tokens ?? -1)" }.joined(separator: ",")
+        return UsageAgentTable(
+            items: items, cells: cells,
+            stamp: "\(range) \(byCost) \(usage == nil) \(usage?.since ?? 0) \(project ?? "") \(agentOrder) \(figures)",
+            spanTitle: String(localized: "Last \(range) days"), selected: $selected, order: $agentOrder)
+    }
+    private static let freeRow = "\u{1F}free"
+
+    /// The agents by the column the table's header names. An agent with nothing counted sorts as nothing; equal ones
+    /// keep the order they came in, the most expensive first.
+    nonisolated static func sorted(_ lines: [Line], by order: AgentOrder, names: [String: String]) -> [Line] {
+        let before: (Line, Line) -> Bool =
+            switch order.by {
+            case .agent:
+                { (names[$0.id] ?? $0.id).localizedStandardCompare(names[$1.id] ?? $1.id) == .orderedAscending }
+            case .tokens: { ($0.usage?.tokens ?? -1) < ($1.usage?.tokens ?? -1) }
+            case .cost: { ($0.usage?.cost ?? -1) < ($1.usage?.cost ?? -1) }
             }
-            .buttonStyle(.plain)
-            .background(
-                RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous)
-                    .fill(Color(nsColor: on ? .fillSelected : hovered == line.id ? .fillHover : .clear))
-            )
-            .onHover { hovered = $0 ? line.id : (hovered == line.id ? nil : hovered) }
-            .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovered)
-            .accessibilityAddTraits(on ? .isSelected : [])
+        let places = Dictionary(lines.enumerated().map { ($1.id, $0) }) { a, _ in a }
+        return lines.sorted { a, b in
+            let (first, second) = order.ascending ? (a, b) : (b, a)
+            if before(first, second) { return true }
+            return before(second, first) ? false : (places[a.id] ?? 0) < (places[b.id] ?? 0)
         }
     }
 
-    /// Shows the agents with no list price as one row, with their icons, their names and their tokens added up.
-    private func freeRow(_ free: [Line]) -> some View {
+    /// A row's cells in the columns' order. While the logs are still read, grey placeholders stand in for the figures.
+    private func cells(_ line: Line, total: Double) -> [AnyView] {
+        guard usage != nil else {
+            return [cell(agentCell(line))] + (0..<4).map { cell(Self.reading, trailing: $0 > 1) }
+        }
+        return [
+            cell(agentCell(line)), cell(spanCell(line)), cell(shareCell(line.usage, total: total)),
+            cell(tokensCell(line.usage), trailing: true), cell(costCell(line.usage), trailing: true)
+        ]
+    }
+
+    /// The agents with no list price as one row: their icons, their names and their tokens added up.
+    private func freeCells(_ free: [Line]) -> [AnyView] {
         let tokens = free.reduce(0) { $0 + ($1.usage?.tokens ?? 0) }
-        return Button {
-            showFree.toggle()
-        } label: {
-            columns(
-                HStack(spacing: 8) {
-                    Image(systemName: showFree ? "chevron.down" : "chevron.right").font(.ui(TextSize.micro))
-                        .foregroundStyle(.secondary).frame(width: 10)
-                    HStack(spacing: -4) {
-                        ForEach(free) { line in
-                            if let icon = app.catalog.icon(line.id) { Image(nsImage: icon) }
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                        Text("\(free.count) agents with no list price").lineLimit(1)
-                        Text(free.map { app.catalog.name($0.id) }.joined(separator: ", ")).font(.ui(TextSize.caption))
-                            .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    }
-                },
-                Color.clear.frame(height: 1),
-                Text("no list price").font(.ui(TextSize.caption)).foregroundStyle(.secondary),
-                Text(count(tokens)).monospacedDigit(),
-                Text(verbatim: "—").foregroundStyle(.secondary)
-            )
-            .padding(.horizontal, Metrics.inset).padding(.vertical, Metrics.gap).contentShape(Rectangle())
+        let names = free.map { app.catalog.name($0.id) }.joined(separator: ", ")
+        let agents = HStack(spacing: 8) {
+            HStack(spacing: -4) {
+                ForEach(free) { line in
+                    if let icon = app.catalog.icon(line.id) { Image(nsImage: icon) }
+                }
+            }
+            VStack(alignment: .leading, spacing: Metrics.lineGap) {
+                Text("\(free.count) agents with no list price").lineLimit(1)
+                Text(names).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
+            }
         }
-        .buttonStyle(.plain)
-        .background(
-            RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous)
-                .fill(Color(nsColor: hovered == "free" ? .fillHover : .clear))
-        )
-        .onHover { hovered = $0 ? "free" : (hovered == "free" ? nil : hovered) }
-        .accessibilityAddTraits(.isButton)
+        .help(names)
+        return [
+            cell(agents), cell(Color.clear.frame(height: 1)),
+            cell(Text("no list price").font(.ui(TextSize.caption)).foregroundStyle(.secondary)),
+            cell(Text(count(tokens)).monospacedDigit(), trailing: true),
+            cell(Text(verbatim: "—").foregroundStyle(.secondary), trailing: true)
+        ]
     }
 
-    @ViewBuilder private func cells(_ line: Line, total: Double) -> some View {
-        if usage == nil {   // while the logs are still read, grey placeholders stand in for the figures
-            columns(agentCell(line), Self.reading, Self.reading, Self.reading, Self.reading)
-        } else {
-            columns(
-                agentCell(line), spanCell(line), shareCell(line.usage, total: total), tokensCell(line.usage),
-                costCell(line.usage))
-        }
+    /// A cell's view at its column's edge, in a row's text: a name, a count or a cost has no size of its own, and the
+    /// captions keep theirs.
+    private func cell(_ view: some View, trailing: Bool = false) -> AnyView {
+        AnyView(
+            view.font(.ui(TextSize.row)).frame(maxWidth: .infinity, alignment: trailing ? .trailing : .leading))
     }
 
     /// A grey placeholder for a figure not read yet.
