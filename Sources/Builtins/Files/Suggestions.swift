@@ -6,7 +6,9 @@ import KelpKit
 import SwiftUI
 
 /// The app's side of the editor's gray text: which models the servers on this Mac offer, how often a suggestion was
-/// taken today and how long one takes, and what each file's status bar says about it. Nothing leaves this Mac.
+/// taken today and how long one takes, and what each file's status bar says about it. From a model on this Mac the
+/// code stays on it; from a cloud provider (`SuggestMode.cloud`) the code around the cursor goes to that provider, and
+/// never a file of secrets (`holdsSecrets`).
 @MainActor @Observable
 final class Suggestions {
     static func of(_ app: AppModel) -> Suggestions { app.part { Suggestions(app) } }
