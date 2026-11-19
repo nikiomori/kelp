@@ -45,7 +45,8 @@ final class QuickOpenCell: PaletteCell {
         stack.detachesHiddenViews = true
         stack.spacing = Metrics.gapWide
         stack.distribution = .fill
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 12)
+        // Puts the icon at the palette's one left edge, and the shortcut as far from the right (QuickOpen's layout).
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gapWide, bottom: 0, right: Metrics.gapWide)
         for v in [kind, tick] { v.setContentHuggingPriority(.required, for: .horizontal) }
         NSLayoutConstraint.activate([
             image.widthAnchor.constraint(equalToConstant: 18), markBox.widthAnchor.constraint(equalToConstant: 18),

@@ -25,38 +25,39 @@ struct ExtListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // The bar every panel has (DesignKit's Bar): the first action in words, the others as icons, Refresh in ⋯.
+            // The bar every panel has (DesignKit's Bar): the first action in words on the grey plate, as TextButton
+            // draws it (a worded button has no symbol), the others as icons, Refresh in ⋯.
             HStack(spacing: Metrics.gap) {
                 ForEach(Array((def.toolbar ?? []).enumerated()), id: \.offset) { index, action in
-                    Button {
+                    let run: @MainActor () -> Void = {
                         ExtActions(app).perform(action, item: nil, folder: folder) { reload() }
-                    } label: {
-                        if index == 0 {
-                            Label(action.title, systemImage: action.icon ?? "play.fill")
-                        } else {
-                            Image(systemName: action.icon ?? "play.fill").frame(width: 22, height: 22)
-                        }
                     }
-                    .buttonStyle(PointerButtonStyle()).help(action.title).accessibilityLabel(action.title)
-                    if index == 0 { Spacer() }
+                    if index == 0 {
+                        Button(action.title, action: run).buttonStyle(BarButtonStyle())
+                        Spacer()
+                    } else {
+                        Button(action: run) {
+                            Image(systemName: action.icon ?? "play.fill").font(.symbol()).foregroundStyle(.secondary)
+                                .frame(width: TextSize.of(Metrics.iconButton), height: TextSize.of(Metrics.iconButton))
+                        }
+                        .buttonStyle(PointerButtonStyle()).help(action.title).accessibilityLabel(action.title)
+                    }
                 }
                 if def.toolbar?.isEmpty ?? true { Spacer() }
                 if loading { ProgressView().controlSize(.small) }
                 Menu {
                     Button("Refresh") { reload() }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Image(systemName: "ellipsis.circle").font(.symbol()).foregroundStyle(.secondary)
                 }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More")
-                .accessibilityLabel("More")
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More Actions")
+                .accessibilityLabel("More Actions")
             }
-            .font(.system(size: Metrics.iconPoint))
-            .foregroundStyle(.secondary)
             .padding(.leading, Metrics.inset).padding(.trailing, Metrics.insetTrailing).frame(
                 height: TextSize.of(Metrics.panelHeader))
             Divider()
             if let error {
-                EmptyState(title: String(localized: "Couldn't load"), symbol: nil, output: error).frame(
+                EmptyState(title: String(localized: "Couldn’t load"), symbol: nil, output: error, retry: reload).frame(
                     maxHeight: .infinity)
             } else if items.isEmpty, !running {
                 let symbol = def.icon.map { $0.contains("${") ? "tray" : $0 } ?? "tray"   // a field's icon names no symbol here
@@ -78,6 +79,10 @@ struct ExtListView: View {
                     }
                 }
                 .listStyle(.sidebar)
+                // Rows as tall as the inspector's (24, or 40 with a line under the name), growing with Text size.
+                .environment(
+                    \.defaultMinListRowHeight, TextSize.of(def.subtitle == nil ? Metrics.row : Metrics.rowTwoLine)
+                )
                 .contextMenu(forSelectionType: Int.self) { _ in
                 } primaryAction: { sel in
                     if let index = sel.first, items.indices.contains(index), let action = def.actions?.first {
@@ -95,37 +100,43 @@ struct ExtListView: View {
         }
     }
 
-    /// DesignKit's empty state, as every panel has it; a failed command's output shows as its (selectable) fix line.
+    /// DesignKit's empty state, as every panel has it; a failed command's output shows as its (selectable) fix line,
+    /// with Try Again under it.
     private struct EmptyState: NSViewRepresentable {
         let title: String, symbol: String?, output: String?
+        var retry: (@MainActor () -> Void)?
         func makeNSView(context: Context) -> EmptyStateView { EmptyStateView() }
         func updateNSView(_ view: EmptyStateView, context: Context) {
-            if let output { view.showError(title, text: nil, fix: output) } else { view.show(title, symbol: symbol) }
+            guard let output else { return view.show(title, symbol: symbol) }
+            let again = retry.map { [ClosureButton(title: String(localized: "Try Again"), action: $0)] } ?? []
+            view.showError(title, text: nil, fix: output, buttons: again)
         }
     }
 
     private func row(_ item: JSONValue) -> some View {
         let actions = ExtActions(app)
         let subtitle = def.subtitle.map { actions.expand($0, item: item, quote: false) } ?? ""
-        return HStack(spacing: 8) {
+        return HStack(spacing: Metrics.gap) {
             // An icon that's the same on every row is the panel's own icon, which its tab already shows. Only an icon
             // that names a field tells rows apart, so only that one shows on the row.
             if let icon = def.icon, icon.contains("${") {
                 let name = actions.expand(icon, item: item, quote: false)
                 if let image = Self.image(name) {
-                    Image(nsImage: image).resizable().frame(width: 22, height: 22)
+                    Image(nsImage: image).resizable().frame(
+                        width: TextSize.of(Metrics.appIcon), height: TextSize.of(Metrics.appIcon))
                 } else {
-                    Image(systemName: name.hasPrefix("app:") ? "app.dashed" : name).foregroundStyle(.secondary).frame(
-                        width: 16)
+                    Image(systemName: name.hasPrefix("app:") ? "app.dashed" : name).font(.symbol())
+                        .foregroundStyle(.secondary).frame(width: TextSize.of(Metrics.appIcon))
                 }
             }
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                Text(actions.expand(def.title ?? "${name}", item: item, quote: false)).lineLimit(1)
+                Text(actions.expand(def.title ?? "${name}", item: item, quote: false)).font(.ui(TextSize.body))
+                    .lineLimit(1)
                 if !subtitle.trimmingCharacters(in: .whitespaces).isEmpty {
-                    Text(subtitle).font(.ui(11)).foregroundStyle(.secondary).lineLimit(1)
+                    Text(subtitle).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
-            Spacer(minLength: 4)
+            Spacer(minLength: Metrics.gap)
             if let st = status(item) { StatusIcon(status: st) }
         }
     }

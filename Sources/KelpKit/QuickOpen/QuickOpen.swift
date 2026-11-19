@@ -228,6 +228,7 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
         table.dataSource = self
         table.delegate = self
         table.style = .plain
+        table.intercellSpacing.width = 0   // a cell starts at the list's edge, so the one left edge comes out even
         table.backgroundColor = .clear
         table.target = self
         table.doubleAction = #selector(activate)
@@ -243,21 +244,23 @@ final class QuickOpen: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSS
             v.translatesAutoresizingMaskIntoConstraints = false
             effect.addSubview(v)
         }
+        // The field, the rows, the headings and the keys start at one edge, `Metrics.inset` in: the list stands
+        // `gapTight` in and a row's content `gapWide` in from it (PaletteCell), 6 pt inside the row's pill.
         NSLayoutConstraint.activate([
             field.topAnchor.constraint(equalTo: effect.topAnchor, constant: 16),
-            field.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: 14),
-            field.trailingAnchor.constraint(equalTo: effect.trailingAnchor, constant: -14),
+            field.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: Metrics.inset),
+            field.trailingAnchor.constraint(equalTo: effect.trailingAnchor, constant: -Metrics.inset),
             top.topAnchor.constraint(equalTo: field.bottomAnchor, constant: 10),
             top.leadingAnchor.constraint(equalTo: effect.leadingAnchor),
             top.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
             sv.topAnchor.constraint(equalTo: top.bottomAnchor, constant: 6),
-            sv.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: 6),
-            sv.trailingAnchor.constraint(equalTo: effect.trailingAnchor, constant: -6),
+            sv.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: Metrics.gapTight),
+            sv.trailingAnchor.constraint(equalTo: effect.trailingAnchor, constant: -Metrics.gapTight),
             sv.bottomAnchor.constraint(equalTo: line.topAnchor, constant: -4),
             line.leadingAnchor.constraint(equalTo: effect.leadingAnchor),
             line.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
             line.bottomAnchor.constraint(equalTo: effect.bottomAnchor, constant: -28),
-            keys.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: 16),
+            keys.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: Metrics.inset),
             keys.centerYAnchor.constraint(equalTo: effect.bottomAnchor, constant: -14)
         ])
     }

@@ -87,7 +87,7 @@ struct ExtensionsSettings: View {
                     Image(systemName: "ellipsis.circle").font(.symbol())
                 }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .accessibilityLabel(String(localized: "More"))
+                .help(String(localized: "More Actions")).accessibilityLabel(String(localized: "More Actions"))
             }
         }
     }
@@ -145,7 +145,7 @@ struct ExtensionsSettings: View {
                 Image(systemName: "ellipsis.circle").font(.symbol())
             }
             .menuStyle(.borderlessButton).fixedSize()
-            .accessibilityLabel(String(localized: "More"))
+            .help(String(localized: "More Actions")).accessibilityLabel(String(localized: "More Actions"))
         }
     }
 }

@@ -156,7 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         askingToQuit = true
         Task {
             let alert = NSAlert()
-            alert.messageText = String(localized: "Are you sure you want to quit Kelp?")
+            alert.messageText = String(localized: "Quit Kelp?")   // as the setting that turns this off promises it
             alert.addButton(withTitle: String(localized: "Quit"))
             alert.addButton(withTitle: String(localized: "Cancel"))
             alert.showsSuppressionButton = true

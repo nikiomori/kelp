@@ -232,14 +232,17 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
         let folder = rows[row], up = folder.name == ".."
         let icon = NSImageView(
             image: .symbol(up ? "arrow.turn.left.up" : folder.git ? "arrow.triangle.branch" : "folder"))
-        icon.contentTintColor = folder.git ? .controlAccentColor : .secondaryLabelColor
+        // Grey for every row: the branch symbol already tells a repository from a folder, so it needs no colour.
+        icon.symbolConfiguration = .chrome(Metrics.iconPoint)
+        icon.contentTintColor = .secondaryLabelColor
         let name = NSTextField(labelWithString: up ? String(localized: "Enclosing Folder") : folder.name)
+        name.font = .ui(TextSize.body)
         name.lineBreakMode = .byTruncatingMiddle
         if up { name.textColor = .secondaryLabelColor }
         let cell = NSStackView(views: [icon, name])
-        cell.spacing = 6
-        cell.edgeInsets = NSEdgeInsets(top: 0, left: 4, bottom: 0, right: 4)
-        icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
+        cell.spacing = Metrics.gap
+        cell.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gapTight, bottom: 0, right: Metrics.gapTight)
+        icon.widthAnchor.constraint(equalToConstant: TextSize.of(Metrics.appIcon)).isActive = true
         return cell
     }
 }
