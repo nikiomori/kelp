@@ -104,7 +104,7 @@ final class TabStrip: NSView {
         setAccessibilityRole(.tabGroup)
         setAccessibilityLabel(String(localized: "Tabs"))
         stack.orientation = .horizontal
-        stack.spacing = 1
+        stack.spacing = Metrics.iconGap
         stack.distribution = .fill
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 6)
         insertion.wantsLayer = true

@@ -14,8 +14,9 @@ extension WindowBar {
     }
 
     /// Shows the cup to the right of the search, which is always there so the switch can be found. It is empty while
-    /// the Mac may sleep, steaming while agents keep it awake, and orange while it's on for good. A click is Keep Mac
-    /// Awake (also in the Tools menu), and a right-click picks the mode or hides the cup.
+    /// the Mac may sleep, steaming while agents keep it awake, and filled while it's on for good. It takes no colour,
+    /// because nothing waits for you there. A click is Keep Mac Awake (also in the Tools menu), and a right-click picks
+    /// the mode or hides the cup.
     func showAwake(_ mode: String) {
         let app = self.app
         awake.isHidden = mode == "hidden"
@@ -29,12 +30,11 @@ extension WindowBar {
                 )
             default: ("cup.and.saucer", String(localized: "The Mac can sleep. Click to keep it awake"))
             }
-        let cup = NSImage.symbol(symbol, String(localized: "Keep Mac Awake"))   // a recessed button ignores contentTintColor
-        awake.image = mode == "always" ? cup.withSymbolConfiguration(.init(paletteColors: [.systemOrange])) : cup
+        awake.image = NSImage.symbol(symbol, String(localized: "Keep Mac Awake"))
         awake.toolTip = tip
         let menu = NSMenu()
         for (choice, title) in [
-            ("agents", String(localized: "While agents work")), ("always", String(localized: "Always")),
+            ("agents", String(localized: "While Agents Work")), ("always", String(localized: "Always")),
             ("off", String(localized: "Never"))
         ] {
             menu.add(title) { app.settings.set(SettingKeys.keepAwake, choice) }.state =

@@ -80,8 +80,8 @@ final class RunGroup: NSStackView {
         super.init(frame: .zero)
         orientation = .vertical
         alignment = .leading
-        spacing = 6
-        edgeInsets = NSEdgeInsets(top: 18, left: 0, bottom: 0, right: 0)
+        spacing = Metrics.gap
+        edgeInsets = NSEdgeInsets(top: Metrics.blockGap, left: 0, bottom: 0, right: 0)
         // Rebuild the rows when what they say changes.
         track(owner: self) {
             (app.extensions.all.runs?.choices(wid) ?? []).map { [$0.title, $0.help ?? "", $0.key?.description ?? ""] }
@@ -140,7 +140,7 @@ final class StartRow: PointerControl {
         pin(row)
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.rowCard)),
-            icon.widthAnchor.constraint(equalToConstant: Metrics.iconButton)
+            icon.widthAnchor.constraint(equalToConstant: TextSize.of(Metrics.iconButton))
         ])
         setAccessibilityElement(true)
         setAccessibilityRole(.button)

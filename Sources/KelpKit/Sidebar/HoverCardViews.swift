@@ -10,8 +10,8 @@ struct CardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.gapWide) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(model.title).font(.ui(TextSize.body, weight: .semibold)).lineLimit(2)
+            VStack(alignment: .leading, spacing: Metrics.lineGap) {
+                Text(model.title).font(.ui(TextSize.heading, weight: .semibold)).lineLimit(2)
                 if !model.subtitle.isEmpty {
                     Text(model.subtitle).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
                 }
@@ -29,8 +29,8 @@ struct CardView: View {
                     .font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary)
             }
             ForEach(model.agents, id: \.id) { agent in
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: Metrics.lineGap) {
+                    HStack(spacing: Metrics.gap) {
                         StatusIcon(status: agent.markStatus, of: agent)
                             .font(
                                 .ui(TextSize.caption))
@@ -41,11 +41,11 @@ struct CardView: View {
                         if !model.agentOnly {
                             Text(agent.statusWords).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                         }
-                        Spacer(minLength: 8)
+                        Spacer(minLength: Metrics.gapWide)
                         Text(shortAgo(agent.statusAt ?? agent.createdAt)).font(
                             .ui(TextSize.caption).monospacedDigit()
                         )
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                     }
                     if !agent.summary.isEmpty {
                         Text(Self.linked(agent.summary)).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
@@ -66,7 +66,7 @@ struct CardView: View {
                         Text("Read off the screen: a guess, so Kelp won't call it done or notify").font(
                             .ui(TextSize.caption)
                         )
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     }
                     if let elsewhere = agent.workingElsewhere {
@@ -81,7 +81,7 @@ struct CardView: View {
                 }
                 AgentWork(model: model, id: agent.id)
                 if QuickReply.fits(agent) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: Metrics.gap) {
                         ForEach(QuickReply.all) { reply in
                             Button(reply.title) { model.reply(reply.text, to: agent.id) }.controlSize(.small)
                         }
@@ -89,7 +89,7 @@ struct CardView: View {
                 }
             }
             if !model.pages.isEmpty, let runs = model.app.extensions.all.runs {
-                HStack(spacing: 8) {
+                HStack(spacing: Metrics.gapWide) {
                     ForEach(model.pages, id: \.port) { page in
                         Button(page.address) { runs.open(page, model.workspaceId) }
                             .buttonStyle(PointerButtonStyle()).font(.ui(TextSize.caption).monospacedDigit())
@@ -99,9 +99,9 @@ struct CardView: View {
                 }
             }
             if let until = model.app.arrangement.mutedUntil(model.muteIds) {
-                HStack(spacing: 8) {
+                HStack(spacing: Metrics.gapWide) {
                     Text(Mutes.line(until: until)).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
-                    Spacer(minLength: 8)
+                    Spacer(minLength: Metrics.gapWide)
                     Button("Unmute") { model.app.arrangement.mute(model.muteIds, until: nil) }.controlSize(.small)
                 }
             }
@@ -110,7 +110,7 @@ struct CardView: View {
             }
             if let usage = model.context { ContextBlock(model: model, used: usage.used, window: usage.window) }
         }
-        .padding(12)
+        .padding(Metrics.inset)
         .frame(width: 300, alignment: .leading)
     }
 
@@ -133,18 +133,18 @@ struct WorktreeSizes: View {
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
                 HStack {
                     Text("Worktrees")
-                    Spacer(minLength: 8)
+                    Spacer(minLength: Metrics.gapWide)
                     Text(Self.size(items.reduce(0) { $0 + $1.bytes })).monospacedDigit()
                 }.font(.ui(TextSize.row))
                 ForEach(items.prefix(8), id: \.path) { worktree in
-                    HStack(spacing: 6) {
+                    HStack(spacing: Metrics.gap) {
                         Text(Self.name(worktree.path, root: root)).lineLimit(1).truncationMode(.middle)
-                        Spacer(minLength: 8)
+                        Spacer(minLength: Metrics.gapWide)
                         Text(Self.size(worktree.bytes)).monospacedDigit()
                     }.font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                 }
                 if items.count > 8 {
-                    Text("\(items.count - 8) more").font(.ui(TextSize.caption)).foregroundStyle(.tertiary)
+                    Text("\(items.count - 8) more").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                 }
             }
         } else {
@@ -168,7 +168,7 @@ struct ContextBlock: View {
 
     var body: some View {
         let open = opened || model.compact != nil
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Metrics.gap) {
             Button {
                 opened.toggle()
             } label: {
@@ -186,21 +186,23 @@ struct ContextBlock: View {
     }
 }
 
-/// How full the agent's conversation is. It is amber from three quarters and red from nine tenths.
+/// How full the agent's conversation is. It turns orange and red at the tab's pie's levels (`ContextMeter.level`),
+/// so the two never disagree; the ring takes the system's colour, the words the text shade of it.
 struct ContextLine: View {
     let used: Int, window: Int
     var body: some View {
         let share = min(1, Double(used) / Double(max(1, window)))
-        let color: Color = share >= 0.9 ? .red : share >= 0.75 ? .orange : .secondary
-        HStack(spacing: 6) {
+        let level = ContextMeter.level(.init(used: used, window: window))
+        let ring = Color(nsColor: ContextMeter.color(level))
+        HStack(spacing: Metrics.gap) {
             ZStack {
                 Circle().stroke(Color.secondary.opacity(0.25), lineWidth: 2)
-                Circle().trim(from: 0, to: share).stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                Circle().trim(from: 0, to: share).stroke(ring, style: StrokeStyle(lineWidth: 2, lineCap: .round))
                     .rotationEffect(.degrees(-90))
             }.frame(width: 11, height: 11)
             Text("Context \(Int(share * 100))% · \(used / 1000)k of \(window / 1000)k tokens").font(
                 .ui(TextSize.caption).monospacedDigit()
-            ).foregroundStyle(color)
+            ).foregroundStyle(Color(nsColor: ContextMeter.textColor(level)))
         }
     }
 }

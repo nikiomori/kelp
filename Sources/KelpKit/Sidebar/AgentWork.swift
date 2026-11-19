@@ -173,7 +173,8 @@ struct AgentWorkRow: View {
                 Text(detail).font(row.code ? .uiMono(TextSize.caption) : .ui(TextSize.caption)).foregroundStyle(
                     row.warns ? Color.textOrange : .secondary
                 )
-                .lineLimit(1).truncationMode(.middle).padding(.leading, 18)
+                // A command keeps its start and end; a sentence is cut at its end, never in the middle.
+                .lineLimit(1).truncationMode(row.code ? .middle : .tail).padding(.leading, 18)
             }
         }
         .padding(.vertical, 2)

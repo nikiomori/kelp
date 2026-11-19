@@ -5,8 +5,9 @@ import DesignKit
 /// How a CI run reads, in CI Runs (Issues) and on the Source Control panel (Git).
 @MainActor
 package enum CIRunLook {
-    /// The mark for a run: ✓ green, ✕ red, the agents' spinning ring while it runs, an empty circle while it waits its
-    /// turn, and a grey – when skipped or cancelled.
+    /// The mark for a run: a grey filled ✓, as the sidebar's CI mark draws a pass, ✕ red, the agents' spinning ring
+    /// while it runs, an empty circle while it waits its turn, and a grey – when skipped or cancelled. A pass is not
+    /// green: colour is kept for what broke, so a failure is the one coloured mark in a list.
     package static func mark(_ status: String, _ conclusion: String?) -> NSView {
         let words = Self.words(status, conclusion)
         if status == "in_progress" {
@@ -17,7 +18,7 @@ package enum CIRunLook {
         }
         let (symbol, color): (String, NSColor) =
             switch (status, conclusion) {
-            case ("completed", "success"?): ("checkmark.circle.fill", .systemGreen)
+            case ("completed", "success"?): ("checkmark.circle.fill", .secondaryLabelColor)
             case ("completed", "skipped"?), ("completed", "cancelled"?), ("completed", "neutral"?):
                 ("minus.circle", .tertiaryLabelColor)
             case ("completed", _): ("xmark.circle.fill", .systemRed)

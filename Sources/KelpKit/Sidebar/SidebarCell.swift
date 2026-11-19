@@ -57,7 +57,8 @@ final class SidebarCell: NSTableCellView {
         button.isHidden = true
         return button
     }()
-    /// Shown on a project whose folder is gone: "Folder missing" in orange. A click asks where the folder went.
+    /// Shown on a project whose folder is gone: "Folder missing" in orange, because it waits for you, on the grey plate
+    /// of a worded button, because words without one don't read as a button. A click asks where the folder went.
     lazy var locate: PointerButton = {
         let button = PointerButton { [weak self] in
             guard let self, case .project(let id) = node.kind, let repo = app.repo(id) else { return }
@@ -65,9 +66,10 @@ final class SidebarCell: NSTableCellView {
         }
         button.attributedTitle = NSAttributedString(
             string: String(localized: "Folder missing"),
-            attributes: [.font: NSFont.ui(TextSize.caption, weight: .semibold), .foregroundColor: NSColor.textOrange])
+            attributes: [.font: NSFont.ui(TextSize.caption), .foregroundColor: NSColor.textOrange])
         button.radius = Metrics.radiusXS
-        button.padding = 3
+        button.padding = Metrics.gap
+        button.restFill = .fillRest
         button.toolTip = String(localized: "Locate…")
         button.isHidden = true
         return button
@@ -128,7 +130,7 @@ final class SidebarCell: NSTableCellView {
     var counts: NSAttributedString?
     /// The git mark under the pointer, which spells out its meaning in words while hovered (`spell`).
     weak var spelling: NSView?
-    /// True when another folder of the project changes some of the same files. The dot is then orange
+    /// True when another folder of the project changes some of the same files. The dot is then doubled
     /// (`GitFolders.shared`).
     var shares = false
 
@@ -192,7 +194,7 @@ final class SidebarCell: NSTableCellView {
         // pill, as counts do in Source Control's sections, because bare they read as part of the name.
         for badge in [changes, pr, ci] {
             badge.radius = badge === pr ? nil : Metrics.radiusXS
-            badge.padding = badge === pr ? Metrics.gap : 3
+            badge.padding = badge === pr ? Metrics.gap : Metrics.iconGap
             badge.restFill = badge === pr ? .fillRest : nil
             badge.target = self
         }
@@ -231,7 +233,7 @@ final class SidebarCell: NSTableCellView {
         addSubview(rowStack)
         // The row is as tall as the + that appears on hover. When the row grew to fit the +, its content rose and
         // fell back.
-        rowStack.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.iconButton).isActive = true
+        rowStack.heightAnchor.constraint(greaterThanOrEqualToConstant: TextSize.of(Metrics.iconButton)).isActive = true
         let centerY = rowStack.centerYAnchor.constraint(equalTo: centerYAnchor)
         rowY = centerY
         NSLayoutConstraint.activate([
@@ -370,9 +372,10 @@ extension SidebarCell {
         button.tints = (.tertiaryLabelColor, .secondaryLabelColor)
         // A fixed square, whatever room the row's stack had left when the button appeared on hover (without this it
         // came out narrower than tall).
+        // It grows with Text size, as every icon button does.
+        let side = TextSize.of(Metrics.iconButton)
         NSLayoutConstraint.activate([
-            button.widthAnchor.constraint(equalToConstant: Metrics.iconButton),
-            button.heightAnchor.constraint(equalToConstant: Metrics.iconButton)
+            button.widthAnchor.constraint(equalToConstant: side), button.heightAnchor.constraint(equalToConstant: side)
         ])
         return button
     }

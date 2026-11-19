@@ -5,7 +5,7 @@ import Testing
 
 @testable import KelpKit
 
-/// A tab shows the context pie from yellow on; a tab's title keeps about twelve letters.
+/// A tab shows the context pie from its first level on (grey, then orange, then red); a tab's title keeps about twelve letters.
 @MainActor @Test func tabsStayQuietUntilSomethingNeedsDoing() {
     let use = { (used: Int) in SessionContextWindow.Usage(used: used, window: 200_000) }
     #expect([90_000, 100_000, 150_000].map { ContextMeter.shows(use($0)) } == [false, true, true])

@@ -105,16 +105,16 @@ final class StartView: NSView {
         stack.alignment = .centerX
         stack.spacing = 4
         stack.detachesHiddenViews = true
-        stack.setCustomSpacing(14, after: icon)
+        stack.setCustomSpacing(16, after: icon)
         stack.setCustomSpacing(code == nil ? 24 : Metrics.inset, after: folder.isHidden ? title : folder)
         if let code { stack.setCustomSpacing(24, after: code) }
-        if let field { stack.setCustomSpacing(22, after: field) }
+        if let field { stack.setCustomSpacing(24, after: field) }
         for (head, after) in [(agentsHead, 6), (openHead, 6)] as [(NSView, CGFloat)] {
             stack.setCustomSpacing(after, after: head)
         }
-        stack.setCustomSpacing(18, after: agentList)
-        stack.setCustomSpacing(18, after: templates)
-        stack.setCustomSpacing(14, after: run)
+        stack.setCustomSpacing(Metrics.blockGap, after: agentList)
+        stack.setCustomSpacing(Metrics.blockGap, after: templates)
+        stack.setCustomSpacing(16, after: run)
         // The page sits in a scroll view, so a low window scrolls the list rather than growing to hold it.
         let page = FlippedView()
         page.translatesAutoresizingMaskIntoConstraints = false
@@ -294,7 +294,7 @@ final class StartView: NSView {
     private func followPlans(in stack: NSStackView, after under: NSView?) {
         if under != nil {
             planBar.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-            stack.setCustomSpacing(22, after: planBar)
+            stack.setCustomSpacing(24, after: planBar)
         }
         planBar.spacing = Metrics.gapWide
         planLine.font = .ui(TextSize.row)
@@ -327,7 +327,7 @@ final class StartView: NSView {
             planSwitch.title = String(localized: "Start in \(otherName)")
             planSwitch.onClick = { [weak self] in self?.start(other) }
         }
-        if let under { stack.setCustomSpacing(planBar.isHidden ? 22 : Metrics.gapWide, after: under) }
+        if let under { stack.setCustomSpacing(planBar.isHidden ? 24 : Metrics.gapWide, after: under) }
     }
 
     /// Starts the agent with what was typed, if anything.
@@ -354,13 +354,14 @@ final class StartView: NSView {
         column.orientation = .vertical
         column.alignment = .leading
         column.spacing = Metrics.gapWide
-        column.edgeInsets = NSEdgeInsets(top: 11, left: 12, bottom: Metrics.gapWide, right: 12)
+        column.edgeInsets = NSEdgeInsets(
+            top: Metrics.inset, left: Metrics.inset, bottom: Metrics.gapWide, right: Metrics.inset)
         let box = StartBox(radius: Metrics.radiusLG)   // the prompt's field
         box.pin(column)
         NSLayoutConstraint.activate([
             icon.widthAnchor.constraint(equalToConstant: 18), icon.heightAnchor.constraint(equalToConstant: 18),
-            row.widthAnchor.constraint(equalTo: column.widthAnchor, constant: -24),
-            line.widthAnchor.constraint(equalTo: column.widthAnchor, constant: -24)
+            row.widthAnchor.constraint(equalTo: column.widthAnchor, constant: -2 * Metrics.inset),
+            line.widthAnchor.constraint(equalTo: column.widthAnchor, constant: -2 * Metrics.inset)
         ])
         return box
     }

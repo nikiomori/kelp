@@ -54,7 +54,7 @@ final class AgentTile: PointerControl {
         if icon is NSImageView { icon.widthAnchor.constraint(equalToConstant: Metrics.iconEmpty).isActive = true }
         if let key {
             let keyLabel = NSTextField(labelWithString: key)
-            keyLabel.font = .ui(TextSize.micro)
+            keyLabel.font = .ui(TextSize.caption)   // a key hint, as menus and Quick Open show them
             keyLabel.textColor = .secondaryLabelColor
             keyLabel.translatesAutoresizingMaskIntoConstraints = false
             addSubview(keyLabel)

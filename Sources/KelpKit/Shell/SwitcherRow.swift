@@ -82,7 +82,7 @@ struct SwitcherRow {
     private static func name(_ title: String, place: [String], badges: [NSAttributedString]) -> NSAttributedString {
         let text = NSMutableAttributedString(
             string: title,
-            attributes: [.font: NSFont.ui(TextSize.body, weight: .medium), .foregroundColor: NSColor.labelColor])
+            attributes: [.font: NSFont.ui(TextSize.body), .foregroundColor: NSColor.labelColor])
         let quiet: [NSAttributedString.Key: Any] = [
             .font: NSFont.ui(TextSize.row), .foregroundColor: NSColor.secondaryLabelColor
         ]
@@ -135,7 +135,9 @@ struct SwitcherRow {
         let time = Self.label(Self.quiet(shownWhen))
         // A long name truncates, not the time.
         time.setContentCompressionResistancePriority(.required, for: .horizontal)
-        let key = Self.label(Self.quiet((1...9).contains(number) && !here ? "\(number)" : ""))
+        // The key's digit is a hint beside the row, as ⌘P is in the search pill, so it stays tertiary.
+        let digit = (1...9).contains(number) && !here ? "\(number)" : ""
+        let key = Self.label(Self.quiet(digit, .tertiaryLabelColor))
         key.alignment = .center
         key.widthAnchor.constraint(equalToConstant: side).isActive = true   // so the numbers line up, and the times
         let line = NSStackView(views: [slot, icon, text] + (ci.map { [$0] } ?? []) + [time, key])
@@ -143,8 +145,9 @@ struct SwitcherRow {
         line.spacing = Metrics.gapWide
         line.alignment = .centerY
         line.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gapWide, bottom: 0, right: Metrics.gap)
-        line.heightAnchor.constraint(equalToConstant: detail == nil ? Metrics.rowMenu : Metrics.rowTwoLine).isActive =
-            true
+        line.heightAnchor.constraint(
+            equalToConstant: TextSize.of(detail == nil ? Metrics.rowMenu : Metrics.rowTwoLine)
+        ).isActive = true
         line.wantsLayer = true
         line.layer?.cornerRadius = Metrics.radiusSM
         line.layer?.cornerCurve = .continuous
@@ -154,10 +157,10 @@ struct SwitcherRow {
         return line
     }
 
-    private static func quiet(_ text: String) -> NSAttributedString {
+    /// The row's time ("2m", "Current"), secondary because it is the only copy of when.
+    private static func quiet(_ text: String, _ color: NSColor = .secondaryLabelColor) -> NSAttributedString {
         NSAttributedString(
-            string: text,
-            attributes: [.font: NSFont.uiDigits(TextSize.caption), .foregroundColor: NSColor.tertiaryLabelColor])
+            string: text, attributes: [.font: NSFont.uiDigits(TextSize.caption), .foregroundColor: color])
     }
 
     private static func label(_ text: NSAttributedString) -> NSTextField {
@@ -201,7 +204,7 @@ final class SwitcherCard: NSView {
         scroll.scrollerStyle = .overlay   // a legacy scroller would take the rows' right edge
         scroll.documentView = doc
         doc.translatesAutoresizingMaskIntoConstraints = false
-        let nine = 9 * (Metrics.rowTwoLine + Metrics.lineGap) + 2 * Metrics.gap
+        let nine = 9 * (TextSize.of(Metrics.rowTwoLine) + Metrics.lineGap) + 2 * Metrics.gap
         NSLayoutConstraint.activate([
             doc.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
             doc.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),
