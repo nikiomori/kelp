@@ -1,2 +1,4 @@
 # Tests known to fail under load, each with why. CI runs every test once and retries none: a test that fails there is
 # a bug, in the code or in what the test waits for. One goes here only while its cause is being fixed, and comes off with it.
+DaemonTests aDatabaseCallPastItsTimeClosesItsConnection: under TSan (run 44533730592) the MySQL login to the fake server
+#   didn't finish in 40 s, while Postgres beside it logged in: not the time budget. The server now notes how far it got.
