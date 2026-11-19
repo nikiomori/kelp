@@ -201,9 +201,12 @@ package final class StatusMark: NSView {
             ring.position = CGPoint(x: size / 2, y: size / 2)
             CATransaction.begin()
             CATransaction.setDisableActions(true)   // a layer of its own would ease over 0.25 s
-            // Eight round dots, each a zero-length dash drawn by its round caps. The line is wider than the arc's, so
-            // the dots weigh as much as the arc.
-            ring.lineDashPattern = dotted ? [0, NSNumber(value: Double.pi * (size - 3) / 8)] : dashed ? [2, 2.4] : nil
+            // Round dots, each a zero-length dash drawn by its round caps. The line is wider than the arc's, so the dots
+            // weigh as much as the arc. Eight, and five on a small mark (a logo's corner), where eight ran together
+            // into a grey smudge.
+            let dots = size < 12 ? 5.0 : 8.0
+            ring.lineDashPattern =
+                dotted ? [0, NSNumber(value: Double.pi * (size - 3) / dots)] : dashed ? [2, 2.4] : nil
             ring.lineWidth = dotted ? 2 : 1.5
             ring.strokeEnd = dotted || dashed ? 1 : 0.75
             CATransaction.commit()
