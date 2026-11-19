@@ -240,10 +240,12 @@ package final class AppModel {
         async let stateRead: Void = uiState.load()
         async let settingsRead: Void = settings.load()
         _ = await (stateRead, settingsRead)
-        if uiState.strings("sidebar.order") != arrangement.order {
-            arrangement.order = uiState.strings("sidebar.order")
+        if uiState.strings(StateKeys.sidebarOrder) != arrangement.order {
+            arrangement.order = uiState.strings(StateKeys.sidebarOrder)
         }
-        if Mutes.read(uiState[Mutes.key]) != arrangement.mutes { arrangement.mutes = Mutes.read(uiState[Mutes.key]) }
+        if Mutes.read(uiState[StateKeys.muted]) != arrangement.mutes {
+            arrangement.mutes = Mutes.read(uiState[StateKeys.muted])
+        }
         if Mutes.read(uiState[Parking.key]) != arrangement.parked {
             arrangement.parked = Mutes.read(uiState[Parking.key])
         }

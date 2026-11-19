@@ -5,7 +5,6 @@ import Foundation
 /// own entry or by the entry of its workspace or project. Muting stops only the session's banners, their sound and the
 /// Dock's bounce; its row and the Dock's badge still update. An entry whose date has passed no longer counts.
 package enum Mutes {
-    static let key = "notifications.muted"
     package static let forever = Date.distantFuture
 
     /// The choices in the Mute Notifications ▸ submenu, each with the date its mute ends.

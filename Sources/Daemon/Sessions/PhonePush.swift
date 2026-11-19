@@ -87,7 +87,7 @@ extension ExtensionEvents {
         }
         let mutes =
             Log.session.attempt("reading mutes") {
-                try store.uiState(prefix: "notifications.muted")["notifications.muted"]
+                try store.uiState(prefix: StateKeys.muted)[StateKeys.muted]
             } ?? nil
         guard !PhonePush.muted(mutes, [session.id, worktree?.id, worktree?.repoId]) else { return }
         let name =

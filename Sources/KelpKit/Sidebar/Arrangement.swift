@@ -14,7 +14,7 @@ final class Arrangement {
     var order: [String] = [] {
         didSet {
             rank = Dictionary(order.enumerated().map { ($1, $0) }, uniquingKeysWith: min)
-            app.uiState["sidebar.order"] = try? .from(order)
+            app.uiState[StateKeys.sidebarOrder] = try? .from(order)
         }
     }
     /// Each id's place in `order`. It is made once each time `order` changes, not each time a list is sorted.
@@ -27,7 +27,7 @@ final class Arrangement {
         if order.contains(where: gone.contains) { order.removeAll(where: gone.contains) }
     }
     /// Muted rows: id → until when (`Mutes`).
-    var mutes: [String: Date] = [:] { didSet { app.uiState[Mutes.key] = Mutes.value(mutes) } }
+    var mutes: [String: Date] = [:] { didSet { app.uiState[StateKeys.muted] = Mutes.value(mutes) } }
     /// Agents parked: id → until when (`Parking`).
     var parked: [String: Date] = [:] {
         didSet {

@@ -222,6 +222,14 @@ public struct StateGet: InternalMethod {
     }
 }
 
+/// The UI state keys the daemon reads too, for the phone: one name on both sides, so a rename moves both.
+public enum StateKeys {
+    /// The sidebar's order: project and workspace ids as they were dragged, a list of strings.
+    public static let sidebarOrder = "sidebar.order"
+    /// The muted sidebar rows: {id: date the mute ends}.
+    public static let muted = "notifications.muted"
+}
+
 /// Sets a UI state key. A nil (or null) value deletes the key.
 public struct StateSet: InternalMethod {
     public static let name = "state.set"

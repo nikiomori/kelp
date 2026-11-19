@@ -39,8 +39,10 @@ extension PhoneBridge {
     }
 
     private func inSidebarOrder<Row: Identifiable>(_ rows: [Row]) -> [Row] where Row.ID == String {
-        let kept = Log.session.attempt("reading the sidebar's order") { try store.uiState(prefix: "sidebar.order") }
-        let order = kept?["sidebar.order"]?.array?.compactMap(\.string) ?? []
+        let kept = Log.session.attempt("reading the sidebar's order") {
+            try store.uiState(prefix: StateKeys.sidebarOrder)
+        }
+        let order = kept?[StateKeys.sidebarOrder]?.array?.compactMap(\.string) ?? []
         let rank = Dictionary(order.enumerated().map { ($1, $0) }, uniquingKeysWith: min)
         return rows.enumerated().sorted { (rank[$0.1.id] ?? .max, $0.0) < (rank[$1.1.id] ?? .max, $1.0) }.map(\.1)
     }

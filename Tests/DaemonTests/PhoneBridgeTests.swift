@@ -339,7 +339,7 @@ private func size(_ png: Data) -> [Int] {
     p.d.agentUsage.conversations.homes.withLock { $0 = (claude, tmp()) }
     try png(512, 512).write(to: URL(fileURLWithPath: p.repo.path + "/icon.png"))
     let other = try await p.c.call("repo.add", .obj(["path": .string(try makeRepo())]), as: Repo.self)
-    _ = try await p.c.call(StateSet(key: "sidebar.order", value: .array([.string(other.id)])))   // dragged first
+    _ = try await p.c.call(StateSet(key: StateKeys.sidebarOrder, value: .array([.string(other.id)])))   // dragged first
     let bridge = p.d.sessions.phone
     _ = try await p.c.call(SettingsSet(key: SettingKeys.phoneRelay.key, value: .string("http://127.0.0.1:9/")))
     #expect(try await waitFor { try await p.c.call(PhoneStatus()).relay != nil })
