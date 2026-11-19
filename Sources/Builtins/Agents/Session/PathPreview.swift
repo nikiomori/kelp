@@ -28,6 +28,15 @@ enum TerminalPaths {
         return found.count == 1 ? found.first.map { ($0, line) } : nil   // a file found in two projects is ambiguous
     }
 
+    /// What ⌘-click opens of `tokens` (the readings of a word in the terminal), as the pill under ⌘ shows it: the file
+    /// and its line. Nil when none is a file here; a remote project's path isn't looked up on its host for this.
+    static func shown(_ tokens: [String], cwd: String, elsewhere: [String] = []) -> String? {
+        guard let found = tokens.lazy.compactMap({ resolve($0, cwd: cwd, elsewhere: elsewhere) }).first else {
+            return nil
+        }
+        return (found.path as NSString).abbreviatingWithTildeInPath + (found.line.map { ":\($0)" } ?? "")
+    }
+
     /// Returns the path when it is a regular file, not a folder, a pipe or a device, because reading a pipe or a device
     /// to preview it would block.
     private static func file(_ path: String, in dir: String) -> String? {

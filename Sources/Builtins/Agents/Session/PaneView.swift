@@ -100,6 +100,7 @@ final class PaneView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     private lazy var preview = PathPreview(app: app)
+    private lazy var linkPill = LinkPill(in: self, above: endedSlot)
 
     private static func terminal(_ session: Session) -> GhosttyTerminalView {
         let kelp = Bundle.main.bundleURL.appendingPathComponent(
@@ -140,6 +141,8 @@ final class PaneView: NSView {
         terminal.onOpenPath = { token, flags in
             TerminalPaths.open(token, cwd: cwd(), elsewhere: projects(), workspace: wid, flags: flags, in: app)
         }
+        terminal.onPathAt = { TerminalPaths.shown($0, cwd: cwd(), elsewhere: projects()) }
+        terminal.onLinkHover = { [weak self] in self?.linkPill.show($0) }
         terminal.onHoverWord = { [weak self, weak terminal] tokens, rect in
             guard let self, let terminal else { return }
             self.preview.show(tokens, rect: rect, in: terminal, cwd: cwd(), worktree: wid)

@@ -16,6 +16,14 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
     /// The pointer came to rest on a word (a path, maybe: what it may be, see `word(at:)`), or left it (none); the rect
     /// is the word's part on that row, in this view.
     public var onHoverWord: (([String], NSRect) -> Void)?
+    /// What ⌘-click would open under the pointer while ⌘ is held, "" for nothing: Ghostty's link, or a path the app
+    /// opens that Ghostty doesn't see as a link (`onPathAt`). Called when it changes.
+    public var onLinkHover: ((String) -> Void)?
+    /// The path ⌘-click opens of a word under the pointer (`word(at:)`'s readings), as it's shown; nil for none.
+    public var onPathAt: (([String]) -> String?)?
+    var ghosttyLink = "", shownLink = "", overPath = false   // GhosttyTerminalView+Link
+    var lastWord: (texts: [String], path: String?)?
+    let underline = NSView()   // under such a path: Ghostty underlines only the links it found itself
     /// ⌘V was refused: a program put that text on the clipboard and here its line breaks would run it.
     public var onPasteRefused: (() -> Void)?
     private var hoverTimer: Timer?
@@ -40,7 +48,9 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         wantsLayer = true
         NotificationCenter.default.addObserver(
             self, selector: #selector(takeSize), name: Self.sizeReleased, object: nil)
-        for view in [scrollIndicator, sizeBadge] as [NSView] { addSubview(view) }
+        for view in [scrollIndicator, sizeBadge, underline] as [NSView] { addSubview(view) }
+        underline.wantsLayer = true
+        underline.isHidden = true
         guard let app = GhosttyRuntime.shared.app else { return }
         var cfg = ghostty_surface_config_new()
         cfg.platform_tag = GHOSTTY_PLATFORM_MACOS
@@ -167,7 +177,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         ghostty_surface_set_size(surface, UInt32(fb.width), UInt32(fb.height))
     }
 
-    public override func resetCursorRects() { addCursorRect(bounds, cursor: cursor) }
+    public override func resetCursorRects() { addCursorRect(bounds, cursor: overPath ? .pointingHand : cursor) }
     static func cursor(for shape: ghostty_action_mouse_shape_e) -> NSCursor {
         switch shape {
         case GHOSTTY_MOUSE_SHAPE_POINTER: .pointingHand
@@ -260,6 +270,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         if window?.firstResponder !== self { window?.makeFirstResponder(self) }
         guard let surface else { return }
         endHover()
+        endLink()
         if event.modifierFlags.contains(.command), let hit = word(at: convert(event.locationInWindow, from: nil)),
             open(hit.texts, event.modifierFlags)
         {
@@ -322,6 +333,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         let point = convert(event.locationInWindow, from: nil)
         ghostty_surface_mouse_pos(surface, point.x, bounds.height - point.y, mouseMods(event.modifierFlags))
         scheduleHover(point, buttons: NSEvent.pressedMouseButtons)
+        refreshLink()
     }
 
     /// Half a second at rest on a word asks the app whether it's worth a preview; moving off it closes that.
@@ -384,6 +396,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
     public override func mouseEntered(with event: NSEvent) { mouseMoved(with: event) }
     public override func mouseExited(with event: NSEvent) {
         endHover()
+        overLink("")
         guard let surface, NSEvent.pressedMouseButtons == 0 else { return }
         ghostty_surface_mouse_pos(surface, -1, -1, Self.mods(event.modifierFlags))
     }
@@ -401,6 +414,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         ]
         let momentum = phases.first { $0.0 == event.momentumPhase }?.1 ?? 0
         ghostty_surface_mouse_scroll(surface, deltaX, deltaY, (precise ? 1 : 0) | (momentum << 1))
+        refreshLink()   // another word is under the pointer now
     }
     public override func pressureChange(with event: NSEvent) {
         guard let surface else { return }
@@ -547,6 +561,7 @@ public final class GhosttyTerminalView: NSView, @preconcurrency NSTextInputClien
         var key = keyEvent(event, pressed ? GHOSTTY_ACTION_PRESS : GHOSTTY_ACTION_RELEASE)
         key.mods = mouseMods(event.modifierFlags)   // ⌘ lights up the link under a resting pointer too (see linkMods)
         _ = ghostty_surface_key(surface, key)
+        refreshLink()
     }
 
     // MARK: Edit menu (Copy / Paste / Select All reach the terminal from the menu bar too, not only as ⌘C / ⌘V)
