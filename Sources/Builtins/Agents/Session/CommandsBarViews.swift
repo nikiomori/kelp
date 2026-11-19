@@ -91,7 +91,7 @@ final class CommandRow: NSTableCellView {
         command.setContentCompressionResistancePriority(.init(250), for: .horizontal)
         command.setContentHuggingPriority(.init(1), for: .horizontal)   // the time sits at the right
         server.symbolConfiguration = .chrome(Metrics.iconTiny)
-        server.contentTintColor = .systemGreen
+        server.contentTintColor = .secondaryLabelColor   // a page served is no alarm: grey, as a run's tab draws it
         server.isHidden = true
         for v in [server, mark] { v.translatesAutoresizingMaskIntoConstraints = false }
         slot.translatesAutoresizingMaskIntoConstraints = false
@@ -111,7 +111,7 @@ final class CommandRow: NSTableCellView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Shows a command that has its own terminal: its name, then what it last printed or how it ended. A green ▶
+    /// Shows a command that has its own terminal: its name, then what it last printed or how it ended. A grey ▶
     /// replaces the mark while it serves a page.
     func show(run: Session, tail: String?, page: Int?, now: Date) {
         let live = run.status != .exited, serving = live && page != nil
@@ -119,7 +119,7 @@ final class CommandRow: NSTableCellView {
         mark.status = serving ? nil : status
         server.isHidden = !serving
         slot.isHidden = false
-        lead.font = .ui(TextSize.caption, weight: .medium)
+        lead.font = .ui(TextSize.caption)
         lead.stringValue = run.displayTitle
         command.textColor = status == .error ? .textRed : .secondaryLabelColor
         command.stringValue = serving ? "localhost:\(page ?? 0)" : live ? tail ?? "" : Self.ending(run, tail: tail)

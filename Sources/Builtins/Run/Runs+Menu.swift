@@ -105,7 +105,7 @@ extension Runs {
         let port = row.url.flatMap { URLComponents(string: $0)?.port }.map { ":\($0)" }
         let hidden = row.session.map(app.workbench.isHidden) == true ? [String(localized: "hidden")] : []
         let place = [Self.source(row)] + (row.running ? [port ?? String(localized: "Running")] : []) + hidden
-        let note = row.missing.map { String(localized: "\($0) isn't installed") } ?? place.joined(separator: " · ")
+        let note = row.missing.map { String(localized: "\($0) isn’t installed") } ?? place.joined(separator: " · ")
         item.attributedTitle = NSMenuItem.titleWithNote(row.name, note: note, column: column, dim: row.missing != nil)
     }
 
@@ -130,8 +130,8 @@ extension Runs {
     }
 
     /// The symbol and colour of a command's purpose: green ▶ run, purple flask tests, orange hammer build, blue check
-    /// lint, red plane deploy, teal install. The colour is for a run's tab; the Run menu shows it only on what runs.
-    /// The rest are grey, chosen by name. ▶ in a green circle means it runs now.
+    /// lint, red plane deploy, teal install. The Run menu shows the colour only on what runs; a run's tab shows the
+    /// symbol in grey. The rest are grey, chosen by name. ▶ in a green circle means it runs now.
     static func glyph(_ row: Row) -> (String, NSColor) {
         let name = row.name.lowercased()
         if row.running { return ("play.circle.fill", .systemGreen) }

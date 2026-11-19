@@ -98,7 +98,10 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     }
 
     private func makeFoot() -> NSView {
-        let restart = PointerButton(title: String(localized: "Restart This Chat")) { [weak self] in self?.restart() }
+        // A worded button in a bottom bar is the system's small one: words alone don't read as a button.
+        let restart = ClosureButton(title: String(localized: "Restart This Chat")) { [weak self] in self?.restart() }
+        restart.bezelStyle = .push
+        restart.controlSize = .small
         foot.setViews([footNote, NSView(), restart], in: .leading)
         foot.spacing = Metrics.gap
         foot.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.inset, bottom: Metrics.gap, right: Metrics.inset)

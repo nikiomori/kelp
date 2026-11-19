@@ -68,7 +68,8 @@ final class AddonSheet: NSObject, NSTextFieldDelegate {
         field.font = .uiMono(TextSize.row)
         field.controlSize = .large
         field.delegate = self
-        let choose = PointerButton(title: String(localized: "Choose…")) { [weak self] in self?.chooseFolder() }
+        let choose = ClosureButton(title: String(localized: "Choose…")) { [weak self] in self?.chooseFolder() }
+        choose.bezelStyle = .push   // a sheet's button is the system's
         let entry = NSStackView(views: editing == nil ? [field, choose] : [field])
         entry.spacing = Metrics.gapWide
         scope.segmentCount = 2

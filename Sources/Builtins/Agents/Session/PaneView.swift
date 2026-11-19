@@ -147,7 +147,7 @@ final class PaneView: NSView {
     }
 
     private func buildEndedBar() {
-        endedLabel.font = .ui(TextSize.row, weight: .semibold)
+        endedLabel.font = .ui(TextSize.row, weight: .medium)   // the scale has no semibold at 12
         restartButton.title = String(localized: "Restart")
         restartButton.target = self
         restartButton.action = #selector(restartTapped)

@@ -89,7 +89,7 @@ final class DatabaseAskCard: NSView {
             title.stringValue = String(localized: "\(who) wants to change \(run.database)")
             detail.stringValue =
                 run.changed.map { String(localized: "\($0) rows would change. Tried, then rolled back.") }
-                ?? String(localized: "It couldn't be tried first.")
+                ?? String(localized: "It couldn’t be tried first.")
             return
         }
         title.stringValue =

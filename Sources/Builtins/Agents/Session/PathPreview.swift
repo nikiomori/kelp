@@ -213,9 +213,9 @@ final class PreviewModel {
 struct PathPreviewView: View {
     let model: PreviewModel
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Text(model.name).font(.ui(TextSize.body, weight: .semibold))
+        VStack(alignment: .leading, spacing: Metrics.gapWide) {
+            HStack(spacing: Metrics.gap) {
+                Text(model.name).font(.ui(TextSize.heading, weight: .semibold))   // a popover's headline
                 if !model.folder.isEmpty {
                     Text(model.folder).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
                         .truncationMode(.middle)

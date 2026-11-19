@@ -29,7 +29,6 @@ final class PageChip: ChipCapsule, WindowBarItem {
         open.padding = 8
         open.imagePosition = .imageLeading
         open.imageHugsTitle = true
-        open.image = .symbol("network", "")
         open.symbolConfiguration = .chrome(Metrics.iconSmall)
         open.onClick = { [weak self] in
             guard let self, let look = look else { return }
@@ -68,7 +67,9 @@ final class PageChip: ChipCapsule, WindowBarItem {
         isHidden = look == nil
         guard let look else { return }
         open.title = compact ? ":\(look.page.port)" : look.page.address
-        open.contentTintColor = look.page.offline ? .tertiaryLabelColor : .labelColor
+        // An offline page says so by its form as well as its shade: the network with a slash, in grey.
+        open.image = .symbol(look.page.offline ? "network.slash" : "network", "")
+        open.contentTintColor = look.page.offline ? .secondaryLabelColor : .labelColor
         open.toolTip = tip(look.page)
         open.menu = menu(look)
         more.isHidden = look.more == 0

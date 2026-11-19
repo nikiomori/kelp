@@ -54,7 +54,10 @@ struct UsageView: View {
         self.ruled = ruled
     }
     @State private var rows: [Row] = []
+    /// The row under the pointer, whose background is grey.
     @State private var hovered: String?
+    /// The row whose card is up, which opens and goes by the hover card's delays.
+    @State private var card = LimitCardHover()
 
     /// The agents that have used any of their plans, because a row at 0% says nothing.
     private var used: [Row] { rows.filter { ($0.main?.used ?? 0) > 0 } }
@@ -98,7 +101,10 @@ struct UsageView: View {
             app.watch(.limits)
             load()
         }
-        .onDisappear { app.unwatch(.limits) }
+        .onDisappear {
+            app.unwatch(.limits)
+            card.close()   // and with it the key monitor the card keeps
+        }
         .onChange(of: app.latest(LimitsEvent.self)?.usage) { load() }
         .onChange(of: app.availability.ids) { load() }
     }
@@ -143,11 +149,14 @@ struct UsageView: View {
                 .padding(.horizontal, -4).padding(.vertical, -2)
                 .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovered)
                 .contentShape(Rectangle())
-                .onHover { hovered = $0 ? row.id : (hovered == row.id ? nil : hovered) }
-                .onTapGesture { hovered = row.id }   // trackpads, and anyone who'd rather click
+                .onHover {
+                    hovered = $0 ? row.id : (hovered == row.id ? nil : hovered)
+                    card.hover(row.id, $0)
+                }
+                .onTapGesture { card.show(row.id) }   // trackpads, and anyone who'd rather click
                 .popover(
                     isPresented: Binding(
-                        get: { hovered == row.id }, set: { if !$0, hovered == row.id { hovered = nil } }),
+                        get: { card.shown == row.id }, set: { if !$0, card.shown == row.id { card.close() } }),
                     arrowEdge: .top
                 ) {
                     // With a row per agent, the card is about the agent under the pointer. With one row, the card
