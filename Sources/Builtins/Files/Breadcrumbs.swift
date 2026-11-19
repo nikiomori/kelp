@@ -52,10 +52,10 @@ final class Breadcrumbs: NSView {
             if on { isHidden = false }
             rebuild()
             // When focus mode or the setting shows or hides the bar, the file below slides into or out of the bar's
-            // room, so it doesn't jump by the bar's height at once.
+            // room, so it doesn't jump by the bar's height at once. It leaves in two thirds of the time it came in.
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = self.window == nil ? 0 : Motion.duration(Motion.base)
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                ctx.duration = self.window == nil ? 0 : Motion.duration(on ? Motion.base : Motion.fast)
+                ctx.timingFunction = CAMediaTimingFunction(name: on ? .easeOut : .easeIn)
                 ctx.allowsImplicitAnimation = true
                 self.height?.animator().constant = on ? TextSize.of(Metrics.statusBar) : 0
                 self.superview?.layoutSubtreeIfNeeded()
@@ -112,11 +112,13 @@ final class Breadcrumbs: NSView {
         row.setViews(views, in: .leading)
     }
 
+    /// A chevron between two parts, drawn as a symbol rather than typed.
     private static func separator() -> NSView {
-        let label = NSTextField(labelWithString: "›")
-        label.font = .ui(TextSize.caption)
-        label.textColor = .tertiaryLabelColor
-        return label
+        let chevron = NSImageView(image: .symbol("chevron.right"))
+        chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
+        chevron.contentTintColor = .tertiaryLabelColor
+        chevron.setAccessibilityElement(false)   // the parts are read one after another anyway
+        return chevron
     }
 
     /// The scope's line of code without the `{` that opens the scope.

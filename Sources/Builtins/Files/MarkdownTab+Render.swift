@@ -66,7 +66,7 @@ extension MarkdownTab {
             let markLabels = pageMarkLabels,
                 slideLabels = ["of": String(localized: "of"), "escEnds": canvasLabels.escEnds]
             let turn = shown == nil && kind == .markdown ? baseline : nil
-            let noSource = String(localized: "Where it came from isn't said: ask its agent for a data-source.")
+            let noSource = String(localized: "Where it came from isn’t said: ask its agent for a data-source.")
             if turn == nil, agents { onChanges?(0) }
             let (html, scripts, swap) = await Task.detached { [page] () -> (String, [String], Swap?) in
                 if kind == .html { return (text, [], nil) }

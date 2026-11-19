@@ -158,7 +158,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
         rows = Self.rows(found, title: { self.title($0, project) }, now: Date())
         filterBar.isHidden = count <= Self.filterFrom && find.isEmpty
         if let failed, kept == nil {
-            empty.showError(String(localized: "Couldn't read the pages"), text: failed, buttons: [tryAgain])
+            empty.showError(String(localized: "Couldn’t read the pages"), text: failed, buttons: [tryAgain])
         } else {
             empty.show(
                 list != nil && items.isEmpty ? String(localized: "No Artifacts Yet") : nil, symbol: "doc.richtext",
@@ -362,9 +362,7 @@ final class ArtifactsPanel: NSViewController, NSTableViewDataSource, NSTableView
                 copyText(link)
             }
         } else {
-            menu.add(String(localized: "Show in Finder")) {
-                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.target)])
-            }
+            WorkspaceActions.addLocate(to: menu, path: item.target)
         }
     }
 }

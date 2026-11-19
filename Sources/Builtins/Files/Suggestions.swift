@@ -117,7 +117,7 @@ final class Suggestions {
         guard
             let key = await askSecret(
                 String(localized: "API Key for \(Self.cloudName(cloud, model: ""))"),
-                detail: String(localized: "It's stored in your login keychain, not in settings.json."),
+                detail: String(localized: "It’s stored in your login keychain, not in settings.json."),
                 action: String(localized: "Save"), placeholder: String(localized: "Paste the key")),
             !key.isEmpty
         else { return }

@@ -78,7 +78,7 @@ struct ServerLine: View {
     var body: some View {
         let status = lsp.status(server, in: root, asks: asks)
         HStack(spacing: Metrics.gap) {
-            Circle().fill(dot(status)).overlay(Circle().strokeBorder(ring(status))).frame(width: 7, height: 7)
+            StateDot(dot(status))
             Text(LSPManager.name(server)).font(.uiMono(TextSize.caption)).lineLimit(1)
             Text(words(status)).font(.ui(TextSize.caption))
                 .foregroundStyle(status == .failed ? Color.textRed : Color.secondary).lineLimit(1)
@@ -122,18 +122,12 @@ struct ServerLine: View {
         }
     }
 
-    private func dot(_ status: ServerStatus) -> Color {
+    /// Filled while the server is there (installed or running), red only when it didn't start.
+    private func dot(_ status: ServerStatus) -> StateDot.State {
         switch status {
-        case .running: .secondary   // filled, with "Running" beside it: only what failed has a colour
-        case .failed: Color(nsColor: .systemRed)
-        case .installed, .untrusted: .secondary
-        default: .clear
-        }
-    }
-    private func ring(_ status: ServerStatus) -> Color {
-        switch status {
-        case .running, .failed: .clear
-        default: .secondary
+        case .running, .installed, .untrusted: .on
+        case .failed: .broken
+        default: .off
         }
     }
 }
@@ -162,8 +156,8 @@ struct FileServers: View {
             }
             .buttonStyle(.link).font(.ui(TextSize.row))
         }
+        .frame(width: Metrics.popoverWidth, alignment: .leading)   // the text column, as HelpMark's
         .padding(Metrics.inset)
-        .frame(width: 320)
         .task { await LSPManager.of(app).refresh(root) }
     }
 }

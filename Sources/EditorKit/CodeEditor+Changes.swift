@@ -25,6 +25,28 @@ extension CodeEditor {
         return lo > 0 && changeMarks[lo - 1].lines.contains(line) ? changeMarks[lo - 1] : nil
     }
 
+    /// The change on the caret's line, which the commands that revert or stage a change act on.
+    public var changeAtCursor: ChangeMark? { changeMark(onLine: caretLine) }
+
+    /// Goes to the next change under the caret's line, or the one before it, round the ends, as F8 does to problems.
+    public func goToChange(forward: Bool) {
+        let line = caretLine
+        guard
+            let next = forward
+                ? changeMarks.first(where: { $0.line > line }) ?? changeMarks.first
+                : changeMarks.last(where: { $0.lines.upperBound <= line }) ?? changeMarks.last
+        else {
+            NSSound.beep()
+            return
+        }
+        goTo(line: next.line + 1)
+        focus()
+    }
+
+    private var caretLine: Int {
+        lineIndex.line(at: textView.selectedRange().location, in: textView.string as NSString)
+    }
+
     /// Called when lines came or went at `offset` (by typing, before the next save tells what really differs), so the
     /// marks under it stay beside their lines.
     func shiftChangeMarks(from offset: Int) {

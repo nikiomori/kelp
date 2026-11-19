@@ -99,7 +99,7 @@ enum CanvasChrome {
         .kelp-grow { flex: 1; }
         .kelp-note { color: var(--k-sec); font-size: 11px; padding: 10px 12px; }
         .kelp-float { position: fixed; z-index: 15; display: flex; align-items: center; gap: 2px; padding: 0 4px;
-          height: 30px; border-radius: 12px; background: var(--k-float); color: var(--k-label);
+          height: 30px; border-radius: 8px; background: var(--k-float); color: var(--k-label);
           box-shadow: 0 0 0 .5px var(--k-sep), 0 2px 6px rgba(0,0,0,.2); font: 12px -apple-system, sans-serif; }
         .kelp-themes { top: 10px; right: 14px; }
         .kelp-zoom { bottom: 14px; right: 14px; }

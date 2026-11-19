@@ -26,11 +26,11 @@ extension FileTab {
             case .conflict:
                 String(localized: "An agent changed it on disk meanwhile. Save replaces that version with yours.")
             case .missing: String(localized: "It was moved or deleted. Save writes it at its old place again.")
-            default: String(localized: "Your changes will be lost if you don't save them.")
+            default: String(localized: "Your changes will be lost if you don’t save them.")
             }
         alert.addButton(withTitle: String(localized: "Save"))
         alert.addButton(withTitle: String(localized: "Cancel"))
-        alert.addButton(withTitle: String(localized: "Don't Save"))
+        alert.addButton(withTitle: String(localized: "Don’t Save"))
         switch await runSheet(alert) {
         case .alertFirstButtonReturn:
             await tidy()

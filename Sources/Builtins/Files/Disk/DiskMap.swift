@@ -81,14 +81,11 @@ struct DiskMap: View {
             .padding(.horizontal, Metrics.gapWide).padding(.vertical, Metrics.gap)
             .frame(width: max(rect.width, 0), height: max(rect.height, 0), alignment: .topLeading)
             .background(DiskFill(group: DiskGroup(item)))
-            .overlay(
-                RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous)
-                    .strokeBorder(Color.accentColor, lineWidth: on ? 2 : 0)
-            )
+            .cardEdge(selected: on)   // the accent when chosen, brighter under the pointer
             .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PointerCardStyle())
         .help("\(name) · \(size)")
         .accessibilityLabel(Text(verbatim: "\(name), \(size)"))
         .accessibilityAddTraits(on ? .isSelected : [])

@@ -55,10 +55,7 @@ struct DiskUsageView: View {
                     Button(String(localized: "Try Again")) { sizes.measure(repoId, app: app, again: true) }
                 }
             } else {
-                EmptyState(String(localized: "Measuring \(repo?.name ?? "")…"), symbol: "internaldrive") {
-                    Text("The first time takes a moment.")
-                } actions: {
-                }
+                MeasuringLine(text: String(localized: "Measuring \(repo?.name ?? "")…"))
             }
         }
         .task(id: repoId) { sizes.measure(repoId, app: app) }
@@ -72,7 +69,7 @@ struct DiskUsageView: View {
 
     private func header(_ measured: DiskSizes.Measured?) -> some View {
         ContentBar {
-            Text(repo?.name ?? "").font(.ui(TextSize.row, weight: .medium))
+            Text(repo?.name ?? "").font(.ui(TextSize.body, weight: .semibold))
             if let measured {
                 Text("measured \(measured.at.formatted(.relative(presentation: .named)))")
                     .font(.ui(TextSize.caption)).monospacedDigit().foregroundStyle(.secondary)
@@ -81,13 +78,7 @@ struct DiskUsageView: View {
             if sizes.measuring.contains(repoId) {
                 ProgressView().controlSize(.small)
             } else {
-                Button {
-                    sizes.measure(repoId, app: app, again: true)
-                } label: {
-                    Image(systemName: "arrow.clockwise").font(.symbol())
-                }
-                .buttonStyle(PointerButtonStyle()).help(String(localized: "Measure Again"))
-                .accessibilityLabel(String(localized: "Measure Again"))
+                Button(String(localized: "Measure Again")) { sizes.measure(repoId, app: app, again: true) }
             }
         }
     }
@@ -180,7 +171,7 @@ struct DiskList: View {
     }
 }
 
-/// A part's row: a checkbox when it can go, its name and what it is, and its size. Show in Finder appears under the
+/// A part's row: a checkbox when it can go, its name and what it is, and its size. Reveal in Finder appears under the
 /// pointer.
 struct DiskRow: View {
     /// `local` means the part is on this Mac, where the Finder can show it.
@@ -210,10 +201,10 @@ struct DiskRow: View {
             Button {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)])
             } label: {
-                Image(systemName: "magnifyingglass").font(.symbol())
+                Image(systemName: "folder").font(.symbol())   // magnifyingglass is Find in Kelp
             }
-            .buttonStyle(PointerButtonStyle()).help(String(localized: "Show in Finder"))
-            .accessibilityLabel(String(localized: "Show in Finder"))
+            .buttonStyle(PointerButtonStyle()).help(String(localized: "Reveal in Finder"))
+            .accessibilityLabel(String(localized: "Reveal in Finder"))
             .opacity(hovering && local ? 1 : 0).disabled(!local)
         }
         .padding(.horizontal, Metrics.gap).frame(minHeight: TextSize.of(Metrics.rowTwoLine))
@@ -222,6 +213,23 @@ struct DiskRow: View {
                 .fill(Color(nsColor: hovering ? .fillHover : .clear))
         )
         .contentShape(Rectangle())
+        .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)   // the fill and the button
         .onHover { hovering = $0 }
+    }
+}
+
+/// What the tab shows until the first measure is in: nothing for a second, then a spinner and its line, as
+/// `LoadingView.wait` does (the latency rule).
+private struct MeasuringLine: View {
+    let text: String
+    @State private var slow = false
+
+    var body: some View {
+        LoadingLine(text).opacity(slow ? 1 : 0)
+            .offset(y: -Metrics.emptyLift).frame(maxWidth: .infinity, maxHeight: .infinity)
+            .task {
+                do { try await Task.sleep(for: .seconds(LoadingView.patience)) } catch { return }
+                withAnimation(Motion.reduced ? nil : .easeOut(duration: Motion.fast)) { slow = true }
+            }
     }
 }

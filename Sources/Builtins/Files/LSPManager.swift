@@ -201,7 +201,7 @@ final class LSPManager {
         let install = server.install.map { _ in
             (String(localized: "Install"), { @MainActor @Sendable [weak self] in self?.install(server) ?? () })
         }
-        Banner.show(String(localized: "Language server \(server.command) isn't installed."), action: install)
+        Banner.show(String(localized: "Language server \(server.command) isn’t installed."), action: install)
     }
 
     /// Runs the server's `install` command in a terminal tab.

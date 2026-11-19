@@ -102,11 +102,12 @@ final class StickyLines: NSView {
     required init?(coder: NSCoder) { fatalError("not from a nib") }
     override var isFlipped: Bool { true }
 
+    /// Shows `lines`, unless they are shown already; `restyled` shows them again in a new `look` (a theme switched).
     func show(
         _ lines: [(line: Int, text: String)], look: (font: NSFont, text: NSColor, background: NSColor), indent: CGFloat,
-        rowHeight: CGFloat
+        rowHeight: CGFloat, restyled: Bool = false
     ) {
-        guard lines.map(\.line) != shown || self.rowHeight != rowHeight else { return }
+        guard restyled || lines.map(\.line) != shown || self.rowHeight != rowHeight else { return }
         shown = lines.map(\.line)
         self.rowHeight = rowHeight
         layer?.backgroundColor = look.background.cgColor
@@ -122,8 +123,10 @@ final class StickyLines: NSView {
             }, in: .top)
     }
 
+    /// A line that goes to its scope when clicked, so it takes the hover grey as a row does.
     private final class StickyRow: NSView {
         var onClick: (() -> Void)?
+        private var tracking: NSTrackingArea?
         init(_ label: NSTextField, indent: CGFloat, height: CGFloat) {
             super.init(frame: .zero)
             label.translatesAutoresizingMaskIntoConstraints = false
@@ -136,7 +139,16 @@ final class StickyLines: NSView {
             ])
         }
         required init?(coder: NSCoder) { fatalError("not from a nib") }
-        override func mouseDown(with event: NSEvent) { onClick?() }
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            tracking = retracked(tracking, .activeInKeyWindow)
+        }
+        override func mouseEntered(with event: NSEvent) { fadeBackground(to: .fillHover) }
+        override func mouseExited(with event: NSEvent) { fadeBackground(to: nil) }
+        override func mouseDown(with event: NSEvent) {
+            fadeBackground(to: nil)
+            onClick?()
+        }
     }
 }
 
@@ -248,7 +260,9 @@ extension CodeEditor {
         return found.reversed()
     }
 
-    func refreshSticky() {
+    /// Finds the scopes for the top line again. `restyled` draws them again even when they are the same ones, in the
+    /// editor's look as it now is.
+    func refreshSticky(restyled: Bool = false) {
         guard let view = scroll as? EditorScrollView, let tv = Optional(textView), let lm = tv.layoutManager else {
             return
         }
@@ -258,7 +272,9 @@ extension CodeEditor {
             (scroll.verticalRulerView?.ruleThickness ?? 0) + tv.textContainerOrigin.x
             + (tv.textContainer?.lineFragmentPadding ?? 0)
         let row = lm.defaultLineHeight(for: Self.font) + Self.lineExtra
-        view.sticky.show(rows, look: (Self.font, Self.page.text, Self.page.background), indent: indent, rowHeight: row)
+        view.sticky.show(
+            rows, look: (Self.font, Self.page.text, Self.page.background), indent: indent, rowHeight: row,
+            restyled: restyled)
         view.placeSticky()
     }
 }

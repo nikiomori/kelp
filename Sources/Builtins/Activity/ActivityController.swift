@@ -30,7 +30,9 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
     private let total = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
     private let empty = EmptyStateView()
     /// Stands in the rows' place until the daemon's first measure comes, once that has taken a second.
-    private let loading = LoadingView()
+    private let loading = LoadingView(rows: true)
+    /// Says a measure failed over the rows the last one read, which stay under it.
+    private lazy var failureBar = FailureBar { [weak self] in self?.app.watchAgain(.activity) }
     private var rows: [Row] = []
 
     override func loadView() {
@@ -42,7 +44,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         table.doubleAction = #selector(open)
         table.menu = NSMenu()
         table.menu?.delegate = self
-        let header = Bar.panel([total])
+        let header = failureBar.under(Bar.panel([total]))
         let root = stacked(header, scroll)
         empty.place(in: root, under: header)
         loading.place(in: root, under: header)
@@ -80,18 +82,22 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         guard let event else { return }
         loading.show(nil)
         let model = app
-        // When the daemon couldn't measure, the empty state says why, in the place of "No sessions running.", rather
-        // than claiming nothing runs.
+        // A measure that failed keeps the rows the last one read, under a line that says why. With none to keep, the
+        // empty state says why, in the place of "No sessions running.", rather than claiming nothing runs.
         let was = rows
-        rows = (event.usage ?? []).compactMap { usage in
-            guard let session = model.session(usage.session) else { return nil }
-            return Row(session: session, cpu: usage.cpu, memory: usage.memory, processes: usage.processes)
+        let kept = event.error != nil && !was.isEmpty
+        failureBar.show(kept ? event.error : nil)
+        if !kept {
+            rows = (event.usage ?? []).compactMap { usage in
+                guard let session = model.session(usage.session) else { return nil }
+                return Row(session: session, cpu: usage.cpu, memory: usage.memory, processes: usage.processes)
+            }
         }
         let cpu = rows.reduce(0) { $0 + $1.cpu }, mem = rows.reduce(0) { $0 + $1.memory }
         total.stringValue =
             rows.isEmpty
             ? "" : String(localized: "\(rows.count) sessions · CPU \(Self.percent(cpu)) · \(bytes(mem))")
-        if let error = event.error {
+        if let error = event.error, rows.isEmpty {
             empty.showError(String(localized: "Couldn’t Measure the Sessions"), text: error)
         } else {
             empty.show(
@@ -121,7 +127,7 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
             labelWithString: session.isTerminal
                 ? (session.title.isEmpty ? String(localized: "Terminal") : session.title)
                 : app.catalog.displayName(session))
-        name.font = .ui(TextSize.row, weight: .medium)
+        name.font = .ui(TextSize.row)
         name.lineBreakMode = .byTruncatingTail
         let place = NSTextField(
             labelWithString: [

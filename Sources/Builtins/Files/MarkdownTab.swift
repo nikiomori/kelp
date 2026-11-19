@@ -373,11 +373,13 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     @objc func bullets() { edit(MarkdownFormat.toggleBullet) }
     @objc func numbered() { edit(MarkdownFormat.toggleNumbered) }
     @objc func tasks() { edit(MarkdownFormat.toggleTask) }
-    @objc private func table() { edit { MarkdownFormat.insertTable($0, $1, columns: 3, rows: 2) } }
+    @objc func table() { edit { MarkdownFormat.insertTable($0, $1, columns: 3, rows: 2) } }
+    /// Makes the caret's line a heading of `level` (1…3), or text with 0.
+    func heading(_ level: Int) { edit { MarkdownFormat.heading($0, $1, level: level) } }
     @objc private func headingPicked(_ popUp: NSPopUpButton) {
         let level = popUp.indexOfSelectedItem - 1   // skips the button's face: 0 is Text, then Heading 1…3
         guard level >= 0 else { return }
-        edit { MarkdownFormat.heading($0, $1, level: level) }
+        heading(level)
     }
     @objc func link() {
         Task {

@@ -78,7 +78,7 @@ extension MarkdownTab {
         case "fixCheck": sendCheck()
         case "fixCanvas":
             send(
-                "\(Artifacts.projectPath(url.path)) doesn't read (\(body["why"] as? String ?? "")): fix it.", keep: nil)
+                "\(Artifacts.projectPath(url.path)) doesn’t read (\(body["why"] as? String ?? "")): fix it.", keep: nil)
         case "tweak":
             guard let board = body["board"] as? String, let name = body["name"] as? String,
                 let value = body["value"] as? String
@@ -99,7 +99,7 @@ extension MarkdownTab {
             askFix: String(localized: "Ask \(who) to Fix"),
             noMarks: String(localized: "Click an element on a board to mark it, then say what should change."),
             noIssues: String(localized: "No issues: nothing cut off, every text readable, every file there."),
-            of: String(localized: "of"), escEnds: String(localized: "Esc to end"))
+            of: String(localized: "of"), escEnds: String(localized: "esc to end"))
     }
 
     var canvasChromeLabels: CanvasChrome.Labels {
@@ -191,7 +191,7 @@ extension MarkdownTab {
         Task {
             guard let file = await app.call(FilesRead(path: path)) else { return }
             guard let text = change(file.text) else {
-                Banner.show(String(localized: "Couldn't find that element in \(board) as it is now: drawn again."))
+                Banner.show(String(localized: "Couldn’t find that element in \(board) as it is now: drawn again."))
                 return rerender()
             }
             await app.call(FilesWrite(path: path, text: text, base: file.stamp))

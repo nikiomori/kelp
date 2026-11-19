@@ -75,7 +75,7 @@ final class EditorStatusBar: NSView {
         restricted.contentTintColor = .textOrange
         restricted.isHidden = true
         restricted.toolTip = String(
-            localized: "Language servers and formatters don't run in this project until you trust it")
+            localized: "Language servers and formatters don’t run in this project until you trust it")
         restricted.onClick = { [weak self] in self?.offerTrust() }
         servers.isHidden = true
         servers.onClick = { [weak self] in self.map { $0.onServers?($0.servers) } }
@@ -87,8 +87,11 @@ final class EditorStatusBar: NSView {
         row.setViews(
             [kind, place, problems, problem, NSView(), restricted, servers, suggestions, wrap, indentButton],
             in: .leading)
-        row.spacing = Metrics.gapWide
-        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
+        // The buttons' words have `padding` round them for the hover fill, so the gaps and the right edge take it off:
+        // a button's word stands 8 pt from a label, as labels from each other, and the last word 12 pt from the edge.
+        row.spacing = Metrics.gapWide - Metrics.gap
+        row.setCustomSpacing(Metrics.gapWide, after: kind)
+        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset - Metrics.gap)
         let line = NSBox()
         line.boxType = .separator
         pin(row)
@@ -125,6 +128,8 @@ final class EditorStatusBar: NSView {
         modes.controlSize = .mini
         modes.font = .ui(TextSize.caption)   // the bar's own text size, like "Markdown" beside it
         row.addArrangedSubview(modes)
+        row.edgeInsets.right = Metrics.inset   // it has no padding of its own
+
     }
 
     private func offerTrust() {

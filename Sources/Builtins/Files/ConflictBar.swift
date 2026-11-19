@@ -11,12 +11,7 @@ final class ConflictBar {
         let icon = NSImageView(image: NSImage.symbol("arrow.triangle.merge"))
         icon.contentTintColor = .systemOrange
         let buttons: [NSView] = [
-            IconButton(.symbol("chevron.up"), tip: String(localized: "Previous Conflict")) { [weak self] in
-                self?.step(-1)
-            },
-            IconButton(.symbol("chevron.down"), tip: String(localized: "Next Conflict")) { [weak self] in
-                self?.step(1)
-            },
+            steps,
             TextButton(String(localized: "Accept Current")) { [weak self] in self?.accept(.current) },
             TextButton(String(localized: "Accept Incoming")) { [weak self] in self?.accept(.incoming) },
             TextButton(String(localized: "Accept Both")) { [weak self] in self?.accept(.both) }
@@ -24,6 +19,15 @@ final class ConflictBar {
         return Bar.content([icon, label], buttons, stretching: label)
     }()
     private let label = NSTextField.label("", font: .ui(TextSize.row))
+    /// ↑ ↓ to the previous and next conflict, as every bar steps through what it found.
+    private lazy var steps: NSSegmentedControl = NSSegmentedControl.steps(
+        previous: String(localized: "Previous Conflict"), next: String(localized: "Next Conflict"), target: stepping,
+        action: #selector(ClosureTarget.fire))
+    /// The steps' target, kept here because a control holds its target weakly.
+    private lazy var stepping: ClosureTarget = ClosureTarget { [weak self] in
+        guard let self else { return }
+        step(steps.selectedSegment == 1 ? 1 : -1)
+    }
     private weak var editor: CodeEditor?
     private var conflicts: [MergeConflict] = []
 
@@ -80,7 +84,11 @@ final class ConflictBar {
         return conflicts.firstIndex { NSMaxRange($0.whole) > caret } ?? 0
     }
 
-    private func accept(_ keep: MergeConflict.Keep) {
+    /// Whether the file has a conflict left (the bar's commands act only then).
+    var hasConflicts: Bool { !conflicts.isEmpty }
+
+    /// Resolves the conflict the caret is at, keeping `keep`.
+    func accept(_ keep: MergeConflict.Keep) {
         guard let editor, !conflicts.isEmpty else { return }
         let conflict = conflicts[current]
         editor.apply(
@@ -90,7 +98,8 @@ final class ConflictBar {
         if !conflicts.isEmpty { show(current) }
     }
 
-    private func step(_ by: Int) {
+    /// Goes to the next conflict (`by` 1) or the previous one (-1), round the ends.
+    func step(_ by: Int) {
         guard !conflicts.isEmpty else { return }
         let caret = editor?.selectedRange.location ?? 0
         let here = conflicts.firstIndex { NSLocationInRange(caret, $0.whole) }

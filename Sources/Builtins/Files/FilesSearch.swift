@@ -17,7 +17,7 @@ extension FilesPanel {
     }
     func showLoadError(_ message: String?) {
         if let message {
-            loadError.showError(String(localized: "Couldn't list the files"), text: message)
+            loadError.showError(String(localized: "Couldn’t list the files"), text: message)
         } else {
             loadError.show(nil)
         }
@@ -66,10 +66,10 @@ extension FilesPanel {
     }
 
     /// Shows a list from a language server, such as references, where search results go.
-    func show(references found: [SearchMatch]) {
+    func show(references found: [SearchMatch], errors: [Bool]? = nil) {
         searchBy(name: false)
         search.stringValue = ""
-        results.show(found)
+        results.show(found, errors: errors)
         showContentResults(true)
         noResults.show(nil)
         replaceRow.isHidden = true   // a server's list is changed through Rename, not Replace
@@ -107,7 +107,7 @@ extension FilesPanel {
             results.show(found.value ?? [])
             showReplace()
             if let error = found.error {
-                noResults.showError(String(localized: "Couldn't search"), text: error, buttons: [clearButton()])
+                noResults.showError(String(localized: "Couldn’t search"), text: error, buttons: [clearButton()])
             } else {
                 noResults.show(
                     results.matches.isEmpty ? String(localized: "No matches for “\(query)”") : nil,
@@ -138,24 +138,25 @@ extension FilesPanel {
     /// first.
     func showProblems() {
         let found = Self.problems(in: app.latest(FileEvent.self).byKey.mapValues { $0.problems ?? [] }, root: root)
-        show(references: found)
+        show(references: found.map(\.match), errors: found.map(\.isError))
         noResults.show(
             found.isEmpty ? String(localized: "No problems in open files") : nil, symbol: "checkmark.circle",
             buttons: [clearButton()])
     }
 
-    static func problems(in files: [String: [CodeProblem]], root: String) -> [SearchMatch] {
+    /// The project's problems, errors first, each with whether it is an error (the list draws its sign).
+    static func problems(in files: [String: [CodeProblem]], root: String) -> [(isError: Bool, match: SearchMatch)] {
         let all = files.filter { $0.key.hasPrefix(root + "/") }.sorted { $0.key < $1.key }.flatMap { path, found in
             found.sorted { $0.line < $1.line }.map {
                 (
                     isError: $0.isError,
                     match: SearchMatch(
                         path: String(path.dropFirst(root.count + 1)), line: $0.line + 1,
-                        text: ($0.isError ? "✕ " : "⚠ ") + $0.message)
+                        text: $0.message)
                 )
             }
         }
-        return all.filter(\.isError).map(\.match) + all.filter { !$0.isError }.map(\.match)
+        return all.filter(\.isError) + all.filter { !$0.isError }
     }
 
     /// Shows the replace field only while there are content matches for it to replace.

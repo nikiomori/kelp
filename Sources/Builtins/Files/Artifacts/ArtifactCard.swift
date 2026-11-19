@@ -70,7 +70,7 @@ final class ArtifactCard {
     private func content(_ shown: Shown) -> NSView {
         let item = shown.item
         let title = NSTextField(wrappingLabelWithString: shown.title)
-        title.font = .ui(TextSize.body, weight: .semibold)
+        title.font = .ui(TextSize.heading, weight: .semibold)
         title.maximumNumberOfLines = 3
         title.preferredMaxLayoutWidth = Self.size.width
         let session = item.session.flatMap(app.session)
@@ -98,8 +98,9 @@ final class ArtifactCard {
         stack.spacing = Metrics.lineGap
         // A page published before Kelp kept copies has no picture, so the card starts with its title.
         if item.preview != nil { stack.setCustomSpacing(Metrics.gap + 2, after: picture) }
-        stack.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 10, right: 8)
-        stack.widthAnchor.constraint(equalToConstant: Self.size.width + 16).isActive = true
+        stack.edgeInsets = NSEdgeInsets(
+            top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.inset)
+        stack.widthAnchor.constraint(equalToConstant: Self.size.width + 2 * Metrics.inset).isActive = true
         return stack
     }
 

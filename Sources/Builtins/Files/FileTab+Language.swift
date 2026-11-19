@@ -66,7 +66,8 @@ extension FileTab {
         }
     }
 
-    /// Opens the definition of the symbol at the cursor as a tab, as the language server finds it (a beep if none).
+    /// Opens the definition of the symbol at the cursor as a tab, as the language server finds it, or says there is
+    /// none.
     func jumpToDefinition() {
         guard let editor, let (line, column) = editor.cursor else { return }
         let filePath = path, projectRoot = root, app = app
@@ -76,7 +77,7 @@ extension FileTab {
                 let loc = await LSPManager.of(app).definition(
                     root: projectRoot, path: filePath, line: line, column: column)
             else {
-                NSSound.beep()
+                Banner.show(String(localized: "No definition found."))
                 return
             }
             app.workbench.open(TabURI.file(loc.path, line: loc.line))
@@ -133,7 +134,7 @@ extension FileTab {
         guard result.code == 0 else {
             let why = (result.stderr.isEmpty ? result.stdout : result.stderr).split(separator: "\n").prefix(2).joined(
                 separator: "\n")
-            Banner.show(String(localized: "Couldn't format \(title): \(why)"), style: .error)
+            Banner.show(String(localized: "Couldn’t format \(title): \(why)"), style: .error)
             return
         }
         guard editor.text == text, result.stdout != text, !result.stdout.isEmpty || text.isEmpty else { return }   // typed meanwhile, or nothing to do

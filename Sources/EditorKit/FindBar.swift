@@ -63,8 +63,11 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
     required init?(coder: NSCoder) { fatalError("not from a nib") }
 
+    /// Whether the bar is up. The card says, because the bar stays a moment after Done to let the card fade.
+    var isOpen: Bool { !isHidden && !card.isHidden }
+
     func begin(with text: String?) {
-        let shown = !isHidden && !card.isHidden
+        let shown = isOpen
         isHidden = false
         card.isHidden = false   // Esc hid the card
         if !shown { card.comeIn() }   // as the other find bars do
@@ -75,7 +78,12 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
 
     func close() {
-        isHidden = true
+        guard card.isHidden else { return card.close() }   // the card fades away, then comes back here
+        // The bar hides once the card has faded, because hiding it now would cut the fade off.
+        DispatchQueue.main.asyncAfter(deadline: .now() + Motion.duration(Motion.fast)) { [weak self] in
+            guard let self, card.isHidden else { return }   // unless it was opened again meanwhile
+            isHidden = true
+        }
         guard let tv = editor?.textView else { return }
         tv.findMarks = []
         tv.findCurrent = nil
@@ -87,7 +95,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     /// search runs a moment after the typing stops, because a search per key over a 5 MB file was 19 ms of every key
     /// while the bar was open.
     func textChanged() {
-        guard !isHidden else { return }
+        guard isOpen else { return }
         researching?.cancel()
         // Runs on the main queue.
         let again = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.search(moving: false) } }
@@ -113,7 +121,12 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     }
 
     private func toggleReplace() {
-        if replaceRow.isHidden { replaceRow.fadeIn() } else { replaceRow.isHidden = true }
+        if replaceRow.isHidden {
+            replaceRow.fadeIn()
+        } else {
+            card.crossfade()   // it fades away, as it came
+            replaceRow.isHidden = true
+        }
         more.image = .symbol(replaceRow.isHidden ? "chevron.right" : "chevron.down")
         more.turn(from: replaceRow.isHidden ? -.pi / 2 : .pi / 2)   // turns as a sidebar row's chevron does
     }
@@ -204,7 +217,7 @@ final class FindBar: NSView, NSSearchFieldDelegate {
     /// ⌘G and ⇧⌘G with the keys in a field, handled before the menu, because the menu's item would go to the field's
     /// editor, a text view too, whose find panel is off.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard let forward = event.findStep, !isHidden,
+        guard let forward = event.findStep, isOpen,
             (window?.firstResponder as? NSView)?.isDescendant(of: self) == true
         else { return super.performKeyEquivalent(with: event) }
         step(forward: forward)
@@ -240,7 +253,7 @@ extension CodeEditor {
         let oneLine = selected?.contains("\n") == true ? nil : selected
         switch action {
         case .next, .previous:
-            guard let findBar, !findBar.isHidden else { return openFind(with: oneLine) }
+            guard let findBar, findBar.isOpen else { return openFind(with: oneLine) }
             findBar.step(forward: action == .next)
         case .setFindString:
             openFind(with: oneLine)
@@ -258,8 +271,9 @@ extension CodeEditor {
                 // The bar goes beside the scroll view, not in it, because its clip view would draw over the bar.
                 (scroll.superview ?? scroll).addSubview(created, positioned: .above, relativeTo: scroll)
                 NSLayoutConstraint.activate([
-                    created.topAnchor.constraint(equalTo: scroll.topAnchor, constant: Metrics.gap),
-                    created.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -Metrics.inset)
+                    // Where every find card floats (`FindCard.float`).
+                    created.topAnchor.constraint(equalTo: scroll.topAnchor, constant: Metrics.gapWide),
+                    created.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -Metrics.gapWide * 2)
                 ])
                 findBar = created
                 return created

@@ -14,10 +14,7 @@ extension FileTab {
         let trust = TrustBar.make(
             project: (root as NSString).lastPathComponent,
             notNow: { [weak self] in self.map { LSPManager.of(app).notNow($0.root) } },
-            trust: { [weak self] in
-                guard let root = self?.root else { return }
-                Task { await LSPManager.of(app).trust(root) }
-            })
+            trust: { [weak self] in self?.trustProject() })
         trust.isHidden = true
         track(owner: self) { [weak self] in
             self.map { LSPManager.of(app).asks($0.root, $0.language) } ?? false
@@ -30,6 +27,15 @@ extension FileTab {
         column.detachesHiddenViews = true
         for part in [crumbs, trust] { part.widthAnchor.constraint(equalTo: column.widthAnchor).isActive = true }
         return column
+    }
+
+    /// Whether the project isn't trusted to run this file's language server or formatter (Trust This Project acts
+    /// only then).
+    var restricted: Bool { !remote && LSPManager.of(app).restricts(root, language) }
+
+    /// Trusts the file's project to run its language servers and formatters, as the trust bar's Trust does.
+    func trustProject() {
+        Task { [app, root] in await LSPManager.of(app).trust(root) }
     }
 
     /// Returns the merge conflicts bar shown over `editor`. Its label follows the caret.

@@ -43,11 +43,11 @@ extension FileTab {
                 menu.add(String(localized: "Show Chat")) { app.workbench.open(TabURI.session(session)) }
             }
         } else if origin != nil {
-            note(String(localized: "Not committed yet, and no agent's turn changed it"))
+            note(String(localized: "Not committed yet, and no agent’s turn changed it"))
             menu.addItem(.separator())
             menu.add(String(localized: "Show Changes")) { app.workbench.open(TabURI.diff(wid, file: file)) }
         } else {
-            note(String(localized: "Git doesn't track this line"))
+            note(String(localized: "Git doesn’t track this line"))
         }
         return menu
     }

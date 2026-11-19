@@ -15,6 +15,8 @@ final class NotebookTab: NSViewController {
     private let web = WKWebView()
     private let links: PreviewLinks
     private let status = NSTextField(labelWithString: "")
+    /// What the tab says when the notebook couldn't be read or isn't one.
+    private let empty = EmptyStateView()
 
     init(app: AppModel, url: URL, path: String, worktreeId: String?) {
         links = PreviewLinks(app: app)
@@ -38,21 +40,35 @@ final class NotebookTab: NSViewController {
             ], [status])
         web.navigationDelegate = links
         view = stacked(bar, web)
-        reload()
+        empty.place(in: view, under: bar)
+        // Rendered again in the editor's colours when the theme or the appearance changes them.
+        track(owner: self) { [app] in
+            app.themes.editorRevision
+        } changed: { [weak self] _ in
+            self?.reload()
+        }
     }
 
     /// Reads the notebook through the daemon (off the main thread, and refused past the size limit like any file
-    /// tab's file), then renders it.
+    /// tab's file), then renders it. A read that failed says why, with Try Again; a file that isn't a notebook says so.
     func reload() {
         Task {
-            let data = await app.tryCall(FilesRead(path: path)).value.map { Data($0.text.utf8) }
+            let read = await app.tryCall(FilesRead(path: path))
+            let data = read.value.map { Data($0.text.utf8) }
             guard let data, let body = NotebookHTML.render(data) else {
-                let why = String(localized: "This notebook can't be read (is it valid nbformat 4 JSON?).")
-                links.load(
-                    EmptyStateView.html(String(localized: "Can't show this notebook"), text: why), baseURL: nil, in: web
-                )
+                web.isHidden = true
+                if let error = read.error {
+                    let again = ClosureButton(title: String(localized: "Try Again")) { [weak self] in self?.reload() }
+                    empty.showError(String(localized: "Couldn’t read this notebook"), text: error, buttons: [again])
+                } else {
+                    empty.showError(
+                        String(localized: "Can’t show this notebook"),
+                        text: String(localized: "It isn’t valid nbformat 4 JSON."))
+                }
                 return
             }
+            web.isHidden = false
+            empty.show(nil)
             let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             var page: (background: String, text: String)?
             view.effectiveAppearance.performAsCurrentDrawingAppearance {

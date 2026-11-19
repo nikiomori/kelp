@@ -10,7 +10,12 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         contentRect: .zero, styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: true)
     private let table = NSTableView()
     private let doc = NSTextField(wrappingLabelWithString: "")
-    private lazy var docCard = FloatingCard(doc, radius: Metrics.radiusMD)
+    private lazy var docCard: FloatingCard = {
+        let padded = NSView()
+        let inset = Metrics.inset
+        padded.pin(doc, inset: NSEdgeInsets(top: inset, left: inset, bottom: inset, right: inset))
+        return FloatingCard(padded, radius: Metrics.radiusMD)
+    }()
     private(set) var items: [CodeEditor.Completion] = []
     var onAccept: ((CodeEditor.Completion) -> Void)?
     var isOpen: Bool { panel.isVisible }
@@ -93,7 +98,11 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
     @objc private func clicked() { if let selected { onAccept?(selected) } }
 
     func numberOfRows(in tableView: NSTableView) -> Int { items.count }
-    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ListRowView() }
+    /// The panel never takes the keys, so its selection would be the grey of a list out of focus. It is the accent's,
+    /// as the list is what the keys move through.
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        ListRowView(selection: .selectedContentBackgroundColor)
+    }
     func tableViewSelectionDidChange(_ notification: Notification) { showDoc() }
 
     func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
@@ -112,7 +121,7 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         detail.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         let row = NSStackView(views: [icon, label, NSView(), detail])
         row.spacing = Metrics.gap
-        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gap)
+        row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         return row
     }
 

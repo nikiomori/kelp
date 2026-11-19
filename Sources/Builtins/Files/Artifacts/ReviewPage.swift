@@ -17,7 +17,7 @@ enum ReviewPage {
         if !review.intro.isEmpty { html += "<div class=\"k-intro\">\(MarkdownHTML.render(review.intro))</div>\n" }
         let sent = review.sent != nil
         for p in review.points {
-            let done = p.done ? "<span class=\"k-done\">✓ \(esc(String(localized: "Done")))</span>" : ""
+            let done = p.done ? "<span class=\"k-done\">\(check)\(esc(String(localized: "Done")))</span>" : ""
             html +=
                 "<section class=\"k-point\" id=\"p\(esc(p.number))\"><div class=\"k-q\">"
                 + "<span class=\"k-n\">\(esc(p.number))</span><h2>\(inline(p.question))</h2>\(done)</div>"
@@ -41,7 +41,7 @@ enum ReviewPage {
                 html += field
             } else if p.pick != nil, !sent {
                 html +=
-                    "<button type=\"button\" class=\"k-addnote\">+ \(esc(String(localized: "Note")))</button>"
+                    "<button type=\"button\" class=\"k-pill k-addnote\">\(esc(String(localized: "Add Note")))</button>"
                     + field.replacingOccurrences(of: "class=\"k-note\"", with: "class=\"k-note\" hidden")
             }
             html += "</section>\n"
@@ -56,7 +56,7 @@ enum ReviewPage {
         let who = sendTo ?? String(localized: "the Agent")
         if let time = review.sent {
             return
-                "<div class=\"k-bar\"><span class=\"k-ok\">✓ \(esc(String(localized: "Sent to \(who)")))</span>"
+                "<div class=\"k-bar\"><span class=\"k-ok\">\(check)\(esc(String(localized: "Sent to \(who)")))</span>"
                 + "<span class=\"k-sum\">\(esc(time)) · \(esc(picks))</span><button type=\"button\" "
                 + "class=\"k-pill k-unsend\">\(esc(String(localized: "Change Answers")))</button></div>"
         }
@@ -82,6 +82,12 @@ enum ReviewPage {
             + "<div class=\"k-keys\">\(esc(String(localized: "1–9 point · A–D option · ⌘↩ send")))</div>"
     }
 
+    /// The check before "Done" and "Sent to": drawn, in the text's own secondary colour (no green "done").
+    private static let check =
+        "<svg class=\"k-check\" aria-hidden=\"true\" viewBox=\"0 0 10 10\" fill=\"none\" stroke=\"currentColor\" "
+        + "stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
+        + "<path d=\"M1.5 5.2 4 7.6 8.5 2.6\"/></svg>"
+
     /// The review page's CSS, applied on top of the Markdown page's CSS.
     static let style = """
         <style>
@@ -91,7 +97,8 @@ enum ReviewPage {
         .k-q h2{margin:0 0 8px;border:0;font-size:1.1em;flex:1}
         .k-point.k-at .k-n{color:var(--k-acc);opacity:1}
         .k-n{font:600 13px ui-monospace,monospace;opacity:.55}
-        .k-done{font-size:12px;font-weight:500;color:var(--tip);white-space:nowrap}
+        .k-done{font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap}
+        .k-check{width:10px;height:10px;margin-right:4px;vertical-align:-1px}
         .k-opts{display:flex;flex-direction:column;gap:6px;padding-left:22px}
         .k-opt{display:flex;gap:10px;align-items:flex-start;text-align:left;padding:9px 12px;border-radius:8px;font:inherit;color:inherit;
           background:none;border:1px solid color-mix(in srgb,currentColor 12%,transparent);cursor:pointer;
@@ -107,7 +114,7 @@ enum ReviewPage {
         .k-t{display:flex;flex-direction:column;gap:3px}.k-line{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
         .k-d{font-size:.85em;opacity:.6}
         .k-rec{font-size:10px;font-weight:500;padding:1px 5px;border-radius:4px;background:color-mix(in srgb,currentColor 8%,transparent);opacity:.75}
-        .k-addnote{margin:6px 0 0 22px;border:0;background:none;padding:0;font:inherit;font-size:.85em;color:var(--k-acc);cursor:pointer}
+        .k-addnote{display:block;margin:6px 0 0 22px}
         .k-note{display:block;margin:6px 0 0 22px;width:calc(100% - 22px);box-sizing:border-box;font:inherit;font-size:.85em;color:inherit;
           padding:5px 10px;border-radius:6px;border:0;background:color-mix(in srgb,currentColor 5%,transparent)}
         .k-note[hidden]{display:none}
@@ -120,7 +127,7 @@ enum ReviewPage {
         .k-pd.on{background:var(--k-acc)}
         .k-sum{font-family:ui-monospace,monospace;font-size:12px;font-variant-numeric:tabular-nums}
         .k-sep{width:1px;height:18px;background:color-mix(in srgb,currentColor 12%,transparent)}
-        .k-ok{font-size:12px;font-weight:500;color:var(--tip)}
+        .k-ok{font-size:12px;font-weight:500;color:var(--muted)}
         .k-pill{height:26px;padding:0 10px;border:0;border-radius:13px;background:color-mix(in srgb,currentColor 7%,transparent);
           color:inherit;font:12px -apple-system,sans-serif;cursor:pointer}
         .k-pill:hover{background:color-mix(in srgb,currentColor 11%,transparent)}

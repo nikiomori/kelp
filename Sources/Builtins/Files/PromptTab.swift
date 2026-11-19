@@ -50,7 +50,7 @@ final class PromptTab: TabContent {
         cancel.restFill = nil   // quieter than Done
         let done = TextButton(String(localized: "Done")) { [weak self] in self?.finish() }
         let label = NSTextField(
-            labelWithString: String(localized: "Closing this tab puts the text in the agent's prompt"))
+            labelWithString: String(localized: "Closing this tab puts the text in the agent’s prompt"))
         label.font = .ui(TextSize.row)
         label.textColor = .secondaryLabelColor
         let bar = Bar.content([label], [cancel, done])

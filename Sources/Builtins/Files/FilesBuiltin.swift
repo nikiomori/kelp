@@ -53,6 +53,11 @@ extension Builtins {
                 cmd("markdown.bullets", "Bulleted List") { markdown(app)?.bullets() },
                 cmd("markdown.numbered", "Numbered List") { markdown(app)?.numbered() },
                 cmd("markdown.tasks", "Task List") { markdown(app)?.tasks() },
+                cmd("markdown.table", "Table") { markdown(app)?.table() },
+                cmd("markdown.text", "Text") { markdown(app)?.heading(0) },
+                cmd("markdown.heading1", "Heading 1") { markdown(app)?.heading(1) },
+                cmd("markdown.heading2", "Heading 2") { markdown(app)?.heading(2) },
+                cmd("markdown.heading3", "Heading 3") { markdown(app)?.heading(3) },
                 cmd("editor.save", "Save", "cmd+s") {
                     guard let tab = app.workbench.focusedContent as? SavableTab else {
                         NSSound.beep()
@@ -77,6 +82,22 @@ extension Builtins {
                 cmd("editor.previousProblem", "Previous Problem", "shift+f8") {
                     CodeEditor.focused?.goToProblem(forward: false)
                 },
+                // A git change and a merge conflict in the file in front, as the gutter's card and the conflict bar
+                // offer them. No keys: ⌥↑ ⌥↓ move lines in the editor.
+                cmd("editor.nextChange", "Next Change") { CodeEditor.focused?.goToChange(forward: true) },
+                cmd("editor.previousChange", "Previous Change") { CodeEditor.focused?.goToChange(forward: false) },
+                cmd("editor.revertChange", "Revert Change") {
+                    fileTab(app)?.changeBars?.actOnChangeAtCursor(revert: true)
+                },
+                cmd("editor.stageChange", "Stage Change") {
+                    fileTab(app)?.changeBars?.actOnChangeAtCursor(revert: false)
+                },
+                cmd("editor.nextConflict", "Next Conflict") { fileTab(app)?.conflicts?.step(1) },
+                cmd("editor.previousConflict", "Previous Conflict") { fileTab(app)?.conflicts?.step(-1) },
+                cmd("editor.acceptCurrent", "Accept Current") { fileTab(app)?.conflicts?.accept(.current) },
+                cmd("editor.acceptIncoming", "Accept Incoming") { fileTab(app)?.conflicts?.accept(.incoming) },
+                cmd("editor.acceptBoth", "Accept Both") { fileTab(app)?.conflicts?.accept(.both) },
+                cmd("editor.trustProject", "Trust This Project") { fileTab(app)?.trustProject() },
                 cmd("editor.toggleWordWrap", "Word Wrap", "opt+z") {
                     let language = fileTab(app)?.editor?.languageId
                     let on = app.settings[SettingKeys.wordWrap, language: language]
@@ -91,6 +112,12 @@ extension Builtins {
                 cmd("files.findByName", "Find File by Name…") {
                     FilesPanel.shown(app) { $0.findByName() }
                 },
+                // The tree's own actions, on its selected row (or the folder it is in), as its ⋯ and right-click menus.
+                cmd("files.newFolder", "New Folder…") { FilesPanel.shown(app) { $0.newFolder() } },
+                cmd("files.newFromTemplate", "New from Template…") { FilesPanel.shown(app) { $0.newFromTemplate() } },
+                cmd("files.collapseAll", "Collapse All") { FilesPanel.shown(app) { $0.collapseAll() } },
+                cmd("files.rename", "Rename") { FilesPanel.shown(app) { $0.rename() } },
+                cmd("files.moveToTrash", "Move to Trash") { FilesPanel.shown(app) { $0.trashSelected() } },
                 cmd("editor.goToLine", "Go to Line…", "cmd+l") {
                     if fileTab(app) != nil { app.workbench.openQuickly(text: ":") }
                 },

@@ -38,8 +38,8 @@ struct ArtifactCells {
             title.append(mark)
         }
         if earlier > 0 {
-            let more = NSTextField.label(
-                "\(earlier + 1)", font: .uiDigits(TextSize.caption), color: .secondaryLabelColor)
+            let more = CountCapsule()
+            more.text = "\(earlier + 1)"
             more.toolTip = String(localized: "\(earlier + 1) pages of this title: the latest opens")
             more.setContentCompressionResistancePriority(.required, for: .horizontal)
             title.append(more)
@@ -69,15 +69,14 @@ struct ArtifactCells {
         return row
     }
 
-    /// The end of a page's row: when the page last changed, or a spinner while its agent writes it. For a web page, a
-    /// hidden ↗ follows, which takes the time's place under the pointer.
+    /// The end of a page's row: when the page last changed, or the agents' working ring while its agent writes it.
+    /// For a web page, a hidden ↗ follows, which takes the time's place under the pointer.
     private func end(_ item: ArtifactItem) -> [NSView] {
         if panel.writing(item) {
-            let ring = NSProgressIndicator()
-            ring.style = .spinning
-            ring.controlSize = .small
-            ring.startAnimation(nil)
-            ring.toolTip = String(localized: "The agent is writing it")
+            // The agents' working ring, still under Reduce Motion. It names its state itself ("Working"), and sets its own
+            // tooltip each time it is drawn.
+            let ring = StatusMark(size: 12)
+            ring.status = .working
             return [ring]
         }
         let when = NSTextField.label(

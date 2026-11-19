@@ -11,6 +11,8 @@ final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     let table = KeyTable()
     let scroll = NSScrollView()
     private(set) var matches: [SearchMatch] = []
+    /// For a list of problems: whether each row is an error or a warning, drawn as the status bar's signs.
+    private var errors: [Bool]?
     /// The workspace folder the matches' paths are in.
     var root = "/"
     private let app: AppModel
@@ -31,8 +33,9 @@ final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         scroll.isHidden = true
     }
 
-    func show(_ found: [SearchMatch]) {
+    func show(_ found: [SearchMatch], errors: [Bool]? = nil) {
         matches = found
+        self.errors = errors
         table.reloadData()
     }
 
@@ -46,7 +49,21 @@ final class SearchResults: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         let txt = NSTextField(labelWithString: match.text)
         txt.font = .uiMono(TextSize.caption)
         txt.lineBreakMode = .byTruncatingTail
-        let stack = NSStackView(views: [top, txt])
+        let line: NSView
+        if let errors, errors.indices.contains(row) {
+            let sign = NSImageView(
+                image: .symbol(
+                    errors[row] ? "xmark.circle" : "exclamationmark.triangle",
+                    errors[row] ? String(localized: "Error") : String(localized: "Warning")))
+            sign.symbolConfiguration = .chrome(Metrics.iconTiny)
+            sign.contentTintColor = errors[row] ? .textRed : .textOrange
+            let pair = NSStackView(views: [sign, txt])
+            pair.spacing = Metrics.gapTight
+            line = pair
+        } else {
+            line = txt
+        }
+        let stack = NSStackView(views: [top, line])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Metrics.lineGap

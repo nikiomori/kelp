@@ -25,14 +25,15 @@ final class ArtifactBar: NSObject {
     /// The page's kind: not a path, so it isn't quiet like one. It truncates before the buttons do.
     private let kind = NSTextField.label("", font: .ui(TextSize.row, weight: .medium))
     let status = NSTextField.label("", font: .ui(TextSize.row), color: .secondaryLabelColor)
-    private let ring = NSProgressIndicator()
+    /// The agents' working ring while its agent writes the page (still under Reduce Motion).
+    private let ring = StatusMark(size: 12)
     private lazy var back = IconButton(.symbol("chevron.left"), tip: String(localized: "Older Version")) {
         [weak self] in self?.step(-1)
     }
     private lazy var forward = IconButton(.symbol("chevron.right"), tip: String(localized: "Newer Version")) {
         [weak self] in self?.step(1)
     }
-    let count = PointerButton()
+    let count = TextButton("")   // "2 of 5", a button on the bar's plate as its neighbours
     private let latest = TextButton(String(localized: "Show Latest"))
     private let restore = TextButton(String(localized: "Restore"))
     private let author = TextButton("")
@@ -58,8 +59,8 @@ final class ArtifactBar: NSObject {
     private var issues: [String] = []
     /// The canvas's modified time from the last artifacts list: the latest change to its boards or its design system.
     private var canvasTime: Double?
-    private lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in
-        self?.showMore()
+    private lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) {
+        [weak self] in self?.showMore()
     }
     private var item: ArtifactItem?
     /// The page's own record, read from artifact.json when the artifacts list doesn't have the page. `pageKind` comes
@@ -74,10 +75,7 @@ final class ArtifactBar: NSObject {
     var shown: Int? { shownN.flatMap { number in entries.firstIndex { $0.version?.n == number } } }
 
     private(set) lazy var view: NSView = {
-        ring.style = .spinning
-        ring.controlSize = .small
         count.font = .uiDigits(TextSize.row)
-        count.padding = Metrics.gap
         count.onClick = { [weak self] in self?.showVersions() }
         latest.onClick = { [weak self] in self?.show(nil) }
         restore.onClick = { [weak self] in self?.restoreShown() }
@@ -106,11 +104,11 @@ final class ArtifactBar: NSObject {
             modes.setToolTip(String(localized: "Its Markdown beside the page"), forSegment: 2)
         }
         markdown.onPageMode = { [weak self] in self?.modes.selectedSegment = $0.rawValue }
-        present.toolTip = String(localized: "One at a time, as large as the pane: ← → step, Esc ends")
+        present.toolTip = String(localized: "One at a time, as large as the pane: ← → step, esc ends")
         present.isHidden = markdown.page != .canvas && markdown.page != .slides
         changes.isHidden = true
         changes.toolTip = String(
-            localized: "What its agent's last turn changed, marked beside the text: click for the next")
+            localized: "What its agent’s last turn changed, marked beside the text: click for the next")
         changes.onClick = { [weak self] in self?.markdown.runJS("kelpChange(1)") }
         markdown.onChanges = { [weak self] count in
             self?.changes.isHidden = count == 0
@@ -250,8 +248,7 @@ final class ArtifactBar: NSObject {
         } else {
             status.stringValue = writing ? String(localized: "\(app.catalog.name(session?.agent)) is writing") : ""
         }
-        ring.isHidden = !writing || shown != nil
-        if ring.isHidden { ring.stopAnimation(nil) } else { ring.startAnimation(nil) }
+        ring.status = writing && shown == nil ? .working : nil   // hides itself without one
         let index = shown ?? entries.count - 1
         count.title = String(localized: "\(index + 1) of \(entries.count)")
         for control in [back, forward, count] as [NSView] { control.isHidden = entries.count < 2 }
@@ -365,12 +362,9 @@ final class ArtifactBar: NSObject {
         }
         menu.add(String(localized: "Print or Save as PDF…")) { md.printPage() }
         menu.addItem(.separator())
-        menu.add(String(localized: "Show in Finder")) {
-            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
-        }
-        menu.add(String(localized: "Copy Path")) {
-            copyText(Artifacts.projectPath(path))
-        }
+        WorkspaceActions.addLocate(
+            to: menu, path: path,
+            copies: [(String(localized: "Relative Path"), { @MainActor in copyText(Artifacts.projectPath(path)) })])
         if let id = item?.session, app.session(id)?.status != .exited {
             menu.add(String(localized: "Show the Chat That Made It")) { app.workbench.focus(session: id) }
         }
