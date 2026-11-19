@@ -481,18 +481,12 @@ func codeOnly(_ s: String) -> String {
         "Builtins/Databases/DatabaseTab+Table.swift": (
             1, "a read says Reading… only past half a second: a quick one doesn't flicker"
         ),
-        "Builtins/Agents/Addons/AddonsPanel+Loading.swift": (
-            2, "a read shows past 150 ms and stays 400 ms, so a quick one doesn't flicker"
-        ),
+        "Builtins/Agents/Addons/AddonsPanel+Loading.swift": (2, "a read shows past 150 ms and stays 400 ms"),
         "Builtins/Databases/DatabaseTab+Opening.swift": (
             1, "Connecting to … shows past half a second: a quick open doesn't flicker"
         ),
-        "KelpKit/Extensions/ExtListView.swift": (
-            2, "an extension's own refresh interval for its command's list; a shown outline stays 0.4 s, not to blink"
-        ),
-        "KelpKit/Sidebar/HoverCardViews.swift": (
-            1, "a card's Reading the conversation… stays 0.4 s once shown, so a quick read doesn't flicker"
-        ),
+        "KelpKit/Extensions/ExtListView.swift": (2, "an extension's refresh interval; a shown outline stays 0.4 s"),
+        "KelpKit/Sidebar/HoverCardViews.swift": (1, "a card's shown wait stays 0.4 s, so a quick read doesn't flicker"),
         "Builtins/Files/Disk/DiskUsageTab.swift": (
             1, "Measuring… shows only past a second: a quick measure doesn't flicker"
         ),
