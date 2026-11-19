@@ -100,9 +100,13 @@ public enum Subprocess {
         let exited = DispatchSemaphore(value: 0)
         // Set before the program starts, so a program that exits at once isn't missed.
         process.terminationHandler = { _ in exited.signal() }
-        try process.run()
-        let pid = process.processIdentifier
-        running.withLock { _ = $0.insert(pid) }
+        // Started and noted in one step: a program that calls back at once (a git hook running `kelp`) is known as
+        // ours, because `isRunning` waits for this lock rather than answering in between.
+        let pid = try running.withLockUnchecked { set in
+            try process.run()
+            set.insert(process.processIdentifier)
+            return process.processIdentifier
+        }
         defer { running.withLock { _ = $0.remove(pid) } }
         started?(pid)
         out.start()
