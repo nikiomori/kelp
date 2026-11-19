@@ -170,4 +170,10 @@ extension OneAtATime {
     #expect(InlineSuggestion.windowEnd(at: 2003, in: text) == end)   // the end too
     #expect(end % 14 == 0 && end - 2000 >= InlineSuggestion.suffixLimit)   // after a line break, never short
     #expect(InlineSuggestion.windowEnd(at: 13_000, in: text) == text.length)
+    // Inside one line of 100 000 characters (minified code): about the limits, still put while typing.
+    let long = String(repeating: "x", count: 100_000) as NSString, step = InlineSuggestion.windowStep
+    let longStart = InlineSuggestion.windowStart(at: 90_000, in: long)
+    #expect(90_000 - longStart <= InlineSuggestion.prefixLimit + step)
+    #expect(InlineSuggestion.windowStart(at: 90_003, in: long) == longStart)
+    #expect(InlineSuggestion.windowEnd(at: 10_000, in: long) - 10_000 <= InlineSuggestion.suffixLimit + step)
 }

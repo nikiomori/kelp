@@ -22,10 +22,14 @@ public enum InlineSuggestion {
     /// Where the code sent before the cursor at `location` starts: about `prefixLimit` back, moved down to a step of
     /// `windowStep` and then to the start of its line. It stays put while you type, so the model's server reuses what
     /// it read (measured: 711 → 207 ms a suggestion, a window that slid with each key made it read it all again).
+    /// Inside a line longer than a step (minified code) it stays at the step, so the window keeps its size.
     static func windowStart(at location: Int, in string: NSString) -> Int {
         let back = location - prefixLimit
         guard back > 0 else { return 0 }
-        return string.lineRange(for: NSRange(location: back / windowStep * windowStep, length: 0)).location
+        let snapped = back / windowStep * windowStep
+        let lineStart = string.lineRange(for: NSRange(location: snapped, length: 0)).location
+        return snapped - lineStart <= windowStep
+            ? lineStart : string.rangeOfComposedCharacterSequence(at: snapped).location
     }
 
     /// Where the code sent after the cursor at `location` ends: about `suffixLimit` on, moved up to a step of
@@ -37,7 +41,8 @@ public enum InlineSuggestion {
         guard forward < string.length else { return string.length }
         let snapped = (forward + windowStep - 1) / windowStep * windowStep
         guard snapped < string.length else { return string.length }
-        return NSMaxRange(string.lineRange(for: NSRange(location: snapped, length: 0)))
+        let lineEnd = NSMaxRange(string.lineRange(for: NSRange(location: snapped, length: 0)))
+        return lineEnd - snapped <= windowStep ? lineEnd : string.rangeOfComposedCharacterSequence(at: snapped).location
     }
 
     /// Whether the rest of the line after the cursor leaves room for a suggestion: nothing, or only what closes a
