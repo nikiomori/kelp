@@ -36,7 +36,7 @@ public func prompt(_ title: String, _ info: String, initial: String = "", action
     let alert = NSAlert()
     alert.messageText = title
     alert.informativeText = info
-    let field = NSTextField(frame: NSRect(x: 0, y: 0, width: Metrics.alertAccessory, height: 24))
+    let field = accessory(NSTextField())
     field.stringValue = initial
     alert.accessoryView = field
     alert.addButton(withTitle: action ?? String(localized: "OK"))

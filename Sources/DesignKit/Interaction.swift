@@ -172,10 +172,16 @@ extension NSView {
     }
 
     /// Shows work on its way through a control (a push, a pull): a soft shade runs up (`true`) or down its glyph, again
-    /// and again, and nil stops it. Nothing runs under Reduce Motion, because the words on the panel's button say it.
+    /// and again, and nil stops it. Nothing runs under Reduce Motion, because the words on the panel's button say it;
+    /// switched while it runs, the shade stops or starts.
     public func flow(up: Bool?) {
         wantsLayer = true
         guard let layer else { return }
+        if up != nil, layer.value(forKey: "flowFollows") == nil {
+            layer.setValue(true, forKey: "flowFollows")
+            followReduceMotion(#selector(flowMotionChanged))
+        }
+        layer.setValue(up, forKey: "flowUp")   // what `flowMotionChanged` carries on with
         guard let up, !Motion.reduced else {
             layer.mask = nil
             return
@@ -195,6 +201,8 @@ extension NSView {
         band.add(animation, forKey: "flow")
         layer.mask = band
     }
+
+    @objc private func flowMotionChanged() { flow(up: layer?.value(forKey: "flowUp") as? Bool) }
 
     /// `transform` about the view's middle, because a layer-backed view's anchor is its corner.
     private func aboutCentre(_ transform: CATransform3D) -> CATransform3D {

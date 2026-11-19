@@ -45,13 +45,23 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
         rows.spacing = Metrics.gap
         rows.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: Metrics.gap, bottom: Metrics.gap, right: Metrics.gap)
         pin(FloatingCard(rows, radius: Metrics.radiusMD))
-        field.widthAnchor.constraint(equalToConstant: Self.fieldWidth).isActive = true
+        // In a narrow pane the field gives way first, down to half its width, before the card runs past the edge.
+        let width = field.widthAnchor.constraint(equalToConstant: Self.fieldWidth)
+        width.priority = .init(740)
+        width.isActive = true
+        field.widthAnchor.constraint(greaterThanOrEqualToConstant: Self.fieldWidth / 2).isActive = true
+        // The count keeps the room of "999 of 999" and stands at its right, so the field and the caret in it don't
+        // move as the count changes with every key.
+        count.alignment = .right
+        let widest = NSTextField(labelWithString: String(localized: "\(999) of \(999)"))
+        widest.font = count.font
+        count.widthAnchor.constraint(greaterThanOrEqualToConstant: ceil(widest.fittingSize.width)).isActive = true
         count.setContentHuggingPriority(.required, for: .horizontal)
     }
     required init?(coder: NSCoder) { fatalError() }
 
     /// Floats the card in `host`, `inset.height` down from the top edge of `top` and `inset.width` in from the right
-    /// edge of `trailing` (or of `top`, when nil).
+    /// edge of `trailing` (or of `top`, when nil). It stays inside `top`'s left edge, its field narrowing.
     public func float(
         in host: NSView, top: NSView, trailing: NSView? = nil,
         inset: NSSize = NSSize(width: Metrics.gapWide * 2, height: Metrics.gapWide)
@@ -62,6 +72,10 @@ public final class FindCard: NSView, NSSearchFieldDelegate {
             topAnchor.constraint(equalTo: top.topAnchor, constant: inset.height),
             trailingAnchor.constraint(equalTo: (trailing ?? top).trailingAnchor, constant: -inset.width)
         ])
+        // Not required: in a pane too narrow even for the narrowed field, the card goes past the edge, not the field.
+        let inside = leadingAnchor.constraint(greaterThanOrEqualTo: top.leadingAnchor, constant: Metrics.gapWide)
+        inside.priority = .init(999)
+        inside.isActive = true
     }
 
     public func begin(_ needle: String?) {

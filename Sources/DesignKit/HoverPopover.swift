@@ -46,7 +46,7 @@ public final class HoverPopover {
     public func close() {
         pending?.cancel()
         if popover.isShown {
-            warmUntil = Date().addingTimeInterval(0.8)
+            warmUntil = Date().addingTimeInterval(Motion.hoverWarm)
             popover.close()
         }
         if let keys {

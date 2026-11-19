@@ -122,6 +122,9 @@ public enum Motion {
     public static let hoverOpen: TimeInterval = 0.5
     public static let hoverOpenWarm: TimeInterval = 0.12
     public static let hoverClose: TimeInterval = 0.2
+    // How long after a card went the next still opens at `hoverOpenWarm`, so the pointer moving on to the next row
+    // isn't made to wait again.
+    public static let hoverWarm: TimeInterval = 0.8
 
     /// Whether to reduce motion, as the Mac says unless `pinned`.
     public static var reduced: Bool { pinned ?? NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }

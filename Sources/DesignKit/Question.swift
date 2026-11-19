@@ -25,10 +25,11 @@ public func confirm(
 
 /// Asks for one of `choices` from a pop-up in a sheet, and returns its value, or nil when cancelled.
 @MainActor
-public func pick(_ question: String, from choices: [(title: String, value: String)], action: String, width: CGFloat)
-    async -> String?
-{
-    let pop = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: width, height: 26))
+public func pick(
+    _ question: String, from choices: [(title: String, value: String)], action: String,
+    width: CGFloat = Metrics.alertAccessory
+) async -> String? {
+    let pop = accessory(NSPopUpButton(), width: width)
     for choice in choices {
         pop.menu?.addItem(withTitle: choice.title, action: nil, keyEquivalent: "").representedObject = choice.value
     }
@@ -40,12 +41,20 @@ public func pick(_ question: String, from choices: [(title: String, value: Strin
 /// Asks for a secret (an API key) in a sheet: a field that hides what's typed. Returns it, or nil when cancelled.
 @MainActor
 public func askSecret(_ question: String, detail: String, action: String, placeholder: String) async -> String? {
-    let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: Metrics.alertAccessory, height: 22))
+    let field = accessory(NSSecureTextField())
     field.placeholderString = placeholder
     let alert = NSAlert(question: question, detail: detail, action: action)
     alert.accessoryView = field
     alert.window.initialFirstResponder = field
     return await runSheet(alert) == .alertFirstButtonReturn ? field.stringValue : nil
+}
+
+/// A question sheet's field or pop-up: as wide as every other question's (`Metrics.alertAccessory`), and as tall as it
+/// draws itself, so a rename, a key and a choice stand alike.
+@MainActor
+func accessory<Field: NSView>(_ field: Field, width: CGFloat = Metrics.alertAccessory) -> Field {
+    field.frame.size = NSSize(width: width, height: field.fittingSize.height)
+    return field
 }
 
 extension NSScrollView {

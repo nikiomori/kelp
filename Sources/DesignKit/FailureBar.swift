@@ -32,8 +32,19 @@ public final class FailureBar: NSStackView {
     public func show(_ error: String?) {
         line.stringValue = error.map { String(localized: "Couldn’t refresh: \($0)") } ?? ""
         line.toolTip = error
-        if isHidden != (error == nil) { crossfade() }
-        isHidden = error == nil
+        guard isHidden != (error == nil) else { return }
+        crossfade()
+        // The rows under it slide down to make room and back up when it goes (in two thirds of the time), instead of
+        // jumping a line at once.
+        let host = window?.contentView
+        host?.layoutSubtreeIfNeeded()
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = host == nil ? 0 : Motion.duration(error == nil ? Motion.fast : Motion.base)
+            ctx.timingFunction = CAMediaTimingFunction(name: error == nil ? .easeIn : .easeOut)
+            ctx.allowsImplicitAnimation = true
+            isHidden = error == nil
+            host?.layoutSubtreeIfNeeded()
+        }
     }
 
     /// The bar under a panel's header, as one view to lay out where the header was.

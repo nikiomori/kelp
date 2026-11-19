@@ -147,10 +147,15 @@ public struct SectionList: NSViewRepresentable {
                 return [.section(section, open: open)] + (open ? rows : [])
             }
             guard old.map(\.key) == lines.map(\.key) else {
+                // A few rows that came or went (a port, a fold of two) move the others instead of jumping them.
                 let chosen = old.indices.contains(table.selectedRow) ? old[table.selectedRow].key : nil
-                table.reloadData()
-                if let row = lines.firstIndex(where: { $0.key == chosen }) {
-                    table.selectRowIndexes([row], byExtendingSelection: false)
+                let places = table.rowPlaces { old.indices.contains($0) ? old[$0].key : nil }
+                let was = Set(old.map(\.key)), now = Set(lines.map(\.key))
+                table.reloadSettling(from: places, came: now.subtracting(was), gone: was.subtracting(now), lineKey) {
+                    table.reloadData()
+                    if let row = lines.firstIndex(where: { $0.key == chosen }) {
+                        table.selectRowIndexes([row], byExtendingSelection: false)
+                    }
                 }
                 return
             }
@@ -159,6 +164,8 @@ public struct SectionList: NSViewRepresentable {
             table.noteHeightOfRows(withIndexesChanged: moved)   // a row may have gained or lost its second line
             table.reloadData(forRowIndexes: moved, columnIndexes: [0])
         }
+
+        private func lineKey(_ row: Int) -> String? { lines.indices.contains(row) ? lines[row].key : nil }
 
         private func row(_ id: String) -> Row? {
             for case .row(let row) in lines where row.id == id { return row }
@@ -175,8 +182,14 @@ public struct SectionList: NSViewRepresentable {
         }
         /// Folds the section, or opens it again.
         func fold(_ id: String) {
-            if closed.remove(id) == nil { closed.insert(id) }
+            let opens = closed.remove(id) != nil
+            if !opens { closed.insert(id) }
             show(sections)
+            // The new heading's chevron turns from what the old one showed, once it has a size.
+            guard let row = lines.firstIndex(where: { $0.key == "s " + id }) else { return }
+            table.layoutSubtreeIfNeeded()
+            (table.view(atColumn: 0, row: row, makeIfNecessary: false) as? Cell)?.chevron?
+                .turn(from: opens ? .pi / 2 : -.pi / 2)
         }
         @objc func opened() {
             guard lines.indices.contains(table.actedRow), case .row(let row) = lines[table.actedRow] else { return }
@@ -228,6 +241,8 @@ public struct SectionList: NSViewRepresentable {
                 views.append(capsule)
             }
             let cell = Cell(views + [NSView()])
+            cell.chevron = chevron
+            cell.onPress = { [weak self] in self?.fold(section.id) }
             cell.setAccessibilityElement(true)
             cell.setAccessibilityRole(.button)
             cell.setAccessibilityLabel(section.title)
@@ -310,6 +325,8 @@ public struct SectionList: NSViewRepresentable {
     /// "all addresses" stood.
     final class Cell: NSView, Hoverable {
         private let quiet: NSView?, shown: NSView?
+        /// A heading's: the chevron that turns as it folds, and the fold VoiceOver's press does.
+        var chevron: NSView?, onPress: (() -> Void)?
 
         init(_ views: [NSView], quiet: NSView? = nil, shown: NSView? = nil) {
             self.quiet = quiet
@@ -321,6 +338,12 @@ public struct SectionList: NSViewRepresentable {
             pin(line)
         }
         required init?(coder: NSCoder) { fatalError("not from a nib") }
+
+        override func accessibilityPerformPress() -> Bool {
+            guard let onPress else { return false }
+            onPress()
+            return true
+        }
 
         func setHover(_ on: Bool) {
             guard let shown else { return }

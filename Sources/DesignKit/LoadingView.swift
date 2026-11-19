@@ -27,8 +27,10 @@ public final class LoadingView: NSView {
     /// True while the view is on screen and not on its way out.
     public var showing: Bool { !isHidden && leaving == nil }
 
-    public init(rows: Bool = false) {
-        skeleton = rows ? SkeletonRows() : nil
+    /// `rowHeight` is the list's own rows' (`Metrics.row` or `Metrics.rowTwoLine`), so the shapes give way to rows of
+    /// their size and number.
+    public init(rows: Bool = false, rowHeight: CGFloat = Metrics.rowTwoLine) {
+        skeleton = rows ? SkeletonRows(rowHeight: rowHeight) : nil
         super.init(frame: .zero)
         if let skeleton {
             pin(skeleton)
@@ -133,8 +135,9 @@ public final class LoadingView: NSView {
     override public func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
-/// The rows a list will show, as shapes: a mark and two lines per row (`Metrics.rowTwoLine`, grown with Text size), as many as fit, with a
-/// light passing over them every `Motion.breathe` (still under Reduce Motion).
+/// The rows a list will show, as shapes: a mark and a line per row, or two in a list of two-line rows (`rowHeight`,
+/// grown with Text size), as many as fit, with a light passing over them every `Motion.breathe` (still under Reduce
+/// Motion).
 @MainActor
 final class SkeletonRows: NSView {
     private let bars = CAShapeLayer()
@@ -145,8 +148,11 @@ final class SkeletonRows: NSView {
     /// The light's band, wholly left of the rows.
     private static let before: [NSNumber] = [-0.4, -0.2, 0]
 
-    override init(frame: NSRect) {
-        super.init(frame: frame)
+    private let rowHeight: CGFloat
+
+    init(rowHeight: CGFloat) {
+        self.rowHeight = rowHeight
+        super.init(frame: .zero)
         wantsLayer = true
         layer?.addSublayer(bars)
         light.mask = lightMask
@@ -164,15 +170,18 @@ final class SkeletonRows: NSView {
         super.layout()
         let path = CGMutablePath(), inset = Metrics.inset, room = bounds.width - 2 * inset
         let line = Metrics.gapWide, under = Metrics.gap   // the height of a name's line, and of its second line
-        let mark = Metrics.iconSmall, row = TextSize.of(Metrics.rowTwoLine)   // the rows they stand for grow too
+        let mark = Metrics.iconSmall, row = TextSize.of(rowHeight)   // the rows they stand for grow too
+        let twoLines = rowHeight >= Metrics.rowTwoLine
         var top: CGFloat = Metrics.gap
         for width in Self.widths where top + row <= bounds.height {
             let middle = top + row / 2
             path.addEllipse(in: CGRect(x: inset, y: middle - mark / 2, width: mark, height: mark))
             let x = inset + mark + Metrics.gapWide, text = max(0, room - mark - Metrics.gapWide)
-            let first = CGRect(x: x, y: middle - line - Metrics.lineGap / 2, width: text * width, height: line)
+            let first = CGRect(
+                x: x, y: twoLines ? middle - line - Metrics.lineGap / 2 : middle - line / 2, width: text * width,
+                height: line)
             let second = CGRect(x: x, y: middle + Metrics.lineGap, width: text * width * 0.6, height: under)
-            for bar in [first, second] {
+            for bar in twoLines ? [first, second] : [first] {
                 path.addRoundedRect(in: bar, cornerWidth: bar.height / 2, cornerHeight: bar.height / 2)
             }
             top += row
