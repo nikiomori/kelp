@@ -120,6 +120,7 @@ struct SettingRow: View {
             LabeledContent {
                 Segments(
                     labels: options.map { Self.label(spec.key, $0, app) },
+                    name: loc(spec.title),
                     selection: Binding(
                         get: { options.firstIndex(of: string() ?? "") ?? -1 },
                         set: { if options.indices.contains($0) { put(.string(options[$0])) } }))

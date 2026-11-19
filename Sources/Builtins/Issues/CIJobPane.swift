@@ -34,7 +34,7 @@ final class CIJobPane: NSObject {
     }
     private let title = NSTextField(labelWithString: "")
     private lazy var mode = CapsuleSegments(
-        labels: [String(localized: "Failure"), String(localized: "Log")],
+        labels: [String(localized: "Failure"), String(localized: "Log")], name: String(localized: "Show"),
         target: self, action: #selector(modeChanged))
     private lazy var copyButton = IconButton(.symbol("doc.on.doc"), tip: String(localized: "Copy")) { [weak self] in
         self?.copy()

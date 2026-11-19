@@ -81,6 +81,7 @@ struct AgentsSettings: View {
         return VStack(alignment: .leading, spacing: 0) {
             Segments(
                 labels: [String(localized: "All"), String(localized: "Installed"), String(localized: "Available")],
+                name: String(localized: "Show"),
                 selection: Binding {
                     show.rawValue
                 } set: {

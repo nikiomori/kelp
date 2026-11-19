@@ -20,6 +20,7 @@ struct ExtensionsSettings: View {
         VStack(alignment: .leading, spacing: 0) {
             Segments(
                 labels: [String(localized: "Installed"), String(localized: "Library")],
+                name: String(localized: "Show"),
                 selection: Binding {
                     library ? 1 : 0
                 } set: {

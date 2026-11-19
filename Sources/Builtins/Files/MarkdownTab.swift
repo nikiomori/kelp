@@ -20,8 +20,8 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
     /// own scripts don't run (`PreviewLinks`).
     static let world = WKContentWorld.world(name: "kelp")
     private let mode = CapsuleSegments(
-        labels: [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")], target: nil,
-        action: nil)
+        labels: [String(localized: "Edit"), String(localized: "Split"), String(localized: "Preview")],
+        name: String(localized: "Mode"))
     private let split = NSSplitView()
     var renderTask: Task<Void, Never>?
     /// The parts the last loaded page was built from, kept when its body can be replaced in place (`Swap`).

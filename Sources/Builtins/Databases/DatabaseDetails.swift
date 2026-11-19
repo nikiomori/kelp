@@ -13,8 +13,8 @@ final class DatabaseDetails: NSObject, NSSearchFieldDelegate, NSTextFieldDelegat
 
     let view = NSView()
     private let part = CapsuleSegments(
-        labels: [String(localized: "Table"), String(localized: "Row"), String(localized: "Agent")], target: nil,
-        action: nil)
+        labels: [String(localized: "Table"), String(localized: "Row"), String(localized: "Agent")],
+        name: String(localized: "Show"))
     private let search = NSSearchField()
     private let stack = NSStackView()
     static let width: CGFloat = 264

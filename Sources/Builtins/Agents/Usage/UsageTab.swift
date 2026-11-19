@@ -129,6 +129,7 @@ struct UsageReportView: View {
             Spacer()
             Segments(
                 labels: [String(localized: "7 Days"), String(localized: "30 Days"), String(localized: "90 Days")],
+                name: String(localized: "Period"),
                 selection: Binding {
                     Self.spans.firstIndex(of: range) ?? 1
                 } set: {
@@ -204,6 +205,7 @@ struct UsageReportView: View {
                 Spacer()
                 Segments(
                     labels: [String(localized: "Cost"), String(localized: "Tokens")],
+                    name: String(localized: "Measure"),
                     selection: Binding {
                         byCost ? 0 : 1
                     } set: {

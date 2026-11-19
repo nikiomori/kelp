@@ -170,7 +170,8 @@ final class StartView: NSView {
         label.font = .ui(TextSize.row)
         label.textColor = .secondaryLabelColor
         let place = CapsuleSegments(
-            labels: [String(localized: "Project Folder"), String(localized: "Own Branch")], target: nil, action: nil)
+            labels: [String(localized: "Project Folder"), String(localized: "Own Branch")],
+            name: String(localized: "Where It Works"))
         place.controlSize = .small
         place.selectedSegment = 0
         place.setToolTip(String(localized: "Shares the project’s files with its other chats"), forSegment: 0)

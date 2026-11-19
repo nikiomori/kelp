@@ -97,6 +97,7 @@ struct RepeatFields: View {
                     String(localized: "Hourly"), String(localized: "Daily"), String(localized: "Weekdays"),
                     String(localized: "Weekly")
                 ],
+                name: String(localized: "Repeat"),
                 selection: Binding {
                     every.firstIndex(of: routine.every) ?? 0
                 } set: {

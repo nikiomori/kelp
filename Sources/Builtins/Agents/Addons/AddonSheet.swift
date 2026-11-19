@@ -21,7 +21,7 @@ final class AddonSheet: NSObject, NSTextFieldDelegate {
         backing: .buffered, defer: true)
     let field = NSTextField()
     let name = NSTextField()
-    let scope = CapsuleSegments()
+    let scope = CapsuleSegments(labels: [], name: String(localized: "Where It Works"))
     /// The boxes that show what Kelp read and who gets it, rebuilt as the field changes.
     let read = NSStackView()
     private let add = NSButton()

@@ -61,8 +61,8 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     let capsuleBox = NSStackView()
     let capsuleButton = PointerControl(frame: .zero)
     let part = CapsuleSegments(
-        labels: [String(localized: "Data"), String(localized: "Structure")], target: nil,
-        action: nil)
+        labels: [String(localized: "Data"), String(localized: "Structure")],
+        name: String(localized: "Show"))
     let sqlText = NSTextField(wrappingLabelWithString: "")
     lazy var editor = CodeEditor(text: "", url: URL(fileURLWithPath: "/query.sql"))
     /// Keeps the query typed in the editor for the database once typing pauses (`keepDraft`).

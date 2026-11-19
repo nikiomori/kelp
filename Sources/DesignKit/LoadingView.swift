@@ -62,8 +62,8 @@ public final class LoadingView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Shows the view with `text` ("Loading…") and, with `detail`, what it waits for. Nil hides it and stops the
-    /// spinner.
+    /// Shows the view with `text` (what it reads: "Reading the databases…") and, with `detail`, what it waits for. Nil
+    /// hides it and stops the spinner.
     public func show(_ text: String?, detail: String? = nil) {
         line.stringValue = text ?? ""
         setAccessibilityLabel(text)
@@ -133,7 +133,7 @@ public final class LoadingView: NSView {
     override public func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
-/// The rows a list will show, as shapes: a mark and two lines per row (`Metrics.rowTwoLine`), as many as fit, with a
+/// The rows a list will show, as shapes: a mark and two lines per row (`Metrics.rowTwoLine`, grown with Text size), as many as fit, with a
 /// light passing over them every `Motion.breathe` (still under Reduce Motion).
 @MainActor
 final class SkeletonRows: NSView {
@@ -154,6 +154,7 @@ final class SkeletonRows: NSView {
         light.endPoint = CGPoint(x: 1, y: 0.5)
         light.locations = Self.before   // so under Reduce Motion, where it's still, it stays off the rows
         layer?.addSublayer(light)
+        followReduceMotion(#selector(motionChanged))
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -163,10 +164,10 @@ final class SkeletonRows: NSView {
         super.layout()
         let path = CGMutablePath(), inset = Metrics.inset, room = bounds.width - 2 * inset
         let line = Metrics.gapWide, under = Metrics.gap   // the height of a name's line, and of its second line
-        let mark = Metrics.iconSmall
+        let mark = Metrics.iconSmall, row = TextSize.of(Metrics.rowTwoLine)   // the rows they stand for grow too
         var top: CGFloat = Metrics.gap
-        for width in Self.widths where top + Metrics.rowTwoLine <= bounds.height {
-            let middle = top + Metrics.rowTwoLine / 2
+        for width in Self.widths where top + row <= bounds.height {
+            let middle = top + row / 2
             path.addEllipse(in: CGRect(x: inset, y: middle - mark / 2, width: mark, height: mark))
             let x = inset + mark + Metrics.gapWide, text = max(0, room - mark - Metrics.gapWide)
             let first = CGRect(x: x, y: middle - line - Metrics.lineGap / 2, width: text * width, height: line)
@@ -174,7 +175,7 @@ final class SkeletonRows: NSView {
             for bar in [first, second] {
                 path.addRoundedRect(in: bar, cornerWidth: bar.height / 2, cornerHeight: bar.height / 2)
             }
-            top += Metrics.rowTwoLine
+            top += row
         }
         CATransaction.begin()
         CATransaction.setDisableActions(true)   // otherwise plain sublayers would ease into their new shape
@@ -200,8 +201,13 @@ final class SkeletonRows: NSView {
         }
     }
 
+    private var shimmering = false
+    /// Reduce Motion switched on or off while the rows show stops or starts the light.
+    @objc private func motionChanged() { shimmer(shimmering) }
+
     /// The light passes over the rows while they show; nothing moves under Reduce Motion.
     func shimmer(_ on: Bool) {
+        shimmering = on
         light.removeAnimation(forKey: "shimmer")
         guard on, !Motion.reduced else { return }
         // A band a third as wide as the rows, moving from wholly left of them to wholly right.

@@ -7,16 +7,19 @@ import SwiftUI
 /// regular size, as in Settings and sheets; a tab's or panel's takes `.controlSize(.small)` like any control.
 public struct Segments: NSViewRepresentable {
     let labels: [String]
+    let name: String
     @Binding var selection: Int
     @Environment(\.controlSize) private var size
 
-    public init(labels: [String], selection: Binding<Int>) {
+    /// `name` is what VoiceOver calls the choice.
+    public init(labels: [String], name: String, selection: Binding<Int>) {
         self.labels = labels
+        self.name = name
         _selection = selection
     }
 
     public func makeNSView(context: Context) -> CapsuleSegments {
-        CapsuleSegments(labels: labels, target: context.coordinator, action: #selector(Coordinator.changed))
+        CapsuleSegments(labels: labels, name: name, target: context.coordinator, action: #selector(Coordinator.changed))
     }
     public func updateNSView(_ control: CapsuleSegments, context: Context) {
         context.coordinator.selection = $selection

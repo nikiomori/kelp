@@ -18,9 +18,10 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
     private let ssh = NSComboBox(), ssl = NSPopUpButton()
     private let sshRow = NSStackView(), sslRow = NSStackView()
     private let sshOn = NSButton(), sslOn = NSButton()
-    private let place = CapsuleSegments(), agents = CapsuleSegments()
+    private let place = CapsuleSegments(labels: [], name: String(localized: "Where It’s Listed"))
+    private let agents = CapsuleSegments(labels: [], name: String(localized: "Agents"))
     private let stage = CapsuleSegments(
-        labels: DatabaseInfo.Stage.allCases.map(DatabaseLook.title), target: nil, action: nil)
+        labels: DatabaseInfo.Stage.allCases.map(DatabaseLook.title), name: String(localized: "Stage"))
     private let why = DatabaseSheet.small("")
     /// Says what agents may do with the database as the form stands. Under Production agents only read, whatever the
     /// choice says.
