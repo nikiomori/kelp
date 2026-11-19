@@ -37,8 +37,10 @@ struct DiskFoot: View {
         HStack(spacing: Metrics.gapWide) {
             if let items {
                 DiskBar(items: items).frame(width: 40, height: 6)
-                Text(DiskNames.size(items.bytes)).monospacedDigit()
+                // The size stays whole on one line in a narrow panel; what rebuilds gives way and is cut at its end.
+                Text(DiskNames.size(items.bytes)).monospacedDigit().lineLimit(1).fixedSize().layoutPriority(1)
                 Text(DiskNames.foot(items, host: host)).foregroundStyle(.secondary).lineLimit(1)
+                    .truncationMode(.tail)
             } else if measuring {
                 ProgressView().controlSize(.mini)
                 Text("Measuring…").foregroundStyle(.secondary)
