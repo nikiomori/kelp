@@ -156,9 +156,12 @@ extension CommentSend: Handled {
         return open.count
     }
 
-    /// Writes the message, with the file, lines, quoted code and remark for each comment.
-    private static func message(branch: String, comments: [DiffComment]) -> String {
-        var body = "Review comments on branch \(branch). Please address each one:\n"
+    /// Writes the message, with the file, lines, quoted code and remark for each comment. The branch's name is framed:
+    /// a pull request's branch was named by whoever pushed it.
+    static func message(branch: String, comments: [DiffComment]) -> String {
+        var body =
+            "Review comments on the branch below. Please address each one:\n"
+            + Untrusted.frame(branch, what: "branch name") + "\n"
         for (index, comment) in comments.enumerated() {
             let range =
                 comment.startLine == comment.endLine
