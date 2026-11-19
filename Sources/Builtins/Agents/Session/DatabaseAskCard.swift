@@ -25,7 +25,8 @@ final class DatabaseAskCard: NSView {
         self.session = session
         self.worktree = worktree
         super.init(frame: .zero)
-        let mark = NSImageView(image: .symbol("cylinder.split.1x2"))
+        let mark = NSImageView(image: .symbol("cylinder.split.1x2", String(localized: "Database")))
+        mark.symbolConfiguration = .chrome(Metrics.segmentPoint)   // as the limit strip's, beside the same title
         mark.contentTintColor = .textOrange
         sql.font = .uiMono(TextSize.caption)
         sql.textColor = .secondaryLabelColor
@@ -64,15 +65,22 @@ final class DatabaseAskCard: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// Fills the card in before it comes in, so it doesn't grow when the rows arrive. It goes the way a row does.
     private func show(_ run: DatabaseRun?) {
         asking = run
-        isHidden = run == nil
-        guard let run else { return }
-        sql.stringValue = run.sql
-        say(run, nil)
+        guard let run else {
+            if !isHidden, let superview { leaveGhost(in: superview) }
+            isHidden = true
+            return
+        }
         Task { [weak self, app, worktree] in
             let rows = await app.quiet(DatabaseResultRead(worktreeId: worktree, id: run.id)) ?? nil
-            if self?.asking?.id == run.id { self?.say(run, rows) }
+            guard let self, self.asking?.id == run.id else { return }
+            self.sql.stringValue = run.sql
+            self.say(run, rows)
+            guard self.isHidden else { return }
+            self.isHidden = false
+            self.comeIn()
         }
     }
 

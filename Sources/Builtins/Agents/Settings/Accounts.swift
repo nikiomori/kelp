@@ -56,7 +56,9 @@ struct AccountsSettings: View {
     var body: some View {
         TitledSection("Accounts") {
             if profiles.isEmpty {
-                Text("No profiles yet: agents use their own login.").foregroundStyle(.secondary)
+                EmptyState(String(localized: "No Profiles Yet"), symbol: "person.2", lifted: false) {
+                    Text("Agents use their own login.")
+                }
             } else {
                 Table(profiles, selection: $selection) {
                     TableColumn("Name", value: \.name)

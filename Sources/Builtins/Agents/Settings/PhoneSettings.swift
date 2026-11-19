@@ -83,7 +83,7 @@ struct PhoneSettings: View {
                 }
                 ForEach(state.phones) { phone in
                     HStack(spacing: Metrics.gap) {
-                        Image(systemName: "iphone").foregroundStyle(.secondary)
+                        Image(systemName: "iphone").font(.symbol()).foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: Metrics.lineGap) {
                             Text(phone.name)
                             Text(
@@ -176,7 +176,7 @@ struct PhoneSettings: View {
         -> some View
     {
         HStack(spacing: Metrics.gap) {
-            Image(systemName: done ? "checkmark.circle.fill" : "circle")
+            Image(systemName: done ? "checkmark.circle.fill" : "circle").font(.symbol())
                 .foregroundStyle(.secondary)   // done is the filled mark: the shape says it, not a colour
             Text(title).foregroundStyle(done || next ? .primary : .secondary)
             Spacer(minLength: Metrics.gap)

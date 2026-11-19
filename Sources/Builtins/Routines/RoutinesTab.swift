@@ -63,7 +63,9 @@ struct RoutinesView: View {
             let span = week.days.first.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
             let last = week.days.last.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? ""
             // A tab kept after its project went has no name to show: the line stands alone.
-            if let project = app.repo(repoId)?.name { Text(project).font(.ui(TextSize.body, weight: .semibold)) }
+            if let project = app.repo(repoId)?.name {
+                Text(project).font(.ui(TextSize.body, weight: .semibold)).layoutPriority(1)
+            }
             Text("\(list.count) routines · \(on) on · this week, \(span) – \(last)").font(.ui(TextSize.caption))
                 .monospacedDigit().foregroundStyle(.secondary).lineLimit(1)
             Spacer()
@@ -219,7 +221,7 @@ struct RunMark: View {
 
     var body: some View {
         VStack(spacing: Metrics.lineGap) {
-            symbol.frame(height: 16)
+            symbol.font(.symbol(Metrics.iconSmall)).frame(height: 16)   // the medium weight; grows with Text size
             Text(mark.at.formatted(date: .omitted, time: .shortened)).font(.ui(TextSize.caption).monospacedDigit())
                 .foregroundStyle(
                     .secondary

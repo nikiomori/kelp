@@ -10,7 +10,7 @@ final class LinkPill: NSView {
     /// Places the pill in `host`, at its leading edge, just above `bottom`'s top.
     init(in host: NSView, above bottom: NSView) {
         super.init(frame: .zero)
-        label.font = .ui(TextSize.caption)
+        label.font = .ui(TextSize.row)
         label.textColor = .secondaryLabelColor
         label.lineBreakMode = .byTruncatingMiddle   // a path's file name and line are at its end
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -18,13 +18,13 @@ final class LinkPill: NSView {
         plate.pin(
             label,
             inset: NSEdgeInsets(top: Metrics.lineGap, left: Metrics.gap, bottom: Metrics.lineGap, right: Metrics.gap))
-        pin(FloatingCard(plate, radius: Metrics.radiusMD))
+        pin(FloatingCard(plate, radius: Metrics.radiusSM))   // a low hint, not a capsule control
         isHidden = true
         translatesAutoresizingMaskIntoConstraints = false
         host.addSubview(self)
         NSLayoutConstraint.activate([
-            leadingAnchor.constraint(equalTo: host.leadingAnchor, constant: Metrics.gap),
-            bottomAnchor.constraint(equalTo: bottom.topAnchor, constant: -Metrics.gap),
+            leadingAnchor.constraint(equalTo: host.leadingAnchor, constant: Metrics.inset),   // as the cards over it
+            bottomAnchor.constraint(equalTo: bottom.topAnchor, constant: -Metrics.inset),
             widthAnchor.constraint(lessThanOrEqualTo: host.widthAnchor, multiplier: 0.6)   // the rest stays readable
         ])
     }

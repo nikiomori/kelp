@@ -18,7 +18,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     let app: AppModel
     let table = KeyTable()
     let empty = EmptyStateView()
-    let loadingView = LoadingView(rows: true)
+    let loadingView = LoadingView(rows: true, rowHeight: Metrics.row)
     let face = AddonFace()
     private let chatTitle = NSTextField(labelWithString: "")
     let weight = NSHostingView(rootView: AddonWeight(headline: "", shares: []))
@@ -67,7 +67,10 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         table.target = self
         table.action = #selector(clicked)
         table.doubleAction = #selector(openClicked)
-        table.onReturn = { [weak self] in self.map { $0.open(row: $0.table.selectedRow) } }
+        table.onReturn = { [weak self] in   // as a click: a group folds, an item opens
+            guard let self, !self.fold(row: self.table.selectedRow) else { return }
+            self.open(row: self.table.selectedRow)
+        }
         table.menu = NSMenu()
         table.menu?.delegate = self
         // The inspector's own title already names the panel, so this bar names the chat, the way the bar of Source
@@ -208,7 +211,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
             empty.showError(String(localized: "Couldn’t Read the Skills and Servers"), text: error)
         } else {
             empty.show(
-                (value?.items ?? []).isEmpty ? String(localized: "Nothing here yet") : nil, symbol: "powerplug",
+                (value?.items ?? []).isEmpty ? String(localized: "Nothing Here Yet") : nil, symbol: "powerplug",
                 text: String(localized: "What agents get besides the prompt: skills, MCP servers, instruction files."))
         }
         let items = value?.items ?? [], known = value?.chat == true
@@ -283,17 +286,31 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         .fill(menu, lines[table.clickedRow])
     }
 
-    @objc private func clicked() {
-        guard lines.indices.contains(table.clickedRow), case .group(let g, let count, _, _) = lines[table.clickedRow],
-            count > 0
-        else { return }
-        let filtering = !display.filter.isEmpty
-        if filtering {
+    @objc private func clicked() { fold(row: table.clickedRow) }
+
+    /// Folds or unfolds the group on `row`: the rows under it come or go, moving the others, and its chevron turns.
+    /// Returns false when the row is no group that folds.
+    @discardableResult
+    private func fold(row: Int) -> Bool {
+        guard lines.indices.contains(row), case .group(let g, let count, _, _) = lines[row], count > 0 else {
+            return false
+        }
+        let key = lines[row].key, selected = table.selectedRow == row
+        if !display.filter.isEmpty {
             if toggledFiltering.remove(g) == nil { toggledFiltering.insert(g) }
         } else if toggled.remove(g) == nil {
             toggled.insert(g)
         }
-        relist()
+        relist(settling: table.rowPlaces(lineKey))
+        guard let now = lines.firstIndex(where: { $0.key == key }), case .group(_, _, _, let open) = lines[now] else {
+            return true
+        }
+        if selected { table.selectRowIndexes([now], byExtendingSelection: false) }   // its line changed, it didn't
+        // The new line's chevron turns from what the old one showed, once it has a size (as SectionList's).
+        table.layoutSubtreeIfNeeded()
+        (table.view(atColumn: 0, row: now, makeIfNecessary: false) as? AddonCell)?.arrangedSubviews.first?
+            .turn(from: open ? .pi / 2 : -.pi / 2)
+        return true
     }
 
     /// A double click opens the row's file in a tab.
@@ -321,8 +338,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     }
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         switch lines[row] {
-        case .item, .problem: true
-        case .section, .group, .unsigned, .instructions: false
+        case .item, .problem, .group: true   // ↑ ↓ reach a group, and Return folds it
+        case .section, .unsigned, .instructions: false
         }
     }
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {

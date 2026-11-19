@@ -128,6 +128,8 @@ extension TerminalPaths {
 final class PathPreview {
     private let app: AppModel
     private let popover = NSPopover()
+    /// The preview being read, shown only once its lines (and its changes) are in, so the card opens at its height.
+    private var pending: PreviewModel?
     init(app: AppModel) {
         self.app = app
         popover.behavior = .semitransient
@@ -140,15 +142,20 @@ final class PathPreview {
         let projects = app.repos.map(\.path)
         guard let found = tokens.lazy.compactMap({ TerminalPaths.resolve($0, cwd: cwd, elsewhere: projects) }).first
         else {
+            pending = nil
             popover.close()
             return
         }
         let model = PreviewModel(path: found.path, line: found.line, cwd: cwd, app: app)
-        let host = NSHostingController(rootView: PathPreviewView(model: model))
-        host.sizingOptions = .preferredContentSize   // placed and resized around the anchor (see HoverCard)
-        popover.contentViewController = host
-        popover.show(relativeTo: rect, of: view, preferredEdge: .maxY)
-        model.load(worktree: worktree)
+        pending = model
+        Task {
+            await model.load(worktree: worktree)
+            guard pending === model, view.window != nil else { return }   // the pointer moved on meanwhile
+            let host = NSHostingController(rootView: PathPreviewView(model: model))
+            host.sizingOptions = .preferredContentSize   // placed and resized around the anchor (see HoverCard)
+            popover.contentViewController = host
+            popover.show(relativeTo: rect, of: view, preferredEdge: .maxY)
+        }
     }
 }
 
@@ -179,29 +186,27 @@ final class PreviewModel {
 
     /// Loads the preview. The file is read off the main thread, because a hover over a path on a slow volume mustn't
     /// stall the window.
-    func load(worktree: String?) {
+    func load(worktree: String?) async {
         let path = path, line = line
-        Task {
-            if TerminalPaths.images.contains((path as NSString).pathExtension.lowercased()) {
-                image = await Task.detached { FileManager.default.contents(atPath: path) }.value.flatMap {
-                    NSImage(data: $0)
-                }
-                return
+        if TerminalPaths.images.contains((path as NSString).pathExtension.lowercased()) {
+            image = await Task.detached { FileManager.default.contents(atPath: path) }.value.flatMap {
+                NSImage(data: $0)
             }
-            lines = await Task.detached { Self.excerpt(path, around: line) }.value
-            guard let worktree else { return }
-            // When the file has uncommitted changes, show those instead: the hunk that holds the line asked about,
-            // or else the first hunk.
-            let diff = await app.quiet(GitDiff(id: worktree, source: .all, file: path))
-            guard let hunks = diff?.first?.hunks, !hunks.isEmpty else { return }
-            let hunk =
-                hunks.first { hunk in line.map { l in hunk.lines.contains { $0.newLine == l } } ?? false } ?? hunks[0]
-            changed = true
-            lines = hunk.lines.prefix(16).enumerated().map { index, diffLine in
-                Line(
-                    id: index, number: diffLine.newLine ?? diffLine.oldLine, text: diffLine.text,
-                    mark: diffLine.kind == .add ? "+" : diffLine.kind == .del ? "-" : " ")
-            }
+            return
+        }
+        let excerpt = await Task.detached { Self.excerpt(path, around: line) }.value
+        // When the file has uncommitted changes, show those instead: the hunk that holds the line asked about, or else
+        // the first hunk.
+        guard let worktree, let hunks = await app.quiet(GitDiff(id: worktree, source: .all, file: path))?.first?.hunks,
+            !hunks.isEmpty
+        else { return lines = excerpt }
+        let hunk =
+            hunks.first { hunk in line.map { l in hunk.lines.contains { $0.newLine == l } } ?? false } ?? hunks[0]
+        changed = true
+        lines = hunk.lines.prefix(16).enumerated().map { index, diffLine in
+            Line(
+                id: index, number: diffLine.newLine ?? diffLine.oldLine, text: diffLine.text,
+                mark: diffLine.kind == .add ? "+" : diffLine.kind == .del ? "-" : " ")
         }
     }
 
@@ -231,7 +236,7 @@ struct PathPreviewView: View {
                 }
                 Spacer(minLength: 8)
                 if model.changed {
-                    Text("Changed").font(.ui(TextSize.caption, weight: .medium)).foregroundStyle(Color.textOrange)
+                    Text("Changed").font(.ui(TextSize.caption)).foregroundStyle(Color.textOrange)
                 }
             }
             if let img = model.image {

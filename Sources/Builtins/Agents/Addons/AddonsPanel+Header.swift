@@ -66,7 +66,7 @@ extension AddonsPanel {
     }
 
     /// Shows the Add sheet, then adds what it read, reads the list again, and opens a new skill's SKILL.md in a tab.
-    private func addAny() {
+    func addAny() {
         guard let workspace = app.workbench.workspaceId else { return }
         let sheet = AddonSheet(app: app, worktreeId: workspace, project: projectName, items: addons?.items ?? [])
         Task { [weak self, app] in
@@ -85,7 +85,7 @@ extension AddonsPanel {
     }
 
     /// Asks for a skill's name, then opens the new SKILL.md in a tab to fill in.
-    private func newSkill() {
+    func newSkill() {
         guard let workspace = app.workbench.workspaceId else { return }
         let project = projectName
         Task { [weak self, app] in
@@ -93,6 +93,15 @@ extension AddonsPanel {
             let made = await app.call(AddonsInstall(worktreeId: workspace, name: typed.text, project: typed.project))
             self?.reload()
             if let first = made?.first { self?.open(first) }
+        }
+    }
+
+    /// The item on the selected line, for the commands that act on it; nil when the line holds no item.
+    var chosen: Addon? {
+        guard lines.indices.contains(table.selectedRow) else { return nil }
+        switch lines[table.selectedRow] {
+        case .item(let addon, _), .problem(let addon): return addon
+        default: return nil
         }
     }
 }

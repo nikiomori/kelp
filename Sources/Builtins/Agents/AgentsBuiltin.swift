@@ -12,10 +12,13 @@ extension Builtins {
         "kelp.agents", "Agents & Terminals", "Agent sessions and terminals as tabs.",
         icon: "sparkles", essential: true
     ) { app in
+        let addons: LiveAddons = app.part { LiveAddons() }   // the one the panel on screen was built with
         return Contributions(
             panels: [
                 PanelSpec(id: "addons", title: "Skills & MCP", icon: "powerplug", extensionId: "kelp.agents") {
-                    AddonsPanel(app: app)
+                    let panel = AddonsPanel(app: app)
+                    addons.panel = panel
+                    return panel
                 }
             ],
             commands: [
@@ -38,7 +41,7 @@ extension Builtins {
                     let always = app.settings[SettingKeys.keepAwake] == "always"
                     app.settings.set(SettingKeys.keepAwake, always ? nil : "always")
                 }
-            ],
+            ] + addonsCommands(addons),
             settings: agentsSettings(app),
             tabs: [
                 TabProvider(
@@ -87,6 +90,46 @@ extension Builtins {
 extension CommandsEvent: Pushed {
     package var key: String { session }
     package static var forgottenWith: WatchTopic? { .commands }
+}
+
+/// The Skills & MCP panel (built when first shown), for the commands that act on it. There is one per app, because
+/// `contribute` runs again on every registry reload while the panel built first stays.
+@MainActor
+private final class LiveAddons { weak var panel: AddonsPanel? }
+
+/// What the Skills & MCP panel's "+", ⋯ and right-click menus do, as commands on the panel on screen and its selected
+/// row.
+@MainActor private func addonsCommands(_ live: LiveAddons) -> [CommandSpec] {
+    let shown: @MainActor () -> AddonsPanel? = { live.panel?.viewIfLoaded?.window == nil ? nil : live.panel }
+    let chosen: @MainActor () -> Addon? = { shown()?.chosen }
+    return [
+        CommandSpec(id: "addons.add", title: "Skills & MCP: Add a Skill or MCP Server…", enabled: { shown() != nil }) {
+            _ in shown()?.addAny()
+        },
+        CommandSpec(id: "addons.newSkill", title: "Skills & MCP: New Skill…", enabled: { shown() != nil }) { _ in
+            shown()?.newSkill()
+        },
+        CommandSpec(
+            id: "addons.restartChat", title: "Skills & MCP: Restart This Chat", enabled: { shown()?.shownChat != nil }
+        ) { _ in
+            shown()?.restart()
+        },
+        CommandSpec(id: "addons.open", title: "Skills & MCP: Open", enabled: { chosen()?.path != nil }) { _ in
+            if let path = chosen()?.path { shown()?.open(path) }
+        },
+        CommandSpec(
+            id: "addons.off", title: "Skills & MCP: Off in This Project",
+            enabled: { chosen().map { $0.key != nil && !$0.off } ?? false }
+        ) { _ in
+            if let key = chosen()?.key { shown()?.flip([key], on: false) }
+        },
+        CommandSpec(
+            id: "addons.on", title: "Skills & MCP: On in This Project",
+            enabled: { chosen().map { $0.key != nil && $0.off } ?? false }
+        ) { _ in
+            if let key = chosen()?.key { shown()?.flip([key], on: true) }
+        }
+    ]
 }
 
 /// Returns what starts agents and terminals in the workspace on screen, and beeps when there is none.

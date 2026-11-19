@@ -83,13 +83,13 @@ struct UsageReportView: View {
                     LoadingLine(String(localized: "Reading the agents’ logs…"))
                         .frame(maxWidth: .infinity).padding(.vertical, Metrics.blockGap)
                 }
-                // The figures fill in as the logs are read.
-                if usage != nil, !lines.isEmpty { kpis() }
+                // The figures fill in as the logs are read, fading in while the table moves down to make room.
+                if usage != nil, !lines.isEmpty { kpis().transition(.opacity) }
                 if !lines.isEmpty { table(lines) }
             }
             if let usage, !usage.days.isEmpty {
                 detail(usage)
-                if !year.isEmpty { months }
+                if !year.isEmpty { months.transition(.opacity) }
                 HStack(alignment: .top, spacing: Metrics.blockGap) {
                     groups(
                         String(localized: "By Model"), sel.flatMap(agent)?.models ?? usage.models, all: $allModels,
@@ -112,6 +112,9 @@ struct UsageReportView: View {
             }
             if usage != nil { footnote }
         }
+        // What arrives later (the figures, then the months) comes in with `appear`, never at once.
+        .animation(.easeOut(duration: Motion.duration(Motion.appear)), value: usage != nil)
+        .animation(.easeOut(duration: Motion.duration(Motion.appear)), value: year.isEmpty)
     }
 
     /// The tab's bar, as every page has one: its name, where the figures come from, and the span's picker at the
@@ -168,10 +171,10 @@ struct UsageReportView: View {
     /// Whose logs are read, and what the figures leave out.
     static let sources = String(
         localized: """
-            Read from each agent's own logs on this Mac: Claude Code (every account profile), Codex, Grok, Antigravity, Kimi Code, \
+            Read from each agent’s own logs on this Mac: Claude Code (every account profile), Codex, Grok, Antigravity, Kimi Code, \
             Copilot, OpenCode, Kilo Code, pi, oh-my-pi, Qwen Code and Gemini CLI. Cursor, Amp and fx keep no token counts on \
-            disk; Droid, Goose, Hermes and Kiro keep only a session's. Tokens include reads from the cache, which cost far \
-            less than fresh input. Prices are list prices (Grok's, pi's and OpenCode's as they report them); a subscription bills \
+            disk; Droid, Goose, Hermes and Kiro keep only a session’s. Tokens include reads from the cache, which cost far \
+            less than fresh input. Prices are list prices (Grok’s, pi’s and OpenCode’s as they report them); a subscription bills \
             differently, and "—" is a model without one.
             """)
 

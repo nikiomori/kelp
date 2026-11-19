@@ -115,8 +115,8 @@ struct AgentsSettings: View {
             if have.isEmpty && rest.isEmpty {
                 EmptyState(
                     show == .installed
-                        ? String(localized: "No agent is installed yet.")
-                        : String(localized: "Every agent Kelp knows is installed."), symbol: "sparkles", lifted: false)
+                        ? String(localized: "No Agents Installed")
+                        : String(localized: "All Agents Installed"), symbol: "sparkles", lifted: false)
             }
         }
         .formStyle(.grouped)

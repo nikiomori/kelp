@@ -30,7 +30,7 @@ extension AgentsSettings {
 
     func status(_ title: String, _ detail: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title).fontWeight(.medium)
+            Text(title)   // 500 is for what is selected
             Text(detail).font(.ui(TextSize.caption)).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
         }

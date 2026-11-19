@@ -131,17 +131,18 @@ extension Runs {
     }
 
     /// The symbol and colour of a command's purpose: green ▶ run, purple flask tests, orange hammer build, blue check
-    /// lint, red plane deploy, teal install. The Run menu shows the colour only on what runs, so colour says it runs
-    /// now and the symbol what for; a run's tab shows the symbol in grey. The rest are grey, chosen by name.
+    /// lint, red plane deploy, teal install. A thing or an action is drawn in outline, as commit types are (decision
+    /// 93); ▶ is filled, as a start is. The Run menu shows the colour only on what runs, so colour says it runs now and
+    /// the symbol what for; a run's tab shows the symbol in grey. The rest are grey, chosen by name.
     static func glyph(_ row: Row) -> (String, NSColor) {
         let name = row.name.lowercased()
         switch row.purpose {
         case .install: return ("arrow.down.circle.fill", .systemTeal)
         case .run: return ("play.fill", .systemGreen)
-        case .test: return ("flask.fill", .systemPurple)
-        case .build: return row.kind == "lint" ? ("checkmark.circle.fill", .systemBlue) : ("hammer.fill", .systemOrange)
+        case .test: return ("flask", .systemPurple)
+        case .build: return row.kind == "lint" ? ("checkmark.circle", .systemBlue) : ("hammer", .systemOrange)
         case .deploy:
-            return (name.hasPrefix("rollback") ? "arrow.uturn.backward.circle.fill" : "paperplane.fill", .systemRed)
+            return (name.hasPrefix("rollback") ? "arrow.uturn.backward.circle" : "paperplane", .systemRed)
         case .other:
             if row.file.contains("compose") || row.file == "Dockerfile" { return ("shippingbox", .secondaryLabelColor) }
             let named: [(words: [String], symbol: String)] = [
