@@ -40,6 +40,17 @@ public enum NextEdit {
         text.components(separatedBy: "\n").map { $0.hasSuffix("\r") ? String($0.dropLast()) : $0 }
     }
 
+    /// `now` from UTF-16 offset `from` to `to`, and the same stretch of `base`, which edits between those offsets made
+    /// `now` from: the text after them only moved. Nil when the edits can't have been there.
+    static func slices(base: NSString, now: NSString, from: Int, to: Int) -> (base: String, now: String)? {
+        let end = to - (now.length - base.length)
+        guard from >= 0, from <= to, to <= now.length, from <= end, end <= base.length else { return nil }
+        return (
+            base.substring(with: NSRange(location: from, length: end - from)),
+            now.substring(with: NSRange(location: from, length: to - from))
+        )
+    }
+
     /// How many lines `a` and `b` share at the start and at the end (never overlapping); nil when they're the same.
     static func shared(
         _ a: [String], _ b: [String], same: (String, String) -> Bool = (==)

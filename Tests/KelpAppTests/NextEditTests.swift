@@ -153,6 +153,26 @@ extension OneAtATime {
         #expect(asked.last?.earlier == [NextEdit.Change(old: "a = 1", new: "a = 10")])   // only the user's
     }
 
+    @Test func aBigFileIsAskedAboutTheSameLinesWithoutSplittingItWhole() async throws {
+        let text = (0..<50_000).map { "let value\($0) = \($0)" }.joined(separator: "\n") + "\n"
+        let (e, tv) = editing(text)
+        var asked: NextEdit.Ask?
+        e.nextEditProvider = { ask in
+            asked = ask
+            return nil
+        }
+        let at = (text as NSString).range(of: "let value25000 = 25000").location
+        tv.setSelectedRange(NSRange(location: at + 3, length: 0))
+        tv.insertText("x", replacementRange: NSRange(location: NSNotFound, length: 0))
+        #expect(try await waitFor(2) { asked != nil })
+        let whole = { NextEdit.ask(base: text, now: tv.string, line: 25_000, earlier: []) }
+        #expect(asked == whole())
+        let clock = ContinuousClock()
+        print(
+            "next edit, 50 000 lines: the whole file split", clock.measure { _ = whole() },
+            "; the lines around the edit", clock.measure { e.askNextEdit() })
+    }
+
     /// An editor in a window, with no gray text, so edits ask for the next edit.
     private func editing(_ text: String) -> (CodeEditor, EditorTextView) {
         _ = NSApplication.shared

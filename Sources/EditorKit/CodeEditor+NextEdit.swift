@@ -28,10 +28,15 @@ extension CodeEditor {
 
     /// Before an edit, with the old text still there. One near the last (on their lines or next to them, within a
     /// minute) adds to the edit being made; one elsewhere starts a new edit, and the text as it is now is what the
-    /// model is shown as before it.
-    func nextEditWillReplace(_ range: NSRange, with text: String) {
+    /// model is shown as before it. Edits in several places at once (cursors, Replace All) start none: the model is
+    /// shown the lines around one edit (`around`), and the others would differ outside them.
+    func nextEditWillReplace(_ ranges: [NSRange], with texts: [String]) {
         dropNextEdit()
         guard nextEdit.provider != nil else { return }
+        guard ranges.count == 1, let range = ranges.first, let text = texts.first else {
+            nextEdit.base = nil
+            return
+        }
         let string = textView.string as NSString
         let first = lineIndex.line(at: range.location, in: string)
         let last = lineIndex.line(at: NSMaxRange(range), in: string)
@@ -44,7 +49,7 @@ extension CodeEditor {
             nextEdit.region = low...max(low, max(region.upperBound, last) + added)
         } else {
             keepEditMade()
-            nextEdit.base = textView.string
+            nextEdit.base = string.copy() as? NSString
             nextEdit.region = first...max(first, last + added)
         }
         nextEdit.at = Date()
@@ -60,10 +65,21 @@ extension CodeEditor {
 
     /// Keeps the edit made since `base` with the two before it.
     private func keepEditMade() {
-        guard let base = nextEdit.base,
-            let made = NextEdit.change(from: NextEdit.lines(base), to: NextEdit.lines(textView.string))
+        guard let base = nextEdit.base, let (old, now, _) = around(base, lines: nextEdit.region),
+            let made = NextEdit.change(from: NextEdit.lines(old), to: NextEdit.lines(now))
         else { return }
         nextEdit.earlier = Array((nextEdit.earlier + [made]).suffix(2))
+    }
+
+    /// `lines` of the text now, the same lines of `base`, and the first one's number. Outside the edit being made
+    /// (`region`) the two texts are the same, the later lines only moved, so neither is split into lines whole: in a
+    /// 5 MB file that was tens of milliseconds at each pause.
+    private func around(_ base: NSString, lines: ClosedRange<Int>) -> (base: String, now: String, first: Int)? {
+        let now = textView.string as NSString, first = max(0, lines.lowerBound)
+        let from = lineIndex.start(ofLine: first, in: now) ?? now.length
+        // Up to the last line's break, which stays out, as a file's last line has none.
+        let to = lineIndex.start(ofLine: lines.upperBound + 1, in: now).map { $0 - 1 } ?? now.length
+        return NextEdit.slices(base: base, now: now, from: from, to: to).map { ($0.base, $0.now, first) }
     }
 
     private static func breaks(_ text: String) -> Int { text.utf16.lazy.filter { $0 == 10 }.count }
@@ -75,12 +91,12 @@ extension CodeEditor {
             tv.isEditable, tv.cursors.count == 1, at.length == 0, completion.list?.isOpen != true,
             !completion.snippetActive, !tv.hasMarkedText(), tv.window?.firstResponder === tv
         else { return }
-        let string = tv.string as NSString
-        guard
-            let ask = NextEdit.ask(
-                base: base, now: tv.string, line: lineIndex.line(at: at.location, in: string),
-                earlier: nextEdit.earlier)
+        let line = lineIndex.line(at: at.location, in: tv.string as NSString), region = nextEdit.region
+        let lines = min(region.lowerBound, line - NextEdit.half)...max(region.upperBound, line + NextEdit.half)
+        guard let (old, now, first) = around(base, lines: lines),
+            var ask = NextEdit.ask(base: old, now: now, line: line - first, earlier: nextEdit.earlier)
         else { return }
+        ask.firstLine += first
         let edits = suggestion.edits
         nextEdit.task?.cancel()
         nextEdit.task = Task { [weak self] in
@@ -229,7 +245,7 @@ struct NextEditState {
     var onEvent: ((Bool) -> Void)?
     var task: Task<Void, Never>?
     /// The text before the edit being made, the lines that edit spans now, and when it was last added to.
-    var base: String?, region = 0...0, at = Date.distantPast
+    var base: NSString?, region = 0...0, at = Date.distantPast
     /// The two edits made before it.
     var earlier: [NextEdit.Change] = []
     var shown: Shown?

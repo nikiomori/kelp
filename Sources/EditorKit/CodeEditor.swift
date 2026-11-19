@@ -359,7 +359,7 @@ extension CodeEditor: NSTextViewDelegate, NSTextStorageDelegate {
 
     /// Called before an edit, while the old text is there, so the tree and line count hear what's replaced by what.
     func willReplace(_ ranges: [NSRange], with texts: [String]) {
-        if !loading, let range = ranges.first, let text = texts.first { nextEditWillReplace(range, with: text) }
+        if !loading { nextEditWillReplace(ranges, with: texts) }
         let string = textView.string as NSString
         var pieces: [(column: Int, removed: String, inserted: String)] = []
         // Goes from the bottom, so each edit's offsets still hold for the next.
