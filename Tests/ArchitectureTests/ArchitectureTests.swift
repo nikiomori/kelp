@@ -193,7 +193,9 @@ func matches(_ pattern: String, in dirs: [String]) throws -> [String] {
     // +3: a file's status bar card turns code suggestions off in its language's files and says which
     // (`setOwn`, `LanguageName`, its `of`), as Settings' language picker does.
     // +3, nothing new: a `package internal(set)` is counted too (`inFocusMode`, `page`, `byKey`), as it is surface.
-    #expect(declared == 374, "\(declared) package declarations in KelpKit: fewer now, lower the count")
+    // 2026-11-19: making every one internal and putting back what the compiler asked for took none away: the built-ins
+    // use all 374. +1: Files waits for the settings to have been read (`SettingsStore.loaded`).
+    #expect(declared == 375, "\(declared) package declarations in KelpKit: fewer now, lower the count")
 }
 
 /// What the shell asks of every tab stays short: a question only one kind of tab answers is that tab's own (its provider's

@@ -12,11 +12,17 @@ extension Suggestions {
     var nextEditWanted: Bool { app.settings[SettingKeys.nextEdit] && app.settings[SettingKeys.suggestions] != .off }
 
     /// On: starts the model now, so the first edit doesn't wait for its download. Off: stops it, giving its memory back.
-    /// Only on a change: a next edit already on when Kelp opens starts with the first edit that asks for it.
+    /// Only on a change once the settings were read: a next edit already on when Kelp opens starts with the first edit
+    /// that asks for it, not with Kelp (its settings arriving after this part was made aren't the switch moving).
     func followNextEdit() {
+        settingsWereRead = app.settings.loaded
         track(owner: self, now: false) { [weak self] in
-            self?.nextEditWanted ?? false
-        } changed: { [weak self] on in
+            [self?.app.settings.loaded ?? false, self?.nextEditWanted ?? false]
+        } changed: { [weak self] now in
+            guard let self else { return }
+            let wereRead = settingsWereRead, on = now[1]
+            settingsWereRead = now[0]
+            guard wereRead else { return }
             Task { [weak self] in
                 if on { await self?.startNextEdit() } else { await self?.stopNextEdit() }
             }

@@ -24,7 +24,7 @@ package final class SettingsStore {
     }
     /// Whether the daemon's settings were asked for once (read, or not readable). The window waits for this to show
     /// its first frame.
-    private(set) var loaded = false
+    package internal(set) var loaded = false   // set only by `load` (tests aside)
 
     /// Takes the daemon's settings (from its event, or a load). A key still being set here keeps the value set here.
     func received(_ incoming: [String: JSONValue]) {

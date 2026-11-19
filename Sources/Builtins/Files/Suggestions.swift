@@ -43,6 +43,8 @@ final class Suggestions {
     var setupError: String?
     /// Turn On is finding or getting a model.
     @ObservationIgnored var turningOn = false
+    /// Whether the settings had been read when the next edit's switch was last looked at (`followNextEdit`).
+    @ObservationIgnored var settingsWereRead = false
     /// The next edit's llama-server: starting (the first time, downloading its model), or what it needs.
     var nextEditSetup: NextEditSetup?
     enum NextEditSetup: Equatable { case starting, needs(OllamaSetup), failed }

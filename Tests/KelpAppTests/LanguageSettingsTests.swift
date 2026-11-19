@@ -237,6 +237,14 @@ func aCloudProviderIsntAskedForThisMacsModel(cloud: SuggestCloud?, model: String
     _ = testHome
     let app = AppModel(builtins: [])
     let suggestions = Suggestions.of(app)
+    // Settings read after the part was made, with the next edit on: Kelp opening, which starts nothing.
+    app.settings.apply(["editor.suggestions": .string("local"), "editor.nextEdit": .bool(true)])
+    app.settings.loaded = true   // as `load` does once the daemon answered
+    try await waitFor { suggestions.settingsWereRead }
+    await Task {}.value   // a start it began would have run by now, on the main actor before this
+    #expect(suggestions.nextEditSetup == nil)
+    app.settings.apply(["editor.suggestions": .string("local"), "editor.nextEdit": .bool(false)])
+    await Task {}.value   // `track` looks again on the main queue's next turn: let it see the switch off
     app.settings.apply(["editor.suggestions": .string("local"), "editor.nextEdit": .bool(true)])   // as the daemon's echo
     try await waitFor { suggestions.nextEditSetup == .failed }
     app.settings.apply(["editor.suggestions": .string("local"), "editor.nextEdit": .bool(false)])
