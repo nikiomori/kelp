@@ -317,7 +317,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             text.append(
                 NSAttributedString(
                     string: "▍",
-                    attributes: [.foregroundColor: NSColor.systemOrange, .font: NSFont.ui(TextSize.caption)]))
+                    attributes: [.foregroundColor: NSColor.secondaryLabelColor, .font: NSFont.ui(TextSize.caption)]))
         }
         text.append(
             NSAttributedString(

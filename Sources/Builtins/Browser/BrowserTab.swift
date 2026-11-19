@@ -105,7 +105,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     var toolTip: String? {
         page.url.map {
             agent
-                ? String(localized: "\($0.absoluteString)\nAn agent's page: cookies and storage of its own")
+                ? String(localized: "\($0.absoluteString)\nAn agent’s page: cookies and storage of its own")
                 : $0.absoluteString
         }
     }
@@ -243,7 +243,8 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     func showAgentBar() {
         if agentSlot.subviews.isEmpty {
             let icon = NSImageView(image: .symbol("cursorarrow.motionlines"))
-            icon.contentTintColor = .themeAccent
+            icon.symbolConfiguration = .chrome()
+            icon.contentTintColor = .secondaryLabelColor
             agentLabel.font = .ui(TextSize.row)
             agentLabel.textColor = .secondaryLabelColor
             agentLabel.lineBreakMode = .byTruncatingTail

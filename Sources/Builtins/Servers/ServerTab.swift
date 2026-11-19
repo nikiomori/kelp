@@ -84,7 +84,7 @@ struct ServerView: View {
             VStack(spacing: 8) {
                 Text(
                     error == nil
-                        ? String(localized: "Kelp connects when you ask: it doesn't dial a machine by itself.")
+                        ? String(localized: "Kelp connects when you ask: it doesn’t dial a machine by itself.")
                         : String(localized: "Check that the machine is on and on this network, then try again."))
                 if let error {
                     Text(error).font(.ui(TextSize.caption).monospaced()).foregroundStyle(.secondary).textSelection(

@@ -293,8 +293,7 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             switch rows[row] {
             case .heading: TextSize.of(Metrics.rowSection)
             case .database, .asks, .use(empty: true): TextSize.of(Metrics.rowTwoLine)
-            case .problem: TextSize.of(Metrics.row) - 4
-            case .run, .group, .project, .use: TextSize.of(Metrics.row)
+            case .problem, .run, .group, .project, .use: TextSize.of(Metrics.row)
             }
         let part = cards[row]
         return base + (part?.first == true ? ListRowView.cardPad : 0) + (part?.last == true ? ListRowView.cardPad : 0)

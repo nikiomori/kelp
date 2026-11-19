@@ -62,12 +62,12 @@ struct DatabasePanelRows {
         let branch = app.worktree(panel.workspace)?.branch ?? ""
         let name = NSTextField.label(
             under ? String(localized: "Copy for \(branch)") : Self.shownName(db),
-            font: .ui(TextSize.row, weight: .medium), color: color?.color ?? .labelColor)
+            font: .ui(TextSize.row), color: color?.color ?? .labelColor)
         var first: [NSView] = [name, NSView()]
         if db.passwordIn != nil {   // the password is still in the app it came from; macOS asks once, when it's opened
             let key = NSImageView(image: .symbol("key"))
             key.symbolConfiguration = .chrome(Metrics.iconSmall)
-            key.contentTintColor = .tertiaryLabelColor
+            key.contentTintColor = .secondaryLabelColor
             key.toolTip = String(
                 localized: "Its password is read from the app it came from when you open it: macOS asks once.")
             first.append(key)
@@ -155,7 +155,7 @@ struct DatabasePanelRows {
         let icon = projectIcon(size: 16)
         let slot = NSStackView(views: [icon])
         slot.widthAnchor.constraint(equalToConstant: 19).isActive = true   // the column of the badges under it
-        let name = NSTextField.label(projectTitle, font: .ui(TextSize.row, weight: .medium))
+        let name = NSTextField.label(projectTitle, font: .ui(TextSize.row))
         let views = [slot, name, NSView()] + (count > 0 ? [capsule(count)] : [])   // with none, the last row says so
         return line(views, inset: Self.inCard, trailing: Metrics.insetTrailing)
     }
@@ -198,7 +198,7 @@ struct DatabasePanelRows {
         fold.isHidden = true
         let slot = NSStackView(views: [folder, fold])
         slot.widthAnchor.constraint(equalToConstant: 19).isActive = true
-        let title = NSTextField.label(name, font: .ui(TextSize.row, weight: .medium))
+        let title = NSTextField.label(name, font: .ui(TextSize.row))
         let row = line([slot, title, NSView(), capsule(count)], inset: Self.inCard, trailing: Metrics.insetTrailing)
         (row as? HoverRow)?.hovered = [fold]
         (row as? HoverRow)?.resting = [folder]

@@ -63,10 +63,10 @@ final class PortsView: NSView {
     private func showEmpty(_ none: Bool) {
         list.isHidden = none
         empty.show(
-            none ? String(localized: "Running on This Screen") : nil, symbol: "network",
+            none ? String(localized: "Nothing running on this screen") : nil, symbol: "network",
             text: String(
                 localized:
-                    "Servers you start in this screen's terminals and agents show up here. Or type an address above."))
+                    "Servers you start in this screen’s terminals and agents show up here. Or type an address above."))
     }
 
     private var pages: [ServedPage]? {

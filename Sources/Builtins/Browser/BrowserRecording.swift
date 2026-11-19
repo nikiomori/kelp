@@ -163,7 +163,7 @@ private protocol FrameSink: Actor {
 
 /// The error when no frame came, because the tab wasn't on screen or the user had the page the whole time.
 private let nothingRecorded = RPCError.internalError(
-    "Nothing was recorded: the page's tab wasn't on screen. Show it and record again.")
+    "Nothing was recorded: the page’s tab wasn’t on screen. Show it and record again.")
 
 private actor MovieSink: FrameSink {
     private let writer: AVAssetWriter
@@ -230,7 +230,7 @@ private actor MovieSink: FrameSink {
         let writer = writer
         await withCheckedContinuation { done in writer.finishWriting { done.resume() } }
         guard writer.status == .completed else {
-            throw RPCError.internalError("Couldn't write the video: \(writer.error?.localizedDescription ?? "")")
+            throw RPCError.internalError("Couldn’t write the video: \(writer.error?.localizedDescription ?? "")")
         }
     }
 }
@@ -248,7 +248,7 @@ private actor GIFSink: FrameSink {
             let file = CGImageDestinationCreateWithURL(
                 url as CFURL, UTType.gif.identifier as CFString, Int(PageRecording.longest * PageRecording.fps) + 1, nil
             )
-        else { throw RPCError.internalError("Can't write \(url.path)") }
+        else { throw RPCError.internalError("Can’t write \(url.path)") }
         CGImageDestinationSetProperties(
             file, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
         self.file = file
@@ -282,6 +282,6 @@ private actor GIFSink: FrameSink {
     func finish(at time: TimeInterval) async throws {
         put(until: time)
         guard frames > 0 else { throw nothingRecorded }
-        guard CGImageDestinationFinalize(file) else { throw RPCError.internalError("Couldn't write the GIF") }
+        guard CGImageDestinationFinalize(file) else { throw RPCError.internalError("Couldn’t write the GIF") }
     }
 }

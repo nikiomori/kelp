@@ -132,7 +132,7 @@ struct AgentPageCard: View {
             Button(shown.page.holder == .agent ? String(localized: "Take Over") : String(localized: "Hand Back")) {
                 AgentPages.of(app).handle(shown.id)?.hold(shown.page.holder == .agent)
             }
-            .controlSize(.small)
+            .buttonStyle(BarButtonStyle())   // one system button in a card; the second is a word on the grey plate
         }
     }
 

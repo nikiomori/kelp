@@ -12,7 +12,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         var on = true, column = "", op = Condition.equal, value = ""
     }
     enum Condition: String, CaseIterable {
-        case equal = "=", notEqual = "≠", contains = "contains", notContains = "doesn't contain",
+        case equal = "=", notEqual = "≠", contains = "contains", notContains = "doesn’t contain",
             startsWith = "starts with", greater = ">", less = "<", isNull = "is NULL", isNotNull = "is not NULL",
             isIn = "in"
 
@@ -21,7 +21,7 @@ final class DatabaseFilters: NSObject, NSTextFieldDelegate {
         var title: String {
             switch self {
             case .contains: String(localized: "contains")
-            case .notContains: String(localized: "doesn't contain")
+            case .notContains: String(localized: "doesn’t contain")
             case .startsWith: String(localized: "starts with")
             case .isNull: String(localized: "is NULL")
             case .isNotNull: String(localized: "is not NULL")

@@ -43,7 +43,7 @@ extension BrowserTab {
     /// Reloads the page when WebKit's page process quits (a crash, memory pressure), because the pane stays white until
     /// something loads again.
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        if drive != nil { noteLog("[page] the page's process ended; loaded again") }
+        if drive != nil { noteLog("[page] the page’s process ended; loaded again") }
         reloadPage()
     }
     func showError(_ error: Error) {

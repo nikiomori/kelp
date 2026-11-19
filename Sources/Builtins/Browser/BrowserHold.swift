@@ -48,7 +48,7 @@ extension BrowserTab {
     /// `ended`, the question is over, and the page goes back to the agent when the user said Done (`allow`). The answer
     /// says where the page is now.
     func ask(_ args: JSONValue) async throws -> JSONValue {
-        guard let drive else { throw RPCError.invalidParams("That tab shows no page of an agent's.") }
+        guard let drive else { throw RPCError.invalidParams("That tab shows no page of an agent’s.") }
         if let text = args["text"]?.string {
             drive.asked = (text, args["session"]?.string ?? "")
             drive.takenOver = true
@@ -103,7 +103,7 @@ extension BrowserTab {
         }
         return (
             String(localized: "\(who) is using this page"), String(localized: "Take Over"),
-            String(localized: "Your first click or key in the page takes it too; scrolling doesn't")
+            String(localized: "Your first click or key in the page takes it too; scrolling doesn’t")
         )
     }
 }

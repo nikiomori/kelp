@@ -189,13 +189,13 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
             chevron.contentTintColor = .secondaryLabelColor
             let capsule = CountCapsule()   // the title and capsule every list's section has, as the panel's do
             capsule.text = count.formatted()
-            return line([chevron, DatabaseSheet.section(title), NSView(), capsule], inset: 6)
+            return line([chevron, DatabaseSheet.section(title), NSView(), capsule], inset: Metrics.inset)
         case .table(let table):
             let icon = symbol(table.kind == "view" ? "eye" : "tablecells")
             let name = NSTextField.label(
                 table.name.split(separator: ".").last.map(String.init) ?? table.name, font: .uiMono(TextSize.caption))
             name.lineBreakMode = .byTruncatingMiddle   // "cadaster_lan…_2021": these names differ at their ends
-            let row = line([icon, name, NSView()], inset: 20)
+            let row = line([icon, name, NSView()], inset: Metrics.inset + Metrics.indentStep)
             row.toolTip = [table.name, table.rows.map { String(localized: "\($0) rows") }, table.comment].compactMap {
                 $0
             }
@@ -204,11 +204,11 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         case .function(let name):
             let label = NSTextField.label(name, font: .uiMono(TextSize.caption))
             label.lineBreakMode = .byTruncatingMiddle
-            return line([symbol("function"), label, NSView()], inset: 20)
+            return line([symbol("function"), label, NSView()], inset: Metrics.inset + Metrics.indentStep)
         case .newQuery:
             return line(
                 [symbol("plus"), NSTextField.label(String(localized: "New Query"), font: .ui(TextSize.row)), NSView()],
-                inset: 8)
+                inset: Metrics.inset)
         case .saved(let query):
             return twoLines(symbol("doc.text"), query.name, query.sql)
         case .run(let run):
@@ -234,7 +234,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
         words.orientation = .vertical
         words.alignment = .leading
         words.spacing = Metrics.lineGap
-        let row = line([icon, words, NSView()], inset: 8)
+        let row = line([icon, words, NSView()], inset: Metrics.inset)
         row.toolTip = top + "\n" + under
         return row
     }
@@ -242,7 +242,7 @@ final class DatabaseSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegat
     private func line(_ views: [NSView], inset: CGFloat) -> NSView {
         let stack = NSStackView(views: views)
         stack.spacing = Metrics.gap
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: inset, bottom: 0, right: 8)
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: inset, bottom: 0, right: Metrics.insetTrailing)
         return stack
     }
     private func symbol(_ name: String) -> NSImageView {
@@ -297,7 +297,17 @@ extension DatabaseSidebar: NSMenuDelegate {
             menu.add(String(localized: "Open")) { [weak self] in self?.onSaved(query) }
             menu.add(String(localized: "Copy SQL")) { copyText(query.sql) }
             menu.addItem(.separator())
-            menu.add(String(localized: "Forget")) { [weak self] in self?.onForget(query) }
+            menu.add(String(localized: "Forget…")) { [weak self] in
+                Task {
+                    guard
+                        await confirm(
+                            String(localized: "Forget \(query.name)?"),
+                            detail: String(localized: "This can’t be undone."),
+                            action: String(localized: "Forget"), destructive: true)
+                    else { return }
+                    self?.onForget(query)
+                }
+            }
         case .run(let run):
             menu.add(String(localized: "Show Rows")) { [weak self] in self?.onRun(run, false) }
             if run.session != nil, run.state == .done, (run.changed ?? 0) > 0 {   // an agent's change can be put back

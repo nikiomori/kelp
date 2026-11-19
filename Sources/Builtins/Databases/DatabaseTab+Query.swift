@@ -73,9 +73,11 @@ extension DatabaseTab {
         grid.editable = false
         grid.source = nil
         grid.show(columns: [], rows: [])
+        let key = app.extensions.keyText("databases.run") ?? String(localized: "Run")   // the key as rebound
         empty.show(
             String(localized: "Run a Statement"), symbol: "play.fill",
-            text: String(localized: "⌘↩ runs the statement the cursor is in. Words from the tables come as you type."))
+            text: String(
+                localized: "\(key) runs the statement the cursor is in. Words from the tables come as you type."))
         status.stringValue = ""
         editor.focus()
     }

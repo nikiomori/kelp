@@ -100,9 +100,11 @@ struct MachineView: View {
             case .sleeping, .off:
                 // What the machine is stays in view: its files, and its size to change while it's shut down.
                 ScrollView {
-                    VStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
                         asleep(info).frame(maxWidth: .infinity).padding(.vertical, 24)
-                        machine(info)
+                        // At the running view's edge, so the facts don't move when the machine sleeps.
+                        machine(info).padding(.horizontal, Metrics.pageInset - Metrics.inset)
+                            .padding(.bottom, Metrics.pageTop)
                     }
                 }
             }
@@ -118,7 +120,7 @@ struct MachineView: View {
     private func failed(_ info: VMInfo) -> some View {
         let notMade = info.notMade == true
         return EmptyState(
-            notMade ? String(localized: "\(name) wasn't made") : String(localized: "\(name) didn't start"),
+            notMade ? String(localized: "\(name) wasn’t made") : String(localized: "\(name) didn’t start"),
             symbol: "exclamationmark.triangle"
         ) {
             Text(info.detail ?? "").font(.ui(TextSize.caption).monospaced()).textSelection(.enabled)
@@ -147,7 +149,7 @@ struct MachineView: View {
                 info.state == .sleeping
                     ? String(
                         localized:
-                            "It holds none of this Mac's memory. The next command wakes it in under a second, with all it ran."
+                            "It holds none of this Mac’s memory. The next command wakes it in under a second, with all it ran."
                     )
                     : String(localized: "The next command boots it in a few seconds."))
         } actions: {
@@ -222,7 +224,7 @@ struct MachineView: View {
                 Button(String(localized: "Type Password")) { Task { _ = await app.call(VMType(name: name)) } }
                     .help(
                         String(
-                            localized: "Types this machine's password into the field that asks for it, in its window."))
+                            localized: "Types this machine’s password into the field that asks for it, in its window."))
             }
             .controlSize(.small)
         }
@@ -345,7 +347,7 @@ struct MachineView: View {
     private func memory(_ info: VMInfo) -> String {
         let given = bytes(info.machine.memoryMiB << 20)
         guard let now = info.memoryMiB else { return given }
-        return String(localized: "\(bytes(now << 20)) of the Mac's (\(given) given)")
+        return String(localized: "\(bytes(now << 20)) of the Mac’s (\(given) given)")
     }
 
     /// What a disk of `gib` may grow to: the next few of the usual sizes, up to the 2 TB a machine may have.
@@ -359,7 +361,7 @@ struct MachineView: View {
                     String(localized: "Grow \(name)'s disk to \(bytes(gib << 30))?"),
                     detail: String(
                         localized:
-                            "A disk can't be made smaller again. It takes room on this Mac only as it fills."),
+                            "A disk can’t be made smaller again. It takes room on this Mac only as it fills."),
                     action: String(localized: "Grow"))
             else { return }
             resize(disk: gib)

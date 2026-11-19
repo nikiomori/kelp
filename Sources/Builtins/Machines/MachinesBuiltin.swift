@@ -10,7 +10,7 @@ extension Builtins {
     /// folders. It opens from the sidebar's Machines block, which is there once a machine exists. File › New Machine…
     /// makes the first one.
     package static let machines = Builtin(
-        "kelp.machines", "Machines", "Kelp's virtual machines: what runs in each, its ports and folders.",
+        "kelp.machines", "Machines", "Kelp’s virtual machines: what runs in each, its ports and folders.",
         icon: "shippingbox"
     ) { app in
         return Contributions(

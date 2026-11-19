@@ -30,7 +30,7 @@ enum Machines {
             (String(localized: "macOS…"), "macos", silicon),
             (
                 String(localized: "Android"), "android",
-                sdk ? nil : String(localized: "Needs Android Studio's SDK with an arm64 system image")
+                sdk ? nil : String(localized: "Needs Android Studio’s SDK with an arm64 system image")
             ),
             (String(localized: "iOS"), "ios", xcode ? nil : String(localized: "Needs Xcode with an iOS simulator"))
         ]
@@ -55,7 +55,7 @@ enum Machines {
             guard shown(fromFile) else { return kinds }
             let file = QuickItem(
                 fromFile,
-                detail: String(localized: "macOS from a restore image (.ipsw), Linux from a cloud image's raw disk"),
+                detail: String(localized: "macOS from a restore image (.ipsw), Linux from a cloud image’s raw disk"),
                 icon: "doc", open: { machineFromFile(app) })
             return kinds + [file]
         }
@@ -66,7 +66,7 @@ enum Machines {
         Task {
             let panel = NSOpenPanel()
             panel.message = String(
-                localized: "A macOS restore image (.ipsw) or a Linux cloud image's raw disk (.raw, .img)")
+                localized: "A macOS restore image (.ipsw) or a Linux cloud image’s raw disk (.raw, .img)")
             panel.allowedContentTypes = ["ipsw", "raw", "img"].compactMap { UTType(filenameExtension: $0) }
             guard await runSheet(panel) == .OK, let url = panel.url else { return }
             newMachine(app, url.pathExtension.lowercased() == "ipsw" ? "macos" : "linux", file: url.path)
@@ -174,9 +174,9 @@ enum Machines {
             let size = info.diskMiB.map { bytes($0 << 20) }
             let detail =
                 size.map {
-                    String(localized: "Its disk and everything on it (\($0)) are erased. This can't be undone.")
+                    String(localized: "Its disk and everything on it (\($0)) are erased. This can’t be undone.")
                 }
-                ?? String(localized: "Its disk and everything on it are erased. This can't be undone.")
+                ?? String(localized: "Its disk and everything on it are erased. This can’t be undone.")
             let asked =
                 info.state == .creating
                 ? await confirm(
@@ -221,7 +221,7 @@ enum Machines {
             case .firstBoot: String(localized: "Setting macOS up (a few minutes)")
             case .lettingIn: String(localized: "Letting Kelp in")
             case .device: String(localized: "Making its device from \(what)")
-            case .building: String(localized: "Building Kelp's runner")
+            case .building: String(localized: "Building Kelp’s runner")
             case .starting, nil: String(localized: "Starting for the first time")
             }
         return text + (vmInfo.progress.map { " · " + $0.formatted(.percent.precision(.fractionLength(0))) } ?? "")

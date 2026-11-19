@@ -69,7 +69,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     let draft = Debounce()
     let status = NSTextField(labelWithString: "")
     let changes = NSTextField(labelWithString: "")
-    let askBar = NSStackView()
+    let askBar = FillStack()
     let askText = NSTextField(labelWithString: "")
     var asking: DatabaseRun?
     /// The server's version once it has been asked, for the capsule.
@@ -93,7 +93,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     lazy var save = NSButton(title: String(localized: "Save"), target: self, action: #selector(saveEdits))
     lazy var showSQL = NSButton(title: String(localized: "Show SQL"), target: self, action: #selector(showEdits))
     lazy var discard = NSButton(
-        title: String(localized: "Discard"), target: self, action: #selector(discardEdits))
+        title: String(localized: "Discard…"), target: self, action: #selector(discardEdits))
     lazy var ask = NSButton(title: "", target: self, action: #selector(askAgent))
     lazy var previous = IconButton(.symbol("chevron.left"), tip: String(localized: "Previous Rows")) { [weak self] in
         self?.turn(-1)
@@ -103,11 +103,12 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     }
     lazy var addRow = ClosureButton(title: String(localized: "Add Row")) { [weak self] in self?.grid.addRow() }
     lazy var columnsButton = ClosureButton(title: String(localized: "Columns")) { [weak self] in self?.columnsMenu() }
-    lazy var reload = IconButton(.symbol("arrow.clockwise"), tip: String(localized: "Read Again")) { [weak self] in
+    lazy var reload = IconButton(.symbol("arrow.clockwise"), tip: String(localized: "Refresh")) { [weak self] in
         self?.refresh()
     }
     lazy var filterToggle = IconButton(
-        .symbol("line.3.horizontal.decrease.circle"), tip: String(localized: "Filters (⇧⌘F)")
+        .symbol("line.3.horizontal.decrease.circle"),
+        tip: app.extensions.hint(String(localized: "Filters"), "databases.filters")
     ) { [weak self] in self?.toggleFilters() }
     lazy var detailsToggle = IconButton(.symbol("sidebar.right"), tip: String(localized: "Details")) { [weak self] in
         guard let self else { return }
@@ -163,11 +164,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
 
     func close() async -> Bool {
         keepDraft()
-        guard isEdited else { return true }
-        return await confirm(
-            String(localized: "Save the changes to \(address.name)?"),
-            detail: String(localized: "\(grid.edits.count) changes you made aren't saved."),
-            action: String(localized: "Close Without Saving"))
+        return isEdited ? await settleEdits() : true
     }
 
     // MARK: Layout
@@ -239,8 +236,10 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         capsuleButton.setAccessibilityElement(true)   // one button to VoiceOver, named in `capsuleChanged`
         capsuleButton.setAccessibilityRole(.button)
         for button in [run, explain] { button.setContentHuggingPriority(.required, for: .horizontal) }
-        run.toolTip = String(localized: "Run (⌘↩)")
-        explain.toolTip = String(localized: "Explain the Statement")
+        // The keys are the commands' (DatabasesBuiltin), as Settings › Keyboard has them.
+        run.toolTip = app.extensions.hint(String(localized: "Run"), "databases.run")
+        explain.toolTip = app.extensions.hint(String(localized: "Explain the Statement"), "databases.explain")
+        save.toolTip = app.extensions.hint(String(localized: "Save Changes"), "databases.save")
         filterToggle.keyEquivalent = "f"
         filterToggle.keyEquivalentModifierMask = [.command, .shift]
         run.keyEquivalent = "\r"
@@ -290,13 +289,13 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
             button.controlSize = .small
         }
         let mark = NSImageView(image: .symbol("exclamationmark.bubble"))
+        mark.symbolConfiguration = .chrome()
         mark.contentTintColor = .textOrange
         for v in [mark, askText, NSView(), show, deny, allow] { askBar.addArrangedSubview(v) }
         askBar.spacing = Metrics.gapWide
         askBar.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         askBar.heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.contentBar)).isActive = true
-        askBar.wantsLayer = true
-        askBar.layer?.backgroundColor = NSColor.fillTint(.systemOrange).cgColor
+        askBar.fill = .fillTint(.systemOrange)   // read again on a light / dark change
         askBar.isHidden = true
     }
 

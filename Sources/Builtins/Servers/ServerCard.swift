@@ -31,6 +31,7 @@ struct ServerSection: View {
                     close()
                     ServerActions.openHtop(app, host)
                 }
+                .buttonStyle(BarButtonStyle())   // one system button in a card; the second is a word on the grey plate
             }
             .controlSize(.small)
         }

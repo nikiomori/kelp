@@ -42,7 +42,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         column.resizingMask = .autoresizingMask
         table.addTableColumn(column)
         table.headerView = nil
-        table.rowHeight = Metrics.rowTwoLine + 4
+        table.rowHeight = TextSize.of(Metrics.rowTwoLine)
         table.dataSource = self
         table.delegate = self
         table.style = .plain
@@ -209,6 +209,7 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         close.keyEquivalent = "\r"
         let buttons = NSStackView(views: [NSView(), close])
         let icon = NSImageView(image: .symbol("checkmark.circle.fill"))
+        icon.symbolConfiguration = .chrome(Metrics.iconLarge)
         icon.contentTintColor = .secondaryLabelColor   // done, nothing waits: a filled grey check, no green
         let heading = NSStackView(views: [icon, title])
         heading.spacing = Metrics.gapWide

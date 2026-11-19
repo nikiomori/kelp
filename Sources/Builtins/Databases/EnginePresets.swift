@@ -26,26 +26,26 @@ struct EnginePreset {
         .init(
             name: "Appwrite", letters: "Aw", color: "FD366E", engine: .appwrite,
             hint:
-                "Endpoint: your Appwrite's address. Project ID: the project's Settings. API key: Overview › API keys, "
+                "Endpoint: your Appwrite’s address. Project ID: the project’s Settings. API key: Overview › API keys, "
                 + "with databases.read, tables.read, rows.read and rows.write. No SQL there: Kelp turns its pages, "
-                + "filters and edits into Appwrite's queries."),
+                + "filters and edits into Appwrite’s queries."),
         .init(
             name: "Supabase", letters: "Sb", color: "3ECF8E", dark: true, engine: .postgres, port: 5432,
-            ssl: "require", hint: "Project Settings › Database › Connection string (or the pooler's, port 6543).",
+            ssl: "require", hint: "Project Settings › Database › Connection string (or the pooler’s, port 6543).",
             speaks: "Postgres"),
         .init(
             name: "Neon", letters: "Ne", color: "00E599", dark: true, engine: .postgres, port: 5432, ssl: "require",
-            hint: "The project's Dashboard › Connection Details: paste the whole postgres:// line.",
+            hint: "The project’s Dashboard › Connection Details: paste the whole postgres:// line.",
             speaks: "Postgres"),
         .init(
             name: "CockroachDB", letters: "Cr", color: "6933FF", engine: .postgres, port: 26257, ssl: "require",
             hint: "Connect › General connection string.", speaks: "Postgres"),
         .init(
             name: "Redshift", letters: "Rs", color: "205B8F", engine: .postgres, port: 5439, ssl: "require",
-            hint: "The cluster's Endpoint, without its :5439/db tail.", speaks: "Postgres"),
+            hint: "The cluster’s Endpoint, without its :5439/db tail.", speaks: "Postgres"),
         .init(
             name: "Timescale", letters: "Ts", color: "FDB515", dark: true, engine: .postgres, port: 5432,
-            ssl: "require", hint: "The service's Connection info.", speaks: "Postgres"),
+            ssl: "require", hint: "The service’s Connection info.", speaks: "Postgres"),
         .init(
             name: "PlanetScale", letters: "Ps", color: "2C2C2E", engine: .mysql, port: 3306, ssl: "require",
             hint: "Connect › General: host, user and password of a branch.", speaks: "MySQL"),
@@ -98,8 +98,8 @@ final class EngineTile: PointerControl {
         var views: [NSView] = [mark, name]
         if let speaks = preset.speaks {
             let under = NSTextField(labelWithString: speaks)
-            under.font = .ui(TextSize.micro)
-            under.textColor = .tertiaryLabelColor
+            under.font = .ui(TextSize.caption)
+            under.textColor = .secondaryLabelColor
             views.append(under)
         }
         let stack = NSStackView(views: views)

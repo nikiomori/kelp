@@ -131,7 +131,7 @@ extension BrowserTab {
             Banner.show(
                 source.isEmpty
                     ? String(localized: "Element details copied")
-                    : String(localized: "Copied \(source) and the element's details"))
+                    : String(localized: "Copied \(source) and the element’s details"))
             return
         }
         guard let sid = app.workbench.lastSession else {

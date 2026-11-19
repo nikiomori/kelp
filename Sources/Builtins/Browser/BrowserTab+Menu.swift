@@ -76,7 +76,7 @@ extension BrowserTab {
             .state = viewport == size ? .on : .off
         }
         if let viewport, !sizes.contains(where: { $0.1 == viewport }) {
-            menu.add(String(localized: "\(Int(viewport.width))×\(Int(viewport.height)) (the agent's)")) {}.state = .on
+            menu.add(String(localized: "\(Int(viewport.width))×\(Int(viewport.height)) (the agent’s)")) {}.state = .on
         }
         let item = NSMenuItem(title: String(localized: "Page Size"), action: nil, keyEquivalent: "")
         item.submenu = menu

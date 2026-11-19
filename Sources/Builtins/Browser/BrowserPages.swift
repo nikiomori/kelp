@@ -111,6 +111,7 @@ final class PageSet {
             let pill = pills[who] ?? makePill(who, own: own)
             if pill.superview == nil { row.insertArrangedSubview(pill, at: min(index, row.arrangedSubviews.count)) }
             pill.title = name(who, page)
+            pill.toolTip = pill.title   // the whole of it, when the pill ends in "…"
             pill.restFill = (own ? nil : who) == shown ? .fillSelected : .fillRest
         }
     }
@@ -119,7 +120,9 @@ final class PageSet {
         let pill = PointerButton(title: "") { [weak self] in self?.show(own ? nil : who) }
         pill.padding = Metrics.gap
         pill.font = .ui(TextSize.caption)
-        pill.lineBreakMode = .byTruncatingTail
+        pill.lineBreakMode = .byTruncatingTail   // a long task or step ends in "…", at a word's edge or not
+        pill.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        pill.widthAnchor.constraint(lessThanOrEqualToConstant: Metrics.popoverWidth).isActive = true
         pills[who] = pill
         return pill
     }
@@ -129,6 +132,6 @@ final class PageSet {
     private func name(_ who: String, _ page: BrowserTab) -> String {
         let whose = page.driverName(who)
         let step = page.drive?.lastStep
-        return [String(whose.prefix(28)), step.map { String($0.prefix(28)) }].compactMap { $0 }.joined(separator: " · ")
+        return [whose, step].compactMap { $0 }.joined(separator: " · ")
     }
 }

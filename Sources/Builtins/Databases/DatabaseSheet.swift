@@ -89,23 +89,21 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         tiles.alignment = .leading
         tiles.spacing = 2
         layTiles("")
-        let later = PointerButton(
-            title: String(localized: "Not yet: SQL Server, ClickHouse, MongoDB, Redis, Oracle — ask for one")
-        ) {
+        let ask = ClosureButton(title: String(localized: "Ask for One")) {
             if let url = URL(string: "https://github.com/nikiomori/kelp/issues/new") { PreviewLinks.openOutside(url) }
         }
-        later.font = .ui(TextSize.caption)
-        later.contentTintColor = .tertiaryLabelColor
-        later.underlinesOnHover = true
+        ask.bezelStyle = .push
+        ask.controlSize = .small
+        let later = NSStackView(
+            views: [Self.small(String(localized: "Not yet: SQL Server, ClickHouse, MongoDB, Redis, Oracle.")), ask])
+        later.spacing = Metrics.gapWide
 
         found.orientation = .vertical
         found.alignment = .leading
         found.spacing = 0
         foundTitle.isHidden = true
-        let file = PointerButton(title: String(localized: "Import from File…")) { [weak self] in self?.importFile() }
-        file.contentTintColor = .linkColor
-        file.font = .ui(TextSize.row)
-        file.underlinesOnHover = true
+        let file = ClosureButton(title: String(localized: "Import from File…")) { [weak self] in self?.importFile() }
+        file.bezelStyle = .push
         next.title = String(localized: "Continue")
         next.isEnabled = false
         let buttons = buttons(file, next, target: self, action: #selector(continued))
@@ -193,7 +191,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
                 : String(localized: "No password in it: the next step asks.")
         let text = NSMutableAttributedString(
             string: "\(db.engine.displayName) · \(db.database ?? db.name)\n",
-            attributes: [.font: NSFont.ui(TextSize.row, weight: .semibold), .foregroundColor: NSColor.labelColor])
+            attributes: [.font: NSFont.ui(TextSize.row, weight: .medium), .foregroundColor: NSColor.labelColor])
         text.append(
             NSAttributedString(
                 string: place + ssl + (key.isEmpty ? "" : "\n" + key),
@@ -280,7 +278,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
 
     static func mark() -> NSImageView {
         let mark = NSImageView(image: .symbol(DatabaseLook.symbol))
-        mark.symbolConfiguration = .init(pointSize: Metrics.iconMenu, weight: .regular)
+        mark.symbolConfiguration = .chrome(Metrics.iconMenu)
         mark.contentTintColor = .secondaryLabelColor
         return mark
     }
@@ -323,6 +321,7 @@ final class FoundRow: PointerControl {
             end = DatabaseSheet.small(trailing)
         } else {
             let chevron = NSImageView(image: .symbol("chevron.right"))
+            chevron.symbolConfiguration = .chrome(Metrics.iconTiny)
             chevron.contentTintColor = .tertiaryLabelColor
             end = chevron
         }
@@ -332,7 +331,7 @@ final class FoundRow: PointerControl {
         stack.alignment = .centerY
         stack.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.gap, bottom: 0, right: Metrics.gapWide)
         pin(stack)
-        heightAnchor.constraint(equalToConstant: Metrics.rowTwoLine + 4).isActive = true
+        heightAnchor.constraint(equalToConstant: TextSize.of(Metrics.rowTwoLine)).isActive = true
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(title)

@@ -139,7 +139,8 @@ private struct Meter: View {
                 Text(detail).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
             }
             if let trend, trend.count > 1 {
-                Trend(points: trend, strained: ServerReading.strained(share ?? 0)).frame(height: 28)
+                // Two caption lines tall, and taller with Text size, as the numbers over it grow.
+                Trend(points: trend, strained: ServerReading.strained(share ?? 0)).frame(height: TextSize.of(28))
             } else if let share {
                 ProgressView(value: min(1, share)).progressViewStyle(.linear).controlSize(.small)
                     .tint(ServerReading.strained(share) ? ServerReading.strainedColor : .secondary).padding(

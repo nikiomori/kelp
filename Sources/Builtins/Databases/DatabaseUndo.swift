@@ -10,19 +10,19 @@ enum DatabaseUndo {
     static func refusal(_ result: QueryResult?, readFailure: String? = nil) -> String? {
         if let readFailure { return String(localized: "Can’t read what Kelp kept of this change: \(readFailure)") }
         guard let result else {
-            return String(localized: "Kelp no longer keeps this change's rows: it keeps the latest changes only.")
+            return String(localized: "Kelp no longer keeps this change’s rows: it keeps the latest changes only.")
         }
         guard let change = result.change else {
             return String(
                 localized:
-                    "Kelp puts back the rows of one table's UPDATE, DELETE or INSERT when it kept them all as they were: not this change."
+                    "Kelp puts back the rows of one table’s UPDATE, DELETE or INSERT when it kept them all as they were: not this change."
             )
         }
         guard !key(result).isEmpty else {
             return String(localized: "\(change.tableName) has no primary key to find its rows by.")
         }
         if change.kind == .update, change.before == nil {
-            return String(localized: "Kelp didn't keep these rows as they were before the change.")
+            return String(localized: "Kelp didn’t keep these rows as they were before the change.")
         }
         return nil
     }
