@@ -122,6 +122,9 @@ extension Builtins {
                     if fileTab(app) != nil { app.workbench.openQuickly(text: ":") }
                 },
                 cmd("editor.jumpToDefinition", "Jump to Definition", "ctrl+cmd+j") { fileTab(app)?.jumpToDefinition() },
+                cmd("editor.jumpToDefinitionBeside", "Jump to Definition Beside") {
+                    fileTab(app)?.jumpToDefinition(beside: true)
+                },
                 // VS Code's Selection menu, enabled only in a code editor (AppDelegate.validateMenuItem). EditorBox
                 // explains how ⌘D, ⌘[ and ⌘] reach the editor first.
                 cmd("editor.addNextOccurrence", "Add Next Occurrence", "cmd+d") {

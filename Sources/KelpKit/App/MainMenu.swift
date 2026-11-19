@@ -181,7 +181,8 @@ extension AppDelegate {
         menuBuilder.add(
             edit, "editor.goToLine", "editor.nextProblem", "editor.previousProblem", "editor.showCompletions",
             "editor.showHover",
-            "editor.jumpToDefinition", "editor.findReferences", "editor.rename", "editor.quickFix",
+            "editor.jumpToDefinition", "editor.jumpToDefinitionBeside", "editor.findReferences", "editor.rename",
+            "editor.quickFix",
             "editor.sendToAgent",
             "editor.copyReference", "editor.copyWebLink",
             "-", "editor.fold", "editor.unfold", "editor.foldAll", "editor.foldLevel2", "editor.foldLevel3",

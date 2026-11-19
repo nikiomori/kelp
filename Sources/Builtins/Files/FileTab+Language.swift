@@ -66,9 +66,9 @@ extension FileTab {
         }
     }
 
-    /// Opens the definition of the symbol at the cursor as a tab, as the language server finds it, or says there is
-    /// none.
-    func jumpToDefinition() {
+    /// Opens the definition of the symbol at the cursor as a tab (`beside`: in a split to the right), as the language
+    /// server finds it, or says there is none.
+    func jumpToDefinition(beside: Bool = false) {
         guard let editor, let (line, column) = editor.cursor else { return }
         let filePath = path, projectRoot = root, app = app
         Task {
@@ -80,7 +80,7 @@ extension FileTab {
                 Banner.show(String(localized: "No definition found."))
                 return
             }
-            app.workbench.open(TabURI.file(loc.path, line: loc.line))
+            app.workbench.open(TabURI.file(loc.path, line: loc.line), split: beside ? .right : nil)
         }
     }
 }
