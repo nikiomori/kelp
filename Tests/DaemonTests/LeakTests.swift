@@ -26,7 +26,7 @@ import os
             shown: { $0.contains("% used") }, parse: { _ in [] })
         let ended = OSAllocatedUnfairLock(initialState: false)
         Thread.detachNewThread {
-            _ = AgentUsage.probe(probe, argv: ["/bin/bash", "-c", script], cwd: NSTemporaryDirectory())
+            _ = AgentUsage.probe(probe, argv: ["/bin/bash", "-c", script], cwd: tmp().path)
             ended.withLock { $0 = true }
         }
         #expect(try await waitFor(5) { FileManager.default.fileExists(atPath: file("child")) }, "\(why)")

@@ -279,7 +279,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
     let r = try await rig()
     defer { r.d.stop() }
     r.d.callers.strict.withLock { $0 = true }   // as a kelpd leading its own process session is
-    let out = FileManager.default.temporaryDirectory.appendingPathComponent("detached-\(UUID().uuidString.prefix(6))")
+    let out = tmp().appendingPathComponent("detached-\(UUID().uuidString.prefix(6))")
     defer { try? FileManager.default.removeItem(at: out) }
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
@@ -336,7 +336,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     let r = try await rig()
     defer { r.d.stop() }
     r.d.callers.strict.withLock { $0 = true }
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("b-\(UUID().uuidString.prefix(6))")
+    let dir = tmp().appendingPathComponent("b-\(UUID().uuidString.prefix(6))")
     let bin = dir.appendingPathComponent("Fake.app/Contents/MacOS")
     try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
@@ -395,7 +395,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
 @Test func anAgentTypedIntoAPlainTerminalIsHeldToItsRules() async throws {
     let r = try await rig()
     defer { r.d.stop() }
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ta-\(UUID().uuidString.prefix(6))")
+    let dir = tmp().appendingPathComponent("ta-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     let codex = dir.appendingPathComponent("codex"), out = dir.appendingPathComponent("pids")
@@ -445,7 +445,7 @@ func aTmuxPaneNobodysAttachedToIsNoUser() async throws {
     let r = try await rig()
     defer { r.d.stop() }
     r.d.callers.strict.withLock { $0 = true }
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("tj-\(UUID().uuidString.prefix(6))")
+    let dir = tmp().appendingPathComponent("tj-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     let out = dir.appendingPathComponent("pid")

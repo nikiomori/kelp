@@ -1,4 +1,5 @@
 import AppKit
+import TestSupport
 import Testing
 
 @testable import BuiltinFiles
@@ -12,7 +13,7 @@ import Testing
         """
     let image = try #require(
         await ArtifactShots().picture(
-            html: html, base: URL(fileURLWithPath: NSTemporaryDirectory()), key: "t", dark: false, board: false))
+            html: html, base: tmp(), key: "t", dark: false, board: false))
     #expect(image.size.width == ArtifactCard.size.width)
     #expect(abs(image.size.height / image.size.width - ArtifactCard.size.height / ArtifactCard.size.width) < 0.01)
     let rep = NSBitmapImageRep(cgImage: try #require(image.cgImage(forProposedRect: nil, context: nil, hints: nil)))

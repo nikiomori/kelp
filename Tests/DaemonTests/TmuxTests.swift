@@ -22,6 +22,7 @@ private func end(_ session: String) {
 /// still on screen), and closing the tab leaves the session running in tmux.
 @Test(.enabled(if: tmux != nil, "tmux isn't installed")) func tmuxTerminalComesBackToItsSession() async throws {
     let w = try await world()
+    defer { w.d.stop() }   // stopped on the way too (a restart): this is for a check that ends the test early
     defer { end("kelp_test") }
     let wt = try await firstWorkspace(w)
     let s: Session = try await w.c.call(
@@ -99,6 +100,7 @@ private func end(_ session: String) {
 /// and closing the tab ends the session. A restart keeps it. Commands and agents aren't wrapped.
 @Test(.enabled(if: tmux != nil, "tmux isn't installed")) func terminalsRunInTheirOwnTmuxSession() async throws {
     let w = try await world()
+    defer { w.d.stop() }
     let wt = try await firstWorkspace(w)
     _ = try await w.c.call("settings.set", .obj(["key": "terminal.tmux", "value": true]))
     let s: Session = try await w.c.call(
@@ -125,7 +127,6 @@ private func end(_ session: String) {
     let cmd: Session = try await w.c.call(
         "session.create", .obj(["worktreeId": .string(wt.id), "command": "true"]), as: Session.self)
     #expect(Tmux.session(cmd.argv) == nil)
-    w.d.stop()
 }
 
 /// A remote project's agent runs in a tmux session of its own on the host. Its status comes from the screen (it has no

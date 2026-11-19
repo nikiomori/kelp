@@ -15,7 +15,7 @@ private let env = ProcessInfo.processInfo.environment
 
 /// Past its time limit a program is stopped with what it started, even both ignoring SIGTERM.
 @Test func aSubprocessPastItsLimitStopsWithItsChildren() async throws {
-    let pidFile = NSTemporaryDirectory() + "sp-\(UUID().uuidString)"
+    let pidFile = tmp().path + "/sp-\(UUID().uuidString)"
     let script = "trap '' TERM; (trap '' TERM; while :; do sleep 0.1; done) & echo $! > \(pidFile); wait"
     let start = Date()
     let r = try await Subprocess.run(["/bin/bash", "-c", script], cwd: "/tmp", env: env, timeLimit: 0.5)
@@ -28,7 +28,7 @@ private let env = ProcessInfo.processInfo.environment
 
 /// A child left running with the pipes open (a daemon it started) doesn't hold up the result.
 @Test func aSubprocessDoesntWaitForAChildHoldingItsPipes() throws {
-    let pidFile = NSTemporaryDirectory() + "sp-\(UUID().uuidString)"
+    let pidFile = tmp().path + "/sp-\(UUID().uuidString)"
     let start = Date()
     let r = try Subprocess.run(
         ["/bin/bash", "-c", "echo hi; sleep 30 & echo $! > \(pidFile)"], cwd: "/tmp", env: env, timeLimit: 30)
@@ -44,7 +44,7 @@ private let env = ProcessInfo.processInfo.environment
 /// Once the result is back, the pipes a lingering child holds are let go: no reader thread and pipe stay for the life of
 /// the daemon. The child then can't write to them (it would have printed to nobody anyway).
 @Test func aSubprocessLetsGoOfPipesAChildStillHolds() async throws {
-    let mark = NSTemporaryDirectory() + "sp-\(UUID().uuidString)", ended = mark + ".ended"
+    let mark = tmp().path + "/sp-\(UUID().uuidString)", ended = mark + ".ended"
     defer { for f in [mark, ended] { try? FileManager.default.removeItem(atPath: f) } }
     // It writes at 3 s, times `testSlowness`: on a busy machine the pipes' 2 s run later.
     let child = "(trap '' PIPE; trap 'touch \(ended)' EXIT; sleep \(scaled(3)); echo late && touch \(mark)) &"
@@ -56,7 +56,7 @@ private let env = ProcessInfo.processInfo.environment
 
 /// A lingering child that keeps writing is let go of too, not read for as long as it lives.
 @Test func aSubprocessLetsGoOfAChildThatKeepsWriting() async throws {
-    let mark = NSTemporaryDirectory() + "sp-\(UUID().uuidString)", ended = mark + ".ended"
+    let mark = tmp().path + "/sp-\(UUID().uuidString)", ended = mark + ".ended"
     defer { for f in [mark, ended] { try? FileManager.default.removeItem(atPath: f) } }
     let child =
         "(trap '' PIPE; trap 'touch \(ended)' EXIT; for i in $(seq \(scaled(40))); do echo x || exit; sleep 0.1; done; "

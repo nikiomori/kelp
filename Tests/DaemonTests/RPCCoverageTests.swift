@@ -380,7 +380,7 @@ private func sessions(_ r: Rig) async throws -> [Session] { try await r.c.call("
 }
 
 @Test func emptyChatFoldersGoOnceNoSessionWorksInThem() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("kscr-\(UUID().uuidString)")
+    let root = tmp().appendingPathComponent("kscr-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: root) }
     let chats = ScratchChats(root: root)
     let kept = try chats.newChat(), empty = try chats.newChat(), result = try chats.newChat()

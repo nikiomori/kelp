@@ -1,11 +1,12 @@
 import Foundation
+import TestSupport
 import Testing
 
 @testable import Core
 
 /// The starter's list command must print one JSON object per line using only stock tools.
 @Test func scaffoldedExtensionWorks() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kx-\(UUID().uuidString.prefix(8))")
+    let dir = tmp().appendingPathComponent("kx-\(UUID().uuidString.prefix(8))")
     let folder = try ExtensionFiles.scaffoldExtension(id: "files", name: nil, description: "Top-level files", in: dir)
     #expect(
         try String(contentsOf: dir.appendingPathComponent("EXTENSIONS.md"), encoding: .utf8)
@@ -59,7 +60,7 @@ import Testing
 
 /// Workspaces of a project share its folder: `kelp open` from an agent means that agent's own workspace.
 @Test func workspaceOfTheCallingAgent() {
-    let dir = FileManager.default.temporaryDirectory.path
+    let dir = tmp().path
     let all = [
         Worktree(id: "w1", repoId: "r", branch: "main", path: dir),
         Worktree(id: "w2", repoId: "r", branch: "main", path: dir),
@@ -73,7 +74,7 @@ import Testing
 
 /// A worktree inside the project's folder (`.claude/worktrees/x`): a command run in it means that one, not the project.
 @Test func theDeepestWorkspaceHoldingTheFolderIsMeant() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ide-\(UUID().uuidString.prefix(6))").path
+    let dir = tmp().appendingPathComponent("ide-\(UUID().uuidString.prefix(6))").path
     let inner = dir + "/.claude/worktrees/x"
     try FileManager.default.createDirectory(atPath: inner + "/src", withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(atPath: dir) }
@@ -88,7 +89,7 @@ import Testing
 
 /// "Is this path in that folder" by what the paths are, not how they're spelled.
 @Test func aPathIsInsideAFolderAsItReallyIs() throws {
-    let base = FileManager.default.temporaryDirectory.appendingPathComponent("in-\(UUID().uuidString.prefix(6))").path
+    let base = tmp().appendingPathComponent("in-\(UUID().uuidString.prefix(6))").path
     let folder = base + "/a/b"
     try FileManager.default.createDirectory(atPath: folder + "/c", withIntermediateDirectories: true)
     try FileManager.default.createDirectory(atPath: base + "/a/bc", withIntermediateDirectories: true)

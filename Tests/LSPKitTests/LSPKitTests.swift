@@ -21,7 +21,7 @@ import Testing
 }
 
 @Test func requestsFailOnceTheServerExited() async throws {
-    let c = try #require(LSPClient(argv: ["/usr/bin/true"], root: NSTemporaryDirectory()))
+    let c = try #require(LSPClient(argv: ["/usr/bin/true"], root: tmp().path))
     #expect(try await waitFor(5) { !(c.isRunning) })
     #expect(!c.isRunning)
     await #expect(throws: RPCError.self) { _ = try await c.request("initialize", .null) }
@@ -37,7 +37,7 @@ import Testing
 func aServersErrorIsKelpsInternalOne(reply: String, result: String?) async throws {
     let script =
         "read -r line; sleep 0.2; printf 'Content-Length: \(reply.utf8.count)\\r\\n\\r\\n%s' '\(reply)'; sleep 5"
-    let c = try #require(LSPClient(argv: ["/bin/sh", "-c", script], root: NSTemporaryDirectory()))
+    let c = try #require(LSPClient(argv: ["/bin/sh", "-c", script], root: tmp().path))
     defer { c.terminate() }
     if let result {
         #expect(try await c.request("initialize", .null, timeout: 5) == .string(result))
@@ -49,7 +49,7 @@ func aServersErrorIsKelpsInternalOne(reply: String, result: String?) async throw
 }
 
 @Test func documentsAreSharedByTabs() throws {
-    let c = try #require(LSPClient(argv: ["/bin/cat"], root: NSTemporaryDirectory()))
+    let c = try #require(LSPClient(argv: ["/bin/cat"], root: tmp().path))
     let idle = Counter()
     c.onIdle = { idle.add() }
     c.open("/x.swift", text: "", languageId: "swift")
@@ -63,7 +63,7 @@ func aServersErrorIsKelpsInternalOne(reply: String, result: String?) async throw
 }
 
 @Test func sourcekitDefinition() async throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("lsp-\(UUID().uuidString.prefix(6))").path
+    let dir = tmp().appendingPathComponent("lsp-\(UUID().uuidString.prefix(6))").path
     try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
     let file = dir + "/main.swift"
     let text = "func greet() -> Int { 1 }\nlet x: String = greet()\n"
@@ -115,7 +115,7 @@ final class Counter: @unchecked Sendable {
 /// A server that's alive but stopped answering is given up on, so the manager starts a new one; it used to be handed
 /// out for good, each request waiting its full timeout.
 @Test func aServerThatStopsAnsweringCountsAsExited() async throws {
-    let c = try #require(LSPClient(argv: ["/bin/sleep", "30"], root: NSTemporaryDirectory()))
+    let c = try #require(LSPClient(argv: ["/bin/sleep", "30"], root: tmp().path))
     for _ in 0..<LSPClient.timeoutsToGiveUp {
         await #expect(throws: RPCError.self) { _ = try await c.request("x", .null, timeout: 0.1) }
     }
@@ -125,8 +125,8 @@ final class Counter: @unchecked Sendable {
 /// Edits to a server that isn't reading wait as one copy per document, the newest: they used to queue a whole
 /// document per keystroke.
 @Test func editsWaitingForASlowServerKeepOnlyTheNewest() async throws {
-    let out = FileManager.default.temporaryDirectory.appendingPathComponent("lsp-\(UUID().uuidString)").path
-    let c = try #require(LSPClient(argv: ["/bin/sh", "-c", "sleep 1; cat > '\(out)'"], root: NSTemporaryDirectory()))
+    let out = tmp().appendingPathComponent("lsp-\(UUID().uuidString)").path
+    let c = try #require(LSPClient(argv: ["/bin/sh", "-c", "sleep 1; cat > '\(out)'"], root: tmp().path))
     c.open("/x.swift", text: "", languageId: "swift")
     let big = String(repeating: "x", count: 100_000)   // more than the pipe holds: later writes wait
     for i in 0..<50 { c.change("/x.swift", text: big + "\(i)") }
@@ -141,8 +141,8 @@ final class Counter: @unchecked Sendable {
 /// An edit made after a file was closed and opened again reaches the server after that didOpen: a queued edit from
 /// before the close used to send the newest text early, in its place, and the server kept the reopened file's text.
 @Test func anEditAfterReopeningComesAfterTheOpen() async throws {
-    let out = FileManager.default.temporaryDirectory.appendingPathComponent("lsp-\(UUID().uuidString)").path
-    let c = try #require(LSPClient(argv: ["/bin/sh", "-c", "sleep 1; cat > '\(out)'"], root: NSTemporaryDirectory()))
+    let out = tmp().appendingPathComponent("lsp-\(UUID().uuidString)").path
+    let c = try #require(LSPClient(argv: ["/bin/sh", "-c", "sleep 1; cat > '\(out)'"], root: tmp().path))
     let big = String(repeating: "x", count: 100_000)   // fills the pipe: the first edit's write waits
     c.open("/x.swift", text: "", languageId: "swift")
     c.change("/x.swift", text: big)
@@ -163,14 +163,14 @@ final class Counter: @unchecked Sendable {
 /// A server that ignores SIGTERM is gone once `terminateNow` returns: the daemon execs or exits right after, and the
 /// SIGKILL `terminate` leaves for later would never come.
 @Test func aServerThatIgnoresSIGTERMIsGoneBeforeTheDaemonMovesOn() async throws {
-    let set = NSTemporaryDirectory() + "lsp-trap-\(UUID().uuidString)"
+    let set = tmp().path + "/lsp-trap-\(UUID().uuidString)"
     defer { try? FileManager.default.removeItem(atPath: set) }
     let c = try #require(
         LSPClient(
             argv: [
                 "/bin/sh", "-c", "trap '' TERM; : > '\(set)'; i=0; while [ $i -lt 600 ]; do sleep 0.1; i=$((i+1)); done"
             ],
-            root: NSTemporaryDirectory()))
+            root: tmp().path))
     let pid = try #require(c.pid)
     #expect(try await waitFor(10) { FileManager.default.fileExists(atPath: set) })   // the trap is set
     c.terminateNow()

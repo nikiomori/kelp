@@ -12,6 +12,8 @@ struct VMService: Sendable {
     let root: URL
     /// The path of kelp-vm, which sits beside kelpd.
     let helper: String
+    /// Where the Android SDK is: found (`AndroidSDK.root`) by default; a test gives its stand-in's.
+    var androidSDK: @Sendable () -> URL? = { AndroidSDK.root }
 
     init(home: URL, helper: String) {
         root = home.appendingPathComponent("vms")
@@ -197,10 +199,10 @@ struct VMService: Sendable {
             try wake(machine)
             let reply = try ask(name, .init(op: .start), wait: 620)
             try check(reply)
-            guard let adb = AndroidSDK.adb, let serial = reply.serial else {
+            guard let sdk = androidSDK(), let serial = reply.serial else {
                 throw RPCError.internalError("\(name)'s emulator has no adb serial")
             }
-            return VMConnection(ssh: [adb, "-s", serial], prefix: "")
+            return VMConnection(ssh: [AndroidSDK.adb(in: sdk), "-s", serial], prefix: "")
         }
         let ssh = ["/usr/bin/ssh", "-F", folder(name).sshConfig.path, name]
         guard let cwd else {

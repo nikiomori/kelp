@@ -159,12 +159,12 @@ import Testing
 @MainActor @Test func aProjectsMissingFolderIsFoundOffTheMainThread() async throws {
     let m = AppModel()
     m.repos = [
-        Repo(id: "r1", name: "here", path: NSTemporaryDirectory()), Repo(id: "r2", name: "gone", path: "/nope/x")
+        Repo(id: "r1", name: "here", path: tmp().path), Repo(id: "r2", name: "gone", path: "/nope/x")
     ]
     #expect(try await waitFor { m.missingFolders == ["/nope/x"] })
     // A record that moves on (a revision) keeps its folder, so no folder is looked for again until Kelp comes forward;
     // a project added is looked for, and one removed is forgotten.
-    let soon = NSTemporaryDirectory() + "kelp-soon-gone-\(UUID().uuidString)"
+    let soon = tmp().path + "/kelp-soon-gone-\(UUID().uuidString)"
     try FileManager.default.createDirectory(atPath: soon, withIntermediateDirectories: true)
     m.repos.append(Repo(id: "r3", name: "soon", path: soon))
     m.repos.append(Repo(id: "r4", name: "new", path: "/nope/y"))

@@ -11,12 +11,12 @@ import Testing
 /// Every test that starts a daemon goes through `tmp()` (TestSupport), which isolates the whole test process first.
 let testRoot = TestIsolation.root
 
-/// `ssh` that runs the command here (the host is this Mac). One for the whole test process, made before anything reads
-/// a daemon (its `Remotes` reads KELP_SSH as it starts): two tests making their own could overwrite each other's. A file
-/// `down-<host>` beside it: that host has no shared connection open (`ssh -O check` fails); `unreachable-<host>`: it
-/// can't be reached (ssh fails, 255).
+/// `ssh` that runs the command here (the host is this Mac). One for the whole test process, at the path KELP_SSH names
+/// from the start (TestSupportC), made before a test's daemon asks for it: two tests making their own could overwrite
+/// each other's. A file `down-<host>` beside it: that host has no shared connection open (`ssh -O check` fails);
+/// `unreachable-<host>`: it can't be reached (ssh fails, 255).
 let localSSH: String = {
-    let shim = tmp().appendingPathComponent("ssh")
+    let shim = URL(fileURLWithPath: ProcessInfo.processInfo.environment["KELP_SSH"] ?? "")
     try? """
     #!/bin/sh
     eval "h=\\${$#}"; case "$*" in *"-O check"*) [ -e "$(dirname "$0")/down-$h" ] && exit 255;; esac   # no connection to $h
@@ -30,7 +30,6 @@ let localSSH: String = {
     exec /bin/sh -c "$1"
     """.write(to: shim, atomically: true, encoding: .utf8)
     chmod(shim.path, 0o755)
-    setenv("KELP_SSH", shim.path, 1)
     return shim.path
 }()
 

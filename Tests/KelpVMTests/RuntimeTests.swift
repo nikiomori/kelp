@@ -84,7 +84,7 @@ import Testing
 
 /// A Linux machine's folder, nothing made in it yet (no disk: a boot fails before Virtualization runs anything).
 private func machine() throws -> URL {
-    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
+    let folder = tmp().appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     let linux = VMMachine(name: "box", os: "linux", image: "i", cpus: 2, memoryMiB: 2048, diskGiB: 8, user: "u")
     try JSONEncoder().encode(linux).write(to: folder.appendingPathComponent("machine.json"))

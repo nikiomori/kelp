@@ -105,22 +105,26 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(QuickOpen.place("https://example.com/a/b", root: nil).detail == "example.com")
 }
 
-/// ⇧⌘P's empty list starts with what was run from it last, newest first; one the menus no longer offer drops out.
-@MainActor @Test func commandsRunFromThePaletteComeBackFirst() {
-    let saved = UserDefaults.standard.stringArray(forKey: QuickOpen.usedKey)
-    defer { UserDefaults.standard.set(saved, forKey: QuickOpen.usedKey) }
-    UserDefaults.standard.removeObject(forKey: QuickOpen.usedKey)
-    func item(_ title: String, _ kind: String = "Command") -> QuickOpen.Item {
-        QuickOpen.Item(kind: kind, icon: "", title: title, detail: "File", action: {})
+extension OneAtATime {
+    /// ⇧⌘P's empty list starts with what was run from it last, newest first; one the menus no longer offer drops out.
+    @Test func commandsRunFromThePaletteComeBackFirst() {
+        let saved = UserDefaults.standard.stringArray(forKey: QuickOpen.usedKey)
+        defer { UserDefaults.standard.set(saved, forKey: QuickOpen.usedKey) }
+        UserDefaults.standard.removeObject(forKey: QuickOpen.usedKey)
+        func item(_ title: String, _ kind: String = "Command") -> QuickOpen.Item {
+            QuickOpen.Item(kind: kind, icon: "", title: title, detail: "File", action: {})
+        }
+        let pool = [
+            item("New Workspace"), item("Close Tab"), item("Appearance: Color Theme", "Setting"), item("Reload")
+        ]
+        for t in ["Close Tab", "New Workspace", "Close Tab"] { QuickOpen.remember(item(t)) }
+        QuickOpen.remember(item("Appearance: Color Theme", "Setting"))
+        QuickOpen.remember(item("Open Quickly", "File"))   // not a command: not kept
+        QuickOpen.remember(item("Gone"))
+        let used = QuickOpen.recentlyUsed(pool)
+        #expect(used.map(\.title) == ["Appearance: Color Theme", "Close Tab", "New Workspace"])
+        #expect(used.allSatisfy { $0.recent })
     }
-    let pool = [item("New Workspace"), item("Close Tab"), item("Appearance: Color Theme", "Setting"), item("Reload")]
-    for t in ["Close Tab", "New Workspace", "Close Tab"] { QuickOpen.remember(item(t)) }
-    QuickOpen.remember(item("Appearance: Color Theme", "Setting"))
-    QuickOpen.remember(item("Open Quickly", "File"))   // not a command: not kept
-    QuickOpen.remember(item("Gone"))
-    let used = QuickOpen.recentlyUsed(pool)
-    #expect(used.map(\.title) == ["Appearance: Color Theme", "Close Tab", "New Workspace"])
-    #expect(used.allSatisfy { $0.recent })
 }
 
 @MainActor @Test func notificationsReadTheFirstSentenceAsAHeadline() {
@@ -402,7 +406,7 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
     #expect(FileWatcher.isBuildOutput("/r/node_modules/a/b.js", under: ["/r/"]))
     #expect(!FileWatcher.isBuildOutput("/work/target/r/src/a.rs", under: ["/work/target/r/"]))   // the root's own folders don't count
     #expect(!FileWatcher.isBuildOutput("/elsewhere/.build/x", under: ["/r/"]))
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-fw-\(UUID().uuidString)")
+    let dir = tmp().appendingPathComponent("kelp-fw-\(UUID().uuidString)")
     try FileManager.default.createDirectory(
         at: dir.appendingPathComponent("node_modules/x"), withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
@@ -547,7 +551,8 @@ extension OneAtATime {
     other.arguments = ["30"]
     try d.run()
     try other.run()
-    defer { for p in [d, other] where p.isRunning { p.terminate() } }   // only what this test started
+    // Only what this test started; SIGKILL, as a stopped kelpd would hold a SIGTERM until it's continued.
+    defer { for p in [d, other] where p.isRunning { kill(p.processIdentifier, SIGKILL) } }
     kill(d.processIdentifier, SIGSTOP)
     await DaemonLink.stop(other.processIdentifier)
     #expect(other.isRunning)

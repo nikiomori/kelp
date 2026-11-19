@@ -2,6 +2,7 @@ import AppKit
 import Core
 import DesignKit
 import Foundation
+import TestSupport
 import Testing
 import WorkbenchKit
 
@@ -262,7 +263,7 @@ extension OneAtATime {
     }
 
     @Test func aProjectsColourShowsInTheStyleTheSettingNames() throws {
-        let here = Repo(id: "r1", name: "Atlas", path: NSTemporaryDirectory())   // a folder that's there: its menu isn't Locate…
+        let here = Repo(id: "r1", name: "Atlas", path: tmp().path)   // a folder that's there: its menu isn't Locate…
         try withSidebar(repos: [here], worktrees: [], sessions: []) { vc, o in
             #expect(vc.cards.isEmpty)
             let row = o.rect(ofRow: 0), at = o.convert(NSPoint(x: row.midX, y: row.midY), to: nil)
@@ -622,7 +623,7 @@ extension OneAtATime {
 
 /// A chat's row closes it the way its tab does, with the tab's question.
 @MainActor @Test func closingAChatFromItsRowGoesThroughItsTab() throws {
-    let here = Repo(id: "r1", name: "Atlas", path: NSTemporaryDirectory())
+    let here = Repo(id: "r1", name: "Atlas", path: tmp().path)
     let chat = Session(worktreeId: "w1", cwd: "/", command: "claude", agent: "claude", status: .working, title: "Here")
     try withSidebar(repos: [here], worktrees: [own("w1")], sessions: [chat]) { vc, o in
         let menus = try (0..<o.numberOfRows).map { row -> [String] in

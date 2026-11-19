@@ -8,7 +8,7 @@ import os
 /// The memory budget puts machines to sleep by asking them (`if-idle`): one that's in use by then refuses, and the
 /// budget goes on to the next, or says there's no room.
 @Suite struct VMBudgetTests {
-    let home = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(
+    let home = tmp().appendingPathComponent(
         "kbud-\(UUID().uuidString.prefix(6))")
     var vms: VMService { VMService(home: home, helper: "/nonexistent/kelp-vm") }
     let budget = Int(ProcessInfo.processInfo.physicalMemory >> 20) / 4

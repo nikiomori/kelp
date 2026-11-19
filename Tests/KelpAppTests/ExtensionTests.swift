@@ -16,7 +16,7 @@ import WorkbenchKit
 
 private func folder(_ files: [String: String]) throws -> URL {
     _ = testHome
-    let d = FileManager.default.temporaryDirectory.appendingPathComponent("kx-\(UUID().uuidString.prefix(8))")
+    let d = tmp().appendingPathComponent("kx-\(UUID().uuidString.prefix(8))")
     try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
     for (name, text) in files { try text.write(to: d.appendingPathComponent(name), atomically: true, encoding: .utf8) }
     return d
@@ -94,18 +94,20 @@ private func folder(_ files: [String: String]) throws -> URL {
     #expect(c.panels.map(\.id) == ["t.one.p"])
 }
 
-/// settings.json is followed, not pushed: a built-in switched off there (by the CLI, by hand) is unloaded, and the skill
-/// it gave agents goes with it; switched on again, both come back.
-@MainActor @Test func aBuiltInSwitchedOffInSettingsTakesItsSkillAlong() async throws {
-    let m = AppModel(builtins: Builtins.all)
-    m.extensions.reload()
-    let vm = Paths.agentSkills.appendingPathComponent("kelp-vm/skills/kelp-vm/SKILL.md").path
-    #expect(try await waitFor { FileManager.default.fileExists(atPath: vm) })
-    m.settings.apply([SettingKeys.disabledExtensions.key: .array(["kelp.machines"])])
-    #expect(try await waitFor { !m.extensions.all.skills.contains { $0.name == "kelp-vm" } })
-    #expect(try await waitFor { !FileManager.default.fileExists(atPath: vm) })
-    m.settings.apply([:])
-    #expect(try await waitFor { FileManager.default.fileExists(atPath: vm) })
+extension OneAtATime {
+    /// settings.json is followed, not pushed: a built-in switched off there (by the CLI, by hand) is unloaded, and the skill
+    /// it gave agents goes with it; switched on again, both come back.
+    @Test func aBuiltInSwitchedOffInSettingsTakesItsSkillAlong() async throws {
+        let m = AppModel(builtins: Builtins.all)
+        m.extensions.reload()
+        let vm = Paths.agentSkills.appendingPathComponent("kelp-vm/skills/kelp-vm/SKILL.md").path
+        #expect(try await waitFor { FileManager.default.fileExists(atPath: vm) })
+        m.settings.apply([SettingKeys.disabledExtensions.key: .array(["kelp.machines"])])
+        #expect(try await waitFor { !m.extensions.all.skills.contains { $0.name == "kelp-vm" } })
+        #expect(try await waitFor { !FileManager.default.fileExists(atPath: vm) })
+        m.settings.apply([:])
+        #expect(try await waitFor { FileManager.default.fileExists(atPath: vm) })
+    }
 }
 
 /// A row of a kind Kelp doesn't have, or of one of Kelp's own (the theme gallery), shows as text, and the extension
@@ -158,11 +160,11 @@ extension OneAtATime {
     @Test func aFieldNeverRunsInAnActionsCommand() async throws {
         let rig = try await AppRig(files: [:])
         defer { rig.done() }   // the daemon runs it
-        let marker = NSTemporaryDirectory() + "kelp-pwned-\(UUID().uuidString.prefix(6))"
+        let marker = tmp().path + "/kelp-pwned-\(UUID().uuidString.prefix(6))"
         let evil = "a\ntouch \(marker)\n$(touch \(marker)) end"
         let cmd = ExtActions(rig.app).expand(
             #"printf %s "${title}""#, item: .object(["title": .string(evil)]), quote: true)
-        let r = await Shell.run(rig.app, cmd, cwd: NSTemporaryDirectory())
+        let r = await Shell.run(rig.app, cmd, cwd: tmp().path)
         #expect(r.code == 0 && !FileManager.default.fileExists(atPath: marker) && r.stdout == evil)
     }
 }

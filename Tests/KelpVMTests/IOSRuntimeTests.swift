@@ -122,7 +122,7 @@ import Testing
 /// and an xcrun of its own whose xcodebuild runs `runner`; `simctl` runs first for each call (`sleep 1` there: a slow
 /// one).
 @MainActor func iOS(built: Bool = true, runner: String? = nil, simctl: String = "") throws -> (IOSRuntime, URL) {
-    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("ios-\(UUID().uuidString.prefix(6))")
+    let folder = tmp().appendingPathComponent("ios-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     try "U-\(UUID().uuidString)".write(to: folder.appendingPathComponent("udid"), atomically: true, encoding: .utf8)
     if built { try build(folder) }

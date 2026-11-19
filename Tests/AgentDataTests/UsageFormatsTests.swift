@@ -1,11 +1,12 @@
 import Foundation
 import SQLite3
+import TestSupport
 import Testing
 
 @testable import AgentData
 
 private func scratch() throws -> URL {
-    let d = FileManager.default.temporaryDirectory.appendingPathComponent("uf-\(UUID().uuidString.prefix(6))")
+    let d = tmp().appendingPathComponent("uf-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
     return d
 }

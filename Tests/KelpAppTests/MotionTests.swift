@@ -50,7 +50,8 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     #expect(outline.frame.width <= 240)
 }
 
-/// A view in a window: only what's on screen moves. Motion as asked for, whatever the Mac running the tests asks.
+/// A view in a window: only what's on screen moves. Motion as asked for, whatever the Mac running the tests asks, until
+/// `offScreen`.
 @MainActor func onScreen(_ view: NSView, in parent: NSView = NSView(), reduced: Bool = false) -> NSWindow {
     _ = NSApplication.shared
     Motion.pinned = reduced
@@ -62,11 +63,17 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     return window
 }
 
+/// Done with `onScreen`'s window: motion is the Mac's to say again, for the tests that come after.
+@MainActor func offScreen(_ window: NSWindow) {
+    Motion.pinned = nil
+    withExtendedLifetime(window) {}
+}
+
 /// A number that grew rolls up: the old one drifts up as it fades, the new one comes up from below.
 @MainActor @Test func aGrowingNumberRollsUp() {
     let parent = NSView(), label = NSTextField(labelWithString: "3")
     let window = onScreen(label, in: parent)
-    defer { withExtendedLifetime(window) {} }
+    defer { offScreen(window) }
     label.roll(up: true)
     #expect(label.layer?.animation(forKey: "roll") != nil)
     let slide = label.layer?.animation(forKey: "slide") as? CABasicAnimation
@@ -81,7 +88,7 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
 @MainActor @Test func aNumberDoesntRollUnderReduceMotion() {
     let parent = NSView(), label = NSTextField(labelWithString: "3")
     let window = onScreen(label, in: parent, reduced: true)
-    defer { withExtendedLifetime(window) {} }
+    defer { offScreen(window) }
     label.roll(up: true)
     #expect(label.layer?.animation(forKey: "roll") == nil)
     #expect(parent.subviews == [label])
@@ -91,7 +98,7 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
 @MainActor @Test func anEmptyStateFadesOutAndIntoTheNext() {
     let empty = EmptyStateView()
     let window = onScreen(empty)
-    defer { withExtendedLifetime(window) {} }
+    defer { offScreen(window) }
     empty.show("No Changes")
     empty.show("Git Isn't Available")
     #expect(empty.layer?.animation(forKey: kCATransition) != nil)
@@ -106,7 +113,7 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
 @MainActor @Test func anEmptyStatesButtonIsCentred() {
     let empty = EmptyStateView(), area = NSView(frame: NSRect(x: 0, y: 0, width: 270, height: 400))
     let window = onScreen(NSView(), in: area)
-    defer { withExtendedLifetime(window) {} }
+    defer { offScreen(window) }
     empty.place(in: area)
     area.layoutSubtreeIfNeeded()
     let button = NSButton(title: "Add Database…", target: nil, action: nil)
@@ -124,7 +131,7 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
 @MainActor @Test func aGhostFadesOverWhatItIsGiven() {
     let parent = NSView(), tab = NSView()
     let window = onScreen(tab, in: parent)
-    defer { withExtendedLifetime(window) {} }
+    defer { offScreen(window) }
     tab.leaveGhost(in: parent, duration: Motion.fast)
     let ghost = parent.subviews.first { $0 !== tab }
     #expect(ghost?.layer?.animation(forKey: "opacity")?.duration == Motion.fast)
@@ -135,7 +142,7 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
 @MainActor @Test func aShownWaitStaysUpForAMoment() async {
     let wait = LoadingView()
     let window = onScreen(wait)
-    defer { withExtendedLifetime(window) {} }
+    defer { offScreen(window) }
     var asked = Date.now
     await wait.settled()
     #expect(Date.now.timeIntervalSince(asked) < 0.1)
@@ -145,21 +152,23 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     #expect(Date.now.timeIntervalSince(asked) >= LoadingView.held - 0.05)
 }
 
-/// A wait for a first answer says nothing at first, so a quick answer changes nothing on screen, and shows once the
-/// wait has lasted. The answer ends the wait, whether or not it had shown: one answered at once never shows, not even
-/// by the time a wait started after it does.
-@MainActor @Test func aWaitForAFirstAnswerShowsOnceItIsSlow() async throws {
-    LoadingView.patience = 0.05
-    defer { LoadingView.patience = 1 }
-    let answered = LoadingView(rows: true), slow = LoadingView(rows: true)
-    answered.wait("Reading the changes…")
-    #expect(!answered.showing)
-    answered.show(nil)   // the answer came within the second
-    slow.wait("Reading the changes…")
-    #expect(try await waitFor(10) { slow.showing })
-    #expect(!answered.showing)
-    slow.show(nil)
-    #expect(!slow.showing)
+extension OneAtATime {
+    /// A wait for a first answer says nothing at first, so a quick answer changes nothing on screen, and shows once the
+    /// wait has lasted. The answer ends the wait, whether or not it had shown: one answered at once never shows, not even
+    /// by the time a wait started after it does.
+    @Test func aWaitForAFirstAnswerShowsOnceItIsSlow() async throws {
+        LoadingView.patience = 0.05
+        defer { LoadingView.patience = 1 }
+        let answered = LoadingView(rows: true), slow = LoadingView(rows: true)
+        answered.wait("Reading the changes…")
+        #expect(!answered.showing)
+        answered.show(nil)   // the answer came within the second
+        slow.wait("Reading the changes…")
+        #expect(try await waitFor(10) { slow.showing })
+        #expect(!answered.showing)
+        slow.show(nil)
+        #expect(!slow.showing)
+    }
 }
 
 /// A list of names, for a table in a test.
@@ -171,44 +180,46 @@ private final class LongRows: NSObject, NSOutlineViewDataSource, NSOutlineViewDe
     }
 }
 
-/// A refresh that changes a few rows of a list shows them moving: the row that goes leaves a picture that fades where
-/// it stood, a row that stays travels from where it stood, and the new one fades in. A refresh that changes many is
-/// the list changing as a whole, which just shows; so does any refresh without motion.
-@MainActor @Test func aFewChangedRowsMoveAndManyJustShow() {
-    _ = NSApplication.shared
-    for reduced in [false, true] {
-        Motion.pinned = reduced
-        defer { Motion.pinned = nil }
-        let list = Names(), table = NSTableView()
-        let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 200, height: 300))
-        table.addTableColumn(NSTableColumn())
-        table.dataSource = list
-        table.delegate = list
-        scroll.documentView = table
-        let window = NSWindow(contentRect: scroll.frame, styleMask: [.titled], backing: .buffered, defer: false)
-        window.contentView = scroll
-        window.orderFrontRegardless()   // rows move only in a list that is on screen
-        defer { window.orderOut(nil) }   // not closed: a window made in code releases itself when it closes
-        func key(_ row: Int) -> String? { list.names.indices.contains(row) ? list.names[row] : nil }
-        func refresh(_ names: [String]) {
-            let places = table.rowPlaces(key), old = Set(list.names), now = Set(names)
-            list.names = names
-            table.reloadSettling(from: places, came: now.subtracting(old), gone: old.subtracting(now), key) {
-                table.reloadData()
+extension OneAtATime {
+    /// A refresh that changes a few rows of a list shows them moving: the row that goes leaves a picture that fades where
+    /// it stood, a row that stays travels from where it stood, and the new one fades in. A refresh that changes many is
+    /// the list changing as a whole, which just shows; so does any refresh without motion.
+    @Test func aFewChangedRowsMoveAndManyJustShow() {
+        _ = NSApplication.shared
+        for reduced in [false, true] {
+            Motion.pinned = reduced
+            defer { Motion.pinned = nil }
+            let list = Names(), table = NSTableView()
+            let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 200, height: 300))
+            table.addTableColumn(NSTableColumn())
+            table.dataSource = list
+            table.delegate = list
+            scroll.documentView = table
+            let window = NSWindow(contentRect: scroll.frame, styleMask: [.titled], backing: .buffered, defer: false)
+            window.contentView = scroll
+            window.orderFrontRegardless()   // rows move only in a list that is on screen
+            defer { window.orderOut(nil) }   // not closed: a window made in code releases itself when it closes
+            func key(_ row: Int) -> String? { list.names.indices.contains(row) ? list.names[row] : nil }
+            func refresh(_ names: [String]) {
+                let places = table.rowPlaces(key), old = Set(list.names), now = Set(names)
+                list.names = names
+                table.reloadSettling(from: places, came: now.subtracting(old), gone: old.subtracting(now), key) {
+                    table.reloadData()
+                }
             }
+            func moves(_ name: String) -> [String] {
+                let row = list.names.firstIndex(of: name).flatMap { table.rowView(atRow: $0, makeIfNecessary: false) }
+                return ["arrive", "slide"].filter { row?.layer?.animation(forKey: $0) != nil }
+            }
+            func pictures() -> Int { scroll.subviews.filter { $0 is NSImageView }.count }
+            refresh(["a", "b", "c"])   // the first rows have nowhere to come from
+            table.layoutSubtreeIfNeeded()
+            #expect(moves("a") == [] && pictures() == 0)
+            refresh(["new", "a", "c"])
+            #expect(moves("new") == (reduced ? [] : ["arrive"]) && moves("a") == (reduced ? [] : ["slide"]))
+            #expect(moves("c") == [] && pictures() == (reduced ? 0 : 1))   // it stands where it stood; "b" left its picture
+            refresh(["p", "q", "r", "s", "a"])
+            #expect(moves("p") == [] && moves("a") == [] && pictures() == (reduced ? 0 : 1))
         }
-        func moves(_ name: String) -> [String] {
-            let row = list.names.firstIndex(of: name).flatMap { table.rowView(atRow: $0, makeIfNecessary: false) }
-            return ["arrive", "slide"].filter { row?.layer?.animation(forKey: $0) != nil }
-        }
-        func pictures() -> Int { scroll.subviews.filter { $0 is NSImageView }.count }
-        refresh(["a", "b", "c"])   // the first rows have nowhere to come from
-        table.layoutSubtreeIfNeeded()
-        #expect(moves("a") == [] && pictures() == 0)
-        refresh(["new", "a", "c"])
-        #expect(moves("new") == (reduced ? [] : ["arrive"]) && moves("a") == (reduced ? [] : ["slide"]))
-        #expect(moves("c") == [] && pictures() == (reduced ? 0 : 1))   // it stands where it stood; "b" left its picture
-        refresh(["p", "q", "r", "s", "a"])
-        #expect(moves("p") == [] && moves("a") == [] && pictures() == (reduced ? 0 : 1))
     }
 }

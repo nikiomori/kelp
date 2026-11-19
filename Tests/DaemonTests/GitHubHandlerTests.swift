@@ -5,12 +5,13 @@ import Testing
 
 @testable import Daemon
 
-/// A stand-in for `gh`: logs its arguments, answers with canned JSON. Set up once, before anything asks for gh.
+/// A stand-in for `gh` at the path KELP_GH names (TestSupportC): logs the folder it ran in and its arguments, answers
+/// with canned JSON. Set up once, before anything asks for gh.
 private let fakeGh: (log: String, script: String) = {
-    let dir = tmp(), log = dir.appendingPathComponent("gh.log").path, script = dir.appendingPathComponent("gh").path
+    let log = tmp().appendingPathComponent("gh.log").path, script = ProcessInfo.processInfo.environment["KELP_GH"] ?? ""
     let body = """
         #!/bin/sh
-        echo "$@" >> '\(log)'
+        printf '%s\\t%s\\n' "$(pwd -P)" "$*" >> '\(log)'
         [ -n "$GH_REPO" ] && echo "GH_REPO=$GH_REPO in $(pwd -P): $*" >> '\(log)'
         case "$1 $2" in
           "pr list") case "$*" in *"--head gh/down"*) echo "error connecting to api.github.com" >&2; exit 1;; esac
@@ -49,11 +50,25 @@ private let fakeGh: (log: String, script: String) = {
         """
     try? body.write(toFile: script, atomically: true, encoding: .utf8)
     chmod(script, 0o755)
-    setenv("KELP_GH", script, 1)
     return (log, script)
 }()
-private func calls() -> [String] {
+/// Every line gh logged, every test's: they run at once.
+private func ghLog() -> [String] {
     ((try? String(contentsOfFile: fakeGh.log, encoding: .utf8)) ?? "").split(separator: "\n").map(String.init)
+}
+/// What gh was asked in `r`'s folders (its repository and its workspaces), not another test's.
+private func calls(_ r: World) -> [String] {
+    let mine = [r.repo.path, r.root.path].compactMap { path in
+        realpath(path, nil).map { real in
+            defer { free(real) }
+            return String(cString: real) + "/"
+        }
+    }
+    return ghLog().compactMap { line in
+        let parts = line.split(separator: "\t", maxSplits: 1)
+        guard parts.count == 2, mine.contains(where: { (parts[0] + "/").hasPrefix($0) }) else { return nil }
+        return String(parts[1])
+    }
 }
 
 private func rig() async throws -> World {
@@ -73,12 +88,12 @@ private func rig() async throws -> World {
     #expect(
         prs.count == 1 && prs[0]["number"]?.int == 7 && prs[0]["author"]?.string == "ada"
             && prs[0]["reviewDecision"]?.string == "APPROVED")
-    #expect(calls().contains { $0.hasPrefix("pr list") && $0.contains("--json") })
+    #expect(calls(r).contains { $0.hasPrefix("pr list") && $0.contains("--json") })
     let checks = try await r.c.call("github.checks", .obj(["repoId": repo, "pr": 7])).array ?? []
     #expect(checks.first?["runId"]?.int == 99 && checks.first?["bucket"]?.string == "fail")
     #expect(try await r.c.call("github.checks", .obj(["repoId": repo, "pr": 404])).array?.isEmpty == true)
     let log = try await r.c.call("github.failedLog", .obj(["repoId": repo, "runId": 99])).string ?? ""
-    #expect(log.contains("step 2 failed") && calls().contains("run view 99 --log-failed"))
+    #expect(log.contains("step 2 failed") && calls(r).contains("run view 99 --log-failed"))
     let comments = try await r.c.call("github.reviewComments", .obj(["repoId": repo, "pr": 7])).array ?? []
     #expect(comments.compactMap { $0["author"]?.string }.sorted() == ["amy", "bob"])
     #expect(comments.first { $0["author"]?.string == "amy" }?["path"]?.string == "a.swift")
@@ -96,13 +111,13 @@ private func rig() async throws -> World {
     let pr = try await r.c.call(GitHubPRView(repoId: r.repo.id, pr: 7))
     #expect(pr.body == "Adds it" && pr.baseRefName == "main" && pr.files.first?.additions == 3)
     #expect(pr.comments.map(\.author) == ["bob"] && pr.pr.number == 7)
-    #expect(calls().contains { $0.hasPrefix("pr view 7") && $0.contains("files") })
+    #expect(calls(r).contains { $0.hasPrefix("pr view 7") && $0.contains("files") })
     let issue = try await r.c.call(GitHubIssueView(repoId: r.repo.id, issue: 3))
     #expect(issue.issue.author == "amy" && issue.comments.first?.body == "Seen it")
     _ = try await r.c.call("github.prs", .obj(["repoId": .string(r.repo.id), "filter": "closed"]))
-    #expect(calls().contains { $0.hasPrefix("pr list") && $0.contains("--state closed") })
+    #expect(calls(r).contains { $0.hasPrefix("pr list") && $0.contains("--state closed") })
     _ = try await r.c.call(GitHubPRs(repoId: r.repo.id, filter: .reviewRequested))
-    #expect(calls().contains { $0.hasPrefix("pr list") && $0.contains("review-requested:@me") })
+    #expect(calls(r).contains { $0.hasPrefix("pr list") && $0.contains("review-requested:@me") })
     // A filter it doesn't know is refused, not read as "open".
     await #expect(throws: RPCError.self) {
         try await r.c.call("github.prs", .obj(["repoId": .string(r.repo.id), "filter": "clsoed"]))
@@ -114,21 +129,21 @@ private func rig() async throws -> World {
     defer { r.d.stop() }
     let all = try await r.c.call("github.issues", .obj(["repoId": .string(r.repo.id)])).array ?? []
     #expect(all.first?["labels"]?.array?.first?.string == "bug")
-    let before = calls().filter { $0.hasPrefix("issue list") }
+    let before = calls(r).filter { $0.hasPrefix("issue list") }
     #expect(before.last?.contains("--assignee") == false)
     _ = try await r.c.call("github.issues", .obj(["repoId": .string(r.repo.id), "filter": "mine"]))
-    #expect(calls().filter { $0.hasPrefix("issue list") }.last?.contains("--assignee @me") == true)
+    #expect(calls(r).filter { $0.hasPrefix("issue list") }.last?.contains("--assignee @me") == true)
 }
 
 @Test func theBranchsPullRequestIsCachedForTwoMinutes() async throws {
     let r = try await rig()
     defer { r.d.stop() }
     let wt = try await workspace(r, "feat/x")
-    let n0 = calls().filter { $0.contains("--head feat/x") }.count
+    let n0 = calls(r).filter { $0.contains("--head feat/x") }.count
     let first = try await r.c.call("github.branchPR", .obj(["worktreeId": .string(wt.id)]))
     #expect(first["number"]?.int == 7)
     _ = try await r.c.call("github.branchPR", .obj(["worktreeId": .string(wt.id)]))
-    #expect(calls().filter { $0.contains("--head feat/x") }.count == n0 + 1)   // the second answer didn't ask gh again
+    #expect(calls(r).filter { $0.contains("--head feat/x") }.count == n0 + 1)   // the second answer didn't ask gh again
     // gh that couldn't tell isn't "no pull request" for two minutes: it says so, and the next read asks again.
     let down = try await workspace(r, "gh/down")
     for _ in 0..<2 {
@@ -136,7 +151,7 @@ private func rig() async throws -> World {
             _ = try await r.c.call("github.branchPR", .obj(["worktreeId": .string(down.id)]))
         }
     }
-    #expect(calls().filter { $0.contains("--head gh/down") }.count == 2)
+    #expect(calls(r).filter { $0.contains("--head gh/down") }.count == 2)
 }
 
 @Test func ciRunsJobsLogsAndRerunsGoThroughGh() async throws {
@@ -152,27 +167,27 @@ private func rig() async throws -> World {
     let log = try await r.c.call("ci.log", .obj(["worktreeId": .string(wt.id), "job": 5])).string ?? ""
     #expect(log.contains("error: boom") && !log.contains("2026-10-20T10:00:00Z"))   // the timestamp column is stripped
     let full = try await r.c.call(CIFullLog(worktreeId: wt.id, job: 5))
-    #expect(full.contains("step 2 failed") && calls().contains("run view --job 5 --log"))   // the whole log, not its failures
+    #expect(full.contains("step 2 failed") && calls(r).contains("run view --job 5 --log"))   // the whole log, not its failures
     let report = try await r.c.call("ci.failures", .obj(["worktreeId": .string(wt.id), "job": 5]))
     #expect(report["log"]?.string?.contains("error: boom") == true)
     _ = try await r.c.call("ci.rerun", .obj(["worktreeId": .string(wt.id), "run": 99]))
-    #expect(calls().contains("run rerun 99 --failed"))
+    #expect(calls(r).contains("run rerun 99 --failed"))
     _ = try await r.c.call("ci.rerunAll", .obj(["worktreeId": .string(wt.id), "run": 99]))
     _ = try await r.c.call("ci.rerunJob", .obj(["worktreeId": .string(wt.id), "job": 5]))
     _ = try await r.c.call("ci.cancel", .obj(["worktreeId": .string(wt.id), "run": 99]))
-    #expect(calls().contains("run rerun 99"))
-    #expect(calls().contains("run rerun --job 5") && calls().contains("run cancel 99"))
+    #expect(calls(r).contains("run rerun 99"))
+    #expect(calls(r).contains("run rerun --job 5") && calls(r).contains("run cancel 99"))
     _ = try await r.c.call(
         "ci.dispatch",
         .obj([
             "worktreeId": .string(wt.id), "workflow": "ci.yml", "branch": "feat/x",
             "inputs": .object(["b": "2", "a": "1"])
         ]))
-    #expect(calls().contains("workflow run --ref feat/x -f a=1 -f b=2 -- ci.yml"))   // inputs in a stable order
+    #expect(calls(r).contains("workflow run --ref feat/x -f a=1 -f b=2 -- ci.yml"))   // inputs in a stable order
     // The repository names its workflow files: one that reads as an option stays a name.
     _ = try await r.c.call(
         "ci.dispatch", .obj(["worktreeId": .string(wt.id), "workflow": "-Fx=@/etc/passwd.yml", "branch": "feat/x"]))
-    #expect(calls().contains("workflow run --ref feat/x -- -Fx=@/etc/passwd.yml"))
+    #expect(calls(r).contains("workflow run --ref feat/x -- -Fx=@/etc/passwd.yml"))
 }
 
 @Test func projectBoardsAndTheirItemsComeFromGh() async throws {
@@ -180,16 +195,18 @@ private func rig() async throws -> World {
     defer { r.d.stop() }
     let projects = try await r.c.call("github.projects", .obj(["repoId": .string(r.repo.id)])).array ?? []
     #expect(projects.first?["number"]?.int == 3 && projects.first?["title"]?.string == "Roadmap")
-    #expect(calls().contains { $0.hasPrefix("project list --owner acme") })   // the owner comes from the repo
+    #expect(calls(r).contains { $0.hasPrefix("project list --owner acme") })   // the owner comes from the repo
     let items = try await r.c.call("github.projectItems", .obj(["owner": "acme", "number": 3])).array ?? []
     #expect(items.map { $0["title"]?.string } == ["Login", "Idea"] && items.first?["status"]?.string == "In Progress")
-    #expect(calls().contains { $0.hasPrefix("project item-list 3 --owner acme") })
+    // Asked by owner, in no project's folder: the only test that asks for a board's items.
+    #expect(ghLog().contains { $0.contains("\tproject item-list 3 --owner acme") })
     await #expect(throws: (any Error).self) { _ = try await r.c.call("github.projectItems", .obj([:])) }   // the owner is required
 }
 
 /// A stand-in for `glab`: logs its arguments, answers the merge-request API.
 private let fakeGlab: String = {
-    let dir = tmp(), log = dir.appendingPathComponent("glab.log").path, script = dir.appendingPathComponent("glab").path
+    let log = tmp().appendingPathComponent("glab.log").path,
+        script = ProcessInfo.processInfo.environment["KELP_GLAB"] ?? ""
     try? """
     #!/bin/sh
     echo "$@" >> '\(log)'
@@ -207,7 +224,6 @@ private let fakeGlab: String = {
     esac
     """.write(toFile: script, atomically: true, encoding: .utf8)
     chmod(script, 0o755)
-    if getenv("KELP_GLAB") == nil { setenv("KELP_GLAB", script, 1) }
     return log
 }()
 
@@ -235,8 +251,7 @@ private let fakeGlab: String = {
     #expect(
         ((try? String(contentsOfFile: log, encoding: .utf8)) ?? "").contains(
             "merge_requests/12/merge --raw-field squash=true"))
-    // The gh log is every test's (they run at once): this one's PR is the one titled "Add x".
-    #expect(!calls().contains { ($0.hasPrefix("pr create") && $0.contains("Add x")) || $0.hasPrefix("pr merge 12") })   // gh, which can't talk to GitLab, was never asked
+    #expect(!calls(r).contains { ($0.hasPrefix("pr create") && $0.contains("Add x")) || $0.hasPrefix("pr merge 12") })   // gh, which can't talk to GitLab, was never asked
 }
 
 @Test func aWorkspaceLinksToItsProjectsPagesFromOrigin() async throws {
@@ -286,13 +301,13 @@ private let fakeGlab: String = {
     let made = try await r.c.call("github.pr-create", .obj(["worktreeId": .string(wt.id), "draft": true]))
     #expect(made["url"]?.string == "https://github.com/o/r/pull/8")
     #expect(Git.branchExists(bare, "feat/gh", remotes: .none))   // pushed before gh was asked
-    let create = calls().last { $0.hasPrefix("pr create") } ?? ""
+    let create = calls(r).last { $0.hasPrefix("pr create") } ?? ""
     #expect(create.contains("--title Add gh") && create.contains("--base main") && create.hasSuffix("--draft"))
     _ = try await r.c.call("github.pr-merge", .obj(["worktreeId": .string(wt.id), "pr": 8, "method": "rebase"]))
-    #expect(calls().contains("pr merge 8 --rebase"))   // the GitLab test's merge is #12, through glab
+    #expect(calls(r).contains("pr merge 8 --rebase"))   // the GitLab test's merge is #12, through glab
     // Only the commit that was on screen is merged: a PR that moved on says so instead.
     _ = try await r.c.call("github.pr-merge", .obj(["worktreeId": .string(wt.id), "pr": 8, "head": "abc"]))
-    #expect(calls().contains("pr merge 8 --squash --match-head-commit abc"))
+    #expect(calls(r).contains("pr merge 8 --squash --match-head-commit abc"))
     await #expect {
         _ = try await r.c.call("github.pr-merge", .obj(["worktreeId": .string(wt.id), "pr": 8, "head": "old"]))
     } throws: {
@@ -311,6 +326,6 @@ private let fakeGlab: String = {
     try Git.run(["remote", "add", "origin", "git@github.com:o/r.git"], cwd: there, remotes: .none)
     let prs = try await c.call("github.prs", .obj(["repoId": .string(repo.id)])).array ?? []
     #expect(prs.first?["number"]?.int == 7)
-    let ran = calls().filter { $0.hasPrefix("GH_REPO=o/r in ") && $0.contains(": pr list") }
+    let ran = ghLog().filter { $0.hasPrefix("GH_REPO=o/r in ") && $0.contains(": pr list") }
     #expect(!ran.isEmpty && !ran.contains { $0.contains(" in " + repo.path) }, "not in its folder here")
 }

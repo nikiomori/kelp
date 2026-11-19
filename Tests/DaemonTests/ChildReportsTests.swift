@@ -315,7 +315,7 @@ private func family(parentAgent: String? = "fake", manifest: AgentManifest = fak
     let f = try await family()
     defer { f.w.d.stop() }
     let id = f.parent.id, c = f.w.c
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = tmp().appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: dir) }
     let folder = dir.appendingPathComponent("0F/subagents")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

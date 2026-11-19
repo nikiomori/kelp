@@ -192,7 +192,7 @@ private func assistant(
 }
 
 @Test func aCodexChatsLastReplyIsItsFolders() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let root = tmp().appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: root) }
     let start = Date(), f = DateFormatter()
     f.locale = Locale(identifier: "en_US_POSIX")
@@ -352,7 +352,7 @@ private func assistant(
 }
 
 @Test func claudeSessionsForOneFolder() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let root = tmp().appendingPathComponent(UUID().uuidString)
     let dir = root.appendingPathComponent("-work-my-app")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let line =
@@ -375,7 +375,7 @@ private func assistant(
 }
 
 @Test func usageIndexReadsOnlyWhatsNew() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ui-\(UUID().uuidString.prefix(6))")
+    let dir = tmp().appendingPathComponent("ui-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let f = dir.appendingPathComponent("s.jsonl")
     func line(_ id: String, _ ts: String, _ out: Int) -> String {
@@ -585,7 +585,7 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
 }
 
 @Test func aSubagentsJournalHasItsStepsAndReport() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = tmp().appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: dir) }
     let url = try write(
         dir, "agent-a.jsonl",
@@ -606,7 +606,7 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
 }
 
 @Test func aSubagentWithoutAHandbackReportsItsLastWords() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = tmp().appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: dir) }
     let url = try write(
         dir, "agent-a.jsonl", [assistant("m", "r", "2026-11-02T06:25:15.000Z", text: "Done, nothing found.")])
@@ -615,7 +615,7 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
 
 /// The index is megabytes and some log always grew: it reaches the disk once, then every few minutes.
 @Test func theUsageIndexIsNotRewrittenOnEveryRead() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = tmp().appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     let f = dir.appendingPathComponent("s.jsonl"), cache = dir.appendingPathComponent("cache.json")
@@ -633,7 +633,7 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
 
 /// What a chat spent on a page: its calls in the page's time, each once, priced.
 @Test func aChatsSpendingBetweenTwoTimesCountsEachCallOnce() throws {
-    let f = FileManager.default.temporaryDirectory.appendingPathComponent("spent-\(UUID().uuidString).jsonl")
+    let f = tmp().appendingPathComponent("spent-\(UUID().uuidString).jsonl")
     defer { try? FileManager.default.removeItem(at: f) }
     func line(_ id: String, _ ts: String, _ out: Int) -> String {
         #"{"cwd":"/p","message":{"id":"\#(id)","model":"claude-opus-5-5","usage":{"input_tokens":100,"#

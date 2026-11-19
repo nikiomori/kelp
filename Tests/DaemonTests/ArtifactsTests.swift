@@ -6,7 +6,7 @@ import os
 @testable import Daemon
 
 private func tempRoot() throws -> URL {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("ka-\(UUID().uuidString.prefix(8))")
+    let root = tmp().appendingPathComponent("ka-\(UUID().uuidString.prefix(8))")
     try FileManager.default.createDirectory(
         at: root.appendingPathComponent(".git/info"), withIntermediateDirectories: true)
     return root

@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import TestSupport
 import Testing
 
 @testable import BuiltinDatabases
@@ -29,7 +30,7 @@ private let listed = "SELECT group_concat(id || ':' || status || ':' || ifnull(n
 
 /// A SQLite file with `orders` as an agent found it.
 private func orders() throws -> String {
-    let path = NSTemporaryDirectory() + "kelp-undo-\(UUID().uuidString).sqlite"
+    let path = tmp().path + "/kelp-undo-\(UUID().uuidString).sqlite"
     _ = try run(
         path,
         "CREATE TABLE orders (id INTEGER PRIMARY KEY, status TEXT, note TEXT);"

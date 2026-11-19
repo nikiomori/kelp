@@ -1,4 +1,5 @@
 import Foundation
+import TestSupport
 import Testing
 
 @testable import Core
@@ -6,7 +7,7 @@ import Testing
 /// What isn't there reads as nothing; what is reads whole, or its ends.
 @Test func probesReadWhatIsThereAndNothingElse() throws {
     let fm = FileManager.default
-    let dir = fm.temporaryDirectory.appendingPathComponent("kelp-probe-\(UUID().uuidString)")
+    let dir = tmp().appendingPathComponent("kelp-probe-\(UUID().uuidString)")
     try fm.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { fm.removeIfAny(dir) }
     let file = dir.appendingPathComponent("f.txt"), missing = dir.appendingPathComponent("none")

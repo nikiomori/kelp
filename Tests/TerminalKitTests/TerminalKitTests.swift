@@ -26,12 +26,12 @@ import Testing
             fatalError("closing a terminal held the main thread")
         }
     }
-    let script = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-titles-\(UUID().uuidString).sh")
+    let script = tmp().appendingPathComponent("kelp-titles-\(UUID().uuidString).sh")
     try #"while :; do printf '\033]0;a title\007'; done"#.write(to: script, atomically: true, encoding: .utf8)
     defer { try? FileManager.default.removeItem(at: script) }
     var closing: GhosttyTerminalView? = GhosttyTerminalView(
-        command: "/bin/sh " + script.path, cwd: NSTemporaryDirectory())
-    let stays = GhosttyTerminalView(command: "/bin/sh " + script.path, cwd: NSTemporaryDirectory())
+        command: "/bin/sh " + script.path, cwd: tmp().path)
+    let stays = GhosttyTerminalView(command: "/bin/sh " + script.path, cwd: tmp().path)
     let w = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 600, height: 300), styleMask: [.titled], backing: .buffered, defer: false
     )
@@ -141,12 +141,12 @@ let wrappedRows = [
     defer { terminalTaken = false }
     let path = "/tmp/" + String(repeating: "a", count: 150) + "/x.txt",
         link = "https://example.com/" + String(repeating: "b", count: 100) + "?q=1"
-    let script = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-wrap-\(UUID().uuidString).sh")
+    let script = tmp().appendingPathComponent("kelp-wrap-\(UUID().uuidString).sh")
     try
         #"sleep 0.5; c=$(stty size | cut -d' ' -f2); printf '\033[?1000h\033[?1006h'; for s in '\#(path)' '\#(link)'; do printf '%s\n' "$s" | fold -w "$c"; done; echo DONE; sleep 20"#
         .write(to: script, atomically: true, encoding: .utf8)
     defer { try? FileManager.default.removeItem(at: script) }
-    let v = GhosttyTerminalView(command: "/bin/sh " + script.path, cwd: NSTemporaryDirectory())
+    let v = GhosttyTerminalView(command: "/bin/sh " + script.path, cwd: tmp().path)
     let surface = try #require(v.surface)
     let w = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 600, height: 400), styleMask: [.titled], backing: .buffered, defer: false
@@ -185,7 +185,7 @@ let wrappedRows = [
 @Test @MainActor func copyingAWrappedCommandGivesOneLine() async throws {
     try await takeTerminal()
     defer { terminalTaken = false }
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-rows-\(UUID().uuidString)")
+    let dir = tmp().appendingPathComponent("kelp-rows-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
     try (wrappedRows.map { "  " + $0 }.joined(separator: "\n") + "\n").write(
@@ -248,7 +248,7 @@ let wrappedRows = [
     #expect(GhosttyRuntime.overrides.contains("clipboard-paste-protection = true"))
     // And Ghostty takes every line of Kelp's settings (a wrong key or value would be dropped with a diagnostic).
     try #require(ghostty_init(UInt(CommandLine.argc), CommandLine.unsafeArgv) == GHOSTTY_SUCCESS)   // config needs it; no app
-    let file = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-overrides-\(UUID().uuidString).conf")
+    let file = tmp().appendingPathComponent("kelp-overrides-\(UUID().uuidString).conf")
     try GhosttyRuntime.overrides.write(to: file, atomically: true, encoding: .utf8)
     defer { try? FileManager.default.removeItem(at: file) }
     let cfg = ghostty_config_new()
@@ -363,7 +363,7 @@ let wrappedRows = [
     defer { terminalTaken = false }
     let script =
         #"printf '\033[?1000h\033[?1006h\033]8;;https://example.com/a?b=c\033\\LINKTEXT\033]8;;\033\\\n'; sleep 20"#
-    let v = GhosttyTerminalView(command: script, cwd: NSTemporaryDirectory())
+    let v = GhosttyTerminalView(command: script, cwd: tmp().path)
     let surface = try #require(v.surface)
     let w = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 600, height: 300), styleMask: [.titled], backing: .buffered, defer: false
@@ -399,11 +399,11 @@ let wrappedRows = [
     try await takeTerminal()
     defer { terminalTaken = false }
     let rule = String(repeating: "─", count: 30)
-    let script = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-box-\(UUID().uuidString).sh")
+    let script = tmp().appendingPathComponent("kelp-box-\(UUID().uuidString).sh")
     try "clear; printf 'SPOKEN\\n\(rule)\\n❯ 世界 fix\\n\(rule)\\n\\033[3;11H'; sleep 20".write(
         to: script, atomically: true, encoding: .utf8)
     defer { try? FileManager.default.removeItem(at: script) }
-    let v = GhosttyTerminalView(command: "/bin/sh " + script.path, cwd: NSTemporaryDirectory())
+    let v = GhosttyTerminalView(command: "/bin/sh " + script.path, cwd: tmp().path)
     let w = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 400, height: 200), styleMask: [.titled], backing: .buffered, defer: false
     )
@@ -436,7 +436,7 @@ let wrappedRows = [
 @Test @MainActor func scrollingKeepsWhatIsPastAWholeRow() async throws {
     try await takeTerminal()
     defer { terminalTaken = false }
-    let v = GhosttyTerminalView(command: "/bin/sh -c 'seq 1 300; sleep 20'", cwd: NSTemporaryDirectory())
+    let v = GhosttyTerminalView(command: "/bin/sh -c 'seq 1 300; sleep 20'", cwd: tmp().path)
     let surface = try #require(v.surface)
     let w = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 400, height: 200), styleMask: [.titled], backing: .buffered, defer: false
@@ -455,7 +455,7 @@ let wrappedRows = [
 @Test @MainActor func scrollingCancelsAHover() async throws {
     try await takeTerminal()
     defer { terminalTaken = false }
-    let v = GhosttyTerminalView(command: "/bin/sh -c 'seq 1 300; sleep 20'", cwd: NSTemporaryDirectory())
+    let v = GhosttyTerminalView(command: "/bin/sh -c 'seq 1 300; sleep 20'", cwd: tmp().path)
     let w = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 400, height: 200), styleMask: [.titled], backing: .buffered, defer: false
     )

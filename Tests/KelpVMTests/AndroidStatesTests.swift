@@ -5,8 +5,7 @@ import Testing
 
 @testable import KelpVM
 
-/// The Android runtime's states on the stand-in SDK, its clock moved past the idle limits: in the serialized suite, as
-/// each names its SDK by ANDROID_HOME.
+/// The Android runtime's states on the stand-in SDK, its clock moved past the idle limits: in the serialized suite.
 extension AndroidRuntimeOnAStandIn {
     /// Idle past `pauseAfter`, its CPU stops (`emu avd stop`); a start goes on from there (`emu avd start`), the same
     /// emulator.
@@ -104,16 +103,14 @@ extension AndroidRuntimeOnAStandIn {
     }
 }
 
-/// A stand-in machine, and how to put it away: its emulator ended, its SDK removed, ANDROID_HOME as it was.
+/// A stand-in machine, and how to put it away: its emulator ended and its SDK removed.
 @MainActor private func android(booting: String = "", adb: String = "") throws -> (AndroidRuntime, URL, () -> Void) {
-    let before = ProcessInfo.processInfo.environment["ANDROID_HOME"]
     let (vm, sdk) = try standIn(booting: booting, adb: adb)
     return (
         vm, sdk,
         {
             // still ours: not a number some other process has since
             if let pid = try? emulatorPid(sdk), Subprocess.parent(pid) == getpid() { kill(pid, SIGTERM) }
-            if let before { setenv("ANDROID_HOME", before, 1) } else { unsetenv("ANDROID_HOME") }
             try? FileManager.default.removeItem(at: sdk)
         }
     )

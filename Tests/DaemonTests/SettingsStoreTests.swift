@@ -5,7 +5,7 @@ import Testing
 @testable import Daemon
 
 private func home() throws -> URL {
-    let d = FileManager.default.temporaryDirectory.appendingPathComponent("ks-\(UUID().uuidString.prefix(8))")
+    let d = tmp().appendingPathComponent("ks-\(UUID().uuidString.prefix(8))")
     try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
     return d
 }

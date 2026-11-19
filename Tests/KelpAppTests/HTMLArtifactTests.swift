@@ -24,7 +24,7 @@ import WebKit
     for world in [MarkdownTab.world, .page] {
         web.configuration.userContentController.add(heard, contentWorld: world, name: "kelpSync")
     }
-    let base = FileManager.default.temporaryDirectory
+    let base = tmp()
     links.load(
         page, baseURL: base,
         scripts: ["document.body.dataset.kelp = 'yes'; webkit.messageHandlers.kelpSync.postMessage('kelp')"],

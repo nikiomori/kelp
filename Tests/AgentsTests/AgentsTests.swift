@@ -500,15 +500,20 @@ func hooklessCodex() throws -> AgentManifest {
 }
 
 /// The test process is isolated as it loads, before this (or any) test touches anything: run alone, a target still
-/// can't read the user's own agent config or keychain.
+/// can't read the user's own agent config, keychain, shell profile, ssh, gh or Trash, nor the agents an earlier run
+/// found; its Trash is there to look in from the start.
 @Test func theProcessIsIsolatedBeforeAnyTestRuns() {
     let env = ProcessInfo.processInfo.environment
     #expect(env["KELP_TEST_ISOLATED"] == "1")
-    for key in ["KELP_HOME", "CLAUDE_CONFIG_DIR", "CODEX_HOME"] {
+    for key in [
+        "KELP_HOME", "CLAUDE_CONFIG_DIR", "CODEX_HOME", "KELP_TRASH", "ZDOTDIR", "KELP_SSH", "KELP_GH", "KELP_GLAB"
+    ] {
         #expect(env[key]?.hasPrefix("/tmp/kr-") == true, "\(key)")
     }
     #expect(
         env["KELP_KEYCHAIN_SERVICE"]?.hasPrefix("dev.kelp.tests.") == true && env["GIT_CONFIG_GLOBAL"] == "/dev/null")
+    #expect(FileManager.default.fileExists(atPath: env["KELP_TRASH"] ?? ""))
+    #expect(UserDefaults.standard.stringArray(forKey: "agents.available") == [])
 }
 
 /// Paused (or ended) stays so: what the program prints or reports while it's being stopped doesn't make it "working"

@@ -65,7 +65,8 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
     #expect(StripModel.stays(.done) < StripModel.stays(.failed) && StripModel.stays(.failed) < StripModel.stays(.asks))
 }
 
-/// Where the strip stands is one value on this Mac: the tests that save it go one at a time.
+/// Where the strip stands is one value on this Mac: the tests that save it, and those whose strip reads it as it starts
+/// (`extension StripPlaceTests`), go one at a time.
 @MainActor @Suite(.serialized) struct StripPlaceTests {
     private func session(_ place: String, _ status: AgentStatus, summary: String = "") -> Session {
         var s = Session(cwd: "/", command: "x", agent: "claude", status: status, summary: summary)

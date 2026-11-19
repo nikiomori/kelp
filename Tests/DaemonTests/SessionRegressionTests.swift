@@ -140,7 +140,7 @@ private func submitted(_ screen: String) -> String {
         let probe = AgentUsage.PlanProbe(
             agent: "claude", command: "claude", every: 600, ready: { $0.contains("❯") },
             shown: { $0.contains("% used") }, parse: { _ in [] })
-        let (readings, _) = AgentUsage.probe(probe, argv: ["/bin/bash", "-c", script], cwd: NSTemporaryDirectory())
+        let (readings, _) = AgentUsage.probe(probe, argv: ["/bin/bash", "-c", script], cwd: tmp().path)
         #expect(readings.isEmpty)
         #expect(!FileManager.default.fileExists(atPath: pressed), "a key reached: \(question)")
     }
@@ -153,6 +153,7 @@ private func submitted(_ screen: String) -> String {
         id: "stubborn4", name: "Stubborn", command: "/bin/bash",
         args: ["-c", "trap '' HUP TERM; echo up; while :; do sleep 0.1; done", "x"], resumeArgs: ["--resume"])
     let w = try await world(agents: [stubborn])
+    defer { w.d.stop() }   // what the test does on the way: this is for a check that ends it early
     let wt = try await workspace(w, "stop")
     let a: Session = try await w.c.call(
         "session.create", .obj(["worktreeId": .string(wt.id), "agent": "stubborn4"]), as: Session.self)

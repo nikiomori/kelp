@@ -52,18 +52,20 @@ import WorkbenchKit
     #expect(FileActions.distinct(["Fix the login"]) == ["Fix the login"])
 }
 
-/// A panel icon's count grows with Text size, as a section's count capsule does; a dot stays half its height.
-@MainActor @Test func aPanelIconsCountGrowsWithTheText() {
-    defer { TextSize.apply(nil) }
-    func sizes() -> (count: NSSize, dot: NSSize) {
-        let count = CountBadge(), dot = CountBadge()
-        count.badge = PanelBadge(count: 3)
-        dot.badge = PanelBadge(count: 0)
-        return (count.intrinsicContentSize, dot.intrinsicContentSize)
+extension OneAtATime {
+    /// A panel icon's count grows with Text size, as a section's count capsule does; a dot stays half its height.
+    @Test func aPanelIconsCountGrowsWithTheText() {
+        defer { TextSize.apply(nil) }
+        func sizes() -> (count: NSSize, dot: NSSize) {
+            let count = CountBadge(), dot = CountBadge()
+            count.badge = PanelBadge(count: 3)
+            dot.badge = PanelBadge(count: 0)
+            return (count.intrinsicContentSize, dot.intrinsicContentSize)
+        }
+        let normal = sizes()
+        TextSize.apply("larger")
+        let grown = sizes()
+        #expect(grown.count.height > normal.count.height && grown.count.width > normal.count.width)
+        #expect(grown.dot.width == grown.dot.height / 2 && normal.dot.width == normal.dot.height / 2)
     }
-    let normal = sizes()
-    TextSize.apply("larger")
-    let grown = sizes()
-    #expect(grown.count.height > normal.count.height && grown.count.width > normal.count.width)
-    #expect(grown.dot.width == grown.dot.height / 2 && normal.dot.width == normal.dot.height / 2)
 }

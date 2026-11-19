@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import TestSupport
 import Testing
 import WorkbenchKit
 
@@ -209,7 +210,7 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
 /// Wherever a template puts a placeholder (bare, in quotes, in $(…), in a comment, in a here-document), a value with
 /// $(…), backticks, quotes or a newline never runs, in zsh (Shell.run) or sh.
 @Test func aValueInAShellTemplateNeverRuns() throws {
-    let marker = NSTemporaryDirectory() + "kelp-pwned-\(UUID().uuidString.prefix(6))"
+    let marker = tmp().path + "/kelp-pwned-\(UUID().uuidString.prefix(6))"
     let evil = "x\nEOF\ntouch \(marker)\n$(touch \(marker)) `touch \(marker)`; touch \(marker) \" ' \\ end"
     let templates = [
         "printf %s ${v}", "printf %s \"${v}\"", "printf %s '${v}'", "printf %s \"PR: ${v}!\"",

@@ -1,11 +1,12 @@
 import Foundation
+import TestSupport
 import Testing
 
 @testable import Core
 
 /// An archive can ship the file Kelp writes as a symlink, before anyone reviewed it: the link is replaced, not written through.
 @Test func theSourceFileIsNotWrittenThroughAnArchivesSymlink() throws {
-    let work = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(
+    let work = tmp().appendingPathComponent(
         "kelp-lib-\(UUID().uuidString.prefix(6))")
     let top = work.appendingPathComponent("repo-main"), victim = work.appendingPathComponent("victim")
     defer { try? FileManager.default.removeItem(at: work) }
@@ -46,7 +47,7 @@ import Testing
 /// a manifest, a bad id or a symlink out of the archive is refused.
 @Test func anArchiveUnpacksToTheExtensionsFolder() throws {
     let fm = FileManager.default,
-        dir = fm.temporaryDirectory.appendingPathComponent("kl-\(UUID().uuidString.prefix(8))")
+        dir = tmp().appendingPathComponent("kl-\(UUID().uuidString.prefix(8))")
     defer { try? fm.removeItem(at: dir) }
     func archive(_ files: [String: String], links: [String: String] = [:]) throws -> URL {
         let src = dir.appendingPathComponent("src-\(UUID().uuidString.prefix(4))"),
@@ -108,7 +109,7 @@ import Testing
 /// Installing over one that's there sends the old one to the Trash; a name that isn't one folder is refused.
 @Test func installingReplacesTheOldCopy() throws {
     let fm = FileManager.default,
-        dir = fm.temporaryDirectory.appendingPathComponent("ki-\(UUID().uuidString.prefix(8))")
+        dir = tmp().appendingPathComponent("ki-\(UUID().uuidString.prefix(8))")
     defer { try? fm.removeItem(at: dir) }
     let src = dir.appendingPathComponent("src/docker"), into = dir.appendingPathComponent("extensions")
     try Paths.ensure(src)
@@ -171,7 +172,7 @@ import Testing
 /// Allowing an extension covers every file of its folder, not its `.git`: a script changed after it was allowed is
 /// asked about again, a commit isn't.
 @Test func anExtensionsDigestFollowsEveryFileButGit() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-digest-\(UUID().uuidString)")
+    let dir = tmp().appendingPathComponent("kelp-digest-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: dir) }
     try FileManager.default.createDirectory(at: dir.appendingPathComponent("bin"), withIntermediateDirectories: true)
     try FileManager.default.createDirectory(at: dir.appendingPathComponent(".git"), withIntermediateDirectories: true)

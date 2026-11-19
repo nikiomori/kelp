@@ -81,7 +81,7 @@ extension OneAtATime {
 /// Restart Background Service stops hearing the old connection: its events' reader ends (it used to wait for good, one
 /// more task left at each restart).
 @MainActor @Test func aConnectionLeftByARestartIsNoLongerHeard() async throws {
-    let path = NSTemporaryDirectory() + "kelp-hear-\(getpid()).sock"
+    let path = tmp().path + "/kelp-hear-\(getpid()).sock"
     let server = try Unix.listen(path)
     defer {
         close(server)

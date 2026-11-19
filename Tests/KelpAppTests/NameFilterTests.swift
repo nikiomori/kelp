@@ -25,7 +25,7 @@ import Testing
     #expect(!NameFilter("!").isEmpty)   // a lone ! is a word like any other
 }
 
-extension AppOfItsOwn {
+extension OneAtATime {
     /// The tree narrows in place, folders keeping their shape and open; emptying the field brings it all back.
     @Test func aNameSearchNarrowsTheTreeInPlace() async throws {
         _ = NSApplication.shared

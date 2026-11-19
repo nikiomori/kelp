@@ -112,7 +112,8 @@ import os
     for (p, b) in [(clean, "clean"), (paused, "paused")] {
         try Git.run(["worktree", "add", "-q", "-b", b, p], cwd: repo, remotes: .none)
     }
-    try "SECRET=1\n".write(toFile: clean + "/.env", atomically: true, encoding: .utf8)
+    let secret = "SECRET=\(UUID())\n"   // this test's own, among every test's in the Trash
+    try secret.write(toFile: clean + "/.env", atomically: true, encoding: .utf8)
     var s = Session(cwd: paused, command: "agent")
     s.status = .paused
     try w.d.store.save(s)
@@ -120,11 +121,7 @@ import os
     let res = try await w.c.call(RepoRemoveWorktrees(id: w.repo.id, paths: listed))
     #expect(res.removed.count == 1 && res.kept.count == 1 && res.kept.values.first?.contains("agent") == true, "\(res)")
     #expect(FileManager.default.fileExists(atPath: paused) && !FileManager.default.fileExists(atPath: clean))
-    let trash = try #require(ProcessInfo.processInfo.environment["KELP_TRASH"])
-    let trashed = (FileManager.default.enumerator(atPath: trash)?.allObjects as? [String] ?? []).filter {
-        $0.hasSuffix("clean/.env")
-    }
-    #expect(!trashed.isEmpty)
+    #expect(inTheTrash("clean/.env", holding: secret))
 }
 
 /// What a discard throws away is kept for its Undo first: when it can't be (a full disk; here, a file where its folder

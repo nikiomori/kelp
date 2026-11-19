@@ -1,12 +1,13 @@
 import Core
 import Foundation
+import TestSupport
 import Testing
 
 @testable import BuiltinFiles
 
 /// A project with a design system and a canvas of two boards, one of them missing, in a temporary folder.
 private func demo() throws -> (root: URL, folder: URL) {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("canvas-\(UUID().uuidString)")
+    let root = tmp().appendingPathComponent("canvas-\(UUID().uuidString)")
     let folder = root.appendingPathComponent(".kelp/artifacts/home")
     let system = DesignSystem.dir(root: root.path)
     try FileManager.default.createDirectory(

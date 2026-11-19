@@ -1,4 +1,5 @@
 import Foundation
+import Testing
 
 /// Answers requests to the hosts a test registered, and records what was sent. Other hosts go to the network as usual.
 public final class StubURL: URLProtocol, @unchecked Sendable {
@@ -58,4 +59,41 @@ public final class StubURL: URLProtocol, @unchecked Sendable {
         client?.urlProtocol(self, didLoad: Data(text.utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
+}
+
+/// For a suite whose tests serve hosts of fixed names (Linear's, Bitbucket's: their clients can't be pointed elsewhere):
+/// it runs while no other such suite does, in any target, since `StubURL`'s routes are the whole process's.
+public struct FixedHosts: SuiteTrait, TestScoping {
+    private static let turns = Turns()
+
+    public func provideScope(
+        for test: Test, testCase: Test.Case?, performing function: @Sendable () async throws -> Void
+    ) async throws {
+        await Self.turns.take()
+        do { try await function() } catch {
+            await Self.turns.give()
+            throw error
+        }
+        await Self.turns.give()
+    }
+
+    /// One holder at a time, the others waiting in turn.
+    private actor Turns {
+        private var held = false, waiting: [CheckedContinuation<Void, Never>] = []
+        func take() async {
+            if held {
+                await withCheckedContinuation { waiting.append($0) }   // `give` hands it over
+            } else {
+                held = true
+            }
+        }
+        func give() {
+            if waiting.isEmpty { held = false } else { waiting.removeFirst().resume() }
+        }
+    }
+}
+
+extension Trait where Self == FixedHosts {
+    /// See `FixedHosts`.
+    public static var fixedHosts: Self { FixedHosts() }
 }

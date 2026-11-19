@@ -11,6 +11,7 @@ import os
 @testable import BuiltinFiles
 @testable import BuiltinGit
 @testable import BuiltinIssues
+@testable import Daemon
 @testable import KelpApp
 @testable import KelpKit
 
@@ -95,9 +96,7 @@ extension OneAtATime {
         _ = NSApplication.shared
         let rig = try await AppRig()
         defer { rig.done() }
-        let me = ProcessInfo.processInfo.environment["KELP_APP_EXECUTABLE"]   // this test runner stands in for the app…
-        setenv("KELP_APP_EXECUTABLE", "/nowhere/KelpApp", 1)   // …not now: another copy of Kelp is asking
-        defer { if let me { setenv("KELP_APP_EXECUTABLE", me, 1) } }
+        rig.daemon.clients.standIn(window: "/nowhere/KelpApp")   // this test runner isn't the app now: another copy is
         let root = "/tmp/refused-\(UUID().uuidString.prefix(6))", app = rig.app, lsp = LSPManager.of(app)
         var started = 0
         _ = lsp.whenTrusted(root) { started += 1 }

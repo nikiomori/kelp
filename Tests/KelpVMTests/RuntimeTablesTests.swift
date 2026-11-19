@@ -187,7 +187,7 @@ extension IOSRuntimeOnAStandIn {
         (.error, .quitIfDown, .done, .error, true)
     ]
     for (from, asked, answer, state, exits) in rows {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
+        let folder = tmp().appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let linux = VMMachine(name: "box", os: "linux", image: "i", cpus: 2, memoryMiB: 2048, diskGiB: 8, user: "u")

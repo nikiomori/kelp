@@ -1,4 +1,5 @@
 import Foundation
+import TestSupport
 import Testing
 
 @testable import Core
@@ -26,7 +27,7 @@ private func failingItsLists(_ peer: Int32) {
 /// `kelp open` asks which workspace the folder is in. A daemon that failed that is an error to say: it used to be
 /// read as "in no workspace", and the file opened wherever the window happened to be.
 @Test func aLookupTheDaemonFailedIsAnErrorNotNoWorkspace() async throws {
-    let path = NSTemporaryDirectory() + "kelp-noanswer-\(getpid()).sock"
+    let path = tmp().path + "/kelp-noanswer-\(getpid()).sock"
     let server = try Unix.listen(path)
     defer {
         close(server)
@@ -37,6 +38,6 @@ private func failingItsLists(_ peer: Int32) {
     defer { close(peer) }
     failingItsLists(peer)
     await #expect(throws: RPCError.self) {
-        _ = try await IDE.open("f.txt", split: nil, cwd: NSTemporaryDirectory(), client: client)
+        _ = try await IDE.open("f.txt", split: nil, cwd: tmp().path, client: client)
     }
 }

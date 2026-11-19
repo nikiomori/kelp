@@ -21,7 +21,8 @@ extension AndroidRuntimeOnAStandIn {
 
     /// The emulator quits but writes no snapshot: the sleep fails, the machine is off, and the next start boots it.
     @Test(.timeLimit(minutes: 1)) func aSleepThatSavedNothingFailsAndTheNextStartBoots() async throws {
-        let quit = #"*"emu kill"*) kill "$(cat "$ANDROID_HOME/emulator.pid")"; rm -f "$ANDROID_HOME/emulator.pid" ;;"#
+        let pid = #""$(dirname "$0")/../emulator.pid""#   // adb is the SDK's platform-tools/adb
+        let quit = #"*"emu kill"*) kill "$(cat \#(pid))"; rm -f \#(pid) ;;"#
         let (vm, sdk, putAway) = try androidStandIn(adb: quit)
         defer { putAway() }
         #expect(await askAndroid(vm, .init(op: .start)) == nil)
@@ -82,7 +83,7 @@ extension IOSRuntimeOnAStandIn {
         var ended = false
         vm.exitProcess = { ended = true }
         let start = Task { await askIOS(vm, .start) }
-        #expect(try await waitFor(5) { vm.state == .starting })
+        #expect(try await waitFor { vm.state == .starting })
         #expect(await withCheckedContinuation { c in vm.handle(.sleepIfIdle) { c.resume(returning: $0) } } == nil)
         #expect(await start.value == nil)
         #expect(vm.state == .running && !ended)
@@ -95,7 +96,7 @@ extension IOSRuntimeOnAStandIn {
         let (vm, folder) = try iOS(built: false)
         defer { putAway(folder) }
         #expect(await askIOS(vm, .start)?.contains("isn't built") == true)
-        #expect(try await waitFor(5) { try xcrunCalls(folder).contains { $0.hasPrefix("simctl shutdown") } })
+        #expect(try await waitFor { try xcrunCalls(folder).contains { $0.hasPrefix("simctl shutdown") } })
     }
 }
 

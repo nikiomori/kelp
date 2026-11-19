@@ -407,7 +407,7 @@ private func count(_ path: String, _ sql: String) throws -> Int {
 /// A remote project's files are printed on its host by one shell line and read back here: run by this Mac's shell, in a
 /// folder with a compose file and a .env, it finds both (and no SQLite file, which can't be opened from here).
 @Test func aRemoteProjectsFilesAreReadInOneGo() throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+    let dir = tmp().appendingPathComponent(UUID().uuidString).path
     try FileManager.default.createDirectory(atPath: dir + "/db", withIntermediateDirectories: true)
     try "services:\n  db:\n    image: postgres:16\n    ports:\n      - \"5432:5432\"\n".write(
         toFile: dir + "/compose.yaml", atomically: true, encoding: .utf8)
@@ -581,7 +581,7 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
 
 /// A runaway SQLite read stops at its time limit, its slot free again.
 @Test func aSQLiteReadStopsAtItsTimeLimit() async throws {
-    let path = try shopDB(in: NSTemporaryDirectory() + "kelp-slow-\(UUID().uuidString)")
+    let path = try shopDB(in: tmp().path + "/kelp-slow-\(UUID().uuidString)")
     let started = Date()
     await #expect(throws: DatabaseFailure.failed("It took more than 0 s.")) {
         try await SQLiteRun(connection: fileConnection(path, .sqlite), off: Slots(1)).read(
@@ -618,7 +618,7 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     let w = try await world(agents: [AgentManifest(id: "bot", name: "Bot", command: "/bin/sh", args: ["-c", "cat"])])
     defer { w.d.stop() }
     let wt = try await firstWorkspace(w)
-    let path = try shopDB(in: NSTemporaryDirectory() + "kelp-lib-\(UUID().uuidString)")
+    let path = try shopDB(in: tmp().path + "/kelp-lib-\(UUID().uuidString)")
     let saved = try await w.c.call(
         DatabaseSave(
             worktreeId: wt.id, database: DatabaseInfo(name: "shop", engine: .sqlite, path: path, access: .free),
@@ -649,7 +649,7 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
     let w = try await world()
     defer { w.d.stop() }
     let wt = try await firstWorkspace(w)
-    let path = try shopDB(in: NSTemporaryDirectory() + "kelp-check-\(UUID().uuidString)")
+    let path = try shopDB(in: tmp().path + "/kelp-check-\(UUID().uuidString)")
     let ok = try await w.c.call(
         DatabaseCheck(worktreeId: wt.id, database: DatabaseInfo(name: "x", engine: .sqlite, path: path)))
     #expect(ok.version == "SQLite" && ok.tables == 2 && ok.databases.isEmpty)
@@ -670,7 +670,7 @@ func aDuckDBFileIsReadAndChangedThroughDuckDB() async throws {
 
 /// An IDE's connections in the project are found as compose's are: DataGrip's .idea, VS Code's SQLTools.
 @Test func anIDEsConnectionsInTheProjectAreFound() throws {
-    let root = NSTemporaryDirectory() + "kelp-ide-\(UUID().uuidString)"
+    let root = tmp().path + "/kelp-ide-\(UUID().uuidString)"
     defer { try? FileManager.default.removeItem(atPath: root) }
     try FileManager.default.createDirectory(atPath: root + "/.idea", withIntermediateDirectories: true)
     try FileManager.default.createDirectory(atPath: root + "/.vscode", withIntermediateDirectories: true)

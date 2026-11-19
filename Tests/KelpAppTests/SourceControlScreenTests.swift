@@ -241,6 +241,22 @@ extension AppOfItsOwn {
         #expect(r.committed && !r.pushed)
     }
 
+    /// A narrow inspector truncates what doesn't fit (the commit message's hint with the branch in it) instead of clipping
+    /// the panel's right edge: the commit button's menu, the counts, the graph's labels.
+    @Test func sourceControlFitsANarrowInspector() async throws {
+        let rig = try await AppRig(files: ["kept.txt": "a\n"])
+        defer { rig.done() }
+        try rig.write("kept.txt", "b\n")
+        let vc = SourceControlController(app: rig.app)
+        rig.show(vc, 260, 700)
+        vc.followWatches()
+        #expect(try await waitFor { texts(vc.view).contains(where: { $0.hasPrefix("Message") }) })
+        vc.view.layoutSubtreeIfNeeded()
+        #expect(vc.view.fittingSize.width <= 260, "\(vc.view.fittingSize.width)")
+    }
+}
+
+extension OneAtATime {
     /// A few changes take their rows' height and the graph follows right under them, not half the panel down.
     @Test func theGraphFollowsAShortListOfChanges() async throws {
         let kept = ["scm.graphHeight", "scm.collapsed"].map { ($0, UserDefaults.standard.object(forKey: $0)) }
@@ -261,20 +277,6 @@ extension AppOfItsOwn {
         #expect(abs(changes.frame.height - rows) < 1, "\(changes.frame.height) for \(rows) of rows")
         let below = try #require(graph.enclosingScrollView).frame
         #expect(below.height > vc.view.bounds.height / 2, "\(below) in \(vc.view.bounds), changes \(changes.frame)")   // the room left
-    }
-
-    /// A narrow inspector truncates what doesn't fit (the commit message's hint with the branch in it) instead of clipping
-    /// the panel's right edge: the commit button's menu, the counts, the graph's labels.
-    @Test func sourceControlFitsANarrowInspector() async throws {
-        let rig = try await AppRig(files: ["kept.txt": "a\n"])
-        defer { rig.done() }
-        try rig.write("kept.txt", "b\n")
-        let vc = SourceControlController(app: rig.app)
-        rig.show(vc, 260, 700)
-        vc.followWatches()
-        #expect(try await waitFor { texts(vc.view).contains(where: { $0.hasPrefix("Message") }) })
-        vc.view.layoutSubtreeIfNeeded()
-        #expect(vc.view.fittingSize.width <= 260, "\(vc.view.fittingSize.width)")
     }
 }
 

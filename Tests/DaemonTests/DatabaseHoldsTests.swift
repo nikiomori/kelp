@@ -146,7 +146,7 @@ private func summary(_ w: World, _ id: String) throws -> String { try w.d.store.
 
 /// The schema's row counts have a time of their own: past it a table shows no count, but its columns all the same.
 @Test func aSQLiteSchemaCountsOnlyWhileItHasTime() async throws {
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+    let dir = tmp().appendingPathComponent(UUID().uuidString).path
     defer { try? FileManager.default.removeItem(atPath: dir) }
     let path = try ordersDB(in: dir)
     let c = fileConnection(path, .sqlite)

@@ -65,7 +65,7 @@ import Testing
 /// One kelp-vm holds a machine's folder; a second gives up. kelpd's look (shared) sees one runs without taking it, and
 /// a look at the instant one starts keeps it out only for that instant: hence its half second of tries.
 @Test func oneKelpVMHoldsAMachine() throws {
-    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("kvm-\(UUID().uuidString.prefix(6))")
+    let folder = tmp().appendingPathComponent("kvm-\(UUID().uuidString.prefix(6))")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: folder) }
     let look = open(folder.appendingPathComponent("kelp-vm.lock").path, O_CREAT | O_RDWR, 0o600)
@@ -108,7 +108,7 @@ import Testing
 /// Two machines woken a moment apart never get the same port, though neither listens on it yet: a port is claimed (a
 /// lock in the machines' folder, `flock`'s, so another kelp-vm's too) until its claim is let go.
 @Test func twoMachinesNeverClaimOnePort() throws {
-    let machines = FileManager.default.temporaryDirectory.appendingPathComponent("vms-\(UUID().uuidString.prefix(6))")
+    let machines = tmp().appendingPathComponent("vms-\(UUID().uuidString.prefix(6))")
     defer { try? FileManager.default.removeItem(at: machines) }
     let a = Lifecycle.claimPort(from: 9300, in: machines), b = Lifecycle.claimPort(from: 9300, in: machines)
     defer { close(b.fd) }

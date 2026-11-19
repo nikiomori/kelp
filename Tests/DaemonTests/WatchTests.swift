@@ -394,7 +394,7 @@ func saved(_ paths: String...) -> [FileWatcher.Change] {
     let wt = try await firstWorkspace(w)
     let s: Session = try await w.c.call(
         "session.create", .obj(["worktreeId": .string(wt.id), "command": "sleep 30"]), as: Session.self)
-    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let dir = tmp().appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: dir) }
     let folder = dir.appendingPathComponent("0F/subagents")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

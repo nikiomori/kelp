@@ -186,8 +186,9 @@ import Testing
 }
 
 /// A host's stats and its disconnect go to ssh only for a host: what isn't one (empty, an option, words) is refused first.
-/// (Whether it reads as connected is the ssh stand-in's to say: another test may have set KELP_SSH for the process.)
+/// The ssh is the stand-in (`localSSH`), which reaches any host: this Mac.
 @Test func onlyAHostIsAskedForItsStats() async throws {
+    _ = localSSH
     let (d, c, _) = try daemon()
     defer { d.stop() }
     #expect(try await c.call(HostStatsRead(host: " nowhere.invalid ")).host == "nowhere.invalid")

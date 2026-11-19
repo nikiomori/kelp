@@ -15,7 +15,7 @@ struct NextEditServerTests {
     }
 
     static func standIn(healthy: Bool) throws -> StandIn {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("next-edit-\(UUID().uuidString)")
+        let folder = tmp().appendingPathComponent("next-edit-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let script = folder.appendingPathComponent("llama-server")
         let body =
@@ -87,7 +87,7 @@ struct NextEditServerTests {
     }
 
     @Test func aServerLeftByAKelpdThatDiedIsEndedAtTheNextStart() async throws {
-        let notes = FileManager.default.temporaryDirectory.appendingPathComponent("next-edit-\(UUID().uuidString)")
+        let notes = tmp().appendingPathComponent("next-edit-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: notes, withIntermediateDirectories: true)
         let left = Process()
         left.executableURL = URL(fileURLWithPath: "/bin/sleep")

@@ -38,7 +38,7 @@ private func lines(_ url: URL) -> [String] {
 }
 
 private func temporary() -> URL {
-    FileManager.default.temporaryDirectory.appendingPathComponent("kelp-event-\(UUID().uuidString)")
+    tmp().appendingPathComponent("kelp-event-\(UUID().uuidString)")
 }
 
 /// What an agent prints reaches a command as a value: run as text, this title would be a command.

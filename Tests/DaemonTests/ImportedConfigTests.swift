@@ -130,7 +130,7 @@ private func script(_ c: RepoConfig?, _ name: String) -> String? { c?.scripts.fi
 /// A .kelp.yaml wins over another tool's file; between one tool's files the current one wins; a file that names nothing
 /// is passed over for the next.
 @Test func theProjectsOwnFileWinsOverAnotherTools() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("imported-\(UUID().uuidString)").path
+    let root = tmp().appendingPathComponent("imported-\(UUID().uuidString)").path
     defer { _ = Log.session.attempt("removing the test folder") { try FileManager.default.removeItem(atPath: root) } }
     func write(_ file: String, _ text: String) throws {
         let u = URL(fileURLWithPath: root + "/" + file)
@@ -150,7 +150,7 @@ private func script(_ c: RepoConfig?, _ name: String) -> String? { c?.scripts.fi
 /// An `.agents/` folder: its prepare script is the setup, its linked paths are shared; `.delta/` overrides a file of it,
 /// and a folder with only skills names nothing.
 @Test func anAgentsFoldersPrepareAndLinkedAreRead() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("agents-\(UUID().uuidString)").path
+    let root = tmp().appendingPathComponent("agents-\(UUID().uuidString)").path
     defer { _ = Log.session.attempt("removing the test folder") { try FileManager.default.removeItem(atPath: root) } }
     func write(_ file: String, _ text: String) throws {
         let u = URL(fileURLWithPath: root + "/" + file)
@@ -177,7 +177,7 @@ private func script(_ c: RepoConfig?, _ name: String) -> String? { c?.scripts.fi
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/bin/zsh")
     p.arguments = ["-c", c.shell(#"echo "$CONDUCTOR_ROOT_PATH|$CONDUCTOR_PORT|$CONDUCTOR_WORKSPACE_NAME""#)]
-    p.currentDirectoryURL = FileManager.default.temporaryDirectory
+    p.currentDirectoryURL = tmp()
     p.environment = ["KELP_PORT": "4100"]
     let out = Pipe()
     p.standardOutput = out

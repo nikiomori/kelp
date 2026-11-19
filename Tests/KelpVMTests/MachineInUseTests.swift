@@ -9,7 +9,7 @@ import Testing
 /// A Linux or macOS machine whose window is on screen is in use: kelpd's memory budget is told so, and a sleep it asks
 /// for (`if-idle`) is refused; the user's own sleep isn't.
 @MainActor @Test func aWindowOnScreenIsUseAndTheBudgetsSleepIsRefused() async throws {
-    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
+    let folder = tmp().appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
     defer { try? FileManager.default.removeItem(at: folder) }
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     let linux = VMMachine(name: "box", os: "linux", image: "i", cpus: 2, memoryMiB: 2048, diskGiB: 8, user: "u")
@@ -37,7 +37,7 @@ import Testing
 /// A child an earlier kelp-vm noted (and was killed before it ended it) is ended by the next one, SIGTERM ignored or
 /// not; a note whose process has gone, or whose pid is someone else's now, ends nothing.
 @MainActor @Test func aChildLeftByAKilledKelpVMIsEndedByTheNext() async throws {
-    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
+    let folder = tmp().appendingPathComponent("vm-\(UUID().uuidString.prefix(6))")
     defer { try? FileManager.default.removeItem(at: folder) }
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     let child = try Process.run(URL(fileURLWithPath: "/bin/sh"), arguments: ["-c", "trap '' TERM; exec sleep 60"])
@@ -87,10 +87,8 @@ extension AndroidRuntimeOnAStandIn {
     }
 }
 
-/// A stand-in Android machine (`standIn`), and how to put it away: its emulator ended, its SDK removed, ANDROID_HOME
-/// as it was.
+/// A stand-in Android machine (`standIn`), and how to put it away: its emulator ended and its SDK removed.
 @MainActor func androidStandIn(booting: String = "", adb: String = "") throws -> (AndroidRuntime, URL, () -> Void) {
-    let before = ProcessInfo.processInfo.environment["ANDROID_HOME"]
     let (vm, sdk) = try standIn(booting: booting, adb: adb)
     return (
         vm, sdk,
@@ -102,7 +100,6 @@ extension AndroidRuntimeOnAStandIn {
             {
                 kill(pid, SIGKILL)
             }
-            if let before { setenv("ANDROID_HOME", before, 1) } else { unsetenv("ANDROID_HOME") }
             try? FileManager.default.removeItem(at: sdk)
         }
     )
