@@ -84,14 +84,15 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
         let model = app
         // A measure that failed keeps the rows the last one read, under a line that says why. With none to keep, the
         // empty state says why, in the place of "No sessions running.", rather than claiming nothing runs.
-        let was = rows
+        let was = rows, places = table.rowPlaces(rowKey)
         let kept = event.error != nil && !was.isEmpty
         failureBar.show(kept ? event.error : nil)
         if !kept {
-            rows = (event.usage ?? []).compactMap { usage in
+            let read: [Row] = (event.usage ?? []).compactMap { usage in
                 guard let session = model.session(usage.session) else { return nil }
                 return Row(session: session, cpu: usage.cpu, memory: usage.memory, processes: usage.processes)
             }
+            rows = Self.holdingOrder(read, was: was)
         }
         let cpu = rows.reduce(0) { $0 + $1.cpu }, mem = rows.reduce(0) { $0 + $1.memory }
         total.stringValue =
@@ -105,9 +106,27 @@ final class ActivityController: NSViewController, NSTableViewDataSource, NSTable
                 symbol: "gauge.with.dots.needle.33percent")
         }
         // When the sessions and their order are unchanged, only the rows whose figures moved are drawn again.
-        guard was.map(\.session.id) == rows.map(\.session.id) else { return table.reloadData() }
+        // Otherwise a session that came or went fades, and the rest travel to their new lines.
+        guard was.map(\.session.id) == rows.map(\.session.id) else {
+            let old = Set(was.map(\.session.id)), now = Set(rows.map(\.session.id))
+            return table.reloadSettling(
+                from: places, came: now.subtracting(old), gone: old.subtracting(now), rowKey
+            ) { table.reloadData() }
+        }
         let moved = IndexSet(rows.indices.filter { rows[$0] != was[$0] })
         table.reloadData(forRowIndexes: moved, columnIndexes: [0])
+    }
+    private func rowKey(_ row: Int) -> String? { rows.indices.contains(row) ? rows[row].session.id : nil }
+
+    /// The daemon's order, busiest first, except that rows showing the same CPU keep the order they had: two sessions
+    /// near the same load would otherwise trade lines on every measure, under the pointer aiming at a Stop.
+    private static func holdingOrder(_ rows: [Row], was: [Row]) -> [Row] {
+        let before = Dictionary(was.enumerated().map { ($1.session.id, $0) }, uniquingKeysWith: { first, _ in first })
+        func key(_ index: Int) -> (Double, Int, Int) {
+            let cpu = rows[index].cpu, shown = cpu < 10 ? (cpu * 10).rounded() / 10 : cpu.rounded()   // as `percent`
+            return (-shown, before[rows[index].session.id] ?? .max, index)
+        }
+        return rows.indices.sorted { key($0) < key($1) }.map { rows[$0] }
     }
 
     nonisolated static func percent(_ cpu: Double) -> String {
@@ -183,5 +202,9 @@ private final class ActivityCell: NSStackView, Hoverable {
             stop?.isHidden = true
         }
     }
-    func setHover(_ on: Bool) { stop?.isHidden = !on }
+    func setHover(_ on: Bool) {
+        guard let stop, stop.isHidden == on else { return }
+        if window != nil { crossfade() }   // as a row's actions fade; a cell made again under the pointer just shows
+        stop.isHidden = !on
+    }
 }

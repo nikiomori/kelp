@@ -39,8 +39,9 @@ final class ArtifactBar: NSObject {
     private let author = TextButton("")
     /// On a canvas, the result of Kelp's check of the drawn boards: what it found wrong (`CanvasScript`).
     private let check = TextButton("")
-    /// What the chat that made the page spent on it, in calls and dollars, as quiet text (Claude Code chats only).
-    private let spent = NSTextField(labelWithString: "")
+    /// What the chat that made the page spent on it, in calls and dollars, as quiet text (Claude Code chats only). It
+    /// and `fresh` give way in a narrow pane before `status` does, which says what state the page is in.
+    private let spent = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
     private var spentAt: Double?
     /// The View / Mark / Edit control. On a canvas it sets what a click on a board does: nothing, a mark for the agent,
     /// or a change by hand.
@@ -52,7 +53,7 @@ final class ArtifactBar: NSObject {
     /// The button that counts the changes the agent's last turn made to a doc. A click goes to the next change.
     private let changes = TextButton("")
     /// On a dashboard, the time its figures were drawn, and an Update button that asks the agent to run them again.
-    private let fresh = NSTextField(labelWithString: "")
+    private let fresh = NSTextField.label("", font: .uiDigits(TextSize.row), color: .secondaryLabelColor)
     private let refresh = TextButton(String(localized: "Update"))
     /// The kept version a doc's changes are counted from.
     var baselineN: Int?
@@ -83,8 +84,7 @@ final class ArtifactBar: NSObject {
         author.onClick = { [weak self] in self?.goToChat() }
         check.isHidden = true
         check.onClick = { [weak self] in self?.showCheck() }
-        spent.font = .uiDigits(TextSize.row)
-        spent.textColor = .secondaryLabelColor
+        for quiet in [spent, fresh] { quiet.setContentCompressionResistancePriority(.defaultLow - 1, for: .horizontal) }
         spent.isHidden = true
         modes.controlSize = .small
         modes.font = .ui(TextSize.row)
@@ -114,8 +114,6 @@ final class ArtifactBar: NSObject {
             self?.changes.isHidden = count == 0
             self?.changes.title = String(localized: "\(count) Changes")
         }
-        fresh.font = .uiDigits(TextSize.row)
-        fresh.textColor = .secondaryLabelColor
         fresh.isHidden = true
         refresh.isHidden = true
         refresh.toolTip = String(localized: "Ask its agent to run the numbers again")

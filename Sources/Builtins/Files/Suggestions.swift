@@ -275,8 +275,11 @@ final class Suggestions {
     private func showCard(from button: NSView, language: String) {
         let popover = NSPopover()
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(
+        let host = NSHostingController(
             rootView: SuggestionsCard(suggestions: self, language: language) { popover.close() })
+        host.sizingOptions = .preferredContentSize   // the popover grows and shrinks to what the card shows
+        popover.contentViewController = host
+        popover.animates = !Motion.reduced
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
 }

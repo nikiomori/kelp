@@ -11,6 +11,8 @@ import WorkbenchKit
 struct LanguagesSettings: View {
     let app: AppModel
     @State private var typed = ""
+    /// Whether the first read of the servers has taken a second, after which the wait says so (the latency rule).
+    @State private var slow = false
     private var lsp: LSPManager { LSPManager.of(app) }
 
     var body: some View {
@@ -26,19 +28,25 @@ struct LanguagesSettings: View {
                 TextField("Search", text: $typed, prompt: Text("Search languages and servers"))
                     .labelsHidden()
             } footer: {
-                if !known { ProgressView().controlSize(.small) }
+                if !known, slow {
+                    LoadingLine(String(localized: "Reading the language servers…"), size: TextSize.caption)
+                }
             }
             if known {
                 group(String(localized: "In This Project"), here, in: root, asks: true)
                 group(String(localized: "Installed"), have, in: root)
                 group(String(localized: "Not Installed"), lack, in: root)
-                if rows.isEmpty { Text("No language or server matches “\(typed)”.").foregroundStyle(.secondary) }
+                if rows.isEmpty {
+                    EmptyState(String(localized: "No Matches"), symbol: "magnifyingglass", lifted: false)
+                }
             }
         }
         .formStyle(.grouped)
         .task {
+            let wait = whileSlow { slow = true }
             if let worktree = app.worktree(app.workbench.workspaceId) { await lsp.scan(worktree) }
             await lsp.refresh(lsp.projectRoot)
+            wait.cancel()
         }
     }
 
@@ -49,7 +57,7 @@ struct LanguagesSettings: View {
                 ForEach(rows) { row in
                     HStack(alignment: .top, spacing: Metrics.inset) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(row.name).font(.ui(TextSize.row, weight: .medium))
+                            Text(row.name).font(.ui(TextSize.row))
                             Text(row.files).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                         }
                         .frame(width: 180, alignment: .leading)
@@ -79,9 +87,12 @@ struct ServerLine: View {
         let status = lsp.status(server, in: root, asks: asks)
         HStack(spacing: Metrics.gap) {
             StateDot(dot(status))
-            Text(LSPManager.name(server)).font(.uiMono(TextSize.caption)).lineLimit(1)
+            // The name keeps its room and the words wrap under themselves, so why a server isn't running isn't cut off
+            // in the 300 pt popover.
+            Text(LSPManager.name(server)).font(.uiMono(TextSize.caption)).lineLimit(1).layoutPriority(1)
             Text(words(status)).font(.ui(TextSize.caption))
-                .foregroundStyle(status == .failed ? Color.textRed : Color.secondary).lineLimit(1)
+                .foregroundStyle(status == .failed ? Color.textRed : Color.secondary).lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Metrics.gap)
             action(status)
         }
@@ -154,7 +165,7 @@ struct FileServers: View {
             Button("All Languages…") {
                 app.extensions.run("workbench.openSettings", ["section": .string("languages"), "group": .null])
             }
-            .buttonStyle(.link).font(.ui(TextSize.row))
+            .buttonStyle(BarButtonStyle())
         }
         .frame(width: Metrics.popoverWidth, alignment: .leading)   // the text column, as HelpMark's
         .padding(Metrics.inset)

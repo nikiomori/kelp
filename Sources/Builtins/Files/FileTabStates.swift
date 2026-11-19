@@ -18,8 +18,11 @@ extension FileTab {
         trust.isHidden = true
         track(owner: self) { [weak self] in
             self.map { LSPManager.of(app).asks($0.root, $0.language) } ?? false
-        } changed: { [weak trust] in
-            trust?.isHidden = !$0
+        } changed: { [weak trust] asks in
+            guard let trust, trust.isHidden == asks else { return }
+            // It comes and goes as a dissolve over the tab, the code moving with it, not in one frame.
+            trust.superview?.superview?.crossfade(asks ? Motion.base : Motion.fast)
+            trust.isHidden = !asks
         }
         let column = NSStackView(views: [crumbs, trust])
         column.orientation = .vertical

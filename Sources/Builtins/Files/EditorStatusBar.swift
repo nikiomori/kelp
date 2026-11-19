@@ -68,6 +68,7 @@ final class EditorStatusBar: NSView {
             label.textColor = .secondaryLabelColor
             label.lineBreakMode = .byTruncatingTail
         }
+        place.font = .uiDigits(TextSize.caption)   // the line and column change as the caret moves: the row stays still
         kind.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         wrap.title = String(localized: "Wrap")
         wrap.isHidden = true

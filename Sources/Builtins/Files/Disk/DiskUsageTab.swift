@@ -69,7 +69,7 @@ struct DiskUsageView: View {
 
     private func header(_ measured: DiskSizes.Measured?) -> some View {
         ContentBar {
-            Text(repo?.name ?? "").font(.ui(TextSize.body, weight: .semibold))
+            Text(repo?.name ?? "").font(.ui(TextSize.body, weight: .semibold)).layoutPriority(1)
             if let measured {
                 Text("measured \(measured.at.formatted(.relative(presentation: .named)))")
                     .font(.ui(TextSize.caption)).monospacedDigit().foregroundStyle(.secondary)

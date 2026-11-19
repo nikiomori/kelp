@@ -62,6 +62,7 @@ struct SuggestionsCard: View {
         .font(.ui(TextSize.row))
         .frame(width: Metrics.popoverWidth, alignment: .leading)   // the text column, as HelpMark's
         .padding(Metrics.inset)
+        .animation(.easeOut(duration: Motion.duration(Motion.fast)), value: listing)   // the list dissolves in and out
         .task { await suggestions.refresh() }
     }
 
@@ -113,12 +114,12 @@ struct SuggestionsCard: View {
         Button(String(localized: "Turn Off in \(LanguageName.of(language)) Files")) {
             suggestions.set(on: false, in: language)
         }
-        .buttonStyle(.link)
+        .buttonStyle(BarButtonStyle())
     }
 
     /// Every model to pick from, the cloud's too.
     private func otherModels() -> some View {
-        Button(String(localized: "Other Models…")) { listing = true }.buttonStyle(.link)
+        Button(String(localized: "Other Models…")) { listing = true }.buttonStyle(BarButtonStyle())
     }
 
     @ViewBuilder private func cloudCard(_ cloud: SuggestCloud, named: String) -> some View {
@@ -131,7 +132,7 @@ struct SuggestionsCard: View {
         } else {
             title(name)
             facts(String(localized: "Cloud · \(Self.company(cloud, app.settings[SettingKeys.suggestionURL]))"))
-            Button(String(localized: "Change Key…")) { addKey(cloud) }.buttonStyle(.link)
+            Button(String(localized: "Change Key…")) { addKey(cloud) }.buttonStyle(BarButtonStyle())
             offHere()
             buttons(String(localized: "Turn Off"), prominent: false) {
                 suggestions.turnOff()

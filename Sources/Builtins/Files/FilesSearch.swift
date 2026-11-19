@@ -110,7 +110,7 @@ extension FilesPanel {
                 noResults.showError(String(localized: "Couldn’t Search"), text: error, buttons: [clearButton()])
             } else {
                 noResults.show(
-                    results.matches.isEmpty ? String(localized: "No matches for “\(query)”") : nil,
+                    results.matches.isEmpty ? String(localized: "No Matches for “\(query)”") : nil,
                     symbol: "magnifyingglass",
                     buttons: [clearButton()])
             }
@@ -140,7 +140,7 @@ extension FilesPanel {
         let found = Self.problems(in: app.latest(FileEvent.self).byKey.mapValues { $0.problems ?? [] }, root: root)
         show(references: found.map(\.match), errors: found.map(\.isError))
         noResults.show(
-            found.isEmpty ? String(localized: "No problems in open files") : nil, symbol: "checkmark.circle",
+            found.isEmpty ? String(localized: "No Problems in Open Files") : nil, symbol: "checkmark.circle",
             buttons: [clearButton()])
     }
 

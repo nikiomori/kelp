@@ -113,8 +113,8 @@ enum SlidesPage {
             thumbs.append(t);
           });
           window.kelpSlides = slides;
-          const strip = el('div', 'kelp-strip'), back = el('button', 'kelp-ib', '‹'), next = el('button', 'kelp-ib',
-            '›');
+          const strip = el('div', 'kelp-strip'), back = el('button', 'kelp-ib'), next = el('button', 'kelp-ib');
+          back.innerHTML = \(CanvasChrome.Glyph.back.js); next.innerHTML = \(CanvasChrome.Glyph.forward.js);
           const at2 = el('span', 'kelp-where');
           back.onclick = () => go(at - 1, true); next.onclick = () => go(at + 1, true);
           strip.append(back, at2, next, el('span', 'kelp-sep'), el('span', 'kelp-esc', L.escEnds));

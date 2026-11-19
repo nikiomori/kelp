@@ -183,12 +183,15 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
             [
                 heading, gap(), tool("bold", keyed(String(localized: "Bold"), "markdown.bold"), #selector(bold)),
                 tool("italic", keyed(String(localized: "Italic"), "markdown.italic"), #selector(italic)),
-                tool("chevron.left.forwardslash.chevron.right", String(localized: "Code"), #selector(code)),
+                tool(
+                    "chevron.left.forwardslash.chevron.right", keyed(String(localized: "Code"), "markdown.code"),
+                    #selector(code)),
                 tool("link", keyed(String(localized: "Link"), "markdown.link"), #selector(link)), gap(),
-                tool("list.bullet", String(localized: "Bulleted list"), #selector(bullets)),
-                tool("list.number", String(localized: "Numbered list"), #selector(numbered)),
-                tool("checklist", String(localized: "Task list"), #selector(tasks)),
-                tool("tablecells", String(localized: "Table"), #selector(table))
+                tool("list.bullet", keyed(String(localized: "Bulleted List"), "markdown.bullets"), #selector(bullets)),
+                tool(
+                    "list.number", keyed(String(localized: "Numbered List"), "markdown.numbered"), #selector(numbered)),
+                tool("checklist", keyed(String(localized: "Task List"), "markdown.tasks"), #selector(tasks)),
+                tool("tablecells", keyed(String(localized: "Table"), "markdown.table"), #selector(table))
             ], in: .leading)
         formatting.spacing = Metrics.iconGap
         let bar = Bar.content([formatting])
@@ -248,7 +251,10 @@ final class MarkdownTab: NSViewController, WKScriptMessageHandler {
         items: [
             ("bold", keyed(String(localized: "Bold"), "markdown.bold"), #selector(bold)),
             ("italic", keyed(String(localized: "Italic"), "markdown.italic"), #selector(italic)),
-            ("chevron.left.forwardslash.chevron.right", String(localized: "Code"), #selector(code)),
+            (
+                "chevron.left.forwardslash.chevron.right", keyed(String(localized: "Code"), "markdown.code"),
+                #selector(code)
+            ),
             ("link", keyed(String(localized: "Link"), "markdown.link"), #selector(link))
         ])
     /// A formatting button's tooltip, with its command's key as it stands.

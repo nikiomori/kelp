@@ -104,9 +104,13 @@ final class Breadcrumbs: NSView {
             button.tag = index
             button.isBordered = false
             button.font = .ui(TextSize.caption)
-            button.lineBreakMode = .byTruncatingTail
             button.contentTintColor = .secondaryLabelColor
-            button.setContentCompressionResistancePriority(.init(100), for: .horizontal)   // a long chain shortens, the row stays
+            // A long chain shortens and the row stays. The folders give way first, from the project's top down, as in
+            // Xcode, then the scopes, and the file's name last, cut in its middle as Finder cuts a name.
+            let file = index == parts.count - 1
+            button.lineBreakMode = file ? .byTruncatingMiddle : .byTruncatingTail
+            let rank = index < parts.count ? min(index, 49) : 50 + min(index - parts.count, 49)
+            button.setContentCompressionResistancePriority(.init(file ? 200 : 100 + Float(rank)), for: .horizontal)
             views.append(button)
         }
         row.setViews(views, in: .leading)

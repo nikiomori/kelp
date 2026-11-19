@@ -57,10 +57,17 @@ final class FollowedPreview {
     init(url: URL, app: AppModel) {
         shown = NSView()   // until the file is read
         view.pin(shown)
+        // A big PDF or video on a slow disk says it is coming, once that has taken a second.
+        let wait = LoadingView()
+        wait.place(in: view)
+        wait.wait(String(localized: "Reading the file…"))
         version = Watched(.file, in: app)
         version.key = url.path
         Task { [weak self] in
             let first = await Preview.view(for: url, app: app)
+            await wait.settled()
+            wait.show(nil)
+            wait.removeFromSuperview()
             self?.show(first)
         }
         track(owner: self) {

@@ -125,7 +125,7 @@ struct SuggestionsList: View {
     /// A model to download through Ollama (Turn On's way when there's none yet).
     private func get(_ model: (id: String, size: String), note: String) -> some View {
         HStack(spacing: Metrics.gap) {
-            Image(systemName: "arrow.down.circle").foregroundStyle(.secondary).frame(width: 14)
+            Image(systemName: "arrow.down.circle").font(.symbol()).foregroundStyle(.secondary).frame(width: 14)
             Text(Suggestions.shortName(model.id)).lineLimit(1)
             Spacer()
             Text(note).foregroundStyle(.secondary).lineLimit(1)
@@ -151,7 +151,7 @@ struct SuggestionsList: View {
     private func row(_ name: String, side: String, picked: Bool, pick: @escaping () -> Void) -> some View {
         Button(action: pick) {
             HStack(spacing: Metrics.gap) {
-                Image(systemName: picked ? "largecircle.fill.circle" : "circle")
+                Image(systemName: picked ? "largecircle.fill.circle" : "circle").font(.symbol())
                     .foregroundStyle(picked ? Color.accentColor : .secondary).frame(width: 14)
                 Text(name).foregroundStyle(.primary)
                 Spacer()

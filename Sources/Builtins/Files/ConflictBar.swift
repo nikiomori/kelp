@@ -18,7 +18,12 @@ final class ConflictBar {
         ]
         return Bar.content([icon, label], buttons, stretching: label)
     }()
-    private let label = NSTextField.label("", font: .ui(TextSize.row))
+    /// The bar's state, which keeps its room in a narrow pane before the buttons do.
+    private let label: NSTextField = {
+        let label = NSTextField.label("", font: .ui(TextSize.row))
+        label.setContentCompressionResistancePriority(.defaultHigh + 1, for: .horizontal)
+        return label
+    }()
     /// ↑ ↓ to the previous and next conflict, as every bar steps through what it found.
     private lazy var steps: NSSegmentedControl = NSSegmentedControl.steps(
         previous: String(localized: "Previous Conflict"), next: String(localized: "Next Conflict"), target: stepping,
@@ -39,7 +44,11 @@ final class ConflictBar {
     /// Reads the conflicts again, after an edit or when the file is read again from disk.
     func refresh() {
         conflicts = editor.map { MergeConflict.all(in: $0.text) } ?? []
-        bar.isHidden = conflicts.isEmpty
+        if bar.isHidden != conflicts.isEmpty {
+            // The last Accept takes it away as a dissolve over the tab, the code moving with it, not in one frame.
+            bar.superview?.crossfade(conflicts.isEmpty ? Motion.fast : Motion.base)
+            bar.isHidden = conflicts.isEmpty
+        }
         // Tints the current side with its <<<<<<< line, and the incoming side with its >>>>>>> line. A diff3 base
         // between the two stays plain.
         editor?.tint(

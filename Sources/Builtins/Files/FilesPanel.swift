@@ -360,7 +360,7 @@ final class FilesPanel: NSViewController, NSOutlineViewDataSource, NSOutlineView
     /// of showing an empty tree.
     let loadError = EmptyStateView()
     /// The rows to come, until the first listing is in, once it has taken a second.
-    let loading = LoadingView(rows: true)
+    let loading = LoadingView(rows: true, rowHeight: Metrics.row)
     /// Says that a search found nothing (and the tree is one click away), instead of showing an empty list.
     let noResults = EmptyStateView()
     let typing = Debounce()
