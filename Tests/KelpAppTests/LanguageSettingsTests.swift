@@ -230,3 +230,15 @@ func aModelOnThisMacWaitsWhileItSavesPowerOrRunsHot(
 func aCloudProviderIsntAskedForThisMacsModel(cloud: SuggestCloud?, model: String?) {
     #expect(Suggestions.model(for: cloud, local: "qwen2.5-coder:1.5b-base", server: "qwen2.5-coder-7b") == model)
 }
+
+/// The next edit's model follows its setting, whoever changed it: on starts it (here no daemon answers, so the start
+/// fails at once), off stops it.
+@MainActor @Test func theNextEditsModelFollowsItsSetting() async throws {
+    _ = testHome
+    let app = AppModel(builtins: [])
+    let suggestions = Suggestions.of(app)
+    app.settings.apply(["editor.suggestions": .string("local"), "editor.nextEdit": .bool(true)])   // as the daemon's echo
+    try await waitFor { suggestions.nextEditSetup == .failed }
+    app.settings.apply(["editor.suggestions": .string("local"), "editor.nextEdit": .bool(false)])
+    try await waitFor { suggestions.nextEditSetup == nil }
+}

@@ -21,6 +21,7 @@ final class Suggestions {
                     MainActor.assumeIsolated { self?.pause = SuggestionPause.now }   // queue: .main delivers here
                 })
         }
+        followNextEdit()
     }
     @ObservationIgnored private var watching: [any NSObjectProtocol] = []
     /// Why the model on this Mac isn't asked now, if it isn't.

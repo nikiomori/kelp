@@ -60,7 +60,7 @@ struct SuggestionsList: View {
         let wanted = app.settings[SettingKeys.nextEdit]
         Toggle(
             String(localized: "Predict the next edit"),
-            isOn: Binding(get: { on && wanted }, set: { want in Task { await suggestions.setNextEdit(want) } })
+            isOn: Binding(get: { on && wanted }, set: { app.settings.set(SettingKeys.nextEdit, $0) })
         )
         .toggleStyle(.switch).controlSize(.small).padding(.horizontal, 6).padding(.top, Metrics.gap).disabled(!on)
         if on, wanted {
