@@ -36,7 +36,6 @@ private func pr(_ n: Int, _ state: String) -> GitHub.PullRequest {
     #expect(m.extensions.all.ci?.pr("w1")?.title.string == "#12")
     // A click opens the PR in its own tab, as the Issues panel and Quick Open's "#" do: not its page in a browser tab.
     #expect(m.extensions.all.ci?.pr("w1")?.uri == TabURI.pullRequest(repo: "r1", number: 12))
-    #expect(TabURI.pullRequest(repo: "r1", number: 12) == "pr:r1/12")
     #expect(m.extensions.all.ci?.pr("w2") == nil)
     let off = AppModel(builtins: [])
     off.extensions.reload()

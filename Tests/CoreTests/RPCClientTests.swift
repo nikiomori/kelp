@@ -49,7 +49,6 @@ import Testing
     client.notify("big", .string(String(repeating: "x", count: 8 << 20)))
     // A partial write after the 0.2 s send timeout, another 0.2 s, then as long a poll: under a second.
     #expect(try await waitFor(10) { closed.value })
-    #expect(closed.value)
 }
 
 /// A listener whose queue is full (a burst of clients while a new kelpd takes over) is tried again for a moment, not

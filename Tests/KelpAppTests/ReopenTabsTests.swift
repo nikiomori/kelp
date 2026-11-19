@@ -58,7 +58,7 @@ extension OneAtATime {
         _ = await area.closeTabAsking(try #require(area.layout.tab(uri: uri)?.id))
         let closed = try #require(rig.app.workbench.closedTabs.all.first)
         area.reopen(closed)
-        #expect(try await waitFor { !(area.layout.tab(uri: uri) != nil) })
+        #expect(try await waitFor { area.layout.tab(uri: uri) == nil })
         #expect(area.layout.allTabs.count == 1)
         let now = try #require(area.layout.allTabs.first)
         let new = try #require(rig.app.session(TabURI.body(now.uri)))

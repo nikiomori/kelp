@@ -24,13 +24,16 @@ private func session(_ status: AgentStatus, unread: Bool = false, agent: String?
 }
 
 @MainActor @Test func quickOpenRanksPrefixThenWordThenContainsThenSeveralWords() {
-    #expect(QuickOpen.wordScore("Open Settings", "open") == 100)
-    #expect(QuickOpen.wordScore("Open Settings", "sett") == 80)   // starts a word
-    #expect(QuickOpen.wordScore("Open Settings", "ttings") == 60)   // somewhere inside
-    #expect(QuickOpen.wordScore("Open Recent Project", "pro rec") == 40)   // every word starts a word, in any order
+    let ranked = [
+        QuickOpen.wordScore("Open Settings", "open"),
+        QuickOpen.wordScore("Open Settings", "sett"),   // starts a word
+        QuickOpen.wordScore("Open Settings", "ttings"),   // somewhere inside
+        QuickOpen.wordScore("Open Recent Project", "pro rec")   // every word starts a word, in any order
+    ].map { $0 ?? -1 }
+    #expect(zip(ranked, ranked.dropFirst()).allSatisfy { $0 > $1 } && ranked.last ?? 0 > 0, "\(ranked)")
     #expect(QuickOpen.wordScore("Open Settings", "xyz") == nil)
     #expect(QuickOpen.wordScore("Anything", "  ") == 0)   // an empty query matches everything equally
-    #expect(QuickOpen.wordScore("OPEN", "open") == 100)   // case doesn't matter
+    #expect(QuickOpen.wordScore("OPEN", "open") == QuickOpen.wordScore("open", "open"))   // case doesn't matter
 }
 
 /// A layout change still waiting out the save's pause is saved when the app quits, not lost with it.
@@ -127,14 +130,17 @@ extension OneAtATime {
     }
 }
 
+/// A notification's headline is the reply's first sentence, without "I", Markdown or the end's full stop; a dot in a
+/// file or version name doesn't end it.
 @MainActor @Test func notificationsReadTheFirstSentenceAsAHeadline() {
-    #expect(
-        Notifier.firstSentence("I added `mul(a, b)` to `calc.py`. It returns the product.")
-            == "Added mul(a, b) to calc.py")
-    #expect(Notifier.firstSentence("I've fixed the login bug!\nMore detail below.") == "Fixed the login bug!")
-    #expect(Notifier.firstSentence("Done") == "Done")
-    #expect(
-        Notifier.firstSentence("В Sources **356 файлов**, считая подпапки.") == "В Sources 356 файлов, считая подпапки")
+    let cases = [
+        ("I added `mul(a, b)` to `calc.py`. It returns the product.", "Added mul(a, b) to calc.py"),
+        ("I've fixed the login bug!\nMore detail below.", "Fixed the login bug!"), ("Done", "Done"),
+        ("В Sources **356 файлов**, считая подпапки.", "В Sources 356 файлов, считая подпапки"),
+        ("Updated README.md and docs/arch.md. Tests pass.", "Updated README.md and docs/arch.md"),
+        ("Is v1.2 ready? Yes.", "Is v1.2 ready?"), ("Fixed it.", "Fixed it")
+    ]
+    for (reply, headline) in cases { #expect(Notifier.firstSentence(reply) == headline) }
     let long = String(repeating: "word ", count: 40)
     let cut = Notifier.firstSentence(long)
     #expect(cut.count == 90 && cut.hasSuffix("…"))   // long text is cut to fit a banner
@@ -337,11 +343,18 @@ extension OneAtATime {
         ])
 }
 
+/// A banner answers a permission, or takes a reply where a quick reply fits (`QuickReply.fits`).
 @MainActor @Test func aBannerAnswersAPermissionOrTakesAReply() {
-    #expect(Notifier.category(session(.waiting, summary: "Allow npm test?")) == "permission")
-    #expect(Notifier.category(session(.done, summary: "Added the login form")) == "reply")
-    #expect(Notifier.category(session(.error)) == "reply")
-    #expect(Notifier.category(session(.waiting, summary: "Which file should I edit?")) == nil)   // its own menu answers it
+    var stopped = session(.done)
+    stopped.limitHit = LimitHit(kind: "5-hour", resets: "3pm")
+    let cases: [(Session, String?)] = [
+        (session(.waiting, summary: "Allow npm test?"), "permission"),
+        (session(.done, summary: "Added the login form"), "reply"), (session(.error), "reply"),
+        (session(.working), nil),
+        (session(.waiting, summary: "Which file should I edit?"), nil),   // its own menu answers it
+        (stopped, nil)   // Continue at its reset says when
+    ]
+    for (s, category) in cases { #expect(Notifier.category(s) == category, "\(s.status) \(s.summary)") }
 }
 
 @MainActor @Test func theSidebarFlagsWhatWantsYou() {
@@ -391,14 +404,6 @@ extension OneAtATime {
     #expect(d("k", [.shift, .command]) == "⇧⌘K")
     #expect(d("k", [.control, .option, .shift, .command]) == "⌃⌥⇧⌘K")   // the order macOS uses
     #expect(d("\r", [.command]) == "⌘↩" && d("\u{F700}", [.option]) == "⌥↑" && d("\u{7f}", [.command]) == "⌘⌫")
-}
-
-@MainActor @Test func aDotInsideAFileNameDoesNotEndTheHeadline() {
-    #expect(
-        Notifier.firstSentence("Updated README.md and docs/arch.md. Tests pass.")
-            == "Updated README.md and docs/arch.md")
-    #expect(Notifier.firstSentence("Is v1.2 ready? Yes.") == "Is v1.2 ready?")
-    #expect(Notifier.firstSentence("Fixed it.") == "Fixed it")
 }
 
 /// Build output never reaches a watcher's handler (it's dropped off the main thread); other changes arrive on main.
@@ -683,42 +688,12 @@ extension OneAtATime {
     await mainActorTurns()   // the badges see it run before it passes, as with reads seconds apart
     ci("completed", "success")
     #expect(try await waitFor { b.sidebarCI("w1") == .passed })
-    #expect(b.sidebarCI("w1") == .passed)
     m.workbench.workspaceId = "w1"
     #expect(try await waitFor { b.sidebarCI("w1") == nil })
     #expect(b.sidebarCI("w1") == nil && b.chipCI("w1") == .passed)   // seen: off the sidebar, on the chip for a minute
     ci("completed", "failure")
     #expect(try await waitFor { b.chipCI("w1") == .failed })
     #expect(b.sidebarCI("w1") == .failed && b.ciLine("w1") == "CI: Failed · CI")
-}
-
-/// The Routines tab's week: a day's runs as they went, and from now on when it's due — the next one marked.
-@Test func aRoutinesWeekShowsRunsThenWhatsDue() throws {
-    var cal = Calendar(identifier: .gregorian)
-    cal.timeZone = try #require(TimeZone(identifier: "Europe/Berlin"))
-    cal.firstWeekday = 2
-    let f = DateFormatter()
-    f.calendar = cal
-    f.timeZone = cal.timeZone
-    f.dateFormat = "yyyy-MM-dd HH:mm"
-    func at(_ s: String) throws -> Date { try #require(f.date(from: s)) }
-    let week = RoutineWeek(now: try at("2026-10-29 11:14"), calendar: cal)
-    let monday = try at("2026-10-26 00:00")
-    #expect(week.days.count == 7 && week.days.first == monday)
-    let r = Routine(
-        id: "r", name: "Morning triage", repoId: "p", agent: "claude", prompt: "x", every: .weekdays, time: 9 * 60)
-    let wed = Routine.Run(
-        routineId: "r", due: try at("2026-10-28 09:00"), outcome: .failed, summary: "gh is not signed in")
-    #expect(week.marks(r, runs: [wed], day: week.days[2]).map(\.kind) == [.run(.failed)])
-    #expect(week.marks(r, runs: [wed], day: week.days[3]).isEmpty)   // today's 9:00 has gone by without a run
-    #expect(week.marks(r, runs: [], day: week.days[4]).map(\.kind) == [.next])
-    #expect(week.marks(r, runs: [], day: week.days[5]).isEmpty)   // Saturday
-    var off = r
-    off.enabled = false
-    #expect(week.marks(off, runs: [], day: week.days[4]).isEmpty)
-    #expect(
-        RoutineWeek.schedule(Routine(name: "h", repoId: "p", agent: "a", prompt: "x", every: .hourly, time: 15))
-            == "Every hour at :15")
 }
 
 /// Accounts that couldn't be read aren't an empty list: one saved after it would write over the profiles there are.

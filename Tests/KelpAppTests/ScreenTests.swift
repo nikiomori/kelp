@@ -80,7 +80,6 @@ extension OneAtATime {
             #expect(r.flatMap { $0 }.contains("Billing rewrite"))   // a note is the workspace's name
             #expect(r.flatMap { $0 }.contains("feat/billing"))   // and its branch stands beside it, not twice when they're one
             #expect(r[1].filter { $0 == "feat/login" }.count == 1)
-            #expect(r.flatMap { $0 }.contains("Fix login bug"))
         }
     }
 

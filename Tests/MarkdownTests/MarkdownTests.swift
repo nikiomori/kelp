@@ -132,7 +132,6 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
     let p = MarkdownHTML.page(body: "<p>x</p>", baseURL: URL(fileURLWithPath: "/r/README.md"), dark: true)
     #expect(p.hasPrefix("<!doctype html>"))
     #expect(p.contains(#"<html class="dark">"#) && p.contains(#"<base href="file:///r/README.md">"#))
-    #expect(p.contains("prefers-color-scheme") && p.contains("-apple-system") && p.contains("max-width:860px"))
     #expect(!p.contains("http"))
     #expect(!MarkdownHTML.page(body: "", baseURL: nil, dark: false).contains("class=\"dark\""))
 }

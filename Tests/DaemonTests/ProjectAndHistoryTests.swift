@@ -154,8 +154,6 @@ import Testing
     let waiting = try #require(d.agentUsage.plans.withLock { $0 }["claude"]?.at)
     d.agentUsage.planUsed("claude")
     #expect(d.agentUsage.plans.withLock { $0 }["claude"]?.at == waiting)
-    d.agentUsage.plans.withLock { $0["claude"]?.at = .distantPast }
-    #expect(d.agentUsage.plans.withLock { $0 }["claude"]?.at == .distantPast)
 }
 
 /// Twice as many stuck git / gh calls as there are cores still leave the daemon answering (they don't hold the cooperative pool).

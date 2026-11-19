@@ -21,7 +21,7 @@ extension OneAtATime {
         let tab = FileTab(uri: TabURI.file(path), app: rig.app)
         await tab.loading?.value
         let e = try #require(tab.editor)
-        #expect(try await waitFor { !(e.changeMarks.isEmpty) })
+        #expect(try await waitFor { !e.changeMarks.isEmpty })
         #expect(e.changeMarks.map(\.kind) == [.changed, .added, .removed])
         #expect(e.changeMarks.map(\.line) == [1, 3, 5])
         try rig.git("commit", "-qam", "agent's change")

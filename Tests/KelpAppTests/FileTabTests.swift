@@ -111,10 +111,8 @@ extension AppOfItsOwn {
         let next = await opened(p, in: rig)
         #expect(next.editor?.text == "mine\n")
         #expect(try await waitFor { next.isEdited })
-        #expect(next.isEdited)
         #expect(await next.save())
         #expect(try await waitFor { kept.text == nil })
-        #expect(kept.text == nil)
     }
 
     /// An untitled tab was never on disk, so a crash would take all of it. Don't Save takes the kept text too.
@@ -129,7 +127,6 @@ extension AppOfItsOwn {
         #expect(next.editor.text == "draft" && next.isEdited)
         next.discard()
         #expect(try await waitFor { kept.text == nil })
-        #expect(kept.text == nil)
     }
 
     /// One the saved layout never had still gets its tab; one whose workspace is gone goes.
@@ -350,7 +347,7 @@ extension AppOfItsOwn {
         tv.replace([NSRange(location: end, length: 1)], with: ["y"])   // the saved length, other text
         #expect(tab.isEdited && tab.comparing != nil)   // compared off the main thread
         tv.replace([NSRange(location: end, length: 1)], with: [was])   // the saved text again
-        #expect(try await waitFor { !(tab.isEdited) })
+        #expect(try await waitFor { !tab.isEdited })
         #expect(!tab.isEdited)
     }
 

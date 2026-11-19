@@ -32,7 +32,7 @@ import WebKit
     func js(_ s: String) async -> String? {
         (try? await web.evaluateJavaScript(s, contentWorld: MarkdownTab.world)) as? String
     }
-    #expect(try await waitFor { !(await js("document.readyState") != "complete") })
+    #expect(try await waitFor { await js("document.readyState") == "complete" })
     // The refresh is tried, and refused, rather than waited out.
     #expect(try await waitFor(10) { decided.refused.contains(where: { $0.hasPrefix("https://example.com") }) })
     #expect(decided.refused.contains { $0.hasPrefix("https://example.com") })

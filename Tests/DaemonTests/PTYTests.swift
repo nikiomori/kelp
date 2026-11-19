@@ -70,7 +70,6 @@ final class Box: @unchecked Sendable {
     p.start()
     // Wait for the child rather than a fixed time: a busy machine (parallel builds) starts it late.
     #expect(try await waitFor(5) { box.text.contains("ready") })
-    #expect(box.text.contains("ready"))
     #expect(!box.text.contains("tty=??"), "no controlling terminal: \(box.text.debugDescription)")
     #expect(box.text.contains("size=30 100"), "initial size lost: \(box.text.debugDescription)")
     p.resize(cols: 50, rows: 20)
@@ -140,7 +139,7 @@ final class Box: @unchecked Sendable {
         pid = p.pid
         p.terminate()
     }
-    #expect(try await waitFor(5) { !(kill(pid, 0) == 0) })
+    #expect(try await waitFor(5) { kill(pid, 0) != 0 })
     #expect(kill(pid, 0) != 0, "still there: stuck exiting on a terminal nobody reads")
 }
 
@@ -150,7 +149,7 @@ final class Box: @unchecked Sendable {
     let p = try PTY(argv: ["/bin/sh", "-c", "exit 0"], cwd: "/tmp", env: [:])
     p.onExit = { box.exit($0) }
     p.start()
-    #expect(try await waitFor(5) { !(box.code == nil) })
+    #expect(try await waitFor(5) { box.code != nil })
     #expect(box.code != nil)
     // The freed fd number goes to whatever opens next: socket pairs, so anything written to one end shows at the other.
     var pairs: [[Int32]] = []

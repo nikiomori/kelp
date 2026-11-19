@@ -319,7 +319,7 @@ import os
     let m = AppModel()
     m.arrangement.park("s1", until: Date().addingTimeInterval(0.3))
     #expect(m.arrangement.parked["s1"] != nil)
-    #expect(try await waitFor { !(m.arrangement.parked["s1"] != nil) })
+    #expect(try await waitFor { m.arrangement.parked["s1"] == nil })
     #expect(m.arrangement.parked["s1"] == nil)
 }
 

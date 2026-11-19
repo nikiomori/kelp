@@ -63,7 +63,8 @@ import Testing
     }
 }
 
-/// Each of GitHub's ways to merge asks before it merges, so its menu item ends in "…".
+/// Each of GitHub's three ways to merge asks before it merges, so its menu item ends in "…". (The question is a sheet,
+/// which a test can't answer: only the mark is checked.)
 @MainActor @Test func theWaysToMergeEndInAnEllipsis() {
     let menu = PRWork(app: AppModel(builtins: []), repoId: "r", pr: pullRequest(.init())).mergeMenu {}
     #expect(menu.items.count == 3)

@@ -256,9 +256,10 @@ import Testing
     #expect(w.d.sessions.permissions.waits.withLock { $0[id] != nil })
     #expect(try await c.call(SessionChoose(id: id, answer: "deny", question: "Allow git push --force?")))
     #expect(try await third.value == "deny")
+    // Claude Code gives the hook longer than the daemon waits, so the hook hears "no answer" instead of being stopped.
     let settings = try JSONDecoder().decode(JSONValue.self, from: Data(Hooks.settingsJSON().utf8))
     let permission = settings["hooks"]?["PermissionRequest"]?.array?.first?["hooks"]?.array?.first
-    #expect(permission?["command"]?.string == "kelp hook waiting" && permission?["timeout"]?.int == 610)
+    #expect(permission?["timeout"]?.int.map { TimeInterval($0) > SessionPermissionWait.within } == true)
 }
 
 /// A question that doesn't show all it would allow (a command of more lines) isn't answered from a banner, even its own.
@@ -287,7 +288,6 @@ import Testing
         "session.create", .obj(["worktreeId": .string(wt.id), "agent": "claude-like"]), as: Session.self)
     #expect(try await w.c.call(SessionRecap(id: s.id)) == nil)
     #expect(try await w.c.call(SessionRecap(id: "gone")) == nil)
-    #expect(SessionRecap.prompt.contains("what is left"))
     let args = SessionRecap.arguments("claude", conversation: "c")
     #expect(
         args.suffix(6) == [

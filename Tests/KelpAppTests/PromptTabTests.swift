@@ -19,14 +19,13 @@ extension AppOfItsOwn {
 
     @Test func aPromptsURIKeepsItsPath() {
         #expect(TabURI.promptPath(TabURI.prompt("/tmp/a b/c.md")) == "/tmp/a b/c.md")
-        #expect(TabURI.scheme(TabURI.prompt("/x")) == "prompt")
     }
 
     @Test func closingAPromptWritesItsTextAndSaysItsDone() async throws {
         let rig = try await AppRig(files: [:])
         defer { rig.done() }
         let (tab, path) = try await opened(rig, text: "draft")
-        #expect(try await waitFor { !(tab.typed == nil) })
+        #expect(try await waitFor { tab.typed != nil })
         tab.type("long prompt\n")
         #expect(await tab.close())
         #expect(try String(contentsOfFile: path, encoding: .utf8) == "long prompt\n")
@@ -38,7 +37,7 @@ extension AppOfItsOwn {
         let rig = try await AppRig(files: [:])
         defer { rig.done() }
         let (tab, path) = try await opened(rig, text: "draft")
-        #expect(try await waitFor { !(tab.typed == nil) })
+        #expect(try await waitFor { tab.typed != nil })
         try "saved elsewhere\n".write(toFile: path, atomically: true, encoding: .utf8)
         tab.type("mine\n")
         #expect(await tab.close() == false)

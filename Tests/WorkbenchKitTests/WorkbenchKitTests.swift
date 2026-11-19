@@ -150,7 +150,7 @@ import WorkbenchKit
         """#
     let specs = try JSONDecoder().decode([LanguageSpec].self, from: Data(json.utf8))
     #expect(
-        specs[0]
+        try #require(specs.first)
             == LanguageSpec(
                 id: "python", extensions: ["py"],
                 server: .init(command: "pyright-langserver", args: ["--stdio"], install: "npm i -g pyright")))

@@ -168,7 +168,7 @@ extension OneAtATime {
         #expect(asked.last?.earlier == [NextEdit.Change(old: "a = 1", new: "a = 10")])   // only the user's
     }
 
-    @Test func aBigFileIsAskedAboutTheSameLinesWithoutSplittingItWhole() async throws {
+    @Test func aBigFileIsAskedAboutTheSameLinesAsTheWholeFileGives() async throws {
         let text = (0..<50_000).map { "let value\($0) = \($0)" }.joined(separator: "\n") + "\n"
         let (e, tv) = editing(text)
         var asked: NextEdit.Ask?

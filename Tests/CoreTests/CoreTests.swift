@@ -227,7 +227,6 @@ private extension Data {
     client.onNotification = { m, _ in if m == "event.test" { got.set() } }
     Unix.writeAll(peer, try Wire.line(RPCRequest(id: nil, method: "event.test", params: nil)))
     #expect(try await waitFor(5) { got.value })
-    #expect(got.value)
 }
 
 /// An event comes to `onEvent` as its own type, read once on the reader thread (the app's main thread decodes nothing).
@@ -246,7 +245,7 @@ private extension Data {
     Unix.writeAll(peer, try Wire.line(RPCNotification(RemovedEvent(session: "s1"))))
     Unix.writeAll(peer, try Wire.line(RPCRequest(id: nil, method: "event.unknown", params: nil)))   // not one of `rpcEvents`
     Unix.writeAll(peer, try Wire.line(RPCNotification(CloneEvent(id: "c", line: "done"))))
-    #expect(try await waitFor(5) { !(got.withLock({ $0.count }) < 2) })
+    #expect(try await waitFor(5) { got.withLock({ $0.count }) >= 2 })
     let events = got.withLock { $0 }
     #expect(events.count == 2)
     #expect(events.first as? RemovedEvent == RemovedEvent(session: "s1"))
@@ -270,8 +269,7 @@ private extension Data {
         for i in 0..<8 { client.notify("big", .obj(["i": .int(i), "pad": pad])) }   // far more than the socket holds
         sent.set()
     }
-    #expect(try await waitFor(5) { sent.value })
-    #expect(sent.value)   // before the daemon read a byte
+    #expect(try await waitFor(5) { sent.value })   // before the daemon read a byte
     var lb = LineBuffer(), order: [Int] = [], buf = [UInt8](repeating: 0, count: 65536)
     while order.count < 8 {
         let n = read(peer, &buf, buf.count)

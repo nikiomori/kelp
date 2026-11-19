@@ -25,9 +25,15 @@ import os
     #expect(try await waitFor(10) { heardSub.withLock { $0.contains(sub + "/b.txt") } })
     #expect(!heardSub.withLock { $0.contains(root + "/a.txt") })
     top = nil
-    #expect(streams.count == 1, "the folder in it holds it still")
+    #expect(streams.count == 1)
+    #expect(
+        try await waitFor(10) {   // the folder in it holds the stream still, and only it hears
+            try "c".write(toFile: sub + "/c.txt", atomically: false, encoding: .utf8)
+            return heardSub.withLock { $0.contains(sub + "/c.txt") }
+        })
+    #expect(!heardRoot.withLock { $0.contains(sub + "/c.txt") })
     inner = nil
-    #expect(streams.count == 0 && top == nil && inner == nil)
+    #expect(streams.count == 0)
     #expect(FileStreams.covers("/r", "/r/src") && FileStreams.covers("/r", "/r") && !FileStreams.covers("/r", "/rx"))
     #expect(!FileStreams.covers("/r", "/r/node_modules/pkg"))
 }

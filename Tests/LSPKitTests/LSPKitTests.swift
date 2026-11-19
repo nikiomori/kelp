@@ -22,7 +22,7 @@ import Testing
 
 @Test func requestsFailOnceTheServerExited() async throws {
     let c = try #require(LSPClient(argv: ["/usr/bin/true"], root: tmp().path))
-    #expect(try await waitFor(5) { !(c.isRunning) })
+    #expect(try await waitFor(5) { !c.isRunning })
     #expect(!c.isRunning)
     await #expect(throws: RPCError.self) { _ = try await c.request("initialize", .null) }
 }

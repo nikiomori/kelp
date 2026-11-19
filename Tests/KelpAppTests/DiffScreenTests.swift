@@ -107,7 +107,7 @@ extension AppOfItsOwn {
         box.performClick(nil)
         box.performClick(nil)   // a click flips it: off, then on again
         #expect(vc.status.stringValue.contains("1 of 2 left"))
-        #expect(try await waitFor { !(rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).isEmpty) })
+        #expect(try await waitFor { !rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).isEmpty })
         #expect(rig.app.uiState.strings(ViewedFiles.key(rig.workspace.id)).count == 1)
     }
 
@@ -135,7 +135,7 @@ extension AppOfItsOwn {
         let button = try #require(vc.gapRow(file: f, from: from, lines: n, context: "").subviews.first as? NSButton)
         button.performClick(nil)
         #expect(
-            try await waitFor { !(vc.rows.contains(where: { if case .diff(.gap) = $0 { true } else { false } })) })
+            try await waitFor { !vc.rows.contains(where: { if case .diff(.gap) = $0 { true } else { false } }) })
         #expect(!vc.rows.contains { if case .diff(.gap) = $0 { true } else { false } })
         #expect(vc.rows.contains { shown($0)?.text == "line 20" && shown($0)?.kind == .context })
     }
@@ -206,7 +206,8 @@ extension AppOfItsOwn {
         #expect(box.state == .off)
     }
 
-    /// The reviewer is pointed at exactly what the diff shows: its source's own git command.
+    /// The reviewer is pointed at exactly what the diff shows: its source's own git command, run in the workspace as
+    /// the reviewer would, prints that change, and staged shows nothing until something is.
     @Test func aReviewCoversWhatTheDiffShows() async throws {
         let rig = try await AppRig(files: ["f.txt": "one\n"])
         defer { rig.done() }
@@ -215,11 +216,21 @@ extension AppOfItsOwn {
         rig.show(vc, 900, 700)
         vc.show(worktree: rig.workspace.id)
         await vc.load()
-        #expect(vc.reviewScope(rig.workspace.id).1 == "git diff HEAD; git status --short")
+        func shown() throws -> String {
+            let command = vc.reviewScope(rig.workspace.id).1
+            let out = try Subprocess.output(
+                ["/bin/sh", "-c", command], cwd: rig.repo, env: ProcessInfo.processInfo.environment, timeLimit: 30)
+            return String(decoding: out, as: UTF8.self)
+        }
+        #expect(try shown().contains("+two"))   // all of the changes
         vc.sourcePicked = .staged
-        #expect(vc.reviewScope(rig.workspace.id).1 == "git diff --cached")
+        #expect(try !shown().contains("+two"))
+        try rig.git("add", "f.txt")
+        #expect(try shown().contains("+two"))
+        try rig.git("checkout", "-qb", "review")
+        try rig.git("commit", "-qm", "two")
         vc.sourcePicked = .branch
-        #expect(vc.reviewScope(rig.workspace.id).1 == "git diff '\(rig.workspace.base)...HEAD'")
+        #expect(try shown().contains("+two"))   // committed on the branch, since its base
         let menu = try #require(vc.reviewPop.menu)
         vc.reviewItems(menu)
         #expect(menu.numberOfItems >= 2)   // the title, then the agents (or why there are none)
@@ -313,7 +324,7 @@ extension AppOfItsOwn {
         edited.stats = LineStats(added: [.code: 2], removed: [.code: 1])
         rig.app.land(edited)
         vc.gitChanged(edited)
-        #expect(try await waitFor { !(vc.loads.reads == reads) })   // a busy runner took over 300 ms
+        #expect(try await waitFor { vc.loads.reads != reads })   // a busy runner took over 300 ms
         #expect(vc.loads.reads == reads + 1)
     }
 

@@ -159,36 +159,40 @@ private func assistant(
     #expect(UsageIndex.block(hours, now: date("2026-10-18T22:30:00Z"))?.end == date("2026-10-19T03:00:00Z"))
 }
 
-@Test func pricingMath() {
+/// A model id finds its price by family, the specific ids before their fallback (Fable 5.1's cheaper cache reads, Opus
+/// 5.5's own rates, "[1m]" the same model); a model with none (a router path, an open model) costs nothing.
+@Test func aModelIdFindsItsPrice() {
+    func row(_ match: String) -> Pricing? { Pricing.table.first { $0.match == match }?.price }
+    let rows: [(String, String?)] = [
+        ("claude-opus-5-5", "opus-5-5"), ("claude-opus-5-5[1m]", "opus-5-5"), ("claude-opus-4-8", "opus"),
+        ("claude-sonnet-5-5", "sonnet-5-5"), ("claude-sonnet-5", "sonnet"), ("claude-sonnet-4-6", "sonnet-4"),
+        ("claude-fable-5-1", "fable-5-1"), ("claude-fable-5", "fable"), ("claude-haiku-5-5", "haiku-5"),
+        ("claude-haiku-4-5", "haiku"), ("gpt-5.1-codex-mini", "-mini"), ("gpt-5.2-codex", "gpt-5.2"),
+        ("gpt-5.5", "gpt-5"), ("gpt-5.6-terra", "gpt-5.6-terra"), ("gpt-6-luna", "gpt-6-luna"),
+        ("openrouter/free", nil), ("llama-3", nil)
+    ]
+    for (model, match) in rows { #expect(Pricing.of(model) == match.flatMap(row), "\(model)") }
     let m = TokenCounts(input: 1_000_000, output: 1_000_000, cacheWrite: 1_000_000, cacheRead: 1_000_000)
-    #expect(abs(Pricing.cost(model: "claude-opus-5-5", tokens: m) - 29.2) < 1e-9)
-    #expect(
-        abs(Pricing.cost(model: "claude-opus-5-5[1m]", tokens: TokenCounts(input: 500, output: 100)) - 0.004) < 1e-12)
-    #expect(Pricing.cost(model: "claude-opus-4-8", tokens: TokenCounts(input: 1_000_000)) == 5)
-    #expect(Pricing.of("claude-opus-5-5")?.cacheRead == 0.2 && Pricing.of("openrouter/free") == nil)
-    #expect(Pricing.cost(model: "claude-sonnet-4-6", tokens: TokenCounts(input: 1_000_000)) == 3)
-    #expect(Pricing.cost(model: "claude-sonnet-5-5", tokens: TokenCounts(input: 1_000_000)) == 2)
-    #expect(Pricing.cost(model: "claude-fable-5-1", tokens: TokenCounts(cacheRead: 1_000_000)) == 0.25)
-    #expect(Pricing.cost(model: "claude-fable-5", tokens: TokenCounts(cacheRead: 1_000_000)) == 1)
-    #expect(Pricing.cost(model: "claude-haiku-4-5", tokens: TokenCounts(input: 1_000_000)) == 1)
-    #expect(Pricing.cost(model: "gpt-5.1-codex-mini", tokens: TokenCounts(input: 1_000_000)) == 0.25)
-    #expect(Pricing.cost(model: "gpt-5.2-codex", tokens: TokenCounts(output: 1_000_000)) == 14)
-    #expect(Pricing.cost(model: "gpt-5.5", tokens: TokenCounts(input: 1_000_000)) == 1.25)
     #expect(Pricing.cost(model: "llama-3", tokens: m) == 0)
-    #expect(Pricing.cost(model: "claude-sonnet-5-5", tokens: TokenCounts(cacheRead: 1_000_000)) == 0.1)
-    #expect(Pricing.cost(model: "claude-sonnet-5", tokens: TokenCounts(cacheRead: 1_000_000)) == 0.2)
-    #expect(Pricing.cost(model: "gpt-5.6-terra", tokens: TokenCounts(input: 1_000_000)) == 2)
-    #expect(Pricing.cost(model: "gpt-6-luna", tokens: TokenCounts(output: 1_000_000)) == 0.5)
-    // An hour's write is twice the input rate, 8 on Opus 5.5 where five minutes' is 5.
-    let write = TokenCounts(cacheWrite: 1_000_000)
-    #expect(Pricing.cost(model: "claude-opus-5-5", tokens: write) == 5)
-    #expect(Pricing.cost(model: "claude-opus-5-5", tokens: write, hourWrites: 1_000_000) == 8)
-    // Haiku 5.5 past 100K of prompt pays five times every rate, the cache counted in the prompt.
-    let long = TokenCounts(output: 1000, cacheRead: 100_001)
-    #expect(abs(Pricing.cost(model: "claude-haiku-5-5", tokens: long) - 5 * (0.0005 + 0.00100001)) < 1e-12)
+}
+
+/// A call costs its tokens at its model's rates, per million. A cache write kept for an hour costs twice the input
+/// rate, not the five-minute rate; past Haiku 5.5's long prompt (the cache counted in it) every rate is five times.
+@Test func pricingMath() throws {
+    let opus = try #require(Pricing.of("claude-opus-5-5"))
+    let m = TokenCounts(input: 1_000_000, output: 1_000_000, cacheWrite: 1_000_000, cacheRead: 1_000_000)
     #expect(
-        abs(Pricing.cost(model: "claude-haiku-5-5", tokens: TokenCounts(output: 1000, cacheRead: 100_000)) - 0.0015)
-            < 1e-12)
+        abs(
+            Pricing.cost(model: "claude-opus-5-5", tokens: m)
+                - (opus.input + opus.output + opus.cacheWrite + opus.cacheRead)) < 1e-9)
+    let write = TokenCounts(cacheWrite: 1_000_000)
+    #expect(Pricing.cost(model: "claude-opus-5-5", tokens: write) == opus.cacheWrite)
+    #expect(Pricing.cost(model: "claude-opus-5-5", tokens: write, hourWrites: 1_000_000) == 2 * opus.input)
+    let haiku = try #require(Pricing.of("claude-haiku-5-5"))
+    let long = TokenCounts(output: 1000, cacheRead: haiku.longPrompt + 1)
+    #expect(abs(Pricing.cost(model: "claude-haiku-5-5", tokens: long) - 5 * haiku.cost(long)) < 1e-12)
+    let atLimit = TokenCounts(output: 1000, cacheRead: haiku.longPrompt)
+    #expect(abs(Pricing.cost(model: "claude-haiku-5-5", tokens: atLimit) - haiku.cost(atLimit)) < 1e-12)
 }
 
 @Test func aCodexChatsLastReplyIsItsFolders() throws {

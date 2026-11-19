@@ -476,9 +476,10 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     #expect(r.command([]) == r.command(nil))
 }
 
+/// A host is a plain name: not an ssh option, no spaces, nor a folder ("..", "a/b") a remote's path could be read from.
 @Test func onlyPlainHostNamesFollowSsh() {
     for ok in ["box", "me@box", "10.0.0.2", "box.example.com"] { #expect(RemoteHost.isHost(ok), "\(ok)") }
-    for bad in ["", "-oProxyCommand=x", "a b", "a\tb", "a\nb"] {
+    for bad in ["", "-oProxyCommand=x", "a b", "a\tb", "a\nb", ".", "..", "a/b", "../x"] {
         #expect(!RemoteHost.isHost(bad), "\(bad.debugDescription)")
     }
 }
@@ -522,10 +523,6 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: wt + "/node_modules")) != nil)
     #expect(!FileManager.default.fileExists(atPath: (wt as NSString).deletingLastPathComponent + "/outside"))
     #expect(!FileManager.default.fileExists(atPath: wt + "/etc") && !FileManager.default.fileExists(atPath: wt + "/~"))
-}
-
-@Test func aHostCantNameAFolderOutsideRemote() {
-    for bad in [".", "..", "a/b", "../x"] { #expect(!RemoteHost.isHost(bad), "\(bad)") }
 }
 
 @Test func anUntrackedSymlinkIsShownNotFollowed() throws {

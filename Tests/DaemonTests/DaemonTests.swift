@@ -382,7 +382,8 @@ final class NoteBox: @unchecked Sendable {
     await #expect(throws: RPCError.self) { _ = try await c.call("worktree.remove", .obj(["id": .string(first.id)])) }
 }
 
-/// Summaries start from the agent's own last reply, not the terminal around it.
+/// Cleaning up removes only the agents' worktrees that lose nothing (where main is, or with a commit their branch
+/// keeps): one with an untracked file, a loose commit on a detached HEAD, and the main checkout stay.
 @Test func removeCleanWorktrees() async throws {
     let (d, c, _, repo) = try await world()
     defer { d.stop() }
