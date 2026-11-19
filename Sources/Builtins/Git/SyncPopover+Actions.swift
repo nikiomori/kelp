@@ -66,7 +66,7 @@ extension SyncPopover {
     /// Git's message cut to a few lines: the pieces of a long push or pull report that say why.
     private static func summary(_ error: String) -> String {
         if GitSync.isRejected(error) {
-            return String(localized: "Push rejected: the remote has commits this branch doesn't. Pull first.")
+            return String(localized: "Push rejected: the remote has commits this branch doesn’t. Pull first.")
         }
         let lines = error.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter {
             !$0.isEmpty

@@ -62,9 +62,7 @@ struct IntegrationsSettings: View {
     ) -> some View {
         LabeledContent {
             HStack {
-                Circle().strokeBorder(on ? Color.clear : Color.secondary, lineWidth: 1.5)
-                    .background(Circle().fill(on ? Color.secondary : .clear)).frame(width: 8, height: 8)
-                    .accessibilityHidden(true)   // the status beside it says the same in words
+                StateDot(on: on)   // the status beside it says the same in words
                 Text(status).foregroundStyle(.secondary)
                 actions()
             }
@@ -138,7 +136,7 @@ struct IntegrationsSettings: View {
 
     private func check() async {
         func state(_ status: GitHubStatus.Result?, _ cli: String) -> CLIState {
-            guard let status else { return CLIState(status: String(localized: "Couldn't check")) }
+            guard let status else { return CLIState(status: String(localized: "Couldn’t check")) }
             if !status.installed {
                 return CLIState(status: String(localized: "Not installed"), setup: Forge.install(cli))
             }
@@ -177,7 +175,7 @@ private enum Account: String, Identifiable {
         switch self {
         case .jira: "API token from id.atlassian.com › Security. Stored in your login keychain."
         case .bitbucket: "Used for pull requests in repos whose origin is on bitbucket.org."
-        case .linear: "Create a key in Linear › Settings › Security & access. It's stored in your login keychain."
+        case .linear: "Create a key in Linear › Settings › Security & access. It’s stored in your login keychain."
         }
     }
 }

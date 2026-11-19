@@ -28,7 +28,8 @@ final class CommitPlanView: NSStackView {
         logo.imageScaling = .scaleProportionallyDown
         logo.widthAnchor.constraint(equalToConstant: 14).isActive = true
         logo.heightAnchor.constraint(equalToConstant: 14).isActive = true
-        let again = IconButton(.symbol("arrow.clockwise"), tip: String(localized: "Ask Again")) { [weak self] in
+        // Asking an agent's symbol, as CI's Ask Agent to Fix: the clockwise arrow is Refresh, which asks nobody.
+        let again = IconButton(.symbol("sparkles"), tip: String(localized: "Ask Again")) { [weak self] in
             self?.onAskAgain?()
         }
         let discard = IconButton(.symbol("xmark"), tip: String(localized: "Discard Plan")) { [weak self] in

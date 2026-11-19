@@ -40,7 +40,7 @@ extension TasksViewController {
         case .jira, .linear:
             guard let brief = Self.brief(row) else { return }
             let title = "\(brief["ref"] ?? "")  \(brief["title"] ?? "")"
-            detail.addArrangedSubview(label(title, size: 17, weight: .semibold))
+            detail.addArrangedSubview(label(title, size: TextSize.heading, weight: .semibold))
             if case .jira(let issue) = row {
                 detail.addArrangedSubview(jiraTransitions(issue.key, current: issue.status))
             }
@@ -51,7 +51,7 @@ extension TasksViewController {
                 })
             body(brief["body"] ?? "")
         case .item(let item):
-            detail.addArrangedSubview(label(item.title, size: 17, weight: .semibold))
+            detail.addArrangedSubview(label(item.title, size: TextSize.heading, weight: .semibold))
             detail.addArrangedSubview(
                 label(String(localized: "Status: \(item.status ?? "—")"), color: .secondaryLabelColor))
         }
@@ -116,7 +116,9 @@ extension TasksViewController {
         pop.target = sink
         pop.action = #selector(ClosureTarget.fire)
         objc_setAssociatedObject(pop, "sink", sink, .OBJC_ASSOCIATION_RETAIN)
-        let row = NSStackView(views: [NSTextField(labelWithString: label), pop])
+        let name = NSTextField(labelWithString: label)
+        name.font = .ui(TextSize.row)
+        let row = NSStackView(views: [name, pop])
         row.spacing = 6
         return row
     }

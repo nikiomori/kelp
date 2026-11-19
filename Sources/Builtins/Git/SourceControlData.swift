@@ -130,7 +130,7 @@ extension SourceControlController {
         headerBar?.isHidden = none
         empty.show(
             none ? String(localized: "No Project") : nil, symbol: "folder",
-            text: String(localized: "A project's changes and history show here."))
+            text: String(localized: "A project’s changes and history show here."))
     }
 
     /// When git can show nothing here, says why instead of showing an empty commit box.
@@ -144,8 +144,8 @@ extension SourceControlController {
         empty.showError(
             notRepo
                 ? String(localized: "Not a Git Repository")
-                : away ? String(localized: "Can't Reach the Server") : String(localized: "Git Isn't Available"),
-            text: notRepo ? String(localized: "This folder isn't under git version control.") : message,
+                : away ? String(localized: "Can’t Reach the Server") : String(localized: "Git Isn’t Available"),
+            text: notRepo ? String(localized: "This folder isn’t under git version control.") : message,
             fix: FixRecipes.fix(for: message)?.command)
     }
 

@@ -63,6 +63,9 @@ extension Builtins {
                 CommandSpec(id: "git.fetch", title: "Git: Fetch", key: "opt+cmd+f") { _ in
                     remote(app, panel, .fetch, String(localized: "Fetched")) { $0.fetchPressed() }
                 },
+                // The panel's ⋯ menu's stash actions.
+                CommandSpec(id: "git.stash", title: "Git: Stash Changes") { _ in stash(app, panel, pop: false) },
+                CommandSpec(id: "git.popStash", title: "Git: Pop Stash") { _ in stash(app, panel, pop: true) },
                 // What the branch chip's menu copies, for the keyboard.
                 CommandSpec(
                     id: "git.copyBranchName", title: "Git: Copy Branch Name", enabled: { branchName(app) != nil }
@@ -79,9 +82,9 @@ extension Builtins {
                             placeholder: "you/"),
                         s(
                             SettingKeys.worktreesFolder, "Folder for worktrees", .string,
-                            "Empty: inside Kelp's own folder.",
+                            "Empty: inside Kelp’s own folder.",
                             help:
-                                "Each project's branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp's own folder.",
+                                "Each project’s branches go in a folder named after it there, e.g. ~/worktrees. Empty: inside Kelp’s own folder.",
                             placeholder: "~/worktrees"),
                         // Where a branch's CI shows. RowMarks keeps it, and gh / glab are asked only for what one of
                         // these places shows.
@@ -173,6 +176,21 @@ private func remote(
         } else {
             Banner.show(done)
         }
+    }
+}
+
+/// Stashes the changes of the workspace on screen, or pops its newest stash: through the panel when it shows that
+/// workspace (for its progress), else straight to git.
+@MainActor
+private func stash(_ app: AppModel, _ panel: LivePanel, pop: Bool) {
+    guard let workspace = app.workbench.workspaceId else { return }
+    let done = pop ? nil : String(localized: "Changes stashed")
+    let method = { (id: String) in GitStash(id: id, pop: pop ? true : nil) }
+    if let controller = panel.controller, controller.worktreeId == workspace {
+        return controller.run(done: done, method)
+    }
+    Task {
+        if await app.call(method(workspace)) != nil, let done { Banner.show(done) }
     }
 }
 

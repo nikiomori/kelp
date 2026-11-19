@@ -42,24 +42,25 @@ enum ForgeRows {
     }
 
     static func pr(_ pr: GitHub.PullRequest, worktree: Bool, unseen: Bool) -> ForgeRowCell {
-        var said: [(String, NSColor?)] = [("#\(pr.number)", nil), (pr.author, nil)]
-        if let updated = pr.updatedAt.map(CIRunLook.ago), !updated.isEmpty { said.append((updated, nil)) }
+        var said = [word("#\(pr.number)"), word(pr.author)]
+        if let updated = pr.updatedAt.map(CIRunLook.ago), !updated.isEmpty { said.append(word(updated)) }
         if pr.isDraft {
-            said.append((String(localized: "draft"), nil))
+            said.append(word(String(localized: "draft")))
         } else if pr.mergeState == "DIRTY" {
-            said.append((String(localized: "conflict"), .textOrange))
+            said.append(word(String(localized: "conflict"), .textOrange))
         } else if pr.reviewDecision == "CHANGES_REQUESTED" {
-            said.append((String(localized: "changes requested"), .textOrange))
+            said.append(word(String(localized: "changes requested"), .textOrange))
         } else if pr.reviewDecision == "APPROVED" {
-            said.append((String(localized: "approved"), nil))
+            said.append(word(String(localized: "approved")))
         }
-        let checks = pr.checks
+        // The checks as drawn symbols: passed and running are quiet grey; only a failure has a colour.
+        let checks = pr.checks, size = TextSize.caption
         if checks.failed > 0 {
-            said.append(("✕ \(checks.failed)", .textRed))
+            said.append(.signed("xmark.circle.fill", checks.failed, size: size, color: .textRed))
         } else if checks.pending > 0 {
-            said.append(("◌", nil))
+            said.append(.signed("circle.dotted", nil, size: size, color: .secondaryLabelColor))
         } else if checks.passed > 0 {
-            said.append(("✓", nil))   // passed is quiet grey; only a failure has a colour
+            said.append(.signed("checkmark.circle.fill", nil, size: size, color: .secondaryLabelColor))
         }
         return ForgeRowCell(
             symbol: symbol(pr), tint: .pullRequest(state: pr.state, draft: pr.isDraft), title: pr.title,
@@ -84,17 +85,20 @@ enum ForgeRows {
         if working { parts.append(String(localized: "in work")) }
         return ForgeRowCell(
             symbol: "smallcircle.filled.circle", tint: issue.state == "CLOSED" ? .textPurple : .textGreen,
-            title: issue.title, meta: joined(parts.map { ($0, nil) }), branch: working, unseen: false)
+            title: issue.title, meta: joined(parts.map { word($0) }), branch: working, unseen: false)
     }
 
-    /// "#49 · ada · 3d · conflict": the parts with a dot between them, each in its colour (or the caption's grey when
-    /// it has none).
-    private static func joined(_ parts: [(String, NSColor?)]) -> NSAttributedString {
+    /// A part of the line in its colour, or with none for the caption's grey.
+    private static func word(_ text: String, _ color: NSColor? = nil) -> NSAttributedString {
+        NSAttributedString(string: text, attributes: color.map { [.foregroundColor: $0] } ?? [:])
+    }
+
+    /// "#49 · ada · 3d · conflict": the parts with a dot between them.
+    private static func joined(_ parts: [NSAttributedString]) -> NSAttributedString {
         let words = NSMutableAttributedString()
-        for (index, (text, color)) in parts.enumerated() {
+        for (index, part) in parts.enumerated() {
             if index > 0 { words.append(NSAttributedString(string: " · ")) }
-            words.append(
-                NSAttributedString(string: text, attributes: color.map { [.foregroundColor: $0] } ?? [:]))
+            words.append(part)
         }
         return words
     }
@@ -114,7 +118,7 @@ enum ForgeRows {
     }
     private static let sizer: NSTextField = {
         let field = NSTextField(wrappingLabelWithString: "")
-        field.font = .ui(TextSize.row, weight: .medium)
+        field.font = .ui(TextSize.row)
         return field
     }()
     /// The room the title gives up beside it in a row: the glyph's column and the insets.
@@ -140,7 +144,7 @@ final class ForgeRowCell: NSView {
         icon.contentTintColor = tint
         name = NSTextField(wrappingLabelWithString: title)
         super.init(frame: .zero)
-        name.font = .ui(TextSize.row, weight: unseen ? .semibold : .medium)
+        name.font = .ui(TextSize.row, weight: unseen ? .semibold : .regular)
         name.maximumNumberOfLines = 2
         name.cell?.truncatesLastVisibleLine = true   // it wraps by word, and an ellipsis ends the second line
         name.isSelectable = false

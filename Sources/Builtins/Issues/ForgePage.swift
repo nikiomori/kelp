@@ -17,7 +17,7 @@ enum ForgePage {
         }
         meta.append(esc(pr.headRefName) + " → " + esc(view.baseRefName))
         let main =
-            header(pr.title, number: pr.number, state: state, meta: meta, block: block)
+            header(pr.title, number: pr.number, state: state, meta: meta, block: block, tone: PRWork.mergeTone(pr))
             + description(view.body) + conversation(view.comments)
         return columns(main, side: checksList(checks) + filesList(view.files))
     }
@@ -33,8 +33,7 @@ enum ForgePage {
         let block = working.map { String(localized: "In work on \($0).") }
         let main =
             header(
-                issue.title, number: issue.number, state: stateWords(issue.state), meta: meta, block: block, quiet: true
-            )
+                issue.title, number: issue.number, state: stateWords(issue.state), meta: meta, block: block)
             + description(issue.body) + conversation(view.comments)
         return "<div class=\"main solo\">\(main)</div>" + css
     }
@@ -43,17 +42,17 @@ enum ForgePage {
         switch state {
         case "MERGED": ("merged", String(localized: "Merged"))
         case "CLOSED": ("closed", String(localized: "Closed"))
-        default: ("open", String(localized: "Open"))
+        default: ("open", String(localized: "Open (state)", defaultValue: "Open"))
         }
     }
 
     private static func header(
-        _ title: String, number: Int, state: (String, String), meta: [String], block: String?, quiet: Bool = false
+        _ title: String, number: Int, state: (String, String), meta: [String], block: String?, tone: String = "quiet"
     ) -> String {
         """
         <h1 class="title">\(esc(title)) <span class="num">#\(number)</span></h1>
         <p class="meta"><span class="state \(state.0)">\(esc(state.1))</span> \(meta.joined(separator: " · "))</p>
-        \(block.map { "<p class=\"block\(quiet ? " quiet" : "")\">\(esc($0))</p>" } ?? "")
+        \(block.map { "<p class=\"block \(tone)\">\(esc($0))</p>" } ?? "")
         """
     }
 
@@ -135,7 +134,8 @@ enum ForgePage {
         .state{display:inline-block;padding:0 7px;border-radius:9px;border:1px solid currentColor;font-size:11px}
         .state.open{color:var(--tip)}.state.draft{color:var(--muted)}.state.merged{color:var(--important)}
         .state.closed{color:var(--caution)}
-        .block{color:var(--warning);font-size:13px;margin:0 0 14px}.block.quiet{color:var(--muted)}
+        .block{color:var(--muted);font-size:13px;margin:0 0 14px}.block.ask{color:var(--warning)}
+        .block.fail{color:var(--caution)}
         .none{color:var(--muted)}
         h2{font-size:14px;border:0;margin:28px 0 8px}
         h3{font-size:11px;font-weight:600;color:var(--muted);margin:0 0 6px}

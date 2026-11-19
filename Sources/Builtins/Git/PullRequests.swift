@@ -61,18 +61,26 @@ enum PullRequests {
     }
 }
 
-/// "#123 Fix login · Open · ✓ 5 checks": a PR in GitHub's own colours (open green, draft grey, merged purple,
+/// "#123 Fix login · Open · checks passed": a PR in GitHub's own colours (open green, draft grey, merged purple,
 /// closed red).
 struct PRLine: View {
     let pr: GitHub.PullRequest
     var body: some View {
-        let state = pr.isDraft ? String(localized: "Draft") : pr.state.capitalized
+        let state =
+            switch pr.isDraft ? "DRAFT" : pr.state {
+            case "DRAFT": String(localized: "Draft")
+            case "MERGED": String(localized: "Merged")
+            case "CLOSED": String(localized: "Closed")
+            default: String(localized: "Open (state)", defaultValue: "Open")
+            }
         let color = Color(nsColor: .pullRequest(state: pr.state, draft: pr.isDraft))
         let failed = pr.checks.failed, pending = pr.checks.pending, passed = pr.checks.passed
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
-                SymbolIcon(state == "Merged" ? "arrow.triangle.merge" : "arrow.triangle.pull", size: Metrics.iconSmall)
-                    .foregroundStyle(color)
+                SymbolIcon(
+                    pr.state == "MERGED" ? "arrow.triangle.merge" : "arrow.triangle.pull", size: Metrics.iconSmall
+                )
+                .foregroundStyle(color)
                 Text("#\(pr.number)").font(.ui(TextSize.row).monospacedDigit())
                 Text(pr.title).font(.ui(TextSize.row)).lineLimit(1)
             }
@@ -81,7 +89,8 @@ struct PRLine: View {
                 // Only a failure has a colour: running checks go by themselves (the agents' ring, grey) and passed ones
                 // are a quiet filled ✓, as the sidebar's CI mark draws them.
                 if failed > 0 {
-                    Text("✕ \(failed) failing").foregroundStyle(Color.textRed)
+                    SymbolIcon("xmark.circle.fill", size: Metrics.iconSmall).foregroundStyle(Color(nsColor: .systemRed))
+                    Text("\(failed) failing").foregroundStyle(Color.textRed)
                 } else if pending > 0 {
                     StatusIcon(status: .working)
                     Text("\(pending) running").foregroundStyle(.secondary)

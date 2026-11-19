@@ -68,7 +68,7 @@ extension SourceControlController {
             alert.messageText = String(localized: "Delete “\(name)”?")
             alert.informativeText = String(
                 localized:
-                    "Git doesn't track this file: Undo puts it back for a minute, and a project on this Mac keeps it in the Trash."
+                    "Git doesn’t track this file: Undo puts it back for a minute, and a project on this Mac keeps it in the Trash."
             )
             alert.addButton(withTitle: String(localized: "Delete File")).hasDestructiveAction = true
         } else {

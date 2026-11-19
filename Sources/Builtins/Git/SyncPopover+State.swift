@@ -122,7 +122,7 @@ extension SyncPopover {
         } else {
             busy.stopAnimation(nil)
             note.stringValue = result?.text ?? ""
-            note.textColor = result?.failed == true ? .textRed : .textGreen
+            note.textColor = result?.failed == true ? .textRed : .secondaryLabelColor   // no green for done
         }
         note.isHidden = note.stringValue.isEmpty
         status.isHidden = note.isHidden

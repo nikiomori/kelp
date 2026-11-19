@@ -91,16 +91,17 @@ final class CommitCardView: NSView {
         if let head = Self.header(subject, merge: commit.parents.count > 1, unpushed: pushed == false) {
             rows.append(head)
         }
-        let title = Self.text(subject.text, font: .ui(TextSize.body, weight: .semibold), color: .labelColor, lines: 4)
+        let title = Self.text(
+            subject.text, font: .ui(TextSize.heading, weight: .semibold), color: .labelColor, lines: 4)
         if subject.breaking {   // a breaking change gets a red "!" before the words, as in the row
             let breakingTitle = NSMutableAttributedString(
                 string: "! ",
-                attributes: [.font: NSFont.ui(TextSize.body, weight: .semibold), .foregroundColor: NSColor.textRed])
+                attributes: [.font: NSFont.ui(TextSize.heading, weight: .semibold), .foregroundColor: NSColor.textRed])
             breakingTitle.append(
                 NSAttributedString(
                     string: subject.text,
                     attributes: [
-                        .font: NSFont.ui(TextSize.body, weight: .semibold), .foregroundColor: NSColor.labelColor
+                        .font: NSFont.ui(TextSize.heading, weight: .semibold), .foregroundColor: NSColor.labelColor
                     ]))
             title.attributedStringValue = breakingTitle
             title.setAccessibilityLabel(String(localized: "Breaking change") + ": " + subject.text)

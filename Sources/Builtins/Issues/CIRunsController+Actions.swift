@@ -77,9 +77,59 @@ extension CIRunsController {
         CIActions(app: app, worktree: worktree) { [weak self] in self?.reload() }
     }
 
+    /// The panel's actions as commands (`IssuesBuiltin`), for the run picked in the list.
+    enum Command { case rerunFailed, rerunAll, cancel, runWorkflow, fix, openLog }
+
+    /// What `what` does now, or nil when the panel isn't on screen or the pick can't take it.
+    func command(_ what: Command) -> (@MainActor () -> Void)? {
+        guard isViewLoaded, view.window != nil, let worktree else { return nil }
+        if what == .runWorkflow {
+            guard !workflows.isEmpty else { return nil }
+            return { [weak self] in self?.runWorkflow() }
+        }
+        guard let pick = picked else { return nil }
+        let run = pick.run, job = pick.job, act = actions(worktree)
+        switch what {
+        case .rerunFailed:
+            guard run.failed else { return nil }
+            return { act.rerunFailed(run.id) }
+        case .rerunAll:
+            guard run.finished else { return nil }
+            return { act.rerunAll(run.id) }
+        case .cancel:
+            guard !run.finished else { return nil }
+            return { act.cancel(run) }
+        case .fix:
+            if let job {
+                guard job.failed else { return nil }
+                return { act.fix(job) }
+            }
+            guard run.failed else { return nil }
+            return { [weak self] in self?.fix(run, in: worktree) }
+        case .openLog:
+            guard let job, job.status == "completed" else { return nil }
+            return { [app] in CILogTab.open(app, worktree: worktree, job: job) }
+        case .runWorkflow: return nil
+        }
+    }
+
+    /// The run picked in the list, and its job when a job or one of its steps is picked.
+    private var picked: (run: CIRuns.Run, job: CIRuns.Job?)? {
+        var up = outline.item(atRow: outline.selectedRow) as? Item
+        while let item = up {
+            switch item.kind {
+            case .run(let run): return (run, nil)
+            case .job(let job, let id): return run(id).map { ($0, job) }
+            case .step, .fold: up = outline.parent(forItem: item) as? Item
+            }
+        }
+        return nil
+    }
+
     @objc func runWorkflow() {
         let menu = NSMenu()
-        for wf in workflows { menu.add(wf.name) { [weak self] in self?.dispatch(wf) } }
+        // Each asks before it runs (`dispatch`), so each ends in "…".
+        for wf in workflows { menu.add(wf.name + "…") { [weak self] in self?.dispatch(wf) } }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: workflowsButton.bounds.height + 4), in: workflowsButton)
     }
 

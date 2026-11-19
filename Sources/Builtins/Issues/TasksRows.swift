@@ -34,9 +34,9 @@ extension TasksViewController {
         var filters: [String] {
             switch self {
             case .pulls: [String(localized: "Open"), String(localized: "Recently Closed")]
-            case .issues: [String(localized: "All open"), String(localized: "Assigned to me")]
-            case .linear: [String(localized: "My issues")]
-            case .jira: [String(localized: "My open issues"), String(localized: "Custom JQL…")]
+            case .issues: [String(localized: "All Open"), String(localized: "Assigned to Me")]
+            case .linear: [String(localized: "My Issues")]
+            case .jira: [String(localized: "My Open Issues"), String(localized: "Custom JQL…")]
             case .projects: [String(localized: "Loading projects…")]
             }
         }

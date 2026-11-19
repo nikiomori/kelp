@@ -50,8 +50,9 @@ final class CIJobPane: NSObject {
         [weak self] in
         if let self, let shown, let run = runOf?(shown.run) { actions?.cancel(run) }
     }
+    // The log's own symbol, as its tab has: the arrow out of a square is Open in Browser.
     private lazy var fullLogButton = IconButton(
-        .symbol("arrow.up.forward.square"), tip: String(localized: "Open Full Log")
+        .symbol("doc.text"), tip: String(localized: "Open Full Log")
     ) { [weak self] in
         if let self, let shown, let worktree { CILogTab.open(app, worktree: worktree, job: shown.job) }
     }
@@ -112,7 +113,7 @@ final class CIJobPane: NSObject {
                 text: String(localized: "The log appears when the job finishes."))
             return
         }
-        loading.wait(String(localized: "Loading the log…"))
+        loading.show(String(localized: "Loading the log…"))   // at once: the log comes from the forge's server
         Task {
             let result = await app.tryCall(CIFailures(worktreeId: worktree, job: job.id))
             guard shown?.job.id == job.id else { return }

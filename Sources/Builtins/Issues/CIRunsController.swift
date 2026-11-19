@@ -298,7 +298,7 @@ final class CIRunsController: NSViewController, NSOutlineViewDataSource, NSOutli
     private func show(note text: String?, failed: Bool = false) {
         if failed, let text {
             setup = empty.showForge(
-                text, failed: String(localized: "Couldn't read the runs"), setupButton: setupButton,
+                text, failed: String(localized: "Couldn’t read the runs"), setupButton: setupButton,
                 checkAgain: checkAgain)
         } else {
             setup = nil

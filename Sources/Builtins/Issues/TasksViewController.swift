@@ -26,8 +26,10 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
     /// With no rows, the list gives way to this, in the middle, with the button that helps (show all, sign in).
     let emptyView = EmptyStateView()
     let loadingView = LoadingView(rows: true)
-    lazy var refresh = IconButton(
-        .symbol("arrow.clockwise"), tip: String(localized: "Refresh"), target: self, action: #selector(reload))
+    /// ⋯ last in the bar, with Refresh in it as in every panel's.
+    lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) { [weak self] in
+        self?.showMore()
+    }
     let table = NSTableView()
     let detail = NSStackView()
     var shown: Source { Source(rawValue: source.selectedTag()) ?? .pulls }
@@ -292,14 +294,14 @@ final class TasksViewController: NSViewController, NSTableViewDataSource, NSTabl
         }
         source.isHidden = false
         let slow = showWait(quietly: quietly)
-        // When the user asked, over rows it keeps showing, Refresh answers the click at once.
-        if !quietly, !rows.isEmpty { refresh.busy = true }
+        // When the user asked, over rows it keeps showing, ⋯ answers Refresh at once.
+        if !quietly, !rows.isEmpty { more.busy = true }
         let src = shown, filterIndex = filter.indexOfSelectedItem
         let picked = quietly ? row(at: table.selectedRow).flatMap(Self.number) : nil
         Task {
             defer {
                 slow?.cancel()
-                if gen == reloads { refresh.busy = false }
+                if gen == reloads { more.busy = false }
             }
             var rows: [Row] = []
             do {

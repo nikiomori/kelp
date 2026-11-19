@@ -215,5 +215,13 @@ private final class AttemptChip: PointerControl {
     required init?(coder: NSCoder) { fatalError() }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    private func show() { label.stringValue = compact ? "↻ \(attempt)" : String(localized: "attempt \(attempt)") }
+    /// Narrow, the word gives way to the retry's symbol, drawn rather than typed as "↻".
+    private func show() {
+        if compact {
+            label.attributedStringValue = .signed(
+                "arrow.clockwise", attempt, size: TextSize.caption, color: .secondaryLabelColor)
+        } else {
+            label.stringValue = String(localized: "attempt \(attempt)")
+        }
+    }
 }
