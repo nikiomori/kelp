@@ -248,10 +248,11 @@ private func submitted(_ screen: String) -> String {
 /// An agent's own auto-answer (a manifest's "press Enter to continue") is pressed a moment after the question draws; if
 /// the user typed meanwhile, it isn't pressed at all (it would land in their text, or answer whatever came next).
 @Test func anAutoAnswerIsntPressedOnceTheUserTyped() async throws {
-    // Asks, then reports every key that comes: the user's, and a late Enter if there is one.
+    // Asks, then reports every key that comes: the user's, and a late Enter if there is one. It listens for 8 s after
+    // each key, past the 5 s the answer waits.
     let script =
         #"stty -icanon -echo; echo 'Press Enter to continue'; "#
-        + #"while IFS= read -rsn1 -t 3 k; do if [[ -z "$k" ]]; then echo KEY-ENTER; else echo "KEY-$k"; fi; done; echo QUIET; sleep 30"#
+        + #"while IFS= read -rsn1 -t 8 k; do if [[ -z "$k" ]]; then echo KEY-ENTER; else echo "KEY-$k"; fi; done; echo QUIET; sleep 30"#
     let m = AgentManifest(
         id: "asks2", name: "Asks", command: "/bin/bash", args: ["-c", script, "x"],
         autoAnswers: [AgentManifest.AutoAnswer(pattern: "Press Enter to continue", input: "\r", after: 5)])
@@ -266,7 +267,7 @@ private func submitted(_ screen: String) -> String {
     // The user comes well within the 5 s the answer waits (not a race with a busy machine).
     #expect(try await waitFor(10) { try await screen().contains("Press Enter") })
     w.c.notify("session.write", .obj(["id": .string(s.id), "base64": .string(Data("x".utf8).base64EncodedString())]))   // the user, at once
-    #expect(try await waitFor(15) { try await screen().contains("QUIET") })
+    #expect(try await waitFor(20) { try await screen().contains("QUIET") })
     let shown = try await screen()
     #expect(shown.contains("KEY-x") && !shown.contains("KEY-ENTER"), "\(shown)")
 }
@@ -307,12 +308,15 @@ private func submitted(_ screen: String) -> String {
     try "keep me\n".write(toFile: victim, atomically: true, encoding: .utf8)
     let evil = "--output=" + victim
     let origin = try makeRepo()
-    let sha = try Git.run(["rev-parse", "HEAD"], cwd: origin, remotes: .none).trimmingCharacters(in: .whitespacesAndNewlines)
+    let sha = try Git.run(["rev-parse", "HEAD"], cwd: origin, remotes: .none).trimmingCharacters(
+        in: .whitespacesAndNewlines)
     try Git.run(["update-ref", "refs/heads/" + evil, sha], cwd: origin, remotes: .none)
     try Git.run(["symbolic-ref", "HEAD", "refs/heads/" + evil], cwd: origin, remotes: .none)
     let clone = tmp().path
     try Git.run(["clone", "-q", "--", origin, clone], cwd: "/tmp", remotes: .none)
-    #expect(Git.defaultBranch(repo: clone, remotes: .none) != "--output=" + victim && !Git.defaultBranch(repo: clone, remotes: .none).hasPrefix("-"))
+    #expect(
+        Git.defaultBranch(repo: clone, remotes: .none) != "--output=" + victim
+            && !Git.defaultBranch(repo: clone, remotes: .none).hasPrefix("-"))
     #expect(throws: GitError.self) { try Git.currentBranch(clone, remotes: .none) }
     #expect(AgentConfig.changed(clone, base: evil, remotes: .none))   // refused: asked, not compared
     let w = try await world()

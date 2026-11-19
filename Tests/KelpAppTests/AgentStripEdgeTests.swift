@@ -136,9 +136,13 @@ private func item(_ cell: DockFace.Cell, _ session: String, at: TimeInterval = 0
         rig.app.sessions = [session(rig.workspace.id, .working)]
         try await settled(strip) { strip.isShowing }
         let before = try #require(strip.frame)
+        let screen = try #require(NSScreen.screens.first { $0.frame.contains(NSPoint(x: before.midX, y: before.midY)) })
+        let others = NSScreen.screens.filter { $0 != screen }.map(\.frame)
+        let sides: [StripEdge] = [.left, .right]
+        guard sides.contains(where: { StripModel.outer($0, of: screen.frame, among: others) }) else { return }   // a screen stands past both sides on this Mac
         strip.call(true)
         try await settled(strip)
-        guard strip.place?.edge != nil else { return }   // a screen stands past both sides on this Mac
+        #expect(strip.place?.edge != nil)
         #expect(try #require(strip.frame) != before)
         #expect(StripPlace.load() == nil)   // the place the person chose stays theirs
         strip.call(false)

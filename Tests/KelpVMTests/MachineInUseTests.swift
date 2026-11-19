@@ -50,10 +50,13 @@ import Testing
     #expect(!FileManager.default.fileExists(atPath: note.path))
     // Another process under the noted pid (a start time that isn't the note's): left alone.
     let other = try Process.run(URL(fileURLWithPath: "/bin/sleep"), arguments: ["60"])
-    defer { other.terminate() }
+    defer { if other.isRunning { kill(other.processIdentifier, SIGKILL) } }
     try "\(other.processIdentifier) 1".write(to: note, atomically: true, encoding: .utf8)
     Lifecycle.endLeftover(in: folder, "emulator")
-    #expect(other.isRunning)
+    // Ended here, it dies of this SIGKILL; had the note ended it, of its SIGTERM.
+    kill(other.processIdentifier, SIGKILL)
+    other.waitUntilExit()
+    #expect(other.terminationReason == .uncaughtSignal && other.terminationStatus == SIGKILL)
 }
 
 /// The budget's sleep is refused by an Android machine whose window the user has; the user's own goes ahead.

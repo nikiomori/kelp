@@ -27,8 +27,9 @@ import Testing
             """#.utf8))
     #expect(icons.matches("") && icons.matches("ICONS tag") && icons.matches("tidepool") && !icons.matches("docker"))
 
-    _ = try await c.call(SettingsSet(key: "extensions.library", value: .string("-o/etc/x")))
-    await #expect(throws: RPCError.self) { try await c.call(ExtensionLibrary()) }
+    _ = try await c.call(SettingsSet(key: "extensions.library", value: .string("-o/etc/x")))   // never handed to curl
+    let refused = await #expect(throws: RPCError.self) { try await c.call(ExtensionLibrary()) }
+    #expect(refused?.message.contains("must be an https URL") == true, "\(String(describing: refused))")
     _ = try await c.call(
         SettingsSet(key: "extensions.library", value: .string(root.appendingPathComponent("gone.json").absoluteString)))
     await #expect(throws: RPCError.self) { try await c.call(ExtensionLibrary()) }

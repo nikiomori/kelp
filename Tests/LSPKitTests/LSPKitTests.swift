@@ -27,16 +27,25 @@ import Testing
     await #expect(throws: RPCError.self) { _ = try await c.request("initialize", .null) }
 }
 
-/// A server's refusal is the server's: its code (-32602 here) isn't passed on as one of Kelp's own.
-@Test func aServersErrorIsKelpsInternalOne() async throws {
-    let reply = #"{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"bad position"}}"#
+/// A server's refusal is the server's: its code (-32602 here) isn't passed on as one of Kelp's own. An answer with a null
+/// error beside its result is an answer.
+@Test(
+    arguments: [
+        (#"{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"bad position"}}"#, nil),
+        (#"{"jsonrpc":"2.0","id":1,"error":null,"result":"ok"}"#, "ok")
+    ] as [(String, String?)])
+func aServersErrorIsKelpsInternalOne(reply: String, result: String?) async throws {
     let script =
         "read -r line; sleep 0.2; printf 'Content-Length: \(reply.utf8.count)\\r\\n\\r\\n%s' '\(reply)'; sleep 5"
     let c = try #require(LSPClient(argv: ["/bin/sh", "-c", script], root: NSTemporaryDirectory()))
-    await #expect(throws: RPCError.internalError("language server: bad position")) {
-        _ = try await c.request("initialize", .null, timeout: 5)
+    defer { c.terminate() }
+    if let result {
+        #expect(try await c.request("initialize", .null, timeout: 5) == .string(result))
+    } else {
+        await #expect(throws: RPCError.internalError("language server: bad position")) {
+            _ = try await c.request("initialize", .null, timeout: 5)
+        }
     }
-    c.terminate()
 }
 
 @Test func documentsAreSharedByTabs() throws {

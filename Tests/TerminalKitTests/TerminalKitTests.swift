@@ -261,6 +261,41 @@ let wrappedRows = [
     #expect(problems.isEmpty, "\(problems)")
 }
 
+/// Lines a program copied (OSC 52) aren't typed on ⌘V where they would run, unseen; lines you copied are.
+@Test @MainActor func aProgramsCopyIsntPastedToRun() async throws {
+    try await takeTerminal()
+    defer { terminalTaken = false }
+    let pb = NSPasteboard.withUniqueName()   // not the user's clipboard
+    GhosttyRuntime.pasteboard = pb
+    defer {
+        GhosttyRuntime.pasteboard = .general
+        pb.releaseGlobally()
+    }
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kelp-osc52-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    try #"printf '\033]52;c;%s\007' "$(printf 'echo PWNED\n' | base64)"; echo READY; exec cat"#.write(
+        to: dir.appendingPathComponent("copy.sh"), atomically: true, encoding: .utf8)
+    let v = GhosttyTerminalView(command: "/bin/sh copy.sh", cwd: dir.path)
+    let w = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 600, height: 300), styleMask: [.titled], backing: .buffered, defer: false
+    )
+    w.contentView = v
+    w.orderFront(nil)
+    defer { w.orderOut(nil) }
+    var refused = 0
+    v.onPasteRefused = { refused += 1 }
+    #expect(
+        try await waitFor(15) { pb.string(forType: .string) == "echo PWNED\n" && v.visibleText.contains("READY") })
+    v.paste(nil)
+    #expect(try await waitFor(5) { refused == 1 })
+    pb.clearContents()
+    pb.setString("echo MINE\n", forType: .string)
+    v.paste(nil)
+    #expect(try await waitFor(5) { v.visibleText.contains("echo MINE") })
+    #expect(refused == 1 && !v.visibleText.contains("PWNED"))
+}
+
 @Test @MainActor func pasteTypesAnImageAsItsPath() throws {
     let pb = NSPasteboard(name: .init("kelp-test-\(UUID().uuidString)"))
     defer { pb.releaseGlobally() }

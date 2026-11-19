@@ -406,11 +406,15 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
     #expect(new.filter { $0.tooLarge == true }.count == 4 && new.filter { !$0.hunks.isEmpty }.count == 8)
 }
 
+/// A big new file isn't read, here or in a remote project on its host.
 @Test func untrackedBigFilesArentRead() throws {
-    let repo = try tempRepo()
+    let repo = try Paths.real(tempRepo()) ?? ""
     try Data(repeating: 0x61, count: 1_200_000).write(to: URL(fileURLWithPath: repo + "/big.log"))
-    let d = try Git.diff(repo, source: .unstaged, file: "big.log", remotes: .none)
-    #expect(d.count == 1 && d[0].binary && d[0].hunks.isEmpty)
+    let there = try standIn(for: repo)
+    for (path, remotes) in [(repo, Remotes.none), (there.folder, there.remotes)] {
+        let d = try Git.diff(path, source: .unstaged, file: "big.log", remotes: remotes)
+        #expect(d.count == 1 && d[0].binary && d[0].hunks.isEmpty, "\(path)")
+    }
 }
 
 @Test func onlyEventsThatMoveGitStatusCount() {
@@ -511,11 +515,14 @@ func fuzzy(_ path: String, _ query: String) -> Int? {
 
 @Test func sharedFoldersNeverLinkOutsideTheProject() throws {
     let repo = try tempRepo(), wt = try tempRepo()
-    try FileManager.default.createDirectory(atPath: repo + "/node_modules", withIntermediateDirectories: true)
+    // The project holds an etc and a ~ folder too: "/etc" and "~/x" are still refused, by their names.
+    for dir in ["node_modules", "etc", "~/x"] {
+        try FileManager.default.createDirectory(atPath: repo + "/" + dir, withIntermediateDirectories: true)
+    }
     Git.linkShared(["node_modules", "../outside", "/etc", "a/../../b", "~/x"], repo: repo, worktree: wt)
     #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: wt + "/node_modules")) != nil)
     #expect(!FileManager.default.fileExists(atPath: (wt as NSString).deletingLastPathComponent + "/outside"))
-    #expect(!FileManager.default.fileExists(atPath: wt + "/etc"))
+    #expect(!FileManager.default.fileExists(atPath: wt + "/etc") && !FileManager.default.fileExists(atPath: wt + "/~"))
 }
 
 @Test func aHostCantNameAFolderOutsideRemote() {

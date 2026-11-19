@@ -20,7 +20,10 @@ import WebKit
     let web = WKWebView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
     let links = PreviewLinks(app: AppModel(builtins: Builtins.all)), heard = Heard(), decided = Decided(links)
     web.navigationDelegate = decided
-    web.configuration.userContentController.add(heard, contentWorld: MarkdownTab.world, name: "kelpSync")
+    // Heard in both worlds, so a page script that ran would be heard too.
+    for world in [MarkdownTab.world, .page] {
+        web.configuration.userContentController.add(heard, contentWorld: world, name: "kelpSync")
+    }
     let base = FileManager.default.temporaryDirectory
     links.load(
         page, baseURL: base,

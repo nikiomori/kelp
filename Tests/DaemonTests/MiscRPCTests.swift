@@ -339,7 +339,8 @@ func trustQuestionStandIn() -> String {
     #expect(FileManager.default.fileExists(atPath: w.repo.path + "/m.txt"))
 }
 
-/// A session started on an account profile comes back on it after a restart and after a pause.
+/// A session started on an account profile comes back on it after a restart and after a pause. A profile of the same
+/// name for another agent is that agent's.
 @Test func theAccountProfileSurvivesRestartAndWake() async throws {
     let fake = AgentManifest(
         id: "claude", name: "Claude", command: "/bin/zsh",
@@ -352,7 +353,10 @@ func trustQuestionStandIn() -> String {
         "settings.set",
         .obj([
             "key": "accounts.profiles",
-            "value": .array([.obj(["name": "work", "agent": "claude", "dir": .string(dir)])])
+            "value": .array([
+                .obj(["name": "work", "agent": "codex", "dir": .string(tmp().path + "/codex-account")]),
+                .obj(["name": "work", "agent": "claude", "dir": .string(dir)])
+            ])
         ]))
     let wt = try await workspace(w, "acct")
     func shows(_ id: String) async throws -> Bool {

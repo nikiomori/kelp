@@ -466,7 +466,8 @@ func hooklessCodex() throws -> AgentManifest {
         try fm.createDirectory(atPath: home + d, withIntermediateDirectories: true)
     }
     try
-        #"{"projects":{"\#(home)/p/known":{"hasTrustDialogAccepted":true},"\#(home)/p/other":{"hasTrustDialogAccepted":false}}}"#
+        (#"{"projects":{"\#(home)/p/known":{"hasTrustDialogAccepted":true},"\#(home)/p/other":{"hasTrustDialogAccepted":false},"#
+        + #""":{"hasTrustDialogAccepted":true}}}"#)
         .write(toFile: home + "/.claude.json", atomically: true, encoding: .utf8)
     try
         "model = \"x\"\n[projects.\"\(home)/p/known\"]\ntrust_level = \"trusted\"\n[projects.\"\(home)/p/other\"]\ntrust_level = \"untrusted\"\n"
@@ -489,6 +490,8 @@ func hooklessCodex() throws -> AgentManifest {
     }
     #expect(AgentTrust.trusts(agent: "claude", folders: [home + "/p/new", home + "/p/known"], home: home))   // the project's main folder counts
     #expect(!AgentTrust.trusts(agent: "cursor", folders: [home + "/p/known"], home: home))   // no way to know: never
+    // An empty path in the config is no folder (read as a path, it would be the current one).
+    #expect(!AgentTrust.trusts(agent: "claude", folders: [FileManager.default.currentDirectoryPath], home: home))
     // An account profile reads its own config.
     try #"{"projects":{}}"#.write(toFile: home + "/profile/.claude.json", atomically: true, encoding: .utf8)
     #expect(

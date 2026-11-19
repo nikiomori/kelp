@@ -625,8 +625,9 @@ private func step(_ tool: String, _ input: [String: Any], _ ts: String) -> [Stri
             + #""output_tokens":\#(out),"cache_read_input_tokens":1000}},"type":"assistant","timestamp":"\#(ts)"}"#
     }
     try [
-        line("a", "2026-11-10T10:00:00.000Z", 50), line("a", "2026-11-10T10:00:00.000Z", 50),
-        line("b", "2026-11-10T10:05:00.000Z", 70), line("c", "2026-11-10T12:00:00.000Z", 900)
+        line("z", "2026-11-10T09:00:00.000Z", 900), line("a", "2026-11-10T10:00:00.000Z", 50),
+        line("a", "2026-11-10T10:00:00.000Z", 50), line("b", "2026-11-10T10:05:00.000Z", 70),
+        line("c", "2026-11-10T12:00:00.000Z", 900)
     ].joined(separator: "\n").write(to: f, atomically: true, encoding: .utf8)
     let from = try #require(ISO8601DateFormatter().date(from: "2026-11-10T09:59:00Z")).timeIntervalSince1970
     let spent = ClaudeUsage.spent(transcript: f, from: from, to: from + 3600)

@@ -2,6 +2,7 @@ import Core
 import Foundation
 import TestSupport
 import Testing
+import os
 
 @testable import Daemon
 @testable import LSPKit
@@ -486,8 +487,11 @@ private func fakeLinter(_ name: String, can: String, line: Int, in dir: String) 
     #expect(try await c.call(ask).first == LSPServerState(command: python, installed: true, running: true, files: 1))
     #expect(try await c.call(LSPServers(root: "/elsewhere", commands: [python])).first?.running == false)
     let before = await d.lsp.clients(root, file).first
+    let told = OSAllocatedUnfairLock<[String]>(initialState: [])
+    d.lsp.whenProblemsChange { path in told.withLock { $0.append(path) } }
     _ = try await c.call(LSPRestart(root: root, command: python))
     #expect(try await c.call(LSPProblems(path: file)).isEmpty)   // the old one's, gone with it
+    #expect(told.withLock { $0 }.first == file)   // and the file's tab is told so, before the new one reports
     #expect(try await waitFor(5) { (try? await c.call(LSPProblems(path: file)))?.count == 1 })   // the file, open again
     let after = await d.lsp.clients(root, file).first
     #expect(before != nil && after != nil && before !== after && before?.isRunning == false)

@@ -103,7 +103,9 @@ private func r(_ md: String) -> String { MarkdownHTML.render(md) }
     #expect(
         r("[ref] and [t][Ref]\n\n[ref]: /r \"tt\"")
             == #"<p><a href="/r" title="tt">ref</a> and <a href="/r" title="tt">t</a></p>"#)
-    #expect(r("[x](javascript:alert(1))").contains(##"href="#""##))
+    for url in ["javascript:alert(1)", "JavaScript:alert(1)", "VBScript:x", "DATA:text/html,x"] {   // any case
+        #expect(r("[x](\(url))").contains(##"href="#""##), "\(url)")
+    }
 }
 
 @Test func horizontalRules() {

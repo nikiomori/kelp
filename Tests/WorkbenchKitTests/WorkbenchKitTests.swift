@@ -302,6 +302,8 @@ private func sh(_ shell: String, _ cmd: String) throws -> String {
     #expect(newChatScreen(in: a, current: nil, rows: rows) == own)
     let branch = Worktree(repoId: a.id, branch: "feat", path: "/wt", createdAt: t)
     #expect(newChatScreen(in: a, current: nil, rows: [branch]) == branch)   // no workspace: still somewhere
+    let shelved = Worktree(repoId: a.id, branch: "old", path: "/old", archived: true, createdAt: t)
+    #expect(newChatScreen(in: a, current: nil, rows: [shelved, branch]) == branch)   // never an archived one
 }
 
 /// Closing several workspaces: a project whose every open workspace was picked keeps its oldest; workspaces (in the project's
