@@ -58,10 +58,14 @@ extension Daemon {
                         continue
                     }
                     // The client speaks JSON-RPC after all (it came in raw, Clients.add), so it gets events from now
-                    // on.
+                    // on. A first line that asks for none (`client.events`, as `kelp attach`'s control line does) is
+                    // muted in the same step: a broadcast in between would reach it before its answer.
                     if !spoke {
                         spoke = true
-                        if req.method != SessionStream.name { clients.setRaw(client.id, false) }
+                        if req.method != SessionStream.name {
+                            let unheard = req.method == ClientEvents.name && req.params?["events"] == .bool(false)
+                            clients.speaksJSON(client.id, muted: unheard)
+                        }
                     }
                     if let handler = Self.methods[req.method] as? any Handled.Type, handler.inOrder {
                         answerInOrder(handler, req, client)

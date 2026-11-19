@@ -66,6 +66,14 @@ final class Clients: Sendable {
     func connection(_ id: Int) -> Connection? { state.withLock { $0.all[id] } }
     func setRaw(_ id: Int, _ on: Bool) { state.withLock { s in if on { s.raw.insert(id) } else { s.raw.remove(id) } } }
 
+    /// `id` speaks JSON-RPC from now on, and hears events unless `muted`: both in one step, so no broadcast falls between.
+    func speaksJSON(_ id: Int, muted: Bool) {
+        state.withLock { state in
+            state.raw.remove(id)
+            if muted { state.muted.insert(id) }
+        }
+    }
+
     /// Whether `id` is still connected (see the note on attaching above).
     func isConnected(_ id: Int) -> Bool { state.withLock { $0.all[id] != nil } }
 

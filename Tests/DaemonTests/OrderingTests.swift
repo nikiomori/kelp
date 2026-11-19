@@ -114,6 +114,47 @@ private func sendAtOnce(_ root: URL, _ calls: [(String, JSONValue)], onLine: (JS
     #expect(next.contains("\"id\":2") && !next.contains("event.settings"), "\(next)")
 }
 
+/// A connection whose first line is `client.events` without events is muted as it stops being a raw pipe, in one
+/// step. Muted only once that call was looked at (its caller found, its params read), it heard a broadcast that came
+/// in between, before its own answer. The broadcasts here come back to back while connections arrive; a race, so it
+/// tries many times.
+@Test func aConnectionMutedByItsFirstLineHearsNoBroadcastBeforeItsAnswer() async throws {
+    let (d, c, root) = try daemon()
+    defer { d.stop() }
+    let done = OSAllocatedUnfairLock(initialState: false)
+    let senders = (0..<3).map { _ in
+        Task {
+            var size = 10
+            while !done.withLock({ $0 }) {
+                size = size == 10 ? 11 : 10
+                _ = try await c.call(SettingsSet(key: "terminal.fontSize", value: .int(size)))
+            }
+        }
+    }
+    var heard: String?
+    for _ in 0..<300 {
+        let fd = try Unix.connect(root.appendingPathComponent("kelp.sock").path)
+        readTimeout(fd, 5)
+        let first = RPCRequest(id: 1, method: ClientEvents.name, params: .obj(["events": false]))
+        Unix.writeAll(fd, try Wire.line(first))
+        var got = "", buffer = [UInt8](repeating: 0, count: 65536)
+        while !got.contains("\"id\":1") {
+            let count = read(fd, &buffer, buffer.count)
+            guard count > 0 else { break }
+            got += String(decoding: buffer[0..<count], as: UTF8.self)
+        }
+        close(fd)
+        #expect(got.contains("\"id\":1"), "no answer: \(got)")
+        if got.contains("event.") {
+            heard = got
+            break
+        }
+    }
+    done.withLock { $0 = true }
+    for sender in senders { _ = try await sender.value }
+    #expect(heard == nil, "heard before its answer: \(heard ?? "")")
+}
+
 /// `kelp attach` sends `session.stream` as its first line: an event broadcast between its connect and that line went into
 /// what became the terminal's byte stream, and showed on screen as JSON.
 @Test func anAttachingTerminalGetsNoEventBeforeItsStream() async throws {
