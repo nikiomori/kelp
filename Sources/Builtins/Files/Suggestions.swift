@@ -39,6 +39,8 @@ final class Suggestions {
     /// Where suggestions came from before they were switched off.
     @ObservationIgnored var wereOn: SuggestMode?
     var setupError: String?
+    /// Turn On is finding or getting a model.
+    @ObservationIgnored var turningOn = false
     /// The next edit's llama-server: starting (the first time, downloading its model), or what it needs.
     var nextEditSetup: NextEditSetup?
     enum NextEditSetup: Equatable { case starting, needs(OllamaSetup), failed }

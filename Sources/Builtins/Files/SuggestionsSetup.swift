@@ -17,6 +17,11 @@ extension Suggestions {
     }
 
     func turnOn() async {
+        // A second click while the first looks for a model would start a second download, which ends the first: its
+        // error would show, and its end would clear the second's progress.
+        guard !turningOn else { return }
+        turningOn = true
+        defer { turningOn = false }
         setupError = nil
         needsOllama = nil
         await refresh()
