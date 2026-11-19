@@ -100,14 +100,13 @@ import Testing
                 }
             }
             // Its emulator was ended by `emu kill` (which takes its pid file), not left booting: it had started (the log)
-            // and, a moment on, is still gone.
+            // and is still gone once a start asked after it all is answered (a start asked before was handled first).
             #expect(
                 try await waitFor(5) {
                     FileManager.default.fileExists(atPath: sdk.appendingPathComponent("starts.log").path)
                 })
-            try await Task.sleep(for: .milliseconds(500))
-            #expect(!FileManager.default.fileExists(atPath: sdk.appendingPathComponent("emulator.pid").path), "\(when)")
             #expect(await ask(.start)?.contains("stopping") == true, "\(when): nothing starts once it's leaving")
+            #expect(!FileManager.default.fileExists(atPath: sdk.appendingPathComponent("emulator.pid").path), "\(when)")
         }
     }
 }

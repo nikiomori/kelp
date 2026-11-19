@@ -446,6 +446,10 @@ let wrappedRows = [
         CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: 1, wheel2: 0, wheel3: 0)
             .flatMap(NSEvent.init(cgEvent:)))
     v.scrollWheel(with: scroll)
-    try await Task.sleep(for: .seconds(0.8))
+    // A preview the scroll left standing would come from the view's half-second timer, set before this one: a timer of
+    // this run loop's set now for longer fires after it.
+    await withCheckedContinuation { done in
+        Timer.scheduledTimer(withTimeInterval: 0.6, repeats: false) { _ in done.resume() }
+    }
     #expect(shown.isEmpty)
 }

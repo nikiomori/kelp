@@ -214,7 +214,7 @@ import Testing
         let code = codeOnly(f.text)
         return sleep.numberOfMatches(in: code, range: NSRange(code.startIndex..., in: code))
     }.reduce(0, +)
-    #expect(count == 28, "sleeps in the tests: wait for the event instead (`waitFor`), or lower the count")
+    #expect(count == 25, "sleeps in the tests: wait for the event instead (`waitFor`), or lower the count")
 }
 
 /// What `try?` drops, spelled out: a `catch {}` or `catch { return nil }` (`failuresAreNotSwallowed` counts the `try?`s).

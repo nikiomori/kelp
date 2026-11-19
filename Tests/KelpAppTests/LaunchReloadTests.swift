@@ -25,7 +25,11 @@ extension OneAtATime {
         reg.reload()   // applicationDidFinishLaunching's
         await rig.app.opened(rig.client)
         #expect(try await waitFor(10) { reg.tools["sh"] == true })
-        try await Task.sleep(for: .milliseconds(500))   // the trust record and what follows settings
+        // The first trust record (`ExtensionTrust.adopt`) is saved, and its answer comes before the answer to a call
+        // made after it (both answered in order): what adopt does with it has run by then.
+        #expect(try await waitFor(5) { rig.app.uiState[ExtensionFiles.extensionTrustKey] != nil })
+        _ = try await rig.client.call(ClientEvents(events: true))
+        await mainActorTurns()
         #expect(reg.revision == 2)
         #expect(reg.disabledLoaded.isEmpty)   // settings.json's list was loaded all the same
     }
