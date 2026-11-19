@@ -210,8 +210,7 @@ import Testing
     let n = ProcessInfo.processInfo.activeProcessorCount * 2, params = JSONValue.obj(["repoId": .string(repo.id)])
     let asks = (0..<n).map { _ in Task { try await d.handle(GitHubForge.name, params, conn: -1) } }
     // Blocking waits from here to the release, as `signals` does: with the lookups on the pool an await never resumed.
-    let deadline = Date().addingTimeInterval(20)
-    while lookups() == before, Date() < deadline { usleep(50_000) }
+    waitBlocking(20) { lookups() > before }
     let answered = DispatchSemaphore(value: 0)
     let ping = Task {
         let r = try await d.handle("ping", .null, conn: -1)

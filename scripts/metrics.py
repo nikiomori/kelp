@@ -176,7 +176,10 @@ def main():
     big_files = sorted((len(lines(p)), str(p)) for p in sources if len(lines(p)) > 400)
     flaky = [l for l in Path("Tests/flaky.txt").read_text().splitlines() if l.strip() and not l.startswith("#")]
     sleeps = grep_count(r"Task\.sleep|usleep\(|Thread\.sleep|sleep\(for:", swift_files("Tests"))
-    loops = grep_count(r"for _ in 0\.\.<\d+ where", swift_files("Tests"))
+    # A wait written out by hand (`for _ in 0..<50 where`, `while … Date() < end`) runs out silently, and the test
+    # fails later at a check that reads like another bug: `waitFor` / `waitBlocking` (TestSupport) are the waits.
+    waits = [p for p in swift_files("Tests") if p.parts[1] != "TestSupport"]
+    loops = grep_count(r"for _ in 0\.\.<\d+ where|while [^{\n]*Date\(\) <", waits)
     tests = grep_count(r"@Test\b", swift_files("Tests"))
     vm_tests = grep_count(r"@Test\b", swift_files("Tests/KelpVMTests"))
     vm_loc = count_loc("Sources/KelpVM")

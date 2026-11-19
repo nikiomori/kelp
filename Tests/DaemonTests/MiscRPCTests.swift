@@ -425,22 +425,23 @@ func trustQuestionStandIn() -> String {
     defer { close(fd) }
     readTimeout(fd, 1)
     Unix.writeAll(fd, try Wire.line(RPCRequest(id: nil, method: "session.stream", params: .obj(["id": .string(s.id)]))))
-    var buf = [UInt8](repeating: 0, count: 65536), streamed = ""
-    // true: the daemon closed the stream; `screen`: until the agent's screen came, as it does once attached
-    func readsUntilEnd(_ seconds: Double, screen: Bool = false) -> Bool {
-        let end = Date().addingTimeInterval(seconds)
-        while Date() < end {
-            let n = read(fd, &buf, buf.count)
-            if n == 0 { return true }
-            if n > 0 { streamed += String(decoding: buf[0..<n], as: UTF8.self) }
-            if n < 0, errno != EAGAIN, errno != EINTR { return true }
-            if screen, streamed.contains("up") { return false }
-        }
-        return false
+    var buf = [UInt8](repeating: 0, count: 65536), streamed = "", ended = false
+    /// Reads what came within the read timeout; `ended` once the daemon closed the stream.
+    func readSome() {
+        let n = read(fd, &buf, buf.count)
+        if n > 0 { streamed += String(decoding: buf[0..<n], as: UTF8.self) }
+        if n == 0 || (n < 0 && errno != EAGAIN && errno != EINTR) { ended = true }
     }
-    #expect(!readsUntilEnd(5, screen: true) && streamed.contains("up"))   // attached: it streams
+    waitBlocking(5) {   // attached: it streams the agent's screen
+        readSome()
+        return ended || streamed.contains("up")
+    }
+    #expect(!ended && streamed.contains("up"))
     _ = try await w.c.call("worktree.archive", .obj(["id": .string(wt.id)]))
-    #expect(readsUntilEnd(5))
+    waitBlocking(5) {
+        readSome()
+        return ended
+    }
     #expect(
         try await waitFor(5) {
             try await w.c.call("session.list", as: [Session].self).first { $0.id == s.id }?.status == .paused

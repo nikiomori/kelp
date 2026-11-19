@@ -152,7 +152,7 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
 @Test func attachSendsHistoryBeforeLiveOutput() async throws {
     let (d, c, w, root) = try await project()
     defer { d.stop() }
-    let count = "i=0; while [ $i -lt 300000 ]; do i=$((i+1)); echo n$i; done; sleep 30"
+    let count = "i=0; while [ $i -lt 60000 ]; do i=$((i+1)); echo n$i; done; sleep 30"
     let s: Session = try await c.call(
         "session.create", .obj(["worktreeId": .string(w.id), "command": .string(count)]), as: Session.self)
     #expect(
@@ -164,11 +164,10 @@ private func status(_ c: RPCClient, _ id: String) async throws -> AgentStatus? {
     readTimeout(fd, 2)
     Unix.writeAll(fd, try Wire.line(RPCRequest(id: nil, method: "session.stream", params: .obj(["id": .string(s.id)]))))
     var got = Data(), buf = [UInt8](repeating: 0, count: 65536)
-    let end = Date().addingTimeInterval(1.5)
-    while Date() < end {
+    waitBlocking(30) {   // the history, then what's printed live up to the count's last line
         let n = read(fd, &buf, buf.count)
-        if n <= 0 { break }
-        got.append(contentsOf: buf[0..<n])
+        if n > 0 { got.append(contentsOf: buf[0..<n]) }
+        return String(decoding: got.suffix(64), as: UTF8.self).contains("n60000")
     }
     let lines = (String(bytes: got, encoding: .utf8) ?? "").split(whereSeparator: \.isNewline).dropFirst().dropLast()   // the ends may be cut
     let numbers = lines.compactMap { Int($0.drop { !$0.isNumber }) }
