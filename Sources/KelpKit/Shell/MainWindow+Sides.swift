@@ -99,6 +99,19 @@ extension MainWindowController {
         // the floater that edge is the floater's border, so a margin goes inside it, as wide as the cards stand from
         // the left (8), and the scroller's knob runs in it.
         sidebar.gutter = hides(left) ? Metrics.gapWide : 0
+        followLights()
+    }
+
+    /// The traffic lights and the sidebar's toggle go with a sidebar put away, and come back over it while it slides in
+    /// at the edge, as Dia's do (decision 109): with the sidebar away the bar starts at the window's edge.
+    func followLights() {
+        let shown = !hides(left) || peeking === left
+        guard sidebarToggle.isHidden == shown || sidebarToggle.alphaValue != (shown ? 1 : 0) else { return }
+        let lights: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+        for view in lights.compactMap({ window?.standardWindowButton($0) }) + [sidebarToggle] {
+            fade(view, hidden: !shown)
+        }
+        clearOfToggle.isActive = shown
     }
 
     func peek(_ side: Side) {
@@ -108,6 +121,7 @@ extension MainWindowController {
         peekedAt = Date()
         peekReached = false
         side.floater.slide(in: true)
+        followLights()
         window?.acceptsMouseMovedEvents = true
         peekMoves = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
             self?.pointerMoved(event)
@@ -136,6 +150,7 @@ extension MainWindowController {
         guard let side = peeking else { return }
         peeking = nil
         side.floater.slide(in: false, animated: animated)
+        followLights()
     }
     /// Called when the panels change for good (focus mode, auto-hide switched, pinned), so the peeking panel goes at
     /// once.

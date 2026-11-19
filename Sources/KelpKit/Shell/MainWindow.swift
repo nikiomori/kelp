@@ -31,8 +31,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     /// While the update pill shows, the sidebar's toggle stays clear of it (a hidden view still holds constraints).
     private lazy var clearOfPill = sidebarToggle.leadingAnchor.constraint(
         greaterThanOrEqualTo: updatePill.trailingAnchor, constant: Metrics.gap)
+    /// The workspace's name stays clear of the sidebar's toggle while the toggle shows. With the sidebar put away the
+    /// toggle goes with it (`followLights`), and the name moves to the window's edge.
+    lazy var clearOfToggle = bar.context.leadingAnchor.constraint(
+        greaterThanOrEqualTo: sidebarToggle.trailingAnchor, constant: 12)
     /// The panel toggles stay fixed in the window bar's corners, whichever panels are open.
-    private let sidebarToggle = NSButton.titlebar(
+    let sidebarToggle = NSButton.titlebar(
         "sidebar.left", String(localized: "Sidebar"), tip: String(localized: "Show or hide the sidebar"))
     private let inspectorToggle = NSButton.titlebar(
         "sidebar.trailing", String(localized: "Inspector"), tip: String(localized: "Show or hide the inspector"))
@@ -104,13 +108,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             updatePill.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
             // The workspace's name starts over the editor area, or after the sidebar's toggle while the sidebar is
             // away.
-            bar.context.leadingAnchor.constraint(greaterThanOrEqualTo: sidebarToggle.trailingAnchor, constant: 12),
+            clearOfToggle,
             bar.context.leadingAnchor.constraint(equalTo: editors.view.leadingAnchor, constant: 12).withPriority(700),
             inspectorToggle.trailingAnchor.constraint(equalTo: root.view.trailingAnchor, constant: -10),
             inspectorToggle.centerYAnchor.constraint(equalTo: sidebarToggle.centerYAnchor),
             left.edge.leadingAnchor.constraint(equalTo: root.view.leadingAnchor),
             left.edge.widthAnchor.constraint(equalToConstant: 4),
-            left.edge.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            // From the window's top: with the sidebar away, its corner is where the traffic lights were.
+            left.edge.topAnchor.constraint(equalTo: root.view.topAnchor),
             left.edge.bottomAnchor.constraint(equalTo: root.view.bottomAnchor),
             right.edge.trailingAnchor.constraint(equalTo: root.view.trailingAnchor),
             right.edge.widthAnchor.constraint(equalToConstant: 4),
@@ -291,7 +296,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             floatWidths()
             slide(sides.map { ($0, true) }) { [weak self] in self?.place() }
         }
-        for toggle in [sidebarToggle, inspectorToggle] { fade(toggle, hidden: inFocusMode) }
+        fade(inspectorToggle, hidden: inFocusMode)   // the sidebar's goes with the sidebar (`followLights`)
     }
     func windowDidBecomeKey(_ notification: Notification) { app.workbench.mainWindowBecameKey() }
 

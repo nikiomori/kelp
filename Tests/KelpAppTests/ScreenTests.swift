@@ -567,7 +567,8 @@ extension OneAtATime {
     }
 
     /// The sidebar button (⌘0) puts the sidebar away into its floater, which comes in at the window's left edge, as
-    /// Dia's does, and brings it back to its column: hidden and auto-hide are one state (decision 109).
+    /// Dia's does, and brings it back to its column: hidden and auto-hide are one state (decision 109). The traffic
+    /// lights and the toggle go and come with it.
     @Test func theSidebarButtonHidesTheSidebarToItsEdge() async throws {
         _ = testHome
         Motion.pinned = true
@@ -582,9 +583,17 @@ extension OneAtATime {
         main.toggleSidebarPanel()
         #expect(try await waitFor(5) { !main.sidebar.view.isDescendant(of: split) })   // in its floater, at the edge
         #expect(app.settings[SettingKeys.sidebarAutoHide])
+        // The traffic lights and the toggle went with it, and come back over it while it slides in at the edge.
+        let close = try #require(main.window?.standardWindowButton(.closeButton))
+        #expect(try await waitFor(5) { close.isHidden && main.sidebarToggle.isHidden })
+        main.peek(main.left)
+        #expect(try await waitFor(5) { !close.isHidden && close.alphaValue == 1 && !main.sidebarToggle.isHidden })
+        main.stopPeek()
+        #expect(try await waitFor(5) { close.isHidden })
         main.toggleSidebarPanel()
         #expect(try await waitFor(5) { main.sidebar.view.isDescendant(of: split) })
         #expect(!app.settings[SettingKeys.sidebarAutoHide])
+        #expect(try await waitFor(5) { !close.isHidden && !main.sidebarToggle.isHidden })
     }
 
     /// Focus mode's panels wait in floaters over the editor area (they don't squeeze it when they come in) and go back to
