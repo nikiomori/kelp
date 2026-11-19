@@ -35,10 +35,10 @@ extension OneAtATime {
         let s = app.settings
         s.apply(["editor.suggestions": .string("local")])
         Suggestions.of(app).set(on: false, in: "markdown")
-        #expect(s[SettingKeys.suggestions, language: "markdown"] == "off")
-        #expect(s[SettingKeys.suggestions, language: "swift"] == "local" && s[SettingKeys.suggestions] == "local")
+        #expect(s[SettingKeys.suggestions, language: "markdown"] == .off)
+        #expect(s[SettingKeys.suggestions, language: "swift"] == .local && s[SettingKeys.suggestions] == .local)
         Suggestions.of(app).set(on: true, in: "markdown")
-        #expect(s[SettingKeys.suggestions, language: "markdown"] == "local")
+        #expect(s[SettingKeys.suggestions, language: "markdown"] == .local)
         #expect(s.values["[markdown]"] == nil)   // nothing of its own left
     }
 
@@ -110,7 +110,7 @@ func noModelIsShownAFileOfSecrets(path: String, secret: Bool) {
 @Test func theStatusBarNamesTheModelOrSaysWhyThereIsNone() {
     let qwen = SuggestModel(id: "qwen2.5-coder:1.5b-base", server: "Ollama", fillsIn: true)
     func status(_ change: (inout SuggestionStatus.Inputs) -> Void) -> SuggestionStatus? {
-        var inputs = SuggestionStatus.Inputs(mode: "local", everywhere: "local", model: qwen)
+        var inputs = SuggestionStatus.Inputs(mode: .local, everywhere: .local, model: qwen)
         change(&inputs)
         return SuggestionStatus.of(inputs)
     }
@@ -135,37 +135,37 @@ func noModelIsShownAFileOfSecrets(path: String, secret: Bool) {
         ),   // not asked yet: quiet
         (status { $0.pause = .lowPower }, "Paused: Low Power", false),
         (status { $0.secret = true }, "Off in This File", false),
-        (status { $0.mode = "off" }, "Off in This File", false),   // off for this language only
+        (status { $0.mode = .off }, "Off in This File", false),   // off for this language only
         (
             status {
-                $0.mode = "off"
-                $0.everywhere = "off"
+                $0.mode = .off
+                $0.everywhere = .off
             }, "Suggestions Off", false
         ),
         (
             status {
-                $0.mode = "off"
-                $0.everywhere = "off"
+                $0.mode = .off
+                $0.everywhere = .off
                 $0.model = nil
             }, nil, false
         ),
         // A cloud model is named as one, whatever runs on this Mac and however warm it is.
         (
             status {
-                $0.mode = "cloud"
+                $0.mode = .cloud
                 $0.cloud = ("Codestral", true)
                 $0.pause = .hot
             }, "Cloud · Codestral", false
         ),
         (
             status {
-                $0.mode = "cloud"
+                $0.mode = .cloud
                 $0.cloud = ("Codestral", false)
             }, "Cloud: No Key", true
         ),
         (
             status {
-                $0.mode = "cloud"
+                $0.mode = .cloud
                 $0.cloud = ("Codestral", true)
                 $0.problem = .keyRejected
             },
@@ -173,7 +173,7 @@ func noModelIsShownAFileOfSecrets(path: String, secret: Bool) {
         ),
         (
             status {
-                $0.mode = "cloud"
+                $0.mode = .cloud
                 $0.cloud = ("Codestral", true)
                 $0.problem = .notAnswering
             },
@@ -241,4 +241,13 @@ func aCloudProviderIsntAskedForThisMacsModel(cloud: SuggestCloud?, model: String
     try await waitFor { suggestions.nextEditSetup == .failed }
     app.settings.apply(["editor.suggestions": .string("local"), "editor.nextEdit": .bool(false)])
     try await waitFor { suggestions.nextEditSetup == nil }
+}
+
+/// Where suggestions come from is one of three words: one it doesn't know (a typo in settings.json) reads as off.
+@Test(arguments: [
+    (JSONValue.string("cloud"), SuggestMode.cloud), (.string("local"), .local), (.string("clod"), .off),
+    (.bool(true), .off)
+])
+func aSuggestionModeItDoesntKnowReadsAsOff(stored: JSONValue, mode: SuggestMode) {
+    #expect(SettingKeys.suggestions.read(stored) == mode)
 }

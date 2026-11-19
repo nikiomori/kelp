@@ -88,34 +88,32 @@ extension Suggestions {
     /// Suggestions on, from this Mac, with `model` (empty: the first that fills in code).
     func enable(model: String) {
         app.settings.set(SettingKeys.suggestionModel, model.isEmpty ? nil : model)
-        app.settings.set(SettingKeys.suggestions, "local")
+        app.settings.set(SettingKeys.suggestions, .local)
         problem = nil
     }
 
     /// Off, remembering where suggestions came from, so switching them on again goes back there.
     func turnOff() {
         let mode = app.settings[SettingKeys.suggestions]
-        if mode != "off" { wereOn = mode }
-        app.settings.set(SettingKeys.suggestions, "off")
+        if mode != .off { wereOn = mode }
+        app.settings.set(SettingKeys.suggestions, .off)
     }
 
     /// On again from where they last came: the cloud, or else this Mac (Turn On's way).
     func switchOn() async {
-        if wereOn == "cloud", let cloud = SuggestCloud(rawValue: app.settings[SettingKeys.suggestionCloud]) {
-            return use(cloud)
-        }
+        if wereOn == .cloud { return use(app.settings[SettingKeys.suggestionCloud]) }
         await turnOn()
     }
 
     /// Suggestions off in `language`'s files only, or back to the setting for all files.
     func set(on: Bool, in language: String) {
-        app.settings.setOwn(SettingKeys.suggestions.key, on ? nil : .string("off"), language: language)
+        app.settings.setOwn(SettingKeys.suggestions.key, on ? nil : SuggestMode.off.setting, language: language)
     }
 
     /// Suggestions from `cloud`, which asks for its key when it has none.
     func use(_ cloud: SuggestCloud) {
-        app.settings.set(SettingKeys.suggestionCloud, cloud.rawValue)
-        app.settings.set(SettingKeys.suggestions, "cloud")
+        app.settings.set(SettingKeys.suggestionCloud, cloud)
+        app.settings.set(SettingKeys.suggestions, .cloud)
         problem = nil
     }
 }

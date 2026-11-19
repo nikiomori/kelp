@@ -33,19 +33,20 @@ struct SuggestionsCard: View {
                 Text(error).foregroundStyle(.secondary)
                 otherModels()
                 buttons(String(localized: "Try Again")) { Task { await suggestions.turnOn() } }
-            } else if mode != "off", let problem = suggestions.problem, problem != .keyMissing,
+            } else if mode != .off, let problem = suggestions.problem, problem != .keyMissing,
                 let status = suggestions.status(language: language, secret: false), status.needsYou
             {
                 problemCard(problem, title: status.text, named: named)
-            } else if mode == "off", app.settings[SettingKeys.suggestions] != "off" {
+            } else if mode == .off, app.settings[SettingKeys.suggestions] != .off {
                 title(String(localized: "Off in \(LanguageName.of(language)) Files"))
                 Text("Suggestions are on in other files.").foregroundStyle(.secondary)
                 buttons(String(localized: "Turn On in \(LanguageName.of(language)) Files")) {
                     suggestions.set(on: true, in: language)
                 }
-            } else if mode == "cloud", let cloud = SuggestCloud(rawValue: app.settings[SettingKeys.suggestionCloud]) {
+            } else if mode == .cloud {
+                let cloud = app.settings[SettingKeys.suggestionCloud]
                 cloudCard(cloud, named: app.settings[SettingKeys.suggestionServerModel])
-            } else if let model, mode != "off" {
+            } else if let model, mode != .off {
                 title(Suggestions.shortName(model.id))
                 if let pause = suggestions.pause { Text(pause.reason).foregroundStyle(.secondary) }
                 facts(String(localized: "This Mac · \(model.server)"))
@@ -141,8 +142,8 @@ struct SuggestionsCard: View {
     /// Why nothing comes, and the one button that fixes it.
     @ViewBuilder private func problemCard(_ problem: SuggestProblem, title text: String, named: String) -> some View {
         let cloud =
-            app.settings[SettingKeys.suggestions, language: language] == "cloud"
-            ? SuggestCloud(rawValue: app.settings[SettingKeys.suggestionCloud]) : nil
+            app.settings[SettingKeys.suggestions, language: language] == .cloud
+            ? app.settings[SettingKeys.suggestionCloud] : nil
         title(text)
         switch problem {
         case .noServer:

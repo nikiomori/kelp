@@ -66,6 +66,18 @@ extension Optional: SettingValue where Wrapped: SettingValue {
     public var setting: JSONValue? { self?.setting }
 }
 
+/// A setting that holds one of a few words, read as the case: a word it doesn't know reads as the fallback, as a value
+/// of another type does.
+extension SettingValue where Self: RawRepresentable, RawValue == String {
+    public init?(setting: JSONValue) {
+        guard let value = setting.string.flatMap(Self.init(rawValue:)) else { return nil }
+        self = value
+    }
+    public var setting: JSONValue? { .string(rawValue) }
+}
+
+extension SuggestCloud: SettingValue {}
+
 extension JSONValue: SettingValue {
     public init?(setting: JSONValue) { self = setting }
     public var setting: JSONValue? { self }

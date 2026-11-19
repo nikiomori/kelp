@@ -12,7 +12,7 @@ extension Builtins {
             s(
                 SettingKeys.suggestions, "Suggest code as you type", .enum,
                 "Gray text after the cursor from a model on this Mac or in the cloud; ⇥ puts it in.",
-                options: ["off", "local", "cloud"],
+                options: SuggestMode.allCases.map(\.rawValue),
                 labels: ["off": "Off", "local": "On This Mac", "cloud": "In the Cloud"],
                 group: "Code suggestions", hidden: true, perLanguage: true),
             s(
@@ -134,6 +134,11 @@ extension Builtins {
 }
 
 /// The Settings › Editor rows that only the editor reads (the shell's rows are `SettingKeys` in Core).
+/// Where gray text comes from: nowhere, a model on this Mac, or a cloud provider (`editor.suggestionCloud`).
+enum SuggestMode: String, SettingValue, CaseIterable {
+    case off, local, cloud
+}
+
 extension SettingKeys {
     static let rulers = Setting("editor.rulers", "")
     static let renderWhitespace = Setting("editor.renderWhitespace", "selection")
@@ -151,11 +156,11 @@ extension SettingKeys {
     static let insertFinalNewline = Setting("files.insertFinalNewline", false)
     static let lsp = Setting("editor.lsp", true)
     static let hover = Setting("editor.hover", true)
-    static let suggestions = Setting("editor.suggestions", "off")
+    static let suggestions = Setting("editor.suggestions", SuggestMode.off)
     static let suggestionModel = Setting("editor.suggestionModel", "")
     /// The model a server of one's own (OpenAI-compatible) is asked for: apart from the one on this Mac.
     static let suggestionServerModel = Setting("editor.suggestionServerModel", "")
-    static let suggestionCloud = Setting("editor.suggestionCloud", "mercury")
+    static let suggestionCloud = Setting("editor.suggestionCloud", SuggestCloud.mercury)
     static let suggestionURL = Setting("editor.suggestionURL", "")
     static let nextEdit = Setting("editor.nextEdit", false)
 }

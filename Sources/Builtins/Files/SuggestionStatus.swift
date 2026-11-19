@@ -9,7 +9,7 @@ struct SuggestionStatus: Equatable {
 
     /// Everything the status depends on. `mode` is the file's language's setting, `everywhere` the setting for all.
     struct Inputs {
-        var mode: String, everywhere: String
+        var mode: SuggestMode, everywhere: SuggestMode
         var secret = false
         var model: SuggestModel?
         /// Whether the servers on this Mac were asked yet.
@@ -29,12 +29,12 @@ struct SuggestionStatus: Equatable {
     }
 
     private static func plain(_ s: Inputs) -> SuggestionStatus? {
-        if s.mode == "off" {
-            if s.everywhere != "off" { return SuggestionStatus(text: String(localized: "Off in This File")) }
+        if s.mode == .off {
+            if s.everywhere != .off { return SuggestionStatus(text: String(localized: "Off in This File")) }
             return s.model == nil ? nil : SuggestionStatus(text: String(localized: "Suggestions Off"))
         }
         if s.secret { return SuggestionStatus(text: String(localized: "Off in This File")) }
-        if s.mode == "cloud", let cloud = s.cloud { return cloudStatus(cloud.name, hasKey: cloud.hasKey, s) }
+        if s.mode == .cloud, let cloud = s.cloud { return cloudStatus(cloud.name, hasKey: cloud.hasKey, s) }
         if let pause = s.pause { return SuggestionStatus(text: pause.title) }
         let server = s.model?.server ?? "Ollama"
         switch s.problem {

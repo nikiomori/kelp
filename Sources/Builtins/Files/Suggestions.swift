@@ -36,8 +36,8 @@ final class Suggestions {
     /// Turn On's way to a model: one Ollama is downloading, what it still needs, or why it stopped.
     var pull: Pull?
     var needsOllama: OllamaSetup?
-    /// Where suggestions came from before they were switched off ("local" or "cloud").
-    @ObservationIgnored var wereOn: String?
+    /// Where suggestions came from before they were switched off.
+    @ObservationIgnored var wereOn: SuggestMode?
     var setupError: String?
     /// The next edit's llama-server: starting (the first time, downloading its model), or what it needs.
     var nextEditSetup: NextEditSetup?
@@ -66,7 +66,7 @@ final class Suggestions {
     func status(language: String?, secret: Bool, editOffered: Bool = false) -> SuggestionStatus? {
         let settings = app.settings, mode = settings[SettingKeys.suggestions, language: language]
         let named = settings[SettingKeys.suggestionModel], server = settings[SettingKeys.suggestionServerModel]
-        let cloud = mode == "cloud" ? SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]) : nil
+        let cloud = mode == .cloud ? settings[SettingKeys.suggestionCloud] : nil
         return SuggestionStatus.of(
             .init(
                 mode: mode, everywhere: settings[SettingKeys.suggestions], secret: secret, model: model(named: named),
@@ -163,7 +163,7 @@ final class Suggestions {
     }
 
     private struct State: Equatable {
-        var mode: String, everywhere: String, named: String, models: [SuggestModel]?, pause: SuggestionPause?
+        var mode: SuggestMode, everywhere: SuggestMode, named: String, models: [SuggestModel]?, pause: SuggestionPause?
         var cloud: SuggestCloud?, hasKey: Bool?, problem: SuggestProblem?, loading: Bool, nextEdit: Bool
     }
 
@@ -190,14 +190,14 @@ final class Suggestions {
                 mode: settings[SettingKeys.suggestions, language: language],
                 everywhere: settings[SettingKeys.suggestions], named: settings[SettingKeys.suggestionModel],
                 models: self?.models, pause: self?.pause,
-                cloud: SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]),
-                hasKey: SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]).flatMap { self?.keys[$0] },
+                cloud: settings[SettingKeys.suggestionCloud],
+                hasKey: self?.keys[settings[SettingKeys.suggestionCloud]],
                 problem: self?.problem, loading: self?.loading ?? false, nextEdit: settings[SettingKeys.nextEdit])
         } changed: { [weak self, weak editor, weak bar] state in
             guard let self else { return }
             // A cloud model keeps on through low power and heat: they're this Mac's, and it runs elsewhere.
-            let cloud = state.mode == "cloud" ? state.cloud : nil
-            let on = (state.mode == "local" && state.pause == nil || cloud != nil) && !Self.holdsSecrets(path)
+            let cloud = state.mode == .cloud ? state.cloud : nil
+            let on = (state.mode == .local && state.pause == nil || cloud != nil) && !Self.holdsSecrets(path)
             editor?.suggestionProvider = on ? editor.map { provider(for: $0, name: name) } : nil
             // The next edit's model is this Mac's, whichever gray text comes from: it rests through low power and heat.
             editor?.nextEditProvider = on && state.nextEdit && state.pause == nil ? nextEditProvider(name: name) : nil
@@ -231,8 +231,8 @@ final class Suggestions {
             guard let self else { return nil }
             let settings = app.settings, start = Date()
             let cloud =
-                settings[SettingKeys.suggestions, language: editor?.languageId] == "cloud"
-                ? SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud]) : nil
+                settings[SettingKeys.suggestions, language: editor?.languageId] == .cloud
+                ? settings[SettingKeys.suggestionCloud] : nil
             let url = settings[SettingKeys.suggestionURL]
             let model = Self.model(
                 for: cloud, local: settings[SettingKeys.suggestionModel],

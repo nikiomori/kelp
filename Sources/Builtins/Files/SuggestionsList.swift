@@ -14,23 +14,23 @@ struct SuggestionsList: View {
     var body: some View {
         let settings = app.settings, mode = settings[SettingKeys.suggestions]
         let named = settings[SettingKeys.suggestionModel],
-            cloud = SuggestCloud(rawValue: settings[SettingKeys.suggestionCloud])
+            cloud = settings[SettingKeys.suggestionCloud]
         let local = (suggestions.models ?? []).filter(\.fillsIn), recommended = Suggestions.recommended()
         VStack(alignment: .leading, spacing: 2) {
             // On or off here; where from is the row picked below, and picking one turns them on.
             Toggle(
                 String(localized: "Suggest code as you type"),
                 isOn: Binding(
-                    get: { mode != "off" },
+                    get: { mode != .off },
                     set: { on in
                         if on { Task { await suggestions.switchOn() } } else { suggestions.turnOff() }
                     })
             )
             .toggleStyle(.switch).controlSize(.small).padding(.horizontal, 6)
-            nextEdit(on: mode != "off")
+            nextEdit(on: mode != .off)
             heading(String(localized: "On This Mac"))
             ForEach(local, id: \.id) { model in
-                let picked = mode == "local" && (named == model.id || named.isEmpty && local.first == model)
+                let picked = mode == .local && (named == model.id || named.isEmpty && local.first == model)
                 row(Suggestions.shortName(model.id), side: model.server, picked: picked) {
                     suggestions.enable(model: model.id)
                 }
@@ -40,7 +40,7 @@ struct SuggestionsList: View {
             }
             heading(String(localized: "Cloud"))
             ForEach([SuggestCloud.mercury, .codestral, .openai], id: \.self) { each in
-                let picked = mode == "cloud" && cloud == each
+                let picked = mode == .cloud && cloud == each
                 row(
                     each == .openai ? String(localized: "Your Server") : Suggestions.cloudName(each, model: ""),
                     side: side(each), picked: picked
