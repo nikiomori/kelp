@@ -24,26 +24,6 @@ import os
         #expect(FillIn.prompt(model: model, prefix: "a", suffix: "b", path: "src/x.swift")?.text == text)
     }
 
-    @Test(arguments: [
-        (
-            "qwen2.5-coder:1.5b-base",
-            "<|file_sep|>Item.swift\nstruct Item {}\n<|file_sep|>src/x.swift\n<|fim_prefix|>a<|fim_suffix|>b<|fim_middle|>"
-        ),
-        (
-            "starcoder2:3b",
-            "<file_sep>Item.swift\nstruct Item {}<file_sep><fim_prefix>src/x.swift\na<fim_suffix>b<fim_middle>"
-        ),
-        (
-            "mellum-4b-base",
-            "<filename>Item.swift\nstruct Item {}\n<filename>src/x.swift\n<fim_suffix>b<fim_prefix>a<fim_middle>"
-        ),
-        ("codestral:22b", "[SUFFIX]b[PREFIX]a")   // reads one file: the others are left out
-    ])
-    func otherFilesGoFirstForTheModelsThatReadSeveral(model: String, text: String) {
-        let extra = [SuggestChunk(path: "Item.swift", text: "struct Item {}")]
-        #expect(FillIn.prompt(model: model, prefix: "a", suffix: "b", path: "src/x.swift", extra: extra)?.text == text)
-    }
-
     @Test func aChatModelOrAnUnknownOneIsntAsked() {
         #expect(FillIn.prompt(model: "qwen3:8b", prefix: "a", suffix: "b", path: "") == nil)
         #expect(FillIn.prompt(model: "llama3.2", prefix: "a", suffix: "b", path: "") == nil)
@@ -205,7 +185,9 @@ import os
         ("func f() {\n    let a = 1\n    ", true),   // a new line inside a block: one line
         ("func f() {\n    ", false),   // just opened a block: its body may take several
         ("if ready:\n    ", false),
-        ("", true)
+        ("", true),
+        ("func f() {\r\n    ", false),   // a CRLF file's line ends are told apart too
+        ("let a = 1\r\n    ", true)
     ])
     func anAnswerIsOneLineUnlessABlockWasJustOpened(prefix: String, oneLine: Bool) {
         #expect(FillIn.oneLine(before: prefix) == oneLine)

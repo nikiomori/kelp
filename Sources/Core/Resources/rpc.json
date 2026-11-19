@@ -5040,23 +5040,6 @@
         ],
         "type" : "object"
       },
-      "SuggestChunk" : {
-        "description" : "A piece of another file: lines around where it was edited, or its start (imports and types).",
-        "properties" : {
-          "path" : {
-            "description" : "The file's path in its project.",
-            "type" : "string"
-          },
-          "text" : {
-            "type" : "string"
-          }
-        },
-        "required" : [
-          "path",
-          "text"
-        ],
-        "type" : "object"
-      },
       "SuggestCloud" : {
         "description" : "A cloud service that fills in code: Inception's Mercury Edit 2, Mistral's Codestral, or any server with OpenAI's completions API.",
         "enum" : [
@@ -7993,17 +7976,6 @@
           "required" : false,
           "schema" : {
             "$ref" : "#/components/schemas/SuggestCloud"
-          }
-        },
-        {
-          "description" : "Code from other files lately open or edited, oldest first, for a model that reads more than one file.",
-          "name" : "extra",
-          "required" : false,
-          "schema" : {
-            "items" : {
-              "$ref" : "#/components/schemas/SuggestChunk"
-            },
-            "type" : "array"
           }
         },
         {

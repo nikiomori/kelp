@@ -14,21 +14,18 @@ public struct EditorSuggest: InternalMethod {
     /// True to have the model read the code and write nothing: a file just opened, so the first suggestion doesn't
     /// wait for the model to load. Answers nil.
     public var warm: Bool?
-    /// Code from other files lately open or edited, oldest first, for a model that reads more than one file.
-    public var extra: [SuggestChunk]?
     /// The cloud provider to ask instead of this Mac, and its server when not the provider's own.
     public var cloud: SuggestCloud?
     public var url: String?
     public init(
         prefix: String, suffix: String, path: String, model: String? = nil, warm: Bool? = nil,
-        extra: [SuggestChunk]? = nil, cloud: SuggestCloud? = nil, url: String? = nil
+        cloud: SuggestCloud? = nil, url: String? = nil
     ) {
         self.prefix = prefix
         self.suffix = suffix
         self.path = path
         self.model = model
         self.warm = warm
-        self.extra = extra
         self.cloud = cloud
         self.url = url
     }
@@ -75,16 +72,6 @@ public struct EditorSuggestKey: InternalMethod {
     public init(cloud: SuggestCloud, key: String? = nil) {
         self.cloud = cloud
         self.key = key
-    }
-}
-
-/// A piece of another file: lines around where it was edited, or its start (imports and types).
-public struct SuggestChunk: Codable, Sendable, Equatable {
-    /// The file's path in its project.
-    public var path: String, text: String
-    public init(path: String, text: String) {
-        self.path = path
-        self.text = text
     }
 }
 

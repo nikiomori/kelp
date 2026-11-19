@@ -77,7 +77,7 @@ actor LocalModels {
 
     /// What `model` (else the first that fills in code) writes between `prefix` and `suffix`.
     func suggest(
-        prefix: String, suffix: String, path: String, model: String?, warm: Bool = false, extra: [SuggestChunk] = []
+        prefix: String, suffix: String, path: String, model: String?, warm: Bool = false
     ) async throws -> SuggestAnswer {
         let servers = await servers()
         guard !servers.isEmpty else { return SuggestAnswer(problem: .noServer) }
@@ -86,7 +86,7 @@ actor LocalModels {
             wanted.map { name in servers.first { $0.models.contains(name) } }
             ?? servers.first { FillIn.pick($0.models) != nil }
         guard let server, let name = wanted ?? FillIn.pick(server.models),
-            let prompt = FillIn.prompt(model: name, prefix: prefix, suffix: suffix, path: path, extra: extra)
+            let prompt = FillIn.prompt(model: name, prefix: prefix, suffix: suffix, path: path)
         else { return SuggestAnswer(problem: wanted == nil ? .noModel : .modelMissing) }
         do {
             let oneLine = FillIn.oneLine(before: prefix)
@@ -227,13 +227,12 @@ extension EditorSuggest: AsyncHandled {
         guard warm == true else { return try await lsp.models.latest.run { try await ask(lsp) } }
         guard cloud == nil else { return SuggestAnswer() }   // a warm-up would be paid for: the cloud's are loaded
         return try await lsp.models.suggest(
-            prefix: prefix, suffix: suffix, path: path, model: model, warm: true, extra: extra ?? [])
+            prefix: prefix, suffix: suffix, path: path, model: model, warm: true)
     }
 
     private func ask(_ lsp: LSPHost) async throws -> SuggestAnswer {
         guard let cloud else {
-            return try await lsp.models.suggest(
-                prefix: prefix, suffix: suffix, path: path, model: model, extra: extra ?? [])
+            return try await lsp.models.suggest(prefix: prefix, suffix: suffix, path: path, model: model)
         }
         let key = try await lsp.offloads.run { try Keychain.find(CloudModels.account(cloud)) }
         return try await lsp.models.suggest(self, cloud: cloud, key: key)

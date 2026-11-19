@@ -31,7 +31,7 @@ enum CloudModels {
         case .openai:
             guard let address, let named,
                 let prompt = FillIn.prompt(
-                    model: named, prefix: prefix, suffix: suffix, path: ask.path, extra: ask.extra ?? [])
+                    model: named, prefix: prefix, suffix: suffix, path: ask.path)
             else { return nil }
             endpoint = address + "/v1/completions"
             body["model"] = named
