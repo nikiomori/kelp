@@ -45,11 +45,15 @@ def swift_code(p):
 
 def one_letter_names(code):
     """Names of one letter that a reader carries past their line: a constant or variable, a function's parameter, a
-    closure's parameter when the closure runs on past the line. A one-line closure's (`{ s in s.id }`) isn't counted:
-    its whole life is in view."""
+    closure's parameter when the closure runs on past the line, a loop's when its body does. A one-line closure's
+    (`{ s in s.id }`) or loop's (`for s in all { use(s) }`) isn't counted: its whole life is in view."""
     n = 0
     for l in code:
         n += len(re.findall(r"\b(?:let|var)\s+[a-z]\b(?!\w)", l))
+        for f in re.finditer(r"\bfor\s+(?:case\s+let\s+)?\(?\s*([a-z])\s*(?:,\s*([a-z])\s*)?\)?\s+in\b", l):
+            rest = l[f.end():]
+            if "{" not in rest or rest.count("}") < rest.count("{"):
+                n += sum(1 for name in f.groups() if name)
         for c in re.finditer(r"\{\s*\[?[a-z](?:,\s*[a-z])*\]?\s+in\b", l):
             rest = l[c.end():]
             if rest.count("}") <= rest.count("{"):
@@ -167,9 +171,10 @@ def main():
     # A key typed as text: read from the settings, or named as what another setting `requires:`.
     settings_literals = grep_count(
         r"""settings(?:\[|\.(?:string|bool|int|double|value)\()\s*"[a-z]+\.[\w.]+|requires: *"[a-z]+\.[\w.]+""", sources)
-    # As ArchitectureTests' `linesStayShort` counts them: a line that is one long string (UI text, a script) aside.
+    # As ArchitectureTests' `linesStayShort` counts them: comments too, a line that is one long string (UI text, a
+    # script) aside, as a string can't be wrapped without changing what it says.
     long_string = re.compile(r'"[^"]{100,}"|#".{100,}"#|\'[^\']{100,}\'')
-    long120 = sum(1 for p in sources for l in code_lines(p) if len(l) > 120 and not long_string.search(l))
+    long120 = sum(1 for p in sources for l in lines(p) if len(l) > 120 and not long_string.search(l))
     long160 = sum(1 for p in sources for l in code_lines(p) if len(l) > 160)
     one_letter = sum(one_letter_names(swift_code(p)) for p in sources)
     joined = sum(1 for p in sources for l in swift_code(p) if re.search(r";\s*\S", l))

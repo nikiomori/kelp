@@ -269,8 +269,8 @@ func codeOnly(_ s: String) -> String {
         ])
 }
 
-/// A line too long to take in at once: a call, a condition or a chain split over lines reads better. Comment lines and
-/// lines that are one long string (UI text) don't count; lint warns past 180.
+/// A line too long to take in at once: a call, a condition or a chain split over lines reads better. Lines that are one
+/// long string (UI text) don't count, nor do comments past 160; lint warns past 180.
 @Test func linesStayShort() throws {
     let longString = try NSRegularExpression(pattern: ##""[^"]{100,}"|#".{100,}"#|'[^']{100,}'"##)
     let long = sources(["Sources"]).flatMap { f in
@@ -281,15 +281,14 @@ func codeOnly(_ s: String) -> String {
     }
     #expect(long == [], "lines over 160: \(Dictionary(long.map { ($0, 1) }, uniquingKeysWith: +))")
     // The code is wrapped at 120 (swift-format, .swift-format): what it can't wrap (a long chain, a long condition) is
-    // counted, and the count only goes down.
+    // counted, and so are comments, which swift-format leaves as they are; the count only goes down.
     let over120 = sources(["Sources"]).flatMap { f in
         f.text.split(separator: "\n").filter { l in
-            l.count > 120 && !l.trimmingCharacters(in: .whitespaces).hasPrefix("//")
-                && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
+            l.count > 120 && longString.firstMatch(in: String(l), range: NSRange(l.startIndex..., in: l)) == nil
         }
     }.count
-    #expect(over120 <= 276, "lines over 120: \(over120)")
-    #expect(over120 >= 276, "fewer now (\(over120)): lower the ceiling")
+    #expect(over120 <= 390, "lines over 120: \(over120)")
+    #expect(over120 >= 390, "fewer now (\(over120)): lower the ceiling")
 }
 
 /// A setting is declared once, its default with it (`SettingKeys`), and read by that declaration: a key spelled out
