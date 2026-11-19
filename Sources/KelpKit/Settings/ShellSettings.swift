@@ -69,13 +69,13 @@ extension Builtins {
                 "Compact keeps six letters of a title, so more agents fit in a pane.",
                 help:
                     "Compact keeps six letters of a title, so more agents fit in a pane. Automatic stays Regular "
-                    + "while the tabs fit and turns Compact when they don't. Also in a tab's right-click menu.",
+                    + "while the tabs fit and turns Compact when they don’t. Also in a tab’s right-click menu.",
                 options: ["auto", "regular", "compact"], labels: ["auto": String(localized: "Automatic")],
                 look: .pictures),
             s(
                 SettingKeys.tabHeight, "Tab height", .enum,
                 "Compact gives a pane 8 pt more room under its tabs.",
-                help: "Compact tabs are 24 pt in a 32 pt strip. Also in a tab's right-click menu.",
+                help: "Compact tabs are 24 pt in a 32 pt strip. Also in a tab’s right-click menu.",
                 options: ["regular", "compact"], look: .pictures),
             s(
                 SettingKeys.terminalOpacity, "Terminal opacity", .enum,
@@ -143,7 +143,7 @@ extension Builtins {
             look: .segments, group: "Inspector"),
         s(
             SettingKeys.inspectorAutoHide, "Auto-hide inspector", .boolean,
-            "Comes in while the pointer is at the window's right edge.",
+            "Comes in while the pointer is at the window’s right edge.",
             group: "Inspector")
     ]
 
@@ -152,7 +152,7 @@ extension Builtins {
     static let sidebarRows = [
         s(
             SettingKeys.sidebarAutoHide, "Auto-hide sidebar", .boolean,
-            "Comes in while the pointer is at the window's left edge, like the Dock.",
+            "Comes in while the pointer is at the window’s left edge, like the Dock.",
             group: "Sidebar"),
         s(
             SettingKeys.rowHeight, "Row height", .enum,
@@ -167,7 +167,7 @@ extension Builtins {
             look: .pictures, group: "Sidebar"),
         s(
             SettingKeys.agentIcons, "Agent icons", .enum,
-            "Other Agents Only hides the default agent's icon.",
+            "Other Agents Only hides the default agent’s icon.",
             options: ["others", "always", "never"], labels: ["others": String(localized: "Other Agents Only")],
             group: "Sidebar"),
         s(
@@ -178,13 +178,13 @@ extension Builtins {
             SettingKeys.projectColor, "Project color", .enum,
             nil,
             help:
-                "How the color from a project's row menu shows. On the icon it also follows the project to the title bar, ⌃Tab and Needs You.",
+                "How the color from a project’s row menu shows. On the icon it also follows the project to the title bar, ⌃Tab and Needs You.",
             options: ["icon", "card"],
             labels: ["icon": String(localized: "On the Icon"), "card": String(localized: "Filled Card")],
             look: .pictures, group: "Sidebar"),
         s(
             SettingKeys.serverLook, "Servers", .enum,
-            nil, help: "How a server's card shows that its projects run on another machine.",
+            nil, help: "How a server’s card shows that its projects run on another machine.",
             options: ["stripes", "sparse", "fade", "icon"],
             labels: [
                 "stripes": String(localized: "Stripes"), "sparse": String(localized: "Sparse Stripes"),

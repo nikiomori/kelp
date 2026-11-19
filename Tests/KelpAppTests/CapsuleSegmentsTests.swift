@@ -13,7 +13,7 @@ import Testing
     }
     let sink = Sink()
     let control = CapsuleSegments(
-        labels: ["7 Days", "30 Days", "90 Days"], target: sink, action: #selector(Sink.changed))
+        labels: ["7 Days", "30 Days", "90 Days"], name: "Period", target: sink, action: #selector(Sink.changed))
     control.controlSize = .small
     control.selectedSegment = 1
     control.frame = NSRect(origin: .zero, size: control.intrinsicContentSize)
@@ -30,6 +30,7 @@ import Testing
     control.setEnabled(false, forSegment: 1)
     #expect(segments[1].accessibilityPerformPress() && control.selectedSegment == 2 && sink.sent == [2])
     #expect(control.accessibilityValue() as? String == "90 Days")
+    #expect(control.accessibilityLabel() == "Period")   // a radio group VoiceOver can name
     // VoiceOver keeps its cursor on a segment, so each is the same element after a change, its value moved on.
     let again = try #require(control.accessibilityChildren() as? [NSAccessibilityElement])
     #expect(zip(again, segments).allSatisfy { $0 === $1 } && again[2].accessibilityValue() as? Int == 1)

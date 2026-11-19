@@ -154,13 +154,10 @@ final class Keycaps: NSStackView {
             cap.font = .ui(TextSize.micro, weight: .medium)
             cap.textColor = .secondaryLabelColor
             cap.alignment = .center
-            let capBox = NSStackView(views: [cap])
+            let capBox = FillStack(views: [cap])   // its fill follows light / dark
             capBox.edgeInsets = NSEdgeInsets(top: 1, left: 5, bottom: 1, right: 5)
-            capBox.wantsLayer = true
+            capBox.fill = .fillSelected
             capBox.layer?.cornerRadius = Metrics.radiusXS
-            effectiveAppearance.performAsCurrentDrawingAppearance {
-                capBox.layer?.backgroundColor = NSColor.fillSelected.cgColor
-            }
             let word = NSTextField(labelWithString: parts.count > 1 ? parts[1] : "")
             word.font = .ui(TextSize.caption)
             word.textColor = .secondaryLabelColor

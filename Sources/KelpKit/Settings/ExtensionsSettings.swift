@@ -37,7 +37,7 @@ struct ExtensionsSettings: View {
             Task {
                 do { try await registry.install(url) } catch {
                     Banner.show(
-                        String(localized: "Couldn't install \(url.lastPathComponent): \(AppModel.message(error))"),
+                        String(localized: "Couldn’t install \(url.lastPathComponent): \(AppModel.message(error))"),
                         style: .error)
                 }
             }
@@ -53,7 +53,7 @@ struct ExtensionsSettings: View {
             Text("Built-in")
         } footer: {
             let always = registry.extensions.filter(\.essential).map { loc($0.name) }.joined(separator: ", ")
-            Text("Turn off what you don't use. Always on: \(always).").font(.ui(TextSize.caption)).foregroundStyle(
+            Text("Turn off what you don’t use. Always on: \(always).").font(.ui(TextSize.caption)).foregroundStyle(
                 .secondary)
         }
         let added = registry.extensions.filter { !$0.builtin }
@@ -73,7 +73,6 @@ struct ExtensionsSettings: View {
                 Button("How Extensions Work") {
                     app.workbench.showFile(ExtensionRegistry.userDir.appendingPathComponent("EXTENSIONS.md"))
                 }
-                .buttonStyle(.link)
                 Spacer()
                 Button("Install…") { picking = true }
                     .help(

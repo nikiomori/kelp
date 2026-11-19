@@ -190,7 +190,7 @@ final class RemoteSheet: SheetController, NSComboBoxDelegate, NSTableViewDataSou
                 String(localized: "Trust \(hostName)?"),
                 detail: String(
                     localized:
-                        "Kelp hasn't connected to it before. Its key is \(key.fingerprint) (\(key.kind)): trust it only if that's the key you expect."
+                        "Kelp hasn’t connected to it before. Its key is \(key.fingerprint) (\(key.kind)): trust it only if that’s the key you expect."
                 ),
                 action: String(localized: "Trust"))
         else { return false }

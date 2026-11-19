@@ -81,7 +81,7 @@ package struct KelpFile {
                 localized:
                     "Trust it only if you know where this project comes from. Kelp asks again if the file changes.")
         let alert = NSAlert(
-            question: String(localized: "Run this project's commands?"), detail: detail,
+            question: String(localized: "Run this project’s commands?"), detail: detail,
             action: String(localized: "Trust and Run"))
         alert.accessoryView = Self.trustText(info)
         return await runSheet(alert) == .alertFirstButtonReturn

@@ -55,7 +55,7 @@ final class CloneSheet: SheetController, NSTextFieldDelegate {
     private func build() {
         let title = NSTextField(labelWithString: String(localized: "Clone a Repository"))
         title.font = .ui(TextSize.body, weight: .semibold)
-        field.placeholderString = "https://github.com/owner/repo or git@…"
+        field.placeholderString = String(localized: "https://github.com/owner/repo or git@…")
         field.delegate = self
         dest.delegate = self
         dest.setContentHuggingPriority(.defaultLow, for: .horizontal)

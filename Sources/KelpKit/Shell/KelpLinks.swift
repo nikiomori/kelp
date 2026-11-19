@@ -26,7 +26,7 @@ struct KelpLinks {
                 }),
                 FileManager.default.fileExists(atPath: path)
             else {
-                Banner.show(String(localized: "Kelp can't find the file in that link."), style: .error)
+                Banner.show(String(localized: "Kelp can’t find the file in that link."), style: .error)
                 return
             }
             var dir: ObjCBool = false
@@ -46,7 +46,7 @@ struct KelpLinks {
                     }
                 }
             }
-        default: Banner.show(String(localized: "Kelp doesn't know the link \(url.absoluteString)."), style: .error)
+        default: Banner.show(String(localized: "Kelp doesn’t know the link \(url.absoluteString)."), style: .error)
         }
         NSApp.activate()
     }
@@ -122,7 +122,7 @@ struct UIRequests {
                 // Only a picture, by its name, because `kelp shot` (an agent's too) writes a .png and must never write
                 // over a source file it was told.
                 guard path.lowercased().hasSuffix(".png") else {
-                    return Banner.show(String(localized: "A window's picture is a .png file."), style: .error)
+                    return Banner.show(String(localized: "A window’s picture is a .png file."), style: .error)
                 }
                 AppDelegate.snap(shotWindow, to: path)
                 return

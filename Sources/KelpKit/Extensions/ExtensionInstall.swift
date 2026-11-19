@@ -50,7 +50,7 @@ extension ExtensionRegistry {
             }.value
         } catch {
             Banner.show(
-                String(localized: "Couldn't install \(folder.lastPathComponent): \(AppModel.message(error))"),
+                String(localized: "Couldn’t install \(folder.lastPathComponent): \(AppModel.message(error))"),
                 style: .error)
             return false
         }
@@ -63,7 +63,7 @@ extension ExtensionRegistry {
         guard let ext = extensions.first(where: { $0.id == id }), let path = ext.path, !ext.builtin else { return }
         do { try FileManager.default.trashItem(at: path, resultingItemURL: nil) } catch {
             let why = error.localizedDescription
-            Banner.show(String(localized: "Couldn't move \(ext.name) to the Trash: \(why)"), style: .error)
+            Banner.show(String(localized: "Couldn’t move \(ext.name) to the Trash: \(why)"), style: .error)
         }
         reload()
     }

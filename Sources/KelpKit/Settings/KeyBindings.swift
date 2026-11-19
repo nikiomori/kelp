@@ -121,7 +121,7 @@ enum KeyBindings {
         if let code = keyCode, let name = system[SystemKey(code: code, mods: key.mods.flags.rawValue)] {
             return String(
                 localized:
-                    "macOS uses this for \(name), so Kelp won't see it (System Settings › Keyboard › Keyboard Shortcuts)."
+                    "macOS uses this for \(name), so Kelp won’t see it (System Settings › Keyboard › Keyboard Shortcuts)."
             )
         }
         return nil
@@ -202,7 +202,7 @@ struct KeyboardSettings: View {
                 Button("Restore Defaults…") { restore() }.disabled(KeyBindings.overrides(app.settings).isEmpty)
             } label: {
                 Text("Click a shortcut, then press the new keys.")
-                Text("⌫ removes it, Esc keeps it.")
+                Text("⌫ removes it, esc keeps it.")
             }
         }
         let changed = entries.filter { KeyBindings.overrides(app.settings)[$0.id] != nil }
@@ -241,9 +241,9 @@ struct KeyboardSettings: View {
         Task {
             guard
                 await confirm(
-                    String(localized: "Restore every shortcut to Kelp's default?"),
+                    String(localized: "Restore every shortcut to Kelp’s default?"),
                     detail: String(localized: "The shortcuts you set are lost."),
-                    action: String(localized: "Restore Defaults"))
+                    action: String(localized: "Restore Defaults"), destructive: true)
             else { return }
             app.settings.set(SettingKeys.keys, nil)
             later()
@@ -270,10 +270,10 @@ struct KeyboardSettings: View {
                         KeyBindings.set(entry.id, nil, in: app.settings)
                         warning[entry.id] = nil
                         later()
-                    }.buttonStyle(.link).font(.ui(TextSize.caption))
+                    }.buttonStyle(BarButtonStyle())
                         .help(
-                            entry.defaultKey.map { String(localized: "Kelp's default: \(KeyBindings.display($0))") }
-                                ?? String(localized: "Kelp's default: none"))
+                            entry.defaultKey.map { String(localized: "Kelp’s default: \(KeyBindings.display($0))") }
+                                ?? String(localized: "Kelp’s default: none"))
                 }
                 // The keys show as text at the row's end, greying in under the pointer, and outlined while recording.
                 // A grey plate on every row, the "—" ones too, made a column of empty boxes.

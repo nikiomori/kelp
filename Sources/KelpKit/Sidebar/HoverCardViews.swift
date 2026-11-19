@@ -63,7 +63,7 @@ struct CardView: View {
                             .secondary)
                     }
                     if agent.guessed == true, [.working, .done].contains(agent.status) {
-                        Text("Read off the screen: a guess, so Kelp won't call it done or notify").font(
+                        Text("Read off the screen: a guess, so Kelp won’t call it done or notify").font(
                             .ui(TextSize.caption)
                         )
                         .foregroundStyle(.secondary)
@@ -186,23 +186,33 @@ struct ContextBlock: View {
     }
 }
 
-/// How full the agent's conversation is. It turns orange and red at the tab's pie's levels (`ContextMeter.level`),
-/// so the two never disagree; the ring takes the system's colour, the words the text shade of it.
+/// How full the agent's conversation is: the tab's own pie (`ContextMeter`), so the two never disagree in shape or
+/// colour; the words take the text shade of its colour.
 struct ContextLine: View {
     let used: Int, window: Int
     var body: some View {
         let share = min(1, Double(used) / Double(max(1, window)))
         let level = ContextMeter.level(.init(used: used, window: window))
-        let ring = Color(nsColor: ContextMeter.color(level))
         HStack(spacing: Metrics.gap) {
-            ZStack {
-                Circle().stroke(Color.secondary.opacity(0.25), lineWidth: 2)
-                Circle().trim(from: 0, to: share).stroke(ring, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-            }.frame(width: 11, height: 11)
+            ContextPie(usage: .init(used: used, window: window)).frame(width: 12, height: 12)
             Text("Context \(Int(share * 100))% · \(used / 1000)k of \(window / 1000)k tokens").font(
                 .ui(TextSize.caption).monospacedDigit()
             ).foregroundStyle(Color(nsColor: ContextMeter.textColor(level)))
         }
+    }
+}
+
+/// The tab's pie in the card. The card shows it at every level, where the tab waits for the first; the words beside
+/// it say the level, so VoiceOver reads them, not the pie.
+private struct ContextPie: NSViewRepresentable {
+    let usage: SessionContextWindow.Usage
+    func makeNSView(context: Context) -> ContextMeter {
+        let pie = ContextMeter()
+        pie.setAccessibilityElement(false)
+        return pie
+    }
+    func updateNSView(_ pie: ContextMeter, context: Context) {
+        pie.usage = usage
+        pie.isHidden = false
     }
 }

@@ -181,7 +181,7 @@ extension SidebarController {
             menu.addItem(.separator())
             WorkspaceActions.addLocate(to: menu, path: repo.path)
             menu.addItem(.separator())
-            if RemoteHost.of(repo.path) == nil {
+            if WorkspaceActions.cleansWorktrees(repo) {
                 menu.add(String(localized: "Remove Clean Worktrees…")) {
                     WorkspaceActions(app).removeCleanWorktrees(repo)
                 }

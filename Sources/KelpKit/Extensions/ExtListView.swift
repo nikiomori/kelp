@@ -11,8 +11,8 @@ struct ExtListView: View {
     let folder: URL
     @State private var items: [JSONValue] = []
     @State private var error: String?
-    @State private var loading = false   // the spinner, after a second
-    @State private var running = false   // the command hasn't answered yet (no "empty" meanwhile)
+    @State private var waitingSince: Date?   // when the rows' outline came up, a second into the first wait
+    @State private var answered = false   // the command has answered once (no "empty" before that)
     @State private var selection: Int?
     private let app: AppModel
     private var bench: Workbench { app.workbench }
@@ -44,7 +44,6 @@ struct ExtListView: View {
                     }
                 }
                 if def.toolbar?.isEmpty ?? true { Spacer() }
-                if loading { ProgressView().controlSize(.small) }
                 Menu {
                     Button("Refresh") { reload() }
                 } label: {
@@ -56,14 +55,20 @@ struct ExtListView: View {
             .padding(.leading, Metrics.inset).padding(.trailing, Metrics.insetTrailing).frame(
                 height: TextSize.of(Metrics.panelHeader))
             Divider()
-            if let error {
+            if let error, items.isEmpty {
                 EmptyState(title: String(localized: "Couldn’t load"), symbol: nil, output: error, retry: reload).frame(
                     maxHeight: .infinity)
-            } else if items.isEmpty, !running {
+            } else if items.isEmpty, !answered {
+                // Only the first wait shows the rows' outline; a timed refresh keeps what is shown.
+                if waitingSince != nil { Waiting().frame(maxHeight: .infinity) } else { Color.clear }
+            } else if items.isEmpty {
                 let symbol = def.icon.map { $0.contains("${") ? "tray" : $0 } ?? "tray"   // a field's icon names no symbol here
                 EmptyState(title: def.empty ?? String(localized: "Nothing here"), symbol: symbol, output: nil).frame(
                     maxHeight: .infinity)
             } else {
+                if let error {
+                    FailureLine(error, retry: reload).padding(.horizontal, Metrics.inset).padding(.top, Metrics.gap)
+                }
                 List(selection: $selection) {
                     ForEach(Array(items.enumerated()), id: \.offset) { i, item in
                         draggable(row(item), item).tag(i)
@@ -109,6 +114,16 @@ struct ExtListView: View {
         }
     }
 
+    /// DesignKit's loading view: the shape of the rows to come, while the first answer is slow.
+    private struct Waiting: NSViewRepresentable {
+        func makeNSView(context: Context) -> LoadingView {
+            let view = LoadingView(rows: true)
+            view.show(String(localized: "Running the list’s command…"))
+            return view
+        }
+        func updateNSView(_ view: LoadingView, context: Context) {}
+    }
+
     private func row(_ item: JSONValue) -> some View {
         let actions = ExtActions(app)
         let subtitle = def.subtitle.map { actions.expand($0, item: item, quote: false) } ?? ""
@@ -126,7 +141,7 @@ struct ExtListView: View {
                 }
             }
             VStack(alignment: .leading, spacing: Metrics.lineGap) {
-                Text(actions.expand(def.title ?? "${name}", item: item, quote: false)).font(.ui(TextSize.body))
+                Text(actions.expand(def.title ?? "${name}", item: item, quote: false)).font(.ui(TextSize.row))
                     .lineLimit(1)
                 if !subtitle.trimmingCharacters(in: .whitespaces).isEmpty {
                     Text(subtitle).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
@@ -194,12 +209,16 @@ struct ExtListView: View {
     private func refresh() async {
         let cmd = ExtActions(app).expand(def.command, item: nil, quote: true)
         let cwd = IDEContext.of(app).workspace?.path ?? folder.path
-        let slow = whileSlow { loading = true }   // a spinner only for a wait you'd notice
-        running = true
+        // The outline only for a first wait you'd notice; once shown, it stays long enough not to blink.
+        let slow = whileSlow { if !answered { waitingSince = .now } }
         let result = await Shell.run(app, cmd, cwd: cwd, extension: folder.lastPathComponent)
         slow.cancel()
-        loading = false
-        running = false
+        if let since = waitingSince {
+            let left = LoadingView.held - Date.now.timeIntervalSince(since)
+            if left > 0 { do { try await Task.sleep(for: .seconds(left)) } catch { return } }
+            waitingSince = nil
+        }
+        answered = true
         if result.code != 0, result.stdout.isEmpty {
             error =
                 result.stderr.isEmpty

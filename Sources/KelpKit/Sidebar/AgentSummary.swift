@@ -206,7 +206,7 @@ final class AgentSummary: NSView {
         if !new.isEmpty, !Motion.reduced {   // a question came in: a brief glow
             capsule.alphaValue = 0.4
             NSAnimationContext.runAnimationGroup {
-                $0.duration = Motion.appear
+                $0.duration = Motion.flash
                 capsule.animator().alphaValue = 1
             }
         }

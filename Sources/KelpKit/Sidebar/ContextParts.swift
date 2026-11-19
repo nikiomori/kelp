@@ -158,7 +158,7 @@ struct ContextParts: View {
                 case (.conversation, "thinking"): String(localized: "its thinking")
                 case (.conversation, "messages") where item.count == 1: String(localized: "your message")
                 case (.conversation, "messages"): String(localized: "your \(item.count) messages")
-                case (.conversation, "notes"): String(localized: "Claude Code's notes")
+                case (.conversation, "notes"): String(localized: "Claude Code’s notes")
                 default: item.count > 1 ? "\(item.label) ×\(item.count)" : item.label
                 }
             return "\(name) \(shortTokens(item.tokens))"

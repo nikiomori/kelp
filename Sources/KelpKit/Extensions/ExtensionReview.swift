@@ -19,7 +19,7 @@ enum ExtensionReview {
                 ? String(localized: "It runs no commands.")
                 : allowing
                     ? String(
-                        localized: "It's new or changed since it was allowed. It can run these commands on this Mac:")
+                        localized: "It’s new or changed since it was allowed. It can run these commands on this Mac:")
                     : String(localized: "It can run these commands on this Mac:"),
             action: allowing ? String(localized: "Allow") : String(localized: "Install"),
             cancel: allowing ? String(localized: "Not Now") : nil)

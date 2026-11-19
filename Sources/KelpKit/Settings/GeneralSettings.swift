@@ -48,7 +48,7 @@ struct GeneralSettings: View {
                 }
             } else {
                 LabeledContent {
-                    Text("This build doesn't update itself.").foregroundStyle(.secondary)
+                    Text("This build doesn’t update itself.").foregroundStyle(.secondary)
                 } label: {
                     Self.row("shippingbox.fill", 0x8E8E93, Text(verbatim: Self.name))
                 }
@@ -65,7 +65,7 @@ struct GeneralSettings: View {
                 } label: {
                     Self.row(
                         "moon.fill", 0x5856D6, Text("Agents keep running when Kelp quits"),
-                        help: String(localized: "Kelp's background service runs them; macOS allows it in Login Items."))
+                        help: String(localized: "Kelp’s background service runs them; macOS allows it in Login Items."))
                     // Shown only when it's off, so the one state that needs action stays in view.
                     if blocked == true {
                         Text("Off in Login Items: quitting or updating Kelp ends them.").foregroundStyle(

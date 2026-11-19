@@ -29,7 +29,7 @@ package struct WorkspaceActions {
                     ? [
                         String(
                             localized:
-                                "\(commits) commits on this branch aren't on any other branch or remote and will be lost."
+                                "\(commits) commits on this branch aren’t on any other branch or remote and will be lost."
                         )
                     ] : [])
         }
@@ -86,6 +86,9 @@ package struct WorkspaceActions {
         stepAway(from: worktree)
         await app.call(WorktreeRemove(id: worktree.id, force: work.dirty, dropCommits: work.commits > 0))
     }
+
+    /// Whether Remove Clean Worktrees… is offered: not on another machine, where the worktrees aren't looked at.
+    static func cleansWorktrees(_ repo: Repo) -> Bool { RemoteHost.of(repo.path) == nil }
 
     /// Removes the project's other git worktrees with nothing uncommitted (agents leave them in `.claude/worktrees`),
     /// after one question. Git itself keeps any that changed meanwhile, and Kelp's own workspaces aren't among them.
@@ -199,7 +202,7 @@ package struct WorkspaceActions {
     /// work can't be got back.
     private func closeKeeping(_ worktree: Worktree, _ work: Work) async {
         let alert = NSAlert()
-        alert.messageText = String(localized: "“\(worktree.displayName)” has work that's nowhere else")
+        alert.messageText = String(localized: "“\(worktree.displayName)” has work that’s nowhere else")
         alert.informativeText =
             (work.words + [
                 String(localized: "Archive keeps it, agents paused, until Window › Archived Groups brings it back.")
@@ -312,7 +315,7 @@ package struct WorkspaceActions {
                     ? String(localized: "1 running session stops. ")
                     : String(localized: "\(running.count) running sessions stop. "))
             + String(localized: "Files in the projects are not touched.")
-            + (plan.keptSome ? " " + String(localized: "A project's own chats stay.") : "")
+            + (plan.keptSome ? " " + String(localized: "A project’s own chats stay.") : "")
         let action =
             running.isEmpty
             ? String(localized: "Close")

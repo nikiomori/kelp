@@ -22,7 +22,7 @@ final class PasswordButton: NSButton {
         button.controlSize = .small
         button.refusesFirstResponder = true   // typed keys stay with the machine's screen
         button.toolTip = String(
-            localized: "Types this machine's password into the field that asks for it, in its window.", bundle: kelp)
+            localized: "Types this machine’s password into the field that asks for it, in its window.", bundle: kelp)
         let box = NSView(frame: NSRect(x: 0, y: 0, width: button.fittingSize.width + 12, height: 28))
         button.frame.origin = NSPoint(x: 0, y: (28 - button.fittingSize.height) / 2)
         button.frame.size = button.fittingSize

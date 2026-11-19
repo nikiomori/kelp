@@ -33,7 +33,7 @@ final class SummarySegment: PointerControl {
     init(_ kind: SummaryKind) {
         self.kind = kind
         super.init(frame: .zero)
-        layer?.cornerRadius = TextSize.of(20) / 2
+        layer?.cornerRadius = TextSize.of(22) / 2
         mark.status = kind == .working || kind == .quiet ? .working : .done
         mark.limited = kind == .limit
         mark.announces = false
@@ -46,12 +46,12 @@ final class SummarySegment: PointerControl {
         verb.setContentCompressionResistancePriority(.required, for: .horizontal)
         let content = NSStackView(views: [mark, label, verb])
         content.detachesHiddenViews = true
-        content.spacing = 4
+        content.spacing = Metrics.gap
         content.translatesAutoresizingMaskIntoConstraints = false
         addSubview(content)
         translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: TextSize.of(20)),
+            heightAnchor.constraint(equalToConstant: TextSize.of(22)),
             content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Metrics.gap),
             content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.gap),
             content.centerYAnchor.constraint(equalTo: centerYAnchor)
@@ -72,10 +72,10 @@ final class SummarySegment: PointerControl {
             ceil((text as NSString).size(withAttributes: [.font: font]).width) + 2
         }
         let named = peek.map {
-            wide($0.name, .ui(TextSize.caption, weight: .medium)) + 4 + wide($0.verb, .ui(TextSize.caption))
+            wide($0.name, .ui(TextSize.caption, weight: .semibold)) + Metrics.gap + wide($0.verb, .ui(TextSize.caption))
         }
         let text = named ?? wide(words[min(level, words.count - 1)], .uiDigits(TextSize.caption))
-        return 2 * Metrics.gap + 12 + 4 + text
+        return 2 * Metrics.gap + 12 + Metrics.gap + text
     }
 
     /// Keeps the segment at most `room` wide, for a peek's long name. With nil it is as wide as its words.
@@ -92,19 +92,20 @@ final class SummarySegment: PointerControl {
         label.stringValue = text
         verb.stringValue = peek?.verb ?? ""
         verb.isHidden = peek == nil
-        label.font = peek == nil ? .uiDigits(TextSize.caption) : .ui(TextSize.caption, weight: .medium)
+        // A named chat is news, so it has the weight of news (600), and no plate: a fill would read as a button held.
+        label.font = peek == nil ? .uiDigits(TextSize.caption) : .ui(TextSize.caption, weight: .semibold)
         label.textColor = peek == nil ? .secondaryLabelColor : .labelColor
-        restFill = peek == nil ? nil : .fillHover
         let said = peek.map { "\($0.name) \($0.verb)" } ?? words[0]
         setAccessibilityLabel(String(localized: "\(said). Show the next one."))
     }
 
-    /// Glows briefly when a chat just got into the count, as the capsule glows for a new question.
+    /// Glows briefly when a chat just got into the count, as the capsule glows for a new question. A finished chat
+    /// doesn't: done is the quiet state, said by its name's weight alone.
     func flash() {
-        guard !Motion.reduced else { return }
+        guard !Motion.reduced, kind != .done else { return }
         alphaValue = 0.4
         NSAnimationContext.runAnimationGroup {
-            $0.duration = Motion.appear
+            $0.duration = Motion.flash
             animator().alphaValue = 1
         }
     }

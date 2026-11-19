@@ -51,7 +51,7 @@ struct LibrarySection: View {
         } footer: {
             HStack {
                 Text(
-                    "Extensions people shared, each reviewed before it's added. Or any repository: kelp ext install owner/repo"
+                    "Extensions people shared, each reviewed before it’s added. Or any repository: kelp ext install owner/repo"
                 )
                 .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                 Spacer()
@@ -135,7 +135,7 @@ struct LibrarySection: View {
             ).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: Metrics.gap) {
-                    Text(entry.name).fontWeight(.medium)
+                    Text(entry.name)
                     Text(entry.version).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                     if let stars = entry.stars { popularity(stars, weekly: entry.weekly ?? 0) }
                 }
@@ -156,7 +156,10 @@ struct LibrarySection: View {
                 // always offered for one found by its topic, whose branch may have moved
                 Button(entry.reviewed == false ? "Update…" : "Update") { install(entry) }
             } else {
-                Text("Already installed").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                HStack(spacing: Metrics.gap) {
+                    StateDot(on: true)
+                    Text("Already installed").font(.ui(TextSize.caption)).foregroundStyle(.secondary)
+                }
             }
         }
         .padding(.vertical, 2)

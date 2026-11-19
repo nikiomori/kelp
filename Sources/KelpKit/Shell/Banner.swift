@@ -116,7 +116,15 @@ private final class BannerCard: NSView {
     let stays: Bool
     /// True once the banner is on its way out.
     private(set) var leaving = false
-    private var hovering = false { didSet { close.alphaValue = hovering || stays ? 1 : 0 } }
+    private var hovering = false {
+        didSet {
+            let shown: CGFloat = hovering || stays ? 1 : 0
+            NSAnimationContext.runAnimationGroup {
+                $0.duration = Motion.duration(Motion.fast)
+                close.animator().alphaValue = shown
+            }
+        }
+    }
     private var leaveAt: Date?
     private let close = IconButton(.symbol("xmark", String(localized: "Close")), tip: String(localized: "Close")) {}
 
@@ -189,7 +197,10 @@ private final class BannerCard: NSView {
         // The column is pinned with insets instead of using the stack's edgeInsets, because those give way to a long
         // line, which then pushes the icon and the button to the card's very edges.
         let padded = NSView()
-        padded.pin(column, inset: NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 10))
+        padded.pin(
+            column,
+            inset: NSEdgeInsets(
+                top: Metrics.inset, left: Metrics.inset, bottom: Metrics.inset, right: Metrics.insetTrailing))
         // Every banner has one width, given up only to a narrower editor area. Otherwise a stack could squeeze a
         // banner down to its icon.
         let width = padded.widthAnchor.constraint(equalToConstant: 340)

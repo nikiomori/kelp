@@ -280,7 +280,7 @@ final class SidebarCell: NSTableCellView {
             title.textColor = busy || selected || !node.children.isEmpty ? .labelColor : .secondaryLabelColor
             toolTip =
                 missing
-                ? String(localized: "\(repo?.path ?? "") isn't there anymore. Right-click › Locate… if it moved.")
+                ? String(localized: "\(repo?.path ?? "") isn’t there anymore. Right-click › Locate… if it moved.")
                 : repo.map(app.projectPlace)
             say([title.stringValue, toolTip])
             // The agents' own rows and the line above the projects show who needs you. When the project is folded,

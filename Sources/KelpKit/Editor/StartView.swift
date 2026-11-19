@@ -18,7 +18,7 @@ final class StartView: NSView {
     private lazy var prompt: StartPrompt = {
         let name = app.catalog.name(def)
         return StartPrompt(
-            placeholder: String(localized: "What should \(name) do? Return starts it"),
+            placeholder: String(localized: "What should \(name) do? ↩ starts it"),
             accessibilityLabel: String(localized: "First task for \(name)"))
     }()
     private let def: String

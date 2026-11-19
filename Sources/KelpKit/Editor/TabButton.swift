@@ -94,7 +94,7 @@ final class TabButton: NSControl, NSDraggingSource {
         NSLayoutConstraint.activate([
             close.widthAnchor.constraint(equalToConstant: 16), close.heightAnchor.constraint(equalToConstant: 16)
         ])
-        full.font = .uiDigits(TextSize.micro, weight: .semibold)
+        full.font = .uiDigits(TextSize.micro, weight: .medium)
         for part in [slot, title, chip, meter, full] as [NSView] { row.addArrangedSubview(part) }
         applyWidth()
         pin(row)
@@ -211,7 +211,7 @@ final class TabButton: NSControl, NSDraggingSource {
         let active = selected && groupFocused, call = callText
         title.textColor = call ?? (selected ? .labelColor : .secondaryLabelColor)
         // A tab finished and not looked at is marked by the weight of its title alone, as unread mail is.
-        title.font = .ui(TextSize.row, weight: doneUnread ? .semibold : active || call != nil ? .medium : .regular)
+        title.font = .ui(TextSize.row, weight: doneUnread ? .semibold : active ? .medium : .regular)
         titleMin.constant = Self.minTitle(
             title.stringValue, font: title.font ?? .ui(TextSize.row), letters: compact ? 6 : 12)
         icon.contentTintColor = active ? .themeAccent : .secondaryLabelColor
