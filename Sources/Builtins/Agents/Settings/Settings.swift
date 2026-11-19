@@ -107,7 +107,7 @@ struct AgentsSettings: View {
                                 ? String(localized: "1 update available")
                                 : String(localized: "\(updates.count) updates available")
                         )
-                        .font(.ui(TextSize.caption)).foregroundStyle(Color.textOrange)
+                        .font(.ui(TextSize.caption)).foregroundStyle(.secondary)   // an update is news: no colour
                     }
                 }
             }
@@ -188,7 +188,7 @@ struct AgentsSettings: View {
                     .fill(on ? Color(nsColor: .fillTint(.controlAccentColor)) : .clear).padding(-Metrics.gap)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PointerButtonStyle(flush: true))   // answers hover and press as Kelp's other rows do
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 

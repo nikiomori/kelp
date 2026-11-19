@@ -283,7 +283,7 @@ final class StripButton: PointerControl {
             NSAttributedString(string: string, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: cut])
         }
         let title = NSMutableAttributedString(
-            attributedString: text(item.name, .ui(TextSize.row, weight: .medium), .labelColor))
+            attributedString: text(item.name, .ui(TextSize.row), .labelColor))
         title.append(text("  " + StripModel.brief(item.words ?? ""), .ui(TextSize.row), item.cell.wordsColor))
         return title
     }
@@ -331,7 +331,7 @@ final class StripTip {
     static let listed = 5
     private let name = NSTextField(labelWithString: ""), agents = NSTextField(labelWithString: "")
     private lazy var panel: StripPanel = {
-        name.font = .ui(TextSize.row, weight: .medium)
+        name.font = .ui(TextSize.row)
         agents.font = .ui(TextSize.caption)
         agents.textColor = .secondaryLabelColor
         for field in [name, agents] {

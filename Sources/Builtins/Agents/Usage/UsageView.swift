@@ -243,7 +243,7 @@ struct UsageView: View {
         }
     }
 
-    private static func label(_ kind: String) -> String {
+    static func label(_ kind: String) -> String {
         kind == "session"
             ? String(localized: "5 hours")
             : kind == "week"

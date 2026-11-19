@@ -3,6 +3,7 @@ import Core
 import DesignKit
 import KelpKit
 import SwiftUI
+import WorkbenchKit
 
 /// The chosen routine, under the week: what it tells the agent, when it repeats (changed here at once), where it runs,
 /// and how the chosen run (else the last one) went.
@@ -33,7 +34,7 @@ struct RoutineDetail: View {
             // As wide as its words: capped at 420 pt, a longer language's segments ran past both sides of the cap
             // and the labels were cut at the page's edge.
             Form { RepeatFields(routine: Binding(get: { routine }, set: { save($0) })) }.formStyle(.columns)
-                .fixedSize(horizontal: true, vertical: false)
+                .fixedSize(horizontal: true, vertical: false).controlSize(.small)   // a page's controls are small
             facts
             if let run = runs.first(where: { $0.id == picked }) ?? runs.first { RunResult(app: app, run: run) }
         }
@@ -65,10 +66,19 @@ struct RoutineDetail: View {
     private func save(_ routine: Routine) { Task { await app.call(RoutineSet(routine: routine)) } }
 }
 
-/// Run Now, on and off, Edit and Delete, from a routine's page, its row and its row's right-click.
+/// Run Now, on and off, Edit and Delete, from a routine's page, its row, its row's right-click and the commands.
 @MainActor
 struct RoutineActions {
     let app: AppModel
+
+    /// Run Now, or Stop while a run of it is open, as the row's button says. Returns the run it started.
+    func runOrStop(_ routine: Routine, runs: [Routine.Run]) async -> Routine.Run? {
+        if let open = runs.first(where: { $0.routineId == routine.id && $0.isOpen }), let sessionId = open.sessionId {
+            await app.call(SessionKill(id: sessionId))
+            return nil
+        }
+        return await app.call(RoutineRun(id: routine.id))
+    }
 
     func turn(_ routine: Routine, on: Bool) {
         var changed = routine
@@ -107,7 +117,7 @@ struct RunResult: View {
         VStack(alignment: .leading, spacing: Metrics.gap) {
             HStack(spacing: Metrics.gap) {
                 RunMark(mark: .init(id: run.id, at: run.due, kind: .run(run.outcome), run: run), picked: false)
-                Text(headline).font(.ui(TextSize.row, weight: .medium))
+                Text(headline).font(.ui(TextSize.row))
                 Spacer()
                 if let sessionId = run.sessionId, app.session(sessionId) != nil {
                     Button(run.outcome == .asked ? String(localized: "Answer") : String(localized: "Open Run")) {
@@ -121,7 +131,7 @@ struct RunResult: View {
             }
             if run.late {
                 Text(
-                    "Ran late: the Mac was asleep or Kelp wasn't running at \(run.due.formatted(date: .omitted, time: .shortened))"
+                    "Ran late: the Mac was asleep or Kelp wasn’t running at \(run.due.formatted(date: .omitted, time: .shortened))"
                 )
                 .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
             }
@@ -152,6 +162,28 @@ struct RunResult: View {
             allowed: [.hours, .minutes, .seconds], width: .abbreviated, maximumUnitCount: 1)
         let took = run.ended.map { " · " + Duration.seconds($0.timeIntervalSince(run.started)).formatted(units) } ?? ""
         return "\(state) · \(when)\(took)"
+    }
+}
+
+/// The routine chosen on each project's Routines tab, so the Routines commands act on the one in front, as its row's
+/// right-click does.
+@MainActor @Observable
+final class RoutinePick {
+    var chosen: [String: String] = [:]   // a project's id → its chosen routine's id
+
+    /// The routine chosen on the Routines tab in front, else that tab's first; nil when no Routines tab is in front.
+    func front(_ app: AppModel) -> Routine? {
+        guard let uri = app.workbench.focusedContent?.uri, TabURI.scheme(uri) == "routines" else { return nil }
+        let repoId = TabURI.body(uri)
+        let list = app.latest(RoutinesEvent.self)?.routines.filter { $0.repoId == repoId } ?? []
+        return list.first { $0.id == chosen[repoId] } ?? list.first
+    }
+
+    func runs(_ app: AppModel) -> [Routine.Run] { app.latest(RoutinesEvent.self)?.runs ?? [] }
+
+    /// Whether a run of `routine` is open, so Stop and not Run Now is offered.
+    func isOpen(_ routine: Routine, _ app: AppModel) -> Bool {
+        runs(app).contains { $0.routineId == routine.id && $0.isOpen }
     }
 }
 

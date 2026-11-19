@@ -36,7 +36,6 @@ struct UsageReportView: View {
     /// The read has gone on for a second: only then does the spinner show.
     @State private var slow = false
     @State private var failed: String?
-    @State private var showSources = false
     /// The days of the last year, for the months view (read once per project, after the span's days).
     @State private var year: [UsageAgents.Day] = []
     @State private var yearFor: String?
@@ -74,14 +73,7 @@ struct UsageReportView: View {
             VStack(alignment: .leading, spacing: Metrics.inset) {
                 period
                 // A read that fails over figures already shown leaves them there, with one line saying so.
-                if let failed, usage != nil {
-                    HStack(alignment: .firstTextBaseline, spacing: Metrics.gapWide) {
-                        Text("Couldn’t read the usage: \(failed)").font(.ui(TextSize.caption))
-                            .foregroundStyle(.secondary)
-                        Button(String(localized: "Try Again")) { Task { await load() } }
-                            .controlSize(.small).font(.ui(TextSize.row))
-                    }
-                }
+                if let failed, usage != nil { FailureLine(failed) { Task { await load() } } }
                 // Until the first read is in, a spinner and a line saying what it waits for stand where the figures
                 // will, once the read has taken a second.
                 if usage == nil, slow, failed == nil {
@@ -124,7 +116,7 @@ struct UsageReportView: View {
     private var bar: some View {
         ContentBar {
             Text("Usage").font(.ui(TextSize.body, weight: .semibold))
-            Text("From each agent's own logs and /usage on this Mac").font(.ui(TextSize.caption))
+            Text("From each agent’s own logs and /usage on this Mac").font(.ui(TextSize.caption))
                 .foregroundStyle(.secondary).lineLimit(1)
             Spacer()
             Segments(
@@ -161,17 +153,11 @@ struct UsageReportView: View {
         }
     }
 
-    /// The footnote line. A link in it shows which agents are read and what is left out.
+    /// The footnote line. The ⓘ beside it says which agents are read and what is left out.
     private var footnote: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Metrics.gap) {
             Text("Prices are API list prices: a plan bills differently.")
-            Button("Which agents are counted") { showSources.toggle() }
-                .buttonStyle(.link)
-                .popover(isPresented: $showSources, arrowEdge: .top) {
-                    Text(Self.sources)
-                        .font(.ui(TextSize.caption)).fixedSize(horizontal: false, vertical: true)
-                        .frame(width: 340, alignment: .leading).padding(Metrics.inset)
-                }
+            HelpMark(text: Self.sources)
         }
         .font(.ui(TextSize.caption)).foregroundStyle(.secondary)
     }
@@ -272,7 +258,7 @@ struct UsageReportView: View {
         .font(.ui(TextSize.caption))
         .frame(minWidth: 180)
         .padding(Metrics.gapWide)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Metrics.radiusLG, style: .continuous))
     }
 
     /// The last 12 months, a bar for each, for all agents or only the chosen one, with the total over the 12 months.

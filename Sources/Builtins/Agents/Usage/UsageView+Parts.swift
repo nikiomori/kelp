@@ -79,7 +79,7 @@ extension UsageView {
                             let eta = forecast.warning(
                                 LimitForecast.key(row.id, line.kind), resetAt: line.resetAt, window: line.window)
                         {
-                            Text("At this pace it's full in \(LimitForecast.duration(eta)), before it resets.").font(
+                            Text("At this pace it’s full in \(LimitForecast.duration(eta)), before it resets.").font(
                                 .ui(TextSize.caption)
                             ).foregroundStyle(Color.textOrange)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -87,7 +87,7 @@ extension UsageView {
                             LimitForecast.unusedNearReset(
                                 percent: line.used * 100, resetAt: line.resetAt, window: line.window)
                         {
-                            Text("Over half left; what isn't used by the reset is lost.").font(.ui(TextSize.caption))
+                            Text("Over half left; what isn’t used by the reset is lost.").font(.ui(TextSize.caption))
                                 .foregroundStyle(
                                     .secondary
                                 )

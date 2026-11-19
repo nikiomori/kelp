@@ -58,6 +58,18 @@ enum AddonLine: Equatable {
     /// One row in Needs a Look for the project's instruction files that need a look, with a Tidy Up button. After a
     /// Tidy Up, the row shows what it did instead, to review or undo.
     case instructions([Addon], Tidied?)
+
+    /// The line's name across a reload: the same item stays the same line while its switch or weight changes.
+    var key: String {
+        switch self {
+        case .section(let section, _): "section \(section)"
+        case .group(let group, _, _, _): "group \(group)"
+        case .item(let addon, let depth): "item \(addon.id) \(addon.source) \(depth)"
+        case .problem(let addon): "problem \(addon.id) \(addon.source)"
+        case .unsigned: "unsigned"
+        case .instructions: "instructions"
+        }
+    }
 }
 
 /// Builds the panel's list in order, without AppKit. First comes what needs a look, then the servers (the person's

@@ -16,7 +16,7 @@ struct MonthBars: View {
                 .foregroundStyle(color.opacity(month.start == now ? 0.5 : 1))
                 .annotation(position: .top) {
                     if month.value > 0 {
-                        Text(label(month.value)).font(.ui(TextSize.micro)).foregroundStyle(.secondary)
+                        Text(label(month.value)).font(.ui(TextSize.caption)).foregroundStyle(.secondary)
                     }
                 }
         }

@@ -7,7 +7,7 @@ extension Builtins {
     /// A project's commands, each run in a tab of its own: the window bar's run chip and the page a run serves, the
     /// Run menu (⌘R, ⌘U, ⌘.), the Run rows in the "+" menu and the empty workspace, and running the file in front.
     package static let run = Builtin(
-        "kelp.run", "Run", "The project's commands: the run chip, the Run menu and the pages they serve.",
+        "kelp.run", "Run", "The project’s commands: the run chip, the Run menu and the pages they serve.",
         icon: "play.fill"
     ) { app in
         let runs = app.part { Runs(app: app) }
@@ -31,6 +31,10 @@ extension Builtins {
                     enabled: { app.workbench.workspaceId.map { !runs.pages($0).isEmpty } ?? false }
                 ) { _ in runs.openPage() },
                 CommandSpec(id: "scripts.edit", title: "Edit Commands…", enabled: inWorkspace) { _ in runs.edit() },
+                // The run tab's right-click item, for the run whose tab is in front.
+                CommandSpec(id: "scripts.hide", title: "Hide in Run Menu", enabled: { runs.focusedRun != nil }) { _ in
+                    if let run = runs.focusedRun { runs.hide(run.id) } else { NSSound.beep() }
+                },
                 // The language's commands (`contributes.languages`): run the file in front, and its test at the
                 // cursor.
                 cmd("editor.runFile", "Run File") { if let tab = fileTab(app) { runs.runFile(tab, "run") } },

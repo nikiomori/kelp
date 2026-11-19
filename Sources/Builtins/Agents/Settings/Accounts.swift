@@ -29,7 +29,7 @@ enum Accounts {
         guard let saved = settings[SettingKeys.accounts.key] else { return [] }
         do { return try saved.decode([AccountProfile].self) } catch {
             let why = error.localizedDescription
-            Banner.show(String(localized: "Kelp can't read the accounts in settings.json: \(why)"), style: .error)
+            Banner.show(String(localized: "Kelp can’t read the accounts in settings.json: \(why)"), style: .error)
             return nil
         }
     }

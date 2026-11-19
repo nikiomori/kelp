@@ -25,7 +25,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     private(set) lazy var failureBar = FailureBar { [weak self] in self?.reload() }
     private let filter = NSSearchField()
     private lazy var filterBar = NSStackView(views: [filter])
-    lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More")) { [weak self] in
+    lazy var more = IconButton(.symbol("ellipsis.circle"), tip: String(localized: "More Actions")) { [weak self] in
         self?.showMore()
     }
     lazy var add = IconButton(.symbol("plus"), tip: String(localized: "Add")) { [weak self] in self?.showAdd() }
@@ -73,7 +73,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         // The inspector's own title already names the panel, so this bar names the chat, the way the bar of Source
         // Control names the branch.
         let header = Bar.panel([face, chatTitle], [add, more])
-        chatTitle.font = .ui(TextSize.row, weight: .medium)
+        chatTitle.font = .ui(TextSize.row)   // as Source Control's bar names its branch
         chatTitle.lineBreakMode = .byTruncatingTail
         chatTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         filter.placeholderString = String(localized: "Filter")
@@ -189,7 +189,8 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
     }
 
     /// Shows the answer for `key`. When reading the same list again fails, the old list stays under a line that says
-    /// so. Another chat's list crossfades in, and a new answer for the same chat lights up what changed.
+    /// so. Another chat's list crossfades in, and in a new answer for the same chat a few rows that came or went move
+    /// the others.
     private func show(_ value: Addons?, error: String?, chat: Session?, key: String?) {
         endBusy()
         pending = [:]
@@ -200,7 +201,7 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         }
         failureBar.show(nil)
         if !same, addons != nil { table.enclosingScrollView?.crossfade(Motion.appear) }
-        let before = same ? lines : nil
+        let places = same ? table.rowPlaces(lineKey) : [:]
         shownKey = key
         addons = value
         if let error {
@@ -228,24 +229,30 @@ final class AddonsPanel: NSViewController, NSTableViewDataSource, NSTableViewDel
         foot.isHidden = shownChat == nil || (gone.isEmpty && !behind && !items.contains(where: AddonGroups.waits))
         footNote.stringValue = AddonGroups.footNote(gone: gone)
         footNote.toolTip = gone.isEmpty ? nil : gone.joined(separator: "\n")
-        relist()
-        if let before { glow(changedFrom: before) }
+        relist(settling: places)
     }
 
-    /// Rebuilds the lines, and keeps the selected line selected while it is still there.
-    private func relist() {
+    /// Rebuilds the lines, and keeps the selected line selected while it is still there. With `places` (where the
+    /// rows stood before), a few rows that came or went move the others instead of jumping them.
+    private func relist(settling places: [String: NSPoint] = [:]) {
         let selected = lines.indices.contains(table.selectedRow) ? lines[table.selectedRow] : nil
-        let filtering = !display.filter.isEmpty
+        let filtering = !display.filter.isEmpty, old = Set(lines.map(\.key))
         lines = AddonGroups.lines(
             addons?.items ?? [], toggled: filtering ? toggledFiltering : toggled, view: display,
             tidied: addons?.tidied, agent: listAgent)
-        table.reloadData()
-        if let selected, let row = lines.firstIndex(of: selected) {
-            table.selectRowIndexes([row], byExtendingSelection: false)
-        } else {
-            table.deselectAll(nil)
+        let now = Set(lines.map(\.key))
+        table.reloadSettling(from: places, came: now.subtracting(old), gone: old.subtracting(now), lineKey) {
+            table.reloadData()
+            if let selected, let row = lines.firstIndex(of: selected) {
+                table.selectRowIndexes([row], byExtendingSelection: false)
+            } else {
+                table.deselectAll(nil)
+            }
         }
     }
+
+    /// A line's name across a reload, for `relist(settling:)`.
+    func lineKey(_ row: Int) -> String? { lines.indices.contains(row) ? lines[row].key : nil }
 
     func controlTextDidChange(_ note: Notification) {
         toggledFiltering = []

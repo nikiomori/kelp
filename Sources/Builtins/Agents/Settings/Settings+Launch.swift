@@ -49,7 +49,7 @@ extension AgentsSettings {
             }.buttonStyle(PointerButtonStyle()).help("Copy").accessibilityLabel("Copy")
         }
         .padding(Metrics.gapWide)
-        .background(Color(nsColor: .fillRest), in: RoundedRectangle(cornerRadius: Metrics.radiusSM, style: .continuous))
+        .background(Color(nsColor: .fillRest), in: RoundedRectangle(cornerRadius: Metrics.radiusMD, style: .continuous))
     }
 
     @ViewBuilder func versionRow(_ agentManifest: AgentManifest) -> some View {
@@ -58,8 +58,7 @@ extension AgentsSettings {
             if let installed = versionInfo?.version {
                 Text("Version \(installed)")
                     + Text(newer(versionInfo) ? String(localized: " · \(versionInfo?.latest ?? "") available") : "")
-                    .foregroundColor(
-                        .textOrange)
+                    .foregroundColor(.secondary)   // an update is news: no colour
             } else if versions.isEmpty {
                 Text("Checking…").foregroundStyle(.secondary)
             }
@@ -107,7 +106,7 @@ extension AgentsSettings {
             Text("Launch")
         } footer: {
             Text(
-                "Values of *_KEY, *_TOKEN and *_SECRET are kept in your login keychain, not in the agent's file. Agents are JSON files in ~/.kelp/agents — add a file to add any CLI agent."
+                "Values of *_KEY, *_TOKEN and *_SECRET are kept in your login keychain, not in the agent’s file. Agents are JSON files in ~/.kelp/agents — add a file to add any CLI agent."
             )
             .font(.ui(TextSize.caption)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
@@ -206,7 +205,7 @@ extension AgentsSettings {
             guard
                 await confirm(
                     String(localized: "Reset how \(agentManifest.name) starts?"),
-                    detail: String(localized: "Its command, arguments and environment go back to Kelp's."),
+                    detail: String(localized: "Its command, arguments and environment go back to Kelp’s."),
                     action: String(localized: "Reset"))
             else { return }
             guard await app.call(AgentSave(agent: agentManifest.id)) != nil else { return }
@@ -249,7 +248,7 @@ extension AgentsSettings {
         let file: JSONValue
         do { file = try JSONValue.from(manifest) } catch {
             Banner.show(
-                String(localized: "Couldn't save \(manifest.name): \(error.localizedDescription)"), style: .error)
+                String(localized: "Couldn’t save \(manifest.name): \(error.localizedDescription)"), style: .error)
             return
         }
         guard await app.call(AgentSave(agent: manifest.id, manifest: file)) != nil else { return }

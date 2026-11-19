@@ -17,6 +17,13 @@ extension Runs {
         guard choice(of: session) != nil else { return }
         menu.add(String(localized: "Hide in Run Menu")) { [weak self] in self?.hide(session.id) }
     }
+    /// The run whose tab is in front; nil when the tab in front isn't a run's.
+    var focusedRun: Session? {
+        guard let uri = app.workbench.focusedContent?.uri, TabURI.scheme(uri) == "session",
+            let session = app.session(TabURI.body(uri)), choice(of: session) != nil
+        else { return nil }
+        return session
+    }
     func hide(_ sid: String) {
         state.hidden.insert(sid)
         let live = app.uiState.strings("run.hidden").filter { app.session($0).map { $0.status != .exited } ?? false }

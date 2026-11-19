@@ -191,10 +191,8 @@ struct PhoneSettings: View {
     private func reached(_ state: PhoneState) -> some View {
         let host = (state.address ?? state.relay).flatMap { URL(string: $0)?.host } ?? ""
         return HStack(spacing: Metrics.gap) {
-            // Reached is a filled dot and not reached a ring, as an integration's is.
-            Circle().strokeBorder(Color.secondary, lineWidth: 1.5)
-                .background(Circle().fill(state.connected && state.address != nil ? Color.secondary : .clear))
-                .frame(width: 8, height: 8)
+            // Reached is a filled dot and not reached a ring, as an integration's is; red when it failed.
+            StateDot(state.error != nil ? .broken : state.connected && state.address != nil ? .on : .off)
             if let steps = state.tailscale, !steps.serving {
                 Text("Finish Tailscale’s steps above.").foregroundStyle(.secondary)   // the steps say what's missing
             } else if let error = state.error {
