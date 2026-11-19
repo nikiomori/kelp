@@ -7,7 +7,7 @@ import Testing
 
 /// The next edit's llama-server from start to stop, with a stand-in that answers /health as llama-server does once
 /// its model is in (or never does), and notes its pid beside it.
-@Suite(.timeLimit(.minutes(1))) struct NextEditServerTests {
+struct NextEditServerTests {
     struct StandIn {
         let command: String, notes: URL
         /// The stand-in's pid, once it has started.
@@ -66,7 +66,9 @@ import Testing
         #expect(server.mayStartUnasked())
     }
 
-    @Test func aStartThatTakesTooLongIsEndedAndNotTriedAgainAtOnce() async throws {
+    /// Without the start's deadline this one never ends: the limit is wide, as under Thread Sanitizer in CI a daemon
+    /// test can wait minutes for a thread before it runs.
+    @Test(.timeLimit(.minutes(5))) func aStartThatTakesTooLongIsEndedAndNotTriedAgainAtOnce() async throws {
         let stand = try Self.standIn(healthy: false)
         let server = NextEditServer(
             command: stand.command, startLimit: .milliseconds(700), retryDelay: 3600, notes: stand.notes)
