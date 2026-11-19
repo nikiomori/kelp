@@ -49,7 +49,9 @@ final class TabStrip: NSView {
             measured = nil
         }
     }
-    private let unzoom = PointerButton(frame: .zero)
+    private let unzoom = IconButton(
+        .symbol("arrow.down.right.and.arrow.up.left", String(localized: "Show All Panes")),
+        tip: String(localized: "Show All Panes"), target: nil, action: nil)
     var focused = false { didSet { if focused != oldValue { buttons.forEach { $0.groupFocused = focused } } } }
     /// Whether this is a pane without focus among several. Its tabs then fade with its content, except those with news
     /// (`TabButton.news`).
@@ -119,9 +121,6 @@ final class TabStrip: NSView {
         overflow.target = self
         overflow.action = #selector(overflowTapped)
         overflow.isHidden = true
-        unzoom.image = .symbol("arrow.down.right.and.arrow.up.left", String(localized: "Show All Panes"))
-        unzoom.isBordered = false
-        unzoom.contentTintColor = .themeAccent
         unzoom.symbolConfiguration = .chrome(Metrics.iconSmall)
         unzoom.target = self
         unzoom.action = #selector(unzoomTapped)

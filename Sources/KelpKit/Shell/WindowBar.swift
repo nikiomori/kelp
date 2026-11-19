@@ -292,7 +292,7 @@ final class WindowBar: NSView {
     /// there (or after the counts). With no upstream, it shows only what publishing would push.
     private func showBranch(_ info: BranchInfo) {
         let ahead = info.ahead ?? 0, behind = info.upstream == nil ? 0 : info.behind ?? 0
-        let font = NSFont.ui(TextSize.row), count = NSFont.uiDigits(TextSize.row, weight: .semibold)
+        let font = NSFont.ui(TextSize.row)
         let title = NSMutableAttributedString(
             string: info.current ?? info.head ?? "HEAD",
             attributes: [.font: font, .foregroundColor: NSColor.labelColor])
@@ -302,9 +302,8 @@ final class WindowBar: NSView {
             title.append(.signed(arrow, commits, size: TextSize.row, color: color))
         }
         if dirty {
-            title.append(
-                NSAttributedString(
-                    string: "  •", attributes: [.font: count, .foregroundColor: NSColor.secondaryLabelColor]))
+            title.append(NSAttributedString(string: "  ", attributes: [.font: font]))
+            title.append(SidebarCell.dot(shared: false))   // the sidebar's changes dot, drawn
         }
         let running = syncing, ci = self.ci?.state, atEnd = self.ci?.atEnd == true,
             inPlace = ci != nil && !atEnd && running == nil

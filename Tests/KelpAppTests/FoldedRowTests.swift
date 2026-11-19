@@ -100,7 +100,7 @@ extension OneAtATime {
             let cell = try foldedRow(vc, o, width: 280)
             cell.counts = NSAttributedString(string: "+2 −1")
             cell.showHoverControls(true)
-            #expect(cell.changes.attributedTitle.string == "•")
+            #expect(cell.changes.attributedTitle.string == "\u{FFFC}")   // the drawn dot
             @MainActor func pointer(_ type: NSEvent.EventType) throws -> NSEvent {
                 try #require(
                     NSEvent.enterExitEvent(
@@ -110,7 +110,7 @@ extension OneAtATime {
             cell.changes.mouseEntered(with: try pointer(.mouseEntered))
             #expect(cell.changes.attributedTitle.string == "+2 −1")
             cell.changes.mouseExited(with: try pointer(.mouseExited))
-            #expect(cell.changes.attributedTitle.string == "•")
+            #expect(cell.changes.attributedTitle.string == "\u{FFFC}")   // the drawn dot
         }
     }
 }

@@ -21,7 +21,7 @@ struct LibrarySection: View {
             if let error {
                 // The same error block every panel shows: the triangle, what failed, why, and Try Again.
                 EmptyState(
-                    String(localized: "Couldn’t load the library"), symbol: "exclamationmark.triangle", lifted: false
+                    String(localized: "Couldn’t Load the Library"), symbol: "exclamationmark.triangle", lifted: false
                 ) {
                     Text(error).textSelection(.enabled)
                 } actions: {
@@ -39,7 +39,7 @@ struct LibrarySection: View {
                     let (reviewed, found) = Self.split(shown)
                     if shown.isEmpty {
                         EmptyState(
-                            String(localized: "No extension matches “\(query)”"), symbol: "magnifyingglass",
+                            String(localized: "No Extension Matches “\(query)”"), symbol: "magnifyingglass",
                             lifted: false)
                     }
                     ForEach(reviewed, id: \.id) { row($0) }

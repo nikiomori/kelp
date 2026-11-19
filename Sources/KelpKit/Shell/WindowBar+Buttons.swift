@@ -80,12 +80,11 @@ extension WindowBar {
     /// Shows the side-by-side button. While the workspace shows its agents side by side, the symbol is filled. A click
     /// shows them as tabs in one pane, and back. It appears only with two agents or more, and a right-click hides it
     /// (Settings › Window brings it back).
-    /// When on, it is the filled symbol in the accent colour (the label colour with Graphite), with no fill behind it.
-    /// When off, it is only the outline.
+    /// When on, it is the filled symbol, as the Keep Mac Awake cup shows it, with no colour: nothing waits for you
+    /// there. When off, it is only the outline.
     func showSideBySide(_ on: Bool) {
-        let image = NSImage.symbol(
+        sideBySide.image = NSImage.symbol(
             on ? "rectangle.split.3x1.fill" : "rectangle.split.3x1", String(localized: "Agents Side by Side"))
-        sideBySide.image = on ? image.withSymbolConfiguration(.init(paletteColors: [.emphasis])) : image   // a recessed button ignores contentTintColor
         sideBySide.toolTip = app.extensions.hint(
             on
                 ? String(localized: "Agents side by side. Click to show them as tabs")

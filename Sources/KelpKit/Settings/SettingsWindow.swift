@@ -118,7 +118,17 @@ struct SettingsView: View {
             }
         }
         .searchable(text: $query, placement: .sidebar, prompt: "Search settings")
+        // The window's text follows Text size and the look's typeface, as the rest of the chrome does; a caption or a
+        // title that sets its own `.ui` keeps it, and the pictures draw their own.
+        .font(font)
         .frame(minWidth: 720, minHeight: 480)
+    }
+
+    /// The body font, read with the chrome's font so the window makes it again when Text size or the look's face
+    /// changes.
+    private var font: Font {
+        _ = app.themes.chromeText
+        return .ui(TextSize.body)
     }
 
     private var sections: [SettingsSection] { registry.all.settings.sorted { $0.order < $1.order } }
@@ -263,7 +273,7 @@ private struct SearchResults: View {
         let keys = KeyBindings.entries().contains { KeyBindings.matches($0, query) }
         Form {
             if found.isEmpty, !keys {
-                EmptyState(String(localized: "No settings match “\(query)”."), symbol: "magnifyingglass", lifted: false)
+                EmptyState(String(localized: "No Settings Match “\(query)”"), symbol: "magnifyingglass", lifted: false)
             }
             ForEach(found) { result in
                 Section(result.title) {

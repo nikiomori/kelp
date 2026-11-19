@@ -214,7 +214,7 @@ final class TabButton: NSControl, NSDraggingSource {
         title.font = .ui(TextSize.row, weight: doneUnread ? .semibold : active ? .medium : .regular)
         titleMin.constant = Self.minTitle(
             title.stringValue, font: title.font ?? .ui(TextSize.row), letters: compact ? 6 : 12)
-        icon.contentTintColor = active ? .themeAccent : .secondaryLabelColor
+        icon.contentTintColor = active ? .labelColor : .secondaryLabelColor   // no accent: it is not a focus ring
         // The window has one plate, on the tab you're in; another pane's chosen tab stands out by its brighter title.
         let fill = active ? NSColor.fillSelected : hover ? .fillHover : nil
         fadeBackground(to: fill)   // the state's colour is in the glow and the title, not a fill under them

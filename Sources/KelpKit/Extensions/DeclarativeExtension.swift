@@ -208,7 +208,7 @@ enum DeclarativeExtension {
             guard FileManager.default.fileExists(atPath: folder.appendingPathComponent(web).path) else {
                 let empty = EmptyStateView(), vc = NSViewController()
                 empty.show(
-                    String(localized: "No page to show"), symbol: "exclamationmark.triangle",
+                    String(localized: "No Page to Show"), symbol: "exclamationmark.triangle",
                     text: String(localized: "\(extManifest.name) has no file “\(web)” in its folder."),
                     fix: "kelp ext check \(ShellQuote.word(folder.path))")
                 vc.view = empty
@@ -220,7 +220,7 @@ enum DeclarativeExtension {
         // A view that names neither gets the panel's error block, as a missing page does, not a bare line in a corner.
         let empty = EmptyStateView(), vc = NSViewController()
         empty.showError(
-            String(localized: "Nothing to show"),
+            String(localized: "Nothing to Show"),
             text: String(localized: "\(extManifest.name): view “\(viewDef.id)” has neither list nor web."),
             fix: "kelp ext check \(ShellQuote.word(folder.path))")
         vc.view = empty
