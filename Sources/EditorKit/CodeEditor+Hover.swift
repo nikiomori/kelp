@@ -55,6 +55,9 @@ extension CodeEditor {
         popover.animates = false
         popover.contentViewController = card
         popover.show(relativeTo: textView.caretRect(at: location), of: textView, preferredEdge: .minY)
+        // Once up, it grows and shrinks to the next signature (`,`, another overload) instead of jumping, as
+        // `HoverPopover` does.
+        popover.animates = !Motion.reduced
         return popover
     }
 

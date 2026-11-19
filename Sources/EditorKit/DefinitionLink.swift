@@ -10,6 +10,13 @@ final class DefinitionLink {
     var onJump: ((_ beside: Bool) -> Void)?
     /// The word underlined now.
     private(set) var word: NSRange?
+    /// What the words are (`CodeEditor` sets it), so keywords, literals, comments and strings don't look like links.
+    weak var highlighter: SyntaxHighlighter?
+    /// Highlights whose words open nothing: a keyword, a literal, a comment, a string.
+    private static let notNames: Set<String> = [
+        "keyword", "include", "boolean", "repeat", "conditional", "exception", "label", "variable.builtin",
+        "constant.builtin", "comment", "string", "character", "escape", "number", "float", "punctuation", "operator"
+    ]
 
     /// What a click with `flags` held does on a word: nil for a click like any other, else whether the definition
     /// opens beside (⌥⌘) or in place (⌘).
@@ -54,7 +61,8 @@ final class DefinitionLink {
         return true
     }
 
-    /// The character under `point` when it's part of a name a language server could resolve (not a number).
+    /// The character under `point` when it's part of a name a language server could resolve: not a number, and not a
+    /// keyword, a comment or a string (punctuation is no word).
     private func character(in view: EditorTextView, at point: NSPoint) -> Int? {
         guard onJump != nil, view.visibleRect.contains(point), let lm = view.layoutManager,
             let tc = view.textContainer
@@ -69,6 +77,11 @@ final class DefinitionLink {
         guard NSLocationInRange(index, word),
             UnicodeScalar(string.character(at: word.location)).map(CharacterSet.decimalDigits.contains) == false
         else { return nil }
+        if let name = highlighter?.highlight(at: index, in: string),
+            Self.notNames.contains(name) || Self.notNames.contains(String(name.prefix { $0 != "." }))
+        {
+            return nil
+        }
         return index
     }
 
@@ -94,6 +107,26 @@ extension EditorTextView {
         guard let window else { return }
         link.update(self, at: convert(window.mouseLocationOutsideOfEventStream, from: nil), event.modifierFlags)
     }
+
+    /// Focus gone elsewhere: a word linked while ⌘ was down stops being one.
+    public override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned { link.update(self, at: nil, []) }
+        return resigned
+    }
+
+    /// ⌘ let go in another window or app (after ⌘-Tab) never reaches this view, so the link also goes as its window
+    /// stops being key.
+    public override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        let center = NotificationCenter.default, resigned = NSWindow.didResignKeyNotification
+        center.removeObserver(self, name: resigned, object: window)
+        if let newWindow {
+            center.addObserver(self, selector: #selector(windowResignedKey), name: resigned, object: newWindow)
+        }
+    }
+
+    @objc private func windowResignedKey() { link.update(self, at: nil, []) }
 }
 
 extension CodeEditor {
@@ -101,6 +134,9 @@ extension CodeEditor {
     /// server; ⌘-click on a word (⌥⌘-click: beside) then puts the cursor there and calls it.
     public var onDefinition: ((_ beside: Bool) -> Void)? {
         get { textView.link.onJump }
-        set { textView.link.onJump = newValue }
+        set {
+            textView.link.onJump = newValue
+            textView.link.highlighter = highlighter
+        }
     }
 }

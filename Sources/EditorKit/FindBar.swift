@@ -48,7 +48,6 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         replaceField.controlSize = .small
         replaceField.font = .ui(TextSize.row)
         replaceField.focusRingType = .none
-        replaceField.widthAnchor.constraint(equalToConstant: FindCard.fieldWidth).isActive = true
         replaceField.placeholderString = String(localized: "Replace")
         (replaceField.cell as? NSSearchFieldCell)?.searchButtonCell?.isTransparent = true
         replaceRow.spacing = Metrics.gap
@@ -60,6 +59,8 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         card.onSelectAll = { [weak self] in self?.selectAllMatches() }
         card.onClose = { [weak self] in self?.close() }
         pin(card)
+        // The replace field keeps the find field's width, which gives way in a narrow pane.
+        replaceField.widthAnchor.constraint(equalTo: card.field.widthAnchor).isActive = true
     }
     required init?(coder: NSCoder) { fatalError("not from a nib") }
 
@@ -275,6 +276,11 @@ extension CodeEditor {
                     created.topAnchor.constraint(equalTo: scroll.topAnchor, constant: Metrics.gapWide),
                     created.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -Metrics.gapWide * 2)
                 ])
+                // In a narrow pane the field shrinks before the card spills past the pane's left edge.
+                let inside = created.leadingAnchor.constraint(
+                    greaterThanOrEqualTo: scroll.leadingAnchor, constant: Metrics.gapWide)
+                inside.priority = .init(999)
+                inside.isActive = true
                 findBar = created
                 return created
             }()

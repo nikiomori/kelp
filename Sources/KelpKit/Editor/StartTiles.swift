@@ -83,8 +83,13 @@ final class AgentTile: PointerControl {
         bar.show(note)
         amount.stringValue = note?.amount ?? " "
         amount.textColor = note?.color ?? .secondaryLabelColor
-        bar.alphaValue = note == nil ? 0 : 1
-        amount.alphaValue = bar.alphaValue
+        // A plan read once the page is up fades in rather than popping.
+        let shown: CGFloat = note == nil ? 0 : 1
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = window == nil ? 0 : Motion.duration(Motion.fast)
+            bar.animator().alphaValue = shown
+            amount.animator().alphaValue = shown
+        }
         toolTip = note?.tip
         setAccessibilityLabel([name, note?.text].compactMap { $0 }.joined(separator: ", "))
     }

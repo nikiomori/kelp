@@ -17,6 +17,10 @@ extension TabStrip {
         let frame = NSRect(x: markX, y: 4, width: 2, height: bounds.height - 8)
         if insertion.isHidden {   // it comes in where it's needed, then glides from gap to gap
             insertion.frame = frame
+            // Coloured as it shows, so it has the theme's accent and the appearance as they are now.
+            effectiveAppearance.performAsCurrentDrawingAppearance {
+                insertion.layer?.backgroundColor = NSColor.themeAccent.cgColor
+            }
             insertion.isHidden = false
         } else {
             NSAnimationContext.runAnimationGroup { ctx in

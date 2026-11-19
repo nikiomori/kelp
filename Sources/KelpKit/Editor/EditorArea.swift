@@ -233,12 +233,9 @@ final class EditorArea: NSViewController {
     }
 
     /// Where a tab dropped at the editor area's outer edge will go: half of the whole area along that side.
-    private let outerHint = GroupView.dropHint()
+    private let outerHint = DropHint()
     private func showOuterHint(_ edge: NSRectEdge?) {
-        guard let edge else {
-            outerHint.isHidden = true
-            return
-        }
+        guard let edge else { return outerHint.hide() }
         if outerHint.superview !== view { view.addSubview(outerHint, positioned: .above, relativeTo: nil) }
         let frame = view.bounds.insetBy(dx: 6, dy: 6)
         // The new pane's share once added: one more beside the panes already split along that side.
@@ -250,8 +247,7 @@ final class EditorArea: NSViewController {
                 2
             }
         }()
-        outerHint.frame = frame.share(1 / count, from: edge)
-        outerHint.isHidden = false
+        outerHint.show(frame.share(1 / count, from: edge))
     }
 
     /// View › Equalize Panes: every split back to equal shares.

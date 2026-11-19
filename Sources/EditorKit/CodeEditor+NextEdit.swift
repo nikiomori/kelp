@@ -225,7 +225,11 @@ extension CodeEditor {
         let pill = nextEdit.pill ?? JumpPill()
         if pill.superview !== tv { tv.addSubview(pill) }
         nextEdit.pill = pill
-        pill.label = String(localized: "to line \(shown.proposal.lines.lowerBound + 1)")
+        let line = shown.proposal.lines.lowerBound + 1, label = String(localized: "to line \(line)")
+        if pill.isHidden || pill.label != label {
+            announce(String(localized: "Next edit on line \(line). Tab goes there."))
+        }
+        pill.label = label
         let string = tv.string as NSString
         let end = tv.caretRect(at: MultiCursor.lineEnd(string, tv.selectedRange().location))
         let size = pill.fitting

@@ -62,11 +62,15 @@ final class StartView: NSView {
             ? String(
                 localized: "On its own branch \(w.branch), from \(w.base.isEmpty ? repo?.baseBranch ?? "" : w.base)")
             : ""
-        let folder = NSTextField(
-            labelWithString: RemoteHost.of(w.path).map { "\($0.host):\($0.path)" } ?? onBranch)
+        // A host and path is a name, cut in its middle; the branch's sentence goes on to a second line instead.
+        let host = RemoteHost.of(w.path).map { "\($0.host):\($0.path)" }
+        let folder = host.map(NSTextField.init(labelWithString:)) ?? NSTextField(wrappingLabelWithString: onBranch)
         folder.font = .ui(TextSize.body)
         folder.textColor = .secondaryLabelColor
-        folder.lineBreakMode = .byTruncatingMiddle
+        folder.alignment = .center
+        folder.maximumNumberOfLines = 2
+        folder.cell?.truncatesLastVisibleLine = true
+        if host != nil { folder.lineBreakMode = .byTruncatingMiddle }
         folder.isHidden = folder.stringValue.isEmpty
 
         let agents = NewTabChoices.agents(app)
@@ -94,13 +98,15 @@ final class StartView: NSView {
             choices().map(\.title)
         } changed: { [weak openCard] _ in
             guard let openCard else { return }
-            let card = StartCard(rows: choices().map(StartRow.init), columns: 2)
-            openCard.setViews([card], in: .top)
-            card.widthAnchor.constraint(equalTo: openCard.widthAnchor).isActive = true
+            openCard.settleInPage {
+                let card = StartCard(rows: choices().map(StartRow.init), columns: 2)
+                openCard.setViews([card], in: .top)
+                card.widthAnchor.constraint(equalTo: openCard.widthAnchor).isActive = true
+            }
         }
         let run = RunGroup(app: app, workspace: w.id)
         views += [agentsHead, agentList, openHead, openCard, run, hint]
-        let stack = NSStackView(views: views)
+        for view in views { stack.addArrangedSubview(view) }
         stack.orientation = .vertical
         stack.alignment = .centerX
         stack.spacing = 4
@@ -127,21 +133,18 @@ final class StartView: NSView {
         page.addSubview(stack)
         let width = stack.widthAnchor.constraint(equalToConstant: 460)
         width.priority = .defaultHigh
-        // The stack sits a little above the middle; in a low window it starts at the top instead of going under it.
-        let middle = stack.centerYAnchor.constraint(equalTo: page.centerYAnchor, constant: -30)
-        middle.priority = .defaultHigh
+        top = stack.topAnchor.constraint(equalTo: page.topAnchor, constant: 24)   // placed in `layout`
         NSLayoutConstraint.activate([
             page.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
             page.heightAnchor.constraint(greaterThanOrEqualTo: scroll.contentView.heightAnchor),
             page.heightAnchor.constraint(equalTo: scroll.contentView.heightAnchor).withPriority(
                 NSLayoutConstraint.Priority.defaultLow.rawValue),
-            stack.centerXAnchor.constraint(equalTo: page.centerXAnchor), middle,
-            stack.topAnchor.constraint(greaterThanOrEqualTo: page.topAnchor, constant: 24),
+            stack.centerXAnchor.constraint(equalTo: page.centerXAnchor), top,
             page.bottomAnchor.constraint(greaterThanOrEqualTo: stack.bottomAnchor, constant: 24),
             width, stack.leadingAnchor.constraint(greaterThanOrEqualTo: page.leadingAnchor, constant: 24),
             icon.widthAnchor.constraint(equalToConstant: 56), icon.heightAnchor.constraint(equalToConstant: 56),
             title.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor),
-            folder.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor)
+            folder.widthAnchor.constraint(equalTo: stack.widthAnchor)
         ])
         // Each group's heading starts over its rows' icons, and the field, the tiles and the cards are as wide as the
         // page.
@@ -154,6 +157,19 @@ final class StartView: NSView {
         followPlans(in: stack, after: field)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    private let stack = NSStackView()
+    private var top = NSLayoutConstraint(), placedFor: CGFloat = 0
+    /// The stack sits a little above the middle for the page's height (at the top in a low window), and stays there as
+    /// parts come in late under the field (Templates, Run, the plans): only a new height places it again.
+    override func layout() {
+        super.layout()
+        guard bounds.height != placedFor else { return }
+        subviews.forEach { $0.layoutSubtreeIfNeeded() }   // the stack's height, which its place depends on
+        guard stack.frame.height > 0 else { return }
+        placedFor = bounds.height
+        top.constant = max(24, ((bounds.height - stack.frame.height) / 2 - 30).rounded())
+    }
 
     /// For a group in the project's folder with nothing on it yet, the choice of where its code lives. It can share the
     /// project's folder (a group splits the screen), or get a branch of its own in its own folder (a branch splits the
@@ -315,18 +331,20 @@ final class StartView: NSView {
         let notes = plans?.notes() ?? [:]
         for (id, tile) in tilesById { tile.show(notes[id]) }
         let anyPlan = tilesById.keys.contains { notes[$0] != nil }
-        for tile in allTiles { tile.roomForPlan = anyPlan }
         let name = app.catalog.name(def)
         let warning = plans?.warning(def, name, tilesById.keys.filter { $0 != def })
-        planLine.stringValue = warning?.text ?? ""
         let other = warning?.instead
-        planBar.isHidden = warning == nil
-        planSwitch.isHidden = other == nil
+        stack.settle {   // what's under the tiles and the warning slides as they grow
+            for tile in allTiles { tile.roomForPlan = anyPlan }
+            planLine.stringValue = warning?.text ?? ""
+            planBar.isHidden = warning == nil
+            planSwitch.isHidden = other == nil
+            if let under { stack.setCustomSpacing(planBar.isHidden ? 24 : Metrics.gapWide, after: under) }
+        }
         if let other, let otherName = app.catalog.all.first(where: { $0.id == other })?.name {
             planSwitch.title = String(localized: "Start in \(otherName)")
             planSwitch.onClick = { [weak self] in self?.start(other) }
         }
-        if let under { stack.setCustomSpacing(planBar.isHidden ? 24 : Metrics.gapWide, after: under) }
     }
 
     /// Starts the agent with what was typed, if anything.
@@ -342,7 +360,7 @@ final class StartView: NSView {
             let text = typed.trimmingCharacters(in: .whitespacesAndNewlines)
             if let self, !text.isEmpty { onPrompt?(def, text) }
         }
-        let icon = NSImageView(image: app.catalog.icon(def, size: 18) ?? NSImage())
+        let icon = NSImageView(image: app.catalog.icon(def, size: TextSize.of(Metrics.iconMenu)) ?? NSImage())
         let row = NSStackView(views: [icon, prompt])
         row.spacing = Metrics.gapWide
         row.alignment = .top

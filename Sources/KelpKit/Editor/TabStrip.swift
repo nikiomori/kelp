@@ -17,14 +17,14 @@ final class TabStrip: NSView {
     var low = false { didSet { if low != oldValue { resize() } } }
     private lazy var tall = heightAnchor.constraint(equalToConstant: 0)
     private lazy var addHeights = [add, newAgent].map { $0.heightAnchor.constraint(equalToConstant: 0) }
-    private lazy var sideWidths = [add, newAgent, overflow].map { $0.widthAnchor.constraint(equalToConstant: 0) }
+    private lazy var sideWidths = [add, newAgent].map { $0.widthAnchor.constraint(equalToConstant: 0) }
     /// Sizes the strip, its tabs and the buttons beside them for the tab height and the text size as they stand. "+"
     /// and the new agent are a tab's height less their capsule's 2 pt edges, and as wide as that at the regular height.
     private func resize() {
         tall.constant = Self.height(compact: low)
         let side = TabButton.height(compact: false) - 4
         addHeights.forEach { $0.constant = TabButton.height(compact: low) - 4 }
-        zip(sideWidths, [side, side, TextSize.of(18)]).forEach { $0.constant = $1 }   // the chevron is narrower
+        sideWidths.forEach { $0.constant = side }
         buttons.forEach { $0.low = low }
         measured = nil
         needsLayout = true
@@ -75,7 +75,9 @@ final class TabStrip: NSView {
         gradient.endPoint = CGPoint(x: 1, y: 0.5)
         return gradient
     }()
-    private let overflow = PointerButton(frame: .zero)
+    private let overflow = IconButton(
+        .symbol("chevron.down", String(localized: "All Tabs")), tip: String(localized: "All tabs in this group"),
+        target: nil, action: nil)
     private let add = CapsuleSegment()
     /// The default agent, one click away beside "+" (no list to pick from); the two share one capsule.
     private let newAgent = CapsuleSegment()
@@ -111,15 +113,10 @@ final class TabStrip: NSView {
         stack.spacing = Metrics.iconGap
         stack.distribution = .fill
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 6)
-        insertion.wantsLayer = true
-        insertion.layer?.backgroundColor = NSColor.themeAccent.cgColor
+        insertion.wantsLayer = true   // coloured as it shows (`showInsertion`)
         insertion.isHidden = true
         // Too many tabs to fit: the strip scrolls (trackpad / wheel) and the chevron lists them all, like Safari.
-        overflow.image = .symbol("chevron.down", String(localized: "All Tabs"))
-        overflow.isBordered = false
-        overflow.contentTintColor = .secondaryLabelColor
         overflow.symbolConfiguration = .chrome(Metrics.iconTiny)
-        overflow.toolTip = String(localized: "All tabs in this group")
         overflow.target = self
         overflow.action = #selector(overflowTapped)
         overflow.isHidden = true

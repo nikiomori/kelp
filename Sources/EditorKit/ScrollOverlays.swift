@@ -145,8 +145,13 @@ final class StickyLines: NSView {
         }
         override func mouseEntered(with event: NSEvent) { fadeBackground(to: .fillHover) }
         override func mouseExited(with event: NSEvent) { fadeBackground(to: nil) }
-        override func mouseDown(with event: NSEvent) {
-            fadeBackground(to: nil)
+        /// Pressed, it darkens at once; let go over it, it springs back and goes to its scope.
+        override func mouseDown(with event: NSEvent) { fadeBackground(to: .fillSelected, held: true) }
+        override func mouseUp(with event: NSEvent) {
+            let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+            fadeBackground(to: inside ? .fillHover : nil)
+            guard inside else { return }
+            pressBounce()
             onClick?()
         }
     }
