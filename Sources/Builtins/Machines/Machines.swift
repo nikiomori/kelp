@@ -148,6 +148,9 @@ enum Machines {
     /// The machines as the daemon last listed them (`WatchTopic.machines`).
     static func machineList(_ app: AppModel) -> [VMInfo] { app.latest(MachinesEvent.self)?.machines ?? [] }
 
+    /// Whether there's something to run in: not while the machine is being made, or when making it failed.
+    static func usable(_ info: VMInfo) -> Bool { info.state != .creating && info.notMade != true }
+
     /// Starts, sleeps or stops a machine. Its row follows as the daemon pushes the list again.
     static func control(_ app: AppModel, machine name: String, _ action: VMControl.Action) {
         Task { await change(app, VMControl(name: name, action: action)) }

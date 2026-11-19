@@ -297,7 +297,7 @@ final class DatabaseForm: NSObject, NSTextFieldDelegate, NSComboBoxDelegate {
         checking = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(delay)) } catch { return }   // typed on, so a newer check runs
             guard let self, !Task.isCancelled else { return }
-            self.status.stringValue = String(localized: "Connecting…")
+            self.status.stringValue = String(localized: "Connecting to \(db.host ?? db.name)…")
             self.status.textColor = .secondaryLabelColor
             let answer = await self.sheet.app.tryCall(
                 DatabaseCheck(worktreeId: self.sheet.worktreeId, database: db, password: secret))

@@ -14,7 +14,29 @@ extension Builtins {
         icon: "shippingbox"
     ) { app in
         return Contributions(
-            commands: [cmd("machines.new", "New Machine…") { Machines.chooseNew(app) }],
+            commands: [
+                cmd("machines.new", "New Machine…") { Machines.chooseNew(app) },
+                // What the machine's tab in front does from its bar and its ⋯ menu.
+                machineCommand(
+                    app, "machines.start", "Start Machine",
+                    when: { [.sleeping, .off, .error].contains($0.state) && $0.notMade != true }
+                ) { Machines.control(app, machine: $0.machine.name, .start) },
+                machineCommand(
+                    app, "machines.sleep", "Put Machine to Sleep", when: { [.running, .paused].contains($0.state) }
+                ) { Machines.control(app, machine: $0.machine.name, .sleep) },
+                machineCommand(
+                    app, "machines.shutDown", "Shut Down Machine",
+                    when: { [.running, .paused, .starting, .sleeping].contains($0.state) }
+                ) { Machines.control(app, machine: $0.machine.name, .stop) },
+                machineCommand(
+                    app, "machines.showScreen", "Show Machine’s Screen",
+                    when: { $0.machine.kind.hasScreen && Machines.usable($0) }
+                ) { Machines.control(app, machine: $0.machine.name, .show) },
+                machineCommand(app, "machines.terminal", "Open Terminal in Machine", when: Machines.usable) {
+                    Machines.runInMachine(app, $0.machine.name)
+                },
+                machineCommand(app, "machines.delete", "Delete Machine…") { Machines.deleteMachine(app, $0) }
+            ],
             tabs: [
                 TabProvider(
                     schemes: ["vm"], make: { machineTab(uri: $0, app: app) },
@@ -47,6 +69,23 @@ extension Builtins {
             ],
             skills: [machinesSkill]
         )
+    }
+}
+
+extension Builtins {
+    /// A command for the machine whose tab is in front, enabled while `when` holds for it; elsewhere it beeps.
+    fileprivate static func machineCommand(
+        _ app: AppModel, _ id: String, _ title: String, when: @escaping @MainActor (VMInfo) -> Bool = { _ in true },
+        _ run: @escaping @MainActor (VMInfo) -> Void
+    ) -> CommandSpec {
+        @MainActor func front() -> VMInfo? {
+            guard let uri = app.workbench.focusedContent?.uri, TabURI.scheme(uri) == "vm" else { return nil }
+            return Machines.machineList(app).first { $0.machine.name == TabURI.body(uri) }
+        }
+        return CommandSpec(id: id, title: title, enabled: { front().map { when($0) } ?? false }) { _ in
+            guard let info = front() else { return NSSound.beep() }
+            run(info)
+        }
     }
 }
 

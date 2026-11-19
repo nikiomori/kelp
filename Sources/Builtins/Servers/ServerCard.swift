@@ -40,7 +40,7 @@ struct ServerSection: View {
 
 /// "Ubuntu 24.04.5 LTS · 2 cores · up 3 d 10 h", or why there's nothing to say.
 func serverLine(_ stats: HostStats?) -> String {
-    guard let stats else { return String(localized: "Reading…") }
+    guard let stats else { return String(localized: "Reading the server…") }
     guard stats.connected else {
         return stats.error.map { String(localized: "Can’t reach: \($0)") }
             ?? String(localized: "Not connected. Opening it connects.")

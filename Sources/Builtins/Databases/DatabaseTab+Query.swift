@@ -192,8 +192,8 @@ extension DatabaseTab {
         startReading()
         Task {
             let result = await query(sql)
-            reading?.cancel()
-            busy.stopAnimation(nil)
+            await rowsWait.settled()
+            readingEnded()
             guard let result else { return }
             grid.show(columns: result.columns, rows: result.rows)
             empty.show(

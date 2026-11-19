@@ -26,17 +26,17 @@ extension DatabaseTab {
                 .joined(separator: ", ")
         }
         sql += " LIMIT \(Self.pageSize) OFFSET \(page * Self.pageSize)"
-        startReading()
+        startReading(name)
         let asked = page
-        let result = await query(sql, limit: Self.pageSize)
+        let result = await query(sql, limit: Self.pageSize, reading: name)
+        await rowsWait.settled()
         // When another page, table or filter was asked for meanwhile, this answer is for the older ask. It is checked
         // after each wait.
         let still = { [weak self] in
             self.map { $0.page == asked && $0.sidebar.current == name && $0.filters.condition == condition } ?? false
         }
         guard still() else { return }
-        reading?.cancel()
-        busy.stopAnimation(nil)
+        readingEnded()
         guard let result else { return }
         grid.editable = current?.kind != "view"   // a table without a key too: its rows are found by their values
         grid.source = (name, engine)
@@ -56,14 +56,27 @@ extension DatabaseTab {
         await mark(name, primary: primary, still: still)
     }
 
-    /// Shows "Reading…" in the foot only once a second has gone, so a quick read changes nothing (`whileSlow`'s rule).
-    func startReading() {
+    /// Shows "Reading orders…" in the foot only once a second has gone, so a quick read changes nothing
+    /// (`whileSlow`'s rule). A database elsewhere takes more than a moment, so with no rows on show yet its wait shows
+    /// at once, over the grid. With no `table`, it is the user's statement that runs.
+    func startReading(_ table: String? = nil) {
         reading?.cancel()
+        let words = table.map { String(localized: "Reading \($0)…") } ?? String(localized: "Running the statement…")
+        if grid.columns.isEmpty, elsewhere {
+            empty.show(nil)
+            rowsWait.show(words)
+        }
         reading = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
-            self?.status.stringValue = String(localized: "Reading…")
+            self?.status.stringValue = words
             self?.busy.startAnimation(nil)
         }
+    }
+
+    func readingEnded() {
+        reading?.cancel()
+        busy.stopAnimation(nil)
+        rowsWait.show(nil)
     }
 
     /// Counts how many rows the filter leaves. The server stops a count that takes too long.
@@ -132,6 +145,17 @@ extension DatabaseTab {
         if !filters.view.isHidden {
             filters.use(columns: current?.columns.map(\.name) ?? grid.columns, engine: engine)
         }
+    }
+
+    func toggleDetails() {
+        details.view.isHidden.toggle()
+        detailsClosed = details.view.isHidden
+    }
+
+    /// Shows the table's data (0) or its structure (1), as the foot's Data / Structure does.
+    func showPart(_ index: Int) {
+        part.selectedSegment = index
+        partChanged()
     }
 
     @objc func partChanged() {

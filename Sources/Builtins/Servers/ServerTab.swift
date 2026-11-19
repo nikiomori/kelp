@@ -51,7 +51,7 @@ struct ServerView: View {
 
     private var header: some View {
         ContentBar {
-            Text(host).font(.ui(TextSize.body, weight: .semibold))
+            Text(host).font(.ui(TextSize.body, weight: .semibold)).layoutPriority(1)
             // A sentence is cut at its end, never in its middle.
             Text(serverLine(stats)).font(.ui(TextSize.caption)).foregroundStyle(.secondary).lineLimit(1)
             Spacer(minLength: 8)
@@ -78,7 +78,7 @@ struct ServerView: View {
     private var offline: some View {
         let error = stats?.error
         return EmptyState(
-            error == nil ? String(localized: "Not connected to \(host)") : String(localized: "Can’t reach \(host)"),
+            error == nil ? String(localized: "Not Connected to \(host)") : String(localized: "Can’t Reach \(host)"),
             symbol: error == nil ? "server.rack" : "exclamationmark.triangle"
         ) {
             VStack(spacing: 8) {

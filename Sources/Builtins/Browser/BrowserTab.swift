@@ -80,6 +80,7 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     @ObservationIgnored private let agentSlot = NSView()
     @ObservationIgnored private lazy var agentSlotHeight = agentSlot.heightAnchor.constraint(equalToConstant: 0)
     @ObservationIgnored private let agentLabel = NSTextField(labelWithString: "")
+    @ObservationIgnored private let agentIcon = NSImageView(image: .symbol("cursorarrow.motionlines"))
     @ObservationIgnored private let agentButton = PointerButton()
     /// The recording of the page in progress (BrowserRecording.swift), and the file the last recording went to.
     @ObservationIgnored var recording: PageRecording?
@@ -242,17 +243,14 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
     /// Shows the agent's strip (an agent drove the page) in its current state.
     func showAgentBar() {
         if agentSlot.subviews.isEmpty {
-            let icon = NSImageView(image: .symbol("cursorarrow.motionlines"))
-            icon.symbolConfiguration = .chrome()
-            icon.contentTintColor = .secondaryLabelColor
+            agentIcon.symbolConfiguration = .chrome()
             agentLabel.font = .ui(TextSize.row)
-            agentLabel.textColor = .secondaryLabelColor
             agentLabel.lineBreakMode = .byTruncatingTail
             agentLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             agentButton.padding = Metrics.gap
             agentButton.restFill = .fillRest
             agentButton.onClick = { [weak self] in self?.toggleTakeOver() }
-            agentSlot.pin(Bar.content([icon, agentLabel], [agentButton]))
+            agentSlot.pin(Bar.content([agentIcon, agentLabel], [agentButton]))
             agentSlotHeight.isActive = false
             watchUser()
         }
@@ -261,7 +259,9 @@ final class BrowserTab: NSObject, TabContent, WKNavigationDelegate, WKScriptMess
         let look = stripLook()
         agentLabel.stringValue =
             look.text + (viewport.map { " · " + String(localized: "page \(Int($0.width))×\(Int($0.height))") } ?? "")
-        agentLabel.textColor = takenOver ? .labelColor : .secondaryLabelColor
+        // The agent's question waits for the user, so it is orange, as on its row and in its card.
+        agentLabel.textColor = asked != nil ? .textOrange : takenOver ? .labelColor : .secondaryLabelColor
+        agentIcon.contentTintColor = asked != nil ? .textOrange : .secondaryLabelColor
         agentButton.title = look.button
         agentButton.toolTip = look.tip
     }

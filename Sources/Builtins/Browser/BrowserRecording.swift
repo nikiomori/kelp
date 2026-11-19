@@ -64,7 +64,7 @@ extension BrowserTab {
                 Banner.show(
                     String(localized: "Recorded \(url.lastPathComponent)"),
                     action: (
-                        String(localized: "Show in Finder"), { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                        String(localized: "Reveal in Finder"), { NSWorkspace.shared.activateFileViewerSelecting([url]) }
                     ))
             } catch {
                 Banner.show(AppModel.message(error), style: .error)

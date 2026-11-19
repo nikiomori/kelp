@@ -16,6 +16,8 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
     private let passwords = NSButton(), useHere = NSButton()
     private let status = NSTextField(wrappingLabelWithString: "")
     private let go = NSButton()
+    private let loading = LoadingView(rows: true)
+    private let empty = EmptyStateView()
     private var rows: [ImportedDatabase] = []
     private var chosen = Set<String>()
     private(set) var view = NSView()
@@ -53,6 +55,10 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         scroll.drawsBackground = false
         scroll.borderType = .noBorder
         scroll.heightAnchor.constraint(equalToConstant: 260).isActive = true
+        let list = NSView()   // the list, with its wait and its empty or error state over it
+        list.pin(scroll)
+        loading.place(in: list)
+        empty.place(in: list)
 
         passwords.setButtonType(.switch)
         // macOS asks before each password is read from another app's keychain. So by default each password is read
@@ -65,29 +71,41 @@ final class DatabaseImportPane: NSObject, NSTableViewDataSource, NSTableViewDele
         useHere.state = .off
         status.font = .ui(TextSize.caption)
         status.textColor = .secondaryLabelColor
-        status.stringValue = String(localized: "Reading…")
 
         let back = NSButton(title: String(localized: "Back"), target: self, action: #selector(backed))
         let buttons = sheet.buttons(back, go, target: self, action: #selector(imported))
         view = SheetForm.stack(
-            [heading, scroll, passwords, useHere, status, buttons], wide: [scroll, status, buttons],
+            [heading, list, passwords, useHere, status, buttons], wide: [list, status, buttons],
             width: DatabaseSheet.width)
         update()
     }
 
     private func load() async {
+        empty.show(nil)
+        loading.wait(String(localized: "Reading \(source.name)’s connections…"))
         let answer = await sheet.app.tryCall(
             DatabaseImportRead(worktreeId: sheet.worktreeId, source: source.id, file: file))
+        await loading.settled()
+        loading.show(nil)
         rows = answer.value ?? []
         chosen = Set(rows.filter { !$0.known }.map(\.id))
+        if let error = answer.error {
+            let again = ClosureButton(title: String(localized: "Try Again")) { [weak self] in
+                Task { await self?.load() }
+            }
+            empty.showError(
+                String(localized: "Couldn’t Read \(source.name)’s Connections"), text: error, buttons: [again])
+        } else if rows.isEmpty {
+            empty.show(
+                String(localized: "No Connections Kelp Can Open"), symbol: DatabaseLook.symbol,
+                text: String(localized: "Kelp opens Postgres, MySQL, SQLite and DuckDB."))
+        }
         status.stringValue =
-            answer.error
-            ?? (rows.isEmpty
-                ? String(localized: "Nothing Kelp can open in it: Postgres, MySQL, SQLite and DuckDB.")
-                : String(
-                    localized:
-                        "They go to All My Databases, where you open them; agents see one once it’s used in a project."
-                ))
+            rows.isEmpty
+            ? ""
+            : String(
+                localized:
+                    "They go to All My Databases, where you open them; agents see one once it’s used in a project.")
         table.reloadData()
         update()
     }

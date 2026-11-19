@@ -54,6 +54,10 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
     /// Covers the whole tab until the database is open, saying it is connecting, or why it isn't and what to do.
     let gate = EmptyStateView()
     let loading = LoadingView()
+    /// Over the empty grid while a database elsewhere reads its first rows.
+    let rowsWait = LoadingView()
+    /// Over rows that are kept when reading them again failed: why, and Try Again.
+    lazy var failureBar = FailureBar { [weak self] in self?.refresh() }
     /// Spins in the foot while a page is read, once the read takes past a second.
     let busy = NSProgressIndicator()
     let whole = NSSplitView()
@@ -111,9 +115,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         tip: app.extensions.hint(String(localized: "Filters"), "databases.filters")
     ) { [weak self] in self?.toggleFilters() }
     lazy var detailsToggle = IconButton(.symbol("sidebar.right"), tip: String(localized: "Details")) { [weak self] in
-        guard let self else { return }
-        details.view.isHidden.toggle()
-        detailsClosed = details.view.isHidden
+        self?.toggleDetails()
     }
     /// True once the user closed the details, so picking a row no longer opens them.
     var detailsClosed = false
@@ -189,11 +191,11 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
                 button.bezelColor = .controlAccentColor
             }
         }
-        let center = NSStackView(views: [askBar, top, filters.view, sqlBox, rows, foot])
+        let center = NSStackView(views: [askBar, top, failureBar, filters.view, sqlBox, rows, foot])
         center.orientation = .vertical
         center.spacing = 0
         center.detachesHiddenViews = true
-        for v in [askBar, top, filters.view, sqlBox, rows, foot] {
+        for v in [askBar, top, failureBar, filters.view, sqlBox, rows, foot] {
             v.widthAnchor.constraint(equalTo: center.widthAnchor).isActive = true
         }
         rows.setContentHuggingPriority(.defaultLow, for: .vertical)
@@ -217,6 +219,7 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         gate.place(in: view)
         loading.place(in: view)
         empty.place(in: grid.area)   // over the scroll view, not in it, where the rows' background would cover it
+        rowsWait.place(in: grid.area)
         arrange()
     }
 
@@ -362,9 +365,10 @@ final class DatabaseTab: NSObject, KelpKit.TabContent {
         loading.show(nil)
         guard let read else {
             if first { return failed(error ?? String(localized: "It doesn’t answer.")) }
-            empty.showError(String(localized: "Can’t Read \(address.name)"), text: error)
+            failureBar.show(error ?? String(localized: "It doesn’t answer."))   // what shows stays, under the line
             return
         }
+        failureBar.show(nil)
         whole.isHidden = false
         gate.show(nil)
         if version == nil { Task { await askVersion() } }   // after, so macOS asks for a password once, not twice

@@ -101,7 +101,9 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             })
         for column in table.tableColumns.reversed() { table.removeTableColumn(column) }
         let index = NSTableColumn(identifier: .init("#"))
-        index.width = 44
+        // As wide as the last row's number, in the numbers' own face.
+        let digit = ("0" as NSString).size(withAttributes: [.font: NSFont.uiDigits(TextSize.caption)]).width
+        index.width = CGFloat(max(2, String(rows.count).count)) * digit + 18
         index.title = ""
         table.addTableColumn(index)
         for (i, name) in columns.enumerated() {
@@ -110,7 +112,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
             column.headerToolTip = describe(name)
             let longest = rows.prefix(60).map { ($0.indices.contains(i) ? $0[i] : nil)?.count ?? 4 }.max() ?? 0
             let fk = self.info[name]?.references == nil ? 0 : 3
-            column.width = min(320, max(48, CGFloat(max(longest + fk, name.count + 2)) * Self.charWidth + 18))
+            column.width = min(320, max(48, CGFloat(max(longest + fk, name.count + 2)) * charWidth + 18))
             column.minWidth = 40
             table.addTableColumn(column)
         }
@@ -178,7 +180,7 @@ final class ResultGrid: NSObject, NSTableViewDataSource, NSTableViewDelegate, NS
         guard let columnIndex = Int(column.identifier.rawValue), columns.indices.contains(columnIndex) else { return }
         let longest =
             rows.prefix(200).map { ($0.indices.contains(columnIndex) ? $0[columnIndex] : nil)?.count ?? 4 }.max() ?? 0
-        column.width = min(600, max(48, CGFloat(max(longest, columns[columnIndex].count)) * Self.charWidth + 24))
+        column.width = min(600, max(48, CGFloat(max(longest, columns[columnIndex].count)) * charWidth + 24))
     }
 
     // MARK: Cells

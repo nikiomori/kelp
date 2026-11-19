@@ -17,6 +17,25 @@ extension Builtins {
             commands: [
                 CommandSpec(id: "browser.new", title: "New Browser Tab", key: "shift+cmd+b") { args in
                     app.workbench.open(args["url"]?.string ?? "about:blank#\(UUID().uuidString.prefix(6))")
+                },
+                // What the browser tab in front does from its bar and its ⋯ menu.
+                pageCommand(app, "browser.design", "Design Mode") { $0.toggleDesign() },
+                pageCommand(app, "browser.openOutside", "Open in Browser") { $0.openExternal() },
+                pageCommand(app, "browser.reloadFromOrigin", "Reload Ignoring Cache") {
+                    $0.reloadPage(fromOrigin: true)
+                },
+                pageCommand(app, "browser.copyScreenshot", "Copy Screenshot") { $0.copyScreenshot() },
+                pageCommand(app, "browser.recordVideo", "Record Video", when: { $0.recording == nil }) {
+                    $0.recordFromMenu(gif: false)
+                },
+                pageCommand(app, "browser.recordGIF", "Record GIF", when: { $0.recording == nil }) {
+                    $0.recordFromMenu(gif: true)
+                },
+                pageCommand(app, "browser.stopRecording", "Stop Recording", when: { $0.recording != nil }) {
+                    $0.saveRecording()
+                },
+                pageCommand(app, "browser.clearSiteData", "Clear Cookies and Data for This Site…") {
+                    $0.clearSiteData()
                 }
             ],
             tabs: [
@@ -48,5 +67,21 @@ extension Builtins {
                 }
             ]
         )
+    }
+}
+
+extension Builtins {
+    /// A command for the page in front (a subagent's, when its tab shows one), enabled while `when` holds there.
+    fileprivate static func pageCommand(
+        _ app: AppModel, _ id: String, _ title: String, when: @escaping @MainActor (BrowserTab) -> Bool = { _ in true },
+        _ run: @escaping @MainActor (BrowserTab) -> Void
+    ) -> CommandSpec {
+        CommandSpec(
+            id: id, title: title,
+            enabled: { (app.workbench.focusedContent as? BrowserTab).map { when($0.shownPage) } ?? false }
+        ) { _ in
+            guard let tab = app.workbench.focusedContent as? BrowserTab else { return NSSound.beep() }
+            run(tab.shownPage)
+        }
     }
 }

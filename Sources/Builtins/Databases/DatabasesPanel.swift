@@ -64,8 +64,9 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
     private var shown = false
     var workspace: String { app.workbench.workspaceId ?? "" }
 
-    /// Which sections the user unfolded.
+    /// Which sections the user unfolded, and the row (`Row.key`) whose fold a click just turned.
     var libraryOpen = true, activityOpen = true
+    var turning: String?
     /// The groups of All My Databases that are folded, by name, kept on this Mac.
     var folded = Set(UserDefaults.standard.stringArray(forKey: "databases.foldedGroups") ?? []) {
         didSet { UserDefaults.standard.set(folded.sorted(), forKey: "databases.foldedGroups") }
@@ -198,6 +199,9 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
             if library.count > libraryCount { libraryOpen = true }   // one was just imported or added: show it
             libraryCount = library.count
         }
+        // A row or two that came or went fade, and their neighbours travel to their new places.
+        func key(_ row: Int) -> String? { rows.indices.contains(row) ? rows[row].key : nil }
+        let places = table.rowPlaces(key), was = Set(rows.map(\.key))
         rows =
             DatabasePanelList(
                 databases: databases, library: library, runs: event?.runs ?? [],
@@ -216,7 +220,10 @@ final class DatabasesPanel: NSViewController, NSTableViewDataSource, NSTableView
                 ),
                 buttons: [addButton])
         }
-        table.reloadData()
+        let now = Set(rows.map(\.key))
+        table.reloadSettling(from: places, came: now.subtracting(was), gone: was.subtracting(now), key) {
+            table.reloadData()
+        }
         markOpen()
         alignSearch()
         check(databases, library: false)

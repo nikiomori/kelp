@@ -57,7 +57,18 @@ extension Builtins {
                 tabCommand(app, "databases.discard", "Discard Changes…", shown: { $0.discard }) { $0.discardEdits() },
                 tabCommand(app, "databases.saveQuery", "Save Query…", shown: { $0.saveQuery }) { $0.keepQuery() },
                 tabCommand(app, "databases.showSQL", "Show SQL", shown: { $0.showSQL }) { $0.showEdits() },
-                tabCommand(app, "databases.addRow", "Add Row", shown: { $0.addRow }) { $0.grid.addRow() }
+                tabCommand(app, "databases.addRow", "Add Row", shown: { $0.addRow }) { $0.grid.addRow() },
+                tabCommand(app, "databases.refresh", "Refresh Database", shown: { $0.reload }) { $0.refresh() },
+                tabCommand(app, "databases.details", "Details", shown: { $0.detailsToggle }) { $0.toggleDetails() },
+                tabCommand(app, "databases.previousRows", "Previous Rows", shown: { $0.previous }) { $0.turn(-1) },
+                tabCommand(app, "databases.nextRows", "Next Rows", shown: { $0.next }) { $0.turn(1) },
+                tabCommand(app, "databases.columns", "Columns", shown: { $0.columnsButton }) { $0.columnsMenu() },
+                tabCommand(app, "databases.copyRows", "Copy or Export Rows", shown: { $0.copyAs }) { $0.copyMenu() },
+                tabCommand(app, "databases.newQuery", "New Query", shown: { $0.view }) { tab in
+                    Task { await tab.leave(to: .query) }
+                },
+                tabCommand(app, "databases.showData", "Show Data", shown: { $0.part }) { $0.showPart(0) },
+                tabCommand(app, "databases.showStructure", "Show Structure", shown: { $0.part }) { $0.showPart(1) }
             ],
             settings: [
                 SettingsSection(
@@ -100,7 +111,8 @@ extension Builtins {
 }
 
 extension Builtins {
-    /// A command for the database tab in front, enabled while its button (`shown`) shows there; elsewhere it beeps.
+    /// A command for the database tab in front, enabled while its button (`shown`) shows there and can be pressed;
+    /// elsewhere it beeps.
     fileprivate static func tabCommand(
         _ app: AppModel, _ id: String, _ title: String, _ key: String? = nil,
         shown: @escaping @MainActor (DatabaseTab) -> NSView, _ run: @escaping @MainActor (DatabaseTab) -> Void
@@ -108,7 +120,10 @@ extension Builtins {
         CommandSpec(
             id: id, title: title, key: key,
             enabled: {
-                (app.workbench.focusedContent as? DatabaseTab).map { !shown($0).isHiddenOrHasHiddenAncestor } ?? false
+                (app.workbench.focusedContent as? DatabaseTab).map {
+                    let button = shown($0)
+                    return !button.isHiddenOrHasHiddenAncestor && (button as? NSControl)?.isEnabled != false
+                } ?? false
             }
         ) { _ in
             guard let tab = app.workbench.focusedContent as? DatabaseTab else { return NSSound.beep() }

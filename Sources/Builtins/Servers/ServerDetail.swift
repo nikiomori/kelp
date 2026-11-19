@@ -133,7 +133,7 @@ private struct Meter: View {
             }
             HStack(alignment: .firstTextBaseline, spacing: Metrics.gap) {
                 if arrows { arrow("arrow.down", Metrics.iconLarge, said: String(localized: "Received")) }
-                Text(value).font(.ui(TextSize.title, weight: .semibold).monospacedDigit())
+                Text(value).font(.ui(TextSize.title, weight: .semibold).monospacedDigit()).lineLimit(1).fixedSize()
                     .foregroundStyle(ServerReading.strained(share ?? 0) ? ServerReading.strainedColor : .primary)
                 if arrows { arrow("arrow.up", Metrics.iconSmall, said: String(localized: "Sent")) }
                 Text(detail).font(.ui(TextSize.caption).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)

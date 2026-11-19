@@ -32,7 +32,7 @@ struct MachineView: View {
 
     private var header: some View {
         ContentBar {
-            Text(name).font(.ui(TextSize.body, weight: .semibold))
+            Text(name).font(.ui(TextSize.body, weight: .semibold)).layoutPriority(1)
             if let info {
                 let word = Machines.machineWord(info)
                 Text(word.text).font(.ui(TextSize.caption)).foregroundStyle(Color(nsColor: word.color))
@@ -66,7 +66,7 @@ struct MachineView: View {
 
     /// Whether there's nothing to run in, because the machine is being made or making it failed. A machine whose start
     /// failed boots again on a command.
-    private var unusable: Bool { info.map { $0.state == .creating || $0.notMade == true } ?? true }
+    private var unusable: Bool { !(info.map { Machines.usable($0) } ?? false) }
 
     /// "Debian 13 · 2 CPUs (12%) · 1.2 GB in use · 3.1 GB on disk", with sizes as its sidebar row says them.
     private func summary(_ info: VMInfo) -> String {
@@ -120,7 +120,7 @@ struct MachineView: View {
     private func failed(_ info: VMInfo) -> some View {
         let notMade = info.notMade == true
         return EmptyState(
-            notMade ? String(localized: "\(name) wasn’t made") : String(localized: "\(name) didn’t start"),
+            notMade ? String(localized: "\(name) Wasn’t Made") : String(localized: "\(name) Didn’t Start"),
             symbol: "exclamationmark.triangle"
         ) {
             Text(info.detail ?? "").font(.ui(TextSize.caption).monospaced()).textSelection(.enabled)
@@ -142,7 +142,7 @@ struct MachineView: View {
     private func asleep(_ info: VMInfo) -> some View {
         EmptyState(
             info.state == .sleeping
-                ? String(localized: "\(name) is asleep") : String(localized: "\(name) is shut down"),
+                ? String(localized: "\(name) Is Asleep") : String(localized: "\(name) Is Shut Down"),
             symbol: info.state == .sleeping ? "moon" : "power", lifted: false
         ) {
             Text(
@@ -358,7 +358,7 @@ struct MachineView: View {
         Task {
             guard
                 await confirm(
-                    String(localized: "Grow \(name)'s disk to \(bytes(gib << 30))?"),
+                    String(localized: "Grow \(name)’s disk to \(bytes(gib << 30))?"),
                     detail: String(
                         localized:
                             "A disk can’t be made smaller again. It takes room on this Mac only as it fills."),

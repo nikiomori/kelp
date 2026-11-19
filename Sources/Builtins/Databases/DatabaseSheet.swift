@@ -60,9 +60,17 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
     }
 
     /// Sizes the sheet as tall as what it shows and always at its own width, because fittingSize alone comes out
-    /// narrower.
+    /// narrower. On screen it grows or shrinks to the new height, its top staying where it is, as a sheet's does.
     func fit() {
-        window.setContentSize(NSSize(width: Self.width, height: window.contentView?.fittingSize.height ?? 0))
+        let content = NSSize(width: Self.width, height: window.contentView?.fittingSize.height ?? 0)
+        guard window.isVisible else { return window.setContentSize(content) }
+        var frame = window.frameRect(forContentRect: NSRect(origin: .zero, size: content))
+        frame.origin = NSPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)
+        guard frame != window.frame else { return }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Motion.duration(Motion.base)
+            window.animator().setFrame(frame, display: true)
+        }
     }
 
     // MARK: The first pane
@@ -101,7 +109,7 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
         found.orientation = .vertical
         found.alignment = .leading
         found.spacing = 0
-        foundTitle.isHidden = true
+        foundTitle.isHidden = false   // with a line that says it looks, until the rows come or there are none
         let file = ClosureButton(title: String(localized: "Import from File…")) { [weak self] in self?.importFile() }
         file.bezelStyle = .push
         next.title = String(localized: "Continue")
@@ -116,6 +124,15 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
 
     /// Adds other apps' connections, then Docker's running servers, as rows that come in as they're read.
     private func fillFound() async {
+        let spinner = NSProgressIndicator()
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        spinner.startAnimation(nil)
+        let words = Self.small(String(localized: "Looking for other apps’ connections…"))
+        let looking = NSStackView(views: [spinner, words])
+        looking.spacing = Metrics.gap
+        looking.edgeInsets = NSEdgeInsets(top: Metrics.gap, left: 0, bottom: Metrics.gap, right: 0)
+        found.addArrangedSubview(looking)
         let sources = await app.quiet(DatabaseImportSources()) ?? []
         for source in sources where source.count > 0 {
             let engines = source.engines.map(\.displayName).joined(separator: ", ")
@@ -136,13 +153,17 @@ final class DatabaseSheet: NSObject, NSTextFieldDelegate {
                     self?.openForm(DatabaseAddress(database: server.database), container: server.container)
                 })
         }
+        looking.removeFromSuperview()
         foundTitle.isHidden = found.arrangedSubviews.isEmpty
         if pane == nil { fit() }
     }
 
     private func add(_ row: FoundRow) {
-        found.addArrangedSubview(row)
+        row.isHidden = true
+        found.insertArrangedSubview(row, at: max(0, found.arrangedSubviews.count - 1))   // above the looking line
         row.widthAnchor.constraint(equalTo: found.widthAnchor).isActive = true
+        row.fadeIn()
+        if pane == nil { fit() }
     }
 
     func controlTextDidChange(_ notification: Notification) { read() }

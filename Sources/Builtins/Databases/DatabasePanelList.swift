@@ -71,3 +71,21 @@ struct DatabasePanelList {
         return out
     }
 }
+
+extension DatabasesPanel.Row {
+    /// What the row is about, kept across reads, so a row that came or went is told apart from one that moved.
+    var key: String {
+        switch self {
+        case .heading(.asks): "heading asks"
+        case .heading(.library): "heading library"
+        case .heading(.activity): "heading activity"
+        case .asks(let run): "asks \(run.id)"
+        case .database(let db, let library): "database \(library) \(db.name)"
+        case .group(let name, _): "group \(name)"
+        case .problem(let db, _): "problem \(db.name)"
+        case .project: "project"
+        case .use: "use"
+        case .run(let run): "run \(run.id)"
+        }
+    }
+}

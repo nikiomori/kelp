@@ -19,11 +19,15 @@ struct DatabasePanelRows {
         case .asks: views = [DatabaseSheet.section(String(localized: "Asks")), NSView()]
         case .library(let count):
             let title = DatabaseSheet.section(String(localized: "All My Databases"))
-            views = [chevron(libraryOpen), title, NSView(), capsule(count)]
+            let fold = chevron(libraryOpen, for: DatabasesPanel.Row.heading(heading).key)
+            views = [fold, title, NSView(), capsule(count)]
         case .activity(let count):
             let who = only.flatMap { app.session($0) }.map { app.catalog.name($0.agent) } ?? String(localized: "all")
             let title = DatabaseSheet.section(String(localized: "Activity"))
-            views = [chevron(activityOpen), title, NSView(), small(who), capsule(count)]
+            views = [
+                chevron(activityOpen, for: DatabasesPanel.Row.heading(heading).key), title, NSView(), small(who),
+                capsule(count)
+            ]
         }
         return line(views, inset: Metrics.inset, trailing: Metrics.insetTrailing)
     }
@@ -193,7 +197,7 @@ struct DatabasePanelRows {
         let folder = NSImageView(image: .symbol(color == nil ? "folder" : "folder.fill"))
         folder.symbolConfiguration = .chrome(Metrics.iconSmall + 2)
         folder.contentTintColor = color?.color ?? .secondaryLabelColor
-        let fold = chevron(open)
+        let fold = chevron(open, for: DatabasesPanel.Row.group(name, count: count).key)
         fold.contentTintColor = .secondaryLabelColor
         fold.isHidden = true
         let slot = NSStackView(views: [folder, fold])
@@ -276,16 +280,22 @@ struct DatabasePanelRows {
         let sql = NSTextField.label(oneLine(run.sql), font: .uiMono(TextSize.caption))
         sql.toolTip = [run.sql, run.error].compactMap { $0 }.joined(separator: "\n\n")
         let end = NSTextField.label(Self.outcome(run), font: .uiDigits(TextSize.caption), color: Self.color(run.state))
+        end.setContentCompressionResistancePriority(.required, for: .horizontal)   // the SQL gives way, not the outcome
         return line([icon, sql, NSView(), end], inset: Metrics.inset, trailing: Metrics.inset)
     }
 
     // MARK: Parts
 
-    private func chevron(_ open: Bool) -> NSImageView {
+    /// The fold of the row `key`. The one a click just turned turns from where it pointed, once its row is laid out.
+    private func chevron(_ open: Bool, for key: String) -> NSImageView {
         let image = NSImageView(image: .symbol(open ? "chevron.down" : "chevron.right"))
         image.symbolConfiguration = .chrome(Metrics.iconTiny)
         image.contentTintColor = .secondaryLabelColor
         image.widthAnchor.constraint(equalToConstant: 12).isActive = true
+        if panel.turning == key {
+            panel.turning = nil
+            Task { image.turn(from: open ? .pi / 2 : -.pi / 2) }
+        }
         return image
     }
 
@@ -352,6 +362,7 @@ extension String {
 final class HoverRow: NSStackView, Hoverable {
     var hovered: [NSView] = [], resting: [NSView] = []
     func setHover(_ on: Bool) {
+        if !hovered.isEmpty { crossfade() }   // the folder and the chevron, or Use in and +, fade into each other
         for v in hovered { v.isHidden = !on }
         for v in resting { v.isHidden = on }
     }

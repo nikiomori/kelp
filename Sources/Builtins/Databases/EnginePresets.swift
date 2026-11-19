@@ -104,7 +104,7 @@ final class EngineTile: PointerControl {
         }
         let stack = NSStackView(views: views)
         stack.orientation = .vertical
-        stack.spacing = Metrics.lineGap + 1
+        stack.spacing = Metrics.lineGap
         stack.edgeInsets = NSEdgeInsets(top: Metrics.gapWide, left: 2, bottom: Metrics.gap, right: 2)
         pin(stack)
         widthAnchor.constraint(equalToConstant: 76).isActive = true
