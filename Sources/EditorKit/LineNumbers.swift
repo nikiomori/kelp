@@ -84,7 +84,26 @@ final class LineNumbers: NSRulerView {
     var color = NSColor.secondaryLabelColor, current = NSColor.labelColor, background = NSColor.textBackgroundColor
     private var hovering = false { didSet { if hovering != oldValue { needsDisplay = true } } }
     /// The line under the pointer (its first character). Its chevron sits on the hover grey, so it reads as a button.
-    private var hoverLine: Int? { didSet { if hoverLine != oldValue { needsDisplay = true } } }
+    /// The grey fades in on the line the pointer came to, and out when the pointer leaves the gutter, as a control's.
+    private var hoverLine: Int? {
+        didSet {
+            guard hoverLine != oldValue else { return }
+            if let hoverLine {
+                plateLine = hoverLine
+                plateFill = 0
+            }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = Motion.fast
+                animator().plateFill = hoverLine == nil ? 0 : 1
+            }
+        }
+    }
+    /// The line whose chevron has the grey, and how far it has faded in (the animator steps it).
+    private var plateLine: Int?
+    @objc private dynamic var plateFill: CGFloat = 0 { didSet { needsDisplay = true } }
+    override static func defaultAnimation(forKey key: NSAnimatablePropertyKey) -> Any? {
+        key == "plateFill" ? CABasicAnimation() : super.defaultAnimation(forKey: key)
+    }
     private static let chevron: CGFloat = 14
     private static let barInset: CGFloat = 1, barWidth: CGFloat = 3, barHit: CGFloat = 8
 
@@ -155,16 +174,15 @@ final class LineNumbers: NSRulerView {
             guard folded || (hovering && editor.foldRegion(line, in: string) != nil) else { return }
             let config = NSImage.SymbolConfiguration(pointSize: font.pointSize * 0.62, weight: Metrics.iconWeight)
                 .applying(.init(paletteColors: [color]))
-            guard
-                let img = NSImage(
-                    systemSymbolName: folded ? "chevron.right" : "chevron.down", accessibilityDescription: nil)?
-                    .withSymbolConfiguration(config)
+            guard let img = NSImage.symbol(folded ? "chevron.right" : "chevron.down").withSymbolConfiguration(config)
             else { return }
             let at = NSPoint(
                 x: ruleThickness - Self.chevron + (Self.chevron - img.size.width) / 2 - 2,
                 y: y0 + frag.minY + (frag.height - img.size.height) / 2)
-            if line.location == hoverLine {
-                let side = max(img.size.width, img.size.height) + 6
+            if line.location == plateLine, plateFill > 0 {
+                let side = max(img.size.width, img.size.height) + Metrics.gap
+                NSGraphicsContext.saveGraphicsState()
+                NSGraphicsContext.current?.cgContext.setAlpha(plateFill)
                 NSColor.fillHover.setFill()
                 NSBezierPath(
                     roundedRect: NSRect(
@@ -172,6 +190,7 @@ final class LineNumbers: NSRulerView {
                         height: side),
                     xRadius: Metrics.radiusXS, yRadius: Metrics.radiusXS
                 ).fill()
+                NSGraphicsContext.restoreGraphicsState()
             }
             img.draw(at: at, from: .zero, operation: .sourceOver, fraction: 1)
         }

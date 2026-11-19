@@ -26,7 +26,7 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         table.headerView = nil
         table.style = .plain
         table.backgroundColor = .clear
-        table.rowHeight = Metrics.row
+        table.rowHeight = TextSize.of(Metrics.row)   // its text grows with Text size
         table.intercellSpacing = .zero
         table.dataSource = self
         table.delegate = self
@@ -55,7 +55,7 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         table.reloadData()
         guard !items.isEmpty else { return close() }
         select(0)
-        let height = CGFloat(min(items.count, Self.mostRows)) * Metrics.row + 2 * Metrics.lineGap
+        let height = CGFloat(min(items.count, Self.mostRows)) * TextSize.of(Metrics.row) + 2 * Metrics.lineGap
         let width = Self.width + Metrics.gap + Self.docWidth
         var originY = caret.minY - height - Metrics.lineGap
         if let floor = parent?.screen?.visibleFrame.minY, originY < floor { originY = caret.maxY + Metrics.lineGap }
@@ -98,8 +98,7 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
 
     func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
         let item = items[row]
-        let icon = NSImageView(
-            image: NSImage(systemSymbolName: Self.symbol(item.kind), accessibilityDescription: item.kind) ?? NSImage())
+        let icon = NSImageView(image: .symbol(Self.symbol(item.kind), item.kind))
         icon.contentTintColor = .secondaryLabelColor
         icon.symbolConfiguration = .chrome()
         let label = NSTextField(labelWithString: item.label)
@@ -125,7 +124,7 @@ final class CompletionList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         case "keyword": "textformat"
         case "snippet": "curlybraces"
         case "module", "folder", "file": "shippingbox"
-        default: "circle.dotted"
+        default: "abc"   // plain words: circle.dotted is an agent's ring elsewhere
         }
     }
 }

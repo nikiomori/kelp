@@ -58,7 +58,7 @@ final class EditorStatusBar: NSView {
         }
         indentButton.onClick = { [weak self] in
             guard let self, let button = Optional(indentButton), let menu = indentMenu?() else { return }
-            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
         }
         let kind = NSTextField(
             labelWithString: UTType(filenameExtension: url.pathExtension)?.localizedDescription
@@ -87,7 +87,7 @@ final class EditorStatusBar: NSView {
         row.setViews(
             [kind, place, problems, problem, NSView(), restricted, servers, suggestions, wrap, indentButton],
             in: .leading)
-        row.spacing = 16
+        row.spacing = Metrics.gapWide
         row.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.inset, bottom: 0, right: Metrics.inset)
         let line = NSBox()
         line.boxType = .separator
@@ -112,7 +112,8 @@ final class EditorStatusBar: NSView {
     func show(servers summary: ServerSummary?) {
         servers.isHidden = summary == nil
         servers.title = summary?.title ?? ""
-        servers.contentTintColor = summary?.missing == true ? .textOrange : nil
+        // Grey: "No Language Server" offers an install, and nothing waits on it (orange is for what waits on you).
+        servers.contentTintColor = summary?.missing == true ? .secondaryLabelColor : nil
     }
     func show(suggestions status: SuggestionStatus?) {
         suggestions.isHidden = status == nil
@@ -129,7 +130,7 @@ final class EditorStatusBar: NSView {
     private func offerTrust() {
         let menu = NSMenu()
         menu.add(String(localized: "Trust This Project")) { [weak self] in self?.onTrust?() }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: restricted.bounds.height + 2), in: restricted)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: restricted.bounds.height + 4), in: restricted)
     }
 
     func show(indent: Indentation) {
@@ -140,11 +141,35 @@ final class EditorStatusBar: NSView {
             }
     }
 
+    /// The count in two parts, each with its own symbol and colour, so warnings stay orange beside red errors.
     func show(errors: Int, warnings: Int) {
         problems.isHidden = errors + warnings == 0
-        problems.title = [errors > 0 ? "✕ \(errors)" : nil, warnings > 0 ? "⚠ \(warnings)" : nil].compactMap { $0 }
-            .joined(separator: "  ")
-        problems.contentTintColor = errors > 0 ? .textRed : .textOrange
+        problems.attributedTitle = Self.problemCount(errors: errors, warnings: warnings)
+        problems.setAccessibilityLabel(String(localized: "Errors: \(errors), Warnings: \(warnings)"))
+    }
+
+    static func problemCount(errors: Int, warnings: Int) -> NSAttributedString {
+        let font = NSFont.uiDigits(TextSize.caption), out = NSMutableAttributedString()
+        let parts = [(errors, "xmark.circle", NSColor.textRed), (warnings, "exclamationmark.triangle", .textOrange)]
+        for (count, name, color) in parts where count > 0 {
+            if out.length > 0 {
+                out.addAttribute(.kern, value: Metrics.gap, range: NSRange(location: out.length - 1, length: 1))
+            }
+            let part = NSMutableAttributedString()
+            if let symbol = NSImage.symbol(name).withSymbolConfiguration(.chrome(Metrics.iconSmall)) {
+                let sign = NSTextAttachment()
+                sign.image = symbol
+                // On the digits' middle: an attachment stands on the baseline otherwise.
+                sign.bounds = NSRect(
+                    origin: NSPoint(x: 0, y: (font.capHeight - symbol.size.height) / 2), size: symbol.size)
+                part.append(NSAttributedString(attachment: sign))
+                part.addAttribute(.kern, value: Metrics.iconGap, range: NSRange(location: 0, length: 1))
+            }
+            part.append(NSAttributedString(string: "\(count)"))
+            part.addAttributes([.font: font, .foregroundColor: color], range: NSRange(location: 0, length: part.length))
+            out.append(part)
+        }
+        return out
     }
 
     func show(problem text: String?) { problem.stringValue = text ?? "" }

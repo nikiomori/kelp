@@ -21,16 +21,10 @@ public final class EditorTextView: NSTextView {
     nonisolated let folds = Folds()
     /// Room for a suggestion's further lines (SuggestionGhost).
     nonisolated let ghostRoom = GhostRoom()
-    /// The folded block whose ⋯ is under the pointer. It brightens, and the pointer is an arrow there, because it's a
-    /// button.
-    var hoveredFold: NSRange? {
-        didSet {
-            guard hoveredFold != oldValue else { return }
-            for fold in [oldValue, hoveredFold].compactMap({ $0 }) {
-                setNeedsDisplay(capsule(for: fold).insetBy(dx: -2, dy: -2))
-            }
-        }
-    }
+    /// The folded block whose ⋯ is under the pointer. It brightens (`foldPlate` fades in over it), and the pointer is
+    /// an arrow there, because it's a button.
+    var hoveredFold: NSRange? { didSet { if hoveredFold != oldValue { showFoldHover() } } }
+    let foldPlate = FoldPlate()
     /// Told of every edit before it's made, while the old text is there (CodeEditor updates the parse tree and the line
     /// count).
     var willReplace: (([NSRange], [String]) -> Void)?
@@ -44,9 +38,9 @@ public final class EditorTextView: NSTextView {
     var whitespaceMarks = WhitespaceMarks.selection { didSet { needsDisplay = true } }
     /// Takes keys for the completion list or a snippet before the text does.
     var onCommand: ((Selector) -> Bool)?
-    /// Called with a key that went in as text, and (`onPointer`) with the pointer moving.
+    /// Called with a key that went in as text, and (`onPointer`) with the pointer moving, or nil when it left the text.
     var onTyped: ((String) -> Void)?
-    var onPointer: ((NSEvent) -> Void)?
+    var onPointer: ((NSEvent?) -> Void)?
     /// Called for the menu's Find items.
     var onFind: ((NSFindPanelAction) -> Void)?
     /// What the find bar found, top to bottom, and the match it's on.
@@ -292,6 +286,7 @@ public final class EditorTextView: NSTextView {
     }
     public override func mouseExited(with event: NSEvent) {
         hoveredFold = nil
+        onPointer?(nil)
         super.mouseExited(with: event)
     }
 

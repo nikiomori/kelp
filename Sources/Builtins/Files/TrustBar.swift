@@ -12,12 +12,16 @@ enum TrustBar {
         let icon = NSImageView(image: NSImage.symbol("info.circle"))
         icon.contentTintColor = .secondaryLabelColor
         let text = NSTextField(
-            labelWithString: String(
+            wrappingLabelWithString: String(
                 localized:
                     "Language servers and formatters can run code from “\(name)” (its build scripts, plugins, toolchain). Trust this project?"
             ))
         text.font = .ui(TextSize.row)
-        text.lineBreakMode = .byTruncatingTail
+        // A narrow tab wraps the question onto a second line, which the bar's height holds at every text size, so
+        // "Trust this project?" isn't cut off; past two lines the end is cut, and the tooltip has it all.
+        text.maximumNumberOfLines = 2
+        text.isSelectable = false
+        text.cell?.truncatesLastVisibleLine = true
         text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         text.toolTip = text.stringValue
         let later = TextButton(String(localized: "Not Now"), onClick: notNow)

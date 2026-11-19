@@ -5,46 +5,46 @@ import DesignKit
 /// signature and documentation, and the signature of the call being typed. Each is asked for, by the tab's providers,
 /// when it's wanted.
 extension CodeEditor {
-    private static let rest = 0.5
     private static let cardWidth: CGFloat = 440, cardHeight: CGFloat = 260
 
-    /// Called when the pointer moved. If it rests on text, what's there is asked for.
-    func pointerMoved(_ event: NSEvent) {
-        hover.wait?.cancel()
+    /// Called when the pointer moved over the text, or (nil) left it. Resting on a word asks for what's there, on
+    /// HoverPopover's waits; off a word, or out of the text, the card goes unless the pointer went into it.
+    func pointerMoved(_ event: NSEvent?) {
         guard hoverProvider != nil else { return }
-        let location = textView.characterIndexForInsertion(at: textView.convert(event.locationInWindow, from: nil))
-        // Queued on the main queue below.
-        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.showHover(at: location) } }
-        hover.wait = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.rest, execute: work)
-    }
-
-    /// For the key: shows what's at the cursor.
-    public func showHoverAtCursor() { showHover(at: textView.selectedRange().location) }
-
-    private func showHover(at location: Int) {
         let string = textView.string as NSString
-        guard let hoverProvider, location < string.length, Self.word(at: location, in: string).length > 0,
-            hover.shownAt != location
-        else { return }
+        guard let event else { return hover.card.closeSoon(unlessInside: true) }
+        let location = textView.characterIndexForInsertion(at: textView.convert(event.locationInWindow, from: nil))
+        guard location < string.length else { return hover.card.closeSoon(unlessInside: true) }
+        let word = Self.word(at: location, in: string)
+        guard word.length > 0 else { return hover.card.closeSoon(unlessInside: true) }
+        if hover.card.isShown, hover.shownWord == word { return hover.card.cancel() }
+        hover.card.open { [weak self] in await self?.showHover(at: location) }
+    }
+
+    /// For the key: shows what's at the cursor, at once.
+    public func showHoverAtCursor() {
+        hover.card.cancel()
+        let location = textView.selectedRange().location
+        Task { await showHover(at: location) }
+    }
+
+    private func showHover(at location: Int) async {
+        let string = textView.string as NSString
+        guard let hoverProvider, location < string.length else { return }
+        let word = Self.word(at: location, in: string)
+        guard word.length > 0 else { return }
         let (line, column) = lineIndex.position(of: location, in: string)
-        hover.shownAt = location
-        Task { [weak self] in
-            let text = await hoverProvider(line, column)
-            guard let self, hover.shownAt == location, let text else { return }
-            open(HoverCard(HoverText.attributed(text), width: Self.cardWidth, most: Self.cardHeight), at: location)
-        }
+        // A later move cancels this ask (HoverPopover's task), so an answer for another place is dropped.
+        guard let text = await hoverProvider(line, column), !Task.isCancelled else { return }
+        hover.shownWord = word
+        let card = HoverCard(HoverText.attributed(text), width: Self.cardWidth, most: Self.cardHeight)
+        hover.card.show(card, relativeTo: textView.caretRect(at: location), of: textView, edge: .minY)
     }
 
-    private func open(_ card: NSViewController, at location: Int) {
-        hover.card?.close()
-        hover.card = popover(card, .transient, at: location)
-    }
-
-    /// Shows `card` under the caret at `location`.
-    private func popover(_ card: NSViewController, _ behavior: NSPopover.Behavior, at location: Int) -> NSPopover {
+    /// Shows the signature `card` under the caret at `location`.
+    private func popover(_ card: NSViewController, at location: Int) -> NSPopover {
         let popover = NSPopover()
-        popover.behavior = behavior
+        popover.behavior = .semitransient   // the keys stay in the text
         popover.animates = false
         popover.contentViewController = card
         popover.show(relativeTo: textView.caretRect(at: location), of: textView, preferredEdge: .minY)
@@ -54,8 +54,7 @@ extension CodeEditor {
     /// Called when a key went in. `(` and `,` ask for the call's signature, and `)` ends it. The card goes, because its
     /// text is out of date.
     func typed(_ key: String) {
-        hover.card?.close()
-        hover.shownAt = nil
+        hover.card.close()
         let before = textView.string as NSString, cursor = textView.selectedRange().location
         // Typing what the gray text shows goes on through it; the list would take its keys.
         if isSuggesting { return }
@@ -105,7 +104,7 @@ extension CodeEditor {
             string: label, attributes: [.font: NSFont.uiMono(TextSize.row), .foregroundColor: NSColor.labelColor])
         if let active, NSMaxRange(active) <= text.length {
             text.addAttribute(
-                .font, value: NSFont.monospacedSystemFont(ofSize: TextSize.of(12), weight: .bold), range: active)
+                .font, value: NSFont.uiMono(TextSize.row, weight: .medium), range: active)
         }
         let card = HoverCard(text, width: Self.cardWidth, most: Self.cardHeight)
         if let open = hover.signatureCard, open.isShown {
@@ -113,7 +112,7 @@ extension CodeEditor {
             open.contentSize = card.preferredContentSize
             return
         }
-        hover.signatureCard = popover(card, .semitransient, at: location)   // the keys stay in the text
+        hover.signatureCard = popover(card, at: location)
     }
 }
 
@@ -159,7 +158,7 @@ final class HoverCard: NSViewController {
     required init?(coder: NSCoder) { fatalError("not from a nib") }
 
     override func loadView() {
-        let inset = Metrics.gapWide
+        let inset = Metrics.inset   // a popover's edge to its content
         let tv = NSTextView(usingTextLayoutManager: false)
         tv.frame = NSRect(x: 0, y: 0, width: width, height: 10)
         tv.isEditable = false
@@ -184,11 +183,12 @@ final class HoverCard: NSViewController {
 }
 
 /// The hover and signature cards, and the waits before them. Only this file changes it.
+@MainActor
 struct HoverState {
-    fileprivate var wait: DispatchWorkItem?
-    /// Where the card was asked for, so a later answer for another place is dropped.
-    fileprivate var shownAt: Int?
-    fileprivate var card: NSPopover?
+    /// The card over code, with the waits and the closing every hover card has.
+    fileprivate let card = HoverPopover()
+    /// The word the shown card is about, so moving within it keeps the card.
+    fileprivate var shownWord: NSRange?
     fileprivate(set) var signatureCard: NSPopover?
     /// The signature ask that runs once typing pauses (`askSignature`).
     fileprivate var signatureAsk: Task<Void, Never>?

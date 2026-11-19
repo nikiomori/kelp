@@ -25,7 +25,7 @@ struct DiskFoot: View {
                     } label: {
                         label(measured?.items, measuring: sizes.measuring.contains(repoId), host: host)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(FootPress())
                     .help(String(localized: "Show Disk Usage"))
                 }
             }
@@ -54,5 +54,13 @@ struct DiskFoot: View {
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .animation(Motion.reduced ? nil : .easeOut(duration: Motion.fast), value: hovering)
+    }
+}
+
+/// The footer's press: while held, the row darkens to `fillSelected` at once, as a held row does, under the hover
+/// grey that fades in under the pointer.
+private struct FootPress: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.background(Color(nsColor: configuration.isPressed ? .fillSelected : .clear))
     }
 }

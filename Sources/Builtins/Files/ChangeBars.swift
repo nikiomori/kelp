@@ -114,7 +114,7 @@ final class ChangeBars {
         }
         // While the buffer has edits, the file isn't what was diffed, so Revert and Stage are left out.
         if let hunk, !isEdited() {
-            add(String(localized: "Revert…")) { [weak self] in self?.revert(hunk) }
+            add(String(localized: "Revert")) { [weak self] in self?.revert(hunk) }   // at once, Undo in its banner
             add(String(localized: "Stage")) { [weak self] in self?.stage(hunk) }
         }
         let uri = TabURI.diff(worktree.id, file: file)

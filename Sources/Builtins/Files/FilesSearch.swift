@@ -120,7 +120,8 @@ extension FilesPanel {
         patternError.stringValue = String(localized: "Not a valid pattern")
         patternError.toolTip = detail
         patternError.isHidden = detail == nil || !replaceRow.isHidden
-        let top = !replaceRow.isHidden ? Metrics.row + Metrics.gap : detail == nil ? 0 : Metrics.row
+        let row = TextSize.of(Metrics.row)   // the rows grow with Text size
+        let top = !replaceRow.isHidden ? row + Metrics.gap : detail == nil ? 0 : row
         guard top != resultsTop.constant else { return }
         // The results slide down to make room for the error line and back up, instead of jumping a row with every key
         // of a pattern being typed.

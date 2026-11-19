@@ -90,7 +90,7 @@ final class UntitledTab: SavableTab {
         // Writes over whatever is there, because the save panel already asked about replacing it.
         let res = await app.tryCall(FilesWrite(path: url.path, text: editor.text, base: nil))
         if let error = res.error {
-            Banner.show(String(localized: "Couldn't save \(url.lastPathComponent): \(error)"))
+            Banner.show(String(localized: "Couldn’t save \(url.lastPathComponent): \(error)"), style: .error)
             return false
         }
         backup.drop()

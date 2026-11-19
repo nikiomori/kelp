@@ -161,7 +161,7 @@ extension FileTab {
             }
         }   // read again for a version pushed meanwhile: the tab's own, or an agent's right after
         if let error = res.error {
-            Banner.show(String(localized: "Couldn't save \(title): \(error)"), style: .error)
+            Banner.show(String(localized: "Couldn’t save \(title): \(error)"), style: .error)
             return false
         }
         guard let written = res.value else { return false }
